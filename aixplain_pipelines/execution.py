@@ -79,7 +79,7 @@ def polling(url:str, api_key:str, name:str="pipeline_process", wait_time:float=1
         return False, response_body
 
 
-def run(url:str, api_key:str, data:str, name:str="pipeline_process"):
+def run(url:str, api_key:str, data:object, name:str="pipeline_process"):
     """
     Runs a pipeline call
     
@@ -95,7 +95,10 @@ def run(url:str, api_key:str, data:str, name:str="pipeline_process"):
       'x-api-key': api_key,
       'Content-Type': 'application/json'
     }
-    payload = json.dumps({ "data": data })
+    if type(data) == dict:
+        payload = json.dumps(data)
+    else:
+        payload = json.dumps({ "data": data })
     
     try:
         logging.debug(f"Start service for {name} ({api_key}) - {url} - {payload}")
@@ -112,4 +115,4 @@ def run(url:str, api_key:str, data:str, name:str="pipeline_process"):
         logging.error(error_message)
         logging.exception()
         end = time.time()
-        return { 'success': success, 'response': None, 'error': error_message, 'elapsed_time': end-start }
+        return { 'success': False, 'response': None, 'error': error_message, 'elapsed_time': end-start }
