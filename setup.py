@@ -21,7 +21,7 @@ Date: May 9th 2022
 import os
 import sys
 
-from setuptools import setup
+from setuptools import setup, find_packages
 
 CURRENT_PYTHON = sys.version_info[:2]
 REQUIRED_PYTHON = (3, 5)
@@ -68,7 +68,7 @@ setup(
     author=about["__author__"],
     author_email=about["__author_email__"],
     url=about["__url__"],
-    packages=["aixplain_pipelines"],
+    packages=find_packages(exclude=["test"]),
     package_dir={"aixplain_pipelines": "aixplain_pipelines"},
     package_data={"": ["LICENSE"]},
     include_package_data=True,
