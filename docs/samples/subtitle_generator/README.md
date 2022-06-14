@@ -2,9 +2,9 @@
 
 The code in `subtitle_generator.py` subtitles a video spoken one source language to a target language and generates an srt file as an output.
 
-In this example pipeline, it receives an English video as input and first extracts its audio, which is then fed to a VAD node, responsible to find the voice activity segments of the audio input. These segments are then transcribed by a speech recognition node and then translated into Spanish by a translation English-Spanish node. Finally, a Speech Synthesis node is added to dub the Spanish translation.
+In this example pipeline, the pipeline receives an English video as input and first extracts its audio, which is then fed to a VAD node, responsible to find the voice activity segments of the audio input. These segments are then transcribed by a speech recognition node and then translated into Spanish by a translation English-Spanish node. Finally, a speech synthesis node is added to dub the Spanish translation.
 
-<img src="../../assets/designer-subtitling-sample.png" width=25% height=25%>
+<img src="../../assets/designer-subtitling-sample.png" width=30% height=30%>
 
 ## Run the Example
 

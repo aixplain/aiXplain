@@ -11,7 +11,7 @@ aiXplain has a collection of AI models for each AI function. You can explore the
 
 The image below shows a sample aiXplain pipeline built for subtitling video files. The description of the pipeline can be found in the [documentation](docs/samples/subtitle_generator/README.md).
 
-<img src="docs/assets/designer-subtitling-sample.png" width=25% height=25%>
+<img src="docs/assets/designer-subtitling-sample.png" width=30% height=30%>
 
 
 ## Installation
@@ -37,12 +37,14 @@ api_key=<API_KEY>
 
 pipe = Pipeline(api_key=api_key)
 
-path="<DATA_URL>"
+path=<DATA_URL>
 response = pipe.run(data=path)
 ```
 
 API_KEY can be obtained by creating a pipeline in pipeline designer through the aiXplain platform UI.   
-For DATA_URL generate a http(s) link to your image or video file to process, though text input can be directly supplied to data parameter in the run function without needing a URL.
+For DATA_URL generate a http(s) link to your image or video file to process, though text input can be directly supplied to data parameter in the run function without needing a URL.  
+  
+Information on how to generate the API_KEY can be found in the [subtitle generation pipeline sample video](https://aixplain.com/designer-tutorial/). 
 
 #### Subtitle Generation
 
@@ -54,5 +56,5 @@ Follow the developer guide [documentation](docs/development/developer_guide.md).
 
 ## Support
 
-Raise issues for support in this same repositories.
+Raise issues for support in this repository.  
 Pull requests are welcome!
