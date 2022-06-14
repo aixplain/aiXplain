@@ -9,9 +9,9 @@ aiXplain has a collection of AI models for each AI function. You can explore the
 
 ## aiXplain Pipeline Designer DAG
 
-The image below shows a sample aiXplain pipeline built for subtitling video files.
+The image below shows a sample aiXplain pipeline built for subtitling video files. The description of the pipeline can be found in the [documentation](docs/samples/subtitle_generator/README.md).
 
-<img src="docs/assets/designer-subtitling-sample.png" width=30% height=30%>
+<img src="docs/assets/designer-subtitling-sample.png" width=25% height=25%>
 
 
 ## Installation
@@ -27,13 +27,30 @@ In order to use aiXplain pipelines, you need to create an account in [aiXplain p
 ### Code Samples and Demos
 
 aixplain-pipelines provides python APIs to call AI workflows you can build with aiXplain designer. 
+
+#### Generic Snippet
+
+```
+from aixplain_pipelines import Pipeline
+
+api_key=<API_KEY>
+
+pipe = Pipeline(api_key=api_key)
+
+path="<DATA_URL>"
+response = pipe.run(data=path)
+```
+
+API_KEY can be obtained by creating a pipeline in pipeline designer through the aiXplain platform UI.   
+For DATA_URL generate a http(s) link to your image or video file to process, though text input can be directly supplied to data parameter in the run function without needing a URL.
+
 #### Subtitle Generation
 
-This demo creates a `.srt` file for the supplied video using aixplain-pipelines. Follow the instructions in the [documentation](docs/samples/subtitle_generator/README.md).
+This demo creates a .srt file for the supplied video using aixplain-pipelines. Follow the instructions in the [documentation](docs/samples/subtitle_generator/README.md).
 
 ## Developer Guide
 
-Follow the developer guide [documentation](docs/developer_guide.md).
+Follow the developer guide [documentation](docs/development/developer_guide.md).
 
 ## Support
 
