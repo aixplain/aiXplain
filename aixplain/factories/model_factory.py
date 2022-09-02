@@ -1,10 +1,6 @@
+__author__='lucaspavanelli'
+
 """
-aiXplain Pipelines Library.
----
-
-aiXplain Pipelines enables python programmers to add AI functions
-to their software.
-
 Copyright 2022 The aiXplain pipeline authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,13 +14,24 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
+
+Author: Duraikrishna Selvaraju, Thiago Castro Ferreira and Lucas Pavanelli
+Date: September 1st 2022
+Description:
+    Model Factory Class
 """
 
-from .aixplain_pipelines import Pipeline
+from aixplain.modules.model import Model
+from aixplain.utils.config import MODELS_RUN_URL
 
+class ModelFactory:
 
-# Set default logging handler to avoid "No handler found" warnings.
-import logging
-from logging import NullHandler
-
-logging.getLogger(__name__).addHandler(NullHandler())
+    @staticmethod
+    def initialize(api_key: str, url: str = MODELS_RUN_URL) -> Model:
+        """
+        params:
+        ---
+            api_key: API key of the model
+            url: API endpoint
+        """
+        return Model(api_key=api_key, url=url)

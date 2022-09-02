@@ -1,4 +1,4 @@
-__author__='thiagocastroferreira'
+__author__='lucaspavanelli'
 
 """
 Copyright 2022 The aiXplain pipeline authors
@@ -21,55 +21,55 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import time
-from aixplain.utils.config import PIPELINES_RUN_URL, PIPELINE_API_KEY
-from aixplain.factories.pipeline_factory import PipelineFactory
+from aixplain.utils.config import MODELS_RUN_URL, MODEL_API_KEY
+from aixplain.factories.model_factory import ModelFactory
 
 def test_mt1():
-    url = PIPELINES_RUN_URL
-    api_key = PIPELINE_API_KEY
+    url = MODELS_RUN_URL
+    api_key = MODEL_API_KEY
 
-    pipeline = PipelineFactory.initialize(api_key=api_key, url=url)
+    model = ModelFactory.initialize(api_key=api_key, url=url)
 
     data = 'Hello World!'
-    response = pipeline.run(data)
+    response = model.run(data)
     assert response['success'] == True
 
 def test_mt2():
-    url = PIPELINES_RUN_URL
-    api_key = PIPELINE_API_KEY
+    url = MODELS_RUN_URL
+    api_key = MODEL_API_KEY
 
-    pipeline = PipelineFactory.initialize(api_key=api_key, url=url)
+    model = ModelFactory.initialize(api_key=api_key, url=url)
 
     data = 'https://aixplain-samples-public.s3.amazonaws.com/pipelines/radiogaga.txt'
-    response = pipeline.run(data)
+    response = model.run(data)
     assert response['success'] == True
 
 def test_mt1_async():
-    url = PIPELINES_RUN_URL
-    api_key = PIPELINE_API_KEY
+    url = MODELS_RUN_URL
+    api_key = MODEL_API_KEY
 
-    pipeline = PipelineFactory.initialize(api_key=api_key, url=url)
+    model = ModelFactory.initialize(api_key=api_key, url=url)
 
     data = 'Hello World!'
-    poll_url = pipeline.run_async(data)
+    poll_url = model.run_async(data)
     completed = False
     while not completed:
-        response = pipeline.poll(poll_url)
+        response = model.poll(poll_url)
         completed = response['completed']
         time.sleep(3)
     assert response['completed'] == True
 
 def test_mt2_async():
-    url = PIPELINES_RUN_URL
-    api_key = PIPELINE_API_KEY
+    url = MODELS_RUN_URL
+    api_key = MODEL_API_KEY
 
-    pipeline = PipelineFactory.initialize(api_key=api_key, url=url)
+    model = ModelFactory.initialize(api_key=api_key, url=url)
 
     data = 'https://aixplain-samples-public.s3.amazonaws.com/pipelines/radiogaga.txt'
-    poll_url = pipeline.run_async(data)
+    poll_url = model.run_async(data)
     completed = False
     while not completed:
-        response = pipeline.poll(poll_url)
+        response = model.poll(poll_url)
         completed = response['completed']
         time.sleep(3)
     assert response['completed'] == True

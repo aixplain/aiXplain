@@ -4,7 +4,7 @@ aiXplain Pipelines enables python programmers to add AI functions to their softw
 
 An aiXplain pipeline is a directed graph (DAG) of AI functions built using aiXplain's designer UI. An AI function is a data processing step that relies on a machine learning model to execute. An example of an AI function is speech recognition or machine translation. Pipelines help you process your data by calling a series of functions as defined in the DAG, abstracting the orchestration, and providing a simple python function call.
 
-aiXplain has a collection of AI models for each AI function. You can explore the collection of our AI models by using the discover feature of our [platform's website](https://platform.aixplain.com/).
+aiXplain has a collection of AI models for each AI function. You can explore the collection of our AI models by using the discover feature of our [platform's website](https://platform.aixplain.com/). Also, you can run a model using simple python code.
 
 ## aiXplain Pipeline Designer DAG
 
@@ -16,28 +16,40 @@ The image below shows a sample aiXplain pipeline built for subtitling video file
 ## Installation
 
 ```
-pip install aixplain-pipelines
+pip install aixplain
 ```
 
 ## User Guide
 
-In order to use aiXplain pipelines, you need to create an account in [aiXplain platform](https://platform.aixplain.com/). Follow the code samples listed below to get started.
+In order to use aiXplain, you need to create an account in [aiXplain platform](https://platform.aixplain.com/). Follow the code samples listed below to get started.
 
 ### Code Samples and Demos
 
-aixplain-pipelines provides python APIs to call AI workflows you can build with aiXplain designer. 
+aixplain provides python APIs to call AI workflows you can build with aiXplain designer and to call models you subscribed with aiXplain discover.
 
-#### Generic Snippet
+#### Pipeline Snippet
 
 ```
-from aixplain_pipelines import Pipeline
+from aixplain.factories.pipeline_factory import PipelineFactory
 
 api_key=<API_KEY>
 
-pipe = Pipeline(api_key=api_key)
+pipe = PipelineFactory.initialize(api_key=api_key)
 
 path=<DATA_URL>
 response = pipe.run(data=path)
+```
+#### Model Snippet
+
+```
+from aixplain.factories.model_factory import ModelFactory
+
+api_key=<API_KEY>
+
+model = ModelFactory.initialize(api_key=api_key)
+
+path=<DATA_URL>
+response = model.run(data=path)
 ```
 
 API_KEY can be obtained by creating a pipeline in pipeline designer through the aiXplain platform UI.   
