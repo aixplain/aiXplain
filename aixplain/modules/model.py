@@ -67,7 +67,7 @@ class Model:
                 time.sleep(wait_time)
                 if wait_time < 60:
                     wait_time *= 1.1
-            except:
+            except Exception as e:
                 logging.error(f"ERROR: polling for {name} ({self.api_key}): Continue")
                 break
         
@@ -75,7 +75,7 @@ class Model:
             try:
                 logging.info(f"Final status of polling for {name} ({self.api_key}): SUCCESS - {resp}")
                 return True, resp
-            except:
+            except Exception as e:
                 logging.error(f"ERROR: Final status of polling for {name} ({self.api_key}): ERROR - {resp}")
                 return False, resp
         else:
@@ -128,7 +128,7 @@ class Model:
             end = time.time()
             success, response = self.__polling(poll_url, name=name)
             return { 'success': success, 'response': response, 'error': None, 'elapsed_time': end - start }
-        except:
+        except Exception as e:
             msg = f"Error in request for {name} - {traceback.format_exc()}"
             print(msg)
             end = time.time()

@@ -4,7 +4,7 @@ aiXplain Pipelines enables python programmers to add AI functions to their softw
 
 An aiXplain pipeline is a directed graph (DAG) of AI functions built using aiXplain's designer UI. An AI function is a data processing step that relies on a machine learning model to execute. An example of an AI function is speech recognition or machine translation. Pipelines help you process your data by calling a series of functions as defined in the DAG, abstracting the orchestration, and providing a simple python function call.
 
-aiXplain has a collection of AI models for each AI function. You can explore the collection of our AI models by using the discover feature of our [platform's website](https://platform.aixplain.com/). Also, you can run a model using simple python code.
+aiXplain has a collection of AI models for each AI function. You can explore the collection of our AI models by using the discover feature of our [platform's website](https://platform.aixplain.com/). You can run a model using simple python code as shown in [this example](https://github.com/aixplain/pipelines/tree/model_caller#model-snippet).
 
 ## aiXplain Pipeline Designer DAG
 
@@ -16,7 +16,7 @@ The image below shows a sample aiXplain pipeline built for subtitling video file
 ## Installation
 
 ```
-pip install aixplain
+pip install aixplain-pipelines
 ```
 
 ## User Guide
@@ -25,7 +25,7 @@ In order to use aiXplain, you need to create an account in [aiXplain platform](h
 
 ### Code Samples and Demos
 
-aixplain provides python APIs to call AI workflows you can build with aiXplain designer and to call models you subscribed with aiXplain discover.
+aixplain-pipelines provides python APIs to call AI workflows you can build with aiXplain designer and to call models you subscribed with aiXplain discover.
 
 #### Pipeline Snippet
 

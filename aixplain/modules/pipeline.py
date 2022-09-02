@@ -68,14 +68,14 @@ class Pipeline:
                 time.sleep(wait_time)
                 if wait_time < 60:
                     wait_time *= 1.1
-            except Exception:
+            except Exception as e:
                 logging.error(f"ERROR: polling for {name} ({self.api_key}): Continue")
         
         if response_body and response_body['status'] == 'SUCCESS':
             try:
                 logging.debug(f"Final status of polling for {name} ({self.api_key}): SUCCESS - {response_body}")
                 return True, response_body
-            except Exception:
+            except Exception as e:
                 logging.error(f"ERROR: Final status of polling for {name} ({self.api_key}): ERROR - {response_body}")
                 return False, response_body
         else:
@@ -126,7 +126,7 @@ class Pipeline:
             end = time.time()
             success, response = self.__polling(poll_url, name=name)
             return { 'success': success, 'response': response, 'error': None, 'elapsed_time': end - start }
-        except Exception:
+        except Exception as e:
             error_message = f'Error in request for {name} ({self.api_key})'
             logging.error(error_message)
             logging.exception()
