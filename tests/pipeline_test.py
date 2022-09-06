@@ -1,7 +1,7 @@
 __author__='thiagocastroferreira'
 
 """
-Copyright 2022 The aiXplain pipeline authors
+Copyright 2022 The aiXplain SDK authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,8 +21,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import time
-from aixplain.utils.config import PIPELINES_RUN_URL, PIPELINE_API_KEY
-from aixplain.factories.pipeline_factory import PipelineFactory
+from aixplain_sdk.utils.config import PIPELINES_RUN_URL, PIPELINE_API_KEY
+from aixplain_sdk.factories.pipeline_factory import PipelineFactory
 
 def test_mt1():
     url = PIPELINES_RUN_URL

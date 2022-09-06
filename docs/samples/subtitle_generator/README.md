@@ -8,7 +8,7 @@ In this example pipeline, the pipeline receives an English video as input and fi
 
 ## Run the Example
 
-### Build a Pipeline using aiXplain Pipelines
+### Build a Pipeline using aiXplain SDK
 
 In order to build a subtitle generation pipeline, you need to log in to [aiXplain platform](https://platform.aixplain.com/) and use the web UI for designing pipelines as shown by the documentation video in this [link](https://aixplain.com/designer-tutorial/).
 

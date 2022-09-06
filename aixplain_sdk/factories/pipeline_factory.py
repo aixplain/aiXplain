@@ -1,7 +1,7 @@
 __author__='lucaspavanelli'
 
 """
-Copyright 2022 The aiXplain pipeline authors
+Copyright 2022 The aiXplain SDK authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,20 +18,20 @@ limitations under the License.
 Author: Duraikrishna Selvaraju, Thiago Castro Ferreira and Lucas Pavanelli
 Date: September 1st 2022
 Description:
-    Model Factory Class
+    Pipeline Factory Class
 """
 
-from aixplain.modules.model import Model
-from aixplain.utils.config import MODELS_RUN_URL
+from aixplain_sdk.modules.pipeline import Pipeline
+from aixplain_sdk.utils.config import PIPELINES_RUN_URL
 
-class ModelFactory:
+class PipelineFactory:
 
     @staticmethod
-    def initialize(api_key: str, url: str = MODELS_RUN_URL) -> Model:
+    def initialize(api_key: str, url: str = PIPELINES_RUN_URL) -> Pipeline:
         """
         params:
         ---
-            api_key: API key of the model
+            api_key: API key of the pipeline
             url: API endpoint
         """
-        return Model(api_key=api_key, url=url)
+        return Pipeline(api_key=api_key, url=url)

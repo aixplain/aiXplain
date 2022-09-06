@@ -1,6 +1,6 @@
-# aiXplain Pipelines 
+# aiXplain SDK 
 
-aiXplain Pipelines enables python programmers to add AI functions to their software.
+aiXplain SDK enables python programmers to add AI functions to their software.
 
 An aiXplain pipeline is a directed graph (DAG) of AI functions built using aiXplain's designer UI. An AI function is a data processing step that relies on a machine learning model to execute. An example of an AI function is speech recognition or machine translation. Pipelines help you process your data by calling a series of functions as defined in the DAG, abstracting the orchestration, and providing a simple python function call.
 
@@ -16,7 +16,7 @@ The image below shows a sample aiXplain pipeline built for subtitling video file
 ## Installation
 
 ```
-pip install aixplain-pipelines
+pip install aixplain-sdk
 ```
 
 ## User Guide
@@ -25,30 +25,30 @@ In order to use aiXplain, you need to create an account in [aiXplain platform](h
 
 ### Code Samples and Demos
 
-aixplain-pipelines provides python APIs to call AI workflows you can build with aiXplain designer and to call models you subscribed with aiXplain discover.
+aixplain-sdk provides python APIs to call AI workflows you can build with aiXplain designer and to call models you subscribed with aiXplain discover.
 
 #### Pipeline Snippet
 
 ```
-from aixplain.factories.pipeline_factory import PipelineFactory
+from aixplain_sdk.factories.pipeline_factory import PipelineFactory
 
-api_key=<API_KEY>
+api_key = <API_KEY>
 
-pipe = PipelineFactory.initialize(api_key=api_key)
+pipeline = PipelineFactory.initialize(api_key=api_key)
 
-path=<DATA_URL>
-response = pipe.run(data=path)
+path = <DATA_URL>
+response = pipeline.run(data=path)
 ```
 #### Model Snippet
 
 ```
-from aixplain.factories.model_factory import ModelFactory
+from aixplain_sdk.factories.model_factory import ModelFactory
 
-api_key=<API_KEY>
+api_key = <API_KEY>
 
 model = ModelFactory.initialize(api_key=api_key)
 
-path=<DATA_URL>
+path = <DATA_URL>
 response = model.run(data=path)
 ```
 

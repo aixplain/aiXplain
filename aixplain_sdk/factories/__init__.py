@@ -1,11 +1,11 @@
 """
-aiXplain Pipelines Library.
+aiXplain SDK Library.
 ---
 
-aiXplain Pipelines enables python programmers to add AI functions
+aiXplain SDK enables python programmers to add AI functions
 to their software.
 
-Copyright 2022 The aiXplain pipeline authors
+Copyright 2022 The aiXplain SDK authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.

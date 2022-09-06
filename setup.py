@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-Copyright 2022 The aiXplain pipeline authors
+Copyright 2022 The aiXplain SDK authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -53,7 +53,7 @@ test_requirements = [
 about = {}
 here = os.path.abspath(os.path.dirname(__file__))
 
-with open(os.path.join(here, "aixplain_pipelines", "__version__.py"), "r") as f:
+with open(os.path.join(here, "aixplain_sdk", "__version__.py"), "r") as f:
     exec(f.read(), about)
 
 with open("README.md", "r") as f:
@@ -69,7 +69,7 @@ setup(
     author_email=about["__author_email__"],
     url=about["__url__"],
     packages=find_packages(exclude=["test"]),
-    package_dir={"aixplain_pipelines": "aixplain_pipelines"},
+    package_dir={"aixplain_sdk": "aixplain_sdk"},
     package_data={"": ["LICENSE"]},
     include_package_data=True,
     python_requires=">=3.5, <4",

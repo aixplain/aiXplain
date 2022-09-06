@@ -1,7 +1,7 @@
 __author__='lucaspavanelli'
 
 """
-Copyright 2022 The aiXplain pipeline authors
+Copyright 2022 The aiXplain SDK authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,17 +18,16 @@ limitations under the License.
 Author: Duraikrishna Selvaraju, Thiago Castro Ferreira and Lucas Pavanelli
 Date: September 1st 2022
 Description:
-    Model Class
+    Pipeline Class
 """
 
 import time
 import json
 import requests
 import logging
-import traceback
 from requests.adapters import HTTPAdapter, Retry
 
-class Model:  
+class Pipeline:
     def __init__(self, api_key: str, url: str) -> None:
         """
         params:
@@ -38,8 +37,8 @@ class Model:
         """
         self.api_key = api_key
         self.url = url
-    
-    def __polling(self, poll_url: str, name="model_process", wait_time=1, timeout=300):
+
+    def __polling(self, poll_url: str, name: str = "pipeline_process", wait_time: float = 1.0, timeout: float=20000.0):
         """
         Keeps polling the platform to check whether an asynchronous call is done.
         
@@ -55,13 +54,15 @@ class Model:
             success: Boolean variable indicating whether the call finished successfully or not
             resp: response obtained by polling call
         """
-        logging.info(f"Start polling for {name} ({self.api_key})")
+        logging.debug(f"Start polling for {name} ({self.api_key})")
         start, end = time.time(), time.time()
         completed = False
-        while not completed and (end - start) < timeout:
+        response_body = None
+        while not completed and (end - start)<timeout:
             try:
-                resp = self.poll(poll_url, name=name)
-                completed = resp['completed']
+                response_body = self.poll(poll_url, name=name)
+                logging.debug(f"Status of polling for {name} ({self.api_key}): {response_body}")
+                completed = response_body['completed']
 
                 end = time.time()
                 time.sleep(wait_time)
@@ -69,20 +70,19 @@ class Model:
                     wait_time *= 1.1
             except Exception as e:
                 logging.error(f"ERROR: polling for {name} ({self.api_key}): Continue")
-                break
         
-        if resp['completed'] is True:
+        if response_body and response_body['status'] == 'SUCCESS':
             try:
-                logging.info(f"Final status of polling for {name} ({self.api_key}): SUCCESS - {resp}")
-                return True, resp
+                logging.debug(f"Final status of polling for {name} ({self.api_key}): SUCCESS - {response_body}")
+                return True, response_body
             except Exception as e:
-                logging.error(f"ERROR: Final status of polling for {name} ({self.api_key}): ERROR - {resp}")
-                return False, resp
+                logging.error(f"ERROR: Final status of polling for {name} ({self.api_key}): ERROR - {response_body}")
+                return False, response_body
         else:
-            logging.error(f"ERROR: Final status of polling for {name} ({self.api_key}): No response in {timeout} seconds - {resp}")
-            return False, resp
+            logging.error(f"ERROR: Final status of polling for {name} ({self.api_key}): No response in {timeout} seconds - {response_body}")
+            return False, response_body
 
-    def poll(self, poll_url: str, name="model_process"):
+    def poll(self, poll_url: str, name="pipeline_process"):
         """
         Poll the platform to check whether an asynchronous call is done.
         
@@ -99,6 +99,7 @@ class Model:
             'x-api-key': self.api_key,
             'Content-Type': 'application/json'
         }
+
         session = requests.Session()
         retries = Retry(total=5,
                         backoff_factor=0.1,
@@ -109,34 +110,32 @@ class Model:
         logging.info(f"Status of polling for {name} ({self.api_key}): {resp}")
         return resp
 
-    def run(self, data, name="model_process"):
+
+    def run(self, data: str, name: str = "pipeline_process"):
         """
-        Runs a model call.
+        Runs a pipeline call.
         
         params:
         ---
             data: link to the input data
             name: Optional. ID given to a call
-        
-        return:
-        ---
-            Output: parsed output from model
         """
-        start = time.time()
+        start = time.time()        
         try:           
             poll_url = self.run_async(data, name=name)
             end = time.time()
             success, response = self.__polling(poll_url, name=name)
             return { 'success': success, 'response': response, 'error': None, 'elapsed_time': end - start }
         except Exception as e:
-            msg = f"Error in request for {name} - {traceback.format_exc()}"
-            print(msg)
+            error_message = f'Error in request for {name} ({self.api_key})'
+            logging.error(error_message)
+            logging.exception()
             end = time.time()
-            return { 'success': False, 'response': 'ERROR', 'error': msg, 'elapsed_time': end - start }
+            return { 'success': success, 'response': None, 'error': error_message, 'elapsed_time': end - start }
 
-    def run_async(self, data, name="model_process"):
+    def run_async(self, data, name="pipeline_process"):
         """
-        Runs asynchronously a model call.
+        Runs asynchronously a pipeline call.
         
         params:
         ---
@@ -152,16 +151,16 @@ class Model:
             'Content-Type': 'application/json'
         }
         payload = json.dumps({ "data": data })
-
+        
+        logging.info(f"Start service for {name} ({self.api_key}) - {self.url} - {payload}")
         session = requests.Session()
         retries = Retry(total=5,
                         backoff_factor=0.1,
                         status_forcelist=[ 500, 502, 503, 504 ])
         session.mount('https://', HTTPAdapter(max_retries=retries))
-        logging.info(f"Start service for {name} ({self.api_key}) - {self.url} - {payload}")
         r = session.post(self.url, headers=headers, data=payload)
         resp = r.json()
-        logging.info(f"Result of request for {name} ({self.api_key}) - {r.status_code} - {resp}")
+        logging.info(f'Result of request for {name} ({self.api_key}) - {r.status_code} - {resp}')
         
-        poll_url = resp['data']
+        poll_url = resp['url']
         return poll_url
