@@ -28,6 +28,7 @@ In order to use aiXplain, you need to create an account in [aiXplain platform](h
 aixplain-sdk provides python APIs to call AI workflows you can build with aiXplain designer and to call models you subscribed with aiXplain discover.
 
 #### Pipeline Snippet
+##### Synchronous
 
 ```
 from aixplain_sdk.factories.pipeline_factory import PipelineFactory
@@ -39,8 +40,25 @@ pipeline = PipelineFactory.initialize(api_key=api_key)
 path = <DATA_URL>
 response = pipeline.run(data=path)
 ```
-#### Model Snippet
+##### Asynchronous
+```
+from aixplain_sdk.factories.pipeline_factory import PipelineFactory
 
+api_key = <API_KEY>
+
+pipeline = PipelineFactory.initialize(api_key=api_key)
+
+path = <DATA_URL>
+poll_url = pipeline.run_async(data=path)
+completed = False
+while not completed:
+    response = pipeline.poll(poll_url)
+    completed = response['completed']
+    time.sleep(3)
+```
+
+#### Model Snippet
+##### Synchronous
 ```
 from aixplain_sdk.factories.model_factory import ModelFactory
 
@@ -50,6 +68,20 @@ model = ModelFactory.initialize(api_key=api_key)
 
 path = <DATA_URL>
 response = model.run(data=path)
+```
+##### Asynchronous
+```
+api_key = MODEL_API_KEY
+
+model = ModelFactory.initialize(api_key=api_key)
+
+path = <DATA_URL>
+poll_url = model.run_async(data=path)
+completed = False
+while not completed:
+    response = model.poll(poll_url)
+    completed = response['completed']
+    time.sleep(3)
 ```
 
 API_KEY can be obtained by creating a pipeline in pipeline designer through the aiXplain platform UI.   

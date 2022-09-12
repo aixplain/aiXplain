@@ -38,7 +38,7 @@ class Pipeline:
         self.api_key = api_key
         self.url = url
 
-    def __polling(self, poll_url: str, name: str = "pipeline_process", wait_time: float = 1.0, timeout: float=20000.0):
+    def __polling(self, poll_url: str, name: str = "pipeline_process", wait_time: float = 1.0, timeout: float = 20000.0):
         """
         Keeps polling the platform to check whether an asynchronous call is done.
         
@@ -82,7 +82,7 @@ class Pipeline:
             logging.error(f"ERROR: Final status of polling for {name} ({self.api_key}): No response in {timeout} seconds - {response_body}")
             return False, response_body
 
-    def poll(self, poll_url: str, name="pipeline_process"):
+    def poll(self, poll_url: str, name: str = "pipeline_process"):
         """
         Poll the platform to check whether an asynchronous call is done.
         
@@ -111,7 +111,7 @@ class Pipeline:
         return resp
 
 
-    def run(self, data: str, name: str = "pipeline_process"):
+    def run(self, data: str, name: str = "pipeline_process", timeout: float = 20000.0):
         """
         Runs a pipeline call.
         
@@ -119,12 +119,13 @@ class Pipeline:
         ---
             data: link to the input data
             name: Optional. ID given to a call
+            timeout: total polling time
         """
         start = time.time()        
         try:           
             poll_url = self.run_async(data, name=name)
             end = time.time()
-            success, response = self.__polling(poll_url, name=name)
+            success, response = self.__polling(poll_url, name=name, timeout=timeout)
             return { 'success': success, 'response': response, 'error': None, 'elapsed_time': end - start }
         except Exception as e:
             error_message = f'Error in request for {name} ({self.api_key})'
@@ -133,7 +134,7 @@ class Pipeline:
             end = time.time()
             return { 'success': success, 'response': None, 'error': error_message, 'elapsed_time': end - start }
 
-    def run_async(self, data, name="pipeline_process"):
+    def run_async(self, data: str, name: str = "pipeline_process"):
         """
         Runs asynchronously a pipeline call.
         

@@ -39,7 +39,7 @@ class Model:
         self.api_key = api_key
         self.url = url
     
-    def __polling(self, poll_url: str, name="model_process", wait_time=1, timeout=300):
+    def __polling(self, poll_url: str, name: str = "model_process", wait_time: int = 1, timeout: float = 300):
         """
         Keeps polling the platform to check whether an asynchronous call is done.
         
@@ -82,7 +82,7 @@ class Model:
             logging.error(f"ERROR: Final status of polling for {name} ({self.api_key}): No response in {timeout} seconds - {resp}")
             return False, resp
 
-    def poll(self, poll_url: str, name="model_process"):
+    def poll(self, poll_url: str, name: str = "model_process"):
         """
         Poll the platform to check whether an asynchronous call is done.
         
@@ -109,7 +109,7 @@ class Model:
         logging.info(f"Status of polling for {name} ({self.api_key}): {resp}")
         return resp
 
-    def run(self, data, name="model_process"):
+    def run(self, data: str, name: str = "model_process", timeout: float = 300):
         """
         Runs a model call.
         
@@ -117,6 +117,7 @@ class Model:
         ---
             data: link to the input data
             name: Optional. ID given to a call
+            timeout: total polling time
         
         return:
         ---
@@ -126,7 +127,7 @@ class Model:
         try:           
             poll_url = self.run_async(data, name=name)
             end = time.time()
-            success, response = self.__polling(poll_url, name=name)
+            success, response = self.__polling(poll_url, name=name, timeout=timeout)
             return { 'success': success, 'response': response, 'error': None, 'elapsed_time': end - start }
         except Exception as e:
             msg = f"Error in request for {name} - {traceback.format_exc()}"
@@ -134,7 +135,7 @@ class Model:
             end = time.time()
             return { 'success': False, 'response': 'ERROR', 'error': msg, 'elapsed_time': end - start }
 
-    def run_async(self, data, name="model_process"):
+    def run_async(self, data: str, name: str = "model_process"):
         """
         Runs asynchronously a model call.
         
