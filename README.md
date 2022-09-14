@@ -42,6 +42,7 @@ response = pipeline.run(data=path)
 ```
 ##### Asynchronous
 ```
+import time
 from aixplain_sdk.factories.pipeline_factory import PipelineFactory
 
 api_key = <API_KEY>
@@ -71,6 +72,9 @@ response = model.run(data=path)
 ```
 ##### Asynchronous
 ```
+import time
+from aixplain_sdk.factories.model_factory import ModelFactory
+
 api_key = MODEL_API_KEY
 
 model = ModelFactory.initialize(api_key=api_key)
