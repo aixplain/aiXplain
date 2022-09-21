@@ -1,6 +1,6 @@
-# aiXplain SDK 
+# aiXtend
 
-aiXplain SDK enables python programmers to add AI functions to their software.
+aiXtend enables python programmers to add AI functions to their software.
 
 An aiXplain pipeline is a directed graph (DAG) of AI functions built using aiXplain's designer UI. An AI function is a data processing step that relies on a machine learning model to execute. An example of an AI function is speech recognition or machine translation. Pipelines help you process your data by calling a series of functions as defined in the DAG, abstracting the orchestration, and providing a simple python function call.
 
@@ -16,7 +16,7 @@ The image below shows a sample aiXplain pipeline built for subtitling video file
 ## Installation
 
 ```
-pip install aixplain-sdk
+pip install aixtend
 ```
 
 ## User Guide
@@ -25,13 +25,13 @@ In order to use aiXplain, you need to create an account in [aiXplain platform](h
 
 ### Code Samples and Demos
 
-aixplain-sdk provides python APIs to call AI workflows you can build with aiXplain designer and to call models you subscribed with aiXplain discover.
+aiXtend provides python APIs to call AI workflows you can build with aiXplain designer and to call models you subscribed with aiXplain discover.
 
 #### Pipeline Snippet
 ##### Synchronous
 
 ```
-from aixplain_sdk.factories.pipeline_factory import PipelineFactory
+from aixtend.factories.pipeline_factory import PipelineFactory
 
 api_key = <API_KEY>
 
@@ -43,7 +43,7 @@ response = pipeline.run(data=path)
 ##### Asynchronous
 ```
 import time
-from aixplain_sdk.factories.pipeline_factory import PipelineFactory
+from aixtend.factories.pipeline_factory import PipelineFactory
 
 api_key = <API_KEY>
 
@@ -61,7 +61,7 @@ while not completed:
 #### Model Snippet
 ##### Synchronous
 ```
-from aixplain_sdk.factories.model_factory import ModelFactory
+from aixtend.factories.model_factory import ModelFactory
 
 api_key = <API_KEY>
 
@@ -73,7 +73,7 @@ response = model.run(data=path)
 ##### Asynchronous
 ```
 import time
-from aixplain_sdk.factories.model_factory import ModelFactory
+from aixtend.factories.model_factory import ModelFactory
 
 api_key = MODEL_API_KEY
 

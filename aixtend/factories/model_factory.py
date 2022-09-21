@@ -21,8 +21,8 @@ Description:
     Model Factory Class
 """
 
-from aixplain_sdk.modules.model import Model
-from aixplain_sdk.utils.config import MODELS_RUN_URL
+from aixtend.modules.model import Model
+from aixtend.utils.config import MODELS_RUN_URL
 
 class ModelFactory:
 

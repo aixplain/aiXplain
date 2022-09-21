@@ -21,8 +21,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import time
-from aixplain_sdk.utils.config import PIPELINES_RUN_URL, PIPELINE_API_KEY
-from aixplain_sdk.factories.pipeline_factory import PipelineFactory
+from aixtend.utils.config import PIPELINES_RUN_URL, PIPELINE_API_KEY
+from aixtend.factories.pipeline_factory import PipelineFactory
 
 def test_mt1():
     url = PIPELINES_RUN_URL

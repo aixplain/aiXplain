@@ -21,8 +21,8 @@ Description:
     Pipeline Factory Class
 """
 
-from aixplain_sdk.modules.pipeline import Pipeline
-from aixplain_sdk.utils.config import PIPELINES_RUN_URL
+from aixtend.modules.pipeline import Pipeline
+from aixtend.utils.config import PIPELINES_RUN_URL
 
 class PipelineFactory:
 

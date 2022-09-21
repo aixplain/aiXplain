@@ -21,8 +21,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import time
-from aixplain_sdk.utils.config import MODELS_RUN_URL, MODEL_API_KEY
-from aixplain_sdk.factories.model_factory import ModelFactory
+from aixtend.utils.config import MODELS_RUN_URL, MODEL_API_KEY
+from aixtend.factories.model_factory import ModelFactory
 
 def test_mt1():
     url = MODELS_RUN_URL

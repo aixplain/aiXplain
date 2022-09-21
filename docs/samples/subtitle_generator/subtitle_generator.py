@@ -35,7 +35,7 @@ import logging
 import requests
 from tqdm import tqdm
 
-from aixplain_sdk.factories.pipeline_factory import PipelineFactory
+from aixtend.factories.pipeline_factory import PipelineFactory
 
 def generate_srt(segments:list, write_file:str=None):
     """
