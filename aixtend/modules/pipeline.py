@@ -122,7 +122,8 @@ class Pipeline:
             timeout: total polling time
         """
         start = time.time()        
-        try:           
+        try:    
+            success = False       
             poll_url = self.run_async(data, name=name)
             end = time.time()
             success, response = self.__polling(poll_url, name=name, timeout=timeout)
@@ -130,7 +131,7 @@ class Pipeline:
         except Exception as e:
             error_message = f'Error in request for {name} ({self.api_key})'
             logging.error(error_message)
-            logging.exception()
+            logging.exception(error_message)
             end = time.time()
             return { 'success': success, 'response': None, 'error': error_message, 'elapsed_time': end - start }
 
