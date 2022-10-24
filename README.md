@@ -50,12 +50,14 @@ api_key = <API_KEY>
 pipeline = PipelineFactory.initialize(api_key=api_key)
 
 path = <DATA_URL>
-poll_url = pipeline.run_async(data=path)
-completed = False
-while not completed:
-    response = pipeline.poll(poll_url)
-    completed = response['completed']
-    time.sleep(3)
+response = pipeline.run_async(data=path)
+if response['status'] != 'FAILED':
+    poll_url = response['url']
+    completed = False
+    while not completed:
+        response = pipeline.poll(poll_url)
+        completed = response['completed']
+        time.sleep(3)
 ```
 
 #### Model Snippet
@@ -80,12 +82,14 @@ api_key = MODEL_API_KEY
 model = ModelFactory.initialize(api_key=api_key)
 
 path = <DATA_URL>
-poll_url = model.run_async(data=path)
-completed = False
-while not completed:
-    response = model.poll(poll_url)
-    completed = response['completed']
-    time.sleep(3)
+response = model.run_async(data=path)
+if response['status'] != 'FAILED':
+    poll_url = response['url']
+    completed = False
+    while not completed:
+        response = model.poll(poll_url)
+        completed = response['completed']
+        time.sleep(3)
 ```
 
 API_KEY can be obtained by creating a pipeline in pipeline designer through the aiXplain platform UI.   
