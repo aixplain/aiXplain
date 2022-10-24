@@ -32,7 +32,7 @@ def test_mt1():
 
     data = 'Hello World!'
     response = model.run(data)
-    assert response['success'] == True
+    assert response['status'] == 'SUCCESS'
 
 def test_mt2():
     url = MODELS_RUN_URL
@@ -40,9 +40,9 @@ def test_mt2():
 
     model = ModelFactory.initialize(api_key=api_key, url=url)
 
-    data = 'https://aixplain-samples-public.s3.amazonaws.com/pipelines/radiogaga.txt'
+    data = 'https://aixplain-platform-assets.s3.amazonaws.com/samples/en/bestofyou.txt'
     response = model.run(data)
-    assert response['success'] == True
+    assert response['status'] == 'SUCCESS'
 
 def test_mt1_async():
     url = MODELS_RUN_URL
@@ -51,13 +51,14 @@ def test_mt1_async():
     model = ModelFactory.initialize(api_key=api_key, url=url)
 
     data = 'Hello World!'
-    poll_url = model.run_async(data)
+    response = model.run_async(data)
+    poll_url = response['url']
     completed = False
     while not completed:
         response = model.poll(poll_url)
         completed = response['completed']
         time.sleep(3)
-    assert response['completed'] == True
+    assert response['status'] == 'SUCCESS'
 
 def test_mt2_async():
     url = MODELS_RUN_URL
@@ -65,11 +66,12 @@ def test_mt2_async():
 
     model = ModelFactory.initialize(api_key=api_key, url=url)
 
-    data = 'https://aixplain-samples-public.s3.amazonaws.com/pipelines/radiogaga.txt'
-    poll_url = model.run_async(data)
+    data = 'https://aixplain-platform-assets.s3.amazonaws.com/samples/en/bestofyou.txt'
+    response = model.run_async(data)
+    poll_url = response['url']
     completed = False
     while not completed:
         response = model.poll(poll_url)
         completed = response['completed']
         time.sleep(3)
-    assert response['completed'] == True
+    assert response['status'] == 'SUCCESS'
