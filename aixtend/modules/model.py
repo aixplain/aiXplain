@@ -58,10 +58,11 @@ class Model:
         logging.info(f"Start polling for {name} ({self.api_key})")
         start, end = time.time(), time.time()
         completed = False
+        response_body = { 'status': 'FAILED', 'completed': False }
         while not completed and (end - start) < timeout:
             try:
-                resp = self.poll(poll_url, name=name)
-                completed = resp['completed']
+                response_body = self.poll(poll_url, name=name)
+                completed = response_body['completed']
 
                 end = time.time()
                 time.sleep(wait_time)
@@ -71,16 +72,17 @@ class Model:
                 logging.error(f"ERROR: polling for {name} ({self.api_key}): Continue")
                 break
         
-        if resp['completed'] is True:
+        if response_body['completed'] is True:
             try:
-                logging.info(f"Final status of polling for {name} ({self.api_key}): SUCCESS - {resp}")
-                return True, resp
+                response_body['status'] = 'SUCCESS'
+                logging.info(f"Final status of polling for {name} ({self.api_key}): SUCCESS - {response_body}")
             except Exception as e:
-                logging.error(f"ERROR: Final status of polling for {name} ({self.api_key}): ERROR - {resp}")
-                return False, resp
+                response_body['status'] = 'ERROR'
+                logging.error(f"ERROR: Final status of polling for {name} ({self.api_key}): ERROR - {response_body}")
         else:
-            logging.error(f"ERROR: Final status of polling for {name} ({self.api_key}): No response in {timeout} seconds - {resp}")
-            return False, resp
+            response_body['status'] = 'ERROR'
+            logging.error(f"ERROR: Final status of polling for {name} ({self.api_key}): No response in {timeout} seconds - {response_body}")
+        return response_body
 
     def poll(self, poll_url: str, name: str = "model_process"):
         """
@@ -105,8 +107,15 @@ class Model:
                         status_forcelist=[ 500, 502, 503, 504 ])
         session.mount('https://', HTTPAdapter(max_retries=retries))
         r = session.get(poll_url, headers=headers)
-        resp = r.json()
-        logging.info(f"Status of polling for {name} ({self.api_key}): {resp}")
+        try:
+            resp = r.json()
+            if resp['completed'] is True:
+                resp['status'] = 'SUCCESS'
+            else:
+                resp['status'] = 'IN_PROGRESS'
+            logging.info(f"Status of polling for {name} ({self.api_key}): {resp}")
+        except:
+            resp = { 'status': 'FAILED' }
         return resp
 
     def run(self, data: str, name: str = "model_process", timeout: float = 300):
@@ -125,15 +134,20 @@ class Model:
         """
         start = time.time()
         try:           
-            poll_url = self.run_async(data, name=name)
+            response = self.run_async(data, name=name)
+            if response['status'] == 'FAILED':
+                end = time.time()
+                response['elapsed_time'] = end - start
+                return response
+            poll_url = response['url']
             end = time.time()
-            success, response = self.__polling(poll_url, name=name, timeout=timeout)
-            return { 'success': success, 'response': response, 'error': None, 'elapsed_time': end - start }
+            response = self.__polling(poll_url, name=name, timeout=timeout)
+            return response
         except Exception as e:
             msg = f"Error in request for {name} - {traceback.format_exc()}"
             print(msg)
             end = time.time()
-            return { 'success': False, 'response': 'ERROR', 'error': msg, 'elapsed_time': end - start }
+            return { 'status': 'FAILED', 'error': error_message, 'elapsed_time': end - start }
 
     def run_async(self, data: str, name: str = "model_process"):
         """
@@ -161,8 +175,18 @@ class Model:
         session.mount('https://', HTTPAdapter(max_retries=retries))
         logging.info(f"Start service for {name} ({self.api_key}) - {self.url} - {payload}")
         r = session.post(self.url, headers=headers, data=payload)
-        resp = r.json()
-        logging.info(f"Result of request for {name} ({self.api_key}) - {r.status_code} - {resp}")
+        resp = None
+        try:
+            resp = r.json()
+            logging.info(f"Result of request for {name} ({self.api_key}) - {r.status_code} - {resp}")
         
-        poll_url = resp['data']
-        return poll_url
+            poll_url = resp['data']
+            response = {
+                'status': 'IN_PROGRESS',
+                'url': poll_url
+            }
+        except:
+            response = { 'status': 'FAILED' }
+            if resp is not None:
+                response['error'] = resp
+        return response

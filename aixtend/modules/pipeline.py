@@ -57,7 +57,7 @@ class Pipeline:
         logging.debug(f"Start polling for {name} ({self.api_key})")
         start, end = time.time(), time.time()
         completed = False
-        response_body = None
+        response_body = { 'status': 'FAILED' }
         while not completed and (end - start)<timeout:
             try:
                 response_body = self.poll(poll_url, name=name)
@@ -74,13 +74,12 @@ class Pipeline:
         if response_body and response_body['status'] == 'SUCCESS':
             try:
                 logging.debug(f"Final status of polling for {name} ({self.api_key}): SUCCESS - {response_body}")
-                return True, response_body
             except Exception as e:
                 logging.error(f"ERROR: Final status of polling for {name} ({self.api_key}): ERROR - {response_body}")
-                return False, response_body
         else:
             logging.error(f"ERROR: Final status of polling for {name} ({self.api_key}): No response in {timeout} seconds - {response_body}")
-            return False, response_body
+        return response_body
+
 
     def poll(self, poll_url: str, name: str = "pipeline_process"):
         """
@@ -106,8 +105,11 @@ class Pipeline:
                         status_forcelist=[ 500, 502, 503, 504 ])
         session.mount('https://', HTTPAdapter(max_retries=retries))
         r = session.get(poll_url, headers=headers)
-        resp = r.json()
-        logging.info(f"Status of polling for {name} ({self.api_key}): {resp}")
+        try:
+            resp = r.json()
+            logging.info(f"Status of polling for {name} ({self.api_key}): {resp}")
+        except:
+            resp = { 'status': 'FAILED' }
         return resp
 
 
@@ -124,16 +126,22 @@ class Pipeline:
         start = time.time()        
         try:    
             success = False       
-            poll_url = self.run_async(data, name=name)
+            response = self.run_async(data, name=name)
+            if response['status'] == 'FAILED':
+                end = time.time()
+                response['elapsed_time'] = end - start
+                return response
+            poll_url = response['url']
             end = time.time()
-            success, response = self.__polling(poll_url, name=name, timeout=timeout)
-            return { 'success': success, 'response': response, 'error': None, 'elapsed_time': end - start }
+            response = self.__polling(poll_url, name=name, timeout=timeout)
+            return response
         except Exception as e:
             error_message = f'Error in request for {name} ({self.api_key})'
             logging.error(error_message)
             logging.exception(error_message)
             end = time.time()
-            return { 'success': success, 'response': None, 'error': error_message, 'elapsed_time': end - start }
+            return { 'status': 'FAILED', 'error': error_message, 'elapsed_time': end - start }
+
 
     def run_async(self, data: str, name: str = "pipeline_process"):
         """
@@ -161,8 +169,18 @@ class Pipeline:
                         status_forcelist=[ 500, 502, 503, 504 ])
         session.mount('https://', HTTPAdapter(max_retries=retries))
         r = session.post(self.url, headers=headers, data=payload)
-        resp = r.json()
-        logging.info(f'Result of request for {name} ({self.api_key}) - {r.status_code} - {resp}')
+        resp = None
+        try:
+            resp = r.json()
+            logging.info(f'Result of request for {name} ({self.api_key}) - {r.status_code} - {resp}')
         
-        poll_url = resp['url']
-        return poll_url
+            poll_url = resp['url']
+            response = {
+                'status': 'IN_PROGRESS',
+                'url': poll_url
+            }
+        except:
+            response = { 'status': 'FAILED' }
+            if resp is not None:
+                response['error'] = resp
+        return response
