@@ -30,7 +30,7 @@ aiXtend provides python APIs to call AI workflows you can build with aiXplain de
 #### Pipeline Snippet
 ##### Synchronous
 
-```
+```python
 from aixtend.factories.pipeline_factory import PipelineFactory
 
 api_key = <API_KEY>
@@ -41,7 +41,7 @@ path = <DATA_URL>
 response = pipeline.run(data=path)
 ```
 ##### Asynchronous
-```
+```python
 import time
 from aixtend.factories.pipeline_factory import PipelineFactory
 
@@ -62,7 +62,7 @@ if response['status'] != 'FAILED':
 
 #### Model Snippet
 ##### Synchronous
-```
+```python
 from aixtend.factories.model_factory import ModelFactory
 
 api_key = <API_KEY>
@@ -73,7 +73,7 @@ path = <DATA_URL>
 response = model.run(data=path)
 ```
 ##### Asynchronous
-```
+```python
 import time
 from aixtend.factories.model_factory import ModelFactory
 
