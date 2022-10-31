@@ -1,4 +1,4 @@
-__author__='thiagocastroferreira'
+__author__='lucaspavanelli'
 
 """
 Copyright 2022 The aiXplain SDK authors
@@ -21,57 +21,57 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import time
-from aixtend.utils.config import PIPELINES_RUN_URL, PIPELINE_API_KEY
-from aixtend.factories.pipeline_factory import PipelineFactory
+from aixtend.utils.config import MODELS_RUN_URL, MODEL_API_KEY
+from aixtend.factories.model_factory import ModelFactory
 
 def test_mt1():
-    url = PIPELINES_RUN_URL
-    api_key = PIPELINE_API_KEY
+    url = MODELS_RUN_URL
+    api_key = MODEL_API_KEY
 
-    pipeline = PipelineFactory.initialize(api_key=api_key, url=url)
+    model = ModelFactory.initialize(api_key=api_key, url=url)
 
     data = 'Hello World!'
-    response = pipeline.run(data)
+    response = model.run(data)
     assert response['status'] == 'SUCCESS'
 
 def test_mt2():
-    url = PIPELINES_RUN_URL
-    api_key = PIPELINE_API_KEY
+    url = MODELS_RUN_URL
+    api_key = MODEL_API_KEY
 
-    pipeline = PipelineFactory.initialize(api_key=api_key, url=url)
+    model = ModelFactory.initialize(api_key=api_key, url=url)
 
     data = 'https://aixplain-platform-assets.s3.amazonaws.com/samples/en/bestofyou.txt'
-    response = pipeline.run(data)
+    response = model.run(data)
     assert response['status'] == 'SUCCESS'
 
 def test_mt1_async():
-    url = PIPELINES_RUN_URL
-    api_key = PIPELINE_API_KEY
+    url = MODELS_RUN_URL
+    api_key = MODEL_API_KEY
 
-    pipeline = PipelineFactory.initialize(api_key=api_key, url=url)
+    model = ModelFactory.initialize(api_key=api_key, url=url)
 
     data = 'Hello World!'
-    response = pipeline.run_async(data)
+    response = model.run_async(data)
     poll_url = response['url']
     completed = False
     while not completed:
-        response = pipeline.poll(poll_url)
+        response = model.poll(poll_url)
         completed = response['completed']
         time.sleep(3)
     assert response['status'] == 'SUCCESS'
 
 def test_mt2_async():
-    url = PIPELINES_RUN_URL
-    api_key = PIPELINE_API_KEY
+    url = MODELS_RUN_URL
+    api_key = MODEL_API_KEY
 
-    pipeline = PipelineFactory.initialize(api_key=api_key, url=url)
+    model = ModelFactory.initialize(api_key=api_key, url=url)
 
     data = 'https://aixplain-platform-assets.s3.amazonaws.com/samples/en/bestofyou.txt'
-    response = pipeline.run_async(data)
+    response = model.run_async(data)
     poll_url = response['url']
     completed = False
     while not completed:
-        response = pipeline.poll(poll_url)
+        response = model.poll(poll_url)
         completed = response['completed']
         time.sleep(3)
     assert response['status'] == 'SUCCESS'

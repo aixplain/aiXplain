@@ -1,7 +1,7 @@
 __author__='thiagocastroferreira'
 
 """
-Copyright 2022 The aiXplain pipeline authors
+Copyright 2022 The aiXplain SDK authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -35,7 +35,7 @@ import logging
 import requests
 from tqdm import tqdm
 
-from aixplain_pipelines import Pipeline
+from aixtend.factories.pipeline_factory import PipelineFactory
 
 def generate_srt(segments:list, write_file:str=None):
     """
@@ -98,7 +98,7 @@ def main(video_path:str, srt_path:str, pipelines_url:str, api_key:str):
     ---
         .srt string or file
     """
-    pipe = Pipeline(api_key=api_key, url=pipelines_url)
+    pipe = PipelineFactory.initialize(api_key=api_key, url=pipelines_url)
     response = pipe.run(data=video_path)
 
     if response['success'] is True:
