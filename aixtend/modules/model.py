@@ -27,6 +27,7 @@ import requests
 import logging
 import traceback
 from requests.adapters import HTTPAdapter, Retry
+from typing import Union
 
 class Model:  
     def __init__(self, api_key: str, url: str) -> None:
@@ -118,7 +119,7 @@ class Model:
             resp = { 'status': 'FAILED' }
         return resp
 
-    def run(self, data: str, name: str = "model_process", timeout: float = 300):
+    def run(self, data: Union[str, dict], name: str = "model_process", timeout: float = 300):
         """
         Runs a model call.
         
@@ -149,7 +150,7 @@ class Model:
             end = time.time()
             return { 'status': 'FAILED', 'error': error_message, 'elapsed_time': end - start }
 
-    def run_async(self, data: str, name: str = "model_process"):
+    def run_async(self, data: Union[str, dict], name: str = "model_process"):
         """
         Runs asynchronously a model call.
         
@@ -166,7 +167,14 @@ class Model:
             'x-api-key': self.api_key,
             'Content-Type': 'application/json'
         }
-        payload = json.dumps({ "data": data })
+        if type(data) == dict:
+            payload = json.dumps(data)
+        else:
+            try:
+                data_json = json.loads(data)
+                payload = data
+            except:
+                payload = json.dumps({ "data": data })
 
         session = requests.Session()
         retries = Retry(total=5,

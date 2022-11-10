@@ -25,6 +25,7 @@ import time
 import json
 import requests
 import logging
+from typing import Union
 from requests.adapters import HTTPAdapter, Retry
 
 class Pipeline:
@@ -113,7 +114,7 @@ class Pipeline:
         return resp
 
 
-    def run(self, data: str, name: str = "pipeline_process", timeout: float = 20000.0):
+    def run(self, data: Union[str, dict], name: str = "pipeline_process", timeout: float = 20000.0):
         """
         Runs a pipeline call.
         
@@ -143,7 +144,7 @@ class Pipeline:
             return { 'status': 'FAILED', 'error': error_message, 'elapsed_time': end - start }
 
 
-    def run_async(self, data: str, name: str = "pipeline_process"):
+    def run_async(self, data: Union[str, dict], name: str = "pipeline_process"):
         """
         Runs asynchronously a pipeline call.
         
@@ -160,7 +161,14 @@ class Pipeline:
             'x-api-key': self.api_key,
             'Content-Type': 'application/json'
         }
-        payload = json.dumps({ "data": data })
+        if type(data) == dict:
+            payload = json.dumps(data)
+        else:
+            try:
+                data_json = json.loads(data)
+                payload = data
+            except:
+                payload = json.dumps({ "data": data })
         
         logging.info(f"Start service for {name} ({self.api_key}) - {self.url} - {payload}")
         session = requests.Session()
