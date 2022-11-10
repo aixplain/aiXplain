@@ -43,7 +43,8 @@ consider upgrading to a supported Python version.
 
 requires = [
     "requests>=2.1.0",
-    "tqdm>=4.1.0"
+    "tqdm>=4.1.0",
+    "pandas>=1.2.1"
 ]
 test_requirements = [
     "python-dotenv~=0.20.0",

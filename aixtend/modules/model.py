@@ -15,7 +15,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 
-Author: Duraikrishna Selvaraju, Thiago Castro Ferreira and Lucas Pavanelli
+Author: Duraikrishna Selvaraju, Thiago Castro Ferreira, Shreyas Sharma and Lucas Pavanelli
 Date: September 1st 2022
 Description:
     Model Class
@@ -27,6 +27,11 @@ import requests
 import logging
 import traceback
 from requests.adapters import HTTPAdapter, Retry
+from collections import namedtuple
+from typing import List
+
+ModelInfo = namedtuple('ModelInfo', ['name', 'id', 'supplier'])
+
 
 class Model:  
     def __init__(self, api_key: str, url: str) -> None:
@@ -190,3 +195,83 @@ class Model:
             if resp is not None:
                 response['error'] = resp
         return response
+    
+    def __get_model_info(self, model_info_json):
+        """Coverts Json to ModelInfo object
+
+        Args:
+            model_info_json (dict): Json from API
+
+        Returns:
+            ModelInfo: Coverted ModelInfo object
+        """
+        m_info = ModelInfo(model_info_json['name'], model_info_json['id'], model_info_json['supplier']['id'])
+        return m_info
+
+    def get_models_from_page(self, page_number: int, task: str, input_language: str = None, output_language: str = None) -> List:
+        """Get the list of models from a given page. Additional task and language filters can be also be provided
+
+        Args:
+            page_number (int): Page from which models are to be listed
+            task (str): Task of listed model
+            input_language (str, optional): Input language of listed model. Defaults to None.
+            output_language (str, optional): Output langugage of listed model. Defaults to None.
+
+        Returns:
+            List: List of models based on given filters
+        """
+        try:
+            url = f"{self.url}/sdk/inventory/models/?pageNumber={page_number}&function={task}"
+            filter_params = []
+            task_param_mapping = {
+                "input":{"translation":"sourcelanguage", "speech-recognition":"language", "sentiment-analysis":"language"},
+                "ouput":{"translation":"targetlanguage"}
+            }
+            if input_language is not None:
+                if task in task_param_mapping["input"]:
+                    filter_params.append({"code" : task_param_mapping["input"][task], "value" : input_language})
+            if output_language is not None:
+                if task in task_param_mapping["ouput"]:
+                    filter_params.append({"code" : task_param_mapping["ouput"][task], "value" : output_language})
+            headers = {
+            'Authorization': f"Token {self.api_key}",
+            'Content-Type': 'application/json'
+            }
+            session = requests.Session()
+            retries = Retry(total=5,
+                            backoff_factor=0.1,
+                            status_forcelist=[ 500, 502, 503, 504 ])
+            session.mount('https://', HTTPAdapter(max_retries=retries))
+            r = session.get(url, headers=headers, params={"ioFilter" : json.dumps(filter_params)})
+            resp = r.json()
+            logging.info(f"Listing Models: Status of getting Models on Page {page_number} for {task} ({self.api_key}): {resp}")
+            all_models = resp["items"]
+            model_info_list = [self.__get_model_info(all_models) for all_models in all_models]
+            return model_info_list
+        except Exception as e:
+            error_message = f"Listing Models: Error in getting Models on Page {page_number} for {task} : {e}"
+            logging.error(error_message)
+            return []
+        
+    def get_first_k_models(self, k: int, task: str, input_language: str = None, output_language: str = None) -> List:
+        """Gets the first k given models based on the provided task and language filters
+
+        Args:
+            k (int): Number of models to get
+            task (str): Task of listed model
+            input_language (str, optional): Input language of listed model. Defaults to None.
+            output_language (str, optional): Output language of listed model. Defaults to None.
+
+        Returns:
+            List: List of models based on given filters
+        """
+        try:
+            model_info_list = []
+            assert k > 0
+            for page_number in range(k//10 + 1):
+                model_info_list += self.get_models_from_page(page_number, task, input_language, output_language)
+            return model_info_list
+        except Exception as e:
+            error_message = f"Listing Models: Error in getting {k} Models for {task} : {e}"
+            logging.error(error_message)
+            return []
