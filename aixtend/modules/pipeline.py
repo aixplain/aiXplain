@@ -161,13 +161,13 @@ class Pipeline:
             'x-api-key': self.api_key,
             'Content-Type': 'application/json'
         }
-        if type(data) == dict:
+        if isinstance(data, dict):
             payload = json.dumps(data)
         else:
             try:
                 data_json = json.loads(data)
                 payload = data
-            except:
+            except Exception as e:
                 payload = json.dumps({ "data": data })
         
         logging.info(f"Start service for {name} ({self.api_key}) - {self.url} - {payload}")

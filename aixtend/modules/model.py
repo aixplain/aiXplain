@@ -167,7 +167,7 @@ class Model:
             'x-api-key': self.api_key,
             'Content-Type': 'application/json'
         }
-        if type(data) == dict:
+        if isinstance(data, dict):
             payload = json.dumps(data)
         else:
             try:
