@@ -19,6 +19,7 @@ import tempfile
 from pathlib import Path
 from uuid import uuid4
 import requests
+from requests.adapters import HTTPAdapter, Retry
 
 def download_file(download_url: str, download_file_path=None) -> str:
     """Download and save file from given URL
@@ -41,3 +42,23 @@ def download_file(download_url: str, download_file_path=None) -> str:
         f.write(r.content)
     return download_file_path
 
+
+def _request_with_retry(method: str, url: str, **params) -> requests.Response:
+    """Wrapper around requests with Session to retry in case it fails
+
+    Args:
+        method (str): HTTP method, such as 'GET' or 'HEAD'.
+        url (str): The URL of the resource to fetch.
+        **params: Params to pass to request function
+
+    Returns:
+        requests.Response: Response object of the request
+    """
+    session = requests.Session()
+    retries = Retry(total=5,
+                    backoff_factor=0.1,
+                    status_forcelist=[ 500, 502, 503, 504 ])
+    session.mount('https://', HTTPAdapter(max_retries=retries))
+    response = session.request(method=method.upper(), url=url, **params)
+    return response
+    

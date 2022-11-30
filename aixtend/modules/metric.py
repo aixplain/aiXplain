@@ -27,9 +27,9 @@ from typing import List
 import requests
 import logging
 import traceback
-from requests.adapters import HTTPAdapter, Retry
 from collections import namedtuple
 MetricInfo = namedtuple('MetricInfo', ['name', 'id', 'description'])
+from aixtend.utils.file_utils import _request_with_retry
 
 class Metric:
     def __init__(self, api_key: str, backend_url: str) -> None:
@@ -70,14 +70,9 @@ class Metric:
             'Authorization': f"Token {self.api_key}",
             'Content-Type': 'application/json'
             }
-            session = requests.Session()
-            retries = Retry(total=5,
-                            backoff_factor=0.1,
-                            status_forcelist=[ 500, 502, 503, 504 ])
-            session.mount('https://', HTTPAdapter(max_retries=retries))
-            r = session.get(url, headers=headers)
+            r = _request_with_retry("get", url, headers=headers)
             resp = r.json()
-            logging.info(f"Listing Metrics: Status of getting metrics for {task} ({self.api_key}): {resp}")
+            logging.info(f"Listing Metrics: Status of getting metrics for {task}: {resp}")
             all_metrics = resp["results"]
             metric_info_list = [self.__get_metric_info(metric_info_json) for metric_info_json in all_metrics]
             return metric_info_list

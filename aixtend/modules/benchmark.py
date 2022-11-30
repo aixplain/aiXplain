@@ -26,8 +26,7 @@ import requests
 import logging
 import traceback
 import pandas as pd
-from requests.adapters import HTTPAdapter, Retry
-from aixtend.utils.file_handler import download_file
+from aixtend.utils.file_utils import download_file, _request_with_retry
 
 class Benchmark:
     def __init__(self, api_key: str, backend_url: str) -> None:
@@ -69,14 +68,9 @@ class Benchmark:
                 "automodeTraining": False,
                 "samplesCount": 10
                 })
-            session = requests.Session()
-            retries = Retry(total=5,
-                            backoff_factor=0.1,
-                            status_forcelist=[ 500, 502, 503, 504 ])
-            session.mount('https://', HTTPAdapter(max_retries=retries))
-            r = session.post(url, headers=headers, data=payload)
+            r = _request_with_retry("post", url, headers=headers, data=payload)
             resp = r.json()
-            logging.info(f"Creating Benchmark Job: Status of polling for {name} ({self.api_key}): {resp}")
+            logging.info(f"Creating Benchmark Job: Status for {name}: {resp}")
             return resp['id']
         except Exception as e:
             error_message = f"Creating Benchmark Job: Error in Creating Benchmark with payload {payload} : {e}"
@@ -98,14 +92,9 @@ class Benchmark:
             'Authorization': f"Token {self.api_key}",
             'Content-Type': 'application/json'
             }
-            session = requests.Session()
-            retries = Retry(total=5,
-                            backoff_factor=0.1,
-                            status_forcelist=[ 500, 502, 503, 504 ])
-            session.mount('https://', HTTPAdapter(max_retries=retries))
-            r = session.post(url, headers=headers)
+            r = _request_with_retry("post", url, headers=headers)
             resp = r.json()
-            logging.info(f"Starting Benchmark Job: Status of polling for {benhchmark_id} ({self.api_key}): {resp}")
+            logging.info(f"Starting Benchmark Job: Status for {benhchmark_id}: {resp}")
             return resp['jobId']
         except Exception as e:
             error_message = f"Starting Benchmark Job: Error in Creating Benchmark {benhchmark_id} : {e}"
@@ -132,14 +121,9 @@ class Benchmark:
             'Authorization': f"Token {self.api_key}",
             'Content-Type': 'application/json'
             }
-            session = requests.Session()
-            retries = Retry(total=5,
-                            backoff_factor=0.1,
-                            status_forcelist=[ 500, 502, 503, 504 ])
-            session.mount('https://', HTTPAdapter(max_retries=retries))
-            r = session.get(url, headers=headers)
+            r = _request_with_retry("get", url, headers=headers)
             resp = r.json()
-            logging.info(f"Downloading Benchmark Results: Status of downloading results for {job_id} ({self.api_key}): {resp}")
+            logging.info(f"Downloading Benchmark Results: Status of downloading results for {job_id}: {resp}")
             csv_url = resp['reportUrl']
             if returnDataFrame:
                 df = pd.read_csv(csv_url)

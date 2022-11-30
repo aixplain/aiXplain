@@ -26,9 +26,9 @@ import json
 import requests
 import logging
 import traceback
-from requests.adapters import HTTPAdapter, Retry
 from collections import namedtuple
 from typing import List
+from aixtend.utils.file_utils import _request_with_retry
 
 ModelInfo = namedtuple('ModelInfo', ['name', 'id', 'supplier'])
 
@@ -60,7 +60,7 @@ class Model:
             success: Boolean variable indicating whether the call finished successfully or not
             resp: response obtained by polling call
         """
-        logging.info(f"Start polling for {name} ({self.api_key})")
+        logging.info(f"Start polling for {name}")
         start, end = time.time(), time.time()
         completed = False
         response_body = { 'status': 'FAILED', 'completed': False }
@@ -74,19 +74,19 @@ class Model:
                 if wait_time < 60:
                     wait_time *= 1.1
             except Exception as e:
-                logging.error(f"ERROR: polling for {name} ({self.api_key}): Continue")
+                logging.error(f"ERROR: polling for {name}: Continue")
                 break
         
         if response_body['completed'] is True:
             try:
                 response_body['status'] = 'SUCCESS'
-                logging.info(f"Final status of polling for {name} ({self.api_key}): SUCCESS - {response_body}")
+                logging.info(f"Final status of polling for {name}: SUCCESS - {response_body}")
             except Exception as e:
                 response_body['status'] = 'ERROR'
-                logging.error(f"ERROR: Final status of polling for {name} ({self.api_key}): ERROR - {response_body}")
+                logging.error(f"ERROR: Final status of polling for {name}: ERROR - {response_body}")
         else:
             response_body['status'] = 'ERROR'
-            logging.error(f"ERROR: Final status of polling for {name} ({self.api_key}): No response in {timeout} seconds - {response_body}")
+            logging.error(f"ERROR: Final status of polling for {name}: No response in {timeout} seconds - {response_body}")
         return response_body
 
     def poll(self, poll_url: str, name: str = "model_process"):
@@ -106,19 +106,14 @@ class Model:
             'x-api-key': self.api_key,
             'Content-Type': 'application/json'
         }
-        session = requests.Session()
-        retries = Retry(total=5,
-                        backoff_factor=0.1,
-                        status_forcelist=[ 500, 502, 503, 504 ])
-        session.mount('https://', HTTPAdapter(max_retries=retries))
-        r = session.get(poll_url, headers=headers)
+        r = _request_with_retry("get", poll_url, headers=headers)
         try:
             resp = r.json()
             if resp['completed'] is True:
                 resp['status'] = 'SUCCESS'
             else:
                 resp['status'] = 'IN_PROGRESS'
-            logging.info(f"Status of polling for {name} ({self.api_key}): {resp}")
+            logging.info(f"Status of polling for {name}: {resp}")
         except:
             resp = { 'status': 'FAILED' }
         return resp
@@ -152,7 +147,7 @@ class Model:
             msg = f"Error in request for {name} - {traceback.format_exc()}"
             print(msg)
             end = time.time()
-            return { 'status': 'FAILED', 'error': error_message, 'elapsed_time': end - start }
+            return { 'status': 'FAILED', 'error': msg, 'elapsed_time': end - start }
 
     def run_async(self, data: str, name: str = "model_process"):
         """
@@ -172,18 +167,12 @@ class Model:
             'Content-Type': 'application/json'
         }
         payload = json.dumps({ "data": data })
-
-        session = requests.Session()
-        retries = Retry(total=5,
-                        backoff_factor=0.1,
-                        status_forcelist=[ 500, 502, 503, 504 ])
-        session.mount('https://', HTTPAdapter(max_retries=retries))
-        logging.info(f"Start service for {name} ({self.api_key}) - {self.url} - {payload}")
-        r = session.post(self.url, headers=headers, data=payload)
+        r = _request_with_retry("post", self.url, headers=headers, data=payload)
+        logging.info(f"Start service for {name} - {self.url} - {payload}")
         resp = None
         try:
             resp = r.json()
-            logging.info(f"Result of request for {name} ({self.api_key}) - {r.status_code} - {resp}")
+            logging.info(f"Result of request for {name} - {r.status_code} - {resp}")
         
             poll_url = resp['data']
             response = {
@@ -237,14 +226,9 @@ class Model:
             'Authorization': f"Token {self.api_key}",
             'Content-Type': 'application/json'
             }
-            session = requests.Session()
-            retries = Retry(total=5,
-                            backoff_factor=0.1,
-                            status_forcelist=[ 500, 502, 503, 504 ])
-            session.mount('https://', HTTPAdapter(max_retries=retries))
-            r = session.get(url, headers=headers, params={"ioFilter" : json.dumps(filter_params)})
+            r = _request_with_retry("get", url, headers=headers, params={"ioFilter" : json.dumps(filter_params)})
             resp = r.json()
-            logging.info(f"Listing Models: Status of getting Models on Page {page_number} for {task} ({self.api_key}): {resp}")
+            logging.info(f"Listing Models: Status of getting Models on Page {page_number} for {task} : {resp}")
             all_models = resp["items"]
             model_info_list = [self.__get_model_info(all_models) for all_models in all_models]
             return model_info_list

@@ -25,7 +25,7 @@ import time
 import json
 import requests
 import logging
-from requests.adapters import HTTPAdapter, Retry
+from aixtend.utils.file_utils import _request_with_retry
 
 class Pipeline:
     def __init__(self, api_key: str, url: str) -> None:
@@ -54,14 +54,14 @@ class Pipeline:
             success: Boolean variable indicating whether the call finished successfully or not
             resp: response obtained by polling call
         """
-        logging.debug(f"Start polling for {name} ({self.api_key})")
+        logging.debug(f"Start polling for {name} ")
         start, end = time.time(), time.time()
         completed = False
         response_body = { 'status': 'FAILED' }
         while not completed and (end - start)<timeout:
             try:
                 response_body = self.poll(poll_url, name=name)
-                logging.debug(f"Status of polling for {name} ({self.api_key}): {response_body}")
+                logging.debug(f"Status of polling for {name} : {response_body}")
                 completed = response_body['completed']
 
                 end = time.time()
@@ -69,15 +69,15 @@ class Pipeline:
                 if wait_time < 60:
                     wait_time *= 1.1
             except Exception as e:
-                logging.error(f"ERROR: polling for {name} ({self.api_key}): Continue")
+                logging.error(f"ERROR: polling for {name} : Continue")
         
         if response_body and response_body['status'] == 'SUCCESS':
             try:
-                logging.debug(f"Final status of polling for {name} ({self.api_key}): SUCCESS - {response_body}")
+                logging.debug(f"Final status of polling for {name} : SUCCESS - {response_body}")
             except Exception as e:
-                logging.error(f"ERROR: Final status of polling for {name} ({self.api_key}): ERROR - {response_body}")
+                logging.error(f"ERROR: Final status of polling for {name} : ERROR - {response_body}")
         else:
-            logging.error(f"ERROR: Final status of polling for {name} ({self.api_key}): No response in {timeout} seconds - {response_body}")
+            logging.error(f"ERROR: Final status of polling for {name} : No response in {timeout} seconds - {response_body}")
         return response_body
 
 
@@ -98,16 +98,10 @@ class Pipeline:
             'x-api-key': self.api_key,
             'Content-Type': 'application/json'
         }
-
-        session = requests.Session()
-        retries = Retry(total=5,
-                        backoff_factor=0.1,
-                        status_forcelist=[ 500, 502, 503, 504 ])
-        session.mount('https://', HTTPAdapter(max_retries=retries))
-        r = session.get(poll_url, headers=headers)
+        r = _request_with_retry("get", poll_url, headers=headers)
         try:
             resp = r.json()
-            logging.info(f"Status of polling for {name} ({self.api_key}): {resp}")
+            logging.info(f"Status of polling for {name} : {resp}")
         except:
             resp = { 'status': 'FAILED' }
         return resp
@@ -136,7 +130,7 @@ class Pipeline:
             response = self.__polling(poll_url, name=name, timeout=timeout)
             return response
         except Exception as e:
-            error_message = f'Error in request for {name} ({self.api_key})'
+            error_message = f'Error in request for {name} '
             logging.error(error_message)
             logging.exception(error_message)
             end = time.time()
@@ -161,18 +155,12 @@ class Pipeline:
             'Content-Type': 'application/json'
         }
         payload = json.dumps({ "data": data })
-        
-        logging.info(f"Start service for {name} ({self.api_key}) - {self.url} - {payload}")
-        session = requests.Session()
-        retries = Retry(total=5,
-                        backoff_factor=0.1,
-                        status_forcelist=[ 500, 502, 503, 504 ])
-        session.mount('https://', HTTPAdapter(max_retries=retries))
-        r = session.post(self.url, headers=headers, data=payload)
+        logging.info(f"Start service for {name}  - {self.url} - {payload}")
+        r = _request_with_retry("get", poll_url, headers=headers, data=payload)
         resp = None
         try:
             resp = r.json()
-            logging.info(f'Result of request for {name} ({self.api_key}) - {r.status_code} - {resp}')
+            logging.info(f'Result of request for {name}  - {r.status_code} - {resp}')
         
             poll_url = resp['url']
             response = {

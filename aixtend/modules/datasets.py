@@ -25,9 +25,9 @@ import json
 import requests
 import logging
 import traceback
-from requests.adapters import HTTPAdapter, Retry
 from collections import namedtuple
 from typing import List
+from aixtend.utils.file_utils import _request_with_retry
 
 DatasetInfo = namedtuple('DatasetInfo', ['name', 'id', 'description'])
 
@@ -76,14 +76,9 @@ class Datasets:
             'Authorization': f"Token {self.api_key}",
             'Content-Type': 'application/json'
             }
-            session = requests.Session()
-            retries = Retry(total=5,
-                            backoff_factor=0.1,
-                            status_forcelist=[ 500, 502, 503, 504 ])
-            session.mount('https://', HTTPAdapter(max_retries=retries))
-            r = session.get(url, headers=headers)
+            r = _request_with_retry("get", url, headers=headers)
             resp = r.json()
-            logging.info(f"Listing Datasets: Status of getting Datasets on Page {page_number} for {task} ({self.api_key}): {resp}")
+            logging.info(f"Listing Datasets: Status of getting Datasets on Page {page_number} for {task}: {resp}")
             all_datasets = resp["results"]
             dataset_info_list = [self.__get_dataset_info(dataset_info_json) for dataset_info_json in all_datasets]
             return dataset_info_list
