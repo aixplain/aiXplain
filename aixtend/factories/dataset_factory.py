@@ -16,45 +16,37 @@ See the License for the specific language governing permissions and
 limitations under the License.
 
 Author: Duraikrishna Selvaraju, Thiago Castro Ferreira, Shreyas Sharma and Lucas Pavanelli
-Date: October 28th 2022
+Date: December 1st 2022
 Description:
-    Datasets Class
+    Dataset Factory Class
 """
-import time
-import json
-import requests
+
 import logging
-import traceback
-from collections import namedtuple
 from typing import List
+from aixtend.modules.dataset import Dataset
+from aixtend.utils import config
 from aixtend.utils.file_utils import _request_with_retry
 
-DatasetInfo = namedtuple('DatasetInfo', ['name', 'id', 'description'])
+class DatsetFactory:
+    def __init__(self) -> None:
+        self.api_key = config.TEAM_API_KEY
+        self.backend_url = config.BENCHMARKS_BACKEND_URL
+    
 
-class Datasets:
-    def __init__(self, api_key: str, backend_url: str) -> None:
-        """
-        params:
-        ---
-            api_key: API key of the team
-            backend_url: backend endpoint
-        """
-        self.api_key = api_key
-        self.backend_url = backend_url
-
-    def __get_dataset_info(self, dataset_info_json):
-        """Coverts Json to DatasetInfo object
+    @staticmethod
+    def _create_dataset_from_response(self, response: dict) -> Dataset:
+        """Coverts response Json to 'Dataset' object
 
         Args:
-            dataset_info_json (_type_): Json from API
+            response (dict): Json from API
 
         Returns:
-            DatasetInfo: Coverted DatasetInfo object
+            Dataset: Coverted 'Dataset' object
         """
-        d_info = DatasetInfo(dataset_info_json['name'], dataset_info_json['id'], dataset_info_json['description'])
-        return d_info
+        return Dataset(response['id'], response['name'], response['description'])
+    
 
-    def get_datasets_from_page(self, page_number: int, task: str, input_language: str = None, output_language: str = None) -> List:
+    def get_datasets_from_page(self, page_number: int, task: str, input_language: str = None, output_language: str = None) -> List[Dataset]:
         """Get the list of datasets from a given page. Additional task and language filters can be also be provided
 
         Args:
@@ -64,7 +56,7 @@ class Datasets:
             output_language (str, optional): Output language of listed datasets. Defaults to None.
 
         Returns:
-            List: List of datasets based on given filters
+            List[Dataset]: List of datasets based on given filters
         """
         try:
             url = f"{self.backend_url}/sdk/datasets?pageNumber={page_number}&function={task}"
@@ -78,16 +70,17 @@ class Datasets:
             }
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()
-            logging.info(f"Listing Datasets: Status of getting Datasets on Page {page_number} for {task}: {resp}")
+            logging.info(f"Listing Datasets: Status of getting Datasets on Page {page_number} for {task} : {resp}")
             all_datasets = resp["results"]
-            dataset_info_list = [self.__get_dataset_info(dataset_info_json) for dataset_info_json in all_datasets]
-            return dataset_info_list
+            dataset_list = [self._create_dataset_from_response(dataset_info_json) for dataset_info_json in all_datasets]
+            return dataset_list
         except Exception as e:
             error_message = f"Listing Datasets: Error in getting Datasets on Page {page_number} for {task} : {e}"
             logging.error(error_message)
             return []
 
-    def get_first_k_datasets(self, k: int, task: str, input_language: str = None, output_language: str = None) -> List:
+
+    def get_first_k_datasets(self, k: int, task: str, input_language: str = None, output_language: str = None) -> List[Dataset]:
         """Gets the first k given datasets based on the provided task and language filters
 
         Args:
@@ -97,14 +90,14 @@ class Datasets:
             output_language (str, optional): Output language of listed datasets. Defaults to None.
 
         Returns:
-            List: List of datasets based on given filters
+            List[Dataset]: List of datasets based on given filters
         """
         try:
-            dataset_info_list = []
+            dataset_list = []
             assert k > 0
             for page_number in range(k//10 + 1):
-                dataset_info_list += self.get_datasets_from_page(page_number, task, input_language, output_language)
-            return dataset_info_list
+                dataset_list += self.get_datasets_from_page(page_number, task, input_language, output_language)
+            return dataset_list
         except Exception as e:
             error_message = f"Listing Datasets: Error in getting {k} Datasets for {task} : {e}"
             logging.error(error_message)
