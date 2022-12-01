@@ -27,59 +27,31 @@ from typing import List
 import requests
 import logging
 import traceback
-from collections import namedtuple
-MetricInfo = namedtuple('MetricInfo', ['name', 'id', 'description'])
 from aixtend.utils.file_utils import _request_with_retry
 
 class Metric:
-    def __init__(self, api_key: str, backend_url: str) -> None:
-        """
-        params:
-        ---
-            api_key: API key of the team
-            backend_url: backend endpoint
-        """
-        self.api_key = api_key
-        self.backend_url = backend_url
-
-    def __get_metric_info(self, metric_info_json):
-        """Coverts Json to MetricInfo object
+    def __init__(self, id:str, name:str, description:str, **additional_info) -> None:
+        """Create a Metric with the necessary information
 
         Args:
-            metric_info_json (dict): Json from API
+            id (str): ID of the Metric
+            name (str): Name of the Metric
+            description (str): Description of the Metric
+            **additional_info: Any additional Metric info to be saved
+        """
+        self.id = id
+        self.name = name
+        self.description = description
+        self.additional_info = additional_info
+
+    def get_dataset_info(self) -> dict:
+        """Get the Metric info as a Dictionary
 
         Returns:
-            MetricInfo: Coverted MetricInfo object
+            dict: Metric Information
         """
-        m_info = MetricInfo(metric_info_json['name'], metric_info_json['id'], metric_info_json['description'])
-        return m_info
+        return self.__dict__
 
-
-    def list_metrics(self, task:str) -> List:
-        """Get list of supported metrics for a given task
-
-        Args:
-            task (str): Task to get metric for
-
-        Returns:
-            List: List of supported metrics
-        """
-        try:
-            url = f"{self.backend_url}/sdk/scores?function={task}"
-            headers = {
-            'Authorization': f"Token {self.api_key}",
-            'Content-Type': 'application/json'
-            }
-            r = _request_with_retry("get", url, headers=headers)
-            resp = r.json()
-            logging.info(f"Listing Metrics: Status of getting metrics for {task}: {resp}")
-            all_metrics = resp["results"]
-            metric_info_list = [self.__get_metric_info(metric_info_json) for metric_info_json in all_metrics]
-            return metric_info_list
-        except Exception as e:
-            error_message = f"Listing Metrics: Error in getting metrics for {task} : {e}"
-            logging.error(error_message)
-            return []
     
 
     
