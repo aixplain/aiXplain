@@ -26,44 +26,71 @@ import json
 import requests
 import logging
 import traceback
-from collections import namedtuple
 from typing import List
+from aixtend.utils import config
 from aixtend.utils.file_utils import _request_with_retry
-
-ModelInfo = namedtuple('ModelInfo', ['name', 'id', 'supplier'])
 
 
 class Model:  
-    def __init__(self, api_key: str, url: str) -> None:
+    def __init__(self, id:str, name:str, supplier:str, api_key: str = None, subscription_id:str = None, **additional_info) -> None:
+        """Create a Model with the necessary information
+
+        Args:
+            id (str): ID of the Model
+            name (str): Name of the Model
+            supplier (str): supplier of the Model
+            api_key (str, optional): API key of the Model. Defaults to None.
+            **additional_info: Any additional Model info to be saved
         """
-        params:
-        ---
-            api_key: API key of the pipeline
-            url: API endpoint
-        """
+        self.url = config.MODELS_RUN_URL
+        self.id = id
+        self.name = name
+        self.supplier = supplier
         self.api_key = api_key
-        self.url = url
+        self.subscription_id = subscription_id
+        self.additional_info = additional_info
     
-    def __polling(self, poll_url: str, name: str = "model_process", wait_time: int = 1, timeout: float = 300):
+
+    def _is_subscribed(self) -> bool:
+        """Returns if the model is subscribed to
+
+        Returns:
+            bool: True if subscribed
         """
-        Keeps polling the platform to check whether an asynchronous call is done.
-        
-        params:
-        ---
-            poll_url: polling URL
-            name: Optional. ID given to a call
-            wait_time: wait time in seconds between polling calls
-            timeout: total polling time
-            
-        return:
-        ---
-            success: Boolean variable indicating whether the call finished successfully or not
-            resp: response obtained by polling call
+        return self.api_key is not None
+
+
+    def get_model_info(self) -> dict:
+        """Get the model info as a Dictionary
+
+        Returns:
+            dict: Model Information
         """
-        logging.info(f"Start polling for {name}")
+        self.additional_info["subscribed"] = self._is_subscribed()
+        clean_additional_info = {k: v for k, v in self.additional_info.items() if v is not None}
+        return {'id': self.id, 'name': self.name, 'supplier': self.supplier, 'additional_info': clean_additional_info}
+
+
+    def __polling(self, poll_url: str, name: str = "model_process", wait_time: int = 1, timeout: float = 300) -> dict:
+        """ Keeps polling the platform to check whether an asynchronous call is done.
+
+        Args:
+            poll_url (str): polling URL
+            name (str, optional): ID given to a call. Defaults to "model_process".
+            wait_time (int, optional): wait time in seconds between polling calls. Defaults to 1.
+            timeout (float, optional): total polling time. Defaults to 300.
+
+        Returns:
+            dict: response obtained by polling call
+        """
+        logging.info(f"Polling for Model: Start polling for {name}")
         start, end = time.time(), time.time()
         completed = False
         response_body = { 'status': 'FAILED', 'completed': False }
+        if self.api_key is None:
+            logging.error(f"Polling for Model: Error in polling for {name}: 'api_key' not found. Please subscribe to the model")
+            response_body['status'] = 'ERROR'
+            return response_body
         while not completed and (end - start) < timeout:
             try:
                 response_body = self.poll(poll_url, name=name)
@@ -74,34 +101,35 @@ class Model:
                 if wait_time < 60:
                     wait_time *= 1.1
             except Exception as e:
-                logging.error(f"ERROR: polling for {name}: Continue")
+                logging.error(f"Polling for Model: polling for {name}: {e}")
                 break
-        
         if response_body['completed'] is True:
             try:
                 response_body['status'] = 'SUCCESS'
-                logging.info(f"Final status of polling for {name}: SUCCESS - {response_body}")
+                logging.info(f"Polling for Model: Final status of polling for {name}: SUCCESS - {response_body}")
             except Exception as e:
                 response_body['status'] = 'ERROR'
-                logging.error(f"ERROR: Final status of polling for {name}: ERROR - {response_body}")
+                logging.error(f"Polling for Model:: Final status of polling for {name}: ERROR - {response_body}")
         else:
             response_body['status'] = 'ERROR'
-            logging.error(f"ERROR: Final status of polling for {name}: No response in {timeout} seconds - {response_body}")
+            logging.error(f"Polling for Model: Final status of polling for {name}: No response in {timeout} seconds - {response_body}")
         return response_body
 
-    def poll(self, poll_url: str, name: str = "model_process"):
+
+    def poll(self, poll_url: str, name: str = "model_process") -> dict:
+        """Poll the platform to check whether an asynchronous call is done.
+
+        Args:
+            poll_url (str): polling
+            name (str, optional): ID given to a call. Defaults to "model_process".
+
+        Returns:
+            dict: response obtained by polling call
         """
-        Poll the platform to check whether an asynchronous call is done.
-        
-        params:
-        ---
-            poll_url: polling URL
-            name: Optional. ID given to a call
-            
-        return:
-        ---
-            resp: response obtained by polling call
-        """
+        if self.api_key is None:
+            response_body = { 'status': 'ERROR', 'completed': False }
+            logging.error(f"Single Poll for Model: Error in polling for {name}: 'api_key' not found. Please subscribe to the model")
+            return response_body
         headers = {
             'x-api-key': self.api_key,
             'Content-Type': 'application/json'
@@ -113,25 +141,28 @@ class Model:
                 resp['status'] = 'SUCCESS'
             else:
                 resp['status'] = 'IN_PROGRESS'
-            logging.info(f"Status of polling for {name}: {resp}")
-        except:
+            logging.info(f"Single Poll for Model: Status of polling for {name}: {resp}")
+        except Exception as e:
             resp = { 'status': 'FAILED' }
+            logging.error(f"Single Poll for Model: Error of polling for {name}: {e}")
         return resp
 
-    def run(self, data: str, name: str = "model_process", timeout: float = 300):
+
+    def run(self, data: str, name: str = "model_process", timeout: float = 300) -> dict:
+        """Runs a model call.
+
+        Args:
+            data (str): link to the input data
+            name (str, optional): ID given to a call. Defaults to "model_process".
+            timeout (float, optional): total polling time. Defaults to 300.
+
+        Returns:
+            dict: parsed output from model
         """
-        Runs a model call.
-        
-        params:
-        ---
-            data: link to the input data
-            name: Optional. ID given to a call
-            timeout: total polling time
-        
-        return:
-        ---
-            Output: parsed output from model
-        """
+        if self.api_key is None:
+            response_body = { 'status': 'ERROR', 'completed': False }
+            logging.error(f"Model Run: Error in running for {name}: 'api_key' not found. Please subscribe to the model")
+            return response_body
         start = time.time()
         try:           
             response = self.run_async(data, name=name)
@@ -145,30 +176,31 @@ class Model:
             return response
         except Exception as e:
             msg = f"Error in request for {name} - {traceback.format_exc()}"
-            print(msg)
+            logging.error(f"Model Run: Error in running for {name}: {e}")
             end = time.time()
             return { 'status': 'FAILED', 'error': msg, 'elapsed_time': end - start }
 
-    def run_async(self, data: str, name: str = "model_process"):
-        """
-        Runs asynchronously a model call.
-        
-        params:
-        ---
-            data: link to the input data
-            name: Optional. ID given to a call
+    def run_async(self, data: str, name: str = "model_process") -> dict:
+        """Runs asynchronously a model call.
 
-        return:
-        ---
-            poll_url: polling URL
+        Args:
+            data (str): link to the input data
+            name (str, optional): ID given to a call. Defaults to "model_process".
+
+        Returns:
+            dict: polling URL
         """
+        if self.api_key is None:
+            response_body = { 'status': 'ERROR', 'completed': False }
+            logging.error(f"Model Run Async: Error in running for {name}: 'api_key' not found. Please subscribe to the model")
+            return response_body
         headers = {
             'x-api-key': self.api_key,
             'Content-Type': 'application/json'
         }
         payload = json.dumps({ "data": data })
         r = _request_with_retry("post", self.url, headers=headers, data=payload)
-        logging.info(f"Start service for {name} - {self.url} - {payload}")
+        logging.info(f"Model Run Async: Start service for {name} - {self.url} - {payload}")
         resp = None
         try:
             resp = r.json()
@@ -185,77 +217,3 @@ class Model:
                 response['error'] = resp
         return response
     
-    def __get_model_info(self, model_info_json):
-        """Coverts Json to ModelInfo object
-
-        Args:
-            model_info_json (dict): Json from API
-
-        Returns:
-            ModelInfo: Coverted ModelInfo object
-        """
-        m_info = ModelInfo(model_info_json['name'], model_info_json['id'], model_info_json['supplier']['id'])
-        return m_info
-
-    def get_models_from_page(self, page_number: int, task: str, input_language: str = None, output_language: str = None) -> List:
-        """Get the list of models from a given page. Additional task and language filters can be also be provided
-
-        Args:
-            page_number (int): Page from which models are to be listed
-            task (str): Task of listed model
-            input_language (str, optional): Input language of listed model. Defaults to None.
-            output_language (str, optional): Output langugage of listed model. Defaults to None.
-
-        Returns:
-            List: List of models based on given filters
-        """
-        try:
-            url = f"{self.url}/sdk/inventory/models/?pageNumber={page_number}&function={task}"
-            filter_params = []
-            task_param_mapping = {
-                "input":{"translation":"sourcelanguage", "speech-recognition":"language", "sentiment-analysis":"language"},
-                "ouput":{"translation":"targetlanguage"}
-            }
-            if input_language is not None:
-                if task in task_param_mapping["input"]:
-                    filter_params.append({"code" : task_param_mapping["input"][task], "value" : input_language})
-            if output_language is not None:
-                if task in task_param_mapping["ouput"]:
-                    filter_params.append({"code" : task_param_mapping["ouput"][task], "value" : output_language})
-            headers = {
-            'Authorization': f"Token {self.api_key}",
-            'Content-Type': 'application/json'
-            }
-            r = _request_with_retry("get", url, headers=headers, params={"ioFilter" : json.dumps(filter_params)})
-            resp = r.json()
-            logging.info(f"Listing Models: Status of getting Models on Page {page_number} for {task} : {resp}")
-            all_models = resp["items"]
-            model_info_list = [self.__get_model_info(all_models) for all_models in all_models]
-            return model_info_list
-        except Exception as e:
-            error_message = f"Listing Models: Error in getting Models on Page {page_number} for {task} : {e}"
-            logging.error(error_message)
-            return []
-        
-    def get_first_k_models(self, k: int, task: str, input_language: str = None, output_language: str = None) -> List:
-        """Gets the first k given models based on the provided task and language filters
-
-        Args:
-            k (int): Number of models to get
-            task (str): Task of listed model
-            input_language (str, optional): Input language of listed model. Defaults to None.
-            output_language (str, optional): Output language of listed model. Defaults to None.
-
-        Returns:
-            List: List of models based on given filters
-        """
-        try:
-            model_info_list = []
-            assert k > 0
-            for page_number in range(k//10 + 1):
-                model_info_list += self.get_models_from_page(page_number, task, input_language, output_language)
-            return model_info_list
-        except Exception as e:
-            error_message = f"Listing Models: Error in getting {k} Models for {task} : {e}"
-            logging.error(error_message)
-            return []

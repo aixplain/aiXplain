@@ -34,7 +34,7 @@ class DatsetFactory:
     
 
     @staticmethod
-    def _create_dataset_from_response(self, response: dict) -> Dataset:
+    def _create_dataset_from_response(response: dict) -> Dataset:
         """Coverts response Json to 'Dataset' object
 
         Args:
