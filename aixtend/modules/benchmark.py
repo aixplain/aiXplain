@@ -26,113 +26,41 @@ import requests
 import logging
 import traceback
 import pandas as pd
+from typing import List
+from aixtend.modules.benchmark_job import BenchmarkJob
+from aixtend.modules.model import Model
+from aixtend.modules.dataset import Dataset
+from aixtend.modules.metric import Metric
 from aixtend.utils.file_utils import download_file, _request_with_retry
 
 class Benchmark:
-    def __init__(self, api_key: str, backend_url: str) -> None:
-        """
-        params:
-        ---
-            api_key: API key of the team
-            backend_url: backend endpoint
-        """
-        self.api_key = api_key
-        self.backend_url = backend_url
-
-    def create_benchmark(self, name: str, dataset_list: list, model_list: list, score_list:  list) -> str:
-        """Creates a benchmark based on the information provided like name, dataset list, model list and score list.
-        Note: This only creates a benchmark. It needs to run seperately using start_benchmark_job.
+    def __init__(self, id:str, name:str, model_list:List[Model], dataset_list:List[Dataset], metric_list:List[Metric],  job_list: List[BenchmarkJob], **additional_info) -> None:
+        """Create a Benchmark with the necessary information.
 
         Args:
-            name (str): Unique Name of benchmark
-            dataset_list (list): List of dataset ids for benchmark
-            model_list (list): List of model ids for benchmark
-            score_list (list): List of metric ids for benchmark
-
-        Returns:
-            str: ID of the created benchmark
+            id (str): ID of the Benchmark.
+            name (str): Name of the Benchmark.
+            model_list (List[Model]): List of Models to be used for benchmarking
+            dataset_list (List[Dataset]): List of Datasets to be used for benchmarking
+            metric_list (List[Metric]): List of Metrics to be used for benchmarking
+            job_list (List[BenchmarkJob]): List of associated Benchmark Jobs
+            **additional_info: Any additional dataset info to be saved
         """
-        try: 
-            url = f"{self.backend_url}/sdk/benchmarks"
-            headers = {
-            'Authorization': f"Token {self.api_key}",
-            'Content-Type': 'application/json'
-            }
-            payload = json.dumps({
-                "name": name,
-                "target": dataset_list,
-                "model": model_list,
-                "score": score_list,
-                "shapScores": [],
-                "humanEvaluationReport": False,
-                "automodeTraining": False,
-                "samplesCount": 10
-                })
-            r = _request_with_retry("post", url, headers=headers, data=payload)
-            resp = r.json()
-            logging.info(f"Creating Benchmark Job: Status for {name}: {resp}")
-            return resp['id']
-        except Exception as e:
-            error_message = f"Creating Benchmark Job: Error in Creating Benchmark with payload {payload} : {e}"
-            logging.error(error_message)
-            return None
+        self.id = id
+        self.name = name
+        self.model_list = model_list
+        self.dataset_list = dataset_list
+        self.metric_list = metric_list
+        self.job_list = job_list
+        self.additional_info = additional_info
 
-    def start_benchmark_job(self, benhchmark_id: str) -> str:
-        """Start a new benchmarking job(run) from a already created benchmark. 
 
-        Args:
-            benhchmark_id (str): ID of benchmark to start
+    def get_benchmark_info(self) -> dict:
+        """Get the dataset info as a Dictionary
 
         Returns:
-            str: Job ID of benchmark run
-        """ 
-        try: 
-            url = f"{self.backend_url}/sdk/benchmarks/{benhchmark_id}/start"
-            headers = {
-            'Authorization': f"Token {self.api_key}",
-            'Content-Type': 'application/json'
-            }
-            r = _request_with_retry("post", url, headers=headers)
-            resp = r.json()
-            logging.info(f"Starting Benchmark Job: Status for {benhchmark_id}: {resp}")
-            return resp['jobId']
-        except Exception as e:
-            error_message = f"Starting Benchmark Job: Error in Creating Benchmark {benhchmark_id} : {e}"
-            logging.error(error_message)
-            return None
-
-
-    def download_results_as_csv(self, job_id: str, save_path:str = None , returnDataFrame: bool = False):
-        """Get the results of the benchmark job in a CSV format.
-        The results can either be downloaded locally or returned in the form of pandas.DataFrame.
-
-
-        Args:
-            job_id (str): Job ID of the benchmark run
-            save_path (str, optional): Path to save the CSV if returnDataFrame is False. If None, a ranmdom path is generated. Defaults to None.
-            returnDataFrame (bool, optional): If True, the result is returned as pandas.DataFrame else saved as a CSV file. Defaults to False.
-
-        Returns:
-            str/pandas.DataFrame: results as path of locally saved file if returnDataFrame is False else as a pandas dataframe 
+            dict: Dataset Information
         """
-        try:
-            url = f"{self.backend_url}/sdk/benchmarks/jobs/{job_id}"
-            headers = {
-            'Authorization': f"Token {self.api_key}",
-            'Content-Type': 'application/json'
-            }
-            r = _request_with_retry("get", url, headers=headers)
-            resp = r.json()
-            logging.info(f"Downloading Benchmark Results: Status of downloading results for {job_id}: {resp}")
-            csv_url = resp['reportUrl']
-            if returnDataFrame:
-                df = pd.read_csv(csv_url)
-                return df
-            else:
-                downloaded_path = download_file(csv_url, save_path)
-                return downloaded_path
-        except Exception as e:
-            error_message = f"Downloading Benchmark Results: Error in Downloading Benchmark Results : {e}"
-            logging.error(error_message)
-            return None
+        return self.__dict__
+
     

@@ -27,7 +27,7 @@ from aixtend.modules.dataset import Dataset
 from aixtend.utils import config
 from aixtend.utils.file_utils import _request_with_retry
 
-class DatsetFactory:
+class DatasetFactory:
     def __init__(self) -> None:
         self.api_key = config.TEAM_API_KEY
         self.backend_url = config.BENCHMARKS_BACKEND_URL
@@ -44,6 +44,26 @@ class DatsetFactory:
             Dataset: Coverted 'Dataset' object
         """
         return Dataset(response['id'], response['name'], response['description'])
+
+    
+    def create_dataset_from_id(self, dataset_id: str) -> Dataset:
+        """Create a 'Dataset' object from dataset id
+
+        Args:
+            dataset_id (str): Dataset ID of required dataset.
+
+        Returns:
+            Dataset: Created 'Dataset' object
+        """
+        url = f"{self.backend_url}/sdk/datasets/{dataset_id}"
+        headers = {
+            'Authorization': f"Token {self.api_key}",
+            'Content-Type': 'application/json'
+        }
+        r = _request_with_retry("get", url, headers=headers)
+        resp = r.json()
+        dataset = self._create_dataset_from_response(resp)
+        return dataset
     
 
     def get_datasets_from_page(self, page_number: int, task: str, input_language: str = None, output_language: str = None) -> List[Dataset]:

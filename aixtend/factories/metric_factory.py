@@ -46,7 +46,24 @@ class MetricFactory:
         return Metric(response['id'], response['name'], response['description'])
     
 
+    def create_metric_from_id(self, metric_id: str) -> Metric:
+        """Create a 'Metric' object from metric id
 
+        Args:
+            model_id (str): Model ID of required metric.
+
+        Returns:
+            Metric: Created 'Metric' object
+        """
+        url = f"{self.backend_url}/sdk/scores/{metric_id}"
+        headers = {
+            'Authorization': f"Token {self.api_key}",
+            'Content-Type': 'application/json'
+        }
+        r = _request_with_retry("get", url, headers=headers)
+        resp = r.json()
+        metric = self._create_metric_from_response(resp)
+        return metric
 
 
     def list_metrics(self, task:str) -> List[Metric]:
