@@ -114,7 +114,7 @@ class Pipeline:
         return resp
 
 
-    def run(self, data: Union[str, dict], name: str = "pipeline_process", timeout: float = 20000.0):
+    def run(self, data: Union[str, dict], name: str = "pipeline_process", timeout: float = 20000.0, pod_size:int = 1):
         """
         Runs a pipeline call.
         
@@ -123,11 +123,12 @@ class Pipeline:
             data: link to the input data
             name: Optional. ID given to a call
             timeout: total polling time
+            pod_size: sets the size of kubernetes pod
         """
         start = time.time()        
         try:    
             success = False       
-            response = self.run_async(data, name=name)
+            response = self.run_async(data, name=name, pod_size=pod_size)
             if response['status'] == 'FAILED':
                 end = time.time()
                 response['elapsed_time'] = end - start
@@ -144,7 +145,7 @@ class Pipeline:
             return { 'status': 'FAILED', 'error': error_message, 'elapsed_time': end - start }
 
 
-    def run_async(self, data: Union[str, dict], name: str = "pipeline_process"):
+    def run_async(self, data: Union[str, dict], name: str = "pipeline_process", pod_size:int = 1):
         """
         Runs asynchronously a pipeline call.
         
@@ -152,6 +153,7 @@ class Pipeline:
         ---
             data: link to the input data
             name: Optional. ID given to a call
+            pod_size: sets the size of kubernetes pod
 
         return:
         ---
@@ -169,6 +171,7 @@ class Pipeline:
                 payload = data
             except Exception as e:
                 payload = json.dumps({ "data": data })
+        payload['size'] = pod_size
         
         logging.info(f"Start service for {name} ({self.api_key}) - {self.url} - {payload}")
         session = requests.Session()
