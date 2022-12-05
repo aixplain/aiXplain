@@ -88,7 +88,7 @@ class BenchmarkFactory:
         return Benchmark(response['id'], response['name'], model_list, dataset_list, metric_list, job_list)
 
     
-    def create_benchark_from_id(self, benchmark_id: str) -> Benchmark:
+    def create_benchmark_from_id(self, benchmark_id: str) -> Benchmark:
         """Create a 'Benchmark' object from Benchmark id
 
         Args:
@@ -108,7 +108,7 @@ class BenchmarkFactory:
         return benchmark
 
 
-    def create_benchark_job_from_id(self, job_id: str) -> BenchmarkJob:
+    def create_benchmark_job_from_id(self, job_id: str) -> BenchmarkJob:
         """Create a 'BenchmarkJob' object from job id
 
         Args:
@@ -137,7 +137,7 @@ class BenchmarkFactory:
         Returns:
             BenchmarkJob: updated 'BenchmarkJob'
         """
-        return self.create_benchark_job_from_id(benchmarkJob.id)
+        return self.create_benchmark_job_from_id(benchmarkJob.id)
 
 
     def create_benchmark(self, name: str, dataset_list: List[Dataset], model_list: List[Model], metric_list:  List[Metric]) -> Benchmark:
@@ -171,7 +171,7 @@ class BenchmarkFactory:
             r = _request_with_retry("post", url, headers=headers, data=payload)
             resp = r.json()
             logging.info(f"Creating Benchmark Job: Status for {name}: {resp}")
-            return self.create_benchark_from_id(resp['id'])
+            return self.create_benchmark_from_id(resp['id'])
         except Exception as e:
             error_message = f"Creating Benchmark Job: Error in Creating Benchmark with payload {payload} : {e}"
             logging.error(error_message)
@@ -197,7 +197,7 @@ class BenchmarkFactory:
             r = _request_with_retry("post", url, headers=headers)
             resp = r.json()
             logging.info(f"Starting Benchmark Job: Status for {benhchmark_id}: {resp}")
-            return self.create_benchark_job_from_id(resp['jobId'])
+            return self.create_benchmark_job_from_id(resp['jobId'])
         except Exception as e:
             error_message = f"Starting Benchmark Job: Error in Creating Benchmark {benhchmark_id} : {e}"
             logging.error(error_message)
