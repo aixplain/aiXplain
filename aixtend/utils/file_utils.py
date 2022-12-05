@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-
+import os
 import tempfile
 from pathlib import Path
 from uuid import uuid4
@@ -26,14 +26,14 @@ def download_file(download_url: str, download_file_path=None) -> str:
 
     Args:
         download_url (str): URL of file to download
-        download_file_path (str, optional): File path to save downloaded file. If None then generates random path is tempdirectory. Defaults to None.
+        download_file_path (str, optional): File path to save downloaded file. If None then generates a folder 'aiXtend' in current working directory. Defaults to None.
 
     Returns:
         str: Path where file was downloaded
     """
     if download_file_path is None:
-        sys_temp_dir = tempfile.gettempdir()
-        save_dir = Path(sys_temp_dir) / "aiXtend"
+        save_dir = os.getcwd()
+        save_dir = Path(save_dir) / "aiXtend"
         save_dir.mkdir(parents=True, exist_ok=True)
         file_ext = Path(download_url).suffix.split('?')[0]
         download_file_path = save_dir / (str(uuid4()) + file_ext)
