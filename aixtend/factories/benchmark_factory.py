@@ -31,7 +31,7 @@ from aixtend.factories.dataset_factory import DatasetFactory
 from aixtend.factories.metric_factory import MetricFactory
 from aixtend.factories.model_factory import ModelFactory
 from aixtend.utils import config
-from aixtend.utils.file_utils import _request_with_retry, download_file
+from aixtend.utils.file_utils import _request_with_retry, save_file
 
 
 class BenchmarkFactory:
@@ -235,7 +235,7 @@ class BenchmarkFactory:
                 df = pd.read_csv(csv_url)
                 return df
             else:
-                downloaded_path = download_file(csv_url, save_path)
+                downloaded_path = save_file(csv_url, save_path)
                 return downloaded_path
         except Exception as e:
             error_message = f"Downloading Benchmark Results: Error in Downloading Benchmark Results : {e}"

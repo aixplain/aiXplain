@@ -21,7 +21,7 @@ from uuid import uuid4
 import requests
 from requests.adapters import HTTPAdapter, Retry
 
-def download_file(download_url: str, download_file_path=None) -> str:
+def save_file(download_url: str, download_file_path=None) -> str:
     """Download and save file from given URL
 
     Args:
@@ -37,7 +37,7 @@ def download_file(download_url: str, download_file_path=None) -> str:
         save_dir.mkdir(parents=True, exist_ok=True)
         file_ext = Path(download_url).suffix.split('?')[0]
         download_file_path = save_dir / (str(uuid4()) + file_ext)
-    r = requests.get(download_url)
+    r = _request_with_retry("get", download_url)
     with open(download_file_path, 'wb') as f:
         f.write(r.content)
     return download_file_path
