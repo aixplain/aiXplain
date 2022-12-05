@@ -140,6 +140,18 @@ class BenchmarkFactory:
         return self.create_benchmark_job_from_id(benchmarkJob.id)
 
 
+    def update_benchmark_info(self, benchmark: Benchmark) -> Benchmark:
+        """Updates 'Benchmark' with the latest info
+
+        Args:
+            benchmark (Benchmark): 'Benchmark' to update
+
+        Returns:
+            Benchmark: updated 'Benchmark'
+        """
+        return self.create_benchmark_from_id(benchmark.id)
+
+
     def create_benchmark(self, name: str, dataset_list: List[Dataset], model_list: List[Model], metric_list:  List[Metric]) -> Benchmark:
         """Creates a benchmark based on the information provided like name, dataset list, model list and score list.
         Note: This only creates a benchmark. It needs to run seperately using start_benchmark_job.
