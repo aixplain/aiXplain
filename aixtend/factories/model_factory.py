@@ -37,7 +37,7 @@ class ModelFactory:
 
     @staticmethod
     def _create_model_from_response(response: dict) -> Model:
-        """Coverts response Json to 'Model' object
+        """Converts response Json to 'Model' object
 
         Args:
             response (dict): Json from API

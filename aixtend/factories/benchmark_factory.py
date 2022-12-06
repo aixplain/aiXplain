@@ -41,7 +41,7 @@ class BenchmarkFactory:
 
 
     def _create_benchmark_job_from_response(self, response: dict) -> BenchmarkJob:
-        """Coverts response Json to 'BenchmarkJob' object
+        """Converts response Json to 'BenchmarkJob' object
 
         Args:
             response (dict): Json from API
@@ -73,7 +73,7 @@ class BenchmarkFactory:
 
     
     def _create_benchmark_from_response(self, response: dict) -> Benchmark:
-        """Coverts response Json to 'Benchmark' object
+        """Converts response Json to 'Benchmark' object
 
         Args:
             response (dict): Json from API

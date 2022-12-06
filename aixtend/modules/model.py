@@ -211,9 +211,11 @@ class Model:
                 'status': 'IN_PROGRESS',
                 'url': poll_url
             }
-        except:
+        except Exception as e:
             response = { 'status': 'FAILED' }
+            msg = f"Error in request for {name} - {traceback.format_exc()}"
+            logging.error(f"Model Run Async: Error in running for {name}: {e}")
             if resp is not None:
-                response['error'] = resp
+                response['error'] = msg
         return response
     

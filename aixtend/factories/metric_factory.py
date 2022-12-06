@@ -35,7 +35,7 @@ class MetricFactory:
 
     @staticmethod
     def _create_metric_from_response(response: dict) -> Metric:
-        """Coverts response Json to 'Metric' object
+        """Converts response Json to 'Metric' object
 
         Args:
             response (dict): Json from API

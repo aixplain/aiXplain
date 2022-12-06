@@ -35,7 +35,7 @@ class DatasetFactory:
 
     @staticmethod
     def _create_dataset_from_response(response: dict) -> Dataset:
-        """Coverts response Json to 'Dataset' object
+        """Converts response Json to 'Dataset' object
 
         Args:
             response (dict): Json from API
