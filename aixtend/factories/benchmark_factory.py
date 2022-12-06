@@ -168,8 +168,8 @@ class BenchmarkFactory:
         try: 
             url = f"{self.backend_url}/sdk/benchmarks"
             headers = {
-            'Authorization': f"Token {self.api_key}",
-            'Content-Type': 'application/json'
+                'Authorization': f"Token {self.api_key}",
+                'Content-Type': 'application/json'
             }
             payload = json.dumps({
                 "name": name,
@@ -203,8 +203,8 @@ class BenchmarkFactory:
             benhchmark_id = benchmark.id
             url = f"{self.backend_url}/sdk/benchmarks/{benhchmark_id}/start"
             headers = {
-            'Authorization': f"Token {self.api_key}",
-            'Content-Type': 'application/json'
+                'Authorization': f"Token {self.api_key}",
+                'Content-Type': 'application/json'
             }
             r = _request_with_retry("post", url, headers=headers)
             resp = r.json()
@@ -233,8 +233,8 @@ class BenchmarkFactory:
             job_id = benchmarkJob.id
             url = f"{self.backend_url}/sdk/benchmarks/jobs/{job_id}"
             headers = {
-            'Authorization': f"Token {self.api_key}",
-            'Content-Type': 'application/json'
+                'Authorization': f"Token {self.api_key}",
+                'Content-Type': 'application/json'
             }
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()

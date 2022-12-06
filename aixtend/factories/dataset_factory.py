@@ -85,8 +85,8 @@ class DatasetFactory:
             if output_language is not None:
                 url += f"&output={output_language}"
             headers = {
-            'Authorization': f"Token {self.api_key}",
-            'Content-Type': 'application/json'
+                'Authorization': f"Token {self.api_key}",
+                'Content-Type': 'application/json'
             }
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()

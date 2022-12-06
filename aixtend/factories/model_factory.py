@@ -137,8 +137,8 @@ class ModelFactory:
                 if task in task_param_mapping["ouput"]:
                     filter_params.append({"code" : task_param_mapping["ouput"][task], "value" : output_language})
             headers = {
-            'Authorization': f"Token {self.api_key}",
-            'Content-Type': 'application/json'
+                'Authorization': f"Token {self.api_key}",
+                'Content-Type': 'application/json'
             }
             r = _request_with_retry("get", url, headers=headers, params={"ioFilter" : json.dumps(filter_params)})
             resp = r.json()

@@ -78,8 +78,8 @@ class MetricFactory:
         try:
             url = f"{self.backend_url}/sdk/scores?function={task}"
             headers = {
-            'Authorization': f"Token {self.api_key}",
-            'Content-Type': 'application/json'
+                'Authorization': f"Token {self.api_key}",
+                'Content-Type': 'application/json'
             }
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()
