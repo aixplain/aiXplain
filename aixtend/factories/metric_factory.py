@@ -28,13 +28,12 @@ from aixtend.utils import config
 from aixtend.utils.file_utils import _request_with_retry
 
 class MetricFactory:
-    def __init__(self) -> None:
-        self.api_key = config.TEAM_API_KEY
-        self.backend_url = config.BENCHMARKS_BACKEND_URL
+    api_key = config.TEAM_API_KEY
+    backend_url = config.BENCHMARKS_BACKEND_URL
     
 
-    @staticmethod
-    def _create_metric_from_response(response: dict) -> Metric:
+    @classmethod
+    def _create_metric_from_response(cls, response: dict) -> Metric:
         """Converts response Json to 'Metric' object
 
         Args:
@@ -46,7 +45,8 @@ class MetricFactory:
         return Metric(response['id'], response['name'], response['description'])
     
 
-    def create_metric_from_id(self, metric_id: str) -> Metric:
+    @classmethod
+    def create_metric_from_id(cls, metric_id: str) -> Metric:
         """Create a 'Metric' object from metric id
 
         Args:
@@ -55,18 +55,19 @@ class MetricFactory:
         Returns:
             Metric: Created 'Metric' object
         """
-        url = f"{self.backend_url}/sdk/scores/{metric_id}"
+        url = f"{cls.backend_url}/sdk/scores/{metric_id}"
         headers = {
-            'Authorization': f"Token {self.api_key}",
+            'Authorization': f"Token {cls.api_key}",
             'Content-Type': 'application/json'
         }
         r = _request_with_retry("get", url, headers=headers)
         resp = r.json()
-        metric = self._create_metric_from_response(resp)
+        metric = cls._create_metric_from_response(resp)
         return metric
 
 
-    def list_metrics(self, task:str) -> List[Metric]:
+    @classmethod
+    def list_metrics(cls, task:str) -> List[Metric]:
         """Get list of supported metrics for a given task
 
         Args:
@@ -76,16 +77,16 @@ class MetricFactory:
             List[Metric]: List of supported metrics
         """
         try:
-            url = f"{self.backend_url}/sdk/scores?function={task}"
+            url = f"{cls.backend_url}/sdk/scores?function={task}"
             headers = {
-                'Authorization': f"Token {self.api_key}",
+                'Authorization': f"Token {cls.api_key}",
                 'Content-Type': 'application/json'
             }
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()
             logging.info(f"Listing Metrics: Status of getting metrics for {task} : {resp}")
             all_metrics = resp["results"]
-            metric_list = [self._create_metric_from_response(metric_info_json) for metric_info_json in all_metrics]
+            metric_list = [cls._create_metric_from_response(metric_info_json) for metric_info_json in all_metrics]
             return metric_list
         except Exception as e:
             error_message = f"Listing Metrics: Error in getting metrics for {task} : {e}"

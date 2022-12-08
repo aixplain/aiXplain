@@ -28,13 +28,12 @@ from aixtend.utils import config
 from aixtend.utils.file_utils import _request_with_retry
 
 class DatasetFactory:
-    def __init__(self) -> None:
-        self.api_key = config.TEAM_API_KEY
-        self.backend_url = config.BENCHMARKS_BACKEND_URL
+    api_key = config.TEAM_API_KEY
+    backend_url = config.BENCHMARKS_BACKEND_URL
     
 
-    @staticmethod
-    def _create_dataset_from_response(response: dict) -> Dataset:
+    @classmethod
+    def _create_dataset_from_response(cls, response: dict) -> Dataset:
         """Converts response Json to 'Dataset' object
 
         Args:
@@ -46,7 +45,8 @@ class DatasetFactory:
         return Dataset(response['id'], response['name'], response['description'])
 
     
-    def create_dataset_from_id(self, dataset_id: str) -> Dataset:
+    @classmethod
+    def create_dataset_from_id(cls, dataset_id: str) -> Dataset:
         """Create a 'Dataset' object from dataset id
 
         Args:
@@ -55,18 +55,19 @@ class DatasetFactory:
         Returns:
             Dataset: Created 'Dataset' object
         """
-        url = f"{self.backend_url}/sdk/datasets/{dataset_id}"
+        url = f"{cls.backend_url}/sdk/datasets/{dataset_id}"
         headers = {
-            'Authorization': f"Token {self.api_key}",
+            'Authorization': f"Token {cls.api_key}",
             'Content-Type': 'application/json'
         }
         r = _request_with_retry("get", url, headers=headers)
         resp = r.json()
-        dataset = self._create_dataset_from_response(resp)
+        dataset = cls._create_dataset_from_response(resp)
         return dataset
     
 
-    def get_datasets_from_page(self, page_number: int, task: str, input_language: str = None, output_language: str = None) -> List[Dataset]:
+    @classmethod
+    def get_datasets_from_page(cls, page_number: int, task: str, input_language: str = None, output_language: str = None) -> List[Dataset]:
         """Get the list of datasets from a given page. Additional task and language filters can be also be provided
 
         Args:
@@ -79,20 +80,20 @@ class DatasetFactory:
             List[Dataset]: List of datasets based on given filters
         """
         try:
-            url = f"{self.backend_url}/sdk/datasets?pageNumber={page_number}&function={task}"
+            url = f"{cls.backend_url}/sdk/datasets?pageNumber={page_number}&function={task}"
             if input_language is not None:
                 url += f"&input={input_language}"
             if output_language is not None:
                 url += f"&output={output_language}"
             headers = {
-                'Authorization': f"Token {self.api_key}",
+                'Authorization': f"Token {cls.api_key}",
                 'Content-Type': 'application/json'
             }
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()
             logging.info(f"Listing Datasets: Status of getting Datasets on Page {page_number} for {task} : {resp}")
             all_datasets = resp["results"]
-            dataset_list = [self._create_dataset_from_response(dataset_info_json) for dataset_info_json in all_datasets]
+            dataset_list = [cls._create_dataset_from_response(dataset_info_json) for dataset_info_json in all_datasets]
             return dataset_list
         except Exception as e:
             error_message = f"Listing Datasets: Error in getting Datasets on Page {page_number} for {task} : {e}"
@@ -100,7 +101,8 @@ class DatasetFactory:
             return []
 
 
-    def get_first_k_datasets(self, k: int, task: str, input_language: str = None, output_language: str = None) -> List[Dataset]:
+    @classmethod
+    def get_first_k_datasets(cls, k: int, task: str, input_language: str = None, output_language: str = None) -> List[Dataset]:
         """Gets the first k given datasets based on the provided task and language filters
 
         Args:
@@ -116,7 +118,7 @@ class DatasetFactory:
             dataset_list = []
             assert k > 0
             for page_number in range(k//10 + 1):
-                dataset_list += self.get_datasets_from_page(page_number, task, input_language, output_language)
+                dataset_list += cls.get_datasets_from_page(page_number, task, input_language, output_language)
             return dataset_list
         except Exception as e:
             error_message = f"Listing Datasets: Error in getting {k} Datasets for {task} : {e}"
