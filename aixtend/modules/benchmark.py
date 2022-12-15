@@ -20,6 +20,11 @@ Date: October 25th 2022
 Description:
     Benchmark Class
 """
+import time
+import json
+import requests
+import logging
+import traceback
 import pandas as pd
 from typing import List
 from aixtend.modules.benchmark_job import BenchmarkJob

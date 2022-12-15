@@ -1,4 +1,4 @@
-__author__ = "lucaspavanelli"
+__author__='lucaspavanelli'
 
 """
 Copyright 2022 The aiXplain SDK authors
@@ -24,10 +24,10 @@ Description:
 from aixtend.modules.pipeline import Pipeline
 from aixtend.utils.config import PIPELINES_RUN_URL
 
-
 class PipelineFactory:
+
     @staticmethod
-    def create_from_api_key(api_key: str, url: str = PIPELINES_RUN_URL) -> Pipeline:
+    def initialize(api_key: str, url: str = PIPELINES_RUN_URL) -> Pipeline:
         """
         params:
         ---

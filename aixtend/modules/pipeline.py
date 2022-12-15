@@ -1,4 +1,4 @@
-__author__ = "lucaspavanelli"
+__author__='lucaspavanelli'
 
 """
 Copyright 2022 The aiXplain SDK authors
@@ -23,10 +23,10 @@ Description:
 
 import time
 import json
+import requests
 import logging
 from aixtend.utils.file_utils import _request_with_retry
 from typing import Union
-
 
 class Pipeline:
     def __init__(self, api_key: str, url: str) -> None:
@@ -42,14 +42,14 @@ class Pipeline:
     def __polling(self, poll_url: str, name: str = "pipeline_process", wait_time: float = 1.0, timeout: float = 20000.0):
         """
         Keeps polling the platform to check whether an asynchronous call is done.
-
+        
         params:
         ---
             poll_url: polling URL
             name: Optional. ID given to a call
             wait_time: wait time in seconds between polling calls
             timeout: total polling time
-
+            
         return:
         ---
             success: Boolean variable indicating whether the call finished successfully or not
@@ -58,12 +58,12 @@ class Pipeline:
         logging.debug(f"Start polling for {name} ")
         start, end = time.time(), time.time()
         completed = False
-        response_body = {"status": "FAILED"}
-        while not completed and (end - start) < timeout:
+        response_body = { 'status': 'FAILED' }
+        while not completed and (end - start)<timeout:
             try:
                 response_body = self.poll(poll_url, name=name)
                 logging.debug(f"Status of polling for {name} : {response_body}")
-                completed = response_body["completed"]
+                completed = response_body['completed']
 
                 end = time.time()
                 time.sleep(wait_time)
@@ -71,8 +71,8 @@ class Pipeline:
                     wait_time *= 1.1
             except Exception as e:
                 logging.error(f"ERROR: polling for {name} : Continue")
-
-        if response_body and response_body["status"] == "SUCCESS":
+        
+        if response_body and response_body['status'] == 'SUCCESS':
             try:
                 logging.debug(f"Final status of polling for {name} : SUCCESS - {response_body}")
             except Exception as e:
@@ -81,61 +81,67 @@ class Pipeline:
             logging.error(f"ERROR: Final status of polling for {name} : No response in {timeout} seconds - {response_body}")
         return response_body
 
+
     def poll(self, poll_url: str, name: str = "pipeline_process"):
         """
         Poll the platform to check whether an asynchronous call is done.
-
+        
         params:
         ---
             poll_url: polling URL
             name: Optional. ID given to a call
-
+            
         return:
         ---
             resp: response obtained by polling call
         """
-        headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}
+        headers = {
+            'x-api-key': self.api_key,
+            'Content-Type': 'application/json'
+        }
         r = _request_with_retry("get", poll_url, headers=headers)
         try:
             resp = r.json()
             logging.info(f"Status of polling for {name} : {resp}")
         except:
-            resp = {"status": "FAILED"}
+            resp = { 'status': 'FAILED' }
         return resp
+
 
     def run(self, data: Union[str, dict], name: str = "pipeline_process", timeout: float = 20000.0):
         """
         Runs a pipeline call.
-
+        
         params:
         ---
             data: link to the input data
             name: Optional. ID given to a call
             timeout: total polling time
         """
-        start = time.time()
-        try:
-            success = False
+        start = time.time()        
+        try:    
+            success = False       
             response = self.run_async(data, name=name)
-            if response["status"] == "FAILED":
+            if response['status'] == 'FAILED':
                 end = time.time()
-                response["elapsed_time"] = end - start
+                response['elapsed_time'] = end - start
                 return response
-            poll_url = response["url"]
+            poll_url = response['url']
             end = time.time()
             response = self.__polling(poll_url, name=name, timeout=timeout)
             return response
         except Exception as e:
-            error_message = f"Error in request for {name} "
+            error_message = f'Error in request for {name} '
             logging.error(error_message)
             logging.exception(error_message)
             end = time.time()
-            return {"status": "FAILED", "error": error_message, "elapsed_time": end - start}
+            return { 'status': 'FAILED', 'error': error_message, 'elapsed_time': end - start }
+
 
     def run_async(self, data: Union[str, dict], name: str = "pipeline_process"):
         """
         Runs asynchronously a pipeline call.
-
+        
         params:
         ---
             data: link to the input data
@@ -145,7 +151,10 @@ class Pipeline:
         ---
             poll_url: polling URL
         """
-        headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}
+        headers = {
+            'x-api-key': self.api_key,
+            'Content-Type': 'application/json'
+        }
         if isinstance(data, dict):
             payload = json.dumps(data)
         else:
@@ -153,20 +162,23 @@ class Pipeline:
                 data_json = json.loads(data)
                 payload = data
             except Exception as e:
-                payload = json.dumps({"data": data})
-
+                payload = json.dumps({ "data": data })
+                
         logging.info(f"Start service for {name}  - {self.url} - {payload}")
-        r = _request_with_retry("post", self.url, headers=headers, data=payload)
+        r = _request_with_retry("get", poll_url, headers=headers, data=payload)
 
         resp = None
         try:
             resp = r.json()
-            logging.info(f"Result of request for {name}  - {r.status_code} - {resp}")
-
-            poll_url = resp["url"]
-            response = {"status": "IN_PROGRESS", "url": poll_url}
+            logging.info(f'Result of request for {name}  - {r.status_code} - {resp}')
+        
+            poll_url = resp['url']
+            response = {
+                'status': 'IN_PROGRESS',
+                'url': poll_url
+            }
         except:
-            response = {"status": "FAILED"}
+            response = { 'status': 'FAILED' }
             if resp is not None:
-                response["error"] = resp
+                response['error'] = resp
         return response

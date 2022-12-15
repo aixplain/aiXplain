@@ -1,4 +1,4 @@
-__author__ = "lucaspavanelli"
+__author__='lucaspavanelli'
 
 """
 Copyright 2022 The aiXplain SDK authors
@@ -24,52 +24,54 @@ import time
 from aixtend.utils.config import MODELS_RUN_URL, MODEL_API_KEY
 from aixtend.factories.model_factory import ModelFactory
 
-
 def test_mt1():
-    model = ModelFactory.create_model_from_id(model_id="61b097551efecf30109d32da")
-    ModelFactory.subscribe_to_model(model=model)
+    url = MODELS_RUN_URL
+    api_key = MODEL_API_KEY
 
-    print(model.subscription_id, model.api_key)
+    model = ModelFactory.initialize(api_key=api_key, url=url)
 
-    data = "Hello World!"
+    data = 'Hello World!'
     response = model.run(data)
-    assert response["status"] == "SUCCESS"
-
+    assert response['status'] == 'SUCCESS'
 
 def test_mt2():
-    model = ModelFactory.create_model_from_id(model_id="61b097551efecf30109d32da")
-    ModelFactory.subscribe_to_model(model=model)
+    url = MODELS_RUN_URL
+    api_key = MODEL_API_KEY
 
-    data = "https://aixplain-platform-assets.s3.amazonaws.com/samples/en/bestofyou.txt"
+    model = ModelFactory.initialize(api_key=api_key, url=url)
+
+    data = 'https://aixplain-platform-assets.s3.amazonaws.com/samples/en/bestofyou.txt'
     response = model.run(data)
-    assert response["status"] == "SUCCESS"
-
+    assert response['status'] == 'SUCCESS'
 
 def test_mt1_async():
-    model = ModelFactory.create_model_from_id(model_id="61b097551efecf30109d32da")
-    ModelFactory.subscribe_to_model(model=model)
+    url = MODELS_RUN_URL
+    api_key = MODEL_API_KEY
 
-    data = "Hello World!"
+    model = ModelFactory.initialize(api_key=api_key, url=url)
+
+    data = 'Hello World!'
     response = model.run_async(data)
-    poll_url = response["url"]
+    poll_url = response['url']
     completed = False
     while not completed:
         response = model.poll(poll_url)
-        completed = response["completed"]
+        completed = response['completed']
         time.sleep(3)
-    assert response["status"] == "SUCCESS"
-
+    assert response['status'] == 'SUCCESS'
 
 def test_mt2_async():
-    model = ModelFactory.create_model_from_id(model_id="61b097551efecf30109d32da")
-    ModelFactory.subscribe_to_model(model=model)
+    url = MODELS_RUN_URL
+    api_key = MODEL_API_KEY
 
-    data = "https://aixplain-platform-assets.s3.amazonaws.com/samples/en/bestofyou.txt"
+    model = ModelFactory.initialize(api_key=api_key, url=url)
+
+    data = 'https://aixplain-platform-assets.s3.amazonaws.com/samples/en/bestofyou.txt'
     response = model.run_async(data)
-    poll_url = response["url"]
+    poll_url = response['url']
     completed = False
     while not completed:
         response = model.poll(poll_url)
-        completed = response["completed"]
+        completed = response['completed']
         time.sleep(3)
-    assert response["status"] == "SUCCESS"
+    assert response['status'] == 'SUCCESS'
