@@ -23,7 +23,6 @@ Description:
 
 import time
 import json
-import requests
 import logging
 import traceback
 from typing import List

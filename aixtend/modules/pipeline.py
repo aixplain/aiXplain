@@ -23,7 +23,6 @@ Description:
 
 import time
 import json
-import requests
 import logging
 from aixtend.utils.file_utils import _request_with_retry
 from typing import Union
