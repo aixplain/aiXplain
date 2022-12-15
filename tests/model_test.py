@@ -26,10 +26,10 @@ from aixtend.factories.model_factory import ModelFactory
 
 
 def test_mt1():
-    url = MODELS_RUN_URL
-    api_key = MODEL_API_KEY
+    model = ModelFactory.create_model_from_id(model_id="61b097551efecf30109d32da")
+    ModelFactory.subscribe_to_model(model=model)
 
-    model = ModelFactory.create_from_api_key(api_key=api_key, url=url)
+    print(model.subscription_id, model.api_key)
 
     data = "Hello World!"
     response = model.run(data)
@@ -37,10 +37,8 @@ def test_mt1():
 
 
 def test_mt2():
-    url = MODELS_RUN_URL
-    api_key = MODEL_API_KEY
-
-    model = ModelFactory.create_from_api_key(api_key=api_key, url=url)
+    model = ModelFactory.create_model_from_id(model_id="61b097551efecf30109d32da")
+    ModelFactory.subscribe_to_model(model=model)
 
     data = "https://aixplain-platform-assets.s3.amazonaws.com/samples/en/bestofyou.txt"
     response = model.run(data)
@@ -48,10 +46,8 @@ def test_mt2():
 
 
 def test_mt1_async():
-    url = MODELS_RUN_URL
-    api_key = MODEL_API_KEY
-
-    model = ModelFactory.create_from_api_key(api_key=api_key, url=url)
+    model = ModelFactory.create_model_from_id(model_id="61b097551efecf30109d32da")
+    ModelFactory.subscribe_to_model(model=model)
 
     data = "Hello World!"
     response = model.run_async(data)
@@ -65,10 +61,8 @@ def test_mt1_async():
 
 
 def test_mt2_async():
-    url = MODELS_RUN_URL
-    api_key = MODEL_API_KEY
-
-    model = ModelFactory.create_from_api_key(api_key=api_key, url=url)
+    model = ModelFactory.create_model_from_id(model_id="61b097551efecf30109d32da")
+    ModelFactory.subscribe_to_model(model=model)
 
     data = "https://aixplain-platform-assets.s3.amazonaws.com/samples/en/bestofyou.txt"
     response = model.run_async(data)

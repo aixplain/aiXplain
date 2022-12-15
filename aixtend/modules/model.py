@@ -223,7 +223,7 @@ class Model:
         except Exception as e:
             response = {"status": "FAILED"}
             msg = f"Error in request for {name} - {traceback.format_exc()}"
-            logging.error(f"Model Run Async: Error in running for {name}: {e}")
+            logging.error(f"Model Run Async: Error in running for {name}: {resp}")
             if resp is not None:
                 response["error"] = msg
         return response

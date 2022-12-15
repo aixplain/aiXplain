@@ -57,22 +57,22 @@ class ModelFactory:
         Returns:
             Model: Created 'Model' object
         """
-        url = f"{cls.backend_url}/sdk/inventory/models/{model_id}"
-        headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
-        r = _request_with_retry("get", url, headers=headers)
-        resp = r.json()
-        model = cls._create_model_from_response(resp)
-        return model
-
-    @classmethod
-    def create_from_api_key(cls, api_key: str, url: str = MODELS_RUN_URL) -> Model:
-        """
-        params:
-        ---
-            api_key: API key of the models
-            url: API endpoint
-        """
-        return Model(id="", name="", supplier="", api_key=api_key, subscription_id="", url=url)
+        try:
+            url = f"{cls.backend_url}/sdk/inventory/models/{model_id}"
+            headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
+            r = _request_with_retry("get", url, headers=headers)
+            resp = r.json()
+            model = cls._create_model_from_response(resp)
+            return model
+        except:
+            if "statusCode" in resp:
+                status_code = resp["statusCode"]
+                message = resp["message"]
+                message = f"Model Creation: Status {status_code} - {message}"
+            else:
+                message = "Model Creation: Unspecified Error"
+            logging.error(message)
+            raise Exception(f"Status {status_code}: {message}")
 
     @classmethod
     def subscribe_to_model(cls, model: Model) -> None:
@@ -82,7 +82,7 @@ class ModelFactory:
             model (Model): 'Model' object to subscribe to
         """
         if model._is_subscribed():
-            logging.info(f"Model Subscription: {model.name} is already subsribed.")
+            logging.info(f"Model Subscription: {model.name} is already subscribed.")
             return
         url = f"{cls.backend_url}/sdk/inventory/models/{model.id}/enable"
         headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
