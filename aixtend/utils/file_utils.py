@@ -15,6 +15,7 @@ limitations under the License.
 """
 
 import os
+import tempfile
 from pathlib import Path
 from uuid import uuid4
 import requests
