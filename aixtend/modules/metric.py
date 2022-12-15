@@ -21,12 +21,7 @@ Description:
     Metric Class
 """
 
-import time
-import json
 from typing import List
-import requests
-import logging
-import traceback
 from aixtend.utils.file_utils import _request_with_retry
 
 class Metric:

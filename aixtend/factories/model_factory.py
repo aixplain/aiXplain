@@ -1,4 +1,4 @@
-__author__='lucaspavanelli'
+__author__ = "lucaspavanelli"
 
 """
 Copyright 2022 The aiXplain SDK authors
@@ -33,7 +33,6 @@ class ModelFactory:
     api_key = config.TEAM_API_KEY
     backend_url = config.BENCHMARKS_BACKEND_URL
 
-    
     @classmethod
     def _create_model_from_response(cls, response: dict) -> Model:
         """Converts response Json to 'Model' object
@@ -46,8 +45,7 @@ class ModelFactory:
         """
         sub_api_key = response["subscription"].get("apiKey", None) if "subscription" in response else None
         sub_id = response["subscription"].get("id", None) if "subscription" in response else None
-        return Model(response['id'], response['name'], response['supplier']['id'], api_key=sub_api_key, subscription_id=sub_id)
-    
+        return Model(response["id"], response["name"], response["supplier"]["id"], api_key=sub_api_key, subscription_id=sub_id)
 
     @classmethod
     def create_model_from_id(cls, model_id: str) -> Model:
@@ -59,16 +57,22 @@ class ModelFactory:
         Returns:
             Model: Created 'Model' object
         """
-        url = f"{cls.backend_url}/sdk/inventory/models/{model_id}"
-        headers = {
-            'Authorization': f"Token {cls.api_key}",
-            'Content-Type': 'application/json'
-        }
-        r = _request_with_retry("get", url, headers=headers)
-        resp = r.json()
-        model = cls._create_model_from_response(resp)
-        return model
-
+        try:
+            url = f"{cls.backend_url}/sdk/inventory/models/{model_id}"
+            headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
+            r = _request_with_retry("get", url, headers=headers)
+            resp = r.json()
+            model = cls._create_model_from_response(resp)
+            return model
+        except:
+            if "statusCode" in resp:
+                status_code = resp["statusCode"]
+                message = resp["message"]
+                message = f"Model Creation: Status {status_code} - {message}"
+            else:
+                message = "Model Creation: Unspecified Error"
+            logging.error(message)
+            raise Exception(f"Status {status_code}: {message}")
 
     @classmethod
     def subscribe_to_model(cls, model: Model) -> None:
@@ -78,18 +82,14 @@ class ModelFactory:
             model (Model): 'Model' object to subscribe to
         """
         if model._is_subscribed():
-            logging.info(f"Model Subscription: {model.name} is already subsribed.")
+            logging.info(f"Model Subscription: {model.name} is already subscribed.")
             return
         url = f"{cls.backend_url}/sdk/inventory/models/{model.id}/enable"
-        headers = {
-            'Authorization': f"Token {cls.api_key}",
-            'Content-Type': 'application/json'
-        }
+        headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
         r = _request_with_retry("post", url, headers=headers)
         resp = r.json()
         model.subscription_id = resp["id"]
         model.api_key = resp["apiKey"]
-    
 
     @classmethod
     def unsubscribe_to_model(cls, model: Model) -> None:
@@ -102,19 +102,16 @@ class ModelFactory:
             logging.info(f"Model Unsubscription: {model.name} is not subsribed to.")
             return
         url = f"{cls.backend_url}/sdk/inventory/models/{model.subscription_id}/disable"
-        headers = {
-            'Authorization': f"Token {cls.api_key}",
-            'Content-Type': 'application/json'
-        }
+        headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
         r = _request_with_retry("post", url, headers=headers)
         resp = r.json()
         model.subscription_id = None
         model.api_key = None
-        
 
-    
-    @classmethod    
-    def get_models_from_page(cls, page_number: int, task: str, input_language: str = None, output_language: str = None) -> List[Model]:
+    @classmethod
+    def get_models_from_page(
+        cls, page_number: int, task: str, input_language: str = None, output_language: str = None
+    ) -> List[Model]:
         """Get the list of models from a given page. Additional task and language filters can be also be provided
 
         Args:
@@ -130,20 +127,17 @@ class ModelFactory:
             url = f"{cls.backend_url}/sdk/inventory/models/?pageNumber={page_number}&function={task}"
             filter_params = []
             task_param_mapping = {
-                "input":{"translation":"sourcelanguage", "speech-recognition":"language", "sentiment-analysis":"language"},
-                "ouput":{"translation":"targetlanguage"}
+                "input": {"translation": "sourcelanguage", "speech-recognition": "language", "sentiment-analysis": "language"},
+                "ouput": {"translation": "targetlanguage"},
             }
             if input_language is not None:
                 if task in task_param_mapping["input"]:
-                    filter_params.append({"code" : task_param_mapping["input"][task], "value" : input_language})
+                    filter_params.append({"code": task_param_mapping["input"][task], "value": input_language})
             if output_language is not None:
                 if task in task_param_mapping["ouput"]:
-                    filter_params.append({"code" : task_param_mapping["ouput"][task], "value" : output_language})
-            headers = {
-                'Authorization': f"Token {cls.api_key}",
-                'Content-Type': 'application/json'
-            }
-            r = _request_with_retry("get", url, headers=headers, params={"ioFilter" : json.dumps(filter_params)})
+                    filter_params.append({"code": task_param_mapping["ouput"][task], "value": output_language})
+            headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
+            r = _request_with_retry("get", url, headers=headers, params={"ioFilter": json.dumps(filter_params)})
             resp = r.json()
             logging.info(f"Listing Models: Status of getting Models on Page {page_number} for {task} : {resp}")
             all_models = resp["items"]
@@ -153,7 +147,6 @@ class ModelFactory:
             error_message = f"Listing Models: Error in getting Models on Page {page_number} for {task} : {e}"
             logging.error(error_message)
             return []
-
 
     @classmethod
     def get_first_k_models(cls, k: int, task: str, input_language: str = None, output_language: str = None) -> List[Model]:
@@ -171,7 +164,7 @@ class ModelFactory:
         try:
             model_list = []
             assert k > 0
-            for page_number in range(k//10 + 1):
+            for page_number in range(k // 10 + 1):
                 model_list += cls.get_models_from_page(page_number, task, input_language, output_language)
             return model_list
         except Exception as e:
