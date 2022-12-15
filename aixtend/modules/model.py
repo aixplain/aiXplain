@@ -29,7 +29,7 @@ import traceback
 from typing import List
 from aixtend.utils import config
 from aixtend.utils.file_utils import _request_with_retry
-
+from typing import Union
 
 class Model:  
     def __init__(self, id:str, name:str, supplier:str, api_key: str = None, subscription_id:str = None, **additional_info) -> None:
@@ -148,7 +148,7 @@ class Model:
         return resp
 
 
-    def run(self, data: str, name: str = "model_process", timeout: float = 300) -> dict:
+    def run(self, data: Union[str, dict], name: str = "model_process", timeout: float = 300) -> dict:
         """Runs a model call.
 
         Args:
@@ -180,7 +180,8 @@ class Model:
             end = time.time()
             return { 'status': 'FAILED', 'error': msg, 'elapsed_time': end - start }
 
-    def run_async(self, data: str, name: str = "model_process") -> dict:
+
+    def run_async(self, data: Union[str, dict], name: str = "model_process") -> dict:
         """Runs asynchronously a model call.
 
         Args:
@@ -198,9 +199,19 @@ class Model:
             'x-api-key': self.api_key,
             'Content-Type': 'application/json'
         }
-        payload = json.dumps({ "data": data })
+        
+        if isinstance(data, dict):
+            payload = json.dumps(data)
+        else:
+            try:
+                data_json = json.loads(data)
+                payload = data
+            except:
+                payload = json.dumps({ "data": data })
+                
         r = _request_with_retry("post", self.url, headers=headers, data=payload)
         logging.info(f"Model Run Async: Start service for {name} - {self.url} - {payload}")
+
         resp = None
         try:
             resp = r.json()
