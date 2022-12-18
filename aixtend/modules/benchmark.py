@@ -55,7 +55,7 @@ class Benchmark:
         self.additional_info = additional_info
 
 
-    def get_benchmark_info(self) -> dict:
+    def get_asset_info(self) -> dict:
         """Get the dataset info as a Dictionary
 
         Returns:

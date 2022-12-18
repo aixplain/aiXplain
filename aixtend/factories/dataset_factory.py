@@ -46,7 +46,7 @@ class DatasetFactory:
 
     
     @classmethod
-    def create_dataset_from_id(cls, dataset_id: str) -> Dataset:
+    def create_asset_from_id(cls, dataset_id: str) -> Dataset:
         """Create a 'Dataset' object from dataset id
 
         Args:
@@ -67,7 +67,7 @@ class DatasetFactory:
     
 
     @classmethod
-    def get_datasets_from_page(cls, page_number: int, task: str, input_language: str = None, output_language: str = None) -> List[Dataset]:
+    def get_assets_from_page(cls, page_number: int, task: str, input_language: str = None, output_language: str = None) -> List[Dataset]:
         """Get the list of datasets from a given page. Additional task and language filters can be also be provided
 
         Args:
@@ -102,7 +102,7 @@ class DatasetFactory:
 
 
     @classmethod
-    def get_first_k_datasets(cls, k: int, task: str, input_language: str = None, output_language: str = None) -> List[Dataset]:
+    def get_first_k_assets(cls, k: int, task: str, input_language: str = None, output_language: str = None) -> List[Dataset]:
         """Gets the first k given datasets based on the provided task and language filters
 
         Args:
@@ -118,7 +118,7 @@ class DatasetFactory:
             dataset_list = []
             assert k > 0
             for page_number in range(k//10 + 1):
-                dataset_list += cls.get_datasets_from_page(page_number, task, input_language, output_language)
+                dataset_list += cls.get_assets_from_page(page_number, task, input_language, output_language)
             return dataset_list
         except Exception as e:
             error_message = f"Listing Datasets: Error in getting {k} Datasets for {task} : {e}"

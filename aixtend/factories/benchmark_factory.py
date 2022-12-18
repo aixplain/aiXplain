@@ -25,6 +25,7 @@ import logging
 from typing import List
 import json
 import pandas as pd
+from pathlib import Path
 from aixtend.modules.benchmark import Benchmark, Dataset, Model, Metric
 from aixtend.modules.benchmark_job import BenchmarkJob
 from aixtend.factories.dataset_factory import DatasetFactory
@@ -83,9 +84,9 @@ class BenchmarkFactory:
         Returns:
             Benchmark: Coverted 'Benchmark' object
         """
-        model_list = [ModelFactory().create_model_from_id(model_info["id"]) for model_info in response['model']]
-        dataset_list = [DatasetFactory().create_dataset_from_id(dataset_id) for dataset_id in response["target"]]
-        metric_list = [MetricFactory().create_metric_from_id(metric_info["id"]) for metric_info in response['score']]
+        model_list = [ModelFactory().create_asset_from_id(model_info["id"]) for model_info in response['model']]
+        dataset_list = [DatasetFactory().create_asset_from_id(dataset_id) for dataset_id in response["target"]]
+        metric_list = [MetricFactory().create_asset_from_id(metric_info["id"]) for metric_info in response['score']]
         job_list = cls._get_benchmark_jobs_from_benchmark_id(response['id'])
         return Benchmark(response['id'], response['name'], model_list, dataset_list, metric_list, job_list)
 
@@ -255,7 +256,10 @@ class BenchmarkFactory:
                 return None
             csv_url = resp['reportUrl']
             if returnDataFrame:
-                df = pd.read_csv(csv_url)
+                downloaded_path = save_file(csv_url, save_path)
+                df = pd.read_csv(downloaded_path)
+                if save_path is None:
+                    Path(downloaded_path).unlink()
                 return df
             else:
                 downloaded_path = save_file(csv_url, save_path)
