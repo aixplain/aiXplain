@@ -46,7 +46,7 @@ class MetricFactory:
     
 
     @classmethod
-    def create_metric_from_id(cls, metric_id: str) -> Metric:
+    def create_asset_from_id(cls, metric_id: str) -> Metric:
         """Create a 'Metric' object from metric id
 
         Args:
@@ -67,7 +67,7 @@ class MetricFactory:
 
 
     @classmethod
-    def list_metrics(cls, task:str) -> List[Metric]:
+    def list_assets(cls, task:str) -> List[Metric]:
         """Get list of supported metrics for a given task
 
         Args:

@@ -48,7 +48,7 @@ class ModelFactory:
         return Model(response["id"], response["name"], response["supplier"]["id"], api_key=sub_api_key, subscription_id=sub_id)
 
     @classmethod
-    def create_model_from_id(cls, model_id: str) -> Model:
+    def create_asset_from_id(cls, model_id: str) -> Model:
         """Create a 'Model' object from model id
 
         Args:
@@ -75,7 +75,7 @@ class ModelFactory:
             raise Exception(f"Status {status_code}: {message}")
 
     @classmethod
-    def subscribe_to_model(cls, model: Model) -> None:
+    def subscribe_to_asset(cls, model: Model) -> None:
         """Subscribe to the given model
 
         Args:
@@ -92,7 +92,7 @@ class ModelFactory:
         model.api_key = resp["apiKey"]
 
     @classmethod
-    def unsubscribe_to_model(cls, model: Model) -> None:
+    def unsubscribe_to_asset(cls, model: Model) -> None:
         """Unsubscribe to the given model
 
         Args:
@@ -149,7 +149,7 @@ class ModelFactory:
             return []
 
     @classmethod
-    def get_first_k_models(cls, k: int, task: str, input_language: str = None, output_language: str = None) -> List[Model]:
+    def get_first_k_assets(cls, k: int, task: str, input_language: str = None, output_language: str = None) -> List[Model]:
         """Gets the first k given models based on the provided task and language filters
 
         Args:

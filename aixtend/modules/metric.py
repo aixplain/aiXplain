@@ -39,7 +39,7 @@ class Metric:
         self.description = description
         self.additional_info = additional_info
 
-    def get_metric_info(self) -> dict:
+    def get_asset_info(self) -> dict:
         """Get the Metric info as a Dictionary
 
         Returns:

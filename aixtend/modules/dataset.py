@@ -40,7 +40,7 @@ class Dataset:
         self.description = description
         self.additional_info = additional_info
 
-    def get_dataset_info(self) -> dict:
+    def get_asset_info(self) -> dict:
         """Get the dataset info as a Dictionary
 
         Returns:

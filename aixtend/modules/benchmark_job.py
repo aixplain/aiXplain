@@ -37,7 +37,7 @@ class BenchmarkJob:
         self.additional_info = additional_info
     
 
-    def get_job_info(self) -> dict:
+    def get_asset_info(self) -> dict:
         """Get the Benchmark Job info as a Dictionary
 
         Returns:

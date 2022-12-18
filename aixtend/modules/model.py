@@ -67,7 +67,8 @@ class Model:
         """
         return self.api_key is not None
 
-    def get_model_info(self) -> dict:
+
+    def get_asset_info(self) -> dict:
         """Get the model info as a Dictionary
 
         Returns:
