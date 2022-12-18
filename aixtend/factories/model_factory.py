@@ -64,7 +64,7 @@ class ModelFactory:
             resp = r.json()
             model = cls._create_model_from_response(resp)
             return model
-        except:
+        except Exception as e:
             if "statusCode" in resp:
                 status_code = resp["statusCode"]
                 message = resp["message"]
