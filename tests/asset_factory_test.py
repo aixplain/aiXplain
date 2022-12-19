@@ -80,6 +80,16 @@ def test_k_asset_listing():
             for asset in asset_list:
                 assert asset.id == asset_id
 
+def test_metric_listing():
+    task = "test_task"
+    asset_id = "test_asset_id"
+    with requests_mock.Mocker() as mock:
+        mock_json = json.load(open(Path("tests\mock_responses\list_assets_responses.json")))['metric']
+        url = f"{config.BENCHMARKS_BACKEND_URL}/sdk/scores?function={task}"
+        mock.get(url, headers=FIXED_HEADER, json=mock_json)
+        metric_list = MetricFactory.list_assets(task)
+    for metric in metric_list:
+        assert metric.id == asset_id
 
 def test_run_model():
     asset_id = "test_asset_id"
@@ -88,7 +98,6 @@ def test_run_model():
         mock_json = json.load(open(Path("tests\mock_responses\get_asset_info_responses.json")))["model"]
         mock.get(url, headers=FIXED_HEADER, json=mock_json)
         model = ModelFactory.create_asset_from_id(asset_id)
-        ModelFactory.subscribe_to_asset(model=model)
         data = "Hello World!"
         mock_json_start = json.load(open(Path("tests\mock_responses\get_asset_info_responses.json")))["modelStart"]
         headers = {"x-api-key": model.api_key, "Content-Type": "application/json"}
@@ -97,8 +106,22 @@ def test_run_model():
         mock_json_run = json.load(open(Path("tests\mock_responses\get_asset_info_responses.json")))["modelRunResult"]
         mock.get(poll_url, headers=headers, json=mock_json_run, status_code=200)
         response = model.run(data)
-    
     assert response == mock_json_run
 
-    
+def test_ubscribe_and_unsubscribe_to_model():
+    asset_id = "test_asset_id"
+    with requests_mock.Mocker() as mock:
+        url = f"{config.BENCHMARKS_BACKEND_URL}/sdk/inventory/models/{asset_id}"
+        mock_json = json.load(open(Path("tests\mock_responses\get_asset_info_responses.json")))["model"]
+        mock.get(url, headers=FIXED_HEADER, json=mock_json)
+        model = ModelFactory.create_asset_from_id(asset_id)
+        disable_url = f"{config.BENCHMARKS_BACKEND_URL}/sdk/inventory/models/{model.subscription_id}/disable"
+        mock.post(disable_url, headers=FIXED_HEADER, json={})
+        ModelFactory.unsubscribe_to_asset(model=model)
+        assert model._is_subscribed() == False
+        enable_url = f"{config.BENCHMARKS_BACKEND_URL}/sdk/inventory/models/{model.id}/enable"
+        mock.post(enable_url, headers=FIXED_HEADER, json={'id':'test_sub_id', 'apiKey':'test_sub_key'})
+        ModelFactory.subscribe_to_asset(model=model)
+        assert model._is_subscribed() == True
 
+        
