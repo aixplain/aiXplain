@@ -109,7 +109,7 @@ class ModelFactory:
         model.api_key = None
 
     @classmethod
-    def get_models_from_page(
+    def get_assets_from_page(
         cls, page_number: int, task: str, input_language: str = None, output_language: str = None
     ) -> List[Model]:
         """Get the list of models from a given page. Additional task and language filters can be also be provided

@@ -16,15 +16,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-from dotenv import load_dotenv
-
-load_dotenv()
 
 import time
 from aixtend.utils.config import PIPELINES_RUN_URL, PIPELINE_API_KEY
 from aixtend.factories.pipeline_factory import PipelineFactory
+import pytest
 
-
+@pytest.mark.skip()
 def test_mt1():
     url = PIPELINES_RUN_URL
     api_key = PIPELINE_API_KEY
@@ -35,7 +33,7 @@ def test_mt1():
     response = pipeline.run(data)
     assert response["status"] == "SUCCESS"
 
-
+@pytest.mark.skip()
 def test_mt2():
     url = PIPELINES_RUN_URL
     api_key = PIPELINE_API_KEY
@@ -46,7 +44,7 @@ def test_mt2():
     response = pipeline.run(data)
     assert response["status"] == "SUCCESS"
 
-
+@pytest.mark.skip()
 def test_mt1_async():
     url = PIPELINES_RUN_URL
     api_key = PIPELINE_API_KEY
@@ -63,7 +61,7 @@ def test_mt1_async():
         time.sleep(3)
     assert response["status"] == "SUCCESS"
 
-
+@pytest.mark.skip()
 def test_mt2_async():
     url = PIPELINES_RUN_URL
     api_key = PIPELINE_API_KEY

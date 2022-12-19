@@ -41,6 +41,10 @@
             "id": "translation",
             "name": "Translation"
         },
+        "subscription": {
+            "id": "61d76d77e0fb0400128db01e",
+            "apiKey": "test_api_key"
+        },
         "pricing": {
             "price": 0.000015,
             "unitType": "CHAR",
@@ -9984,5 +9988,26 @@
         "index": 1,
         "startedAt": "2022-11-22T06:27:54.747Z",
         "reportUrl": "https://dummylink/results.csv"
-    }
+    },
+    "modelRunResult" : {
+        "completed": true,
+        "data": "Hello World !",
+        "usedCredits": 0.00024,
+        "runTime": 0.228,
+        "rawData": {
+          "from": "en",
+          "to": "fr",
+          "translations": [
+            {
+              "originalText": "Hello World!",
+              "translatedText": "Hello World !"
+            }
+          ]
+        },
+        "status": "SUCCESS"
+      },
+      "modelStart" : {
+        "status": "IN_PROGRESS",
+        "data": "https://dummy-poll-url"
+      }
 }

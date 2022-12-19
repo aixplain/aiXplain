@@ -1,3 +1,5 @@
+__author__='shreyassharma'
+
 import json
 import pytest
 import requests_mock
@@ -79,5 +81,24 @@ def test_k_asset_listing():
                 assert asset.id == asset_id
 
 
+def test_run_model():
+    asset_id = "test_asset_id"
+    with requests_mock.Mocker() as mock:
+        url = f"{config.BENCHMARKS_BACKEND_URL}/sdk/inventory/models/{asset_id}"
+        mock_json = json.load(open(Path("tests\mock_responses\get_asset_info_responses.json")))["model"]
+        mock.get(url, headers=FIXED_HEADER, json=mock_json)
+        model = ModelFactory.create_asset_from_id(asset_id)
+        ModelFactory.subscribe_to_asset(model=model)
+        data = "Hello World!"
+        mock_json_start = json.load(open(Path("tests\mock_responses\get_asset_info_responses.json")))["modelStart"]
+        headers = {"x-api-key": model.api_key, "Content-Type": "application/json"}
+        mock.post(model.url, headers=headers, json=mock_json_start, status_code=200)
+        poll_url = mock_json_start['data']
+        mock_json_run = json.load(open(Path("tests\mock_responses\get_asset_info_responses.json")))["modelRunResult"]
+        mock.get(poll_url, headers=headers, json=mock_json_run, status_code=200)
+        response = model.run(data)
+    
+    assert response == mock_json_run
 
+    
 
