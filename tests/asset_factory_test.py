@@ -36,7 +36,8 @@ def test_asset_creation_from_id():
         AssetFactory = __get_asset_factory(asset_name)
         with requests_mock.Mocker() as mock:
             url = url_dict[asset_name]
-            mock_json = json.load(open(Path("tests\mock_responses\get_asset_info_responses.json")))[asset_name]
+            with open(Path("tests\mock_responses\get_asset_info_responses.json")) as f:
+                mock_json = json.load(f)[asset_name]
             mock.get( url, headers=FIXED_HEADER, json=mock_json)
             asset = AssetFactory.create_asset_from_id(asset_id)
         assert asset.get_asset_info()['id'] == asset_id
@@ -54,7 +55,8 @@ def test_asset_listing_from_page():
         AssetFactory = __get_asset_factory(asset_name)
         with requests_mock.Mocker() as mock:
             url = url_dict[asset_name]
-            mock_json = json.load(open(Path("tests\mock_responses\list_assets_responses.json")))[asset_name]
+            with open(Path("tests\mock_responses\list_assets_responses.json")) as f:
+                mock_json = json.load(f)[asset_name]
             mock.get( url, headers=FIXED_HEADER, json=mock_json)
             asset_list = AssetFactory.get_assets_from_page(page_number, task)
             for asset in asset_list:
@@ -72,7 +74,8 @@ def test_k_asset_listing():
     for asset_name in asset_list:
         AssetFactory = __get_asset_factory(asset_name)
         with requests_mock.Mocker() as mock:
-            mock_json = json.load(open(Path("tests\mock_responses\list_assets_responses.json")))[asset_name]
+            with open(Path("tests\mock_responses\list_assets_responses.json")) as f:
+                mock_json = json.load(f)[asset_name]
             for page_number in range(k//10 + 1):
                 url = url_dict[asset_name].replace("<page_number>", str(page_number))
                 mock.get( url, headers=FIXED_HEADER, json=mock_json)
@@ -84,7 +87,8 @@ def test_metric_listing():
     task = "test_task"
     asset_id = "test_asset_id"
     with requests_mock.Mocker() as mock:
-        mock_json = json.load(open(Path("tests\mock_responses\list_assets_responses.json")))['metric']
+        with open(Path("tests\mock_responses\list_assets_responses.json")) as f:
+            mock_json = json.load(f)['metric']
         url = f"{config.BENCHMARKS_BACKEND_URL}/sdk/scores?function={task}"
         mock.get(url, headers=FIXED_HEADER, json=mock_json)
         metric_list = MetricFactory.list_assets(task)
@@ -95,15 +99,18 @@ def test_run_model():
     asset_id = "test_asset_id"
     with requests_mock.Mocker() as mock:
         url = f"{config.BENCHMARKS_BACKEND_URL}/sdk/inventory/models/{asset_id}"
-        mock_json = json.load(open(Path("tests\mock_responses\get_asset_info_responses.json")))["model"]
+        with open(Path("tests\mock_responses\get_asset_info_responses.json")) as f:
+            mock_json = json.load(f)["model"]
         mock.get(url, headers=FIXED_HEADER, json=mock_json)
         model = ModelFactory.create_asset_from_id(asset_id)
         data = "Hello World!"
-        mock_json_start = json.load(open(Path("tests\mock_responses\get_asset_info_responses.json")))["modelStart"]
+        with open(Path("tests\mock_responses\get_asset_info_responses.json")) as f:
+            mock_json_start = json.load(f)["modelStart"]
         headers = {"x-api-key": model.api_key, "Content-Type": "application/json"}
         mock.post(model.url, headers=headers, json=mock_json_start, status_code=200)
         poll_url = mock_json_start['data']
-        mock_json_run = json.load(open(Path("tests\mock_responses\get_asset_info_responses.json")))["modelRunResult"]
+        with open(Path("tests\mock_responses\get_asset_info_responses.json")) as f:
+            mock_json_run = json.load(f)["modelRunResult"]
         mock.get(poll_url, headers=headers, json=mock_json_run, status_code=200)
         response = model.run(data)
     assert response == mock_json_run
@@ -112,7 +119,8 @@ def test_ubscribe_and_unsubscribe_to_model():
     asset_id = "test_asset_id"
     with requests_mock.Mocker() as mock:
         url = f"{config.BENCHMARKS_BACKEND_URL}/sdk/inventory/models/{asset_id}"
-        mock_json = json.load(open(Path("tests\mock_responses\get_asset_info_responses.json")))["model"]
+        with open(Path("tests\mock_responses\get_asset_info_responses.json")) as f:
+            mock_json = json.load(f)["model"]
         mock.get(url, headers=FIXED_HEADER, json=mock_json)
         model = ModelFactory.create_asset_from_id(asset_id)
         disable_url = f"{config.BENCHMARKS_BACKEND_URL}/sdk/inventory/models/{model.subscription_id}/disable"

@@ -32,18 +32,22 @@ def __mock_benchmark_create_dependecies(mock, asset_id):
     }
     for asset_name in asset_list:
         url = url_dict[asset_name]
-        mock_json = json.load(open(Path("tests\mock_responses\get_asset_info_responses.json")))[asset_name]
+        with open(Path("tests\mock_responses\get_asset_info_responses.json")) as f:
+            mock_json = json.load(f)[asset_name]
         mock.get( url, headers=FIXED_HEADER, json=mock_json)
-        mock_json = json.load(open(Path("tests\mock_responses\get_asset_info_responses.json")))['benchmarkJob']
+        with open(Path("tests\mock_responses\get_asset_info_responses.json")) as f:
+            mock_json = json.load(f)['benchmarkJob']
         url_benchmarkJobs = f"{config.BENCHMARKS_BACKEND_URL}/sdk/benchmarks/{asset_id}/jobs"
         mock.get( url_benchmarkJobs, headers=FIXED_HEADER, json=[mock_json])
 
         url_benchmark = f"{config.BENCHMARKS_BACKEND_URL}/sdk/benchmarks/{asset_id}"
-        mock_json = json.load(open(Path("tests\mock_responses\get_asset_info_responses.json")))['benchmark']
+        with open(Path("tests\mock_responses\get_asset_info_responses.json")) as f:
+            mock_json = json.load(f)['benchmark']
         mock.get( url_benchmark, headers=FIXED_HEADER, json=mock_json)
 
         url_benchmarkJob = f"{config.BENCHMARKS_BACKEND_URL}/sdk/benchmarks/jobs/{asset_id}"
-        mock_json = json.load(open(Path("tests\mock_responses\get_asset_info_responses.json")))['benchmarkJob']
+        with open(Path("tests\mock_responses\get_asset_info_responses.json")) as f:
+            mock_json = json.load(f)['benchmarkJob']
         mock.get( url_benchmarkJob, headers=FIXED_HEADER, json=mock_json)
 
 
@@ -77,7 +81,8 @@ def test_create_benchmark_with_assets():
             benchmark_creation_params.append([asset])
 
         url = f"{config.BENCHMARKS_BACKEND_URL}/sdk/benchmarks"
-        mock_json = json.load(open(Path("tests\mock_responses\get_asset_info_responses.json")))['benchmark']
+        with open(Path("tests\mock_responses\get_asset_info_responses.json")) as f:
+            mock_json = json.load(f)['benchmark']
         mock.post(url, headers=FIXED_HEADER, json=mock_json)
         benchmark = BenchmarkFactory.create_benchmark(*benchmark_creation_params)
     assert benchmark.id == asset_id
@@ -88,7 +93,8 @@ def test_start_benchmark_job():
     with requests_mock.Mocker() as mock:
         __mock_benchmark_create_dependecies(mock, asset_id)
         url = f"{config.BENCHMARKS_BACKEND_URL}/sdk/benchmarks/{asset_id}/start"
-        mock_json = json.load(open(Path("tests\mock_responses\get_asset_info_responses.json")))['benchmarkJob']
+        with open(Path("tests\mock_responses\get_asset_info_responses.json")) as f:
+            mock_json = json.load(f)['benchmarkJob']
         mock.post(url, headers=FIXED_HEADER, json=mock_json)
         benchmark = BenchmarkFactory.create_benchmark_from_id(asset_id)
         benchmarkJob = BenchmarkFactory.start_benchmark_job(benchmark)
@@ -101,17 +107,21 @@ def test_download_benchmark_results():
     with requests_mock.Mocker() as mock:
         __mock_benchmark_create_dependecies(mock, asset_id)
         benchmarkJob = BenchmarkFactory.create_benchmark_job_from_id(asset_id)
-        download_url = json.load(open(Path("tests\mock_responses\get_asset_info_responses.json")))['benchmarkJob']['reportUrl']
+        with open(Path("tests\mock_responses\get_asset_info_responses.json")) as f:
+            download_url = json.load(f)['benchmarkJob']['reportUrl']
         dummy_result_path = Path("tests\mock_responses\dummy_result.csv")
-        dummy_content = open(dummy_result_path, "rb").read()
+        with open(dummy_result_path, "rb") as f:
+            dummy_content = f.read()
         mock.get(download_url, headers=FIXED_HEADER, content=dummy_content)
         result_path_without_save_path = BenchmarkFactory.download_results_as_csv(benchmarkJob)
         result_path_with_save_path = BenchmarkFactory.download_results_as_csv(benchmarkJob, "test_save_results.csv")
         result_df_without_save_path = BenchmarkFactory.download_results_as_csv(benchmarkJob, returnDataFrame=True)
     
-    result_path_without_save_path_content = open(result_path_without_save_path, 'rb').read()
+    with open(result_path_without_save_path, 'rb') as f:
+        result_path_without_save_path_content = f.read()
     Path(result_path_without_save_path).unlink()
-    result_path_with_save_path_content = open(result_path_with_save_path, 'rb').read()
+    with  open(result_path_with_save_path, 'rb') as f:
+        result_path_with_save_path_content = f.read()
     Path(result_path_with_save_path).unlink()
     assert dummy_content == result_path_without_save_path_content
     assert dummy_content == result_path_with_save_path_content
