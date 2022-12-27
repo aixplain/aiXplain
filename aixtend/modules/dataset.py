@@ -1,4 +1,4 @@
-__author__='shreyassharma'
+__author__ = "shreyassharma"
 
 """
 Copyright 2022 The aiXplain SDK authors
@@ -20,21 +20,57 @@ Date: October 28th 2022
 Description:
     Datasets Class
 """
-from typing import List
 from aixtend.modules.asset import Asset
 from aixtend.utils.file_utils import _request_with_retry
 from aixtend.utils import config
+from typing import Any, Dict, List, Optional
+from enum import Enum
+
+
+class DataFormat(Enum):
+    DICT = "dict"
+    PANDAS = "pandas"
+    HUGGINGFACE_DATASETS = "huggingface_datasets"
 
 
 class Dataset(Asset):
-    def __init__(self, id:str, name:str, description:str, **additional_info) -> None:
+    def __init__(
+        self, id: str, name: str, description: str, data_url: str = None, field_names: List[str] = None, **additional_info
+    ) -> None:
         """Create a Dataset with the necessary information
 
         Args:
             id (str): ID of the Dataset
             name (str): Name of the Dataset
             description (str): Description of the Dataset
+            data_url (str, optional): link to the dataset. Defaults to "".
             **additional_info: Any additional dataset info to be saved
         """
         super().__init__(id, name, description)
+        self.data_url = data_url
+        self.data = None
+        self.field_names = field_names
         self.additional_info = additional_info
+
+    def __download_data(self):
+        """Download dataset present in `data_url` to locally handle it"""
+        pass
+
+    def get_data(
+        self,
+        fields: Optional[list] = None,
+        start: Optional[int] = 0,
+        offset: Optional[int] = 100,
+        data_format: Optional[DataFormat] = DataFormat.PANDAS,
+    ) -> Any:
+        """Get data fields from a dataset sample of size `offset` starting from the `start`th row.
+
+        Args:
+            fields (list, optional): list of fields (columns). If None, selects all. Defaults to None.
+            start (int, optional): start row index. Defaults to 0.
+            offset (int, optional): number of rows. Defaults to 100.
+
+        Returns:
+            Any: data
+        """
+        pass

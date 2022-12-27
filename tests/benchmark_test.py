@@ -76,7 +76,7 @@ def test_create_benchmark_with_assets():
         for asset_name in asset_list:
             AssetFactory = __get_asset_factory(asset_name)
             if asset_name == "dataset":
-                asset = AssetFactory.get(asset_id)
+                asset = AssetFactory.get_info(asset_id)
             else:
                 asset = AssetFactory.create_asset_from_id(asset_id)
             benchmark_creation_params.append([asset])

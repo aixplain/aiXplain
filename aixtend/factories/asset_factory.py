@@ -1,4 +1,4 @@
-__author__='aiXplain'
+__author__ = "aiXplain"
 
 """
 Copyright 2022 The aiXplain SDK authors
@@ -27,13 +27,13 @@ from typing import List
 from aixtend.modules.asset import Asset
 from aixtend.utils import config
 
+
 class AssetFactory:
     api_key = config.TEAM_API_KEY
     backend_url = config.BENCHMARKS_BACKEND_URL
 
-    
     @abstractmethod
-    def get(self, asset_id: str) -> Asset:
+    def get_info(self, asset_id: str) -> Asset:
         """Create a 'Asset' object from id
 
         Args:

@@ -1,4 +1,4 @@
-__author__='shreyassharma'
+__author__ = "shreyassharma"
 
 """
 Copyright 2022 The aiXplain SDK authors
@@ -28,10 +28,10 @@ from aixtend.modules.dataset import Dataset
 from aixtend.utils import config
 from aixtend.utils.file_utils import _request_with_retry
 
+
 class DatasetFactory(AssetFactory):
     api_key = config.TEAM_API_KEY
     backend_url = config.BENCHMARKS_BACKEND_URL
-    
 
     @classmethod
     def _create_dataset_from_response(cls, response: dict) -> Dataset:
@@ -43,11 +43,10 @@ class DatasetFactory(AssetFactory):
         Returns:
             Dataset: Coverted 'Dataset' object
         """
-        return Dataset(response['id'], response['name'], response['description'])
+        return Dataset(response["id"], response["name"], response["description"])
 
-    
     @classmethod
-    def get(cls, dataset_id: str) -> Dataset:
+    def get_info(cls, dataset_id: str) -> Dataset:
         """Create a 'Dataset' object from dataset id
 
         Args:
@@ -57,18 +56,16 @@ class DatasetFactory(AssetFactory):
             Dataset: Created 'Dataset' object
         """
         url = f"{cls.backend_url}/sdk/datasets/{dataset_id}"
-        headers = {
-            'Authorization': f"Token {cls.api_key}",
-            'Content-Type': 'application/json'
-        }
+        headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
         r = _request_with_retry("get", url, headers=headers)
         resp = r.json()
         dataset = cls._create_dataset_from_response(resp)
         return dataset
-    
 
     @classmethod
-    def get_assets_from_page(cls, page_number: int, task: str, input_language: str = None, output_language: str = None) -> List[Dataset]:
+    def get_assets_from_page(
+        cls, page_number: int, task: str, input_language: str = None, output_language: str = None
+    ) -> List[Dataset]:
         """Get the list of datasets from a given page. Additional task and language filters can be also be provided
 
         Args:
@@ -86,10 +83,7 @@ class DatasetFactory(AssetFactory):
                 url += f"&input={input_language}"
             if output_language is not None:
                 url += f"&output={output_language}"
-            headers = {
-                'Authorization': f"Token {cls.api_key}",
-                'Content-Type': 'application/json'
-            }
+            headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()
             logging.info(f"Listing Datasets: Status of getting Datasets on Page {page_number} for {task} : {resp}")
@@ -100,7 +94,6 @@ class DatasetFactory(AssetFactory):
             error_message = f"Listing Datasets: Error in getting Datasets on Page {page_number} for {task} : {e}"
             logging.error(error_message)
             return []
-
 
     @classmethod
     def get_first_k_assets(cls, k: int, task: str, input_language: str = None, output_language: str = None) -> List[Dataset]:
@@ -118,7 +111,7 @@ class DatasetFactory(AssetFactory):
         try:
             dataset_list = []
             assert k > 0
-            for page_number in range(k//10 + 1):
+            for page_number in range(k // 10 + 1):
                 dataset_list += cls.get_assets_from_page(page_number, task, input_language, output_language)
             return dataset_list
         except Exception as e:
