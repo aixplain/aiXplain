@@ -72,7 +72,7 @@ class ModelFactory:
             else:
                 message = "Model Creation: Unspecified Error"
             logging.error(message)
-            raise Exception(f"Status {status_code}: {message}")
+            raise Exception(f"{message}")
 
     @classmethod
     def subscribe_to_asset(cls, model: Model) -> None:

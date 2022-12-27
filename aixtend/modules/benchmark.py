@@ -1,4 +1,4 @@
-__author__='shreyassharma'
+__author__ = "shreyassharma"
 
 """
 Copyright 2022 The aiXplain SDK authors
@@ -29,8 +29,19 @@ from aixtend.modules.dataset import Dataset
 from aixtend.modules.metric import Metric
 from aixtend.utils.file_utils import save_file, _request_with_retry
 
-class Benchmark:
-    def __init__(self, id:str, name:str, model_list:List[Model], dataset_list:List[Dataset], metric_list:List[Metric],  job_list: List[BenchmarkJob], description: str = "", **additional_info) -> None:
+
+class Benchmark(Asset):
+    def __init__(
+        self,
+        id: str,
+        name: str,
+        model_list: List[Model],
+        dataset_list: List[Dataset],
+        metric_list: List[Metric],
+        job_list: List[BenchmarkJob],
+        description: str = "",
+        **additional_info
+    ) -> None:
         """Create a Benchmark with the necessary information.
 
         Args:
@@ -48,5 +59,3 @@ class Benchmark:
         self.metric_list = metric_list
         self.job_list = job_list
         self.additional_info = additional_info
-
-    

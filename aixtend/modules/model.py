@@ -32,7 +32,7 @@ from aixtend.utils.file_utils import _request_with_retry
 from typing import Union
 
 
-class Model:
+class Model(Asset):
     def __init__(
         self,
         id: str,
@@ -67,7 +67,6 @@ class Model:
             bool: True if subscribed
         """
         return self.api_key is not None
-
 
     def get_asset_info(self) -> dict:
         """Get the model info as a Dictionary
