@@ -51,7 +51,45 @@ class Dataset(Asset):
         self.data = None
         self.field_names = field_names
         self.additional_info = additional_info
-
+    
+     def upload_file(self, file_url: str, file_type:str):
+        """Asynchronous call to Upload a file to the user's dashboard. 
+        Based on the file type, this finctions also compute and
+        upload the meta inforamtion of the file (EX: Number of characters,
+        duration, size, ...etc.) 
+        Args:
+            file_url (str): link to the file to be uploaded.
+            file_type (str): type of the file (text, audio, ...etc. Shoould be an enum)
+        
+        It returns the file ID at the end. 
+        """
+          
+     def upload_dataset(self, dataset_url: str, columns_types:dict):
+        """Asynchronous call to Upload a dataset to the user's dashboard. 
+        The fucntion will compute the meta inforamtion of each row/column in 
+        the dataset and the overall aggregate meta inforamtion before uploading
+        Args:
+            dataset_url (str): link to the dataset to be uploaded.
+            columns_types (dict): The key is the column name. The value is a tuple of the column type (text, audio,...etc.) and a boolean (is_url) 
+        
+        It returns the dataset ID at the end. 
+        """
+     def check_upload_status(self, data_id: str):
+          """ returns the upload status (in progress, compleated, or error)"""
+     
+     def get_data(self, dataset_id: str, columns: list = None, range_start: int = 0, range_end: int = None):
+        """returns a url of specific range of a datset  
+        Args:
+            dataset_id (str): the id of the dataset.
+            columns (list, optional): columns to be retrieved. if empty, return all the columns  
+            range_start (int, optional): the index to start from. If not given, start from 0
+            range_end (int, optional): the index to end at. If not given, end at the last row           
+        
+        """
+     
+     def get_data_meta(self, data_id: str):
+        """returns the meta inforamtion about the given data id """
+     
     def __download_data(self):
         """Download dataset present in `data_url` to locally handle it"""
         pass
