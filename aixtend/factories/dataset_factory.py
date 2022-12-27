@@ -23,11 +23,12 @@ Description:
 
 import logging
 from typing import List
+from aixtend.factories.asset_factory import AssetFactory
 from aixtend.modules.dataset import Dataset
 from aixtend.utils import config
 from aixtend.utils.file_utils import _request_with_retry
 
-class DatasetFactory:
+class DatasetFactory(AssetFactory):
     api_key = config.TEAM_API_KEY
     backend_url = config.BENCHMARKS_BACKEND_URL
     
@@ -46,7 +47,7 @@ class DatasetFactory:
 
     
     @classmethod
-    def create_asset_from_id(cls, dataset_id: str) -> Dataset:
+    def get(cls, dataset_id: str) -> Dataset:
         """Create a 'Dataset' object from dataset id
 
         Args:

@@ -22,6 +22,7 @@ Description:
 """
 import pandas as pd
 from typing import List
+from aixtend.modules.asset import Asset
 from aixtend.modules.benchmark_job import BenchmarkJob
 from aixtend.modules.model import Model
 from aixtend.modules.dataset import Dataset
@@ -29,7 +30,7 @@ from aixtend.modules.metric import Metric
 from aixtend.utils.file_utils import save_file, _request_with_retry
 
 class Benchmark:
-    def __init__(self, id:str, name:str, model_list:List[Model], dataset_list:List[Dataset], metric_list:List[Metric],  job_list: List[BenchmarkJob], **additional_info) -> None:
+    def __init__(self, id:str, name:str, model_list:List[Model], dataset_list:List[Dataset], metric_list:List[Metric],  job_list: List[BenchmarkJob], description: str = "", **additional_info) -> None:
         """Create a Benchmark with the necessary information.
 
         Args:
@@ -41,21 +42,11 @@ class Benchmark:
             job_list (List[BenchmarkJob]): List of associated Benchmark Jobs
             **additional_info: Any additional dataset info to be saved
         """
-        self.id = id
-        self.name = name
+        super().__init__(id, name, description)
         self.model_list = model_list
         self.dataset_list = dataset_list
         self.metric_list = metric_list
         self.job_list = job_list
         self.additional_info = additional_info
-
-
-    def get_asset_info(self) -> dict:
-        """Get the dataset info as a Dictionary
-
-        Returns:
-            dict: Dataset Information
-        """
-        return self.__dict__
 
     

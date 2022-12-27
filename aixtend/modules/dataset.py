@@ -21,11 +21,12 @@ Description:
     Datasets Class
 """
 from typing import List
+from aixtend.modules.asset import Asset
 from aixtend.utils.file_utils import _request_with_retry
 from aixtend.utils import config
 
 
-class Dataset:
+class Dataset(Asset):
     def __init__(self, id:str, name:str, description:str, **additional_info) -> None:
         """Create a Dataset with the necessary information
 
@@ -35,15 +36,5 @@ class Dataset:
             description (str): Description of the Dataset
             **additional_info: Any additional dataset info to be saved
         """
-        self.id = id
-        self.name = name
-        self.description = description
+        super().__init__(id, name, description)
         self.additional_info = additional_info
-
-    def get_asset_info(self) -> dict:
-        """Get the dataset info as a Dictionary
-
-        Returns:
-            dict: Dataset Information
-        """
-        return self.__dict__

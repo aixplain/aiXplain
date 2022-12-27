@@ -1,4 +1,4 @@
-__author__='shreyassharma'
+__author__='aiXplain'
 
 """
 Copyright 2022 The aiXplain SDK authors
@@ -16,29 +16,30 @@ See the License for the specific language governing permissions and
 limitations under the License.
 
 Author: Duraikrishna Selvaraju, Thiago Castro Ferreira, Shreyas Sharma and Lucas Pavanelli
-Date: October 25th 2022
+Date: December 27th 2022
 Description:
-    Metric Class
+    Asset Factory Class
 """
 
+import logging
+from abc import ABCMeta, abstractmethod
 from typing import List
 from aixtend.modules.asset import Asset
-from aixtend.utils.file_utils import _request_with_retry
+from aixtend.utils import config
 
-class Metric(Asset):
-    def __init__(self, id:str, name:str, description:str, **additional_info) -> None:
-        """Create a Metric with the necessary information
+class AssetFactory:
+    api_key = config.TEAM_API_KEY
+    backend_url = config.BENCHMARKS_BACKEND_URL
+
+    
+    @abstractmethod
+    def get(self, asset_id: str) -> Asset:
+        """Create a 'Asset' object from id
 
         Args:
-            id (str): ID of the Metric
-            name (str): Name of the Metric
-            description (str): Description of the Metric
-            **additional_info: Any additional Metric info to be saved
+            asset_id (str): ID of required asset.
+
+        Returns:
+            Asset: Created 'Asset' object
         """
-        super().__init__(id, name, description)
-        self.additional_info = additional_info
-
-    
-
-    
-    
+        pass

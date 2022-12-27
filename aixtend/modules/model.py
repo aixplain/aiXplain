@@ -26,6 +26,7 @@ import json
 import logging
 import traceback
 from typing import List
+from aixtend.modules.asset import Asset
 from aixtend.utils import config
 from aixtend.utils.file_utils import _request_with_retry
 from typing import Union
@@ -37,6 +38,7 @@ class Model:
         id: str,
         name: str,
         supplier: str,
+        description: str = "",
         api_key: str = None,
         subscription_id: str = None,
         url: str = config.MODELS_RUN_URL,
@@ -51,9 +53,8 @@ class Model:
             api_key (str, optional): API key of the Model. Defaults to None.
             **additional_info: Any additional Model info to be saved
         """
+        super().__init__(id, name, description)
         self.url = url
-        self.id = id
-        self.name = name
         self.supplier = supplier
         self.api_key = api_key
         self.subscription_id = subscription_id

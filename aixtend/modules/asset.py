@@ -1,4 +1,4 @@
-__author__='shreyassharma'
+__author__="aiXplain"
 
 """
 Copyright 2022 The aiXplain SDK authors
@@ -16,29 +16,29 @@ See the License for the specific language governing permissions and
 limitations under the License.
 
 Author: Duraikrishna Selvaraju, Thiago Castro Ferreira, Shreyas Sharma and Lucas Pavanelli
-Date: October 25th 2022
+Date: December 27th 2022
 Description:
-    Metric Class
+    Asset Class
 """
 
-from typing import List
-from aixtend.modules.asset import Asset
-from aixtend.utils.file_utils import _request_with_retry
-
-class Metric(Asset):
-    def __init__(self, id:str, name:str, description:str, **additional_info) -> None:
-        """Create a Metric with the necessary information
+class Asset:
+    def __init__(self, id:str, name:str, description:str) -> None:
+        """Create an Asset with the necessary information
 
         Args:
-            id (str): ID of the Metric
-            name (str): Name of the Metric
-            description (str): Description of the Metric
-            **additional_info: Any additional Metric info to be saved
+            id (str): ID of the Asset
+            name (str): Name of the Asset
+            description (str): Description of the Asset
         """
-        super().__init__(id, name, description)
-        self.additional_info = additional_info
+        self.id = id
+        self.name = name
+        self.description = description
 
     
+    def get_asset_info(self) -> dict:
+        """Get the asset info as a Dictionary
 
-    
-    
+        Returns:
+            dict: Asset Information
+        """
+        return self.__dict__
