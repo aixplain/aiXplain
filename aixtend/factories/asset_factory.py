@@ -33,7 +33,7 @@ class AssetFactory:
     backend_url = config.BENCHMARKS_BACKEND_URL
 
     @abstractmethod
-    def get_info(self, asset_id: str) -> Asset:
+    def get(self, asset_id: str) -> Asset:
         """Create a 'Asset' object from id
 
         Args:

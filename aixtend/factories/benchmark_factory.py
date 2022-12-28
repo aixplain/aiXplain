@@ -79,7 +79,7 @@ class BenchmarkFactory:
             Benchmark: Coverted 'Benchmark' object
         """
         model_list = [ModelFactory().create_asset_from_id(model_info["id"]) for model_info in response["model"]]
-        dataset_list = [DatasetFactory().get_info(dataset_id) for dataset_id in response["target"]]
+        dataset_list = [DatasetFactory().get(dataset_id) for dataset_id in response["target"]]
         metric_list = [MetricFactory().create_asset_from_id(metric_info["id"]) for metric_info in response["score"]]
         job_list = cls._get_benchmark_jobs_from_benchmark_id(response["id"])
         return Benchmark(response["id"], response["name"], model_list, dataset_list, metric_list, job_list)

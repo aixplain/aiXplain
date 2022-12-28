@@ -22,11 +22,25 @@ Description:
 """
 
 import logging
-from typing import List
+from typing import List, Dict
 from aixtend.factories.asset_factory import AssetFactory
 from aixtend.modules.dataset import Dataset
 from aixtend.utils import config
 from aixtend.utils.file_utils import _request_with_retry
+from enum import Enum
+
+
+class FileFormat(Enum):
+    JSON = "json"
+    CSV = "csv"
+    XML = "xml"
+
+
+class FieldType(Enum):
+    AUDIO = "audio"
+    VIDEO = "video"
+    TEXT = "text"
+    LABEL = "label"
 
 
 class DatasetFactory(AssetFactory):
@@ -46,7 +60,7 @@ class DatasetFactory(AssetFactory):
         return Dataset(response["id"], response["name"], response["description"])
 
     @classmethod
-    def get_info(cls, dataset_id: str) -> Dataset:
+    def get(cls, dataset_id: str) -> Dataset:
         """Create a 'Dataset' object from dataset id
 
         Args:
@@ -118,3 +132,41 @@ class DatasetFactory(AssetFactory):
             error_message = f"Listing Datasets: Error in getting {k} Datasets for {task} : {e}"
             logging.error(error_message)
             return []
+
+    # def upload_file(self, file_url: str, file_type:str):
+    #     """Asynchronous call to Upload a file to the user's dashboard.
+    #     Based on the file type, this finctions also compute and
+    #     upload the meta inforamtion of the file (EX: Number of characters,
+    #     duration, size, ...etc.)
+    #     Args:
+    #         file_url (str): link to the file to be uploaded.
+    #         file_type (str): type of the file (text, audio, ...etc. Shoould be an enum)
+
+    #     It returns the file ID at the end.
+    #     """
+
+    def create(
+        self,
+        name: str,
+        description: str,
+        license: str,
+        functions: List[str],
+        data_url: str,
+        fields: Dict[str, FieldType],
+        file_format: FileFormat,
+    ):
+        """Asynchronous call to Upload a dataset to the user's dashboard.
+
+        Args:
+            name (str): dataset name
+            description (str): dataset description
+            license (str): dataset license
+            functions (List[str]): AI functions for which the dataset is designed
+            data_url (str): link to the data
+            fields (Dict[str, str]): data field names and their types
+            file_format (FileFormat): format of the file
+        """
+        pass
+
+    # def check_upload_status(self, data_id: str):
+    #       """ returns the upload status (in progress, compleated, or error)"""

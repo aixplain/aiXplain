@@ -39,7 +39,7 @@ def test_asset_creation_from_id():
                 mock_json = json.load(f)[asset_name]
             mock.get(url, headers=FIXED_HEADER, json=mock_json)
             if asset_name == "dataset":
-                asset = AssetFactory.get_info(asset_id)
+                asset = AssetFactory.get(asset_id)
             else:
                 asset = AssetFactory.create_asset_from_id(asset_id)
         assert asset.get_asset_info()["id"] == asset_id
