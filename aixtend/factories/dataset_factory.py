@@ -24,23 +24,9 @@ Description:
 import logging
 from typing import List, Dict
 from aixtend.factories.asset_factory import AssetFactory
-from aixtend.modules.dataset import Dataset
+from aixtend.modules.dataset import Dataset, FieldType, FileFormat
 from aixtend.utils import config
 from aixtend.utils.file_utils import _request_with_retry
-from enum import Enum
-
-
-class FileFormat(Enum):
-    JSON = "json"
-    CSV = "csv"
-    XML = "xml"
-
-
-class FieldType(Enum):
-    AUDIO = "audio"
-    VIDEO = "video"
-    TEXT = "text"
-    LABEL = "label"
 
 
 class DatasetFactory(AssetFactory):

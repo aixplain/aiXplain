@@ -26,8 +26,11 @@ from typing import List
 import json
 import pandas as pd
 from pathlib import Path
-from aixtend.modules.benchmark import Benchmark, Dataset, Model, Metric
+from aixtend.modules.benchmark import Benchmark
 from aixtend.modules.benchmark_job import BenchmarkJob
+from aixtend.modules.dataset import Dataset
+from aixtend.modules.metric import Metric
+from aixtend.modules.model import Model
 from aixtend.factories.dataset_factory import DatasetFactory
 from aixtend.factories.metric_factory import MetricFactory
 from aixtend.factories.model_factory import ModelFactory

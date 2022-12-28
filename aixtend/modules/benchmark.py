@@ -20,13 +20,12 @@ Date: October 25th 2022
 Description:
     Benchmark Class
 """
-import pandas as pd
 from typing import List
 from aixtend.modules.asset import Asset
 from aixtend.modules.benchmark_job import BenchmarkJob
-from aixtend.modules.model import Model
 from aixtend.modules.dataset import Dataset
 from aixtend.modules.metric import Metric
+from aixtend.modules.model import Model
 from aixtend.utils.file_utils import save_file, _request_with_retry
 
 

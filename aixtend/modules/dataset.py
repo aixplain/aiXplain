@@ -33,6 +33,21 @@ class DataFormat(Enum):
     HUGGINGFACE_DATASETS = "huggingface_datasets"
 
 
+class FileFormat(Enum):
+    JSON = "json"
+    CSV = "csv"
+    XML = "xml"
+    PARQUET = "parquet"
+
+
+class FieldType(Enum):
+    AUDIO = "audio"
+    IMAGE = "image"
+    LABEL = "label"
+    TEXT = "text"
+    VIDEO = "video"
+
+
 class Dataset(Asset):
     def __init__(
         self,

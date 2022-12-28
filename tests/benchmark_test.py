@@ -7,7 +7,10 @@ from pathlib import Path
 import pandas as pd
 from aixtend.utils import config
 
-from aixtend.factories.benchmark_factory import BenchmarkFactory, ModelFactory, DatasetFactory, MetricFactory
+from aixtend.factories.benchmark_factory import BenchmarkFactory
+from aixtend.factories.model_factory import ModelFactory
+from aixtend.factories.dataset_factory import DatasetFactory
+from aixtend.factories.metric_factory import MetricFactory
 
 FIXED_HEADER = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
 
