@@ -52,7 +52,7 @@ class Dataset(Asset):
         self.field_names = field_names
         self.additional_info = additional_info
     
-     def upload_file(self, file_url: str, file_type:str):
+    def upload_file(self, file_url: str, file_type:str):
         """Asynchronous call to Upload a file to the user's dashboard. 
         Based on the file type, this finctions also compute and
         upload the meta inforamtion of the file (EX: Number of characters,
@@ -64,7 +64,7 @@ class Dataset(Asset):
         It returns the file ID at the end. 
         """
           
-     def upload_dataset(self, dataset_url: str, columns_types:dict):
+    def upload_dataset(self, dataset_url: str, columns_types:dict):
         """Asynchronous call to Upload a dataset to the user's dashboard. 
         The fucntion will compute the meta inforamtion of each row/column in 
         the dataset and the overall aggregate meta inforamtion before uploading
@@ -74,10 +74,10 @@ class Dataset(Asset):
         
         It returns the dataset ID at the end. 
         """
-     def check_upload_status(self, data_id: str):
+    def check_upload_status(self, data_id: str):
           """ returns the upload status (in progress, compleated, or error)"""
      
-     def get_data(self, dataset_id: str, columns: list = None, range_start: int = 0, range_end: int = None):
+    def get_data(self, dataset_id: str, columns: list = None, range_start: int = 0, range_end: int = None):
         """returns a url of specific range of a datset  
         Args:
             dataset_id (str): the id of the dataset.
@@ -87,7 +87,7 @@ class Dataset(Asset):
         
         """
      
-     def get_data_meta(self, data_id: str):
+    def get_data_meta(self, data_id: str):
         """returns the meta inforamtion about the given data id """
      
     def __download_data(self):
