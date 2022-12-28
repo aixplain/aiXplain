@@ -1,4 +1,4 @@
-__author__="aiXplain"
+__author__ = "aiXplain"
 
 """
 Copyright 2022 The aiXplain SDK authors
@@ -20,22 +20,29 @@ Date: December 27th 2022
 Description:
     Asset Class
 """
+from typing import Optional
+
 
 class Asset:
-    def __init__(self, id:str, name:str, description:str) -> None:
+    def __init__(
+        self, id: str, name: str, description: str, supplier: Optional[str] = "aiXplain", version: Optional[str] = "1.0"
+    ) -> None:
         """Create an Asset with the necessary information
 
         Args:
             id (str): ID of the Asset
             name (str): Name of the Asset
             description (str): Description of the Asset
+            supplier (Optional[str], optional): supplier of the asset. Defaults to "aiXplain".
+            version (Optional[str], optional): asset version. Defaults to "1.0".
         """
         self.id = id
         self.name = name
         self.description = description
+        self.supplier = supplier
+        self.version = version
 
-    
-    def get_asset_info(self) -> dict:
+    def to_dict(self) -> dict:
         """Get the asset info as a Dictionary
 
         Returns:

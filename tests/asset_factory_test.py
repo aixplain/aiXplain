@@ -42,7 +42,7 @@ def test_asset_creation_from_id():
                 asset = AssetFactory.get(asset_id)
             else:
                 asset = AssetFactory.create_asset_from_id(asset_id)
-        assert asset.get_asset_info()["id"] == asset_id
+        assert asset.to_dict()["id"] == asset_id
 
 
 def test_asset_listing_from_page():

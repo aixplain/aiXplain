@@ -29,7 +29,7 @@ from typing import List
 from aixtend.modules.asset import Asset
 from aixtend.utils import config
 from aixtend.utils.file_utils import _request_with_retry
-from typing import Union
+from typing import Union, Optional
 
 
 class Model(Asset):
@@ -37,25 +37,28 @@ class Model(Asset):
         self,
         id: str,
         name: str,
-        supplier: str,
         description: str = "",
         api_key: str = None,
         subscription_id: str = None,
         url: str = config.MODELS_RUN_URL,
+        supplier: Optional[str] = "aiXplain",
+        version: Optional[str] = "1.0",
         **additional_info,
     ) -> None:
-        """Create a Model with the necessary information
+        """Model Init
 
         Args:
             id (str): ID of the Model
             name (str): Name of the Model
-            supplier (str): supplier of the Model
+            description (str, optional): description of the model. Defaults to "".
             api_key (str, optional): API key of the Model. Defaults to None.
-            **additional_info: Any additional Model info to be saved
+            subscription_id (str, optional): subscription id. Defaults to None.
+            url (str, optional): endpoint of the model. Defaults to config.MODELS_RUN_URL.
+            supplier (Optional[str], optional): model supplier. Defaults to "aiXplain".
+            version (Optional[str], optional): version of the model. Defaults to "1.0".
         """
-        super().__init__(id, name, description)
+        super().__init__(id, name, description, supplier, version)
         self.url = url
-        self.supplier = supplier
         self.api_key = api_key
         self.subscription_id = subscription_id
         self.additional_info = additional_info
@@ -68,7 +71,7 @@ class Model(Asset):
         """
         return self.api_key is not None
 
-    def get_asset_info(self) -> dict:
+    def to_dict(self) -> dict:
         """Get the model info as a Dictionary
 
         Returns:

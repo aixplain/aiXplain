@@ -63,7 +63,7 @@ def test_benchmark_assets_creation_from_id_with_updation():
 
         newBenchmark = BenchmarkFactory.update_benchmark_info(benchmark)
         newbenchmarkJob = BenchmarkFactory.update_benchmark_job_info(benchmarkJob)
-    assert benchmark.get_asset_info()["id"] == asset_id
+    assert benchmark.to_dict()["id"] == asset_id
     assert benchmarkJob.get_asset_info()["id"] == asset_id
     assert benchmark.id == newBenchmark.id
     assert benchmarkJob.id == newbenchmarkJob.id

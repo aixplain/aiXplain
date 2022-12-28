@@ -58,6 +58,8 @@ class Dataset(Asset):
         field_names: List[str] = None,
         load_data: bool = False,
         data_format: Optional[DataFormat] = DataFormat.HUGGINGFACE_DATASETS,
+        supplier: Optional[str] = "aiXplain",
+        version: Optional[str] = "1.0",
         **additional_info
     ) -> None:
         """Create a Dataset with the necessary information
@@ -70,9 +72,11 @@ class Dataset(Asset):
             field_names (List[str], optional): name of the fields/columns of the dataset. Defaults to None.
             load_data (bool, optional): whether the data should be loaded. Defaults to False.
             data_format (Optional[DataFormat], optional): format in which the data should be loaded. Defaults to DataFormat.HUGGINGFACE_DATASETS.
+            supplier (Optional[str], optional): author of the dataset. Defaults to "aiXplain".
+            version (Optional[str], optional): dataset version. Defaults to "1.0".
             **additional_info: Any additional dataset info to be saved
         """
-        super().__init__(id, name, description)
+        super().__init__(id, name, description, supplier, version)
         self.data_url = data_url
         self.data = None
         self.field_names = field_names

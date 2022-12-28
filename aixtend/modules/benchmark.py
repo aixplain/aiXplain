@@ -20,7 +20,7 @@ Date: October 25th 2022
 Description:
     Benchmark Class
 """
-from typing import List
+from typing import List, Optional
 from aixtend.modules.asset import Asset
 from aixtend.modules.benchmark_job import BenchmarkJob
 from aixtend.modules.dataset import Dataset
@@ -34,11 +34,13 @@ class Benchmark(Asset):
         self,
         id: str,
         name: str,
-        model_list: List[Model],
         dataset_list: List[Dataset],
+        model_list: List[Model],
         metric_list: List[Metric],
         job_list: List[BenchmarkJob],
         description: str = "",
+        supplier: Optional[str] = "aiXplain",
+        version: Optional[str] = "1.0",
         **additional_info
     ) -> None:
         """Create a Benchmark with the necessary information.
@@ -50,9 +52,11 @@ class Benchmark(Asset):
             dataset_list (List[Dataset]): List of Datasets to be used for benchmarking
             metric_list (List[Metric]): List of Metrics to be used for benchmarking
             job_list (List[BenchmarkJob]): List of associated Benchmark Jobs
-            **additional_info: Any additional dataset info to be saved
+            supplier (Optional[str], optional): author of the Benchmark. Defaults to "aiXplain".
+            version (Optional[str], optional): Benchmark version. Defaults to "1.0".
+            **additional_info: Any additional Benchmark info to be saved
         """
-        super().__init__(id, name, description)
+        super().__init__(id, name, description, supplier, version)
         self.model_list = model_list
         self.dataset_list = dataset_list
         self.metric_list = metric_list
