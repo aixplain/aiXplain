@@ -137,8 +137,9 @@ class DatasetFactory(AssetFactory):
         description: str,
         license: str,
         functions: List[str],
-        data_url: str,
-        fields: Dict[str, FieldType],
+        data_paths: List[str],
+        field_names: List[str],
+        field_types: List[FieldType],
         file_format: FileFormat,
     ):
         """Asynchronous call to Upload a dataset to the user's dashboard.
@@ -148,8 +149,9 @@ class DatasetFactory(AssetFactory):
             description (str): dataset description
             license (str): dataset license
             functions (List[str]): AI functions for which the dataset is designed
-            data_url (str): link to the data
-            fields (Dict[str, str]): data field names and their types
+            data_paths: List[str]: data paths
+            field_names: List[str],: data field names
+            field_types: List[FieldType],: data field types
             file_format (FileFormat): format of the file
         """
         pass

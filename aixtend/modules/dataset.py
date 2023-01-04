@@ -44,6 +44,7 @@ class FieldType(Enum):
     AUDIO = "audio"
     IMAGE = "image"
     LABEL = "label"
+    NUMERICAL = "numerical"
     TEXT = "text"
     VIDEO = "video"
 
