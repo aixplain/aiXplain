@@ -21,10 +21,14 @@ Description:
     Datasets Class
 """
 from aixtend.modules.asset import Asset
-from aixtend.utils.file_utils import _request_with_retry
+import pandas as pd
+from pathlib import Path
+from aixtend.utils.file_utils import _request_with_retry, save_file
+import logging
 from aixtend.utils import config
 from typing import Any, Dict, List, Optional
 from enum import Enum
+
 
 
 class DataFormat(Enum):
@@ -55,8 +59,9 @@ class Dataset(Asset):
         id: str,
         name: str,
         description: str,
-        data_url: str = None,
-        field_names: List[str] = None,
+        local_path: str = None,
+        field_info: List[dict] = None,
+        size_info: dict = None,
         load_data: bool = False,
         data_format: Optional[DataFormat] = DataFormat.HUGGINGFACE_DATASETS,
         supplier: Optional[str] = "aiXplain",
@@ -69,8 +74,9 @@ class Dataset(Asset):
             id (str): ID of the Dataset
             name (str): Name of the Dataset
             description (str): Description of the Dataset
-            data_url (str, optional): link to the dataset. Defaults to "".
-            field_names (List[str], optional): name of the fields/columns of the dataset. Defaults to None.
+            local_path (str, optional): Local path of the dataset. Defaults to None.
+            field_info (List[dict], optional): info about the fields/columns of the dataset. Defaults to None.
+            size_info (dict, optional): info about the size of the dataset. Defaults to None.
             load_data (bool, optional): whether the data should be loaded. Defaults to False.
             data_format (Optional[DataFormat], optional): format in which the data should be loaded. Defaults to DataFormat.HUGGINGFACE_DATASETS.
             supplier (Optional[str], optional): author of the dataset. Defaults to "aiXplain".
@@ -78,16 +84,48 @@ class Dataset(Asset):
             **additional_info: Any additional dataset info to be saved
         """
         super().__init__(id, name, description, supplier, version)
-        self.data_url = data_url
+        self.local_path = local_path
         self.data = None
-        self.field_names = field_names
+        self.field_info = field_info
+        self.size_info = size_info
         self.load_data = load_data
         self.data_format = data_format
         self.additional_info = additional_info
 
-    def __download_data(self):
-        """Download dataset present in `data_url` to locally handle it"""
-        pass
+    def download(self, save_path: str = None, returnDataFrame: bool = False):
+        """Downloads the dataset file.
+        Args:
+            save_path (str, optional): Path to save the CSV if returnDataFrame is False. If None, a ranmdom path is generated. defaults to None.
+            returnDataFrame (bool, optional): If True, the result is returned as pandas.DataFrame else saved as a CSV file.defaults to False.
+
+        Returns:
+            str/pandas.DataFrame: file as path of locally saved file if returnDataFrame is False else as a pandas dataframe
+        """
+        try:
+            dataset_id = self.id
+            api_key = config.TEAM_API_KEY
+            backend_url = config.BENCHMARKS_BACKEND_URL
+            url = f"{backend_url}/sdk/datasets/{dataset_id}/download"
+            headers = {"Authorization": f"Token {api_key}", "Content-Type": "application/json"}
+            r = _request_with_retry("get", url, headers=headers)
+            resp = r.json()
+            print(resp)
+            csv_url = resp["url"]
+            if returnDataFrame:
+                downloaded_path = save_file(csv_url, save_path)
+                self.local_path = downloaded_path
+                df = pd.read_csv(downloaded_path)
+                if save_path is None:
+                    Path(downloaded_path).unlink()
+                return df
+            else:
+                downloaded_path = save_file(csv_url, save_path)
+                self.local_path = downloaded_path
+                return downloaded_path
+        except Exception as e:
+            error_message = f"Downloading Dataset: Error in Downloading Dataset: {e}"
+            logging.error(error_message)
+            return None
 
     def get_data(
         self,
@@ -106,4 +144,16 @@ class Dataset(Asset):
         Returns:
             Any: data
         """
-        pass
+        if self.local_path is not None and not Path(self.local_path).exists():
+            logging.info("Get Data: Did not find local path of dataset. Downloading again")
+            self.download()
+        try:
+            df = pd.read_csv(self.local_path)
+            df_select = df[start: start+offset]
+            if data_format == DataFormat.PANDAS:
+                return df_select
+            else:
+                raise Exception(f"{data_format} - Data format not supported yet")
+        except Exception as e:
+            error_message = f"Get Data: Error in geting Dataset: {e}"
+            logging.error(error_message)

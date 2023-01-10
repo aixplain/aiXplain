@@ -215,10 +215,8 @@ class BenchmarkFactory:
 
             Args:
                 benchmarkJob (BenchmarkJob): 'BenchmarkJob' to get the results for
-                save_path (str, optional): Path to save the CSV if returnDataFrame is False. If None, a ranmdom path is generated. @classmethod
-        defaults to None.
-                returnDataFrame (bool, optional): If True, the result is returned as pandas.DataFrame else saved as a CSV file. @classmethod
-        defaults to False.
+                save_path (str, optional): Path to save the CSV if returnDataFrame is False. If None, a ranmdom path is generated. defaults to None.
+                returnDataFrame (bool, optional): If True, the result is returned as pandas.DataFrame else saved as a CSV file. defaults to False.
 
             Returns:
                 str/pandas.DataFrame: results as path of locally saved file if returnDataFrame is False else as a pandas dataframe

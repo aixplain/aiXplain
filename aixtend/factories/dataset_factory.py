@@ -26,7 +26,9 @@ from typing import List, Dict
 from aixtend.factories.asset_factory import AssetFactory
 from aixtend.modules.dataset import Dataset, FieldType, FileFormat
 from aixtend.utils import config
-from aixtend.utils.file_utils import _request_with_retry
+import pandas as pd
+from pathlib import Path
+from aixtend.utils.file_utils import _request_with_retry, save_file
 
 
 class DatasetFactory(AssetFactory):
@@ -43,7 +45,7 @@ class DatasetFactory(AssetFactory):
         Returns:
             Dataset: Coverted 'Dataset' object
         """
-        return Dataset(response["id"], response["name"], response["description"])
+        return Dataset(response["id"], response["name"], response["description"], field_info=response['attributes'], size_info=response['info'])
 
     @classmethod
     def get(cls, dataset_id: str) -> Dataset:
@@ -118,6 +120,8 @@ class DatasetFactory(AssetFactory):
             error_message = f"Listing Datasets: Error in getting {k} Datasets for {task} : {e}"
             logging.error(error_message)
             return []
+
+    
 
     # def upload_file(self, file_url: str, file_type:str):
     #     """Asynchronous call to Upload a file to the user's dashboard.
