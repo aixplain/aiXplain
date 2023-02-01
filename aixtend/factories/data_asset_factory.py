@@ -22,16 +22,20 @@ Description:
 """
 
 import logging
-from typing import List, Dict
+
 from aixtend.factories.asset_factory import AssetFactory
-from aixtend.modules.dataset import Dataset, FieldType, FileFormat
-from aixtend.utils import config
-import pandas as pd
-from pathlib import Path
+from aixtend.modules.dataset import Dataset
+from aixtend.modules.corpus import Corpus
+from aixtend.enums.function import Function
+from aixtend.enums.license import License
+from aixtend.enums.privacy import Privacy
 from aixtend.utils.file_utils import _request_with_retry, save_file
+from aixtend.utils import config
+from pathlib import Path
+from typing import Dict, List, Optional, Union
 
 
-class DatasetFactory(AssetFactory):
+class DataAssetFactory(AssetFactory):
     api_key = config.TEAM_API_KEY
     backend_url = config.BENCHMARKS_BACKEND_URL
 
@@ -45,7 +49,13 @@ class DatasetFactory(AssetFactory):
         Returns:
             Dataset: Coverted 'Dataset' object
         """
-        return Dataset(response["id"], response["name"], response["description"], field_info=response['attributes'], size_info=response['info'])
+        return Dataset(
+            response["id"],
+            response["name"],
+            response["description"],
+            field_info=response["attributes"],
+            size_info=response["info"],
+        )
 
     @classmethod
     def get(cls, dataset_id: str) -> Dataset:
@@ -121,31 +131,15 @@ class DatasetFactory(AssetFactory):
             logging.error(error_message)
             return []
 
-    
-
-    # def upload_file(self, file_url: str, file_type:str):
-    #     """Asynchronous call to Upload a file to the user's dashboard.
-    #     Based on the file type, this finctions also compute and
-    #     upload the meta inforamtion of the file (EX: Number of characters,
-    #     duration, size, ...etc.)
-    #     Args:
-    #         file_url (str): link to the file to be uploaded.
-    #         file_type (str): type of the file (text, audio, ...etc. Shoould be an enum)
-
-    #     It returns the file ID at the end.
-    #     """
-
-    def create(
+    def create_corpus(
         self,
         name: str,
         description: str,
-        license: str,
-        functions: List[str],
-        data_paths: List[str],
-        field_names: List[str],
-        field_types: List[FieldType],
-        file_format: FileFormat,
-    ):
+        license: License,
+        content_path: List[Union[str, Path]],
+        functions: List[Function],
+        privacy: Optional[Privacy] = Privacy.PRIVATE,
+    ) -> Corpus:
         """Asynchronous call to Upload a dataset to the user's dashboard.
 
         Args:

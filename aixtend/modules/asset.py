@@ -20,12 +20,21 @@ Date: December 27th 2022
 Description:
     Asset Class
 """
+from aixtend.enums.license import License
+from aixtend.enums.privacy import Privacy
 from typing import Optional
 
 
 class Asset:
     def __init__(
-        self, id: str, name: str, description: str, supplier: Optional[str] = "aiXplain", version: Optional[str] = "1.0"
+        self,
+        id: str,
+        name: str,
+        description: str,
+        supplier: Optional[str] = "aiXplain",
+        version: Optional[str] = "1.0",
+        license: Optional[License] = None,
+        privacy: Optional[Privacy] = Privacy.PRIVATE,
     ) -> None:
         """Create an Asset with the necessary information
 
@@ -41,6 +50,8 @@ class Asset:
         self.description = description
         self.supplier = supplier
         self.version = version
+        self.license = license
+        self.privacy = privacy
 
     def to_dict(self) -> dict:
         """Get the asset info as a Dictionary
