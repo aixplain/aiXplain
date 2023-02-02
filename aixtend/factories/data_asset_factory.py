@@ -21,18 +21,25 @@ Description:
     Dataset Factory Class
 """
 
+import aixtend.processes.data_onboarding as data_onboarding
 import logging
+import os
+import pandas as pd
 
 from aixtend.factories.asset_factory import AssetFactory
-from aixtend.modules.dataset import Dataset
 from aixtend.modules.corpus import Corpus
+from aixtend.modules.data import Data
+from aixtend.modules.dataset import Dataset
+from aixtend.modules.metadata import MetaData
 from aixtend.enums.function import Function
 from aixtend.enums.license import License
 from aixtend.enums.privacy import Privacy
-from aixtend.utils.file_utils import _request_with_retry, save_file
+from aixtend.utils.file_utils import _request_with_retry, download_data
 from aixtend.utils import config
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
+
+BATCH_SIZE = 100
 
 
 class DataAssetFactory(AssetFactory):
@@ -131,13 +138,15 @@ class DataAssetFactory(AssetFactory):
             logging.error(error_message)
             return []
 
+    @classmethod
     def create_corpus(
         self,
         name: str,
         description: str,
         license: License,
-        content_path: List[Union[str, Path]],
-        functions: List[Function],
+        content_path: Union[Union[str, Path], List[Union[str, Path]]],
+        schema: List[Union[Dict[str, Any], MetaData]],
+        functions: Optional[List[Function]] = [],
         privacy: Optional[Privacy] = Privacy.PRIVATE,
     ) -> Corpus:
         """Asynchronous call to Upload a dataset to the user's dashboard.
@@ -152,7 +161,31 @@ class DataAssetFactory(AssetFactory):
             field_types: List[FieldType],: data field types
             file_format (FileFormat): format of the file
         """
-        pass
+        content_paths = content_path
+        if isinstance(content_path, List) is not None:
+            content_paths = [content_path]
 
-    # def check_upload_status(self, data_id: str):
-    #       """ returns the upload status (in progress, compleated, or error)"""
+        if isinstance(schema[0], MetaData) is False:
+            schema = [MetaData(**metadata) for metadata in schema]
+
+        # get file extension paths to process
+        paths = data_onboarding.get_paths(content_paths)
+
+        # process data and create files
+        folder = Path(name)
+        folder.mkdir(exist_ok=True)
+
+        dataset = []
+        for metadata in schema:
+            if metadata.privacy is None:
+                metadata.privacy = privacy
+
+            files = data_onboarding.process_data_files(
+                data_asset_name=name, metadata=metadata, paths=paths, batch_size=BATCH_SIZE, folder=name
+            )
+
+            dataset.append(Data(id="", name=metadata.name, dtype=metadata.dtype, privacy=metadata.dtype, files=files))
+
+        return Corpus(
+            id="", name=name, description=description, data=dataset, functions=functions, license=license, privacy=privacy
+        )

@@ -9,7 +9,11 @@ from typing import Optional, Union
 
 class File:
     def __init__(
-        self, path: Union[str, pathlib.Path], extension: Union[str, FileType], data_split: Optional[DataSplit] = None
+        self,
+        path: Union[str, pathlib.Path],
+        extension: Union[str, FileType],
+        data_split: Optional[DataSplit] = None,
+        compression: Optional[str] = None,
     ) -> None:
         self.path = path
 
