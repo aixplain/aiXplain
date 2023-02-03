@@ -13,7 +13,7 @@ class Data:
         name: str,
         dtype: DataType,
         privacy: Privacy,
-        files: List[File],
+        files: Optional[List[File]] = [],
         transform_func: Optional[Union[str, Callable]] = None,
         **kwargs
     ) -> None:

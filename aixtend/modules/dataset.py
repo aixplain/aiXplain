@@ -42,6 +42,7 @@ class Dataset(Asset):
         function: Function,
         source_data: List[Data],
         target_data: List[Data],
+        tags: Optional[List[str]] = [],
         license: Optional[License] = None,
         privacy: Optional[Privacy] = Privacy.PRIVATE,
         supplier: Optional[str] = "aiXplain",
@@ -54,6 +55,7 @@ class Dataset(Asset):
         self.function = function
         self.source_data = source_data
         self.target_data = target_data
+        self.tags = tags
         self.kwargs = kwargs
 
     def download(self, save_path: str = None, returnDataFrame: bool = False):

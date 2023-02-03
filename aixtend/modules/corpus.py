@@ -41,6 +41,7 @@ class Corpus(Asset):
         description: str,
         data: List[Data],
         functions: Optional[List[Function]] = [],
+        tags: Optional[List[str]] = [],
         license: Optional[License] = None,
         privacy: Optional[Privacy] = Privacy.PRIVATE,
         supplier: Optional[str] = "aiXplain",
@@ -51,6 +52,7 @@ class Corpus(Asset):
             id=id, name=name, description=description, supplier=supplier, version=version, license=license, privacy=privacy
         )
         self.functions = functions
+        self.tags = tags
         self.data = data
         self.kwargs = kwargs
 

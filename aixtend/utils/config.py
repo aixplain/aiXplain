@@ -16,9 +16,11 @@ limitations under the License.
 
 import os
 
+BACKEND_URL = os.getenv("BACKEND_URL", "https://platform-api.aixplain.com/")
 PIPELINES_RUN_URL = os.getenv("PIPELINES_RUN_URL", "https://platform-api.aixplain.com/assets/pipeline/execution/run")
 MODELS_RUN_URL = os.getenv("MODELS_RUN_URL", "https://models.aixplain.com/api/v1/execute")
 BENCHMARKS_BACKEND_URL = os.getenv("BENCHMARKS_BACKEND_URL", "https://platform-api.aixplain.com")
+TEMPFILE_UPLOAD_URL = os.path.join(BACKEND_URL, "sdk/file/upload/temp-url")
 # GET THE API KEY FROM CMD
 TEAM_API_KEY = os.getenv("TEAM_API_KEY", "")
 PIPELINE_API_KEY = os.getenv("PIPELINE_API_KEY", "")

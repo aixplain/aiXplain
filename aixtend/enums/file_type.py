@@ -5,8 +5,11 @@ from enum import Enum
 
 class FileType(Enum):
     CSV = ".csv"
+    JSON = ".json"
     TXT = ".txt"
     XML = ".xml"
+    FLAC = ".flac"
+    MP3 = ".mp3"
     WAV = ".wav"
     JPEG = ".jpeg"
     PNG = ".png"

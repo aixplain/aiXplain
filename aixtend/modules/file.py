@@ -25,4 +25,5 @@ class File:
             except:
                 raise Exception("File Error: This file extension is not supported.")
 
+        self.compression = compression
         self.data_split = data_split

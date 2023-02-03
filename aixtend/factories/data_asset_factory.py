@@ -21,10 +21,10 @@ Description:
     Dataset Factory Class
 """
 
+import aixtend.utils.config as config
 import aixtend.processes.data_onboarding as data_onboarding
 import logging
-import os
-import pandas as pd
+import shutil
 
 from aixtend.factories.asset_factory import AssetFactory
 from aixtend.modules.corpus import Corpus
@@ -38,8 +38,6 @@ from aixtend.utils.file_utils import _request_with_retry, download_data
 from aixtend.utils import config
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
-
-BATCH_SIZE = 100
 
 
 class DataAssetFactory(AssetFactory):
@@ -146,6 +144,7 @@ class DataAssetFactory(AssetFactory):
         license: License,
         content_path: Union[Union[str, Path], List[Union[str, Path]]],
         schema: List[Union[Dict[str, Any], MetaData]],
+        tags: Optional[List[str]] = [],
         functions: Optional[List[Function]] = [],
         privacy: Optional[Privacy] = Privacy.PRIVATE,
     ) -> Corpus:
@@ -161,8 +160,14 @@ class DataAssetFactory(AssetFactory):
             field_types: List[FieldType],: data field types
             file_format (FileFormat): format of the file
         """
+        # check team key
+        if config.TEAM_API_KEY.strip() == "":
+            raise Exception(
+                "Onboard Error: Update your team key on the environment variable TEAM_API_KEY before the corpus onboarding process."
+            )
+
         content_paths = content_path
-        if isinstance(content_path, List) is not None:
+        if isinstance(content_path, list) is False:
             content_paths = [content_path]
 
         if isinstance(schema[0], MetaData) is False:
@@ -180,12 +185,20 @@ class DataAssetFactory(AssetFactory):
             if metadata.privacy is None:
                 metadata.privacy = privacy
 
-            files = data_onboarding.process_data_files(
-                data_asset_name=name, metadata=metadata, paths=paths, batch_size=BATCH_SIZE, folder=name
-            )
+            files = data_onboarding.process_data_files(data_asset_name=name, metadata=metadata, paths=paths, folder=name)
 
             dataset.append(Data(id="", name=metadata.name, dtype=metadata.dtype, privacy=metadata.dtype, files=files))
 
-        return Corpus(
-            id="", name=name, description=description, data=dataset, functions=functions, license=license, privacy=privacy
+        corpus = Corpus(
+            id="",
+            name=name,
+            description=description,
+            data=dataset,
+            functions=functions,
+            tags=tags,
+            license=license,
+            privacy=privacy,
         )
+        corpus_payload = data_onboarding.create_payload_corpus(corpus)
+        shutil.rmtree(folder)
+        return corpus_payload
