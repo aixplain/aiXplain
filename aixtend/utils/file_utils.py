@@ -15,10 +15,12 @@ limitations under the License.
 """
 
 import os
+import requests
+
 from pathlib import Path
 from uuid import uuid4
-import requests
 from requests.adapters import HTTPAdapter, Retry
+
 
 def save_file(download_url: str, download_file_path=None) -> str:
     """Download and save file from given URL
@@ -34,10 +36,10 @@ def save_file(download_url: str, download_file_path=None) -> str:
         save_dir = os.getcwd()
         save_dir = Path(save_dir) / "aiXtend"
         save_dir.mkdir(parents=True, exist_ok=True)
-        file_ext = Path(download_url).suffix.split('?')[0]
+        file_ext = Path(download_url).suffix.split("?")[0]
         download_file_path = save_dir / (str(uuid4()) + file_ext)
     r = _request_with_retry("get", download_url)
-    with open(download_file_path, 'wb') as f:
+    with open(download_file_path, "wb") as f:
         f.write(r.content)
     return download_file_path
 
@@ -54,10 +56,21 @@ def _request_with_retry(method: str, url: str, **params) -> requests.Response:
         requests.Response: Response object of the request
     """
     session = requests.Session()
-    retries = Retry(total=5,
-                    backoff_factor=0.1,
-                    status_forcelist=[ 500, 502, 503, 504 ])
-    session.mount('https://', HTTPAdapter(max_retries=retries))
+    retries = Retry(total=5, backoff_factor=0.1, status_forcelist=[500, 502, 503, 504])
+    session.mount("https://", HTTPAdapter(max_retries=retries))
     response = session.request(method=method.upper(), url=url, **params)
     return response
-    
+
+
+def download_data(url_link, local_filename=None):
+    if local_filename is None:
+        local_filename = url_link.split("/")[-1]
+    with requests.get(url_link, stream=True) as r:
+        r.raise_for_status()
+        with open(local_filename, "wb") as f:
+            for chunk in r.iter_content(chunk_size=8192):
+                # If you have chunk encoded response uncomment if
+                # and set chunk_size parameter to None.
+                # if chunk:
+                f.write(chunk)
+    return local_filename

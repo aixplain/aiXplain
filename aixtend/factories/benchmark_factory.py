@@ -31,7 +31,7 @@ from aixtend.modules.benchmark_job import BenchmarkJob
 from aixtend.modules.dataset import Dataset
 from aixtend.modules.metric import Metric
 from aixtend.modules.model import Model
-from aixtend.factories.dataset_factory import DatasetFactory
+from aixtend.factories.data_asset_factory import DataAssetFactory
 from aixtend.factories.metric_factory import MetricFactory
 from aixtend.factories.model_factory import ModelFactory
 from aixtend.utils import config
@@ -82,7 +82,7 @@ class BenchmarkFactory:
             Benchmark: Coverted 'Benchmark' object
         """
         model_list = [ModelFactory().create_asset_from_id(model_info["id"]) for model_info in response["model"]]
-        dataset_list = [DatasetFactory().get(dataset_id) for dataset_id in response["target"]]
+        dataset_list = [DataAssetFactory().get(dataset_id) for dataset_id in response["target"]]
         metric_list = [MetricFactory().create_asset_from_id(metric_info["id"]) for metric_info in response["score"]]
         job_list = cls._get_benchmark_jobs_from_benchmark_id(response["id"])
         return Benchmark(response["id"], response["name"], model_list, dataset_list, metric_list, job_list)
@@ -210,16 +210,16 @@ class BenchmarkFactory:
     @classmethod
     def download_results_as_csv(cls, benchmarkJob: BenchmarkJob, save_path: str = None, returnDataFrame: bool = False):
         """Get the results of the benchmark job in a CSV format.
-            The results can either be downloaded locally or returned in the form of pandas.DataFrame.
+        The results can either be downloaded locally or returned in the form of pandas.DataFrame.
 
 
-            Args:
-                benchmarkJob (BenchmarkJob): 'BenchmarkJob' to get the results for
-                save_path (str, optional): Path to save the CSV if returnDataFrame is False. If None, a ranmdom path is generated. defaults to None.
-                returnDataFrame (bool, optional): If True, the result is returned as pandas.DataFrame else saved as a CSV file. defaults to False.
+        Args:
+            benchmarkJob (BenchmarkJob): 'BenchmarkJob' to get the results for
+            save_path (str, optional): Path to save the CSV if returnDataFrame is False. If None, a ranmdom path is generated. defaults to None.
+            returnDataFrame (bool, optional): If True, the result is returned as pandas.DataFrame else saved as a CSV file. defaults to False.
 
-            Returns:
-                str/pandas.DataFrame: results as path of locally saved file if returnDataFrame is False else as a pandas dataframe
+        Returns:
+            str/pandas.DataFrame: results as path of locally saved file if returnDataFrame is False else as a pandas dataframe
         """
         try:
             job_id = benchmarkJob.id

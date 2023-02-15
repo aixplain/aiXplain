@@ -16,9 +16,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 
 Author: Duraikrishna Selvaraju, Thiago Castro Ferreira, Shreyas Sharma and Lucas Pavanelli
-Date: October 28th 2022
+Date: February 1st 2023
 Description:
-    Datasets Class
+    Corpus Class
 """
 import logging
 import pandas as pd
@@ -33,15 +33,14 @@ from pathlib import Path
 from typing import Any, List, Optional
 
 
-class Dataset(Asset):
+class Corpus(Asset):
     def __init__(
         self,
         id: str,
         name: str,
         description: str,
-        function: Function,
-        source_data: List[Data],
-        target_data: List[Data],
+        data: List[Data],
+        functions: Optional[List[Function]] = [],
         tags: Optional[List[str]] = [],
         license: Optional[License] = None,
         privacy: Optional[Privacy] = Privacy.PRIVATE,
@@ -52,10 +51,9 @@ class Dataset(Asset):
         super().__init__(
             id=id, name=name, description=description, supplier=supplier, version=version, license=license, privacy=privacy
         )
-        self.function = function
-        self.source_data = source_data
-        self.target_data = target_data
+        self.functions = functions
         self.tags = tags
+        self.data = data
         self.kwargs = kwargs
 
     def download(self, save_path: str = None, returnDataFrame: bool = False):

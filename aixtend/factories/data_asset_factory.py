@@ -21,17 +21,26 @@ Description:
     Dataset Factory Class
 """
 
+import aixtend.utils.config as config
+import aixtend.processes.data_onboarding as data_onboarding
 import logging
-from typing import List, Dict
+import shutil
+
 from aixtend.factories.asset_factory import AssetFactory
-from aixtend.modules.dataset import Dataset, FieldType, FileFormat
+from aixtend.modules.corpus import Corpus
+from aixtend.modules.data import Data
+from aixtend.modules.dataset import Dataset
+from aixtend.modules.metadata import MetaData
+from aixtend.enums.function import Function
+from aixtend.enums.license import License
+from aixtend.enums.privacy import Privacy
+from aixtend.utils.file_utils import _request_with_retry, download_data
 from aixtend.utils import config
-import pandas as pd
 from pathlib import Path
-from aixtend.utils.file_utils import _request_with_retry, save_file
+from typing import Any, Dict, List, Optional, Union
 
 
-class DatasetFactory(AssetFactory):
+class DataAssetFactory(AssetFactory):
     api_key = config.TEAM_API_KEY
     backend_url = config.BENCHMARKS_BACKEND_URL
 
@@ -45,7 +54,13 @@ class DatasetFactory(AssetFactory):
         Returns:
             Dataset: Coverted 'Dataset' object
         """
-        return Dataset(response["id"], response["name"], response["description"], field_info=response['attributes'], size_info=response['info'])
+        return Dataset(
+            response["id"],
+            response["name"],
+            response["description"],
+            field_info=response["attributes"],
+            size_info=response["info"],
+        )
 
     @classmethod
     def get(cls, dataset_id: str) -> Dataset:
@@ -121,31 +136,18 @@ class DatasetFactory(AssetFactory):
             logging.error(error_message)
             return []
 
-    
-
-    # def upload_file(self, file_url: str, file_type:str):
-    #     """Asynchronous call to Upload a file to the user's dashboard.
-    #     Based on the file type, this finctions also compute and
-    #     upload the meta inforamtion of the file (EX: Number of characters,
-    #     duration, size, ...etc.)
-    #     Args:
-    #         file_url (str): link to the file to be uploaded.
-    #         file_type (str): type of the file (text, audio, ...etc. Shoould be an enum)
-
-    #     It returns the file ID at the end.
-    #     """
-
-    def create(
+    @classmethod
+    def create_corpus(
         self,
         name: str,
         description: str,
-        license: str,
-        functions: List[str],
-        data_paths: List[str],
-        field_names: List[str],
-        field_types: List[FieldType],
-        file_format: FileFormat,
-    ):
+        license: License,
+        content_path: Union[Union[str, Path], List[Union[str, Path]]],
+        schema: List[Union[Dict[str, Any], MetaData]],
+        tags: Optional[List[str]] = [],
+        functions: Optional[List[Function]] = [],
+        privacy: Optional[Privacy] = Privacy.PRIVATE,
+    ) -> Corpus:
         """Asynchronous call to Upload a dataset to the user's dashboard.
 
         Args:
@@ -158,7 +160,45 @@ class DatasetFactory(AssetFactory):
             field_types: List[FieldType],: data field types
             file_format (FileFormat): format of the file
         """
-        pass
+        # check team key
+        if config.TEAM_API_KEY.strip() == "":
+            raise Exception(
+                "Onboard Error: Update your team key on the environment variable TEAM_API_KEY before the corpus onboarding process."
+            )
 
-    # def check_upload_status(self, data_id: str):
-    #       """ returns the upload status (in progress, compleated, or error)"""
+        content_paths = content_path
+        if isinstance(content_path, list) is False:
+            content_paths = [content_path]
+
+        if isinstance(schema[0], MetaData) is False:
+            schema = [MetaData(**metadata) for metadata in schema]
+
+        # get file extension paths to process
+        paths = data_onboarding.get_paths(content_paths)
+
+        # process data and create files
+        folder = Path(name)
+        folder.mkdir(exist_ok=True)
+
+        dataset = []
+        for metadata in schema:
+            if metadata.privacy is None:
+                metadata.privacy = privacy
+
+            files = data_onboarding.process_data_files(data_asset_name=name, metadata=metadata, paths=paths, folder=name)
+
+            dataset.append(Data(id="", name=metadata.name, dtype=metadata.dtype, privacy=metadata.dtype, files=files))
+
+        corpus = Corpus(
+            id="",
+            name=name,
+            description=description,
+            data=dataset,
+            functions=functions,
+            tags=tags,
+            license=license,
+            privacy=privacy,
+        )
+        corpus_payload = data_onboarding.create_payload_corpus(corpus)
+        shutil.rmtree(folder)
+        return corpus_payload
