@@ -132,7 +132,7 @@ class Pipeline:
             end = time.time()
             return {"status": "FAILED", "error": error_message, "elapsed_time": end - start}
 
-    def run_async(self, data: Union[str, dict], name: str = "pipeline_process"):
+    def run_async(self, data: Union[str, dict], name: str = "pipeline_process", size=None):
         """
         Runs asynchronously a pipeline call.
 
@@ -147,14 +147,21 @@ class Pipeline:
         """
         headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}
         if isinstance(data, dict):
+            if size is not None:
+                data['size'] = size
             payload = json.dumps(data)
         else:
             try:
                 data_json = json.loads(data)
-                payload = data
+                if size is not None:
+                    data_json['size'] = size
+                payload = json.dumps(data_json)
             except Exception as e:
-                payload = json.dumps({"data": data})
-
+                payload = {"data": data}
+                if size is not None:
+                    payload["size"] = size
+                payload = json.dumps(payload)
+        
         logging.info(f"Start service for {name}  - {self.url} - {payload}")
         r = _request_with_retry("post", self.url, headers=headers, data=payload)
 
