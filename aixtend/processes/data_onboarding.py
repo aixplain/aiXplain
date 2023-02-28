@@ -15,10 +15,18 @@ from aixtend.enums.file_type import FileType
 from aixtend.enums.storage_type import StorageType
 from aixtend.utils.file_utils import download_data
 from pathlib import Path
-from typing import Dict, List, Union
+from typing import Dict, List, Union, Text
 
 
-def get_paths(input_paths: List[Union[str, Path]]):
+def get_paths(input_paths: List[Union[str, Path]]) -> List[Path]:
+    """Recursively access all local paths. Check if file extensions are supported.
+
+    Args:
+        input_paths (List[Union[str, Path]]): list of input pahts including folders and files
+
+    Returns:
+        List[Path]: list of local file paths
+    """
     paths = []
     for path in input_paths:
         if isinstance(path, str):
@@ -41,6 +49,16 @@ def get_paths(input_paths: List[Union[str, Path]]):
 
 
 def upload_data_s3(file_name: Union[str, Path], content_type: str = "text/csv", content_encoding: str = None):
+    """Upload files to S3 with pre-signed URLs
+
+    Args:
+        file_name (Union[str, Path]): local path of file to be uploaded
+        content_type (str, optional): Type of content. Defaults to "text/csv".
+        content_encoding (str, optional): Content encoding. Defaults to None.
+
+    Returns:
+        URL: s3 path
+    """
     try:
         # Get pre-signed URL
         team_key = config.TEAM_API_KEY
@@ -70,7 +88,16 @@ def upload_data_s3(file_name: Union[str, Path], content_type: str = "text/csv", 
         raise Exception("Onboarding Error: Failure on Uploading to S3.")
 
 
-def process_text(content: str, storage_type: StorageType):
+def process_text(content: str, storage_type: StorageType) -> Text:
+    """Process text files
+
+    Args:
+        content (str): URL with text, local path with text or textual content
+        storage_type (StorageType): type of storage: URL, local path or textual content
+
+    Returns:
+        Text: textual content
+    """
     if storage_type == StorageType.URL:
         tempfile = download_data(content)
         with open(tempfile) as f:
@@ -84,7 +111,18 @@ def process_text(content: str, storage_type: StorageType):
     return text
 
 
-def process_data_files(data_asset_name: str, metadata: MetaData, paths: List, folder: Union[str, Path] = None):
+def process_data_files(data_asset_name: str, metadata: MetaData, paths: List, folder: Union[str, Path] = None) -> List[Union[str, Path]]:
+    """Process a list of local files, compress and upload them to pre-signed URLs in S3
+
+    Args:
+        data_asset_name (str): name of the data asset
+        metadata (MetaData): meta data of the asset
+        paths (List): list of paths to local files
+        folder (Union[str, Path], optional): local folder to save compressed files before upload them to s3. Defaults to data_asset_name.
+
+    Returns:
+        List[Union[str, Path]]: list of s3 links
+    """
     if folder is None:
         folder = data_asset_name
 
@@ -130,7 +168,15 @@ def process_data_files(data_asset_name: str, metadata: MetaData, paths: List, fo
     return files
 
 
-def create_payload_corpus(corpus: Corpus):
+def create_payload_corpus(corpus: Corpus) -> Dict:
+    """Create payload to call coreengine
+
+    Args:
+        corpus (Corpus): corpus object
+
+    Returns:
+        Dict: payload
+    """
     payload = {
         "name": corpus.name,
         "description": corpus.description,
