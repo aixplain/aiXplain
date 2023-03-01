@@ -161,44 +161,53 @@ class DataAssetFactory(AssetFactory):
             file_format (FileFormat): format of the file
         """
         # check team key
-        if config.TEAM_API_KEY.strip() == "":
-            raise Exception(
-                "Onboard Error: Update your team key on the environment variable TEAM_API_KEY before the corpus onboarding process."
+        folder = None
+        try:
+            if config.TEAM_API_KEY.strip() == "":
+                raise Exception(
+                    "Data Asset Onboarding Error: Update your team key on the environment variable TEAM_API_KEY before the corpus onboarding process."
+                )
+
+            content_paths = content_path
+            if isinstance(content_path, list) is False:
+                content_paths = [content_path]
+
+            if isinstance(schema[0], MetaData) is False:
+                try:
+                    schema = [MetaData(**metadata) for metadata in schema]
+                except:
+                    raise Exception("Data Asset Onboarding Error: Make sure the elements of your schema follows the MetaData class.")
+
+            # get file extension paths to process
+            paths = data_onboarding.get_paths(content_paths)
+
+            # process data and create files
+            folder = Path(name)
+            folder.mkdir(exist_ok=True)
+
+            dataset = []
+            for metadata in schema:
+                if metadata.privacy is None:
+                    metadata.privacy = privacy
+
+                files = data_onboarding.process_data_files(data_asset_name=name, metadata=metadata, paths=paths, folder=name)
+
+                dataset.append(Data(id="", name=metadata.name, dtype=metadata.dtype, privacy=metadata.dtype, files=files))
+
+            corpus = Corpus(
+                id="",
+                name=name,
+                description=description,
+                data=dataset,
+                functions=functions,
+                tags=tags,
+                license=license,
+                privacy=privacy,
             )
-
-        content_paths = content_path
-        if isinstance(content_path, list) is False:
-            content_paths = [content_path]
-
-        if isinstance(schema[0], MetaData) is False:
-            schema = [MetaData(**metadata) for metadata in schema]
-
-        # get file extension paths to process
-        paths = data_onboarding.get_paths(content_paths)
-
-        # process data and create files
-        folder = Path(name)
-        folder.mkdir(exist_ok=True)
-
-        dataset = []
-        for metadata in schema:
-            if metadata.privacy is None:
-                metadata.privacy = privacy
-
-            files = data_onboarding.process_data_files(data_asset_name=name, metadata=metadata, paths=paths, folder=name)
-
-            dataset.append(Data(id="", name=metadata.name, dtype=metadata.dtype, privacy=metadata.dtype, files=files))
-
-        corpus = Corpus(
-            id="",
-            name=name,
-            description=description,
-            data=dataset,
-            functions=functions,
-            tags=tags,
-            license=license,
-            privacy=privacy,
-        )
-        corpus_payload = data_onboarding.create_payload_corpus(corpus)
-        shutil.rmtree(folder)
+            corpus_payload = data_onboarding.create_payload_corpus(corpus)
+            shutil.rmtree(folder)
+        except Exception as e:
+            if folder is not None:
+                shutil.rmtree(folder)
+            raise Exception(e)
         return corpus_payload

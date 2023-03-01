@@ -38,13 +38,13 @@ def get_paths(input_paths: List[Union[str, Path]]) -> List[Path]:
                 if extension == FileType.CSV:
                     paths.append(subpath)
                 else:
-                    logging.warning(f"Onboarding: File Extension not Supported ({str(path)})")
+                    logging.warning(f"Data Asset Onboarding: File Extension not Supported ({str(path)})")
         else:
             extension = FileType(path.suffix)
             if extension == FileType.CSV:
                 paths.append(path)
             else:
-                logging.warning(f"Onboarding: File Extension not Supported ({str(path)})")
+                logging.warning(f"Data Asset Onboarding: File Extension not Supported ({str(path)})")
     return paths
 
 
@@ -69,7 +69,7 @@ def upload_data_s3(file_name: Union[str, Path], content_type: str = "text/csv", 
         payload = {"contentType": content_type, "originalName": file_name}
         r = _request_with_retry("post", url, headers=headers, data=payload)
         response = r.json()
-
+        print(response)
         path = response["key"]
         # Upload data
         presigned_url = response["uploadUrl"]
@@ -80,12 +80,12 @@ def upload_data_s3(file_name: Union[str, Path], content_type: str = "text/csv", 
         r = _request_with_retry("put", presigned_url, headers=headers, data=payload)
 
         if r.status_code != 200:
-            raise Exception("Onboarding Error: Failure on Uploading to S3.")
+            raise Exception("Data Asset Onboarding Error: Failure on Uploading to S3.")
         bucket_name = re.findall(r"https://(.*?).s3.amazonaws.com", presigned_url)[0]
         s3_link = f"s3://{bucket_name}/{path}"
         return s3_link
     except:
-        raise Exception("Onboarding Error: Failure on Uploading to S3.")
+        raise Exception("Data Asset Onboarding Error: Failure on Uploading to S3.")
 
 
 def process_text(content: str, storage_type: StorageType) -> Text:
@@ -129,16 +129,22 @@ def process_data_files(data_asset_name: str, metadata: MetaData, paths: List, fo
     files, batch = [], []
     for path in paths:
         # TO DO: extract the split from file name
-        content = pd.read_csv(path)[metadata.name]
+        try:
+            content = pd.read_csv(path)[metadata.name]
+        except:
+            raise Exception(f"Data Asset Onboarding Error: Column {metadata.name} not found in the local file {path}.")
         ndigits, nbdigits = max([4, len(str(len(content)))]), 4
 
         # process texts and labels
         if metadata.dtype in [DataType.TEXT, DataType.LABEL]:
             ncharacters = 0
             for idx, row in enumerate(content):
-                text = process_text(row, metadata.storage_type)
-                ncharacters += len(text)
-                batch.append(text)
+                try:
+                    text = process_text(row, metadata.storage_type)
+                    ncharacters += len(text)
+                    batch.append(text)
+                except:
+                    logging.warning(f"Data Asset Onboarding: The instance {row} of {metadata.name} could not be processed and will be skipped.")
 
                 if (ncharacters % 1000000) == 0:
                     index = str(idx + 1).zfill(ndigits)
