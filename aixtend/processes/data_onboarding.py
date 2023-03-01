@@ -146,7 +146,7 @@ def process_data_files(data_asset_name: str, metadata: MetaData, paths: List, fo
                 except:
                     logging.warning(f"Data Asset Onboarding: The instance {row} of {metadata.name} could not be processed and will be skipped.")
 
-                if (ncharacters % 1000000) == 0:
+                if ncharacters >= 1000000:
                     index = str(idx + 1).zfill(ndigits)
                     batch_index = str(len(files) + 1).zfill(nbdigits)
                     file_name = f"{folder}/{metadata.name}-{batch_index}-{index}.csv.gz"
@@ -157,7 +157,7 @@ def process_data_files(data_asset_name: str, metadata: MetaData, paths: List, fo
                     df.to_csv(file_name, compression="gzip", index=False)
                     s3_link = upload_data_s3(file_name, content_type="text/csv", content_encoding="gzip")
                     files.append(File(path=s3_link, extension=FileType.CSV, compression="gzip"))
-                    batch = []
+                    batch, ncharacters = [], 0
 
             if len(batch) > 0:
                 index = str(idx + 1).zfill(ndigits - len(str(idx + 1)))
