@@ -179,7 +179,7 @@ class Model:
                 data_json = json.loads(data)
                 payload = data
             except:
-                payload = json.dumps({"data": data})
+                payload = json.dumps({"data": data, 'options':{'assetId' : self.id}})
 
         r = _request_with_retry("post", self.url, headers=headers, data=payload)
         logging.info(f"Model Run Async: Start service for {name} - {self.url} - {payload}")

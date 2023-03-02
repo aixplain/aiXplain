@@ -155,9 +155,9 @@ class Pipeline:
                 payload = data
             except Exception as e:
                 payload = json.dumps({"data": data})
-
-        logging.info(f"Start service for {name}  - {self.url} - {payload}")
-        r = _request_with_retry("post", self.url, headers=headers, data=payload)
+        call_url = f"{self.url}/{self.id}"
+        logging.info(f"Start service for {name}  - {call_url} - {payload}")
+        r = _request_with_retry("post", call_url, headers=headers, data=payload)
 
         resp = None
         try:
