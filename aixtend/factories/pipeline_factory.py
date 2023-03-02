@@ -42,7 +42,7 @@ class PipelineFactory:
         Returns:
             Pipeline: Coverted 'Pipeline' object
         """
-        return Pipeline(response["id"], response["name"], response["supplier"]["id"], cls.api_key)
+        return Pipeline(response["id"], response["name"], cls.api_key)
     
     @classmethod
     def create_asset_from_id(cls, pipeline_id: str) -> Pipeline:
