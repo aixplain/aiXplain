@@ -168,7 +168,7 @@ class Model:
             name (str, optional): ID given to a call. Defaults to "model_process".
 
         Returns:
-            dict: polling URL
+            dict: polling URL in response
         """
         headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}
 

@@ -1,4 +1,4 @@
-__author__ = "lucaspavanelli"
+__author__ = "aiXplain"
 
 """
 Copyright 2022 The aiXplain SDK authors
@@ -129,7 +129,7 @@ class ModelFactory:
             model_list = []
             assert k > 0
             for page_number in range(k // 10 + 1):
-                model_list += cls.get_models_from_page(page_number, task, input_language, output_language)
+                model_list += cls.get_assets_from_page(page_number, task, input_language, output_language)
             return model_list
         except Exception as e:
             error_message = f"Listing Models: Error in getting {k} Models for {task} : {e}"
