@@ -37,8 +37,7 @@ class Model:
         id: str,
         name: str,
         supplier: str,
-        api_key: str = None,
-        subscription_id: str = None,
+        api_key: str,
         url: str = config.MODELS_RUN_URL,
         **additional_info,
     ) -> None:
@@ -48,7 +47,7 @@ class Model:
             id (str): ID of the Model
             name (str): Name of the Model
             supplier (str): supplier of the Model
-            api_key (str, optional): API key of the Model. Defaults to None.
+            api_key (str): Team API Key to run the model.
             **additional_info: Any additional Model info to be saved
         """
         self.url = url
@@ -56,17 +55,7 @@ class Model:
         self.name = name
         self.supplier = supplier
         self.api_key = api_key
-        self.subscription_id = subscription_id
         self.additional_info = additional_info
-
-    def _is_subscribed(self) -> bool:
-        """Returns if the model is subscribed to
-
-        Returns:
-            bool: True if subscribed
-        """
-        return self.api_key is not None
-
 
     def get_asset_info(self) -> dict:
         """Get the model info as a Dictionary
@@ -74,7 +63,6 @@ class Model:
         Returns:
             dict: Model Information
         """
-        self.additional_info["subscribed"] = self._is_subscribed()
         clean_additional_info = {k: v for k, v in self.additional_info.items() if v is not None}
         return {"id": self.id, "name": self.name, "supplier": self.supplier, "additional_info": clean_additional_info}
 
@@ -94,10 +82,6 @@ class Model:
         start, end = time.time(), time.time()
         completed = False
         response_body = {"status": "FAILED", "completed": False}
-        if self.api_key is None:
-            logging.error(f"Polling for Model: Error in polling for {name}: 'api_key' not found. Please subscribe to the model")
-            response_body["status"] = "ERROR"
-            return response_body
         while not completed and (end - start) < timeout:
             try:
                 response_body = self.poll(poll_url, name=name)
@@ -134,12 +118,6 @@ class Model:
         Returns:
             dict: response obtained by polling call
         """
-        if self.api_key is None:
-            response_body = {"status": "ERROR", "completed": False}
-            logging.error(
-                f"Single Poll for Model: Error in polling for {name}: 'api_key' not found. Please subscribe to the model"
-            )
-            return response_body
         headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}
         r = _request_with_retry("get", poll_url, headers=headers)
         try:
@@ -165,10 +143,6 @@ class Model:
         Returns:
             dict: parsed output from model
         """
-        if self.api_key is None:
-            response_body = {"status": "ERROR", "completed": False}
-            logging.error(f"Model Run: Error in running for {name}: 'api_key' not found. Please subscribe to the model")
-            return response_body
         start = time.time()
         try:
             response = self.run_async(data, name=name)
@@ -196,10 +170,6 @@ class Model:
         Returns:
             dict: polling URL
         """
-        if self.api_key is None:
-            response_body = {"status": "ERROR", "completed": False}
-            logging.error(f"Model Run Async: Error in running for {name}: 'api_key' not found. Please subscribe to the model")
-            return response_body
         headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}
 
         if isinstance(data, dict):

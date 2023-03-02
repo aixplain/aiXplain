@@ -43,9 +43,7 @@ class ModelFactory:
         Returns:
             Model: Coverted 'Model' object
         """
-        sub_api_key = response["subscription"].get("apiKey", None) if "subscription" in response else None
-        sub_id = response["subscription"].get("id", None) if "subscription" in response else None
-        return Model(response["id"], response["name"], response["supplier"]["id"], api_key=sub_api_key, subscription_id=sub_id)
+        return Model(response["id"], response["name"], response["supplier"]["id"], cls.api_key)
 
     @classmethod
     def create_asset_from_id(cls, model_id: str) -> Model:
@@ -73,40 +71,6 @@ class ModelFactory:
                 message = "Model Creation: Unspecified Error"
             logging.error(message)
             raise Exception(f"Status {status_code}: {message}")
-
-    @classmethod
-    def subscribe_to_asset(cls, model: Model) -> None:
-        """Subscribe to the given model
-
-        Args:
-            model (Model): 'Model' object to subscribe to
-        """
-        if model._is_subscribed():
-            logging.info(f"Model Subscription: {model.name} is already subscribed.")
-            return
-        url = f"{cls.backend_url}/sdk/inventory/models/{model.id}/enable"
-        headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
-        r = _request_with_retry("post", url, headers=headers)
-        resp = r.json()
-        model.subscription_id = resp["id"]
-        model.api_key = resp["apiKey"]
-
-    @classmethod
-    def unsubscribe_to_asset(cls, model: Model) -> None:
-        """Unsubscribe to the given model
-
-        Args:
-            model (Model): 'Model' object to unsubscribe to
-        """
-        if not model._is_subscribed():
-            logging.info(f"Model Unsubscription: {model.name} is not subsribed to.")
-            return
-        url = f"{cls.backend_url}/sdk/inventory/models/{model.subscription_id}/disable"
-        headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
-        r = _request_with_retry("post", url, headers=headers)
-        resp = r.json()
-        model.subscription_id = None
-        model.api_key = None
 
     @classmethod
     def get_assets_from_page(
