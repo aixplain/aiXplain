@@ -1,0 +1,92 @@
+__author__="thiagocastroferreira"
+
+import logging
+import os
+import pandas as pd
+
+from aixtend.enums.file_type import FileType
+from aixtend.enums.storage_type import StorageType
+from aixtend.modules.file import File
+from aixtend.modules.metadata import MetaData
+from aixtend.utils.file_utils import download_data, upload_data_s3
+from pathlib import Path
+from typing import Dict, List, Union, Text
+
+def process_text(content: str, storage_type: StorageType) -> Text:
+    """Process text files
+
+    Args:
+        content (str): URL with text, local path with text or textual content
+        storage_type (StorageType): type of storage: URL, local path or textual content
+
+    Returns:
+        Text: textual content
+    """
+    if storage_type == StorageType.URL:
+        tempfile = download_data(content)
+        with open(tempfile) as f:
+            text = f.read()
+        os.remove(tempfile)
+    elif storage_type == StorageType.FILE:
+        with open(content) as f:
+            text = f.read()
+    else:
+        text = content
+    return text
+
+
+def run(metadata: MetaData, paths: List, folder: Path, batch_size:int = 1000) -> List[File]:
+    """Process a list of local textual files, compress and upload them to pre-signed URLs in S3
+
+    Args:
+        metadata (MetaData): meta data of the asset
+        paths (List): list of paths to local files
+        folder (Path): local folder to save compressed files before upload them to s3.
+
+    Returns:
+        List[File]: list of s3 links
+    """
+    idx = 0
+    files, batch = [], []
+    for path in paths:
+        # TO DO: extract the split from file name
+        try:
+            content = pd.read_csv(path)[metadata.name]
+        except:
+            raise Exception(f"Data Asset Onboarding Error: Column {metadata.name} not found in the local file {path}.")
+
+        # process texts and labels
+        ncharacters = 0
+        for row in content:
+            try:
+                text = process_text(row, metadata.storage_type)
+                ncharacters += len(text)
+                batch.append(text)
+            except:
+                logging.warning(f"Data Asset Onboarding: The instance {row} of {metadata.name} could not be processed and will be skipped.")
+
+            if ((idx + 1) % batch_size) == 0:
+                batch_index = str(len(files) + 1).zfill(8)
+                file_name = f"{folder}/{metadata.name}-{batch_index}.csv.gz"
+
+                df = pd.DataFrame({metadata.name: batch})
+                start, end = idx - len(batch) + 1, idx + 1
+                df["index"] = range(start, end)
+                df.to_csv(file_name, compression="gzip", index=False)
+                s3_link = upload_data_s3(file_name, content_type="text/csv", content_encoding="gzip")
+                files.append(File(path=s3_link, extension=FileType.CSV, compression="gzip"))
+                batch = []
+            idx += 1
+
+    if len(batch) > 0:
+        batch_index = str(len(files)).zfill(8)
+        file_name = f"{folder}/{metadata.name}-{batch_index}.csv.gz"
+
+        df = pd.DataFrame({metadata.name: batch})
+        start, end = idx - len(batch) + 1, idx + 1
+        df["index"] = range(start, end)
+        df.to_csv(file_name, compression="gzip", index=False)
+        s3_link = upload_data_s3(file_name, content_type="text/csv", content_encoding="gzip")
+        files.append(File(path=s3_link, extension=FileType.CSV, compression="gzip"))
+        batch = []
+    return files

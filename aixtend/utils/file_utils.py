@@ -14,12 +14,15 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+import aixtend.utils.config as config
 import os
+import re
 import requests
 
 from pathlib import Path
 from uuid import uuid4
 from requests.adapters import HTTPAdapter, Retry
+from typing import Union
 
 
 def save_file(download_url: str, download_file_path=None) -> str:
@@ -74,3 +77,42 @@ def download_data(url_link, local_filename=None):
                 # if chunk:
                 f.write(chunk)
     return local_filename
+
+
+def upload_data_s3(file_name: Union[str, Path], content_type: str = "text/csv", content_encoding: str = None):
+    """Upload files to S3 with pre-signed URLs
+
+    Args:
+        file_name (Union[str, Path]): local path of file to be uploaded
+        content_type (str, optional): Type of content. Defaults to "text/csv".
+        content_encoding (str, optional): Content encoding. Defaults to None.
+
+    Returns:
+        URL: s3 path
+    """
+    try:
+        # Get pre-signed URL
+        team_key = config.TEAM_API_KEY
+        url = config.TEMPFILE_UPLOAD_URL
+
+        headers = {"Authorization": "token " + team_key}
+
+        payload = {"contentType": content_type, "originalName": file_name}
+        r = _request_with_retry("post", url, headers=headers, data=payload)
+        response = r.json()
+        path = response["key"]
+        # Upload data
+        presigned_url = response["uploadUrl"]
+        headers = {"Content-Type": content_type}
+        if content_encoding is None:
+            headers["Content-Encoding"] = content_encoding
+        payload = open(file_name, "rb").read()
+        r = _request_with_retry("put", presigned_url, headers=headers, data=payload)
+
+        if r.status_code != 200:
+            raise Exception("Data Asset Onboarding Error: Failure on Uploading to S3.")
+        bucket_name = re.findall(r"https://(.*?).s3.amazonaws.com", presigned_url)[0]
+        s3_link = f"s3://{bucket_name}/{path}"
+        return s3_link
+    except:
+        raise Exception("Data Asset Onboarding Error: Failure on Uploading to S3.")

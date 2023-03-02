@@ -143,7 +143,7 @@ class DataAssetFactory(AssetFactory):
         description: str,
         license: License,
         content_path: Union[Union[str, Path], List[Union[str, Path]]],
-        schema: List[Union[Dict[str, Any], MetaData]],
+        schema: List[Union[Dict, MetaData]],
         tags: Optional[List[str]] = [],
         functions: Optional[List[Function]] = [],
         privacy: Optional[Privacy] = Privacy.PRIVATE,
