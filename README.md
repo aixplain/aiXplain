@@ -1,105 +1,46 @@
 # aiXtend
 
-aiXtend enables python programmers to add AI functions to their software.
+aiXtend is a software development kit (SDK) for the [aiXplain platform](https://aixplain.com/). With aiXtend, developers can quickly and easily:
 
-An aiXplain pipeline is a directed graph (DAG) of AI functions built using aiXplain's designer UI. An AI function is a data processing step that relies on a machine learning model to execute. An example of an AI function is speech recognition or machine translation. Pipelines help you process your data by calling a series of functions as defined in the DAG, abstracting the orchestration, and providing a simple python function call.
+- [Browse](https://aixplain.com/platform/discovery/) and use aiXplain’s ever-expanding catalog of 35,000+ ready-to-use AI models.
+- [Benchmark](https://aixplain.com/platform/benchmark/) AI systems by choosing models, datasets and metrics.
+- Run your own custom designed [pipelines](https://aixplain.com/platform/studio/).
 
-aiXplain has a collection of AI models for each AI function. You can explore the collection of our AI models by using the discover feature of our [platform's website](https://platform.aixplain.com/). You can run a model using simple python code as shown in [this example](https://github.com/aixplain/pipelines/tree/model_caller#model-snippet).
+[🎓 **Documentation**](https://huggingface.co/docs/evaluate/)
 
-## aiXplain Pipeline Designer DAG
+🔎 **Find a [model](https://platform.aixplain.com/discovery/models), [dataset](https://platform.aixplain.com/discovery/datasets), [metric](https://platform.aixplain.com/discovery/metrics) on the platform.**
 
-The image below shows a sample aiXplain pipeline built for subtitling video files. The description of the pipeline can be found in the [documentation](docs/samples/subtitle_generator/README.md).
+## Getting Started
 
-<img src="docs/assets/designer-subtitling-sample.png" width=30% height=30%>
-
-
-## Installation
-
-```
+### Installation
+To install simply,
+```bash
 pip install aixtend
 ```
 
-## User Guide
+###  API Key Setup
+Before you can use the aiXtend SDK, you'll need to obtain an API key from our platform. <Here's how to do it>
 
-In order to use aiXplain, you need to create an account in [aiXplain platform](https://platform.aixplain.com/). Follow the code samples listed below to get started.
+Once you get the API key, you'll  need to add this API key as an environment variable on your system.
+#### Linux and macOS
+```bash
+export TEAM_API_KEY=YOUR_API_KEY
+```
+#### Windows
+```bash
+set TEAM_API_KEY=YOUR_API_KEY
+```
+## Usage
 
-### Code Samples and Demos
+Let’s see how we can use aiXtend to run a machine translation model.
 
-aiXtend provides python APIs to call AI workflows you can build with aiXplain designer and to call models you subscribed with aiXplain discover.
-
-#### Pipeline Snippet
-##### Synchronous
 
 ```python
-from aixtend.factories.pipeline_factory import PipelineFactory
-
-api_key = <API_KEY>
-
-pipeline = PipelineFactory.initialize(api_key=api_key)
-
-path = <DATA_URL>
-response = pipeline.run(data=path)
-```
-##### Asynchronous
-```python
-import time
-from aixtend.factories.pipeline_factory import PipelineFactory
-
-api_key = <API_KEY>
-
-pipeline = PipelineFactory.initialize(api_key=api_key)
-
-path = <DATA_URL>
-response = pipeline.run_async(data=path)
-if response['status'] != 'FAILED':
-    poll_url = response['url']
-    completed = False
-    while not completed:
-        response = pipeline.poll(poll_url)
-        completed = response['completed']
-        time.sleep(3)
+from aixtend.factories.model_factory  import ModelFactory
+model = ModelFactory.create_asset_from_id("61b27086c45ecd3c10d0608c") # Got the ID of an MT model from on our platform
+translation = model.run("This is a sample text")
 ```
 
-#### Model Snippet
-##### Synchronous
-```python
-from aixtend.factories.model_factory import ModelFactory
-
-api_key = <API_KEY>
-
-model = ModelFactory.initialize(api_key=api_key)
-
-path = <DATA_URL>
-response = model.run(data=path)
-```
-##### Asynchronous
-```python
-import time
-from aixtend.factories.model_factory import ModelFactory
-
-api_key = MODEL_API_KEY
-
-model = ModelFactory.initialize(api_key=api_key)
-
-path = <DATA_URL>
-response = model.run_async(data=path)
-if response['status'] != 'FAILED':
-    poll_url = response['url']
-    completed = False
-    while not completed:
-        response = model.poll(poll_url)
-        completed = response['completed']
-        time.sleep(3)
-```
-
-API_KEY can be obtained by creating a pipeline in pipeline designer through the aiXplain platform UI.   
-For DATA_URL generate a http(s) link to your image or video file to process, though text input can be directly supplied to data parameter in the run function without needing a URL.  
-  
-Information on how to generate the API_KEY can be found in the [subtitle generation pipeline sample video](https://aixplain.com/designer-tutorial/). 
-
-#### Subtitle Generation
-
-This demo creates a .srt file for the supplied video using aixplain-pipelines. Follow the instructions in the [documentation](docs/samples/subtitle_generator/README.md).
 
 ## Developer Guide
 
