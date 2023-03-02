@@ -1,3 +1,5 @@
+<img src="docs/assets/aixplain-brandmark-common.png" alt="aiXplain logo" title="aiXplain" align="right" height="132" width="85"/>
+
 # aiXtend
 
 aiXtend is a software development kit (SDK) for the [aiXplain platform](https://aixplain.com/). With aiXtend, developers can quickly and easily:
