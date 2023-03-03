@@ -12,6 +12,8 @@ aiXtend is a software development kit (SDK) for the [aiXplain platform](https://
 
 🔎 **Find a [model](https://platform.aixplain.com/discovery/models), [dataset](https://platform.aixplain.com/discovery/datasets), [metric](https://platform.aixplain.com/discovery/metrics) on the platform.**
 
+:yellow_heart: Our repository is constantly evolving. With the help of the scientific community, we plan to add even more datasets, models and metrics across domains and tasks.
+
 ## Getting Started
 
 ### Installation
@@ -49,6 +51,5 @@ translation = model.run("This is a sample text")
 Follow the developer guide [documentation](docs/development/developer_guide.md).
 
 ## Support
-
 Raise issues for support in this repository.  
 Pull requests are welcome!
