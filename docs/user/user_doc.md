@@ -4,12 +4,12 @@ aiXplain platform has a vast repository of multiple assets like Models, Datasets
 The assets currently supported by the SDK are:
 - [Models](#models)
 - [Pipelines](#pipelines)
-- Datasets
-- Metrics
+- [Datasets](#datasets)
+- [Metrics](#metrics)
 - Benchmarks
 
 ## Models
-aiXplain has an ever-expanding catalog of 35,000+ ready-to-use AI models for various tasks like Translation, Speech Recognition,  Diacritization, Sentiment Analysis and much more.
+aiXplain has an ever-expanding catalog of 35,000+ ready-to-use AI models for various tasks like Translation, Speech Recognition, Diacritization, Sentiment Analysis and much more.
 
 #### Explore
 There are two ways to explore our model repository:
@@ -80,4 +80,30 @@ start_response = pipeline.run_async("This is a sample text")
 poll_url = start_response["url"]
 ## Poll to see current job status
 poll_response = pipeline.poll(poll_url)
+```
+
+## Datasets
+aiXplain has an extensive collection of Datasets for various tasks like Translation, Speech Recognition, Diacritization, Sentiment Analysis and much more.
+You can even upload your own dataset on the platform [here](https://platform.aixplain.com/dashboard/datasets/upload).
+
+The catalog of all available datasets can be accessed and browsed on the aiXplain platform [here](https://platform.aixplain.com/discovery/datasets).
+
+The aiXtend SDK allows search for existing datasets that match a specific criteria. `DatasetFactory` can  search for datasets that are linked to a particular machine learning task and optionally support a specific input/output language pair. 
+
+```python
+from aixtend.factories.dataset_factory  import DatasetFactory
+dataset_list = DatasetFactory.get_first_k_assets(k=5, task="translation", input_language="en", output_language="fr")
+```
+Note: This does not download datasets to your local machine.
+
+## Metrics
+aiXplain has an impressive library of metrics for various machine learning tasks like Translation, Speech Recognition, Diacritization and Sentiment Analysis. We have reference similarity metrics, human evaluation estimation metrics, and referenceless metrics.
+
+The catalog of all available metrics can be accessed and browsed on the aiXplain platform [here](https://platform.aixplain.com/discovery/metrics).
+
+The aiXtend SDK allows search for existing metrics. `MetricFactory` can  search for metrics for a particular machine learning task.
+
+```python
+from aixtend.factories.metric_factory  import MetricFactory
+metric_list = MetricFactory.list_assets(task="translation")
 ```
