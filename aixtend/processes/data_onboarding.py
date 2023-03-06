@@ -12,6 +12,7 @@ from aixtend.modules.metadata import MetaData
 from pathlib import Path
 from typing import Dict, List, Union
 
+FORBIDDEN_COLUMN_NAMES = ["@VOLUME", "@START_TIME", "@END_TIME", "@ORIGINAL", "@SOURCE", "@INDEX"]
 
 def get_paths(input_paths: List[Union[str, Path]]) -> List[Path]:
     """Recursively access all local paths. Check if file extensions are supported.
@@ -90,7 +91,7 @@ def create_payload_corpus(corpus: Corpus) -> Dict:
     for data in corpus.data:
         data_json = {
             "name": data.name,
-            "dataColumn": 1,
+            "dataColumn": data.data_column,
             "dataType": data.dtype.value,
             "batches": [{"tempFilePath": str(file.path), "order": idx + 1} for idx, file in enumerate(data.files)],
             "tags": [],

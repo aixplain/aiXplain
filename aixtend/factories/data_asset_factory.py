@@ -177,6 +177,12 @@ class DataAssetFactory(AssetFactory):
                     schema = [MetaData(**metadata) for metadata in schema]
                 except:
                     raise Exception("Data Asset Onboarding Error: Make sure the elements of your schema follows the MetaData class.")
+            
+            # check whether reserved names are used as data/column names
+            for metadata in schema:
+                for forbidden_name in data_onboarding.FORBIDDEN_COLUMN_NAMES:
+                    if forbidden_name in [metadata.name, metadata.data_column]:
+                        raise Exception(f"Data Asset Onboarding Error: {forbidden_name} is reserved name and must not be used as the name of a data or a column.")
 
             # get file extension paths to process
             paths = data_onboarding.get_paths(content_paths)

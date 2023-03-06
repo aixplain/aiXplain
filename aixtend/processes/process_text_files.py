@@ -10,7 +10,7 @@ from aixtend.modules.file import File
 from aixtend.modules.metadata import MetaData
 from aixtend.utils.file_utils import download_data, upload_data_s3
 from pathlib import Path
-from typing import Dict, List, Union, Text
+from typing import List, Text
 
 def process_text(content: str, storage_type: StorageType) -> Text:
     """Process text files
@@ -22,12 +22,12 @@ def process_text(content: str, storage_type: StorageType) -> Text:
     Returns:
         Text: textual content
     """
-    if storage_type == StorageType.URL:
-        tempfile = download_data(content)
-        with open(tempfile) as f:
-            text = f.read()
-        os.remove(tempfile)
-    elif storage_type == StorageType.FILE:
+    # if storage_type == StorageType.URL:
+    #     tempfile = download_data(content)
+    #     with open(tempfile) as f:
+    #         text = f.read()
+    #     os.remove(tempfile)
+    if storage_type == StorageType.FILE:
         with open(content) as f:
             text = f.read()
     else:
@@ -56,11 +56,9 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size:int = 1000) ->
             raise Exception(f"Data Asset Onboarding Error: Column {metadata.name} not found in the local file {path}.")
 
         # process texts and labels
-        ncharacters = 0
         for row in content:
             try:
                 text = process_text(row, metadata.storage_type)
-                ncharacters += len(text)
                 batch.append(text)
             except:
                 logging.warning(f"Data Asset Onboarding: The instance {row} of {metadata.name} could not be processed and will be skipped.")
@@ -71,7 +69,7 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size:int = 1000) ->
 
                 df = pd.DataFrame({metadata.name: batch})
                 start, end = idx - len(batch) + 1, idx + 1
-                df["index"] = range(start, end)
+                df["@INDEX"] = range(start, end)
                 df.to_csv(file_name, compression="gzip", index=False)
                 s3_link = upload_data_s3(file_name, content_type="text/csv", content_encoding="gzip")
                 files.append(File(path=s3_link, extension=FileType.CSV, compression="gzip"))
@@ -84,7 +82,7 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size:int = 1000) ->
 
         df = pd.DataFrame({metadata.name: batch})
         start, end = idx - len(batch) + 1, idx + 1
-        df["index"] = range(start, end)
+        df["@INDEX"] = range(start, end)
         df.to_csv(file_name, compression="gzip", index=False)
         s3_link = upload_data_s3(file_name, content_type="text/csv", content_encoding="gzip")
         files.append(File(path=s3_link, extension=FileType.CSV, compression="gzip"))

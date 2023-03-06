@@ -13,6 +13,7 @@ class Data:
         name: str,
         dtype: DataType,
         privacy: Privacy,
+        data_column: Optional[str] = None,
         files: Optional[List[File]] = [],
         transform_func: Optional[Union[str, Callable]] = None,
         **kwargs
@@ -22,6 +23,10 @@ class Data:
         self.dtype = dtype
         self.privacy = privacy
         self.files = files
+        if data_column is None:
+            self.data_column = name
+        else:
+            self.data_column = data_column
         self.transform_func = transform_func
         self.kwargs = kwargs
 
