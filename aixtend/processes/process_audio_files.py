@@ -20,7 +20,7 @@ def compress_folder(folder_path:str):
     return folder_path + ".tgz"
 
 
-def run(metadata: MetaData, paths: List, folder:Path, batch_size:int = 100) -> List[File]:
+def run(metadata: MetaData, paths: List, folder:Path, batch_size:int = 10) -> List[File]:
     """Process a list of local audio files, compress and upload them to pre-signed URLs in S3
 
     Args:

@@ -82,7 +82,7 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size:int = 1000) ->
             idx += 1
 
     if len(batch) > 0:
-        batch_index = str(len(files)).zfill(8)
+        batch_index = str(len(files) + 1).zfill(8)
         file_name = f"{folder}/{metadata.name}-{batch_index}.csv.gz"
 
         df = pd.DataFrame({metadata.name: batch})
