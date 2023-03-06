@@ -6,7 +6,7 @@ The assets currently supported by the SDK are:
 - [Pipelines](#pipelines)
 - [Datasets](#datasets)
 - [Metrics](#metrics)
-- Benchmarks
+- [Benchmarks](#benchmarks)
 
 ## Models
 aiXplain has an ever-expanding catalog of 35,000+ ready-to-use AI models for various tasks like Translation, Speech Recognition, Diacritization, Sentiment Analysis and much more.
@@ -106,4 +106,46 @@ The aiXtend SDK allows search for existing metrics. `MetricFactory` can  search 
 ```python
 from aixtend.factories.metric_factory  import MetricFactory
 metric_list = MetricFactory.list_assets(task="translation")
+```
+
+## Benchmarks
+
+The [aiXplain platform](https://aixplain.com/platform/benchmark) provides a powerful set of tools for benchmarking machine learning models and evaluating their performance on specific tasks. You can obtain easy-to-interpret granular insights on the performance of models for quality, latency, footprint, cost, and bias with our interactive Benchmark reports.
+
+The proposed benchmarking framework is designed for being modular and interoperable in its core across three main components (models, datasets, metrics) in its body to become a one-stop shop for all possible benchmarking activities across several domains and metrics. You need to choose these three components for the task of your choice. 
+
+*Currently Supported tasks are*:  Translation, Speech Recognition, Diacritization and Sentiment Analysis with many more in works.
+
+### Creating a Benchmark
+You can create a benchmarking job from our platform [here](https://platform.aixplain.com/benchmark) or you can also use the SDK. Let's see how we can use the `BenchmarkFactory` in the aiXtend SDK for the same. 
+
+
+```python
+from aixtend.factories.dataset_factory  import DatasetFactory
+from aixtend.factories.metric_factory  import MetricFactory
+from aixtend.factories.model_factory  import ModelFactory
+from aixtend.factories.benchmark_factory  import BenchmarkFactory
+
+# Choose 'one or more' models
+model_list = ModelFactory.get_first_k_assets(k=5, task="translation", input_language="en", output_language="fr")
+# Choose 'one or more' metrics
+metric_list = MetricFactory.list_assets(task="translation")
+# Choose 'exactly one' dataset
+dataset_list = DatasetFactory.get_first_k_assets(k=1, task="translation", input_language="en", output_language="fr")
+
+benchmark = BenchmarkFactory.create_benchmark(<UNIQUE_NAME_OF_BENCHMARK>, dataset_list, model_list, metric_list)
+```
+For more details on [models](#models), [datasets](#datasets) and [metrics](#metrics) you can visit their docs.
+
+### Running a Benchmark
+Once a `Benchmark` is created(refer the [section above](#creating-a-benchmark)), we need to start a new `BenchmarkJob` from it. It is really simple to run a benchmark:
+```python
+benchmark_job = BenchmarkFactory.start_benchmark_job(benchmark)
+```
+You can start multiple jobs on a single `Benchmark`.
+
+### Getting the Results 
+Once a `BenchmarkJob` is up and running(refer the [section above](#running-a-benchmark)), we can download the current results(even for an In-Progress Job) as a CSV.
+```python
+results_path = BenchmarkFactory.download_results_as_csv(benchmark_job)
 ```
