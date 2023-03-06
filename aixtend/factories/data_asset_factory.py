@@ -196,10 +196,17 @@ class DataAssetFactory(AssetFactory):
                 if metadata.privacy is None:
                     metadata.privacy = privacy
 
-                files, data_column_idx = data_onboarding.process_data_files(data_asset_name=name, metadata=metadata, paths=paths, folder=name)
+                files, data_column_idx, start_column_idx, end_column_idx = data_onboarding.process_data_files(data_asset_name=name, metadata=metadata, paths=paths, folder=name)
 
                 dataset.append(
-                    Data(id="", name=metadata.name, dtype=metadata.dtype, privacy=metadata.privacy, data_column=data_column_idx, files=files)
+                    Data(id="", 
+                         name=metadata.name, 
+                         dtype=metadata.dtype, 
+                         privacy=metadata.privacy, 
+                         data_column=data_column_idx, 
+                         start_column=start_column_idx,
+                         end_column=end_column_idx,
+                         files=files)
                 )
 
             corpus = Corpus(

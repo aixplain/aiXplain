@@ -14,8 +14,8 @@ class MetaData:
         dtype: DataType,
         storage_type: StorageType,
         data_column: Optional[str] = None,
-        start_time_column: Optional[str] = None,
-        end_time_column: Optional[str] = None,
+        start_column: Optional[str] = None,
+        end_column: Optional[str] = None,
         privacy: Optional[Privacy] = None,
         file_extension: Optional[FileType] = None,
         **kwargs
@@ -34,8 +34,8 @@ class MetaData:
         else:
             self.data_column = data_column
 
-        self.start_time_column = start_time_column
-        self.end_time_column = end_time_column
+        self.start_column = start_column
+        self.end_column = end_column
 
         if isinstance(privacy, str):
             privacy = Privacy(privacy)

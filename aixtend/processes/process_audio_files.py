@@ -20,7 +20,7 @@ def compress_folder(folder_path:str):
     return folder_path + ".tgz"
 
 
-def run(metadata: MetaData, paths: List, folder:Path, batch_size:int = 10) -> Tuple[List[File], int]:
+def run(metadata: MetaData, paths: List, folder:Path, batch_size:int = 10) -> Tuple[List[File], int, int, int]:
     """Process a list of local audio files, compress and upload them to pre-signed URLs in S3
 
     Args:
@@ -29,7 +29,7 @@ def run(metadata: MetaData, paths: List, folder:Path, batch_size:int = 10) -> Tu
         folder (Path): local folder to save compressed files before upload them to s3.
 
     Returns:
-        Tuple[List[File], int]: list of s3 links and data colum index
+        Tuple[List[File], int, int, int]: list of s3 links; data, start and end columns index
     """
     # if files are stored locally, create a folder to store it
     audio_folder = Path(".")
@@ -38,7 +38,7 @@ def run(metadata: MetaData, paths: List, folder:Path, batch_size:int = 10) -> Tu
         audio_folder.mkdir(exist_ok=True)
 
     idx = 0
-    data_column_idx = -1
+    data_column_idx, start_column_idx, end_column_idx = -1, -1, -1
     files, batch, start_times, end_times = [], [], [], []
     for path in paths:
         # TO DO: extract the split from file name
@@ -65,17 +65,17 @@ def run(metadata: MetaData, paths: List, folder:Path, batch_size:int = 10) -> Tu
                 batch.append(audio_path)
 
             # adding ranges to crop the audio if it is the case
-            if metadata.start_time_column is not None:
+            if metadata.start_column is not None:
                 try:
-                    start_times.append(row[metadata.start_time_column])
+                    start_times.append(row[metadata.start_column])
                 except:
-                    raise Exception(f"Data Asset Onboarding Error: Column \"{metadata.start_time_column}\" not found.")
+                    raise Exception(f"Data Asset Onboarding Error: Column \"{metadata.start_column}\" not found.")
 
-            if metadata.end_time_column is not None:
+            if metadata.end_column is not None:
                 try:
-                    end_times.append(row[metadata.end_time_column])
+                    end_times.append(row[metadata.end_column])
                 except:
-                    raise Exception(f"Data Asset Onboarding Error: Column \"{metadata.end_time_column}\" not found.")
+                    raise Exception(f"Data Asset Onboarding Error: Column \"{metadata.end_column}\" not found.")
 
             if ((idx + 1) % batch_size) == 0:
                 batch_index = str(len(files) + 1).zfill(8)
@@ -109,6 +109,9 @@ def run(metadata: MetaData, paths: List, folder:Path, batch_size:int = 10) -> Tu
                 if len(start_times) > 0 and len(end_times) > 0:
                     df["@START_TIME"] = start_times
                     df["@END_TIME"] = end_times
+
+                    start_column_idx = df.columns.to_list().index("@START_TIME")
+                    end_column_idx = df.columns.to_list().index("@END_TIME")
 
                 df.to_csv(index_file_name, compression="gzip", index=False)
                 s3_link = upload_data_s3(index_file_name, content_type="text/csv", content_encoding="gzip")
@@ -153,6 +156,9 @@ def run(metadata: MetaData, paths: List, folder:Path, batch_size:int = 10) -> Tu
             df["@START_TIME"] = start_times
             df["@END_TIME"] = end_times
 
+            start_column_idx = df.columns.to_list().index("@START_TIME")
+            end_column_idx = df.columns.to_list().index("@END_TIME")
+
         df.to_csv(index_file_name, compression="gzip", index=False)
         s3_link = upload_data_s3(index_file_name, content_type="text/csv", content_encoding="gzip")
         files.append(File(path=s3_link, extension=FileType.CSV, compression="gzip"))
@@ -160,4 +166,4 @@ def run(metadata: MetaData, paths: List, folder:Path, batch_size:int = 10) -> Tu
         data_column_idx = df.columns.to_list().index(metadata.name)
         # restart batch variables
         batch, start_times, end_times = [], [], []
-    return files, data_column_idx
+    return files, data_column_idx, start_column_idx, end_column_idx
