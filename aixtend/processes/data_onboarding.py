@@ -99,6 +99,6 @@ def create_payload_corpus(corpus: Corpus) -> Dict:
         }
 
         if "language" in data.kwargs:
-            data_json["metadata"]["language"] = data.kwargs["language"]
+            data_json["metaData"]["language"] = data.kwargs["language"]
         payload["data"].append(data_json)
     return payload

@@ -11,7 +11,6 @@ from aixtend.modules.file import File
 from aixtend.modules.metadata import MetaData
 from aixtend.utils.file_utils import upload_data_s3
 from pathlib import Path
-from tqdm import tqdm
 from typing import List
 
 def compress_folder(folder_path:str):
@@ -45,11 +44,15 @@ def run(metadata: MetaData, paths: List, folder:Path, batch_size:int = 100) -> L
         try:
             dataframe = pd.read_csv(path)
         except:
-            raise Exception(f"Data Asset Onboarding Error: Column {metadata.name} not found in the local file {path}.")
+            raise Exception(f"Data Asset Onboarding Error: Local file \"{path}\" not found.")
 
         # process audios
         for (_, row) in dataframe.iterrows():
-            audio_path = row[metadata.name]
+            try:
+                audio_path = row[metadata.name]
+            except:
+                raise Exception(f"Data Asset Onboarding Error: Column \"{metadata.name}\" not found in the local file \"{path}\".")
+            
             # adding audios
             if metadata.storage_type == StorageType.FILE:
                 fname = os.path.basename(audio_path)
@@ -61,9 +64,17 @@ def run(metadata: MetaData, paths: List, folder:Path, batch_size:int = 100) -> L
                 batch.append(audio_path)
 
             # adding ranges to crop the audio if it is the case
-            if metadata.start_time_column is not None and metadata.end_time_column is not None:
-                start_times.append(row[metadata.start_time_column])
-                end_times.append(row[metadata.end_time_column])
+            if metadata.start_time_column is not None:
+                try:
+                    start_times.append(row[metadata.start_time_column])
+                except:
+                    raise Exception(f"Data Asset Onboarding Error: Column \"{metadata.start_time_column}\" not found.")
+
+            if metadata.end_time_column is not None:
+                try:
+                    end_times.append(row[metadata.end_time_column])
+                except:
+                    raise Exception(f"Data Asset Onboarding Error: Column \"{metadata.end_time_column}\" not found.")
 
             if ((idx + 1) % batch_size) == 0:
                 batch_index = str(len(files) + 1).zfill(8)

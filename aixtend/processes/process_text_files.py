@@ -51,17 +51,22 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size:int = 1000) ->
     for path in paths:
         # TO DO: extract the split from file name
         try:
-            content = pd.read_csv(path)[metadata.name]
+            dataframe = pd.read_csv(path)
         except:
-            raise Exception(f"Data Asset Onboarding Error: Column {metadata.name} not found in the local file {path}.")
+            raise Exception(f"Data Asset Onboarding Error: Local file \"{path}\" not found.")
 
         # process texts and labels
-        for row in content:
+        for (_, row) in dataframe.iterrows():
             try:
-                text = process_text(row, metadata.storage_type)
+                text_path = row[metadata.name]
+            except:
+                raise Exception(f"Data Asset Onboarding Error: Column \"{metadata.name}\" not found in the local file {path}.")
+            
+            try:
+                text = process_text(text_path, metadata.storage_type)
                 batch.append(text)
             except:
-                logging.warning(f"Data Asset Onboarding: The instance {row} of {metadata.name} could not be processed and will be skipped.")
+                logging.warning(f"Data Asset Onboarding: The instance \"{row}\" of \"{metadata.name}\" could not be processed and will be skipped.")
 
             if ((idx + 1) % batch_size) == 0:
                 batch_index = str(len(files) + 1).zfill(8)
