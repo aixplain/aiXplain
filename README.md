@@ -8,9 +8,11 @@ aiXtend is a software development kit (SDK) for the [aiXplain platform](https://
 - [Benchmark](https://aixplain.com/platform/benchmark/) AI systems by choosing models, datasets and metrics.
 - Run your own custom designed [pipelines](https://aixplain.com/platform/studio/).
 
-[🎓 **Documentation**](https://huggingface.co/docs/evaluate/)
+[🎓 **Documentation**](docs/user/user_doc.md)
 
 🔎 **Find a [model](https://platform.aixplain.com/discovery/models), [dataset](https://platform.aixplain.com/discovery/datasets), [metric](https://platform.aixplain.com/discovery/metrics) on the platform.**
+
+:yellow_heart: Our repository is constantly evolving. With the help of the scientific community, we plan to add even more datasets, models and metrics across domains and tasks.
 
 ## Getting Started
 
@@ -21,7 +23,7 @@ pip install aixtend
 ```
 
 ###  API Key Setup
-Before you can use the aiXtend SDK, you'll need to obtain an API key from our platform. <Here's how to do it>
+Before you can use the aiXtend SDK, you'll need to obtain an API key from our platform. For details refer this [Team API Key Guide](docs/user/api_setup.md).
 
 Once you get the API key, you'll  need to add this API key as an environment variable on your system.
 #### Linux and macOS
@@ -49,6 +51,5 @@ translation = model.run("This is a sample text")
 Follow the developer guide [documentation](docs/development/developer_guide.md).
 
 ## Support
-
 Raise issues for support in this repository.  
 Pull requests are welcome!
