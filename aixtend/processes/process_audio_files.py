@@ -11,7 +11,7 @@ from aixtend.modules.file import File
 from aixtend.modules.metadata import MetaData
 from aixtend.utils.file_utils import upload_data_s3
 from pathlib import Path
-from typing import List
+from typing import List, Tuple
 
 def compress_folder(folder_path:str):
     with tarfile.open(folder_path + ".tgz", "w:gz") as tar:
@@ -20,7 +20,7 @@ def compress_folder(folder_path:str):
     return folder_path + ".tgz"
 
 
-def run(metadata: MetaData, paths: List, folder:Path, batch_size:int = 10) -> List[File]:
+def run(metadata: MetaData, paths: List, folder:Path, batch_size:int = 10) -> Tuple[List[File], int]:
     """Process a list of local audio files, compress and upload them to pre-signed URLs in S3
 
     Args:
@@ -29,7 +29,7 @@ def run(metadata: MetaData, paths: List, folder:Path, batch_size:int = 10) -> Li
         folder (Path): local folder to save compressed files before upload them to s3.
 
     Returns:
-        List[File]: list of s3 links
+        Tuple[List[File], int]: list of s3 links and data colum index
     """
     # if files are stored locally, create a folder to store it
     audio_folder = Path(".")
@@ -38,6 +38,7 @@ def run(metadata: MetaData, paths: List, folder:Path, batch_size:int = 10) -> Li
         audio_folder.mkdir(exist_ok=True)
 
     idx = 0
+    data_column_idx = -1
     files, batch, start_times, end_times = [], [], [], []
     for path in paths:
         # TO DO: extract the split from file name
@@ -112,6 +113,9 @@ def run(metadata: MetaData, paths: List, folder:Path, batch_size:int = 10) -> Li
                 df.to_csv(index_file_name, compression="gzip", index=False)
                 s3_link = upload_data_s3(index_file_name, content_type="text/csv", content_encoding="gzip")
                 files.append(File(path=s3_link, extension=FileType.CSV, compression="gzip"))
+                # get data column index
+                data_column_idx = df.columns.to_list().index(metadata.name)
+                # restart batch variables
                 batch, start_times, end_times = [], [], []
             
             idx += 1
@@ -152,5 +156,8 @@ def run(metadata: MetaData, paths: List, folder:Path, batch_size:int = 10) -> Li
         df.to_csv(index_file_name, compression="gzip", index=False)
         s3_link = upload_data_s3(index_file_name, content_type="text/csv", content_encoding="gzip")
         files.append(File(path=s3_link, extension=FileType.CSV, compression="gzip"))
+        # get data column index
+        data_column_idx = df.columns.to_list().index(metadata.name)
+        # restart batch variables
         batch, start_times, end_times = [], [], []
-    return files
+    return files, data_column_idx

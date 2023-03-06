@@ -10,7 +10,7 @@ from aixtend.modules.file import File
 from aixtend.modules.metadata import MetaData
 from aixtend.utils.file_utils import download_data, upload_data_s3
 from pathlib import Path
-from typing import List, Text
+from typing import List, Text, Tuple
 
 def process_text(content: str, storage_type: StorageType) -> Text:
     """Process text files
@@ -35,7 +35,7 @@ def process_text(content: str, storage_type: StorageType) -> Text:
     return text
 
 
-def run(metadata: MetaData, paths: List, folder: Path, batch_size:int = 1000) -> List[File]:
+def run(metadata: MetaData, paths: List, folder: Path, batch_size:int = 1000) -> Tuple[List[File], int]:
     """Process a list of local textual files, compress and upload them to pre-signed URLs in S3
 
     Args:
@@ -44,9 +44,10 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size:int = 1000) ->
         folder (Path): local folder to save compressed files before upload them to s3.
 
     Returns:
-        List[File]: list of s3 links
+        Tuple[List[File], int]: list of s3 links and data colum index
     """
     idx = 0
+    data_column_idx = -1
     files, batch = [], []
     for path in paths:
         # TO DO: extract the split from file name
@@ -78,6 +79,8 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size:int = 1000) ->
                 df.to_csv(file_name, compression="gzip", index=False)
                 s3_link = upload_data_s3(file_name, content_type="text/csv", content_encoding="gzip")
                 files.append(File(path=s3_link, extension=FileType.CSV, compression="gzip"))
+                # get data column index
+                data_column_idx = df.columns.to_list().index(metadata.name)
                 batch = []
             idx += 1
 
@@ -91,5 +94,7 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size:int = 1000) ->
         df.to_csv(file_name, compression="gzip", index=False)
         s3_link = upload_data_s3(file_name, content_type="text/csv", content_encoding="gzip")
         files.append(File(path=s3_link, extension=FileType.CSV, compression="gzip"))
+        # get data column index
+        data_column_idx = df.columns.to_list().index(metadata.name)
         batch = []
-    return files
+    return files, data_column_idx
