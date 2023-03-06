@@ -119,7 +119,7 @@ class DatasetFactory:
             assert k > 0
             for page_number in range(k//10 + 1):
                 dataset_list += cls.get_assets_from_page(page_number, task, input_language, output_language)
-            return dataset_list
+            return dataset_list[0:k]
         except Exception as e:
             error_message = f"Listing Datasets: Error in getting {k} Datasets for {task} : {e}"
             logging.error(error_message)

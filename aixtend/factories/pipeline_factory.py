@@ -95,7 +95,7 @@ class PipelineFactory:
             return []
         
     @classmethod
-    def get_first_k_assets(cls, k: int, task: str, input_language: str = None, output_language: str = None) -> List[Pipeline]:
+    def get_first_k_assets(cls, k: int) -> List[Pipeline]:
         """Gets the first k given pipelines based on the provided task and language filters
 
         Args:
