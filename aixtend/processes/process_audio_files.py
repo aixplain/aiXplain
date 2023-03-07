@@ -110,14 +110,14 @@ def run(metadata: MetaData, paths: List, folder:Path, batch_size:int = 10) -> Tu
                     df["@START_TIME"] = start_times
                     df["@END_TIME"] = end_times
 
-                    start_column_idx = df.columns.to_list().index("@START_TIME")
-                    end_column_idx = df.columns.to_list().index("@END_TIME")
+                    start_column_idx = df.columns.to_list().index("@START_TIME") + 1
+                    end_column_idx = df.columns.to_list().index("@END_TIME") + 1
 
                 df.to_csv(index_file_name, compression="gzip", index=False)
                 s3_link = upload_data_s3(index_file_name, content_type="text/csv", content_encoding="gzip")
                 files.append(File(path=s3_link, extension=FileType.CSV, compression="gzip"))
                 # get data column index
-                data_column_idx = df.columns.to_list().index(metadata.name)
+                data_column_idx = df.columns.to_list().index(metadata.name) + 1
                 # restart batch variables
                 batch, start_times, end_times = [], [], []
             
@@ -156,14 +156,14 @@ def run(metadata: MetaData, paths: List, folder:Path, batch_size:int = 10) -> Tu
             df["@START_TIME"] = start_times
             df["@END_TIME"] = end_times
 
-            start_column_idx = df.columns.to_list().index("@START_TIME")
-            end_column_idx = df.columns.to_list().index("@END_TIME")
+            start_column_idx = df.columns.to_list().index("@START_TIME") + 1
+            end_column_idx = df.columns.to_list().index("@END_TIME") + 1
 
         df.to_csv(index_file_name, compression="gzip", index=False)
         s3_link = upload_data_s3(index_file_name, content_type="text/csv", content_encoding="gzip")
         files.append(File(path=s3_link, extension=FileType.CSV, compression="gzip"))
         # get data column index
-        data_column_idx = df.columns.to_list().index(metadata.name)
+        data_column_idx = df.columns.to_list().index(metadata.name) + 1
         # restart batch variables
         batch, start_times, end_times = [], [], []
     return files, data_column_idx, start_column_idx, end_column_idx
