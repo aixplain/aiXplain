@@ -1,14 +1,17 @@
 __author__ = "aiXplain"
 
-import aixtend.processes.process_audio_files as process_audio_files
-import aixtend.processes.process_text_files as process_text_files
+import aixtend.processes.data_onboarding.process_audio_files as process_audio_files
+import aixtend.processes.data_onboarding.process_text_files as process_text_files
+import aixtend.utils.config as config
 import logging
+import os
 
 from aixtend.enums.data_type import DataType
 from aixtend.enums.file_type import FileType
 from aixtend.modules.corpus import Corpus
 from aixtend.modules.file import File
 from aixtend.modules.metadata import MetaData
+from aixtend.utils.file_utils import _request_with_retry
 from pathlib import Path
 from typing import Dict, List, Tuple, Union
 
@@ -70,7 +73,7 @@ def process_data_files(data_asset_name: str, metadata: MetaData, paths: List, fo
     return files, data_column_idx, start_column_idx, end_column_idx
 
 
-def create_payload_corpus(corpus: Corpus) -> Dict:
+def build_payload_corpus(corpus: Corpus) -> Dict:
     """Create payload to call coreengine
 
     Args:
@@ -111,3 +114,37 @@ def create_payload_corpus(corpus: Corpus) -> Dict:
             data_json["metaData"]["language"] = data.kwargs["language"]
         payload["data"].append(data_json)
     return payload
+
+
+def create_corpus(payload: Dict) -> Dict:
+    team_key = config.TEAM_API_KEY
+    headers = {"Authorization": "token " + team_key}
+
+    url = os.path.join(config.BACKEND_URL, "sdk/inventory/corpus/onboard")
+
+    r = _request_with_retry("post", url, headers=headers, json=payload)
+    if 200 <= r.status_code < 300:
+        response = r.json()
+
+        corpus_id = response["id"]
+        status = response["status"]
+        coreengine_payload = response["coreEnginePayload"]
+
+        return {
+            "success": True,
+            "corpus_id": corpus_id,
+            "status": status,
+            "coreengine_payload": coreengine_payload
+        }
+    else:
+        try:
+            response = r.json()
+            msg = response["message"]
+            error_msg = f"Data Asset Onboarding Error: {msg}"
+        except:
+            error_msg = "Data Asset Onboarding Error: Failure on creating the corpus. Please contant the administrators."
+        return {
+            "success": False,
+            "error": error_msg
+        }
+

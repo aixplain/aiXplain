@@ -22,7 +22,7 @@ Description:
 """
 
 import aixtend.utils.config as config
-import aixtend.processes.data_onboarding as data_onboarding
+import aixtend.processes.data_onboarding.onboard_functions as onboard_functions
 import logging
 import shutil
 
@@ -160,8 +160,8 @@ class DataAssetFactory(AssetFactory):
             field_types: List[FieldType],: data field types
             file_format (FileFormat): format of the file
         """
+        folder, return_dict = None, {}
         # check team key
-        folder = None
         try:
             if config.TEAM_API_KEY.strip() == "":
                 raise Exception(
@@ -180,12 +180,12 @@ class DataAssetFactory(AssetFactory):
             
             # check whether reserved names are used as data/column names
             for metadata in schema:
-                for forbidden_name in data_onboarding.FORBIDDEN_COLUMN_NAMES:
+                for forbidden_name in onboard_functions.FORBIDDEN_COLUMN_NAMES:
                     if forbidden_name in [metadata.name, metadata.data_column]:
                         raise Exception(f"Data Asset Onboarding Error: {forbidden_name} is reserved name and must not be used as the name of a data or a column.")
 
             # get file extension paths to process
-            paths = data_onboarding.get_paths(content_paths)
+            paths = onboard_functions.get_paths(content_paths)
 
             # process data and create files
             folder = Path(name)
@@ -196,7 +196,7 @@ class DataAssetFactory(AssetFactory):
                 if metadata.privacy is None:
                     metadata.privacy = privacy
 
-                files, data_column_idx, start_column_idx, end_column_idx = data_onboarding.process_data_files(data_asset_name=name, metadata=metadata, paths=paths, folder=name)
+                files, data_column_idx, start_column_idx, end_column_idx = onboard_functions.process_data_files(data_asset_name=name, metadata=metadata, paths=paths, folder=name)
 
                 dataset.append(
                     Data(id="", 
@@ -219,10 +219,19 @@ class DataAssetFactory(AssetFactory):
                 license=license,
                 privacy=privacy,
             )
-            corpus_payload = data_onboarding.create_payload_corpus(corpus)
+            corpus_payload = onboard_functions.build_payload_corpus(corpus)
+
+            response = onboard_functions.create_corpus(corpus_payload)
+            if response["success"] is True:
+                return_dict = {
+                    "status": response["status"],
+                    "corpus_id": response["corpus_id"]
+                }
+            else:
+                raise Exception(response["error"])
             shutil.rmtree(folder)
         except Exception as e:
             if folder is not None:
                 shutil.rmtree(folder)
             raise Exception(e)
-        return corpus_payload
+        return return_dict
