@@ -28,18 +28,18 @@ import traceback
 from typing import List
 from aixtend.utils import config
 from aixtend.utils.file_utils import _request_with_retry
-from typing import Union
+from typing import Union, Text, Dict
 
 
 class Model:
     def __init__(
         self,
-        id: str,
-        name: str,
-        supplier: str,
-        api_key: str = None,
-        subscription_id: str = None,
-        url: str = config.MODELS_RUN_URL,
+        id: Text,
+        name: Text,
+        supplier: Text,
+        api_key: Union[Text, None] = None,
+        subscription_id: Union[Text, None] = None,
+        url: Text = config.MODELS_RUN_URL,
         **additional_info,
     ) -> None:
         """Create a Model with the necessary information
@@ -78,17 +78,18 @@ class Model:
         clean_additional_info = {k: v for k, v in self.additional_info.items() if v is not None}
         return {"id": self.id, "name": self.name, "supplier": self.supplier, "additional_info": clean_additional_info}
 
-    def __polling(self, poll_url: str, name: str = "model_process", wait_time: int = 1, timeout: float = 300) -> dict:
+
+    def __polling(self, poll_url: Text, name: Text = "model_process", wait_time: int = 1, timeout: float = 300) -> Dict:
         """Keeps polling the platform to check whether an asynchronous call is done.
 
         Args:
-            poll_url (str): polling URL
-            name (str, optional): ID given to a call. Defaults to "model_process".
+            poll_url (Text): polling URL
+            name (Text, optional): ID given to a call. Defaults to "model_process".
             wait_time (int, optional): wait time in seconds between polling calls. Defaults to 1.
             timeout (float, optional): total polling time. Defaults to 300.
 
         Returns:
-            dict: response obtained by polling call
+            Dict: response obtained by polling call
         """
         logging.info(f"Polling for Model: Start polling for {name}")
         start, end = time.time(), time.time()
@@ -124,15 +125,16 @@ class Model:
             )
         return response_body
 
-    def poll(self, poll_url: str, name: str = "model_process") -> dict:
+
+    def poll(self, poll_url: Text, name: Text = "model_process") -> Dict:
         """Poll the platform to check whether an asynchronous call is done.
 
         Args:
-            poll_url (str): polling
-            name (str, optional): ID given to a call. Defaults to "model_process".
+            poll_url (Text): polling
+            name (Text, optional): ID given to a call. Defaults to "model_process".
 
         Returns:
-            dict: response obtained by polling call
+            Dict: response obtained by polling call
         """
         if self.api_key is None:
             response_body = {"status": "ERROR", "completed": False}
@@ -154,16 +156,18 @@ class Model:
             logging.error(f"Single Poll for Model: Error of polling for {name}: {e}")
         return resp
 
-    def run(self, data: Union[str, dict], name: str = "model_process", timeout: float = 300) -> dict:
+    
+    def run(self, data: Union[Text, Dict], parameters: Dict = {}, name: Text = "model_process", timeout: float = 300) -> Dict:
         """Runs a model call.
 
         Args:
-            data (str): link to the input data
-            name (str, optional): ID given to a call. Defaults to "model_process".
+            data (Union[Text, Dict]): link to the input data
+            parameters (Dict, optional): optional parameters to the model. Defaults to "{}".
+            name (Text, optional): ID given to a call. Defaults to "model_process".
             timeout (float, optional): total polling time. Defaults to 300.
 
         Returns:
-            dict: parsed output from model
+            Dict: parsed output from model
         """
         if self.api_key is None:
             response_body = {"status": "ERROR", "completed": False}
@@ -171,7 +175,7 @@ class Model:
             return response_body
         start = time.time()
         try:
-            response = self.run_async(data, name=name)
+            response = self.run_async(data, parameters=parameters, name=name)
             if response["status"] == "FAILED":
                 end = time.time()
                 response["elapsed_time"] = end - start
@@ -186,15 +190,17 @@ class Model:
             end = time.time()
             return {"status": "FAILED", "error": msg, "elapsed_time": end - start}
 
-    def run_async(self, data: Union[str, dict], name: str = "model_process") -> dict:
+
+    def run_async(self, data: Union[Text, Dict], parameters: Dict = {}, name: Text = "model_process") -> Dict:
         """Runs asynchronously a model call.
 
         Args:
-            data (str): link to the input data
-            name (str, optional): ID given to a call. Defaults to "model_process".
+            data (Union[Text, Dict]): link to the input data
+            parameters (Dict, optional): optional parameters to the model. Defaults to "{}".
+            name (Text, optional): ID given to a call. Defaults to "model_process".
 
         Returns:
-            dict: polling URL
+            Dict: polling URL
         """
         if self.api_key is None:
             response_body = {"status": "ERROR", "completed": False}
@@ -203,13 +209,14 @@ class Model:
         headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}
 
         if isinstance(data, dict):
-            payload = json.dumps(data)
+            payload = data
         else:
             try:
-                data_json = json.loads(data)
-                payload = data
+                payload = json.loads(data)
             except:
-                payload = json.dumps({"data": data})
+                payload = {"data": data}
+        payload.update(parameters)
+        payload = json.dumps(payload)
 
         r = _request_with_retry("post", self.url, headers=headers, data=payload)
         logging.info(f"Model Run Async: Start service for {name} - {self.url} - {payload}")
