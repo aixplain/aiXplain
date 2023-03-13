@@ -1,5 +1,5 @@
 # Team API Key Guide
-Login or Sign up for an account on the [aiXplain platform](https://platform.aixplain.com). Then from the Dashboard, navigate to the '[Integrations' page](https://platform.aixplain.com/account/integrations)(refer image below)
+Login or Sign up for an account on the [aiXplain platform](https://platform.aixplain.com). Then from the Dashboard, navigate to the ['Integrations' page](https://platform.aixplain.com/account/integrations)(refer image below)
 
 <img src="https://github.com/aixplain/aiXtend/blob/v2_init_release_changes/docs/assets/navigate-api-key.png" width="880" height="341" />
 
