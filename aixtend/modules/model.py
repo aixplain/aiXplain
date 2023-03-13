@@ -108,6 +108,11 @@ class Model:
                 if wait_time < 60:
                     wait_time *= 1.1
             except Exception as e:
+                response_body = {
+                    "status": "ERROR", 
+                    "completed": False,
+                    "error": "No response from the service."
+                }
                 logging.error(f"Polling for Model: polling for {name}: {e}")
                 break
         if response_body["completed"] is True:

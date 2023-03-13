@@ -70,7 +70,13 @@ class Pipeline:
                 if wait_time < 60:
                     wait_time *= 1.1
             except Exception as e:
-                logging.error(f"ERROR: polling for {name} : Continue")
+                response_body = {
+                    "status": "FAILED", 
+                    "completed": False,
+                    "error": "No response from the service."
+                }
+                logging.error(f"ERROR: polling for {name}")
+                break
 
         if response_body and response_body["status"] == "SUCCESS":
             try:
@@ -78,7 +84,7 @@ class Pipeline:
             except Exception as e:
                 logging.error(f"ERROR: Final status of polling for {name} : ERROR - {response_body}")
         else:
-            logging.error(f"ERROR: Final status of polling for {name} : No response in {timeout} seconds - {response_body}")
+            logging.error(f"ERROR: Final status of polling for {name} : No response - {response_body}")
         return response_body
 
     def poll(self, poll_url: str, name: str = "pipeline_process"):
