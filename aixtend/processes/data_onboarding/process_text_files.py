@@ -69,12 +69,13 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size:int = 1000) ->
             except:
                 logging.warning(f"Data Asset Onboarding: The instance \"{row}\" of \"{metadata.name}\" could not be processed and will be skipped.")
 
+            idx += 1
             if ((idx + 1) % batch_size) == 0:
                 batch_index = str(len(files) + 1).zfill(8)
                 file_name = f"{folder}/{metadata.name}-{batch_index}.csv.gz"
 
                 df = pd.DataFrame({metadata.name: batch})
-                start, end = idx - len(batch) + 1, idx + 1
+                start, end = idx - len(batch), idx
                 df["@INDEX"] = range(start, end)
                 df.to_csv(file_name, compression="gzip", index=False)
                 s3_link = upload_data_s3(file_name, content_type="text/csv", content_encoding="gzip")
@@ -82,14 +83,13 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size:int = 1000) ->
                 # get data column index
                 data_column_idx = df.columns.to_list().index(metadata.name) + 1
                 batch = []
-            idx += 1
 
     if len(batch) > 0:
         batch_index = str(len(files) + 1).zfill(8)
         file_name = f"{folder}/{metadata.name}-{batch_index}.csv.gz"
 
         df = pd.DataFrame({metadata.name: batch})
-        start, end = idx - len(batch) + 1, idx + 1
+        start, end = idx - len(batch), idx
         df["@INDEX"] = range(start, end)
         df.to_csv(file_name, compression="gzip", index=False)
         s3_link = upload_data_s3(file_name, content_type="text/csv", content_encoding="gzip")

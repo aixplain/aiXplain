@@ -77,13 +77,14 @@ def run(metadata: MetaData, paths: List, folder:Path, batch_size:int = 10) -> Tu
                 except:
                     raise Exception(f"Data Asset Onboarding Error: Column \"{metadata.end_column}\" not found.")
 
-            if ((idx + 1) % batch_size) == 0:
+            idx += 1
+            if ((idx) % batch_size) == 0:
                 batch_index = str(len(files) + 1).zfill(8)
 
                 # save index file with a list of the audio files
                 index_file_name = f"{folder}/{metadata.name}-{batch_index}.csv.gz"
                 df = pd.DataFrame({metadata.name: batch})
-                start, end = idx - len(batch) + 1, idx + 1
+                start, end = idx - len(batch), idx
                 df["@INDEX"] = range(start, end)
 
                 # if the audio are stored locally, zip them and upload to s3
@@ -120,8 +121,6 @@ def run(metadata: MetaData, paths: List, folder:Path, batch_size:int = 10) -> Tu
                 data_column_idx = df.columns.to_list().index(metadata.name) + 1
                 # restart batch variables
                 batch, start_times, end_times = [], [], []
-            
-            idx += 1
 
     if len(batch) > 0:
         batch_index = str(len(files) + 1).zfill(8)
@@ -129,7 +128,7 @@ def run(metadata: MetaData, paths: List, folder:Path, batch_size:int = 10) -> Tu
         # save index file with a list of the audio files
         index_file_name = f"{folder}/{metadata.name}-{batch_index}.csv.gz"
         df = pd.DataFrame({metadata.name: batch})
-        start, end = idx - len(batch) + 1, idx + 1
+        start, end = idx - len(batch), idx
         df["@INDEX"] = range(start, end)
 
         # if the audio are stored locally, zip them and upload to s3

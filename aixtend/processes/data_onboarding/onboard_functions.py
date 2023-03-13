@@ -128,13 +128,13 @@ def create_corpus(payload: Dict) -> Dict:
 
         corpus_id = response["id"]
         status = response["status"]
-        coreengine_payload = response["coreEnginePayload"]
+        # coreengine_payload = response["coreEnginePayload"]
 
         return {
             "success": True,
             "corpus_id": corpus_id,
             "status": status,
-            "coreengine_payload": coreengine_payload
+            # "coreengine_payload": coreengine_payload
         }
     else:
         try:
