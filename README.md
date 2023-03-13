@@ -2,17 +2,17 @@
 
 # aiXtend
 
-aiXtend is a software development kit (SDK) for the [aiXplain platform](https://aixplain.com/). With aiXtend, developers can quickly and easily:
+aiXtend is a software development kit (SDK) for the [aiXplain](https://aixplain.com/) platform. With aiXtend, developers can quickly and easily:
 
-- [Browse](https://aixplain.com/platform/discovery/) and use aiXplain’s ever-expanding catalog of 35,000+ ready-to-use AI models.
+- [Discover](https://aixplain.com/platform/discovery/) aiXplain’s ever-expanding catalog of 35,000+ ready-to-use AI models and utilize them.
 - [Benchmark](https://aixplain.com/platform/benchmark/) AI systems by choosing models, datasets and metrics.
-- Run your own custom designed [pipelines](https://aixplain.com/platform/studio/).
+- [Design](https://aixplain.com/platform/studio/) their own custom pipelines and run them.
 
 [🎓 **Documentation**](docs/user/user_doc.md)
 
-🔎 **Find a [model](https://platform.aixplain.com/discovery/models), [dataset](https://platform.aixplain.com/discovery/datasets), [metric](https://platform.aixplain.com/discovery/metrics) on the platform.**
+🔎 **Find [models](https://platform.aixplain.com/discovery/models), [datasets](https://platform.aixplain.com/discovery/datasets), [metrics](https://platform.aixplain.com/discovery/metrics) on the platform.**
 
-:yellow_heart: Our repository is constantly evolving. With the help of the scientific community, we plan to add even more datasets, models and metrics across domains and tasks.
+:yellow_heart: Our repository is constantly evolving. With the help of the scientific community, we plan to add even more datasets, models, and metrics across domains and tasks.
 
 ## Getting Started
 
@@ -26,7 +26,7 @@ pip install aixtend
 Before you can use the aiXtend SDK, you'll need to obtain an API key from our platform. For details refer this [Team API Key Guide](docs/user/api_setup.md).
 
 Once you get the API key, you'll  need to add this API key as an environment variable on your system.
-#### Linux and macOS
+#### Linux or macOS
 ```bash
 export TEAM_API_KEY=YOUR_API_KEY
 ```
@@ -48,7 +48,7 @@ translation = model.run("This is a sample text")
 
 ## Developer Guide
 
-Follow the developer guide [documentation](docs/development/developer_guide.md).
+Follow the [Developer Guide](docs/development/developer_guide.md).
 
 ## Support
 Raise issues for support in this repository.  
