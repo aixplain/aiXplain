@@ -20,7 +20,7 @@ Using the pipeline id generated for subtitling in the step above, run the code:
 ```
 python3 subtitle_generator.py --video-pt-path <http_link_to_video> \
                                 --srt-path pt.srt
-                                -k <PIPELIEN_ID>
+                                -k <PIPELINE_ID>
 ```
 
 ### Sample Output
