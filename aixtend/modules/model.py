@@ -157,14 +157,14 @@ class Model:
         return resp
 
     
-    def run(self, data: Union[Text, Dict], parameters: Dict = {}, name: Text = "model_process", timeout: float = 300) -> Dict:
+    def run(self, data: Union[Text, Dict], name: Text = "model_process", timeout: float = 300, parameters: Dict = {}) -> Dict:
         """Runs a model call.
 
         Args:
             data (Union[Text, Dict]): link to the input data
-            parameters (Dict, optional): optional parameters to the model. Defaults to "{}".
             name (Text, optional): ID given to a call. Defaults to "model_process".
             timeout (float, optional): total polling time. Defaults to 300.
+            parameters (Dict, optional): optional parameters to the model. Defaults to "{}".
 
         Returns:
             Dict: parsed output from model
@@ -175,7 +175,7 @@ class Model:
             return response_body
         start = time.time()
         try:
-            response = self.run_async(data, parameters=parameters, name=name)
+            response = self.run_async(data, name=name, parameters=parameters)
             if response["status"] == "FAILED":
                 end = time.time()
                 response["elapsed_time"] = end - start
@@ -191,13 +191,13 @@ class Model:
             return {"status": "FAILED", "error": msg, "elapsed_time": end - start}
 
 
-    def run_async(self, data: Union[Text, Dict], parameters: Dict = {}, name: Text = "model_process") -> Dict:
+    def run_async(self, data: Union[Text, Dict], name: Text = "model_process", parameters: Dict = {}) -> Dict:
         """Runs asynchronously a model call.
 
         Args:
             data (Union[Text, Dict]): link to the input data
-            parameters (Dict, optional): optional parameters to the model. Defaults to "{}".
             name (Text, optional): ID given to a call. Defaults to "model_process".
+            parameters (Dict, optional): optional parameters to the model. Defaults to "{}".
 
         Returns:
             Dict: polling URL
