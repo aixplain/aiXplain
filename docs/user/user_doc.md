@@ -53,7 +53,7 @@ poll_response = model.poll(poll_url)
 #### Explore
 There are two ways to find pipelines:
 
-The catalog of all your pipelines can be accessed and browsed on the aiXplain platform [here](https://platform.aixplain.com/dashboard/pipelines). Details of the pipeline can be found by clicking on the pipeline card. Pipeline ID can be found from the url(`https://platform.aixplain.com/dashboard/pipelines/<PIPELINE_ID>`) or below the pipeline name(just like Models)
+The catalog of all your pipelines can be accessed and browsed on the aiXplain platform [here](https://platform.aixplain.com/dashboard/pipelines). Details of the pipeline can be found by clicking on the pipeline card. Pipeline ID can be found from the url(`https://platform.aixplain.com/dashboard/pipelines/<PIPELINE_ID>`) or below the pipeline name(similar to Models)
 
 Once the Pipeline ID of the desired pipeline is available, it can be used to create a `Pipeline` Object from the `PipelineFactory`. 
 ```python
