@@ -83,19 +83,18 @@ def generate_srt(segments: list, write_file: str = None):
     return result
 
 
-def main(video_path: str, srt_path: str, pipelines_url: str, api_key: str):
+def main(video_path: str, srt_path: str, pipeline_id: str):
     """
     params:
     ---
         video_path:str - path to the Portuguese video to be subtitled
         srt_path:str - path to save the generated subtitle
-        pipelines_url:str - aixplain Pipelines url endpoint
-        api_key:str - aixplain Pipelines API key for subtitling pipeline
+        pipeline_id:str - aixplain Pipeline ID for subtitling pipeline
     return:
     ---
         .srt string or file
     """
-    pipe = PipelineFactory.create_from_api_key(api_key=api_key, url=pipelines_url)
+    pipe = PipelineFactory.create_asset_from_id(pipeline_id)
     response = pipe.run(data=video_path)
 
     if response["success"] is True:
@@ -116,23 +115,15 @@ if __name__ == "__main__":
     # Add arguments
     parser.add_argument("--video-pt-path", type=str, required=True)
     parser.add_argument("--srt-path", type=str, required=True)
-    parser.add_argument(
-        "-u",
-        "--pipelines-url",
-        default="https://platform-api.aixplain.com/assets/pipeline/execution/run",
-        type=str,
-        required=False,
-    )
-    parser.add_argument("-k", "--api-key", type=str, required=True)
+    parser.add_argument("-k", "--pipeline-id", type=str, required=True)
 
     # Parse the argument
     args = parser.parse_args()
 
     video_path = args.video_pt_path
     srt_path = args.srt_path
-    pipelines_url = args.pipelines_url
-    api_key = args.api_key
+    pipeline_id = args.pipeline_id
 
     logging.basicConfig(level=os.environ.get("LOG_LEVEL", "INFO"))
 
-    main(video_path, srt_path, pipelines_url, api_key)
+    main(video_path, srt_path, pipeline_id)

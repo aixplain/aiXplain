@@ -11,15 +11,15 @@ pip install -e .
 
 ## Running Tests
 
-### Setup environment
+### Setup Environment
 
 ```
 cp .env.example .env
 ```
 
-Populate values in .env for pytest consumption.
+Populate values in ```.env``` for pytest consumption.
 
-### Run pytest
+### Run ```pytest```
 
 ```
 pytest

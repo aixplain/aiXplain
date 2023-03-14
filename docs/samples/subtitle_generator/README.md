@@ -10,19 +10,17 @@ In this example pipeline, the pipeline receives an English video as input and fi
 
 ### Build a Pipeline using aiXtend
 
-In order to build a subtitle generation pipeline, you need to log in to [aiXplain platform](https://platform.aixplain.com/) and use the web UI for designing pipelines as shown by the documentation video in this [link](https://aixplain.com/designer-tutorial/).
-
-As instructed in the video embedded in the link above, please copy your pipeline API key from the assets page and use it to run the code as shown below.
+In order to build a subtitle generation pipeline, you need to log in to [aiXplain platform](https://platform.aixplain.com/) and use the web UI for designing pipelines.
 
 ### Run Code
 
 Generate a http(s) link to your video file to subtitle.
-Using the API_KEY generated for subtitling in the step above, run the code:
+Using the pipeline id generated for subtitling in the step above, run the code:
 
 ```
 python3 subtitle_generator.py --video-pt-path <http_link_to_video> \
                                 --srt-path pt.srt
-                                -k <API_KEY>
+                                -k <PIPELINE_ID>
 ```
 
 ### Sample Output
