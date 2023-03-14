@@ -75,7 +75,6 @@ class Pipeline:
                     wait_time *= 1.1
             except Exception as e:
                 logging.error(f"Polling for Pipeline: polling for {name} : Continue")
-
         if response_body and response_body["status"] == "SUCCESS":
             try:
                 logging.debug(f"Polling for Pipeline: Final status of polling for {name} : SUCCESS - {response_body}")
