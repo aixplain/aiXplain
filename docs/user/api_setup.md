@@ -3,7 +3,7 @@
 
 Please refer to the image below.
 
-<img src="https://github.com/aixplain/aiXtend/blob/v2_init_release_changes/docs/assets/navigate-api-key.png" width="880" height="341" />
+<img src="../assets/navigate-api-key.png" width="880" height="341" />
 
 ### Creating a New API Key
 On the **Integrations** page, you can find the **Create a team access key** button on the top right corner. You can create a new key by clicking that button, then specifiying a label and an (optional) expiry date.
