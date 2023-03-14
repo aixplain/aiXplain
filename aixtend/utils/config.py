@@ -26,7 +26,7 @@ BENCHMARKS_BACKEND_URL = os.getenv("BENCHMARKS_BACKEND_URL", "https://platform-a
 # GET THE API KEY FROM CMD
 TEAM_API_KEY = os.getenv("TEAM_API_KEY", "")
 if TEAM_API_KEY == "":
-    logger.warning("'TEAM_API_KEY' has not been set properly. For help, please refer to the documentation(https://github.com/aixplain/aiXtend/tree/v2_init_release_changes#api-key-setup)")
+    logger.warning("'TEAM_API_KEY' has not been set properly. For help, please refer to the documentation(https://github.com/aixplain/aiXtend#api-key-setup)")
 PIPELINE_API_KEY = os.getenv("PIPELINE_API_KEY", "")
 MODEL_API_KEY = os.getenv("MODEL_API_KEY", "")
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
