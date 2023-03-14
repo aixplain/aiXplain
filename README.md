@@ -38,13 +38,12 @@ set TEAM_API_KEY=YOUR_API_KEY
 
 Let’s see how we can use aiXtend to run a machine translation model.
 
-
 ```python
 from aixtend.factories.model_factory  import ModelFactory
 model = ModelFactory.create_asset_from_id("61b27086c45ecd3c10d0608c") # Got the ID of an MT model from on our platform
 translation = model.run("This is a sample text")
 ```
-
+*Check out the [explore section](docs/user/user_doc.md#explore) of our guide on Models to get the ID of your desired model*
 
 ## Developer Guide
 
