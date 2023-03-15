@@ -13,7 +13,7 @@ from aixtend.modules.file import File
 from aixtend.modules.metadata import MetaData
 from aixtend.utils.file_utils import _request_with_retry
 from pathlib import Path
-from typing import Dict, List, Tuple, Union
+from typing import Dict, List, Tuple, Text, Union
 
 FORBIDDEN_COLUMN_NAMES = ["@VOLUME", "@START_TIME", "@END_TIME", "@ORIGINAL", "@SOURCE", "@INDEX"]
 
@@ -73,11 +73,12 @@ def process_data_files(data_asset_name: str, metadata: MetaData, paths: List, fo
     return files, data_column_idx, start_column_idx, end_column_idx
 
 
-def build_payload_corpus(corpus: Corpus) -> Dict:
+def build_payload_corpus(corpus: Corpus, ref_data: List[Text]) -> Dict:
     """Create payload to call coreengine
 
     Args:
         corpus (Corpus): corpus object
+        ref_data (List[Text]): list of referred data
 
     Returns:
         Dict: payload
@@ -89,6 +90,7 @@ def build_payload_corpus(corpus: Corpus) -> Dict:
         "tags": corpus.tags,
         "pricing": {"type": "FREE", "cost": 0},
         "privacy": corpus.privacy.value,
+        "refData": ref_data,
         "data": [],
     }
 

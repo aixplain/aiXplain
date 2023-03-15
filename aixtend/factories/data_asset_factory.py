@@ -37,7 +37,7 @@ from aixtend.enums.privacy import Privacy
 from aixtend.utils.file_utils import _request_with_retry, download_data
 from aixtend.utils import config
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Text, Union
 
 
 class DataAssetFactory(AssetFactory):
@@ -138,27 +138,32 @@ class DataAssetFactory(AssetFactory):
 
     @classmethod
     def create_corpus(
-        self,
+        cls,
         name: str,
         description: str,
         license: License,
         content_path: Union[Union[str, Path], List[Union[str, Path]]],
         schema: List[Union[Dict, MetaData]],
+        ref_data: Optional[List[Union[Text, Data]]] = [],
         tags: Optional[List[str]] = [],
         functions: Optional[List[Function]] = [],
         privacy: Optional[Privacy] = Privacy.PRIVATE,
     ) -> Corpus:
-        """Asynchronous call to Upload a dataset to the user's dashboard.
+        """Asynchronous call to Upload a corpus to the user's dashboard.
 
         Args:
-            name (str): dataset name
-            description (str): dataset description
-            license (str): dataset license
-            functions (List[str]): AI functions for which the dataset is designed
-            data_paths: List[str]: data paths
-            field_names: List[str],: data field names
-            field_types: List[FieldType],: data field types
-            file_format (FileFormat): format of the file
+            name (str): corpus name
+            description (str): corpus description
+            license (License): corpus license
+            content_path (Union[Union[str, Path], List[Union[str, Path]]]): path to .csv files containing the data
+            schema (List[Union[Dict, MetaData]]): meta data
+            ref_data (Optional[List[Union[Text, Data]]], optional): referencing data which already exists and should be part of the corpus. Defaults to [].
+            tags (Optional[List[str]], optional): tags that explain the corpus. Defaults to [].
+            functions (Optional[List[Function]], optional): AI functions for which the corpus may be used. Defaults to [].
+            privacy (Optional[Privacy], optional): visibility of the corpus. Defaults to Privacy.PRIVATE.
+
+        Returns:
+            Corpus: onboarded corpus
         """
         folder, return_dict = None, {}
         # check team key
@@ -177,6 +182,11 @@ class DataAssetFactory(AssetFactory):
                     schema = [MetaData(**metadata) for metadata in schema]
                 except:
                     raise Exception("Data Asset Onboarding Error: Make sure the elements of your schema follows the MetaData class.")
+
+            if len(ref_data) > 0:
+                if isinstance(ref_data[0], Data):
+                    ref_data = [w.id for w in ref_data]
+                # TO DO: check whether the referred data exist. Otherwise, raise an exception
             
             # check whether reserved names are used as data/column names
             for metadata in schema:
@@ -219,7 +229,7 @@ class DataAssetFactory(AssetFactory):
                 license=license,
                 privacy=privacy,
             )
-            corpus_payload = onboard_functions.build_payload_corpus(corpus)
+            corpus_payload = onboard_functions.build_payload_corpus(corpus, ref_data)
 
             response = onboard_functions.create_corpus(corpus_payload)
             if response["success"] is True:
