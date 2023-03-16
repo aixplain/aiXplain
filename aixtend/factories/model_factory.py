@@ -43,7 +43,7 @@ class ModelFactory:
         Returns:
             Model: Coverted 'Model' object
         """
-        return Model(response["id"], response["name"], response["supplier"]["id"], cls.api_key)
+        return Model(response["id"], response["name"], supplier=response["supplier"]["id"], api_key=cls.api_key)
 
     @classmethod
     def create_asset_from_id(cls, model_id: str) -> Model:
