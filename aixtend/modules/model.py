@@ -29,7 +29,7 @@ from typing import List
 from aixtend.modules.asset import Asset
 from aixtend.utils import config
 from aixtend.utils.file_utils import _request_with_retry
-from typing import Union, Optional
+from typing import Union, Optional, Text, Dict
 
 
 class Model(Asset):
@@ -38,8 +38,7 @@ class Model(Asset):
         id: str,
         name: str,
         description: str = "",
-        api_key: str = None,
-        subscription_id: str = None,
+        api_key: Optional[str] = None,
         url: str = config.MODELS_RUN_URL,
         supplier: Optional[str] = "aiXplain",
         version: Optional[str] = "1.0",
@@ -52,15 +51,14 @@ class Model(Asset):
             name (str): Name of the Model
             description (str, optional): description of the model. Defaults to "".
             api_key (str, optional): API key of the Model. Defaults to None.
-            subscription_id (str, optional): subscription id. Defaults to None.
             url (str, optional): endpoint of the model. Defaults to config.MODELS_RUN_URL.
             supplier (Optional[str], optional): model supplier. Defaults to "aiXplain".
             version (Optional[str], optional): version of the model. Defaults to "1.0".
+            **additional_info: Any additional Model info to be saved
         """
         super().__init__(id, name, description, supplier, version)
         self.url = url
         self.api_key = api_key
-        self.subscription_id = subscription_id
         self.additional_info = additional_info
 
     def _is_subscribed(self) -> bool:
@@ -77,30 +75,26 @@ class Model(Asset):
         Returns:
             dict: Model Information
         """
-        self.additional_info["subscribed"] = self._is_subscribed()
         clean_additional_info = {k: v for k, v in self.additional_info.items() if v is not None}
         return {"id": self.id, "name": self.name, "supplier": self.supplier, "additional_info": clean_additional_info}
 
-    def __polling(self, poll_url: str, name: str = "model_process", wait_time: int = 1, timeout: float = 300) -> dict:
+
+    def __polling(self, poll_url: Text, name: Text = "model_process", wait_time: float = 1.0, timeout: float = 300) -> Dict:
         """Keeps polling the platform to check whether an asynchronous call is done.
 
         Args:
-            poll_url (str): polling URL
-            name (str, optional): ID given to a call. Defaults to "model_process".
-            wait_time (int, optional): wait time in seconds between polling calls. Defaults to 1.
+            poll_url (Text): polling URL
+            name (Text, optional): ID given to a call. Defaults to "model_process".
+            wait_time (float, optional): wait time in seconds between polling calls. Defaults to 1.0.
             timeout (float, optional): total polling time. Defaults to 300.
 
         Returns:
-            dict: response obtained by polling call
+            Dict: response obtained by polling call
         """
         logging.info(f"Polling for Model: Start polling for {name}")
         start, end = time.time(), time.time()
         completed = False
         response_body = {"status": "FAILED", "completed": False}
-        if self.api_key is None:
-            logging.error(f"Polling for Model: Error in polling for {name}: 'api_key' not found. Please subscribe to the model")
-            response_body["status"] = "ERROR"
-            return response_body
         while not completed and (end - start) < timeout:
             try:
                 response_body = self.poll(poll_url, name=name)
@@ -111,6 +105,11 @@ class Model(Asset):
                 if wait_time < 60:
                     wait_time *= 1.1
             except Exception as e:
+                response_body = {
+                    "status": "ERROR", 
+                    "completed": False,
+                    "error": "No response from the service."
+                }
                 logging.error(f"Polling for Model: polling for {name}: {e}")
                 break
         if response_body["completed"] is True:
@@ -127,22 +126,17 @@ class Model(Asset):
             )
         return response_body
 
-    def poll(self, poll_url: str, name: str = "model_process") -> dict:
+
+    def poll(self, poll_url: Text, name: Text = "model_process") -> Dict:
         """Poll the platform to check whether an asynchronous call is done.
 
         Args:
-            poll_url (str): polling
-            name (str, optional): ID given to a call. Defaults to "model_process".
+            poll_url (Text): polling
+            name (Text, optional): ID given to a call. Defaults to "model_process".
 
         Returns:
-            dict: response obtained by polling call
+            Dict: response obtained by polling call
         """
-        if self.api_key is None:
-            response_body = {"status": "ERROR", "completed": False}
-            logging.error(
-                f"Single Poll for Model: Error in polling for {name}: 'api_key' not found. Please subscribe to the model"
-            )
-            return response_body
         headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}
         r = _request_with_retry("get", poll_url, headers=headers)
         try:
@@ -157,24 +151,22 @@ class Model(Asset):
             logging.error(f"Single Poll for Model: Error of polling for {name}: {e}")
         return resp
 
-    def run(self, data: Union[str, dict], name: str = "model_process", timeout: float = 300) -> dict:
+    
+    def run(self, data: Union[Text, Dict], name: Text = "model_process", timeout: float = 300, parameters: Dict = {}) -> Dict:
         """Runs a model call.
 
         Args:
-            data (str): link to the input data
-            name (str, optional): ID given to a call. Defaults to "model_process".
+            data (Union[Text, Dict]): link to the input data
+            name (Text, optional): ID given to a call. Defaults to "model_process".
             timeout (float, optional): total polling time. Defaults to 300.
+            parameters (Dict, optional): optional parameters to the model. Defaults to "{}".
 
         Returns:
-            dict: parsed output from model
+            Dict: parsed output from model
         """
-        if self.api_key is None:
-            response_body = {"status": "ERROR", "completed": False}
-            logging.error(f"Model Run: Error in running for {name}: 'api_key' not found. Please subscribe to the model")
-            return response_body
         start = time.time()
         try:
-            response = self.run_async(data, name=name)
+            response = self.run_async(data, name=name, parameters=parameters)
             if response["status"] == "FAILED":
                 end = time.time()
                 response["elapsed_time"] = end - start
@@ -189,32 +181,32 @@ class Model(Asset):
             end = time.time()
             return {"status": "FAILED", "error": msg, "elapsed_time": end - start}
 
-    def run_async(self, data: Union[str, dict], name: str = "model_process") -> dict:
+
+    def run_async(self, data: Union[Text, Dict], name: Text = "model_process", parameters: Dict = {}) -> Dict:
         """Runs asynchronously a model call.
 
         Args:
-            data (str): link to the input data
-            name (str, optional): ID given to a call. Defaults to "model_process".
+            data (Union[Text, Dict]): link to the input data
+            name (Text, optional): ID given to a call. Defaults to "model_process".
+            parameters (Dict, optional): optional parameters to the model. Defaults to "{}".
 
         Returns:
-            dict: polling URL
+            dict: polling URL in response
         """
-        if self.api_key is None:
-            response_body = {"status": "ERROR", "completed": False}
-            logging.error(f"Model Run Async: Error in running for {name}: 'api_key' not found. Please subscribe to the model")
-            return response_body
         headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}
 
         if isinstance(data, dict):
-            payload = json.dumps(data)
+            payload = data
         else:
             try:
-                data_json = json.loads(data)
-                payload = data
+                payload = json.loads(data)
             except:
-                payload = json.dumps({"data": data})
+                payload = {"data": data}
+        payload.update(parameters)
+        payload = json.dumps(payload)
 
-        r = _request_with_retry("post", self.url, headers=headers, data=payload)
+        call_url = f"{self.url}/{self.id}"
+        r = _request_with_retry("post", call_url, headers=headers, data=payload)
         logging.info(f"Model Run Async: Start service for {name} - {self.url} - {payload}")
 
         resp = None

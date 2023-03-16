@@ -13,8 +13,12 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
-
+import warnings
 import os
+import logging
+import os
+
+logger = logging.getLogger(__name__)
 
 BACKEND_URL = os.getenv("BACKEND_URL", "https://platform-api.aixplain.com/")
 PIPELINES_RUN_URL = os.getenv("PIPELINES_RUN_URL", "https://platform-api.aixplain.com/assets/pipeline/execution/run")
@@ -23,6 +27,8 @@ BENCHMARKS_BACKEND_URL = os.getenv("BENCHMARKS_BACKEND_URL", "https://platform-a
 TEMPFILE_UPLOAD_URL = os.path.join(BACKEND_URL, "sdk/file/upload/temp-url")
 # GET THE API KEY FROM CMD
 TEAM_API_KEY = os.getenv("TEAM_API_KEY", "")
+if TEAM_API_KEY == "":
+    logger.warning("'TEAM_API_KEY' has not been set properly. For help, please refer to the documentation(https://github.com/aixplain/aiXtend#api-key-setup)")
 PIPELINE_API_KEY = os.getenv("PIPELINE_API_KEY", "")
 MODEL_API_KEY = os.getenv("MODEL_API_KEY", "")
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
