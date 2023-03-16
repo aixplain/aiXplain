@@ -1,7 +1,6 @@
 __author__="thiagocastroferreira"
 
 import logging
-import os
 import pandas as pd
 
 from aixtend.enums.file_type import FileType
@@ -22,11 +21,6 @@ def process_text(content: str, storage_type: StorageType) -> Text:
     Returns:
         Text: textual content
     """
-    # if storage_type == StorageType.URL:
-    #     tempfile = download_data(content)
-    #     with open(tempfile) as f:
-    #         text = f.read()
-    #     os.remove(tempfile)
     if storage_type == StorageType.FILE:
         with open(content) as f:
             text = f.read()
