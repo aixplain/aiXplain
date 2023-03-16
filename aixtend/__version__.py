@@ -1,7 +1,7 @@
 __title__ = "aixtend"
 __description__ = "aiXplain SDK adds AI functions to software."
 __url__ = "https://github.com/aixplain/pipelines/tree/main/docs"
-__version__ = "0.0.6rc1"
+__version__ = "0.0.7rc0"
 __author__ = "aiXplain\'s Engineering and Science teams"
 __author_email__ = "thiago.ferreira@aixplain.com, krishna.durai@aixplain.com, lucas.pavanelli@aixplain.com"
 __license__ = "http://www.apache.org/licenses/LICENSE-2.0"
