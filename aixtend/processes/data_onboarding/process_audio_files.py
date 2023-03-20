@@ -1,4 +1,4 @@
-__author__="thiagocastroferreira"
+__author__ = "thiagocastroferreira"
 
 import os
 import pandas as pd
@@ -9,18 +9,19 @@ from aixtend.enums.file_type import FileType
 from aixtend.enums.storage_type import StorageType
 from aixtend.modules.file import File
 from aixtend.modules.metadata import MetaData
-from aixtend.utils.file_utils import upload_data_s3
+from aixtend.utils.file_utils import upload_data
 from pathlib import Path
 from typing import List, Tuple
 
-def compress_folder(folder_path:str):
+
+def compress_folder(folder_path: str):
     with tarfile.open(folder_path + ".tgz", "w:gz") as tar:
         for name in os.listdir(folder_path):
             tar.add(os.path.join(folder_path, name))
     return folder_path + ".tgz"
 
 
-def run(metadata: MetaData, paths: List, folder:Path, batch_size:int = 10) -> Tuple[List[File], int, int, int]:
+def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 10) -> Tuple[List[File], int, int, int]:
     """Process a list of local audio files, compress and upload them to pre-signed URLs in S3
 
     Args:
@@ -45,15 +46,15 @@ def run(metadata: MetaData, paths: List, folder:Path, batch_size:int = 10) -> Tu
         try:
             dataframe = pd.read_csv(path)
         except:
-            raise Exception(f"Data Asset Onboarding Error: Local file \"{path}\" not found.")
+            raise Exception(f'Data Asset Onboarding Error: Local file "{path}" not found.')
 
         # process audios
         for (_, row) in dataframe.iterrows():
             try:
                 audio_path = row[metadata.name]
             except:
-                raise Exception(f"Data Asset Onboarding Error: Column \"{metadata.name}\" not found in the local file \"{path}\".")
-            
+                raise Exception(f'Data Asset Onboarding Error: Column "{metadata.name}" not found in the local file "{path}".')
+
             # adding audios
             if metadata.storage_type == StorageType.FILE:
                 fname = os.path.basename(audio_path)
@@ -69,13 +70,13 @@ def run(metadata: MetaData, paths: List, folder:Path, batch_size:int = 10) -> Tu
                 try:
                     start_times.append(row[metadata.start_column])
                 except:
-                    raise Exception(f"Data Asset Onboarding Error: Column \"{metadata.start_column}\" not found.")
+                    raise Exception(f'Data Asset Onboarding Error: Column "{metadata.start_column}" not found.')
 
             if metadata.end_column is not None:
                 try:
                     end_times.append(row[metadata.end_column])
                 except:
-                    raise Exception(f"Data Asset Onboarding Error: Column \"{metadata.end_column}\" not found.")
+                    raise Exception(f'Data Asset Onboarding Error: Column "{metadata.end_column}" not found.')
 
             idx += 1
             if ((idx) % batch_size) == 0:
@@ -95,7 +96,7 @@ def run(metadata: MetaData, paths: List, folder:Path, batch_size:int = 10) -> Tu
                     # compress the folder
                     compressed_folder = compress_folder(data_file_name)
                     # upload zipped audios into s3
-                    upload_data_s3(compressed_folder, content_type="application/x-tar")
+                    upload_data(compressed_folder, content_type="application/x-tar")
                     # update index files pointing the s3 link
                     df["@SOURCE"] = compressed_folder
                     # remove audio folder
@@ -115,7 +116,7 @@ def run(metadata: MetaData, paths: List, folder:Path, batch_size:int = 10) -> Tu
                     end_column_idx = df.columns.to_list().index("@END_TIME") + 1
 
                 df.to_csv(index_file_name, compression="gzip", index=False)
-                s3_link = upload_data_s3(index_file_name, content_type="text/csv", content_encoding="gzip")
+                s3_link = upload_data(index_file_name, content_type="text/csv", content_encoding="gzip")
                 files.append(File(path=s3_link, extension=FileType.CSV, compression="gzip"))
                 # get data column index
                 data_column_idx = df.columns.to_list().index(metadata.name) + 1
@@ -139,7 +140,7 @@ def run(metadata: MetaData, paths: List, folder:Path, batch_size:int = 10) -> Tu
             # compress the folder
             compressed_folder = compress_folder(data_file_name)
             # upload zipped audios into s3
-            upload_data_s3(compressed_folder, content_type="application/x-tar")
+            upload_data(compressed_folder, content_type="application/x-tar")
             # update index files pointing the s3 link
             df["@SOURCE"] = compressed_folder
             # remove audio folder
@@ -159,7 +160,7 @@ def run(metadata: MetaData, paths: List, folder:Path, batch_size:int = 10) -> Tu
             end_column_idx = df.columns.to_list().index("@END_TIME") + 1
 
         df.to_csv(index_file_name, compression="gzip", index=False)
-        s3_link = upload_data_s3(index_file_name, content_type="text/csv", content_encoding="gzip")
+        s3_link = upload_data(index_file_name, content_type="text/csv", content_encoding="gzip")
         files.append(File(path=s3_link, extension=FileType.CSV, compression="gzip"))
         # get data column index
         data_column_idx = df.columns.to_list().index(metadata.name) + 1

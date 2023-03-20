@@ -1,4 +1,4 @@
-__author__="thiagocastroferreira"
+__author__ = "thiagocastroferreira"
 
 import logging
 import pandas as pd
@@ -7,9 +7,10 @@ from aixtend.enums.file_type import FileType
 from aixtend.enums.storage_type import StorageType
 from aixtend.modules.file import File
 from aixtend.modules.metadata import MetaData
-from aixtend.utils.file_utils import download_data, upload_data_s3
+from aixtend.utils.file_utils import download_data, upload_data
 from pathlib import Path
 from typing import List, Text, Tuple
+
 
 def process_text(content: str, storage_type: StorageType) -> Text:
     """Process text files
@@ -29,7 +30,7 @@ def process_text(content: str, storage_type: StorageType) -> Text:
     return text
 
 
-def run(metadata: MetaData, paths: List, folder: Path, batch_size:int = 1000) -> Tuple[List[File], int]:
+def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 1000) -> Tuple[List[File], int]:
     """Process a list of local textual files, compress and upload them to pre-signed URLs in S3
 
     Args:
@@ -48,20 +49,22 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size:int = 1000) ->
         try:
             dataframe = pd.read_csv(path)
         except:
-            raise Exception(f"Data Asset Onboarding Error: Local file \"{path}\" not found.")
+            raise Exception(f'Data Asset Onboarding Error: Local file "{path}" not found.')
 
         # process texts and labels
         for (_, row) in dataframe.iterrows():
             try:
                 text_path = row[metadata.name]
             except:
-                raise Exception(f"Data Asset Onboarding Error: Column \"{metadata.name}\" not found in the local file {path}.")
-            
+                raise Exception(f'Data Asset Onboarding Error: Column "{metadata.name}" not found in the local file {path}.')
+
             try:
                 text = process_text(text_path, metadata.storage_type)
                 batch.append(text)
             except:
-                logging.warning(f"Data Asset Onboarding: The instance \"{row}\" of \"{metadata.name}\" could not be processed and will be skipped.")
+                logging.warning(
+                    f'Data Asset Onboarding: The instance "{row}" of "{metadata.name}" could not be processed and will be skipped.'
+                )
 
             idx += 1
             if ((idx + 1) % batch_size) == 0:
@@ -72,7 +75,7 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size:int = 1000) ->
                 start, end = idx - len(batch), idx
                 df["@INDEX"] = range(start, end)
                 df.to_csv(file_name, compression="gzip", index=False)
-                s3_link = upload_data_s3(file_name, content_type="text/csv", content_encoding="gzip")
+                s3_link = upload_data(file_name, content_type="text/csv", content_encoding="gzip")
                 files.append(File(path=s3_link, extension=FileType.CSV, compression="gzip"))
                 # get data column index
                 data_column_idx = df.columns.to_list().index(metadata.name) + 1
@@ -86,7 +89,7 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size:int = 1000) ->
         start, end = idx - len(batch), idx
         df["@INDEX"] = range(start, end)
         df.to_csv(file_name, compression="gzip", index=False)
-        s3_link = upload_data_s3(file_name, content_type="text/csv", content_encoding="gzip")
+        s3_link = upload_data(file_name, content_type="text/csv", content_encoding="gzip")
         files.append(File(path=s3_link, extension=FileType.CSV, compression="gzip"))
         # get data column index
         data_column_idx = df.columns.to_list().index(metadata.name) + 1

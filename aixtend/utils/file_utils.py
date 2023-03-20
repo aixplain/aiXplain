@@ -22,18 +22,18 @@ import requests
 from pathlib import Path
 from uuid import uuid4
 from requests.adapters import HTTPAdapter, Retry
-from typing import Union
+from typing import Any, Optional, Text, Union
 
 
-def save_file(download_url: str, download_file_path=None) -> str:
+def save_file(download_url: Text, download_file_path: Optional[Any] = None) -> Text:
     """Download and save file from given URL
 
     Args:
-        download_url (str): URL of file to download
-        download_file_path (str, optional): File path to save downloaded file. If None then generates a folder 'aiXtend' in current working directory. Defaults to None.
+        download_url (Text): URL of file to download
+        download_file_path (Any, optional): File path to save downloaded file. If None then generates a folder 'aiXtend' in current working directory. Defaults to None.
 
     Returns:
-        str: Path where file was downloaded
+        Text: Path where file was downloaded
     """
     if download_file_path is None:
         save_dir = os.getcwd()
@@ -47,12 +47,12 @@ def save_file(download_url: str, download_file_path=None) -> str:
     return download_file_path
 
 
-def _request_with_retry(method: str, url: str, **params) -> requests.Response:
+def _request_with_retry(method: Text, url: Text, **params) -> requests.Response:
     """Wrapper around requests with Session to retry in case it fails
 
     Args:
-        method (str): HTTP method, such as 'GET' or 'HEAD'.
-        url (str): The URL of the resource to fetch.
+        method (Text): HTTP method, such as 'GET' or 'HEAD'.
+        url (Text): The URL of the resource to fetch.
         **params: Params to pass to request function
 
     Returns:
@@ -79,13 +79,13 @@ def download_data(url_link, local_filename=None):
     return local_filename
 
 
-def upload_data_s3(file_name: Union[str, Path], content_type: str = "text/csv", content_encoding: str = None):
+def upload_data(file_name: Union[Text, Path], content_type: Text = "text/csv", content_encoding: Optional[Text] = None):
     """Upload files to S3 with pre-signed URLs
 
     Args:
-        file_name (Union[str, Path]): local path of file to be uploaded
-        content_type (str, optional): Type of content. Defaults to "text/csv".
-        content_encoding (str, optional): Content encoding. Defaults to None.
+        file_name (Union[Text, Path]): local path of file to be uploaded
+        content_type (Text, optional): Type of content. Defaults to "text/csv".
+        content_encoding (Text, optional): Content encoding. Defaults to None.
 
     Returns:
         URL: s3 path
@@ -104,15 +104,15 @@ def upload_data_s3(file_name: Union[str, Path], content_type: str = "text/csv", 
         # Upload data
         presigned_url = response["uploadUrl"]
         headers = {"Content-Type": content_type}
-        if content_encoding is None:
+        if content_encoding is not None:
             headers["Content-Encoding"] = content_encoding
         payload = open(file_name, "rb").read()
         r = _request_with_retry("put", presigned_url, headers=headers, data=payload)
 
         if r.status_code != 200:
-            raise Exception("Data Asset Onboarding Error: Failure on Uploading to S3.")
+            raise Exception("File Uploading Error: Failure on Uploading to S3.")
         bucket_name = re.findall(r"https://(.*?).s3.amazonaws.com", presigned_url)[0]
         s3_link = f"s3://{bucket_name}/{path}"
         return s3_link
     except:
-        raise Exception("Data Asset Onboarding Error: Failure on Uploading to S3.")
+        raise Exception("File Uploading Error: Failure on Uploading to S3.")
