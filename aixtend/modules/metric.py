@@ -21,7 +21,7 @@ Description:
     Metric Class
 """
 
-from typing import List, Optional
+from typing import Optional, Text
 from aixtend.modules.asset import Asset
 from aixtend.utils.file_utils import _request_with_retry
 
@@ -29,21 +29,21 @@ from aixtend.utils.file_utils import _request_with_retry
 class Metric(Asset):
     def __init__(
         self,
-        id: str,
-        name: str,
-        description: str,
-        supplier: Optional[str] = "aiXplain",
-        version: Optional[str] = "1.0",
+        id: Text,
+        name: Text,
+        description: Text,
+        supplier: Optional[Text] = "aiXplain",
+        version: Optional[Text] = "1.0",
         **additional_info
     ) -> None:
         """Create a Metric with the necessary information
 
         Args:
-            id (str): ID of the Metric
-            name (str): Name of the Metric
-            description (str): Description of the Metric
-            supplier (Optional[str], optional): author of the Metric. Defaults to "aiXplain".
-            version (Optional[str], optional): Metric version. Defaults to "1.0".
+            id (Text): ID of the Metric
+            name (Text): Name of the Metric
+            description (Text): Description of the Metric
+            supplier (Optional[Text], optional): author of the Metric. Defaults to "aiXplain".
+            version (Optional[Text], optional): Metric version. Defaults to "1.0".
             **additional_info: Any additional Metric info to be saved
         """
         super().__init__(id, name, description, supplier, version)

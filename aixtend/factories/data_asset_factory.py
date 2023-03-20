@@ -45,7 +45,7 @@ class DataAssetFactory(AssetFactory):
     backend_url = config.BENCHMARKS_BACKEND_URL
 
     @classmethod
-    def _create_dataset_from_response(cls, response: dict) -> Dataset:
+    def _create_dataset_from_response(cls, response: Dict) -> Dataset:
         """Converts response Json to 'Dataset' object
 
         Args:
@@ -63,11 +63,11 @@ class DataAssetFactory(AssetFactory):
         )
 
     @classmethod
-    def get(cls, dataset_id: str) -> Dataset:
+    def get(cls, dataset_id: Text) -> Dataset:
         """Create a 'Dataset' object from dataset id
 
         Args:
-            dataset_id (str): Dataset ID of required dataset.
+            dataset_id (Text): Dataset ID of required dataset.
 
         Returns:
             Dataset: Created 'Dataset' object
@@ -81,15 +81,15 @@ class DataAssetFactory(AssetFactory):
 
     @classmethod
     def get_assets_from_page(
-        cls, page_number: int, task: str, input_language: str = None, output_language: str = None
+        cls, page_number: int, task: Text, input_language: Optional[Text] = None, output_language: Optional[Text] = None
     ) -> List[Dataset]:
         """Get the list of datasets from a given page. Additional task and language filters can be also be provided
 
         Args:
             page_number (int): Page from which datasets are to be listed
-            task (str): Task of listed datasets
-            input_language (str, optional): Input language of listed datasets. Defaults to None.
-            output_language (str, optional): Output language of listed datasets. Defaults to None.
+            task (Text): Task of listed datasets
+            input_language (Text, optional): Input language of listed datasets. Defaults to None.
+            output_language (Text, optional): Output language of listed datasets. Defaults to None.
 
         Returns:
             List[Dataset]: List of datasets based on given filters
@@ -113,14 +113,16 @@ class DataAssetFactory(AssetFactory):
             return []
 
     @classmethod
-    def get_first_k_assets(cls, k: int, task: str, input_language: str = None, output_language: str = None) -> List[Dataset]:
+    def get_first_k_assets(
+        cls, k: int, task: Text, input_language: Optional[Text] = None, output_language: Optional[Text] = None
+    ) -> List[Dataset]:
         """Gets the first k given datasets based on the provided task and language filters
 
         Args:
             k (int): Number of datasets to get
-            task (str): Task of listed datasets
-            input_language (str, optional): Input language of listed datasets. Defaults to None.
-            output_language (str, optional): Output language of listed datasets. Defaults to None.
+            task (Text): Task of listed datasets
+            input_language (Text, optional): Input language of listed datasets. Defaults to None.
+            output_language (Text, optional): Output language of listed datasets. Defaults to None.
 
         Returns:
             List[Dataset]: List of datasets based on given filters
@@ -139,26 +141,26 @@ class DataAssetFactory(AssetFactory):
     @classmethod
     def create_corpus(
         cls,
-        name: str,
-        description: str,
+        name: Text,
+        description: Text,
         license: License,
-        content_path: Union[Union[str, Path], List[Union[str, Path]]],
+        content_path: Union[Union[Text, Path], List[Union[Text, Path]]],
         schema: List[Union[Dict, MetaData]],
         ref_data: Optional[List[Any]] = [],
-        tags: Optional[List[str]] = [],
+        tags: Optional[List[Text]] = [],
         functions: Optional[List[Function]] = [],
         privacy: Optional[Privacy] = Privacy.PRIVATE,
     ) -> Corpus:
         """Asynchronous call to Upload a corpus to the user's dashboard.
 
         Args:
-            name (str): corpus name
-            description (str): corpus description
+            name (Text): corpus name
+            description (Text): corpus description
             license (License): corpus license
-            content_path (Union[Union[str, Path], List[Union[str, Path]]]): path to .csv files containing the data
+            content_path (Union[Union[Text, Path], List[Union[Text, Path]]]): path to .csv files containing the data
             schema (List[Union[Dict, MetaData]]): meta data
             ref_data (Optional[List[Union[Text, Data]]], optional): referencing data which already exists and should be part of the corpus. Defaults to [].
-            tags (Optional[List[str]], optional): tags that explain the corpus. Defaults to [].
+            tags (Optional[List[Text]], optional): tags that explain the corpus. Defaults to [].
             functions (Optional[List[Function]], optional): AI functions for which the corpus may be used. Defaults to [].
             privacy (Optional[Privacy], optional): visibility of the corpus. Defaults to Privacy.PRIVATE.
 
@@ -181,18 +183,22 @@ class DataAssetFactory(AssetFactory):
                 try:
                     schema = [MetaData(**metadata) for metadata in schema]
                 except:
-                    raise Exception("Data Asset Onboarding Error: Make sure the elements of your schema follows the MetaData class.")
+                    raise Exception(
+                        "Data Asset Onboarding Error: Make sure the elements of your schema follows the MetaData class."
+                    )
 
             if len(ref_data) > 0:
                 if isinstance(ref_data[0], Data):
                     ref_data = [w.id for w in ref_data]
                 # TO DO: check whether the referred data exist. Otherwise, raise an exception
-            
+
             # check whether reserved names are used as data/column names
             for metadata in schema:
                 for forbidden_name in onboard_functions.FORBIDDEN_COLUMN_NAMES:
                     if forbidden_name in [metadata.name, metadata.data_column]:
-                        raise Exception(f"Data Asset Onboarding Error: {forbidden_name} is reserved name and must not be used as the name of a data or a column.")
+                        raise Exception(
+                            f"Data Asset Onboarding Error: {forbidden_name} is reserved name and must not be used as the name of a data or a column."
+                        )
 
             # get file extension paths to process
             paths = onboard_functions.get_paths(content_paths)
@@ -206,17 +212,21 @@ class DataAssetFactory(AssetFactory):
                 if metadata.privacy is None:
                     metadata.privacy = privacy
 
-                files, data_column_idx, start_column_idx, end_column_idx = onboard_functions.process_data_files(data_asset_name=name, metadata=metadata, paths=paths, folder=name)
+                files, data_column_idx, start_column_idx, end_column_idx = onboard_functions.process_data_files(
+                    data_asset_name=name, metadata=metadata, paths=paths, folder=name
+                )
 
                 dataset.append(
-                    Data(id="", 
-                         name=metadata.name, 
-                         dtype=metadata.dtype, 
-                         privacy=metadata.privacy, 
-                         data_column=data_column_idx, 
-                         start_column=start_column_idx,
-                         end_column=end_column_idx,
-                         files=files)
+                    Data(
+                        id="",
+                        name=metadata.name,
+                        dtype=metadata.dtype,
+                        privacy=metadata.privacy,
+                        data_column=data_column_idx,
+                        start_column=start_column_idx,
+                        end_column=end_column_idx,
+                        files=files,
+                    )
                 )
 
             corpus = Corpus(
@@ -233,10 +243,7 @@ class DataAssetFactory(AssetFactory):
 
             response = onboard_functions.create_corpus(corpus_payload)
             if response["success"] is True:
-                return_dict = {
-                    "status": response["status"],
-                    "corpus_id": response["corpus_id"]
-                }
+                return_dict = {"status": response["status"], "corpus_id": response["corpus_id"]}
             else:
                 raise Exception(response["error"])
             shutil.rmtree(folder)

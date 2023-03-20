@@ -22,7 +22,7 @@ Description:
 """
 
 import logging
-from typing import List
+from typing import Dict, List, Optional, Text
 import json
 import pandas as pd
 from pathlib import Path
@@ -43,11 +43,11 @@ class BenchmarkFactory:
     backend_url = config.BENCHMARKS_BACKEND_URL
 
     @classmethod
-    def _create_benchmark_job_from_response(cls, response: dict) -> BenchmarkJob:
+    def _create_benchmark_job_from_response(cls, response: Dict) -> BenchmarkJob:
         """Converts response Json to 'BenchmarkJob' object
 
         Args:
-            response (dict): Json from API
+            response (Dict): Json from API
 
         Returns:
             BenchmarkJob: Coverted 'BenchmarkJob' object
@@ -55,11 +55,11 @@ class BenchmarkFactory:
         return BenchmarkJob(response["jobId"], response["status"], response["benchmark"]["id"])
 
     @classmethod
-    def _get_benchmark_jobs_from_benchmark_id(cls, benchmark_id: str) -> List[BenchmarkJob]:
+    def _get_benchmark_jobs_from_benchmark_id(cls, benchmark_id: Text) -> List[BenchmarkJob]:
         """Get list of benchmark jobs from benchmark id
 
         Args:
-            benchmark_id (str): ID of benchmark
+            benchmark_id (Text): ID of benchmark
 
         Returns:
             List[BenchmarkJob]: List of associated benchmark jobs
@@ -72,11 +72,11 @@ class BenchmarkFactory:
         return job_list
 
     @classmethod
-    def _create_benchmark_from_response(cls, response: dict) -> Benchmark:
+    def _create_benchmark_from_response(cls, response: Dict) -> Benchmark:
         """Converts response Json to 'Benchmark' object
 
         Args:
-            response (dict): Json from API
+            response (Dict): Json from API
 
         Returns:
             Benchmark: Coverted 'Benchmark' object
@@ -88,11 +88,11 @@ class BenchmarkFactory:
         return Benchmark(response["id"], response["name"], model_list, dataset_list, metric_list, job_list)
 
     @classmethod
-    def create_benchmark_from_id(cls, benchmark_id: str) -> Benchmark:
+    def create_benchmark_from_id(cls, benchmark_id: Text) -> Benchmark:
         """Create a 'Benchmark' object from Benchmark id
 
         Args:
-            benchmark_id (str): Benchmark ID of required Benchmark.
+            benchmark_id (Text): Benchmark ID of required Benchmark.
 
         Returns:
             Benchmark: Created 'Benchmark' object
@@ -105,11 +105,11 @@ class BenchmarkFactory:
         return benchmark
 
     @classmethod
-    def create_benchmark_job_from_id(cls, job_id: str) -> BenchmarkJob:
+    def create_benchmark_job_from_id(cls, job_id: Text) -> BenchmarkJob:
         """Create a 'BenchmarkJob' object from job id
 
         Args:
-            job_id (str): ID of the required BenchmarkJob.
+            job_id (Text): ID of the required BenchmarkJob.
 
         Returns:
             BenchmarkJob: Created 'BenchmarkJob' object
@@ -208,14 +208,16 @@ class BenchmarkFactory:
             return None
 
     @classmethod
-    def download_results_as_csv(cls, benchmarkJob: BenchmarkJob, save_path: str = None, returnDataFrame: bool = False):
+    def download_results_as_csv(
+        cls, benchmarkJob: BenchmarkJob, save_path: Optional[Text] = None, returnDataFrame: Optional[bool] = False
+    ):
         """Get the results of the benchmark job in a CSV format.
         The results can either be downloaded locally or returned in the form of pandas.DataFrame.
 
 
         Args:
             benchmarkJob (BenchmarkJob): 'BenchmarkJob' to get the results for
-            save_path (str, optional): Path to save the CSV if returnDataFrame is False. If None, a ranmdom path is generated. defaults to None.
+            save_path (Text, optional): Path to save the CSV if returnDataFrame is False. If None, a ranmdom path is generated. defaults to None.
             returnDataFrame (bool, optional): If True, the result is returned as pandas.DataFrame else saved as a CSV file. defaults to False.
 
         Returns:

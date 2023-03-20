@@ -22,28 +22,28 @@ Description:
 """
 from aixtend.enums.license import License
 from aixtend.enums.privacy import Privacy
-from typing import Optional
+from typing import Optional, Text
 
 
 class Asset:
     def __init__(
         self,
-        id: str,
-        name: str,
-        description: str,
-        supplier: Optional[str] = "aiXplain",
-        version: Optional[str] = "1.0",
+        id: Text,
+        name: Text,
+        description: Text,
+        supplier: Optional[Text] = "aiXplain",
+        version: Optional[Text] = "1.0",
         license: Optional[License] = None,
         privacy: Optional[Privacy] = Privacy.PRIVATE,
     ) -> None:
         """Create an Asset with the necessary information
 
         Args:
-            id (str): ID of the Asset
-            name (str): Name of the Asset
-            description (str): Description of the Asset
-            supplier (Optional[str], optional): supplier of the asset. Defaults to "aiXplain".
-            version (Optional[str], optional): asset version. Defaults to "1.0".
+            id (Text): ID of the Asset
+            name (Text): Name of the Asset
+            description (Text): Description of the Asset
+            supplier (Optional[Text], optional): supplier of the asset. Defaults to "aiXplain".
+            version (Optional[Text], optional): asset version. Defaults to "1.0".
         """
         self.id = id
         self.name = name

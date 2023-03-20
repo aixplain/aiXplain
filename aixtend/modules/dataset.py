@@ -30,23 +30,23 @@ from aixtend.modules.data import Data
 from aixtend.utils.file_utils import _request_with_retry, save_file
 from aixtend.utils import config
 from pathlib import Path
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Text
 
 
 class Dataset(Asset):
     def __init__(
         self,
-        id: str,
-        name: str,
-        description: str,
+        id: Text,
+        name: Text,
+        description: Text,
         function: Function,
         source_data: List[Data],
         target_data: List[Data],
-        tags: Optional[List[str]] = [],
+        tags: Optional[List[Text]] = [],
         license: Optional[License] = None,
         privacy: Optional[Privacy] = Privacy.PRIVATE,
-        supplier: Optional[str] = "aiXplain",
-        version: Optional[str] = "1.0",
+        supplier: Optional[Text] = "aiXplain",
+        version: Optional[Text] = "1.0",
         **kwargs,
     ) -> None:
         super().__init__(
@@ -57,38 +57,3 @@ class Dataset(Asset):
         self.target_data = target_data
         self.tags = tags
         self.kwargs = kwargs
-
-    def download(self, save_path: str = None, returnDataFrame: bool = False):
-        """Downloads the dataset file.
-        Args:
-            save_path (str, optional): Path to save the CSV if returnDataFrame is False. If None, a ranmdom path is generated. defaults to None.
-            returnDataFrame (bool, optional): If True, the result is returned as pandas.DataFrame else saved as a CSV file.defaults to False.
-
-        Returns:
-            str/pandas.DataFrame: file as path of locally saved file if returnDataFrame is False else as a pandas dataframe
-        """
-        try:
-            dataset_id = self.id
-            api_key = config.TEAM_API_KEY
-            backend_url = config.BENCHMARKS_BACKEND_URL
-            url = f"{backend_url}/sdk/datasets/{dataset_id}/download"
-            headers = {"Authorization": f"Token {api_key}", "Content-Type": "application/json"}
-            r = _request_with_retry("get", url, headers=headers)
-            resp = r.json()
-            print(resp)
-            csv_url = resp["url"]
-            if returnDataFrame:
-                downloaded_path = save_file(csv_url, save_path)
-                self.local_path = downloaded_path
-                df = pd.read_csv(downloaded_path)
-                if save_path is None:
-                    Path(downloaded_path).unlink()
-                return df
-            else:
-                downloaded_path = save_file(csv_url, save_path)
-                self.local_path = downloaded_path
-                return downloaded_path
-        except Exception as e:
-            error_message = f"Downloading Dataset: Error in Downloading Dataset: {e}"
-            logging.error(error_message)
-            return None

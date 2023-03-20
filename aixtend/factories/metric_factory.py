@@ -1,4 +1,4 @@
-__author__='shreyassharma'
+__author__ = "shreyassharma"
 
 """
 Copyright 2022 The aiXplain SDK authors
@@ -26,62 +26,55 @@ from typing import List
 from aixtend.modules.metric import Metric
 from aixtend.utils import config
 from aixtend.utils.file_utils import _request_with_retry
+from typing import Dict, Text
+
 
 class MetricFactory:
     api_key = config.TEAM_API_KEY
     backend_url = config.BENCHMARKS_BACKEND_URL
-    
 
     @classmethod
-    def _create_metric_from_response(cls, response: dict) -> Metric:
+    def _create_metric_from_response(cls, response: Dict) -> Metric:
         """Converts response Json to 'Metric' object
 
         Args:
-            response (dict): Json from API
+            response (Dict): Json from API
 
         Returns:
             Metric: Coverted 'Metric' object
         """
-        return Metric(response['id'], response['name'], response['description'])
-    
+        return Metric(response["id"], response["name"], response["description"])
 
     @classmethod
-    def create_asset_from_id(cls, metric_id: str) -> Metric:
+    def create_asset_from_id(cls, metric_id: Text) -> Metric:
         """Create a 'Metric' object from metric id
 
         Args:
-            model_id (str): Model ID of required metric.
+            model_id (Text): Model ID of required metric.
 
         Returns:
             Metric: Created 'Metric' object
         """
         url = f"{cls.backend_url}/sdk/scores/{metric_id}"
-        headers = {
-            'Authorization': f"Token {cls.api_key}",
-            'Content-Type': 'application/json'
-        }
+        headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
         r = _request_with_retry("get", url, headers=headers)
         resp = r.json()
         metric = cls._create_metric_from_response(resp)
         return metric
 
-
     @classmethod
-    def list_assets(cls, task:str) -> List[Metric]:
+    def list_assets(cls, task: Text) -> List[Metric]:
         """Get list of supported metrics for a given task
 
         Args:
-            task (str): Task to get metric for
+            task (Text): Task to get metric for
 
         Returns:
             List[Metric]: List of supported metrics
         """
         try:
             url = f"{cls.backend_url}/sdk/scores?function={task}"
-            headers = {
-                'Authorization': f"Token {cls.api_key}",
-                'Content-Type': 'application/json'
-            }
+            headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()
             logging.info(f"Listing Metrics: Status of getting metrics for {task} : {resp}")

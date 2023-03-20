@@ -21,9 +21,8 @@ Description:
     Asset Factory Class
 """
 
-import logging
-from abc import ABCMeta, abstractmethod
-from typing import List
+from abc import abstractmethod
+from typing import List, Text
 from aixtend.modules.asset import Asset
 from aixtend.utils import config
 
@@ -33,7 +32,7 @@ class AssetFactory:
     backend_url = config.BENCHMARKS_BACKEND_URL
 
     @abstractmethod
-    def get(self, asset_id: str) -> Asset:
+    def get(self, asset_id: Text) -> Asset:
         """Create a 'Asset' object from id
 
         Args:

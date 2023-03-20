@@ -35,25 +35,25 @@ from typing import Union, Optional, Text, Dict
 class Model(Asset):
     def __init__(
         self,
-        id: str,
-        name: str,
-        description: str = "",
-        api_key: Optional[str] = None,
-        url: str = config.MODELS_RUN_URL,
-        supplier: Optional[str] = "aiXplain",
-        version: Optional[str] = "1.0",
+        id: Text,
+        name: Text,
+        description: Text = "",
+        api_key: Optional[Text] = None,
+        url: Text = config.MODELS_RUN_URL,
+        supplier: Optional[Text] = "aiXplain",
+        version: Optional[Text] = "1.0",
         **additional_info,
     ) -> None:
         """Model Init
 
         Args:
-            id (str): ID of the Model
-            name (str): Name of the Model
-            description (str, optional): description of the model. Defaults to "".
-            api_key (str, optional): API key of the Model. Defaults to None.
-            url (str, optional): endpoint of the model. Defaults to config.MODELS_RUN_URL.
-            supplier (Optional[str], optional): model supplier. Defaults to "aiXplain".
-            version (Optional[str], optional): version of the model. Defaults to "1.0".
+            id (Text): ID of the Model
+            name (Text): Name of the Model
+            description (Text, optional): description of the model. Defaults to "".
+            api_key (Text, optional): API key of the Model. Defaults to None.
+            url (Text, optional): endpoint of the model. Defaults to config.MODELS_RUN_URL.
+            supplier (Optional[Text], optional): model supplier. Defaults to "aiXplain".
+            version (Optional[Text], optional): version of the model. Defaults to "1.0".
             **additional_info: Any additional Model info to be saved
         """
         super().__init__(id, name, description, supplier, version)
@@ -69,15 +69,14 @@ class Model(Asset):
         """
         return self.api_key is not None
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> Dict:
         """Get the model info as a Dictionary
 
         Returns:
-            dict: Model Information
+            Dict: Model Information
         """
         clean_additional_info = {k: v for k, v in self.additional_info.items() if v is not None}
         return {"id": self.id, "name": self.name, "supplier": self.supplier, "additional_info": clean_additional_info}
-
 
     def __polling(self, poll_url: Text, name: Text = "model_process", wait_time: float = 1.0, timeout: float = 300) -> Dict:
         """Keeps polling the platform to check whether an asynchronous call is done.
@@ -105,11 +104,7 @@ class Model(Asset):
                 if wait_time < 60:
                     wait_time *= 1.1
             except Exception as e:
-                response_body = {
-                    "status": "ERROR", 
-                    "completed": False,
-                    "error": "No response from the service."
-                }
+                response_body = {"status": "ERROR", "completed": False, "error": "No response from the service."}
                 logging.error(f"Polling for Model: polling for {name}: {e}")
                 break
         if response_body["completed"] is True:
@@ -125,7 +120,6 @@ class Model(Asset):
                 f"Polling for Model: Final status of polling for {name}: No response in {timeout} seconds - {response_body}"
             )
         return response_body
-
 
     def poll(self, poll_url: Text, name: Text = "model_process") -> Dict:
         """Poll the platform to check whether an asynchronous call is done.
@@ -151,7 +145,6 @@ class Model(Asset):
             logging.error(f"Single Poll for Model: Error of polling for {name}: {e}")
         return resp
 
-    
     def run(self, data: Union[Text, Dict], name: Text = "model_process", timeout: float = 300, parameters: Dict = {}) -> Dict:
         """Runs a model call.
 
@@ -180,7 +173,6 @@ class Model(Asset):
             logging.error(f"Model Run: Error in running for {name}: {e}")
             end = time.time()
             return {"status": "FAILED", "error": msg, "elapsed_time": end - start}
-
 
     def run_async(self, data: Union[Text, Dict], name: Text = "model_process", parameters: Dict = {}) -> Dict:
         """Runs asynchronously a model call.

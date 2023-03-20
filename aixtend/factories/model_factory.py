@@ -20,7 +20,7 @@ Date: September 1st 2022
 Description:
     Model Factory Class
 """
-from typing import List
+from typing import Dict, List, Optional, Text
 import json
 import logging
 from aixtend.modules.model import Model
@@ -34,11 +34,11 @@ class ModelFactory:
     backend_url = config.BENCHMARKS_BACKEND_URL
 
     @classmethod
-    def _create_model_from_response(cls, response: dict) -> Model:
+    def _create_model_from_response(cls, response: Dict) -> Model:
         """Converts response Json to 'Model' object
 
         Args:
-            response (dict): Json from API
+            response (Dict): Json from API
 
         Returns:
             Model: Coverted 'Model' object
@@ -46,15 +46,16 @@ class ModelFactory:
         return Model(response["id"], response["name"], supplier=response["supplier"]["id"], api_key=cls.api_key)
 
     @classmethod
-    def create_asset_from_id(cls, model_id: str) -> Model:
+    def create_asset_from_id(cls, model_id: Text) -> Model:
         """Create a 'Model' object from model id
 
         Args:
-            model_id (str): Model ID of required model.
+            model_id (Text): Model ID of required model.
 
         Returns:
             Model: Created 'Model' object
         """
+        resp = None
         try:
             url = f"{cls.backend_url}/sdk/inventory/models/{model_id}"
             headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
@@ -63,26 +64,26 @@ class ModelFactory:
             model = cls._create_model_from_response(resp)
             return model
         except Exception as e:
-            if "statusCode" in resp:
-                status_code = resp["statusCode"]
-                message = resp["message"]
-                message = f"Model Creation: Status {status_code} - {message}"
-            else:
-                message = "Model Creation: Unspecified Error"
+            message = "Model Creation: Unspecified Error"
+            if resp is not None:
+                if "statusCode" in resp:
+                    status_code = resp["statusCode"]
+                    message = resp["message"]
+                    message = f"Model Creation: Status {status_code} - {message}"
             logging.error(message)
             raise Exception(f"{message}")
 
     @classmethod
     def get_assets_from_page(
-        cls, page_number: int, task: str, input_language: str = None, output_language: str = None
+        cls, page_number: int, task: Text, input_language: Optional[Text] = None, output_language: Optional[Text] = None
     ) -> List[Model]:
         """Get the list of models from a given page. Additional task and language filters can be also be provided
 
         Args:
             page_number (int): Page from which models are to be listed
-            task (str): Task of listed model
-            input_language (str, optional): Input language of listed model. Defaults to None.
-            output_language (str, optional): Output langugage of listed model. Defaults to None.
+            task (Text): Task of listed model
+            input_language (Text, optional): Input language of listed model. Defaults to None.
+            output_language (Text, optional): Output langugage of listed model. Defaults to None.
 
         Returns:
             List[Model]: List of models based on given filters
@@ -113,14 +114,16 @@ class ModelFactory:
             return []
 
     @classmethod
-    def get_first_k_assets(cls, k: int, task: str, input_language: str = None, output_language: str = None) -> List[Model]:
+    def get_first_k_assets(
+        cls, k: int, task: Text, input_language: Optional[Text] = None, output_language: Optional[Text] = None
+    ) -> List[Model]:
         """Gets the first k given models based on the provided task and language filters
 
         Args:
             k (int): Number of models to get
-            task (str): Task of listed model
-            input_language (str, optional): Input language of listed model. Defaults to None.
-            output_language (str, optional): Output language of listed model. Defaults to None.
+            task (Text): Task of listed model
+            input_language (Text, optional): Input language of listed model. Defaults to None.
+            output_language (Text, optional): Output language of listed model. Defaults to None.
 
         Returns:
             List[Model]: List of models based on given filters
