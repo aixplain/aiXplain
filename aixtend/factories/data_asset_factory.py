@@ -34,15 +34,16 @@ from aixtend.modules.metadata import MetaData
 from aixtend.enums.function import Function
 from aixtend.enums.license import License
 from aixtend.enums.privacy import Privacy
-from aixtend.utils.file_utils import _request_with_retry, download_data
+from aixtend.utils.file_utils import _request_with_retry
 from aixtend.utils import config
 from pathlib import Path
+from tqdm import tqdm
 from typing import Any, Dict, List, Optional, Text, Union
 
 
 class DataAssetFactory(AssetFactory):
     api_key = config.TEAM_API_KEY
-    backend_url = config.BENCHMARKS_BACKEND_URL
+    backend_url = config.BACKEND_URL
 
     @classmethod
     def _create_dataset_from_response(cls, response: Dict) -> Dataset:
@@ -55,11 +56,12 @@ class DataAssetFactory(AssetFactory):
             Dataset: Coverted 'Dataset' object
         """
         return Dataset(
-            response["id"],
-            response["name"],
-            response["description"],
-            field_info=response["attributes"],
-            size_info=response["info"],
+            id=response["id"],
+            name=response["name"],
+            description=response["description"],
+            function=Function.SPEECH_RECOGNITION,
+            source_data=[],
+            target_data=[],
         )
 
     @classmethod
@@ -150,7 +152,7 @@ class DataAssetFactory(AssetFactory):
         tags: Optional[List[Text]] = [],
         functions: Optional[List[Function]] = [],
         privacy: Optional[Privacy] = Privacy.PRIVATE,
-    ) -> Corpus:
+    ) -> Dict:
         """Asynchronous call to Upload a corpus to the user's dashboard.
 
         Args:
@@ -165,15 +167,15 @@ class DataAssetFactory(AssetFactory):
             privacy (Optional[Privacy], optional): visibility of the corpus. Defaults to Privacy.PRIVATE.
 
         Returns:
-            Corpus: onboarded corpus
+            Dict: response dict
         """
         folder, return_dict = None, {}
         # check team key
         try:
             if config.TEAM_API_KEY.strip() == "":
-                raise Exception(
-                    "Data Asset Onboarding Error: Update your team key on the environment variable TEAM_API_KEY before the corpus onboarding process."
-                )
+                message = "Data Asset Onboarding Error: Update your team key on the environment variable TEAM_API_KEY before the corpus onboarding process."
+                logging.error(message)
+                raise Exception(message)
 
             content_paths = content_path
             if isinstance(content_path, list) is False:
@@ -183,9 +185,9 @@ class DataAssetFactory(AssetFactory):
                 try:
                     schema = [MetaData(**metadata) for metadata in schema]
                 except:
-                    raise Exception(
-                        "Data Asset Onboarding Error: Make sure the elements of your schema follows the MetaData class."
-                    )
+                    message = "Data Asset Onboarding Error: Make sure the elements of your schema follows the MetaData class."
+                    logging.error(message)
+                    raise Exception(message)
 
             if len(ref_data) > 0:
                 if isinstance(ref_data[0], Data):
@@ -196,9 +198,9 @@ class DataAssetFactory(AssetFactory):
             for metadata in schema:
                 for forbidden_name in onboard_functions.FORBIDDEN_COLUMN_NAMES:
                     if forbidden_name in [metadata.name, metadata.data_column]:
-                        raise Exception(
-                            f"Data Asset Onboarding Error: {forbidden_name} is reserved name and must not be used as the name of a data or a column."
-                        )
+                        message = f"Data Asset Onboarding Error: {forbidden_name} is reserved name and must not be used as the name of a data or a column."
+                        logging.error(message)
+                        raise Exception(message)
 
             # get file extension paths to process
             paths = onboard_functions.get_paths(content_paths)
@@ -208,7 +210,8 @@ class DataAssetFactory(AssetFactory):
             folder.mkdir(exist_ok=True)
 
             dataset = []
-            for metadata in schema:
+            for i in tqdm(range(len(schema)), desc=" Corpus onboarding progress:", position=0):
+                metadata = schema[i]
                 if metadata.privacy is None:
                     metadata.privacy = privacy
 

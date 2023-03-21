@@ -62,6 +62,7 @@ class ModelFactory:
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()
             model = cls._create_model_from_response(resp)
+            logging.info(f"Model Creation: Model {model_id} instantiated.")
             return model
         except Exception as e:
             message = "Model Creation: Unspecified Error"
@@ -104,12 +105,12 @@ class ModelFactory:
             headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
             r = _request_with_retry("get", url, headers=headers, params={"ioFilter": json.dumps(filter_params)})
             resp = r.json()
-            logging.info(f"Listing Models: Status of getting Models on Page {page_number} for {task} : {resp}")
+            logging.info(f"Listing Models: Status of getting Models on Page {page_number} for {task}: {resp}")
             all_models = resp["items"]
             model_list = [cls._create_model_from_response(model_info_json) for model_info_json in all_models]
             return model_list
         except Exception as e:
-            error_message = f"Listing Models: Error in getting Models on Page {page_number} for {task} : {e}"
+            error_message = f"Listing Models: Error in getting Models on Page {page_number} for {task}: {e}"
             logging.error(error_message)
             return []
 

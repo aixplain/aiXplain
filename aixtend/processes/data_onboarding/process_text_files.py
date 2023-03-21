@@ -7,8 +7,9 @@ from aixtend.enums.file_type import FileType
 from aixtend.enums.storage_type import StorageType
 from aixtend.modules.file import File
 from aixtend.modules.metadata import MetaData
-from aixtend.utils.file_utils import download_data, upload_data
+from aixtend.utils.file_utils import upload_data
 from pathlib import Path
+from tqdm import tqdm
 from typing import List, Text, Tuple
 
 
@@ -41,22 +42,29 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 1000) -
     Returns:
         Tuple[List[File], int]: list of s3 links and data colum index
     """
+    # logging.info(f"Data Asset Onboarding: Processing \"{metadata.name}\".")
     idx = 0
     data_column_idx = -1
     files, batch = [], []
-    for path in paths:
+    for i in tqdm(range(len(paths)), desc=f' Data "{metadata.name}" onboarding progress', position=1, leave=False):
+        path = paths[i]
         # TO DO: extract the split from file name
         try:
             dataframe = pd.read_csv(path)
         except:
-            raise Exception(f'Data Asset Onboarding Error: Local file "{path}" not found.')
+            message = f'Data Asset Onboarding Error: Local file "{path}" not found.'
+            logging.error(message)
+            raise Exception(message)
 
         # process texts and labels
-        for (_, row) in dataframe.iterrows():
+        for j in tqdm(range(len(dataframe)), desc=" File onboarding progress", position=2, leave=False):
+            row = dataframe.iloc[j]
             try:
                 text_path = row[metadata.name]
             except:
-                raise Exception(f'Data Asset Onboarding Error: Column "{metadata.name}" not found in the local file {path}.')
+                message = f'Data Asset Onboarding Error: Column "{metadata.name}" not found in the local file {path}.'
+                logging.error(message)
+                raise Exception(message)
 
             try:
                 text = process_text(text_path, metadata.storage_type)
