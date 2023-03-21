@@ -21,9 +21,29 @@ Description:
     Function Enum
 """
 
+import logging
+import os
+import traceback
+
+from aixtend.utils import config
+from aixtend.utils.file_utils import _request_with_retry
 from enum import Enum
 
 
-class Function(Enum):
-    SPEECH_RECOGNITION = "speech-recognition"
-    TRANSLATION = "translation"
+def load_functions():
+    try:
+        api_key = config.TEAM_API_KEY
+        backend_url = config.BACKEND_URL
+
+        url = os.path.join(backend_url, "sdk/inventory/functions")
+        headers = {"x-api-key": api_key, "Content-Type": "application/json"}
+        r = _request_with_retry("get", url, headers=headers)
+        resp = r.json()
+        return Enum("Function", {w["id"].upper().replace("-", "_"): w["id"] for w in resp["items"]}, type=__name__)
+    except:
+        msg = f"Function Loading Error:\n{traceback.format_exc()}"
+        logging.warning(msg)
+        raise Exception(msg)
+
+
+Function = load_functions()

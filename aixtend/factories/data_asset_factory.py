@@ -24,6 +24,7 @@ Description:
 import aixtend.utils.config as config
 import aixtend.processes.data_onboarding.onboard_functions as onboard_functions
 import logging
+import os
 import shutil
 
 from aixtend.factories.asset_factory import AssetFactory
@@ -74,7 +75,7 @@ class DataAssetFactory(AssetFactory):
         Returns:
             Dataset: Created 'Dataset' object
         """
-        url = f"{cls.backend_url}/sdk/datasets/{dataset_id}"
+        url = os.path.join(cls.backend_url, f"sdk/datasets/{dataset_id}")
         headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
         r = _request_with_retry("get", url, headers=headers)
         resp = r.json()
@@ -97,7 +98,7 @@ class DataAssetFactory(AssetFactory):
             List[Dataset]: List of datasets based on given filters
         """
         try:
-            url = f"{cls.backend_url}/sdk/datasets?pageNumber={page_number}&function={task}"
+            url = os.path.join(cls.backend_url, f"sdk/datasets?pageNumber={page_number}&function={task}")
             if input_language is not None:
                 url += f"&input={input_language}"
             if output_language is not None:
