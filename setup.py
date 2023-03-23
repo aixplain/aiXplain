@@ -41,15 +41,8 @@ consider upgrading to a supported Python version.
     )
     sys.exit(1)
 
-requires = [
-    "requests>=2.1.0",
-    "tqdm>=4.1.0",
-    "pandas>=1.2.1"
-]
-test_requirements = [
-    "python-dotenv~=0.20.0",
-    "pytest>=6.1.0"
-]
+requires = ["requests>=2.1.0", "tqdm>=4.1.0", "pandas>=1.2.1", "validators>=0.20.0"]
+test_requirements = ["python-dotenv~=0.20.0", "pytest>=6.1.0"]
 
 about = {}
 here = os.path.abspath(os.path.dirname(__file__))
@@ -103,6 +96,6 @@ setup(
     extras_require={},
     project_urls={
         "Documentation": "https://github.com/aixplain/pipelines/tree/main/docs",
-        "Source": "https://github.com/aixplain/pipelines"
+        "Source": "https://github.com/aixplain/pipelines",
     },
 )
