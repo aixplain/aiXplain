@@ -24,13 +24,23 @@ Description:
 import time
 import json
 import logging
+from aixtend.modules.asset import Asset
 from aixtend.utils import config
-from aixtend.utils.file_utils import _request_with_retry
-from typing import Dict, Text, Union
+from aixtend.utils.file_utils import _request_with_retry, path2link
+from typing import Dict, Optional, Text, Union
 
 
-class Pipeline:
-    def __init__(self, id: Text, name: Text, api_key: Text, url: Text = config.PIPELINES_RUN_URL, **additional_info) -> None:
+class Pipeline(Asset):
+    def __init__(
+        self,
+        id: Text,
+        name: Text,
+        api_key: Text,
+        url: Text = config.PIPELINES_RUN_URL,
+        supplier: Optional[Text] = "aiXplain",
+        version: Optional[Text] = "1.0",
+        **additional_info,
+    ) -> None:
         """Create a Pipeline with the necessary information
 
         Args:
@@ -38,10 +48,11 @@ class Pipeline:
             name (Text): Name of the Pipeline
             api_key (Text): Team API Key to run the Pipeline.
             url (Text, optional): running URL of platform. Defaults to config.PIPELINES_RUN_URL.
+            supplier (Optional[Text], optional): Pipeline supplier. Defaults to "aiXplain".
+            version (Optional[Text], optional): version of the pipeline. Defaults to "1.0".
             **additional_info: Any additional Pipeline info to be saved
         """
-        self.id = id
-        self.name = name
+        super().__init__(id, name, "", supplier, version)
         self.api_key = api_key
         self.url = url
         self.additional_info = additional_info
@@ -121,6 +132,7 @@ class Pipeline:
         """
         start = time.time()
         try:
+            data = path2link(data)
             response = self.run_async(data, name=name)
             if response["status"] == "FAILED":
                 end = time.time()

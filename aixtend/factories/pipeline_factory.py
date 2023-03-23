@@ -21,6 +21,7 @@ Description:
     Pipeline Factory Class
 """
 import logging
+import os
 from typing import Dict, List, Text
 from aixtend.modules.pipeline import Pipeline
 from aixtend.utils.config import PIPELINES_RUN_URL
@@ -30,7 +31,7 @@ from aixtend.utils.file_utils import _request_with_retry
 
 class PipelineFactory:
     api_key = config.TEAM_API_KEY
-    backend_url = config.BENCHMARKS_BACKEND_URL
+    backend_url = config.BACKEND_URL
 
     @classmethod
     def _create_pipeline_from_response(cls, response: Dict) -> Pipeline:
@@ -56,7 +57,7 @@ class PipelineFactory:
         """
         resp = None
         try:
-            url = f"{cls.backend_url}/sdk/inventory/pipelines/{pipeline_id}"
+            url = os.path.join(cls.backend_url, f"sdk/inventory/pipelines/{pipeline_id}")
             headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()
@@ -84,7 +85,7 @@ class PipelineFactory:
             List[Pipeline]: List of pipelines based on given filters
         """
         try:
-            url = f"{cls.backend_url}/sdk/inventory/pipelines/?pageNumber={page_number}"
+            url = os.path.join(cls.backend_url, f"sdk/inventory/pipelines/?pageNumber={page_number}")
             headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()

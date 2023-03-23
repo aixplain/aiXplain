@@ -28,7 +28,7 @@ import traceback
 from typing import List
 from aixtend.modules.asset import Asset
 from aixtend.utils import config
-from aixtend.utils.file_utils import _request_with_retry
+from aixtend.utils.file_utils import _request_with_retry, path2link
 from typing import Union, Optional, Text, Dict
 
 
@@ -159,6 +159,7 @@ class Model(Asset):
         """
         start = time.time()
         try:
+            data = path2link(data)
             response = self.run_async(data, name=name, parameters=parameters)
             if response["status"] == "FAILED":
                 end = time.time()

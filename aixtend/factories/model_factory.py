@@ -23,6 +23,7 @@ Description:
 from typing import Dict, List, Optional, Text
 import json
 import logging
+import os
 from aixtend.modules.model import Model
 from aixtend.utils.config import MODELS_RUN_URL
 from aixtend.utils import config
@@ -31,7 +32,7 @@ from aixtend.utils.file_utils import _request_with_retry
 
 class ModelFactory:
     api_key = config.TEAM_API_KEY
-    backend_url = config.BENCHMARKS_BACKEND_URL
+    backend_url = config.BACKEND_URL
 
     @classmethod
     def _create_model_from_response(cls, response: Dict) -> Model:
@@ -57,7 +58,7 @@ class ModelFactory:
         """
         resp = None
         try:
-            url = f"{cls.backend_url}/sdk/inventory/models/{model_id}"
+            url = os.path.join(cls.backend_url, f"sdk/inventory/models/{model_id}")
             headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()
@@ -90,7 +91,7 @@ class ModelFactory:
             List[Model]: List of models based on given filters
         """
         try:
-            url = f"{cls.backend_url}/sdk/inventory/models/?pageNumber={page_number}&function={task}"
+            url = os.path.join(cls.backend_url, f"sdk/inventory/models/?pageNumber={page_number}&function={task}")
             filter_params = []
             task_param_mapping = {
                 "input": {"translation": "sourcelanguage", "speech-recognition": "language", "sentiment-analysis": "language"},

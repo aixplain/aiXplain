@@ -20,16 +20,13 @@ Date: October 28th 2022
 Description:
     Datasets Class
 """
-import logging
-import pandas as pd
+
 from aixtend.enums.function import Function
 from aixtend.enums.license import License
 from aixtend.enums.privacy import Privacy
 from aixtend.modules.asset import Asset
 from aixtend.modules.data import Data
 from aixtend.utils.file_utils import _request_with_retry, save_file
-from aixtend.utils import config
-from pathlib import Path
 from typing import Any, List, Optional, Text
 
 

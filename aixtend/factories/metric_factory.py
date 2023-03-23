@@ -22,6 +22,7 @@ Description:
 """
 
 import logging
+import os
 from typing import List
 from aixtend.modules.metric import Metric
 from aixtend.utils import config
@@ -31,7 +32,7 @@ from typing import Dict, Text
 
 class MetricFactory:
     api_key = config.TEAM_API_KEY
-    backend_url = config.BENCHMARKS_BACKEND_URL
+    backend_url = config.BACKEND_URL
 
     @classmethod
     def _create_metric_from_response(cls, response: Dict) -> Metric:
@@ -55,7 +56,7 @@ class MetricFactory:
         Returns:
             Metric: Created 'Metric' object
         """
-        url = f"{cls.backend_url}/sdk/scores/{metric_id}"
+        url = os.path.join(cls.backend_url, f"sdk/scores/{metric_id}")
         headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
         r = _request_with_retry("get", url, headers=headers)
         resp = r.json()
@@ -73,7 +74,7 @@ class MetricFactory:
             List[Metric]: List of supported metrics
         """
         try:
-            url = f"{cls.backend_url}/sdk/scores?function={task}"
+            url = os.path.join(cls.backend_url, f"sdk/scores?function={task}")
             headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()

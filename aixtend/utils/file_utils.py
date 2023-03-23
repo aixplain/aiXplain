@@ -18,14 +18,38 @@ import aixtend.utils.config as config
 import os
 import re
 import requests
+import validators
 
+from aixtend.enums.storage_type import StorageType
 from pathlib import Path
 from uuid import uuid4
 from requests.adapters import HTTPAdapter, Retry
-from typing import Any, Optional, Text, Union
+from typing import Any, Dict, Optional, Text, Union
 
 
-def save_file(download_url: Text, download_file_path: Optional[Any] = None) -> Text:
+def check_storage_type(input_link: Any) -> StorageType:
+    """Check whether a path is a URL (s3 link or HTTP link), a file or a textual content
+
+    Args:
+        input_link (Any): path to be checked
+
+    Returns:
+        StorageType: URL, TEXT or FILE
+    """
+    if os.path.exists(input_link) is True:
+        return StorageType.FILE
+    elif (
+        input_link.startswith("s3://")
+        or input_link.startswith("http://")
+        or input_link.startswith("https://")
+        or validators.url(input_link)
+    ):
+        return StorageType.URL
+    else:
+        return StorageType.TEXT
+
+
+def save_file(download_url: Text, download_file_path: Optional[Any] = None) -> Any:
     """Download and save file from given URL
 
     Args:
@@ -116,3 +140,32 @@ def upload_data(file_name: Union[Text, Path], content_type: Text = "text/csv", c
         return s3_link
     except:
         raise Exception("File Uploading Error: Failure on Uploading to S3.")
+
+
+def path2link(data: Union[Text, Dict]) -> Union[Text, Dict]:
+    """If user input data is a local file, upload to aiXplain platform
+
+    Args:
+        data (Union[Text, Dict]): input data
+
+    Returns:
+        Union[Text, Dict]: input links/texts
+    """
+
+    def check_file(local_path):
+        if os.path.exists(local_path) is False:
+            raise Exception(f'File Upload Error: local file "{local_path}" not found.')
+        if os.path.getsize(local_path) > 10485760:
+            raise Exception(f'File Upload Error: local file "{local_path}" exceeds 10 MB.')
+
+    if isinstance(data, str):
+        if check_storage_type(data) == StorageType.FILE:
+            check_file(data)
+            data = upload_data(file_name=data)
+    else:
+        for key in data:
+            if isinstance(data[key], str):
+                if check_storage_type(data[key]) == StorageType.FILE:
+                    check_file(data[key])
+                    data[key] = upload_data(file_name=data[key])
+    return data

@@ -19,9 +19,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
-from .modules.pipeline import Pipeline
-from .modules.model import Model
-
 
 # Set default logging handler to avoid "No handler found" warnings.
 import logging
