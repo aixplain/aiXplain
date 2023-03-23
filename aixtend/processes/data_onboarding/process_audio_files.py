@@ -108,9 +108,9 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 10) -> 
                     # compress the folder
                     compressed_folder = compress_folder(data_file_name)
                     # upload zipped audios into s3
-                    upload_data(compressed_folder, content_type="application/x-tar")
+                    s3_compressed_folder = upload_data(compressed_folder, content_type="application/x-tar")
                     # update index files pointing the s3 link
-                    df["@SOURCE"] = compressed_folder
+                    df["@SOURCE"] = s3_compressed_folder
                     # remove audio folder
                     shutil.rmtree(data_file_name)
                     # remove zipped file
@@ -152,9 +152,9 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 10) -> 
             # compress the folder
             compressed_folder = compress_folder(data_file_name)
             # upload zipped audios into s3
-            upload_data(compressed_folder, content_type="application/x-tar")
+            s3_compressed_folder = upload_data(compressed_folder, content_type="application/x-tar")
             # update index files pointing the s3 link
-            df["@SOURCE"] = compressed_folder
+            df["@SOURCE"] = s3_compressed_folder
             # remove audio folder
             shutil.rmtree(data_file_name)
             # remove zipped file
