@@ -23,6 +23,8 @@ Description:
 
 from aixtend.modules.file import File
 from aixtend.enums.data_type import DataType
+from aixtend.enums.language import Language
+from aixtend.enums.onboard_status import OnboardStatus
 from aixtend.enums.privacy import Privacy
 from typing import List, Optional, Text, Any
 
@@ -34,16 +36,21 @@ class Data:
         name: Text,
         dtype: DataType,
         privacy: Privacy,
+        onboard_status: OnboardStatus,
         data_column: Optional[Any] = None,
         start_column: Optional[Any] = None,
         end_column: Optional[Any] = None,
-        files: Optional[List[File]] = [],
+        files: List[File] = [],
+        languages: List[Language] = [],
         **kwargs
     ) -> None:
         self.id = id
         self.name = name
         self.dtype = dtype
         self.privacy = privacy
+        if isinstance(onboard_status, str):
+            onboard_status = OnboardStatus(onboard_status)
+        self.onboard_status = onboard_status
         self.files = files
         if data_column is None:
             self.data_column = name
@@ -51,4 +58,9 @@ class Data:
             self.data_column = data_column
         self.start_column = start_column
         self.end_column = end_column
+        self.languages = []
+        for language in languages:
+            if isinstance(language, str):
+                language = Language(language)
+            self.languages.append(language)
         self.kwargs = kwargs

@@ -21,15 +21,29 @@ Description:
     License Enum
 """
 
+import logging
+import os
+import traceback
+
+from aixtend.utils import config
+from aixtend.utils.file_utils import _request_with_retry
 from enum import Enum
 
 
-class License(Enum):
-    Apache_2 = "apache-2.0"
-    BSD_2_CLAUSE = "bsd-2-clause"
-    BSD_3_CLAUSE = "bsd-3-clause"
-    BSD_3_CLAUSE_CLEAR = "bsd-3-clause-clear"
-    CC_BY_4 = "cc-by-4.0"
-    GNU_PUBLIC_2 = "gpl-2.0"
-    GNU_PUBLIC_3 = "gpl-3.0"
-    MIT = "mit"
+def load_licenses():
+    try:
+        api_key = config.TEAM_API_KEY
+        backend_url = config.BACKEND_URL
+
+        url = os.path.join(backend_url, "sdk/licenses")
+        headers = {"x-api-key": api_key, "Content-Type": "application/json"}
+        r = _request_with_retry("get", url, headers=headers)
+        resp = r.json()
+        return Enum("Function", {"_".join(w["name"].split()): w["name"] for w in resp}, type=str)
+    except:
+        msg = f"License Loading Error:\n{traceback.format_exc()}"
+        logging.warning(msg)
+        raise Exception(msg)
+
+
+License = load_licenses()

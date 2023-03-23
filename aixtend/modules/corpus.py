@@ -22,6 +22,7 @@ Description:
 """
 from aixtend.enums.function import Function
 from aixtend.enums.license import License
+from aixtend.enums.onboard_status import OnboardStatus
 from aixtend.enums.privacy import Privacy
 from aixtend.modules.asset import Asset
 from aixtend.modules.data import Data
@@ -36,6 +37,7 @@ class Corpus(Asset):
         name: Text,
         description: Text,
         data: List[Data],
+        onboard_status: OnboardStatus,
         functions: Optional[List[Function]] = [],
         tags: Optional[List[Text]] = [],
         license: Optional[License] = None,
@@ -47,6 +49,9 @@ class Corpus(Asset):
         super().__init__(
             id=id, name=name, description=description, supplier=supplier, version=version, license=license, privacy=privacy
         )
+        if isinstance(onboard_status, str):
+            onboard_status = OnboardStatus(onboard_status)
+        self.onboard_status = onboard_status
         self.functions = functions
         self.tags = tags
         self.data = data

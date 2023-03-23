@@ -17,6 +17,7 @@ from typing import Dict, List, Tuple, Text, Union
 
 FORBIDDEN_COLUMN_NAMES = ["@VOLUME", "@START_TIME", "@END_TIME", "@ORIGINAL", "@SOURCE", "@INDEX"]
 
+
 def get_paths(input_paths: List[Union[str, Path]]) -> List[Path]:
     """Recursively access all local paths. Check if file extensions are supported.
 
@@ -47,7 +48,9 @@ def get_paths(input_paths: List[Union[str, Path]]) -> List[Path]:
     return paths
 
 
-def process_data_files(data_asset_name: str, metadata: MetaData, paths: List, folder: Union[str, Path] = None) -> Tuple[List[File], int, int, int]:
+def process_data_files(
+    data_asset_name: str, metadata: MetaData, paths: List, folder: Union[str, Path] = None
+) -> Tuple[List[File], int, int, int]:
     """Process a list of local files, compress and upload them to pre-signed URLs in S3
 
     Args:
@@ -69,7 +72,9 @@ def process_data_files(data_asset_name: str, metadata: MetaData, paths: List, fo
     if metadata.dtype in [DataType.TEXT, DataType.LABEL]:
         files, data_column_idx = process_text_files.run(metadata=metadata, paths=paths, folder=folder)
     elif metadata.dtype in [DataType.AUDIO]:
-        files, data_column_idx, start_column_idx, end_column_idx = process_audio_files.run(metadata=metadata, paths=paths, folder=folder)
+        files, data_column_idx, start_column_idx, end_column_idx = process_audio_files.run(
+            metadata=metadata, paths=paths, folder=folder
+        )
     return files, data_column_idx, start_column_idx, end_column_idx
 
 
@@ -104,6 +109,9 @@ def build_payload_corpus(corpus: Corpus, ref_data: List[Text]) -> Dict:
             "metaData": {},
         }
 
+        if len(data.languages) > 0:
+            data_json["metaData"]["languages"] = [lng.value for lng in data.languages]
+
         if data.start_column is not None and data.start_column > -1 and data.end_column is not None and data.end_column > -1:
             if data.dtype == DataType.AUDIO:
                 data_json["startTimeColumn"] = data.start_column
@@ -112,8 +120,6 @@ def build_payload_corpus(corpus: Corpus, ref_data: List[Text]) -> Dict:
                 data_json["startColumn"] = data.start_column
                 data_json["endColumn"] = data.end_column
 
-        if "language" in data.kwargs:
-            data_json["metaData"]["language"] = data.kwargs["language"]
         payload["data"].append(data_json)
     return payload
 
@@ -145,8 +151,4 @@ def create_corpus(payload: Dict) -> Dict:
             error_msg = f"Data Asset Onboarding Error: {msg}"
         except:
             error_msg = "Data Asset Onboarding Error: Failure on creating the corpus. Please contant the administrators."
-        return {
-            "success": False,
-            "error": error_msg
-        }
-
+        return {"success": False, "error": error_msg}

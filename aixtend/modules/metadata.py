@@ -23,9 +23,10 @@ Description:
 
 from aixtend.enums.data_type import DataType
 from aixtend.enums.file_type import FileType
+from aixtend.enums.language import Language
 from aixtend.enums.privacy import Privacy
 from aixtend.enums.storage_type import StorageType
-from typing import Optional, Text
+from typing import List, Optional, Text
 
 
 class MetaData:
@@ -39,6 +40,7 @@ class MetaData:
         end_column: Optional[Text] = None,
         privacy: Optional[Privacy] = None,
         file_extension: Optional[FileType] = None,
+        languages: List[Language] = [],
         **kwargs
     ) -> None:
         self.name = name
@@ -62,4 +64,10 @@ class MetaData:
             privacy = Privacy(privacy)
         self.privacy = privacy
         self.file_extension = file_extension
+
+        self.languages = []
+        for language in languages:
+            if isinstance(language, str):
+                language = Language(language)
+            self.languages.append(language)
         self.kwargs = kwargs

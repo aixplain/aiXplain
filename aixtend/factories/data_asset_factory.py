@@ -32,7 +32,9 @@ from aixtend.modules.corpus import Corpus
 from aixtend.modules.data import Data
 from aixtend.modules.dataset import Dataset
 from aixtend.modules.metadata import MetaData
+from aixtend.enums.data_type import DataType
 from aixtend.enums.function import Function
+from aixtend.enums.language import Language
 from aixtend.enums.license import License
 from aixtend.enums.privacy import Privacy
 from aixtend.utils.file_utils import _request_with_retry
@@ -81,6 +83,46 @@ class DataAssetFactory(AssetFactory):
         resp = r.json()
         dataset = cls._create_dataset_from_response(resp)
         return dataset
+
+    @classmethod
+    def get_corpus(cls, corpus_id: Text) -> Corpus:
+        """Create a 'Corpus' object from corpus id
+
+        Args:
+            corpus_id (Text): Corpus ID of required corpus.
+
+        Returns:
+            Corpus: Created 'Corpus' object
+        """
+        url = os.path.join(cls.backend_url, f"sdk/inventory/corpus/{corpus_id}/overview")
+        headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
+        r = _request_with_retry("get", url, headers=headers)
+        resp = r.json()
+        data = []
+        for d in resp["data"]:
+            languages = []
+            if "languages" in d["metadata"]:
+                languages = [Language(lng) for lng in d["metadata"]["languages"]]
+            data.append(
+                Data(
+                    id=d["id"],
+                    name=d["name"],
+                    dtype=DataType.AUDIO,
+                    privacy=Privacy.PRIVATE,
+                    languages=languages,
+                    onboard_status=d["status"],
+                )
+            )
+        functions = [Function(f) for f in resp["suggestedFunction"]]
+        corpus = Corpus(
+            id=resp["id"],
+            name=resp["name"],
+            description=resp["description"],
+            functions=functions,
+            data=data,
+            onboard_status=resp["status"],
+        )
+        return corpus
 
     @classmethod
     def get_assets_from_page(
@@ -230,6 +272,7 @@ class DataAssetFactory(AssetFactory):
                         start_column=start_column_idx,
                         end_column=end_column_idx,
                         files=files,
+                        languages=metadata.languages,
                     )
                 )
 
