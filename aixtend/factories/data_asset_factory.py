@@ -268,6 +268,7 @@ class DataAssetFactory(AssetFactory):
                         name=metadata.name,
                         dtype=metadata.dtype,
                         privacy=metadata.privacy,
+                        onboard_status="onboarding",
                         data_column=data_column_idx,
                         start_column=start_column_idx,
                         end_column=end_column_idx,
@@ -285,6 +286,7 @@ class DataAssetFactory(AssetFactory):
                 tags=tags,
                 license=license,
                 privacy=privacy,
+                onboard_status="onboarding",
             )
             corpus_payload = onboard_functions.build_payload_corpus(corpus, ref_data)
 
