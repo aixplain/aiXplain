@@ -121,7 +121,7 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 100) ->
                     audio_folder.mkdir(exist_ok=True)
                 else:
                     df = pd.DataFrame({metadata.name: batch})
-                
+
                 # adding indexes
                 start, end = idx - len(batch), idx
                 df["@INDEX"] = range(start, end)
@@ -172,7 +172,7 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 100) ->
             audio_folder.mkdir(exist_ok=True)
         else:
             df = pd.DataFrame({metadata.name: batch})
-        
+
         # adding indexes
         start, end = idx - len(batch), idx
         df["@INDEX"] = range(start, end)
