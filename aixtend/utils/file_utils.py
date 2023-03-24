@@ -103,13 +103,16 @@ def download_data(url_link, local_filename=None):
     return local_filename
 
 
-def upload_data(file_name: Union[Text, Path], content_type: Text = "text/csv", content_encoding: Optional[Text] = None):
+def upload_data(
+    file_name: Union[Text, Path], content_type: Text = "text/csv", content_encoding: Optional[Text] = None, nattempts: int = 0
+):
     """Upload files to S3 with pre-signed URLs
 
     Args:
         file_name (Union[Text, Path]): local path of file to be uploaded
         content_type (Text, optional): Type of content. Defaults to "text/csv".
         content_encoding (Text, optional): Content encoding. Defaults to None.
+        nattempts (int, optional): Number of attempts for diminish the risk of exceptions. Defaults to 0.
 
     Returns:
         URL: s3 path
@@ -134,12 +137,18 @@ def upload_data(file_name: Union[Text, Path], content_type: Text = "text/csv", c
         r = _request_with_retry("put", presigned_url, headers=headers, data=payload)
 
         if r.status_code != 200:
-            raise Exception("File Uploading Error: Failure on Uploading to S3.")
+            if nattempts == 0:
+                return upload_data(file_name, content_type, content_encoding, nattempts + 1)
+            else:
+                raise Exception("File Uploading Error: Failure on Uploading to S3.")
         bucket_name = re.findall(r"https://(.*?).s3.amazonaws.com", presigned_url)[0]
         s3_link = f"s3://{bucket_name}/{path}"
         return s3_link
     except:
-        raise Exception("File Uploading Error: Failure on Uploading to S3.")
+        if nattempts == 0:
+            return upload_data(file_name, content_type, content_encoding, nattempts + 1)
+        else:
+            raise Exception("File Uploading Error: Failure on Uploading to S3.")
 
 
 def path2link(data: Union[Text, Dict]) -> Union[Text, Dict]:
