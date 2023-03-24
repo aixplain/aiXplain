@@ -69,7 +69,7 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 100) ->
                 new_path = os.path.join(audio_folder, fname)
                 if os.path.exists(new_path) is False:
                     shutil.copy2(audio_path, new_path)
-                batch.append(new_path)
+                batch.append(fname)
             else:
                 batch.append(audio_path)
 
@@ -96,15 +96,16 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 100) ->
 
                 # save index file with a list of the audio files
                 index_file_name = f"{folder}/{metadata.name}-{batch_index}.csv.gz"
-                df = pd.DataFrame({metadata.name: batch})
-                start, end = idx - len(batch), idx
-                df["@INDEX"] = range(start, end)
 
                 # if the audio are stored locally, zip them and upload to s3
                 if metadata.storage_type == StorageType.FILE:
                     # rename the folder where the audio files are
                     data_file_name = f"{folder}/{metadata.name}-{batch_index}"
                     os.rename(audio_folder, data_file_name)
+                    # rename the audio path in the audio folder
+                    for z, audio_fname in enumerate(batch):
+                        batch[z] = os.path.join(data_file_name, audio_fname)
+                    df = pd.DataFrame({metadata.name: batch})
                     # compress the folder
                     compressed_folder = compress_folder(data_file_name)
                     # upload zipped audios into s3
@@ -118,6 +119,12 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 100) ->
                     # create audio folder again
                     audio_folder = Path(os.path.join(folder, "data"))
                     audio_folder.mkdir(exist_ok=True)
+                else:
+                    df = pd.DataFrame({metadata.name: batch})
+                
+                # adding indexes
+                start, end = idx - len(batch), idx
+                df["@INDEX"] = range(start, end)
 
                 # if there are start and end time ranges, save this into the index csv
                 if len(start_times) > 0 and len(end_times) > 0:
@@ -140,15 +147,16 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 100) ->
 
         # save index file with a list of the audio files
         index_file_name = f"{folder}/{metadata.name}-{batch_index}.csv.gz"
-        df = pd.DataFrame({metadata.name: batch})
-        start, end = idx - len(batch), idx
-        df["@INDEX"] = range(start, end)
 
         # if the audio are stored locally, zip them and upload to s3
         if metadata.storage_type == StorageType.FILE:
             # rename the folder where the audio files are
             data_file_name = f"{folder}/{metadata.name}-{batch_index}"
             os.rename(audio_folder, data_file_name)
+            # rename the audio path in the audio folder
+            for z, audio_fname in enumerate(batch):
+                batch[z] = os.path.join(data_file_name, audio_fname)
+            df = pd.DataFrame({metadata.name: batch})
             # compress the folder
             compressed_folder = compress_folder(data_file_name)
             # upload zipped audios into s3
@@ -162,6 +170,12 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 100) ->
             # create audio folder again
             audio_folder = Path(os.path.join(folder, "data"))
             audio_folder.mkdir(exist_ok=True)
+        else:
+            df = pd.DataFrame({metadata.name: batch})
+        
+        # adding indexes
+        start, end = idx - len(batch), idx
+        df["@INDEX"] = range(start, end)
 
         # if there are start and end time ranges, save this into the index csv
         if len(start_times) > 0 and len(end_times) > 0:
