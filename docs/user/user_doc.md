@@ -101,16 +101,16 @@ The aiXtend SDK allows searching for existing corpora that match a specific crit
 ```python
 from auxtend.enums import DataType
 from aixtend.factories  import CorpusFactory
-dataset_list = CorpusFactory.get_first_k_assets(k=5, language="en", dtype=[DataType.AUDIO, DataType.TEXT])
+corpus_list = CorpusFactory.get_first_k_assets(k=5, language="en", dtype=[DataType.AUDIO, DataType.TEXT])
 ```
 Note: This does not download the resulted corpora to your local machine.
 
 ### Corpus Onboarding
 
-Using the aiXtend SDK, you can also onboard your corpus into the aiXplain platform. A step-by-step example on how to do it can be accessed [here](docs/samples/corpus_onboarding/corpus_onboarding.ipynb).
+Using the aiXtend SDK, you can also onboard your corpus into the aiXplain platform. A step-by-step example on how to do it can be accessed [here](/docs/samples/corpus_onboarding/corpus_onboarding.ipynb).
 
 ## Datasets
-Different from corpus, a dataset is a representative sample of a specific phenomenon to a specific AI task. aiXplain also counts with an extensive collection of datasets for train, infer and benchmark various tasks like Translation, Speech Recognition, Diacritization, Sentiment Analysis, and much more.
+Different from corpus, a dataset is a representative sample of a specific phenomenon to a specific AI task. aiXplain also counts with an extensive collection of datasets for training, infer and benchmark various tasks like Translation, Speech Recognition, Diacritization, Sentiment Analysis, and much more.
 You can even upload your own dataset [here](https://platform.aixplain.com/dashboard/datasets/upload).
 
 The catalog of all available datasets on aiXplain can be accessed and browsed [here](https://platform.aixplain.com/discovery/datasets).
