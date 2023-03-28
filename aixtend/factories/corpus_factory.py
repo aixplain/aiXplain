@@ -16,9 +16,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 
 Author: Duraikrishna Selvaraju, Thiago Castro Ferreira, Shreyas Sharma and Lucas Pavanelli
-Date: December 1st 2022
+Date: March 27th 2023
 Description:
-    Dataset Factory Class
+    Corpus Factory Class
 """
 
 import aixtend.utils.config as config
@@ -30,7 +30,6 @@ import shutil
 from aixtend.factories.asset_factory import AssetFactory
 from aixtend.modules.corpus import Corpus
 from aixtend.modules.data import Data
-from aixtend.modules.dataset import Dataset
 from aixtend.modules.metadata import MetaData
 from aixtend.enums.data_type import DataType
 from aixtend.enums.function import Function
@@ -44,48 +43,12 @@ from tqdm import tqdm
 from typing import Any, Dict, List, Optional, Text, Union
 
 
-class DataAssetFactory(AssetFactory):
+class CorpusFactory(AssetFactory):
     api_key = config.TEAM_API_KEY
     backend_url = config.BACKEND_URL
 
     @classmethod
-    def _create_dataset_from_response(cls, response: Dict) -> Dataset:
-        """Converts response Json to 'Dataset' object
-
-        Args:
-            response (dict): Json from API
-
-        Returns:
-            Dataset: Coverted 'Dataset' object
-        """
-        return Dataset(
-            id=response["id"],
-            name=response["name"],
-            description=response["description"],
-            function=Function.SPEECH_RECOGNITION,
-            source_data=[],
-            target_data=[],
-        )
-
-    @classmethod
-    def get(cls, dataset_id: Text) -> Dataset:
-        """Create a 'Dataset' object from dataset id
-
-        Args:
-            dataset_id (Text): Dataset ID of required dataset.
-
-        Returns:
-            Dataset: Created 'Dataset' object
-        """
-        url = os.path.join(cls.backend_url, f"sdk/datasets/{dataset_id}")
-        headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
-        r = _request_with_retry("get", url, headers=headers)
-        resp = r.json()
-        dataset = cls._create_dataset_from_response(resp)
-        return dataset
-
-    @classmethod
-    def get_corpus(cls, corpus_id: Text) -> Corpus:
+    def create_asset_from_id(cls, corpus_id: Text) -> Corpus:
         """Create a 'Corpus' object from corpus id
 
         Args:
@@ -127,8 +90,8 @@ class DataAssetFactory(AssetFactory):
     @classmethod
     def get_assets_from_page(
         cls, page_number: int, task: Text, input_language: Optional[Text] = None, output_language: Optional[Text] = None
-    ) -> List[Dataset]:
-        """Get the list of datasets from a given page. Additional task and language filters can be also be provided
+    ) -> List[Corpus]:
+        """Get the list of corpora from a given page. Additional task and language filters can be also be provided
 
         Args:
             page_number (int): Page from which datasets are to be listed
@@ -137,31 +100,15 @@ class DataAssetFactory(AssetFactory):
             output_language (Text, optional): Output language of listed datasets. Defaults to None.
 
         Returns:
-            List[Dataset]: List of datasets based on given filters
+            List[Corpus]: List of datasets based on given filters
         """
-        try:
-            url = os.path.join(cls.backend_url, f"sdk/datasets?pageNumber={page_number}&function={task}")
-            if input_language is not None:
-                url += f"&input={input_language}"
-            if output_language is not None:
-                url += f"&output={output_language}"
-            headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
-            r = _request_with_retry("get", url, headers=headers)
-            resp = r.json()
-            logging.info(f"Listing Datasets: Status of getting Datasets on Page {page_number} for {task} : {resp}")
-            all_datasets = resp["results"]
-            dataset_list = [cls._create_dataset_from_response(dataset_info_json) for dataset_info_json in all_datasets]
-            return dataset_list
-        except Exception as e:
-            error_message = f"Listing Datasets: Error in getting Datasets on Page {page_number} for {task} : {e}"
-            logging.error(error_message)
-            return []
+        raise NotImplementedError("Not implemented function.")
 
     @classmethod
     def get_first_k_assets(
         cls, k: int, task: Text, input_language: Optional[Text] = None, output_language: Optional[Text] = None
-    ) -> List[Dataset]:
-        """Gets the first k given datasets based on the provided task and language filters
+    ) -> List[Corpus]:
+        """Gets the first k given corpora based on the provided task and language filters
 
         Args:
             k (int): Number of datasets to get
@@ -170,18 +117,9 @@ class DataAssetFactory(AssetFactory):
             output_language (Text, optional): Output language of listed datasets. Defaults to None.
 
         Returns:
-            List[Dataset]: List of datasets based on given filters
+            List[Corpus]: List of datasets based on given filters
         """
-        try:
-            dataset_list = []
-            assert k > 0
-            for page_number in range(k // 10 + 1):
-                dataset_list += cls.get_assets_from_page(page_number, task, input_language, output_language)
-            return dataset_list[0:k]
-        except Exception as e:
-            error_message = f"Listing Datasets: Error in getting {k} Datasets for {task} : {e}"
-            logging.error(error_message)
-            return []
+        raise NotImplementedError("Not implemented function.")
 
     @classmethod
     def create_corpus(
@@ -253,7 +191,7 @@ class DataAssetFactory(AssetFactory):
             folder.mkdir(exist_ok=True)
 
             dataset = []
-            for i in tqdm(range(len(schema)), desc=" Corpus onboarding progress:", position=0):
+            for i in tqdm(range(len(schema)), desc=" Corpus onboarding progress", position=0):
                 metadata = schema[i]
                 if metadata.privacy is None:
                     metadata.privacy = privacy

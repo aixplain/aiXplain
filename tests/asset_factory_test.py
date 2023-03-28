@@ -7,7 +7,7 @@ from pathlib import Path
 from aixtend.utils import config
 
 from aixtend.factories.model_factory import ModelFactory
-from aixtend.factories.data_asset_factory import DataAssetFactory
+from aixtend.factories.dataset_factory import DatasetFactory
 from aixtend.factories.metric_factory import MetricFactory
 
 FIXED_HEADER = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
@@ -17,7 +17,7 @@ def __get_asset_factory(asset_name):
     if asset_name == "model":
         AssetFactory = ModelFactory
     elif asset_name == "dataset":
-        AssetFactory = DataAssetFactory
+        AssetFactory = DatasetFactory
     elif asset_name == "metric":
         AssetFactory = MetricFactory
     return AssetFactory

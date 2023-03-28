@@ -32,7 +32,7 @@ from aixtend.modules.benchmark_job import BenchmarkJob
 from aixtend.modules.dataset import Dataset
 from aixtend.modules.metric import Metric
 from aixtend.modules.model import Model
-from aixtend.factories.data_asset_factory import DataAssetFactory
+from aixtend.factories.dataset_factory import DatasetFactory
 from aixtend.factories.metric_factory import MetricFactory
 from aixtend.factories.model_factory import ModelFactory
 from aixtend.utils import config
@@ -83,7 +83,7 @@ class BenchmarkFactory:
             Benchmark: Coverted 'Benchmark' object
         """
         model_list = [ModelFactory().create_asset_from_id(model_info["id"]) for model_info in response["model"]]
-        dataset_list = [DataAssetFactory().get(dataset_id) for dataset_id in response["target"]]
+        dataset_list = [DatasetFactory().get(dataset_id) for dataset_id in response["target"]]
         metric_list = [MetricFactory().create_asset_from_id(metric_info["id"]) for metric_info in response["score"]]
         job_list = cls._get_benchmark_jobs_from_benchmark_id(response["id"])
         return Benchmark(response["id"], response["name"], model_list, dataset_list, metric_list, job_list)

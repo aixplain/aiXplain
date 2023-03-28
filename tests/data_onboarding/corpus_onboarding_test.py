@@ -19,7 +19,7 @@ limitations under the License.
 import pytest
 from aixtend.enums.language import Language
 from aixtend.enums.license import License
-from aixtend.factories.data_asset_factory import DataAssetFactory
+from aixtend.factories.corpus_factory import CorpusFactory
 from uuid import uuid4
 
 
@@ -37,7 +37,7 @@ def test_corpus_onboarding():
         {"name": "text", "dtype": "text", "storage_type": "text", "languages": [Language.English_UNITED_STATES]},
     ]
 
-    payload = DataAssetFactory.create_corpus(
+    payload = CorpusFactory.create_corpus(
         name=str(uuid4()),
         description="This corpus contain 20 English audios with their corresponding transcriptions.",
         license=License.MIT,
