@@ -107,7 +107,7 @@ Note: This does not download the resulted corpora to your local machine.
 
 ### Corpus Onboarding
 
-Using the aiXtend SDK, you can also onboard your corpus into the aiXplain platform. A step-by-step example on how to do it can be accessed [here](docs/samples/corpus_onboarding/corpus_onboarding.ipynb).
+Using the aiXtend SDK, you can also onboard your corpus into the aiXplain platform. A step-by-step example on how to do it can be accessed [here](/docs/samples/corpus_onboarding/corpus_onboarding.ipynb).
 
 ## Datasets
 Different from corpus, a dataset is a representative sample of a specific phenomenon to a specific AI task. aiXplain also counts with an extensive collection of datasets for train, infer and benchmark various tasks like Translation, Speech Recognition, Diacritization, Sentiment Analysis, and much more.
