@@ -26,13 +26,13 @@ from typing import List
 import json
 import pandas as pd
 from pathlib import Path
-from aixtend.modules.benchmark import Benchmark, Dataset, Model, Metric
-from aixtend.modules.benchmark_job import BenchmarkJob
-from aixtend.factories.dataset_factory import DatasetFactory
-from aixtend.factories.metric_factory import MetricFactory
-from aixtend.factories.model_factory import ModelFactory
-from aixtend.utils import config
-from aixtend.utils.file_utils import _request_with_retry, save_file
+from aixplain.modules.benchmark import Benchmark, Dataset, Model, Metric
+from aixplain.modules.benchmark_job import BenchmarkJob
+from aixplain.factories.dataset_factory import DatasetFactory
+from aixplain.factories.metric_factory import MetricFactory
+from aixplain.factories.model_factory import ModelFactory
+from aixplain.utils import config
+from aixplain.utils.file_utils import _request_with_retry, save_file
 
 
 class BenchmarkFactory:
@@ -92,7 +92,7 @@ class BenchmarkFactory:
 
     
     @classmethod
-    def create_benchmark_from_id(cls, benchmark_id: str) -> Benchmark:
+    def create_asset_from_id(cls, benchmark_id: str) -> Benchmark:
         """Create a 'Benchmark' object from Benchmark id
 
         Args:

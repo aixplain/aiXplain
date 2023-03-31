@@ -1,5 +1,5 @@
 # User Documentation
-aiXplain has a vast repository of multiple assets such as models, datasets, metrics, pipelines, and more. The factories in aiXtend SDK provide a powerful set of tools for creating, searching, and managing these assets.
+aiXplain has a vast repository of multiple assets such as models, datasets, metrics, pipelines, and more. The factories in aixplain SDK provide a powerful set of tools for creating, searching, and managing these assets.
 
 The asset types currently supported by the SDK are:
 - [Model](#models)
@@ -24,21 +24,21 @@ Please refer to the image below.
 
 Once the Model ID of the desired model is available, it can be used to create a `Model` object from the `ModelFactory`.
 ```python
-from aixtend.factories.model_factory  import ModelFactory
+from aixplain.factories.model_factory  import ModelFactory
 model = ModelFactory.create_asset_from_id(<MODEL_ID>) 
 ```
 
 *2. Through the SDK:*
 
-If you need, the aiXtend SDK allows searching for existing models that match a specific criteria. `ModelFactory` can search for machine learning models that perform a particular task and optionally support a specific input/output language pair.
+If you need, the aixplain SDK allows searching for existing models that match a specific criteria. `ModelFactory` can search for machine learning models that perform a particular task and optionally support a specific input/output language pair.
 
 ```python
-from aixtend.factories.model_factory  import ModelFactory
+from aixplain.factories.model_factory  import ModelFactory
 model_list = ModelFactory.get_first_k_assets(k=5, task="translation", input_language="en", output_language="hi")
 ```
 
 ### Run
-The aiXtend SDK allows you to run machine learning models synchronously or asynchronously, depending on your use case. This flexibility allows you to choose the most appropriate mode of execution based on your application's requirements.
+The aixplain SDK allows you to run machine learning models synchronously or asynchronously, depending on your use case. This flexibility allows you to choose the most appropriate mode of execution based on your application's requirements.
 
 ```python
 # Run Synchronously
@@ -64,21 +64,21 @@ The catalog of all your pipelines on aiXplain can be accessed and browsed [here]
 
 Once the Pipeline ID of the desired pipeline is available, it can be used to create a `Pipeline` object from the `PipelineFactory`. 
 ```python
-from aixtend.factories.pipeline_factory  import PipelineFactory
+from aixplain.factories.pipeline_factory  import PipelineFactory
 pipeline = PipelineFactory.create_asset_from_id(<PIPELINE_ID>) 
 ```
 
 *2. Through the SDK:*
 
-If you need, the aiXtend SDK allows searching for existing pipelines. 
+If you need, the aixplain SDK allows searching for existing pipelines. 
 
 ```python
-from aixtend.factories.pipeline_factory  import PipelineFactory
+from aixplain.factories.pipeline_factory  import PipelineFactory
 pipeline_list = PipelineFactory.get_first_k_assets(k=5)
 ```
 
 ### Run
-The aiXtend SDK allows you to run pipelines synchronously or asynchronously, depending on your use case. This flexibility allows you to choose the most appropriate mode of execution based on your application's requirements.
+The aixplain SDK allows you to run pipelines synchronously or asynchronously, depending on your use case. This flexibility allows you to choose the most appropriate mode of execution based on your application's requirements.
 
 ```python
 # Run Synchronously
@@ -98,10 +98,10 @@ You can even upload your own dataset [here](https://platform.aixplain.com/dashbo
 
 The catalog of all available datasets on aiXplain can be accessed and browsed [here](https://platform.aixplain.com/discovery/datasets).
 
-The aiXtend SDK allows searching for existing datasets that match a specific criteria. `DatasetFactory` can search for datasets that are linked to a particular machine learning task and optionally support a specific input/output language pair.
+The aixplain SDK allows searching for existing datasets that match a specific criteria. `DatasetFactory` can search for datasets that are linked to a particular machine learning task and optionally support a specific input/output language pair.
 
 ```python
-from aixtend.factories.dataset_factory  import DatasetFactory
+from aixplain.factories.dataset_factory  import DatasetFactory
 dataset_list = DatasetFactory.get_first_k_assets(k=5, task="translation", input_language="en", output_language="fr")
 ```
 Note: This does not download datasets to your local machine.
@@ -111,10 +111,10 @@ aiXplain has an impressive library of metrics for various machine learning tasks
 
 The catalog of all available metrics on aiXplain can be accessed and browsed [here](https://platform.aixplain.com/discovery/metrics).
 
-The aiXtend SDK allows searching for existing metrics. `MetricFactory` can search for metrics for a particular machine learning task.
+The aixplain SDK allows searching for existing metrics. `MetricFactory` can search for metrics for a particular machine learning task.
 
 ```python
-from aixtend.factories.metric_factory  import MetricFactory
+from aixplain.factories.metric_factory  import MetricFactory
 metric_list = MetricFactory.list_assets(task="translation")
 ```
 
@@ -127,13 +127,13 @@ The proposed benchmarking framework is designed for being modular and interopera
 *Currently supported tasks are Translation, Speech Recognition, Diacritization, and Sentiment Analysis with many more in the works.*
 
 ### Creating a Benchmark
-You can create a benchmarking job on aiXplain [here](https://platform.aixplain.com/benchmark) or you can also use the SDK. Let's see how we can use the `BenchmarkFactory` in the aiXtend SDK for the same purpose.
+You can create a benchmarking job on aiXplain [here](https://platform.aixplain.com/benchmark) or you can also use the SDK. Let's see how we can use the `BenchmarkFactory` in the aixplain SDK for the same purpose.
 
 ```python
-from aixtend.factories.dataset_factory  import DatasetFactory
-from aixtend.factories.metric_factory  import MetricFactory
-from aixtend.factories.model_factory  import ModelFactory
-from aixtend.factories.benchmark_factory  import BenchmarkFactory
+from aixplain.factories.dataset_factory  import DatasetFactory
+from aixplain.factories.metric_factory  import MetricFactory
+from aixplain.factories.model_factory  import ModelFactory
+from aixplain.factories.benchmark_factory  import BenchmarkFactory
 
 # Choose 'one or more' models
 model_list = ModelFactory.get_first_k_assets(k=5, task="translation", input_language="en", output_language="fr")

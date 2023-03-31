@@ -23,10 +23,10 @@ Description:
 from typing import List
 import json
 import logging
-from aixtend.modules.model import Model
-from aixtend.utils.config import MODELS_RUN_URL
-from aixtend.utils import config
-from aixtend.utils.file_utils import _request_with_retry
+from aixplain.modules.model import Model
+from aixplain.utils.config import MODELS_RUN_URL
+from aixplain.utils import config
+from aixplain.utils.file_utils import _request_with_retry
 
 
 class ModelFactory:

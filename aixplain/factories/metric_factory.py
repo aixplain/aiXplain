@@ -23,9 +23,9 @@ Description:
 
 import logging
 from typing import List
-from aixtend.modules.metric import Metric
-from aixtend.utils import config
-from aixtend.utils.file_utils import _request_with_retry
+from aixplain.modules.metric import Metric
+from aixplain.utils import config
+from aixplain.utils.file_utils import _request_with_retry
 
 class MetricFactory:
     api_key = config.TEAM_API_KEY

@@ -1,4 +1,4 @@
-__title__ = "aixtend"
+__title__ = "aixplain"
 __description__ = "aiXplain SDK adds AI functions to software."
 __url__ = "https://github.com/aixplain/pipelines/tree/main/docs"
 __version__ = "0.1.0"

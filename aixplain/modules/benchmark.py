@@ -22,11 +22,11 @@ Description:
 """
 import pandas as pd
 from typing import List
-from aixtend.modules.benchmark_job import BenchmarkJob
-from aixtend.modules.model import Model
-from aixtend.modules.dataset import Dataset
-from aixtend.modules.metric import Metric
-from aixtend.utils.file_utils import save_file, _request_with_retry
+from aixplain.modules.benchmark_job import BenchmarkJob
+from aixplain.modules.model import Model
+from aixplain.modules.dataset import Dataset
+from aixplain.modules.metric import Metric
+from aixplain.utils.file_utils import save_file, _request_with_retry
 
 class Benchmark:
     def __init__(self, id:str, name:str, model_list:List[Model], dataset_list:List[Dataset], metric_list:List[Metric],  job_list: List[BenchmarkJob], **additional_info) -> None:

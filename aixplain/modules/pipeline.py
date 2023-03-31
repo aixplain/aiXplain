@@ -24,8 +24,8 @@ Description:
 import time
 import json
 import logging
-from aixtend.utils import config
-from aixtend.utils.file_utils import _request_with_retry
+from aixplain.utils import config
+from aixplain.utils.file_utils import _request_with_retry
 from typing import Union
 
 

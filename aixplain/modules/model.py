@@ -26,8 +26,8 @@ import json
 import logging
 import traceback
 from typing import List
-from aixtend.utils import config
-from aixtend.utils.file_utils import _request_with_retry
+from aixplain.utils import config
+from aixplain.utils.file_utils import _request_with_retry
 from typing import Union, Text, Dict
 
 

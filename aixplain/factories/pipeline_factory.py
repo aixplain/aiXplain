@@ -22,10 +22,10 @@ Description:
 """
 import logging
 from typing import List
-from aixtend.modules.pipeline import Pipeline
-from aixtend.utils.config import PIPELINES_RUN_URL
-from aixtend.utils import config
-from aixtend.utils.file_utils import _request_with_retry
+from aixplain.modules.pipeline import Pipeline
+from aixplain.utils.config import PIPELINES_RUN_URL
+from aixplain.utils import config
+from aixplain.utils.file_utils import _request_with_retry
 
 
 class PipelineFactory:
@@ -62,6 +62,7 @@ class PipelineFactory:
             pipeline = cls._create_pipeline_from_response(resp)
             return pipeline
         except Exception as e:
+            print("""\n\n\n\n\n\n\n""", e)
             if "statusCode" in resp:
                 status_code = resp["statusCode"]
                 message = resp["message"]
