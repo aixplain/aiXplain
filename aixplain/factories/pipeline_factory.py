@@ -55,6 +55,7 @@ class PipelineFactory:
             Pipeline: Created 'Pipeline' object
         """
         try:
+            resp = None
             url = f"{cls.backend_url}/sdk/inventory/pipelines/{pipeline_id}"
             headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
             r = _request_with_retry("get", url, headers=headers)
@@ -62,8 +63,7 @@ class PipelineFactory:
             pipeline = cls._create_pipeline_from_response(resp)
             return pipeline
         except Exception as e:
-            print("""\n\n\n\n\n\n\n""", e)
-            if "statusCode" in resp:
+            if resp is not None and "statusCode" in resp:
                 status_code = resp["statusCode"]
                 message = resp["message"]
                 message = f"Pipeline Creation: Status {status_code} - {message}"

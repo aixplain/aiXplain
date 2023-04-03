@@ -101,14 +101,25 @@ class BenchmarkFactory:
         Returns:
             Benchmark: Created 'Benchmark' object
         """
-        url = f"{cls.backend_url}/sdk/benchmarks/{benchmark_id}"
-        headers = {
-            'Authorization': f"Token {cls.api_key}",
-            'Content-Type': 'application/json'
-        }
-        r = _request_with_retry("get", url, headers=headers)
-        resp = r.json()
-        benchmark = cls._create_benchmark_from_response(resp)
+        try:
+            resp = None
+            url = f"{cls.backend_url}/sdk/benchmarks/{benchmark_id}"
+            headers = {
+                'Authorization': f"Token {cls.api_key}",
+                'Content-Type': 'application/json'
+            }
+            r = _request_with_retry("get", url, headers=headers)
+            resp = r.json()
+            benchmark = cls._create_benchmark_from_response(resp)
+        except Exception as e:
+            if resp is not None and "statusCode" in resp:
+                status_code = resp["statusCode"]
+                message = resp["message"]
+                message = f"Benchmark Creation: Status {status_code} - {message}"
+            else:
+                message = "Benchmark Creation: Unspecified Error"
+            logging.error(message)
+            raise Exception(f"Status {status_code}: {message}")
         return benchmark
 
 

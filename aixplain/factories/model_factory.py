@@ -56,6 +56,7 @@ class ModelFactory:
             Model: Created 'Model' object
         """
         try:
+            resp = None
             url = f"{cls.backend_url}/sdk/inventory/models/{model_id}"
             headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
             r = _request_with_retry("get", url, headers=headers)
@@ -63,7 +64,7 @@ class ModelFactory:
             model = cls._create_model_from_response(resp)
             return model
         except Exception as e:
-            if "statusCode" in resp:
+            if resp is not None and "statusCode" in resp:
                 status_code = resp["statusCode"]
                 message = resp["message"]
                 message = f"Model Creation: Status {status_code} - {message}"

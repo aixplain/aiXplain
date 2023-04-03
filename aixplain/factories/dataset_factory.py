@@ -55,14 +55,25 @@ class DatasetFactory:
         Returns:
             Dataset: Created 'Dataset' object
         """
-        url = f"{cls.backend_url}/sdk/datasets/{dataset_id}"
-        headers = {
-            'Authorization': f"Token {cls.api_key}",
-            'Content-Type': 'application/json'
-        }
-        r = _request_with_retry("get", url, headers=headers)
-        resp = r.json()
-        dataset = cls._create_dataset_from_response(resp)
+        try:
+            resp = None
+            url = f"{cls.backend_url}/sdk/datasets/{dataset_id}"
+            headers = {
+                'Authorization': f"Token {cls.api_key}",
+                'Content-Type': 'application/json'
+            }
+            r = _request_with_retry("get", url, headers=headers)
+            resp = r.json()
+            dataset = cls._create_dataset_from_response(resp)
+        except Exception as e:
+            if resp is not None and "statusCode" in resp:
+                status_code = resp["statusCode"]
+                message = resp["message"]
+                message = f"Datset Creation: Status {status_code} - {message}"
+            else:
+                message = "Dataset Creation: Unspecified Error"
+            logging.error(message)
+            raise Exception(f"Status {status_code}: {message}")
         return dataset
     
 
