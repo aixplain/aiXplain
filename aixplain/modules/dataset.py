@@ -47,3 +47,6 @@ class Dataset:
             dict: Dataset Information
         """
         return self.__dict__
+    
+    def __repr__(self):
+        return f"<Dataset: {self.name}>"

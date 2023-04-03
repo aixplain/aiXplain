@@ -52,3 +52,5 @@ Follow the [Developer Guide](docs/development/developer_guide.md).
 ## Support
 Raise issues for support in this repository.  
 Pull requests are welcome!
+## Note
+This module is a renamed module the old name was aiXtend
