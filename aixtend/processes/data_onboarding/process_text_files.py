@@ -51,7 +51,7 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 1000) -
         # TO DO: extract the split from file name
         try:
             dataframe = pd.read_csv(path)
-        except:
+        except Exception as e:
             message = f'Data Asset Onboarding Error: Local file "{path}" not found.'
             logging.error(message)
             raise Exception(message)
@@ -61,7 +61,7 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 1000) -
             row = dataframe.iloc[j]
             try:
                 text_path = row[metadata.name]
-            except:
+            except Exception as e:
                 message = f'Data Asset Onboarding Error: Column "{metadata.name}" not found in the local file {path}.'
                 logging.error(message)
                 raise Exception(message)
@@ -69,7 +69,7 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 1000) -
             try:
                 text = process_text(text_path, metadata.storage_type)
                 batch.append(text)
-            except:
+            except Exception as e:
                 logging.warning(
                     f'Data Asset Onboarding: The instance "{row}" of "{metadata.name}" could not be processed and will be skipped.'
                 )

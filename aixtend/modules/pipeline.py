@@ -115,7 +115,7 @@ class Pipeline(Asset):
         try:
             resp = r.json()
             logging.info(f"Single Poll for Pipeline: Status of polling for {name} : {resp}")
-        except:
+        except Exception as e:
             resp = {"status": "FAILED"}
         return resp
 
@@ -180,7 +180,7 @@ class Pipeline(Asset):
 
             poll_url = resp["url"]
             response = {"status": "IN_PROGRESS", "url": poll_url}
-        except:
+        except Exception as e:
             response = {"status": "FAILED"}
             if resp is not None:
                 response["error"] = resp

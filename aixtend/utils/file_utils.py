@@ -144,7 +144,7 @@ def upload_data(
         bucket_name = re.findall(r"https://(.*?).s3.amazonaws.com", presigned_url)[0]
         s3_link = f"s3://{bucket_name}/{path}"
         return s3_link
-    except:
+    except Exception as e:
         if nattempts == 0:
             return upload_data(file_name, content_type, content_encoding, nattempts + 1)
         else:

@@ -193,7 +193,7 @@ class Model(Asset):
         else:
             try:
                 payload = json.loads(data)
-            except:
+            except Exception as e:
                 payload = {"data": data}
         payload.update(parameters)
         payload = json.dumps(payload)

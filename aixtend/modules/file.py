@@ -43,7 +43,7 @@ class File:
         else:
             try:
                 self.extension = FileType(extension)
-            except:
+            except Exception as e:
                 raise Exception("File Error: This file extension is not supported.")
 
         self.compression = compression

@@ -165,7 +165,7 @@ class CorpusFactory(AssetFactory):
             if isinstance(schema[0], MetaData) is False:
                 try:
                     schema = [MetaData(**metadata) for metadata in schema]
-                except:
+                except Exception as e:
                     message = "Data Asset Onboarding Error: Make sure the elements of your schema follows the MetaData class."
                     logging.error(message)
                     raise Exception(message)

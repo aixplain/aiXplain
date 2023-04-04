@@ -40,7 +40,7 @@ def load_functions():
         r = _request_with_retry("get", url, headers=headers)
         resp = r.json()
         return Enum("Function", {w["id"].upper().replace("-", "_"): w["id"] for w in resp["items"]}, type=str)
-    except:
+    except Exception as e:
         logging.exception(f"Function Loading Error")
         raise Exception("Function Loading Error")
 

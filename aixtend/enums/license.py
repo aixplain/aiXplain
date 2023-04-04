@@ -40,7 +40,7 @@ def load_licenses():
         r = _request_with_retry("get", url, headers=headers)
         resp = r.json()
         return Enum("Function", {"_".join(w["name"].split()): w["name"] for w in resp}, type=str)
-    except:
+    except Exception as e:
         logging.exception("License Loading Error")
         raise Exception("License Loading Error")
 

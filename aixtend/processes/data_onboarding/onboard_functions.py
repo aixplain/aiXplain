@@ -149,6 +149,6 @@ def create_corpus(payload: Dict) -> Dict:
             response = r.json()
             msg = response["message"]
             error_msg = f"Data Asset Onboarding Error: {msg}"
-        except:
+        except Exception as e:
             error_msg = "Data Asset Onboarding Error: Failure on creating the corpus. Please contant the administrators."
         return {"success": False, "error": error_msg}

@@ -48,7 +48,7 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 100) ->
         # TO DO: extract the split from file name
         try:
             dataframe = pd.read_csv(path)
-        except:
+        except Exception as e:
             message = f'Data Asset Onboarding Error: Local file "{path}" not found.'
             logging.error(message)
             raise Exception(message)
@@ -58,7 +58,7 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 100) ->
             row = dataframe.iloc[j]
             try:
                 audio_path = row[metadata.name]
-            except:
+            except Exception as e:
                 message = f'Data Asset Onboarding Error: Column "{metadata.name}" not found in the local file "{path}".'
                 logging.error(message)
                 raise Exception(message)
@@ -77,7 +77,7 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 100) ->
             if metadata.start_column is not None:
                 try:
                     start_times.append(row[metadata.start_column])
-                except:
+                except Exception as e:
                     message = f'Data Asset Onboarding Error: Column "{metadata.start_column}" not found.'
                     logging.error(message)
                     raise Exception(message)
@@ -85,7 +85,7 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 100) ->
             if metadata.end_column is not None:
                 try:
                     end_times.append(row[metadata.end_column])
-                except:
+                except Exception as e:
                     message = f'Data Asset Onboarding Error: Column "{metadata.end_column}" not found.'
                     logging.error(message)
                     raise Exception(message)
