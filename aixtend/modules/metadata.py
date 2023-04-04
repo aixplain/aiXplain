@@ -43,6 +43,23 @@ class MetaData:
         languages: List[Language] = [],
         **kwargs
     ) -> None:
+        """MetaData Class
+
+        Description:
+            This class is used to stored the meta-information of the Data Class.
+            It may be used to describe Data during the onboarding process of a corpus or dataset.
+
+        Args:
+            name (Text): Data Name
+            dtype (DataType): Data Type
+            storage_type (StorageType): Data Storage (e.g. text, local file, web link)
+            data_column (Optional[Text], optional): Column index/name where the data is on a structured file (e.g. CSV). Defaults to None.
+            start_column (Optional[Text], optional): Column index/name where the start indexes is on a structured file (e.g. CSV). Defaults to None.
+            end_column (Optional[Text], optional): Column index/name where the end indexes is on a structured file (e.g. CSV). Defaults to None.
+            privacy (Optional[Privacy], optional): Privacy of data. Defaults to None.
+            file_extension (Optional[FileType], optional): File extension (e.g. CSV, TXT, etc.). Defaults to None.
+            languages (List[Language], optional): List of languages which the data consists of. Defaults to [].
+        """
         self.name = name
         if isinstance(dtype, str):
             dtype = DataType(dtype)

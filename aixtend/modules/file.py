@@ -36,6 +36,17 @@ class File:
         data_split: Optional[DataSplit] = None,
         compression: Optional[Text] = None,
     ) -> None:
+        """File Class
+
+        Description:
+            File where samples of a data is stored in
+
+        Args:
+            path (Union[Text, pathlib.Path]): File path
+            extension (Union[Text, FileType]): File extension (e.g. CSV, TXT, etc.)
+            data_split (Optional[DataSplit], optional): Data split of the file. Defaults to None.
+            compression (Optional[Text], optional): Compression extension (e.g., .gz). Defaults to None.
+        """
         self.path = path
 
         if isinstance(extension, FileType):

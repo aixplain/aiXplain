@@ -46,6 +46,24 @@ class Corpus(Asset):
         version: Optional[Text] = "1.0",
         **kwargs,
     ) -> None:
+        """Corpus Class.
+
+        Description:
+            Corpus is general-purpose collection of data that can be processed and used to create task-specific datasets.
+
+        Args:
+            id (Text): Corpus ID
+            name (Text): Corpus Name
+            description (Text): description of the corpus
+            data (List[Data]): List of data which the corpus consists of
+            onboard_status (OnboardStatus): onboard status
+            functions (Optional[List[Function]], optional): AI functions in which the corpus is suggested to be used to. Defaults to [].
+            tags (Optional[List[Text]], optional): description tags. Defaults to [].
+            license (Optional[License], optional): Corpus license. Defaults to None.
+            privacy (Optional[Privacy], optional): Corpus privacy info. Defaults to Privacy.PRIVATE.
+            supplier (Optional[Text], optional): Corpus supplier. Defaults to "aiXplain".
+            version (Optional[Text], optional): Corpus version. Defaults to "1.0".
+        """
         super().__init__(
             id=id, name=name, description=description, supplier=supplier, version=version, license=license, privacy=privacy
         )

@@ -46,6 +46,27 @@ class Dataset(Asset):
         version: Optional[Text] = "1.0",
         **kwargs,
     ) -> None:
+        """Dataset Class.
+
+        Description:
+            Dataset is a collection of data intended to be used for a specific function.
+            Different from corpus, a dataset is a representative sample of a specific phenomenon to a specific AI task.
+            aiXplain also counts with an extensive collection of datasets for training, infer and benchmark various tasks like
+            Translation, Speech Recognition, Diacritization, Sentiment Analysis, and much more.
+
+        Args:
+            id (Text): Dataset ID
+            name (Text): Dataset Name
+            description (Text): Dataset description
+            function (Function): Function for which the dataset is intented to
+            source_data (List[Data]): List of input Data to the function
+            target_data (List[Data]): List of Data which expected to be outputted by the function
+            tags (Optional[List[Text]], optional): tags that describe the dataset. Defaults to [].
+            license (Optional[License], optional): Dataset License. Defaults to None.
+            privacy (Optional[Privacy], optional): Dataset Privacy. Defaults to Privacy.PRIVATE.
+            supplier (Optional[Text], optional): Dataset Supplier. Defaults to "aiXplain".
+            version (Optional[Text], optional): Dataset Version. Defaults to "1.0".
+        """
         super().__init__(
             id=id, name=name, description=description, supplier=supplier, version=version, license=license, privacy=privacy
         )

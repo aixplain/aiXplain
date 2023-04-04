@@ -44,6 +44,23 @@ class Data:
         languages: List[Language] = [],
         **kwargs
     ) -> None:
+        """Data Class.
+
+        Description:
+            Data consists of a list of samples of same type and genre.
+
+        Args:
+            id (Text): Data ID
+            name (Text): Data Name
+            dtype (DataType): Data Type
+            privacy (Privacy): Privacy of data
+            onboard_status (OnboardStatus): onboard status
+            data_column (Optional[Any], optional): Column index/name where the data is on a structured file (e.g. CSV). Defaults to None.
+            start_column (Optional[Any], optional): Column index/name where the start indexes is on a structured file (e.g. CSV). Defaults to None.
+            end_column (Optional[Any], optional): Column index/name where the end indexes is on a structured file (e.g. CSV). Defaults to None.
+            files (List[File], optional): List of files where the data instances are stored. Defaults to [].
+            languages (List[Language], optional): List of languages which the data consists of. Defaults to [].
+        """
         self.id = id
         self.name = name
         self.dtype = dtype
