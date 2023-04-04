@@ -22,7 +22,6 @@ Description:
 """
 
 import logging
-import os
 from typing import Dict, List, Optional, Text
 import json
 import pandas as pd
@@ -37,6 +36,7 @@ from aixtend.factories.metric_factory import MetricFactory
 from aixtend.factories.model_factory import ModelFactory
 from aixtend.utils import config
 from aixtend.utils.file_utils import _request_with_retry, save_file
+from urllib.parse import urljoin
 
 
 class BenchmarkFactory:
@@ -65,7 +65,7 @@ class BenchmarkFactory:
         Returns:
             List[BenchmarkJob]: List of associated benchmark jobs
         """
-        url = os.path.join(cls.backend_url, f"sdk/benchmarks/{benchmark_id}/jobs")
+        url = urljoin(cls.backend_url, f"sdk/benchmarks/{benchmark_id}/jobs")
         headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
         r = _request_with_retry("get", url, headers=headers)
         resp = r.json()
@@ -98,7 +98,7 @@ class BenchmarkFactory:
         Returns:
             Benchmark: Created 'Benchmark' object
         """
-        url = os.path.join(cls.backend_url, f"sdk/benchmarks/{benchmark_id}")
+        url = urljoin(cls.backend_url, f"sdk/benchmarks/{benchmark_id}")
         headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
         r = _request_with_retry("get", url, headers=headers)
         resp = r.json()
@@ -115,7 +115,7 @@ class BenchmarkFactory:
         Returns:
             BenchmarkJob: Created 'BenchmarkJob' object
         """
-        url = os.path.join(cls.backend_url, f"sdk/benchmarks/jobs/{job_id}")
+        url = urljoin(cls.backend_url, f"sdk/benchmarks/jobs/{job_id}")
         headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
         r = _request_with_retry("get", url, headers=headers)
         resp = r.json()
@@ -163,7 +163,7 @@ class BenchmarkFactory:
             Benchmark: _description_
         """
         try:
-            url = os.path.join(cls.backend_url, f"sdk/benchmarks")
+            url = urljoin(cls.backend_url, f"sdk/benchmarks")
             headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
             payload = json.dumps(
                 {
@@ -198,7 +198,7 @@ class BenchmarkFactory:
         benhchmark_id = None
         try:
             benhchmark_id = benchmark.id
-            url = os.path.join(cls.backend_url, f"sdk/benchmarks/{benhchmark_id}/start")
+            url = urljoin(cls.backend_url, f"sdk/benchmarks/{benhchmark_id}/start")
             headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
             r = _request_with_retry("post", url, headers=headers)
             resp = r.json()
@@ -227,7 +227,7 @@ class BenchmarkFactory:
         """
         try:
             job_id = benchmarkJob.id
-            url = os.path.join(cls.backend_url, f"sdk/benchmarks/jobs/{job_id}")
+            url = urljoin(cls.backend_url, f"sdk/benchmarks/jobs/{job_id}")
             headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()

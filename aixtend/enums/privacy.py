@@ -27,4 +27,4 @@ from enum import Enum
 class Privacy(Enum):
     PUBLIC = "Public"
     PRIVATE = "Private"
-    SUBSCRIBABLE = "subscribable"
+    SUBSCRIBABLE = "Subscribable"

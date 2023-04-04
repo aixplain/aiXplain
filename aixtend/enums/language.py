@@ -51,9 +51,8 @@ def load_languages():
                 languages[language_label + "_" + dialect_label] = {"language": language, "dialect": dialect_value}
         return Enum("Language", languages, type=dict)
     except:
-        msg = f"Language Loading Error:\n{traceback.format_exc()}"
-        logging.warning(msg)
-        raise Exception(msg)
+        logging.exception("Language Loading Error")
+        raise Exception("Language Loading Error")
 
 
 Language = load_languages()

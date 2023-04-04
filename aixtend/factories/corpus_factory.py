@@ -24,7 +24,6 @@ Description:
 import aixtend.utils.config as config
 import aixtend.processes.data_onboarding.onboard_functions as onboard_functions
 import logging
-import os
 import shutil
 
 from aixtend.factories.asset_factory import AssetFactory
@@ -41,6 +40,7 @@ from aixtend.utils import config
 from pathlib import Path
 from tqdm import tqdm
 from typing import Any, Dict, List, Optional, Text, Union
+from urllib.parse import urljoin
 
 
 class CorpusFactory(AssetFactory):
@@ -57,7 +57,7 @@ class CorpusFactory(AssetFactory):
         Returns:
             Corpus: Created 'Corpus' object
         """
-        url = os.path.join(cls.backend_url, f"sdk/inventory/corpus/{corpus_id}/overview")
+        url = urljoin(cls.backend_url, f"sdk/inventory/corpus/{corpus_id}/overview")
         headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
         r = _request_with_retry("get", url, headers=headers)
         resp = r.json()

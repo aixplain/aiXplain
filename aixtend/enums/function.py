@@ -41,9 +41,8 @@ def load_functions():
         resp = r.json()
         return Enum("Function", {w["id"].upper().replace("-", "_"): w["id"] for w in resp["items"]}, type=str)
     except:
-        msg = f"Function Loading Error:\n{traceback.format_exc()}"
-        logging.warning(msg)
-        raise Exception(msg)
+        logging.exception(f"Function Loading Error")
+        raise Exception("Function Loading Error")
 
 
 Function = load_functions()

@@ -41,9 +41,8 @@ def load_licenses():
         resp = r.json()
         return Enum("Function", {"_".join(w["name"].split()): w["name"] for w in resp}, type=str)
     except:
-        msg = f"License Loading Error:\n{traceback.format_exc()}"
-        logging.warning(msg)
-        raise Exception(msg)
+        logging.exception("License Loading Error")
+        raise Exception("License Loading Error")
 
 
 License = load_licenses()

@@ -23,11 +23,11 @@ Description:
 from typing import Dict, List, Optional, Text
 import json
 import logging
-import os
 from aixtend.modules.model import Model
 from aixtend.utils.config import MODELS_RUN_URL
 from aixtend.utils import config
 from aixtend.utils.file_utils import _request_with_retry
+from urllib.parse import urljoin
 
 
 class ModelFactory:
@@ -58,7 +58,7 @@ class ModelFactory:
         """
         resp = None
         try:
-            url = os.path.join(cls.backend_url, f"sdk/inventory/models/{model_id}")
+            url = urljoin(cls.backend_url, f"sdk/inventory/models/{model_id}")
             headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()
@@ -91,7 +91,7 @@ class ModelFactory:
             List[Model]: List of models based on given filters
         """
         try:
-            url = os.path.join(cls.backend_url, f"sdk/inventory/models/?pageNumber={page_number}&function={task}")
+            url = urljoin(cls.backend_url, f"sdk/inventory/models/?pageNumber={page_number}&function={task}")
             filter_params = []
             task_param_mapping = {
                 "input": {"translation": "sourcelanguage", "speech-recognition": "language", "sentiment-analysis": "language"},
