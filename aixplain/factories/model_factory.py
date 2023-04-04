@@ -91,16 +91,16 @@ class ModelFactory:
         try:
             url = f"{cls.backend_url}/sdk/inventory/models/?pageNumber={page_number}&function={task}"
             filter_params = []
-            task_param_mapping = {
-                "input": {"translation": "sourcelanguage", "speech-recognition": "language", "sentiment-analysis": "language"},
-                "ouput": {"translation": "targetlanguage"},
-            }
             if input_language is not None:
-                if task in task_param_mapping["input"]:
-                    filter_params.append({"code": task_param_mapping["input"][task], "value": input_language})
+                if task == "translation":
+                    code = "sourcelanguage"
+                else:
+                    code = "language"
+                filter_params.append({"code": code, "value": input_language})
             if output_language is not None:
-                if task in task_param_mapping["ouput"]:
-                    filter_params.append({"code": task_param_mapping["ouput"][task], "value": output_language})
+                if task == "translation":
+                    code = "targetlanguage"
+                    filter_params.append({"code": code, "value": output_language})
             headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
             r = _request_with_retry("get", url, headers=headers, params={"ioFilter": json.dumps(filter_params)})
             resp = r.json()
