@@ -28,6 +28,12 @@ from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
 
 class MetricFactory:
+    """A static class for creating and exploring Metric Objects.
+
+    Attributes:
+        api_key (str): The TEAM API key used for authentication.
+        backend_url (str): The URL for the backend.
+    """
     api_key = config.TEAM_API_KEY
     backend_url = config.BENCHMARKS_BACKEND_URL
     
