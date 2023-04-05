@@ -26,6 +26,14 @@ from aixplain.utils import config
 
 
 class Dataset:
+    """Dataset is an collection of data usually for a specific task.
+
+    Attributes:
+        id (str): ID of the Dataset.
+        name (str): Name of the Dataset.
+        description (str): Description of the Dataset.
+        additional_info (dict): Any additional information to be saved with the Dataset.
+    """
     def __init__(self, id:str, name:str, description:str, **additional_info) -> None:
         """Create a Dataset with the necessary information
 
