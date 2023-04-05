@@ -30,7 +30,7 @@ from typing import Union
 
 
 class Pipeline:
-     """Representing a custom pipeline that was created on the aiXplain Platform
+    """Representing a custom pipeline that was created on the aiXplain Platform
 
     Attributes:
         id (str): ID of the Pipeline.
