@@ -57,8 +57,8 @@ def test_benchmark_assets_creation_from_id_with_updation():
     with requests_mock.Mocker() as mock:
         __mock_benchmark_create_dependecies(mock, asset_id)
 
-        benchmark = BenchmarkFactory.create_benchmark_from_id(asset_id)
-        benchmarkJob = BenchmarkFactory.create_benchmark_job_from_id(asset_id)
+        benchmark = BenchmarkFactory.create_asset_from_id(asset_id)
+        benchmarkJob = BenchmarkFactory.create_asset_from_id(asset_id)
 
         newBenchmark = BenchmarkFactory.update_benchmark_info(benchmark)
         newbenchmarkJob = BenchmarkFactory.update_benchmark_job_info(benchmarkJob)
@@ -96,7 +96,7 @@ def test_start_benchmark_job():
         with open(Path("tests/mock_responses/get_asset_info_responses.json")) as f:
             mock_json = json.load(f)['benchmarkJob']
         mock.post(url, headers=FIXED_HEADER, json=mock_json)
-        benchmark = BenchmarkFactory.create_benchmark_from_id(asset_id)
+        benchmark = BenchmarkFactory.create_asset_from_id(asset_id)
         benchmarkJob = BenchmarkFactory.start_benchmark_job(benchmark)
     
     assert benchmarkJob.parentBenchmarkId == benchmark.id
@@ -106,7 +106,7 @@ def test_download_benchmark_results():
     asset_id = "test_asset_id"
     with requests_mock.Mocker() as mock:
         __mock_benchmark_create_dependecies(mock, asset_id)
-        benchmarkJob = BenchmarkFactory.create_benchmark_job_from_id(asset_id)
+        benchmarkJob = BenchmarkFactory.create_asset_from_id(asset_id)
         with open(Path("tests/mock_responses/get_asset_info_responses.json")) as f:
             download_url = json.load(f)['benchmarkJob']['reportUrl']
         dummy_result_path = Path("tests/mock_responses/dummy_result.csv")

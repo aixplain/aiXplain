@@ -173,7 +173,7 @@ class BenchmarkFactory:
         Returns:
             Benchmark: updated 'Benchmark'
         """
-        return cls.create_benchmark_from_id(benchmark.id)
+        return cls.create_asset_from_id(benchmark.id)
 
 
     @classmethod
@@ -208,7 +208,7 @@ class BenchmarkFactory:
             r = _request_with_retry("post", url, headers=headers, data=payload)
             resp = r.json()
             logging.info(f"Creating Benchmark Job: Status for {name}: {resp}")
-            return cls.create_benchmark_from_id(resp['id'])
+            return cls.create_asset_from_id(resp['id'])
         except Exception as e:
             error_message = f"Creating Benchmark Job: Error in Creating Benchmark with payload {payload} : {e}"
             logging.error(error_message)
