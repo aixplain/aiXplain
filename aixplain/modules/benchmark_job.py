@@ -22,6 +22,15 @@ Description:
 """
 
 class BenchmarkJob:
+    """"Benchmark Job Represents a single run of an already created Benchmark.
+
+    Attributes:
+        id (str): ID of the Benchmark Job.
+        status (str): Status of the Benchmark Job.
+        parentBenchmarkId (str): ID of the associated parent Benchmark.
+        additional_info (dict): Any additional information to be saved with the Benchmark Job.
+ 
+    """
     def __init__(self, id:str, status:str, parentBenchmarkId: str, **additional_info) -> None:
         """Create a Benchmark Job with the necessary information. Each Job is a run of a parent Benchmark
 

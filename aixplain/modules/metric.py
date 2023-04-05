@@ -25,6 +25,15 @@ from typing import List
 from aixplain.utils.file_utils import _request_with_retry
 
 class Metric:
+    """Represents a metric to be computed on one or more peices of data. It is usually linked to a machine learning task.
+
+    Attributes:
+        id (str): ID of the Metric.
+        name (str): Name of the Metric.
+        description (str): Description of the Metric.
+        additional_info (dict): Any additional information to be saved with the Metric.
+
+    """
     def __init__(self, id:str, name:str, description:str, **additional_info) -> None:
         """Create a Metric with the necessary information
 
