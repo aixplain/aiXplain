@@ -26,16 +26,22 @@ from typing import List
 import json
 import pandas as pd
 from pathlib import Path
-from aixtend.modules.benchmark import Benchmark, Dataset, Model, Metric
-from aixtend.modules.benchmark_job import BenchmarkJob
-from aixtend.factories.dataset_factory import DatasetFactory
-from aixtend.factories.metric_factory import MetricFactory
-from aixtend.factories.model_factory import ModelFactory
-from aixtend.utils import config
-from aixtend.utils.file_utils import _request_with_retry, save_file
+from aixplain.modules.benchmark import Benchmark, Dataset, Model, Metric
+from aixplain.modules.benchmark_job import BenchmarkJob
+from aixplain.factories.dataset_factory import DatasetFactory
+from aixplain.factories.metric_factory import MetricFactory
+from aixplain.factories.model_factory import ModelFactory
+from aixplain.utils import config
+from aixplain.utils.file_utils import _request_with_retry, save_file
 
 
 class BenchmarkFactory:
+    """A static class for creating and managing the Benchmarking experience.
+
+    Attributes:
+        api_key (str): The TEAM API key used for authentication.
+        backend_url (str): The URL for the backend.
+    """
     api_key = config.TEAM_API_KEY
     backend_url = config.BENCHMARKS_BACKEND_URL
 
@@ -92,7 +98,7 @@ class BenchmarkFactory:
 
     
     @classmethod
-    def create_benchmark_from_id(cls, benchmark_id: str) -> Benchmark:
+    def create_asset_from_id(cls, benchmark_id: str) -> Benchmark:
         """Create a 'Benchmark' object from Benchmark id
 
         Args:
@@ -101,14 +107,25 @@ class BenchmarkFactory:
         Returns:
             Benchmark: Created 'Benchmark' object
         """
-        url = f"{cls.backend_url}/sdk/benchmarks/{benchmark_id}"
-        headers = {
-            'Authorization': f"Token {cls.api_key}",
-            'Content-Type': 'application/json'
-        }
-        r = _request_with_retry("get", url, headers=headers)
-        resp = r.json()
-        benchmark = cls._create_benchmark_from_response(resp)
+        try:
+            resp = None
+            url = f"{cls.backend_url}/sdk/benchmarks/{benchmark_id}"
+            headers = {
+                'Authorization': f"Token {cls.api_key}",
+                'Content-Type': 'application/json'
+            }
+            r = _request_with_retry("get", url, headers=headers)
+            resp = r.json()
+            benchmark = cls._create_benchmark_from_response(resp)
+        except Exception as e:
+            if resp is not None and "statusCode" in resp:
+                status_code = resp["statusCode"]
+                message = resp["message"]
+                message = f"Benchmark Creation: Status {status_code} - {message}"
+            else:
+                message = "Benchmark Creation: Unspecified Error"
+            logging.error(message)
+            raise Exception(f"Status {status_code}: {message}")
         return benchmark
 
 
@@ -156,7 +173,7 @@ class BenchmarkFactory:
         Returns:
             Benchmark: updated 'Benchmark'
         """
-        return cls.create_benchmark_from_id(benchmark.id)
+        return cls.create_asset_from_id(benchmark.id)
 
 
     @classmethod
@@ -191,7 +208,7 @@ class BenchmarkFactory:
             r = _request_with_retry("post", url, headers=headers, data=payload)
             resp = r.json()
             logging.info(f"Creating Benchmark Job: Status for {name}: {resp}")
-            return cls.create_benchmark_from_id(resp['id'])
+            return cls.create_asset_from_id(resp['id'])
         except Exception as e:
             error_message = f"Creating Benchmark Job: Error in Creating Benchmark with payload {payload} : {e}"
             logging.error(error_message)

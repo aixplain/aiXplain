@@ -22,13 +22,25 @@ Description:
 """
 import pandas as pd
 from typing import List
-from aixtend.modules.benchmark_job import BenchmarkJob
-from aixtend.modules.model import Model
-from aixtend.modules.dataset import Dataset
-from aixtend.modules.metric import Metric
-from aixtend.utils.file_utils import save_file, _request_with_retry
+from aixplain.modules.benchmark_job import BenchmarkJob
+from aixplain.modules.model import Model
+from aixplain.modules.dataset import Dataset
+from aixplain.modules.metric import Metric
+from aixplain.utils.file_utils import save_file, _request_with_retry
 
 class Benchmark:
+    """Benchmark is a powerful tool for benchmarking machine learning models and evaluating their performance on specific tasks. 
+    It represents a collection of Models, Datasets and Metrics to run associated Benchmark Jobs.
+
+    Attributes:
+        id (str): ID of the Benchmark.
+        name (str): Name of the Benchmark.
+        model_list (List[Model]): List of Models to be used for benchmarking.
+        dataset_list (List[Dataset]): List of Datasets to be used for benchmarking.
+        metric_list (List[Metric]): List of Metrics to be used for benchmarking.
+        job_list (List[BenchmarkJob]): List of associated Benchmark Jobs.
+        additional_info (dict): Any additional information to be saved with the Benchmark.
+    """
     def __init__(self, id:str, name:str, model_list:List[Model], dataset_list:List[Dataset], metric_list:List[Metric],  job_list: List[BenchmarkJob], **additional_info) -> None:
         """Create a Benchmark with the necessary information.
 

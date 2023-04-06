@@ -23,13 +23,19 @@ Description:
 from typing import List
 import json
 import logging
-from aixtend.modules.model import Model
-from aixtend.utils.config import MODELS_RUN_URL
-from aixtend.utils import config
-from aixtend.utils.file_utils import _request_with_retry
+from aixplain.modules.model import Model
+from aixplain.utils.config import MODELS_RUN_URL
+from aixplain.utils import config
+from aixplain.utils.file_utils import _request_with_retry
 
 
 class ModelFactory:
+    """A static class for creating and exploring Model Objects.
+
+    Attributes:
+        api_key (str): The TEAM API key used for authentication.
+        backend_url (str): The URL for the backend.
+    """
     api_key = config.TEAM_API_KEY
     backend_url = config.BENCHMARKS_BACKEND_URL
 
@@ -56,6 +62,7 @@ class ModelFactory:
             Model: Created 'Model' object
         """
         try:
+            resp = None
             url = f"{cls.backend_url}/sdk/inventory/models/{model_id}"
             headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
             r = _request_with_retry("get", url, headers=headers)
@@ -63,7 +70,7 @@ class ModelFactory:
             model = cls._create_model_from_response(resp)
             return model
         except Exception as e:
-            if "statusCode" in resp:
+            if resp is not None and "statusCode" in resp:
                 status_code = resp["statusCode"]
                 message = resp["message"]
                 message = f"Model Creation: Status {status_code} - {message}"
@@ -90,16 +97,16 @@ class ModelFactory:
         try:
             url = f"{cls.backend_url}/sdk/inventory/models/?pageNumber={page_number}&function={task}"
             filter_params = []
-            task_param_mapping = {
-                "input": {"translation": "sourcelanguage", "speech-recognition": "language", "sentiment-analysis": "language"},
-                "ouput": {"translation": "targetlanguage"},
-            }
             if input_language is not None:
-                if task in task_param_mapping["input"]:
-                    filter_params.append({"code": task_param_mapping["input"][task], "value": input_language})
+                if task == "translation":
+                    code = "sourcelanguage"
+                else:
+                    code = "language"
+                filter_params.append({"code": code, "value": input_language})
             if output_language is not None:
-                if task in task_param_mapping["ouput"]:
-                    filter_params.append({"code": task_param_mapping["ouput"][task], "value": output_language})
+                if task == "translation":
+                    code = "targetlanguage"
+                    filter_params.append({"code": code, "value": output_language})
             headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
             r = _request_with_retry("get", url, headers=headers, params={"ioFilter": json.dumps(filter_params)})
             resp = r.json()

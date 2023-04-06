@@ -24,12 +24,21 @@ Description:
 import time
 import json
 import logging
-from aixtend.utils import config
-from aixtend.utils.file_utils import _request_with_retry
+from aixplain.utils import config
+from aixplain.utils.file_utils import _request_with_retry
 from typing import Union
 
 
 class Pipeline:
+    """Representing a custom pipeline that was created on the aiXplain Platform
+
+    Attributes:
+        id (str): ID of the Pipeline.
+        name (str): Name of the Pipeline.
+        api_key (str): Team API Key to run the Pipeline.
+        url (str): Running URL of the platform.
+        additional_info (dict): Additional Pipeline info.
+    """
     def __init__(self, id: str, name:str, api_key: str, url: str = config.PIPELINES_RUN_URL, **additional_info) -> None:
         """Create a Pipeline with the necessary information
 

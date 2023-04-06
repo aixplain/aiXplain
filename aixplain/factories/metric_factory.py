@@ -23,11 +23,17 @@ Description:
 
 import logging
 from typing import List
-from aixtend.modules.metric import Metric
-from aixtend.utils import config
-from aixtend.utils.file_utils import _request_with_retry
+from aixplain.modules.metric import Metric
+from aixplain.utils import config
+from aixplain.utils.file_utils import _request_with_retry
 
 class MetricFactory:
+    """A static class for creating and exploring Metric Objects.
+
+    Attributes:
+        api_key (str): The TEAM API key used for authentication.
+        backend_url (str): The URL for the backend.
+    """
     api_key = config.TEAM_API_KEY
     backend_url = config.BENCHMARKS_BACKEND_URL
     
@@ -55,14 +61,25 @@ class MetricFactory:
         Returns:
             Metric: Created 'Metric' object
         """
-        url = f"{cls.backend_url}/sdk/scores/{metric_id}"
-        headers = {
-            'Authorization': f"Token {cls.api_key}",
-            'Content-Type': 'application/json'
-        }
-        r = _request_with_retry("get", url, headers=headers)
-        resp = r.json()
-        metric = cls._create_metric_from_response(resp)
+        try:
+            resp = None
+            url = f"{cls.backend_url}/sdk/scores/{metric_id}"
+            headers = {
+                'Authorization': f"Token {cls.api_key}",
+                'Content-Type': 'application/json'
+            }
+            r = _request_with_retry("get", url, headers=headers)
+            resp = r.json()
+            metric = cls._create_metric_from_response(resp)
+        except Exception as e:
+            if resp is not None and "statusCode" in resp:
+                status_code = resp["statusCode"]
+                message = resp["message"]
+                message = f"Metric Creation: Status {status_code} - {message}"
+            else:
+                message = "Metric Creation: Unspecified Error"
+            logging.error(message)
+            raise Exception(f"Status {status_code}: {message}")
         return metric
 
 

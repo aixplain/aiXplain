@@ -16,7 +16,6 @@ limitations under the License.
 import warnings
 import os
 import logging
-import os
 
 logger = logging.getLogger(__name__)
 

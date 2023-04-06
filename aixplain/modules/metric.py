@@ -16,24 +16,32 @@ See the License for the specific language governing permissions and
 limitations under the License.
 
 Author: Duraikrishna Selvaraju, Thiago Castro Ferreira, Shreyas Sharma and Lucas Pavanelli
-Date: October 28th 2022
+Date: October 25th 2022
 Description:
-    Datasets Class
+    Metric Class
 """
+
 from typing import List
-from aixtend.utils.file_utils import _request_with_retry
-from aixtend.utils import config
+from aixplain.utils.file_utils import _request_with_retry
 
+class Metric:
+    """Represents a metric to be computed on one or more peices of data. It is usually linked to a machine learning task.
 
-class Dataset:
+    Attributes:
+        id (str): ID of the Metric.
+        name (str): Name of the Metric.
+        description (str): Description of the Metric.
+        additional_info (dict): Any additional information to be saved with the Metric.
+
+    """
     def __init__(self, id:str, name:str, description:str, **additional_info) -> None:
-        """Create a Dataset with the necessary information
+        """Create a Metric with the necessary information
 
         Args:
-            id (str): ID of the Dataset
-            name (str): Name of the Dataset
-            description (str): Description of the Dataset
-            **additional_info: Any additional dataset info to be saved
+            id (str): ID of the Metric
+            name (str): Name of the Metric
+            description (str): Description of the Metric
+            **additional_info: Any additional Metric info to be saved
         """
         self.id = id
         self.name = name
@@ -41,9 +49,15 @@ class Dataset:
         self.additional_info = additional_info
 
     def get_asset_info(self) -> dict:
-        """Get the dataset info as a Dictionary
+        """Get the Metric info as a Dictionary
 
         Returns:
-            dict: Dataset Information
+            dict: Metric Information
         """
         return self.__dict__
+
+    def __repr__(self) -> str:
+        return f"<Metric {self.name}>"
+
+    
+    

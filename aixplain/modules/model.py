@@ -26,12 +26,21 @@ import json
 import logging
 import traceback
 from typing import List
-from aixtend.utils import config
-from aixtend.utils.file_utils import _request_with_retry
+from aixplain.utils import config
+from aixplain.utils.file_utils import _request_with_retry
 from typing import Union, Text, Dict
 
 
 class Model:
+    """This is ready-to-use AI model. This model can be run in both synchronous and asynchronous manner.
+
+    Attributes:
+        id (str): ID of the Model
+        name (str): Name of the Model
+        supplier (str): supplier of the Model
+        api_key (str): Team API Key to run the model.
+        additional_info (dict): Any additional Model info to be saved
+    """
     def __init__(
         self,
         id: str,
