@@ -1,8 +1,8 @@
 <img src="docs/assets/aixplain-brandmark-common.png" alt="aiXplain logo" title="aiXplain" align="right" height="132" width="85"/>
 
-# aixplain
+# aiXplain
 
-aixplain is a software development kit (SDK) for the [aiXplain](https://aixplain.com/) platform. With aiXtend, developers can quickly and easily:
+aixplain is a software development kit (SDK) for the [aiXplain](https://aixplain.com/) platform. With aixplain, developers can quickly and easily:
 
 - [Discover](https://aixplain.com/platform/discovery/) aiXplain’s ever-expanding catalog of 35,000+ ready-to-use AI models and utilize them.
 - [Benchmark](https://aixplain.com/platform/benchmark/) AI systems by choosing models, datasets and metrics.
@@ -54,4 +54,4 @@ Raise issues for support in this repository.
 Pull requests are welcome!
 
 ## Note
-The aiXtend python package was renamed to aiXplain from the release v0.1.1.
+The aixtend python package was renamed to aixplain from the release v0.1.1.
