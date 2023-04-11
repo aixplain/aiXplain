@@ -4,7 +4,6 @@ import aixplain.processes.data_onboarding.process_audio_files as process_audio_f
 import aixplain.processes.data_onboarding.process_text_files as process_text_files
 import aixplain.utils.config as config
 import logging
-import os
 
 from aixplain.enums.data_type import DataType
 from aixplain.enums.file_type import FileType
@@ -14,6 +13,7 @@ from aixplain.modules.metadata import MetaData
 from aixplain.utils.file_utils import _request_with_retry
 from pathlib import Path
 from typing import Dict, List, Tuple, Text, Union
+from urllib.parse import urljoin
 
 FORBIDDEN_COLUMN_NAMES = ["@VOLUME", "@START_TIME", "@END_TIME", "@ORIGINAL", "@SOURCE", "@INDEX"]
 
@@ -128,7 +128,7 @@ def create_corpus(payload: Dict) -> Dict:
     team_key = config.TEAM_API_KEY
     headers = {"Authorization": "token " + team_key}
 
-    url = os.path.join(config.BACKEND_URL, "sdk/inventory/corpus/onboard")
+    url = urljoin(config.BACKEND_URL, "sdk/inventory/corpus/onboard")
 
     r = _request_with_retry("post", url, headers=headers, json=payload)
     if 200 <= r.status_code < 300:

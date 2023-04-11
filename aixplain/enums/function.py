@@ -22,11 +22,11 @@ Description:
 """
 
 import logging
-import os
 
 from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
 from enum import Enum
+from urllib.parse import urljoin
 
 
 def load_functions():
@@ -34,7 +34,7 @@ def load_functions():
         api_key = config.TEAM_API_KEY
         backend_url = config.BACKEND_URL
 
-        url = os.path.join(backend_url, "sdk/inventory/functions")
+        url = urljoin(backend_url, "sdk/inventory/functions")
         headers = {"x-api-key": api_key, "Content-Type": "application/json"}
         r = _request_with_retry("get", url, headers=headers)
         resp = r.json()

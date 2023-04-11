@@ -27,6 +27,7 @@ from aixplain.modules.pipeline import Pipeline
 from aixplain.utils.config import PIPELINES_RUN_URL
 from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
+from urllib.parse import urljoin
 
 
 class PipelineFactory:
@@ -64,7 +65,7 @@ class PipelineFactory:
         """
         resp = None
         try:
-            url = os.path.join(cls.backend_url, f"sdk/inventory/pipelines/{pipeline_id}")
+            url = urljoin(cls.backend_url, f"sdk/inventory/pipelines/{pipeline_id}")
             headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()
@@ -91,7 +92,7 @@ class PipelineFactory:
             List[Pipeline]: List of pipelines based on given filters
         """
         try:
-            url = os.path.join(cls.backend_url, f"sdk/inventory/pipelines/?pageNumber={page_number}")
+            url = urljoin(cls.backend_url, f"sdk/inventory/pipelines/?pageNumber={page_number}")
             headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()

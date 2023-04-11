@@ -23,7 +23,6 @@ Description:
 
 import aixplain.utils.config as config
 import logging
-import os
 
 from aixplain.factories.asset_factory import AssetFactory
 from aixplain.modules.dataset import Dataset
@@ -33,6 +32,7 @@ from aixplain.enums.license import License
 from aixplain.utils.file_utils import _request_with_retry
 from aixplain.utils import config
 from typing import Any, Dict, List, Optional, Text
+from urllib.parse import urljoin
 
 
 class DatasetFactory(AssetFactory):
@@ -77,7 +77,7 @@ class DatasetFactory(AssetFactory):
         """
         resp = None
         try:
-            url = os.path.join(cls.backend_url, f"sdk/datasets/{dataset_id}")
+            url = urljoin(cls.backend_url, f"sdk/datasets/{dataset_id}")
             headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()
@@ -110,7 +110,7 @@ class DatasetFactory(AssetFactory):
             List[Dataset]: List of datasets based on given filters
         """
         try:
-            url = os.path.join(cls.backend_url, f"sdk/datasets?pageNumber={page_number}&function={task}")
+            url = urljoin(cls.backend_url, f"sdk/datasets?pageNumber={page_number}&function={task}")
             if input_language is not None:
                 url += f"&input={input_language}"
             if output_language is not None:

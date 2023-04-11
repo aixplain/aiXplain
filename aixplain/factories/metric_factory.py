@@ -28,6 +28,7 @@ from aixplain.modules.metric import Metric
 from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
 from typing import Dict, Text
+from urllib.parse import urljoin
 
 
 class MetricFactory:
@@ -65,7 +66,7 @@ class MetricFactory:
         """
         resp, status_code = None, 200
         try:
-            url = f"{cls.backend_url}/sdk/scores/{metric_id}"
+            url = urljoin(cls.backend_url, f"sdk/scores/{metric_id}")
             headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()
@@ -92,7 +93,7 @@ class MetricFactory:
             List[Metric]: List of supported metrics
         """
         try:
-            url = os.path.join(cls.backend_url, f"sdk/scores?function={task}")
+            url = urljoin(cls.backend_url, f"sdk/scores?function={task}")
             headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()
