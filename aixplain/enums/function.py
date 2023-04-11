@@ -30,18 +30,14 @@ from urllib.parse import urljoin
 
 
 def load_functions():
-    try:
-        api_key = config.TEAM_API_KEY
-        backend_url = config.BACKEND_URL
+    api_key = config.TEAM_API_KEY
+    backend_url = config.BACKEND_URL
 
-        url = urljoin(backend_url, "sdk/inventory/functions")
-        headers = {"x-api-key": api_key, "Content-Type": "application/json"}
-        r = _request_with_retry("get", url, headers=headers)
-        resp = r.json()
-        return Enum("Function", {w["id"].upper().replace("-", "_"): w["id"] for w in resp["items"]}, type=str)
-    except Exception as e:
-        logging.exception(f"Function Loading Error")
-        raise Exception("Function Loading Error")
+    url = urljoin(backend_url, "sdk/inventory/functions")
+    headers = {"x-api-key": api_key, "Content-Type": "application/json"}
+    r = _request_with_retry("get", url, headers=headers)
+    resp = r.json()
+    return Enum("Function", {w["id"].upper().replace("-", "_"): w["id"] for w in resp["items"]}, type=str)
 
 
 Function = load_functions()

@@ -30,28 +30,24 @@ from urllib.parse import urljoin
 
 
 def load_languages():
-    try:
-        api_key = config.TEAM_API_KEY
-        backend_url = config.BACKEND_URL
+    api_key = config.TEAM_API_KEY
+    backend_url = config.BACKEND_URL
 
-        url = urljoin(backend_url, "sdk/languages")
-        headers = {"x-api-key": api_key, "Content-Type": "application/json"}
-        r = _request_with_retry("get", url, headers=headers)
-        resp = r.json()
-        languages = {}
-        for w in resp:
-            language = w["value"]
-            language_label = "_".join(w["label"].split())
-            languages[language_label] = {"language": language, "dialect": ""}
-            for dialect in w["dialects"]:
-                dialect_label = "_".join(dialect["label"].split()).upper()
-                dialect_value = dialect["value"]
+    url = urljoin(backend_url, "sdk/languages")
+    headers = {"x-api-key": api_key, "Content-Type": "application/json"}
+    r = _request_with_retry("get", url, headers=headers)
+    resp = r.json()
+    languages = {}
+    for w in resp:
+        language = w["value"]
+        language_label = "_".join(w["label"].split())
+        languages[language_label] = {"language": language, "dialect": ""}
+        for dialect in w["dialects"]:
+            dialect_label = "_".join(dialect["label"].split()).upper()
+            dialect_value = dialect["value"]
 
-                languages[language_label + "_" + dialect_label] = {"language": language, "dialect": dialect_value}
-        return Enum("Language", languages, type=dict)
-    except Exception as e:
-        logging.exception("Language Loading Error")
-        raise Exception("Language Loading Error")
+            languages[language_label + "_" + dialect_label] = {"language": language, "dialect": dialect_value}
+    return Enum("Language", languages, type=dict)
 
 
 Language = load_languages()

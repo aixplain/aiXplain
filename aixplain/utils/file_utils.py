@@ -114,12 +114,16 @@ def upload_data(
         content_encoding (Text, optional): Content encoding. Defaults to None.
         nattempts (int, optional): Number of attempts for diminish the risk of exceptions. Defaults to 0.
 
+    Reference:
+        https://python.plainenglish.io/upload-files-to-aws-s3-using-pre-signed-urls-in-python-d3c2fcab1b41
+
     Returns:
         URL: s3 path
     """
     try:
         # Get pre-signed URL
         team_key = config.TEAM_API_KEY
+        # URL of aiXplain service which returns a pre-signed URL to onboard the file
         url = config.TEMPFILE_UPLOAD_URL
 
         headers = {"Authorization": "token " + team_key}
@@ -129,13 +133,15 @@ def upload_data(
         response = r.json()
         path = response["key"]
         # Upload data
-        presigned_url = response["uploadUrl"]
+        presigned_url = response["uploadUrl"]  # pre-signed URL
         headers = {"Content-Type": content_type}
         if content_encoding is not None:
             headers["Content-Encoding"] = content_encoding
         payload = open(file_name, "rb").read()
+        # saving the file into the pre-signed URL
         r = _request_with_retry("put", presigned_url, headers=headers, data=payload)
 
+        # if the process fail, try one more
         if r.status_code != 200:
             if nattempts == 0:
                 return upload_data(file_name, content_type, content_encoding, nattempts + 1)
