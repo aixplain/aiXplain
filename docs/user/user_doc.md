@@ -26,7 +26,7 @@ Please refer to the image below.
 Once the Model ID of the desired model is available, it can be used to create a `Model` object from the `ModelFactory`.
 ```python
 from aixplain.factories import ModelFactory
-model = ModelFactory.create_asset_from_id(<MODEL_ID>) 
+model = ModelFactory.get(<MODEL_ID>) 
 ```
 
 *2. Through the SDK:*
@@ -66,7 +66,7 @@ The catalog of all your pipelines on aiXplain can be accessed and browsed [here]
 Once the Pipeline ID of the desired pipeline is available, it can be used to create a `Pipeline` object from the `PipelineFactory`. 
 ```python
 from aixplain.factories  import PipelineFactory
-pipeline = PipelineFactory.create_asset_from_id(<PIPELINE_ID>) 
+pipeline = PipelineFactory.get(<PIPELINE_ID>) 
 ```
 
 *2. Through the SDK:*

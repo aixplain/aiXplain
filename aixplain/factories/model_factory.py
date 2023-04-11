@@ -28,6 +28,7 @@ from aixplain.utils.config import MODELS_RUN_URL
 from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
 from urllib.parse import urljoin
+from warnings import warn
 
 
 class ModelFactory:
@@ -54,7 +55,7 @@ class ModelFactory:
         return Model(response["id"], response["name"], supplier=response["supplier"]["id"], api_key=cls.api_key)
 
     @classmethod
-    def create_asset_from_id(cls, model_id: Text) -> Model:
+    def get(cls, model_id: Text) -> Model:
         """Create a 'Model' object from model id
 
         Args:
@@ -81,6 +82,15 @@ class ModelFactory:
                 message = "Model Creation: Unspecified Error"
             logging.error(message)
             raise Exception(f"{message}")
+
+    @classmethod
+    def create_asset_from_id(cls, model_id: Text) -> Model:
+        warn(
+            'This method will be deprecated in the next versions of the SDK. Use "get" instead.',
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return cls.get(model_id)
 
     @classmethod
     def get_assets_from_page(

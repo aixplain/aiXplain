@@ -59,13 +59,12 @@ def test_benchmark_assets_creation_from_id_with_updation():
     with requests_mock.Mocker() as mock:
         __mock_benchmark_create_dependecies(mock, asset_id)
 
-        benchmark = BenchmarkFactory.create_asset_from_id(asset_id)
-        benchmarkJob = BenchmarkFactory.create_asset_from_id(asset_id)
+        benchmark = BenchmarkFactory.get(asset_id)
+        benchmarkJob = BenchmarkFactory.get(asset_id)
 
         newBenchmark = BenchmarkFactory.update_benchmark_info(benchmark)
         newbenchmarkJob = BenchmarkFactory.update_benchmark_job_info(benchmarkJob)
     assert benchmark.to_dict()["id"] == asset_id
-    assert benchmarkJob.get_asset_info()["id"] == asset_id
     assert benchmark.id == newBenchmark.id
     assert benchmarkJob.id == newbenchmarkJob.id
 
@@ -83,7 +82,7 @@ def test_create_benchmark_with_assets():
             if asset_name == "dataset":
                 asset = AssetFactory.get(asset_id)
             else:
-                asset = AssetFactory.create_asset_from_id(asset_id)
+                asset = AssetFactory.get(asset_id)
             benchmark_creation_params.append([asset])
 
         url = f"{config.BENCHMARKS_BACKEND_URL}/sdk/benchmarks"
@@ -103,7 +102,7 @@ def test_start_benchmark_job():
         with open(Path("tests/mock_responses/get_asset_info_responses.json")) as f:
             mock_json = json.load(f)["benchmarkJob"]
         mock.post(url, headers=FIXED_HEADER, json=mock_json)
-        benchmark = BenchmarkFactory.create_asset_from_id(asset_id)
+        benchmark = BenchmarkFactory.get(asset_id)
         benchmarkJob = BenchmarkFactory.start_benchmark_job(benchmark)
 
     assert benchmarkJob.parentBenchmarkId == benchmark.id
@@ -113,7 +112,7 @@ def test_download_benchmark_results():
     asset_id = "test_asset_id"
     with requests_mock.Mocker() as mock:
         __mock_benchmark_create_dependecies(mock, asset_id)
-        benchmarkJob = BenchmarkFactory.create_asset_from_id(asset_id)
+        benchmarkJob = BenchmarkFactory.get(asset_id)
         with open(Path("tests/mock_responses/get_asset_info_responses.json")) as f:
             download_url = json.load(f)["benchmarkJob"]["reportUrl"]
         dummy_result_path = Path("tests/mock_responses/dummy_result.csv")

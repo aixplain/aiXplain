@@ -42,7 +42,7 @@ def test_asset_creation_from_id():
             if asset_name == "dataset":
                 asset = AssetFactory.get(asset_id)
             else:
-                asset = AssetFactory.create_asset_from_id(asset_id)
+                asset = AssetFactory.get(asset_id)
         assert asset.to_dict()["id"] == asset_id
 
 
@@ -109,7 +109,7 @@ def test_run_model():
         with open(Path("tests/mock_responses/get_asset_info_responses.json")) as f:
             mock_json = json.load(f)["model"]
         mock.get(url, headers=FIXED_HEADER, json=mock_json)
-        model = ModelFactory.create_asset_from_id(asset_id)
+        model = ModelFactory.get(asset_id)
         data = "Hello World!"
         with open(Path("tests/mock_responses/get_asset_info_responses.json")) as f:
             mock_json_start = json.load(f)["modelStart"]

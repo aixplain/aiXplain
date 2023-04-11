@@ -28,6 +28,7 @@ from aixplain.utils.config import PIPELINES_RUN_URL
 from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
 from urllib.parse import urljoin
+from warnings import warn
 
 
 class PipelineFactory:
@@ -54,7 +55,7 @@ class PipelineFactory:
         return Pipeline(response["id"], response["name"], cls.api_key)
 
     @classmethod
-    def create_asset_from_id(cls, pipeline_id: Text) -> Pipeline:
+    def get(cls, pipeline_id: Text) -> Pipeline:
         """Create a 'Pipeline' object from pipeline id
 
         Args:
@@ -81,6 +82,15 @@ class PipelineFactory:
                 message = "Pipeline Creation: Unspecified Error"
             logging.error(message)
             raise Exception(f"Status {status_code}: {message}")
+
+    @classmethod
+    def create_asset_from_id(cls, pipeline_id: Text) -> Pipeline:
+        warn(
+            'This method will be deprecated in the next versions of the SDK. Use "get" instead.',
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return cls.get(pipeline_id)
 
     @classmethod
     def get_assets_from_page(cls, page_number: int) -> List[Pipeline]:

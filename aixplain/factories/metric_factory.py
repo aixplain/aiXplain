@@ -29,6 +29,7 @@ from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
 from typing import Dict, Text
 from urllib.parse import urljoin
+from warnings import warn
 
 
 class MetricFactory:
@@ -55,7 +56,7 @@ class MetricFactory:
         return Metric(response["id"], response["name"], response["description"])
 
     @classmethod
-    def create_asset_from_id(cls, metric_id: Text) -> Metric:
+    def get(cls, metric_id: Text) -> Metric:
         """Create a 'Metric' object from metric id
 
         Args:
@@ -81,6 +82,15 @@ class MetricFactory:
             logging.error(message)
             raise Exception(f"Status {status_code}: {message}")
         return metric
+
+    @classmethod
+    def create_asset_from_id(cls, metric_id: Text) -> Metric:
+        warn(
+            'This method will be deprecated in the next versions of the SDK. Use "get" instead.',
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return cls.get(metric_id)
 
     @classmethod
     def list_assets(cls, task: Text) -> List[Metric]:

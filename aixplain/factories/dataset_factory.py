@@ -33,6 +33,7 @@ from aixplain.utils.file_utils import _request_with_retry
 from aixplain.utils import config
 from typing import Any, Dict, List, Optional, Text
 from urllib.parse import urljoin
+from warnings import warn
 
 
 class DatasetFactory(AssetFactory):
@@ -66,7 +67,7 @@ class DatasetFactory(AssetFactory):
         )
 
     @classmethod
-    def create_asset_from_id(cls, dataset_id: Text) -> Dataset:
+    def get(cls, dataset_id: Text) -> Dataset:
         """Create a 'Dataset' object from dataset id
 
         Args:
@@ -93,6 +94,15 @@ class DatasetFactory(AssetFactory):
             logging.error(message)
             raise Exception(f"Status {status_code}: {message}")
         return dataset
+
+    @classmethod
+    def create_asset_from_id(cls, dataset_id: Text) -> Dataset:
+        warn(
+            'This method will be deprecated in the next versions of the SDK. Use "get" instead.',
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return cls.get(dataset_id)
 
     @classmethod
     def get_assets_from_page(

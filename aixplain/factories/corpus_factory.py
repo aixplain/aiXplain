@@ -41,6 +41,7 @@ from pathlib import Path
 from tqdm import tqdm
 from typing import Any, Dict, List, Optional, Text, Union
 from urllib.parse import urljoin
+from warnings import warn
 
 
 class CorpusFactory(AssetFactory):
@@ -48,7 +49,7 @@ class CorpusFactory(AssetFactory):
     backend_url = config.BACKEND_URL
 
     @classmethod
-    def create_asset_from_id(cls, corpus_id: Text) -> Corpus:
+    def get(cls, corpus_id: Text) -> Corpus:
         """Create a 'Corpus' object from corpus id
 
         Args:
@@ -86,6 +87,15 @@ class CorpusFactory(AssetFactory):
             onboard_status=resp["status"],
         )
         return corpus
+
+    @classmethod
+    def create_asset_from_id(cls, corpus_id: Text) -> Corpus:
+        warn(
+            'This method will be deprecated in the next versions of the SDK. Use "get" instead.',
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return cls.get(corpus_id)
 
     @classmethod
     def get_assets_from_page(

@@ -37,6 +37,7 @@ from aixplain.factories.model_factory import ModelFactory
 from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry, save_file
 from urllib.parse import urljoin
+from warnings import warn
 
 
 class BenchmarkFactory:
@@ -89,14 +90,14 @@ class BenchmarkFactory:
         Returns:
             Benchmark: Coverted 'Benchmark' object
         """
-        model_list = [ModelFactory().create_asset_from_id(model_info["id"]) for model_info in response["model"]]
+        model_list = [ModelFactory().get(model_info["id"]) for model_info in response["model"]]
         dataset_list = [DatasetFactory().get(dataset_id) for dataset_id in response["target"]]
-        metric_list = [MetricFactory().create_asset_from_id(metric_info["id"]) for metric_info in response["score"]]
+        metric_list = [MetricFactory().get(metric_info["id"]) for metric_info in response["score"]]
         job_list = cls._get_benchmark_jobs_from_benchmark_id(response["id"])
         return Benchmark(response["id"], response["name"], model_list, dataset_list, metric_list, job_list)
 
     @classmethod
-    def create_asset_from_id(cls, benchmark_id: str) -> Benchmark:
+    def get(cls, benchmark_id: str) -> Benchmark:
         """Create a 'Benchmark' object from Benchmark id
 
         Args:
@@ -123,6 +124,15 @@ class BenchmarkFactory:
             logging.error(message)
             raise Exception(f"Status {status_code}: {message}")
         return benchmark
+
+    @classmethod
+    def create_asset_from_id(cls, benchmark_id: str) -> Benchmark:
+        warn(
+            'This method will be deprecated in the next versions of the SDK. Use "get" instead.',
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return cls.get(benchmark_id)
 
     @classmethod
     def create_benchmark_job_from_id(cls, job_id: Text) -> BenchmarkJob:
@@ -163,7 +173,7 @@ class BenchmarkFactory:
         Returns:
             Benchmark: updated 'Benchmark'
         """
-        return cls.create_asset_from_id(benchmark.id)
+        return cls.get(benchmark.id)
 
     @classmethod
     def create_benchmark(
@@ -199,7 +209,7 @@ class BenchmarkFactory:
             r = _request_with_retry("post", url, headers=headers, data=payload)
             resp = r.json()
             logging.info(f"Creating Benchmark Job: Status for {name}: {resp}")
-            return cls.create_asset_from_id(resp["id"])
+            return cls.get(resp["id"])
         except Exception as e:
             error_message = f"Creating Benchmark Job: Error in Creating Benchmark with payload {payload} : {e}"
             logging.error(error_message)
