@@ -34,6 +34,10 @@ def process_text(content: str, storage_type: StorageType) -> Text:
 def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 1000) -> Tuple[List[File], int]:
     """Process a list of local textual files, compress and upload them to pre-signed URLs in S3
 
+    Explanation:
+        Each text on "paths" is processed. If the text is in a public link or local file, it will be downloaded and added to an index CSV file.
+        The texts are processed in batches such that at each "batch_size" texts, the index CSV file is uploaded into a pre-signed URL in s3 and reset.
+
     Args:
         metadata (MetaData): meta data of the asset
         paths (List): list of paths to local files

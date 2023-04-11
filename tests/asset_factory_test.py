@@ -39,10 +39,7 @@ def test_asset_creation_from_id():
             with open(Path("tests/mock_responses/get_asset_info_responses.json")) as f:
                 mock_json = json.load(f)[asset_name]
             mock.get(url, headers=FIXED_HEADER, json=mock_json)
-            if asset_name == "dataset":
-                asset = AssetFactory.get(asset_id)
-            else:
-                asset = AssetFactory.get(asset_id)
+            asset = AssetFactory.get(asset_id)
         assert asset.to_dict()["id"] == asset_id
 
 

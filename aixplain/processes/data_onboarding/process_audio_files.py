@@ -26,6 +26,12 @@ def compress_folder(folder_path: str):
 def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 100) -> Tuple[List[File], int, int, int]:
     """Process a list of local audio files, compress and upload them to pre-signed URLs in S3
 
+    Explanation:
+        Each audio on "paths" is processed. If the audio is in a public link, this link is added into an index CSV file.
+        If the audio is in a local path, it will be copied into a local folder and its path will be added to the index CSV file.
+        The audios are processed in batches such that at each "batch_size" audios, the index CSV file is uploaded into a pre-signed URL in s3 and reset.
+        If the audios are stored locally, the local folder is compressed into a .tgz file and also uploaded into S3.
+
     Args:
         metadata (MetaData): meta data of the asset
         paths (List): list of paths to local files
