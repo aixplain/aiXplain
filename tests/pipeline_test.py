@@ -18,8 +18,8 @@ limitations under the License.
 
 
 import time
-from aixtend.utils.config import PIPELINES_RUN_URL, PIPELINE_API_KEY
-from aixtend.factories.pipeline_factory import PipelineFactory
+from aixplain.utils.config import PIPELINES_RUN_URL, PIPELINE_API_KEY
+from aixplain.factories.pipeline_factory import PipelineFactory
 import pytest
 
 @pytest.mark.skip()

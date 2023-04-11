@@ -17,9 +17,9 @@ limitations under the License.
 """
 
 import pytest
-from aixtend.enums.language import Language
-from aixtend.enums.license import License
-from aixtend.factories.corpus_factory import CorpusFactory
+from aixplain.enums.language import Language
+from aixplain.enums.license import License
+from aixplain.factories.corpus_factory import CorpusFactory
 from uuid import uuid4
 
 

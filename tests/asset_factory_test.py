@@ -4,11 +4,11 @@ import json
 import pytest
 import requests_mock
 from pathlib import Path
-from aixtend.utils import config
+from aixplain.utils import config
 
-from aixtend.factories.model_factory import ModelFactory
-from aixtend.factories.dataset_factory import DatasetFactory
-from aixtend.factories.metric_factory import MetricFactory
+from aixplain.factories.model_factory import ModelFactory
+from aixplain.factories.dataset_factory import DatasetFactory
+from aixplain.factories.metric_factory import MetricFactory
 
 FIXED_HEADER = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
 
@@ -114,10 +114,11 @@ def test_run_model():
         with open(Path("tests/mock_responses/get_asset_info_responses.json")) as f:
             mock_json_start = json.load(f)["modelStart"]
         headers = {"x-api-key": model.api_key, "Content-Type": "application/json"}
-        mock.post(model.url, headers=headers, json=mock_json_start, status_code=200)
+        mock.post(f"{model.url}/{asset_id}", headers=headers, json=mock_json_start, status_code=200)
         poll_url = mock_json_start["data"]
         with open(Path("tests/mock_responses/get_asset_info_responses.json")) as f:
             mock_json_run = json.load(f)["modelRunResult"]
         mock.get(poll_url, headers=headers, json=mock_json_run, status_code=200)
         response = model.run(data)
+        print(response)
     assert response == mock_json_run

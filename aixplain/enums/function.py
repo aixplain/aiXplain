@@ -23,7 +23,6 @@ Description:
 
 import logging
 import os
-import traceback
 
 from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry

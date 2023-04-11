@@ -25,8 +25,8 @@ import logging
 import os
 import traceback
 
-from aixtend.utils import config
-from aixtend.utils.file_utils import _request_with_retry
+from aixplain.utils import config
+from aixplain.utils.file_utils import _request_with_retry
 from enum import Enum
 
 
