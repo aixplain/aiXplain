@@ -96,6 +96,6 @@ setup(
     extras_require={},
     project_urls={
         "Documentation": "https://github.com/aixplain/pipelines/tree/main/docs",
-        "Source": "https://github.com/aixplain/pipelines",
+        "Source": "https://github.com/aixplain/aiXplain",
     },
 )
