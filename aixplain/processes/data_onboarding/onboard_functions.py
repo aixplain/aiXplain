@@ -95,6 +95,7 @@ def build_payload_corpus(corpus: Corpus, ref_data: List[Text]) -> Dict:
         "tags": corpus.tags,
         "pricing": {"type": "FREE", "cost": 0},
         "privacy": corpus.privacy.value,
+        "license": corpus.license.value,
         "refData": ref_data,
         "data": [],
     }

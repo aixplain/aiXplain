@@ -71,13 +71,14 @@ class CorpusFactory(AssetFactory):
                 Data(
                     id=d["id"],
                     name=d["name"],
-                    dtype=DataType.AUDIO,
+                    dtype=DataType(d["dataType"]),
                     privacy=Privacy.PRIVATE,
                     languages=languages,
                     onboard_status=d["status"],
                 )
             )
         functions = [Function(f) for f in resp["suggestedFunction"]]
+        # TO DO: add license of the corpus
         corpus = Corpus(
             id=resp["id"],
             name=resp["name"],
@@ -99,32 +100,60 @@ class CorpusFactory(AssetFactory):
 
     @classmethod
     def get_assets_from_page(
-        cls, page_number: int, task: Text, input_language: Optional[Text] = None, output_language: Optional[Text] = None
+        cls, page_number: Optional[int] = 1, task: Optional[Function] = None, language: Optional[Text] = None
     ) -> List[Corpus]:
         """Get the list of corpora from a given page. Additional task and language filters can be also be provided
 
         Args:
-            page_number (int): Page from which datasets are to be listed
-            task (Text): Task of listed datasets
-            input_language (Text, optional): Input language of listed datasets. Defaults to None.
-            output_language (Text, optional): Output language of listed datasets. Defaults to None.
+            page_number (int, optional): Page from which corpora are to be listed. Defaults to 1.
+            task (Function, optional): Task of listed corpora. Defaults to None.
+            language (Text, optional): language of listed corpora. Defaults to None.
 
         Returns:
-            List[Corpus]: List of datasets based on given filters
+            List[Corpus]: List of corpora based on given filters
         """
-        raise NotImplementedError("Not implemented function.")
+        try:
+            url = urljoin(config.BACKEND_URL, "sdk/inventory/corpus")
+            headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+
+            payload = {
+                # "q": "",
+                # "function": task,
+                # "dataType": "text",
+                # "license": None
+            }
+            if task is not None:
+                payload["function"] = task.value
+            r = _request_with_retry("post", url, headers=headers, json=payload)
+            resp = r.json()
+
+            corpora = []
+            if resp["total"] > 0:
+                for corpus_row in resp["results"]:
+                    functions = [Function(f) for f in corpus_row["suggestedFunction"]]
+                    corpus = Corpus(
+                        id=corpus_row["id"],
+                        name=corpus_row["name"],
+                        description=corpus_row["description"],
+                        functions=functions,
+                        data=[],
+                        onboard_status="onboarded",
+                    )
+                    corpora.append(corpus)
+            return corpora
+        except Exception as e:
+            error_message = f"Listing Corpora: Error in getting Corpora on Page {page_number} : {e}"
+            logging.error(error_message)
+            return []
 
     @classmethod
-    def get_first_k_assets(
-        cls, k: int, task: Text, input_language: Optional[Text] = None, output_language: Optional[Text] = None
-    ) -> List[Corpus]:
+    def get_first_k_assets(cls, k: int, task: Optional[Function] = None, language: Optional[Text] = None) -> List[Corpus]:
         """Gets the first k given corpora based on the provided task and language filters
 
         Args:
-            k (int): Number of datasets to get
-            task (Text): Task of listed datasets
-            input_language (Text, optional): Input language of listed datasets. Defaults to None.
-            output_language (Text, optional): Output language of listed datasets. Defaults to None.
+            k (int): Number of corpora to get
+            task (Function, optional): Task of listed corpora. Defaults to None.
+            language (Text, optional): language of listed corpora. Defaults to None.
 
         Returns:
             List[Corpus]: List of datasets based on given filters

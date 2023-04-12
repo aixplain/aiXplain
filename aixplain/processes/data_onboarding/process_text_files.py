@@ -46,7 +46,7 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 1000) -
     Returns:
         Tuple[List[File], int]: list of s3 links and data colum index
     """
-    # logging.info(f"Data Asset Onboarding: Processing \"{metadata.name}\".")
+    logging.debug(f'Data Asset Onboarding: Processing "{metadata.name}".')
     idx = 0
     data_column_idx = -1
     files, batch = [], []
