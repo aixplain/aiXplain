@@ -1,4 +1,4 @@
-__author__='shreyassharma'
+__author__ = "shreyassharma"
 
 """
 Copyright 2022 The aiXplain SDK authors
@@ -21,43 +21,45 @@ Description:
     Metric Class
 """
 
-from typing import List
+from typing import Optional, Text
+from aixplain.modules.asset import Asset
 from aixplain.utils.file_utils import _request_with_retry
 
-class Metric:
+
+class Metric(Asset):
     """Represents a metric to be computed on one or more peices of data. It is usually linked to a machine learning task.
 
     Attributes:
-        id (str): ID of the Metric.
-        name (str): Name of the Metric.
-        description (str): Description of the Metric.
-        additional_info (dict): Any additional information to be saved with the Metric.
+        id (Text): ID of the Metric
+        name (Text): Name of the Metric
+        description (Text): Description of the Metric
+        supplier (Optional[Text], optional): author of the Metric. Defaults to "aiXplain".
+        version (Optional[Text], optional): Metric version. Defaults to "1.0".
+        additional_info: Any additional Metric info to be saved
 
     """
-    def __init__(self, id:str, name:str, description:str, **additional_info) -> None:
+
+    def __init__(
+        self,
+        id: Text,
+        name: Text,
+        description: Text,
+        supplier: Optional[Text] = "aiXplain",
+        version: Optional[Text] = "1.0",
+        **additional_info,
+    ) -> None:
         """Create a Metric with the necessary information
 
         Args:
-            id (str): ID of the Metric
-            name (str): Name of the Metric
-            description (str): Description of the Metric
+            id (Text): ID of the Metric
+            name (Text): Name of the Metric
+            description (Text): Description of the Metric
+            supplier (Optional[Text], optional): author of the Metric. Defaults to "aiXplain".
+            version (Optional[Text], optional): Metric version. Defaults to "1.0".
             **additional_info: Any additional Metric info to be saved
         """
-        self.id = id
-        self.name = name
-        self.description = description
+        super().__init__(id, name, description, supplier, version)
         self.additional_info = additional_info
-
-    def get_asset_info(self) -> dict:
-        """Get the Metric info as a Dictionary
-
-        Returns:
-            dict: Metric Information
-        """
-        return self.__dict__
 
     def __repr__(self) -> str:
         return f"<Metric {self.name}>"
-
-    
-    

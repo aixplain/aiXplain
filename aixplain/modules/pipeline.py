@@ -24,38 +24,54 @@ Description:
 import time
 import json
 import logging
+from aixplain.modules.asset import Asset
 from aixplain.utils import config
-from aixplain.utils.file_utils import _request_with_retry
-from typing import Union
+from aixplain.utils.file_utils import _request_with_retry, path2link
+from typing import Dict, Optional, Text, Union
 
 
-class Pipeline:
+class Pipeline(Asset):
     """Representing a custom pipeline that was created on the aiXplain Platform
 
     Attributes:
-        id (str): ID of the Pipeline.
-        name (str): Name of the Pipeline.
-        api_key (str): Team API Key to run the Pipeline.
-        url (str): Running URL of the platform.
-        additional_info (dict): Additional Pipeline info.
+        id (Text): ID of the Pipeline
+        name (Text): Name of the Pipeline
+        api_key (Text): Team API Key to run the Pipeline.
+        url (Text, optional): running URL of platform. Defaults to config.PIPELINES_RUN_URL.
+        supplier (Optional[Text], optional): Pipeline supplier. Defaults to "aiXplain".
+        version (Optional[Text], optional): version of the pipeline. Defaults to "1.0".
+        **additional_info: Any additional Pipeline info to be saved
     """
-    def __init__(self, id: str, name:str, api_key: str, url: str = config.PIPELINES_RUN_URL, **additional_info) -> None:
+
+    def __init__(
+        self,
+        id: Text,
+        name: Text,
+        api_key: Text,
+        url: Text = config.PIPELINES_RUN_URL,
+        supplier: Optional[Text] = "aiXplain",
+        version: Optional[Text] = "1.0",
+        **additional_info,
+    ) -> None:
         """Create a Pipeline with the necessary information
 
         Args:
-            id (str): ID of the Pipeline
-            name (str): Name of the Pipeline
-            api_key (str): Team API Key to run the Pipeline.
-            url (str, optional): running URL of platform. Defaults to config.PIPELINES_RUN_URL.
+            id (Text): ID of the Pipeline
+            name (Text): Name of the Pipeline
+            api_key (Text): Team API Key to run the Pipeline.
+            url (Text, optional): running URL of platform. Defaults to config.PIPELINES_RUN_URL.
+            supplier (Optional[Text], optional): Pipeline supplier. Defaults to "aiXplain".
+            version (Optional[Text], optional): version of the pipeline. Defaults to "1.0".
             **additional_info: Any additional Pipeline info to be saved
         """
-        self.id = id
-        self.name = name
+        super().__init__(id, name, "", supplier, version)
         self.api_key = api_key
         self.url = url
         self.additional_info = additional_info
 
-    def __polling(self, poll_url: str, name: str = "pipeline_process", wait_time: float = 1.0, timeout: float = 20000.0) -> dict:
+    def __polling(
+        self, poll_url: Text, name: Text = "pipeline_process", wait_time: float = 1.0, timeout: float = 20000.0
+    ) -> Dict:
         """Keeps polling the platform to check whether an asynchronous call is done.
 
         Args:
@@ -67,7 +83,7 @@ class Pipeline:
         Returns:
             dict: response obtained by polling call
         """
-                
+
         logging.debug(f"Polling for Pipeline: Start polling for {name} ")
         start, end = time.time(), time.time()
         completed = False
@@ -90,43 +106,45 @@ class Pipeline:
             except Exception as e:
                 logging.error(f"Polling for Pipeline: Final status of polling for {name} : ERROR - {response_body}")
         else:
-            logging.error(f"Polling for Pipeline: Final status of polling for {name} : No response in {timeout} seconds - {response_body}")
+            logging.error(
+                f"Polling for Pipeline: Final status of polling for {name} : No response in {timeout} seconds - {response_body}"
+            )
         return response_body
 
-    def poll(self, poll_url: str, name: str = "pipeline_process") -> dict:
+    def poll(self, poll_url: Text, name: Text = "pipeline_process") -> Dict:
         """Poll the platform to check whether an asynchronous call is done.
 
         Args:
-            poll_url (str): polling URL
-            name (str, optional): ID given to a call. Defaults to "pipeline_process".
+            poll_url (Text): polling URL
+            name (Text, optional): ID given to a call. Defaults to "pipeline_process".
 
         Returns:
-            dict: response obtained by polling call
+            Dict: response obtained by polling call
         """
-    
+
         headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}
         r = _request_with_retry("get", poll_url, headers=headers)
         try:
             resp = r.json()
             logging.info(f"Single Poll for Pipeline: Status of polling for {name} : {resp}")
-        except:
+        except Exception as e:
             resp = {"status": "FAILED"}
         return resp
 
-    def run(self, data: Union[str, dict], name: str = "pipeline_process", timeout: float = 20000.0) -> dict:
+    def run(self, data: Union[Text, Dict], name: Text = "pipeline_process", timeout: float = 20000.0) -> Dict:
         """Runs a pipeline call.
 
         Args:
-            data (Union[str, dict]): link to the input data
+            data (Union[Text, Dict]): link to the input data
             name (str, optional): ID given to a call. Defaults to "pipeline_process".
             timeout (float, optional): total polling time. Defaults to 20000.0.
 
         Returns:
-            dict: parsed output from pipeline
+            Dict: parsed output from pipeline
         """
         start = time.time()
         try:
-            success = False
+            data = path2link(data)
             response = self.run_async(data, name=name)
             if response["status"] == "FAILED":
                 end = time.time()
@@ -143,24 +161,24 @@ class Pipeline:
             end = time.time()
             return {"status": "FAILED", "error": error_message, "elapsed_time": end - start}
 
-    def run_async(self, data: Union[str, dict], name: str = "pipeline_process") -> dict:
+    def run_async(self, data: Union[Text, Dict], name: str = "pipeline_process") -> Dict:
         """Runs asynchronously a pipeline call.
 
         Args:
-            data (Union[str, dict]): link to the input data
-            name (str, optional): ID given to a call. Defaults to "pipeline_process".
+            data (Union[Text, Dict]): link to the input data
+            name (Text, optional): ID given to a call. Defaults to "pipeline_process".
 
         Returns:
-            dict: polling URL in response
+            Dict: polling URL in response
         """
-   
+
         headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}
         if isinstance(data, dict):
             payload = json.dumps(data)
         else:
             try:
                 data_json = json.loads(data)
-                payload = data
+                payload = json.dumps(data_json)
             except Exception as e:
                 payload = json.dumps({"data": data})
         call_url = f"{self.url}/{self.id}"
@@ -174,7 +192,7 @@ class Pipeline:
 
             poll_url = resp["url"]
             response = {"status": "IN_PROGRESS", "url": poll_url}
-        except:
+        except Exception as e:
             response = {"status": "FAILED"}
             if resp is not None:
                 response["error"] = resp

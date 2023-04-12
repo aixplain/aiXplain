@@ -1,4 +1,4 @@
-__author__='shreyassharma'
+__author__ = "shreyassharma"
 
 """
 Copyright 2022 The aiXplain SDK authors
@@ -20,41 +20,80 @@ Date: October 28th 2022
 Description:
     Datasets Class
 """
-from typing import List
-from aixplain.utils.file_utils import _request_with_retry
-from aixplain.utils import config
+
+from aixplain.enums.function import Function
+from aixplain.enums.license import License
+from aixplain.enums.privacy import Privacy
+from aixplain.modules.asset import Asset
+from aixplain.modules.data import Data
+from aixplain.utils.file_utils import _request_with_retry, save_file
+from typing import Any, List, Optional, Text
 
 
-class Dataset:
-    """Dataset is an collection of data usually for a specific task.
+class Dataset(Asset):
+    """Dataset is a collection of data intended to be used for a specific function.
+            Different from corpus, a dataset is a representative sample of a specific phenomenon to a specific AI task.
+            aiXplain also counts with an extensive collection of datasets for training, infer and benchmark various tasks like
+            Translation, Speech Recognition, Diacritization, Sentiment Analysis, and much more.
 
     Attributes:
-        id (str): ID of the Dataset.
-        name (str): Name of the Dataset.
-        description (str): Description of the Dataset.
-        additional_info (dict): Any additional information to be saved with the Dataset.
+        id (Text): Dataset ID
+        name (Text): Dataset Name
+        description (Text): Dataset description
+        function (Function): Function for which the dataset is intented to
+        source_data (List[Data]): List of input Data to the function
+        target_data (List[Data]): List of Data which expected to be outputted by the function
+        tags (Optional[List[Text]], optional): tags that describe the dataset. Defaults to [].
+        license (Optional[License], optional): Dataset License. Defaults to None.
+        privacy (Optional[Privacy], optional): Dataset Privacy. Defaults to Privacy.PRIVATE.
+        supplier (Optional[Text], optional): Dataset Supplier. Defaults to "aiXplain".
+        version (Optional[Text], optional): Dataset Version. Defaults to "1.0".
     """
-    def __init__(self, id:str, name:str, description:str, **additional_info) -> None:
-        """Create a Dataset with the necessary information
+
+    def __init__(
+        self,
+        id: Text,
+        name: Text,
+        description: Text,
+        function: Function,
+        source_data: List[Data],
+        target_data: List[Data],
+        tags: Optional[List[Text]] = [],
+        license: Optional[License] = None,
+        privacy: Optional[Privacy] = Privacy.PRIVATE,
+        supplier: Optional[Text] = "aiXplain",
+        version: Optional[Text] = "1.0",
+        **kwargs,
+    ) -> None:
+        """Dataset Class.
+
+        Description:
+            Dataset is a collection of data intended to be used for a specific function.
+            Different from corpus, a dataset is a representative sample of a specific phenomenon to a specific AI task.
+            aiXplain also counts with an extensive collection of datasets for training, infer and benchmark various tasks like
+            Translation, Speech Recognition, Diacritization, Sentiment Analysis, and much more.
 
         Args:
-            id (str): ID of the Dataset
-            name (str): Name of the Dataset
-            description (str): Description of the Dataset
-            **additional_info: Any additional dataset info to be saved
+            id (Text): Dataset ID
+            name (Text): Dataset Name
+            description (Text): Dataset description
+            function (Function): Function for which the dataset is intented to
+            source_data (List[Data]): List of input Data to the function
+            target_data (List[Data]): List of Data which expected to be outputted by the function
+            tags (Optional[List[Text]], optional): tags that describe the dataset. Defaults to [].
+            license (Optional[License], optional): Dataset License. Defaults to None.
+            privacy (Optional[Privacy], optional): Dataset Privacy. Defaults to Privacy.PRIVATE.
+            supplier (Optional[Text], optional): Dataset Supplier. Defaults to "aiXplain".
+            version (Optional[Text], optional): Dataset Version. Defaults to "1.0".
         """
-        self.id = id
-        self.name = name
-        self.description = description
-        self.additional_info = additional_info
+        super().__init__(
+            id=id, name=name, description=description, supplier=supplier, version=version, license=license, privacy=privacy
+        )
+        self.function = function
+        self.source_data = source_data
+        self.target_data = target_data
+        self.tags = tags
+        self.kwargs = kwargs
 
-    def get_asset_info(self) -> dict:
-        """Get the dataset info as a Dictionary
-
-        Returns:
-            dict: Dataset Information
-        """
-        return self.__dict__
-    
     def __repr__(self):
         return f"<Dataset: {self.name}>"

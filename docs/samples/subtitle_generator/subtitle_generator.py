@@ -94,7 +94,7 @@ def main(video_path: str, srt_path: str, pipeline_id: str):
     ---
         .srt string or file
     """
-    pipe = PipelineFactory.create_asset_from_id(pipeline_id)
+    pipe = PipelineFactory.get(pipeline_id)
     response = pipe.run(data=video_path)
 
     if response["success"] is True:

@@ -1,4 +1,4 @@
-__author__='shreyassharma'
+__author__ = "shreyassharma"
 
 """
 Copyright 2022 The aiXplain SDK authors
@@ -21,30 +21,33 @@ Description:
     Benchmark Job Class
 """
 
+from typing import Text
+
+
 class BenchmarkJob:
-    """"Benchmark Job Represents a single run of an already created Benchmark.
+    """ "Benchmark Job Represents a single run of an already created Benchmark.
 
     Attributes:
         id (str): ID of the Benchmark Job.
         status (str): Status of the Benchmark Job.
         parentBenchmarkId (str): ID of the associated parent Benchmark.
         additional_info (dict): Any additional information to be saved with the Benchmark Job.
- 
+
     """
-    def __init__(self, id:str, status:str, parentBenchmarkId: str, **additional_info) -> None:
+
+    def __init__(self, id: Text, status: Text, parentBenchmarkId: Text, **additional_info) -> None:
         """Create a Benchmark Job with the necessary information. Each Job is a run of a parent Benchmark
 
         Args:
-            id (str): ID of the Benchmark Job
-            status (str): Status of the Benchmark Job
-            parentBenchmarkId (str): ID of the associated parent Benchmark
+            id (Text): ID of the Benchmark Job
+            status (Text): Status of the Benchmark Job
+            parentBenchmarkId (Text): ID of the associated parent Benchmark
             **additional_info: Any additional Benchmark Job info to be saved
         """
         self.id = id
         self.status = status
         self.parentBenchmarkId = parentBenchmarkId
         self.additional_info = additional_info
-    
 
     def get_asset_info(self) -> dict:
         """Get the Benchmark Job info as a Dictionary
@@ -53,6 +56,3 @@ class BenchmarkJob:
             dict: Benchmark Job Information
         """
         return self.__dict__
-
-    
-    

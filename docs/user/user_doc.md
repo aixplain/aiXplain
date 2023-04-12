@@ -1,9 +1,10 @@
 # User Documentation
-aiXplain has a vast repository of multiple assets such as models, datasets, metrics, pipelines, and more. The factories in aixplain SDK provide a powerful set of tools for creating, searching, and managing these assets.
+aiXplain has a vast repository of multiple assets such as models, corpus, datasets, metrics, pipelines, and more. The factories in aiXplain SDK provide a powerful set of tools for creating, searching, and managing these assets.
 
 The asset types currently supported by the SDK are:
 - [Model](#models)
 - [Pipeline](#pipelines)
+- [Corpus](#corpus)
 - [Dataset](#datasets)
 - [Metric](#metrics)
 - [Benchmark](#benchmarks)
@@ -24,8 +25,8 @@ Please refer to the image below.
 
 Once the Model ID of the desired model is available, it can be used to create a `Model` object from the `ModelFactory`.
 ```python
-from aixplain.factories.model_factory  import ModelFactory
-model = ModelFactory.create_asset_from_id(<MODEL_ID>) 
+from aixplain.factories import ModelFactory
+model = ModelFactory.get(<MODEL_ID>) 
 ```
 
 *2. Through the SDK:*
@@ -33,7 +34,7 @@ model = ModelFactory.create_asset_from_id(<MODEL_ID>)
 If you need, the aixplain SDK allows searching for existing models that match a specific criteria. `ModelFactory` can search for machine learning models that perform a particular task and optionally support a specific input/output language pair.
 
 ```python
-from aixplain.factories.model_factory  import ModelFactory
+from aixplain.factories  import ModelFactory
 model_list = ModelFactory.get_first_k_assets(k=5, task="translation", input_language="en", output_language="hi")
 ```
 
@@ -64,8 +65,8 @@ The catalog of all your pipelines on aiXplain can be accessed and browsed [here]
 
 Once the Pipeline ID of the desired pipeline is available, it can be used to create a `Pipeline` object from the `PipelineFactory`. 
 ```python
-from aixplain.factories.pipeline_factory  import PipelineFactory
-pipeline = PipelineFactory.create_asset_from_id(<PIPELINE_ID>) 
+from aixplain.factories  import PipelineFactory
+pipeline = PipelineFactory.get(<PIPELINE_ID>) 
 ```
 
 *2. Through the SDK:*
@@ -73,7 +74,7 @@ pipeline = PipelineFactory.create_asset_from_id(<PIPELINE_ID>)
 If you need, the aixplain SDK allows searching for existing pipelines. 
 
 ```python
-from aixplain.factories.pipeline_factory  import PipelineFactory
+from aixplain.factories  import PipelineFactory
 pipeline_list = PipelineFactory.get_first_k_assets(k=5)
 ```
 
@@ -92,8 +93,24 @@ poll_url = start_response["url"]
 poll_response = pipeline.poll(poll_url)
 ```
 
+## Corpus
+aiXplain has an extensive collection of general-purpose corpora to be explored, processed and used to create task-specific datasets.
+
+The aiXplain SDK allows searching for existing corpora that match a specific criteria. `CorpusFactory` can search for corpora that contain data from a particular language pair or data type.
+
+```python
+from aixplain.enums import DataType
+from aixplain.factories  import CorpusFactory
+corpus_list = CorpusFactory.get_first_k_assets(k=5, language="en", dtype=[DataType.AUDIO, DataType.TEXT])
+```
+Note: This does not download the resulted corpora to your local machine.
+
+### Corpus Onboarding
+
+Using the aiXplain SDK, you can also onboard your corpus into the aiXplain platform. A step-by-step example on how to do it can be accessed [here](/docs/samples/corpus_onboarding/corpus_onboarding.ipynb).
+
 ## Datasets
-aiXplain has an extensive collection of datasets to be used for various tasks like Translation, Speech Recognition, Diacritization, Sentiment Analysis, and much more.
+Different from corpus, a dataset is a representative sample of a specific phenomenon to a specific AI task. aiXplain also counts with an extensive collection of datasets for training, infer and benchmark various tasks like Translation, Speech Recognition, Diacritization, Sentiment Analysis, and much more.
 You can even upload your own dataset [here](https://platform.aixplain.com/dashboard/datasets/upload).
 
 The catalog of all available datasets on aiXplain can be accessed and browsed [here](https://platform.aixplain.com/discovery/datasets).

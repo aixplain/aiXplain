@@ -40,7 +40,7 @@ Let’s see how we can use aixplain to run a machine translation model.
 
 ```python
 from aixplain.factories.model_factory  import ModelFactory
-model = ModelFactory.create_asset_from_id("61b27086c45ecd3c10d0608c") # Got the ID of an MT model from on our platform
+model = ModelFactory.get("61b27086c45ecd3c10d0608c") # Got the ID of an MT model from on our platform
 translation = model.run("This is a sample text")
 ```
 *Check out the [explore section](docs/user/user_doc.md#explore) of our guide on Models to get the ID of your desired model*

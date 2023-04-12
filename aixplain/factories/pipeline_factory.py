@@ -21,11 +21,14 @@ Description:
     Pipeline Factory Class
 """
 import logging
-from typing import List
+import os
+from typing import Dict, List, Text
 from aixplain.modules.pipeline import Pipeline
 from aixplain.utils.config import PIPELINES_RUN_URL
 from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
+from urllib.parse import urljoin
+from warnings import warn
 
 
 class PipelineFactory:
@@ -35,40 +38,42 @@ class PipelineFactory:
         api_key (str): The TEAM API key used for authentication.
         backend_url (str): The URL for the backend.
     """
+
     api_key = config.TEAM_API_KEY
-    backend_url = config.BENCHMARKS_BACKEND_URL
+    backend_url = config.BACKEND_URL
 
     @classmethod
-    def _create_pipeline_from_response(cls, response: dict) -> Pipeline:
+    def _create_pipeline_from_response(cls, response: Dict) -> Pipeline:
         """Converts response Json to 'Pipeline' object
 
         Args:
-            response (dict): Json from API
+            response (Dict): Json from API
 
         Returns:
             Pipeline: Coverted 'Pipeline' object
         """
         return Pipeline(response["id"], response["name"], cls.api_key)
-    
+
     @classmethod
-    def create_asset_from_id(cls, pipeline_id: str) -> Pipeline:
+    def get(cls, pipeline_id: Text) -> Pipeline:
         """Create a 'Pipeline' object from pipeline id
 
         Args:
-            pipeline_id (str): Pipeline ID of required pipeline.
+            pipeline_id (Text): Pipeline ID of required pipeline.
 
         Returns:
             Pipeline: Created 'Pipeline' object
         """
+        resp = None
         try:
-            resp = None
-            url = f"{cls.backend_url}/sdk/inventory/pipelines/{pipeline_id}"
+            url = urljoin(cls.backend_url, f"sdk/inventory/pipelines/{pipeline_id}")
             headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()
             pipeline = cls._create_pipeline_from_response(resp)
             return pipeline
         except Exception as e:
+            status_code = 400
             if resp is not None and "statusCode" in resp:
                 status_code = resp["statusCode"]
                 message = resp["message"]
@@ -77,7 +82,16 @@ class PipelineFactory:
                 message = "Pipeline Creation: Unspecified Error"
             logging.error(message)
             raise Exception(f"Status {status_code}: {message}")
-        
+
+    @classmethod
+    def create_asset_from_id(cls, pipeline_id: Text) -> Pipeline:
+        warn(
+            'This method will be deprecated in the next versions of the SDK. Use "get" instead.',
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return cls.get(pipeline_id)
+
     @classmethod
     def get_assets_from_page(cls, page_number: int) -> List[Pipeline]:
         """Get the list of pipelines from a given page
@@ -88,7 +102,7 @@ class PipelineFactory:
             List[Pipeline]: List of pipelines based on given filters
         """
         try:
-            url = f"{cls.backend_url}/sdk/inventory/pipelines/?pageNumber={page_number}"
+            url = urljoin(cls.backend_url, f"sdk/inventory/pipelines/?pageNumber={page_number}")
             headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()
@@ -100,7 +114,7 @@ class PipelineFactory:
             error_message = f"Listing Pipelines: Error in getting Pipelines on Page {page_number}: {e}"
             logging.error(error_message)
             return []
-        
+
     @classmethod
     def get_first_k_assets(cls, k: int) -> List[Pipeline]:
         """Gets the first k given pipelines based on the provided task and language filters

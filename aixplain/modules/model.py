@@ -26,63 +26,78 @@ import json
 import logging
 import traceback
 from typing import List
+from aixplain.modules.asset import Asset
 from aixplain.utils import config
-from aixplain.utils.file_utils import _request_with_retry
-from typing import Union, Text, Dict
+from aixplain.utils.file_utils import _request_with_retry, path2link
+from typing import Union, Optional, Text, Dict
 
 
-class Model:
+class Model(Asset):
     """This is ready-to-use AI model. This model can be run in both synchronous and asynchronous manner.
 
     Attributes:
-        id (str): ID of the Model
-        name (str): Name of the Model
-        supplier (str): supplier of the Model
-        api_key (str): Team API Key to run the model.
-        additional_info (dict): Any additional Model info to be saved
+        id (Text): ID of the Model
+        name (Text): Name of the Model
+        description (Text, optional): description of the model. Defaults to "".
+        api_key (Text, optional): API key of the Model. Defaults to None.
+        url (Text, optional): endpoint of the model. Defaults to config.MODELS_RUN_URL.
+        supplier (Optional[Text], optional): model supplier. Defaults to "aiXplain".
+        version (Optional[Text], optional): version of the model. Defaults to "1.0".
+        **additional_info: Any additional Model info to be saved
     """
+
     def __init__(
         self,
-        id: str,
-        name: str,
-        supplier: str,
-        api_key: str,
-        url: str = config.MODELS_RUN_URL,
+        id: Text,
+        name: Text,
+        description: Text = "",
+        api_key: Optional[Text] = None,
+        url: Text = config.MODELS_RUN_URL,
+        supplier: Optional[Text] = "aiXplain",
+        version: Optional[Text] = "1.0",
         **additional_info,
     ) -> None:
-        """Create a Model with the necessary information
+        """Model Init
 
         Args:
-            id (str): ID of the Model
-            name (str): Name of the Model
-            supplier (str): supplier of the Model
-            api_key (str): Team API Key to run the model.
+            id (Text): ID of the Model
+            name (Text): Name of the Model
+            description (Text, optional): description of the model. Defaults to "".
+            api_key (Text, optional): API key of the Model. Defaults to None.
+            url (Text, optional): endpoint of the model. Defaults to config.MODELS_RUN_URL.
+            supplier (Optional[Text], optional): model supplier. Defaults to "aiXplain".
+            version (Optional[Text], optional): version of the model. Defaults to "1.0".
             **additional_info: Any additional Model info to be saved
         """
+        super().__init__(id, name, description, supplier, version)
         self.url = url
-        self.id = id
-        self.name = name
-        self.supplier = supplier
         self.api_key = api_key
         self.additional_info = additional_info
 
-    def get_asset_info(self) -> dict:
+    def _is_subscribed(self) -> bool:
+        """Returns if the model is subscribed to
+
+        Returns:
+            bool: True if subscribed
+        """
+        return self.api_key is not None
+
+    def to_dict(self) -> Dict:
         """Get the model info as a Dictionary
 
         Returns:
-            dict: Model Information
+            Dict: Model Information
         """
         clean_additional_info = {k: v for k, v in self.additional_info.items() if v is not None}
         return {"id": self.id, "name": self.name, "supplier": self.supplier, "additional_info": clean_additional_info}
 
-
-    def __polling(self, poll_url: Text, name: Text = "model_process", wait_time: int = 1, timeout: float = 300) -> Dict:
+    def __polling(self, poll_url: Text, name: Text = "model_process", wait_time: float = 1.0, timeout: float = 300) -> Dict:
         """Keeps polling the platform to check whether an asynchronous call is done.
 
         Args:
             poll_url (Text): polling URL
             name (Text, optional): ID given to a call. Defaults to "model_process".
-            wait_time (int, optional): wait time in seconds between polling calls. Defaults to 1.
+            wait_time (float, optional): wait time in seconds between polling calls. Defaults to 1.0.
             timeout (float, optional): total polling time. Defaults to 300.
 
         Returns:
@@ -102,11 +117,7 @@ class Model:
                 if wait_time < 60:
                     wait_time *= 1.1
             except Exception as e:
-                response_body = {
-                    "status": "ERROR", 
-                    "completed": False,
-                    "error": "No response from the service."
-                }
+                response_body = {"status": "ERROR", "completed": False, "error": "No response from the service."}
                 logging.error(f"Polling for Model: polling for {name}: {e}")
                 break
         if response_body["completed"] is True:
@@ -122,7 +133,6 @@ class Model:
                 f"Polling for Model: Final status of polling for {name}: No response in {timeout} seconds - {response_body}"
             )
         return response_body
-
 
     def poll(self, poll_url: Text, name: Text = "model_process") -> Dict:
         """Poll the platform to check whether an asynchronous call is done.
@@ -148,7 +158,6 @@ class Model:
             logging.error(f"Single Poll for Model: Error of polling for {name}: {e}")
         return resp
 
-    
     def run(self, data: Union[Text, Dict], name: Text = "model_process", timeout: float = 300, parameters: Dict = {}) -> Dict:
         """Runs a model call.
 
@@ -163,6 +172,7 @@ class Model:
         """
         start = time.time()
         try:
+            data = path2link(data)
             response = self.run_async(data, name=name, parameters=parameters)
             if response["status"] == "FAILED":
                 end = time.time()
@@ -177,7 +187,6 @@ class Model:
             logging.error(f"Model Run: Error in running for {name}: {e}")
             end = time.time()
             return {"status": "FAILED", "error": msg, "elapsed_time": end - start}
-
 
     def run_async(self, data: Union[Text, Dict], name: Text = "model_process", parameters: Dict = {}) -> Dict:
         """Runs asynchronously a model call.
@@ -197,7 +206,7 @@ class Model:
         else:
             try:
                 payload = json.loads(data)
-            except:
+            except Exception as e:
                 payload = {"data": data}
         payload.update(parameters)
         payload = json.dumps(payload)
