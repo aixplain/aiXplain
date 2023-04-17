@@ -25,3 +25,8 @@ Populate values in ```.env``` for pytest consumption.
 pytest
 ```
 
+## Data Asset Onboard
+
+The image below depicts the onboard process of a data asset (e.g. corpora and datasets):
+
+<img src="../assets/data-onboard.png" alt="Data Asset Onboard Process" style="height: 50%; width:50%;"/>
