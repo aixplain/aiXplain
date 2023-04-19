@@ -17,9 +17,11 @@ import warnings
 import os
 import logging
 from urllib.parse import urljoin
+from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)
 
+load_dotenv()
 BACKEND_URL = os.getenv("BACKEND_URL", "https://platform-api.aixplain.com/")
 PIPELINES_RUN_URL = os.getenv("PIPELINES_RUN_URL", "https://platform-api.aixplain.com/assets/pipeline/execution/run")
 MODELS_RUN_URL = os.getenv("MODELS_RUN_URL", "https://models.aixplain.com/api/v1/execute")
