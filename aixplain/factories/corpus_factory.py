@@ -60,6 +60,7 @@ class CorpusFactory(AssetFactory):
         """
         url = urljoin(cls.backend_url, f"sdk/inventory/corpus/{corpus_id}/overview")
         headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
+        logging.info(f"Start service for GET Corpus  - {url} - {headers}")
         r = _request_with_retry("get", url, headers=headers)
         resp = r.json()
         data = []

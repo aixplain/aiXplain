@@ -68,6 +68,7 @@ class PipelineFactory:
         try:
             url = urljoin(cls.backend_url, f"sdk/inventory/pipelines/{pipeline_id}")
             headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
+            logging.info(f"Start service for GET Pipeline  - {url} - {headers}")
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()
             pipeline = cls._create_pipeline_from_response(resp)

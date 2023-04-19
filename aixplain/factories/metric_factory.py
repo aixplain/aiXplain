@@ -69,6 +69,7 @@ class MetricFactory:
         try:
             url = urljoin(cls.backend_url, f"sdk/scores/{metric_id}")
             headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
+            logging.info(f"Start service for GET Metric  - {url} - {headers}")
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()
             metric = cls._create_metric_from_response(resp)

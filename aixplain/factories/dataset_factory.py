@@ -80,6 +80,7 @@ class DatasetFactory(AssetFactory):
         try:
             url = urljoin(cls.backend_url, f"sdk/datasets/{dataset_id}")
             headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
+            logging.info(f"Start service for GET Dataset  - {url} - {headers}")
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()
             dataset = cls._create_dataset_from_response(resp)

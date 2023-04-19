@@ -94,7 +94,7 @@ class BenchmarkFactory:
         dataset_list = [DatasetFactory().get(dataset_id) for dataset_id in response["target"]]
         metric_list = [MetricFactory().get(metric_info["id"]) for metric_info in response["score"]]
         job_list = cls._get_benchmark_jobs_from_benchmark_id(response["id"])
-        return Benchmark(response["id"], response["name"], model_list, dataset_list, metric_list, job_list)
+        return Benchmark(response["id"], response["name"], dataset_list, model_list, metric_list, job_list)
 
     @classmethod
     def get(cls, benchmark_id: str) -> Benchmark:
@@ -110,6 +110,7 @@ class BenchmarkFactory:
         try:
             url = urljoin(cls.backend_url, f"sdk/benchmarks/{benchmark_id}")
             headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
+            logging.info(f"Start service for GET Benchmark  - {url} - {headers}")
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()
             benchmark = cls._create_benchmark_from_response(resp)

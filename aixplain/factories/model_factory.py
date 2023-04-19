@@ -68,6 +68,7 @@ class ModelFactory:
         try:
             url = urljoin(cls.backend_url, f"sdk/inventory/models/{model_id}")
             headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
+            logging.info(f"Start service for GET Metric  - {url} - {headers}")
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()
             model = cls._create_model_from_response(resp)
