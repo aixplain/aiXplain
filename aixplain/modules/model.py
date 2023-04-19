@@ -26,9 +26,10 @@ import json
 import logging
 import traceback
 from typing import List
+from aixplain.factories.file_factory import FileFactory
 from aixplain.modules.asset import Asset
 from aixplain.utils import config
-from aixplain.utils.file_utils import _request_with_retry, path2link
+from aixplain.utils.file_utils import _request_with_retry
 from typing import Union, Optional, Text, Dict
 
 
@@ -172,7 +173,6 @@ class Model(Asset):
         """
         start = time.time()
         try:
-            data = path2link(data)
             response = self.run_async(data, name=name, parameters=parameters)
             if response["status"] == "FAILED":
                 end = time.time()
@@ -201,11 +201,16 @@ class Model(Asset):
         """
         headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}
 
+        data = FileFactory.to_link(data)
         if isinstance(data, dict):
             payload = data
         else:
             try:
                 payload = json.loads(data)
+                if isinstance(payload, dict) is False:
+                    if isinstance(payload, int) is True or isinstance(payload, float) is True:
+                        payload = str(payload)
+                    payload = {"data": payload}
             except Exception as e:
                 payload = {"data": data}
         payload.update(parameters)

@@ -24,9 +24,10 @@ Description:
 import time
 import json
 import logging
+from aixplain.factories.file_factory import FileFactory
 from aixplain.modules.asset import Asset
 from aixplain.utils import config
-from aixplain.utils.file_utils import _request_with_retry, path2link
+from aixplain.utils.file_utils import _request_with_retry
 from typing import Dict, Optional, Text, Union
 
 
@@ -144,7 +145,6 @@ class Pipeline(Asset):
         """
         start = time.time()
         try:
-            data = path2link(data)
             response = self.run_async(data, name=name)
             if response["status"] == "FAILED":
                 end = time.time()
@@ -173,14 +173,20 @@ class Pipeline(Asset):
         """
 
         headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}
+
+        data = FileFactory.to_link(data)
         if isinstance(data, dict):
-            payload = json.dumps(data)
+            payload = data
         else:
             try:
-                data_json = json.loads(data)
-                payload = json.dumps(data_json)
+                payload = json.loads(data)
+                if isinstance(payload, dict) is False:
+                    if isinstance(payload, int) is True or isinstance(payload, float) is True:
+                        payload = str(payload)
+                    payload = {"data": payload}
             except Exception as e:
-                payload = json.dumps({"data": data})
+                payload = {"data": data}
+        payload = json.dumps(payload)
         call_url = f"{self.url}/{self.id}"
         logging.info(f"Start service for {name}  - {call_url} - {payload}")
         r = _request_with_retry("post", call_url, headers=headers, data=payload)
