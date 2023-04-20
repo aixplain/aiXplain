@@ -22,17 +22,26 @@ Description:
 """
 
 import aixplain.utils.config as config
+import aixplain.processes.data_onboarding.onboard_functions as onboard_functions
 import logging
+import shutil
 
 from aixplain.factories.asset_factory import AssetFactory
+from aixplain.modules.data import Data
 from aixplain.modules.dataset import Dataset
+from aixplain.modules.metadata import MetaData
+from aixplain.enums.data_type import DataType
 from aixplain.enums.function import Function
 from aixplain.enums.language import Language
 from aixplain.enums.license import License
+from aixplain.enums.privacy import Privacy
 from aixplain.utils.file_utils import _request_with_retry
 from aixplain.utils import config
-from typing import Any, Dict, List, Optional, Text
+from pathlib import Path
+from tqdm import tqdm
+from typing import Any, Dict, List, Optional, Text, Union
 from urllib.parse import urljoin
+from uuid import uuid4
 from warnings import warn
 
 
@@ -163,3 +172,126 @@ class DatasetFactory(AssetFactory):
             error_message = f"Listing Datasets: Error in getting {k} Datasets for {task} : {e}"
             logging.error(error_message)
             return []
+
+    @classmethod
+    def create(
+        cls,
+        name: Text,
+        description: Text,
+        license: License,
+        function: Function,
+        content_path: Union[Union[Text, Path], List[Union[Text, Path]]],
+        input_schema: List[Union[Dict, MetaData]],
+        output_schema: List[Union[Dict, MetaData]],
+        input_ref_data: Dict[Text, Any] = {},
+        output_ref_data: Dict[Text, List[Any]] = {},
+        tags: List[Text] = [],
+        privacy: Privacy = Privacy.PRIVATE,
+    ) -> Dict:
+
+        folder, return_dict = None, {}
+        # check team key
+        try:
+            if config.TEAM_API_KEY.strip() == "":
+                message = "Data Asset Onboarding Error: Update your team key on the environment variable TEAM_API_KEY before the corpus onboarding process."
+                logging.exception(message)
+                raise Exception(message)
+
+            content_paths = content_path
+            if isinstance(content_path, list) is False:
+                content_paths = [content_path]
+
+            if isinstance(input_schema[0], MetaData) is False:
+                input_schema = [MetaData(**dict(metadata)) for metadata in input_schema]
+
+            if isinstance(output_schema[0], MetaData) is False:
+                output_schema = [MetaData(**dict(metadata)) for metadata in output_schema]
+
+            for input_data in input_ref_data:
+                if len(input_ref_data[input_data]) > 0:
+                    if isinstance(input_ref_data[input_data][0], Data):
+                        input_ref_data[input_data] = [w.id for w in input_ref_data[input_data]]
+                    # TO DO: check whether the referred data exist. Otherwise, raise an exception
+
+            for output_data in output_ref_data:
+                if len(output_ref_data[output_data]) > 0:
+                    if isinstance(output_ref_data[output_data][0], Data):
+                        output_ref_data[output_data] = [w.id for w in output_ref_data[output_data]]
+                    # TO DO: check whether the referred data exist. Otherwise, raise an exception
+
+            # check whether reserved names are used as data/column names
+            for schema in [input_schema, output_schema]:
+                for metadata in schema:
+                    for forbidden_name in onboard_functions.FORBIDDEN_COLUMN_NAMES:
+                        if forbidden_name in [metadata.name, metadata.data_column]:
+                            message = f"Data Asset Onboarding Error: {forbidden_name} is reserved name and must not be used as the name of a data or a column."
+                            logging.exception(message)
+                            raise Exception(message)
+
+            # get file extension paths to process
+            paths = onboard_functions.get_paths(content_paths)
+
+            # process data and create files
+            folder = Path(name)
+            folder.mkdir(exist_ok=True)
+
+            datasets = {}
+            for (key, schema) in [("inputs", input_schema), ("outputs", output_schema)]:
+                datasets[key] = {}
+                for i in tqdm(range(len(schema)), desc=f" Dataset's {key} onboard progress", position=0):
+                    metadata = schema[i]
+                    if metadata.privacy is None:
+                        metadata.privacy = privacy
+
+                    files, data_column_idx, start_column_idx, end_column_idx = onboard_functions.process_data_files(
+                        data_asset_name=name, metadata=metadata, paths=paths, folder=name
+                    )
+
+                    if metadata.name not in datasets[key]:
+                        datasets[key][metadata.name] = []
+
+                    datasets[key][metadata.name].append(
+                        Data(
+                            id=str(uuid4()).replace("-", ""),
+                            name=metadata.name,
+                            dtype=metadata.dtype,
+                            privacy=metadata.privacy,
+                            onboard_status="onboarding",
+                            data_column=data_column_idx,
+                            start_column=start_column_idx,
+                            end_column=end_column_idx,
+                            files=files,
+                            languages=metadata.languages,
+                        )
+                    )
+
+            # validate and flat inputs
+            for input_data in datasets["inputs"]:
+                assert len(datasets["inputs"][input_data]) == 1
+                datasets["inputs"][input_data] = datasets["inputs"][input_data][0]
+
+            dataset = Dataset(
+                id="",
+                name=name,
+                description=description,
+                function=function,
+                source_data=datasets["inputs"],
+                target_data=datasets["outputs"],
+                tags=tags,
+                license=license,
+                privacy=privacy,
+                onboard_status="onboarding",
+            )
+            dataset_payload = onboard_functions.build_payload_dataset(dataset, input_ref_data, output_ref_data, tags)
+
+            response = onboard_functions.create_data_asset(dataset_payload, data_asset_type="dataset")
+            if response["success"] is True:
+                return_dict = {"status": response["status"], "asset_id": response["asset_id"]}
+            else:
+                raise Exception(response["error"])
+            shutil.rmtree(folder)
+        except Exception as e:
+            if folder is not None:
+                shutil.rmtree(folder)
+            raise Exception(e)
+        return return_dict

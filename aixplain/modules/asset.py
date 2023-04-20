@@ -31,10 +31,10 @@ class Asset:
         id: Text,
         name: Text,
         description: Text,
-        supplier: Optional[Text] = "aiXplain",
-        version: Optional[Text] = "1.0",
+        supplier: Text = "aiXplain",
+        version: Text = "1.0",
         license: Optional[License] = None,
-        privacy: Optional[Privacy] = Privacy.PRIVATE,
+        privacy: Privacy = Privacy.PRIVATE,
     ) -> None:
         """Create an Asset with the necessary information
 

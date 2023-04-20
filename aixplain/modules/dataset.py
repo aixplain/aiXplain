@@ -27,7 +27,7 @@ from aixplain.enums.privacy import Privacy
 from aixplain.modules.asset import Asset
 from aixplain.modules.data import Data
 from aixplain.utils.file_utils import _request_with_retry, save_file
-from typing import Any, List, Optional, Text
+from typing import Any, Dict, List, Optional, Text
 
 
 class Dataset(Asset):
@@ -56,8 +56,8 @@ class Dataset(Asset):
         name: Text,
         description: Text,
         function: Function,
-        source_data: List[Data],
-        target_data: List[Data],
+        source_data: Dict[Any, Data],
+        target_data: Dict[Any, List[Data]],
         tags: Optional[List[Text]] = [],
         license: Optional[License] = None,
         privacy: Optional[Privacy] = Privacy.PRIVATE,
@@ -78,8 +78,8 @@ class Dataset(Asset):
             name (Text): Dataset Name
             description (Text): Dataset description
             function (Function): Function for which the dataset is intented to
-            source_data (List[Data]): List of input Data to the function
-            target_data (List[Data]): List of Data which expected to be outputted by the function
+            source_data (Dict[Any, Data]): List of input Data to the function
+            target_data (Dict[Any, List[Data]]): List of Multi-reference Data which is expected to be outputted by the function
             tags (Optional[List[Text]], optional): tags that describe the dataset. Defaults to [].
             license (Optional[License], optional): Dataset License. Defaults to None.
             privacy (Optional[Privacy], optional): Dataset Privacy. Defaults to Privacy.PRIVATE.

@@ -38,7 +38,7 @@ def load_licenses():
         headers = {"x-api-key": api_key, "Content-Type": "application/json"}
         r = _request_with_retry("get", url, headers=headers)
         resp = r.json()
-        return Enum("License", {"_".join(w["name"].split()): w["name"] for w in resp}, type=str)
+        return Enum("License", {"_".join(w["name"].split()): {"id": w["id"], "name": w["name"]} for w in resp}, type=dict)
     except Exception as e:
         logging.exception("License Loading Error")
         raise Exception("License Loading Error")

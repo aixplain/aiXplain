@@ -38,6 +38,7 @@ class MetaData:
         data_column: Optional[Text] = None,
         start_column: Optional[Text] = None,
         end_column: Optional[Text] = None,
+        split_column: Optional[Text] = None,
         privacy: Optional[Privacy] = None,
         file_extension: Optional[FileType] = None,
         languages: List[Language] = [],
@@ -56,6 +57,7 @@ class MetaData:
             data_column (Optional[Text], optional): Column index/name where the data is on a structured file (e.g. CSV). Defaults to None.
             start_column (Optional[Text], optional): Column index/name where the start indexes is on a structured file (e.g. CSV). Defaults to None.
             end_column (Optional[Text], optional): Column index/name where the end indexes is on a structured file (e.g. CSV). Defaults to None.
+            split_column (Optional[Text], optional): Column index/name where the split (train, validation, text) info is in a structured file (e.g. CSV). Defaults to None.
             privacy (Optional[Privacy], optional): Privacy of data. Defaults to None.
             file_extension (Optional[FileType], optional): File extension (e.g. CSV, TXT, etc.). Defaults to None.
             languages (List[Language], optional): List of languages which the data consists of. Defaults to [].
@@ -76,6 +78,7 @@ class MetaData:
 
         self.start_column = start_column
         self.end_column = end_column
+        self.split_column = split_column
 
         if isinstance(privacy, str):
             privacy = Privacy(privacy)

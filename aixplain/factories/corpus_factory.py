@@ -169,10 +169,10 @@ class CorpusFactory(AssetFactory):
         license: License,
         content_path: Union[Union[Text, Path], List[Union[Text, Path]]],
         schema: List[Union[Dict, MetaData]],
-        ref_data: Optional[List[Any]] = [],
-        tags: Optional[List[Text]] = [],
-        functions: Optional[List[Function]] = [],
-        privacy: Optional[Privacy] = Privacy.PRIVATE,
+        ref_data: List[Any] = [],
+        tags: List[Text] = [],
+        functions: List[Function] = [],
+        privacy: Privacy = Privacy.PRIVATE,
     ) -> Dict:
         """Asynchronous call to Upload a corpus to the user's dashboard.
 
@@ -195,7 +195,7 @@ class CorpusFactory(AssetFactory):
         try:
             if config.TEAM_API_KEY.strip() == "":
                 message = "Data Asset Onboarding Error: Update your team key on the environment variable TEAM_API_KEY before the corpus onboarding process."
-                logging.error(message)
+                logging.exception(message)
                 raise Exception(message)
 
             content_paths = content_path
@@ -203,7 +203,7 @@ class CorpusFactory(AssetFactory):
                 content_paths = [content_path]
 
             if isinstance(schema[0], MetaData) is False:
-                schema = [MetaData(**metadata) for metadata in schema]
+                schema = [MetaData(**dict(metadata)) for metadata in schema]
 
             if len(ref_data) > 0:
                 if isinstance(ref_data[0], Data):
@@ -263,9 +263,9 @@ class CorpusFactory(AssetFactory):
             )
             corpus_payload = onboard_functions.build_payload_corpus(corpus, ref_data)
 
-            response = onboard_functions.create_corpus(corpus_payload)
+            response = onboard_functions.create_data_asset(corpus_payload)
             if response["success"] is True:
-                return_dict = {"status": response["status"], "corpus_id": response["corpus_id"]}
+                return_dict = {"status": response["status"], "asset_id": response["asset_id"]}
             else:
                 raise Exception(response["error"])
             shutil.rmtree(folder)
