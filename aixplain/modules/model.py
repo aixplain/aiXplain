@@ -42,8 +42,8 @@ class Model(Asset):
         description (Text, optional): description of the model. Defaults to "".
         api_key (Text, optional): API key of the Model. Defaults to None.
         url (Text, optional): endpoint of the model. Defaults to config.MODELS_RUN_URL.
-        supplier (Optional[Text], optional): model supplier. Defaults to "aiXplain".
-        version (Optional[Text], optional): version of the model. Defaults to "1.0".
+        supplier (Text, optional): model supplier. Defaults to "aiXplain".
+        version (Text, optional): version of the model. Defaults to "1.0".
         **additional_info: Any additional Model info to be saved
     """
 
@@ -54,8 +54,8 @@ class Model(Asset):
         description: Text = "",
         api_key: Optional[Text] = None,
         url: Text = config.MODELS_RUN_URL,
-        supplier: Optional[Text] = "aiXplain",
-        version: Optional[Text] = "1.0",
+        supplier: Text = "aiXplain",
+        version: Text = "1.0",
         **additional_info,
     ) -> None:
         """Model Init
@@ -66,8 +66,8 @@ class Model(Asset):
             description (Text, optional): description of the model. Defaults to "".
             api_key (Text, optional): API key of the Model. Defaults to None.
             url (Text, optional): endpoint of the model. Defaults to config.MODELS_RUN_URL.
-            supplier (Optional[Text], optional): model supplier. Defaults to "aiXplain".
-            version (Optional[Text], optional): version of the model. Defaults to "1.0".
+            supplier (Text, optional): model supplier. Defaults to "aiXplain".
+            version (Text, optional): version of the model. Defaults to "1.0".
             **additional_info: Any additional Model info to be saved
         """
         super().__init__(id, name, description, supplier, version)

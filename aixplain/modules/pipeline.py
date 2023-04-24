@@ -39,8 +39,8 @@ class Pipeline(Asset):
         name (Text): Name of the Pipeline
         api_key (Text): Team API Key to run the Pipeline.
         url (Text, optional): running URL of platform. Defaults to config.PIPELINES_RUN_URL.
-        supplier (Optional[Text], optional): Pipeline supplier. Defaults to "aiXplain".
-        version (Optional[Text], optional): version of the pipeline. Defaults to "1.0".
+        supplier (Text, optional): Pipeline supplier. Defaults to "aiXplain".
+        version (Text, optional): version of the pipeline. Defaults to "1.0".
         **additional_info: Any additional Pipeline info to be saved
     """
 
@@ -50,8 +50,8 @@ class Pipeline(Asset):
         name: Text,
         api_key: Text,
         url: Text = config.PIPELINES_RUN_URL,
-        supplier: Optional[Text] = "aiXplain",
-        version: Optional[Text] = "1.0",
+        supplier: Text = "aiXplain",
+        version: Text = "1.0",
         **additional_info,
     ) -> None:
         """Create a Pipeline with the necessary information
@@ -61,8 +61,8 @@ class Pipeline(Asset):
             name (Text): Name of the Pipeline
             api_key (Text): Team API Key to run the Pipeline.
             url (Text, optional): running URL of platform. Defaults to config.PIPELINES_RUN_URL.
-            supplier (Optional[Text], optional): Pipeline supplier. Defaults to "aiXplain".
-            version (Optional[Text], optional): version of the pipeline. Defaults to "1.0".
+            supplier (Text, optional): Pipeline supplier. Defaults to "aiXplain".
+            version (Text, optional): version of the pipeline. Defaults to "1.0".
             **additional_info: Any additional Pipeline info to be saved
         """
         super().__init__(id, name, "", supplier, version)
