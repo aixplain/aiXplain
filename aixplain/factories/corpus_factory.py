@@ -79,12 +79,18 @@ class CorpusFactory(AssetFactory):
                 )
             )
         functions = [Function(f) for f in resp["suggestedFunction"]]
-        # TO DO: add license of the corpus
+
+        try:
+            license = License(resp["license"]["typeId"])
+        except:
+            license = None
+
         corpus = Corpus(
             id=resp["id"],
             name=resp["name"],
             description=resp["description"],
             functions=functions,
+            license=license,
             data=data,
             onboard_status=resp["status"],
         )

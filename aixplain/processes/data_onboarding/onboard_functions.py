@@ -128,7 +128,7 @@ def build_payload_corpus(corpus: Corpus, ref_data: List[Text]) -> Dict:
         "tags": corpus.tags,
         "pricing": {"type": "FREE", "cost": 0},
         "privacy": corpus.privacy.value,
-        "license": {"typeId": corpus.license.value["id"]},
+        "license": {"typeId": corpus.license.value},
         "refData": ref_data,
         "data": [],
     }
@@ -153,7 +153,7 @@ def build_payload_dataset(
         "function": dataset.function.value,
         "tags": dataset.tags,
         "privacy": dataset.privacy.value,
-        "license": {"typeId": dataset.license.value["id"]},
+        "license": {"typeId": dataset.license.value},
         "refData": ref_data,
         "tags": tags,
         "data": [],
@@ -178,6 +178,7 @@ def build_payload_dataset(
 
     # compute output data
     output = {}
+    index += 1
     for output_name in dataset.target_data:
         output_data = {"index": index, "name": output_name, "dataIds": []}
         for data in dataset.target_data[output_name]:
@@ -199,9 +200,6 @@ def build_payload_dataset(
             index += 1
             output[output_name] = output_data
     payload["output"] = list(output.values())
-
-    assert len(payload["input"]) > 0, "Data Asset Onboarding Error: Please specify the input data of your dataset."
-    assert len(payload["output"]) > 0, "Data Asset Onboarding Error: Please specify the output data of your dataset."
     return payload
 
 

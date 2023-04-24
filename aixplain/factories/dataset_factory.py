@@ -85,24 +85,59 @@ class DatasetFactory(AssetFactory):
         Returns:
             Dataset: Created 'Dataset' object
         """
-        resp = None
+        url = urljoin(cls.backend_url, f"sdk/inventory/dataset/{dataset_id}/overview")
+        headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
+        logging.info(f"Start service for GET Dataset  - {url} - {headers}")
+        r = _request_with_retry("get", url, headers=headers)
+        resp = r.json()
+
+        # process data
+        data = {}
+        for d in resp["data"]:
+            languages = []
+            if "languages" in d["metadata"]:
+                languages = [Language(lng) for lng in d["metadata"]["languages"]]
+            data[d["id"]] = Data(
+                id=d["id"],
+                name=d["name"],
+                dtype=DataType(d["dataType"]),
+                privacy=Privacy.PRIVATE,
+                languages=languages,
+                onboard_status=d["status"],
+            )
+
+        # process input data
+        source_data = {}
+        for inp in resp["input"]:
+            data_id = inp["dataId"]
+            source_data[data[data_id].name] = data[data_id]
+
+        # process output data
+        target_data = {}
+        for out in resp["output"]:
+            target_data_list = [data[data_id] for data_id in out["dataIds"]]
+            data_name = target_data_list[0].name
+            target_data[data_name] = target_data_list
+
+        # process function
+        function = Function(resp["function"])
+
+        # process license
         try:
-            url = urljoin(cls.backend_url, f"sdk/datasets/{dataset_id}")
-            headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
-            logging.info(f"Start service for GET Dataset  - {url} - {headers}")
-            r = _request_with_retry("get", url, headers=headers)
-            resp = r.json()
-            dataset = cls._create_dataset_from_response(resp)
-        except Exception as e:
-            status_code = 400
-            if resp is not None and "statusCode" in resp:
-                status_code = resp["statusCode"]
-                message = resp["message"]
-                message = f"Datset Creation: Status {status_code} - {message}"
-            else:
-                message = "Dataset Creation: Unspecified Error"
-            logging.error(message)
-            raise Exception(f"Status {status_code}: {message}")
+            license = License(resp["license"]["typeId"])
+        except:
+            license = None
+
+        dataset = Dataset(
+            id=resp["id"],
+            name=resp["name"],
+            description=resp["description"],
+            function=function,
+            license=license,
+            source_data=source_data,
+            target_data=target_data,
+            onboard_status=resp["status"],
+        )
         return dataset
 
     @classmethod
@@ -283,6 +318,12 @@ class DatasetFactory(AssetFactory):
                 onboard_status="onboarding",
             )
             dataset_payload = onboard_functions.build_payload_dataset(dataset, input_ref_data, output_ref_data, tags)
+            assert (
+                len(dataset_payload["input"]) > 0
+            ), "Data Asset Onboarding Error: Please specify the input data of your dataset."
+            assert (
+                len(dataset_payload["output"]) > 0
+            ), "Data Asset Onboarding Error: Please specify the output data of your dataset."
 
             response = onboard_functions.create_data_asset(dataset_payload, data_asset_type="dataset")
             if response["success"] is True:

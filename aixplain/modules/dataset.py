@@ -23,6 +23,7 @@ Description:
 
 from aixplain.enums.function import Function
 from aixplain.enums.license import License
+from aixplain.enums.onboard_status import OnboardStatus
 from aixplain.enums.privacy import Privacy
 from aixplain.modules.asset import Asset
 from aixplain.modules.data import Data
@@ -41,13 +42,14 @@ class Dataset(Asset):
         name (Text): Dataset Name
         description (Text): Dataset description
         function (Function): Function for which the dataset is intented to
-        source_data (List[Data]): List of input Data to the function
-        target_data (List[Data]): List of Data which expected to be outputted by the function
-        tags (Optional[List[Text]], optional): tags that describe the dataset. Defaults to [].
+        source_data (Dict[Any, Data]): List of input Data to the function
+        target_data (Dict[Any, List[Data]]): List of Multi-reference Data which is expected to be outputted by the function
+        onboard_status (OnboardStatus): onboard status
+        tags (List[Text], optional): tags that describe the dataset. Defaults to [].
         license (Optional[License], optional): Dataset License. Defaults to None.
-        privacy (Optional[Privacy], optional): Dataset Privacy. Defaults to Privacy.PRIVATE.
-        supplier (Optional[Text], optional): Dataset Supplier. Defaults to "aiXplain".
-        version (Optional[Text], optional): Dataset Version. Defaults to "1.0".
+        privacy (Privacy, optional): Dataset Privacy. Defaults to Privacy.PRIVATE.
+        supplier (Text, optional): Dataset Supplier. Defaults to "aiXplain".
+        version (Text, optional): Dataset Version. Defaults to "1.0".
     """
 
     def __init__(
@@ -58,11 +60,12 @@ class Dataset(Asset):
         function: Function,
         source_data: Dict[Any, Data],
         target_data: Dict[Any, List[Data]],
-        tags: Optional[List[Text]] = [],
+        onboard_status: OnboardStatus,
+        tags: List[Text] = [],
         license: Optional[License] = None,
-        privacy: Optional[Privacy] = Privacy.PRIVATE,
-        supplier: Optional[Text] = "aiXplain",
-        version: Optional[Text] = "1.0",
+        privacy: Privacy = Privacy.PRIVATE,
+        supplier: Text = "aiXplain",
+        version: Text = "1.0",
         **kwargs,
     ) -> None:
         """Dataset Class.
@@ -80,15 +83,19 @@ class Dataset(Asset):
             function (Function): Function for which the dataset is intented to
             source_data (Dict[Any, Data]): List of input Data to the function
             target_data (Dict[Any, List[Data]]): List of Multi-reference Data which is expected to be outputted by the function
-            tags (Optional[List[Text]], optional): tags that describe the dataset. Defaults to [].
+            tags (List[Text], optional): tags that describe the dataset. Defaults to [].
+            onboard_status (OnboardStatus): onboard status
             license (Optional[License], optional): Dataset License. Defaults to None.
-            privacy (Optional[Privacy], optional): Dataset Privacy. Defaults to Privacy.PRIVATE.
-            supplier (Optional[Text], optional): Dataset Supplier. Defaults to "aiXplain".
-            version (Optional[Text], optional): Dataset Version. Defaults to "1.0".
+            privacy (Privacy, optional): Dataset Privacy. Defaults to Privacy.PRIVATE.
+            supplier (Text, optional): Dataset Supplier. Defaults to "aiXplain".
+            version (Text, optional): Dataset Version. Defaults to "1.0".
         """
         super().__init__(
             id=id, name=name, description=description, supplier=supplier, version=version, license=license, privacy=privacy
         )
+        if isinstance(onboard_status, str):
+            onboard_status = OnboardStatus(onboard_status)
+        self.onboard_status = onboard_status
         self.function = function
         self.source_data = source_data
         self.target_data = target_data
