@@ -23,6 +23,7 @@ Description:
 
 import aixplain.utils.config as config
 import aixplain.processes.data_onboarding.onboard_functions as onboard_functions
+import json
 import logging
 import shutil
 
@@ -49,6 +50,53 @@ class CorpusFactory(AssetFactory):
     backend_url = config.BACKEND_URL
 
     @classmethod
+    def __from_response(cls, response: Dict) -> Corpus:
+        """Converts Json response to 'Corpus' object
+
+        Args:
+            response (dict): Json from API
+
+        Returns:
+            Dataset: Coverted 'Dataset' object
+        """
+        data = []
+        for d in response["data"]:
+            languages = []
+            if "languages" in d["metadata"]:
+                languages = []
+                for lng in d["metadata"]["languages"]:
+                    if "dialect" not in lng:
+                        lng["dialect"] = ""
+                    languages.append(Language(lng))
+            data.append(
+                Data(
+                    id=d["id"],
+                    name=d["name"],
+                    dtype=DataType(d["dataType"]),
+                    privacy=Privacy.PRIVATE,
+                    languages=languages,
+                    onboard_status=d["status"],
+                )
+            )
+        functions = [Function(f) for f in response["suggestedFunction"]]
+
+        try:
+            license = License(response["license"]["typeId"])
+        except:
+            license = None
+
+        corpus = Corpus(
+            id=response["id"],
+            name=response["name"],
+            description=response["description"],
+            functions=functions,
+            license=license,
+            data=data,
+            onboard_status=response["status"],
+        )
+        return corpus
+
+    @classmethod
     def get(cls, corpus_id: Text) -> Corpus:
         """Create a 'Corpus' object from corpus id
 
@@ -63,38 +111,7 @@ class CorpusFactory(AssetFactory):
         logging.info(f"Start service for GET Corpus  - {url} - {headers}")
         r = _request_with_retry("get", url, headers=headers)
         resp = r.json()
-        data = []
-        for d in resp["data"]:
-            languages = []
-            if "languages" in d["metadata"]:
-                languages = [Language(lng) for lng in d["metadata"]["languages"]]
-            data.append(
-                Data(
-                    id=d["id"],
-                    name=d["name"],
-                    dtype=DataType(d["dataType"]),
-                    privacy=Privacy.PRIVATE,
-                    languages=languages,
-                    onboard_status=d["status"],
-                )
-            )
-        functions = [Function(f) for f in resp["suggestedFunction"]]
-
-        try:
-            license = License(resp["license"]["typeId"])
-        except:
-            license = None
-
-        corpus = Corpus(
-            id=resp["id"],
-            name=resp["name"],
-            description=resp["description"],
-            functions=functions,
-            license=license,
-            data=data,
-            onboard_status=resp["status"],
-        )
-        return corpus
+        return cls.__from_response(resp)
 
     @classmethod
     def create_asset_from_id(cls, corpus_id: Text) -> Corpus:
@@ -106,8 +123,75 @@ class CorpusFactory(AssetFactory):
         return cls.get(corpus_id)
 
     @classmethod
+    def list(
+        cls,
+        query: Optional[Text] = None,
+        function: Optional[Function] = None,
+        languages: List[Language] = [],
+        data_type: Optional[DataType] = None,
+        license: Optional[License] = None,
+        page_number: int = 0,
+        page_size: int = 20,
+    ) -> List[Corpus]:
+        """Corpus Listing
+
+        Args:
+            query (Optional[Text], optional): search query. Defaults to None.
+            function (Optional[Function], optional): function filter. Defaults to None.
+            languages (List[Language], optional): language filter. Defaults to [].
+            data_type (Optional[DataType], optional): data type filter. Defaults to None.
+            license (Optional[License], optional): license filter. Defaults to None.
+            page_number (int, optional): page number. Defaults to 0.
+            page_size (int, optional): page size. Defaults to 20.
+
+        Returns:
+            List[Corpus]: list of corpora in agreement with the filters
+        """
+        url = urljoin(config.BACKEND_URL, "sdk/inventory/corpus/paginate")
+        headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+
+        assert 0 < page_size <= 100, f"Corpus List Error: Page size must be greater than 0 and not exceed 100."
+        payload = {"pageSize": page_size, "pageNumber": page_number, "sort": [{"field": "createdAt", "dir": -1}]}
+
+        if query is not None:
+            payload["q"] = str(query)
+
+        if function is not None:
+            payload["function"] = function.value
+
+        if license is not None:
+            payload["license"] = license.value
+
+        if data_type is not None:
+            payload["dataType"] = data_type.value
+
+        if len(languages) > 0:
+            payload["language"] = [lng.value["language"] for lng in languages]
+
+        logging.info(f"Start service for POST List Corpus - {url} - {headers} - {json.dumps(payload)}")
+        r = _request_with_retry("post", url, headers=headers, json=payload)
+        resp = r.json()
+        corpora = []
+        if "results" in resp:
+            results = resp["results"]
+            page_total = resp["pageTotal"]
+            total = resp["total"]
+            logging.info(f"Response for POST List Corpus - Page Total: {page_total} / Total: {total}")
+            for corpus in results:
+                corpus_ = cls.__from_response(corpus)
+                # add languages
+                languages = []
+                for lng in corpus["languages"]:
+                    if "dialect" not in lng:
+                        lng["dialect"] = ""
+                    languages.append(Language(lng))
+                corpus_.kwargs["languages"] = languages
+                corpora.append(corpus_)
+        return corpora
+
+    @classmethod
     def get_assets_from_page(
-        cls, page_number: Optional[int] = 1, task: Optional[Function] = None, language: Optional[Text] = None
+        cls, page_number: int = 1, task: Optional[Function] = None, language: Optional[Text] = None
     ) -> List[Corpus]:
         """Get the list of corpora from a given page. Additional task and language filters can be also be provided
 
@@ -119,53 +203,14 @@ class CorpusFactory(AssetFactory):
         Returns:
             List[Corpus]: List of corpora based on given filters
         """
-        try:
-            url = urljoin(config.BACKEND_URL, "sdk/inventory/corpus")
-            headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
-
-            payload = {
-                # "q": "",
-                # "function": task,
-                # "dataType": "text",
-                # "license": None
-            }
-            if task is not None:
-                payload["function"] = task.value
-            r = _request_with_retry("post", url, headers=headers, json=payload)
-            resp = r.json()
-
-            corpora = []
-            if resp["total"] > 0:
-                for corpus_row in resp["results"]:
-                    functions = [Function(f) for f in corpus_row["suggestedFunction"]]
-                    corpus = Corpus(
-                        id=corpus_row["id"],
-                        name=corpus_row["name"],
-                        description=corpus_row["description"],
-                        functions=functions,
-                        data=[],
-                        onboard_status="onboarded",
-                    )
-                    corpora.append(corpus)
-            return corpora
-        except Exception as e:
-            error_message = f"Listing Corpora: Error in getting Corpora on Page {page_number} : {e}"
-            logging.error(error_message)
-            return []
-
-    @classmethod
-    def get_first_k_assets(cls, k: int, task: Optional[Function] = None, language: Optional[Text] = None) -> List[Corpus]:
-        """Gets the first k given corpora based on the provided task and language filters
-
-        Args:
-            k (int): Number of corpora to get
-            task (Function, optional): Task of listed corpora. Defaults to None.
-            language (Text, optional): language of listed corpora. Defaults to None.
-
-        Returns:
-            List[Corpus]: List of datasets based on given filters
-        """
-        raise NotImplementedError("Not implemented function.")
+        warn(
+            'This method will be deprecated in the next versions of the SDK. Use "list" instead.',
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        if language is not None:
+            language = [language]
+        return cls.list(function=task, page_number=page_number, languages=language)
 
     @classmethod
     def create_corpus(

@@ -142,6 +142,17 @@ def build_payload_corpus(corpus: Corpus, ref_data: List[Text]) -> Dict:
 def build_payload_dataset(
     dataset: Dataset, input_ref_data: Dict[Text, Any], output_ref_data: Dict[Text, List[Any]], tags: List[Text]
 ) -> Dict:
+    """Generate onboard payload to coreengine
+
+    Args:
+        dataset (Dataset): dataset to be onboard
+        input_ref_data (Dict[Text, Any]): reference to existent input data
+        output_ref_data (Dict[Text, List[Any]]): reference to existent output data
+        tags (List[Text]): description tags
+
+    Returns:
+        Dict: onboard payload
+    """
     # compute ref data
     flat_input_ref_data = [item for sublist in list(input_ref_data.values()) for item in sublist]
     flat_output_ref_data = [item for sublist in list(output_ref_data.values()) for item in sublist]
@@ -204,6 +215,15 @@ def build_payload_dataset(
 
 
 def create_data_asset(payload: Dict, data_asset_type: Text = "corpus") -> Dict:
+    """Service to call onboard process in coreengine
+
+    Args:
+        payload (Dict): onboard payload
+        data_asset_type (Text, optional): corpus or dataset. Defaults to "corpus".
+
+    Returns:
+        Dict: onboard status
+    """
     team_key = config.TEAM_API_KEY
     headers = {"Authorization": "token " + team_key}
 

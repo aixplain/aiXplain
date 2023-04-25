@@ -23,6 +23,7 @@ Description:
 
 import aixplain.utils.config as config
 import aixplain.processes.data_onboarding.onboard_functions as onboard_functions
+import json
 import logging
 import shutil
 
@@ -57,7 +58,7 @@ class DatasetFactory(AssetFactory):
     backend_url = config.BACKEND_URL
 
     @classmethod
-    def _create_dataset_from_response(cls, response: Dict) -> Dataset:
+    def __from_response(cls, response: Dict) -> Dataset:
         """Converts response Json to 'Dataset' object
 
         Args:
@@ -66,14 +67,58 @@ class DatasetFactory(AssetFactory):
         Returns:
             Dataset: Coverted 'Dataset' object
         """
-        return Dataset(
+        # process data
+        data = {}
+        for d in response["data"]:
+            languages = []
+            if "languages" in d["metadata"]:
+                languages = [Language(lng) for lng in d["metadata"]["languages"]]
+            data[d["id"]] = Data(
+                id=d["id"],
+                name=d["name"],
+                dtype=DataType(d["dataType"]),
+                privacy=Privacy.PRIVATE,
+                languages=languages,
+                onboard_status=d["status"],
+            )
+
+        # process input data
+        source_data = {}
+        for inp in response["input"]:
+            data_id = inp["dataId"]
+            if data_id in data:
+                source_data[data[data_id].name] = data[data_id]
+
+        # process output data
+        target_data = {}
+        for out in response["output"]:
+            try:
+                target_data_list = [data[data_id] for data_id in out["dataIds"]]
+                data_name = target_data_list[0].name
+                target_data[data_name] = target_data_list
+            except:
+                pass
+
+        # process function
+        function = Function(response["function"])
+
+        # process license
+        try:
+            license = License(response["license"]["typeId"])
+        except:
+            license = None
+
+        dataset = Dataset(
             id=response["id"],
             name=response["name"],
             description=response["description"],
-            function=Function.SPEECH_RECOGNITION,
-            source_data=[],
-            target_data=[],
+            function=function,
+            license=license,
+            source_data=source_data,
+            target_data=target_data,
+            onboard_status=response["status"],
         )
+        return dataset
 
     @classmethod
     def get(cls, dataset_id: Text) -> Dataset:
@@ -91,54 +136,7 @@ class DatasetFactory(AssetFactory):
         r = _request_with_retry("get", url, headers=headers)
         resp = r.json()
 
-        # process data
-        data = {}
-        for d in resp["data"]:
-            languages = []
-            if "languages" in d["metadata"]:
-                languages = [Language(lng) for lng in d["metadata"]["languages"]]
-            data[d["id"]] = Data(
-                id=d["id"],
-                name=d["name"],
-                dtype=DataType(d["dataType"]),
-                privacy=Privacy.PRIVATE,
-                languages=languages,
-                onboard_status=d["status"],
-            )
-
-        # process input data
-        source_data = {}
-        for inp in resp["input"]:
-            data_id = inp["dataId"]
-            source_data[data[data_id].name] = data[data_id]
-
-        # process output data
-        target_data = {}
-        for out in resp["output"]:
-            target_data_list = [data[data_id] for data_id in out["dataIds"]]
-            data_name = target_data_list[0].name
-            target_data[data_name] = target_data_list
-
-        # process function
-        function = Function(resp["function"])
-
-        # process license
-        try:
-            license = License(resp["license"]["typeId"])
-        except:
-            license = None
-
-        dataset = Dataset(
-            id=resp["id"],
-            name=resp["name"],
-            description=resp["description"],
-            function=function,
-            license=license,
-            source_data=source_data,
-            target_data=target_data,
-            onboard_status=resp["status"],
-        )
-        return dataset
+        return cls.__from_response(resp)
 
     @classmethod
     def create_asset_from_id(cls, dataset_id: Text) -> Dataset:
@@ -148,6 +146,66 @@ class DatasetFactory(AssetFactory):
             stacklevel=2,
         )
         return cls.get(dataset_id)
+
+    @classmethod
+    def list(
+        cls,
+        query: Optional[Text] = None,
+        function: Optional[Function] = None,
+        languages: List[Language] = [],
+        data_type: Optional[DataType] = None,
+        license: Optional[License] = None,
+        page_number: int = 0,
+        page_size: int = 20,
+    ) -> List[Dataset]:
+        """Listing Datasets
+
+        Args:
+            query (Optional[Text], optional): search query. Defaults to None.
+            function (Optional[Function], optional): function filter. Defaults to None.
+            languages (List[Language], optional): language filter. Defaults to [].
+            data_type (Optional[DataType], optional): data type filter. Defaults to None.
+            license (Optional[License], optional): license filter. Defaults to None.
+            page_number (int, optional): page number. Defaults to 0.
+            page_size (int, optional): page size. Defaults to 20.
+
+        Returns:
+            List[Dataset]: list of datasets which are in agreement with the filters
+        """
+        url = urljoin(config.BACKEND_URL, "sdk/inventory/dataset/paginate")
+        headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+
+        assert 0 < page_size <= 100, f"Dataset List Error: Page size must be greater than 0 and not exceed 100."
+        payload = {"pageSize": page_size, "pageNumber": page_number, "sort": [{"field": "createdAt", "dir": -1}]}
+
+        if query is not None:
+            payload["q"] = str(query)
+
+        if function is not None:
+            payload["function"] = function.value
+
+        if license is not None:
+            payload["license"] = license.value
+
+        if data_type is not None:
+            payload["dataType"] = data_type.value
+
+        if len(languages) > 0:
+            payload["language"] = [lng.value["language"] for lng in languages]
+
+        logging.info(f"Start service for POST List Dataset - {url} - {headers} - {json.dumps(payload)}")
+        r = _request_with_retry("post", url, headers=headers, json=payload)
+        resp = r.json()
+
+        datasets = []
+        if "results" in resp:
+            results = resp["results"]
+            page_total = resp["pageTotal"]
+            total = resp["total"]
+            logging.info(f"Response for POST List Dataset - Page Total: {page_total} / Total: {total}")
+            for dataset in results:
+                datasets.append(cls.__from_response(dataset))
+        return datasets
 
     @classmethod
     def get_assets_from_page(
@@ -164,23 +222,12 @@ class DatasetFactory(AssetFactory):
         Returns:
             List[Dataset]: List of datasets based on given filters
         """
-        try:
-            url = urljoin(cls.backend_url, f"sdk/datasets?pageNumber={page_number}&function={task}")
-            if input_language is not None:
-                url += f"&input={input_language}"
-            if output_language is not None:
-                url += f"&output={output_language}"
-            headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
-            r = _request_with_retry("get", url, headers=headers)
-            resp = r.json()
-            logging.info(f"Listing Datasets: Status of getting Datasets on Page {page_number} for {task} : {resp}")
-            all_datasets = resp["results"]
-            dataset_list = [cls._create_dataset_from_response(dataset_info_json) for dataset_info_json in all_datasets]
-            return dataset_list
-        except Exception as e:
-            error_message = f"Listing Datasets: Error in getting Datasets on Page {page_number} for {task} : {e}"
-            logging.error(error_message)
-            return []
+        warn(
+            'This method will be deprecated in the next versions of the SDK. Use "list" instead.',
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return cls.list(function=task, page_number=page_number)
 
     @classmethod
     def get_first_k_assets(
@@ -197,16 +244,12 @@ class DatasetFactory(AssetFactory):
         Returns:
             List[Dataset]: List of datasets based on given filters
         """
-        try:
-            dataset_list = []
-            assert k > 0
-            for page_number in range(k // 10 + 1):
-                dataset_list += cls.get_assets_from_page(page_number, task, input_language, output_language)
-            return dataset_list[0:k]
-        except Exception as e:
-            error_message = f"Listing Datasets: Error in getting {k} Datasets for {task} : {e}"
-            logging.error(error_message)
-            return []
+        warn(
+            'This method will be deprecated in the next versions of the SDK. Use "list" instead.',
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return cls.list(function=task, page_size=k)
 
     @classmethod
     def create(
@@ -223,7 +266,24 @@ class DatasetFactory(AssetFactory):
         tags: List[Text] = [],
         privacy: Privacy = Privacy.PRIVATE,
     ) -> Dict:
+        """Dataset Onboard
 
+        Args:
+            name (Text): dataset name
+            description (Text): dataset description
+            license (License): dataset license
+            function (Function): dataset function
+            content_path (Union[Union[Text, Path], List[Union[Text, Path]]]): path to files which contain the data content
+            input_schema (List[Union[Dict, MetaData]]): metadata of inputs
+            output_schema (List[Union[Dict, MetaData]]): metadata of outputs
+            input_ref_data (Dict[Text, Any], optional): reference to input data which is already in the platform. Defaults to {}.
+            output_ref_data (Dict[Text, List[Any]], optional): reference to output data which is already in the platform. Defaults to {}.
+            tags (List[Text], optional): datasets description tags. Defaults to [].
+            privacy (Privacy, optional): dataset privacy. Defaults to Privacy.PRIVATE.
+
+        Returns:
+            Dict: dataset onboard status
+        """
         folder, return_dict = None, {}
         # check team key
         try:
