@@ -213,7 +213,7 @@ class CorpusFactory(AssetFactory):
         return cls.list(function=task, page_number=page_number, languages=language)
 
     @classmethod
-    def create_corpus(
+    def create(
         cls,
         name: Text,
         description: Text,

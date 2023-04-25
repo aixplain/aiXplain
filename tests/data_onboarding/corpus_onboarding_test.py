@@ -37,7 +37,7 @@ def test_corpus_onboarding():
         {"name": "text", "dtype": "text", "storage_type": "text", "languages": [Language.English_UNITED_STATES]},
     ]
 
-    payload = CorpusFactory.create_corpus(
+    payload = CorpusFactory.create(
         name=str(uuid4()),
         description="This corpus contain 20 English audios with their corresponding transcriptions.",
         license=License.MIT,

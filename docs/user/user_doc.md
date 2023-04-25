@@ -123,6 +123,10 @@ dataset_list = DatasetFactory.get_first_k_assets(k=5, task="translation", input_
 ```
 Note: This does not download datasets to your local machine.
 
+### Dataset Onboarding
+
+Using the aiXplain SDK, you can also onboard your dataset into the aiXplain platform. A step-by-step example on how to do it can be accessed [here](/docs/samples/dataset_onboarding/dataset_onboarding.ipynb).
+
 ## Metrics
 aiXplain has an impressive library of metrics for various machine learning tasks like Translation, Speech Recognition, Diacritization, and Sentiment Analysis. There are reference similarity metrics, human evaluation estimation metrics, and referenceless metrics.
 
