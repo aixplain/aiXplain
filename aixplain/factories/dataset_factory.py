@@ -265,6 +265,7 @@ class DatasetFactory(AssetFactory):
         output_ref_data: Dict[Text, List[Any]] = {},
         tags: List[Text] = [],
         privacy: Privacy = Privacy.PRIVATE,
+        split_schema: Optional[Union[Dict, MetaData]] = None,
     ) -> Dict:
         """Dataset Onboard
 
@@ -280,6 +281,7 @@ class DatasetFactory(AssetFactory):
             output_ref_data (Dict[Text, List[Any]], optional): reference to output data which is already in the platform. Defaults to {}.
             tags (List[Text], optional): datasets description tags. Defaults to [].
             privacy (Privacy, optional): dataset privacy. Defaults to Privacy.PRIVATE.
+            split_schema (Optional[Union[Dict, MetaData]], optional): meta data for data splitting. Defaults to None.
 
         Returns:
             Dict: dataset onboard status
@@ -301,6 +303,9 @@ class DatasetFactory(AssetFactory):
 
             if isinstance(output_schema[0], MetaData) is False:
                 output_schema = [MetaData(**dict(metadata)) for metadata in output_schema]
+
+            if split_schema is not None and isinstance(split_schema, MetaData) is False:
+                split_schema = MetaData(**dict(split_schema))
 
             for input_data in input_ref_data:
                 if len(input_ref_data[input_data]) > 0:
@@ -339,7 +344,7 @@ class DatasetFactory(AssetFactory):
                         metadata.privacy = privacy
 
                     files, data_column_idx, start_column_idx, end_column_idx = onboard_functions.process_data_files(
-                        data_asset_name=name, metadata=metadata, paths=paths, folder=name
+                        data_asset_name=name, metadata=metadata, paths=paths, folder=name, split_data=split_schema
                     )
 
                     if metadata.name not in datasets[key]:
