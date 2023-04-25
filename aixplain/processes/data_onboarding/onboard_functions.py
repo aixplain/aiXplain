@@ -257,3 +257,27 @@ def create_data_asset(payload: Dict, data_asset_type: Text = "corpus") -> Dict:
                 f"Data Asset Onboarding Error: Failure on creating the {data_asset_type}. Please contant the administrators."
             )
         return {"success": False, "error": error_msg}
+
+
+def is_data(data_id: Text) -> bool:
+    """Check whether reference data exists
+
+    Args:
+        data_id (Text): ID of the data
+
+    Returns:
+        bool: True if it exists, False otherwise
+    """
+    try:
+        api_key = config.TEAM_API_KEY
+        backend_url = config.BACKEND_URL
+        url = urljoin(backend_url, f"sdk/inventory/data/{data_id}/overview")
+        headers = {"Authorization": f"Token {api_key}", "Content-Type": "application/json"}
+        r = _request_with_retry("get", url, headers=headers)
+        resp = r.json()
+
+        if "id" in resp:
+            return True
+        return False
+    except:
+        return False

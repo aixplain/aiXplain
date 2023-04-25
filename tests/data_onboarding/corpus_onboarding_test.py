@@ -22,7 +22,7 @@ from aixplain.enums.license import License
 from aixplain.factories.corpus_factory import CorpusFactory
 from uuid import uuid4
 
-
+# TO DO: test getters and listers, reference data (when exists and when it does not) to all assets
 def test_corpus_onboarding():
     upload_file = "tests/data_onboarding/input/audio-en_url.csv"
     schema = [

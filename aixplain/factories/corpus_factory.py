@@ -132,7 +132,7 @@ class CorpusFactory(AssetFactory):
         license: Optional[License] = None,
         page_number: int = 0,
         page_size: int = 20,
-    ) -> List[Corpus]:
+    ) -> Dict:
         """Corpus Listing
 
         Args:
@@ -145,7 +145,7 @@ class CorpusFactory(AssetFactory):
             page_size (int, optional): page size. Defaults to 20.
 
         Returns:
-            List[Corpus]: list of corpora in agreement with the filters
+            Dict: list of corpora in agreement with the filters, page number, page total and total elements
         """
         url = urljoin(config.BACKEND_URL, "sdk/inventory/corpus/paginate")
         headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
@@ -171,7 +171,7 @@ class CorpusFactory(AssetFactory):
         logging.info(f"Start service for POST List Corpus - {url} - {headers} - {json.dumps(payload)}")
         r = _request_with_retry("post", url, headers=headers, json=payload)
         resp = r.json()
-        corpora = []
+        corpora, page_total, total = [], 0, 0
         if "results" in resp:
             results = resp["results"]
             page_total = resp["pageTotal"]
@@ -187,7 +187,7 @@ class CorpusFactory(AssetFactory):
                     languages.append(Language(lng))
                 corpus_.kwargs["languages"] = languages
                 corpora.append(corpus_)
-        return corpora
+        return {"results": corpora, "page_total": page_total, "page_number": page_number, "total": total}
 
     @classmethod
     def get_assets_from_page(
@@ -249,17 +249,27 @@ class CorpusFactory(AssetFactory):
                 logging.exception(message)
                 raise Exception(message)
 
+            assert (
+                len(schema) > 0 or len(ref_data) > 0
+            ), "Data Asset Onboarding Error: You must specify a data to onboard a corpus."
+
             content_paths = content_path
             if isinstance(content_path, list) is False:
                 content_paths = [content_path]
 
-            if isinstance(schema[0], MetaData) is False:
-                schema = [MetaData(**dict(metadata)) for metadata in schema]
+            for i, metadata in enumerate(schema):
+                if isinstance(metadata, dict):
+                    schema[i] = MetaData(**metadata)
 
             if len(ref_data) > 0:
                 if isinstance(ref_data[0], Data):
                     ref_data = [w.id for w in ref_data]
-                # TO DO: check whether the referred data exist. Otherwise, raise an exception
+                # check whether the referred data exist. Otherwise, raise an exception
+                for data_id in ref_data:
+                    if onboard_functions.is_data(data_id) is False:
+                        message = f"Data Asset Onboarding Error: Referenced Data {data_id} does not exist."
+                        logging.exception(message)
+                        raise Exception(message)
 
             # check whether reserved names are used as data/column names
             for metadata in schema:

@@ -157,7 +157,7 @@ class DatasetFactory(AssetFactory):
         license: Optional[License] = None,
         page_number: int = 0,
         page_size: int = 20,
-    ) -> List[Dataset]:
+    ) -> Dict:
         """Listing Datasets
 
         Args:
@@ -170,7 +170,7 @@ class DatasetFactory(AssetFactory):
             page_size (int, optional): page size. Defaults to 20.
 
         Returns:
-            List[Dataset]: list of datasets which are in agreement with the filters
+            Dict: list of datasets in agreement with the filters, page number, page total and total elements
         """
         url = urljoin(config.BACKEND_URL, "sdk/inventory/dataset/paginate")
         headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
@@ -197,7 +197,7 @@ class DatasetFactory(AssetFactory):
         r = _request_with_retry("post", url, headers=headers, json=payload)
         resp = r.json()
 
-        datasets = []
+        datasets, page_total, total = [], 0, 0
         if "results" in resp:
             results = resp["results"]
             page_total = resp["pageTotal"]
@@ -205,7 +205,7 @@ class DatasetFactory(AssetFactory):
             logging.info(f"Response for POST List Dataset - Page Total: {page_total} / Total: {total}")
             for dataset in results:
                 datasets.append(cls.__from_response(dataset))
-        return datasets
+        return {"results": datasets, "page_total": page_total, "page_number": page_number, "total": total}
 
     @classmethod
     def get_assets_from_page(
@@ -298,26 +298,43 @@ class DatasetFactory(AssetFactory):
             if isinstance(content_path, list) is False:
                 content_paths = [content_path]
 
-            if isinstance(input_schema[0], MetaData) is False:
-                input_schema = [MetaData(**dict(metadata)) for metadata in input_schema]
+            assert (
+                len(input_schema) > 0 or len(input_ref_data) > 0
+            ), "Data Asset Onboarding Error: You must specify an input data to onboard a dataset."
+            for i, metadata in enumerate(input_schema):
+                if isinstance(metadata, dict):
+                    input_schema[i] = MetaData(**metadata)
 
-            if isinstance(output_schema[0], MetaData) is False:
-                output_schema = [MetaData(**dict(metadata)) for metadata in output_schema]
+            assert (
+                len(output_schema) > 0 or len(output_ref_data) > 0
+            ), "Data Asset Onboarding Error: You must specify an output data to onboard a dataset."
+            for i, metadata in enumerate(output_schema):
+                if isinstance(metadata, dict):
+                    output_schema[i] = MetaData(**metadata)
 
             if split_schema is not None and isinstance(split_schema, MetaData) is False:
                 split_schema = MetaData(**dict(split_schema))
 
             for input_data in input_ref_data:
-                if len(input_ref_data[input_data]) > 0:
-                    if isinstance(input_ref_data[input_data][0], Data):
-                        input_ref_data[input_data] = [w.id for w in input_ref_data[input_data]]
-                    # TO DO: check whether the referred data exist. Otherwise, raise an exception
+                if isinstance(input_ref_data[input_data], Data):
+                    input_ref_data[input_data] = input_ref_data[input_data].id
+                # check whether the referred data exist. Otherwise, raise an exception
+                data_id = input_ref_data[input_data]
+                if onboard_functions.is_data(data_id) is False:
+                    message = f"Data Asset Onboarding Error: Referenced Input Data {data_id} does not exist."
+                    logging.exception(message)
+                    raise Exception(message)
 
             for output_data in output_ref_data:
                 if len(output_ref_data[output_data]) > 0:
                     if isinstance(output_ref_data[output_data][0], Data):
                         output_ref_data[output_data] = [w.id for w in output_ref_data[output_data]]
-                    # TO DO: check whether the referred data exist. Otherwise, raise an exception
+                    # check whether the referred data exist. Otherwise, raise an exception
+                    for data_id in output_ref_data[output_data]:
+                        if onboard_functions.is_data(data_id) is False:
+                            message = f"Data Asset Onboarding Error: Referenced Output Data {data_id} does not exist."
+                            logging.exception(message)
+                            raise Exception(message)
 
             # check whether reserved names are used as data/column names
             for schema in [input_schema, output_schema]:

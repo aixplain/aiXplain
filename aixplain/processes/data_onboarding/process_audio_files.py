@@ -54,7 +54,6 @@ def run(
     files, batch, split, start_times, end_times = [], [], [], [], []
     for i in tqdm(range(len(paths)), desc=f' Data "{metadata.name}" onboarding progress', position=1, leave=False):
         path = paths[i]
-        # TO DO: extract the split from file name
         try:
             dataframe = pd.read_csv(path)
         except Exception as e:
