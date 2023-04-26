@@ -159,7 +159,7 @@ def build_payload_dataset(
         Dict: onboard payload
     """
     # compute ref data
-    flat_input_ref_data = [item for sublist in list(input_ref_data.values()) for item in sublist]
+    flat_input_ref_data = list(input_ref_data.values())
     flat_output_ref_data = [item for sublist in list(output_ref_data.values()) for item in sublist]
     ref_data = flat_input_ref_data + flat_output_ref_data
 

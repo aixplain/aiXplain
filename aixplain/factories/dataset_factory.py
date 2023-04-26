@@ -152,9 +152,10 @@ class DatasetFactory(AssetFactory):
         cls,
         query: Optional[Text] = None,
         function: Optional[Function] = None,
-        languages: List[Language] = [],
+        language: Optional[Union[Language, List[Language]]] = None,
         data_type: Optional[DataType] = None,
         license: Optional[License] = None,
+        has_reference: Optional[bool] = None,
         page_number: int = 0,
         page_size: int = 20,
     ) -> Dict:
@@ -163,9 +164,10 @@ class DatasetFactory(AssetFactory):
         Args:
             query (Optional[Text], optional): search query. Defaults to None.
             function (Optional[Function], optional): function filter. Defaults to None.
-            languages (List[Language], optional): language filter. Defaults to [].
+            language (Optional[Union[Language, List[Language]]], optional): language filter. Defaults to None.
             data_type (Optional[DataType], optional): data type filter. Defaults to None.
             license (Optional[License], optional): license filter. Defaults to None.
+            has_reference (Optional[bool], optional): has reference filter. Defaults to None.
             page_number (int, optional): page number. Defaults to 0.
             page_size (int, optional): page size. Defaults to 20.
 
@@ -190,8 +192,13 @@ class DatasetFactory(AssetFactory):
         if data_type is not None:
             payload["dataType"] = data_type.value
 
-        if len(languages) > 0:
-            payload["language"] = [lng.value["language"] for lng in languages]
+        if has_reference is not None:
+            payload["has_reference"] = has_reference
+
+        if language is not None:
+            if isinstance(language, Language):
+                language = [language]
+            payload["language"] = [lng.value["language"] for lng in language]
 
         logging.info(f"Start service for POST List Dataset - {url} - {headers} - {json.dumps(payload)}")
         r = _request_with_retry("post", url, headers=headers, json=payload)

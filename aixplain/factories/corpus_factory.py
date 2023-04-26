@@ -127,7 +127,7 @@ class CorpusFactory(AssetFactory):
         cls,
         query: Optional[Text] = None,
         function: Optional[Function] = None,
-        languages: List[Language] = [],
+        language: Optional[Union[Language, List[Language]]] = None,
         data_type: Optional[DataType] = None,
         license: Optional[License] = None,
         page_number: int = 0,
@@ -138,7 +138,7 @@ class CorpusFactory(AssetFactory):
         Args:
             query (Optional[Text], optional): search query. Defaults to None.
             function (Optional[Function], optional): function filter. Defaults to None.
-            languages (List[Language], optional): language filter. Defaults to [].
+            language (Optional[Union[Language, List[Language]]], optional): language filter. Defaults to None.
             data_type (Optional[DataType], optional): data type filter. Defaults to None.
             license (Optional[License], optional): license filter. Defaults to None.
             page_number (int, optional): page number. Defaults to 0.
@@ -165,8 +165,10 @@ class CorpusFactory(AssetFactory):
         if data_type is not None:
             payload["dataType"] = data_type.value
 
-        if len(languages) > 0:
-            payload["language"] = [lng.value["language"] for lng in languages]
+        if language is not None:
+            if isinstance(language, Language):
+                language = [language]
+            payload["language"] = [lng.value["language"] for lng in language]
 
         logging.info(f"Start service for POST List Corpus - {url} - {headers} - {json.dumps(payload)}")
         r = _request_with_retry("post", url, headers=headers, json=payload)

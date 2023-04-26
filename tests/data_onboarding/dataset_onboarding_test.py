@@ -17,15 +17,14 @@ limitations under the License.
 """
 
 import pytest
-from aixplain.enums.language import Language
-from aixplain.enums.license import License
-from aixplain.factories.corpus_factory import CorpusFactory
+from aixplain.enums import Function, Language, License, Privacy
+from aixplain.factories import DatasetFactory
 from uuid import uuid4
 
 
-def test_corpus_onboard():
+def test_dataset_onboard():
     upload_file = "tests/data_onboarding/input/audio-en_url.csv"
-    schema = [
+    meta1 = [
         {
             "name": "audio",
             "dtype": "audio",
@@ -34,24 +33,28 @@ def test_corpus_onboard():
             "end_column": "audio_end_time",
             "languages": [Language.English_UNITED_STATES],
         },
-        {"name": "text", "dtype": "text", "storage_type": "text", "languages": [Language.English_UNITED_STATES]},
     ]
+    meta2 = [{"name": "text", "dtype": "text", "storage_type": "text", "languages": [Language.English_UNITED_STATES]}]
 
-    payload = CorpusFactory.create(
+    response = DatasetFactory.create(
         name=str(uuid4()),
-        description="This corpus contain 20 English audios with their corresponding transcriptions.",
+        description="Test dataset",
         license=License.MIT,
+        function=Function.TRANSLATION,
         content_path=upload_file,
-        schema=schema,
+        input_schema=meta1,
+        output_schema=meta2,
+        tags=[],
+        privacy=Privacy.PRIVATE,
     )
-    assert payload["status"] == "onboarding"
+    assert response["status"] == "onboarding"
 
 
-def test_corpus_listing():
-    response = CorpusFactory.list()
+def test_dataset_listing():
+    response = DatasetFactory.list()
     assert "results" in response
 
 
-def test_corpus_get_error():
+def test_dataset_get_error():
     with pytest.raises(Exception):
-        response = CorpusFactory.get("131312")
+        response = DatasetFactory.get("131312")
