@@ -89,6 +89,13 @@ class DatasetFactory(AssetFactory):
             if data_id in data:
                 source_data[data[data_id].name] = data[data_id]
 
+        # process metadata
+        metadata = {}
+        for inp in response["metadata"]:
+            data_id = inp["dataId"]
+            if data_id in data:
+                metadata[data[data_id].name] = data[data_id]
+
         # process output data
         target_data = {}
         for out in response["output"]:
@@ -116,6 +123,7 @@ class DatasetFactory(AssetFactory):
             license=license,
             source_data=source_data,
             target_data=target_data,
+            metadata=metadata,
             onboard_status=response["status"],
         )
         return dataset
@@ -268,8 +276,10 @@ class DatasetFactory(AssetFactory):
         content_path: Union[Union[Text, Path], List[Union[Text, Path]]],
         input_schema: List[Union[Dict, MetaData]],
         output_schema: List[Union[Dict, MetaData]],
+        metadata_schema: List[Union[Dict, MetaData]] = [],
         input_ref_data: Dict[Text, Any] = {},
         output_ref_data: Dict[Text, List[Any]] = {},
+        meta_ref_data: Dict[Text, Any] = {},
         tags: List[Text] = [],
         privacy: Privacy = Privacy.PRIVATE,
         split_schema: Optional[Union[Dict, MetaData]] = None,
@@ -284,8 +294,10 @@ class DatasetFactory(AssetFactory):
             content_path (Union[Union[Text, Path], List[Union[Text, Path]]]): path to files which contain the data content
             input_schema (List[Union[Dict, MetaData]]): metadata of inputs
             output_schema (List[Union[Dict, MetaData]]): metadata of outputs
+            metadata_schema (List[Union[Dict, MetaData]], optional): metadata of metadata information of the dataset. Defaults to [].
             input_ref_data (Dict[Text, Any], optional): reference to input data which is already in the platform. Defaults to {}.
             output_ref_data (Dict[Text, List[Any]], optional): reference to output data which is already in the platform. Defaults to {}.
+            meta_ref_data (Dict[Text, Any], optional): metadata which is already in the platform. Defaults to {}.
             tags (List[Text], optional): datasets description tags. Defaults to [].
             privacy (Privacy, optional): dataset privacy. Defaults to Privacy.PRIVATE.
             split_schema (Optional[Union[Dict, MetaData]], optional): meta data for data splitting. Defaults to None.
@@ -319,6 +331,10 @@ class DatasetFactory(AssetFactory):
                 if isinstance(metadata, dict):
                     output_schema[i] = MetaData(**metadata)
 
+            for i, metadata in enumerate(metadata_schema):
+                if isinstance(metadata, dict):
+                    metadata_schema[i] = MetaData(**metadata)
+
             if split_schema is not None and isinstance(split_schema, MetaData) is False:
                 split_schema = MetaData(**dict(split_schema))
 
@@ -343,8 +359,18 @@ class DatasetFactory(AssetFactory):
                             logging.exception(message)
                             raise Exception(message)
 
+            for meta_data in meta_ref_data:
+                if isinstance(meta_ref_data[meta_data], Data):
+                    meta_ref_data[meta_data] = meta_ref_data[meta_data].id
+                # check whether the referred data exist. Otherwise, raise an exception
+                data_id = meta_ref_data[meta_data]
+                if onboard_functions.is_data(data_id) is False:
+                    message = f"Data Asset Onboarding Error: Referenced Meta Data {data_id} does not exist."
+                    logging.exception(message)
+                    raise Exception(message)
+
             # check whether reserved names are used as data/column names
-            for schema in [input_schema, output_schema]:
+            for schema in [input_schema, output_schema, metadata_schema]:
                 for metadata in schema:
                     for forbidden_name in onboard_functions.FORBIDDEN_COLUMN_NAMES:
                         if forbidden_name in [metadata.name, metadata.data_column]:
@@ -360,7 +386,7 @@ class DatasetFactory(AssetFactory):
             folder.mkdir(exist_ok=True)
 
             datasets = {}
-            for (key, schema) in [("inputs", input_schema), ("outputs", output_schema)]:
+            for (key, schema) in [("inputs", input_schema), ("outputs", output_schema), ("meta", metadata_schema)]:
                 datasets[key] = {}
                 for i in tqdm(range(len(schema)), desc=f" Dataset's {key} onboard progress", position=0):
                     metadata = schema[i]
@@ -389,10 +415,11 @@ class DatasetFactory(AssetFactory):
                         )
                     )
 
-            # validate and flat inputs
-            for input_data in datasets["inputs"]:
-                assert len(datasets["inputs"][input_data]) == 1
-                datasets["inputs"][input_data] = datasets["inputs"][input_data][0]
+            # validate and flat inputs and metadata
+            for key_schema in ["inputs", "meta"]:
+                for input_data in datasets[key_schema]:
+                    assert len(datasets[key_schema][input_data]) == 1
+                    datasets[key_schema][input_data] = datasets[key_schema][input_data][0]
 
             dataset = Dataset(
                 id="",
@@ -401,12 +428,15 @@ class DatasetFactory(AssetFactory):
                 function=function,
                 source_data=datasets["inputs"],
                 target_data=datasets["outputs"],
+                metadata=datasets["meta"],
                 tags=tags,
                 license=license,
                 privacy=privacy,
                 onboard_status="onboarding",
             )
-            dataset_payload = onboard_functions.build_payload_dataset(dataset, input_ref_data, output_ref_data, tags)
+            dataset_payload = onboard_functions.build_payload_dataset(
+                dataset, input_ref_data, output_ref_data, meta_ref_data, tags
+            )
             assert (
                 len(dataset_payload["input"]) > 0
             ), "Data Asset Onboarding Error: Please specify the input data of your dataset."

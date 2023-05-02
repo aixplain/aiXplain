@@ -145,7 +145,11 @@ def build_payload_corpus(corpus: Corpus, ref_data: List[Text]) -> Dict:
 
 
 def build_payload_dataset(
-    dataset: Dataset, input_ref_data: Dict[Text, Any], output_ref_data: Dict[Text, List[Any]], tags: List[Text]
+    dataset: Dataset,
+    input_ref_data: Dict[Text, Any],
+    output_ref_data: Dict[Text, List[Any]],
+    meta_ref_data: Dict[Text, Any],
+    tags: List[Text],
 ) -> Dict:
     """Generate onboard payload to coreengine
 
@@ -153,6 +157,7 @@ def build_payload_dataset(
         dataset (Dataset): dataset to be onboard
         input_ref_data (Dict[Text, Any]): reference to existent input data
         output_ref_data (Dict[Text, List[Any]]): reference to existent output data
+        meta_ref_data (Dict[Text, Any]): reference to existent metadata
         tags (List[Text]): description tags
 
     Returns:
@@ -161,7 +166,8 @@ def build_payload_dataset(
     # compute ref data
     flat_input_ref_data = list(input_ref_data.values())
     flat_output_ref_data = [item for sublist in list(output_ref_data.values()) for item in sublist]
-    ref_data = flat_input_ref_data + flat_output_ref_data
+    flat_meta_ref_data = list(meta_ref_data.values())
+    ref_data = flat_input_ref_data + flat_output_ref_data + flat_meta_ref_data
 
     payload = {
         "name": dataset.name,
@@ -177,6 +183,7 @@ def build_payload_dataset(
         "metadata": [],
     }
 
+    # INPUT DATA
     # compute ref input data
     index = 1
     for data_name in dataset.source_data:
@@ -192,9 +199,25 @@ def build_payload_dataset(
         payload["input"].append({"index": index, "name": data_name, "dataId": input_ref_data[data_name]})
         index += 1
 
+    # METADATA
+    index = 1
+    for data_name in dataset.metadata:
+        data = dataset.metadata[data_name]
+        data_json = build_payload_data(data)
+        data_json["tempId"] = data.id
+        payload["data"].append(data_json)
+        payload["metadata"].append({"index": index, "name": data.name, "dataId": data.id})
+        index += 1
+
+    # process meta ref data
+    for data_name in meta_ref_data:
+        payload["metadata"].append({"index": index, "name": data_name, "dataId": meta_ref_data[data_name]})
+        index += 1
+
+    # OUTPUT DATA
     # compute output data
     output = {}
-    index += 1
+    index = 1
     for output_name in dataset.target_data:
         output_data = {"index": index, "name": output_name, "dataIds": []}
         for data in dataset.target_data[output_name]:
