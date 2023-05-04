@@ -144,6 +144,7 @@ def build_payload_dataset(
     dataset: Dataset,
     input_ref_data: Dict[Text, Any],
     output_ref_data: Dict[Text, List[Any]],
+    hypotheses_ref_data: Dict[Text, Any],
     meta_ref_data: Dict[Text, Any],
     tags: List[Text],
 ) -> Dict:
@@ -153,6 +154,7 @@ def build_payload_dataset(
         dataset (Dataset): dataset to be onboard
         input_ref_data (Dict[Text, Any]): reference to existent input data
         output_ref_data (Dict[Text, List[Any]]): reference to existent output data
+        hypotheses_ref_data (Dict[Text, Any]): reference to existent hypotheses to the target data
         meta_ref_data (Dict[Text, Any]): reference to existent metadata
         tags (List[Text]): description tags
 
@@ -163,7 +165,8 @@ def build_payload_dataset(
     flat_input_ref_data = list(input_ref_data.values())
     flat_output_ref_data = [item for sublist in list(output_ref_data.values()) for item in sublist]
     flat_meta_ref_data = list(meta_ref_data.values())
-    ref_data = flat_input_ref_data + flat_output_ref_data + flat_meta_ref_data
+    flat_hypotheses_ref_data = list(hypotheses_ref_data.values())
+    ref_data = flat_input_ref_data + flat_output_ref_data + flat_meta_ref_data + flat_hypotheses_ref_data
 
     payload = {
         "name": dataset.name,
@@ -176,6 +179,7 @@ def build_payload_dataset(
         "tags": tags,
         "data": [],
         "input": [],
+        "hypotheses": [],
         "metadata": [],
     }
 
@@ -193,6 +197,21 @@ def build_payload_dataset(
     # process input ref data
     for data_name in input_ref_data:
         payload["input"].append({"index": index, "name": data_name, "dataId": input_ref_data[data_name]})
+        index += 1
+
+    # HYPOTHESES
+    index = 1
+    for data_name in dataset.hypotheses:
+        data = dataset.hypotheses[data_name]
+        data_json = build_payload_data(data)
+        data_json["tempId"] = data.id
+        payload["data"].append(data_json)
+        payload["hypotheses"].append({"index": index, "name": data.name, "dataId": data.id})
+        index += 1
+
+    # process hypotheses ref data
+    for data_name in hypotheses_ref_data:
+        payload["hypotheses"].append({"index": index, "name": data_name, "dataId": hypotheses_ref_data[data_name]})
         index += 1
 
     # METADATA

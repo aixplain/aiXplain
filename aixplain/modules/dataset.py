@@ -45,6 +45,7 @@ class Dataset(Asset):
         source_data (Dict[Any, Data]): List of input Data to the function
         target_data (Dict[Any, List[Data]]): List of Multi-reference Data which is expected to be outputted by the function
         onboard_status (OnboardStatus): onboard status
+        hypotheses (Dict[Any, Data], optional): dataset's hypotheses, i.e. model outputs based on the source data. Defaults to {}.
         metadata (Dict[Any, Data], optional): dataset's metadata. Defaults to {}.
         tags (List[Text], optional): tags that describe the dataset. Defaults to [].
         license (Optional[License], optional): Dataset License. Defaults to None.
@@ -62,6 +63,7 @@ class Dataset(Asset):
         source_data: Dict[Any, Data],
         target_data: Dict[Any, List[Data]],
         onboard_status: OnboardStatus,
+        hypotheses: Dict[Any, Data] = {},
         metadata: Dict[Any, Data] = {},
         tags: List[Text] = [],
         license: Optional[License] = None,
@@ -86,6 +88,7 @@ class Dataset(Asset):
             source_data (Dict[Any, Data]): List of input Data to the function
             target_data (Dict[Any, List[Data]]): List of Multi-reference Data which is expected to be outputted by the function
             onboard_status (OnboardStatus): onboard status
+            hypotheses (Dict[Any, Data], optional): dataset's hypotheses, i.e. model outputs based on the source data. Defaults to {}.
             metadata (Dict[Any, Data], optional): dataset's metadata. Defaults to {}.
             tags (List[Text], optional): tags that describe the dataset. Defaults to [].
             license (Optional[License], optional): Dataset License. Defaults to None.
@@ -102,6 +105,7 @@ class Dataset(Asset):
         self.function = function
         self.source_data = source_data
         self.target_data = target_data
+        self.hypotheses = hypotheses
         self.metadata = metadata
         self.tags = tags
         self.kwargs = kwargs
