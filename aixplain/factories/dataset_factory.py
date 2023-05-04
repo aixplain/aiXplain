@@ -73,7 +73,12 @@ class DatasetFactory(AssetFactory):
         for d in response["data"]:
             languages = []
             if "languages" in d["metadata"]:
-                languages = [Language(lng) for lng in d["metadata"]["languages"]]
+                languages = []
+                for lng in d["metadata"]["languages"]:
+                    if "dialect" not in lng:
+                        lng["dialect"] = ""
+                    languages.append(Language(lng))
+
             data[d["id"]] = Data(
                 id=d["id"],
                 name=d["name"],
