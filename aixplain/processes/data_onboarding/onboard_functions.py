@@ -51,11 +51,7 @@ def get_paths(input_paths: List[Union[str, Path]]) -> List[Path]:
 
 
 def process_data_files(
-    data_asset_name: str,
-    metadata: MetaData,
-    paths: List,
-    folder: Optional[Union[str, Path]] = None,
-    split_data: Optional[MetaData] = None,
+    data_asset_name: str, metadata: MetaData, paths: List, folder: Optional[Union[str, Path]] = None
 ) -> Tuple[List[File], int, int, int]:
     """Process a list of local files, compress and upload them to pre-signed URLs in S3
 
@@ -64,7 +60,6 @@ def process_data_files(
         metadata (MetaData): meta data of the asset
         paths (List): list of paths to local files
         folder (Union[str, Path], optional): local folder to save compressed files before upload them to s3. Defaults to data_asset_name.
-        split_data (Optional[MetaData], optional): info regarding data split into train, val and test. Defaults to None.
 
     Returns:
         Tuple[List[File], int]: list of s3 links; data, start and end columns index
@@ -77,10 +72,10 @@ def process_data_files(
     files = []
     data_column_idx, start_column_idx, end_column_idx = -1, -1, -1
     if metadata.dtype in [DataType.TEXT, DataType.LABEL]:
-        files, data_column_idx = process_text_files.run(metadata=metadata, paths=paths, folder=folder, split_data=split_data)
+        files, data_column_idx = process_text_files.run(metadata=metadata, paths=paths, folder=folder)
     elif metadata.dtype in [DataType.AUDIO]:
         files, data_column_idx, start_column_idx, end_column_idx = process_audio_files.run(
-            metadata=metadata, paths=paths, folder=folder, split_data=split_data
+            metadata=metadata, paths=paths, folder=folder
         )
     return files, data_column_idx, start_column_idx, end_column_idx
 
@@ -98,9 +93,10 @@ def build_payload_data(data: Data) -> Dict:
         "name": data.name,
         "dataColumn": data.data_column,
         "dataType": data.dtype.value,
+        "dataSubtype": data.subtype.value,
         "batches": [{"tempFilePath": str(file.path), "order": idx + 1} for idx, file in enumerate(data.files)],
         "tags": [],
-        "metaData": {},
+        "metaData": {"languages": []},
     }
 
     if len(data.languages) > 0:

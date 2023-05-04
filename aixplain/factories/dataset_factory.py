@@ -31,6 +31,7 @@ from aixplain.factories.asset_factory import AssetFactory
 from aixplain.modules.data import Data
 from aixplain.modules.dataset import Dataset
 from aixplain.modules.metadata import MetaData
+from aixplain.enums.data_subtype import DataSubtype
 from aixplain.enums.data_type import DataType
 from aixplain.enums.function import Function
 from aixplain.enums.language import Language
@@ -77,6 +78,7 @@ class DatasetFactory(AssetFactory):
                 id=d["id"],
                 name=d["name"],
                 dtype=DataType(d["dataType"]),
+                subtype=DataSubtype(d["dataSubtype"]),
                 privacy=Privacy.PRIVATE,
                 languages=languages,
                 onboard_status=d["status"],
@@ -163,7 +165,7 @@ class DatasetFactory(AssetFactory):
         language: Optional[Union[Language, List[Language]]] = None,
         data_type: Optional[DataType] = None,
         license: Optional[License] = None,
-        has_reference: Optional[bool] = None,
+        is_referenceless: Optional[bool] = None,
         page_number: int = 0,
         page_size: int = 20,
     ) -> Dict:
@@ -175,7 +177,7 @@ class DatasetFactory(AssetFactory):
             language (Optional[Union[Language, List[Language]]], optional): language filter. Defaults to None.
             data_type (Optional[DataType], optional): data type filter. Defaults to None.
             license (Optional[License], optional): license filter. Defaults to None.
-            has_reference (Optional[bool], optional): has reference filter. Defaults to None.
+            is_referenceless (Optional[bool], optional): has reference filter. Defaults to None.
             page_number (int, optional): page number. Defaults to 0.
             page_size (int, optional): page size. Defaults to 20.
 
@@ -200,8 +202,8 @@ class DatasetFactory(AssetFactory):
         if data_type is not None:
             payload["dataType"] = data_type.value
 
-        if has_reference is not None:
-            payload["has_reference"] = has_reference
+        if is_referenceless is not None:
+            payload["isReferenceless"] = is_referenceless
 
         if language is not None:
             if isinstance(language, Language):
@@ -282,7 +284,6 @@ class DatasetFactory(AssetFactory):
         meta_ref_data: Dict[Text, Any] = {},
         tags: List[Text] = [],
         privacy: Privacy = Privacy.PRIVATE,
-        split_schema: Optional[Union[Dict, MetaData]] = None,
     ) -> Dict:
         """Dataset Onboard
 
@@ -300,7 +301,6 @@ class DatasetFactory(AssetFactory):
             meta_ref_data (Dict[Text, Any], optional): metadata which is already in the platform. Defaults to {}.
             tags (List[Text], optional): datasets description tags. Defaults to [].
             privacy (Privacy, optional): dataset privacy. Defaults to Privacy.PRIVATE.
-            split_schema (Optional[Union[Dict, MetaData]], optional): meta data for data splitting. Defaults to None.
 
         Returns:
             Dict: dataset onboard status
@@ -334,9 +334,6 @@ class DatasetFactory(AssetFactory):
             for i, metadata in enumerate(metadata_schema):
                 if isinstance(metadata, dict):
                     metadata_schema[i] = MetaData(**metadata)
-
-            if split_schema is not None and isinstance(split_schema, MetaData) is False:
-                split_schema = MetaData(**dict(split_schema))
 
             for input_data in input_ref_data:
                 if isinstance(input_ref_data[input_data], Data):
@@ -394,7 +391,7 @@ class DatasetFactory(AssetFactory):
                         metadata.privacy = privacy
 
                     files, data_column_idx, start_column_idx, end_column_idx = onboard_functions.process_data_files(
-                        data_asset_name=name, metadata=metadata, paths=paths, folder=name, split_data=split_schema
+                        data_asset_name=name, metadata=metadata, paths=paths, folder=name
                     )
 
                     if metadata.name not in datasets[key]:
@@ -405,6 +402,7 @@ class DatasetFactory(AssetFactory):
                             id=str(uuid4()).replace("-", ""),
                             name=metadata.name,
                             dtype=metadata.dtype,
+                            subtype=metadata.subtype,
                             privacy=metadata.privacy,
                             onboard_status="onboarding",
                             data_column=data_column_idx,

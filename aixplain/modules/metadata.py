@@ -21,6 +21,7 @@ Description:
     Meta-data Class
 """
 
+from aixplain.enums.data_subtype import DataSubtype
 from aixplain.enums.data_type import DataType
 from aixplain.enums.file_type import FileType
 from aixplain.enums.language import Language
@@ -41,6 +42,7 @@ class MetaData:
         privacy: Optional[Privacy] = None,
         file_extension: Optional[FileType] = None,
         languages: List[Language] = [],
+        subtype: DataSubtype = DataSubtype.OTHER,
         **kwargs
     ) -> None:
         """MetaData Class
@@ -59,6 +61,7 @@ class MetaData:
             privacy (Optional[Privacy], optional): Privacy of data. Defaults to None.
             file_extension (Optional[FileType], optional): File extension (e.g. CSV, TXT, etc.). Defaults to None.
             languages (List[Language], optional): List of languages which the data consists of. Defaults to [].
+            subtype (DataSubtype, optional): Data subtype (e.g., age, topic, race, split, etc.), used in datasets metadata. Defaults to Other.
         """
         self.name = name
         if isinstance(dtype, str):
@@ -87,4 +90,5 @@ class MetaData:
             if isinstance(language, str):
                 language = Language(language)
             self.languages.append(language)
+        self.subtype = subtype
         self.kwargs = kwargs

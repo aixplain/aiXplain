@@ -31,9 +31,7 @@ def process_text(content: str, storage_type: StorageType) -> Text:
     return text
 
 
-def run(
-    metadata: MetaData, paths: List, folder: Path, batch_size: int = 1000, split_data: Optional[MetaData] = None
-) -> Tuple[List[File], int]:
+def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 1000) -> Tuple[List[File], int]:
     """Process a list of local textual files, compress and upload them to pre-signed URLs in S3
 
     Explanation:
@@ -44,7 +42,6 @@ def run(
         metadata (MetaData): meta data of the asset
         paths (List): list of paths to local files
         folder (Path): local folder to save compressed files before upload them to s3.
-        split_data (Optional[MetaData], optional): info regarding data split into train, val and test. Defaults to None.
 
     Returns:
         Tuple[List[File], int]: list of s3 links and data colum index
@@ -52,7 +49,7 @@ def run(
     logging.debug(f'Data Asset Onboarding: Processing "{metadata.name}".')
     idx = 0
     data_column_idx = -1
-    files, batch, split = [], [], []
+    files, batch = [], []
     for i in tqdm(range(len(paths)), desc=f' Data "{metadata.name}" onboarding progress', position=1, leave=False):
         path = paths[i]
         try:
@@ -80,23 +77,23 @@ def run(
                     f'Data Asset Onboarding: The instance "{row}" of "{metadata.name}" could not be processed and will be skipped.'
                 )
 
-            if split_data is not None:
-                try:
-                    split_row = str(row[split_data.name]).upper()
-                except Exception as e:
-                    message = (
-                        f'Data Asset Onboarding Error: Split Column "{split_data.name}" not found in the local file {path}.'
-                    )
-                    logging.exception(message)
-                    raise Exception(message)
+            # if split_data is not None:
+            #     try:
+            #         split_row = str(row[split_data.name]).upper()
+            #     except Exception as e:
+            #         message = (
+            #             f'Data Asset Onboarding Error: Split Column "{split_data.name}" not found in the local file {path}.'
+            #         )
+            #         logging.exception(message)
+            #         raise Exception(message)
 
-                assert split_row in [
-                    "TRAIN",
-                    "VALIDATION",
-                    "TEST",
-                ], f'Data Asset Onboarding Error: Split Column must consist of "TRAIN", "VALIDATION", "TEST" labels.'
+            #     assert split_row in [
+            #         "TRAIN",
+            #         "VALIDATION",
+            #         "TEST",
+            #     ], f'Data Asset Onboarding Error: Split Column must consist of "TRAIN", "VALIDATION", "TEST" labels.'
 
-                split.append(split_row)
+            #     split.append(split_row)
 
             idx += 1
             if ((idx + 1) % batch_size) == 0:
@@ -106,15 +103,12 @@ def run(
                 df = pd.DataFrame({metadata.name: batch})
                 start, end = idx - len(batch), idx
                 df["@INDEX"] = range(start, end)
-                # add split info
-                if len(split) > 0:
-                    df["@SPLIT"] = split
                 df.to_csv(file_name, compression="gzip", index=False)
                 s3_link = upload_data(file_name, content_type="text/csv", content_encoding="gzip")
                 files.append(File(path=s3_link, extension=FileType.CSV, compression="gzip"))
                 # get data column index
                 data_column_idx = df.columns.to_list().index(metadata.name)
-                batch, split = [], []
+                batch = []
 
     if len(batch) > 0:
         batch_index = str(len(files) + 1).zfill(8)
@@ -123,13 +117,10 @@ def run(
         df = pd.DataFrame({metadata.name: batch})
         start, end = idx - len(batch), idx
         df["@INDEX"] = range(start, end)
-        # add split info
-        if len(split) > 0:
-            df["@SPLIT"] = split
         df.to_csv(file_name, compression="gzip", index=False)
         s3_link = upload_data(file_name, content_type="text/csv", content_encoding="gzip")
         files.append(File(path=s3_link, extension=FileType.CSV, compression="gzip"))
         # get data column index
         data_column_idx = df.columns.to_list().index(metadata.name)
-        batch, split = [], []
+        batch = []
     return files, data_column_idx

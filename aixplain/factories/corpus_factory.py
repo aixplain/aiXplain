@@ -31,6 +31,7 @@ from aixplain.factories.asset_factory import AssetFactory
 from aixplain.modules.corpus import Corpus
 from aixplain.modules.data import Data
 from aixplain.modules.metadata import MetaData
+from aixplain.enums.data_subtype import DataSubtype
 from aixplain.enums.data_type import DataType
 from aixplain.enums.function import Function
 from aixplain.enums.language import Language
@@ -73,6 +74,7 @@ class CorpusFactory(AssetFactory):
                     id=d["id"],
                     name=d["name"],
                     dtype=DataType(d["dataType"]),
+                    subtype=DataSubtype(d["dataSubtype"]),
                     privacy=Privacy.PRIVATE,
                     languages=languages,
                     onboard_status=d["status"],
@@ -303,6 +305,7 @@ class CorpusFactory(AssetFactory):
                         id="",
                         name=metadata.name,
                         dtype=metadata.dtype,
+                        subtype=metadata.subtype,
                         privacy=metadata.privacy,
                         onboard_status="onboarding",
                         data_column=data_column_idx,

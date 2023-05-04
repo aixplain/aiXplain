@@ -23,9 +23,7 @@ def compress_folder(folder_path: str):
     return folder_path + ".tgz"
 
 
-def run(
-    metadata: MetaData, paths: List, folder: Path, batch_size: int = 100, split_data: Optional[MetaData] = None
-) -> Tuple[List[File], int, int, int]:
+def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 100) -> Tuple[List[File], int, int, int]:
     """Process a list of local audio files, compress and upload them to pre-signed URLs in S3
 
     Explanation:
@@ -38,7 +36,6 @@ def run(
         metadata (MetaData): meta data of the asset
         paths (List): list of paths to local files
         folder (Path): local folder to save compressed files before upload them to s3.
-        split_data (Optional[MetaData], optional): info regarding data split into train, val and test. Defaults to None.
 
     Returns:
         Tuple[List[File], int, int, int]: list of s3 links; data, start and end columns index
@@ -51,7 +48,7 @@ def run(
 
     idx = 0
     data_column_idx, start_column_idx, end_column_idx = -1, -1, -1
-    files, batch, split, start_times, end_times = [], [], [], [], []
+    files, batch, start_times, end_times = [], [], [], []
     for i in tqdm(range(len(paths)), desc=f' Data "{metadata.name}" onboarding progress', position=1, leave=False):
         path = paths[i]
         try:
@@ -98,24 +95,6 @@ def run(
                     logging.exception(message)
                     raise Exception(message)
 
-            if split_data is not None:
-                try:
-                    split_row = str(row[split_data.name]).upper()
-                except Exception as e:
-                    message = (
-                        f'Data Asset Onboarding Error: Split Column "{split_data.name}" not found in the local file {path}.'
-                    )
-                    logging.exception(message)
-                    raise Exception(message)
-
-                assert split_row in [
-                    "TRAIN",
-                    "VALIDATION",
-                    "TEST",
-                ], f'Data Asset Onboarding Error: Split Column must consist of "TRAIN", "VALIDATION", "TEST" labels.'
-
-                split.append(split_row)
-
             idx += 1
             if ((idx) % batch_size) == 0:
                 batch_index = str(len(files) + 1).zfill(8)
@@ -152,10 +131,6 @@ def run(
                 start, end = idx - len(batch), idx
                 df["@INDEX"] = range(start, end)
 
-                # add split info
-                if len(split) > 0:
-                    df["@SPLIT"] = split
-
                 # if there are start and end time ranges, save this into the index csv
                 if len(start_times) > 0 and len(end_times) > 0:
                     df["@START_TIME"] = start_times
@@ -170,7 +145,7 @@ def run(
                 # get data column index
                 data_column_idx = df.columns.to_list().index(metadata.name)
                 # restart batch variables
-                batch, split, start_times, end_times = [], [], [], []
+                batch, start_times, end_times = [], [], []
 
     if len(batch) > 0:
         batch_index = str(len(files) + 1).zfill(8)
@@ -207,10 +182,6 @@ def run(
         start, end = idx - len(batch), idx
         df["@INDEX"] = range(start, end)
 
-        # add split info
-        if len(split) > 0:
-            df["@SPLIT"] = split
-
         # if there are start and end time ranges, save this into the index csv
         if len(start_times) > 0 and len(end_times) > 0:
             df["@START_TIME"] = start_times
@@ -225,5 +196,5 @@ def run(
         # get data column index
         data_column_idx = df.columns.to_list().index(metadata.name)
         # restart batch variables
-        batch, split, start_times, end_times = [], [], [], []
+        batch, start_times, end_times = [], [], []
     return files, data_column_idx, start_column_idx, end_column_idx
