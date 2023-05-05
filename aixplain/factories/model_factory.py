@@ -40,6 +40,7 @@ class ModelFactory:
     """
 
     api_key = config.TEAM_API_KEY
+    aixplain_key = config.AIXPLAIN_API_KEY
     backend_url = config.BACKEND_URL
 
     @classmethod
@@ -66,8 +67,11 @@ class ModelFactory:
         """
         resp = None
         try:
-            url = urljoin(cls.backend_url, f"sdk/inventory/models/{model_id}")
-            headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
+            url = urljoin(cls.backend_url, f"sdk/models/{model_id}")
+            if cls.aixplain_key != "":
+                headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
+            else:
+                headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
             logging.info(f"Start service for GET Metric  - {url} - {headers}")
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()
@@ -109,7 +113,7 @@ class ModelFactory:
             List[Model]: List of models based on given filters
         """
         try:
-            url = urljoin(cls.backend_url, f"sdk/inventory/models/?pageNumber={page_number}&function={task}")
+            url = urljoin(cls.backend_url, f"sdk/models/?pageNumber={page_number}&function={task}")
             filter_params = []
             if input_language is not None:
                 if task == "translation":
@@ -121,7 +125,10 @@ class ModelFactory:
                 if task == "translation":
                     code = "targetlanguage"
                     filter_params.append({"code": code, "value": output_language})
-            headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
+            if cls.aixplain_key != "":
+                headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
+            else:
+                headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
             r = _request_with_retry("get", url, headers=headers, params={"ioFilter": json.dumps(filter_params)})
             resp = r.json()
             logging.info(f"Listing Models: Status of getting Models on Page {page_number} for {task}: {resp}")

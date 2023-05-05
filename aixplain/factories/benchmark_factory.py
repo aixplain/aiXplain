@@ -49,6 +49,7 @@ class BenchmarkFactory:
     """
 
     api_key = config.TEAM_API_KEY
+    aixplain_key = config.AIXPLAIN_API_KEY
     backend_url = config.BACKEND_URL
 
     @classmethod
@@ -74,7 +75,10 @@ class BenchmarkFactory:
             List[BenchmarkJob]: List of associated benchmark jobs
         """
         url = urljoin(cls.backend_url, f"sdk/benchmarks/{benchmark_id}/jobs")
-        headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
+        if cls.aixplain_key != "":
+            headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
+        else:
+            headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
         r = _request_with_retry("get", url, headers=headers)
         resp = r.json()
         job_list = [cls._create_benchmark_job_from_response(job_info) for job_info in resp]
@@ -109,7 +113,10 @@ class BenchmarkFactory:
         resp = None
         try:
             url = urljoin(cls.backend_url, f"sdk/benchmarks/{benchmark_id}")
-            headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
+            if cls.aixplain_key != "":
+                headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
+            else:
+                headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
             logging.info(f"Start service for GET Benchmark  - {url} - {headers}")
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()
@@ -146,7 +153,10 @@ class BenchmarkFactory:
             BenchmarkJob: Created 'BenchmarkJob' object
         """
         url = urljoin(cls.backend_url, f"sdk/benchmarks/jobs/{job_id}")
-        headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
+        if cls.aixplain_key != "":
+            headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
+        else:
+            headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
         r = _request_with_retry("get", url, headers=headers)
         resp = r.json()
         benchmarkJob = cls._create_benchmark_job_from_response(resp)
@@ -259,7 +269,10 @@ class BenchmarkFactory:
         try:
             job_id = benchmarkJob.id
             url = urljoin(cls.backend_url, f"sdk/benchmarks/jobs/{job_id}")
-            headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
+            if cls.aixplain_key != "":
+                headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
+            else:
+                headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()
             logging.info(f"Downloading Benchmark Results: Status of downloading results for {job_id}: {resp}")

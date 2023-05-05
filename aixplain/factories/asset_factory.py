@@ -29,7 +29,8 @@ from aixplain.utils import config
 
 class AssetFactory:
     api_key = config.TEAM_API_KEY
-    backend_url = config.BENCHMARKS_BACKEND_URL
+    aixplain_key = config.AIXPLAIN_API_KEY
+    backend_url = config.BACKEND_URL
 
     @abstractmethod
     def get(self, asset_id: Text) -> Asset:

@@ -28,9 +28,9 @@ def test_asset_creation_from_id():
     asset_list = ["model", "metric", "dataset"]
     asset_id = "test_asset_id"
     url_dict = {
-        "model": f"{config.BENCHMARKS_BACKEND_URL}/sdk/inventory/models/{asset_id}",
-        "metric": f"{config.BENCHMARKS_BACKEND_URL}/sdk/scores/{asset_id}",
-        "dataset": f"{config.BENCHMARKS_BACKEND_URL}/sdk/datasets/{asset_id}",
+        "model": f"{config.BACKEND_URL}/sdk/models/{asset_id}",
+        "metric": f"{config.BACKEND_URL}/sdk/scores/{asset_id}",
+        "dataset": f"{config.BACKEND_URL}/sdk/datasets/{asset_id}",
     }
     for asset_name in asset_list:
         AssetFactory = __get_asset_factory(asset_name)
@@ -49,8 +49,8 @@ def test_asset_listing_from_page():
     page_number = 0
     task = "test_task"
     url_dict = {
-        "model": f"{config.BENCHMARKS_BACKEND_URL}/sdk/inventory/models/?pageNumber={page_number}&function={task}",
-        "dataset": f"{config.BENCHMARKS_BACKEND_URL}/sdk/datasets?pageNumber={page_number}&function={task}",
+        "model": f"{config.BACKEND_URL}/sdk/models/?pageNumber={page_number}&function={task}",
+        "dataset": f"{config.BACKEND_URL}/sdk/datasets?pageNumber={page_number}&function={task}",
     }
     for asset_name in asset_list:
         AssetFactory = __get_asset_factory(asset_name)
@@ -70,8 +70,8 @@ def test_k_asset_listing():
     k = 15
     task = "test_task"
     url_dict = {
-        "model": f"{config.BENCHMARKS_BACKEND_URL}/sdk/inventory/models/?pageNumber=<page_number>&function={task}",
-        "dataset": f"{config.BENCHMARKS_BACKEND_URL}/sdk/datasets?pageNumber=<page_number>&function={task}",
+        "model": f"{config.BACKEND_URL}/sdk/models/?pageNumber=<page_number>&function={task}",
+        "dataset": f"{config.BACKEND_URL}/sdk/datasets?pageNumber=<page_number>&function={task}",
     }
     for asset_name in asset_list:
         AssetFactory = __get_asset_factory(asset_name)
@@ -92,7 +92,7 @@ def test_metric_listing():
     with requests_mock.Mocker() as mock:
         with open(Path("tests/mock_responses/list_assets_responses.json")) as f:
             mock_json = json.load(f)["metric"]
-        url = f"{config.BENCHMARKS_BACKEND_URL}/sdk/scores?function={task}"
+        url = f"{config.BACKEND_URL}/sdk/scores?function={task}"
         mock.get(url, headers=FIXED_HEADER, json=mock_json)
         metric_list = MetricFactory.list_assets(task)
     for metric in metric_list:
@@ -102,7 +102,7 @@ def test_metric_listing():
 def test_run_model():
     asset_id = "test_asset_id"
     with requests_mock.Mocker() as mock:
-        url = f"{config.BENCHMARKS_BACKEND_URL}/sdk/inventory/models/{asset_id}"
+        url = f"{config.BACKEND_URL}/sdk/models/{asset_id}"
         with open(Path("tests/mock_responses/get_asset_info_responses.json")) as f:
             mock_json = json.load(f)["model"]
         mock.get(url, headers=FIXED_HEADER, json=mock_json)

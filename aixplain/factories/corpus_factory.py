@@ -48,6 +48,7 @@ from warnings import warn
 
 class CorpusFactory(AssetFactory):
     api_key = config.TEAM_API_KEY
+    aixplain_key = config.AIXPLAIN_API_KEY
     backend_url = config.BACKEND_URL
 
     @classmethod
@@ -108,11 +109,16 @@ class CorpusFactory(AssetFactory):
         Returns:
             Corpus: Created 'Corpus' object
         """
-        url = urljoin(cls.backend_url, f"sdk/inventory/corpus/{corpus_id}/overview")
-        headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
+        url = urljoin(cls.backend_url, f"sdk/corpus/{corpus_id}/overview")
+        if cls.aixplain_key != "":
+            headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
+        else:
+            headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
         logging.info(f"Start service for GET Corpus  - {url} - {headers}")
         r = _request_with_retry("get", url, headers=headers)
         resp = r.json()
+        if "statusCode" in resp and resp["statusCode"] == 404:
+            raise Exception(f"Corpus GET Error: Dataset {corpus_id} not found.")
         return cls.__from_response(resp)
 
     @classmethod
@@ -149,8 +155,11 @@ class CorpusFactory(AssetFactory):
         Returns:
             Dict: list of corpora in agreement with the filters, page number, page total and total elements
         """
-        url = urljoin(config.BACKEND_URL, "sdk/inventory/corpus/paginate")
-        headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+        url = urljoin(cls.backend_url, "sdk/corpus/paginate")
+        if cls.aixplain_key != "":
+            headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
+        else:
+            headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
 
         assert 0 < page_size <= 100, f"Corpus List Error: Page size must be greater than 0 and not exceed 100."
         payload = {"pageSize": page_size, "pageNumber": page_number, "sort": [{"field": "createdAt", "dir": -1}]}

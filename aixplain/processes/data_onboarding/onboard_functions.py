@@ -270,7 +270,7 @@ def create_data_asset(payload: Dict, data_asset_type: Text = "corpus") -> Dict:
     team_key = config.TEAM_API_KEY
     headers = {"Authorization": "token " + team_key}
 
-    url = urljoin(config.BACKEND_URL, f"sdk/inventory/{data_asset_type}/onboard")
+    url = urljoin(config.BACKEND_URL, f"sdk/{data_asset_type}/onboard")
 
     r = _request_with_retry("post", url, headers=headers, json=payload)
     if 200 <= r.status_code < 300:
@@ -309,7 +309,7 @@ def is_data(data_id: Text) -> bool:
     try:
         api_key = config.TEAM_API_KEY
         backend_url = config.BACKEND_URL
-        url = urljoin(backend_url, f"sdk/inventory/data/{data_id}/overview")
+        url = urljoin(backend_url, f"sdk/data/{data_id}/overview")
         headers = {"Authorization": f"Token {api_key}", "Content-Type": "application/json"}
         r = _request_with_retry("get", url, headers=headers)
         resp = r.json()

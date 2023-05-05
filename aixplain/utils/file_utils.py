@@ -23,6 +23,7 @@ from pathlib import Path
 from uuid import uuid4
 from requests.adapters import HTTPAdapter, Retry
 from typing import Any, Optional, Text, Union
+from urllib.parse import urljoin
 
 
 def save_file(download_url: Text, download_file_path: Optional[Any] = None) -> Any:
@@ -98,11 +99,15 @@ def upload_data(
     """
     try:
         # Get pre-signed URL
-        team_key = config.TEAM_API_KEY
         # URL of aiXplain service which returns a pre-signed URL to onboard the file
-        url = config.TEMPFILE_UPLOAD_URL
+        url = urljoin(config.BACKEND_URL, "sdk/file/upload/temp-url")
 
-        headers = {"Authorization": "token " + team_key}
+        if config.AIXPLAIN_API_KEY != "":
+            team_key = config.AIXPLAIN_API_KEY
+            headers = {"x-aixplain-key": team_key}
+        else:
+            team_key = config.TEAM_API_KEY
+            headers = {"Authorization": "token " + team_key}
 
         payload = {"contentType": content_type, "originalName": file_name}
         r = _request_with_retry("post", url, headers=headers, data=payload)

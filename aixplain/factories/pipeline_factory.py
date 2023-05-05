@@ -40,6 +40,7 @@ class PipelineFactory:
     """
 
     api_key = config.TEAM_API_KEY
+    aixplain_key = config.AIXPLAIN_API_KEY
     backend_url = config.BACKEND_URL
 
     @classmethod
@@ -66,8 +67,11 @@ class PipelineFactory:
         """
         resp = None
         try:
-            url = urljoin(cls.backend_url, f"sdk/inventory/pipelines/{pipeline_id}")
-            headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
+            url = urljoin(cls.backend_url, f"sdk/pipelines/{pipeline_id}")
+            if cls.aixplain_key != "":
+                headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
+            else:
+                headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
             logging.info(f"Start service for GET Pipeline  - {url} - {headers}")
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()
@@ -103,8 +107,11 @@ class PipelineFactory:
             List[Pipeline]: List of pipelines based on given filters
         """
         try:
-            url = urljoin(cls.backend_url, f"sdk/inventory/pipelines/?pageNumber={page_number}")
-            headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
+            url = urljoin(cls.backend_url, f"sdk/pipelines/?pageNumber={page_number}")
+            if cls.aixplain_key != "":
+                headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
+            else:
+                headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()
             logging.info(f"Listing Pipelines: Status of getting Pipelines on Page {page_number}: {resp}")
