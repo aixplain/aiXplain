@@ -96,6 +96,7 @@ class CorpusFactory(AssetFactory):
             license=license,
             data=data,
             onboard_status=response["status"],
+            length=int(response["segmentsCount"]) if "segmentsCount" in response else None,
         )
         return corpus
 

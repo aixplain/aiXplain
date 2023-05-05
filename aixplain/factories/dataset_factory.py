@@ -142,6 +142,7 @@ class DatasetFactory(AssetFactory):
             hypotheses=hypotheses,
             metadata=metadata,
             onboard_status=response["status"],
+            length=int(response["segmentsCount"]) if "segmentsCount" in response else None,
         )
         return dataset
 

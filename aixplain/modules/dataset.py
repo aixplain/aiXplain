@@ -70,6 +70,7 @@ class Dataset(Asset):
         privacy: Privacy = Privacy.PRIVATE,
         supplier: Text = "aiXplain",
         version: Text = "1.0",
+        length: Optional[int] = None,
         **kwargs,
     ) -> None:
         """Dataset Class.
@@ -95,6 +96,7 @@ class Dataset(Asset):
             privacy (Privacy, optional): Dataset Privacy. Defaults to Privacy.PRIVATE.
             supplier (Text, optional): Dataset Supplier. Defaults to "aiXplain".
             version (Text, optional): Dataset Version. Defaults to "1.0".
+            length (Optional[int], optional): Number of rows in the Dataset. Defaults to None.
         """
         super().__init__(
             id=id, name=name, description=description, supplier=supplier, version=version, license=license, privacy=privacy
@@ -108,6 +110,7 @@ class Dataset(Asset):
         self.hypotheses = hypotheses
         self.metadata = metadata
         self.tags = tags
+        self.length = length
         self.kwargs = kwargs
 
     def __repr__(self):

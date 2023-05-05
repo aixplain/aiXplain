@@ -44,6 +44,7 @@ class Corpus(Asset):
         privacy: Privacy = Privacy.PRIVATE,
         supplier: Text = "aiXplain",
         version: Text = "1.0",
+        length: Optional[int] = None,
         **kwargs,
     ) -> None:
         """Corpus Class.
@@ -63,6 +64,7 @@ class Corpus(Asset):
             privacy (Privacy, optional): Corpus privacy info. Defaults to Privacy.PRIVATE.
             supplier (Text, optional): Corpus supplier. Defaults to "aiXplain".
             version (Text, optional): Corpus version. Defaults to "1.0".
+            length (Optional[int], optional): Number of rows in the Corpus. Defaults to None.
         """
         super().__init__(
             id=id, name=name, description=description, supplier=supplier, version=version, license=license, privacy=privacy
@@ -73,4 +75,5 @@ class Corpus(Asset):
         self.functions = functions
         self.tags = tags
         self.data = data
+        self.length = length
         self.kwargs = kwargs
