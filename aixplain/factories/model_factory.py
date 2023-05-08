@@ -53,14 +53,17 @@ class ModelFactory:
         Returns:
             Model: Coverted 'Model' object
         """
-        return Model(response["id"], response["name"], supplier=response["supplier"]["id"], api_key=cls.api_key)
+        if "api_key" not in response:
+            response["api_key"] = cls.api_key
+        return Model(response["id"], response["name"], supplier=response["supplier"]["id"], api_key=response["api_key"])
 
     @classmethod
-    def get(cls, model_id: Text) -> Model:
+    def get(cls, model_id: Text, api_key: Optional[Text] = None) -> Model:
         """Create a 'Model' object from model id
 
         Args:
             model_id (Text): Model ID of required model.
+            api_key (Optional[Text], optional): Model API key. Defaults to None.
 
         Returns:
             Model: Created 'Model' object
@@ -75,6 +78,10 @@ class ModelFactory:
             logging.info(f"Start service for GET Metric  - {url} - {headers}")
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()
+            # set api key
+            resp["api_key"] = cls.api_key
+            if api_key is not None:
+                resp["api_key"] = api_key
             model = cls._create_model_from_response(resp)
             logging.info(f"Model Creation: Model {model_id} instantiated.")
             return model
