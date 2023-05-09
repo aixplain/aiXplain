@@ -26,7 +26,6 @@ from aixplain.enums.onboard_status import OnboardStatus
 from aixplain.enums.privacy import Privacy
 from aixplain.modules.asset import Asset
 from aixplain.modules.data import Data
-from aixplain.utils.file_utils import _request_with_retry, save_file
 from typing import Any, List, Optional, Text
 
 

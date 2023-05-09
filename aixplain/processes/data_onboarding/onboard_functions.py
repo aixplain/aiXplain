@@ -4,9 +4,13 @@ import aixplain.processes.data_onboarding.process_audio_files as process_audio_f
 import aixplain.processes.data_onboarding.process_text_files as process_text_files
 import aixplain.utils.config as config
 import logging
+import pandas as pd
+import random
 
+from aixplain.enums.data_subtype import DataSubtype
 from aixplain.enums.data_type import DataType
 from aixplain.enums.file_type import FileType
+from aixplain.enums.storage_type import StorageType
 from aixplain.modules.corpus import Corpus
 from aixplain.modules.data import Data
 from aixplain.modules.dataset import Dataset
@@ -93,7 +97,7 @@ def build_payload_data(data: Data) -> Dict:
         "name": data.name,
         "dataColumn": data.data_column,
         "dataType": data.dtype.value,
-        "dataSubtype": data.subtype.value,
+        "dataSubtype": data.dsubtype.value,
         "batches": [{"tempFilePath": str(file.path), "order": idx + 1} for idx, file in enumerate(data.files)],
         "tags": [],
         "metaData": {"languages": []},
@@ -319,3 +323,54 @@ def is_data(data_id: Text) -> bool:
         return False
     except:
         return False
+
+
+def split_data(paths: List, split_rate: List[float], split_labels: List[Text]) -> MetaData:
+    """Split the data according to some split labels and rate
+
+    Args:
+        paths (List): path to data files
+        split_rate (List[Text]): split rate
+        split_labels (List[Text]): split labels
+
+    Returns:
+        MetaData: metadata of the new split
+    """
+    # get column name
+    column_name = None
+    for path in paths:
+        try:
+            dataframe = pd.read_csv(path)
+            for candidate_name in ["split", "SPLIT", "_split", "_split_", "split_"]:
+                if candidate_name not in dataframe.columns:
+                    column_name = candidate_name
+                    break
+
+            if column_name is not None:
+                break
+        except Exception as e:
+            message = f'Data Asset Onboarding Error: Local file "{path}" not found.'
+            logging.exception(message)
+            raise Exception(message)
+
+    if column_name is None:
+        message = f"Data Asset Onboarding Error: All split names are used."
+        raise Exception(message)
+
+    for path in paths:
+        dataframe = pd.read_csv(path)
+        dataframe[column_name] = [slabel for (slabel, srate) in zip(split_labels, split_rate) if srate == max(split_rate)][0]
+
+        size = len(dataframe)
+        start = 0
+        indexes = list(range(size))
+        random.shuffle(indexes)
+        for (slabel, srate) in zip(split_labels, split_rate):
+            split_size = int(srate * size)
+
+            split_indexes = indexes[start : start + split_size]
+            dataframe.loc[split_indexes, column_name] = slabel
+            start = start + split_size
+        dataframe.to_csv(path, index=False)
+
+    return MetaData(name=column_name, dtype=DataType.LABEL, dsubtype=DataSubtype.SPLIT, storage_type=StorageType.TEXT)

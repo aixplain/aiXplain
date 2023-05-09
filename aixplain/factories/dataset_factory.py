@@ -84,7 +84,7 @@ class DatasetFactory(AssetFactory):
                 id=d["id"],
                 name=d["name"],
                 dtype=DataType(d["dataType"]),
-                subtype=DataSubtype(d["dataSubtype"]),
+                dsubtype=DataSubtype(d["dataSubtype"]),
                 privacy=Privacy.PRIVATE,
                 languages=languages,
                 onboard_status=d["status"],
@@ -309,6 +309,8 @@ class DatasetFactory(AssetFactory):
         meta_ref_data: Dict[Text, Any] = {},
         tags: List[Text] = [],
         privacy: Privacy = Privacy.PRIVATE,
+        split_labels: Optional[List[Text]] = None,
+        split_rate: Optional[List[float]] = None,
     ) -> Dict:
         """Dataset Onboard
 
@@ -332,6 +334,9 @@ class DatasetFactory(AssetFactory):
         Returns:
             Dict: dataset onboard status
         """
+        assert (split_labels is not None and split_rate is not None) or (
+            split_labels is None and split_rate is None
+        ), "Data Asset Onboarding Error: Make sure you set the split labels values as well as their rates."
         folder, return_dict = None, {}
         # check team key
         try:
@@ -419,6 +424,14 @@ class DatasetFactory(AssetFactory):
             # get file extension paths to process
             paths = onboard_functions.get_paths(content_paths)
 
+            # set dataset split
+            if split_labels is not None and split_rate is not None:
+                assert len(split_labels) == len(
+                    split_rate
+                ), "Data Asset Onboarding Error: Make sure you set the *split_labels* and *split_rate* lists must have the same length."
+                split_metadata = onboard_functions.split_data(paths=paths, split_labels=split_labels, split_rate=split_rate)
+                metadata_schema.append(split_metadata)
+
             # process data and create files
             folder = Path(name)
             folder.mkdir(exist_ok=True)
@@ -448,7 +461,7 @@ class DatasetFactory(AssetFactory):
                             id=str(uuid4()).replace("-", ""),
                             name=metadata.name,
                             dtype=metadata.dtype,
-                            subtype=metadata.subtype,
+                            dsubtype=metadata.subtype,
                             privacy=metadata.privacy,
                             onboard_status="onboarding",
                             data_column=data_column_idx,
@@ -485,9 +498,9 @@ class DatasetFactory(AssetFactory):
             assert (
                 len(dataset_payload["input"]) > 0
             ), "Data Asset Onboarding Error: Please specify the input data of your dataset."
-            assert (
-                len(dataset_payload["output"]) > 0
-            ), "Data Asset Onboarding Error: Please specify the output data of your dataset."
+            # assert (
+            #     len(dataset_payload["output"]) > 0
+            # ), "Data Asset Onboarding Error: Please specify the output data of your dataset."
 
             response = onboard_functions.create_data_asset(dataset_payload, data_asset_type="dataset")
             if response["success"] is True:

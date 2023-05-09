@@ -26,7 +26,6 @@ from aixplain.modules.benchmark_job import BenchmarkJob
 from aixplain.modules.dataset import Dataset
 from aixplain.modules.metric import Metric
 from aixplain.modules.model import Model
-from aixplain.utils.file_utils import save_file, _request_with_retry
 
 
 class Benchmark(Asset):

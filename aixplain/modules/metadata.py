@@ -42,7 +42,7 @@ class MetaData:
         privacy: Optional[Privacy] = None,
         file_extension: Optional[FileType] = None,
         languages: List[Language] = [],
-        subtype: DataSubtype = DataSubtype.OTHER,
+        dsubtype: DataSubtype = DataSubtype.OTHER,
         **kwargs
     ) -> None:
         """MetaData Class
@@ -61,7 +61,7 @@ class MetaData:
             privacy (Optional[Privacy], optional): Privacy of data. Defaults to None.
             file_extension (Optional[FileType], optional): File extension (e.g. CSV, TXT, etc.). Defaults to None.
             languages (List[Language], optional): List of languages which the data consists of. Defaults to [].
-            subtype (DataSubtype, optional): Data subtype (e.g., age, topic, race, split, etc.), used in datasets metadata. Defaults to Other.
+            dsubtype (DataSubtype, optional): Data subtype (e.g., age, topic, race, split, etc.), used in datasets metadata. Defaults to Other.
         """
         self.name = name
         if isinstance(dtype, str):
@@ -90,5 +90,5 @@ class MetaData:
             if isinstance(language, str):
                 language = Language(language)
             self.languages.append(language)
-        self.subtype = subtype
+        self.dsubtype = dsubtype
         self.kwargs = kwargs

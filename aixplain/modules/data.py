@@ -43,7 +43,7 @@ class Data:
         end_column: Optional[Any] = None,
         files: List[File] = [],
         languages: List[Language] = [],
-        subtype: DataSubtype = DataSubtype.OTHER,
+        dsubtype: DataSubtype = DataSubtype.OTHER,
         **kwargs
     ) -> None:
         """Data Class.
@@ -62,7 +62,7 @@ class Data:
             end_column (Optional[Any], optional): Column index/name where the end indexes is on a structured file (e.g. CSV). Defaults to None.
             files (List[File], optional): List of files where the data instances are stored. Defaults to [].
             languages (List[Language], optional): List of languages which the data consists of. Defaults to [].
-            subtype (DataSubtype, optional): Data subtype (e.g., age, topic, race, split, etc.), used in datasets metadata. Defaults to Other.
+            dsubtype (DataSubtype, optional): Data subtype (e.g., age, topic, race, split, etc.), used in datasets metadata. Defaults to Other.
         """
         self.id = id
         self.name = name
@@ -83,5 +83,5 @@ class Data:
             if isinstance(language, str):
                 language = Language(language)
             self.languages.append(language)
-        self.subtype = subtype
+        self.dsubtype = dsubtype
         self.kwargs = kwargs
