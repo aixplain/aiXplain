@@ -356,9 +356,9 @@ class DatasetFactory(AssetFactory):
                 if isinstance(metadata, dict):
                     input_schema[i] = MetaData(**metadata)
 
-            assert (
-                len(output_schema) > 0 or len(output_ref_data) > 0
-            ), "Data Asset Onboarding Error: You must specify an output data to onboard a dataset."
+            # assert (
+            #     len(output_schema) > 0 or len(output_ref_data) > 0
+            # ), "Data Asset Onboarding Error: You must specify an output data to onboard a dataset."
             for i, metadata in enumerate(output_schema):
                 if isinstance(metadata, dict):
                     output_schema[i] = MetaData(**metadata)
