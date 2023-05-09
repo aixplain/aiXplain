@@ -40,6 +40,7 @@ class ModelFactory:
     """
 
     api_key = config.TEAM_API_KEY
+    aixplain_key = config.AIXPLAIN_API_KEY
     backend_url = config.BACKEND_URL
 
     @classmethod
@@ -52,24 +53,35 @@ class ModelFactory:
         Returns:
             Model: Coverted 'Model' object
         """
-        return Model(response["id"], response["name"], supplier=response["supplier"]["id"], api_key=cls.api_key)
+        if "api_key" not in response:
+            response["api_key"] = cls.api_key
+        return Model(response["id"], response["name"], supplier=response["supplier"]["id"], api_key=response["api_key"])
 
     @classmethod
-    def get(cls, model_id: Text) -> Model:
+    def get(cls, model_id: Text, api_key: Optional[Text] = None) -> Model:
         """Create a 'Model' object from model id
 
         Args:
             model_id (Text): Model ID of required model.
+            api_key (Optional[Text], optional): Model API key. Defaults to None.
 
         Returns:
             Model: Created 'Model' object
         """
         resp = None
         try:
-            url = urljoin(cls.backend_url, f"sdk/inventory/models/{model_id}")
-            headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
+            url = urljoin(cls.backend_url, f"sdk/models/{model_id}")
+            if cls.aixplain_key != "":
+                headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
+            else:
+                headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
+            logging.info(f"Start service for GET Metric  - {url} - {headers}")
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()
+            # set api key
+            resp["api_key"] = cls.api_key
+            if api_key is not None:
+                resp["api_key"] = api_key
             model = cls._create_model_from_response(resp)
             logging.info(f"Model Creation: Model {model_id} instantiated.")
             return model
@@ -108,7 +120,7 @@ class ModelFactory:
             List[Model]: List of models based on given filters
         """
         try:
-            url = urljoin(cls.backend_url, f"sdk/inventory/models/?pageNumber={page_number}&function={task}")
+            url = urljoin(cls.backend_url, f"sdk/models/?pageNumber={page_number}&function={task}")
             filter_params = []
             if input_language is not None:
                 if task == "translation":
@@ -120,7 +132,10 @@ class ModelFactory:
                 if task == "translation":
                     code = "targetlanguage"
                     filter_params.append({"code": code, "value": output_language})
-            headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
+            if cls.aixplain_key != "":
+                headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
+            else:
+                headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
             r = _request_with_retry("get", url, headers=headers, params={"ioFilter": json.dumps(filter_params)})
             resp = r.json()
             logging.info(f"Listing Models: Status of getting Models on Page {page_number} for {task}: {resp}")

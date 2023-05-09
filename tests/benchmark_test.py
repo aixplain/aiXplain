@@ -28,9 +28,9 @@ def __get_asset_factory(asset_name):
 def __mock_benchmark_create_dependecies(mock, asset_id):
     asset_list = ["model", "metric", "dataset"]
     url_dict = {
-        "model": f"{config.BENCHMARKS_BACKEND_URL}/sdk/inventory/models/{asset_id}",
-        "metric": f"{config.BENCHMARKS_BACKEND_URL}/sdk/scores/{asset_id}",
-        "dataset": f"{config.BENCHMARKS_BACKEND_URL}/sdk/datasets/{asset_id}",
+        "model": f"{config.BACKEND_URL}/sdk/models/{asset_id}",
+        "metric": f"{config.BACKEND_URL}/sdk/scores/{asset_id}",
+        "dataset": f"{config.BACKEND_URL}/sdk/datasets/{asset_id}",
     }
     for asset_name in asset_list:
         url = url_dict[asset_name]
@@ -39,15 +39,15 @@ def __mock_benchmark_create_dependecies(mock, asset_id):
         mock.get(url, headers=FIXED_HEADER, json=mock_json)
         with open(Path("tests/mock_responses/get_asset_info_responses.json")) as f:
             mock_json = json.load(f)["benchmarkJob"]
-        url_benchmarkJobs = f"{config.BENCHMARKS_BACKEND_URL}/sdk/benchmarks/{asset_id}/jobs"
+        url_benchmarkJobs = f"{config.BACKEND_URL}/sdk/benchmarks/{asset_id}/jobs"
         mock.get(url_benchmarkJobs, headers=FIXED_HEADER, json=[mock_json])
 
-        url_benchmark = f"{config.BENCHMARKS_BACKEND_URL}/sdk/benchmarks/{asset_id}"
+        url_benchmark = f"{config.BACKEND_URL}/sdk/benchmarks/{asset_id}"
         with open(Path("tests/mock_responses/get_asset_info_responses.json")) as f:
             mock_json = json.load(f)["benchmark"]
         mock.get(url_benchmark, headers=FIXED_HEADER, json=mock_json)
 
-        url_benchmarkJob = f"{config.BENCHMARKS_BACKEND_URL}/sdk/benchmarks/jobs/{asset_id}"
+        url_benchmarkJob = f"{config.BACKEND_URL}/sdk/benchmarks/jobs/{asset_id}"
         with open(Path("tests/mock_responses/get_asset_info_responses.json")) as f:
             mock_json = json.load(f)["benchmarkJob"]
         mock.get(url_benchmarkJob, headers=FIXED_HEADER, json=mock_json)
@@ -85,7 +85,7 @@ def test_create_benchmark_with_assets():
                 asset = AssetFactory.get(asset_id)
             benchmark_creation_params.append([asset])
 
-        url = f"{config.BENCHMARKS_BACKEND_URL}/sdk/benchmarks"
+        url = f"{config.BACKEND_URL}/sdk/benchmarks"
         with open(Path("tests/mock_responses/get_asset_info_responses.json")) as f:
             mock_json = json.load(f)["benchmark"]
         mock.post(url, headers=FIXED_HEADER, json=mock_json)
@@ -98,7 +98,7 @@ def test_start_benchmark_job():
     asset_id = "test_asset_id"
     with requests_mock.Mocker() as mock:
         __mock_benchmark_create_dependecies(mock, asset_id)
-        url = f"{config.BENCHMARKS_BACKEND_URL}/sdk/benchmarks/{asset_id}/start"
+        url = f"{config.BACKEND_URL}/sdk/benchmarks/{asset_id}/start"
         with open(Path("tests/mock_responses/get_asset_info_responses.json")) as f:
             mock_json = json.load(f)["benchmarkJob"]
         mock.post(url, headers=FIXED_HEADER, json=mock_json)

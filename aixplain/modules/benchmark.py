@@ -20,13 +20,12 @@ Date: October 25th 2022
 Description:
     Benchmark Class
 """
-from typing import List, Optional, Text
+from typing import List, Text
 from aixplain.modules.asset import Asset
 from aixplain.modules.benchmark_job import BenchmarkJob
 from aixplain.modules.dataset import Dataset
 from aixplain.modules.metric import Metric
 from aixplain.modules.model import Model
-from aixplain.utils.file_utils import save_file, _request_with_retry
 
 
 class Benchmark(Asset):
@@ -52,8 +51,8 @@ class Benchmark(Asset):
         metric_list: List[Metric],
         job_list: List[BenchmarkJob],
         description: Text = "",
-        supplier: Optional[Text] = "aiXplain",
-        version: Optional[Text] = "1.0",
+        supplier: Text = "aiXplain",
+        version: Text = "1.0",
         **additional_info
     ) -> None:
         """Create a Benchmark with the necessary information.
@@ -65,8 +64,8 @@ class Benchmark(Asset):
             dataset_list (List[Dataset]): List of Datasets to be used for benchmarking
             metric_list (List[Metric]): List of Metrics to be used for benchmarking
             job_list (List[BenchmarkJob]): List of associated Benchmark Jobs
-            supplier (Optional[Text], optional): author of the Benchmark. Defaults to "aiXplain".
-            version (Optional[Text], optional): Benchmark version. Defaults to "1.0".
+            supplier (Text, optional): author of the Benchmark. Defaults to "aiXplain".
+            version (Text, optional): Benchmark version. Defaults to "1.0".
             **additional_info: Any additional Benchmark info to be saved
         """
         super().__init__(id, name, description, supplier, version)

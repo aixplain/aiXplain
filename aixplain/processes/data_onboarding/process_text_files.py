@@ -10,7 +10,7 @@ from aixplain.modules.metadata import MetaData
 from aixplain.utils.file_utils import upload_data
 from pathlib import Path
 from tqdm import tqdm
-from typing import List, Text, Tuple
+from typing import List, Optional, Text, Tuple
 
 
 def process_text(content: str, storage_type: StorageType) -> Text:
@@ -52,12 +52,11 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 1000) -
     files, batch = [], []
     for i in tqdm(range(len(paths)), desc=f' Data "{metadata.name}" onboarding progress', position=1, leave=False):
         path = paths[i]
-        # TO DO: extract the split from file name
         try:
             dataframe = pd.read_csv(path)
         except Exception as e:
             message = f'Data Asset Onboarding Error: Local file "{path}" not found.'
-            logging.error(message)
+            logging.exception(message)
             raise Exception(message)
 
         # process texts and labels
@@ -67,7 +66,7 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 1000) -
                 text_path = row[metadata.name]
             except Exception as e:
                 message = f'Data Asset Onboarding Error: Column "{metadata.name}" not found in the local file {path}.'
-                logging.error(message)
+                logging.exception(message)
                 raise Exception(message)
 
             try:
@@ -77,6 +76,24 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 1000) -
                 logging.warning(
                     f'Data Asset Onboarding: The instance "{row}" of "{metadata.name}" could not be processed and will be skipped.'
                 )
+
+            # if split_data is not None:
+            #     try:
+            #         split_row = str(row[split_data.name]).upper()
+            #     except Exception as e:
+            #         message = (
+            #             f'Data Asset Onboarding Error: Split Column "{split_data.name}" not found in the local file {path}.'
+            #         )
+            #         logging.exception(message)
+            #         raise Exception(message)
+
+            #     assert split_row in [
+            #         "TRAIN",
+            #         "VALIDATION",
+            #         "TEST",
+            #     ], f'Data Asset Onboarding Error: Split Column must consist of "TRAIN", "VALIDATION", "TEST" labels.'
+
+            #     split.append(split_row)
 
             idx += 1
             if ((idx + 1) % batch_size) == 0:

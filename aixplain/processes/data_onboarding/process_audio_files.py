@@ -13,7 +13,7 @@ from aixplain.modules.metadata import MetaData
 from aixplain.utils.file_utils import upload_data
 from pathlib import Path
 from tqdm import tqdm
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 
 def compress_folder(folder_path: str):
@@ -51,12 +51,11 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 100) ->
     files, batch, start_times, end_times = [], [], [], []
     for i in tqdm(range(len(paths)), desc=f' Data "{metadata.name}" onboarding progress', position=1, leave=False):
         path = paths[i]
-        # TO DO: extract the split from file name
         try:
             dataframe = pd.read_csv(path)
         except Exception as e:
             message = f'Data Asset Onboarding Error: Local file "{path}" not found.'
-            logging.error(message)
+            logging.exception(message)
             raise Exception(message)
 
         # process audios
@@ -66,7 +65,7 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 100) ->
                 audio_path = row[metadata.name]
             except Exception as e:
                 message = f'Data Asset Onboarding Error: Column "{metadata.name}" not found in the local file "{path}".'
-                logging.error(message)
+                logging.exception(message)
                 raise Exception(message)
 
             # adding audios
@@ -85,7 +84,7 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 100) ->
                     start_times.append(row[metadata.start_column])
                 except Exception as e:
                     message = f'Data Asset Onboarding Error: Column "{metadata.start_column}" not found.'
-                    logging.error(message)
+                    logging.exception(message)
                     raise Exception(message)
 
             if metadata.end_column is not None:
@@ -93,7 +92,7 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 100) ->
                     end_times.append(row[metadata.end_column])
                 except Exception as e:
                     message = f'Data Asset Onboarding Error: Column "{metadata.end_column}" not found.'
-                    logging.error(message)
+                    logging.exception(message)
                     raise Exception(message)
 
             idx += 1

@@ -22,17 +22,28 @@ Description:
 """
 
 import aixplain.utils.config as config
+import aixplain.processes.data_onboarding.onboard_functions as onboard_functions
+import json
 import logging
+import shutil
 
 from aixplain.factories.asset_factory import AssetFactory
+from aixplain.modules.data import Data
 from aixplain.modules.dataset import Dataset
+from aixplain.modules.metadata import MetaData
+from aixplain.enums.data_subtype import DataSubtype
+from aixplain.enums.data_type import DataType
 from aixplain.enums.function import Function
 from aixplain.enums.language import Language
 from aixplain.enums.license import License
+from aixplain.enums.privacy import Privacy
 from aixplain.utils.file_utils import _request_with_retry
 from aixplain.utils import config
-from typing import Any, Dict, List, Optional, Text
+from pathlib import Path
+from tqdm import tqdm
+from typing import Any, Dict, List, Optional, Text, Union
 from urllib.parse import urljoin
+from uuid import uuid4
 from warnings import warn
 
 
@@ -45,10 +56,11 @@ class DatasetFactory(AssetFactory):
     """
 
     api_key = config.TEAM_API_KEY
+    aixplain_key = config.AIXPLAIN_API_KEY
     backend_url = config.BACKEND_URL
 
     @classmethod
-    def _create_dataset_from_response(cls, response: Dict) -> Dataset:
+    def __from_response(cls, response: Dict) -> Dataset:
         """Converts response Json to 'Dataset' object
 
         Args:
@@ -57,14 +69,82 @@ class DatasetFactory(AssetFactory):
         Returns:
             Dataset: Coverted 'Dataset' object
         """
-        return Dataset(
+        # process data
+        data = {}
+        for d in response["data"]:
+            languages = []
+            if "languages" in d["metadata"]:
+                languages = []
+                for lng in d["metadata"]["languages"]:
+                    if "dialect" not in lng:
+                        lng["dialect"] = ""
+                    languages.append(Language(lng))
+
+            data[d["id"]] = Data(
+                id=d["id"],
+                name=d["name"],
+                dtype=DataType(d["dataType"]),
+                dsubtype=DataSubtype(d["dataSubtype"]),
+                privacy=Privacy.PRIVATE,
+                languages=languages,
+                onboard_status=d["status"],
+            )
+
+        # process input data
+        source_data = {}
+        for inp in response["input"]:
+            data_id = inp["dataId"]
+            if data_id in data:
+                source_data[data[data_id].name] = data[data_id]
+
+        # process hypotheses
+        hypotheses = {}
+        if "hypotheses" in response:
+            for inp in response["hypotheses"]:
+                data_id = inp["dataId"]
+                if data_id in data:
+                    hypotheses[data[data_id].name] = data[data_id]
+
+        # process metadata
+        metadata = {}
+        for inp in response["metadata"]:
+            data_id = inp["dataId"]
+            if data_id in data:
+                metadata[data[data_id].name] = data[data_id]
+
+        # process output data
+        target_data = {}
+        for out in response["output"]:
+            try:
+                target_data_list = [data[data_id] for data_id in out["dataIds"]]
+                data_name = target_data_list[0].name
+                target_data[data_name] = target_data_list
+            except:
+                pass
+
+        # process function
+        function = Function(response["function"])
+
+        # process license
+        try:
+            license = License(response["license"]["typeId"])
+        except:
+            license = None
+
+        dataset = Dataset(
             id=response["id"],
             name=response["name"],
             description=response["description"],
-            function=Function.SPEECH_RECOGNITION,
-            source_data=[],
-            target_data=[],
+            function=function,
+            license=license,
+            source_data=source_data,
+            target_data=target_data,
+            hypotheses=hypotheses,
+            metadata=metadata,
+            onboard_status=response["status"],
+            length=int(response["segmentsCount"]) if "segmentsCount" in response else None,
         )
+        return dataset
 
     @classmethod
     def get(cls, dataset_id: Text) -> Dataset:
@@ -76,24 +156,17 @@ class DatasetFactory(AssetFactory):
         Returns:
             Dataset: Created 'Dataset' object
         """
-        resp = None
-        try:
-            url = urljoin(cls.backend_url, f"sdk/datasets/{dataset_id}")
+        url = urljoin(cls.backend_url, f"sdk/dataset/{dataset_id}/overview")
+        if cls.aixplain_key != "":
+            headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
+        else:
             headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
-            r = _request_with_retry("get", url, headers=headers)
-            resp = r.json()
-            dataset = cls._create_dataset_from_response(resp)
-        except Exception as e:
-            status_code = 400
-            if resp is not None and "statusCode" in resp:
-                status_code = resp["statusCode"]
-                message = resp["message"]
-                message = f"Datset Creation: Status {status_code} - {message}"
-            else:
-                message = "Dataset Creation: Unspecified Error"
-            logging.error(message)
-            raise Exception(f"Status {status_code}: {message}")
-        return dataset
+        logging.info(f"Start service for GET Dataset  - {url} - {headers}")
+        r = _request_with_retry("get", url, headers=headers)
+        resp = r.json()
+        if "statusCode" in resp and resp["statusCode"] == 404:
+            raise Exception(f"Dataset GET Error: Dataset {dataset_id} not found.")
+        return cls.__from_response(resp)
 
     @classmethod
     def create_asset_from_id(cls, dataset_id: Text) -> Dataset:
@@ -103,6 +176,76 @@ class DatasetFactory(AssetFactory):
             stacklevel=2,
         )
         return cls.get(dataset_id)
+
+    @classmethod
+    def list(
+        cls,
+        query: Optional[Text] = None,
+        function: Optional[Function] = None,
+        language: Optional[Union[Language, List[Language]]] = None,
+        data_type: Optional[DataType] = None,
+        license: Optional[License] = None,
+        is_referenceless: Optional[bool] = None,
+        page_number: int = 0,
+        page_size: int = 20,
+    ) -> Dict:
+        """Listing Datasets
+
+        Args:
+            query (Optional[Text], optional): search query. Defaults to None.
+            function (Optional[Function], optional): function filter. Defaults to None.
+            language (Optional[Union[Language, List[Language]]], optional): language filter. Defaults to None.
+            data_type (Optional[DataType], optional): data type filter. Defaults to None.
+            license (Optional[License], optional): license filter. Defaults to None.
+            is_referenceless (Optional[bool], optional): has reference filter. Defaults to None.
+            page_number (int, optional): page number. Defaults to 0.
+            page_size (int, optional): page size. Defaults to 20.
+
+        Returns:
+            Dict: list of datasets in agreement with the filters, page number, page total and total elements
+        """
+        url = urljoin(cls.backend_url, "sdk/dataset/paginate")
+        if cls.aixplain_key != "":
+            headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
+        else:
+            headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
+
+        assert 0 < page_size <= 100, f"Dataset List Error: Page size must be greater than 0 and not exceed 100."
+        payload = {"pageSize": page_size, "pageNumber": page_number, "sort": [{"field": "createdAt", "dir": -1}]}
+
+        if query is not None:
+            payload["q"] = str(query)
+
+        if function is not None:
+            payload["function"] = function.value
+
+        if license is not None:
+            payload["license"] = license.value
+
+        if data_type is not None:
+            payload["dataType"] = data_type.value
+
+        if is_referenceless is not None:
+            payload["isReferenceless"] = is_referenceless
+
+        if language is not None:
+            if isinstance(language, Language):
+                language = [language]
+            payload["language"] = [lng.value["language"] for lng in language]
+
+        logging.info(f"Start service for POST List Dataset - {url} - {headers} - {json.dumps(payload)}")
+        r = _request_with_retry("post", url, headers=headers, json=payload)
+        resp = r.json()
+
+        datasets, page_total, total = [], 0, 0
+        if "results" in resp:
+            results = resp["results"]
+            page_total = resp["pageTotal"]
+            total = resp["total"]
+            logging.info(f"Response for POST List Dataset - Page Total: {page_total} / Total: {total}")
+            for dataset in results:
+                datasets.append(cls.__from_response(dataset))
+        return {"results": datasets, "page_total": page_total, "page_number": page_number, "total": total}
 
     @classmethod
     def get_assets_from_page(
@@ -119,23 +262,12 @@ class DatasetFactory(AssetFactory):
         Returns:
             List[Dataset]: List of datasets based on given filters
         """
-        try:
-            url = urljoin(cls.backend_url, f"sdk/datasets?pageNumber={page_number}&function={task}")
-            if input_language is not None:
-                url += f"&input={input_language}"
-            if output_language is not None:
-                url += f"&output={output_language}"
-            headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
-            r = _request_with_retry("get", url, headers=headers)
-            resp = r.json()
-            logging.info(f"Listing Datasets: Status of getting Datasets on Page {page_number} for {task} : {resp}")
-            all_datasets = resp["results"]
-            dataset_list = [cls._create_dataset_from_response(dataset_info_json) for dataset_info_json in all_datasets]
-            return dataset_list
-        except Exception as e:
-            error_message = f"Listing Datasets: Error in getting Datasets on Page {page_number} for {task} : {e}"
-            logging.error(error_message)
-            return []
+        warn(
+            'This method will be deprecated in the next versions of the SDK. Use "list" instead.',
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return cls.list(function=task, page_number=page_number)
 
     @classmethod
     def get_first_k_assets(
@@ -152,13 +284,232 @@ class DatasetFactory(AssetFactory):
         Returns:
             List[Dataset]: List of datasets based on given filters
         """
+        warn(
+            'This method will be deprecated in the next versions of the SDK. Use "list" instead.',
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return cls.list(function=task, page_size=k)
+
+    @classmethod
+    def create(
+        cls,
+        name: Text,
+        description: Text,
+        license: License,
+        function: Function,
+        content_path: Union[Union[Text, Path], List[Union[Text, Path]]],
+        input_schema: List[Union[Dict, MetaData]],
+        output_schema: List[Union[Dict, MetaData]],
+        hypotheses_schema: List[Union[Dict, MetaData]] = [],
+        metadata_schema: List[Union[Dict, MetaData]] = [],
+        input_ref_data: Dict[Text, Any] = {},
+        output_ref_data: Dict[Text, List[Any]] = {},
+        hypotheses_ref_data: Dict[Text, Any] = {},
+        meta_ref_data: Dict[Text, Any] = {},
+        tags: List[Text] = [],
+        privacy: Privacy = Privacy.PRIVATE,
+        split_labels: Optional[List[Text]] = None,
+        split_rate: Optional[List[float]] = None,
+    ) -> Dict:
+        """Dataset Onboard
+
+        Args:
+            name (Text): dataset name
+            description (Text): dataset description
+            license (License): dataset license
+            function (Function): dataset function
+            content_path (Union[Union[Text, Path], List[Union[Text, Path]]]): path to files which contain the data content
+            input_schema (List[Union[Dict, MetaData]]): metadata of inputs
+            output_schema (List[Union[Dict, MetaData]]): metadata of outputs
+            hypotheses_schema (List[Union[Dict, MetaData]], optional): schema of the hypotheses to the references. Defaults to [].
+            metadata_schema (List[Union[Dict, MetaData]], optional): metadata of metadata information of the dataset. Defaults to [].
+            input_ref_data (Dict[Text, Any], optional): reference to input data which is already in the platform. Defaults to {}.
+            output_ref_data (Dict[Text, List[Any]], optional): reference to output data which is already in the platform. Defaults to {}.
+            hypotheses_ref_data (Dict[Text, Any], optional): hypotheses which are already in the platform. Defaults to {}.
+            meta_ref_data (Dict[Text, Any], optional): metadata which is already in the platform. Defaults to {}.
+            tags (List[Text], optional): datasets description tags. Defaults to [].
+            privacy (Privacy, optional): dataset privacy. Defaults to Privacy.PRIVATE.
+
+        Returns:
+            Dict: dataset onboard status
+        """
+        assert (split_labels is not None and split_rate is not None) or (
+            split_labels is None and split_rate is None
+        ), "Data Asset Onboarding Error: Make sure you set the split labels values as well as their rates."
+        folder, return_dict = None, {}
+        # check team key
         try:
-            dataset_list = []
-            assert k > 0
-            for page_number in range(k // 10 + 1):
-                dataset_list += cls.get_assets_from_page(page_number, task, input_language, output_language)
-            return dataset_list[0:k]
+            if config.TEAM_API_KEY.strip() == "":
+                message = "Data Asset Onboarding Error: Update your team key on the environment variable TEAM_API_KEY before the corpus onboarding process."
+                logging.exception(message)
+                raise Exception(message)
+
+            content_paths = content_path
+            if isinstance(content_path, list) is False:
+                content_paths = [content_path]
+
+            assert (
+                len(input_schema) > 0 or len(input_ref_data) > 0
+            ), "Data Asset Onboarding Error: You must specify an input data to onboard a dataset."
+            for i, metadata in enumerate(input_schema):
+                if isinstance(metadata, dict):
+                    input_schema[i] = MetaData(**metadata)
+
+            # assert (
+            #     len(output_schema) > 0 or len(output_ref_data) > 0
+            # ), "Data Asset Onboarding Error: You must specify an output data to onboard a dataset."
+            for i, metadata in enumerate(output_schema):
+                if isinstance(metadata, dict):
+                    output_schema[i] = MetaData(**metadata)
+
+            for i, hypothesis in enumerate(hypotheses_schema):
+                if isinstance(hypothesis, dict):
+                    hypotheses_schema[i] = MetaData(**hypothesis)
+
+            for i, metadata in enumerate(metadata_schema):
+                if isinstance(metadata, dict):
+                    metadata_schema[i] = MetaData(**metadata)
+
+            for input_data in input_ref_data:
+                if isinstance(input_ref_data[input_data], Data):
+                    input_ref_data[input_data] = input_ref_data[input_data].id
+                # check whether the referred data exist. Otherwise, raise an exception
+                data_id = input_ref_data[input_data]
+                if onboard_functions.is_data(data_id) is False:
+                    message = f"Data Asset Onboarding Error: Referenced Input Data {data_id} does not exist."
+                    logging.exception(message)
+                    raise Exception(message)
+
+            for output_data in output_ref_data:
+                if len(output_ref_data[output_data]) > 0:
+                    if isinstance(output_ref_data[output_data][0], Data):
+                        output_ref_data[output_data] = [w.id for w in output_ref_data[output_data]]
+                    # check whether the referred data exist. Otherwise, raise an exception
+                    for data_id in output_ref_data[output_data]:
+                        if onboard_functions.is_data(data_id) is False:
+                            message = f"Data Asset Onboarding Error: Referenced Output Data {data_id} does not exist."
+                            logging.exception(message)
+                            raise Exception(message)
+
+            for hypdata in hypotheses_ref_data:
+                if isinstance(hypotheses_ref_data[hypdata], Data):
+                    hypotheses_ref_data[hypdata] = hypotheses_ref_data[hypdata].id
+                # check whether the referred data exist. Otherwise, raise an exception
+                data_id = hypotheses_ref_data[hypdata]
+                if onboard_functions.is_data(data_id) is False:
+                    message = f"Data Asset Onboarding Error: Referenced Hypotheses Data {data_id} does not exist."
+                    logging.exception(message)
+                    raise Exception(message)
+
+            for meta_data in meta_ref_data:
+                if isinstance(meta_ref_data[meta_data], Data):
+                    meta_ref_data[meta_data] = meta_ref_data[meta_data].id
+                # check whether the referred data exist. Otherwise, raise an exception
+                data_id = meta_ref_data[meta_data]
+                if onboard_functions.is_data(data_id) is False:
+                    message = f"Data Asset Onboarding Error: Referenced Meta Data {data_id} does not exist."
+                    logging.exception(message)
+                    raise Exception(message)
+
+            # check whether reserved names are used as data/column names
+            for schema in [input_schema, output_schema, metadata_schema, hypotheses_schema]:
+                for metadata in schema:
+                    for forbidden_name in onboard_functions.FORBIDDEN_COLUMN_NAMES:
+                        if forbidden_name in [metadata.name, metadata.data_column]:
+                            message = f"Data Asset Onboarding Error: {forbidden_name} is reserved name and must not be used as the name of a data or a column."
+                            logging.exception(message)
+                            raise Exception(message)
+
+            # get file extension paths to process
+            paths = onboard_functions.get_paths(content_paths)
+
+            # set dataset split
+            if split_labels is not None and split_rate is not None:
+                assert len(split_labels) == len(
+                    split_rate
+                ), "Data Asset Onboarding Error: Make sure you set the *split_labels* and *split_rate* lists must have the same length."
+                split_metadata = onboard_functions.split_data(paths=paths, split_labels=split_labels, split_rate=split_rate)
+                metadata_schema.append(split_metadata)
+
+            # process data and create files
+            folder = Path(name)
+            folder.mkdir(exist_ok=True)
+
+            datasets = {}
+            for (key, schema) in [
+                ("inputs", input_schema),
+                ("outputs", output_schema),
+                ("hypotheses", hypotheses_schema),
+                ("meta", metadata_schema),
+            ]:
+                datasets[key] = {}
+                for i in tqdm(range(len(schema)), desc=f" Dataset's {key} onboard progress", position=0):
+                    metadata = schema[i]
+                    if metadata.privacy is None:
+                        metadata.privacy = privacy
+
+                    files, data_column_idx, start_column_idx, end_column_idx = onboard_functions.process_data_files(
+                        data_asset_name=name, metadata=metadata, paths=paths, folder=name
+                    )
+
+                    if metadata.name not in datasets[key]:
+                        datasets[key][metadata.name] = []
+
+                    datasets[key][metadata.name].append(
+                        Data(
+                            id=str(uuid4()).replace("-", ""),
+                            name=metadata.name,
+                            dtype=metadata.dtype,
+                            dsubtype=metadata.subtype,
+                            privacy=metadata.privacy,
+                            onboard_status="onboarding",
+                            data_column=data_column_idx,
+                            start_column=start_column_idx,
+                            end_column=end_column_idx,
+                            files=files,
+                            languages=metadata.languages,
+                        )
+                    )
+
+            # validate and flat inputs, hypotheses and metadata
+            for key_schema in ["inputs", "hypotheses", "meta"]:
+                for input_data in datasets[key_schema]:
+                    assert len(datasets[key_schema][input_data]) == 1
+                    datasets[key_schema][input_data] = datasets[key_schema][input_data][0]
+
+            dataset = Dataset(
+                id="",
+                name=name,
+                description=description,
+                function=function,
+                source_data=datasets["inputs"],
+                target_data=datasets["outputs"],
+                hypotheses=datasets["hypotheses"],
+                metadata=datasets["meta"],
+                tags=tags,
+                license=license,
+                privacy=privacy,
+                onboard_status="onboarding",
+            )
+            dataset_payload = onboard_functions.build_payload_dataset(
+                dataset, input_ref_data, output_ref_data, hypotheses_ref_data, meta_ref_data, tags
+            )
+            assert (
+                len(dataset_payload["input"]) > 0
+            ), "Data Asset Onboarding Error: Please specify the input data of your dataset."
+            # assert (
+            #     len(dataset_payload["output"]) > 0
+            # ), "Data Asset Onboarding Error: Please specify the output data of your dataset."
+
+            response = onboard_functions.create_data_asset(dataset_payload, data_asset_type="dataset")
+            if response["success"] is True:
+                return_dict = {"status": response["status"], "asset_id": response["asset_id"]}
+            else:
+                raise Exception(response["error"])
+            shutil.rmtree(folder)
         except Exception as e:
-            error_message = f"Listing Datasets: Error in getting {k} Datasets for {task} : {e}"
-            logging.error(error_message)
-            return []
+            if folder is not None:
+                shutil.rmtree(folder)
+            raise Exception(e)
+        return return_dict

@@ -18,35 +18,12 @@ import aixplain.utils.config as config
 import os
 import re
 import requests
-import validators
 
-from aixplain.enums.storage_type import StorageType
 from pathlib import Path
 from uuid import uuid4
 from requests.adapters import HTTPAdapter, Retry
-from typing import Any, Dict, Optional, Text, Union
-
-
-def check_storage_type(input_link: Any) -> StorageType:
-    """Check whether a path is a URL (s3 link or HTTP link), a file or a textual content
-
-    Args:
-        input_link (Any): path to be checked
-
-    Returns:
-        StorageType: URL, TEXT or FILE
-    """
-    if os.path.exists(input_link) is True:
-        return StorageType.FILE
-    elif (
-        input_link.startswith("s3://")
-        or input_link.startswith("http://")
-        or input_link.startswith("https://")
-        or validators.url(input_link)
-    ):
-        return StorageType.URL
-    else:
-        return StorageType.TEXT
+from typing import Any, Optional, Text, Union
+from urllib.parse import urljoin
 
 
 def save_file(download_url: Text, download_file_path: Optional[Any] = None) -> Any:
@@ -122,11 +99,15 @@ def upload_data(
     """
     try:
         # Get pre-signed URL
-        team_key = config.TEAM_API_KEY
         # URL of aiXplain service which returns a pre-signed URL to onboard the file
-        url = config.TEMPFILE_UPLOAD_URL
+        url = urljoin(config.BACKEND_URL, "sdk/file/upload/temp-url")
 
-        headers = {"Authorization": "token " + team_key}
+        if config.AIXPLAIN_API_KEY != "":
+            team_key = config.AIXPLAIN_API_KEY
+            headers = {"x-aixplain-key": team_key}
+        else:
+            team_key = config.TEAM_API_KEY
+            headers = {"Authorization": "token " + team_key}
 
         payload = {"contentType": content_type, "originalName": file_name}
         r = _request_with_retry("post", url, headers=headers, data=payload)
@@ -155,32 +136,3 @@ def upload_data(
             return upload_data(file_name, content_type, content_encoding, nattempts - 1)
         else:
             raise Exception("File Uploading Error: Failure on Uploading to S3.")
-
-
-def path2link(data: Union[Text, Dict]) -> Union[Text, Dict]:
-    """If user input data is a local file, upload to aiXplain platform
-
-    Args:
-        data (Union[Text, Dict]): input data
-
-    Returns:
-        Union[Text, Dict]: input links/texts
-    """
-
-    def check_file(local_path):
-        if os.path.exists(local_path) is False:
-            raise Exception(f'File Upload Error: local file "{local_path}" not found.')
-        if os.path.getsize(local_path) > 10485760:
-            raise Exception(f'File Upload Error: local file "{local_path}" exceeds 10 MB.')
-
-    if isinstance(data, str):
-        if check_storage_type(data) == StorageType.FILE:
-            check_file(data)
-            data = upload_data(file_name=data)
-    else:
-        for key in data:
-            if isinstance(data[key], str):
-                if check_storage_type(data[key]) == StorageType.FILE:
-                    check_file(data[key])
-                    data[key] = upload_data(file_name=data[key])
-    return data

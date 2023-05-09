@@ -33,8 +33,8 @@ class Metric(Asset):
         id (Text): ID of the Metric
         name (Text): Name of the Metric
         description (Text): Description of the Metric
-        supplier (Optional[Text], optional): author of the Metric. Defaults to "aiXplain".
-        version (Optional[Text], optional): Metric version. Defaults to "1.0".
+        supplier (Text, optional): author of the Metric. Defaults to "aiXplain".
+        version (Text, optional): Metric version. Defaults to "1.0".
         additional_info: Any additional Metric info to be saved
 
     """
@@ -44,8 +44,8 @@ class Metric(Asset):
         id: Text,
         name: Text,
         description: Text,
-        supplier: Optional[Text] = "aiXplain",
-        version: Optional[Text] = "1.0",
+        supplier: Text = "aiXplain",
+        version: Text = "1.0",
         **additional_info,
     ) -> None:
         """Create a Metric with the necessary information
@@ -54,8 +54,8 @@ class Metric(Asset):
             id (Text): ID of the Metric
             name (Text): Name of the Metric
             description (Text): Description of the Metric
-            supplier (Optional[Text], optional): author of the Metric. Defaults to "aiXplain".
-            version (Optional[Text], optional): Metric version. Defaults to "1.0".
+            supplier (Text, optional): author of the Metric. Defaults to "aiXplain".
+            version (Text, optional): Metric version. Defaults to "1.0".
             **additional_info: Any additional Metric info to be saved
         """
         super().__init__(id, name, description, supplier, version)

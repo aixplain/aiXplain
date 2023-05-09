@@ -22,7 +22,7 @@ Description:
 """
 import logging
 import os
-from typing import Dict, List, Text
+from typing import Dict, List, Optional, Text
 from aixplain.modules.pipeline import Pipeline
 from aixplain.utils.config import PIPELINES_RUN_URL
 from aixplain.utils import config
@@ -40,6 +40,7 @@ class PipelineFactory:
     """
 
     api_key = config.TEAM_API_KEY
+    aixplain_key = config.AIXPLAIN_API_KEY
     backend_url = config.BACKEND_URL
 
     @classmethod
@@ -52,24 +53,35 @@ class PipelineFactory:
         Returns:
             Pipeline: Coverted 'Pipeline' object
         """
-        return Pipeline(response["id"], response["name"], cls.api_key)
+        if "api_key" not in response:
+            response["api_key"] = cls.api_key
+        return Pipeline(response["id"], response["name"], response["api_key"])
 
     @classmethod
-    def get(cls, pipeline_id: Text) -> Pipeline:
+    def get(cls, pipeline_id: Text, api_key: Optional[Text] = None) -> Pipeline:
         """Create a 'Pipeline' object from pipeline id
 
         Args:
             pipeline_id (Text): Pipeline ID of required pipeline.
+            api_key (Optional[Text], optional): Pipeline API key. Defaults to None.
 
         Returns:
             Pipeline: Created 'Pipeline' object
         """
         resp = None
         try:
-            url = urljoin(cls.backend_url, f"sdk/inventory/pipelines/{pipeline_id}")
-            headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
+            url = urljoin(cls.backend_url, f"sdk/pipelines/{pipeline_id}")
+            if cls.aixplain_key != "":
+                headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
+            else:
+                headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
+            logging.info(f"Start service for GET Pipeline  - {url} - {headers}")
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()
+            # set api key
+            resp["api_key"] = cls.api_key
+            if api_key is not None:
+                resp["api_key"] = api_key
             pipeline = cls._create_pipeline_from_response(resp)
             return pipeline
         except Exception as e:
@@ -102,8 +114,11 @@ class PipelineFactory:
             List[Pipeline]: List of pipelines based on given filters
         """
         try:
-            url = urljoin(cls.backend_url, f"sdk/inventory/pipelines/?pageNumber={page_number}")
-            headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
+            url = urljoin(cls.backend_url, f"sdk/pipelines/?pageNumber={page_number}")
+            if cls.aixplain_key != "":
+                headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
+            else:
+                headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()
             logging.info(f"Listing Pipelines: Status of getting Pipelines on Page {page_number}: {resp}")

@@ -99,9 +99,9 @@ aiXplain has an extensive collection of general-purpose corpora to be explored, 
 The aiXplain SDK allows searching for existing corpora that match a specific criteria. `CorpusFactory` can search for corpora that contain data from a particular language pair or data type.
 
 ```python
-from aixplain.enums import DataType
+from aixplain.enums import DataType, Language
 from aixplain.factories  import CorpusFactory
-corpus_list = CorpusFactory.get_first_k_assets(k=5, language="en", dtype=[DataType.AUDIO, DataType.TEXT])
+corpus_list = CorpusFactory.list(page_size=5, language=Language.English, data_type=DataType.AUDIO)["results"]
 ```
 Note: This does not download the resulted corpora to your local machine.
 
@@ -118,10 +118,15 @@ The catalog of all available datasets on aiXplain can be accessed and browsed [h
 The aixplain SDK allows searching for existing datasets that match a specific criteria. `DatasetFactory` can search for datasets that are linked to a particular machine learning task and optionally support a specific input/output language pair.
 
 ```python
-from aixplain.factories.dataset_factory  import DatasetFactory
-dataset_list = DatasetFactory.get_first_k_assets(k=5, task="translation", input_language="en", output_language="fr")
+from aixplain.factories  import DatasetFactory
+from aixplain.enums import Function, Language
+dataset_list = DatasetFactory.list(function=Function.TRANSLATION, language=[Language.English, Language.French], page_size=1)["results"]
 ```
 Note: This does not download datasets to your local machine.
+
+### Dataset Onboarding
+
+Using the aiXplain SDK, you can also onboard your dataset into the aiXplain platform. A step-by-step example on how to do it can be accessed [here](/docs/samples/dataset_onboarding/dataset_onboarding.ipynb).
 
 ## Metrics
 aiXplain has an impressive library of metrics for various machine learning tasks like Translation, Speech Recognition, Diacritization, and Sentiment Analysis. There are reference similarity metrics, human evaluation estimation metrics, and referenceless metrics.
@@ -147,17 +152,15 @@ The proposed benchmarking framework is designed for being modular and interopera
 You can create a benchmarking job on aiXplain [here](https://platform.aixplain.com/benchmark) or you can also use the SDK. Let's see how we can use the `BenchmarkFactory` in the aixplain SDK for the same purpose.
 
 ```python
-from aixplain.factories.dataset_factory  import DatasetFactory
-from aixplain.factories.metric_factory  import MetricFactory
-from aixplain.factories.model_factory  import ModelFactory
-from aixplain.factories.benchmark_factory  import BenchmarkFactory
+from aixplain.factories import BenchmarkFactory, DatasetFactory, MetricFactory, ModelFactory
+from aixplain.enums import Function, Language
 
 # Choose 'one or more' models
 model_list = ModelFactory.get_first_k_assets(k=5, task="translation", input_language="en", output_language="fr")
 # Choose 'one or more' metrics
 metric_list = MetricFactory.list_assets(task="translation")
 # Choose 'exactly one' dataset
-dataset_list = DatasetFactory.get_first_k_assets(k=1, task="translation", input_language="en", output_language="fr")
+dataset_list = DatasetFactory.list(function=Function.TRANSLATION, language=[Language.English, Language.French], page_size=1)["results"]
 
 benchmark = BenchmarkFactory.create_benchmark(<UNIQUE_NAME_OF_BENCHMARK>, dataset_list, model_list, metric_list)
 ```

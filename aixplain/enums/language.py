@@ -31,10 +31,14 @@ from urllib.parse import urljoin
 
 def load_languages():
     api_key = config.TEAM_API_KEY
+    aixplain_key = config.AIXPLAIN_API_KEY
     backend_url = config.BACKEND_URL
 
     url = urljoin(backend_url, "sdk/languages")
-    headers = {"x-api-key": api_key, "Content-Type": "application/json"}
+    if aixplain_key != "":
+        headers = {"x-aixplain-key": aixplain_key, "Content-Type": "application/json"}
+    else:
+        headers = {"x-api-key": api_key, "Content-Type": "application/json"}
     r = _request_with_retry("get", url, headers=headers)
     resp = r.json()
     languages = {}

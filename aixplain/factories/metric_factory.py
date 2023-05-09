@@ -41,6 +41,7 @@ class MetricFactory:
     """
 
     api_key = config.TEAM_API_KEY
+    aixplain_key = config.AIXPLAIN_API_KEY
     backend_url = config.BACKEND_URL
 
     @classmethod
@@ -68,7 +69,11 @@ class MetricFactory:
         resp, status_code = None, 200
         try:
             url = urljoin(cls.backend_url, f"sdk/scores/{metric_id}")
-            headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
+            if cls.aixplain_key != "":
+                headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
+            else:
+                headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
+            logging.info(f"Start service for GET Metric  - {url} - {headers}")
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()
             metric = cls._create_metric_from_response(resp)
@@ -104,7 +109,10 @@ class MetricFactory:
         """
         try:
             url = urljoin(cls.backend_url, f"sdk/scores?function={task}")
-            headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
+            if cls.aixplain_key != "":
+                headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
+            else:
+                headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()
             logging.info(f"Listing Metrics: Status of getting metrics for {task} : {resp}")

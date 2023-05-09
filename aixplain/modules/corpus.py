@@ -26,7 +26,6 @@ from aixplain.enums.onboard_status import OnboardStatus
 from aixplain.enums.privacy import Privacy
 from aixplain.modules.asset import Asset
 from aixplain.modules.data import Data
-from aixplain.utils.file_utils import _request_with_retry, save_file
 from typing import Any, List, Optional, Text
 
 
@@ -38,12 +37,13 @@ class Corpus(Asset):
         description: Text,
         data: List[Data],
         onboard_status: OnboardStatus,
-        functions: Optional[List[Function]] = [],
-        tags: Optional[List[Text]] = [],
+        functions: List[Function] = [],
+        tags: List[Text] = [],
         license: Optional[License] = None,
-        privacy: Optional[Privacy] = Privacy.PRIVATE,
-        supplier: Optional[Text] = "aiXplain",
-        version: Optional[Text] = "1.0",
+        privacy: Privacy = Privacy.PRIVATE,
+        supplier: Text = "aiXplain",
+        version: Text = "1.0",
+        length: Optional[int] = None,
         **kwargs,
     ) -> None:
         """Corpus Class.
@@ -57,12 +57,13 @@ class Corpus(Asset):
             description (Text): description of the corpus
             data (List[Data]): List of data which the corpus consists of
             onboard_status (OnboardStatus): onboard status
-            functions (Optional[List[Function]], optional): AI functions in which the corpus is suggested to be used to. Defaults to [].
-            tags (Optional[List[Text]], optional): description tags. Defaults to [].
+            functions (List[Function], optional): AI functions in which the corpus is suggested to be used to. Defaults to [].
+            tags (List[Text], optional): description tags. Defaults to [].
             license (Optional[License], optional): Corpus license. Defaults to None.
-            privacy (Optional[Privacy], optional): Corpus privacy info. Defaults to Privacy.PRIVATE.
-            supplier (Optional[Text], optional): Corpus supplier. Defaults to "aiXplain".
-            version (Optional[Text], optional): Corpus version. Defaults to "1.0".
+            privacy (Privacy, optional): Corpus privacy info. Defaults to Privacy.PRIVATE.
+            supplier (Text, optional): Corpus supplier. Defaults to "aiXplain".
+            version (Text, optional): Corpus version. Defaults to "1.0".
+            length (Optional[int], optional): Number of rows in the Corpus. Defaults to None.
         """
         super().__init__(
             id=id, name=name, description=description, supplier=supplier, version=version, license=license, privacy=privacy
@@ -73,4 +74,5 @@ class Corpus(Asset):
         self.functions = functions
         self.tags = tags
         self.data = data
+        self.length = length
         self.kwargs = kwargs

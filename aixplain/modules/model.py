@@ -26,9 +26,10 @@ import json
 import logging
 import traceback
 from typing import List
+from aixplain.factories.file_factory import FileFactory
 from aixplain.modules.asset import Asset
 from aixplain.utils import config
-from aixplain.utils.file_utils import _request_with_retry, path2link
+from aixplain.utils.file_utils import _request_with_retry
 from typing import Union, Optional, Text, Dict
 
 
@@ -41,8 +42,8 @@ class Model(Asset):
         description (Text, optional): description of the model. Defaults to "".
         api_key (Text, optional): API key of the Model. Defaults to None.
         url (Text, optional): endpoint of the model. Defaults to config.MODELS_RUN_URL.
-        supplier (Optional[Text], optional): model supplier. Defaults to "aiXplain".
-        version (Optional[Text], optional): version of the model. Defaults to "1.0".
+        supplier (Text, optional): model supplier. Defaults to "aiXplain".
+        version (Text, optional): version of the model. Defaults to "1.0".
         **additional_info: Any additional Model info to be saved
     """
 
@@ -53,8 +54,8 @@ class Model(Asset):
         description: Text = "",
         api_key: Optional[Text] = None,
         url: Text = config.MODELS_RUN_URL,
-        supplier: Optional[Text] = "aiXplain",
-        version: Optional[Text] = "1.0",
+        supplier: Text = "aiXplain",
+        version: Text = "1.0",
         **additional_info,
     ) -> None:
         """Model Init
@@ -65,8 +66,8 @@ class Model(Asset):
             description (Text, optional): description of the model. Defaults to "".
             api_key (Text, optional): API key of the Model. Defaults to None.
             url (Text, optional): endpoint of the model. Defaults to config.MODELS_RUN_URL.
-            supplier (Optional[Text], optional): model supplier. Defaults to "aiXplain".
-            version (Optional[Text], optional): version of the model. Defaults to "1.0".
+            supplier (Text, optional): model supplier. Defaults to "aiXplain".
+            version (Text, optional): version of the model. Defaults to "1.0".
             **additional_info: Any additional Model info to be saved
         """
         super().__init__(id, name, description, supplier, version)
@@ -172,7 +173,6 @@ class Model(Asset):
         """
         start = time.time()
         try:
-            data = path2link(data)
             response = self.run_async(data, name=name, parameters=parameters)
             if response["status"] == "FAILED":
                 end = time.time()
@@ -201,11 +201,16 @@ class Model(Asset):
         """
         headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}
 
+        data = FileFactory.to_link(data)
         if isinstance(data, dict):
             payload = data
         else:
             try:
                 payload = json.loads(data)
+                if isinstance(payload, dict) is False:
+                    if isinstance(payload, int) is True or isinstance(payload, float) is True:
+                        payload = str(payload)
+                    payload = {"data": payload}
             except Exception as e:
                 payload = {"data": data}
         payload.update(parameters)
