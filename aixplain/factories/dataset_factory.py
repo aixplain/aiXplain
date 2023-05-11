@@ -461,7 +461,7 @@ class DatasetFactory(AssetFactory):
                             id=str(uuid4()).replace("-", ""),
                             name=metadata.name,
                             dtype=metadata.dtype,
-                            dsubtype=metadata.subtype,
+                            dsubtype=metadata.dsubtype,
                             privacy=metadata.privacy,
                             onboard_status="onboarding",
                             data_column=data_column_idx,
