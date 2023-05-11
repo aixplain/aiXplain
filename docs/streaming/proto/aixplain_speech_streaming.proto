@@ -1,0 +1,196 @@
+// Copyright 2023 aiXplain authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+import "google/protobuf/duration.proto";
+
+option java_multiple_files = true;
+option java_package = "com.aixplain.stream";
+option java_outer_classname = "AixplainSpeechStreamingProto";
+option objc_class_prefix = "RTG";
+
+package aixplainspeechstreaming;
+
+// Interface exported by the server.
+service AixplainSpeechStreaming {
+  // The ServerLive API indicates if the inference server is able to receive
+  // and respond to metadata and inference requests.
+  rpc ServerLive(ServerLiveRequest) returns (ServerLiveResponse) {}
+
+  // The ServerReady API indicates if the server is ready for inferencing.
+  rpc ServerReady(ServerReadyRequest) returns (ServerReadyResponse) {}
+
+  // The ModelReady API indicates if a specific model is ready for inferencing.
+  rpc ModelReady(ModelReadyRequest) returns (ModelReadyResponse) {}
+
+  // The ServerMetadata API provides information about the server. Errors are
+  // indicated by the google.rpc.Status returned for the request. The OK code
+  // indicates success and other codes indicate failure.
+  rpc ServerMetadata(ServerMetadataRequest) returns (ServerMetadataResponse) {}
+
+  // The per-model metadata API provides information about a model. Errors are
+  // indicated by the google.rpc.Status returned for the request. The OK code
+  // indicates success and other codes indicate failure.
+  rpc ModelMetadata(ModelMetadataRequest) returns (ModelMetadataResponse) {}
+
+  // The SpeechRecognize API performs streaming inference using the specified audio config.
+  // Errors are indicated by the google.rpc.Status returned for the request.
+  // The OK code indicates success and other codes indicate failure.
+  rpc SpeechRecognize(stream SpeechRecognitionRequest) returns (stream SpeechRecognitionResponse) {}
+}
+
+message ServerLiveRequest {}
+
+message ServerLiveResponse
+{
+  // True if the inference server is live, false if not live.
+  bool live = 1;
+}
+
+message ServerReadyRequest {}
+
+message ServerReadyResponse
+{
+  // True if the inference server is ready, false if not ready.
+  bool ready = 1;
+}
+
+message ModelReadyRequest
+{
+  // The name of the model to check for readiness.
+  string name = 1;
+
+  // The version of the model to check for readiness. If not given the
+  // server will choose a version based on the model and internal policy.
+  string version = 2;
+}
+
+message ModelReadyResponse
+{
+  // True if the model is ready, false if not ready.
+  bool ready = 1;
+}
+
+message ServerMetadataRequest {}
+
+message ServerMetadataResponse
+{
+  // The server name.
+  string name = 1;
+
+  // The server version.
+  string version = 2;
+
+  // The extensions supported by the server.
+  repeated string extensions = 3;
+}
+
+message ModelMetadataRequest
+{
+  // The name of the model.
+  string name = 1;
+
+  // The version of the model to check for readiness. If not given the
+  // server will choose a version based on the model and internal policy.
+  string version = 2;
+}
+
+message ModelMetadataResponse
+{
+
+  // The model name.
+  string name = 1;
+
+  // The versions of the model available on the server.
+  repeated string versions = 2;
+
+  // The model's platform. See Platforms.
+  string platform = 3;
+
+}
+
+message AudioConfig
+{
+    // Audio encoding format, one of: ("LINEAR16",)
+    string encoding = 1;
+
+    // Sample rate for the audio in hertz
+    int32 hertz = 2;
+
+    // Language code for the language spoken in the audio, one of ("en", )
+    string language_code = 3;
+}
+
+message SpeechRecognitionRequest
+{
+
+  // The config for streaming speech recognition.
+  AudioConfig config = 1;
+
+  // Audio content encoded in bytes.
+  bytes audio_content = 2;
+
+}
+
+message WordInfo
+{
+
+    // Start time of the spoken word relative to the beginning of the audio input
+    google.protobuf.Duration start_time = 1;
+
+    // End time of the spoken word relative to the beginning of the audio input
+    google.protobuf.Duration end_time = 2;
+
+    // The word corresponding to this set of information.
+    string word = 3;
+
+    // Confidence for the word
+    float confidence = 4;
+
+    // Speaker tag for identifying the distint speaker within the audio
+    string speaker_tag = 5;
+
+}
+
+message SpeechRecognitionHypothesis
+{
+
+    // Transcript text representing the content of the speech in audio.
+    string transcript = 1;
+
+    // Confidence score for the transription.
+    float confidence = 2;
+
+    // A list of words forming the transcription.
+    repeated WordInfo words = 3;
+
+}
+
+message SpeechRecognitionResponse
+{
+
+    // List of hypotheses by the speech recognition service containing transcriptions
+    repeated SpeechRecognitionHypothesis hypotheses = 1;
+
+    // Represents if this is the final time the speech recognition service will return
+    // this result for the given segment of audio.
+    bool is_final = 2;
+
+    // End time of the recognised spoken content relative to the beginning of the audio input
+    google.protobuf.Duration end_time = 3;
+
+    // Language code for the language spoken in the audio
+    string language_code = 4;
+}
