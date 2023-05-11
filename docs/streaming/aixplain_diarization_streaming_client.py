@@ -26,8 +26,6 @@ import aixplain_diarization_streaming_pb2_grpc
 FRAME_RATE = 16000
 
 def generate_payloads(file_path):
-    # uncomment this if your audio file is not compatible
-    # create_compatible_audio(file_path, file_path)
     stream_configuration = pb.DiarizationRequest(
         config=pb.AudioConfig(encoding="LINEAR16", hertz=FRAME_RATE, language_code="en"),
         diarization_config=pb.DiarizationConfig(min_speaker_count=1, max_speaker_count=3),
