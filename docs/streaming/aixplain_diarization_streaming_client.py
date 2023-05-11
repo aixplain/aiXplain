@@ -19,7 +19,6 @@ import time
 from typing import List
 import grpc
 import logging
-from pydub import AudioSegment
 
 import aixplain_diarization_streaming_pb2 as pb
 import aixplain_diarization_streaming_pb2_grpc
@@ -27,11 +26,8 @@ import aixplain_diarization_streaming_pb2_grpc
 FRAME_RATE = 16000
 
 def generate_payloads(file_path):
-    sound_file = AudioSegment.from_file(file_path)
-    sound_file = sound_file.set_frame_rate(FRAME_RATE)
-    if sound_file.channels > 1:
-        # Convert the audio to single channel by averaging the channels
-        sound_file = sound_file.set_channels(1)
+    # uncomment this if your audio file is not compatible
+    # create_compatible_audio(file_path, file_path)
     stream_configuration = pb.DiarizationRequest(
         config=pb.AudioConfig(encoding="LINEAR16", hertz=FRAME_RATE, language_code="en"),
         diarization_config=pb.DiarizationConfig(min_speaker_count=1, max_speaker_count=3),
@@ -40,13 +36,16 @@ def generate_payloads(file_path):
     # Iterate over the raw bytes in chunks
     chunk_size = 16000 # half a second of audio
     i = 0
-    for chunk_start in range(0, len(sound_file.raw_data), chunk_size):
-        logging.info(f'Sending chunk {i}')
-        chunk = sound_file.raw_data[chunk_start:chunk_start+chunk_size]
-        payload = pb.DiarizationRequest(audio_content=chunk)
-        yield payload
-        i += 1
-        time.sleep(0.5) # simulate streaming by introducing sleep
+    with open(file_path, "rb") as audio_file:
+        while True:
+            chunk = audio_file.read(chunk_size)
+            if not chunk:
+                break
+            logging.info(f'Sending chunk {i}')
+            payload = pb.DiarizationRequest(audio_content=chunk)
+            yield payload
+            i += 1
+            time.sleep(0.5) # simulate streaming by introducing sleep
 
 def grpc_duration_to_seconds(duration):
     seconds = float(duration.seconds)
@@ -59,8 +58,8 @@ def consume_results(response: List[pb.DiarizationResponse]):
             logging.info(f'Received is_final={inference.is_final}. total_time={inference.end_time.seconds}.{str(inference.end_time.nanos)[:3]}')
         if len(inference.segments):
             logging.info(f'Turns:')
-            for i, segment in enumerate(inference.segments):
-                logging.info(f"{i}: {segment.speaker_tag} \
+            for segment in inference.segments:
+                logging.info(f"{segment.speaker_tag} \
                     start:{grpc_duration_to_seconds(segment.start_time)}\tend:{grpc_duration_to_seconds(segment.end_time)}")
 
 def _stream_file(channel, file_path):
