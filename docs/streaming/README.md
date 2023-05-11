@@ -60,4 +60,4 @@ pip install pydub==0.25.1
 
 ### Using the Helper Script
 
-`python make_audio_compatible.py --source_path=input.wav --dest-path=test_dia.wav`
+`python make_audio_compatible.py --source_path=input.wav --dest_path=test_dia.wav`
