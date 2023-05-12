@@ -40,3 +40,27 @@ python3.8 aixplain_diarization_streaming_client.py --file-path=test_dia.wav --ca
 The arguments --cacert, --cert, and --key are used to provide the paths to the necessary certificate files for mTLS.
 
 The --file-path argument is used to specify the path to the input file.
+
+## Audio requirements
+
+Our service is configured to process audio streamed as a single channel with a sampling rate of 16000Hz.
+
+If the audio does not meet these specifications, the service may yield unexpected results.
+
+To ensure compatibility, we provide a helper script that adjusts your audio files to meet these requirements.
+
+### Installing Dependencies to run the helper script
+
+The helper script relies on the pydub package. If you need to use the script to adjust your audio files, install pydub using pip:
+
+```sh
+pip install pydub==0.25.1
+```
+
+### Using the Helper Script
+
+If your audio files need to be converted to meet our service's specifications, you can do this with our helper script as follows:
+
+`python make_audio_compatible.py --source_path=input.wav --dest_path=test_dia.wav`
+
+If your audio files already meet the specifications, you don't need to use this script or install its dependencies.
