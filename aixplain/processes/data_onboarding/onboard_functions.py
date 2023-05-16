@@ -4,6 +4,7 @@ import aixplain.processes.data_onboarding.process_audio_files as process_audio_f
 import aixplain.processes.data_onboarding.process_text_files as process_text_files
 import aixplain.utils.config as config
 import logging
+import os
 import pandas as pd
 import random
 
@@ -51,12 +52,18 @@ def get_paths(input_paths: List[Union[str, Path]]) -> List[Path]:
                 paths.append(path)
             else:
                 logging.warning(f"Data Asset Onboarding: File Extension not Supported ({str(path)})")
+
+    # check CSV sizes
+    for path in paths:
+        assert (
+            os.path.getsize(path) <= 100000000
+        ), f'Data Asset Onboarding Error: CSV file "{path}" exceeds the size limit of 1 GB.'
     return paths
 
 
 def process_data_files(
     data_asset_name: str, metadata: MetaData, paths: List, folder: Optional[Union[str, Path]] = None
-) -> Tuple[List[File], int, int, int]:
+) -> Tuple[List[File], int, int, int, int]:
     """Process a list of local files, compress and upload them to pre-signed URLs in S3
 
     Args:
@@ -66,7 +73,7 @@ def process_data_files(
         folder (Union[str, Path], optional): local folder to save compressed files before upload them to s3. Defaults to data_asset_name.
 
     Returns:
-        Tuple[List[File], int]: list of s3 links; data, start and end columns index
+        Tuple[List[File], int, int, int]: list of s3 links; data, start and end columns index; and number of rows
     """
     if folder is None:
         folder = Path(data_asset_name)
@@ -74,14 +81,19 @@ def process_data_files(
         folder = Path(folder)
 
     files = []
-    data_column_idx, start_column_idx, end_column_idx = -1, -1, -1
+    data_column_idx, start_column_idx, end_column_idx, nrows, = (
+        -1,
+        -1,
+        -1,
+        0,
+    )
     if metadata.dtype in [DataType.TEXT, DataType.LABEL]:
-        files, data_column_idx = process_text_files.run(metadata=metadata, paths=paths, folder=folder)
+        files, data_column_idx, nrows = process_text_files.run(metadata=metadata, paths=paths, folder=folder)
     elif metadata.dtype in [DataType.AUDIO]:
-        files, data_column_idx, start_column_idx, end_column_idx = process_audio_files.run(
+        files, data_column_idx, start_column_idx, end_column_idx, nrows = process_audio_files.run(
             metadata=metadata, paths=paths, folder=folder
         )
-    return files, data_column_idx, start_column_idx, end_column_idx
+    return files, data_column_idx, start_column_idx, end_column_idx, nrows
 
 
 def build_payload_data(data: Data) -> Dict:

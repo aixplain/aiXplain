@@ -44,6 +44,7 @@ class Data:
         files: List[File] = [],
         languages: List[Language] = [],
         dsubtype: DataSubtype = DataSubtype.OTHER,
+        length: Optional[int] = None,
         **kwargs
     ) -> None:
         """Data Class.
@@ -63,6 +64,7 @@ class Data:
             files (List[File], optional): List of files where the data instances are stored. Defaults to [].
             languages (List[Language], optional): List of languages which the data consists of. Defaults to [].
             dsubtype (DataSubtype, optional): Data subtype (e.g., age, topic, race, split, etc.), used in datasets metadata. Defaults to Other.
+            length (Optional[int], optional): Number of rows in the Data. Defaults to None.
         """
         self.id = id
         self.name = name
@@ -84,4 +86,5 @@ class Data:
                 language = Language(language)
             self.languages.append(language)
         self.dsubtype = dsubtype
+        self.length = length
         self.kwargs = kwargs

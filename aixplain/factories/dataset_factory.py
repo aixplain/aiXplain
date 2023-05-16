@@ -28,6 +28,7 @@ import logging
 import shutil
 
 from aixplain.factories.asset_factory import AssetFactory
+from aixplain.factories.data_factory import DataFactory
 from aixplain.modules.data import Data
 from aixplain.modules.dataset import Dataset
 from aixplain.modules.metadata import MetaData
@@ -337,7 +338,7 @@ class DatasetFactory(AssetFactory):
         assert (split_labels is not None and split_rate is not None) or (
             split_labels is None and split_rate is None
         ), "Data Asset Onboarding Error: Make sure you set the split labels values as well as their rates."
-        folder, return_dict = None, {}
+        folder, return_dict, ref_data = None, {}, []
         # check team key
         try:
             if config.TEAM_API_KEY.strip() == "":
@@ -380,6 +381,7 @@ class DatasetFactory(AssetFactory):
                     message = f"Data Asset Onboarding Error: Referenced Input Data {data_id} does not exist."
                     logging.exception(message)
                     raise Exception(message)
+                ref_data.append(DataFactory.get(data_id=data_id))
 
             for output_data in output_ref_data:
                 if len(output_ref_data[output_data]) > 0:
@@ -391,6 +393,7 @@ class DatasetFactory(AssetFactory):
                             message = f"Data Asset Onboarding Error: Referenced Output Data {data_id} does not exist."
                             logging.exception(message)
                             raise Exception(message)
+                        ref_data.append(DataFactory.get(data_id=data_id))
 
             for hypdata in hypotheses_ref_data:
                 if isinstance(hypotheses_ref_data[hypdata], Data):
@@ -401,6 +404,7 @@ class DatasetFactory(AssetFactory):
                     message = f"Data Asset Onboarding Error: Referenced Hypotheses Data {data_id} does not exist."
                     logging.exception(message)
                     raise Exception(message)
+                ref_data.append(DataFactory.get(data_id=data_id))
 
             for meta_data in meta_ref_data:
                 if isinstance(meta_ref_data[meta_data], Data):
@@ -411,6 +415,7 @@ class DatasetFactory(AssetFactory):
                     message = f"Data Asset Onboarding Error: Referenced Meta Data {data_id} does not exist."
                     logging.exception(message)
                     raise Exception(message)
+                ref_data.append(DataFactory.get(data_id=data_id))
 
             # check whether reserved names are used as data/column names
             for schema in [input_schema, output_schema, metadata_schema, hypotheses_schema]:
@@ -436,7 +441,7 @@ class DatasetFactory(AssetFactory):
             folder = Path(name)
             folder.mkdir(exist_ok=True)
 
-            datasets = {}
+            datasets, sizes = {}, []
             for (key, schema) in [
                 ("inputs", input_schema),
                 ("outputs", output_schema),
@@ -449,9 +454,12 @@ class DatasetFactory(AssetFactory):
                     if metadata.privacy is None:
                         metadata.privacy = privacy
 
-                    files, data_column_idx, start_column_idx, end_column_idx = onboard_functions.process_data_files(
+                    files, data_column_idx, start_column_idx, end_column_idx, nrows = onboard_functions.process_data_files(
                         data_asset_name=name, metadata=metadata, paths=paths, folder=name
                     )
+
+                    # save size
+                    sizes.append(nrows)
 
                     if metadata.name not in datasets[key]:
                         datasets[key][metadata.name] = []
@@ -469,6 +477,7 @@ class DatasetFactory(AssetFactory):
                             end_column=end_column_idx,
                             files=files,
                             languages=metadata.languages,
+                            length=nrows,
                         )
                     )
 
@@ -492,6 +501,13 @@ class DatasetFactory(AssetFactory):
                 privacy=privacy,
                 onboard_status="onboarding",
             )
+
+            # check alignment
+            sizes += [d.length for d in ref_data]
+            assert (
+                len(set(sizes)) == 1
+            ), f"Data Asset Onboarding Error: All data must have the same number of rows. Lengths: {str(set(sizes))}"
+
             dataset_payload = onboard_functions.build_payload_dataset(
                 dataset, input_ref_data, output_ref_data, hypotheses_ref_data, meta_ref_data, tags
             )
