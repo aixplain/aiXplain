@@ -77,10 +77,9 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 1000) -
             try:
                 text = process_text(text_path, metadata.storage_type)
                 batch.append(text)
-            except FileNotFoundError as e:
-                logging.warning(
-                    f'Data Asset Onboarding: The instance "{row}" of "{metadata.name}" could not be processed and will be skipped.'
-                )
+            except Exception as e:
+                logging.exception(e)
+                raise Exception(e)
 
             idx += 1
             if ((idx) % batch_size) == 0:
