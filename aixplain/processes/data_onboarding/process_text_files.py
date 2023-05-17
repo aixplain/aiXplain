@@ -1,6 +1,7 @@
 __author__ = "thiagocastroferreira"
 
 import logging
+import os
 import pandas as pd
 
 from aixplain.enums.file_type import FileType
@@ -24,6 +25,10 @@ def process_text(content: str, storage_type: StorageType) -> Text:
         Text: textual content
     """
     if storage_type == StorageType.FILE:
+        # Check the size of file and assert a limit of 50 MB
+        assert (
+            os.path.getsize(content) <= 25000000
+        ), f'Data Asset Onboarding Error: Local text file "{content}" exceeds the size limit of 25 MB.'
         with open(content) as f:
             text = f.read()
     else:
@@ -31,7 +36,7 @@ def process_text(content: str, storage_type: StorageType) -> Text:
     return text
 
 
-def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 1000) -> Tuple[List[File], int]:
+def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 1000) -> Tuple[List[File], int, int]:
     """Process a list of local textual files, compress and upload them to pre-signed URLs in S3
 
     Explanation:
@@ -44,7 +49,7 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 1000) -
         folder (Path): local folder to save compressed files before upload them to s3.
 
     Returns:
-        Tuple[List[File], int]: list of s3 links and data colum index
+        Tuple[List[File], int, int]: list of s3 links, data colum index and number of rows
     """
     logging.debug(f'Data Asset Onboarding: Processing "{metadata.name}".')
     idx = 0
@@ -73,30 +78,11 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 1000) -
                 text = process_text(text_path, metadata.storage_type)
                 batch.append(text)
             except Exception as e:
-                logging.warning(
-                    f'Data Asset Onboarding: The instance "{row}" of "{metadata.name}" could not be processed and will be skipped.'
-                )
-
-            # if split_data is not None:
-            #     try:
-            #         split_row = str(row[split_data.name]).upper()
-            #     except Exception as e:
-            #         message = (
-            #             f'Data Asset Onboarding Error: Split Column "{split_data.name}" not found in the local file {path}.'
-            #         )
-            #         logging.exception(message)
-            #         raise Exception(message)
-
-            #     assert split_row in [
-            #         "TRAIN",
-            #         "VALIDATION",
-            #         "TEST",
-            #     ], f'Data Asset Onboarding Error: Split Column must consist of "TRAIN", "VALIDATION", "TEST" labels.'
-
-            #     split.append(split_row)
+                logging.exception(e)
+                raise Exception(e)
 
             idx += 1
-            if ((idx + 1) % batch_size) == 0:
+            if ((idx) % batch_size) == 0:
                 batch_index = str(len(files) + 1).zfill(8)
                 file_name = f"{folder}/{metadata.name}-{batch_index}.csv.gz"
 
@@ -123,4 +109,4 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 1000) -
         # get data column index
         data_column_idx = df.columns.to_list().index(metadata.name)
         batch = []
-    return files, data_column_idx
+    return files, data_column_idx, idx

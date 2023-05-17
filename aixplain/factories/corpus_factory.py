@@ -28,6 +28,7 @@ import logging
 import shutil
 
 from aixplain.factories.asset_factory import AssetFactory
+from aixplain.factories.data_factory import DataFactory
 from aixplain.modules.corpus import Corpus
 from aixplain.modules.data import Data
 from aixplain.modules.metadata import MetaData
@@ -279,11 +280,12 @@ class CorpusFactory(AssetFactory):
                 if isinstance(ref_data[0], Data):
                     ref_data = [w.id for w in ref_data]
                 # check whether the referred data exist. Otherwise, raise an exception
-                for data_id in ref_data:
+                for i, data_id in enumerate(ref_data):
                     if onboard_functions.is_data(data_id) is False:
                         message = f"Data Asset Onboarding Error: Referenced Data {data_id} does not exist."
                         logging.exception(message)
                         raise Exception(message)
+                    ref_data[i] = DataFactory.get(data_id=data_id)
 
             # check whether reserved names are used as data/column names
             for metadata in schema:
@@ -306,7 +308,7 @@ class CorpusFactory(AssetFactory):
                 if metadata.privacy is None:
                     metadata.privacy = privacy
 
-                files, data_column_idx, start_column_idx, end_column_idx = onboard_functions.process_data_files(
+                files, data_column_idx, start_column_idx, end_column_idx, nrows = onboard_functions.process_data_files(
                     data_asset_name=name, metadata=metadata, paths=paths, folder=name
                 )
 
@@ -323,8 +325,15 @@ class CorpusFactory(AssetFactory):
                         end_column=end_column_idx,
                         files=files,
                         languages=metadata.languages,
+                        length=nrows,
                     )
                 )
+
+            # check alignment
+            sizes = [d.length for d in dataset] + [d.length for d in ref_data]
+            assert (
+                len(set(sizes)) == 1
+            ), f"Data Asset Onboarding Error: All data must have the same number of rows. Lengths: {str(set(sizes))}"
 
             corpus = Corpus(
                 id="",
@@ -337,7 +346,8 @@ class CorpusFactory(AssetFactory):
                 privacy=privacy,
                 onboard_status="onboarding",
             )
-            corpus_payload = onboard_functions.build_payload_corpus(corpus, ref_data)
+
+            corpus_payload = onboard_functions.build_payload_corpus(corpus, [ref.id for ref in ref_data])
 
             response = onboard_functions.create_data_asset(corpus_payload)
             if response["success"] is True:

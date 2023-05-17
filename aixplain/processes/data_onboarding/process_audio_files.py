@@ -23,7 +23,7 @@ def compress_folder(folder_path: str):
     return folder_path + ".tgz"
 
 
-def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 100) -> Tuple[List[File], int, int, int]:
+def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 100) -> Tuple[List[File], int, int, int, int]:
     """Process a list of local audio files, compress and upload them to pre-signed URLs in S3
 
     Explanation:
@@ -38,7 +38,7 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 100) ->
         folder (Path): local folder to save compressed files before upload them to s3.
 
     Returns:
-        Tuple[List[File], int, int, int]: list of s3 links; data, start and end columns index
+        Tuple[List[File], int, int, int]: list of s3 links; data, start and end columns index, and number of rows
     """
     # if files are stored locally, create a folder to store it
     audio_folder = Path(".")
@@ -70,6 +70,10 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 100) ->
 
             # adding audios
             if metadata.storage_type == StorageType.FILE:
+                #
+                assert (
+                    os.path.getsize(audio_path) <= 50000000
+                ), f'Data Asset Onboarding Error: Local audio file "{audio_path}" exceeds the size limit of 50 MB.'
                 fname = os.path.basename(audio_path)
                 new_path = os.path.join(audio_folder, fname)
                 if os.path.exists(new_path) is False:
@@ -197,4 +201,4 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 100) ->
         data_column_idx = df.columns.to_list().index(metadata.name)
         # restart batch variables
         batch, start_times, end_times = [], [], []
-    return files, data_column_idx, start_column_idx, end_column_idx
+    return files, data_column_idx, start_column_idx, end_column_idx, idx
