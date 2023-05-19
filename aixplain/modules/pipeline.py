@@ -84,7 +84,7 @@ class Pipeline(Asset):
         Returns:
             dict: response obtained by polling call
         """
-
+        # TO DO: wait_time = to the longest path of the pipeline * minimum waiting time
         logging.debug(f"Polling for Pipeline: Start polling for {name} ")
         start, end = time.time(), time.time()
         completed = False
@@ -96,9 +96,10 @@ class Pipeline(Asset):
                 completed = response_body["completed"]
 
                 end = time.time()
-                time.sleep(wait_time)
-                if wait_time < 60:
-                    wait_time *= 1.1
+                if completed is False:
+                    time.sleep(wait_time)
+                    if wait_time < 60:
+                        wait_time *= 1.1
             except Exception as e:
                 logging.error(f"Polling for Pipeline: polling for {name} : Continue")
         if response_body and response_body["status"] == "SUCCESS":
