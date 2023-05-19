@@ -110,17 +110,15 @@ class Model(Asset):
         wait_time = max(wait_time, 0.2)
         completed = False
         response_body = {"status": "FAILED", "completed": False}
-        polling_counter = 0
         while not completed and (end - start) < timeout:
             try:
-                polling_counter += 1
                 response_body = self.poll(poll_url, name=name)
                 completed = response_body["completed"]
 
                 end = time.time()
                 if completed is False:
                     time.sleep(wait_time)
-                    if wait_time < 60 and (polling_counter % 10) == 0:
+                    if wait_time < 60:
                         wait_time *= 1.1
             except Exception as e:
                 response_body = {"status": "ERROR", "completed": False, "error": "No response from the service."}
