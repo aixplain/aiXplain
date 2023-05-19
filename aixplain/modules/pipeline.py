@@ -133,13 +133,14 @@ class Pipeline(Asset):
             resp = {"status": "FAILED"}
         return resp
 
-    def run(self, data: Union[Text, Dict], name: Text = "pipeline_process", timeout: float = 20000.0) -> Dict:
+    def run(self, data: Union[Text, Dict], name: Text = "pipeline_process", timeout: float = 20000.0, wait_time: float = 1.0) -> Dict:
         """Runs a pipeline call.
 
         Args:
             data (Union[Text, Dict]): link to the input data
             name (str, optional): ID given to a call. Defaults to "pipeline_process".
             timeout (float, optional): total polling time. Defaults to 20000.0.
+            wait_time (float, optional): wait time in seconds between polling calls. Defaults to 1.0.
 
         Returns:
             Dict: parsed output from pipeline
@@ -153,7 +154,7 @@ class Pipeline(Asset):
                 return response
             poll_url = response["url"]
             end = time.time()
-            response = self.__polling(poll_url, name=name, timeout=timeout)
+            response = self.__polling(poll_url, name=name, timeout=timeout, wait_time=wait_time)
             return response
         except Exception as e:
             error_message = f"Error in request for {name} "
