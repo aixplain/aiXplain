@@ -34,7 +34,12 @@ Note: You can generate the stubs in any language of your choice as long as you h
 aiXplain provides the necessary certificates for mTLS. You can pass them to the client when running it. Here's an example of how to use the diarization client:
 
 ```bash
-python3.8 aixplain_diarization_streaming_client.py --file-path=test_dia.wav --cacert=./client-crt/ca.crt --cert=./client-crt/tls.crt --key=./client-crt/tls.key
+python3.8 aixplain_speech_transcription_streaming_client.py --file-path=test_dia.wav --cacert=./client-crt/ca.crt --cert=./client-crt/tls.crt --key=./client-crt/tls.key --addr <host>:<port>
+```
+For transcription, you can also enable subtitle like print style with argument `--print-style=subtitle`.
+
+```bash
+python3.8 aixplain_diarization_streaming_client.py --file-path=test_dia.wav --cacert=./client-crt/ca.crt --cert=./client-crt/tls.crt --key=./client-crt/tls.key --addr <host>:<port>
 ```
 
 The arguments --cacert, --cert, and --key are used to provide the paths to the necessary certificate files for mTLS.
