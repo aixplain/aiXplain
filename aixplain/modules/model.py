@@ -92,13 +92,13 @@ class Model(Asset):
         clean_additional_info = {k: v for k, v in self.additional_info.items() if v is not None}
         return {"id": self.id, "name": self.name, "supplier": self.supplier, "additional_info": clean_additional_info}
 
-    def __polling(self, poll_url: Text, name: Text = "model_process", wait_time: float = 1.0, timeout: float = 300) -> Dict:
+    def __polling(self, poll_url: Text, name: Text = "model_process", wait_time: float = 0.5, timeout: float = 300) -> Dict:
         """Keeps polling the platform to check whether an asynchronous call is done.
 
         Args:
             poll_url (Text): polling URL
             name (Text, optional): ID given to a call. Defaults to "model_process".
-            wait_time (float, optional): wait time in seconds between polling calls. Defaults to 1.0.
+            wait_time (float, optional): wait time in seconds between polling calls. Defaults to 0.5.
             timeout (float, optional): total polling time. Defaults to 300.
 
         Returns:
@@ -106,6 +106,8 @@ class Model(Asset):
         """
         logging.info(f"Polling for Model: Start polling for {name}")
         start, end = time.time(), time.time()
+        # keep wait time as 0.2 seconds the minimum
+        wait_time = max(wait_time, 0.2)
         completed = False
         response_body = {"status": "FAILED", "completed": False}
         while not completed and (end - start) < timeout:
@@ -114,9 +116,10 @@ class Model(Asset):
                 completed = response_body["completed"]
 
                 end = time.time()
-                time.sleep(wait_time)
-                if wait_time < 60:
-                    wait_time *= 1.1
+                if completed is False:
+                    time.sleep(wait_time)
+                    if wait_time < 60:
+                        wait_time *= 1.1
             except Exception as e:
                 response_body = {"status": "ERROR", "completed": False, "error": "No response from the service."}
                 logging.error(f"Polling for Model: polling for {name}: {e}")
@@ -159,7 +162,7 @@ class Model(Asset):
             logging.error(f"Single Poll for Model: Error of polling for {name}: {e}")
         return resp
 
-    def run(self, data: Union[Text, Dict], name: Text = "model_process", timeout: float = 300, parameters: Dict = {}) -> Dict:
+    def run(self, data: Union[Text, Dict], name: Text = "model_process", timeout: float = 300, parameters: Dict = {}, wait_time: float = 0.5) -> Dict:
         """Runs a model call.
 
         Args:
@@ -167,6 +170,7 @@ class Model(Asset):
             name (Text, optional): ID given to a call. Defaults to "model_process".
             timeout (float, optional): total polling time. Defaults to 300.
             parameters (Dict, optional): optional parameters to the model. Defaults to "{}".
+            wait_time (float, optional): wait time in seconds between polling calls. Defaults to 0.5.
 
         Returns:
             Dict: parsed output from model
@@ -180,7 +184,7 @@ class Model(Asset):
                 return response
             poll_url = response["url"]
             end = time.time()
-            response = self.__polling(poll_url, name=name, timeout=timeout)
+            response = self.__polling(poll_url, name=name, timeout=timeout, wait_time=wait_time)
             return response
         except Exception as e:
             msg = f"Error in request for {name} - {traceback.format_exc()}"
