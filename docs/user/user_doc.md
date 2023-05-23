@@ -43,7 +43,7 @@ The aixplain SDK allows you to run machine learning models synchronously or asyn
 
 ```python
 # Run Synchronously
-translation = model.run("This is a sample text") # You can use a URL or file path
+translation = model.run("This is a sample text") # You can use a URL or a file path on your local machine
 
 # Run Asynchronously
 ## Start async job
