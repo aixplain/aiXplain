@@ -10,6 +10,7 @@ import random
 
 from aixplain.enums.data_subtype import DataSubtype
 from aixplain.enums.data_type import DataType
+from aixplain.enums.error_handler import ErrorHandler
 from aixplain.enums.file_type import FileType
 from aixplain.enums.storage_type import StorageType
 from aixplain.modules.corpus import Corpus
@@ -128,12 +129,13 @@ def build_payload_data(data: Data) -> Dict:
     return data_json
 
 
-def build_payload_corpus(corpus: Corpus, ref_data: List[Text]) -> Dict:
+def build_payload_corpus(corpus: Corpus, ref_data: List[Text], error_handler: ErrorHandler) -> Dict:
     """Create corpus payload to call coreengine on the onboard process
 
     Args:
         corpus (Corpus): corpus object
         ref_data (List[Text]): list of referred data
+        error_handler (ErrorHandler): how to handle failed rows
 
     Returns:
         Dict: payload
@@ -142,6 +144,7 @@ def build_payload_corpus(corpus: Corpus, ref_data: List[Text]) -> Dict:
         "name": corpus.name,
         "description": corpus.description,
         "suggestedFunctions": [f.value for f in corpus.functions],
+        "onboardingErrorsPolicy": error_handler.value,
         "tags": corpus.tags,
         "pricing": {"type": "FREE", "cost": 0},
         "privacy": corpus.privacy.value,
@@ -163,6 +166,7 @@ def build_payload_dataset(
     hypotheses_ref_data: Dict[Text, Any],
     meta_ref_data: Dict[Text, Any],
     tags: List[Text],
+    error_handler: ErrorHandler,
 ) -> Dict:
     """Generate onboard payload to coreengine
 
@@ -173,6 +177,7 @@ def build_payload_dataset(
         hypotheses_ref_data (Dict[Text, Any]): reference to existent hypotheses to the target data
         meta_ref_data (Dict[Text, Any]): reference to existent metadata
         tags (List[Text]): description tags
+        error_handler (ErrorHandler): how to handle failed rows
 
     Returns:
         Dict: onboard payload
@@ -188,6 +193,7 @@ def build_payload_dataset(
         "name": dataset.name,
         "description": dataset.description,
         "function": dataset.function.value,
+        "onboardingErrorsPolicy": error_handler.value,
         "tags": dataset.tags,
         "privacy": dataset.privacy.value,
         "license": {"typeId": dataset.license.value},
