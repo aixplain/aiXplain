@@ -25,6 +25,15 @@ Populate values in ```.env``` for pytest consumption.
 pytest
 ```
 
+## Changing logging level
+
+```python
+import logging
+logging.basicConfig(level=logging.DEBUG) # debug messages
+logging.basicConfig(level=logging.INFO) # info messages
+```
+
+
 ## Data Asset Onboard
 
 The image below depicts the onboard process of a data asset (e.g. corpora and datasets):
