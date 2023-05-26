@@ -133,7 +133,9 @@ class Pipeline(Asset):
             resp = {"status": "FAILED"}
         return resp
 
-    def run(self, data: Union[Text, Dict], name: Text = "pipeline_process", timeout: float = 20000.0, wait_time: float = 1.0) -> Dict:
+    def run(
+        self, data: Union[Text, Dict], name: Text = "pipeline_process", timeout: float = 20000.0, wait_time: float = 1.0
+    ) -> Dict:
         """Runs a pipeline call.
 
         Args:
@@ -173,7 +175,10 @@ class Pipeline(Asset):
         Returns:
             Dict: polling URL in response
         """
-
+        if self.api_key == "":
+            raise Exception(
+                "A 'TEAM_API_KEY' is required to run a pipeline. For help, please refer to the documentation (https://github.com/aixplain/aixplain#api-key-setup)"
+            )
         headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}
 
         data = FileFactory.to_link(data)
