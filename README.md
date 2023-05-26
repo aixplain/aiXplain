@@ -34,6 +34,11 @@ export TEAM_API_KEY=YOUR_API_KEY
 ```bash
 set TEAM_API_KEY=YOUR_API_KEY
 ```
+#### Jupyter Notebook
+```
+%env TEAM_API_KEY=YOUR_API_KEY
+```
+
 ## Usage
 
 Let’s see how we can use aixplain to run a machine translation model.
