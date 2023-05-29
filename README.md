@@ -36,11 +36,11 @@ set TEAM_API_KEY=YOUR_API_KEY
 ```
 ## Usage
 
-Let’s see how we can use aixplain to run a machine translation model.
+Let’s see how we can use aixplain to run a machine translation model. The following example shows an [English to French translation model](https://platform.aixplain.com/discovery/model/61dc52976eb5634cf06e97cc).
 
 ```python
 from aixplain.factories.model_factory  import ModelFactory
-model = ModelFactory.get("61dc52976eb5634cf06e97cc") # Get the ID of a model from our platform. This example shows an English to French translation model.
+model = ModelFactory.get("61dc52976eb5634cf06e97cc") # Get the ID of a model from our platform. 
 translation = model.run("This is a sample text") # Alternatively, you can input a public URL or provide a file path on your local machine.
 ```
 *Check out the [explore section](docs/user/user_doc.md#explore) of our guide on Models to get the ID of your desired model*
