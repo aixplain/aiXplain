@@ -25,6 +25,22 @@ Populate values in ```.env``` for pytest consumption.
 pytest
 ```
 
+## Changing logging level
+
+#### Linux or macOS
+```bash
+export LOG_LEVEL=DEBUG
+```
+#### Windows
+```bash
+set LOG_LEVEL=DEBUG
+```
+#### Jupyter Notebook
+```bash
+%env LOG_LEVEL=DEBUG
+```
+
+
 ## Data Asset Onboard
 
 The image below depicts the onboard process of a data asset (e.g. corpora and datasets):

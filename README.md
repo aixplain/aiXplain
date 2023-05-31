@@ -26,6 +26,7 @@ pip install aixplain
 Before you can use the aixplain SDK, you'll need to obtain an API key from our platform. For details refer this [Team API Key Guide](docs/user/api_setup.md).
 
 Once you get the API key, you'll  need to add this API key as an environment variable on your system.
+
 #### Linux or macOS
 ```bash
 export TEAM_API_KEY=YOUR_API_KEY

@@ -21,9 +21,11 @@ limitations under the License.
 """
 
 # Set default logging handler to avoid "No handler found" warnings.
+import os
 import logging
 from logging import NullHandler
-
+LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO').upper()
+logging.basicConfig(level=LOG_LEVEL)
 logging.getLogger(__name__).addHandler(NullHandler())
 
 # Load Environment Variables
