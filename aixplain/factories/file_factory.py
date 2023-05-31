@@ -28,6 +28,10 @@ from aixplain.enums.storage_type import StorageType
 from aixplain.utils.file_utils import upload_data
 from typing import Any, Dict, Text, Union
 
+MB_1 = 1048576
+MB_25 = 26214400
+MB_50 = 52428800
+MB_300 = 314572800
 
 class FileFactory:
     @classmethod
@@ -50,13 +54,12 @@ class FileFactory:
             raise FileNotFoundError(f'File Upload Error: local file "{local_path}" not found.')
         # mime type format: {type}/{extension}
         mime_type = filetype.guess_mime(local_path)
-        type_to_max_size = { "audio": 52428800, "text": 26214400, "video": 314572800, "image": 26214400 }
+        type_to_max_size = { "audio": MB_50, "text": MB_25, "video": MB_300, "image": MB_25 }
         if mime_type is None or mime_type.split("/")[0] not in type_to_max_size:
             raise NotImplementedError(f'File Upload Error: local file "{local_path}" type is not supported.')
         ftype = mime_type.split("/")[0]
-        one_mb = 1048576
         if os.path.getsize(local_path) > type_to_max_size[ftype]:
-            raise Exception(f'File Upload Error: local {ftype} file "{local_path}" exceeds {type_to_max_size[ftype] / one_mb} MB.')
+            raise Exception(f'File Upload Error: local {ftype} file "{local_path}" exceeds {type_to_max_size[ftype] / MB_1} MB.')
         s3_path = upload_data(file_name=local_path)
         return s3_path
 
