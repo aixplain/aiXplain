@@ -27,10 +27,17 @@ pytest
 
 ## Changing logging level
 
-```python
-import logging
-logging.basicConfig(level=logging.DEBUG) # debug messages
-logging.basicConfig(level=logging.INFO) # info messages
+#### Linux or macOS
+```bash
+export LOG_LEVEL=DEBUG
+```
+#### Windows
+```bash
+set LOG_LEVEL=DEBUG
+```
+#### Jupyter Notebook
+```bash
+%env LOG_LEVEL=DEBUG
 ```
 
 

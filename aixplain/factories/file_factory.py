@@ -23,6 +23,7 @@ Description:
 
 import os
 import validators
+import filetype
 from aixplain.enums.storage_type import StorageType
 from aixplain.utils.file_utils import upload_data
 from typing import Any, Dict, Text, Union
@@ -31,10 +32,31 @@ from typing import Any, Dict, Text, Union
 class FileFactory:
     @classmethod
     def upload(cls, local_path: Text) -> Text:
+        """
+        Uploads a file to an S3 bucket.
+
+        Args:
+            local_path (Text): The local path of the file to upload.
+
+        Returns:
+            Text: The S3 path where the file was uploaded.
+
+        Raises:
+            FileNotFoundError: If the local file is not found.
+            NotImplementedError: If the file type is not supported.
+            Exception: If the file size exceeds the maximum allowed size.
+        """
         if os.path.exists(local_path) is False:
-            raise Exception(f'File Upload Error: local file "{local_path}" not found.')
-        if os.path.getsize(local_path) > 10485760:
-            raise Exception(f'File Upload Error: local file "{local_path}" exceeds 10 MB.')
+            raise FileNotFoundError(f'File Upload Error: local file "{local_path}" not found.')
+        # mime type format: {type}/{extension}
+        mime_type = filetype.guess_mime(local_path)
+        type_to_max_size = { "audio": 52428800, "text": 26214400, "video": 314572800, "image": 26214400 }
+        if mime_type is None or mime_type.split("/")[0] not in type_to_max_size:
+            raise NotImplementedError(f'File Upload Error: local file "{local_path}" type is not supported.')
+        ftype = mime_type.split("/")[0]
+        one_mb = 1048576
+        if os.path.getsize(local_path) > type_to_max_size[ftype]:
+            raise Exception(f'File Upload Error: local {ftype} file "{local_path}" exceeds {type_to_max_size[ftype] / one_mb} MB.')
         s3_path = upload_data(file_name=local_path)
         return s3_path
 
