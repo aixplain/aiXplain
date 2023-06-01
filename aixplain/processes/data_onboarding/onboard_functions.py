@@ -1,6 +1,5 @@
 __author__ = "aiXplain"
 
-import aixplain.processes.data_onboarding.process_audio_files as process_audio_files
 import aixplain.processes.data_onboarding.process_media_files as process_media_files
 import aixplain.processes.data_onboarding.process_text_files as process_text_files
 import aixplain.utils.config as config
@@ -24,7 +23,18 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Text, Union
 from urllib.parse import urljoin
 
-FORBIDDEN_COLUMN_NAMES = ["@VOLUME", "@START_TIME", "@END_TIME", "@ORIGINAL", "@SOURCE", "@INDEX", "@SPLIT", "@STATUS"]
+FORBIDDEN_COLUMN_NAMES = [
+    "@VOLUME",
+    "@START_TIME",
+    "@END_TIME",
+    "@START",
+    "@END",
+    "@ORIGINAL",
+    "@SOURCE",
+    "@INDEX",
+    "@SPLIT",
+    "@STATUS",
+]
 
 
 def get_paths(input_paths: List[Union[str, Path]]) -> List[Path]:

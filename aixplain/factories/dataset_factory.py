@@ -133,6 +133,11 @@ class DatasetFactory(AssetFactory):
         except:
             license = None
 
+        try:
+            length = int(response["segmentsCount"])
+        except:
+            length = None
+
         dataset = Dataset(
             id=response["id"],
             name=response["name"],
@@ -144,7 +149,7 @@ class DatasetFactory(AssetFactory):
             hypotheses=hypotheses,
             metadata=metadata,
             onboard_status=response["status"],
-            length=int(response["segmentsCount"]) if "segmentsCount" in response else None,
+            length=length,
         )
         return dataset
 
