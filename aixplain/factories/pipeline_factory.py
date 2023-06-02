@@ -24,7 +24,6 @@ import logging
 import os
 from typing import Dict, List, Optional, Text
 from aixplain.modules.pipeline import Pipeline
-from aixplain.utils.config import PIPELINES_RUN_URL
 from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
 from urllib.parse import urljoin
