@@ -90,6 +90,11 @@ class CorpusFactory(AssetFactory):
         except:
             license = None
 
+        try:
+            length = int(response["segmentsCount"])
+        except:
+            length = None
+
         corpus = Corpus(
             id=response["id"],
             name=response["name"],
@@ -98,7 +103,7 @@ class CorpusFactory(AssetFactory):
             license=license,
             data=data,
             onboard_status=response["status"],
-            length=int(response["segmentsCount"]) if "segmentsCount" in response else None,
+            length=length,
         )
         return corpus
 
