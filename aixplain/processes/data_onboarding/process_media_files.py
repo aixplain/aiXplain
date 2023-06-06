@@ -75,6 +75,19 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 100) ->
                     assert (
                         os.path.getsize(media_path) <= 50000000
                     ), f'Data Asset Onboarding Error: Local audio file "{media_path}" exceeds the size limit of 50 MB.'
+                elif metadata.dtype in [
+                    DataType.AUDIO_INTERVAL,
+                    DataType.IMAGE_INTERVAL,
+                    DataType.TEXT_INTERVAL,
+                    DataType.VIDEO_INTERVAL,
+                ]:
+                    assert (
+                        os.path.getsize(media_path) <= 25000000
+                    ), f'Data Asset Onboarding Error: Local interval file "{media_path}" exceeds the size limit of 25 MB.'
+                    _, file_extension = os.path.splitext(media_path)
+                    assert (
+                        file_extension == ".json"
+                    ), f'Data Asset Onboarding Error: Local interval files, such as "{media_path}", must be a JSON.'
                 else:
                     assert (
                         os.path.getsize(media_path) <= 25000000
@@ -86,6 +99,15 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 100) ->
                 batch.append(fname)
             else:
                 batch.append(media_path)
+
+            # crop intervals can not be used with interval data types
+            if metadata.start_column is not None or metadata.end_column is not None:
+                assert metadata.dtype not in [
+                    DataType.AUDIO_INTERVAL,
+                    DataType.IMAGE_INTERVAL,
+                    DataType.TEXT_INTERVAL,
+                    DataType.VIDEO_INTERVAL,
+                ], f"Data Asset Onboarding Error: Interval data types can not be cropped. Remove start and end columns."
 
             # adding ranges to crop the media if it is the case
             if metadata.start_column is not None:
