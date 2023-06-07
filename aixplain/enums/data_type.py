@@ -26,14 +26,10 @@ from enum import Enum
 
 class DataType(Enum):
     AUDIO = "audio"
-    AUDIO_INTERVAL = "audio_interval"
     FLOAT = "float"
     IMAGE = "image"
-    IMAGE_INTERVAL = "image_interval"
     INTEGER = "integer"
     LABEL = "label"
     TENSOR = "tensor"
     TEXT = "text"
-    TEXT_INTERVAL = "text_interval"
     VIDEO = "video"
-    VIDEO_INTERVAL = "video_interval"

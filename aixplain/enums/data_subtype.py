@@ -27,6 +27,7 @@ from enum import Enum
 class DataSubtype(Enum):
     AGE = "age"
     GENDER = "gender"
+    INTERVAL = "interval"
     OTHER = "other"
     RACE = "race"
     SPLIT = "split"

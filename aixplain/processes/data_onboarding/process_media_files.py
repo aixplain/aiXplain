@@ -6,6 +6,7 @@ import pandas as pd
 import shutil
 import tarfile
 
+from aixplain.enums.data_subtype import DataSubtype
 from aixplain.enums.data_type import DataType
 from aixplain.enums.file_type import FileType
 from aixplain.enums.storage_type import StorageType
@@ -71,16 +72,14 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 100) ->
 
             # adding medias
             if metadata.storage_type == StorageType.FILE:
-                if metadata.dtype == DataType.AUDIO:
-                    assert (
-                        os.path.getsize(media_path) <= 50000000
-                    ), f'Data Asset Onboarding Error: Local audio file "{media_path}" exceeds the size limit of 50 MB.'
-                elif metadata.dtype in [
-                    DataType.AUDIO_INTERVAL,
-                    DataType.IMAGE_INTERVAL,
-                    DataType.TEXT_INTERVAL,
-                    DataType.VIDEO_INTERVAL,
-                ]:
+                if metadata.dsubtype == DataSubtype.INTERVAL:
+                    # check whether the interval is in audio, image, text and video
+                    assert metadata.dtype in [
+                        DataType.AUDIO,
+                        DataType.IMAGE,
+                        DataType.TEXT,
+                        DataType.VIDEO,
+                    ], f'Data Asset Onboarding Error: Content Intervals do not work with "{metadata.dtype}".'
                     assert (
                         os.path.getsize(media_path) <= 25000000
                     ), f'Data Asset Onboarding Error: Local interval file "{media_path}" exceeds the size limit of 25 MB.'
@@ -88,6 +87,10 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 100) ->
                     assert (
                         file_extension == ".json"
                     ), f'Data Asset Onboarding Error: Local interval files, such as "{media_path}", must be a JSON.'
+                elif metadata.dtype == DataType.AUDIO:
+                    assert (
+                        os.path.getsize(media_path) <= 50000000
+                    ), f'Data Asset Onboarding Error: Local audio file "{media_path}" exceeds the size limit of 50 MB.'
                 else:
                     assert (
                         os.path.getsize(media_path) <= 25000000
@@ -102,12 +105,9 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 100) ->
 
             # crop intervals can not be used with interval data types
             if metadata.start_column is not None or metadata.end_column is not None:
-                assert metadata.dtype not in [
-                    DataType.AUDIO_INTERVAL,
-                    DataType.IMAGE_INTERVAL,
-                    DataType.TEXT_INTERVAL,
-                    DataType.VIDEO_INTERVAL,
-                ], f"Data Asset Onboarding Error: Interval data types can not be cropped. Remove start and end columns."
+                assert (
+                    metadata.dsubtype != DataSubtype.INTERVAL
+                ), f"Data Asset Onboarding Error: Interval data types can not be cropped. Remove start and end columns."
 
             # adding ranges to crop the media if it is the case
             if metadata.start_column is not None:

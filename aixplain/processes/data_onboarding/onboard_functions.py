@@ -99,12 +99,12 @@ def process_data_files(
         -1,
         0,
     )
-    if metadata.dtype in [DataType.TEXT, DataType.LABEL]:
-        files, data_column_idx, nrows = process_text_files.run(metadata=metadata, paths=paths, folder=folder)
-    elif metadata.dtype in [DataType.AUDIO, DataType.IMAGE]:
+    if metadata.dtype in [DataType.AUDIO, DataType.IMAGE] or metadata.dsubtype == DataSubtype.INTERVAL:
         files, data_column_idx, start_column_idx, end_column_idx, nrows = process_media_files.run(
             metadata=metadata, paths=paths, folder=folder
         )
+    elif metadata.dtype in [DataType.TEXT, DataType.LABEL]:
+        files, data_column_idx, nrows = process_text_files.run(metadata=metadata, paths=paths, folder=folder)
     return files, data_column_idx, start_column_idx, end_column_idx, nrows
 
 
