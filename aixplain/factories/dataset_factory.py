@@ -130,12 +130,12 @@ class DatasetFactory(AssetFactory):
         # process license
         try:
             license = License(response["license"]["typeId"])
-        except:
+        except Exception:
             license = None
 
         try:
             length = int(response["segmentsCount"])
-        except:
+        except Exception:
             length = None
 
         dataset = Dataset(

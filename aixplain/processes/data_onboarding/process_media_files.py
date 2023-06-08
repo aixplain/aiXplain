@@ -17,6 +17,9 @@ from pathlib import Path
 from tqdm import tqdm
 from typing import List, Tuple
 
+AUDIO_MAX_SIZE = 50000000
+IMAGE_TEXT_MAX_SIZE = 25000000
+
 
 def compress_folder(folder_path: str):
     with tarfile.open(folder_path + ".tgz", "w:gz") as tar:
@@ -53,12 +56,13 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 100) ->
     files, batch, start_intervals, end_intervals = [], [], [], []
     for i in tqdm(range(len(paths)), desc=f' Data "{metadata.name}" onboarding progress', position=1, leave=False):
         path = paths[i]
-        try:
-            dataframe = pd.read_csv(path)
-        except Exception as e:
+
+        if not os.path.exists(path):
             message = f'Data Asset Onboarding Error: Local file "{path}" not found.'
             logging.exception(message)
             raise Exception(message)
+
+        dataframe = pd.read_csv(path)
 
         # process medias
         for j in tqdm(range(len(dataframe)), desc=" File onboarding progress", position=2, leave=False):
@@ -81,7 +85,7 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 100) ->
                         DataType.VIDEO,
                     ], f'Data Asset Onboarding Error: Content Intervals do not work with "{metadata.dtype}".'
                     assert (
-                        os.path.getsize(media_path) <= 25000000
+                        os.path.getsize(media_path) <= IMAGE_TEXT_MAX_SIZE
                     ), f'Data Asset Onboarding Error: Local interval file "{media_path}" exceeds the size limit of 25 MB.'
                     _, file_extension = os.path.splitext(media_path)
                     assert (
@@ -89,11 +93,11 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 100) ->
                     ), f'Data Asset Onboarding Error: Local interval files, such as "{media_path}", must be a JSON.'
                 elif metadata.dtype == DataType.AUDIO:
                     assert (
-                        os.path.getsize(media_path) <= 50000000
+                        os.path.getsize(media_path) <= AUDIO_MAX_SIZE
                     ), f'Data Asset Onboarding Error: Local audio file "{media_path}" exceeds the size limit of 50 MB.'
                 else:
                     assert (
-                        os.path.getsize(media_path) <= 25000000
+                        os.path.getsize(media_path) <= IMAGE_TEXT_MAX_SIZE
                     ), f'Data Asset Onboarding Error: Local image file "{media_path}" exceeds the size limit of 25 MB.'
                 fname = os.path.basename(media_path)
                 new_path = os.path.join(media_folder, fname)
