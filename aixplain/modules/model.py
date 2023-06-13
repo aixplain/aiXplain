@@ -162,7 +162,14 @@ class Model(Asset):
             logging.error(f"Single Poll for Model: Error of polling for {name}: {e}")
         return resp
 
-    def run(self, data: Union[Text, Dict], name: Text = "model_process", timeout: float = 300, parameters: Dict = {}, wait_time: float = 0.5) -> Dict:
+    def run(
+        self,
+        data: Union[Text, Dict],
+        name: Text = "model_process",
+        timeout: float = 300,
+        parameters: Dict = {},
+        wait_time: float = 0.5,
+    ) -> Dict:
         """Runs a model call.
 
         Args:
@@ -203,6 +210,10 @@ class Model(Asset):
         Returns:
             dict: polling URL in response
         """
+        if self.api_key == "":
+            raise Exception(
+                "A 'TEAM_API_KEY' is required to run a model. For help, please refer to the documentation (https://github.com/aixplain/aixplain#api-key-setup)"
+            )
         headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}
 
         data = FileFactory.to_link(data)

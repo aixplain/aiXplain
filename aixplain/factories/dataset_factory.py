@@ -34,6 +34,7 @@ from aixplain.modules.dataset import Dataset
 from aixplain.modules.metadata import MetaData
 from aixplain.enums.data_subtype import DataSubtype
 from aixplain.enums.data_type import DataType
+from aixplain.enums.error_handler import ErrorHandler
 from aixplain.enums.function import Function
 from aixplain.enums.language import Language
 from aixplain.enums.license import License
@@ -312,6 +313,7 @@ class DatasetFactory(AssetFactory):
         privacy: Privacy = Privacy.PRIVATE,
         split_labels: Optional[List[Text]] = None,
         split_rate: Optional[List[float]] = None,
+        error_handler: ErrorHandler = ErrorHandler.SKIP,
     ) -> Dict:
         """Dataset Onboard
 
@@ -331,6 +333,7 @@ class DatasetFactory(AssetFactory):
             meta_ref_data (Dict[Text, Any], optional): metadata which is already in the platform. Defaults to {}.
             tags (List[Text], optional): datasets description tags. Defaults to [].
             privacy (Privacy, optional): dataset privacy. Defaults to Privacy.PRIVATE.
+            error_handler (ErrorHandler, optional): how to handle failed rows in the data asset. Defaults to ErrorHandler.SKIP.
 
         Returns:
             Dict: dataset onboard status
@@ -509,7 +512,7 @@ class DatasetFactory(AssetFactory):
             ), f"Data Asset Onboarding Error: All data must have the same number of rows. Lengths: {str(set(sizes))}"
 
             dataset_payload = onboard_functions.build_payload_dataset(
-                dataset, input_ref_data, output_ref_data, hypotheses_ref_data, meta_ref_data, tags
+                dataset, input_ref_data, output_ref_data, hypotheses_ref_data, meta_ref_data, tags, error_handler
             )
             assert (
                 len(dataset_payload["input"]) > 0

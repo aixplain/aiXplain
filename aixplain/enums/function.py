@@ -36,10 +36,15 @@ def load_functions():
 
     url = urljoin(backend_url, "sdk/functions")
     if aixplain_key != "":
+        api_key = aixplain_key
         headers = {"x-aixplain-key": aixplain_key, "Content-Type": "application/json"}
     else:
         headers = {"x-api-key": api_key, "Content-Type": "application/json"}
     r = _request_with_retry("get", url, headers=headers)
+    if not 200 <= r.status_code < 300:
+        raise Exception(
+            f'Functions could not be loaded, probably due to the set API key (e.g. "{api_key}") is not valid. For help, please refer to the documentation (https://github.com/aixplain/aixplain#api-key-setup)'
+        )
     resp = r.json()
     return Enum("Function", {w["id"].upper().replace("-", "_"): w["id"] for w in resp["items"]}, type=str)
 

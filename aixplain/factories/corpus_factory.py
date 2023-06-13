@@ -34,6 +34,7 @@ from aixplain.modules.data import Data
 from aixplain.modules.metadata import MetaData
 from aixplain.enums.data_subtype import DataSubtype
 from aixplain.enums.data_type import DataType
+from aixplain.enums.error_handler import ErrorHandler
 from aixplain.enums.function import Function
 from aixplain.enums.language import Language
 from aixplain.enums.license import License
@@ -239,6 +240,7 @@ class CorpusFactory(AssetFactory):
         tags: List[Text] = [],
         functions: List[Function] = [],
         privacy: Privacy = Privacy.PRIVATE,
+        error_handler: ErrorHandler = ErrorHandler.SKIP,
     ) -> Dict:
         """Asynchronous call to Upload a corpus to the user's dashboard.
 
@@ -252,6 +254,7 @@ class CorpusFactory(AssetFactory):
             tags (Optional[List[Text]], optional): tags that explain the corpus. Defaults to [].
             functions (Optional[List[Function]], optional): AI functions for which the corpus may be used. Defaults to [].
             privacy (Optional[Privacy], optional): visibility of the corpus. Defaults to Privacy.PRIVATE.
+            error_handler (ErrorHandler, optional): how to handle failed rows in the data asset. Defaults to ErrorHandler.SKIP.
 
         Returns:
             Dict: response dict
@@ -347,7 +350,7 @@ class CorpusFactory(AssetFactory):
                 onboard_status="onboarding",
             )
 
-            corpus_payload = onboard_functions.build_payload_corpus(corpus, [ref.id for ref in ref_data])
+            corpus_payload = onboard_functions.build_payload_corpus(corpus, [ref.id for ref in ref_data], error_handler)
 
             response = onboard_functions.create_data_asset(corpus_payload)
             if response["success"] is True:

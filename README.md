@@ -26,6 +26,7 @@ pip install aixplain
 Before you can use the aixplain SDK, you'll need to obtain an API key from our platform. For details refer this [Team API Key Guide](docs/user/api_setup.md).
 
 Once you get the API key, you'll  need to add this API key as an environment variable on your system.
+
 #### Linux or macOS
 ```bash
 export TEAM_API_KEY=YOUR_API_KEY
@@ -34,14 +35,19 @@ export TEAM_API_KEY=YOUR_API_KEY
 ```bash
 set TEAM_API_KEY=YOUR_API_KEY
 ```
+#### Jupyter Notebook
+```
+%env TEAM_API_KEY=YOUR_API_KEY
+```
+
 ## Usage
 
-Let’s see how we can use aixplain to run a machine translation model.
+Let’s see how we can use aixplain to run a machine translation model. The following example shows an [English to French translation model](https://platform.aixplain.com/discovery/model/61dc52976eb5634cf06e97cc).
 
 ```python
 from aixplain.factories.model_factory  import ModelFactory
-model = ModelFactory.get("61b27086c45ecd3c10d0608c") # Got the ID of an MT model from on our platform
-translation = model.run("This is a sample text")
+model = ModelFactory.get("61dc52976eb5634cf06e97cc") # Get the ID of a model from our platform. 
+translation = model.run("This is a sample text") # Alternatively, you can input a public URL or provide a file path on your local machine.
 ```
 *Check out the [explore section](docs/user/user_doc.md#explore) of our guide on Models to get the ID of your desired model*
 
