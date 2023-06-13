@@ -47,19 +47,19 @@ class FileFactory:
 
         Raises:
             FileNotFoundError: If the local file is not found.
-            NotImplementedError: If the file type is not supported.
             Exception: If the file size exceeds the maximum allowed size.
         """
         if os.path.exists(local_path) is False:
             raise FileNotFoundError(f'File Upload Error: local file "{local_path}" not found.')
         # mime type format: {type}/{extension}
         mime_type = filetype.guess_mime(local_path)
-        type_to_max_size = { "audio": MB_50, "text": MB_25, "video": MB_300, "image": MB_25 }
+        type_to_max_size = { "audio": MB_50, "application": MB_25, "video": MB_300, "image": MB_25, "other": MB_50 }
         if mime_type is None or mime_type.split("/")[0] not in type_to_max_size:
-            raise NotImplementedError(f'File Upload Error: local file "{local_path}" type is not supported.')
-        ftype = mime_type.split("/")[0]
+            ftype = "other"
+        else:
+            ftype = mime_type.split("/")[0]
         if os.path.getsize(local_path) > type_to_max_size[ftype]:
-            raise Exception(f'File Upload Error: local {ftype} file "{local_path}" exceeds {type_to_max_size[ftype] / MB_1} MB.')
+            raise Exception(f'File Upload Error: local file "{local_path}" of type "{mime_type}" exceeds {type_to_max_size[ftype] / MB_1} MB.')
         s3_path = upload_data(file_name=local_path)
         return s3_path
 
