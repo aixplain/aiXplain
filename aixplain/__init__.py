@@ -37,16 +37,6 @@ load_dotenv()
 # Validate API keys
 from aixplain.utils import config
 
-if config.AIXPLAIN_ENV == "dev":
-    config.BACKEND_URL = "https://dev-platform-api.aixplain.com"
-    config.MODELS_RUN_URL = "https://dev-models.aixplain.com/api/v1/execute"
-elif config.AIXPLAIN_ENV == "test":
-    config.BACKEND_URL = "https://test-platform-api.aixplain.com"
-    config.MODELS_RUN_URL = "https://test-models.aixplain.com/api/v1/execute"
-else:
-    config.BACKEND_URL = "https://platform-api.aixplain.com"
-    config.MODELS_RUN_URL = "https://models.aixplain.com/api/v1/execute"
-
 if config.TEAM_API_KEY == "" and config.AIXPLAIN_API_KEY == "":
     raise Exception(
         "'TEAM_API_KEY' has not been set properly and is empty. For help, please refer to the documentation (https://github.com/aixplain/aixplain#api-key-setup)"
