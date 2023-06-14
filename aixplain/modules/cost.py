@@ -16,7 +16,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 
 Author: Duraikrishna Selvaraju, Thiago Castro Ferreira, Shreyas Sharma and Lucas Pavanelli
-Date: September 1st 2022
+Date: June 14th 2023
 Description:
     Cost Class
 """
@@ -24,33 +24,27 @@ Description:
 from typing import Dict
 
 class Cost:
-    """This is ready-to-use AI model. This model can be run in both synchronous and asynchronous manner.
-
-    Attributes:
-        id (Text): ID of the Model
-        name (Text): Name of the Model
-        description (Text, optional): description of the model. Defaults to "".
-        api_key (Text, optional): API key of the Model. Defaults to None.
-        url (Text, optional): endpoint of the model. Defaults to config.MODELS_RUN_URL.
-        supplier (Text, optional): model supplier. Defaults to "aiXplain".
-        version (Text, optional): version of the model. Defaults to "1.0".
-        **additional_info: Any additional Model info to be saved
-    """
-
     def __init__(
         self,
         training: Dict,
         inference: Dict,
         hosting: Dict,
     ) -> None:
+        """Create a Cost object with training, inference, and hosting cost information.
+
+        Args:
+            training (Dict): Dictionary containing training cost information.
+            inference (Dict): Dictionary containing inference cost information.
+            hosting (Dict): Dictionary containing hosting cost information.
+        """
         self.training = training
         self.inference = inference
         self.hosting = hosting
 
     def to_dict(self) -> Dict:
-        """Get the model info as a Dictionary
+        """Convert the Cost object to a dictionary.
 
         Returns:
-            Dict: Cost Information
+            Dict: A dictionary representation of the Cost object.
         """
-        return {"training_cost": self.training, "inference_cost": self.inference, "hosting_cost": self.hosting, "additional_info": clean_additional_info}
+        return {"training_cost": self.training, "inference_cost": self.inference, "hosting_cost": self.hosting}

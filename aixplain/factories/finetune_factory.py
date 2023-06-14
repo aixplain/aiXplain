@@ -24,14 +24,12 @@ Description:
 import logging
 from typing import Dict, List, Optional, Text
 import json
-import pandas as pd
-from pathlib import Path
-from aixplain.modules.cost import Cost
 from aixplain.modules.dataset import Dataset
 from aixplain.modules.model import Model
-from aixplain.factories.model_factory import ModelFactory
+from aixplain.modules.finetune import Finetune
+from aixplain.modules.cost import Cost
 from aixplain.utils import config
-from aixplain.utils.file_utils import _request_with_retry, save_file
+from aixplain.utils.file_utils import _request_with_retry
 from urllib.parse import urljoin
 from warnings import warn
 
@@ -50,31 +48,38 @@ class FinetuneFactory:
 
     @classmethod
     def _create_cost_from_response(cls, response: Dict) -> Cost:
-        return Cost(response["trainingCost"], response["inferenceCost"], response["hostingCost"])
-
-
-    @classmethod
-    def create_finetune(
-        cls, name: str, dataset_list: List[Dataset], model: Model, train_percentage: float = 1, dev_percentage: float = 0
-    ) -> Model:
-        """Creates a finetune based on the information provided like name, dataset list, model list and score list.
-        Note: This only creates a finetune. It needs to run seperately using start_finetune_job.
+        """Create a Cost object from the response dictionary.
 
         Args:
-            name (str): Unique Name of Finetune model
-            dataset_list (List[Dataset]): List of Datasets to be used for fine-tuning
-            model_list (Model): Model to be used for fine-tuning
+            response (Dict): The response dictionary containing cost information.
 
         Returns:
-            Model: _description_
+            Cost: The Cost object created from the response.
+        """
+        return Cost(response["trainingCost"], response["inferenceCost"], response["hostingCost"])
+
+    @classmethod
+    def create(
+        cls, name: Text, dataset_list: List[Dataset], model: Model, train_percentage: float = 100, dev_percentage: float = 0
+    ) -> Finetune:
+        """Create a Finetune object with the provided information.
+
+        Args:
+            name (Text): Name of the Finetune.
+            dataset_list (List[Dataset]): List of Datasets to be used for fine-tuning.
+            model (Model): Model to be fine-tuned.
+            train_percentage (float, optional): Percentage of training samples. Defaults to 100.
+            dev_percentage (float, optional): Percentage of development samples. Defaults to 0.
+
+        Returns:
+            Finetune: The Finetune object created with the provided information or None if there was an error.
         """
         payload = {}
         try:
-            url = urljoin(cls.backend_url, f"sdk/finetune")
+            url = urljoin(cls.backend_url, f"sdk/finetune/cost-estimation")
             headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
             payload = json.dumps(
                 {
-                    "name": name,
                     "datasets": [{"datasetId": dataset.id, "trainPercentage": train_percentage, "devPercentage": dev_percentage} for dataset in dataset_list],
                     "sourceModelId": model.id,
                 }
@@ -82,40 +87,10 @@ class FinetuneFactory:
             print(f"Payload: {payload}")
             r = _request_with_retry("post", url, headers=headers, data=payload)
             resp = r.json()
-            print(resp)
-            logging.info(f"Creating Finetune Job: Status for {name}: {resp}")
-            # TODO check if all >= 400 errors should be treated this way
-            if "id" not in resp and "statusCode" in resp and resp["statusCode"] >= 400 and "message" in resp:
-                error_message = f"Creating Finetune Job: Error in Creating Finetune with payload {payload} - Status code: {resp['statusCode']} | Message: {resp['message']}"
-                logging.error(error_message)
-                return None
-            return ModelFactory().get(resp["id"])
+            logging.info(f"Creating Finetune Job: Status for: {resp}")
+            cost = cls._create_cost_from_response(resp)
+            return Finetune(name, dataset_list, model, cost, train_percentage=train_percentage, dev_percentage=dev_percentage)
         except Exception as e:
-            error_message = f"Creating Finetune Job: Error in Creating Finetune with payload {payload} : {e}"
+            error_message = f"Estimating cost: Error in cost estimation with payload {payload} : {e}"
             logging.error(error_message)
             return None
-
-    @classmethod
-    def estimate_cost(
-        cls, dataset_list: List[Dataset], model: Model, train_percentage: float = 1, dev_percentage: float = 0
-    ) -> Cost:
-        payload = {}
-        # try:
-        url = urljoin(cls.backend_url, f"sdk/finetune/cost-estimation")
-        headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
-        payload = json.dumps(
-            {
-                "datasets": [{"datasetId": dataset.id, "trainPercentage": train_percentage, "devPercentage": dev_percentage} for dataset in dataset_list],
-                "sourceModelId": model.id,
-            }
-        )
-        print(f"Payload: {payload}")
-        r = _request_with_retry("post", url, headers=headers, data=payload)
-        resp = r.json()
-        print(resp)
-        logging.info(f"Creating Finetune Job: Status for: {resp}")
-        return cls._create_cost_from_response(resp)
-        # except Exception as e:
-        #     error_message = f"Estimating cost: Error in cost estimation with payload {payload} : {e}"
-        #     logging.error(error_message)
-        #     return None

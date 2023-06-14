@@ -29,6 +29,7 @@ from typing import List
 from aixplain.factories.file_factory import FileFactory
 from aixplain.modules.asset import Asset
 from aixplain.utils import config
+from urllib.parse import urljoin
 from aixplain.utils.file_utils import _request_with_retry
 from typing import Union, Optional, Text, Dict
 
@@ -54,6 +55,7 @@ class Model(Asset):
         description: Text = "",
         api_key: Optional[Text] = None,
         url: Text = config.MODELS_RUN_URL,
+        backend_url: Text = config.BACKEND_URL,
         supplier: Text = "aiXplain",
         version: Text = "1.0",
         **additional_info,
@@ -72,6 +74,7 @@ class Model(Asset):
         """
         super().__init__(id, name, description, supplier, version)
         self.url = url
+        self.backend_url = backend_url
         self.api_key = api_key
         self.additional_info = additional_info
 
@@ -249,3 +252,36 @@ class Model(Asset):
             if resp is not None:
                 response["error"] = msg
         return response
+    
+    def check_finetune_status(self):
+        """Check the status of the FineTune model.
+
+        Raises:
+            Exception: If the 'TEAM_API_KEY' is not provided.
+
+        Returns:
+            str: The status of the FineTune model.
+        """
+        if self.api_key == "":
+            raise Exception(
+                "A 'TEAM_API_KEY' is required to run a model. For help, please refer to the documentation (https://github.com/aixplain/aixplain#api-key-setup)"
+            )
+        headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}
+        try:
+            url = urljoin(self.backend_url, f"sdk/models/{self.id}")
+            logging.info(f"Start service for GET Metric  - {url} - {headers}")
+            r = _request_with_retry("get", url, headers=headers)
+            resp = r.json()
+            status = resp["status"]
+            logging.info(f"Model Check FineTune: Model {self.id} - status {status}.")
+            return status
+        except Exception as e:
+            if resp is not None and "statusCode" in resp:
+                status_code = resp["statusCode"]
+                message = resp["message"]
+                message = f"Model Check FineTune: Status {status_code} - {message}"
+            else:
+                message = "Model Check FineTune: Unspecified Error"
+            logging.error(message)
+            raise Exception(f"{message}")
+

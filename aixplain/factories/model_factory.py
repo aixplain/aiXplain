@@ -30,8 +30,6 @@ from aixplain.utils.file_utils import _request_with_retry
 from urllib.parse import urljoin
 from warnings import warn
 
-# TODO update model get to see finetune status
-# TODO implement method to list finetunable models
 class ModelFactory:
     """A static class for creating and exploring Model Objects.
 
