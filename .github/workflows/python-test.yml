@@ -7,6 +7,9 @@ jobs:
     name: Run Pytest
     runs-on: ubuntu-latest
 
+    env:
+      TEAM_API_KEY: ${{ secrets.TEAM_API_KEY }}
+
     strategy:
       matrix:
         python-version: [3.7, 3.8]

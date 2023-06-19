@@ -1,2 +1,8 @@
 python-dotenv~=0.20.0
 pytest>=6.1.0
+requests>=2.1.0
+tqdm>=4.1.0
+pandas>=1.2.1
+validators>=0.20.0
+filetype>=1.2.0
+requests-mock==1.11.0
