@@ -60,4 +60,4 @@ Raise issues for support in this repository.
 Pull requests are welcome!
 
 ## Note
-The aixtend python package was renamed to aixplain from the release v0.1.1.
+The **aiXtend** python package was renamed to **aiXplain** from the release v0.1.1.
