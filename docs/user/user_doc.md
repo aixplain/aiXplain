@@ -199,5 +199,48 @@ dataset_list = DatasetFactory.list(function=Function.TRANSLATION, language=[Lang
 
 finetune = FinetuneFactory.create(<UNIQUE_NAME_OF_FINETUNE>, dataset_list, model)
 ```
+You can visit [model](#models) and [dataset](#datasets) docs for more details.
+Also, you can check the training, hosting and inference costs by running the following command:
+```python
+finetune.cost.to_dict()
+```
+```python
+{
+  'training_cost': {
+    'total': 0.1,
+    'supplierCost': 0,
+    'overheadCost': 0.1,
+    'willRefundIfLowerThanMax': False,
+    'totalVolume': 106.03,
+    'unitPrice': 0
+  },
+  'inference_cost': [
+    {
+      'unitPrice': 6e-05,
+      'unitType': 'CHAR',
+      'volume': 0
+    }
+  ],
+  'hosting_cost': {
+    'currentMonthPrice': 0,
+    'monthlyPrice': 0,
+    'pricePerCycle': 0,
+    'supplierBillingCycle': 'MONTH',
+    'willRefundIfLowerThanMax': False
+  }
+}
+```
 
 ### Starting a FineTune
+
+Once a `FineTune` is created (refer to the [section above](#creating-a-finetune)), we need to call the start method:
+```python
+finetune_model = finetune.start()
+```
+We receive a model that we can check the fine-tuning status:
+ ```python
+status = finetune_model.check_finetune_status()
+```
+Status can be one of the following: `onboarding`, `onboarded`, `hidden`, `training`, `deleted`, `enabling`, `disabled`, `failed`, `deleting`.
+
+Once it is `onboarded`, you are ready to use it as any other model!
