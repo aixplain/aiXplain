@@ -276,12 +276,11 @@ class Model(Asset):
             logging.info(f"Model Check FineTune: Model {self.id} - status {status}.")
             return status
         except Exception as e:
+            message = ""
             if resp is not None and "statusCode" in resp:
                 status_code = resp["statusCode"]
                 message = resp["message"]
-                message = f"Model Check FineTune: Status {status_code} - {message}"
-            else:
-                message = "Model Check FineTune: Unspecified Error"
-            logging.error(message)
-            raise Exception(f"{message}")
+                message = f"Status {status_code} - {message}"
+            error_message = f"Checking FineTune: Error while checking FineTune: {message}"
+            logging.exception(error_message)
 

@@ -108,18 +108,17 @@ class Finetune(Asset):
                     "sourceModelId": self.model.id,
                 }
             )
-            print(f"Payload: {payload}")
+            logging.info(f"Payload: {payload}")
             r = _request_with_retry("post", url, headers=headers, data=payload)
             resp = r.json()
             logging.info(f"Creating FineTune Job: Status for {self.name}: {resp}")
             return ModelFactory().get(resp["id"])
-        except Exception as e:
+        except Exception:
+            message = ""
             if resp is not None and "statusCode" in resp:
                 status_code = resp["statusCode"]
                 message = resp["message"]
-                message = f"Creating FineTune Job: Status {status_code} - {message}"
-            else:
-                message = "Creating FineTune Job: Unspecified Error"
-            error_message = f"Creating FineTune Job: Error in Creating FineTune with payload {payload} : {e}"
-            logging.error(error_message)
+                message = f"Status {status_code} - {message}"
+            error_message = f"Starting FineTune: Error while starting FineTune with payload {payload}: {message}"
+            logging.exception(error_message)
             return None

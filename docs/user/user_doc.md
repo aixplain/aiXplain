@@ -179,3 +179,25 @@ Once a `BenchmarkJob` is up and running (refer to the [section above](#running-a
 ```python
 results_path = BenchmarkFactory.download_results_as_csv(benchmark_job)
 ```
+
+## FineTune
+
+[FineTune](https://aixplain.com/platform/finetune) allows you to customize models by tuning them using your data and enhancing their performance. Set up and start fine-tuning with a few lines of code. Once fine-tuning is complete, the model will be deployed into your assets, ready for you to use.
+
+### Creating a FineTune
+
+You can use the `FinetuneFactory` to create a FineTune object using the SDK:
+
+```python
+from aixplain.factories import FinetuneFactory, DatasetFactory, ModelFactory
+from aixplain.enums import Function, Language
+
+# Choose 'exactly one' model
+model = ModelFactory.get_first_k_assets(k=5, task="translation", input_language="en", output_language="fr", is_finetunable=True)[0]
+# Choose 'one or more' datasets
+dataset_list = DatasetFactory.list(function=Function.TRANSLATION, language=[Language.English, Language.French], page_size=1)["results"]
+
+finetune = FinetuneFactory.create(<UNIQUE_NAME_OF_FINETUNE>, dataset_list, model)
+```
+
+### Starting a FineTune

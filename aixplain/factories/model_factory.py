@@ -105,7 +105,7 @@ class ModelFactory:
 
     @classmethod
     def get_assets_from_page(
-        cls, page_number: int, task: Text, input_language: Optional[Text] = None, output_language: Optional[Text] = None
+        cls, page_number: int, task: Text, input_language: Optional[Text] = None, output_language: Optional[Text] = None, is_finetunable: Optional[bool] = None
     ) -> List[Model]:
         """Get the list of models from a given page. Additional task and language filters can be also be provided
 
@@ -119,7 +119,10 @@ class ModelFactory:
             List[Model]: List of models based on given filters
         """
         try:
-            url = urljoin(cls.backend_url, f"sdk/models/?pageNumber={page_number}&function={task}")
+            params = f"pageNumber={page_number}&function={task}"
+            if is_finetunable is not None:
+                params = f"{params}&isFineTunable={str(is_finetunable).lower()}"
+            url = urljoin(cls.backend_url, f"sdk/models/?{params}")
             filter_params = []
             if input_language is not None:
                 if task == "translation":
@@ -148,7 +151,7 @@ class ModelFactory:
 
     @classmethod
     def get_first_k_assets(
-        cls, k: int, task: Text, input_language: Optional[Text] = None, output_language: Optional[Text] = None
+        cls, k: int, task: Text, input_language: Optional[Text] = None, output_language: Optional[Text] = None, is_finetunable: Optional[bool] = None
     ) -> List[Model]:
         """Gets the first k given models based on the provided task and language filters
 
@@ -165,7 +168,7 @@ class ModelFactory:
             model_list = []
             assert k > 0
             for page_number in range(k // 10 + 1):
-                model_list += cls.get_assets_from_page(page_number, task, input_language, output_language)
+                model_list += cls.get_assets_from_page(page_number, task, input_language, output_language, is_finetunable)
             return model_list[0:k]
         except Exception as e:
             error_message = f"Listing Models: Error in getting {k} Models for {task} : {e}"
