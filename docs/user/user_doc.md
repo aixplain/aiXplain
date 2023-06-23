@@ -8,6 +8,7 @@ The asset types currently supported by the SDK are:
 - [Dataset](#datasets)
 - [Metric](#metrics)
 - [Benchmark](#benchmarks)
+- [FineTune](#finetune)
 
 ## Models
 aiXplain has an ever-expanding catalog of 35,000+ ready-to-use AI models to be used for various tasks like Translation, Speech Recognition, Diacritization, Sentiment Analysis, and much more.
@@ -200,6 +201,7 @@ dataset_list = DatasetFactory.list(function=Function.TRANSLATION, language=[Lang
 finetune = FinetuneFactory.create(<UNIQUE_NAME_OF_FINETUNE>, dataset_list, model)
 ```
 You can visit [model](#models) and [dataset](#datasets) docs for more details.
+
 Also, you can check the training, hosting and inference costs by running the following command:
 ```python
 finetune.cost.to_dict()
