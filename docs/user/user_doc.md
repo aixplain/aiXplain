@@ -34,7 +34,7 @@ model = ModelFactory.get(<MODEL_ID>)
 If you need, the aixplain SDK allows searching for existing models that match a specific criteria. `ModelFactory` can search for machine learning models that perform a particular task and optionally support a specific input/output language pair.
 
 ```python
-from aixplain.factories  import ModelFactory
+from aixplain.factories import ModelFactory
 model_list = ModelFactory.get_first_k_assets(k=5, task="translation", input_language="en", output_language="hi")
 ```
 
@@ -65,7 +65,7 @@ The catalog of all your pipelines on aiXplain can be accessed and browsed [here]
 
 Once the Pipeline ID of the desired pipeline is available, it can be used to create a `Pipeline` object from the `PipelineFactory`. 
 ```python
-from aixplain.factories  import PipelineFactory
+from aixplain.factories import PipelineFactory
 pipeline = PipelineFactory.get(<PIPELINE_ID>) 
 ```
 
@@ -74,7 +74,7 @@ pipeline = PipelineFactory.get(<PIPELINE_ID>)
 If you need, the aixplain SDK allows searching for existing pipelines. 
 
 ```python
-from aixplain.factories  import PipelineFactory
+from aixplain.factories import PipelineFactory
 pipeline_list = PipelineFactory.get_first_k_assets(k=5)
 ```
 
@@ -100,7 +100,7 @@ The aiXplain SDK allows searching for existing corpora that match a specific cri
 
 ```python
 from aixplain.enums import DataType, Language
-from aixplain.factories  import CorpusFactory
+from aixplain.factories import CorpusFactory
 corpus_list = CorpusFactory.list(page_size=5, language=Language.English, data_type=DataType.AUDIO)["results"]
 ```
 Note: This does not download the resulted corpora to your local machine.
@@ -118,7 +118,7 @@ The catalog of all available datasets on aiXplain can be accessed and browsed [h
 The aixplain SDK allows searching for existing datasets that match a specific criteria. `DatasetFactory` can search for datasets that are linked to a particular machine learning task and optionally support a specific input/output language pair.
 
 ```python
-from aixplain.factories  import DatasetFactory
+from aixplain.factories import DatasetFactory
 from aixplain.enums import Function, Language
 dataset_list = DatasetFactory.list(function=Function.TRANSLATION, language=[Language.English, Language.French], page_size=1)["results"]
 ```
@@ -136,7 +136,7 @@ The catalog of all available metrics on aiXplain can be accessed and browsed [he
 The aixplain SDK allows searching for existing metrics. `MetricFactory` can search for metrics for a particular machine learning task.
 
 ```python
-from aixplain.factories.metric_factory  import MetricFactory
+from aixplain.factories.metric_factory import MetricFactory
 metric_list = MetricFactory.list_assets(task="translation")
 ```
 
