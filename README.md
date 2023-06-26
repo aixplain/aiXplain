@@ -8,11 +8,9 @@ aixplain is a software development kit (SDK) for the [aiXplain](https://aixplain
 - [Benchmark](https://aixplain.com/platform/benchmark/) AI systems by choosing models, datasets and metrics.
 - [Design](https://aixplain.com/platform/studio/) their own custom pipelines and run them.
 
-[🎓 **Documentation**](docs/user/user_doc.md)
-
 🔎 **Find [models](https://platform.aixplain.com/discovery/models), [datasets](https://platform.aixplain.com/discovery/datasets), [metrics](https://platform.aixplain.com/discovery/metrics) on the platform.**
 
-:yellow_heart: Our repository is constantly evolving. With the help of the scientific community, we plan to add even more datasets, models, and metrics across domains and tasks.
+💛 Our repository is constantly evolving. With the help of the scientific community, we plan to add even more datasets, models, and metrics across domains and tasks.
 
 ## Getting Started
 
@@ -50,6 +48,12 @@ model = ModelFactory.get("61dc52976eb5634cf06e97cc") # Get the ID of a model fro
 translation = model.run("This is a sample text") # Alternatively, you can input a public URL or provide a file path on your local machine.
 ```
 *Check out the [explore section](docs/user/user_doc.md#explore) of our guide on Models to get the ID of your desired model*
+
+## User Documentation
+
+To more info on how to search and use aiXplain assets, check the user documentation:
+
+[🎓 **User Documentation**](docs/user/user_doc.md)
 
 ## Developer Guide
 
