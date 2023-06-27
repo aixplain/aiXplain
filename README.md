@@ -38,7 +38,7 @@ set TEAM_API_KEY=YOUR_API_KEY
 %env TEAM_API_KEY=YOUR_API_KEY
 ```
 
-## Usage
+### Usage
 
 Let’s see how we can use aixplain to run a machine translation model. The following example shows an [English to French translation model](https://platform.aixplain.com/discovery/model/61dc52976eb5634cf06e97cc).
 
@@ -49,15 +49,13 @@ translation = model.run("This is a sample text") # Alternatively, you can input 
 ```
 *Check out the [explore section](docs/user/user_doc.md#explore) of our guide on Models to get the ID of your desired model*
 
-## User Documentation
+## Quick Links
 
-To more info on how to search and use aiXplain assets, check the user documentation:
-
-[🎓 **User Documentation**](docs/user/user_doc.md)
-
-## Developer Guide
-
-Follow the [Developer Guide](docs/development/developer_guide.md).
+* [Team API Key Guide](docs/user/api_setup.md)
+* [User Documentation](docs/user/user_doc.md)
+* [Developer Guide](docs/development/developer_guide.md)
+* [API Reference](https://docs.aixplain.com/main.html)
+* [Release notes](https://github.com/aixplain/aiXplain/releases)
 
 ## Support
 Raise issues for support in this repository.  
