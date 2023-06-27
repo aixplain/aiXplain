@@ -1,4 +1,4 @@
-<img src="docs/assets/aixplain-brandmark-common.png" alt="aiXplain logo" title="aiXplain" align="right" height="132" width="85"/>
+<img src="docs/assets/aixplain-brandmark-line.png" alt="aiXplain logo" title="aiXplain" align="right" height="132" width="85"/>
 
 # aiXplain
 
