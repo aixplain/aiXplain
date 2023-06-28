@@ -38,7 +38,7 @@ class Pipeline(Asset):
         id (Text): ID of the Pipeline
         name (Text): Name of the Pipeline
         api_key (Text): Team API Key to run the Pipeline.
-        url (Text, optional): running URL of platform. Defaults to config.PIPELINES_RUN_URL.
+        url (Text, optional): running URL of platform. Defaults to config.BACKEND_URL.
         supplier (Text, optional): Pipeline supplier. Defaults to "aiXplain".
         version (Text, optional): version of the pipeline. Defaults to "1.0".
         **additional_info: Any additional Pipeline info to be saved
@@ -49,7 +49,7 @@ class Pipeline(Asset):
         id: Text,
         name: Text,
         api_key: Text,
-        url: Text = config.PIPELINES_RUN_URL,
+        url: Text = config.BACKEND_URL,
         supplier: Text = "aiXplain",
         version: Text = "1.0",
         **additional_info,
@@ -60,14 +60,14 @@ class Pipeline(Asset):
             id (Text): ID of the Pipeline
             name (Text): Name of the Pipeline
             api_key (Text): Team API Key to run the Pipeline.
-            url (Text, optional): running URL of platform. Defaults to config.PIPELINES_RUN_URL.
+            url (Text, optional): running URL of platform. Defaults to config.BACKEND_URL.
             supplier (Text, optional): Pipeline supplier. Defaults to "aiXplain".
             version (Text, optional): version of the pipeline. Defaults to "1.0".
             **additional_info: Any additional Pipeline info to be saved
         """
         super().__init__(id, name, "", supplier, version)
         self.api_key = api_key
-        self.url = url
+        self.url = f"{url}/assets/pipeline/execution/run"
         self.additional_info = additional_info
 
     def __polling(

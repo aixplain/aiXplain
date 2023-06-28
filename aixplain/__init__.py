@@ -24,7 +24,8 @@ limitations under the License.
 import os
 import logging
 from logging import NullHandler
-LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO').upper()
+
+LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO").upper()
 logging.basicConfig(level=LOG_LEVEL)
 logging.getLogger(__name__).addHandler(NullHandler())
 
