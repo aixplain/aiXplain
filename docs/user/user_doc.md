@@ -6,8 +6,8 @@ The asset types currently supported by the SDK are:
 - [Pipeline](#pipelines)
 - [Corpus](#corpus)
 - [Dataset](#datasets)
-- [Metric](#metrics)
-- [Benchmark](#benchmarks)
+<!-- - [Metric](#metrics)
+- [Benchmark](#benchmarks) -->
 
 ## Models
 aiXplain has an ever-expanding catalog of 35,000+ ready-to-use AI models to be used for various tasks like Translation, Speech Recognition, Diacritization, Sentiment Analysis, and much more.
@@ -127,6 +127,8 @@ Note: This does not download datasets to your local machine.
 ### Dataset Onboarding
 
 Using the aiXplain SDK, you can also onboard your dataset into the aiXplain platform. A step-by-step example on how to do it can be accessed [here](/docs/samples/dataset_onboarding/dataset_onboarding.ipynb).
+
+# Coming Soon
 
 ## Metrics
 aiXplain has an impressive library of metrics for various machine learning tasks like Translation, Speech Recognition, Diacritization, and Sentiment Analysis. There are reference similarity metrics, human evaluation estimation metrics, and referenceless metrics.
