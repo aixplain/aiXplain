@@ -26,7 +26,7 @@ from aixplain.utils.file_utils import _request_with_retry
 import json
 from urllib.parse import urljoin
 from aixplain.utils import config
-from aixplain.factories import ModelFactory
+from aixplain.factories.model_factory import ModelFactory
 from aixplain.modules.asset import Asset
 from aixplain.modules.dataset import Dataset
 from aixplain.modules.model import Model
@@ -49,8 +49,9 @@ class Finetune(Asset):
         dev_percentage (float): Percentage of development samples.
         additional_info (dict): Additional information to be saved with the FineTune.
         backend_url (str): URL of the backend.
-        api_key (str): The TEAM API key used for authentication.    
+        api_key (str): The TEAM API key used for authentication.
     """
+
     def __init__(
         self,
         name: Text,
@@ -63,7 +64,7 @@ class Finetune(Asset):
         version: Text = "1.0",
         train_percentage: float = 100,
         dev_percentage: float = 0,
-        **additional_info
+        **additional_info,
     ) -> None:
         """Create a FineTune with the necessary information.
 
@@ -104,7 +105,14 @@ class Finetune(Asset):
             payload = json.dumps(
                 {
                     "name": self.name,
-                    "datasets": [{"datasetId": dataset.id, "trainSamplesPercentage": self.train_percentage, "devSamplesPercentage": self.dev_percentage} for dataset in self.dataset_list],
+                    "datasets": [
+                        {
+                            "datasetId": dataset.id,
+                            "trainSamplesPercentage": self.train_percentage,
+                            "devSamplesPercentage": self.dev_percentage,
+                        }
+                        for dataset in self.dataset_list
+                    ],
                     "sourceModelId": self.model.id,
                 }
             )

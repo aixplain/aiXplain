@@ -24,11 +24,11 @@ from typing import Dict, List, Optional, Text
 import json
 import logging
 from aixplain.modules.model import Model
-from aixplain.utils.config import MODELS_RUN_URL
 from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
 from urllib.parse import urljoin
 from warnings import warn
+
 
 class ModelFactory:
     """A static class for creating and exploring Model Objects.
@@ -54,7 +54,13 @@ class ModelFactory:
         """
         if "api_key" not in response:
             response["api_key"] = cls.api_key
-        return Model(response["id"], response["name"], supplier=response["supplier"]["id"], api_key=response["api_key"], pricing=response["pricing"])
+        return Model(
+            response["id"],
+            response["name"],
+            supplier=response["supplier"]["id"],
+            api_key=response["api_key"],
+            pricing=response["pricing"],
+        )
 
     @classmethod
     def get(cls, model_id: Text, api_key: Optional[Text] = None) -> Model:
@@ -105,7 +111,12 @@ class ModelFactory:
 
     @classmethod
     def get_assets_from_page(
-        cls, page_number: int, task: Text, input_language: Optional[Text] = None, output_language: Optional[Text] = None, is_finetunable: Optional[bool] = None
+        cls,
+        page_number: int,
+        task: Text,
+        input_language: Optional[Text] = None,
+        output_language: Optional[Text] = None,
+        is_finetunable: Optional[bool] = None,
     ) -> List[Model]:
         """Get the list of models from a given page. Additional task and language filters can be also be provided
 
@@ -151,7 +162,12 @@ class ModelFactory:
 
     @classmethod
     def get_first_k_assets(
-        cls, k: int, task: Text, input_language: Optional[Text] = None, output_language: Optional[Text] = None, is_finetunable: Optional[bool] = None
+        cls,
+        k: int,
+        task: Text,
+        input_language: Optional[Text] = None,
+        output_language: Optional[Text] = None,
+        is_finetunable: Optional[bool] = None,
     ) -> List[Model]:
         """Gets the first k given models based on the provided task and language filters
 

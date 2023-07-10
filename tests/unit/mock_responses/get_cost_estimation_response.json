@@ -1,0 +1,27 @@
+{
+    "trainingCost": {
+        "total": 1,
+        "supplierCost": 0,
+        "overheadCost": 1,
+        "isDependingOnTrainingTime": false,
+        "willRefundIfLowerThanMax": false,
+        "totalVolume": 98.72,
+        "unitPrice": 0,
+        "timeScale": null
+    },
+    "inferenceCost": [
+        {
+            "unitPrice": 0.023333333333333334,
+            "unitType": "TIME",
+            "unitTypeScale": "MINUTE",
+            "volume": 0
+        }
+    ],
+    "hostingCost": {
+        "currentMonthPrice": 28.3526,
+        "monthlyPrice": 38.736,
+        "pricePerCycle": 0.0538,
+        "supplierBillingCycle": "HOUR",
+        "willRefundIfLowerThanMax": true
+    }
+}

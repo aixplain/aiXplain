@@ -1,0 +1,14 @@
+[
+    {
+        "train_percentage": 0,
+        "dev_percentage": 100
+    },
+    {
+        "train_percentage": 0,
+        "dev_percentage": 0
+    },
+    {
+        "train_percentage": 80,
+        "dev_percentage": 30
+    }
+]

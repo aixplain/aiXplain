@@ -31,7 +31,6 @@ from aixplain.modules.cost import Cost
 from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
 from urllib.parse import urljoin
-from warnings import warn
 
 
 class FinetuneFactory:
@@ -76,13 +75,18 @@ class FinetuneFactory:
         """
         payload = {}
         assert train_percentage > 0, f"Creating FineTune: Train percentage ({train_percentage}) must be greater than zero"
-        assert train_percentage + dev_percentage <= 100, f"Creating FineTune: Train percentage + dev percentage ({train_percentage + dev_percentage}) must be less than or equal to one"
+        assert (
+            train_percentage + dev_percentage <= 100
+        ), f"Creating FineTune: Train percentage + dev percentage ({train_percentage + dev_percentage}) must be less than or equal to one"
         try:
             url = urljoin(cls.backend_url, f"sdk/finetune/cost-estimation")
             headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
             payload = json.dumps(
                 {
-                    "datasets": [{"datasetId": dataset.id, "trainPercentage": train_percentage, "devPercentage": dev_percentage} for dataset in dataset_list],
+                    "datasets": [
+                        {"datasetId": dataset.id, "trainPercentage": train_percentage, "devPercentage": dev_percentage}
+                        for dataset in dataset_list
+                    ],
                     "sourceModelId": model.id,
                 }
             )

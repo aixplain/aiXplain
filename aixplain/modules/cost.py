@@ -23,6 +23,7 @@ Description:
 
 from typing import Dict
 
+
 class Cost:
     def __init__(
         self,
@@ -47,4 +48,4 @@ class Cost:
         Returns:
             Dict: A dictionary representation of the Cost object.
         """
-        return {"training_cost": self.training, "inference_cost": self.inference, "hosting_cost": self.hosting}
+        return {"trainingCost": self.training, "inferenceCost": self.inference, "hostingCost": self.hosting}
