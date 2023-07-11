@@ -47,6 +47,7 @@ from typing import Any, Dict, List, Optional, Text, Union
 from urllib.parse import urljoin
 from uuid import uuid4
 from warnings import warn
+from aixplain.decorators.api_key_checker import check_api_key
 
 
 class DatasetFactory(AssetFactory):
@@ -149,6 +150,7 @@ class DatasetFactory(AssetFactory):
         return dataset
 
     @classmethod
+    @check_api_key
     def get(cls, dataset_id: Text) -> Dataset:
         """Create a 'Dataset' object from dataset id
 
@@ -294,6 +296,7 @@ class DatasetFactory(AssetFactory):
         return cls.list(function=task, page_size=k)
 
     @classmethod
+    @check_api_key
     def create(
         cls,
         name: Text,
@@ -344,11 +347,6 @@ class DatasetFactory(AssetFactory):
         folder, return_dict, ref_data = None, {}, []
         # check team key
         try:
-            if config.TEAM_API_KEY.strip() == "":
-                message = "Data Asset Onboarding Error: Update your team key on the environment variable TEAM_API_KEY before the corpus onboarding process."
-                logging.exception(message)
-                raise Exception(message)
-
             content_paths = content_path
             if isinstance(content_path, list) is False:
                 content_paths = [content_path]

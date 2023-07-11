@@ -32,6 +32,7 @@ from aixplain.utils import config
 from urllib.parse import urljoin
 from aixplain.utils.file_utils import _request_with_retry
 from typing import Union, Optional, Text, Dict
+from aixplain.decorators.api_key_checker import check_api_key
 
 
 class Model(Asset):
@@ -141,6 +142,7 @@ class Model(Asset):
             )
         return response_body
 
+    @check_api_key
     def poll(self, poll_url: Text, name: Text = "model_process") -> Dict:
         """Poll the platform to check whether an asynchronous call is done.
 
@@ -202,6 +204,7 @@ class Model(Asset):
             end = time.time()
             return {"status": "FAILED", "error": msg, "elapsed_time": end - start}
 
+    @check_api_key
     def run_async(self, data: Union[Text, Dict], name: Text = "model_process", parameters: Dict = {}) -> Dict:
         """Runs asynchronously a model call.
 
@@ -213,10 +216,6 @@ class Model(Asset):
         Returns:
             dict: polling URL in response
         """
-        if self.api_key == "":
-            raise Exception(
-                "A 'TEAM_API_KEY' is required to run a model. For help, please refer to the documentation (https://github.com/aixplain/aixplain#api-key-setup)"
-            )
         headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}
 
         data = FileFactory.to_link(data)
@@ -252,7 +251,7 @@ class Model(Asset):
             if resp is not None:
                 response["error"] = msg
         return response
-    
+
     def check_finetune_status(self):
         """Check the status of the FineTune model.
 
@@ -283,4 +282,3 @@ class Model(Asset):
                 message = f"Status {status_code} - {message}"
             error_message = f"Checking FineTune: Error while checking FineTune: {message}"
             logging.exception(error_message)
-

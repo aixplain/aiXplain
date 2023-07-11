@@ -27,8 +27,10 @@ from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
 from enum import Enum
 from urllib.parse import urljoin
+from aixplain.decorators.api_key_checker import check_api_key
 
 
+@check_api_key
 def load_functions():
     api_key = config.TEAM_API_KEY
     aixplain_key = config.AIXPLAIN_API_KEY

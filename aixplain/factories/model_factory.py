@@ -28,6 +28,7 @@ from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
 from urllib.parse import urljoin
 from warnings import warn
+from aixplain.decorators.api_key_checker import check_api_key
 
 
 class ModelFactory:
@@ -63,6 +64,7 @@ class ModelFactory:
         )
 
     @classmethod
+    @check_api_key
     def get(cls, model_id: Text, api_key: Optional[Text] = None) -> Model:
         """Create a 'Model' object from model id
 
@@ -110,6 +112,7 @@ class ModelFactory:
         return cls.get(model_id)
 
     @classmethod
+    @check_api_key
     def get_assets_from_page(
         cls,
         page_number: int,

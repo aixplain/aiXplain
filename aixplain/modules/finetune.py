@@ -31,6 +31,7 @@ from aixplain.modules.asset import Asset
 from aixplain.modules.dataset import Dataset
 from aixplain.modules.model import Model
 from aixplain.modules.cost import Cost
+from aixplain.decorators.api_key_checker import check_api_key
 
 
 class Finetune(Asset):
@@ -92,6 +93,7 @@ class Finetune(Asset):
         self.api_key = config.TEAM_API_KEY
         self.aixplain_key = config.AIXPLAIN_API_KEY
 
+    @check_api_key
     def start(self) -> Model:
         """Start the Finetune job.
 

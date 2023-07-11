@@ -31,6 +31,7 @@ from aixplain.modules.cost import Cost
 from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
 from urllib.parse import urljoin
+from aixplain.decorators.api_key_checker import check_api_key
 
 
 class FinetuneFactory:
@@ -58,6 +59,7 @@ class FinetuneFactory:
         return Cost(response["trainingCost"], response["inferenceCost"], response["hostingCost"])
 
     @classmethod
+    @check_api_key
     def create(
         cls, name: Text, dataset_list: List[Dataset], model: Model, train_percentage: float = 100, dev_percentage: float = 0
     ) -> Finetune:

@@ -29,6 +29,7 @@ from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
 from urllib.parse import urljoin
 from warnings import warn
+from aixplain.decorators.api_key_checker import check_api_key
 
 
 class PipelineFactory:
@@ -58,6 +59,7 @@ class PipelineFactory:
         return Pipeline(response["id"], response["name"], response["api_key"])
 
     @classmethod
+    @check_api_key
     def get(cls, pipeline_id: Text, api_key: Optional[Text] = None) -> Pipeline:
         """Create a 'Pipeline' object from pipeline id
 
@@ -105,6 +107,7 @@ class PipelineFactory:
         return cls.get(pipeline_id)
 
     @classmethod
+    @check_api_key
     def get_assets_from_page(cls, page_number: int) -> List[Pipeline]:
         """Get the list of pipelines from a given page
 
