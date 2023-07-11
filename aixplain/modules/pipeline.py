@@ -24,7 +24,6 @@ Description:
 import time
 import json
 import logging
-from aixplain.factories.file_factory import FileFactory
 from aixplain.modules.asset import Asset
 from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
@@ -134,13 +133,19 @@ class Pipeline(Asset):
         return resp
 
     def run(
-        self, data: Union[Text, Dict], name: Text = "pipeline_process", timeout: float = 20000.0, wait_time: float = 1.0
+        self,
+        data: Union[Text, Dict],
+        data_asset: Optional[Union[Text, Dict]] = None,
+        name: Text = "pipeline_process",
+        timeout: float = 20000.0,
+        wait_time: float = 1.0,
     ) -> Dict:
         """Runs a pipeline call.
 
         Args:
             data (Union[Text, Dict]): link to the input data
-            name (str, optional): ID given to a call. Defaults to "pipeline_process".
+            data_asset (Optional[Union[Text, Dict]], optional): Data asset to be processed by the pipeline. Defaults to None.
+            name (Text, optional): ID given to a call. Defaults to "pipeline_process".
             timeout (float, optional): total polling time. Defaults to 20000.0.
             wait_time (float, optional): wait time in seconds between polling calls. Defaults to 1.0.
 
@@ -149,7 +154,7 @@ class Pipeline(Asset):
         """
         start = time.time()
         try:
-            response = self.run_async(data, name=name)
+            response = self.run_async(data, data_asset=data_asset, name=name)
             if response["status"] == "FAILED":
                 end = time.time()
                 response["elapsed_time"] = end - start
@@ -159,17 +164,107 @@ class Pipeline(Asset):
             response = self.__polling(poll_url, name=name, timeout=timeout, wait_time=wait_time)
             return response
         except Exception as e:
-            error_message = f"Error in request for {name} "
+            error_message = str(e)
             logging.error(error_message)
             logging.exception(error_message)
             end = time.time()
             return {"status": "FAILED", "error": error_message, "elapsed_time": end - start}
 
-    def run_async(self, data: Union[Text, Dict], name: str = "pipeline_process") -> Dict:
+    def __prepare_payload(self, data: Union[Text, Dict], data_asset: Optional[Union[Text, Dict]] = None) -> Dict:
+        """Prepare pipeline execution payload, validating the input data
+
+        Args:
+            data (Union[Text, Dict]): input data
+            data_asset (Optional[Union[Text, Dict]], optional): input data asset. Defaults to None.
+
+        Returns:
+            Dict: pipeline execution payload
+        """
+        from aixplain.factories import CorpusFactory, DatasetFactory, FileFactory
+
+        # if an input data asset is provided, just handle the data
+        if data_asset is None:
+            # upload the data when a local path is provided
+            data = FileFactory.to_link(data)
+            if isinstance(data, dict):
+                payload = data
+            else:
+                try:
+                    payload = json.loads(data)
+                    if isinstance(payload, dict) is False:
+                        if isinstance(payload, int) is True or isinstance(payload, float) is True:
+                            payload = str(payload)
+                        payload = {"data": payload}
+                except Exception as e:
+                    payload = {"data": data}
+        else:
+            payload = {}
+            if isinstance(data_asset, str) is True:
+                data_asset = {"1": data_asset}
+
+                # make sure data asset and data are provided in the same format,
+                # mostly when in a multi-input scenario, where a dictionary should be provided.
+                if isinstance(data, dict) is True:
+                    raise Exception(
+                        'Pipeline Run Error: Similar to "data", please specify the node input where the data asset should be set in "data_asset".'
+                    )
+                else:
+                    data = {"1": data}
+            elif isinstance(data, str) is True:
+                raise Exception(
+                    'Pipeline Run Error: Similar to "data_asset", please specify the node input where the data should be set in "data".'
+                )
+
+            # validate the existence of data asset and data
+            for node_label in data_asset:
+                asset_payload = {"data_asset": {}}
+                data_asset_found, data_found = True, False
+                try:
+                    dasset = CorpusFactory.get(str(data_asset[node_label]))
+                    asset_payload["data_asset"]["corpus_id"] = dasset.id
+                    if len([d for d in dasset.data if d.id == data[node_label]]) > 0:
+                        data_found = True
+                except Exception:
+                    try:
+                        dasset = DatasetFactory.get(str(data_asset[node_label]))
+                        asset_payload["data_asset"]["dataset_id"] = dasset.id
+
+                        if (
+                            len([dfield for dfield in dasset.source_data if dasset.source_data[dfield].id == data[node_label]])
+                            > 0
+                        ):
+                            data_found = True
+                        else:
+                            for target in dasset.target_data:
+                                for target_row in dasset.target_data[target]:
+                                    if target_row.id == data_asset[node_label]:
+                                        data_found = True
+                                        break
+                                if data_found == True:
+                                    break
+                    except Exception:
+                        data_asset_found = False
+                if data_asset_found is False:
+                    raise Exception(
+                        f'Pipeline Run Error: Data Asset "{data_asset[node_label]}" not found. Make sure this asset exists or you have access to it.'
+                    )
+                elif data_found is False:
+                    raise Exception(
+                        f'Pipeline Run Error: Data "{data[node_label]}" not found in Data Asset "{data_asset[node_label]}" not found.'
+                    )
+
+                asset_payload["data_asset"]["data_id"] = data[node_label]
+                payload[node_label] = asset_payload
+        return payload
+
+    def run_async(
+        self, data: Union[Text, Dict], data_asset: Optional[Union[Text, Dict]] = None, name: Text = "pipeline_process"
+    ) -> Dict:
         """Runs asynchronously a pipeline call.
 
         Args:
             data (Union[Text, Dict]): link to the input data
+            data_asset (Optional[Union[Text, Dict]], optional): Data asset to be processed by the pipeline. Defaults to None.
             name (Text, optional): ID given to a call. Defaults to "pipeline_process".
 
         Returns:
@@ -181,18 +276,9 @@ class Pipeline(Asset):
             )
         headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}
 
-        data = FileFactory.to_link(data)
-        if isinstance(data, dict):
-            payload = data
-        else:
-            try:
-                payload = json.loads(data)
-                if isinstance(payload, dict) is False:
-                    if isinstance(payload, int) is True or isinstance(payload, float) is True:
-                        payload = str(payload)
-                    payload = {"data": payload}
-            except Exception as e:
-                payload = {"data": data}
+        payload = self.__prepare_payload(data=data, data_asset=data_asset)
+        if len(payload) == 1:
+            payload = list(payload.values())[0]
         payload = json.dumps(payload)
         call_url = f"{self.url}/{self.id}"
         logging.info(f"Start service for {name}  - {call_url} - {payload}")
