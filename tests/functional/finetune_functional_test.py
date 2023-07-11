@@ -53,9 +53,9 @@ def test_run(run_input_map):
     finetune = FinetuneFactory.create(str(uuid.uuid4()), dataset_list, model)
     assert type(finetune.cost) is Cost
     cost_map = finetune.cost.to_dict()
-    assert "training_cost" in cost_map
-    assert "hosting_cost" in cost_map
-    assert "inference_cost" in cost_map
+    assert "trainingCost" in cost_map
+    assert "hostingCost" in cost_map
+    assert "inferenceCost" in cost_map
     finetune_model = finetune.start()
     status = finetune_model.check_finetune_status()
     while status != "onboarded":
