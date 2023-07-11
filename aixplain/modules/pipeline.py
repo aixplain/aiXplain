@@ -253,7 +253,7 @@ class Pipeline(Asset):
                         f'Pipeline Run Error: Data "{data[node_label]}" not found in Data Asset "{data_asset[node_label]}" not found.'
                     )
 
-                asset_payload["data_asset"]["data_id"] = data[node_label]
+                asset_payload["data_asset"]["data"] = data[node_label]
                 payload[node_label] = asset_payload
         return payload
 
