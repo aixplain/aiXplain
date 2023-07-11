@@ -6,9 +6,9 @@ The asset types currently supported by the SDK are:
 - [Pipeline](#pipelines)
 - [Corpus](#corpus)
 - [Dataset](#datasets)
-- [Metric](#metrics)
-- [Benchmark](#benchmarks)
 - [FineTune](#finetune)
+<!-- - [Metric](#metrics)
+- [Benchmark](#benchmarks) -->
 
 ## Models
 aiXplain has an ever-expanding catalog of 35,000+ ready-to-use AI models to be used for various tasks like Translation, Speech Recognition, Diacritization, Sentiment Analysis, and much more.
@@ -35,7 +35,7 @@ model = ModelFactory.get(<MODEL_ID>)
 If you need, the aixplain SDK allows searching for existing models that match a specific criteria. `ModelFactory` can search for machine learning models that perform a particular task and optionally support a specific input/output language pair.
 
 ```python
-from aixplain.factories  import ModelFactory
+from aixplain.factories import ModelFactory
 model_list = ModelFactory.get_first_k_assets(k=5, task="translation", input_language="en", output_language="hi")
 ```
 
@@ -66,7 +66,7 @@ The catalog of all your pipelines on aiXplain can be accessed and browsed [here]
 
 Once the Pipeline ID of the desired pipeline is available, it can be used to create a `Pipeline` object from the `PipelineFactory`. 
 ```python
-from aixplain.factories  import PipelineFactory
+from aixplain.factories import PipelineFactory
 pipeline = PipelineFactory.get(<PIPELINE_ID>) 
 ```
 
@@ -75,7 +75,7 @@ pipeline = PipelineFactory.get(<PIPELINE_ID>)
 If you need, the aixplain SDK allows searching for existing pipelines. 
 
 ```python
-from aixplain.factories  import PipelineFactory
+from aixplain.factories import PipelineFactory
 pipeline_list = PipelineFactory.get_first_k_assets(k=5)
 ```
 
@@ -101,7 +101,7 @@ The aiXplain SDK allows searching for existing corpora that match a specific cri
 
 ```python
 from aixplain.enums import DataType, Language
-from aixplain.factories  import CorpusFactory
+from aixplain.factories import CorpusFactory
 corpus_list = CorpusFactory.list(page_size=5, language=Language.English, data_type=DataType.AUDIO)["results"]
 ```
 Note: This does not download the resulted corpora to your local machine.
@@ -119,7 +119,7 @@ The catalog of all available datasets on aiXplain can be accessed and browsed [h
 The aixplain SDK allows searching for existing datasets that match a specific criteria. `DatasetFactory` can search for datasets that are linked to a particular machine learning task and optionally support a specific input/output language pair.
 
 ```python
-from aixplain.factories  import DatasetFactory
+from aixplain.factories import DatasetFactory
 from aixplain.enums import Function, Language
 dataset_list = DatasetFactory.list(function=Function.TRANSLATION, language=[Language.English, Language.French], page_size=1)["results"]
 ```
@@ -128,58 +128,6 @@ Note: This does not download datasets to your local machine.
 ### Dataset Onboarding
 
 Using the aiXplain SDK, you can also onboard your dataset into the aiXplain platform. A step-by-step example on how to do it can be accessed [here](/docs/samples/dataset_onboarding/dataset_onboarding.ipynb).
-
-## Metrics
-aiXplain has an impressive library of metrics for various machine learning tasks like Translation, Speech Recognition, Diacritization, and Sentiment Analysis. There are reference similarity metrics, human evaluation estimation metrics, and referenceless metrics.
-
-The catalog of all available metrics on aiXplain can be accessed and browsed [here](https://platform.aixplain.com/discovery/metrics).
-
-The aixplain SDK allows searching for existing metrics. `MetricFactory` can search for metrics for a particular machine learning task.
-
-```python
-from aixplain.factories.metric_factory  import MetricFactory
-metric_list = MetricFactory.list_assets(task="translation")
-```
-
-## Benchmarks
-
-[Benchmark](https://aixplain.com/platform/benchmark) is a powerful tool for benchmarking machine learning models and evaluating their performance on specific tasks. You can obtain easy-to-interpret granular insights on the performance of models for quality, latency, footprint, cost, and bias with our interactive Benchmark reports.
-
-The proposed benchmarking framework is designed for being modular and interoperable in its core across three main components (models, datasets, metrics) in its body to become a one-stop shop for all possible benchmarking activities across several domains and metrics. You need to choose these three components for the task of your choice.
-
-*Currently supported tasks are Translation, Speech Recognition, Diacritization, and Sentiment Analysis with many more in the works.*
-
-### Creating a Benchmark
-You can create a benchmarking job on aiXplain [here](https://platform.aixplain.com/benchmark) or you can also use the SDK. Let's see how we can use the `BenchmarkFactory` in the aixplain SDK for the same purpose.
-
-```python
-from aixplain.factories import BenchmarkFactory, DatasetFactory, MetricFactory, ModelFactory
-from aixplain.enums import Function, Language
-
-# Choose 'one or more' models
-model_list = ModelFactory.get_first_k_assets(k=5, task="translation", input_language="en", output_language="fr")
-# Choose 'one or more' metrics
-metric_list = MetricFactory.list_assets(task="translation")
-# Choose 'exactly one' dataset
-dataset_list = DatasetFactory.list(function=Function.TRANSLATION, language=[Language.English, Language.French], page_size=1)["results"]
-
-benchmark = BenchmarkFactory.create_benchmark(<UNIQUE_NAME_OF_BENCHMARK>, dataset_list, model_list, metric_list)
-```
-
-You can visit [model](#models), [dataset](#datasets), and [metric](#metrics) docs for more details.
-
-### Running a Benchmark
-Once a `Benchmark` is created (refer to the [section above](#creating-a-benchmark)), we need to start a new `BenchmarkJob` from it. It is really simple to run a benchmark:
-```python
-benchmark_job = BenchmarkFactory.start_benchmark_job(benchmark)
-```
-Note: You can start multiple jobs on a single `Benchmark`.
-
-### Getting the Results 
-Once a `BenchmarkJob` is up and running (refer to the [section above](#running-a-benchmark)), we can download the current results as a CSV (even for an in-progress benchmarking job).
-```python
-results_path = BenchmarkFactory.download_results_as_csv(benchmark_job)
-```
 
 ## FineTune
 
@@ -246,3 +194,57 @@ status = finetune_model.check_finetune_status()
 Status can be one of the following: `onboarding`, `onboarded`, `hidden`, `training`, `deleted`, `enabling`, `disabled`, `failed`, `deleting`.
 
 Once it is `onboarded`, you are ready to use it as any other model!
+
+# Coming Soon
+
+## Metrics
+aiXplain has an impressive library of metrics for various machine learning tasks like Translation, Speech Recognition, Diacritization, and Sentiment Analysis. There are reference similarity metrics, human evaluation estimation metrics, and referenceless metrics.
+
+The catalog of all available metrics on aiXplain can be accessed and browsed [here](https://platform.aixplain.com/discovery/metrics).
+
+The aixplain SDK allows searching for existing metrics. `MetricFactory` can search for metrics for a particular machine learning task.
+
+```python
+from aixplain.factories.metric_factory import MetricFactory
+metric_list = MetricFactory.list_assets(task="translation")
+```
+
+## Benchmarks
+
+[Benchmark](https://aixplain.com/platform/benchmark) is a powerful tool for benchmarking machine learning models and evaluating their performance on specific tasks. You can obtain easy-to-interpret granular insights on the performance of models for quality, latency, footprint, cost, and bias with our interactive Benchmark reports.
+
+The proposed benchmarking framework is designed for being modular and interoperable in its core across three main components (models, datasets, metrics) in its body to become a one-stop shop for all possible benchmarking activities across several domains and metrics. You need to choose these three components for the task of your choice.
+
+*Currently supported tasks are Translation, Speech Recognition, Diacritization, and Sentiment Analysis with many more in the works.*
+
+### Creating a Benchmark
+You can create a benchmarking job on aiXplain [here](https://platform.aixplain.com/benchmark) or you can also use the SDK. Let's see how we can use the `BenchmarkFactory` in the aixplain SDK for the same purpose.
+
+```python
+from aixplain.factories import BenchmarkFactory, DatasetFactory, MetricFactory, ModelFactory
+from aixplain.enums import Function, Language
+
+# Choose 'one or more' models
+model_list = ModelFactory.get_first_k_assets(k=5, task="translation", input_language="en", output_language="fr")
+# Choose 'one or more' metrics
+metric_list = MetricFactory.list_assets(task="translation")
+# Choose 'exactly one' dataset
+dataset_list = DatasetFactory.list(function=Function.TRANSLATION, language=[Language.English, Language.French], page_size=1)["results"]
+
+benchmark = BenchmarkFactory.create_benchmark(<UNIQUE_NAME_OF_BENCHMARK>, dataset_list, model_list, metric_list)
+```
+
+You can visit [model](#models), [dataset](#datasets), and [metric](#metrics) docs for more details.
+
+### Running a Benchmark
+Once a `Benchmark` is created (refer to the [section above](#creating-a-benchmark)), we need to start a new `BenchmarkJob` from it. It is really simple to run a benchmark:
+```python
+benchmark_job = BenchmarkFactory.start_benchmark_job(benchmark)
+```
+Note: You can start multiple jobs on a single `Benchmark`.
+
+### Getting the Results 
+Once a `BenchmarkJob` is up and running (refer to the [section above](#running-a-benchmark)), we can download the current results as a CSV (even for an in-progress benchmarking job).
+```python
+results_path = BenchmarkFactory.download_results_as_csv(benchmark_job)
+```

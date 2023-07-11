@@ -18,13 +18,14 @@ limitations under the License.
 
 
 import time
-from aixplain.utils.config import PIPELINES_RUN_URL, PIPELINE_API_KEY
+from aixplain.utils.config import BACKEND_URL, PIPELINE_API_KEY
 from aixplain.factories.pipeline_factory import PipelineFactory
 import pytest
 
+
 @pytest.mark.skip()
 def test_mt1():
-    url = PIPELINES_RUN_URL
+    url = BACKEND_URL
     api_key = PIPELINE_API_KEY
 
     pipeline = PipelineFactory.create_from_api_key(api_key=api_key, url=url)
@@ -33,9 +34,10 @@ def test_mt1():
     response = pipeline.run(data)
     assert response["status"] == "SUCCESS"
 
+
 @pytest.mark.skip()
 def test_mt2():
-    url = PIPELINES_RUN_URL
+    url = BACKEND_URL
     api_key = PIPELINE_API_KEY
 
     pipeline = PipelineFactory.create_from_api_key(api_key=api_key, url=url)
@@ -44,9 +46,10 @@ def test_mt2():
     response = pipeline.run(data)
     assert response["status"] == "SUCCESS"
 
+
 @pytest.mark.skip()
 def test_mt1_async():
-    url = PIPELINES_RUN_URL
+    url = BACKEND_URL
     api_key = PIPELINE_API_KEY
 
     pipeline = PipelineFactory.create_from_api_key(api_key=api_key, url=url)
@@ -61,9 +64,10 @@ def test_mt1_async():
         time.sleep(3)
     assert response["status"] == "SUCCESS"
 
+
 @pytest.mark.skip()
 def test_mt2_async():
-    url = PIPELINES_RUN_URL
+    url = BACKEND_URL
     api_key = PIPELINE_API_KEY
 
     pipeline = PipelineFactory.create_from_api_key(api_key=api_key, url=url)

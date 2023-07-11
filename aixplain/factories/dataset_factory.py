@@ -131,8 +131,13 @@ class DatasetFactory(AssetFactory):
         # process license
         try:
             license = License(response["license"]["typeId"])
-        except:
+        except Exception:
             license = None
+
+        try:
+            length = int(response["segmentsCount"])
+        except Exception:
+            length = None
 
         dataset = Dataset(
             id=response["id"],
@@ -145,7 +150,7 @@ class DatasetFactory(AssetFactory):
             hypotheses=hypotheses,
             metadata=metadata,
             onboard_status=response["status"],
-            length=int(response["segmentsCount"]) if "segmentsCount" in response else None,
+            length=length,
         )
         return dataset
 
@@ -186,7 +191,8 @@ class DatasetFactory(AssetFactory):
         cls,
         query: Optional[Text] = None,
         function: Optional[Function] = None,
-        language: Optional[Union[Language, List[Language]]] = None,
+        source_languages: Optional[Union[Language, List[Language]]] = None,
+        target_languages: Optional[Union[Language, List[Language]]] = None,
         data_type: Optional[DataType] = None,
         license: Optional[License] = None,
         is_referenceless: Optional[bool] = None,
@@ -198,7 +204,8 @@ class DatasetFactory(AssetFactory):
         Args:
             query (Optional[Text], optional): search query. Defaults to None.
             function (Optional[Function], optional): function filter. Defaults to None.
-            language (Optional[Union[Language, List[Language]]], optional): language filter. Defaults to None.
+            source_languages (Optional[Union[Language, List[Language]]], optional): language filter of input data. Defaults to None.
+            target_languages (Optional[Union[Language, List[Language]]], optional): language filter of output data. Defaults to None.
             data_type (Optional[DataType], optional): data type filter. Defaults to None.
             license (Optional[License], optional): license filter. Defaults to None.
             is_referenceless (Optional[bool], optional): has reference filter. Defaults to None.
@@ -215,7 +222,13 @@ class DatasetFactory(AssetFactory):
             headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
 
         assert 0 < page_size <= 100, f"Dataset List Error: Page size must be greater than 0 and not exceed 100."
-        payload = {"pageSize": page_size, "pageNumber": page_number, "sort": [{"field": "createdAt", "dir": -1}]}
+        payload = {
+            "pageSize": page_size,
+            "pageNumber": page_number,
+            "sort": [{"field": "createdAt", "dir": -1}],
+            "input": {},
+            "output": {},
+        }
 
         if query is not None:
             payload["q"] = str(query)
@@ -232,10 +245,15 @@ class DatasetFactory(AssetFactory):
         if is_referenceless is not None:
             payload["isReferenceless"] = is_referenceless
 
-        if language is not None:
-            if isinstance(language, Language):
-                language = [language]
-            payload["language"] = [lng.value["language"] for lng in language]
+        if source_languages is not None:
+            if isinstance(source_languages, Language):
+                source_languages = [source_languages]
+            payload["input"]["languages"] = [lng.value["language"] for lng in source_languages]
+
+        if target_languages is not None:
+            if isinstance(target_languages, Language):
+                target_languages = [target_languages]
+            payload["output"]["languages"] = [lng.value["language"] for lng in target_languages]
 
         logging.info(f"Start service for POST List Dataset - {url} - {headers} - {json.dumps(payload)}")
         r = _request_with_retry("post", url, headers=headers, json=payload)
