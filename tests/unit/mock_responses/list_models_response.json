@@ -1,0 +1,1258 @@
+
+{
+    "total": 15,
+    "pageTotal": 10,
+    "items": [
+        {
+            "id": "test_asset_id",
+            "name": "Translate from English to French (Transformerml6x6)",
+            "serviceName": "Machine Translation",
+            "supplier": {
+                "id": "Nvidia",
+                "name": "Nvidia"
+            },
+            "function": {
+                "id": "translation",
+                "name": "Translation"
+            },
+            "pricing": {
+                "price": 0.000004,
+                "unitType": "CHAR",
+                "unitTypeScale": null
+            },
+            "version": {
+                "name": "Transformerml6x6",
+                "id": "ml6x6"
+            },
+            "params": [
+                {
+                    "name": "sourcelanguage",
+                    "required": true,
+                    "isFixed": true,
+                    "values": [
+                        {
+                            "value": "en",
+                            "label": "English"
+                        }
+                    ],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "targetlanguage",
+                    "required": null,
+                    "isFixed": true,
+                    "values": [
+                        {
+                            "value": "fr",
+                            "label": "French"
+                        }
+                    ],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "script_in",
+                    "required": false,
+                    "isFixed": true,
+                    "values": [],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "script_out",
+                    "required": false,
+                    "isFixed": true,
+                    "values": [],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "dialect_in",
+                    "required": false,
+                    "isFixed": true,
+                    "values": [],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "dialect_out",
+                    "required": false,
+                    "isFixed": true,
+                    "values": [],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "context",
+                    "required": false,
+                    "isFixed": true,
+                    "values": [],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "text",
+                    "required": true,
+                    "isFixed": false,
+                    "values": [],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "text",
+                    "dataSubType": "text",
+                    "multipleValues": false
+                }
+            ]
+        },
+        {
+            "id": "test_asset_id",
+            "name": "Translate from English to French (Transformer12x2)",
+            "serviceName": "Machine Translation",
+            "supplier": {
+                "id": "Nvidia",
+                "name": "Nvidia"
+            },
+            "function": {
+                "id": "translation",
+                "name": "Translation"
+            },
+            "pricing": {
+                "price": 0.000004,
+                "unitType": "CHAR",
+                "unitTypeScale": null
+            },
+            "version": {
+                "name": "Transformer12x2",
+                "id": "12x2"
+            },
+            "params": [
+                {
+                    "name": "sourcelanguage",
+                    "required": true,
+                    "isFixed": true,
+                    "values": [
+                        {
+                            "value": "en",
+                            "label": "English"
+                        }
+                    ],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "targetlanguage",
+                    "required": null,
+                    "isFixed": true,
+                    "values": [
+                        {
+                            "value": "fr",
+                            "label": "French"
+                        }
+                    ],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "script_in",
+                    "required": false,
+                    "isFixed": true,
+                    "values": [],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "script_out",
+                    "required": false,
+                    "isFixed": true,
+                    "values": [],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "dialect_in",
+                    "required": false,
+                    "isFixed": true,
+                    "values": [],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "dialect_out",
+                    "required": false,
+                    "isFixed": true,
+                    "values": [],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "context",
+                    "required": false,
+                    "isFixed": true,
+                    "values": [],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "text",
+                    "required": true,
+                    "isFixed": false,
+                    "values": [],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "text",
+                    "dataSubType": "text",
+                    "multipleValues": false
+                }
+            ]
+        },
+        {
+            "id": "test_asset_id",
+            "name": "Translate from English to French",
+            "supplier": {
+                "id": "eBay",
+                "name": "eBay"
+            },
+            "function": {
+                "id": "translation",
+                "name": "Translation"
+            },
+            "pricing": {
+                "price": 0.00002,
+                "unitType": "CHAR",
+                "unitTypeScale": null
+            },
+            "version": {
+                "name": null,
+                "id": null
+            },
+            "subscription": {
+                "id": "61d76d77e0fb0400128db01e",
+                "apiKey": "test_api_key"
+            },
+            "params": [
+                {
+                    "name": "sourcelanguage",
+                    "required": true,
+                    "isFixed": true,
+                    "values": [
+                        {
+                            "value": "en",
+                            "label": "English"
+                        }
+                    ],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "targetlanguage",
+                    "required": null,
+                    "isFixed": true,
+                    "values": [
+                        {
+                            "value": "fr",
+                            "label": "French"
+                        }
+                    ],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "script_in",
+                    "required": false,
+                    "isFixed": true,
+                    "values": [],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "script_out",
+                    "required": false,
+                    "isFixed": true,
+                    "values": [],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "dialect_in",
+                    "required": false,
+                    "isFixed": true,
+                    "values": [],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "dialect_out",
+                    "required": false,
+                    "isFixed": true,
+                    "values": [],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "context",
+                    "required": false,
+                    "isFixed": true,
+                    "values": [],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "text",
+                    "required": true,
+                    "isFixed": false,
+                    "values": [],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "text",
+                    "dataSubType": "text",
+                    "multipleValues": false
+                }
+            ]
+        },
+        {
+            "id": "test_asset_id",
+            "name": "Translate from English to French (Canada)",
+            "serviceName": "Amazon Translate",
+            "supplier": {
+                "id": "AWS",
+                "name": "AWS"
+            },
+            "function": {
+                "id": "translation",
+                "name": "Translation"
+            },
+            "pricing": {
+                "price": 0.000015,
+                "unitType": "CHAR",
+                "unitTypeScale": null
+            },
+            "version": {
+                "name": null,
+                "id": null
+            },
+            "subscription": {
+                "id": "620ff3be109f670013b9cd2a",
+                "apiKey": "test_api_key"
+            },
+            "params": [
+                {
+                    "name": "sourcelanguage",
+                    "required": true,
+                    "isFixed": true,
+                    "values": [
+                        {
+                            "value": "en",
+                            "label": "English"
+                        }
+                    ],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "targetlanguage",
+                    "required": null,
+                    "isFixed": true,
+                    "values": [
+                        {
+                            "value": "fr",
+                            "label": "French"
+                        }
+                    ],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "script_in",
+                    "required": false,
+                    "isFixed": true,
+                    "values": [],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "script_out",
+                    "required": false,
+                    "isFixed": true,
+                    "values": [],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "dialect_in",
+                    "required": false,
+                    "isFixed": true,
+                    "values": [],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "dialect_out",
+                    "required": false,
+                    "isFixed": true,
+                    "values": [
+                        {
+                            "value": "Canada",
+                            "label": "Canada"
+                        }
+                    ],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "context",
+                    "required": false,
+                    "isFixed": true,
+                    "values": [],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "text",
+                    "required": true,
+                    "isFixed": false,
+                    "values": [],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "text",
+                    "dataSubType": "text",
+                    "multipleValues": false
+                }
+            ]
+        },
+        {
+            "id": "test_asset_id",
+            "name": "Translate from English to French",
+            "serviceName": "Cloud Translation",
+            "supplier": {
+                "id": "Google",
+                "name": "Google"
+            },
+            "function": {
+                "id": "translation",
+                "name": "Translation"
+            },
+            "pricing": {
+                "price": 0.00002,
+                "unitType": "CHAR",
+                "unitTypeScale": null
+            },
+            "version": {
+                "name": null,
+                "id": null
+            },
+            "subscription": {
+                "id": "61d76d3ae0fb0400128db016",
+                "apiKey": "test_api_key"
+            },
+            "params": [
+                {
+                    "name": "sourcelanguage",
+                    "required": true,
+                    "isFixed": true,
+                    "values": [
+                        {
+                            "value": "en",
+                            "label": "English"
+                        }
+                    ],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "targetlanguage",
+                    "required": true,
+                    "isFixed": true,
+                    "values": [
+                        {
+                            "value": "fr",
+                            "label": "French"
+                        }
+                    ],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "script_in",
+                    "required": false,
+                    "isFixed": true,
+                    "values": [],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "script_out",
+                    "required": false,
+                    "isFixed": true,
+                    "values": [],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "dialect_in",
+                    "required": false,
+                    "isFixed": true,
+                    "values": [],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "dialect_out",
+                    "required": false,
+                    "isFixed": true,
+                    "values": [],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "context",
+                    "required": false,
+                    "isFixed": true,
+                    "values": [],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "text",
+                    "required": true,
+                    "isFixed": false,
+                    "values": [],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "text",
+                    "dataSubType": "text",
+                    "multipleValues": false
+                }
+            ]
+        },
+        {
+            "id": "test_asset_id",
+            "name": "Translate from English to French",
+            "supplier": {
+                "id": "ModernMT",
+                "name": "ModernMT"
+            },
+            "function": {
+                "id": "translation",
+                "name": "Translation"
+            },
+            "pricing": {
+                "price": 0.000008,
+                "unitType": "CHAR",
+                "unitTypeScale": null
+            },
+            "version": {
+                "name": null,
+                "id": null
+            },
+            "subscription": {
+                "id": "620ff3a5109f670013b9cd28",
+                "apiKey": "test_api_key"
+            },
+            "params": [
+                {
+                    "name": "sourcelanguage",
+                    "required": true,
+                    "isFixed": true,
+                    "values": [
+                        {
+                            "value": "en",
+                            "label": "English"
+                        }
+                    ],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "targetlanguage",
+                    "required": null,
+                    "isFixed": true,
+                    "values": [
+                        {
+                            "value": "fr",
+                            "label": "French"
+                        }
+                    ],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "script_in",
+                    "required": false,
+                    "isFixed": true,
+                    "values": [],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "script_out",
+                    "required": false,
+                    "isFixed": true,
+                    "values": [],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "dialect_in",
+                    "required": false,
+                    "isFixed": true,
+                    "values": [],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "dialect_out",
+                    "required": false,
+                    "isFixed": true,
+                    "values": [],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "context",
+                    "required": false,
+                    "isFixed": true,
+                    "values": [],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "text",
+                    "required": true,
+                    "isFixed": false,
+                    "values": [],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "text",
+                    "dataSubType": "text",
+                    "multipleValues": false
+                }
+            ]
+        },
+        {
+            "id": "test_asset_id",
+            "name": "Translate from English to French",
+            "serviceName": "Cognitive Services",
+            "supplier": {
+                "id": "Azure",
+                "name": "Azure"
+            },
+            "function": {
+                "id": "translation",
+                "name": "Translation"
+            },
+            "pricing": {
+                "price": 0.00001,
+                "unitType": "CHAR",
+                "unitTypeScale": null
+            },
+            "version": {
+                "name": null,
+                "id": null
+            },
+            "subscription": {
+                "id": "620ff38c109f670013b9cd20",
+                "apiKey": "test_api_key"
+            },
+            "params": [
+                {
+                    "name": "sourcelanguage",
+                    "required": true,
+                    "isFixed": true,
+                    "values": [
+                        {
+                            "value": "en",
+                            "label": "English"
+                        }
+                    ],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "targetlanguage",
+                    "required": null,
+                    "isFixed": true,
+                    "values": [
+                        {
+                            "value": "fr",
+                            "label": "French"
+                        }
+                    ],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "script_in",
+                    "required": false,
+                    "isFixed": true,
+                    "values": [],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "script_out",
+                    "required": false,
+                    "isFixed": true,
+                    "values": [],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "dialect_in",
+                    "required": false,
+                    "isFixed": true,
+                    "values": [],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "dialect_out",
+                    "required": false,
+                    "isFixed": true,
+                    "values": [],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "context",
+                    "required": false,
+                    "isFixed": true,
+                    "values": [],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "text",
+                    "required": true,
+                    "isFixed": false,
+                    "values": [],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "text",
+                    "dataSubType": "text",
+                    "multipleValues": false
+                }
+            ]
+        },
+        {
+            "id": "test_asset_id",
+            "name": "Translate from English to French (Canada)",
+            "serviceName": "Cognitive Services",
+            "supplier": {
+                "id": "Azure",
+                "name": "Azure"
+            },
+            "function": {
+                "id": "translation",
+                "name": "Translation"
+            },
+            "pricing": {
+                "price": 0.00001,
+                "unitType": "CHAR",
+                "unitTypeScale": null
+            },
+            "version": {
+                "name": null,
+                "id": null
+            },
+            "params": [
+                {
+                    "name": "sourcelanguage",
+                    "required": true,
+                    "isFixed": true,
+                    "values": [
+                        {
+                            "value": "en",
+                            "label": "English"
+                        }
+                    ],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "targetlanguage",
+                    "required": null,
+                    "isFixed": true,
+                    "values": [
+                        {
+                            "value": "fr",
+                            "label": "French"
+                        }
+                    ],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "script_in",
+                    "required": false,
+                    "isFixed": true,
+                    "values": [],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "script_out",
+                    "required": false,
+                    "isFixed": true,
+                    "values": [],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "dialect_in",
+                    "required": false,
+                    "isFixed": true,
+                    "values": [],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "dialect_out",
+                    "required": false,
+                    "isFixed": true,
+                    "values": [
+                        {
+                            "value": "Canada",
+                            "label": "Canada"
+                        }
+                    ],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "context",
+                    "required": false,
+                    "isFixed": true,
+                    "values": [],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "text",
+                    "required": true,
+                    "isFixed": false,
+                    "values": [],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "text",
+                    "dataSubType": "text",
+                    "multipleValues": false
+                }
+            ]
+        },
+        {
+            "id": "test_asset_id",
+            "name": "Translate from English to French",
+            "supplier": {
+                "id": "AppTek",
+                "name": "AppTek"
+            },
+            "function": {
+                "id": "translation",
+                "name": "Translation"
+            },
+            "pricing": {
+                "price": 0.00002,
+                "unitType": "CHAR",
+                "unitTypeScale": null
+            },
+            "version": {
+                "name": null,
+                "id": null
+            },
+            "subscription": {
+                "id": "test_asset_id",
+                "apiKey": "test_api_key"
+            },
+            "params": [
+                {
+                    "name": "sourcelanguage",
+                    "required": true,
+                    "isFixed": true,
+                    "values": [
+                        {
+                            "value": "en",
+                            "label": "English"
+                        }
+                    ],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "targetlanguage",
+                    "required": null,
+                    "isFixed": true,
+                    "values": [
+                        {
+                            "value": "fr",
+                            "label": "French"
+                        }
+                    ],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "script_in",
+                    "required": false,
+                    "isFixed": true,
+                    "values": [],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "script_out",
+                    "required": false,
+                    "isFixed": true,
+                    "values": [],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "dialect_in",
+                    "required": false,
+                    "isFixed": true,
+                    "values": [],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "dialect_out",
+                    "required": false,
+                    "isFixed": true,
+                    "values": [],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "context",
+                    "required": false,
+                    "isFixed": true,
+                    "values": [],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "text",
+                    "required": true,
+                    "isFixed": false,
+                    "values": [],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "text",
+                    "dataSubType": "text",
+                    "multipleValues": false
+                }
+            ]
+        },
+        {
+            "id": "test_asset_id",
+            "name": "Translate from English to French (Transformerml24x6)",
+            "serviceName": "Machine Translation",
+            "supplier": {
+                "id": "Nvidia",
+                "name": "Nvidia"
+            },
+            "function": {
+                "id": "translation",
+                "name": "Translation"
+            },
+            "pricing": {
+                "price": 0.000004,
+                "unitType": "CHAR",
+                "unitTypeScale": null
+            },
+            "version": {
+                "name": "Transformerml24x6",
+                "id": "ml24x6"
+            },
+            "params": [
+                {
+                    "name": "sourcelanguage",
+                    "required": true,
+                    "isFixed": true,
+                    "values": [
+                        {
+                            "value": "en",
+                            "label": "English"
+                        }
+                    ],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "targetlanguage",
+                    "required": null,
+                    "isFixed": true,
+                    "values": [
+                        {
+                            "value": "fr",
+                            "label": "French"
+                        }
+                    ],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "script_in",
+                    "required": false,
+                    "isFixed": true,
+                    "values": [],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "script_out",
+                    "required": false,
+                    "isFixed": true,
+                    "values": [],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "dialect_in",
+                    "required": false,
+                    "isFixed": true,
+                    "values": [],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "dialect_out",
+                    "required": false,
+                    "isFixed": true,
+                    "values": [],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "context",
+                    "required": false,
+                    "isFixed": true,
+                    "values": [],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "name": "text",
+                    "required": true,
+                    "isFixed": false,
+                    "values": [],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "text",
+                    "dataSubType": "text",
+                    "multipleValues": false
+                }
+            ]
+        }
+    ]
+}

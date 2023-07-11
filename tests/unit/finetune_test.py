@@ -22,19 +22,22 @@ from dotenv import load_dotenv
 
 load_dotenv()
 import requests_mock
-from pathlib import Path
 from aixplain.utils import config
 from aixplain.factories import ModelFactory
-from aixplain.factories import DatasetFactory
 from aixplain.factories import FinetuneFactory
-from aixplain.modules import Cost, Model
+from aixplain.modules import Model, Finetune
 
 import pytest
 
 FIXED_HEADER = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
 COST_ESTIMATION_URL = f"{config.BACKEND_URL}/sdk/finetune/cost-estimation"
-COST_ESTIMATION_FILE = "tests/unit/mock_responses/get_cost_estimation_response.json"
+COST_ESTIMATION_FILE = "tests/unit/mock_responses/cost_estimation_response.json"
+FINETUNE_URL = f"{config.BACKEND_URL}/sdk/finetune"
+FINETUNE_FILE = "tests/unit/mock_responses/finetune_response.json"
 PERCENTAGE_EXCEPTION_FILE = "tests/unit/data/create_finetune_percentage_exception.json"
+MODEL_FILE = "tests/unit/mock_responses/model_response.json"
+MODEL_URL = f"{config.BACKEND_URL}/sdk/models"
+LIST_FINETUNABLE_FILE = "tests/unit/mock_responses/list_models_response.json"
 
 
 def read_data(data_path):
@@ -73,12 +76,42 @@ def test_create_train_dev_percentage(percentage_exception_map):
 
 
 def test_start():
-    pass
+    finetune_map = read_data(FINETUNE_FILE)
+    model_map = read_data(MODEL_FILE)
+    asset_id = finetune_map["id"]
+    with requests_mock.Mocker() as mock:
+        url = f"{MODEL_URL}/{asset_id}"
+        mock.get(url, headers=FIXED_HEADER, json=model_map)
+        mock.post(FINETUNE_URL, headers=FIXED_HEADER, json=finetune_map)
+        test_model = Model("", "")
+        finetune = Finetune("", [], test_model, None)
+        fine_tuned_model = finetune.start()
+    assert fine_tuned_model is not None
+    assert fine_tuned_model.id == model_map["id"]
 
 
 def test_check_finetuner_status():
-    pass
+    model_map = read_data(MODEL_FILE)
+    asset_id = "test_id"
+    with requests_mock.Mocker() as mock:
+        test_model = Model(asset_id, "")
+        url = f"{MODEL_URL}/{asset_id}"
+        mock.get(url, headers=FIXED_HEADER, json=model_map)
+        status = test_model.check_finetune_status()
+    assert status == model_map["status"]
 
 
-def test_list_finetunable_models():
-    pass
+@pytest.mark.parametrize("is_finetunable", [True, False])
+def test_list_finetunable_models(is_finetunable):
+    finetunable_str = "true" if is_finetunable else "false"
+    num_models = 5
+    list_map = read_data(LIST_FINETUNABLE_FILE)
+    with requests_mock.Mocker() as mock:
+        print(f"is_finetunable: {is_finetunable}")
+        url = f"{config.BACKEND_URL}/sdk/models/?pageNumber=0&function=translation&isFineTunable={finetunable_str}"
+        mock.get(url, headers=FIXED_HEADER, json=list_map)
+        model_list = ModelFactory.get_first_k_assets(k=num_models, task="translation", is_finetunable=is_finetunable)
+        print(model_list)
+    assert len(model_list) == num_models
+    for model_index in range(len(model_list)):
+        assert model_list[model_index].id == list_map["items"][model_index]["id"]
