@@ -252,6 +252,7 @@ class Model(Asset):
                 response["error"] = msg
         return response
 
+    @check_api_key
     def check_finetune_status(self):
         """Check the status of the FineTune model.
 

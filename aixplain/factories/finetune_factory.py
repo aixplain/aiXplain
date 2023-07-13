@@ -27,7 +27,7 @@ import json
 from aixplain.modules.dataset import Dataset
 from aixplain.modules.model import Model
 from aixplain.modules.finetune import Finetune
-from aixplain.modules.cost import Cost
+from aixplain.modules.finetune_cost import FinetuneCost
 from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
 from urllib.parse import urljoin
@@ -47,7 +47,7 @@ class FinetuneFactory:
     backend_url = config.BACKEND_URL
 
     @classmethod
-    def _create_cost_from_response(cls, response: Dict) -> Cost:
+    def _create_cost_from_response(cls, response: Dict) -> FinetuneCost:
         """Create a Cost object from the response dictionary.
 
         Args:
@@ -56,7 +56,7 @@ class FinetuneFactory:
         Returns:
             Cost: The Cost object created from the response.
         """
-        return Cost(response["trainingCost"], response["inferenceCost"], response["hostingCost"])
+        return FinetuneCost(response["trainingCost"], response["inferenceCost"], response["hostingCost"])
 
     @classmethod
     @check_api_key

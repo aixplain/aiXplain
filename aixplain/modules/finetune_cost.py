@@ -18,20 +18,20 @@ limitations under the License.
 Author: Duraikrishna Selvaraju, Thiago Castro Ferreira, Shreyas Sharma and Lucas Pavanelli
 Date: June 14th 2023
 Description:
-    Cost Class
+    FinetuneCost Class
 """
 
 from typing import Dict
 
 
-class Cost:
+class FinetuneCost:
     def __init__(
         self,
         training: Dict,
         inference: Dict,
         hosting: Dict,
     ) -> None:
-        """Create a Cost object with training, inference, and hosting cost information.
+        """Create a FinetuneCost object with training, inference, and hosting cost information.
 
         Args:
             training (Dict): Dictionary containing training cost information.
@@ -43,9 +43,9 @@ class Cost:
         self.hosting = hosting
 
     def to_dict(self) -> Dict:
-        """Convert the Cost object to a dictionary.
+        """Convert the FinetuneCost object to a dictionary.
 
         Returns:
-            Dict: A dictionary representation of the Cost object.
+            Dict: A dictionary representation of the FinetuneCost object.
         """
         return {"trainingCost": self.training, "inferenceCost": self.inference, "hostingCost": self.hosting}

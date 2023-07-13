@@ -30,7 +30,7 @@ from aixplain.factories.model_factory import ModelFactory
 from aixplain.modules.asset import Asset
 from aixplain.modules.dataset import Dataset
 from aixplain.modules.model import Model
-from aixplain.modules.cost import Cost
+from aixplain.modules.finetune_cost import FinetuneCost
 from aixplain.decorators.api_key_checker import check_api_key
 
 
@@ -58,7 +58,7 @@ class Finetune(Asset):
         name: Text,
         dataset_list: List[Dataset],
         model: Model,
-        cost: Cost,
+        cost: FinetuneCost,
         id: Text = "",
         description: Text = "",
         supplier: Text = "aiXplain",

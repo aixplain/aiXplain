@@ -31,4 +31,4 @@ from .metric import Metric
 from .model import Model
 from .pipeline import Pipeline
 from .finetune import Finetune
-from .cost import Cost
+from .finetune_cost import FinetuneCost

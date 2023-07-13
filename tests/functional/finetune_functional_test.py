@@ -25,10 +25,11 @@ load_dotenv()
 from aixplain.factories import ModelFactory
 from aixplain.factories import DatasetFactory
 from aixplain.factories import FinetuneFactory
-from aixplain.modules import Cost
+from aixplain.modules import FinetuneCost
 
 import pytest
 
+TIMEOUT = 20000.0
 RUN_FILE = "tests/functional/data/finetune_test_run_data.json"
 LIST_FILE = "tests/functional/data/finetune_test_list_data.json"
 
@@ -51,16 +52,18 @@ def test_run(run_input_map):
     model = ModelFactory.get(run_input_map["model_id"])
     dataset_list = [DatasetFactory.get(run_input_map["dataset_id"])]
     finetune = FinetuneFactory.create(str(uuid.uuid4()), dataset_list, model)
-    assert type(finetune.cost) is Cost
+    assert type(finetune.cost) is FinetuneCost
     cost_map = finetune.cost.to_dict()
     assert "trainingCost" in cost_map
     assert "hostingCost" in cost_map
     assert "inferenceCost" in cost_map
     finetune_model = finetune.start()
+    start, end = time.time(), time.time()
     status = finetune_model.check_finetune_status()
-    while status != "onboarded":
+    while status != "onboarded" and (end - start) < TIMEOUT:
         status = finetune_model.check_finetune_status()
         assert status != "failed"
+        end = time.time()
     assert finetune_model.check_finetune_status() == "onboarded"
 
 
