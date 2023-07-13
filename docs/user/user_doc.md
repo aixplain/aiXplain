@@ -145,7 +145,7 @@ from aixplain.enums import Function, Language
 # Choose 'exactly one' model
 model = ModelFactory.get_first_k_assets(k=5, task="translation", input_language="en", output_language="fr", is_finetunable=True)[0]
 # Choose 'one or more' datasets
-dataset_list = DatasetFactory.list(function=Function.TRANSLATION, language=[Language.English, Language.French], page_size=1)["results"]
+dataset_list = DatasetFactory.list(function=Function.TRANSLATION, source_languages=Language.English, target_languages=Language.French, page_size=1)["results"]
 
 finetune = FinetuneFactory.create(<UNIQUE_NAME_OF_FINETUNE>, dataset_list, model)
 ```
@@ -157,7 +157,7 @@ finetune.cost.to_dict()
 ```
 ```python
 {
-  'training_cost': {
+  'trainingCost': {
     'total': 0.1,
     'supplierCost': 0,
     'overheadCost': 0.1,
@@ -165,14 +165,14 @@ finetune.cost.to_dict()
     'totalVolume': 106.03,
     'unitPrice': 0
   },
-  'inference_cost': [
+  'inferenceCost': [
     {
       'unitPrice': 6e-05,
       'unitType': 'CHAR',
       'volume': 0
     }
   ],
-  'hosting_cost': {
+  'hostingCost': {
     'currentMonthPrice': 0,
     'monthlyPrice': 0,
     'pricePerCycle': 0,
