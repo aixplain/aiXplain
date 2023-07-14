@@ -16,7 +16,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 
 Author: Duraikrishna Selvaraju, Thiago Castro Ferreira, Shreyas Sharma and Lucas Pavanelli
-Date: December 2nd 2022
+Date: June 14th 2023
 Description:
     Finetune Factory Class
 """
@@ -75,10 +75,10 @@ class FinetuneFactory:
             Finetune: The Finetune object created with the provided information or None if there was an error.
         """
         payload = {}
-        assert train_percentage > 0, f"Creating FineTune: Train percentage ({train_percentage}) must be greater than zero"
+        assert train_percentage > 0, f"Create FineTune: Train percentage ({train_percentage}) must be greater than zero"
         assert (
             train_percentage + dev_percentage <= 100
-        ), f"Creating FineTune: Train percentage + dev percentage ({train_percentage + dev_percentage}) must be less than or equal to one"
+        ), f"Create FineTune: Train percentage + dev percentage ({train_percentage + dev_percentage}) must be less than or equal to one"
         try:
             url = urljoin(cls.backend_url, f"sdk/finetune/cost-estimation")
             headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
@@ -91,13 +91,13 @@ class FinetuneFactory:
                     "sourceModelId": model.id,
                 }
             )
-            logging.info(f"Payload: {payload}")
+            logging.info(f"Start service for POST Create FineTune - {url} - {headers} - {json.dumps(payload)}")
             r = _request_with_retry("post", url, headers=headers, data=payload)
             resp = r.json()
-            logging.info(f"Creating Finetune: Status for: {resp}")
+            logging.info(f"Response for POST Create FineTune - Status {resp}")
             cost = cls._create_cost_from_response(resp)
             return Finetune(name, dataset_list, model, cost, train_percentage=train_percentage, dev_percentage=dev_percentage)
         except Exception:
-            error_message = f"Creating FineTune: Error while creating FineTune with payload {payload}"
+            error_message = f"Create FineTune: Error with payload {json.dumps(payload)}"
             logging.exception(error_message)
             return None

@@ -116,10 +116,10 @@ class Finetune(Asset):
                     "sourceModelId": self.model.id,
                 }
             )
-            logging.info(f"Payload: {payload}")
+            logging.info(f"Start service for POST Start FineTune - {url} - {headers} - {json.dumps(payload)}")
             r = _request_with_retry("post", url, headers=headers, data=payload)
             resp = r.json()
-            logging.info(f"Creating FineTune Job: Status for {self.name}: {resp}")
+            logging.info(f"Response for POST Start FineTune - Name: {self.name} / Status {resp}")
             return ModelFactory().get(resp["id"])
         except Exception:
             message = ""
@@ -127,6 +127,6 @@ class Finetune(Asset):
                 status_code = resp["statusCode"]
                 message = resp["message"]
                 message = f"Status {status_code} - {message}"
-            error_message = f"Starting FineTune: Error while starting FineTune with payload {payload}: {message}"
+            error_message = f"Start FineTune: Error with payload {json.dumps(payload)}: {message}"
             logging.exception(error_message)
             return None
