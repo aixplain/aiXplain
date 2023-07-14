@@ -38,7 +38,6 @@ from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry, save_file
 from urllib.parse import urljoin
 from warnings import warn
-from aixplain.decorators.api_key_checker import check_api_key
 
 
 class BenchmarkFactory:
@@ -102,7 +101,6 @@ class BenchmarkFactory:
         return Benchmark(response["id"], response["name"], dataset_list, model_list, metric_list, job_list)
 
     @classmethod
-    @check_api_key
     def get(cls, benchmark_id: str) -> Benchmark:
         """Create a 'Benchmark' object from Benchmark id
 
@@ -146,7 +144,6 @@ class BenchmarkFactory:
         return cls.get(benchmark_id)
 
     @classmethod
-    @check_api_key
     def create_benchmark_job_from_id(cls, job_id: Text) -> BenchmarkJob:
         """Create a 'BenchmarkJob' object from job id
 
@@ -193,7 +190,6 @@ class BenchmarkFactory:
         return cls.get(benchmark.id)
 
     @classmethod
-    @check_api_key
     def create_benchmark(
         cls, name: str, dataset_list: List[Dataset], model_list: List[Model], metric_list: List[Metric]
     ) -> Benchmark:
@@ -235,7 +231,6 @@ class BenchmarkFactory:
         raise NotImplementedError("Benchmark functions are coming soon on the SDK.")
 
     @classmethod
-    @check_api_key
     def start_benchmark_job(cls, benchmark: Benchmark) -> BenchmarkJob:
         """Start a new benchmarking job(run) from a already created benchmark.
 
@@ -261,7 +256,6 @@ class BenchmarkFactory:
         raise NotImplementedError("Benchmark functions are coming soon on the SDK.")
 
     @classmethod
-    @check_api_key
     def download_results_as_csv(
         cls, benchmarkJob: BenchmarkJob, save_path: Optional[Text] = None, returnDataFrame: Optional[bool] = False
     ):

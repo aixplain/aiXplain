@@ -59,7 +59,6 @@ class FinetuneFactory:
         return FinetuneCost(response["trainingCost"], response["inferenceCost"], response["hostingCost"])
 
     @classmethod
-    @check_api_key
     def create(
         cls, name: Text, dataset_list: List[Dataset], model: Model, train_percentage: float = 100, dev_percentage: float = 0
     ) -> Finetune:

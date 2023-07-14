@@ -30,7 +30,6 @@ from aixplain.utils.file_utils import _request_with_retry
 from typing import Dict, Text
 from urllib.parse import urljoin
 from warnings import warn
-from aixplain.decorators.api_key_checker import check_api_key
 
 
 class MetricFactory:
@@ -58,7 +57,6 @@ class MetricFactory:
         return Metric(response["id"], response["name"], response["description"])
 
     @classmethod
-    @check_api_key
     def get(cls, metric_id: Text) -> Metric:
         """Create a 'Metric' object from metric id
 
@@ -101,7 +99,6 @@ class MetricFactory:
         return cls.get(metric_id)
 
     @classmethod
-    @check_api_key
     def list_assets(cls, task: Text) -> List[Metric]:
         """Get list of supported metrics for a given task
 

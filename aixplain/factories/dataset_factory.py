@@ -47,7 +47,6 @@ from typing import Any, Dict, List, Optional, Text, Union
 from urllib.parse import urljoin
 from uuid import uuid4
 from warnings import warn
-from aixplain.decorators.api_key_checker import check_api_key
 
 
 class DatasetFactory(AssetFactory):
@@ -155,7 +154,6 @@ class DatasetFactory(AssetFactory):
         return dataset
 
     @classmethod
-    @check_api_key
     def get(cls, dataset_id: Text) -> Dataset:
         """Create a 'Dataset' object from dataset id
 
@@ -314,7 +312,6 @@ class DatasetFactory(AssetFactory):
         return cls.list(function=task, page_size=k)
 
     @classmethod
-    @check_api_key
     def create(
         cls,
         name: Text,

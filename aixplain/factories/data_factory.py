@@ -37,7 +37,6 @@ from aixplain.utils import config
 from typing import Any, Dict, List, Text
 from urllib.parse import urljoin
 from uuid import uuid4
-from aixplain.decorators.api_key_checker import check_api_key
 
 
 class DataFactory(AssetFactory):
@@ -85,7 +84,6 @@ class DataFactory(AssetFactory):
         return data
 
     @classmethod
-    @check_api_key
     def get(cls, data_id: Text) -> Data:
         """Create a 'Data' object from dataset id
 

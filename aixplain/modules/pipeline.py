@@ -29,7 +29,6 @@ from aixplain.modules.asset import Asset
 from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
 from typing import Dict, Optional, Text, Union
-from aixplain.decorators.api_key_checker import check_api_key
 
 
 class Pipeline(Asset):
@@ -166,7 +165,6 @@ class Pipeline(Asset):
             end = time.time()
             return {"status": "FAILED", "error": error_message, "elapsed_time": end - start}
 
-    @check_api_key
     def run_async(self, data: Union[Text, Dict], name: str = "pipeline_process") -> Dict:
         """Runs asynchronously a pipeline call.
 

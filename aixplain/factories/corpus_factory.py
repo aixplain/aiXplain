@@ -46,7 +46,6 @@ from tqdm import tqdm
 from typing import Any, Dict, List, Optional, Text, Union
 from urllib.parse import urljoin
 from warnings import warn
-from aixplain.decorators.api_key_checker import check_api_key
 
 
 class CorpusFactory(AssetFactory):
@@ -109,7 +108,6 @@ class CorpusFactory(AssetFactory):
         return corpus
 
     @classmethod
-    @check_api_key
     def get(cls, corpus_id: Text) -> Corpus:
         """Create a 'Corpus' object from corpus id
 
@@ -141,7 +139,6 @@ class CorpusFactory(AssetFactory):
         return cls.get(corpus_id)
 
     @classmethod
-    @check_api_key
     def list(
         cls,
         query: Optional[Text] = None,
@@ -237,7 +234,6 @@ class CorpusFactory(AssetFactory):
         return cls.list(function=task, page_number=page_number, languages=language)
 
     @classmethod
-    @check_api_key
     def create(
         cls,
         name: Text,
