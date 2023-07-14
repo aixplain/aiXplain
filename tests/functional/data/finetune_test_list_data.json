@@ -1,0 +1,12 @@
+[
+    {
+        "task": "translation",
+        "input_language": "en",
+        "output_language": "fr"
+    },
+    {
+        "task": "speech-recognition",
+        "input_language": "en",
+        "output_language": ""
+    }
+]

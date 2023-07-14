@@ -362,11 +362,6 @@ class DatasetFactory(AssetFactory):
         folder, return_dict, ref_data = None, {}, []
         # check team key
         try:
-            if config.TEAM_API_KEY.strip() == "":
-                message = "Data Asset Onboarding Error: Update your team key on the environment variable TEAM_API_KEY before the corpus onboarding process."
-                logging.exception(message)
-                raise Exception(message)
-
             content_paths = content_path
             if isinstance(content_path, list) is False:
                 content_paths = [content_path]

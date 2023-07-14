@@ -6,6 +6,7 @@ The asset types currently supported by the SDK are:
 - [Pipeline](#pipelines)
 - [Corpus](#corpus)
 - [Dataset](#datasets)
+- [FineTune](#finetune)
 <!-- - [Metric](#metrics)
 - [Benchmark](#benchmarks) -->
 
@@ -127,6 +128,73 @@ Note: This does not download datasets to your local machine.
 ### Dataset Onboarding
 
 Using the aiXplain SDK, you can also onboard your dataset into the aiXplain platform. A step-by-step example on how to do it can be accessed [here](/docs/samples/dataset_onboarding/dataset_onboarding.ipynb).
+
+## FineTune
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1rVxxZpHzyP4FWn_Rd_j_g8tHU76S3rVT?usp=sharing)
+
+[FineTune](https://aixplain.com/platform/finetune) allows you to customize models by tuning them using your data and enhancing their performance. Set up and start fine-tuning with a few lines of code. Once fine-tuning is complete, the model will be deployed into your assets, ready for you to use.
+
+### Creating a FineTune
+
+You can use the `FinetuneFactory` to create a FineTune object using the SDK:
+
+```python
+from aixplain.factories import FinetuneFactory, DatasetFactory, ModelFactory
+from aixplain.enums import Function, Language
+
+# Choose 'exactly one' model
+model = ModelFactory.get_first_k_assets(k=5, task="translation", input_language="en", output_language="fr", is_finetunable=True)[0]
+# Choose 'one or more' datasets
+dataset_list = DatasetFactory.list(function=Function.TRANSLATION, source_languages=Language.English, target_languages=Language.French, page_size=1)["results"]
+
+finetune = FinetuneFactory.create(<UNIQUE_NAME_OF_FINETUNE>, dataset_list, model)
+```
+You can visit [model](#models) and [dataset](#datasets) docs for more details.
+
+Also, you can check the training, hosting and inference costs by running the following command:
+```python
+finetune.cost.to_dict()
+```
+```python
+{
+  'trainingCost': {
+    'total': 0.1,
+    'supplierCost': 0,
+    'overheadCost': 0.1,
+    'willRefundIfLowerThanMax': False,
+    'totalVolume': 106.03,
+    'unitPrice': 0
+  },
+  'inferenceCost': [
+    {
+      'unitPrice': 6e-05,
+      'unitType': 'CHAR',
+      'volume': 0
+    }
+  ],
+  'hostingCost': {
+    'currentMonthPrice': 0,
+    'monthlyPrice': 0,
+    'pricePerCycle': 0,
+    'supplierBillingCycle': 'MONTH',
+    'willRefundIfLowerThanMax': False
+  }
+}
+```
+
+### Starting a FineTune
+
+Once a `FineTune` is created (refer to the [section above](#creating-a-finetune)), we need to call the start method:
+```python
+finetune_model = finetune.start()
+```
+We receive a model that we can check the fine-tuning status:
+ ```python
+status = finetune_model.check_finetune_status()
+```
+Status can be one of the following: `onboarding`, `onboarded`, `hidden`, `training`, `deleted`, `enabling`, `disabled`, `failed`, `deleting`.
+
+Once it is `onboarded`, you are ready to use it as any other model!
 
 # Coming Soon
 

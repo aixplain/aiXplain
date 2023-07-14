@@ -175,10 +175,6 @@ class Pipeline(Asset):
         Returns:
             Dict: polling URL in response
         """
-        if self.api_key == "":
-            raise Exception(
-                "A 'TEAM_API_KEY' is required to run a pipeline. For help, please refer to the documentation (https://github.com/aixplain/aixplain#api-key-setup)"
-            )
         headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}
 
         data = FileFactory.to_link(data)

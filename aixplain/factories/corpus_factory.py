@@ -267,11 +267,6 @@ class CorpusFactory(AssetFactory):
         folder, return_dict = None, {}
         # check team key
         try:
-            if config.TEAM_API_KEY.strip() == "":
-                message = "Data Asset Onboarding Error: Update your team key on the environment variable TEAM_API_KEY before the corpus onboarding process."
-                logging.exception(message)
-                raise Exception(message)
-
             assert (
                 len(schema) > 0 or len(ref_data) > 0
             ), "Data Asset Onboarding Error: You must specify a data to onboard a corpus."

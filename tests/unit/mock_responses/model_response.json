@@ -1,0 +1,127 @@
+{
+    "id": "test_asset_id",
+    "name": "Test Model",
+    "serviceName": "aiXplain",
+    "status": "onboarded",
+    "supplier": {
+        "id": "aiXplain",
+        "name": "aiXplain"
+    },
+    "function": {
+        "id": "translation",
+        "name": "Translation"
+    },
+    "subscription": {
+        "id": "61d76d77e0fb0400128db01e",
+        "apiKey": "test_api_key"
+    },
+    "pricing": {
+        "price": 0.000015,
+        "unitType": "CHAR",
+        "unitTypeScale": null
+    },
+    "version": {
+        "name": null,
+        "id": null
+    },
+    "params": [
+        {
+            "name": "sourcelanguage",
+            "required": true,
+            "isFixed": true,
+            "values": [
+                {
+                    "value": "en",
+                    "label": "English"
+                }
+            ],
+            "defaultValues": [],
+            "availableOptions": [],
+            "dataType": "label",
+            "dataSubType": "label",
+            "multipleValues": false
+        },
+        {
+            "name": "targetlanguage",
+            "required": null,
+            "isFixed": true,
+            "values": [
+                {
+                    "value": "ar",
+                    "label": "Arabic"
+                }
+            ],
+            "defaultValues": [],
+            "availableOptions": [],
+            "dataType": "label",
+            "dataSubType": "label",
+            "multipleValues": false
+        },
+        {
+            "name": "script_in",
+            "required": false,
+            "isFixed": true,
+            "values": [],
+            "defaultValues": [],
+            "availableOptions": [],
+            "dataType": "label",
+            "dataSubType": "label",
+            "multipleValues": false
+        },
+        {
+            "name": "script_out",
+            "required": false,
+            "isFixed": true,
+            "values": [],
+            "defaultValues": [],
+            "availableOptions": [],
+            "dataType": "label",
+            "dataSubType": "label",
+            "multipleValues": false
+        },
+        {
+            "name": "dialect_in",
+            "required": false,
+            "isFixed": true,
+            "values": [],
+            "defaultValues": [],
+            "availableOptions": [],
+            "dataType": "label",
+            "dataSubType": "label",
+            "multipleValues": false
+        },
+        {
+            "name": "dialect_out",
+            "required": false,
+            "isFixed": true,
+            "values": [],
+            "defaultValues": [],
+            "availableOptions": [],
+            "dataType": "label",
+            "dataSubType": "label",
+            "multipleValues": false
+        },
+        {
+            "name": "context",
+            "required": false,
+            "isFixed": true,
+            "values": [],
+            "defaultValues": [],
+            "availableOptions": [],
+            "dataType": "label",
+            "dataSubType": "label",
+            "multipleValues": false
+        },
+        {
+            "name": "text",
+            "required": true,
+            "isFixed": false,
+            "values": [],
+            "defaultValues": [],
+            "availableOptions": [],
+            "dataType": "text",
+            "dataSubType": "text",
+            "multipleValues": false
+        }
+    ]
+}

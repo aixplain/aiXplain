@@ -29,6 +29,7 @@ from typing import List
 from aixplain.factories.file_factory import FileFactory
 from aixplain.modules.asset import Asset
 from aixplain.utils import config
+from urllib.parse import urljoin
 from aixplain.utils.file_utils import _request_with_retry
 from typing import Union, Optional, Text, Dict
 
@@ -44,6 +45,8 @@ class Model(Asset):
         url (Text, optional): endpoint of the model. Defaults to config.MODELS_RUN_URL.
         supplier (Text, optional): model supplier. Defaults to "aiXplain".
         version (Text, optional): version of the model. Defaults to "1.0".
+        url (str): URL to run the model.
+        backend_url (str): URL of the backend.
         **additional_info: Any additional Model info to be saved
     """
 
@@ -53,7 +56,6 @@ class Model(Asset):
         name: Text,
         description: Text = "",
         api_key: Optional[Text] = None,
-        url: Text = config.MODELS_RUN_URL,
         supplier: Text = "aiXplain",
         version: Text = "1.0",
         **additional_info,
@@ -65,15 +67,15 @@ class Model(Asset):
             name (Text): Name of the Model
             description (Text, optional): description of the model. Defaults to "".
             api_key (Text, optional): API key of the Model. Defaults to None.
-            url (Text, optional): endpoint of the model. Defaults to config.MODELS_RUN_URL.
             supplier (Text, optional): model supplier. Defaults to "aiXplain".
             version (Text, optional): version of the model. Defaults to "1.0".
             **additional_info: Any additional Model info to be saved
         """
         super().__init__(id, name, description, supplier, version)
-        self.url = url
         self.api_key = api_key
         self.additional_info = additional_info
+        self.url = config.MODELS_RUN_URL
+        self.backend_url = config.BACKEND_URL
 
     def _is_subscribed(self) -> bool:
         """Returns if the model is subscribed to
@@ -210,10 +212,6 @@ class Model(Asset):
         Returns:
             dict: polling URL in response
         """
-        if self.api_key == "":
-            raise Exception(
-                "A 'TEAM_API_KEY' is required to run a model. For help, please refer to the documentation (https://github.com/aixplain/aixplain#api-key-setup)"
-            )
         headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}
 
         data = FileFactory.to_link(data)
@@ -249,3 +247,30 @@ class Model(Asset):
             if resp is not None:
                 response["error"] = msg
         return response
+
+    def check_finetune_status(self):
+        """Check the status of the FineTune model.
+
+        Raises:
+            Exception: If the 'TEAM_API_KEY' is not provided.
+
+        Returns:
+            str: The status of the FineTune model.
+        """
+        headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}
+        try:
+            url = urljoin(self.backend_url, f"sdk/models/{self.id}")
+            logging.info(f"Start service for GET Check FineTune status Model  - {url} - {headers}")
+            r = _request_with_retry("get", url, headers=headers)
+            resp = r.json()
+            status = resp["status"]
+            logging.info(f"Response for GET Check FineTune status Model - Id {self.id} / Status {status}.")
+            return status
+        except Exception as e:
+            message = ""
+            if resp is not None and "statusCode" in resp:
+                status_code = resp["statusCode"]
+                message = resp["message"]
+                message = f"Status {status_code} - {message}"
+            error_message = f"Check FineTune status Model: Error {message}"
+            logging.exception(error_message)
