@@ -31,7 +31,6 @@ from aixplain.modules.finetune_cost import FinetuneCost
 from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
 from urllib.parse import urljoin
-from aixplain.decorators.api_key_checker import check_api_key
 
 
 class FinetuneFactory:
