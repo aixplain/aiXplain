@@ -39,7 +39,7 @@ from aixplain.enums.function import Function
 from aixplain.enums.language import Language
 from aixplain.enums.license import License
 from aixplain.enums.privacy import Privacy
-from aixplain.utils.file_utils import _request_with_retry
+from aixplain.utils.file_utils import _request_with_retry, s3_to_csv
 from aixplain.utils import config
 from pathlib import Path
 from tqdm import tqdm
@@ -318,7 +318,8 @@ class DatasetFactory(AssetFactory):
         description: Text,
         license: License,
         function: Function,
-        content_path: Union[Union[Text, Path], List[Union[Text, Path]]],
+        content_path: Optional[Union[Union[Text, Path], List[Union[Text, Path]]]],
+        s3_link: Optional[str],
         input_schema: List[Union[Dict, MetaData]],
         output_schema: List[Union[Dict, MetaData]],
         hypotheses_schema: List[Union[Dict, MetaData]] = [],
@@ -340,7 +341,8 @@ class DatasetFactory(AssetFactory):
             description (Text): dataset description
             license (License): dataset license
             function (Function): dataset function
-            content_path (Union[Union[Text, Path], List[Union[Text, Path]]]): path to files which contain the data content
+            content_path (Optional[Union[Union[Text, Path], List[Union[Text, Path]]]]): path to files which contain the data content
+            s3_link (Optional[str]): s3 url to files or directories 
             input_schema (List[Union[Dict, MetaData]]): metadata of inputs
             output_schema (List[Union[Dict, MetaData]]): metadata of outputs
             hypotheses_schema (List[Union[Dict, MetaData]], optional): schema of the hypotheses to the references. Defaults to [].
@@ -362,10 +364,19 @@ class DatasetFactory(AssetFactory):
         folder, return_dict, ref_data = None, {}, []
         # check team key
         try:
-            content_paths = content_path
+            # process data and create files
+            folder = Path(name)
+            folder.mkdir(exist_ok=True)
+            
             if isinstance(content_path, list) is False:
                 content_paths = [content_path]
-
+            else:
+                content_paths = content_path
+            
+            if s3_link:
+                csv_path = s3_to_csv(s3_link)
+                content_paths(csv_path)
+            
             assert (
                 len(input_schema) > 0 or len(input_ref_data) > 0
             ), "Data Asset Onboarding Error: You must specify an input data to onboard a dataset."
@@ -452,10 +463,6 @@ class DatasetFactory(AssetFactory):
                 ), "Data Asset Onboarding Error: Make sure you set the *split_labels* and *split_rate* lists must have the same length."
                 split_metadata = onboard_functions.split_data(paths=paths, split_labels=split_labels, split_rate=split_rate)
                 metadata_schema.append(split_metadata)
-
-            # process data and create files
-            folder = Path(name)
-            folder.mkdir(exist_ok=True)
 
             datasets, sizes = {}, []
             for (key, schema) in [
