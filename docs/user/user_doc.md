@@ -149,7 +149,8 @@ You can also run this FineTune guide in Google Colab:
 
 ### Creating a FineTune
 
-You can use the `FinetuneFactory` to create a FineTune object using the SDK:
+
+You can use the `FinetuneFactory` to create a FineTune object using the SDK. For now, we support the following tasks: `translation` and `speech-recognition`:
 
 ```python
 from aixplain.factories import FinetuneFactory, DatasetFactory, ModelFactory
