@@ -138,66 +138,57 @@ def upload_data(
             return upload_data(file_name, content_type, content_encoding, nattempts - 1)
         else:
             raise Exception("File Uploading Error: Failure on Uploading to S3.")
-
-def _list_files_and_folders_in_s3_bucket(bucket_name, prefix) -> tuple:
-    # fetch all the files and directory in s3 and return
-    # files, bool if there are dirs inside this s3  
-    try:
-        s3 = boto3.client('s3')
-        response = s3.list_objects_v2(Bucket=bucket_name, Prefix=prefix, Delimiter='/')
-    except Exception as e:
-        raise Exception(f"exception {e}")
-    files = []
-    folders = []
-
-    if 'Contents' in response:
-        for obj in response['Contents']:
-            files.append(obj['Key'])
-
-    if 'CommonPrefixes' in response:
-        return files, bool(response['CommonPrefixes'])
-    else:
-        return files, False
     
-def _files_to_dict(paths : list, bucket_name : str) -> dict:
-    # convert paths to a dictionary 
-    # where the keys are the [directory without the prefix]
-    # and the value is the files inside it
-    output = defaultdict(list)
-    for path in paths:
-        dir = path.rsplit('/',2)[-2]
-        output[dir].append(
-            f"s3://{bucket_name}/{path}"
-        )
-    return output
-
-def _s3_to_dataframe(bucket_name : str, prefix : str) -> DataFrame:
-    # get files from bucket and prefix
-    files, there_are_folders = _list_files_and_folders_in_s3_bucket(bucket_name, prefix)
-    # check if no files where found
-    if not files:
-        raise Exception(f"ERROR No files were found => bucket name: {bucket_name}, prefix: {prefix}")
-    # check if there are folder or if the files in the root of the url, and reformart the paths
-    if there_are_folders:
-        data = _files_to_dict(files, bucket_name)
-    elif prefix == '/':
-        raise Exception(f"ERROR the files can't be at the root of the bucket ")
-    else:
-        data = {prefix : [f"s3://{bucket_name}/{file}" for file in files]}
-    # create DataFrame
-    try:
-        return DataFrame(data)
-    except ValueError:
-        raise Exception(f"ERROR the length of the lists should be equal ")
     
-def s3_to_csv(s3_url : str, download_path : str) -> str:
+def s3_to_csv(s3_url : Text, download_path : Union[Text, Path]) -> str:
+    """Convert s3 url to a csv file and download the file in `download_path`
+
+    Args:
+        s3_url (Text): s3 url
+        download_path (Union[Text, Path]): the location where to download the generated csv file
+
+    Returns:
+        Path: path to csv file
+    """
     url = urlparse(s3_url)
     if url.scheme != 's3':
         raise Exception('the url is not an s3 url')
     bucket_name = url.netloc
     prefix = url.path
     try:
-        df = _s3_to_dataframe(bucket_name, prefix)
+        s3 = boto3.client('s3')
+        response = s3.list_objects_v2(Bucket=bucket_name, Prefix=prefix, Delimiter='/')
+        files = []
+        
+        if 'Contents' in response:
+            for obj in response['Contents']:
+                files.append(obj['Key'])
+
+        if 'CommonPrefixes' in response:
+            there_are_folders = bool(response['CommonPrefixes'])
+        else:
+            there_are_folders = False
+        # check if no files where found
+        if not files:
+            raise Exception(f"ERROR No files were found => bucket name: {bucket_name}, prefix: {prefix}")
+        # check if there are folder or if the files in the root of the url, and reformart the paths
+        if there_are_folders:
+            data = defaultdict(list)
+            for path in files:
+                dir = path.rsplit('/',2)[-2]
+                data[dir].append(
+                    f"s3://{bucket_name}/{path}"
+                )
+        elif prefix == '/':
+            raise Exception(f"ERROR the files can't be at the root of the bucket ")
+        else:
+            data = {prefix : [f"s3://{bucket_name}/{file}" for file in files]}
+        # create DataFrame
+        try:
+            df =  DataFrame(data)
+        except ValueError:
+            raise Exception(f"ERROR the length of the lists should be equal ")
+        
         output_path = os.path.join(download_path, f"{uuid4()}.csv")
         df.to_csv(output_path)
         return output_path
