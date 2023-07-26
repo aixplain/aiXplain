@@ -43,9 +43,11 @@ class Metric(Asset):
         self,
         id: Text,
         name: Text,
-        description: Text,
-        supplier: Text = "aiXplain",
-        version: Text = "1.0",
+        supplier: Text,
+        referenceRequired: bool,
+        sourceRequired: bool,
+        cost: float,
+        normalizationOptions: list = [],
         **additional_info,
     ) -> None:
         """Create a Metric with the necessary information
@@ -53,12 +55,19 @@ class Metric(Asset):
         Args:
             id (Text): ID of the Metric
             name (Text): Name of the Metric
-            description (Text): Description of the Metric
-            supplier (Text, optional): author of the Metric. Defaults to "aiXplain".
-            version (Text, optional): Metric version. Defaults to "1.0".
+            supplier (Text): author of the Metric
+            referenceRequired (bool): does the metric use reference
+            sourceRequired (bool): does the metric use source
+            cost (float): cost of the metric
+            normalizationOptions(list, [])
             **additional_info: Any additional Metric info to be saved
         """
-        super().__init__(id, name, description, supplier, version)
+        
+        
+        super().__init__(id, name, description="", supplier=supplier, version="1.0", cost=cost)
+        self.sourceRequired = sourceRequired
+        self.referenceRequired = referenceRequired
+        self.normalizationOptions = normalizationOptions
         self.additional_info = additional_info
 
     def __repr__(self) -> str:
