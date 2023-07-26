@@ -154,18 +154,19 @@ def s3_to_csv(s3_url : Text, download_path : Union[Text, Path]) -> str:
     if url.scheme != 's3':
         raise Exception('the url is not an s3 url')
     bucket_name = url.netloc
-    prefix = url.path
+    prefix = url.path[1:]
     try:
         s3 = boto3.client('s3')
-        response = s3.list_objects_v2(Bucket=bucket_name, Prefix=prefix, Delimiter='/')
+        response = s3.list_objects_v2(Bucket=bucket_name, Prefix=prefix)
         files = []
         
         if 'Contents' in response:
             for obj in response['Contents']:
                 files.append(obj['Key'])
 
-        if 'CommonPrefixes' in response:
-            there_are_folders = bool(response['CommonPrefixes'])
+        response2 = s3.list_objects_v2(Bucket=bucket_name, Prefix=prefix, Delimiter='/')
+        if 'CommonPrefixes' in response2:
+            there_are_folders = bool(response2['CommonPrefixes'])
         else:
             there_are_folders = False
         # check if no files where found
@@ -175,22 +176,35 @@ def s3_to_csv(s3_url : Text, download_path : Union[Text, Path]) -> str:
         if there_are_folders:
             data = defaultdict(list)
             for path in files:
-                dir = path.rsplit('/',2)[-2]
-                data[dir].append(
+                directory = path.rsplit('/',2)[-2]
+                data[directory].append(
                     f"s3://{bucket_name}/{path}"
                 )
-        elif prefix == '/':
+
+            #validate all the folders have the same length
+            first_key = list(data.keys())[0]
+            main_len = len(data[first_key])
+            if any(main_len != len(val) for val in data.values()):
+                raise Exception("all the directories should have the same number of files")
+
+            #validate that the names of the files are the same in all the list
+            if len(data.keys()) > 1:
+                for i in range(main_len):
+                    main_file_name = Path(data[first_key][i]).stem
+                    for val in data.values():
+                        if Path(val[i]).stem != main_file_name:
+                            raise Exception(f"all the files in different directories should have the same prefix")
+
+        elif prefix == '':
             raise Exception(f"ERROR the files can't be at the root of the bucket ")
         else:
             data = {prefix : [f"s3://{bucket_name}/{file}" for file in files]}
-        # create DataFrame
-        try:
-            df =  DataFrame(data)
-        except ValueError:
-            raise Exception(f"ERROR the length of the lists should be equal ")
         
+        # create DataFrame and convert it to csv
+        df =  DataFrame(data)
         output_path = os.path.join(download_path, f"{uuid4()}.csv")
-        df.to_csv(output_path)
+        df.to_csv(output_path, index=False)
+
         return output_path
     except (Exception, ValueError) as e:
         raise Exception(e)
