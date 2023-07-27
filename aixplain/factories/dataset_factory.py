@@ -334,7 +334,7 @@ class DatasetFactory(AssetFactory):
         split_rate: Optional[List[float]] = None,
         error_handler: ErrorHandler = ErrorHandler.SKIP,
         s3_link: Optional[str] = None,
-        aws_credentials_credentials: Optional[Dict[str, str]] = {"AWS_ACCESS_KEY_ID" : None, "AWS_SECRET_ACCESS_KEY" : None}
+        aws_credentials: Optional[Dict[str, str]] = {"AWS_ACCESS_KEY_ID": None, "AWS_SECRET_ACCESS_KEY": None},
     ) -> Dict:
         """Dataset Onboard
 
@@ -356,7 +356,7 @@ class DatasetFactory(AssetFactory):
             privacy (Privacy, optional): dataset privacy. Defaults to Privacy.PRIVATE.
             error_handler (ErrorHandler, optional): how to handle failed rows in the data asset. Defaults to ErrorHandler.SKIP.
             s3_link (Optional[str]): s3 url to files or directories
-            aws_credentials_credentials (Optional[Dict[str, str]]) : credentials for AWS and it should contains these two keys `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`
+            aws_credentials (Optional[Dict[str, str]]) : credentials for AWS and it should contains these two keys `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`
         Returns:
             Dict: dataset onboard status
         """
@@ -379,7 +379,7 @@ class DatasetFactory(AssetFactory):
                 content_paths = content_path
 
             if s3_link is not None:
-                csv_path = s3_to_csv(s3_link, aws_credentials_credentials)
+                csv_path = s3_to_csv(s3_link, aws_credentials)
                 content_paths.append(csv_path)
 
             assert (
