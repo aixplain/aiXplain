@@ -254,3 +254,28 @@ status = benchmark_job.check_status()
 ```python
 results_path = benchmark_job.download_results_as_csv()
 ```
+
+### Adding Normalization To Your Benchmark
+We have methods that specialize in handling text data from various languages, providing both general and tailored preprocessing techniques for each language's unique characteristics. These are called normalization options. A few examples are 'removing numbers' and 'lowercase text'.
+To get the list of supported normalization options, we need the metric and the model that we are going to use in benchmarking.
+```python
+supported_options = BenchmarkFactory.list_normalization_options(metric, model)
+```
+Note: These options can be different for each metric in the same benchmark
+
+You can choose one or more of the supported options and add it to your metric
+```python
+selected_options = [<option 1>....<option N>]
+metric.add_normalization_options(selected_options)
+```
+You can even select multiple configurations for the same metric
+```python
+selected_options_config_1 = [<option 1>, <option 2>, <option 3>]
+selected_options_config_2 = [<option 3>, <option 4>]
+metric.add_normalization_options(selected_options_config_1)
+metric.add_normalization_options(selected_options_config_2)
+```
+After this you can create the benchmark normally
+```python
+benchmark = BenchmarkFactory.create(<UNIQUE_NAME_OF_BENCHMARK>, dataset_list=datasets, model_list=models, metric_list=metrics_with_normalization)
+```
