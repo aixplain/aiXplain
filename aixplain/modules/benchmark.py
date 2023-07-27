@@ -97,7 +97,7 @@ class BenchmarkJob:
         try:
             resp = self._fetch_current_response(self.id)
             logging.info(f"Downloading Benchmark Results: Status of downloading results for {self.id}: {resp}")
-            if "reportUrl" not in resp:
+            if "reportUrl" not in resp or resp['reportUrl'] == "":
                 logging.error(
                     f"Downloading Benchmark Results: Can't get download results as they aren't generated yet. Please wait for a while."
                 )
@@ -164,6 +164,9 @@ class Benchmark(Asset):
         self.metric_list = metric_list
         self.job_list = job_list
         self.additional_info = additional_info
+        self.backend_url = config.BACKEND_URL
+        self.api_key = config.TEAM_API_KEY
+        self.aixplain_key = config.AIXPLAIN_API_KEY
 
     def __repr__(self) -> str:
         return f"<Metric {self.name}>"
@@ -181,7 +184,8 @@ class Benchmark(Asset):
             url = urljoin(self.backend_url, f"sdk/benchmarks/{benhchmark_id}/start")
             headers = {"Authorization": f"Token {self.api_key}", "Content-Type": "application/json"}
             r = _request_with_retry("post", url, headers=headers)
-            resp = r.json()
+            response = r.json()
+            resp = BenchmarkJob._fetch_current_response(response["jobId"])
             logging.info(f"Starting Benchmark Job: Status for {benhchmark_id}: {resp}")
             return BenchmarkJob(resp["jobId"], resp["status"], resp["benchmark"]["id"])
         except Exception as e:

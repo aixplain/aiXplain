@@ -151,7 +151,7 @@ class BenchmarkFactory:
 
 
     @classmethod
-    def create_benchmark(
+    def create(
         cls, name: str, dataset_list: List[Dataset], model_list: List[Model], metric_list: List[Metric]
     ) -> Benchmark:
         """Creates a benchmark based on the information provided like name, dataset list, model list and score list.

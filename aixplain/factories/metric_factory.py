@@ -127,7 +127,7 @@ class MetricFactory:
             r = _request_with_retry("get", url, headers=headers, params=filter_params)
             resp = r.json()
             logging.info(f"Listing Metrics: Status of getting metrics: {resp}")
-            all_metrics = resp
+            all_metrics = resp['results']
             total = len(all_metrics)
             starting_model_index_overall = page_number * page_size
             ending_model_index_overall = starting_model_index_overall + page_size - 1
