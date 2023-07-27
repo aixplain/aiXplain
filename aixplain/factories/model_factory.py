@@ -29,7 +29,21 @@ from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
 from urllib.parse import urljoin
 from warnings import warn
+from pydantic import BaseModel
 
+class ParamInput(BaseModel):
+    asset_name: str
+    asset_function: str 
+    asset_class: str 
+    active_version: str 
+    gen_description: str 
+    license_type: str 
+    license_description: str 
+    container_registry_name: str
+    container_service_provider: str
+    vcpus: str
+    ram: str
+    gpus: str
 
 class ModelFactory:
     """A static class for creating and exploring Model Objects.
@@ -216,3 +230,48 @@ class ModelFactory:
             error_message = f"Listing Models: Error in Listing Models : {e}"
             logging.error(error_message, exc_info=True)
             raise Exception(error_message)
+    
+    @classmethod
+    def create_asset_repo(cls, name: Text, hosting_machine: Text, always_on: bool, version: Text, description: Text, team_api_key: Text=config.TEAM_API_KEY) -> Dict:
+        # Use ParamInput here for input type checking.
+        # Use Ibrahim's endpoint here and return output.
+        create_url = f"{config.BACKEND_URL}/sdk/models/register"
+        if cls.aixplain_key != "":
+            headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
+        else:
+            headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
+        payload = {
+            "name": name,
+            "hostingMachine": hosting_machine,
+            "alwaysOn": always_on,
+            "version": version,
+            "description": description
+        }
+        payload = json.dumps(payload)
+        response = _request_with_retry("post", create_url, headers=headers, data=payload)
+        return response
+    
+    @classmethod
+    def asset_repo_login(cls, team_api_key: Text=config.TEAM_API_KEY) -> Dict:
+        # Use Ibrahim's endpoint here and return output.
+        # TODO
+        create_url = f"{config.BACKEND_URL}/sdk/ecr/login" # TODO Add Ibrahim's repo login endpoint here
+        if cls.aixplain_key != "":
+            headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
+        else:
+            headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
+        params = {"Authorization": team_api_key}
+        response = _request_with_retry("post", create_url, headers=headers, params=params)
+        return response
+
+    @classmethod
+    def list_image_repo_tags(cls, team_id: Text, repo_name: Text, team_api_key: Text=config.TEAM_API_KEY) -> Dict:
+        # Use Ibrahim's endpoint here and return output.
+        # TODO
+        create_url = f"{config.BACKEND_URL}/TODO" # TODO Add Ibrahim's repo tag endpoint here
+        if cls.aixplain_key != "":
+            headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
+        else:
+            headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
+        response = _request_with_retry("post", create_url, headers=headers)
+        return response
