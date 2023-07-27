@@ -551,6 +551,8 @@ class DatasetFactory(AssetFactory):
             else:
                 raise Exception(response["error"])
             shutil.rmtree(folder)
+            if csv_path is not None and os.path.exists(csv_path) is True:
+                os.remove(csv_path)
         except Exception as e:
             if folder is not None:
                 shutil.rmtree(folder)

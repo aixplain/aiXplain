@@ -27,7 +27,6 @@ from uuid import uuid4
 from urllib.parse import urljoin, urlparse
 from pandas import DataFrame
 
-
 def save_file(download_url: Text, download_file_path: Optional[Any] = None) -> Any:
     """Download and save file from given URL
 
@@ -151,6 +150,7 @@ def s3_to_csv(s3_url: Text) -> str:
     """
     try:
         import boto3
+        from botocore.exceptions import NoCredentialsError
     except ModuleNotFoundError:
         raise Exception(
             "boto3 is not currently installed in your project environment. Please try installing it using pip:\n\npip install boto3"
@@ -161,22 +161,32 @@ def s3_to_csv(s3_url: Text) -> str:
     bucket_name = url.netloc
     prefix = url.path[1:]
     try:
-        s3 = boto3.client("s3")
+        aws_access_key_id = os.getenv('AWS_ACCESS_KEY_ID')
+        aws_secret_access_key = os.getenv('AWS_SECRET_ACCESS_KEY')
+        s3 = boto3.client("s3", aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
         response = s3.list_objects_v2(Bucket=bucket_name, Prefix=prefix)
+    except NoCredentialsError as e:
+        raise Exception("to use the s3 bucket option you need to set the right AWS credentials [AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY]")
+    except Exception as e:
+        raise Exception("the bucket you are trying to use does not exist")
+    
+    try:
         files = []
 
         if "Contents" in response:
             for obj in response["Contents"]:
                 files.append(obj["Key"])
 
+        # check if no files where found
+        if not files:
+            raise Exception(f"ERROR No files were found => bucket name: {bucket_name}, prefix: {prefix}")
+
         response2 = s3.list_objects_v2(Bucket=bucket_name, Prefix=prefix, Delimiter="/")
         if "CommonPrefixes" in response2:
             there_are_folders = bool(response2["CommonPrefixes"])
         else:
             there_are_folders = False
-        # check if no files where found
-        if not files:
-            raise Exception(f"ERROR No files were found => bucket name: {bucket_name}, prefix: {prefix}")
+
         # check if there are folder or if the files in the root of the url, and reformart the paths
         if there_are_folders:
             data = defaultdict(list)
