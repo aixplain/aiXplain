@@ -7,8 +7,8 @@ The asset types currently supported by the SDK are:
 - [Corpus](#corpus)
 - [Dataset](#datasets)
 - [FineTune](#finetune)
-<!-- - [Metric](#metrics)
-- [Benchmark](#benchmarks) -->
+- [Metric](#metrics)
+- [Benchmark](#benchmarks)
 
 ## Models
 aiXplain has an ever-expanding catalog of 35,000+ ready-to-use AI models to be used for various tasks like Translation, Speech Recognition, Diacritization, Sentiment Analysis, and much more.
@@ -36,7 +36,8 @@ If you need, the aixplain SDK allows searching for existing models that match a 
 
 ```python
 from aixplain.factories import ModelFactory
-model_list = ModelFactory.get_first_k_assets(k=5, task="translation", input_language="en", output_language="hi")
+from aixplain.enums import Function, Language
+model_list = ModelFactory.list(function=Function.TRANSLATION, source_languages=Language.English, target_languages=Language.French)["results"]
 ```
 
 ### Run
@@ -121,7 +122,7 @@ The aixplain SDK allows searching for existing datasets that match a specific cr
 ```python
 from aixplain.factories import DatasetFactory
 from aixplain.enums import Function, Language
-dataset_list = DatasetFactory.list(function=Function.TRANSLATION, language=[Language.English, Language.French], page_size=1)["results"]
+dataset_list = DatasetFactory.list(function=Function.TRANSLATION, source_languages=Language.English, target_languages=Language.French)["results"]
 ```
 Note: This does not download datasets to your local machine.
 
@@ -143,7 +144,7 @@ from aixplain.factories import FinetuneFactory, DatasetFactory, ModelFactory
 from aixplain.enums import Function, Language
 
 # Choose 'exactly one' model
-model = ModelFactory.get_first_k_assets(k=5, task="translation", input_language="en", output_language="fr", is_finetunable=True)[0]
+model = ModelFactory.list(function=Function.TRANSLATION, source_languages=Language.English, target_languages=Language.French, is_finetunable=True, page_size=1)["results"][0]
 # Choose 'one or more' datasets
 dataset_list = DatasetFactory.list(function=Function.TRANSLATION, source_languages=Language.English, target_languages=Language.French, page_size=1)["results"]
 
@@ -196,7 +197,6 @@ Status can be one of the following: `onboarding`, `onboarded`, `hidden`, `traini
 
 Once it is `onboarded`, you are ready to use it as any other model!
 
-# Coming Soon
 
 ## Metrics
 aiXplain has an impressive library of metrics for various machine learning tasks like Translation, Speech Recognition, Diacritization, and Sentiment Analysis. There are reference similarity metrics, human evaluation estimation metrics, and referenceless metrics.
@@ -206,8 +206,8 @@ The catalog of all available metrics on aiXplain can be accessed and browsed [he
 The aixplain SDK allows searching for existing metrics. `MetricFactory` can search for metrics for a particular machine learning task.
 
 ```python
-from aixplain.factories.metric_factory import MetricFactory
-metric_list = MetricFactory.list_assets(task="translation")
+from aixplain.factories import MetricFactory
+metric_liist = MetricFactory.list()['results']
 ```
 
 ## Benchmarks
@@ -226,13 +226,13 @@ from aixplain.factories import BenchmarkFactory, DatasetFactory, MetricFactory, 
 from aixplain.enums import Function, Language
 
 # Choose 'one or more' models
-model_list = ModelFactory.get_first_k_assets(k=5, task="translation", input_language="en", output_language="fr")
-# Choose 'one or more' metrics
-metric_list = MetricFactory.list_assets(task="translation")
+models = ModelFactory.list(function=Function.SPEECH_RECOGNITION, source_languages=Language.English_UNITED_STATES, page_size=2)['results']
+# Choose 'one or more' metrics that are supported
+metrics = MetricFactory.list(model_id=models[0].id, page_size=2)['results']
 # Choose 'exactly one' dataset
-dataset_list = DatasetFactory.list(function=Function.TRANSLATION, language=[Language.English, Language.French], page_size=1)["results"]
+datasets = DatasetFactory.list(function=Function.SPEECH_RECOGNITION, source_languages=Language.English_UNITED_STATES, page_size=1)['results']
 
-benchmark = BenchmarkFactory.create_benchmark(<UNIQUE_NAME_OF_BENCHMARK>, dataset_list, model_list, metric_list)
+benchmark = BenchmarkFactory.create(<UNIQUE_NAME_OF_BENCHMARK>, dataset_list=datasets, model_list=models, metric_list=metrics)
 ```
 
 You can visit [model](#models), [dataset](#datasets), and [metric](#metrics) docs for more details.
@@ -240,12 +240,17 @@ You can visit [model](#models), [dataset](#datasets), and [metric](#metrics) doc
 ### Running a Benchmark
 Once a `Benchmark` is created (refer to the [section above](#creating-a-benchmark)), we need to start a new `BenchmarkJob` from it. It is really simple to run a benchmark:
 ```python
-benchmark_job = BenchmarkFactory.start_benchmark_job(benchmark)
+benchmark_job = benchmark.start()
 ```
 Note: You can start multiple jobs on a single `Benchmark`.
 
 ### Getting the Results 
-Once a `BenchmarkJob` is up and running (refer to the [section above](#running-a-benchmark)), we can download the current results as a CSV (even for an in-progress benchmarking job).
+Once a `BenchmarkJob` is up and running (refer to the [section above](#running-a-benchmark)), we can check the status or directly download the current results as a CSV (even for an in-progress benchmarking job).
+#### Status
 ```python
-results_path = BenchmarkFactory.download_results_as_csv(benchmark_job)
+status = benchmark_job.check_status()
+```
+#### Results
+```python
+results_path = benchmark_job.download_results_as_csv()
 ```
