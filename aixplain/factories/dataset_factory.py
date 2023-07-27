@@ -24,6 +24,7 @@ Description:
 import aixplain.utils.config as config
 import aixplain.processes.data_onboarding.onboard_functions as onboard_functions
 import json
+import os
 import logging
 import shutil
 
@@ -318,12 +319,11 @@ class DatasetFactory(AssetFactory):
         description: Text,
         license: License,
         function: Function,
-        content_path: Optional[Union[Union[Text, Path], List[Union[Text, Path]]]],
-        s3_link: Optional[str],
         input_schema: List[Union[Dict, MetaData]],
         output_schema: List[Union[Dict, MetaData]],
         hypotheses_schema: List[Union[Dict, MetaData]] = [],
         metadata_schema: List[Union[Dict, MetaData]] = [],
+        content_path: Union[Union[Text, Path], List[Union[Text, Path]]] = [],
         input_ref_data: Dict[Text, Any] = {},
         output_ref_data: Dict[Text, List[Any]] = {},
         hypotheses_ref_data: Dict[Text, Any] = {},
@@ -333,6 +333,7 @@ class DatasetFactory(AssetFactory):
         split_labels: Optional[List[Text]] = None,
         split_rate: Optional[List[float]] = None,
         error_handler: ErrorHandler = ErrorHandler.SKIP,
+        s3_link: Optional[str] = None,
     ) -> Dict:
         """Dataset Onboard
 
@@ -341,12 +342,11 @@ class DatasetFactory(AssetFactory):
             description (Text): dataset description
             license (License): dataset license
             function (Function): dataset function
-            content_path (Optional[Union[Union[Text, Path], List[Union[Text, Path]]]]): path to files which contain the data content
-            s3_link (Optional[str]): s3 url to files or directories 
             input_schema (List[Union[Dict, MetaData]]): metadata of inputs
             output_schema (List[Union[Dict, MetaData]]): metadata of outputs
             hypotheses_schema (List[Union[Dict, MetaData]], optional): schema of the hypotheses to the references. Defaults to [].
             metadata_schema (List[Union[Dict, MetaData]], optional): metadata of metadata information of the dataset. Defaults to [].
+            content_path (Union[Union[Text, Path], List[Union[Text, Path]]]): path to files which contain the data content
             input_ref_data (Dict[Text, Any], optional): reference to input data which is already in the platform. Defaults to {}.
             output_ref_data (Dict[Text, List[Any]], optional): reference to output data which is already in the platform. Defaults to {}.
             hypotheses_ref_data (Dict[Text, Any], optional): hypotheses which are already in the platform. Defaults to {}.
@@ -354,29 +354,33 @@ class DatasetFactory(AssetFactory):
             tags (List[Text], optional): datasets description tags. Defaults to [].
             privacy (Privacy, optional): dataset privacy. Defaults to Privacy.PRIVATE.
             error_handler (ErrorHandler, optional): how to handle failed rows in the data asset. Defaults to ErrorHandler.SKIP.
+            s3_link (Optional[str]): s3 url to files or directories
 
         Returns:
             Dict: dataset onboard status
         """
+        assert (
+            content_path is not None or s3_link is not None
+        ), "Data Asset Onboarding Error: No path to content Data was provided. Please update `context_path` or `s3_link`."
         assert (split_labels is not None and split_rate is not None) or (
             split_labels is None and split_rate is None
         ), "Data Asset Onboarding Error: Make sure you set the split labels values as well as their rates."
-        folder, return_dict, ref_data = None, {}, []
+        folder, return_dict, ref_data, csv_path = None, {}, [], None
         # check team key
         try:
             # process data and create files
             folder = Path(name)
             folder.mkdir(exist_ok=True)
-            
+
             if isinstance(content_path, list) is False:
                 content_paths = [content_path]
             else:
                 content_paths = content_path
-            
-            if s3_link:
+
+            if s3_link is not None:
                 csv_path = s3_to_csv(s3_link)
-                content_paths(csv_path)
-            
+                content_paths.append(csv_path)
+
             assert (
                 len(input_schema) > 0 or len(input_ref_data) > 0
             ), "Data Asset Onboarding Error: You must specify an input data to onboard a dataset."
@@ -550,5 +554,7 @@ class DatasetFactory(AssetFactory):
         except Exception as e:
             if folder is not None:
                 shutil.rmtree(folder)
+            if csv_path is not None and os.path.exists(csv_path) is True:
+                os.remove(csv_path)
             raise Exception(e)
         return return_dict
