@@ -159,7 +159,7 @@ class ModelFactory:
             return model_list, resp["total"]
         except Exception as e:
             error_message = f"Listing Models: Error in getting Models on Page {page_number}: {e}"
-            logging.error(error_message)
+            logging.error(error_message, exc_info=True)
             return []
 
     @classmethod
@@ -205,5 +205,5 @@ class ModelFactory:
             }
         except Exception as e:
             error_message = f"Listing Models: Error in Listing Models : {e}"
-            logging.error(error_message)
+            logging.error(error_message, exc_info=True)
             raise Exception(error_message)

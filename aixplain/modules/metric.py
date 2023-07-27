@@ -21,7 +21,7 @@ Description:
     Metric Class
 """
 
-from typing import Optional, Text
+from typing import Optional, Text, List
 from aixplain.modules.asset import Asset
 from aixplain.utils.file_utils import _request_with_retry
 
@@ -72,3 +72,11 @@ class Metric(Asset):
 
     def __repr__(self) -> str:
         return f"<Metric {self.name}>"
+    
+    def add_normalization_options(self, normalization_options: List[str]):
+        """Add a given set of normalization options to be used while benchmarking
+
+        Args:
+            normalization_options (List[str]): List of normalization options to be added
+        """
+        self.normalizationOptions.append(normalization_options)

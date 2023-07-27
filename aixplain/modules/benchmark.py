@@ -114,7 +114,7 @@ class BenchmarkJob:
                 return downloaded_path
         except Exception as e:
             error_message = f"Downloading Benchmark Results: Error in Downloading Benchmark Results : {e}"
-            logging.error(error_message)
+            logging.error(error_message, exc_info=True)
             raise Exception(error_message)
 
 
@@ -190,5 +190,5 @@ class Benchmark(Asset):
             return BenchmarkJob(resp["jobId"], resp["status"], resp["benchmark"]["id"])
         except Exception as e:
             error_message = f"Starting Benchmark Job: Error in Creating Benchmark {benhchmark_id} : {e}"
-            logging.error(error_message)
+            logging.error(error_message, exc_info=True)
             return None

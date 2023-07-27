@@ -141,7 +141,7 @@ class MetricFactory:
             }
         except Exception as e:
             error_message = f"Listing Metrics: Error in getting metrics: {e}"
-            logging.error(error_message)
+            logging.error(error_message, exc_info=True)
             return []
     
     

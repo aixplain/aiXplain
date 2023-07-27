@@ -160,7 +160,7 @@ class Pipeline(Asset):
             return response
         except Exception as e:
             error_message = f"Error in request for {name} "
-            logging.error(error_message)
+            logging.error(error_message, exc_info=True)
             logging.exception(error_message)
             end = time.time()
             return {"status": "FAILED", "error": error_message, "elapsed_time": end - start}
