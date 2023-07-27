@@ -22,7 +22,7 @@ import requests
 from collections import defaultdict
 from pathlib import Path
 from requests.adapters import HTTPAdapter, Retry
-from typing import Any, Optional, Text, Union
+from typing import Any, Optional, Text, Union, Dict
 from uuid import uuid4
 from urllib.parse import urljoin, urlparse
 from pandas import DataFrame
@@ -139,7 +139,7 @@ def upload_data(
             raise Exception("File Uploading Error: Failure on Uploading to S3.")
 
 
-def s3_to_csv(s3_url: Text) -> str:
+def s3_to_csv(s3_url: Text, aws_credentials : Dict) -> Text:
     """Convert s3 url to a csv file and download the file in `download_path`
 
     Args:
@@ -161,8 +161,8 @@ def s3_to_csv(s3_url: Text) -> str:
     bucket_name = url.netloc
     prefix = url.path[1:]
     try:
-        aws_access_key_id = os.getenv('AWS_ACCESS_KEY_ID')
-        aws_secret_access_key = os.getenv('AWS_SECRET_ACCESS_KEY')
+        aws_access_key_id = aws_credentials.get('AWS_ACCESS_KEY_ID') or os.getenv('AWS_ACCESS_KEY_ID')
+        aws_secret_access_key = aws_credentials.get('AWS_SECRET_ACCESS_KEY') or os.getenv('AWS_SECRET_ACCESS_KEY')
         s3 = boto3.client("s3", aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
         response = s3.list_objects_v2(Bucket=bucket_name, Prefix=prefix)
     except NoCredentialsError as e:
