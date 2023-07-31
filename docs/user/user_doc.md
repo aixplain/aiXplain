@@ -132,12 +132,14 @@ Note: This does not download datasets to your local machine.
 
 Using the aiXplain SDK, you can also onboard your dataset into the aiXplain platform. A step-by-step example on how to do it can be accessed here:
 - Machine translation dataset:
-  - [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1rVxxZpHzyP4FWn_Rd_j_g8tHU76S3rVT?usp=sharing) 
+  - [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1lkw_OW53PGaWE7Khj9JAM8V5y4LFZ8XB?usp=sharing) 
 
 
 - Speech recognition dataset:
   - [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1f1NXHGxhIy0AAXnUZJB8QY3JLl-uC37e?usp=sharing) 
 
+- Machine translation dataset directly from s3:
+  - [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1Asnjeq5JQ9pV6UUQ2Z20XtrjnoaFD0nf?usp=sharing) 
 
 ## FineTune
 
