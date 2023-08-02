@@ -169,7 +169,7 @@ class Benchmark(Asset):
         self.aixplain_key = config.AIXPLAIN_API_KEY
 
     def __repr__(self) -> str:
-        return f"<Metric {self.name}>"
+        return f"<Benchmark {self.name}>"
 
     
     def start(self) -> BenchmarkJob:

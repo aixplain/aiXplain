@@ -23,7 +23,7 @@ Description:
 
 import logging
 import os
-from typing import List
+from typing import List, Optional
 from aixplain.modules import Metric
 from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
@@ -58,8 +58,8 @@ class MetricFactory:
             id = response["id"], 
             name = response["name"], 
             supplier = response["supplier"], 
-            referenceRequired = response["referenceRequired"], 
-            sourceRequired = response['sourceRequired'],
+            is_reference_required = response["referenceRequired"], 
+            is_source_required = response['sourceRequired'],
             cost = response["normalizedPrice"]
         )
 
@@ -97,13 +97,13 @@ class MetricFactory:
         return metric
 
     @classmethod
-    def list(cls, model_id: Text=None, source_required: bool=None, reference_required: bool=None, page_number: int = 0, page_size: int = 20,) -> List[Metric]:
+    def list(cls, model_id: Text=None, is_source_required: Optional[bool]=None, is_reference_required: Optional[bool]=None, page_number: int = 0, page_size: int = 20,) -> List[Metric]:
         """Get list of supported metrics for the given filters
 
         Args:
             model_id (Text, optional): ID of model for which metric is to be used. Defaults to None.
             source_required (bool, optional): Should the metric use source. Defaults to None.
-            referenceRequired (bool, optional): Should the metric use reference. Defaults to None.
+            is_reference_required (bool, optional): Should the metric use reference. Defaults to None.
             page_number (int, optional): page number. Defaults to 0.
             page_size (int, optional): page size. Defaults to 20.
 
@@ -116,9 +116,9 @@ class MetricFactory:
             if model_id is not None:
                 filter_params["modelId"] = model_id
             if source_required is not None:
-                filter_params["sourceRequired"] = 1 if source_required else 0
+                filter_params["sourceRequired"] = 1 if is_source_required else 0
             if reference_required is not None:
-                filter_params["referenceRequired"] = 1 if reference_required else 0
+                filter_params["referenceRequired"] = 1 if is_reference_required else 0
             
             if cls.aixplain_key != "":
                 headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}

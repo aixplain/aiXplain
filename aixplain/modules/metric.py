@@ -44,8 +44,8 @@ class Metric(Asset):
         id: Text,
         name: Text,
         supplier: Text,
-        referenceRequired: bool,
-        sourceRequired: bool,
+        is_reference_required: bool,
+        is_source_required: bool,
         cost: float,
         normalizationOptions: list = [],
         **additional_info,
@@ -56,8 +56,8 @@ class Metric(Asset):
             id (Text): ID of the Metric
             name (Text): Name of the Metric
             supplier (Text): author of the Metric
-            referenceRequired (bool): does the metric use reference
-            sourceRequired (bool): does the metric use source
+            is_reference_required (bool): does the metric use reference
+            is_source_required (bool): does the metric use source
             cost (float): cost of the metric
             normalizationOptions(list, [])
             **additional_info: Any additional Metric info to be saved
@@ -65,8 +65,8 @@ class Metric(Asset):
         
         
         super().__init__(id, name, description="", supplier=supplier, version="1.0", cost=cost)
-        self.sourceRequired = sourceRequired
-        self.referenceRequired = referenceRequired
+        self.is_source_required = is_source_required
+        self.is_reference_required = is_reference_required
         self.normalizationOptions = normalizationOptions
         self.additional_info = additional_info
 
