@@ -47,7 +47,7 @@ class Metric(Asset):
         is_reference_required: bool,
         is_source_required: bool,
         cost: float,
-        normalizationOptions: list = [],
+        normalization_options: list = [],
         **additional_info,
     ) -> None:
         """Create a Metric with the necessary information
@@ -59,7 +59,7 @@ class Metric(Asset):
             is_reference_required (bool): does the metric use reference
             is_source_required (bool): does the metric use source
             cost (float): cost of the metric
-            normalizationOptions(list, [])
+            normalization_options(list, [])
             **additional_info: Any additional Metric info to be saved
         """
         
@@ -67,7 +67,7 @@ class Metric(Asset):
         super().__init__(id, name, description="", supplier=supplier, version="1.0", cost=cost)
         self.is_source_required = is_source_required
         self.is_reference_required = is_reference_required
-        self.normalizationOptions = normalizationOptions
+        self.normalization_options = normalization_options
         self.additional_info = additional_info
 
     def __repr__(self) -> str:
@@ -79,4 +79,4 @@ class Metric(Asset):
         Args:
             normalization_options (List[str]): List of normalization options to be added
         """
-        self.normalizationOptions.append(normalization_options)
+        self.normalization_options.append(normalization_options)
