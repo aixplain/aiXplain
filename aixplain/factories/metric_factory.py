@@ -115,9 +115,9 @@ class MetricFactory:
             filter_params = {}
             if model_id is not None:
                 filter_params["modelId"] = model_id
-            if source_required is not None:
+            if is_source_required is not None:
                 filter_params["sourceRequired"] = 1 if is_source_required else 0
-            if reference_required is not None:
+            if is_reference_required is not None:
                 filter_params["referenceRequired"] = 1 if is_reference_required else 0
             
             if cls.aixplain_key != "":
@@ -128,10 +128,10 @@ class MetricFactory:
             resp = r.json()
             logging.info(f"Listing Metrics: Status of getting metrics: {resp}")
             all_metrics = resp['results']
-            total = len(all_metrics)
             starting_model_index_overall = page_number * page_size
             ending_model_index_overall = starting_model_index_overall + page_size - 1
             filtered_metrics = all_metrics[starting_model_index_overall: ending_model_index_overall+1]
+            total = len(filtered_metrics)
             metric_list = [cls._create_metric_from_response(metric_info_json) for metric_info_json in filtered_metrics]
             return {
                 "results": metric_list,
