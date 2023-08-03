@@ -102,7 +102,7 @@ class MetricFactory:
 
         Args:
             model_id (Text, optional): ID of model for which metric is to be used. Defaults to None.
-            source_required (bool, optional): Should the metric use source. Defaults to None.
+            is_source_required (bool, optional): Should the metric use source. Defaults to None.
             is_reference_required (bool, optional): Should the metric use reference. Defaults to None.
             page_number (int, optional): page number. Defaults to 0.
             page_size (int, optional): page size. Defaults to 20.
