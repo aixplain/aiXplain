@@ -25,9 +25,10 @@ import aixplain_diarization_streaming_pb2_grpc
 
 FRAME_RATE = 16000
 
-def generate_payloads(file_path):
+def generate_payloads(file_path, latency):
     stream_configuration = pb.DiarizationRequest(
         config=pb.AudioConfig(encoding="LINEAR16", hertz=FRAME_RATE, language_code="en"),
+        latency=latency,
         diarization_config=pb.DiarizationConfig(min_speaker_count=1, max_speaker_count=3),
     )
     yield stream_configuration
@@ -60,16 +61,16 @@ def consume_results(response: List[pb.DiarizationResponse]):
                 logging.info(f"{segment.speaker_tag} \
                     start:{grpc_duration_to_seconds(segment.start_time)}\tend:{grpc_duration_to_seconds(segment.end_time)}")
 
-def _stream_file(channel, file_path):
+def _stream_file(channel, file_path, latency):
     stub = aixplain_diarization_streaming_pb2_grpc.AixplainDiarizationStreamingStub(channel)
-    response = stub.Diarize(generate_payloads(file_path))
+    response = stub.Diarize(generate_payloads(file_path, latency))
     consume_results(response)
 
-def run_insecure(host, file_path):
+def run_insecure(host, file_path, latency):
     with grpc.insecure_channel(host, options=(('grpc.ssl_target_name_override', host),)) as channel:
-        _stream_file(channel, file_path)
+        _stream_file(channel, file_path, latency)
 
-def run(host, client_cert, client_key, ca_cert, file_path):
+def run(host, client_cert, client_key, ca_cert, file_path, latency):
     def create_secure_channel(host, client_cert, client_key, ca_cert):
         with open(client_cert, 'rb') as f:
             client_cert_data = f.read()
@@ -87,7 +88,7 @@ def run(host, client_cert, client_key, ca_cert, file_path):
         )
         return grpc.secure_channel(host, credentials)
     with create_secure_channel(host, client_cert, client_key, ca_cert) as channel:
-        _stream_file(channel, file_path)
+        _stream_file(channel, file_path, latency)
 
 
 if __name__ == "__main__":
@@ -101,10 +102,11 @@ if __name__ == "__main__":
     parser.add_argument('--key', default='./client-crt/tls.key', help='client key for mTLS (default "./client-crt/tls.key")')
     parser.add_argument('--insecure', action='store_true', help='use insecure connection (no mTLS)')
     parser.add_argument('--file-path', help='audio file to stream from')
+    parser.add_argument('--latency', type=float, help='Model latency')
 
     args = parser.parse_args()
 
     if args.insecure:
-        run_insecure(args.addr, args.file_path)
+        run_insecure(args.addr, args.file_path, args.latency)
     else:
-        run(args.addr, args.cert, args.key, args.cacert, args.file_path)
+        run(args.addr, args.cert, args.key, args.cacert, args.file_path, args.latency)

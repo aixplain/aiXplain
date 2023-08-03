@@ -14,7 +14,7 @@
 
 syntax = "proto3";
 
-import "google/protobuf/duration.proto"; 
+import "google/protobuf/duration.proto";
 
 option java_multiple_files = true;
 option java_package = "com.aixplain.stream";
@@ -25,7 +25,7 @@ package aixplaindiarizationstreaming;
 
 // Interface exported by the server.
 service AixplainDiarizationStreaming {
-  // The ServerLive API indicates if the inference server is able to receive 
+  // The ServerLive API indicates if the inference server is able to receive
   // and respond to metadata and inference requests.
   rpc ServerLive(ServerLiveRequest) returns (ServerLiveResponse) {}
 
@@ -35,13 +35,13 @@ service AixplainDiarizationStreaming {
   // The ModelReady API indicates if a specific model is ready for inferencing.
   rpc ModelReady(ModelReadyRequest) returns (ModelReadyResponse) {}
 
-  // The ServerMetadata API provides information about the server. Errors are 
-  // indicated by the google.rpc.Status returned for the request. The OK code 
+  // The ServerMetadata API provides information about the server. Errors are
+  // indicated by the google.rpc.Status returned for the request. The OK code
   // indicates success and other codes indicate failure.
   rpc ServerMetadata(ServerMetadataRequest) returns (ServerMetadataResponse) {}
 
-  // The per-model metadata API provides information about a model. Errors are 
-  // indicated by the google.rpc.Status returned for the request. The OK code 
+  // The per-model metadata API provides information about a model. Errors are
+  // indicated by the google.rpc.Status returned for the request. The OK code
   // indicates success and other codes indicate failure.
   rpc ModelMetadata(ModelMetadataRequest) returns (ModelMetadataResponse) {}
 
@@ -132,7 +132,7 @@ message AudioConfig
     // Language code for the language spoken in the audio, one of ("en", )
     string language_code = 3;
 }
- 
+
 message DiarizationConfig
 {
     // Minimum number of speakers in the conversation.
@@ -156,6 +156,9 @@ message DiarizationRequest
   bytes audio_content = 2;
 
   DiarizationConfig diarization_config = 3;
+
+  // model latency, default = 0.5 s
+  float latency = 4;
 }
 
 message SpeakerSegment
