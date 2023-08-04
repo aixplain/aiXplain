@@ -26,7 +26,9 @@ from typing import Dict, List, Optional, Text
 import json
 import pandas as pd
 from pathlib import Path
-from aixplain.modules import Benchmark, BenchmarkJob, Dataset, Metric, Model
+from aixplain.modules import Dataset, Metric, Model
+from aixplain.modules.benchmark_job import BenchmarkJob
+from aixplain.modules.benchmark import Benchmark
 from aixplain.factories.metric_factory import MetricFactory
 from aixplain.factories.dataset_factory import DatasetFactory
 from aixplain.factories.model_factory import ModelFactory

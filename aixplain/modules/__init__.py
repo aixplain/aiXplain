@@ -29,5 +29,6 @@ from .metric import Metric
 from .model import Model
 from .pipeline import Pipeline
 from .finetune import Finetune
-from .benchmark import Benchmark, BenchmarkJob
+from .benchmark import Benchmark
+from .benchmark_job import BenchmarkJob
 from .finetune_cost import FinetuneCost
