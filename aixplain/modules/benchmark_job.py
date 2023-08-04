@@ -58,14 +58,14 @@ class BenchmarkJob:
         self._update_from_response(response)
         return self.status
     
-    def download_results_as_csv(self, save_path: Optional[Text] = None, return_dataframe: Optional[bool] = False):
+    def download_results_as_csv(self, save_path: Optional[Text] = None, return_dataframe: bool = False):
         """Get the results of the benchmark job in a CSV format.
         The results can either be downloaded locally or returned in the form of pandas.DataFrame.
 
 
         Args:
             save_path (Text, optional): Path to save the CSV if return_dataframe is False. If None, a ranmdom path is generated. defaults to None.
-            return_dataframe (bool, optional): If True, the result is returned as pandas.DataFrame else saved as a CSV file. defaults to False.
+            return_dataframe (bool): If True, the result is returned as pandas.DataFrame else saved as a CSV file. defaults to False.
 
         Returns:
             str/pandas.DataFrame: results as path of locally saved file if return_dataframe is False else as a pandas dataframe
