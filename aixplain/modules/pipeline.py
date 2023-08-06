@@ -188,6 +188,8 @@ class Pipeline(Asset):
             data = FileFactory.to_link(data)
             if isinstance(data, dict):
                 payload = data
+                for key in payload:
+                    payload[key] = {"data": payload[key]}
             else:
                 try:
                     payload = json.loads(data)
@@ -206,13 +208,13 @@ class Pipeline(Asset):
                 # mostly when in a multi-input scenario, where a dictionary should be provided.
                 if isinstance(data, dict) is True:
                     raise Exception(
-                        'Pipeline Run Error: Similar to "data", please specify the node input where the data asset should be set in "data_asset".'
+                        'Pipeline Run Error: Similar to "data", please specify the node input label where the data asset should be set in "data_asset".'
                     )
                 else:
                     data = {"1": data}
             elif isinstance(data, str) is True:
                 raise Exception(
-                    'Pipeline Run Error: Similar to "data_asset", please specify the node input where the data should be set in "data".'
+                    'Pipeline Run Error: Similar to "data_asset", please specify the node input label where the data should be set in "data".'
                 )
 
             # validate the existence of data asset and data
@@ -237,7 +239,7 @@ class Pipeline(Asset):
                         else:
                             for target in dasset.target_data:
                                 for target_row in dasset.target_data[target]:
-                                    if target_row.id == data_asset[node_label]:
+                                    if target_row.id == data[node_label]:
                                         data_found = True
                                         break
                                 if data_found == True:
@@ -255,6 +257,12 @@ class Pipeline(Asset):
 
                 asset_payload["data_asset"]["data"] = data[node_label]
                 payload[node_label] = asset_payload
+
+        if len(payload) > 1:
+            for node_label in payload:
+                payload[node_label]["label"] = node_label
+
+        payload = list(payload.values())
         return payload
 
     def run_async(
@@ -277,8 +285,6 @@ class Pipeline(Asset):
         headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}
 
         payload = self.__prepare_payload(data=data, data_asset=data_asset)
-        if len(payload) == 1:
-            payload = list(payload.values())[0]
         payload = json.dumps(payload)
         call_url = f"{self.url}/{self.id}"
         logging.info(f"Start service for {name}  - {call_url} - {payload}")
