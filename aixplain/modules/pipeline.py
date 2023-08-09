@@ -189,7 +189,12 @@ class Pipeline(Asset):
             if isinstance(data, dict):
                 payload = data
                 for key in payload:
-                    payload[key] = {"data": payload[key]}
+                    payload[key] = {"value": payload[key]}
+
+                for node_label in payload:
+                    payload[node_label]["nodeId"] = node_label
+
+                payload = {"data": list(payload.values())}
             else:
                 try:
                     payload = json.loads(data)
@@ -219,17 +224,17 @@ class Pipeline(Asset):
 
             # validate the existence of data asset and data
             for node_label in data_asset:
-                asset_payload = {"data_asset": {}}
+                asset_payload = {"dataAsset": {}}
                 data_asset_found, data_found = True, False
                 try:
                     dasset = CorpusFactory.get(str(data_asset[node_label]))
-                    asset_payload["data_asset"]["corpus_id"] = dasset.id
+                    asset_payload["dataAsset"]["corpus_id"] = dasset.id
                     if len([d for d in dasset.data if d.id == data[node_label]]) > 0:
                         data_found = True
                 except Exception:
                     try:
                         dasset = DatasetFactory.get(str(data_asset[node_label]))
-                        asset_payload["data_asset"]["dataset_id"] = dasset.id
+                        asset_payload["dataAsset"]["dataset_id"] = dasset.id
 
                         if (
                             len([dfield for dfield in dasset.source_data if dasset.source_data[dfield].id == data[node_label]])
@@ -255,14 +260,13 @@ class Pipeline(Asset):
                         f'Pipeline Run Error: Data "{data[node_label]}" not found in Data Asset "{data_asset[node_label]}" not found.'
                     )
 
-                asset_payload["data_asset"]["data"] = data[node_label]
+                asset_payload["dataAsset"]["data_id"] = data[node_label]
                 payload[node_label] = asset_payload
 
-        if len(payload) > 1:
-            for node_label in payload:
-                payload[node_label]["label"] = node_label
-
-        payload = list(payload.values())
+            if len(payload) > 1:
+                for node_label in payload:
+                    payload[node_label]["nodeId"] = node_label
+            payload = {"data": list(payload.values())}
         return payload
 
     def run_async(
