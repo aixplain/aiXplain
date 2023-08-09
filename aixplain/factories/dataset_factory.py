@@ -24,6 +24,7 @@ Description:
 import aixplain.utils.config as config
 import aixplain.processes.data_onboarding.onboard_functions as onboard_functions
 import json
+import os
 import logging
 import shutil
 
@@ -39,7 +40,7 @@ from aixplain.enums.function import Function
 from aixplain.enums.language import Language
 from aixplain.enums.license import License
 from aixplain.enums.privacy import Privacy
-from aixplain.utils.file_utils import _request_with_retry
+from aixplain.utils.file_utils import _request_with_retry, s3_to_csv
 from aixplain.utils import config
 from pathlib import Path
 from tqdm import tqdm
@@ -318,11 +319,11 @@ class DatasetFactory(AssetFactory):
         description: Text,
         license: License,
         function: Function,
-        content_path: Union[Union[Text, Path], List[Union[Text, Path]]],
         input_schema: List[Union[Dict, MetaData]],
         output_schema: List[Union[Dict, MetaData]],
         hypotheses_schema: List[Union[Dict, MetaData]] = [],
         metadata_schema: List[Union[Dict, MetaData]] = [],
+        content_path: Union[Union[Text, Path], List[Union[Text, Path]]] = [],
         input_ref_data: Dict[Text, Any] = {},
         output_ref_data: Dict[Text, List[Any]] = {},
         hypotheses_ref_data: Dict[Text, Any] = {},
@@ -332,6 +333,8 @@ class DatasetFactory(AssetFactory):
         split_labels: Optional[List[Text]] = None,
         split_rate: Optional[List[float]] = None,
         error_handler: ErrorHandler = ErrorHandler.SKIP,
+        s3_link: Optional[str] = None,
+        aws_credentials: Optional[Dict[str, str]] = {"AWS_ACCESS_KEY_ID": None, "AWS_SECRET_ACCESS_KEY": None},
     ) -> Dict:
         """Dataset Onboard
 
@@ -340,11 +343,11 @@ class DatasetFactory(AssetFactory):
             description (Text): dataset description
             license (License): dataset license
             function (Function): dataset function
-            content_path (Union[Union[Text, Path], List[Union[Text, Path]]]): path to files which contain the data content
             input_schema (List[Union[Dict, MetaData]]): metadata of inputs
             output_schema (List[Union[Dict, MetaData]]): metadata of outputs
             hypotheses_schema (List[Union[Dict, MetaData]], optional): schema of the hypotheses to the references. Defaults to [].
             metadata_schema (List[Union[Dict, MetaData]], optional): metadata of metadata information of the dataset. Defaults to [].
+            content_path (Union[Union[Text, Path], List[Union[Text, Path]]]): path to files which contain the data content
             input_ref_data (Dict[Text, Any], optional): reference to input data which is already in the platform. Defaults to {}.
             output_ref_data (Dict[Text, List[Any]], optional): reference to output data which is already in the platform. Defaults to {}.
             hypotheses_ref_data (Dict[Text, Any], optional): hypotheses which are already in the platform. Defaults to {}.
@@ -352,19 +355,32 @@ class DatasetFactory(AssetFactory):
             tags (List[Text], optional): datasets description tags. Defaults to [].
             privacy (Privacy, optional): dataset privacy. Defaults to Privacy.PRIVATE.
             error_handler (ErrorHandler, optional): how to handle failed rows in the data asset. Defaults to ErrorHandler.SKIP.
-
+            s3_link (Optional[str]): s3 url to files or directories
+            aws_credentials (Optional[Dict[str, str]]) : credentials for AWS and it should contains these two keys `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`
         Returns:
             Dict: dataset onboard status
         """
+        assert (
+            content_path is not None or s3_link is not None
+        ), "Data Asset Onboarding Error: No path to content Data was provided. Please update `context_path` or `s3_link`."
         assert (split_labels is not None and split_rate is not None) or (
             split_labels is None and split_rate is None
         ), "Data Asset Onboarding Error: Make sure you set the split labels values as well as their rates."
-        folder, return_dict, ref_data = None, {}, []
+        folder, return_dict, ref_data, csv_path = None, {}, [], None
         # check team key
         try:
-            content_paths = content_path
+            # process data and create files
+            folder = Path(name)
+            folder.mkdir(exist_ok=True)
+
             if isinstance(content_path, list) is False:
                 content_paths = [content_path]
+            else:
+                content_paths = content_path
+
+            if s3_link is not None:
+                csv_path = s3_to_csv(s3_link, aws_credentials)
+                content_paths.append(csv_path)
 
             assert (
                 len(input_schema) > 0 or len(input_ref_data) > 0
@@ -453,10 +469,6 @@ class DatasetFactory(AssetFactory):
                 split_metadata = onboard_functions.split_data(paths=paths, split_labels=split_labels, split_rate=split_rate)
                 metadata_schema.append(split_metadata)
 
-            # process data and create files
-            folder = Path(name)
-            folder.mkdir(exist_ok=True)
-
             datasets, sizes = {}, []
             for (key, schema) in [
                 ("inputs", input_schema),
@@ -540,8 +552,12 @@ class DatasetFactory(AssetFactory):
             else:
                 raise Exception(response["error"])
             shutil.rmtree(folder)
+            if csv_path is not None and os.path.exists(csv_path) is True:
+                os.remove(csv_path)
         except Exception as e:
             if folder is not None:
                 shutil.rmtree(folder)
+            if csv_path is not None and os.path.exists(csv_path) is True:
+                os.remove(csv_path)
             raise Exception(e)
         return return_dict

@@ -19,12 +19,13 @@ import os
 import re
 import requests
 
+from collections import defaultdict
 from pathlib import Path
-from uuid import uuid4
 from requests.adapters import HTTPAdapter, Retry
-from typing import Any, Optional, Text, Union
-from urllib.parse import urljoin
-
+from typing import Any, Optional, Text, Union, Dict
+from uuid import uuid4
+from urllib.parse import urljoin, urlparse
+from pandas import DataFrame
 
 def save_file(download_url: Text, download_file_path: Optional[Any] = None) -> Any:
     """Download and save file from given URL
@@ -136,3 +137,87 @@ def upload_data(
             return upload_data(file_name, content_type, content_encoding, nattempts - 1)
         else:
             raise Exception("File Uploading Error: Failure on Uploading to S3.")
+
+
+def s3_to_csv(s3_url: Text, aws_credentials : Dict) -> Text:
+    """Convert s3 url to a csv file and download the file in `download_path`
+
+    Args:
+        s3_url (Text): s3 url
+
+    Returns:
+        Path: path to csv file
+    """
+    try:
+        import boto3
+        from botocore.exceptions import NoCredentialsError
+    except ModuleNotFoundError:
+        raise Exception(
+            "boto3 is not currently installed in your project environment. Please try installing it using pip:\n\npip install boto3"
+        )
+    url = urlparse(s3_url)
+    if url.scheme != "s3":
+        raise Exception("the url is not an s3 url")
+    bucket_name = url.netloc
+    prefix = url.path[1:]
+    try:
+        aws_access_key_id = aws_credentials.get('AWS_ACCESS_KEY_ID') or os.getenv('AWS_ACCESS_KEY_ID')
+        aws_secret_access_key = aws_credentials.get('AWS_SECRET_ACCESS_KEY') or os.getenv('AWS_SECRET_ACCESS_KEY')
+        s3 = boto3.client("s3", aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
+        response = s3.list_objects_v2(Bucket=bucket_name, Prefix=prefix)
+    except NoCredentialsError as e:
+        raise Exception("to use the s3 bucket option you need to set the right AWS credentials [AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY]")
+    except Exception as e:
+        raise Exception("the bucket you are trying to use does not exist")
+    
+    try:
+        files = []
+
+        if "Contents" in response:
+            for obj in response["Contents"]:
+                files.append(obj["Key"])
+
+        # check if no files where found
+        if not files:
+            raise Exception(f"ERROR No files were found => bucket name: {bucket_name}, prefix: {prefix}")
+
+        response2 = s3.list_objects_v2(Bucket=bucket_name, Prefix=prefix, Delimiter="/")
+        if "CommonPrefixes" in response2:
+            there_are_folders = bool(response2["CommonPrefixes"])
+        else:
+            there_are_folders = False
+
+        # check if there are folder or if the files in the root of the url, and reformart the paths
+        if there_are_folders:
+            data = defaultdict(list)
+            for path in files:
+                directory = path.rsplit("/", 2)[-2]
+                data[directory].append(f"s3://{bucket_name}/{path}")
+
+            # validate all the folders have the same length
+            first_key = list(data.keys())[0]
+            main_len = len(data[first_key])
+            if any(main_len != len(val) for val in data.values()):
+                raise Exception("all the directories should have the same number of files")
+
+            # validate that the names of the files are the same in all the list
+            if len(data.keys()) > 1:
+                for i in range(main_len):
+                    main_file_name = Path(data[first_key][i]).stem
+                    for val in data.values():
+                        if Path(val[i]).stem != main_file_name:
+                            raise Exception(f"all the files in different directories should have the same prefix")
+
+        elif prefix == "":
+            raise Exception(f"ERROR the files can't be at the root of the bucket ")
+        else:
+            data = {prefix: [f"s3://{bucket_name}/{file}" for file in files]}
+
+        # create DataFrame and convert it to csv
+        df = DataFrame(data)
+        output_path = f"{uuid4()}.csv"
+        df.to_csv(output_path, index=False)
+
+        return output_path
+    except (Exception, ValueError) as e:
+        raise Exception(e)
