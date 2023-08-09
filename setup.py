@@ -53,6 +53,9 @@ with open(os.path.join(here, "aixplain", "__version__.py"), "r") as f:
 with open("README.md", "r") as f:
     readme = f.read()
 
+extras = {}
+extras["model-builder"] = "aixplain-models-internal>=1.03"
+
 setup(
     name=about["__title__"],
     version=about["__version__"],
@@ -93,7 +96,7 @@ setup(
         "Topic :: Software Development :: Libraries",
     ],
     tests_require=test_requirements,
-    extras_require={},
+    extras_require=extras,
     project_urls={
         "Documentation": "https://github.com/aixplain/pipelines/tree/main/docs",
         "Source": "https://github.com/aixplain/aiXplain",
