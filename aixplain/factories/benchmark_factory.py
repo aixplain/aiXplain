@@ -153,29 +153,29 @@ class BenchmarkFactory:
 
     @classmethod
     def _validate_create_benchmark_payload(cls, payload):
-        if len(payload['datasets']) != 1:
+        if len(payload["datasets"]) != 1:
             raise Exception("Please use exactly one dataset")
-        if len(payload['metrics']) == 0:
+        if len(payload["metrics"]) == 0:
             raise Exception("Please use exactly one metric")
-        if len(payload['model']) == 0:
+        if len(payload["model"]) == 0:
             raise Exception("Please use exactly one model")
         clean_metrics_info = {}
-        for metric_info in payload['metrics']:
-            metric_id = metric_info['id']
+        for metric_info in payload["metrics"]:
+            metric_id = metric_info["id"]
             if metric_id not in clean_metrics_info:
-                clean_metrics_info[metric_id] = metric_info['configurations']
+                clean_metrics_info[metric_id] = metric_info["configurations"]
             else:
-                clean_metrics_info[metric_id] += metric_info['configurations']
+                clean_metrics_info[metric_id] += metric_info["configurations"]
             clean_metrics_info[metric_id] = list(set(clean_metrics_info[metric_id]))
             if len(clean_metrics_info[metric_id]) == 0:
                 clean_metrics_info[metric_id] = [[]]
-        payload['metrics'] = [{"id":metric_id , "configurations": metric_config} for metric_id, metric_config in clean_metrics_info.items()]
+        payload["metrics"] = [
+            {"id": metric_id, "configurations": metric_config} for metric_id, metric_config in clean_metrics_info.items()
+        ]
         return payload
 
     @classmethod
-    def create(
-        cls, name: str, dataset_list: List[Dataset], model_list: List[Model], metric_list: List[Metric]
-    ) -> Benchmark:
+    def create(cls, name: str, dataset_list: List[Dataset], model_list: List[Model], metric_list: List[Metric]) -> Benchmark:
         """Creates a benchmark based on the information provided like name, dataset list, model list and score list.
         Note: This only creates a benchmark. It needs to run seperately using start_benchmark_job.
 
@@ -196,7 +196,7 @@ class BenchmarkFactory:
                 "name": name,
                 "datasets": [dataset.id for dataset in dataset_list],
                 "model": [model.id for model in model_list],
-                "metrics": [{"id":metric.id , "configurations": metric.normalizationOptions} for metric in metric_list],
+                "metrics": [{"id": metric.id, "configurations": metric.normalization_options} for metric in metric_list],
                 "shapScores": [],
                 "humanEvaluationReport": False,
                 "automodeTraining": False,
@@ -229,17 +229,13 @@ class BenchmarkFactory:
                 headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
             else:
                 headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
-            payload = json.dumps({
-                "metricId" : metric.id,
-                "modelIds": [model.id]
-            })
+            payload = json.dumps({"metricId": metric.id, "modelIds": [model.id]})
             r = _request_with_retry("post", url, headers=headers, data=payload)
             resp = r.json()
             logging.info(f"Listing Normalization Options: Status of listing options: {resp}")
-            normalization_options = [item['value'] for item in resp]
+            normalization_options = [item["value"] for item in resp]
             return normalization_options
         except Exception as e:
             error_message = f"Listing Normalization Options: Error in getting Normalization Options: {e}"
             logging.error(error_message, exc_info=True)
             return []
-
