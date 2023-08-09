@@ -29,21 +29,6 @@ from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
 from urllib.parse import urljoin
 from warnings import warn
-from pydantic import BaseModel
-
-class ParamInput(BaseModel):
-    asset_name: str
-    asset_function: str 
-    asset_class: str 
-    active_version: str 
-    gen_description: str 
-    license_type: str 
-    license_description: str 
-    container_registry_name: str
-    container_service_provider: str
-    vcpus: str
-    ram: str
-    gpus: str
 
 class ModelFactory:
     """A static class for creating and exploring Model Objects.
@@ -188,46 +173,120 @@ class ModelFactory:
             return []
     
     @classmethod
-    def create_asset_repo(cls, name: Text, hosting_machine: Text, always_on: bool, version: Text, description: Text, team_api_key: Text=config.TEAM_API_KEY) -> Dict:
-        # Use ParamInput here for input type checking.
-        # Use Ibrahim's endpoint here and return output.
-        create_url = f"{config.BACKEND_URL}/sdk/models/register"
-        if cls.aixplain_key != "":
-            headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
+    def list_host_machines(cls, api_key: Optional[Text] = None) -> List[Dict]:
+        """Lists available hosting machines for model.
+
+        Args:
+            api_key (Text, optional): Team API key. Defaults to None.
+
+        Returns:
+            List[Dict]: List of dictionaries containing information about
+            each hosting machine.
+        """
+        machines_url = f"{config.BACKEND_URL}/sdk/hosting-machines"
+        if api_key:
+            headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
         else:
-            headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
+            headers = {"x-api-key": f"{cls.api_key}", "Content-Type": "application/json"}
+        response = _request_with_retry("post", machines_url, headers=headers)
+        return response
+    
+    @classmethod
+    def create_asset_repo(cls, name: Text, hosting_machine: Text, always_on: bool, version: Text, 
+                          description: Text, function: Text, api_key: Optional[Text] = None) -> Dict:
+        """Creates an image repository for this model and registers it in the 
+        platform backend.
+
+        Args:
+            name (Text): Model name
+            hosting_machine (Text): Hosting machine ID obtained via list_host_machines
+            always_on (bool): Whether the model should always be on
+            version (Text): Model version
+            description (Text): Model description
+            function (Text): Model funciton obtained via #TODO add function endpoint
+            api_key (Text, optional): Team API key. Defaults to None.
+
+        Returns:
+            Dict: Backend response
+        """
+        create_url = f"{config.BACKEND_URL}/sdk/models/register"
+        if api_key:
+            headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
+        else:
+            headers = {"x-api-key": f"{cls.api_key}", "Content-Type": "application/json"}
         payload = {
             "name": name,
             "hostingMachine": hosting_machine,
             "alwaysOn": always_on,
             "version": version,
-            "description": description
+            "description": description,
+            "function": function
         }
         payload = json.dumps(payload)
         response = _request_with_retry("post", create_url, headers=headers, data=payload)
         return response
     
     @classmethod
-    def asset_repo_login(cls, team_api_key: Text=config.TEAM_API_KEY) -> Dict:
-        # Use Ibrahim's endpoint here and return output.
-        # TODO
-        create_url = f"{config.BACKEND_URL}/sdk/ecr/login" # TODO Add Ibrahim's repo login endpoint here
-        if cls.aixplain_key != "":
-            headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
+    def asset_repo_login(cls, api_key: Optional[Text] = None) -> Dict:
+        """Return login credentials for the image repository that corresponds with 
+        the given API_KEY.
+
+        Args:
+            api_key (Text, optional): Team API key. Defaults to None.
+
+        Returns:
+            Dict: Backend response
+        """
+        login_url = f"{config.BACKEND_URL}/sdk/ecr/login" 
+        if api_key:
+            headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
         else:
-            headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
-        params = {"Authorization": team_api_key}
-        response = _request_with_retry("post", create_url, headers=headers, params=params)
+            headers = {"x-api-key": f"{cls.api_key}", "Content-Type": "application/json"}
+        response = _request_with_retry("post", login_url, headers=headers)
         return response
+    
+    @classmethod
+    def onboard_model(cls, model_id: Text, image_tag: Optional[Text], api_key: Optional[Text] = None) -> Dict:
+        """Onboard a model after its image has been pushed to ECR.
+
+        Args:
+            model_id (Text): Model ID obtained from CREATE_ASSET_REPO.
+            image_tag (Text): Image tag to be onboarded.
+            api_key (Text, optional): Team API key. Defaults to None.
+        Returns:
+            Dict: Backend response
+        """ 
+        onboard_url = f"{config.BACKEND_URL}/sdk/inventory/models/{model_id}/onboarding"
+        if api_key:
+            headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
+        else:
+            headers = {"x-api-key": f"{cls.api_key}", "Content-Type": "application/json"}
+        payload = {
+            "image": image_tag
+        }
+        payload = json.dumps(payload)
+        response = _request_with_retry("post", onboard_url, headers=headers, data=payload)
+        return response
+    
+    @classmethod
+    def is_onboarded(cls):
+        pass
 
     @classmethod
-    def list_image_repo_tags(cls, team_id: Text, repo_name: Text, team_api_key: Text=config.TEAM_API_KEY) -> Dict:
-        # Use Ibrahim's endpoint here and return output.
-        # TODO
-        create_url = f"{config.BACKEND_URL}/TODO" # TODO Add Ibrahim's repo tag endpoint here
-        if cls.aixplain_key != "":
-            headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
+    def list_image_repo_tags(cls, model_id: Text, api_key: Optional[Text] = None) -> Dict:
+        """List the contents of the image repository corresponding to API_KEY.
+
+        Args:
+            model_id (Text): Model ID obtained from CREATE_ASSET_REPO.
+            api_key (Text, optional): Team API key. Defaults to None.
+
+        Returns:
+            Dict: Backend response
+        """
+        list_url = f"{config.BACKEND_URL}/sdk/models/{model_id}/images"
+        if api_key:
+            headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
         else:
-            headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
-        response = _request_with_retry("post", create_url, headers=headers)
+            headers = {"x-api-key": f"{cls.api_key}", "Content-Type": "application/json"}
+        response = _request_with_retry("post", list_url, headers=headers)
         return response
