@@ -60,7 +60,8 @@ class MetricFactory:
             supplier = response["supplier"], 
             is_reference_required = response["referenceRequired"], 
             is_source_required = response['sourceRequired'],
-            cost = response["normalizedPrice"]
+            cost = response["normalizedPrice"],
+            function=response["function"]
         )
 
     @classmethod

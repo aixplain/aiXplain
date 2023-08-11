@@ -21,9 +21,10 @@ Description:
     Metric Class
 """
 
-from typing import Optional, Text, List
+from typing import Optional, Text, List, Union
 from aixplain.modules.asset import Asset
 from aixplain.utils.file_utils import _request_with_retry
+from aixplain.factories.model_factory import ModelFactory
 
 
 class Metric(Asset):
@@ -47,6 +48,7 @@ class Metric(Asset):
         is_reference_required: bool,
         is_source_required: bool,
         cost: float,
+        function: Text,
         normalization_options: list = [],
         **additional_info,
     ) -> None:
@@ -68,6 +70,7 @@ class Metric(Asset):
         self.is_source_required = is_source_required
         self.is_reference_required = is_reference_required
         self.normalization_options = normalization_options
+        self.function = function
         self.additional_info = additional_info
 
     def __repr__(self) -> str:
@@ -80,3 +83,34 @@ class Metric(Asset):
             normalization_options (List[str]): List of normalization options to be added
         """
         self.normalization_options.append(normalization_options)
+
+    def run(self, hypothesis: Optional[Union[str, List[str]]]=None, source: Optional[Union[str, List[str]]]=None, reference: Optional[Union[str, List[str]]]=None):
+        """Run the metric to calculate the scores.
+
+        Args:
+            hypothesis (Optional[Union[str, List[str]]], optional): Can give a single hypothesis or a list of hypothesis for metric calculation. Defaults to None.
+            source (Optional[Union[str, List[str]]], optional): Can give a single source or a list of sources for metric calculation. Defaults to None.
+            reference (Optional[Union[str, List[str]]], optional): Can give a single reference or a list of references for metric calculation. Defaults to None.
+        """
+        model = ModelFactory.get(self.id)
+        payload = {
+            "function": self.function,
+            "supplier": self.supplier,
+            "version": self.name,
+        }
+        if hypothesis is not None:
+            if type(hypothesis) is str:
+                hypothesis = [hypothesis]
+            payload["hypotheses"] = hypothesis
+        if self.is_source_required and source is not None:
+            if type(source) is str:
+                source = [source]
+            payload["sources"] = source
+        if self.is_reference_required and reference is not None:
+            if type(reference) is str:
+                reference = [[reference]]
+            elif type(reference[0]) is str:
+                reference = [[ref] for ref in reference]
+            payload["references"] = reference
+        return model.run(payload)
+

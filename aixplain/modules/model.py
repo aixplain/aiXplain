@@ -234,7 +234,7 @@ class Model(Asset):
 
         call_url = f"{self.url}/{self.id}"
         r = _request_with_retry("post", call_url, headers=headers, data=payload)
-        logging.info(f"Model Run Async: Start service for {name} - {self.url} - {payload}")
+        logging.info(f"Model Run Async: Start service for {name} - {self.url} - {payload} - {headers}")
 
         resp = None
         try:
