@@ -94,6 +94,32 @@ poll_url = start_response["url"]
 poll_response = pipeline.poll(poll_url)
 ```
 
+For multi-input pipelines, you can specify as input a dictionary where the keys are the label names of the input node and values are their corresponding content:
+
+```python
+# Run Synchronously
+result = pipeline.run({ 
+    "Input 1": "This is a sample text to input node 1.",
+    "Input 2": "This is a sample text to input node 2."
+})
+```
+
+### Process Data Assets
+
+You can also process an aiXplain data asset, being a Corpus or a Dataset, using a pipeline. For this end, just specify the ID of the data asset and the ID of its corresponding data to be processed. For example:
+
+```python
+# Run Synchronously
+result = pipeline.run(data="64acbad666608858f693a3a0", data_asset="64acbad666608858f693a39f")
+
+# Run Asynchronously
+## Start async job
+start_response = pipeline.run_async(data="64acbad666608858f693a3a0", data_asset="64acbad666608858f693a39f")
+poll_url = start_response["url"]
+## Poll to see current job status
+poll_response = pipeline.poll(poll_url)
+```
+
 ## Corpus
 
 aiXplain has an extensive collection of general-purpose corpora to be explored, processed and used to create task-specific datasets.
