@@ -46,7 +46,8 @@ def load_functions():
             f'Functions could not be loaded, probably due to the set API key (e.g. "{api_key}") is not valid. For help, please refer to the documentation (https://github.com/aixplain/aixplain#api-key-setup)'
         )
     resp = r.json()
-    return Enum("Function", {w["id"].upper().replace("-", "_"): w["id"] for w in resp["items"]}, type=str)
+    functions = Enum("Function", {w["id"].upper().replace("-", "_"): w["id"] for w in resp["items"]}, type=str)
+    functions_input = Enum("Function", {w["id"]: {"input" : w["params"][0]["dataType"]} for w in resp["items"]}, type=dict)
+    return functions, functions_input
 
-
-Function = load_functions()
+Function, FunctionInput  = load_functions()

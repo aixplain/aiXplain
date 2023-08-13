@@ -36,7 +36,7 @@ from aixplain.modules.metadata import MetaData
 from aixplain.enums.data_subtype import DataSubtype
 from aixplain.enums.data_type import DataType
 from aixplain.enums.error_handler import ErrorHandler
-from aixplain.enums.function import Function
+from aixplain.enums.function import Function, FunctionInput
 from aixplain.enums.language import Language
 from aixplain.enums.license import License
 from aixplain.enums.privacy import Privacy
@@ -360,6 +360,11 @@ class DatasetFactory(AssetFactory):
         Returns:
             Dict: dataset onboard status
         """
+        input_dtype = input_schema[0].dtype if isinstance(input_schema[0],MetaData) else input_schema[0]['dtype']
+        # output_dtype = output_schema[0].dtype if isinstance(output_schema[0],MetaData) else output_schema[0]['dtype']
+        assert (
+            FunctionInput.get(function) is not None and FunctionInput[function]['input'] == input_dtype
+        ), f"Input data type is not compatible with the Function {function}"
         assert (
             content_path is not None or s3_link is not None
         ), "Data Asset Onboarding Error: No path to content Data was provided. Please update `context_path` or `s3_link`."
