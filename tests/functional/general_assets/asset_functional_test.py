@@ -1,18 +1,20 @@
 import json
 from dotenv import load_dotenv
+
 load_dotenv()
 from aixplain.factories import ModelFactory, DatasetFactory, MetricFactory, PipelineFactory
 from pathlib import Path
 
 import pytest
 
-INPUTS_PATH = Path(r"tests\functional\general_assets\data\asset_run_test_data.json")
+INPUTS_PATH = Path(r"tests/functional/general_assets/data/asset_run_test_data.json")
+
 
 @pytest.fixture
 def inputs():
     with open(INPUTS_PATH) as f:
         return json.load(f)
-    
+
 
 def __get_asset_factory(asset_name):
     if asset_name == "model":
@@ -26,18 +28,14 @@ def __get_asset_factory(asset_name):
     return AssetFactory
 
 
-@pytest.mark.parametrize(
-    "asset_name", ["model", "dataset", "metric"]
-)
+@pytest.mark.parametrize("asset_name", ["model", "dataset", "metric"])
 def test_list(asset_name):
     AssetFactory = __get_asset_factory(asset_name)
     asset_list = AssetFactory.list()
     assert asset_list["page_total"] == len(asset_list["results"])
 
 
-@pytest.mark.parametrize(
-    "asset_name", ["model", "pipeline", "metric"]
-)
+@pytest.mark.parametrize("asset_name", ["model", "pipeline", "metric"])
 def test_run(inputs, asset_name):
     asset_details = inputs[asset_name]
     AssetFactory = __get_asset_factory(asset_name)

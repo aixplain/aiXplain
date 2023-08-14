@@ -1,3 +1,6 @@
+import os
+
+os.environ["TEAM_API_KEY"] = "a2f5d63bd267631d08f240a93cc45c2c207601088dfd1afd92a77a804ab4239f"
 import uuid
 import time
 import pandas as pd
@@ -13,12 +16,14 @@ from pathlib import Path
 import pytest
 
 import logging
+
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
 
-TIMEOUT = 60*30
-RUN_FILE = str(Path(r"tests\functional\benchmark\data\benchmark_test_run_data.json"))
-MODULE_FILE = str(Path(r"tests\functional\benchmark\data\benchmark_module_test_data.json"))
+TIMEOUT = 60 * 30
+RUN_FILE = str(Path(r"tests/functional/benchmark/data/benchmark_test_run_data.json"))
+MODULE_FILE = str(Path(r"tests/functional/benchmark/data/benchmark_module_test_data.json"))
+
 
 def read_data(data_path):
     return json.load(open(data_path, "r"))
@@ -28,9 +33,11 @@ def read_data(data_path):
 def run_input_map(request):
     return request.param
 
+
 @pytest.fixture(scope="module", params=read_data(MODULE_FILE))
 def module_input_map(request):
     return request.param
+
 
 def test_run(run_input_map):
     model_list = [ModelFactory.get(model_id) for model_id in run_input_map["model_ids"]]
@@ -41,11 +48,12 @@ def test_run(run_input_map):
     benchmark_job = benchmark.start()
     assert type(benchmark_job) is BenchmarkJob
 
+
 def test_module(module_input_map):
-    benchmark = BenchmarkFactory.get(module_input_map['benchmark_id'])
-    assert benchmark.id == module_input_map['benchmark_id']
+    benchmark = BenchmarkFactory.get(module_input_map["benchmark_id"])
+    assert benchmark.id == module_input_map["benchmark_id"]
     benchmark_job = benchmark.job_list[0]
-    assert benchmark_job.benchmark_id == module_input_map['benchmark_id']
+    assert benchmark_job.benchmark_id == module_input_map["benchmark_id"]
     job_status = benchmark_job.check_status()
     assert job_status in ["in_progress", "completed"]
     df = benchmark_job.download_results_as_csv(return_dataframe=True)
