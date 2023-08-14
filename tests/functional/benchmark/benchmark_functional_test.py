@@ -17,8 +17,8 @@ logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
 
 TIMEOUT = 60*30
-RUN_FILE = str(Path(r"tests\functional\data\benchmark_test_run_data.json"))
-MODULE_FILE = str(Path(r"tests\functional\data\benchmark_module_test_data.json"))
+RUN_FILE = str(Path(r"tests\functional\benchmark\data\benchmark_test_run_data.json"))
+MODULE_FILE = str(Path(r"tests\functional\benchmark\data\benchmark_module_test_data.json"))
 
 def read_data(data_path):
     return json.load(open(data_path, "r"))

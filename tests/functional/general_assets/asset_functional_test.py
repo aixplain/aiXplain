@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-INPUTS_PATH = Path(r"tests\functional\data\asset_run_test_data.json")
+INPUTS_PATH = Path(r"tests\functional\general_assets\data\asset_run_test_data.json")
 
 @pytest.fixture
 def inputs():
