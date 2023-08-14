@@ -98,4 +98,9 @@ setup(
         "Documentation": "https://github.com/aixplain/pipelines/tree/main/docs",
         "Source": "https://github.com/aixplain/aiXplain",
     },
+    entry_points = {
+        'console_scripts': [
+            'hosted-machines = aixplain.factories.model_factory:list_host_machines'
+        ]
+    },
 )

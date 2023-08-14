@@ -29,6 +29,7 @@ from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
 from urllib.parse import urljoin
 from warnings import warn
+import click
 
 class ModelFactory:
     """A static class for creating and exploring Model Objects.
@@ -172,6 +173,8 @@ class ModelFactory:
             logging.error(error_message)
             return []
     
+    @click.command()
+    @click.option("--team-api-key", default=None, help="Team API key")
     @classmethod
     def list_host_machines(cls, api_key: Optional[Text] = None) -> List[Dict]:
         """Lists available hosting machines for model.
