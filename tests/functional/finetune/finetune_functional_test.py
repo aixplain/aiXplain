@@ -15,7 +15,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
-
 import uuid
 import time
 import json
@@ -30,8 +29,8 @@ from aixplain.modules import FinetuneCost
 import pytest
 
 TIMEOUT = 20000.0
-RUN_FILE = "tests/functional/data/finetune_test_run_data.json"
-LIST_FILE = "tests/functional/data/finetune_test_list_data.json"
+RUN_FILE = "tests/functional/finetune/data/finetune_test_run_data.json"
+LIST_FILE = "tests/functional/finetune/data/finetune_test_list_data.json"
 
 
 def read_data(data_path):
