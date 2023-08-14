@@ -46,6 +46,8 @@ The arguments --cacert, --cert, and --key are used to provide the paths to the n
 
 The --file-path argument is used to specify the path to the input file.
 
+You can configure the model's latency by setting the `--latency` argument. Values between 0.5 and 5.0 seconds are supported.
+
 ## Audio requirements
 
 Our service is configured to process audio streamed as a single channel with a sampling rate of 16000Hz.

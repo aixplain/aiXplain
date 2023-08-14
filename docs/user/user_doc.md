@@ -98,6 +98,7 @@ poll_response = pipeline.poll(poll_url)
 ```
 
 ## Corpus
+
 aiXplain has an extensive collection of general-purpose corpora to be explored, processed and used to create task-specific datasets.
 
 The aiXplain SDK allows searching for existing corpora that match a specific criteria. `CorpusFactory` can search for corpora that contain data from a particular language pair or data type.
@@ -111,7 +112,9 @@ Note: This does not download the resulted corpora to your local machine.
 
 ### Corpus Onboarding
 
-Using the aiXplain SDK, you can also onboard your corpus into the aiXplain platform. A step-by-step example on how to do it can be accessed [here](/docs/samples/corpus_onboarding/corpus_onboarding.ipynb).
+Using the aiXplain SDK, you can also onboard your corpus into the aiXplain platform. A step-by-step example on how to do it can be accessed here:
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1-FYTtyVaDxyVv7kGCaMEd5E3uiHYHRTt?usp=sharing) 
 
 ## Datasets
 Different from corpus, a dataset is a representative sample of a specific phenomenon to a specific AI task. aiXplain also counts with an extensive collection of datasets for training, infer and benchmark various tasks like Translation, Speech Recognition, Diacritization, Sentiment Analysis, and much more.
@@ -130,16 +133,29 @@ Note: This does not download datasets to your local machine.
 
 ### Dataset Onboarding
 
-Using the aiXplain SDK, you can also onboard your dataset into the aiXplain platform. A step-by-step example on how to do it can be accessed [here](/docs/samples/dataset_onboarding/dataset_onboarding.ipynb).
+Using the aiXplain SDK, you can also onboard your dataset into the aiXplain platform. A step-by-step example on how to do it can be accessed here:
+- Machine translation dataset:
+  - [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1lkw_OW53PGaWE7Khj9JAM8V5y4LFZ8XB?usp=sharing) 
+
+
+- Speech recognition dataset:
+  - [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1f1NXHGxhIy0AAXnUZJB8QY3JLl-uC37e?usp=sharing) 
+
+- Machine translation dataset directly from s3:
+  - [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1Asnjeq5JQ9pV6UUQ2Z20XtrjnoaFD0nf?usp=sharing) 
 
 ## FineTune
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1rVxxZpHzyP4FWn_Rd_j_g8tHU76S3rVT?usp=sharing)
 
 [FineTune](https://aixplain.com/platform/finetune) allows you to customize models by tuning them using your data and enhancing their performance. Set up and start fine-tuning with a few lines of code. Once fine-tuning is complete, the model will be deployed into your assets, ready for you to use.
 
+You can also run this FineTune guide in Google Colab:
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1rVxxZpHzyP4FWn_Rd_j_g8tHU76S3rVT?usp=sharing)
+
 ### Creating a FineTune
 
-You can use the `FinetuneFactory` to create a FineTune object using the SDK:
+
+You can use the `FinetuneFactory` to create a FineTune object using the SDK. For now, we support the following tasks: `translation` and `speech-recognition`:
 
 ```python
 from aixplain.factories import FinetuneFactory, DatasetFactory, ModelFactory

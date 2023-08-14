@@ -7,6 +7,7 @@ aixplain is a software development kit (SDK) for the [aiXplain](https://aixplain
 - [Discover](https://aixplain.com/platform/discovery/) aiXplain’s ever-expanding catalog of 35,000+ ready-to-use AI models and utilize them.
 - [Benchmark](https://aixplain.com/platform/benchmark/) AI systems by choosing models, datasets and metrics.
 - [Design](https://aixplain.com/platform/studio/) their own custom pipelines and run them.
+- [FineTune](https://aixplain.com/platform/finetune/) pre-trained models by tuning them using your data, enhancing their performance.
 
 🔎 **Find [models](https://platform.aixplain.com/discovery/models), [datasets](https://platform.aixplain.com/discovery/datasets), [metrics](https://platform.aixplain.com/discovery/metrics) on the platform.**
 
