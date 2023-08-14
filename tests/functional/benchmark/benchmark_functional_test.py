@@ -1,8 +1,4 @@
-import os
-
-os.environ["TEAM_API_KEY"] = "a2f5d63bd267631d08f240a93cc45c2c207601088dfd1afd92a77a804ab4239f"
 import uuid
-import time
 import pandas as pd
 import json
 from dotenv import load_dotenv
