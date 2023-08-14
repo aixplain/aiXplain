@@ -1,14 +1,16 @@
 # User Documentation
 aiXplain has a vast repository of multiple assets such as models, corpus, datasets, metrics, pipelines, and more. The factories in aiXplain SDK provide a powerful set of tools for creating, searching, and managing these assets.
 
-The asset types currently supported by the SDK are:
+The assets and services currently supported by the SDK are:
+#### Assets
 - [Model](#models)
 - [Pipeline](#pipelines)
 - [Corpus](#corpus)
 - [Dataset](#datasets)
-- [FineTune](#finetune)
 - [Metric](#metrics)
-- [Benchmark](#benchmarks)
+#### Services
+- [Benchmark](#benchmark)
+- [FineTune](#finetune)
 
 ## Models
 aiXplain has an ever-expanding catalog of 35,000+ ready-to-use AI models to be used for various tasks like Translation, Speech Recognition, Diacritization, Sentiment Analysis, and much more.
@@ -207,10 +209,21 @@ The aixplain SDK allows searching for existing metrics. `MetricFactory` can sear
 
 ```python
 from aixplain.factories import MetricFactory
-metric_liist = MetricFactory.list()['results']
+metric_list = MetricFactory.list()['results']
 ```
 
-## Benchmarks
+### Run
+The aixplain SDK allows you to run metrics. Some metrics might also require source or reference as inputs.
+```python
+output = metric.run("hypothesis": "<sample hypothesis>", "source": "<sample optional source>", "reference": "<sample optional reference>")
+```
+You can even pass a list of inputs in a single call.
+```python
+output = metric.run("hypothesis": ["<sample hypothesis 1>", "<sample hypothesis 2>"], "source": ["<sample optional source 1>", "<sample optional source 2>"], "reference": ["<sample optional reference> 1", "<sample optional reference> 2"])
+```
+
+
+## Benchmark
 
 [Benchmark](https://aixplain.com/platform/benchmark) is a powerful tool for benchmarking machine learning models and evaluating their performance on specific tasks. You can obtain easy-to-interpret granular insights on the performance of models for quality, latency, footprint, cost, and bias with our interactive Benchmark reports.
 
@@ -256,14 +269,14 @@ results_path = benchmark_job.download_results_as_csv()
 ```
 
 ### Adding Normalization To Your Benchmark
-We have methods that specialize in handling text data from various languages, providing both general and tailored preprocessing techniques for each language's unique characteristics. These are called normalization options. A few examples are 'removing numbers' and 'lowercase text'.
+We have methods that specialize in handling text data from various languages, providing both general and tailored preprocessing techniques for each language's unique characteristics. These are called normalization options. The normalization process transforms raw text data into a standardized format, enabling a fair and exact evaluation of performance across diverse models. A few examples are 'removing numbers' and 'lowercase text'.
 To get the list of supported normalization options, we need the metric and the model that we are going to use in benchmarking.
 ```python
 supported_options = BenchmarkFactory.list_normalization_options(metric, model)
 ```
 Note: These options can be different for each metric in the same benchmark
 
-You can choose one or more of the supported options and add it to your metric
+You have the flexibility to choose multiple normalization options for each performance metric. You can also opt for the same metric with varying sets of normalization options. This adaptability provides a thorough and comprehensive way to compare model performance.
 ```python
 selected_options = [<option 1>....<option N>]
 metric.add_normalization_options(selected_options)
