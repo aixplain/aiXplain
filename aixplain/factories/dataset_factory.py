@@ -177,15 +177,6 @@ class DatasetFactory(AssetFactory):
         return cls.__from_response(resp)
 
     @classmethod
-    def create_asset_from_id(cls, dataset_id: Text) -> Dataset:
-        warn(
-            'This method will be deprecated in the next versions of the SDK. Use "get" instead.',
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return cls.get(dataset_id)
-
-    @classmethod
     def list(
         cls,
         query: Optional[Text] = None,
@@ -267,50 +258,6 @@ class DatasetFactory(AssetFactory):
             for dataset in results:
                 datasets.append(cls.__from_response(dataset))
         return {"results": datasets, "page_total": page_total, "page_number": page_number, "total": total}
-
-    @classmethod
-    def get_assets_from_page(
-        cls, page_number: int, task: Text, input_language: Optional[Text] = None, output_language: Optional[Text] = None
-    ) -> List[Dataset]:
-        """Get the list of datasets from a given page. Additional task and language filters can be also be provided
-
-        Args:
-            page_number (int): Page from which datasets are to be listed
-            task (Text): Task of listed datasets
-            input_language (Text, optional): Input language of listed datasets. Defaults to None.
-            output_language (Text, optional): Output language of listed datasets. Defaults to None.
-
-        Returns:
-            List[Dataset]: List of datasets based on given filters
-        """
-        warn(
-            'This method will be deprecated in the next versions of the SDK. Use "list" instead.',
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return cls.list(function=task, page_number=page_number)
-
-    @classmethod
-    def get_first_k_assets(
-        cls, k: int, task: Text, input_language: Optional[Text] = None, output_language: Optional[Text] = None
-    ) -> List[Dataset]:
-        """Gets the first k given datasets based on the provided task and language filters
-
-        Args:
-            k (int): Number of datasets to get
-            task (Text): Task of listed datasets
-            input_language (Text, optional): Input language of listed datasets. Defaults to None.
-            output_language (Text, optional): Output language of listed datasets. Defaults to None.
-
-        Returns:
-            List[Dataset]: List of datasets based on given filters
-        """
-        warn(
-            'This method will be deprecated in the next versions of the SDK. Use "list" instead.',
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return cls.list(function=task, page_size=k)
 
     @classmethod
     def create(

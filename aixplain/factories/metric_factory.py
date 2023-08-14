@@ -23,8 +23,8 @@ Description:
 
 import logging
 import os
-from typing import List
-from aixplain.modules.metric import Metric
+from typing import List, Optional
+from aixplain.modules import Metric
 from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
 from typing import Dict, Text
@@ -54,7 +54,15 @@ class MetricFactory:
         Returns:
             Metric: Coverted 'Metric' object
         """
-        return Metric(response["id"], response["name"], response["description"])
+        return Metric(
+            id = response["id"], 
+            name = response["name"], 
+            supplier = response["supplier"], 
+            is_reference_required = response["referenceRequired"], 
+            is_source_required = response['sourceRequired'],
+            cost = response["normalizedPrice"],
+            function=response["function"]
+        )
 
     @classmethod
     def get(cls, metric_id: Text) -> Metric:
@@ -66,62 +74,75 @@ class MetricFactory:
         Returns:
             Metric: Created 'Metric' object
         """
-        # resp, status_code = None, 200
-        # try:
-        #     url = urljoin(cls.backend_url, f"sdk/scores/{metric_id}")
-        #     if cls.aixplain_key != "":
-        #         headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
-        #     else:
-        #         headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
-        #     logging.info(f"Start service for GET Metric  - {url} - {headers}")
-        #     r = _request_with_retry("get", url, headers=headers)
-        #     resp = r.json()
-        #     metric = cls._create_metric_from_response(resp)
-        # except Exception as e:
-        #     if resp is not None and "statusCode" in resp:
-        #         status_code = resp["statusCode"]
-        #         message = resp["message"]
-        #         message = f"Metric Creation: Status {status_code} - {message}"
-        #     else:
-        #         message = "Metric Creation: Unspecified Error"
-        #     logging.error(message)
-        #     raise Exception(f"Status {status_code}: {message}")
-        # return metric
-        raise NotImplementedError("Metric functions are coming soon on the SDK.")
+
+        resp, status_code = None, 200
+        try:
+            url = urljoin(cls.backend_url, f"sdk/metrics/{metric_id}")
+            if cls.aixplain_key != "":
+                headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
+            else:
+                headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
+            logging.info(f"Start service for GET Metric  - {url} - {headers}")
+            r = _request_with_retry("get", url, headers=headers)
+            resp = r.json()
+            metric = cls._create_metric_from_response(resp)
+        except Exception as e:
+            if resp is not None and "statusCode" in resp:
+                status_code = resp["statusCode"]
+                message = resp["message"]
+                message = f"Metric Creation: Status {status_code} - {message}"
+            else:
+                message = "Metric Creation: Unspecified Error"
+            logging.error(f"Metric Creation Failed: {e}")
+            raise Exception(f"Status {status_code}: {message}")
+        return metric
 
     @classmethod
-    def create_asset_from_id(cls, metric_id: Text) -> Metric:
-        warn(
-            'This method will be deprecated in the next versions of the SDK. Use "get" instead.',
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return cls.get(metric_id)
-
-    @classmethod
-    def list_assets(cls, task: Text) -> List[Metric]:
-        """Get list of supported metrics for a given task
+    def list(cls, model_id: Text=None, is_source_required: Optional[bool]=None, is_reference_required: Optional[bool]=None, page_number: int = 0, page_size: int = 20,) -> List[Metric]:
+        """Get list of supported metrics for the given filters
 
         Args:
-            task (Text): Task to get metric for
+            model_id (Text, optional): ID of model for which metric is to be used. Defaults to None.
+            is_source_required (bool, optional): Should the metric use source. Defaults to None.
+            is_reference_required (bool, optional): Should the metric use reference. Defaults to None.
+            page_number (int, optional): page number. Defaults to 0.
+            page_size (int, optional): page size. Defaults to 20.
 
         Returns:
             List[Metric]: List of supported metrics
         """
-        # try:
-        #     url = urljoin(cls.backend_url, f"sdk/scores?function={task}")
-        #     if cls.aixplain_key != "":
-        #         headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
-        #     else:
-        #         headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
-        #     r = _request_with_retry("get", url, headers=headers)
-        #     resp = r.json()
-        #     logging.info(f"Listing Metrics: Status of getting metrics for {task} : {resp}")
-        #     all_metrics = resp["results"]
-        #     metric_list = [cls._create_metric_from_response(metric_info_json) for metric_info_json in all_metrics]
-        #     return metric_list
-        # except Exception as e:
-        #     error_message = f"Listing Metrics: Error in getting metrics for {task} : {e}"
-        #     logging.error(error_message)
-        #     return []
-        raise NotImplementedError("Metric functions are coming soon on the SDK.")
+        try:
+            url = urljoin(cls.backend_url, f"sdk/metrics")
+            filter_params = {}
+            if model_id is not None:
+                filter_params["modelId"] = model_id
+            if is_source_required is not None:
+                filter_params["sourceRequired"] = 1 if is_source_required else 0
+            if is_reference_required is not None:
+                filter_params["referenceRequired"] = 1 if is_reference_required else 0
+            
+            if cls.aixplain_key != "":
+                headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
+            else:
+                headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
+            r = _request_with_retry("get", url, headers=headers, params=filter_params)
+            resp = r.json()
+            logging.info(f"Listing Metrics: Status of getting metrics: {resp}")
+            all_metrics = resp['results']
+            starting_model_index_overall = page_number * page_size
+            ending_model_index_overall = starting_model_index_overall + page_size - 1
+            filtered_metrics = all_metrics[starting_model_index_overall: ending_model_index_overall+1]
+            total = len(filtered_metrics)
+            metric_list = [cls._create_metric_from_response(metric_info_json) for metric_info_json in filtered_metrics]
+            return {
+                "results": metric_list,
+                "page_total": min(page_size, len(metric_list)),
+                "page_number": page_number,
+                "total": total
+            }
+        except Exception as e:
+            error_message = f"Listing Metrics: Error in getting metrics: {e}"
+            logging.error(error_message, exc_info=True)
+            return []
+    
+    

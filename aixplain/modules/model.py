@@ -93,6 +93,9 @@ class Model(Asset):
         """
         clean_additional_info = {k: v for k, v in self.additional_info.items() if v is not None}
         return {"id": self.id, "name": self.name, "supplier": self.supplier, "additional_info": clean_additional_info}
+    
+    def __repr__(self):
+        return f"<Model: {self.name} by {self.supplier}>"
 
     def __polling(self, poll_url: Text, name: Text = "model_process", wait_time: float = 0.5, timeout: float = 300) -> Dict:
         """Keeps polling the platform to check whether an asynchronous call is done.
@@ -231,7 +234,7 @@ class Model(Asset):
 
         call_url = f"{self.url}/{self.id}"
         r = _request_with_retry("post", call_url, headers=headers, data=payload)
-        logging.info(f"Model Run Async: Start service for {name} - {self.url} - {payload}")
+        logging.info(f"Model Run Async: Start service for {name} - {self.url} - {payload} - {headers}")
 
         resp = None
         try:

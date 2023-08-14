@@ -20,10 +20,11 @@ Date: September 1st 2022
 Description:
     Model Factory Class
 """
-from typing import Dict, List, Optional, Text
+from typing import Dict, List, Optional, Text, Union
 import json
 import logging
 from aixplain.modules.model import Model
+from aixplain.enums import Function, Language, License, Privacy
 from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
 from urllib.parse import urljoin
@@ -110,83 +111,99 @@ class ModelFactory:
         return cls.get(model_id)
 
     @classmethod
-    def get_assets_from_page(
+    def _get_assets_from_page(
         cls,
         page_number: int,
-        task: Text,
-        input_language: Optional[Text] = None,
-        output_language: Optional[Text] = None,
-        is_finetunable: Optional[bool] = None,
+        function: Function,
+        source_languages: Union[Language, List[Language]],
+        target_languages: Union[Language, List[Language]],
+        is_finetunable: bool = None,
     ) -> List[Model]:
-        """Get the list of models from a given page. Additional task and language filters can be also be provided
-
-        Args:
-            page_number (int): Page from which models are to be listed
-            task (Text): Task of listed model
-            input_language (Text, optional): Input language of listed model. Defaults to None.
-            output_language (Text, optional): Output langugage of listed model. Defaults to None.
-
-        Returns:
-            List[Model]: List of models based on given filters
-        """
         try:
-            params = f"pageNumber={page_number}&function={task}"
+            url = urljoin(cls.backend_url, f"sdk/models")
+            filter_params = {
+                "pageNumber" : page_number
+            }
             if is_finetunable is not None:
-                params = f"{params}&isFineTunable={str(is_finetunable).lower()}"
-            url = urljoin(cls.backend_url, f"sdk/models/?{params}")
-            filter_params = []
-            if input_language is not None:
-                if task == "translation":
-                    code = "sourcelanguage"
+                filter_params["isFineTunable"] = str(is_finetunable).lower()
+            if function is not None:
+                filter_params[""] = function.value
+            lang_filter_params = []
+            if source_languages is not None:
+                if isinstance(source_languages, Language):
+                    source_languages = [source_languages]
+                if function == Function.TRANSLATION:
+                    lang_filter_params.append({"code": "sourcelanguage", "value": source_languages[0].value["language"]})
                 else:
-                    code = "language"
-                filter_params.append({"code": code, "value": input_language})
-            if output_language is not None:
-                if task == "translation":
+                    lang_filter_params.append({"code": "language", "value": source_languages[0].value["language"]})
+                    if source_languages[0].value["dialect"] != "":
+                        lang_filter_params.append({"code": "dialect", "value": source_languages[0].value["dialect"]})    
+            if target_languages is not None:
+                if isinstance(target_languages, Language):
+                    target_languages = [target_languages]
+                if function == Function.TRANSLATION:
                     code = "targetlanguage"
-                    filter_params.append({"code": code, "value": output_language})
+                    lang_filter_params.append({"code": code, "value": target_languages[0].value["language"]})
+            if len(lang_filter_params) != 0:
+                filter_params["ioFilter"] = json.dumps(lang_filter_params)
             if cls.aixplain_key != "":
                 headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
             else:
                 headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
-            r = _request_with_retry("get", url, headers=headers, params={"ioFilter": json.dumps(filter_params)})
+            
+            r = _request_with_retry("get", url, headers=headers, params=filter_params)
             resp = r.json()
-            logging.info(f"Listing Models: Status of getting Models on Page {page_number} for {task}: {resp}")
+            logging.info(f"Listing Models: Status of getting Models on Page {page_number}: {r.status_code}")
             all_models = resp["items"]
             model_list = [cls._create_model_from_response(model_info_json) for model_info_json in all_models]
-            return model_list
+            return model_list, resp["total"]
         except Exception as e:
-            error_message = f"Listing Models: Error in getting Models on Page {page_number} for {task}: {e}"
-            logging.error(error_message)
+            error_message = f"Listing Models: Error in getting Models on Page {page_number}: {e}"
+            logging.error(error_message, exc_info=True)
             return []
 
     @classmethod
-    def get_first_k_assets(
+    def list(
         cls,
-        k: int,
-        task: Text,
-        input_language: Optional[Text] = None,
-        output_language: Optional[Text] = None,
+        function: Optional[Function] = None,
+        source_languages: Optional[Union[Language, List[Language]]] = None,
+        target_languages: Optional[Union[Language, List[Language]]] = None,
         is_finetunable: Optional[bool] = None,
+        page_number: int = 0,
+        page_size: int = 20,
     ) -> List[Model]:
         """Gets the first k given models based on the provided task and language filters
 
         Args:
-            k (int): Number of models to get
-            task (Text): Task of listed model
-            input_language (Text, optional): Input language of listed model. Defaults to None.
-            output_language (Text, optional): Output language of listed model. Defaults to None.
+            function (Optional[Function], optional): function filter. Defaults to None.
+            source_languages (Optional[Union[Language, List[Language]]], optional): language filter of input data. Defaults to None.
+            target_languages (Optional[Union[Language, List[Language]]], optional): language filter of output data. Defaults to None.
+            is_finetunable (Optional[bool], optional): can be finetuned or not. Defaults to None.
+            page_number (int, optional): page number. Defaults to 0.
+            page_size (int, optional): page size. Defaults to 20.
 
         Returns:
             List[Model]: List of models based on given filters
         """
         try:
             model_list = []
-            assert k > 0
-            for page_number in range(k // 10 + 1):
-                model_list += cls.get_assets_from_page(page_number, task, input_language, output_language, is_finetunable)
-            return model_list[0:k]
+            starting_model_index_overall = page_number * page_size
+            ending_model_index_overall = starting_model_index_overall + page_size - 1
+            starting_model_page_number = starting_model_index_overall // 10
+            ending_model_page_number = ending_model_index_overall // 10
+            starting_model_index_filtered = starting_model_index_overall - (starting_model_page_number * 10)
+            ending_model_index_filtered = starting_model_index_filtered + page_size -1
+            for current_page_number in range(starting_model_page_number, ending_model_page_number+1):
+                models_on_current_page, total = cls._get_assets_from_page(current_page_number, function, source_languages, target_languages, is_finetunable)
+                model_list += models_on_current_page
+            filtered_model_list = model_list[starting_model_index_filtered : ending_model_index_filtered + 1]
+            return {
+                "results": filtered_model_list,
+                "page_total": min(page_size, len(filtered_model_list)),
+                "page_number": page_number,
+                "total": total
+            }
         except Exception as e:
-            error_message = f"Listing Models: Error in getting {k} Models for {task} : {e}"
-            logging.error(error_message)
-            return []
+            error_message = f"Listing Models: Error in Listing Models : {e}"
+            logging.error(error_message, exc_info=True)
+            raise Exception(error_message)
