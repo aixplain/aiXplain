@@ -191,7 +191,7 @@ class ModelFactory:
             headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
         else:
             headers = {"x-api-key": f"{cls.api_key}", "Content-Type": "application/json"}
-        response = _request_with_retry("post", machines_url, headers=headers)
+        response = _request_with_retry("get", machines_url, headers=headers)
         return response
     
     @classmethod
