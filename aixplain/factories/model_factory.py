@@ -174,8 +174,8 @@ class ModelFactory:
             return []
     
     @classmethod
-    @click.command()
-    @click.option("--team-api-key", default=None, help="Team API key")
+    # @click.command()
+    # @click.option("--team-api-key", default=None, help="Team API key")
     def list_host_machines(cls, api_key: Optional[Text] = None) -> List[Dict]:
         """Lists available hosting machines for model.
 
@@ -249,7 +249,7 @@ class ModelFactory:
         return response
     
     @classmethod
-    def onboard_model(cls, model_id: Text, image_tag: Optional[Text], api_key: Optional[Text] = None) -> Dict:
+    def onboard_model(cls, model_id: Text, image_tag: Optional[Text] = None, api_key: Optional[Text] = None) -> Dict:
         """Onboard a model after its image has been pushed to ECR.
 
         Args:
@@ -272,8 +272,28 @@ class ModelFactory:
         return response
     
     @classmethod
-    def is_onboarded(cls):
-        pass
+    def is_onboarded(cls, model_id: Text, host: Text, version: Text, api_key: Optional[Text] = None):
+        """Check whether a model has been onboarded.
+
+        Args:
+            model_id (Text): Model ID obtained from CREATE_ASSET_REPO.
+            api_key (Text, optional): Team API key. Defaults to None.
+        Returns:
+            Dict: Backend response
+        """ 
+        is_onboarded_url = f"{config.BACKEND_URL}/webhook/models/onboarding"
+        if api_key:
+            headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
+        else:
+            headers = {"x-api-key": f"{cls.api_key}", "Content-Type": "application/json"}
+        payload = {
+            "id": model_id,
+            "host": host,
+            "version": version
+        }
+        payload = json.dumps(payload)
+        response = _request_with_retry("post", is_onboarded_url, headers=headers, data=payload)
+        return response
 
     @classmethod
     def list_image_repo_tags(cls, model_id: Text, api_key: Optional[Text] = None) -> Dict:
