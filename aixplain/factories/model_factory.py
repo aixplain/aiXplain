@@ -196,7 +196,7 @@ class ModelFactory:
     
     @classmethod
     def create_asset_repo(cls, name: Text, hosting_machine: Text, always_on: bool, version: Text, 
-                          description: Text, function: Text, api_key: Optional[Text] = None) -> Dict:
+                          description: Text, function: Text, is_async: bool, api_key: Optional[Text] = None) -> Dict:
         """Creates an image repository for this model and registers it in the 
         platform backend.
 
@@ -223,7 +223,8 @@ class ModelFactory:
             "alwaysOn": always_on,
             "version": version,
             "description": description,
-            "function": function
+            "function": function,
+            "isAsync": is_async
         }
         payload = json.dumps(payload)
         response = _request_with_retry("post", create_url, headers=headers, data=payload)
