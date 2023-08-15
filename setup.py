@@ -41,9 +41,6 @@ consider upgrading to a supported Python version.
     )
     sys.exit(1)
 
-requires = ["requests>=2.1.0", "tqdm>=4.1.0", "pandas>=1.2.1", "python-dotenv>=1.0.0", "validators>=0.20.0", "filetype>=1.2.0"]
-test_requirements = ["python-dotenv~=0.20.0", "pytest>=6.1.0"]
-
 about = {}
 here = os.path.abspath(os.path.dirname(__file__))
 
@@ -67,7 +64,13 @@ setup(
     package_data={"": ["LICENSE"]},
     include_package_data=True,
     python_requires=">=3.5, <4",
-    install_requires=requires,
+    install_requires=[
+        "requests>=2.1.0",
+        "tqdm>=4.1.0",
+        "python-dotenv>=1.0.0",
+        "validators>=0.20.0",
+        "filetype>=1.2.0"
+    ],
     license=about["__license__"],
     zip_safe=False,
     classifiers=[
@@ -92,7 +95,7 @@ setup(
         "Topic :: Internet :: WWW/HTTP",
         "Topic :: Software Development :: Libraries",
     ],
-    tests_require=test_requirements,
+    tests_require=["pytest>=6.1.0"],
     extras_require={},
     project_urls={
         "Documentation": "https://github.com/aixplain/pipelines/tree/main/docs",
