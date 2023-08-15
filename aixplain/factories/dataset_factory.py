@@ -361,10 +361,12 @@ class DatasetFactory(AssetFactory):
             Dict: dataset onboard status
         """
         input_dtype = input_schema[0].dtype if isinstance(input_schema[0],MetaData) else input_schema[0]['dtype']
+        if isinstance(input_dtype, DataType):
+            input_dtype = input_dtype.value
         # output_dtype = output_schema[0].dtype if isinstance(output_schema[0],MetaData) else output_schema[0]['dtype']
         assert (
             FunctionInput.get(function) is not None and FunctionInput[function]['input'] == input_dtype
-        ), f"Input data type is not compatible with the Function {function}"
+        ), f"Data Asset Onboarding Error: The input data type `{input_dtype}` is not compatible with the `{function}` function.\nThe expected input data type is `{FunctionInput[function]['input']}`."
         assert (
             content_path is not None or s3_link is not None
         ), "Data Asset Onboarding Error: No path to content Data was provided. Please update `context_path` or `s3_link`."
