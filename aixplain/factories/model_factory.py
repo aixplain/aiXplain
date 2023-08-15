@@ -186,7 +186,7 @@ class ModelFactory:
             List[Dict]: List of dictionaries containing information about
             each hosting machine.
         """
-        machines_url = f"{config.BACKEND_URL}/sdk/hosting-machines"
+        machines_url = f"{config.BACKEND_URL}sdk/hosting-machines"
         if api_key:
             headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
         else:
@@ -212,7 +212,7 @@ class ModelFactory:
         Returns:
             Dict: Backend response
         """
-        create_url = f"{config.BACKEND_URL}/sdk/models/register"
+        create_url = f"{config.BACKEND_URL}sdk/models/register"
         if api_key:
             headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
         else:
@@ -240,7 +240,7 @@ class ModelFactory:
         Returns:
             Dict: Backend response
         """
-        login_url = f"{config.BACKEND_URL}/sdk/ecr/login" 
+        login_url = f"{config.BACKEND_URL}sdk/ecr/login" 
         if api_key:
             headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
         else:
@@ -259,7 +259,7 @@ class ModelFactory:
         Returns:
             Dict: Backend response
         """ 
-        onboard_url = f"{config.BACKEND_URL}/sdk/inventory/models/{model_id}/onboarding"
+        onboard_url = f"{config.BACKEND_URL}sdk/inventory/models/{model_id}/onboarding"
         if api_key:
             headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
         else:
@@ -281,7 +281,7 @@ class ModelFactory:
         Returns:
             Dict: Backend response
         """ 
-        is_onboarded_url = f"{config.BACKEND_URL}/webhook/models/onboarding"
+        is_onboarded_url = f"{config.BACKEND_URL}webhook/models/onboarding"
         if api_key:
             headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
         else:
@@ -306,7 +306,7 @@ class ModelFactory:
         Returns:
             Dict: Backend response
         """
-        list_url = f"{config.BACKEND_URL}/sdk/models/{model_id}/images"
+        list_url = f"{config.BACKEND_URL}sdk/models/{model_id}/images"
         if api_key:
             headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
         else:
