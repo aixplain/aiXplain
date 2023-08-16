@@ -16,6 +16,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+import pytest
 from aixplain.factories import PipelineFactory
 
 
@@ -38,9 +39,9 @@ def test_run_with_url():
 
 
 def test_run_with_dataset():
-    data_asset_id = "64da1581a27cffd5e0c3c31c"
-    data_id = "64da1581a27cffd5e0c3c31d"
-    pipeline_id = "64da16ce13d879bec2323a7f"
+    data_asset_id = "64dce4da9e76dff1a6124fc1"
+    data_id = "64dce4da9e76dff1a6124fc2"
+    pipeline_id = "64da138fa27cffd5e0c3c30d"
     pipeline = PipelineFactory.get(pipeline_id)
 
     response = pipeline.run(data=data_id, data_asset=data_asset_id)
@@ -60,7 +61,7 @@ def test_run_multipipe_with_datasets():
     pipeline = PipelineFactory.get(pipeline_id)
 
     response = pipeline.run(
-        data={"Input": "64da1581a27cffd5e0c3c31d", "Reference": "64da1581a27cffd5e0c3c31e"},
-        data_asset={"Input": "64da1581a27cffd5e0c3c31c", "Reference": "64da1581a27cffd5e0c3c31c"},
+        data={"Input": "64dce4da9e76dff1a6124fc2", "Reference": "64dce4da9e76dff1a6124fc3"},
+        data_asset={"Input": "64dce4da9e76dff1a6124fc1", "Reference": "64dce4da9e76dff1a6124fc1"},
     )
     assert response["status"] == "SUCCESS"
