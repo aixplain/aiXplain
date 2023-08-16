@@ -140,7 +140,15 @@ Note: This does not download the resulted corpora to your local machine.
 
 Using the aiXplain SDK, you can also onboard your corpus into the aiXplain platform. A step-by-step example on how to do it can be accessed here:
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1-FYTtyVaDxyVv7kGCaMEd5E3uiHYHRTt?usp=sharing) 
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1-FYTtyVaDxyVv7kGCaMEd5E3uiHYHRTt?usp=sharing)
+
+### Label Studio Corpus Onboarding
+
+The Label Studio platform encompasses distinct projects, each distinguished by the Label Studio authentication API key employed. Within these projects, a variety of tasks are hosted, often spanning multiple data types. The `aixplain.processes.data_onboarding.labelstudio_onboard` method has been crafted to adeptly manage both audio and text data, whether originating from a Label Studio task or a project.
+
+For successful utilization of this method, the requisites are straightforward: you must possess the relevant Label Studio project or task ID, as well as the corresponding Label Studio authentication API key. This process is further elaborated through a step-by-step example which can be found below:
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/19hmWt6IKHF-toTm9yxEwdwNCTZNIH1UD) 
 
 ## Datasets
 Different from corpus, a dataset is a representative sample of a specific phenomenon to a specific AI task. aiXplain also counts with an extensive collection of datasets for training, infer and benchmark various tasks like Translation, Speech Recognition, Diacritization, Sentiment Analysis, and much more.
