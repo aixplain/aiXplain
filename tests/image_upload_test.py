@@ -15,7 +15,7 @@ API_FIXED_HEADER = {"x-api-key": f"{config.TEAM_API_KEY}", "Content-Type": "appl
 
 
 def test_login():
-    url =  f"{config.BACKEND_URL}/sdk/ecr/login"
+    url =  f"{config.BACKEND_URL}sdk/ecr/login"
     print(url)
     with requests_mock.Mocker() as mock:
         with open(Path("tests/mock_responses/login_response.json")) as f:
