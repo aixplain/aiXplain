@@ -207,6 +207,7 @@ class ModelFactory:
             version (Text): Model version
             description (Text): Model description
             function (Text): Model funciton obtained via #TODO add function endpoint
+            is_async (bool): Whether the model is asynchronous or not
             api_key (Text, optional): Team API key. Defaults to None.
 
         Returns:
@@ -250,7 +251,7 @@ class ModelFactory:
         return response
     
     @classmethod
-    def onboard_model(cls, model_id: Text, image_tag: Optional[Text] = None, api_key: Optional[Text] = None) -> Dict:
+    def onboard_model(cls, model_id: Text, image_tag: Text, image_hash: Text, api_key: Optional[Text] = None) -> Dict:
         """Onboard a model after its image has been pushed to ECR.
 
         Args:
@@ -266,7 +267,8 @@ class ModelFactory:
         else:
             headers = {"x-api-key": f"{cls.api_key}", "Content-Type": "application/json"}
         payload = {
-            "image": image_tag
+            "image": image_tag,
+            "sha": image_hash
         }
         payload = json.dumps(payload)
         response = _request_with_retry("post", onboard_url, headers=headers, data=payload)
