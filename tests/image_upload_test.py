@@ -20,7 +20,7 @@ def test_login():
     with requests_mock.Mocker() as mock:
         with open(Path("tests/mock_responses/login_response.json")) as f:
             mock_json = json.load(f)
-        mock.get(url, headers=AUTH_FIXED_HEADER, json=mock_json)
+        mock.post(url, headers=AUTH_FIXED_HEADER, json=mock_json)
         creds = ModelFactory.asset_repo_login(config.TEAM_API_KEY)
     creds_dict = creds.to_dict()
     mock_dict = mock_json.to_dict()
