@@ -243,6 +243,7 @@ class ModelFactory:
             Dict: Backend response
         """
         login_url = f"{config.BACKEND_URL}sdk/ecr/login" 
+        print(login_url)
         if api_key:
             headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
         else:
