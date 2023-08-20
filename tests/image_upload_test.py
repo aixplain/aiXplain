@@ -22,6 +22,6 @@ def test_login():
             mock_json = json.load(f)
         mock.post(url, headers=AUTH_FIXED_HEADER, json=mock_json)
         creds = ModelFactory.asset_repo_login(config.TEAM_API_KEY)
-    creds_dict = json.loads(creds)
+    creds_dict = creds.json()
     mock_dict = mock_json.to_dict()
     assert creds_dict == mock_dict
