@@ -192,7 +192,7 @@ class ModelFactory:
         else:
             headers = {"x-api-key": f"{cls.api_key}", "Content-Type": "application/json"}
         response = _request_with_retry("get", machines_url, headers=headers)
-        return response
+        return response.json()
     
     @classmethod
     def create_asset_repo(cls, name: Text, hosting_machine: Text, always_on: bool, version: Text, 
