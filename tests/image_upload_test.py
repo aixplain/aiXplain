@@ -33,7 +33,7 @@ def test_create_asset_repo():
                           "mock_description", "mock_function", False, config.TEAM_API_KEY)
     assert model_id == mock_json
 
-def list_host_machines():
+def test_list_host_machines():
     url =  f"{config.BACKEND_URL}sdk/hosting-machines"
     with requests_mock.Mocker() as mock:
         with open(Path("tests/mock_responses/list_host_machines_response.json")) as f:
