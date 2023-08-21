@@ -38,6 +38,6 @@ def test_list_host_machines():
     with requests_mock.Mocker() as mock:
         with open(Path("tests/mock_responses/list_host_machines_response.json")) as f:
             mock_json = json.load(f)
-        mock.post(url, headers=API_FIXED_HEADER, json=mock_json)
+        mock.get(url, headers=API_FIXED_HEADER, json=mock_json)
         machines = ModelFactory.list_host_machines(config.TEAM_API_KEY)
     assert machines == mock_json
