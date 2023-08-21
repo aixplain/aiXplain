@@ -32,3 +32,12 @@ def test_create_asset_repo():
         model_id = ModelFactory.create_asset_repo("mock_name", "mock_machines", True, "mock_version", 
                           "mock_description", "mock_function", False, config.TEAM_API_KEY)
     assert model_id == mock_json
+
+def list_host_machines():
+    url =  f"{config.BACKEND_URL}sdk/hosting-machines"
+    with requests_mock.Mocker() as mock:
+        with open(Path("tests/mock_responses/list_host_machines_response.json")) as f:
+            mock_json = json.load(f)
+        mock.post(url, headers=API_FIXED_HEADER, json=mock_json)
+        machines = ModelFactory.list_host_machines(config.TEAM_API_KEY)
+    assert machines == mock_json
