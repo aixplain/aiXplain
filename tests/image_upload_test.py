@@ -49,5 +49,5 @@ def test_list_image_repo_tags():
         with open(Path("tests/mock_responses/list_image_repo_tags_response.json")) as f:
             mock_json = json.load(f)
         mock.get(url, headers=AUTH_FIXED_HEADER, json=mock_json)
-        tags = ModelFactory.list_image_repo_tags(config.TEAM_API_KEY)
+        tags = ModelFactory.list_image_repo_tags(model_id, config.TEAM_API_KEY)
     assert tags == mock_json
