@@ -229,7 +229,7 @@ class ModelFactory:
         }
         payload = json.dumps(payload)
         response = _request_with_retry("post", create_url, headers=headers, data=payload)
-        return response
+        return response.json()
     
     @classmethod
     def asset_repo_login(cls, api_key: Optional[Text] = None) -> Dict:
@@ -243,13 +243,12 @@ class ModelFactory:
             Dict: Backend response
         """
         login_url = f"{config.BACKEND_URL}sdk/ecr/login" 
-        print(login_url)
         if api_key:
             headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
         else:
             headers = {"x-api-key": f"{cls.api_key}", "Content-Type": "application/json"}
         response = _request_with_retry("post", login_url, headers=headers)
-        return response
+        return response.json()
     
     @classmethod
     def onboard_model(cls, model_id: Text, image_tag: Text, image_hash: Text, api_key: Optional[Text] = None) -> Dict:
@@ -297,7 +296,7 @@ class ModelFactory:
         }
         payload = json.dumps(payload)
         response = _request_with_retry("post", is_onboarded_url, headers=headers, data=payload)
-        return response
+        return response.json()
 
     @classmethod
     def list_image_repo_tags(cls, model_id: Text, api_key: Optional[Text] = None) -> Dict:
