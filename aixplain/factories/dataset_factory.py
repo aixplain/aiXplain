@@ -36,7 +36,7 @@ from aixplain.modules.metadata import MetaData
 from aixplain.enums.data_subtype import DataSubtype
 from aixplain.enums.data_type import DataType
 from aixplain.enums.error_handler import ErrorHandler
-from aixplain.enums.function import Function, FunctionInput
+from aixplain.enums.function import Function, FunctionInputOutput
 from aixplain.enums.language import Language
 from aixplain.enums.license import License
 from aixplain.enums.privacy import Privacy
@@ -361,12 +361,19 @@ class DatasetFactory(AssetFactory):
             Dict: dataset onboard status
         """
         input_dtype = input_schema[0].dtype if isinstance(input_schema[0],MetaData) else input_schema[0]['dtype']
+        output_dtype = output_schema[0].dtype if isinstance(output_schema[0],MetaData) else output_schema[0]['dtype']
         if isinstance(input_dtype, DataType):
             input_dtype = input_dtype.value
-        # output_dtype = output_schema[0].dtype if isinstance(output_schema[0],MetaData) else output_schema[0]['dtype']
+
+        if isinstance(output_dtype, DataType):
+            output_dtype = output_dtype.value
+
         assert (
-            FunctionInput.get(function) is not None and FunctionInput[function]['input'] == input_dtype
-        ), f"Data Asset Onboarding Error: The input data type `{input_dtype}` is not compatible with the `{function}` function.\nThe expected input data type is `{FunctionInput[function]['input']}`."
+            FunctionInputOutput.get(function) is not None and FunctionInputOutput[function]['input'] == input_dtype
+        ), f"Data Asset Onboarding Error: The input data type `{input_dtype}` is not compatible with the `{function}` function.\nThe expected input data type is `{FunctionInputOutput[function]['input']}`."
+        assert (
+            FunctionInputOutput.get(function) is not None and FunctionInputOutput[function]['output'] == output_dtype
+        ), f"Data Asset Onboarding Error: The output data type `{output_dtype}` is not compatible with the `{function}` function.\nThe expected output data type is `{FunctionInputOutput[function]['output']}`."
         assert (
             content_path is not None or s3_link is not None
         ), "Data Asset Onboarding Error: No path to content Data was provided. Please update `context_path` or `s3_link`."
