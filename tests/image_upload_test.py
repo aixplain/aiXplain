@@ -42,6 +42,15 @@ def test_list_host_machines():
         machines = ModelFactory.list_host_machines(config.TEAM_API_KEY)
     assert machines == mock_json
 
+def test_get_functions():
+    url =  f"{config.BACKEND_URL}sdk/functions"
+    with requests_mock.Mocker() as mock:
+        with open(Path("tests/mock_responses/list_functions_response.json")) as f:
+            mock_json = json.load(f)
+        mock.get(url, headers=AUTH_FIXED_HEADER, json=mock_json)
+        functions = ModelFactory.list_functions(config.TEAM_API_KEY)
+    assert functions == mock_json
+
 def test_list_image_repo_tags():
     model_id = "mock_id"
     url =  f"{config.BACKEND_URL}sdk/models/{model_id}/images"

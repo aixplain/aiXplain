@@ -195,6 +195,25 @@ class ModelFactory:
         return response.json()
     
     @classmethod
+    def list_functions(cls, api_key: Optional[Text] = None) -> List[Dict]:
+        """Lists supported model functions on platform.
+
+        Args:
+            api_key (Text, optional): Team API key. Defaults to None.
+
+        Returns:
+            List[Dict]: List of dictionaries containing information about
+            each supported function.
+        """
+        functions_url = f"{config.BACKEND_URL}sdk/functions"
+        if api_key:
+            headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
+        else:
+            headers = {"x-api-key": f"{cls.api_key}", "Content-Type": "application/json"}
+        response = _request_with_retry("get", functions_url, headers=headers)
+        return response.json()
+    
+    @classmethod
     def create_asset_repo(cls, name: Text, hosting_machine: Text, always_on: bool, version: Text, 
                           description: Text, function: Text, is_async: bool, api_key: Optional[Text] = None) -> Dict:
         """Creates an image repository for this model and registers it in the 

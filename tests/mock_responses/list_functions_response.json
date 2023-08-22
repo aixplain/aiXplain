@@ -1,0 +1,2880 @@
+{
+    "total": 55,
+    "pageTotal": 55,
+    "items": [
+        {
+            "id": "language-identification",
+            "name": "Language Identification",
+            "output": [
+                {
+                    "name": "Label",
+                    "code": "data",
+                    "dataType": "label",
+                    "defaultValue": []
+                }
+            ],
+            "params": [
+                {
+                    "code": "text",
+                    "name": "Text",
+                    "required": true,
+                    "isFixed": false,
+                    "dataType": "text",
+                    "dataSubType": "text",
+                    "multipleValues": false
+                }
+            ]
+        },
+        {
+            "id": "ocr",
+            "name": "OCR",
+            "output": [
+                {
+                    "name": "Text",
+                    "code": "data",
+                    "dataType": "text",
+                    "defaultValue": []
+                }
+            ],
+            "params": [
+                {
+                    "code": "image",
+                    "name": "Image",
+                    "required": true,
+                    "isFixed": false,
+                    "dataType": "image",
+                    "dataSubType": "image",
+                    "multipleValues": false
+                },
+                {
+                    "code": "featuretypes",
+                    "name": "Feature Types",
+                    "required": true,
+                    "isFixed": false,
+                    "dataType": "text",
+                    "dataSubType": "text"
+                }
+            ]
+        },
+        {
+            "id": "image-label-detection",
+            "name": "Image Label Detection",
+            "output": [
+                {
+                    "name": "Label",
+                    "code": "data",
+                    "dataType": "label",
+                    "defaultValue": []
+                }
+            ],
+            "params": [
+                {
+                    "code": "image",
+                    "name": "Image",
+                    "required": true,
+                    "isFixed": false,
+                    "dataType": "image",
+                    "dataSubType": "image",
+                    "multipleValues": false
+                },
+                {
+                    "code": "min_confidence",
+                    "name": "Min Confidence",
+                    "required": false,
+                    "isFixed": false,
+                    "defaultValues": [
+                        {
+                            "value": "0.5",
+                            "label": "0.5"
+                        }
+                    ],
+                    "dataType": "text",
+                    "dataSubType": "number",
+                    "multipleValues": false
+                }
+            ]
+        },
+        {
+            "id": "video-forced-alignment",
+            "name": "Video Forced Alignment",
+            "output": [
+                {
+                    "name": "Text",
+                    "code": "text",
+                    "dataType": "text",
+                    "defaultValue": []
+                },
+                {
+                    "name": "Video",
+                    "code": "video",
+                    "dataType": "video",
+                    "defaultValue": []
+                }
+            ],
+            "params": [
+                {
+                    "code": "video",
+                    "name": "Video",
+                    "required": true,
+                    "isFixed": false,
+                    "dataType": "video",
+                    "dataSubType": "video",
+                    "multipleValues": false
+                },
+                {
+                    "code": "text",
+                    "name": "Text",
+                    "required": true,
+                    "isFixed": false,
+                    "dataType": "text",
+                    "dataSubType": "text",
+                    "multipleValues": false
+                },
+                {
+                    "code": "language",
+                    "name": "Language",
+                    "required": true,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "dialect",
+                    "name": "Dialect",
+                    "required": false,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "script",
+                    "name": "Script",
+                    "required": false,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                }
+            ]
+        },
+        {
+            "id": "offensive-language-identification",
+            "name": "Offensive Language Identification",
+            "output": [
+                {
+                    "name": "Label",
+                    "code": "data",
+                    "dataType": "label",
+                    "defaultValue": []
+                }
+            ],
+            "params": [
+                {
+                    "code": "text",
+                    "name": "Text",
+                    "required": true,
+                    "isFixed": false,
+                    "dataType": "text",
+                    "dataSubType": "text",
+                    "multipleValues": false
+                },
+                {
+                    "code": "language",
+                    "name": "Language",
+                    "required": true,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "dialect",
+                    "name": "Dialect",
+                    "required": false,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "script",
+                    "name": "Script",
+                    "required": false,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                }
+            ]
+        },
+        {
+            "id": "audio-forced-alignment",
+            "name": "Audio Forced Alignment",
+            "output": [
+                {
+                    "name": "Text",
+                    "code": "text",
+                    "dataType": "text",
+                    "defaultValue": []
+                },
+                {
+                    "name": "Audio",
+                    "code": "audio",
+                    "dataType": "audio",
+                    "defaultValue": []
+                }
+            ],
+            "params": [
+                {
+                    "code": "audio",
+                    "name": "Audio",
+                    "required": true,
+                    "isFixed": false,
+                    "dataType": "audio",
+                    "dataSubType": "audio",
+                    "multipleValues": false
+                },
+                {
+                    "code": "text",
+                    "name": "Text",
+                    "required": true,
+                    "isFixed": false,
+                    "dataType": "text",
+                    "dataSubType": "text",
+                    "multipleValues": false
+                },
+                {
+                    "code": "language",
+                    "name": "Language",
+                    "required": true,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "dialect",
+                    "name": "Dialect",
+                    "required": false,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "script",
+                    "name": "Script",
+                    "required": false,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                }
+            ]
+        },
+        {
+            "id": "video-generation",
+            "name": "Video Generation",
+            "output": [
+                {
+                    "name": "Video",
+                    "code": "data",
+                    "dataType": "video",
+                    "defaultValue": []
+                }
+            ],
+            "params": [
+                {
+                    "code": "text",
+                    "name": "Text",
+                    "required": true,
+                    "isFixed": false,
+                    "dataType": "text",
+                    "dataSubType": "text",
+                    "multipleValues": false
+                }
+            ]
+        },
+        {
+            "id": "split-on-silence",
+            "name": "Split On Silence",
+            "output": [
+                {
+                    "name": "Segments",
+                    "code": "data",
+                    "dataType": "audio",
+                    "defaultValue": []
+                }
+            ],
+            "params": [
+                {
+                    "code": "audio",
+                    "name": "Audio",
+                    "required": true,
+                    "isFixed": false,
+                    "dataType": "audio",
+                    "dataSubType": "audio",
+                    "multipleValues": false
+                }
+            ]
+        },
+        {
+            "id": "referenceless-audio-generation-metric",
+            "name": "Referenceless Audio Generation Metric",
+            "output": [
+                {
+                    "name": "Score",
+                    "code": "data",
+                    "dataType": "text"
+                }
+            ],
+            "params": [
+                {
+                    "code": "hypotheses",
+                    "name": "Hypotheses",
+                    "required": true,
+                    "isFixed": false,
+                    "dataType": "audio",
+                    "dataSubType": "audio",
+                    "multipleValues": true
+                },
+                {
+                    "code": "sources",
+                    "name": "Sources",
+                    "required": false,
+                    "isFixed": false,
+                    "dataType": "audio",
+                    "dataSubType": "audio",
+                    "multipleValues": true
+                },
+                {
+                    "code": "score_identifier",
+                    "name": "Score Identifier",
+                    "required": true,
+                    "isFixed": true,
+                    "dataType": "text",
+                    "dataSubType": "text",
+                    "multipleValues": false
+                }
+            ]
+        },
+        {
+            "id": "referenceless-text-generation-metric-default",
+            "name": "Referenceless Text Generation Metric Default",
+            "output": [
+                {
+                    "name": "Score",
+                    "code": "data",
+                    "dataType": "text"
+                }
+            ],
+            "params": [
+                {
+                    "code": "hypotheses",
+                    "name": "Hypotheses",
+                    "required": true,
+                    "isFixed": false,
+                    "dataType": "text",
+                    "dataSubType": "text",
+                    "multipleValues": true
+                },
+                {
+                    "code": "sources",
+                    "name": "Sources",
+                    "required": false,
+                    "isFixed": false,
+                    "dataType": "text",
+                    "dataSubType": "text",
+                    "multipleValues": true
+                },
+                {
+                    "code": "score_identifier",
+                    "name": "Score Identifier",
+                    "required": true,
+                    "isFixed": true,
+                    "dataType": "text",
+                    "dataSubType": "text",
+                    "multipleValues": false
+                }
+            ]
+        },
+        {
+            "id": "speaker-diarization-video",
+            "name": "Speaker Diarization Video",
+            "output": [
+                {
+                    "name": "Label",
+                    "code": "data",
+                    "dataType": "video",
+                    "defaultValue": []
+                }
+            ],
+            "params": [
+                {
+                    "code": "video",
+                    "name": "Video",
+                    "required": true,
+                    "isFixed": false,
+                    "dataType": "video",
+                    "dataSubType": "video",
+                    "multipleValues": false
+                },
+                {
+                    "code": "language",
+                    "name": "Language",
+                    "required": false,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "script",
+                    "name": "Script",
+                    "required": false,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "dialect",
+                    "name": "Dialect",
+                    "required": false,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                }
+            ]
+        },
+        {
+            "id": "audio-generation-metric",
+            "name": "Audio Generation Metric",
+            "output": [
+                {
+                    "name": "Score",
+                    "code": "data",
+                    "dataType": "text"
+                }
+            ],
+            "params": [
+                {
+                    "code": "hypotheses",
+                    "name": "Hypotheses",
+                    "required": true,
+                    "isFixed": false,
+                    "dataType": "audio",
+                    "dataSubType": "audio",
+                    "multipleValues": true
+                },
+                {
+                    "code": "references",
+                    "name": "References",
+                    "required": false,
+                    "isFixed": false,
+                    "dataType": "audio",
+                    "dataSubType": "audio",
+                    "multipleValues": true
+                },
+                {
+                    "code": "sources",
+                    "name": "Sources",
+                    "required": false,
+                    "isFixed": false,
+                    "dataType": "text",
+                    "dataSubType": "text",
+                    "multipleValues": true
+                },
+                {
+                    "code": "score_identifier",
+                    "name": "Score Identifier",
+                    "required": true,
+                    "isFixed": true,
+                    "dataType": "text",
+                    "dataSubType": "text",
+                    "multipleValues": false
+                }
+            ]
+        },
+        {
+            "id": "text-reconstruction",
+            "name": "Text Reconstruction",
+            "output": [
+                {
+                    "name": "Text",
+                    "code": "data",
+                    "dataType": "text",
+                    "defaultValue": []
+                }
+            ],
+            "params": [
+                {
+                    "code": "text",
+                    "name": "Segments",
+                    "required": true,
+                    "isFixed": false,
+                    "dataType": "text",
+                    "dataSubType": "text",
+                    "multipleValues": false
+                }
+            ]
+        },
+        {
+            "id": "speech-classification",
+            "name": "Speech Classification",
+            "output": [
+                {
+                    "name": "Label",
+                    "code": "data",
+                    "dataType": "label",
+                    "defaultValue": []
+                }
+            ],
+            "params": [
+                {
+                    "code": "audio",
+                    "name": "Audio",
+                    "required": true,
+                    "isFixed": false,
+                    "dataType": "audio",
+                    "dataSubType": "audio",
+                    "multipleValues": false
+                },
+                {
+                    "code": "language",
+                    "name": "Language",
+                    "required": true,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "script",
+                    "name": "Script",
+                    "required": false,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "dialect",
+                    "name": "Dialect",
+                    "required": false,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                }
+            ]
+        },
+        {
+            "id": "metric-aggregation",
+            "name": "Metric Aggregation",
+            "output": [
+                {
+                    "name": "Aggregates",
+                    "code": "data",
+                    "dataType": "text"
+                }
+            ],
+            "params": [
+                {
+                    "code": "text",
+                    "name": "Score Aggregation Data",
+                    "required": true,
+                    "isFixed": false,
+                    "dataType": "text",
+                    "dataSubType": "text",
+                    "multipleValues": true
+                }
+            ]
+        },
+        {
+            "id": "dialect-detection",
+            "name": "Dialect Detection",
+            "output": [
+                {
+                    "name": "Label",
+                    "code": "data",
+                    "dataType": "text",
+                    "defaultValue": []
+                }
+            ],
+            "params": [
+                {
+                    "code": "audio",
+                    "name": "Audio",
+                    "required": true,
+                    "isFixed": false,
+                    "dataType": "audio",
+                    "dataSubType": "audio",
+                    "multipleValues": false
+                },
+                {
+                    "code": "language",
+                    "name": "Language",
+                    "required": false,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                }
+            ]
+        },
+        {
+            "id": "fill-text-mask",
+            "name": "Fill Text Mask",
+            "output": [
+                {
+                    "name": "Text",
+                    "code": "data",
+                    "dataType": "text",
+                    "defaultValue": []
+                }
+            ],
+            "params": [
+                {
+                    "code": "text",
+                    "name": "Text",
+                    "required": true,
+                    "isFixed": false,
+                    "dataType": "text",
+                    "dataSubType": "json",
+                    "multipleValues": true
+                },
+                {
+                    "code": "language",
+                    "name": "Language",
+                    "required": true,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "dialect",
+                    "name": "Dialect",
+                    "required": false,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "script",
+                    "name": "Script",
+                    "required": false,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                }
+            ]
+        },
+        {
+            "id": "video-content-moderation",
+            "name": "Video Content Moderation",
+            "output": [
+                {
+                    "name": "Label",
+                    "code": "data",
+                    "dataType": "label",
+                    "defaultValue": []
+                }
+            ],
+            "params": [
+                {
+                    "code": "video",
+                    "name": "Video",
+                    "required": true,
+                    "isFixed": false,
+                    "dataType": "video",
+                    "dataSubType": "video",
+                    "multipleValues": false
+                },
+                {
+                    "code": "min_confidence",
+                    "name": "Min Confidence",
+                    "required": false,
+                    "isFixed": false,
+                    "defaultValues": [
+                        {
+                            "value": "0.5",
+                            "label": "0.5"
+                        }
+                    ],
+                    "dataType": "text",
+                    "dataSubType": "number",
+                    "multipleValues": false
+                }
+            ]
+        },
+        {
+            "id": "image-compression",
+            "name": "Image Compression",
+            "output": [
+                {
+                    "name": "image",
+                    "code": "image",
+                    "dataType": "image",
+                    "defaultValue": []
+                }
+            ],
+            "params": [
+                {
+                    "code": "image",
+                    "name": "Image",
+                    "required": true,
+                    "isFixed": false,
+                    "dataType": "image",
+                    "dataSubType": "image",
+                    "multipleValues": false
+                },
+                {
+                    "code": "apl_qfactor",
+                    "name": "apl_qfactor",
+                    "required": false,
+                    "isFixed": false,
+                    "defaultValues": [
+                        {
+                            "value": "80",
+                            "label": "80"
+                        }
+                    ],
+                    "dataType": "text",
+                    "dataSubType": "number",
+                    "multipleValues": false
+                }
+            ]
+        },
+        {
+            "id": "extract-audio-from-video",
+            "name": "Extract Audio From Video",
+            "output": [
+                {
+                    "name": "Audio",
+                    "code": "data",
+                    "dataType": "audio"
+                }
+            ],
+            "params": [
+                {
+                    "code": "video",
+                    "name": "Video",
+                    "required": true,
+                    "isFixed": false,
+                    "dataType": "video",
+                    "dataSubType": "video"
+                }
+            ]
+        },
+        {
+            "id": "speech-non-speech-classification",
+            "name": "Speech or Non-Speech Classification",
+            "output": [
+                {
+                    "name": "Label",
+                    "code": "data",
+                    "dataType": "label",
+                    "defaultValue": []
+                }
+            ],
+            "params": [
+                {
+                    "code": "audio",
+                    "name": "Audio",
+                    "required": true,
+                    "isFixed": false,
+                    "dataType": "audio",
+                    "dataSubType": "audio",
+                    "multipleValues": false
+                },
+                {
+                    "code": "language",
+                    "name": "Language",
+                    "required": true,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "script",
+                    "name": "Script",
+                    "required": false,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "dialect",
+                    "name": "Dialect",
+                    "required": false,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                }
+            ]
+        },
+        {
+            "id": "referenceless-text-generation-metric",
+            "name": "Referenceless Text Generation Metric",
+            "output": [
+                {
+                    "name": "Score",
+                    "code": "data",
+                    "dataType": "text"
+                }
+            ],
+            "params": [
+                {
+                    "code": "hypotheses",
+                    "name": "Hypotheses",
+                    "required": true,
+                    "isFixed": false,
+                    "dataType": "text",
+                    "dataSubType": "text",
+                    "multipleValues": true
+                },
+                {
+                    "code": "sources",
+                    "name": "Sources",
+                    "required": false,
+                    "isFixed": false,
+                    "dataType": "text",
+                    "dataSubType": "text",
+                    "multipleValues": true
+                },
+                {
+                    "code": "score_identifier",
+                    "name": "Score Identifier",
+                    "required": true,
+                    "isFixed": true,
+                    "dataType": "text",
+                    "dataSubType": "text",
+                    "multipleValues": false
+                }
+            ]
+        },
+        {
+            "id": "text-generation-metric-default",
+            "name": "Text Generation Metric Default",
+            "output": [
+                {
+                    "name": "Score",
+                    "code": "data",
+                    "dataType": "text"
+                }
+            ],
+            "params": [
+                {
+                    "code": "hypotheses",
+                    "name": "Hypotheses",
+                    "required": true,
+                    "isFixed": false,
+                    "dataType": "text",
+                    "dataSubType": "text",
+                    "multipleValues": true
+                },
+                {
+                    "code": "references",
+                    "name": "References",
+                    "required": false,
+                    "isFixed": false,
+                    "dataType": "text",
+                    "dataSubType": "text",
+                    "multipleValues": true
+                },
+                {
+                    "code": "sources",
+                    "name": "Sources",
+                    "required": false,
+                    "isFixed": false,
+                    "dataType": "text",
+                    "dataSubType": "text",
+                    "multipleValues": true
+                },
+                {
+                    "code": "score_identifier",
+                    "name": "Score Identifier",
+                    "required": true,
+                    "isFixed": true,
+                    "dataType": "text",
+                    "dataSubType": "text",
+                    "multipleValues": false
+                }
+            ]
+        },
+        {
+            "id": "speech-embedding",
+            "name": "Speech Embedding",
+            "output": [
+                {
+                    "name": "Text",
+                    "code": "data",
+                    "dataType": "text",
+                    "defaultValue": []
+                }
+            ],
+            "params": [
+                {
+                    "code": "audio",
+                    "name": "Audio",
+                    "required": true,
+                    "isFixed": false,
+                    "dataType": "audio",
+                    "dataSubType": "audio",
+                    "multipleValues": false
+                },
+                {
+                    "code": "language",
+                    "name": "Language",
+                    "required": true,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "dialect",
+                    "name": "Dialect",
+                    "required": false,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "script",
+                    "name": "Script",
+                    "required": false,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                }
+            ]
+        },
+        {
+            "id": "audio-reconstruction",
+            "name": "Audio Reconstruction",
+            "output": [
+                {
+                    "name": "Audio",
+                    "code": "data",
+                    "dataType": "audio",
+                    "defaultValue": []
+                }
+            ],
+            "params": [
+                {
+                    "code": "audio",
+                    "name": "Segments",
+                    "required": true,
+                    "isFixed": false,
+                    "dataType": "audio",
+                    "dataSubType": "audio",
+                    "multipleValues": false
+                }
+            ]
+        },
+        {
+            "id": "voice-cloning",
+            "name": "Voice Cloning",
+            "output": [
+                {
+                    "name": "Target Audio",
+                    "code": "data",
+                    "dataType": "audio",
+                    "defaultValue": []
+                }
+            ],
+            "params": [
+                {
+                    "code": "text",
+                    "name": "Source Text",
+                    "required": true,
+                    "isFixed": false,
+                    "dataType": "text",
+                    "dataSubType": "text",
+                    "multipleValues": false
+                },
+                {
+                    "code": "audio",
+                    "name": "Audio",
+                    "required": true,
+                    "isFixed": false,
+                    "dataType": "audio",
+                    "dataSubType": "audio",
+                    "multipleValues": false
+                },
+                {
+                    "code": "language",
+                    "name": "Language",
+                    "required": true,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "dialect",
+                    "name": "Dialect",
+                    "required": false,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "voice",
+                    "name": "Voice",
+                    "required": false,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "script",
+                    "name": "Script",
+                    "required": false,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "type",
+                    "name": "Type",
+                    "required": false,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                }
+            ]
+        },
+        {
+            "id": "text-generation",
+            "name": "Text Generation",
+            "output": [
+                {
+                    "name": "Text",
+                    "code": "data",
+                    "dataType": "text",
+                    "defaultValue": []
+                }
+            ],
+            "params": [
+                {
+                    "code": "text",
+                    "name": "Text",
+                    "required": false,
+                    "isFixed": false,
+                    "dataType": "text",
+                    "dataSubType": "text",
+                    "multipleValues": false
+                },
+                {
+                    "code": "session_id",
+                    "name": "session_id",
+                    "required": true,
+                    "isFixed": false,
+                    "dataType": "text",
+                    "dataSubType": "text"
+                },
+                {
+                    "code": "option_index",
+                    "name": "option_index",
+                    "required": false,
+                    "isFixed": false,
+                    "dataType": "integer",
+                    "dataSubType": "integer"
+                },
+                {
+                    "code": "next_state",
+                    "name": "next_state",
+                    "required": true,
+                    "isFixed": false,
+                    "dataType": "text",
+                    "dataSubType": "text"
+                },
+                {
+                    "code": "language",
+                    "name": "Language",
+                    "required": false,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "script",
+                    "name": "Script",
+                    "required": false,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                }
+            ]
+        },
+        {
+            "id": "audio-transcript-improvement",
+            "name": "Audio Transcript Improvement",
+            "output": [
+                {
+                    "name": "Target text",
+                    "code": "data",
+                    "dataType": "text",
+                    "defaultValue": []
+                }
+            ],
+            "params": [
+                {
+                    "code": "language",
+                    "name": "Language",
+                    "required": true,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "dialect",
+                    "name": "Dialect",
+                    "required": false,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "source_supplier",
+                    "name": "ASR Supplier",
+                    "required": false,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "is_medical",
+                    "name": "Is Medical",
+                    "required": true,
+                    "isFixed": true,
+                    "dataType": "text",
+                    "dataSubType": "boolean",
+                    "multipleValues": false
+                },
+                {
+                    "code": "source_audio",
+                    "name": "Source Audio",
+                    "required": true,
+                    "isFixed": false,
+                    "dataType": "audio",
+                    "dataSubType": "audio",
+                    "multipleValues": false
+                },
+                {
+                    "code": "script",
+                    "name": "Script",
+                    "required": false,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                }
+            ]
+        },
+        {
+            "id": "diacritization",
+            "name": "Diacritization",
+            "output": [
+                {
+                    "name": "Target Text",
+                    "code": "data",
+                    "dataType": "text",
+                    "defaultValue": []
+                }
+            ],
+            "params": [
+                {
+                    "code": "language",
+                    "name": "Language",
+                    "required": true,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "dialect",
+                    "name": "Dialect",
+                    "required": true,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "script",
+                    "name": "Script",
+                    "required": false,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "text",
+                    "name": "Source Text",
+                    "required": true,
+                    "isFixed": false,
+                    "dataType": "text",
+                    "dataSubType": "text",
+                    "multipleValues": false
+                }
+            ]
+        },
+        {
+            "id": "emotion-detection",
+            "name": "Emotion Detection",
+            "output": [
+                {
+                    "name": "Label",
+                    "code": "data",
+                    "dataType": "label",
+                    "defaultValue": []
+                }
+            ],
+            "params": [
+                {
+                    "code": "text",
+                    "name": "Text",
+                    "required": true,
+                    "isFixed": false,
+                    "dataType": "text",
+                    "dataSubType": "text",
+                    "multipleValues": false
+                },
+                {
+                    "code": "language",
+                    "name": "Language",
+                    "required": true,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "dialect",
+                    "name": "Dialect",
+                    "required": false,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "script",
+                    "name": "Script",
+                    "required": false,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                }
+            ]
+        },
+        {
+            "id": "text-summarization",
+            "name": "Text summarization",
+            "output": [
+                {
+                    "name": "Text",
+                    "code": "data",
+                    "dataType": "text",
+                    "defaultValue": []
+                }
+            ],
+            "params": [
+                {
+                    "code": "text",
+                    "name": "Text",
+                    "required": true,
+                    "isFixed": false,
+                    "dataType": "text",
+                    "dataSubType": "text",
+                    "multipleValues": false
+                },
+                {
+                    "code": "language",
+                    "name": "Language",
+                    "required": true,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "script",
+                    "name": "Script",
+                    "required": false,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "dialect",
+                    "name": "Dialect",
+                    "required": false,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                }
+            ]
+        },
+        {
+            "id": "entity-linking",
+            "name": "Entity Linking",
+            "output": [
+                {
+                    "name": "Label",
+                    "code": "data",
+                    "dataType": "label",
+                    "defaultValue": []
+                }
+            ],
+            "params": [
+                {
+                    "code": "text",
+                    "name": "Text",
+                    "required": true,
+                    "isFixed": false,
+                    "dataType": "text",
+                    "dataSubType": "text",
+                    "multipleValues": false
+                },
+                {
+                    "code": "language",
+                    "name": "Language",
+                    "required": true,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "domain",
+                    "name": "Domain",
+                    "required": false,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                }
+            ]
+        },
+        {
+            "id": "text-spam-detection",
+            "name": "Text Spam Detection",
+            "output": [
+                {
+                    "name": "Label",
+                    "code": "data",
+                    "dataType": "label",
+                    "defaultValue": []
+                }
+            ],
+            "params": [
+                {
+                    "code": "text",
+                    "name": "Text",
+                    "required": true,
+                    "isFixed": false,
+                    "dataType": "text",
+                    "dataSubType": "text",
+                    "multipleValues": false
+                },
+                {
+                    "code": "language",
+                    "name": "Language",
+                    "required": true,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "dialect",
+                    "name": "Dialect",
+                    "required": false,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "script",
+                    "name": "Script",
+                    "required": false,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                }
+            ]
+        },
+        {
+            "id": "text-generation-metric",
+            "name": "Text Generation Metric",
+            "output": [
+                {
+                    "name": "Score",
+                    "code": "data",
+                    "dataType": "text"
+                }
+            ],
+            "params": [
+                {
+                    "code": "hypotheses",
+                    "name": "Hypotheses",
+                    "required": true,
+                    "isFixed": false,
+                    "dataType": "text",
+                    "dataSubType": "text",
+                    "multipleValues": true
+                },
+                {
+                    "code": "references",
+                    "name": "References",
+                    "required": false,
+                    "isFixed": false,
+                    "dataType": "text",
+                    "dataSubType": "text",
+                    "multipleValues": true
+                },
+                {
+                    "code": "sources",
+                    "name": "Sources",
+                    "required": false,
+                    "isFixed": false,
+                    "dataType": "text",
+                    "dataSubType": "text",
+                    "multipleValues": true
+                },
+                {
+                    "code": "score_identifier",
+                    "name": "Score Identifier",
+                    "required": true,
+                    "isFixed": true,
+                    "dataType": "text",
+                    "dataSubType": "text",
+                    "multipleValues": false
+                }
+            ]
+        },
+        {
+            "id": "split-on-linebreak",
+            "name": "Split On Linebreak",
+            "output": [
+                {
+                    "name": "text",
+                    "code": "data",
+                    "dataType": "text",
+                    "defaultValue": []
+                }
+            ],
+            "params": [
+                {
+                    "code": "text",
+                    "name": "Text",
+                    "required": true,
+                    "isFixed": false,
+                    "dataType": "text",
+                    "dataSubType": "text",
+                    "multipleValues": false
+                }
+            ]
+        },
+        {
+            "id": "voice-activity-detection",
+            "name": "Voice Activity Detection",
+            "output": [
+                {
+                    "name": "Audio",
+                    "code": "data",
+                    "dataType": "audio",
+                    "defaultValue": []
+                }
+            ],
+            "params": [
+                {
+                    "code": "audio",
+                    "name": "Audio",
+                    "required": true,
+                    "isFixed": false,
+                    "dataType": "audio",
+                    "dataSubType": "audio",
+                    "multipleValues": false
+                },
+                {
+                    "code": "onset",
+                    "name": "Onset",
+                    "required": false,
+                    "isFixed": false,
+                    "defaultValues": [
+                        {
+                            "value": "0.5",
+                            "label": "0.5"
+                        }
+                    ],
+                    "dataType": "text",
+                    "dataSubType": "number",
+                    "multipleValues": false
+                },
+                {
+                    "code": "offset",
+                    "name": "Offset",
+                    "required": false,
+                    "isFixed": false,
+                    "defaultValues": [
+                        {
+                            "value": "0.5",
+                            "label": "0.5"
+                        }
+                    ],
+                    "dataType": "text",
+                    "dataSubType": "number",
+                    "multipleValues": false
+                },
+                {
+                    "code": "min_duration_on",
+                    "name": "Min Duration On",
+                    "required": false,
+                    "isFixed": false,
+                    "defaultValues": [
+                        {
+                            "value": "1",
+                            "label": "1"
+                        }
+                    ],
+                    "dataType": "text",
+                    "dataSubType": "number",
+                    "multipleValues": false
+                },
+                {
+                    "code": "min_duration_off",
+                    "name": "Min Duration Off",
+                    "required": false,
+                    "isFixed": false,
+                    "defaultValues": [
+                        {
+                            "value": "0.5",
+                            "label": "0.5"
+                        }
+                    ],
+                    "dataType": "text",
+                    "dataSubType": "number",
+                    "multipleValues": false
+                }
+            ]
+        },
+        {
+            "id": "sentiment-analysis",
+            "name": "Sentiment Analysis",
+            "output": [
+                {
+                    "name": "Label",
+                    "code": "data",
+                    "dataType": "label",
+                    "defaultValue": []
+                }
+            ],
+            "params": [
+                {
+                    "code": "text",
+                    "name": "Text",
+                    "required": true,
+                    "isFixed": false,
+                    "dataType": "text",
+                    "dataSubType": "text",
+                    "multipleValues": false
+                },
+                {
+                    "code": "language",
+                    "name": "Language",
+                    "required": true,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "dialect",
+                    "name": "Dialect",
+                    "required": false,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "script",
+                    "name": "Script",
+                    "required": false,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                }
+            ]
+        },
+        {
+            "id": "text-classification",
+            "name": "Text Classification",
+            "output": [
+                {
+                    "name": "Label",
+                    "code": "data",
+                    "dataType": "label",
+                    "defaultValue": []
+                }
+            ],
+            "params": [
+                {
+                    "code": "text",
+                    "name": "Text",
+                    "required": true,
+                    "isFixed": false,
+                    "dataType": "text",
+                    "dataSubType": "text",
+                    "multipleValues": false
+                },
+                {
+                    "code": "language",
+                    "name": "Language",
+                    "required": true,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "dialect",
+                    "name": "Dialect",
+                    "required": false,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "script",
+                    "name": "Script",
+                    "required": false,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                }
+            ]
+        },
+        {
+            "id": "speech-synthesis",
+            "name": "Speech Synthesis",
+            "output": [
+                {
+                    "name": "Target Audio",
+                    "code": "data",
+                    "dataType": "audio",
+                    "defaultValue": []
+                }
+            ],
+            "params": [
+                {
+                    "code": "audio",
+                    "name": "Audio",
+                    "required": false,
+                    "isFixed": false,
+                    "dataType": "audio",
+                    "dataSubType": "audio",
+                    "multipleValues": false
+                },
+                {
+                    "code": "language",
+                    "name": "Language",
+                    "required": true,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "dialect",
+                    "name": "Dialect",
+                    "required": false,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "voice",
+                    "name": "Voice",
+                    "required": false,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "script",
+                    "name": "Script",
+                    "required": false,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "text",
+                    "name": "Source Text",
+                    "required": true,
+                    "isFixed": false,
+                    "dataType": "text",
+                    "dataSubType": "text",
+                    "multipleValues": false
+                },
+                {
+                    "code": "type",
+                    "name": "Type",
+                    "required": false,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                }
+            ]
+        },
+        {
+            "id": "video-label-detection",
+            "name": "Video Label Detection",
+            "output": [
+                {
+                    "name": "Label",
+                    "code": "data",
+                    "dataType": "label",
+                    "defaultValue": []
+                }
+            ],
+            "params": [
+                {
+                    "code": "video",
+                    "name": "Video",
+                    "required": true,
+                    "isFixed": false,
+                    "dataType": "video",
+                    "dataSubType": "video",
+                    "multipleValues": false
+                },
+                {
+                    "code": "min_confidence",
+                    "name": "Min Confidence",
+                    "required": false,
+                    "isFixed": false,
+                    "defaultValues": [
+                        {
+                            "value": "0.5",
+                            "label": "0.5"
+                        }
+                    ],
+                    "dataType": "text",
+                    "dataSubType": "number",
+                    "multipleValues": false
+                }
+            ]
+        },
+        {
+            "id": "asr-quality-estimation",
+            "name": "ASR Quality Estimation",
+            "output": [
+                {
+                    "name": "Label",
+                    "code": "data",
+                    "dataType": "label",
+                    "defaultValue": []
+                }
+            ],
+            "params": [
+                {
+                    "code": "text",
+                    "name": "Text",
+                    "required": true,
+                    "isFixed": false,
+                    "dataType": "text",
+                    "dataSubType": "json",
+                    "multipleValues": true
+                },
+                {
+                    "code": "script",
+                    "name": "Script",
+                    "required": false,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                }
+            ]
+        },
+        {
+            "id": "text-content-moderation",
+            "name": "Text Content Moderation",
+            "output": [
+                {
+                    "name": "Label",
+                    "code": "data",
+                    "dataType": "label",
+                    "defaultValue": []
+                }
+            ],
+            "params": [
+                {
+                    "code": "text",
+                    "name": "Text",
+                    "required": true,
+                    "isFixed": false,
+                    "dataType": "text",
+                    "dataSubType": "text",
+                    "multipleValues": false
+                },
+                {
+                    "code": "language",
+                    "name": "Language",
+                    "required": true,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "dialect",
+                    "name": "Dialect",
+                    "required": false,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "script",
+                    "name": "Script",
+                    "required": false,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                }
+            ]
+        },
+        {
+            "id": "image-content-moderation",
+            "name": "Image Content Moderation",
+            "output": [
+                {
+                    "name": "Label",
+                    "code": "data",
+                    "dataType": "label",
+                    "defaultValue": []
+                }
+            ],
+            "params": [
+                {
+                    "code": "image",
+                    "name": "Image",
+                    "required": true,
+                    "isFixed": false,
+                    "dataType": "image",
+                    "dataSubType": "image",
+                    "multipleValues": false
+                },
+                {
+                    "code": "min_confidence",
+                    "name": "Min Confidence",
+                    "required": false,
+                    "isFixed": false,
+                    "defaultValues": [
+                        {
+                            "value": "0.5",
+                            "label": "0.5"
+                        }
+                    ],
+                    "dataType": "text",
+                    "dataSubType": "number",
+                    "multipleValues": false
+                }
+            ]
+        },
+        {
+            "id": "audio-transcript-analysis",
+            "name": "Audio Transcript Analysis",
+            "output": [
+                {
+                    "name": "Target text",
+                    "code": "data",
+                    "dataType": "text",
+                    "defaultValue": []
+                }
+            ],
+            "params": [
+                {
+                    "code": "language",
+                    "name": "Language",
+                    "required": true,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "dialect",
+                    "name": "Dialect",
+                    "required": false,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "source_supplier",
+                    "name": "ASR Supplier",
+                    "required": false,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "source_audio",
+                    "name": "Source Audio",
+                    "required": true,
+                    "isFixed": false,
+                    "dataType": "audio",
+                    "dataSubType": "audio",
+                    "multipleValues": false
+                },
+                {
+                    "code": "script",
+                    "name": "Script",
+                    "required": false,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                }
+            ]
+        },
+        {
+            "id": "text-denormalization",
+            "name": "Text Denormalization",
+            "output": [
+                {
+                    "name": "Label",
+                    "code": "data",
+                    "dataType": "label",
+                    "defaultValue": []
+                }
+            ],
+            "params": [
+                {
+                    "code": "text",
+                    "name": "Text",
+                    "required": true,
+                    "isFixed": false,
+                    "dataType": "text",
+                    "dataSubType": "text",
+                    "multipleValues": false
+                },
+                {
+                    "code": "language",
+                    "name": "Language",
+                    "required": true,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "lowercase_latin",
+                    "name": "To Lower Case",
+                    "required": false,
+                    "isFixed": false,
+                    "defaultValues": [
+                        {
+                            "value": "0",
+                            "label": "No"
+                        }
+                    ],
+                    "dataType": "text",
+                    "dataSubType": "boolean",
+                    "multipleValues": false
+                },
+                {
+                    "code": "remove_accents",
+                    "name": "Remove Accents",
+                    "required": false,
+                    "isFixed": false,
+                    "defaultValues": [
+                        {
+                            "value": "1",
+                            "label": "Yes"
+                        }
+                    ],
+                    "dataType": "text",
+                    "dataSubType": "boolean",
+                    "multipleValues": false
+                },
+                {
+                    "code": "remove_punctuation",
+                    "name": "Remove Punctuation",
+                    "required": false,
+                    "isFixed": false,
+                    "defaultValues": [
+                        {
+                            "value": "0",
+                            "label": "No"
+                        }
+                    ],
+                    "dataType": "text",
+                    "dataSubType": "boolean",
+                    "multipleValues": false
+                }
+            ]
+        },
+        {
+            "id": "search",
+            "name": "Search",
+            "output": [
+                {
+                    "name": "Text",
+                    "code": "data",
+                    "dataType": "text",
+                    "defaultValue": []
+                }
+            ],
+            "params": [
+                {
+                    "code": "text",
+                    "name": "Text",
+                    "required": true,
+                    "isFixed": false,
+                    "dataType": "text",
+                    "dataSubType": "text",
+                    "multipleValues": false
+                }
+            ]
+        },
+        {
+            "id": "speaker-diarization-audio",
+            "name": "Speaker Diarization Audio",
+            "output": [
+                {
+                    "name": "Segments",
+                    "code": "data",
+                    "dataType": "audio",
+                    "defaultValue": []
+                }
+            ],
+            "params": [
+                {
+                    "code": "audio",
+                    "name": "Audio",
+                    "required": true,
+                    "isFixed": false,
+                    "dataType": "audio",
+                    "dataSubType": "audio",
+                    "multipleValues": false
+                },
+                {
+                    "code": "language",
+                    "name": "Language",
+                    "required": false,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "script",
+                    "name": "Script",
+                    "required": false,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "dialect",
+                    "name": "Dialect",
+                    "required": false,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                }
+            ]
+        },
+        {
+            "id": "named-entity-recognition",
+            "name": "Named Entity Recognition",
+            "output": [
+                {
+                    "name": "Label",
+                    "code": "data",
+                    "dataType": "label",
+                    "defaultValue": []
+                }
+            ],
+            "params": [
+                {
+                    "code": "text",
+                    "name": "Text",
+                    "required": true,
+                    "isFixed": false,
+                    "dataType": "text",
+                    "dataSubType": "text",
+                    "multipleValues": false
+                },
+                {
+                    "code": "language",
+                    "name": "Language",
+                    "required": true,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "dialect",
+                    "name": "Dialect",
+                    "required": false,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "script",
+                    "name": "Script",
+                    "required": false,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "domain",
+                    "name": "Domain",
+                    "required": false,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                }
+            ]
+        },
+        {
+            "id": "topic-classification",
+            "name": "Topic Classification",
+            "output": [
+                {
+                    "name": "Label",
+                    "code": "data",
+                    "dataType": "label",
+                    "defaultValue": []
+                }
+            ],
+            "params": [
+                {
+                    "code": "text",
+                    "name": "Text",
+                    "required": true,
+                    "isFixed": false,
+                    "dataType": "text",
+                    "dataSubType": "text",
+                    "multipleValues": false
+                },
+                {
+                    "code": "language",
+                    "name": "Language",
+                    "required": true,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "script",
+                    "name": "Script",
+                    "required": false,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "dialect",
+                    "name": "Dialect",
+                    "required": false,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                }
+            ]
+        },
+        {
+            "id": "text-to-image-generation",
+            "name": "Text To Image Generation",
+            "output": [
+                {
+                    "name": "Generated Image",
+                    "code": "image",
+                    "dataType": "image",
+                    "defaultValue": []
+                }
+            ],
+            "params": [
+                {
+                    "code": "text",
+                    "name": "Text Prompt",
+                    "required": true,
+                    "isFixed": false,
+                    "dataType": "text",
+                    "dataSubType": "text",
+                    "multipleValues": false
+                },
+                {
+                    "code": "language",
+                    "name": "Language",
+                    "required": true,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "dialect",
+                    "name": "Dialect",
+                    "required": false,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                }
+            ]
+        },
+        {
+            "id": "text-normalization",
+            "name": "Text Normalization",
+            "output": [
+                {
+                    "name": "Label",
+                    "code": "data",
+                    "dataType": "label",
+                    "defaultValue": []
+                }
+            ],
+            "params": [
+                {
+                    "code": "text",
+                    "name": "Text",
+                    "required": true,
+                    "isFixed": false,
+                    "dataType": "text",
+                    "dataSubType": "text",
+                    "multipleValues": false
+                },
+                {
+                    "code": "language",
+                    "name": "Language",
+                    "required": false,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "settings",
+                    "name": "Settings",
+                    "required": false,
+                    "isFixed": false,
+                    "availableOptions": [
+                        {
+                            "value": "remove urls",
+                            "label": "remove urls"
+                        },
+                        {
+                            "value": "remove emails",
+                            "label": "remove emails"
+                        },
+                        {
+                            "value": "remove phone numbers",
+                            "label": "remove phone numbers"
+                        },
+                        {
+                            "value": "remove emojis",
+                            "label": "remove emojis"
+                        },
+                        {
+                            "value": "remove html tags",
+                            "label": "remove html tags"
+                        },
+                        {
+                            "value": "normalize quotes",
+                            "label": "normalize quotes"
+                        },
+                        {
+                            "value": "lowercase text",
+                            "label": "lowercase text"
+                        },
+                        {
+                            "value": "remove default arabic diacritics",
+                            "label": "remove default arabic diacritics"
+                        },
+                        {
+                            "value": "remove full arabic diacritics",
+                            "label": "remove full arabic diacritics"
+                        },
+                        {
+                            "value": "normalize default arabic",
+                            "label": "normalize default arabic"
+                        },
+                        {
+                            "value": "normalize full arabic",
+                            "label": "normalize full arabic"
+                        },
+                        {
+                            "value": "remove arabic superfluous",
+                            "label": "remove arabic superfluous"
+                        },
+                        {
+                            "value": "remove kashida dagger",
+                            "label": "remove kashida dagger"
+                        },
+                        {
+                            "value": "normalize spoken text",
+                            "label": "normalize spoken text"
+                        },
+                        {
+                            "value": "denormalize spoken text",
+                            "label": "denormalize spoken text"
+                        },
+                        {
+                            "value": "tokenize text",
+                            "label": "tokenize text"
+                        }
+                    ],
+                    "dataType": "text",
+                    "dataSubType": "text",
+                    "multipleValues": true
+                }
+            ]
+        },
+        {
+            "id": "subtitling-translation",
+            "name": "Subtitling Translation",
+            "output": [
+                {
+                    "name": "Target text",
+                    "code": "data",
+                    "dataType": "text",
+                    "defaultValue": []
+                }
+            ],
+            "params": [
+                {
+                    "code": "text",
+                    "name": "Source Text",
+                    "required": true,
+                    "isFixed": false,
+                    "dataType": "text",
+                    "dataSubType": "text",
+                    "multipleValues": false
+                },
+                {
+                    "code": "sourcelanguage",
+                    "name": "Source Language",
+                    "required": true,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "dialect_in",
+                    "name": "Dialect In",
+                    "required": false,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "target_supplier",
+                    "name": "Machine Translation Supplier",
+                    "required": false,
+                    "isFixed": false,
+                    "availableOptions": [
+                        {
+                            "value": "aws",
+                            "label": "AWS"
+                        },
+                        {
+                            "value": "azure",
+                            "label": "Azure"
+                        },
+                        {
+                            "value": "modernmt",
+                            "label": "ModernMT"
+                        },
+                        {
+                            "value": "apptek",
+                            "label": "AppTek"
+                        },
+                        {
+                            "value": "google",
+                            "label": "Google"
+                        }
+                    ],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "targetlanguages",
+                    "name": "Target Languages",
+                    "required": false,
+                    "isFixed": false,
+                    "availableOptions": [
+                        {
+                            "value": "en",
+                            "label": "English"
+                        },
+                        {
+                            "value": "de",
+                            "label": "German"
+                        },
+                        {
+                            "value": "nl",
+                            "label": "Dutch"
+                        },
+                        {
+                            "value": "fr",
+                            "label": "French"
+                        },
+                        {
+                            "value": "el",
+                            "label": "Greek"
+                        },
+                        {
+                            "value": "it",
+                            "label": "Italian"
+                        },
+                        {
+                            "value": "pl",
+                            "label": "Polish"
+                        },
+                        {
+                            "value": "pt",
+                            "label": "Portuguese"
+                        },
+                        {
+                            "value": "ru",
+                            "label": "Russian"
+                        },
+                        {
+                            "value": "es",
+                            "label": "Spanish"
+                        },
+                        {
+                            "value": "zh",
+                            "label": "Chinese"
+                        },
+                        {
+                            "value": "sl",
+                            "label": "Slovenian"
+                        },
+                        {
+                            "value": "ar",
+                            "label": "Arabic"
+                        },
+                        {
+                            "value": "ja",
+                            "label": "Japanese"
+                        },
+                        {
+                            "value": "ko",
+                            "label": "Korean"
+                        },
+                        {
+                            "value": "tr",
+                            "label": "Turkish"
+                        }
+                    ],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": true
+                }
+            ]
+        },
+        {
+            "id": "translation",
+            "name": "Translation",
+            "output": [
+                {
+                    "name": "Target Text",
+                    "code": "data",
+                    "dataType": "text",
+                    "defaultValue": true
+                }
+            ],
+            "params": [
+                {
+                    "code": "text",
+                    "name": "Source Text",
+                    "required": true,
+                    "isFixed": false,
+                    "dataType": "text",
+                    "dataSubType": "text",
+                    "multipleValues": false
+                },
+                {
+                    "code": "sourcelanguage",
+                    "name": "Source Language",
+                    "required": true,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "targetlanguage",
+                    "name": "Target Language",
+                    "required": true,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "script_in",
+                    "name": "Script In",
+                    "required": false,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "script_out",
+                    "name": "Script Out",
+                    "required": false,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "dialect_in",
+                    "name": "Dialect In",
+                    "required": false,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "dialect_out",
+                    "name": "Dialect Out",
+                    "required": false,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "context",
+                    "name": "Context",
+                    "required": false,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                }
+            ]
+        },
+        {
+            "id": "subtitling",
+            "name": "Subtitling",
+            "output": [
+                {
+                    "name": "Target text",
+                    "code": "data",
+                    "dataType": "text",
+                    "defaultValue": []
+                }
+            ],
+            "params": [
+                {
+                    "code": "source_audio",
+                    "name": "Source Audio",
+                    "required": true,
+                    "isFixed": false,
+                    "dataType": "audio",
+                    "dataSubType": "audio",
+                    "multipleValues": false
+                },
+                {
+                    "code": "sourcelanguage",
+                    "name": "Source Language",
+                    "required": true,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "dialect_in",
+                    "name": "Dialect In",
+                    "required": false,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "source_supplier",
+                    "name": "Speech Recognition Supplier",
+                    "required": false,
+                    "isFixed": false,
+                    "defaultValues": [
+                        {
+                            "value": "aws",
+                            "label": "AWS"
+                        }
+                    ],
+                    "availableOptions": [
+                        {
+                            "value": "aws",
+                            "label": "AWS"
+                        },
+                        {
+                            "value": "azure",
+                            "label": "Azure"
+                        },
+                        {
+                            "value": "google",
+                            "label": "Google"
+                        },
+                        {
+                            "value": "deepgram",
+                            "label": "Deepgram"
+                        },
+                        {
+                            "value": "revai",
+                            "label": "Rev.AI"
+                        },
+                        {
+                            "value": "apptek",
+                            "label": "AppTek"
+                        },
+                        {
+                            "value": "openai",
+                            "label": "OpenAI"
+                        }
+                    ],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "target_supplier",
+                    "name": "Machine Translation Supplier",
+                    "required": false,
+                    "isFixed": false,
+                    "availableOptions": [
+                        {
+                            "value": "aws",
+                            "label": "AWS"
+                        },
+                        {
+                            "value": "azure",
+                            "label": "Azure"
+                        },
+                        {
+                            "value": "modernmt",
+                            "label": "ModernMT"
+                        },
+                        {
+                            "value": "apptek",
+                            "label": "AppTek"
+                        },
+                        {
+                            "value": "google",
+                            "label": "Google"
+                        }
+                    ],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "targetlanguages",
+                    "name": "Target Languages",
+                    "required": false,
+                    "isFixed": false,
+                    "availableOptions": [
+                        {
+                            "value": "en",
+                            "label": "English"
+                        },
+                        {
+                            "value": "de",
+                            "label": "German"
+                        },
+                        {
+                            "value": "nl",
+                            "label": "Dutch"
+                        },
+                        {
+                            "value": "fr",
+                            "label": "French"
+                        },
+                        {
+                            "value": "el",
+                            "label": "Greek"
+                        },
+                        {
+                            "value": "it",
+                            "label": "Italian"
+                        },
+                        {
+                            "value": "pl",
+                            "label": "Polish"
+                        },
+                        {
+                            "value": "pt",
+                            "label": "Portuguese"
+                        },
+                        {
+                            "value": "ru",
+                            "label": "Russian"
+                        },
+                        {
+                            "value": "es",
+                            "label": "Spanish"
+                        },
+                        {
+                            "value": "zh",
+                            "label": "Chinese"
+                        },
+                        {
+                            "value": "sl",
+                            "label": "Slovenian"
+                        },
+                        {
+                            "value": "ar",
+                            "label": "Arabic"
+                        },
+                        {
+                            "value": "ja",
+                            "label": "Japanese"
+                        },
+                        {
+                            "value": "ko",
+                            "label": "Korean"
+                        },
+                        {
+                            "value": "tr",
+                            "label": "Turkish"
+                        }
+                    ],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": true
+                }
+            ]
+        },
+        {
+            "id": "speech-recognition",
+            "name": "Speech Recognition",
+            "output": [
+                {
+                    "name": "Target text",
+                    "code": "data",
+                    "dataType": "text",
+                    "defaultValue": []
+                }
+            ],
+            "params": [
+                {
+                    "code": "language",
+                    "name": "Language",
+                    "required": true,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "dialect",
+                    "name": "Dialect",
+                    "required": false,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "voice",
+                    "name": "Voice",
+                    "required": false,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                },
+                {
+                    "code": "source_audio",
+                    "name": "Source Audio",
+                    "required": true,
+                    "isFixed": false,
+                    "dataType": "audio",
+                    "dataSubType": "audio",
+                    "multipleValues": false
+                },
+                {
+                    "code": "script",
+                    "name": "Script",
+                    "required": false,
+                    "isFixed": true,
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                }
+            ]
+        }
+    ]
+}
