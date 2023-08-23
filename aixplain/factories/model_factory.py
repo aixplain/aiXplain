@@ -127,7 +127,7 @@ class ModelFactory:
             if is_finetunable is not None:
                 filter_params["isFineTunable"] = str(is_finetunable).lower()
             if function is not None:
-                filter_params[""] = function.value
+                filter_params["function"] = function.value
             lang_filter_params = []
             if source_languages is not None:
                 if isinstance(source_languages, Language):
