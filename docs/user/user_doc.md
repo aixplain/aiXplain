@@ -144,11 +144,11 @@ Using the aiXplain SDK, you can also onboard your corpus into the aiXplain platf
 
 ### Label Studio Corpus Onboarding
 
-The Label Studio platform encompasses distinct projects, each distinguished by the Label Studio authentication API key employed. Within these projects, a variety of tasks are hosted, often spanning multiple data types. The `aixplain.processes.data_onboarding.labelstudio_onboard` method has been crafted to adeptly manage both audio and text data, whether originating from a Label Studio task or a project.
+The Label Studio platform encompasses distinct projects, each distinguished by the Label Studio authentication API key employed. Within these projects, a variety of tasks are hosted, often spanning multiple data types. The `LabelStudioFactory` class has been crafted to adeptly retrieve and manage both audio and text data, whether originating from a Label Studio task or a project.
 
-For successful utilization of this method, the requisites are straightforward: you must possess the relevant Label Studio project or task ID, as well as the corresponding Label Studio authentication API key. This process is further elaborated through a step-by-step example which can be found below:
+For successful utilization of this class, the requisites are straightforward: you must possess the relevant Label Studio project or task ID, as well as the corresponding Label Studio authentication API key. This process is further elaborated through a step-by-step example which can be found below:
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/19hmWt6IKHF-toTm9yxEwdwNCTZNIH1UD) 
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1h80QQccIjvcV4RPOjO-5hvBE9oz8t-F3) 
 
 ## Datasets
 Different from corpus, a dataset is a representative sample of a specific phenomenon to a specific AI task. aiXplain also counts with an extensive collection of datasets for training, infer and benchmark various tasks like Translation, Speech Recognition, Diacritization, Sentiment Analysis, and much more.
