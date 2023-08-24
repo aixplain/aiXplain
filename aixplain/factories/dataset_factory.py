@@ -36,12 +36,13 @@ from aixplain.modules.metadata import MetaData
 from aixplain.enums.data_subtype import DataSubtype
 from aixplain.enums.data_type import DataType
 from aixplain.enums.error_handler import ErrorHandler
-from aixplain.enums.function import Function, FunctionInputOutput
+from aixplain.enums.function import Function
 from aixplain.enums.language import Language
 from aixplain.enums.license import License
 from aixplain.enums.privacy import Privacy
 from aixplain.utils.file_utils import _request_with_retry, s3_to_csv
 from aixplain.utils import config
+from aixplain.utils.validation_utils import dataset_onboarding_validation
 from pathlib import Path
 from tqdm import tqdm
 from typing import Any, Dict, List, Optional, Text, Union
@@ -360,26 +361,16 @@ class DatasetFactory(AssetFactory):
         Returns:
             Dict: dataset onboard status
         """
-        input_dtype = input_schema[0].dtype if isinstance(input_schema[0],MetaData) else input_schema[0]['dtype']
-        output_dtype = output_schema[0].dtype if isinstance(output_schema[0],MetaData) else output_schema[0]['dtype']
-        if isinstance(input_dtype, DataType):
-            input_dtype = input_dtype.value
-
-        if isinstance(output_dtype, DataType):
-            output_dtype = output_dtype.value
-
-        assert (
-            FunctionInputOutput.get(function) is not None and FunctionInputOutput[function]['input'] == input_dtype
-        ), f"Data Asset Onboarding Error: The input data type `{input_dtype}` is not compatible with the `{function}` function.\nThe expected input data type is `{FunctionInputOutput[function]['input']}`."
-        assert (
-            FunctionInputOutput.get(function) is not None and FunctionInputOutput[function]['output'] == output_dtype
-        ), f"Data Asset Onboarding Error: The output data type `{output_dtype}` is not compatible with the `{function}` function.\nThe expected output data type is `{FunctionInputOutput[function]['output']}`."
-        assert (
-            content_path is not None or s3_link is not None
-        ), "Data Asset Onboarding Error: No path to content Data was provided. Please update `context_path` or `s3_link`."
-        assert (split_labels is not None and split_rate is not None) or (
-            split_labels is None and split_rate is None
-        ), "Data Asset Onboarding Error: Make sure you set the split labels values as well as their rates."
+        
+        dataset_onboarding_validation(
+            input_schema,
+            output_schema,
+            content_path,
+            split_labels,
+            split_rate,
+            s3_link
+        )
+        
         folder, return_dict, ref_data, csv_path = None, {}, [], None
         # check team key
         try:

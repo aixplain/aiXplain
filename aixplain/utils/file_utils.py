@@ -14,18 +14,20 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-import aixplain.utils.config as config
 import os
 import re
 import requests
 
+import aixplain.utils.config as config
+
 from collections import defaultdict
 from pathlib import Path
 from requests.adapters import HTTPAdapter, Retry
-from typing import Any, Optional, Text, Union, Dict
+from typing import Any, Optional, Text, Union, Dict 
 from uuid import uuid4
 from urllib.parse import urljoin, urlparse
 from pandas import DataFrame
+
 
 def save_file(download_url: Text, download_file_path: Optional[Any] = None) -> Any:
     """Download and save file from given URL
