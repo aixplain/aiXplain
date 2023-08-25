@@ -225,7 +225,7 @@ class ModelFactory:
             always_on (bool): Whether the model should always be on
             version (Text): Model version
             description (Text): Model description
-            function (Text): Model funciton obtained via #TODO add function endpoint
+            function (Text): Model function obtained via #TODO add function endpoint
             is_async (bool): Whether the model is asynchronous or not
             api_key (Text, optional): Team API key. Defaults to None.
 
