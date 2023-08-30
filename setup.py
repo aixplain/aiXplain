@@ -100,7 +100,7 @@ setup(
     },
     entry_points = {
         'console_scripts': [
-            'hosted-machines = aixplain.factories.model_factory:ModelFactory.list_host_machines'
+            'aixplain host-machines list = aixplain.factories.model_factory:ModelFactory.list_host_machines'
         ]
     },
 )
