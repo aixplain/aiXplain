@@ -1,14 +1,11 @@
 __author__ = "michaellam"
 
 import json
-import pytest
 import requests_mock
 from pathlib import Path
 from aixplain.utils import config
 
 from aixplain.factories.model_factory import ModelFactory
-from aixplain.factories.dataset_factory import DatasetFactory
-from aixplain.factories.metric_factory import MetricFactory
 
 AUTH_FIXED_HEADER = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
 API_FIXED_HEADER = {"x-api-key": f"{config.TEAM_API_KEY}", "Content-Type": "application/json"}
