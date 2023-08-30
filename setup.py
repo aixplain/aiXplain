@@ -95,7 +95,7 @@ setup(
     tests_require=test_requirements,
     extras_require={},
     project_urls={
-        "Documentation": "https://github.com/aixplain/pipelines/tree/main/docs",
+        "Documentation": "https://github.com/aixplain/aiXplain/blob/main/docs/user/user_doc.md",
         "Source": "https://github.com/aixplain/aiXplain",
     },
 )
