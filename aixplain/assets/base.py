@@ -100,7 +100,7 @@ class ListAssetMixin:
     @classmethod
     def _construct_page_path(cls: Type['BaseAsset'], page_number: int,
                              filters: Optional[Dict[str, Any]] = None,
-                             subpaths: Optional[List[str]] = None) -> str:
+                             subpaths: Optional[List[str]] = None, **kwargs) -> str:
         """
         Construct a URL to list assets.
 
@@ -134,7 +134,8 @@ class ListAssetMixin:
         :return: List of BaseAsset instances for the specified page.
         """
         payload = cls.client.get(path, **kwargs)
-        return [cls(item) for item in payload['items']]
+        payload_json = payload.json()
+        return [cls(item) for item in payload_json['items']]
 
     @classmethod
     def page(cls: Type['BaseAsset'], page_number: int,

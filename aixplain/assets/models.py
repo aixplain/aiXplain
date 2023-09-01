@@ -22,7 +22,7 @@ class Model(BaseAsset, GetAssetMixin, ListAssetMixin):
     asset_path = 'models'
 
     def run(self, data: Union[Text, Dict], name: Text = "model_process",
-            timeout: float = 300, parameters: Dict = {},
+            timeout: float = 300, parameters: Dict = {}, models_run_url: Text = None,
             wait_time: float = 0.5) -> Dict:
         """
         Runs the model synchronously.
@@ -71,7 +71,8 @@ class Model(BaseAsset, GetAssetMixin, ListAssetMixin):
 
         try:
             result = self.client.request('POST', url, json=payload)
-            return {'status': 'IN_PROGRESS', 'url': result['data']}
+            result_json = result.json()
+            return {'status': 'IN_PROGRESS', 'url': result_json['data']}
         except Exception as e:
             error = None
             if isinstance(e, requests.RequestException):

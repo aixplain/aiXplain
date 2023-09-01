@@ -1,10 +1,21 @@
 import pytest
 import httpretty
+import os
+from urllib.parse import urljoin
 from aixplain.client import AixplainClient
 from aixplain.assets.files import File
 from aixplain.enums import StorageType
 
 COMMON_PATH = 'test/test_models.py'
+BASE_URL = os.getenv('BACKEND_URL', 'https://api.example.com/')
+
+"""@pytest.fixture
+def mock_aixplain_client():
+    return AixplainClient(
+        base_url=BASE_URL,
+        aixplain_api_key='some_api_key',
+        team_api_key='some_team_api_key'
+    )"""
 
 @pytest.fixture
 def setup_httpretty():
@@ -13,33 +24,40 @@ def setup_httpretty():
     httpretty.disable()
     httpretty.reset()
 
-@pytest.fixture
-def create_test_client():
-    base_url = 'https://api.example.com'
-    client = AixplainClient(base_url, team_api_key='your_api_key')
-    return client
 
 def test_check_storage_type_file():
     storage_type = File.check_storage_type(COMMON_PATH)
     assert storage_type == StorageType.FILE
-@pytest.mark.skip()
-def test_batch_upload_to_s3_dict(setup_httpretty, create_test_client):
-    httpretty.register_uri(httpretty.POST, 'https://api.example.com/file/upload/temp-url',
-                           json={'key': 's3-key', 'uploadUrl': 'https://s3-upload-url.com'}, status=200)
-    import pdb
-    pdb.set_trace()
+
+@httpretty.activate
+def test_batch_upload_to_s3_dict():
+    upload_url = urljoin(BASE_URL, "/upload").replace('.', '-')
+    httpretty.register_uri(httpretty.POST, urljoin(BASE_URL,'sdk/file/upload/temp-url'),
+                           json={'contentType': 'test/csv', 'originalName': COMMON_PATH}, status=200, body=f'{{"key": "the_key", "uploadUrl":"{upload_url}"}}')
+    httpretty.register_uri(httpretty.PUT, upload_url, status=200)
     input_dict = {'file_path': COMMON_PATH}
     result = File.batch_upload_to_s3(input_dict)
     
-    expected_result = {'file_path': 's3://s3-upload-url.com/s3-key'}
+    expected_result = {'file_path': 's3://api-example-com/the_key'}
     assert result == expected_result
-@pytest.mark.skip()
-def test_batch_upload_to_s3_string(setup_httpretty, create_test_client):
-    httpretty.register_uri(httpretty.POST, 'https://api.example.com/file/upload/temp-url',
-                           json={'key': 's3-key', 'uploadUrl': 'https://s3-upload-url.com'}, status=200)
+
+@httpretty.activate
+def test_batch_upload_to_s3_string():
+    upload_url = urljoin(BASE_URL, "/upload").replace('.', '-')
+    httpretty.register_uri(
+        httpretty.POST,
+        urljoin(BASE_URL,'sdk/file/upload/temp-url'),
+        json={'contentType': 'test/csv', 'originalName': COMMON_PATH},
+        status=200,
+        body=f'{{"key": "the_key", "uploadUrl":"{upload_url}"}}')
+
+    httpretty.register_uri(
+        httpretty.PUT,
+        upload_url,
+        status=200)
     
     input_string = COMMON_PATH
     result = File.batch_upload_to_s3(input_string)
     
-    expected_result = 's3://s3-upload-url.com/s3-key'
+    expected_result = 's3://api-example-com/the_key'
     assert result == expected_result
