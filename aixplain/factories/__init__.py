@@ -22,6 +22,7 @@ limitations under the License.
 from .asset_factory import AssetFactory
 from .benchmark_factory import BenchmarkFactory
 from .corpus_factory import CorpusFactory
+from .labelstudio_factory import LabelStudioFactory
 from .data_factory import DataFactory
 from .dataset_factory import DatasetFactory
 from .file_factory import FileFactory

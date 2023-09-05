@@ -148,7 +148,7 @@ The Label Studio platform encompasses distinct projects, each distinguished by t
 
 For successful utilization of this class, the requisites are straightforward: you must possess the relevant Label Studio project or task ID, as well as the corresponding Label Studio authentication API key. This process is further elaborated through a step-by-step example which can be found below:
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1h80QQccIjvcV4RPOjO-5hvBE9oz8t-F3) 
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1uuvRoGbQ9tu_An5EACWtZnf20cDF5l3j) 
 
 ## Datasets
 Different from corpus, a dataset is a representative sample of a specific phenomenon to a specific AI task. aiXplain also counts with an extensive collection of datasets for training, infer and benchmark various tasks like Translation, Speech Recognition, Diacritization, Sentiment Analysis, and much more.
