@@ -53,6 +53,99 @@ poll_url = start_response["url"]
 poll_response = model.poll(poll_url)
 ```
 
+### Uploading Models
+In addition to exploring and running models, the aixplain SDK allows you to upload your own models to the aiXplain platform. This requires a working model image in line with the template specified [here](https://github.com/aixplain/aixplain-models-internal/tree/master/docs/user). 
+
+First, choose a hosting machine appropriate for your model. You can list the available hosting machines' specifications by running the following:
+```console
+$ aixplain model-builder list-hosts [--api-key <TEAM_API_KEY>]
+[
+    {
+        "id": "64dce914adc92335dc35beb5",
+        "code": "aix-2c-8g-od",
+        "type": "on-demand",
+        "cores": 2,
+        "memory": 8,
+        "hourlyCost": 0.12
+    },
+    {
+        "id": "64dceafdadc92335dc35beb6",
+        "code": "aix-2c-8g",
+        "type": "always-on",
+        "cores": 2,
+        "memory": 8,
+        "hourlyCost": 0.096
+    },
+    ...
+]
+```
+
+Find a supported function type that best describes your model's purpose:
+```console
+$ aixplain model-builder list-functions [--api-key <TEAM_API_KEY>]
+{
+    "total": 55,
+    "pageTotal": 55,
+    "items": [
+        {
+            "id": "language-identification",
+            "name": "Language Identification",
+            "output": [
+                {
+                    "name": "Label",
+                    "code": "data",
+                    "dataType": "label",
+                    "defaultValue": []
+                }
+            ],
+            "params": [
+                {
+                    "code": "text",
+                    "name": "Text",
+                    "required": true,
+                    "isFixed": false,
+                    "dataType": "text",
+                    "dataSubType": "text",
+                    "multipleValues": false
+                }
+            ]
+        },
+        ...
+    ]
+}
+```
+
+Once you have chosen a suitable host machine and function, register your model and create an image repository:
+
+```console
+$ aixplain model-builder create-repo --name <model_name> --hosting-machine <machine_code> --always-on <always_on> --version <model_version> --description <model_description> --function <function_id> --is-async <model_is_asynchronous or not> [--api-key <TEAM_API_KEY>]
+{
+    "repoName": <model_repository_name>,
+    "modelId": <model_id>
+}
+```
+
+This returns a model_id and a repo_name. Next, obtain login credentials for the newly created repository:
+
+```console
+$ aixplain model-builder login [--api-key <TEAM_API_KEY>]
+{
+    "username": <username>,
+    "password": <password>,
+    "registry": <registry_url>
+}
+```
+
+Log in to Docker using these credentials, and push your image to the remote repository. Once this is done, onboard the model:
+```console
+$ aixplain model-builder onboard --model-id <model_id> --image-tag <model_image_tag> --image-hash <model_image_hash> [--api-key <TEAM_API_KEY>]
+```
+
+This will send an email to an aiXplain associate to finalize the onboarding process. You can check the status of your model with the following command:
+```console
+$ aixplain model-builder is-onboarded --model-id <model_id> --host <host_machine> --version <model_image_version> [--api-key <TEAM_API_KEY>]
+```
+
 ## Pipelines
 [Design](https://aixplain.com/platform/studio/) is aiXplain’s no-code AI pipeline builder tool that accelerates AI development by providing a seamless experience to build complex AI systems and deploy them within minutes. You can visit our platform and design your own custom pipeline [here](https://platform.aixplain.com/studio).
 

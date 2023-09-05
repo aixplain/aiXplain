@@ -30,6 +30,7 @@ from aixplain.utils.file_utils import _request_with_retry
 from urllib.parse import urljoin
 from warnings import warn
 import click
+from aixplain.cli_groups import *
 
 class ModelFactory:
     """A static class for creating and exploring Model Objects.
@@ -194,6 +195,8 @@ class ModelFactory:
         response = _request_with_retry("get", machines_url, headers=headers)
         return response.json()
     
+    @function.command("list")
+    @click.argument('--api_key', required=False)
     @classmethod
     def list_functions(cls, api_key: Optional[Text] = None) -> List[Dict]:
         """Lists supported model functions on platform.
