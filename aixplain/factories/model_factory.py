@@ -186,7 +186,8 @@ class ModelFactory:
             List[Dict]: List of dictionaries containing information about
             each hosting machine.
         """
-        machines_url = f"{config.BACKEND_URL}sdk/hosting-machines"
+        machines_url = f"{config.BACKEND_URL}/sdk/hosting-machines"
+        logging.debug(f"URL: {machines_url}")
         if api_key:
             headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
         else:
@@ -205,7 +206,8 @@ class ModelFactory:
             List[Dict]: List of dictionaries containing information about
             each supported function.
         """
-        functions_url = f"{config.BACKEND_URL}sdk/functions"
+        functions_url = f"{config.BACKEND_URL}/sdk/functions"
+        logging.debug(f"URL: {functions_url}")
         if api_key:
             headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
         else:
@@ -234,7 +236,8 @@ class ModelFactory:
         Returns:
             Dict: Backend response
         """
-        create_url = f"{config.BACKEND_URL}sdk/models/register"
+        create_url = f"{config.BACKEND_URL}/sdk/models/register"
+        logging.debug(f"URL: {create_url}")
         if api_key:
             headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
         else:
@@ -251,6 +254,7 @@ class ModelFactory:
             "sourceLanguage": source_language
         }
         payload = json.dumps(payload)
+        logging.debug(f"Body: {str(payload)}")
         response = _request_with_retry("post", create_url, headers=headers, data=payload)
         return response.json()
     
@@ -265,7 +269,8 @@ class ModelFactory:
         Returns:
             Dict: Backend response
         """
-        login_url = f"{config.BACKEND_URL}sdk/ecr/login" 
+        login_url = f"{config.BACKEND_URL}/sdk/ecr/login" 
+        logging.debug(f"URL: {login_url}")
         if api_key:
             headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
         else:
@@ -284,7 +289,8 @@ class ModelFactory:
         Returns:
             Dict: Backend response
         """ 
-        onboard_url = f"{config.BACKEND_URL}sdk/inventory/models/{model_id}/onboarding"
+        onboard_url = f"{config.BACKEND_URL}/sdk/inventory/models/{model_id}/onboarding"
+        logging.debug(f"URL: {onboard_url}")
         if api_key:
             headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
         else:
@@ -294,6 +300,7 @@ class ModelFactory:
             "sha": image_hash
         }
         payload = json.dumps(payload)
+        logging.debug(f"Body: {str(payload)}")
         response = _request_with_retry("post", onboard_url, headers=headers, data=payload)
         return response
     
@@ -307,7 +314,8 @@ class ModelFactory:
         Returns:
             Dict: Backend response
         """ 
-        is_onboarded_url = f"{config.BACKEND_URL}webhook/models/onboarding"
+        is_onboarded_url = f"{config.BACKEND_URL}/webhook/models/onboarding"
+        logging.debug(f"URL: {is_onboarded_url}")
         if api_key:
             headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
         else:
@@ -317,6 +325,7 @@ class ModelFactory:
             "host": host,
             "version": version
         }
+        logging.debug(f"Body: {str(payload)}")
         payload = json.dumps(payload)
         response = _request_with_retry("post", is_onboarded_url, headers=headers, data=payload)
         return response.json()
@@ -332,7 +341,8 @@ class ModelFactory:
         Returns:
             Dict: Backend response
         """
-        list_url = f"{config.BACKEND_URL}sdk/models/{model_id}/images"
+        list_url = f"{config.BACKEND_URL}/sdk/models/{model_id}/images"
+        logging.debug(f"URL: {list_url}")
         if api_key:
             headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
         else:
