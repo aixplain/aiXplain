@@ -54,11 +54,11 @@ poll_response = model.poll(poll_url)
 ```
 
 ### Uploading Models
-In addition to exploring and running models, the aixplain SDK allows you to upload your own models to the aiXplain platform. This requires a working model image in line with the template specified [here](https://github.com/aixplain/aixplain-models-internal/tree/master/docs/user). 
+In addition to exploring and running models, the aiXplain SDK allows you to upload your own models to the aiXplain platform. This requires a working model image in line with the template specified [here](https://github.com/aixplain/aixplain-models-internal/tree/master/docs/user). You will also be required to have an aiXplain account as well as a TEAM_API_KEY which should be set either as an environment variable or passed into each of the following functions.
 
-First, choose a hosting machine appropriate for your model. You can list the available hosting machines' specifications by running the following:
+First, choose a hosting machine appropriate for your model. Note down the host machines "code". You can list the available hosting machines' specifications by running the following:
 ```console
-$ aixplain model-builder list-hosts [--api-key <TEAM_API_KEY>]
+$ aixplain list hosts [--api-key <TEAM_API_KEY>]
 [
     {
         "id": "64dce914adc92335dc35beb5",
@@ -80,9 +80,9 @@ $ aixplain model-builder list-hosts [--api-key <TEAM_API_KEY>]
 ]
 ```
 
-Find a supported function type that best describes your model's purpose:
+Find a supported function type that best describes your model's purpose. Note down the function's ID.
 ```console
-$ aixplain model-builder list-functions [--api-key <TEAM_API_KEY>]
+$ aixplain list functions [--api-key <TEAM_API_KEY>]
 {
     "total": 55,
     "pageTotal": 55,
@@ -118,7 +118,7 @@ $ aixplain model-builder list-functions [--api-key <TEAM_API_KEY>]
 Once you have chosen a suitable host machine and function, register your model and create an image repository:
 
 ```console
-$ aixplain model-builder create-repo --name <model_name> --hosting-machine <machine_code> --always-on <always_on> --version <model_version> --description <model_description> --function <function_id> --is-async <model_is_asynchronous or not> [--api-key <TEAM_API_KEY>]
+$ aixplain create repo --name <model_name> --hosting-machine <machine_code> --version <model_version> --description <model_description> --function <function_id> --is-async <model_is_asynchronous or not> --source-language <source_language> [--api-key <TEAM_API_KEY>]
 {
     "repoName": <model_repository_name>,
     "modelId": <model_id>
@@ -128,7 +128,7 @@ $ aixplain model-builder create-repo --name <model_name> --hosting-machine <mach
 This returns a model_id and a repo_name. Next, obtain login credentials for the newly created repository:
 
 ```console
-$ aixplain model-builder login [--api-key <TEAM_API_KEY>]
+$ aixplain get repo-login [--api-key <TEAM_API_KEY>]
 {
     "username": <username>,
     "password": <password>,
@@ -136,14 +136,14 @@ $ aixplain model-builder login [--api-key <TEAM_API_KEY>]
 }
 ```
 
-Log in to Docker using these credentials, and push your image to the remote repository. Once this is done, onboard the model:
+Log in to Docker using these credentials, and push your image to the remote repository. You will need your image's tag and sha digest as well as your model's registered model ID, which was returned in the previous steps. Once this is done, onboard the model:
 ```console
-$ aixplain model-builder onboard --model-id <model_id> --image-tag <model_image_tag> --image-hash <model_image_hash> [--api-key <TEAM_API_KEY>]
+$ aixplain onboard model --model-id <model_id> --image-tag <model_image_tag> --image-hash <model_image_hash> [--api-key <TEAM_API_KEY>]
 ```
 
 This will send an email to an aiXplain associate to finalize the onboarding process. You can check the status of your model with the following command:
 ```console
-$ aixplain model-builder is-onboarded --model-id <model_id> --host <host_machine> --version <model_image_version> [--api-key <TEAM_API_KEY>]
+$ aixplain get onboarding-status --model-id <model_id> --host <host_machine> --version <model_image_version> [--api-key <TEAM_API_KEY>]
 ```
 
 ## Pipelines
