@@ -141,10 +141,7 @@ Log in to Docker using these credentials, and push your image to the remote repo
 $ aixplain onboard model --model-id <model_id> --image-tag <model_image_tag> --image-hash <model_image_hash> [--api-key <TEAM_API_KEY>]
 ```
 
-This will send an email to an aiXplain associate to finalize the onboarding process. You can check the status of your model with the following command:
-```console
-$ aixplain get onboarding-status --model-id <model_id> --host <host_machine> --version <model_image_version> [--api-key <TEAM_API_KEY>]
-```
+This will send an email to an aiXplain associate to finalize the onboarding process.
 
 ## Pipelines
 [Design](https://aixplain.com/platform/studio/) is aiXplain’s no-code AI pipeline builder tool that accelerates AI development by providing a seamless experience to build complex AI systems and deploy them within minutes. You can visit our platform and design your own custom pipeline [here](https://platform.aixplain.com/studio).
