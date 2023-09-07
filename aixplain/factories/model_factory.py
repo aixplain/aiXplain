@@ -186,7 +186,7 @@ class ModelFactory:
             List[Dict]: List of dictionaries containing information about
             each hosting machine.
         """
-        machines_url = f"{config.BACKEND_URL}/sdk/hosting-machines"
+        machines_url = urljoin(config.BACKEND_URL, f"sdk/hosting-machines")
         logging.debug(f"URL: {machines_url}")
         if api_key:
             headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
@@ -206,7 +206,7 @@ class ModelFactory:
             List[Dict]: List of dictionaries containing information about
             each supported function.
         """
-        functions_url = f"{config.BACKEND_URL}/sdk/functions"
+        functions_url = urljoin(config.BACKEND_URL, f"sdk/functions")
         logging.debug(f"URL: {functions_url}")
         if api_key:
             headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
@@ -236,7 +236,7 @@ class ModelFactory:
         Returns:
             Dict: Backend response
         """
-        create_url = f"{config.BACKEND_URL}/sdk/models/register"
+        create_url = urljoin(config.BACKEND_URL, f"sdk/models/register")
         logging.debug(f"URL: {create_url}")
         if api_key:
             headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
@@ -269,7 +269,7 @@ class ModelFactory:
         Returns:
             Dict: Backend response
         """
-        login_url = f"{config.BACKEND_URL}/sdk/ecr/login" 
+        login_url = urljoin(config.BACKEND_URL, f"sdk/ecr/login")
         logging.debug(f"URL: {login_url}")
         if api_key:
             headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
@@ -289,7 +289,7 @@ class ModelFactory:
         Returns:
             Dict: Backend response
         """ 
-        onboard_url = f"{config.BACKEND_URL}/sdk/inventory/models/{model_id}/onboarding"
+        onboard_url = urljoin(config.BACKEND_URL, f"sdk/inventory/models/{model_id}/onboarding")
         logging.debug(f"URL: {onboard_url}")
         if api_key:
             headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
@@ -304,31 +304,6 @@ class ModelFactory:
         response = _request_with_retry("post", onboard_url, headers=headers, data=payload)
         return response
     
-    @classmethod
-    def is_onboarded(cls, model_id: Text, host: Text, version: Text, api_key: Optional[Text] = None):
-        """Check whether a model has been onboarded.
-
-        Args:
-            model_id (Text): Model ID obtained from CREATE_ASSET_REPO.
-            api_key (Text, optional): Team API key. Defaults to None.
-        Returns:
-            Dict: Backend response
-        """ 
-        is_onboarded_url = f"{config.BACKEND_URL}/webhook/models/onboarding"
-        logging.debug(f"URL: {is_onboarded_url}")
-        if api_key:
-            headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
-        else:
-            headers = {"x-api-key": f"{cls.api_key}", "Content-Type": "application/json"}
-        payload = {
-            "id": model_id,
-            "host": host,
-            "version": version
-        }
-        logging.debug(f"Body: {str(payload)}")
-        payload = json.dumps(payload)
-        response = _request_with_retry("post", is_onboarded_url, headers=headers, data=payload)
-        return response.json()
 
     @classmethod
     def list_image_repo_tags(cls, model_id: Text, api_key: Optional[Text] = None) -> Dict:
@@ -341,7 +316,7 @@ class ModelFactory:
         Returns:
             Dict: Backend response
         """
-        list_url = f"{config.BACKEND_URL}/sdk/models/{model_id}/images"
+        list_url = urljoin(config.BACKEND_URL, f"sdk/models/{model_id}/images")
         logging.debug(f"URL: {list_url}")
         if api_key:
             headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
