@@ -114,6 +114,24 @@ curl -v -H http://localhost:8080/v1/models/$ASSET_URI:predict -d '{"instances": 
 
 The input parameter in request above needs to be modified according to the target model's function input. Refer to the [function input definition documentation.](/src/aixplain_models/schemas/function_input.py)
 
+### Dockerfile
+Create an image using the following sample Dockerfile. Add features as needed:
+```Dockerfile
+FROM python:3.8.10
+
+RUN mkdir /code
+WORKDIR /code
+COPY . /code/
+
+RUN pip install --upgrade pip
+RUN pip install -r requirements.txt
+
+RUN chmod +x /code/bash.sh
+RUN ./bash.sh
+
+CMD python -m model
+```
+
 ### The environment variables
 
  - `ASSET_DIR`: The relative or absolute path of the model artefacts directory (ASSET_URI) on your system. This defaults to current directory.
