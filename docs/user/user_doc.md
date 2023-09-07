@@ -54,7 +54,7 @@ poll_response = model.poll(poll_url)
 ```
 
 ### Uploading Models
-In addition to exploring and running models, the aiXplain SDK allows you to upload your own models to the aiXplain platform. This requires a working model image in line with the template specified [here](https://github.com/aixplain/aixplain-models-internal/tree/master/docs/user). You will also be required to have an aiXplain account as well as a TEAM_API_KEY which should be set either as an environment variable or passed into each of the following functions.
+In addition to exploring and running models, the aiXplain SDK allows you to upload your own models to the aiXplain platform. This requires a working model image in line with the template specified [here](https://github.com/aixplain/aiXplain/blob/M-5079254326-container-upload-cli/docs/user/model_setup.md). You will also be required to have an aiXplain account as well as a TEAM_API_KEY which should be set either as an environment variable or passed into each of the following functions.
 
 First, choose a hosting machine appropriate for your model. Note down the host machines "code". You can list the available hosting machines' specifications by running the following:
 ```console
