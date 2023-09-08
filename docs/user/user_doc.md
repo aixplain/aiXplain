@@ -136,7 +136,22 @@ $ aixplain get repo-login [--api-key <TEAM_API_KEY>]
 }
 ```
 
-Log in to Docker using these credentials, and push your image to the remote repository. You will need your image's tag and sha digest as well as your model's registered model ID, which was returned in the previous steps. Once this is done, onboard the model:
+These credentials are valid for 12 hours, after which you much again log in for a fresh set of valid credentials. If you are using Docker, you can use these credentials to log in with the following:
+```console
+docker login --username $USERNAME --password $PASSWORD
+```
+
+Next, tag your image to match the registry and repository name given in the previous steps. If you are using Docker, this would look like the following:
+```console
+$ docker tag <prev_image> {$REGISTRY}/{$REPO_NAME}:<your-choice-of-tag>
+```
+
+Push the newly tagged image to the corresponding repository:
+```console
+$ docker push {$REGISTRY}/{$REPO_NAME}:<your-choice-of-tag>
+```
+
+Once this is done, onboard the model:
 ```console
 $ aixplain onboard model --model-id <model_id> --image-tag <model_image_tag> --image-hash <model_image_hash> [--api-key <TEAM_API_KEY>]
 ```
