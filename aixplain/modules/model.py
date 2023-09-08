@@ -77,11 +77,7 @@ class Model(Asset):
         self.additional_info = additional_info
         self.url = config.MODELS_RUN_URL
         self.backend_url = config.BACKEND_URL
-        if "function" in additional_info:
-            self.function = None
-            for _, func in enumerate(Function):
-                if func == additional_info["function"]:
-                    self.function = func
+        self.function = additional_info["function"]
             
 
     def _is_subscribed(self) -> bool:
