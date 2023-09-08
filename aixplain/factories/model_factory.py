@@ -61,6 +61,7 @@ class ModelFactory:
             supplier=response["supplier"]["id"],
             api_key=response["api_key"],
             pricing=response["pricing"],
+            function=response["function"]["id"]
         )
 
     @classmethod

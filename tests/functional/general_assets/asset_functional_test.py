@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 load_dotenv()
 from aixplain.factories import ModelFactory, DatasetFactory, MetricFactory, PipelineFactory
 from pathlib import Path
+from aixplain.enums import Function
 
 import pytest
 
@@ -46,3 +47,9 @@ def test_run(inputs, asset_name):
     else:
         output = asset.run(payload)
     assert output["completed"] and output["status"] == "SUCCESS"
+
+def test_model_function():
+    desired_function = Function.TRANSLATION
+    models = ModelFactory.list(function=desired_function)['results']
+    for model in models:
+        assert model.function == desired_function
