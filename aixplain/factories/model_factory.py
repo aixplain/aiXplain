@@ -55,13 +55,21 @@ class ModelFactory:
         """
         if "api_key" not in response:
             response["api_key"] = cls.api_key
+
+        parameters = {}
+        if "params" in response:
+            for param in response["params"]:
+                if "language" in param["name"]:
+                    parameters[param["name"]] = [w["value"] for w in param["values"]]
+
         return Model(
             response["id"],
             response["name"],
             supplier=response["supplier"]["id"],
             api_key=response["api_key"],
             pricing=response["pricing"],
-            function=Function(response["function"]["id"])
+            function=Function(response["function"]["id"]),
+            parameters=parameters,
         )
 
     @classmethod
@@ -122,9 +130,7 @@ class ModelFactory:
     ) -> List[Model]:
         try:
             url = urljoin(cls.backend_url, f"sdk/models")
-            filter_params = {
-                "pageNumber" : page_number
-            }
+            filter_params = {"pageNumber": page_number}
             if is_finetunable is not None:
                 filter_params["isFineTunable"] = str(is_finetunable).lower()
             if function is not None:
@@ -138,7 +144,7 @@ class ModelFactory:
                 else:
                     lang_filter_params.append({"code": "language", "value": source_languages[0].value["language"]})
                     if source_languages[0].value["dialect"] != "":
-                        lang_filter_params.append({"code": "dialect", "value": source_languages[0].value["dialect"]})    
+                        lang_filter_params.append({"code": "dialect", "value": source_languages[0].value["dialect"]})
             if target_languages is not None:
                 if isinstance(target_languages, Language):
                     target_languages = [target_languages]
@@ -151,7 +157,7 @@ class ModelFactory:
                 headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
             else:
                 headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
-            
+
             r = _request_with_retry("get", url, headers=headers, params=filter_params)
             resp = r.json()
             logging.info(f"Listing Models: Status of getting Models on Page {page_number}: {r.status_code}")
@@ -193,16 +199,18 @@ class ModelFactory:
             starting_model_page_number = starting_model_index_overall // 10
             ending_model_page_number = ending_model_index_overall // 10
             starting_model_index_filtered = starting_model_index_overall - (starting_model_page_number * 10)
-            ending_model_index_filtered = starting_model_index_filtered + page_size -1
-            for current_page_number in range(starting_model_page_number, ending_model_page_number+1):
-                models_on_current_page, total = cls._get_assets_from_page(current_page_number, function, source_languages, target_languages, is_finetunable)
+            ending_model_index_filtered = starting_model_index_filtered + page_size - 1
+            for current_page_number in range(starting_model_page_number, ending_model_page_number + 1):
+                models_on_current_page, total = cls._get_assets_from_page(
+                    current_page_number, function, source_languages, target_languages, is_finetunable
+                )
                 model_list += models_on_current_page
             filtered_model_list = model_list[starting_model_index_filtered : ending_model_index_filtered + 1]
             return {
                 "results": filtered_model_list,
                 "page_total": min(page_size, len(filtered_model_list)),
                 "page_number": page_number,
-                "total": total
+                "total": total,
             }
         except Exception as e:
             error_message = f"Listing Models: Error in Listing Models : {e}"
