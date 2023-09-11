@@ -27,6 +27,7 @@ import logging
 import traceback
 from typing import List
 from aixplain.factories.file_factory import FileFactory
+from aixplain.enums import Function
 from aixplain.modules.asset import Asset
 from aixplain.utils import config
 from urllib.parse import urljoin
@@ -45,6 +46,7 @@ class Model(Asset):
         url (Text, optional): endpoint of the model. Defaults to config.MODELS_RUN_URL.
         supplier (Text, optional): model supplier. Defaults to "aiXplain".
         version (Text, optional): version of the model. Defaults to "1.0".
+        function (Text, optional): model AI function. Defaults to None.
         url (str): URL to run the model.
         backend_url (str): URL of the backend.
         **additional_info: Any additional Model info to be saved
@@ -58,6 +60,7 @@ class Model(Asset):
         api_key: Optional[Text] = None,
         supplier: Text = "aiXplain",
         version: Text = "1.0",
+        function: Optional[Text] = None,
         **additional_info,
     ) -> None:
         """Model Init
@@ -69,6 +72,7 @@ class Model(Asset):
             api_key (Text, optional): API key of the Model. Defaults to None.
             supplier (Text, optional): model supplier. Defaults to "aiXplain".
             version (Text, optional): version of the model. Defaults to "1.0".
+            function (Text, optional): model AI function. Defaults to None.
             **additional_info: Any additional Model info to be saved
         """
         super().__init__(id, name, description, supplier, version)
@@ -76,6 +80,7 @@ class Model(Asset):
         self.additional_info = additional_info
         self.url = config.MODELS_RUN_URL
         self.backend_url = config.BACKEND_URL
+        self.function = function
 
     def _is_subscribed(self) -> bool:
         """Returns if the model is subscribed to
@@ -93,7 +98,7 @@ class Model(Asset):
         """
         clean_additional_info = {k: v for k, v in self.additional_info.items() if v is not None}
         return {"id": self.id, "name": self.name, "supplier": self.supplier, "additional_info": clean_additional_info}
-    
+
     def __repr__(self):
         return f"<Model: {self.name} by {self.supplier}>"
 
