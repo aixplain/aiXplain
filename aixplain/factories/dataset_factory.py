@@ -42,6 +42,7 @@ from aixplain.enums.license import License
 from aixplain.enums.privacy import Privacy
 from aixplain.utils.file_utils import _request_with_retry, s3_to_csv
 from aixplain.utils import config
+from aixplain.utils.validation_utils import dataset_onboarding_validation
 from pathlib import Path
 from tqdm import tqdm
 from typing import Any, Dict, List, Optional, Text, Union
@@ -307,12 +308,16 @@ class DatasetFactory(AssetFactory):
         Returns:
             Dict: dataset onboard status
         """
-        assert (
-            content_path is not None or s3_link is not None
-        ), "Data Asset Onboarding Error: No path to content Data was provided. Please update `context_path` or `s3_link`."
-        assert (split_labels is not None and split_rate is not None) or (
-            split_labels is None and split_rate is None
-        ), "Data Asset Onboarding Error: Make sure you set the split labels values as well as their rates."
+        
+        dataset_onboarding_validation(
+            input_schema,
+            output_schema,
+            content_path,
+            split_labels,
+            split_rate,
+            s3_link
+        )
+        
         folder, return_dict, ref_data, csv_path = None, {}, [], None
         # check team key
         try:
