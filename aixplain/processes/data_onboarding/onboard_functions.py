@@ -67,9 +67,7 @@ def get_paths(input_paths: List[Union[str, Path]]) -> List[Path]:
 
     # check CSV sizes
     for path in paths:
-        assert (
-            os.path.getsize(path) <= 100000000
-        ), f'Data Asset Onboarding Error: CSV file "{path}" exceeds the size limit of 1 GB.'
+        assert os.path.getsize(path) <= 1e9, f'Data Asset Onboarding Error: CSV file "{path}" exceeds the size limit of 1 GB.'
     return paths
 
 
