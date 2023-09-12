@@ -123,8 +123,7 @@ RUN mkdir /code
 WORKDIR /code
 COPY . /code/
 
-RUN pip install --upgrade pip
-RUN pip install -r requirements.txt
+RUN pip install -r --no-cache-dir requirements.txt
 
 RUN chmod +x /code/bash.sh
 RUN ./bash.sh

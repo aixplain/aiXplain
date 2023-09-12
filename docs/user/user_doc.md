@@ -54,7 +54,7 @@ poll_response = model.poll(poll_url)
 ```
 
 ### Uploading Models
-In addition to exploring and running models, the aiXplain SDK allows you to upload your own models to the aiXplain platform. This requires a working model image in line with the template specified [here](https://github.com/aixplain/aiXplain/blob/M-5079254326-container-upload-cli/docs/user/model_setup.md). You will also be required to have an aiXplain account as well as a TEAM_API_KEY which should be set either as an environment variable or passed into each of the following functions.
+In addition to exploring and running models, the aiXplain SDK allows you to upload your own models to the aiXplain platform. This requires a working model image in line with the template specified [here](docs/user/model_setup.md). You will also be required to have an aiXplain account as well as a TEAM_API_KEY which should be set either as an environment variable or passed into each of the following functions.
 
 First, choose a hosting machine appropriate for your model. Note down the host machines "code". You can list the available hosting machines' specifications by running the following:
 ```console
@@ -118,7 +118,7 @@ $ aixplain list functions [--api-key <TEAM_API_KEY>]
 Once you have chosen a suitable host machine and function, register your model and create an image repository:
 
 ```console
-$ aixplain create repo --name <model_name> --hosting-machine <machine_code> --version <model_version> --description <model_description> --function <function_id> --is-async <model_is_asynchronous or not> --source-language <source_language> [--api-key <TEAM_API_KEY>]
+$ aixplain image-create repo --name <model_name> --hosting-machine <machine_code> --version <model_version> --description <model_description> --function <function_id> --is-async <model_is_asynchronous or not> --source-language <source_language> [--api-key <TEAM_API_KEY>]
 {
     "repoName": <model_repository_name>,
     "modelId": <model_id>
@@ -128,7 +128,7 @@ $ aixplain create repo --name <model_name> --hosting-machine <machine_code> --ve
 This returns a model_id and a repo_name. Next, obtain login credentials for the newly created repository:
 
 ```console
-$ aixplain get repo-login [--api-key <TEAM_API_KEY>]
+$ aixplain get image-repo-login [--api-key <TEAM_API_KEY>]
 {
     "username": <username>,
     "password": <password>,
