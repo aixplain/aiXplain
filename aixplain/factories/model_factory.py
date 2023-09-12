@@ -223,6 +223,7 @@ class ModelFactory:
         for function_dict in function_list:
             del function_dict["output"]
             del function_dict["params"]
+            del function_dict["id"]
         return response_dict
     
     @classmethod
@@ -238,14 +239,22 @@ class ModelFactory:
             always_on (bool): Whether the model should always be on
             version (Text): Model version
             description (Text): Model description
-            function (Text): Model function obtained via LIST_HOST_MACHINES
-            is_async (bool): Whether the model is asynchronous or not
+            function (Text): Model function name obtained via LIST_HOST_MACHINES
+            is_async (bool): Whether the model is asynchronous or not (False in first release)
             source_language (Text): 2-character 639-1 code or 3-character 639-3 language code.
             api_key (Text, optional): Team API key. Defaults to None.
 
         Returns:
             Dict: Backend response
         """
+        # Reconcile function mame to be function ID in the backend
+        function_list = cls.list_functions(True, cls.api_key)["items"]
+        function_id = None
+        for function_dict in function_list:
+            if function_dict["name"] == function:
+                function_id = function_dict["id"]
+        if function_id is None:
+            raise Exception("Invalid function name")
         create_url = urljoin(config.BACKEND_URL, f"sdk/models/register")
         logging.debug(f"URL: {create_url}")
         if api_key:
@@ -253,13 +262,14 @@ class ModelFactory:
         else:
             headers = {"x-api-key": f"{cls.api_key}", "Content-Type": "application/json"}
         always_on = False
+        is_async = False # Hard-coded to False for first release
         payload = {
             "name": name,
             "hostingMachine": hosting_machine,
             "alwaysOn": always_on,
             "version": version,
             "description": description,
-            "function": function,
+            "function": function_id,
             "isAsync": is_async,
             "sourceLanguage": source_language
         }
