@@ -193,7 +193,7 @@ class ModelFactory:
         else:
             headers = {"x-api-key": f"{cls.api_key}", "Content-Type": "application/json"}
         response = _request_with_retry("get", machines_url, headers=headers)
-        response_dict = json.loads(response.text)
+        response_dict = dict(json.loads(response.text))
         response_dict.pop("id")
         return response_dict
     
