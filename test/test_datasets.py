@@ -8,12 +8,12 @@ from aixplain.assets.datasets import Dataset
 # Mocking the AixplainClient
 BASE_URL = os.getenv('BACKEND_URL', 'https://api.example.com')
 
-@pytest.fixture
+"""@pytest.fixture
 def setup_httpretty():
     httpretty.enable()
     yield
     httpretty.disable()
-    httpretty.reset()
+    httpretty.reset()"""
 
 def test_dataset_initialization():
     dataset_dict = {

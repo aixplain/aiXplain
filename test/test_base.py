@@ -24,12 +24,12 @@ class ListAssetMixinWithAssetPath(BaseAsset, ListAssetMixin):
 
 
 # Fixture to set up httpretty
-@pytest.fixture
+"""@pytest.fixture
 def setup_httpretty():
     httpretty.enable()
     yield
     httpretty.disable()
-    httpretty.reset()
+    httpretty.reset()"""
 
 # Fixture to create a test AixplainClient
 @pytest.fixture

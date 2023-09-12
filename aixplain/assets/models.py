@@ -19,7 +19,7 @@ class Model(BaseAsset, GetAssetMixin, ListAssetMixin):
     including running models synchronously and asynchronously.
     """
 
-    asset_path = 'models'
+    asset_path = 'inventory/models'
 
     def run(self, data: Union[Text, Dict], name: Text = "model_process",
             timeout: float = 300, parameters: Dict = {}, models_run_url: Text = None,

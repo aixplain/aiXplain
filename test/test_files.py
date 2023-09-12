@@ -10,20 +10,12 @@ COMMON_PATH = 'test/test_models.py'
 BASE_URL = os.getenv('BACKEND_URL', 'https://api.example.com/')
 
 """@pytest.fixture
-def mock_aixplain_client():
-    return AixplainClient(
-        base_url=BASE_URL,
-        aixplain_api_key='some_api_key',
-        team_api_key='some_team_api_key'
-    )"""
-
-@pytest.fixture
 def setup_httpretty():
     httpretty.enable()
     yield
     httpretty.disable()
     httpretty.reset()
-
+"""
 
 def test_check_storage_type_file():
     storage_type = File.check_storage_type(COMMON_PATH)

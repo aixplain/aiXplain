@@ -14,12 +14,12 @@ from aixplain.client import (AixplainClient,
 BASE_URL = 'https://api.example.com'
 
 
-def setup_function():
+"""def setup_function():
     httpretty.enable()
 
 
 def teardown_function():
-    httpretty.disable()
+    httpretty.disable()"""
 
 
 def test_create_retry_session_defaults():
