@@ -40,7 +40,7 @@ def test_dataset_onboard():
         name=str(uuid4()),
         description="Test dataset",
         license=License.MIT,
-        function=Function.TRANSLATION,
+        function=Function.SPEECH_RECOGNITION,
         content_path=upload_file,
         input_schema=meta1,
         output_schema=meta2,
