@@ -35,6 +35,7 @@ class Asset:
         version: Text = "1.0",
         license: Optional[License] = None,
         privacy: Privacy = Privacy.PRIVATE,
+        cost: float = 0
     ) -> None:
         """Create an Asset with the necessary information
 
@@ -52,6 +53,7 @@ class Asset:
         self.version = version
         self.license = license
         self.privacy = privacy
+        self.cost = cost
 
     def to_dict(self) -> dict:
         """Get the asset info as a Dictionary

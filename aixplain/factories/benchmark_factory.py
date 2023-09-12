@@ -26,13 +26,11 @@ from typing import Dict, List, Optional, Text
 import json
 import pandas as pd
 from pathlib import Path
-from aixplain.modules.benchmark import Benchmark
+from aixplain.modules import Dataset, Metric, Model
 from aixplain.modules.benchmark_job import BenchmarkJob
-from aixplain.modules.dataset import Dataset
-from aixplain.modules.metric import Metric
-from aixplain.modules.model import Model
-from aixplain.factories.dataset_factory import DatasetFactory
+from aixplain.modules.benchmark import Benchmark
 from aixplain.factories.metric_factory import MetricFactory
+from aixplain.factories.dataset_factory import DatasetFactory
 from aixplain.factories.model_factory import ModelFactory
 from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry, save_file
@@ -95,8 +93,8 @@ class BenchmarkFactory:
             Benchmark: Coverted 'Benchmark' object
         """
         model_list = [ModelFactory().get(model_info["id"]) for model_info in response["model"]]
-        dataset_list = [DatasetFactory().get(dataset_id) for dataset_id in response["target"]]
-        metric_list = [MetricFactory().get(metric_info["id"]) for metric_info in response["score"]]
+        dataset_list = [DatasetFactory().get(dataset_id) for dataset_id in response["datasets"]]
+        metric_list = [MetricFactory().get(metric_info["id"]) for metric_info in response["metrics"]]
         job_list = cls._get_benchmark_jobs_from_benchmark_id(response["id"])
         return Benchmark(response["id"], response["name"], dataset_list, model_list, metric_list, job_list)
 
@@ -110,41 +108,31 @@ class BenchmarkFactory:
         Returns:
             Benchmark: Created 'Benchmark' object
         """
-        # resp = None
-        # try:
-        #     url = urljoin(cls.backend_url, f"sdk/benchmarks/{benchmark_id}")
-        #     if cls.aixplain_key != "":
-        #         headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
-        #     else:
-        #         headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
-        #     logging.info(f"Start service for GET Benchmark  - {url} - {headers}")
-        #     r = _request_with_retry("get", url, headers=headers)
-        #     resp = r.json()
-        #     benchmark = cls._create_benchmark_from_response(resp)
-        # except Exception as e:
-        #     status_code = 400
-        #     if resp is not None and "statusCode" in resp:
-        #         status_code = resp["statusCode"]
-        #         message = resp["message"]
-        #         message = f"Benchmark Creation: Status {status_code} - {message}"
-        #     else:
-        #         message = "Benchmark Creation: Unspecified Error"
-        #     logging.error(message)
-        #     raise Exception(f"Status {status_code}: {message}")
-        # return benchmark
-        raise NotImplementedError("Benchmark functions are coming soon on the SDK.")
+        resp = None
+        try:
+            url = urljoin(cls.backend_url, f"sdk/benchmarks/{benchmark_id}")
+            if cls.aixplain_key != "":
+                headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
+            else:
+                headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
+            logging.info(f"Start service for GET Benchmark  - {url} - {headers}")
+            r = _request_with_retry("get", url, headers=headers)
+            resp = r.json()
+            benchmark = cls._create_benchmark_from_response(resp)
+        except Exception as e:
+            status_code = 400
+            if resp is not None and "statusCode" in resp:
+                status_code = resp["statusCode"]
+                message = resp["message"]
+                message = f"Benchmark Creation: Status {status_code} - {message}"
+            else:
+                message = f"Benchmark Creation: Unspecified Error"
+            logging.error(f"Benchmark Creation Failed: {e}")
+            raise Exception(f"Status {status_code}: {message}")
+        return benchmark
 
     @classmethod
-    def create_asset_from_id(cls, benchmark_id: str) -> Benchmark:
-        warn(
-            'This method will be deprecated in the next versions of the SDK. Use "get" instead.',
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return cls.get(benchmark_id)
-
-    @classmethod
-    def create_benchmark_job_from_id(cls, job_id: Text) -> BenchmarkJob:
+    def get_job(cls, job_id: Text) -> BenchmarkJob:
         """Create a 'BenchmarkJob' object from job id
 
         Args:
@@ -153,46 +141,41 @@ class BenchmarkFactory:
         Returns:
             BenchmarkJob: Created 'BenchmarkJob' object
         """
-        # url = urljoin(cls.backend_url, f"sdk/benchmarks/jobs/{job_id}")
-        # if cls.aixplain_key != "":
-        #     headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
-        # else:
-        #     headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
-        # r = _request_with_retry("get", url, headers=headers)
-        # resp = r.json()
-        # benchmarkJob = cls._create_benchmark_job_from_response(resp)
-        # return benchmarkJob
-        raise NotImplementedError("Benchmark functions are coming soon on the SDK.")
+        url = urljoin(cls.backend_url, f"sdk/benchmarks/jobs/{job_id}")
+        if cls.aixplain_key != "":
+            headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
+        else:
+            headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
+        r = _request_with_retry("get", url, headers=headers)
+        resp = r.json()
+        benchmarkJob = cls._create_benchmark_job_from_response(resp)
+        return benchmarkJob
 
     @classmethod
-    def update_benchmark_job_info(cls, benchmarkJob: BenchmarkJob) -> BenchmarkJob:
-        """Updates 'BenchmarkJob' with the latest info
-
-        Args:
-            benchmarkJob (BenchmarkJob): 'BenchmarkJob' to update
-
-        Returns:
-            BenchmarkJob: updated 'BenchmarkJob'
-        """
-        # return cls.create_benchmark_job_from_id(benchmarkJob.id)
-        raise NotImplementedError("Benchmark functions are coming soon on the SDK.")
-
-    @classmethod
-    def update_benchmark_info(cls, benchmark: Benchmark) -> Benchmark:
-        """Updates 'Benchmark' with the latest info
-
-        Args:
-            benchmark (Benchmark): 'Benchmark' to update
-
-        Returns:
-            Benchmark: updated 'Benchmark'
-        """
-        return cls.get(benchmark.id)
+    def _validate_create_benchmark_payload(cls, payload):
+        if len(payload["datasets"]) != 1:
+            raise Exception("Please use exactly one dataset")
+        if len(payload["metrics"]) == 0:
+            raise Exception("Please use exactly one metric")
+        if len(payload["model"]) == 0:
+            raise Exception("Please use exactly one model")
+        clean_metrics_info = {}
+        for metric_info in payload["metrics"]:
+            metric_id = metric_info["id"]
+            if metric_id not in clean_metrics_info:
+                clean_metrics_info[metric_id] = metric_info["configurations"]
+            else:
+                clean_metrics_info[metric_id] += metric_info["configurations"]
+            clean_metrics_info[metric_id] = list(set(clean_metrics_info[metric_id]))
+            if len(clean_metrics_info[metric_id]) == 0:
+                clean_metrics_info[metric_id] = [[]]
+        payload["metrics"] = [
+            {"id": metric_id, "configurations": metric_config} for metric_id, metric_config in clean_metrics_info.items()
+        ]
+        return payload
 
     @classmethod
-    def create_benchmark(
-        cls, name: str, dataset_list: List[Dataset], model_list: List[Model], metric_list: List[Metric]
-    ) -> Benchmark:
+    def create(cls, name: str, dataset_list: List[Dataset], model_list: List[Model], metric_list: List[Metric]) -> Benchmark:
         """Creates a benchmark based on the information provided like name, dataset list, model list and score list.
         Note: This only creates a benchmark. It needs to run seperately using start_benchmark_job.
 
@@ -205,99 +188,54 @@ class BenchmarkFactory:
         Returns:
             Benchmark: _description_
         """
-        # payload = {}
-        # try:
-        #     url = urljoin(cls.backend_url, f"sdk/benchmarks")
-        #     headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
-        #     payload = json.dumps(
-        #         {
-        #             "name": name,
-        #             "target": [dataset.id for dataset in dataset_list],
-        #             "model": [model.id for model in model_list],
-        #             "score": [metric.id for metric in metric_list],
-        #             "shapScores": [],
-        #             "humanEvaluationReport": False,
-        #             "automodeTraining": False,
-        #         }
-        #     )
-        #     r = _request_with_retry("post", url, headers=headers, data=payload)
-        #     resp = r.json()
-        #     logging.info(f"Creating Benchmark Job: Status for {name}: {resp}")
-        #     return cls.get(resp["id"])
-        # except Exception as e:
-        #     error_message = f"Creating Benchmark Job: Error in Creating Benchmark with payload {payload} : {e}"
-        #     logging.error(error_message)
-        #     return None
-        raise NotImplementedError("Benchmark functions are coming soon on the SDK.")
+        payload = {}
+        try:
+            url = urljoin(cls.backend_url, f"sdk/benchmarks")
+            headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
+            payload = {
+                "name": name,
+                "datasets": [dataset.id for dataset in dataset_list],
+                "model": [model.id for model in model_list],
+                "metrics": [{"id": metric.id, "configurations": metric.normalization_options} for metric in metric_list],
+                "shapScores": [],
+                "humanEvaluationReport": False,
+                "automodeTraining": False,
+            }
+            clean_payload = cls._validate_create_benchmark_payload(payload)
+            payload = json.dumps(clean_payload)
+            r = _request_with_retry("post", url, headers=headers, data=payload)
+            resp = r.json()
+            logging.info(f"Creating Benchmark Job: Status for {name}: {resp}")
+            return cls.get(resp["id"])
+        except Exception as e:
+            error_message = f"Creating Benchmark Job: Error in Creating Benchmark with payload {payload} : {e}"
+            logging.error(error_message, exc_info=True)
+            return None
 
     @classmethod
-    def start_benchmark_job(cls, benchmark: Benchmark) -> BenchmarkJob:
-        """Start a new benchmarking job(run) from a already created benchmark.
+    def list_normalization_options(cls, metric: Metric, model: Model) -> List[str]:
+        """Get list of supported normalization options for a metric and model to be used in benchmarking
 
         Args:
-            benchmark (Benchmark): 'Benchmark' object to start the run for
+            metric (Metric): Metric for which normalization options are to be listed
+            model(Model): Model to be used in benchmarking
 
         Returns:
-            BenchmarkJob: 'BenchmarkJob' created after starting the run
+            List[str]: List of supported normalization options
         """
-        # benhchmark_id = None
-        # try:
-        #     benhchmark_id = benchmark.id
-        #     url = urljoin(cls.backend_url, f"sdk/benchmarks/{benhchmark_id}/start")
-        #     headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
-        #     r = _request_with_retry("post", url, headers=headers)
-        #     resp = r.json()
-        #     logging.info(f"Starting Benchmark Job: Status for {benhchmark_id}: {resp}")
-        #     return cls.create_benchmark_job_from_id(resp["jobId"])
-        # except Exception as e:
-        #     error_message = f"Starting Benchmark Job: Error in Creating Benchmark {benhchmark_id} : {e}"
-        #     logging.error(error_message)
-        #     return None
-        raise NotImplementedError("Benchmark functions are coming soon on the SDK.")
-
-    @classmethod
-    def download_results_as_csv(
-        cls, benchmarkJob: BenchmarkJob, save_path: Optional[Text] = None, returnDataFrame: Optional[bool] = False
-    ):
-        """Get the results of the benchmark job in a CSV format.
-        The results can either be downloaded locally or returned in the form of pandas.DataFrame.
-
-
-        Args:
-            benchmarkJob (BenchmarkJob): 'BenchmarkJob' to get the results for
-            save_path (Text, optional): Path to save the CSV if returnDataFrame is False. If None, a ranmdom path is generated. defaults to None.
-            returnDataFrame (bool, optional): If True, the result is returned as pandas.DataFrame else saved as a CSV file. defaults to False.
-
-        Returns:
-            str/pandas.DataFrame: results as path of locally saved file if returnDataFrame is False else as a pandas dataframe
-        """
-        # try:
-        #     job_id = benchmarkJob.id
-        #     url = urljoin(cls.backend_url, f"sdk/benchmarks/jobs/{job_id}")
-        #     if cls.aixplain_key != "":
-        #         headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
-        #     else:
-        #         headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
-        #     r = _request_with_retry("get", url, headers=headers)
-        #     resp = r.json()
-        #     logging.info(f"Downloading Benchmark Results: Status of downloading results for {job_id}: {resp}")
-        #     if "reportUrl" not in resp:
-        #         logging.error(
-        #             f"Downloading Benchmark Results: Can't get download results as they aren't generated yet. Please wait for a while."
-        #         )
-        #         return None
-        #     csv_url = resp["reportUrl"]
-        #     if returnDataFrame:
-        #         downloaded_path = save_file(csv_url, save_path)
-        #         df = pd.read_csv(downloaded_path)
-        #         if save_path is None:
-        #             Path(downloaded_path).unlink()
-        #         return df
-        #     else:
-        #         downloaded_path = save_file(csv_url, save_path)
-        #         return downloaded_path
-        # except Exception as e:
-        #     error_message = f"Downloading Benchmark Results: Error in Downloading Benchmark Results : {e}"
-        #     logging.error(error_message)
-        #     return None
-        raise NotImplementedError("Benchmark functions are coming soon on the SDK.")
+        try:
+            url = urljoin(cls.backend_url, f"sdk/benchmarks/normalization-options")
+            if cls.aixplain_key != "":
+                headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
+            else:
+                headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
+            payload = json.dumps({"metricId": metric.id, "modelIds": [model.id]})
+            r = _request_with_retry("post", url, headers=headers, data=payload)
+            resp = r.json()
+            logging.info(f"Listing Normalization Options: Status of listing options: {resp}")
+            normalization_options = [item["value"] for item in resp]
+            return normalization_options
+        except Exception as e:
+            error_message = f"Listing Normalization Options: Error in getting Normalization Options: {e}"
+            logging.error(error_message, exc_info=True)
+            return []

@@ -1,14 +1,16 @@
 # User Documentation
 aiXplain has a vast repository of multiple assets such as models, corpus, datasets, metrics, pipelines, and more. The factories in aiXplain SDK provide a powerful set of tools for creating, searching, and managing these assets.
 
-The asset types currently supported by the SDK are:
+The assets and services currently supported by the SDK are:
+#### Assets
 - [Model](#models)
 - [Pipeline](#pipelines)
 - [Corpus](#corpus)
 - [Dataset](#datasets)
+- [Metric](#metrics)
+#### Services
+- [Benchmark](#benchmark)
 - [FineTune](#finetune)
-<!-- - [Metric](#metrics)
-- [Benchmark](#benchmarks) -->
 
 ## Models
 aiXplain has an ever-expanding catalog of 35,000+ ready-to-use AI models to be used for various tasks like Translation, Speech Recognition, Diacritization, Sentiment Analysis, and much more.
@@ -36,7 +38,8 @@ If you need, the aixplain SDK allows searching for existing models that match a 
 
 ```python
 from aixplain.factories import ModelFactory
-model_list = ModelFactory.get_first_k_assets(k=5, task="translation", input_language="en", output_language="hi")
+from aixplain.enums import Function, Language
+model_list = ModelFactory.list(function=Function.TRANSLATION, source_languages=Language.English, target_languages=Language.French)["results"]
 ```
 
 ### Run
@@ -150,7 +153,7 @@ The aixplain SDK allows searching for existing datasets that match a specific cr
 ```python
 from aixplain.factories import DatasetFactory
 from aixplain.enums import Function, Language
-dataset_list = DatasetFactory.list(function=Function.TRANSLATION, language=[Language.English, Language.French], page_size=1)["results"]
+dataset_list = DatasetFactory.list(function=Function.TRANSLATION, source_languages=Language.English, target_languages=Language.French)["results"]
 ```
 Note: This does not download datasets to your local machine.
 
@@ -185,7 +188,7 @@ from aixplain.factories import FinetuneFactory, DatasetFactory, ModelFactory
 from aixplain.enums import Function, Language
 
 # Choose 'exactly one' model
-model = ModelFactory.get_first_k_assets(k=5, task="translation", input_language="en", output_language="fr", is_finetunable=True)[0]
+model = ModelFactory.list(function=Function.TRANSLATION, source_languages=Language.English, target_languages=Language.French, is_finetunable=True, page_size=1)["results"][0]
 # Choose 'one or more' datasets
 dataset_list = DatasetFactory.list(function=Function.TRANSLATION, source_languages=Language.English, target_languages=Language.French, page_size=1)["results"]
 
@@ -238,7 +241,6 @@ Status can be one of the following: `onboarding`, `onboarded`, `hidden`, `traini
 
 Once it is `onboarded`, you are ready to use it as any other model!
 
-# Coming Soon
 
 ## Metrics
 aiXplain has an impressive library of metrics for various machine learning tasks like Translation, Speech Recognition, Diacritization, and Sentiment Analysis. There are reference similarity metrics, human evaluation estimation metrics, and referenceless metrics.
@@ -248,11 +250,22 @@ The catalog of all available metrics on aiXplain can be accessed and browsed [he
 The aixplain SDK allows searching for existing metrics. `MetricFactory` can search for metrics for a particular machine learning task.
 
 ```python
-from aixplain.factories.metric_factory import MetricFactory
-metric_list = MetricFactory.list_assets(task="translation")
+from aixplain.factories import MetricFactory
+metric_list = MetricFactory.list()['results']
 ```
 
-## Benchmarks
+### Run
+The aixplain SDK allows you to run metrics. Some metrics might also require source or reference as inputs.
+```python
+output = metric.run("hypothesis": "<sample hypothesis>", "source": "<sample optional source>", "reference": "<sample optional reference>")
+```
+You can even pass a list of inputs in a single call.
+```python
+output = metric.run("hypothesis": ["<sample hypothesis 1>", "<sample hypothesis 2>"], "source": ["<sample optional source 1>", "<sample optional source 2>"], "reference": ["<sample optional reference> 1", "<sample optional reference> 2"])
+```
+
+
+## Benchmark
 
 [Benchmark](https://aixplain.com/platform/benchmark) is a powerful tool for benchmarking machine learning models and evaluating their performance on specific tasks. You can obtain easy-to-interpret granular insights on the performance of models for quality, latency, footprint, cost, and bias with our interactive Benchmark reports.
 
@@ -268,13 +281,13 @@ from aixplain.factories import BenchmarkFactory, DatasetFactory, MetricFactory, 
 from aixplain.enums import Function, Language
 
 # Choose 'one or more' models
-model_list = ModelFactory.get_first_k_assets(k=5, task="translation", input_language="en", output_language="fr")
-# Choose 'one or more' metrics
-metric_list = MetricFactory.list_assets(task="translation")
+models = ModelFactory.list(function=Function.SPEECH_RECOGNITION, source_languages=Language.English_UNITED_STATES, page_size=2)['results']
+# Choose 'one or more' metrics that are supported
+metrics = MetricFactory.list(model_id=models[0].id, page_size=2)['results']
 # Choose 'exactly one' dataset
-dataset_list = DatasetFactory.list(function=Function.TRANSLATION, language=[Language.English, Language.French], page_size=1)["results"]
+datasets = DatasetFactory.list(function=Function.SPEECH_RECOGNITION, source_languages=Language.English_UNITED_STATES, page_size=1)['results']
 
-benchmark = BenchmarkFactory.create_benchmark(<UNIQUE_NAME_OF_BENCHMARK>, dataset_list, model_list, metric_list)
+benchmark = BenchmarkFactory.create(<UNIQUE_NAME_OF_BENCHMARK>, dataset_list=datasets, model_list=models, metric_list=metrics)
 ```
 
 You can visit [model](#models), [dataset](#datasets), and [metric](#metrics) docs for more details.
@@ -282,12 +295,42 @@ You can visit [model](#models), [dataset](#datasets), and [metric](#metrics) doc
 ### Running a Benchmark
 Once a `Benchmark` is created (refer to the [section above](#creating-a-benchmark)), we need to start a new `BenchmarkJob` from it. It is really simple to run a benchmark:
 ```python
-benchmark_job = BenchmarkFactory.start_benchmark_job(benchmark)
+benchmark_job = benchmark.start()
 ```
 Note: You can start multiple jobs on a single `Benchmark`.
 
 ### Getting the Results 
-Once a `BenchmarkJob` is up and running (refer to the [section above](#running-a-benchmark)), we can download the current results as a CSV (even for an in-progress benchmarking job).
+Once a `BenchmarkJob` is up and running (refer to the [section above](#running-a-benchmark)), we can check the status or directly download the current results as a CSV (even for an in-progress benchmarking job).
+#### Status
 ```python
-results_path = BenchmarkFactory.download_results_as_csv(benchmark_job)
+status = benchmark_job.check_status()
+```
+#### Results
+```python
+results_path = benchmark_job.download_results_as_csv()
+```
+
+### Adding Normalization To Your Benchmark
+We have methods that specialize in handling text data from various languages, providing both general and tailored preprocessing techniques for each language's unique characteristics. These are called normalization options. The normalization process transforms raw text data into a standardized format, enabling a fair and exact evaluation of performance across diverse models. A few examples are 'removing numbers' and 'lowercase text'.
+To get the list of supported normalization options, we need the metric and the model that we are going to use in benchmarking.
+```python
+supported_options = BenchmarkFactory.list_normalization_options(metric, model)
+```
+Note: These options can be different for each metric in the same benchmark
+
+You have the flexibility to choose multiple normalization options for each performance metric. You can also opt for the same metric with varying sets of normalization options. This adaptability provides a thorough and comprehensive way to compare model performance.
+```python
+selected_options = [<option 1>....<option N>]
+metric.add_normalization_options(selected_options)
+```
+You can even select multiple configurations for the same metric
+```python
+selected_options_config_1 = [<option 1>, <option 2>, <option 3>]
+selected_options_config_2 = [<option 3>, <option 4>]
+metric.add_normalization_options(selected_options_config_1)
+metric.add_normalization_options(selected_options_config_2)
+```
+After this you can create the benchmark normally
+```python
+benchmark = BenchmarkFactory.create(<UNIQUE_NAME_OF_BENCHMARK>, dataset_list=datasets, model_list=models, metric_list=metrics_with_normalization)
 ```

@@ -126,7 +126,7 @@ class PipelineFactory:
             return pipeline_list
         except Exception as e:
             error_message = f"Listing Pipelines: Error in getting Pipelines on Page {page_number}: {e}"
-            logging.error(error_message)
+            logging.error(error_message, exc_info=True)
             return []
 
     @classmethod
@@ -146,5 +146,5 @@ class PipelineFactory:
             return pipeline_list
         except Exception as e:
             error_message = f"Listing Pipelines: Error in getting {k} Pipelines: {e}"
-            logging.error(error_message)
+            logging.error(error_message, exc_info=True)
             return []

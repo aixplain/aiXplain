@@ -16,11 +16,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+import pytest
 from aixplain.factories import PipelineFactory
 
 
 def test_run_single_str():
-    pipeline_id = "642c57142155270012fa0d17"
+    pipeline_id = "64da138fa27cffd5e0c3c30d"
     pipeline = PipelineFactory.get(pipeline_id)
 
     response = pipeline.run(data="Translate this thing")
@@ -28,7 +29,7 @@ def test_run_single_str():
 
 
 def test_run_with_url():
-    pipeline_id = "642c57142155270012fa0d17"
+    pipeline_id = "64da138fa27cffd5e0c3c30d"
     pipeline = PipelineFactory.get(pipeline_id)
 
     response = pipeline.run(
@@ -38,9 +39,9 @@ def test_run_with_url():
 
 
 def test_run_with_dataset():
-    data_asset_id = "64c81163f8bdcac7443c2dac"
-    data_id = "64c81163f8bdcac7443c2dad"
-    pipeline_id = "642c57142155270012fa0d17"
+    data_asset_id = "64dce4da9e76dff1a6124fc1"
+    data_id = "64dce4da9e76dff1a6124fc2"
+    pipeline_id = "64da138fa27cffd5e0c3c30d"
     pipeline = PipelineFactory.get(pipeline_id)
 
     response = pipeline.run(data=data_id, data_asset=data_asset_id)
@@ -48,19 +49,19 @@ def test_run_with_dataset():
 
 
 def test_run_multipipe_with_strings():
-    pipeline_id = "64cd4a79024b1d9e905c0023"
+    pipeline_id = "64da16ce13d879bec2323a7f"
     pipeline = PipelineFactory.get(pipeline_id)
 
-    response = pipeline.run(data={"Hypothesis": "Translate this thing.", "Reference": "Traduisez cette chose."})
+    response = pipeline.run(data={"Input": "Translate this thing.", "Reference": "Traduza esta coisa."})
     assert response["status"] == "SUCCESS"
 
 
 def test_run_multipipe_with_datasets():
-    pipeline_id = "64cd4a79024b1d9e905c0023"
+    pipeline_id = "64da16ce13d879bec2323a7f"
     pipeline = PipelineFactory.get(pipeline_id)
 
     response = pipeline.run(
-        data={"Hypothesis": "64c81163f8bdcac7443c2dad", "Reference": "64c81163f8bdcac7443c2dae"},
-        data_asset={"Hypothesis": "64c81163f8bdcac7443c2dac", "Reference": "64c81163f8bdcac7443c2dac"},
+        data={"Input": "64dce4da9e76dff1a6124fc2", "Reference": "64dce4da9e76dff1a6124fc3"},
+        data_asset={"Input": "64dce4da9e76dff1a6124fc1", "Reference": "64dce4da9e76dff1a6124fc1"},
     )
     assert response["status"] == "SUCCESS"

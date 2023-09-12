@@ -20,12 +20,15 @@ Date: October 25th 2022
 Description:
     Benchmark Class
 """
-from typing import List, Text
-from aixplain.modules.asset import Asset
+import logging
+from typing import List, Text, Dict, Optional
+from aixplain.utils import config
+from aixplain.modules import Asset, Dataset, Metric, Model
 from aixplain.modules.benchmark_job import BenchmarkJob
-from aixplain.modules.dataset import Dataset
-from aixplain.modules.metric import Metric
-from aixplain.modules.model import Model
+from urllib.parse import urljoin
+import pandas as pd
+from pathlib import Path
+from aixplain.utils.file_utils import _request_with_retry, save_file
 
 
 class Benchmark(Asset):
@@ -74,3 +77,31 @@ class Benchmark(Asset):
         self.metric_list = metric_list
         self.job_list = job_list
         self.additional_info = additional_info
+        self.backend_url = config.BACKEND_URL
+        self.api_key = config.TEAM_API_KEY
+        self.aixplain_key = config.AIXPLAIN_API_KEY
+
+    def __repr__(self) -> str:
+        return f"<Benchmark {self.name}>"
+
+    
+    def start(self) -> BenchmarkJob:
+        """Starts a new benchmark job(run)  for the current benchmark
+
+        Returns:
+            BenchmarkJob: Benchmark Job that just got started
+        """
+        benhchmark_id = None
+        try:
+            benhchmark_id = self.id
+            url = urljoin(self.backend_url, f"sdk/benchmarks/{benhchmark_id}/start")
+            headers = {"Authorization": f"Token {self.api_key}", "Content-Type": "application/json"}
+            r = _request_with_retry("post", url, headers=headers)
+            response = r.json()
+            resp = BenchmarkJob._fetch_current_response(response["jobId"])
+            logging.info(f"Starting Benchmark Job: Status for {benhchmark_id}: {resp}")
+            return BenchmarkJob(resp["jobId"], resp["status"], resp["benchmark"]["id"])
+        except Exception as e:
+            error_message = f"Starting Benchmark Job: Error in Creating Benchmark {benhchmark_id} : {e}"
+            logging.error(error_message, exc_info=True)
+            return None
