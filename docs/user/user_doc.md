@@ -257,11 +257,11 @@ metric_list = MetricFactory.list()['results']
 ### Run
 The aixplain SDK allows you to run metrics. Some metrics might also require source or reference as inputs.
 ```python
-output = metric.run("hypothesis": "<sample hypothesis>", "source": "<sample optional source>", "reference": "<sample optional reference>")
+output = metric.run(**{"hypothesis": "<sample hypothesis>", "source": "<sample optional source>", "reference": "<sample optional reference>"})
 ```
 You can even pass a list of inputs in a single call.
 ```python
-output = metric.run("hypothesis": ["<sample hypothesis 1>", "<sample hypothesis 2>"], "source": ["<sample optional source 1>", "<sample optional source 2>"], "reference": ["<sample optional reference> 1", "<sample optional reference> 2"])
+output = metric.run(**{"hypothesis": ["<sample hypothesis 1>", "<sample hypothesis 2>"], "source": ["<sample optional source 1>", "<sample optional source 2>"], "reference": ["<sample optional reference> 1", "<sample optional reference> 2"]})
 ```
 
 
