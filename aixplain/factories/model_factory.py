@@ -199,7 +199,7 @@ class ModelFactory:
         return response_dicts
     
     @classmethod
-    def list_functions(cls, api_key: Optional[Text] = None) -> List[Dict]:
+    def list_functions(cls, verbose: bool = False, api_key: Optional[Text] = None) -> List[Dict]:
         """Lists supported model functions on platform.
 
         Args:
@@ -216,7 +216,14 @@ class ModelFactory:
         else:
             headers = {"x-api-key": f"{cls.api_key}", "Content-Type": "application/json"}
         response = _request_with_retry("get", functions_url, headers=headers)
-        return response.json()
+        response_dict = json.loads(response.text)
+        if verbose:
+            return response_dict
+        function_list = response_dict["items"]
+        for function_dict in function_list:
+            del function_dict["output"]
+            del function_dict["params"]
+        return response_dict
     
     @classmethod
     def create_asset_repo(cls, name: Text, hosting_machine: Text, version: Text, 
