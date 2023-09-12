@@ -365,6 +365,7 @@ class DatasetFactory(AssetFactory):
         dataset_onboarding_validation(
             input_schema,
             output_schema,
+            function,
             content_path,
             split_labels,
             split_rate,

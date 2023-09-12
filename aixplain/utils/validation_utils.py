@@ -2,13 +2,14 @@ from pathlib import Path
 from typing import Optional, Text, Union, Dict, List 
 
 from aixplain.modules.metadata import MetaData
-from aixplain.enums.function import FunctionInputOutput
+from aixplain.enums.function import FunctionInputOutput, Function
 from aixplain.enums.data_type import DataType
 
 
 def dataset_onboarding_validation(
     input_schema : List[Union[Dict, MetaData]],
     output_schema : List[Union[Dict, MetaData]],
+    function : Function,
     content_path: Union[Union[Text, Path], List[Union[Text, Path]]] = [],
     split_labels: Optional[List[Text]] = None,
     split_rate: Optional[List[float]] = None,
