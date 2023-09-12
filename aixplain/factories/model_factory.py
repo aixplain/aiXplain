@@ -195,9 +195,10 @@ class ModelFactory:
         response = _request_with_retry("get", machines_url, headers=headers)
         print(response)
         print(json.loads(response.text))
-        response_dict = dict(json.loads(response.text))
-        response_dict.pop("id")
-        return response_dict
+        response_dicts = json.loads(response.text)
+        for dictionary in response_dicts:
+            del dictionary["id"]
+        return response_dicts
     
     @classmethod
     def list_functions(cls, api_key: Optional[Text] = None) -> List[Dict]:
