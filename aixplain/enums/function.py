@@ -47,7 +47,16 @@ def load_functions():
         )
     resp = r.json()
     functions = Enum("Function", {w["id"].upper().replace("-", "_"): w["id"] for w in resp["items"]}, type=str)
-    functions_input_output = {w["id"]: {"input" : [d["dataType"] for d in w["params"]], "output" : [d["dataType"] for d in w["output"]]} for w in resp["items"]}
+    functions_input_output = {
+        function["id"]: {
+            "input" : {
+                input_data_object["dataType"] for input_data_object in function["params"]
+            },
+            "output" : {
+                output_data_object["dataType"] for output_data_object in function["output"]
+            }
+        } for function in resp["items"]
+    }
     return functions, functions_input_output
 
 Function, FunctionInputOutput  = load_functions()
