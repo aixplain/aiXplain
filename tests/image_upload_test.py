@@ -4,6 +4,7 @@ import json
 import requests_mock
 from pathlib import Path
 from aixplain.utils import config
+from urllib.parse import urljoin
 
 from aixplain.factories.model_factory import ModelFactory
 
@@ -12,7 +13,7 @@ API_FIXED_HEADER = {"x-api-key": f"{config.TEAM_API_KEY}", "Content-Type": "appl
 
 
 def test_login():
-    url =  f"{config.BACKEND_URL}sdk/ecr/login"
+    url =  urljoin(config.BACKEND_URL, f"sdk/ecr/login")
     with requests_mock.Mocker() as mock:
         with open(Path("tests/mock_responses/login_response.json")) as f:
             mock_json = json.load(f)
@@ -21,7 +22,7 @@ def test_login():
     assert creds == mock_json
 
 def test_create_asset_repo():
-    url =  f"{config.BACKEND_URL}sdk/models/register"
+    url =  urljoin(config.BACKEND_URL, f"sdk/models/register")
     with requests_mock.Mocker() as mock:
         with open(Path("tests/mock_responses/create_asset_repo_response.json")) as f:
             mock_json = json.load(f)
@@ -31,7 +32,7 @@ def test_create_asset_repo():
     assert model_id == mock_json
 
 def test_list_host_machines():
-    url =  f"{config.BACKEND_URL}sdk/hosting-machines"
+    url =  urljoin(config.BACKEND_URL, f"sdk/hosting-machines")
     with requests_mock.Mocker() as mock:
         with open(Path("tests/mock_responses/list_host_machines_response.json")) as f:
             mock_json = json.load(f)
@@ -40,7 +41,7 @@ def test_list_host_machines():
     assert machines == mock_json
 
 def test_get_functions():
-    url =  f"{config.BACKEND_URL}sdk/functions"
+    url =  urljoin(config.BACKEND_URL, f"sdk/functions")
     with requests_mock.Mocker() as mock:
         with open(Path("tests/mock_responses/list_functions_response.json")) as f:
             mock_json = json.load(f)
@@ -50,7 +51,7 @@ def test_get_functions():
 
 def test_list_image_repo_tags():
     model_id = "mock_id"
-    url =  f"{config.BACKEND_URL}sdk/models/{model_id}/images"
+    url =  urljoin(config.BACKEND_URL, f"sdk/models/{model_id}/images")
     with requests_mock.Mocker() as mock:
         with open(Path("tests/mock_responses/list_image_repo_tags_response.json")) as f:
             mock_json = json.load(f)
