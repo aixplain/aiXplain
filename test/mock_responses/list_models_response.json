@@ -1,0 +1,67 @@
+{
+    "total": 37920,
+    "pageTotal": 10,
+    "items": [
+        {
+            "id": "61b097601efecf30109d371e",
+            "name": "Translate from Georgian to Slovenian",
+            "serviceName": "Cognitive Services",
+            "status": "onboarded",
+            "supplier": {
+                "id": "Azure",
+                "name": "Azure"
+            },
+            "function": {
+                "id": "translation",
+                "name": "Translation"
+            },
+            "pricing": {
+                "price": 0.00001,
+                "unitType": "CHAR",
+                "unitTypeScale": null
+            },
+            "version": {
+                "name": null,
+                "id": null
+            },
+            "functionType": "ai",
+            "type": "regular",
+            "params": [
+                {
+                    "name": "sourcelanguage",
+                    "required": true,
+                    "isFixed": true,
+                    "values": [
+                        {
+                            "value": "ka",
+                            "label": "Georgian"
+                        }
+                    ],
+                    "defaultValues": [],
+                    "availableOptions": [],
+                    "dataType": "label",
+                    "dataSubType": "label",
+                    "multipleValues": false
+                }
+            ]
+        },
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+        },
+        {
+        }
+    ]
+}

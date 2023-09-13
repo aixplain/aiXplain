@@ -68,7 +68,7 @@ class BaseAsset:
         method = method or 'GET'
         path = f'sdk/{self.asset_path}/{self.id}'
         if action_paths:
-            path += '/'.join(['', *action_paths])
+            path += '/' + '/'.join(['', *action_paths])
 
         return self.client.request(method, path, **kwargs)
 
@@ -120,7 +120,7 @@ class ListAssetMixin:
 
         query = urlencode(params)
 
-        return f'{path}/?{query}'
+        return f'{path}?{query}'
 
     @classmethod
     def _page(cls: Type['BaseAsset'], path: str,
@@ -151,8 +151,7 @@ class ListAssetMixin:
         :return: List of BaseAsset instances for the specified page.
         """
         path = cls._construct_page_path(page_number, filters=filters)
-        return cls._page(path=path, page_number=page_number,
-                         filters=filters, **kwargs)
+        return cls._page(path=path, **kwargs)
 
     @classmethod
     def list(cls: Type['BaseAsset'],
@@ -174,6 +173,6 @@ class ListAssetMixin:
         """
         assets = []
         page_fn = page_fn or cls.page
-        for page_number in range(1, n + 1):
+        for page_number in range(0, n):
             assets += page_fn(page_number, filters=filters, **kwargs)
         return assets

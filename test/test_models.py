@@ -1,8 +1,7 @@
 import pytest
 import httpretty
 import os
-import json
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlencode
 from aixplain.assets.models import Model
 
 MODELS_RUN_URL = os.getenv('MODELS_RUN_URL', 'https://api.example.com/api/v1/execute/')
@@ -49,7 +48,7 @@ def test_model_enable_disable():
 def test_get_model():
     model_id = '61af7662e116cb1eecfa5410'
     asset_path = 'inventory/models'
-    model = Model({'id': model_id, 'asset_path' : asset_path})
+    model = Model({'id': model_id})
     #prepare mock response
     with open('./test/mock_responses/get_model_response.json') as f:
         mock_response = f.read()
@@ -62,4 +61,23 @@ def test_get_model():
     
     assert resp.id == model_id
     assert resp.supplier['id'] == 'AWS'
-test_get_model()
+
+@httpretty.activate
+def test_list_models():
+    model_id = '61af7662e116cb1eecfa5410'
+    asset_path = 'inventory/models'
+    model = Model({'id': model_id})
+    
+    with open('./test/mock_responses/list_models_response.json') as f:
+        mock_response = f.read()
+    
+    params = {
+        "pageNumber" : 0
+    }
+    url = urljoin(BASE_URL,os.path.join('sdk',asset_path)) + "?" + urlencode(params)
+    httpretty.register_uri(httpretty.GET, url, status=200, body = mock_response)
+    
+    resp = model.list()
+    
+    assert len(resp) == 10
+    assert isinstance(resp[0], Model)

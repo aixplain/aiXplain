@@ -50,9 +50,9 @@ def test_dataset_team_page():
     dataset = Dataset(dataset_dict)
 
     # Mock the HTTP response
-    httpretty.register_uri(httpretty.GET, urljoin(BASE_URL,'/sdk/datasets/team/?pageNumber=1&team_id=456'), status=200, body='{"items": []}')
+    httpretty.register_uri(httpretty.GET, urljoin(BASE_URL,'/sdk/datasets/team?pageNumber=0&team_id=456'), status=200, body='{"items": []}')
 
-    team_datasets = dataset.team_page(page_number=1, filters={'team_id': '456'})
+    team_datasets = dataset.team_page(page_number=0, filters={'team_id': '456'})
 
     assert isinstance(team_datasets, list)
     assert len(team_datasets) == 0

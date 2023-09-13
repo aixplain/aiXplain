@@ -22,40 +22,23 @@ class ListAssetMixinWithAssetPath(BaseAsset, ListAssetMixin):
     def __init__(self, obj):
         super().__init__(obj)
 
-
-# Fixture to set up httpretty
-"""@pytest.fixture
-def setup_httpretty():
-    httpretty.enable()
-    yield
-    httpretty.disable()
-    httpretty.reset()"""
-
-# Fixture to create a test AixplainClient
-@pytest.fixture
-def create_test_client():
-    base_url = 'https://api.example.com'  # Set your base URL here
-    client = AixplainClient(base_url, team_api_key='your_api_key')
-    return client
-
 # Test BaseAsset
-def test_base_asset_attribute_access(setup_httpretty, create_test_client):
+def test_base_asset_attribute_access():
     asset = MockAsset({'id': '123', 'name': 'Mock Asset'})
     assert asset.id == '123'
     assert asset.name == 'Mock Asset'
 
-def test_base_asset_missing_attribute(setup_httpretty, create_test_client):
+def test_base_asset_missing_attribute():
     asset = MockAsset({'id': '123'})
     with pytest.raises(AttributeError):
         _ = asset.name
 
-def test_base_asset_action_with_missing_id(setup_httpretty):
+def test_base_asset_action_with_missing_id():
     asset = MockAsset({})  # Create a MockAsset without an 'id'
     with pytest.raises(AttributeError):
         _ = asset._action(method='GET')
 
-def test_list_assets_with_custom_page_fn(setup_httpretty, create_test_client):
-    base_url = create_test_client.base_url
+def test_list_assets_with_custom_page_fn():
     
     # Define a custom page function that always returns one asset
     def custom_page(page_number, filters=None, **kwargs):
