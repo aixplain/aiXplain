@@ -61,7 +61,6 @@ First, choose a hosting machine appropriate for your model. Note down the host m
 $ aixplain list hosts [--api-key <TEAM_API_KEY>]
 [
     {
-        "id": "64dce914adc92335dc35beb5",
         "code": "aix-2c-8g-od",
         "type": "on-demand",
         "cores": 2,
@@ -69,7 +68,6 @@ $ aixplain list hosts [--api-key <TEAM_API_KEY>]
         "hourlyCost": 0.12
     },
     {
-        "id": "64dceafdadc92335dc35beb6",
         "code": "aix-2c-8g",
         "type": "always-on",
         "cores": 2,
@@ -79,6 +77,8 @@ $ aixplain list hosts [--api-key <TEAM_API_KEY>]
     ...
 ]
 ```
+
+The `api-key` parameter is optional and is only used if the environment variable isn't set or you would like to override the existing environment variable.
 
 Find a supported function type that best describes your model's purpose. Note down the function's ID.
 ```console
@@ -114,18 +114,20 @@ $ aixplain list functions [--api-key <TEAM_API_KEY>]
     ]
 }
 ```
+Again, `api-key` is optional.
 
 Once you have chosen a suitable host machine and function, register your model and create an image repository:
 
 ```console
-$ aixplain image-create repo --name <model_name> --hosting-machine <machine_code> --version <model_version> --description <model_description> --function <function_id> --is-async <model_is_asynchronous or not> --source-language <source_language> [--api-key <TEAM_API_KEY>]
+$ aixplain image-create repo --name <model_name> --hosting-machine <machine_code> --version <model_version> --description <model_description> --function <function_name> --source-language <source_language> [--api-key <TEAM_API_KEY>]
 {
     "repoName": <model_repository_name>,
     "modelId": <model_id>
 }
 ```
+`name` is your model's name. `hosting-machine` should include the code of the hosting machine you would like to use. The `version` field should be set to your model's version number. `description` should hold a short summary of your model's purpose. Specify the function name most closely describe your model's purpose in the `function` field. Finally, `source-language` should contain your model's source language.
 
-This returns a model_id and a repo_name. Next, obtain login credentials for the newly created repository:
+This returns a model ID and a repository name. Next, obtain login credentials for the newly created repository:
 
 ```console
 $ aixplain get image-repo-login [--api-key <TEAM_API_KEY>]
@@ -155,6 +157,7 @@ Once this is done, onboard the model:
 ```console
 $ aixplain onboard model --model-id <model_id> --image-tag <model_image_tag> --image-hash <model_image_hash> [--api-key <TEAM_API_KEY>]
 ```
+`model-id` should be the model ID returned by the image-create-repo function used earlier. `image-tag` should be set to whatever string you used to tag your model image.
 
 This will send an email to an aiXplain associate to finalize the onboarding process.
 
