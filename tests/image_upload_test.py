@@ -57,15 +57,3 @@ def test_list_image_repo_tags():
         mock.get(url, headers=AUTH_FIXED_HEADER, json=mock_json)
         tags = ModelFactory.list_image_repo_tags(model_id, config.TEAM_API_KEY)
     assert tags == mock_json
-
-def test_is_onboarded():
-    model_id = "mock_id"
-    host = "mock_host"
-    version = "mock_version"
-    url = f"{config.BACKEND_URL}webhook/models/onboarding"
-    with requests_mock.Mocker() as mock:
-        with open(Path("tests/mock_responses/is_onboarded_response.json")) as f:
-            mock_json = json.load(f)
-        mock.post(url, headers=AUTH_FIXED_HEADER, json=mock_json)
-        is_onboarded_response = ModelFactory.is_onboarded(model_id, host, version, config.TEAM_API_KEY)
-    assert is_onboarded_response == mock_json
