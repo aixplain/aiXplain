@@ -29,6 +29,7 @@ from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
 from urllib.parse import urljoin
 from warnings import warn
+import os
 import click
 
 class ModelFactory:
@@ -279,11 +280,12 @@ class ModelFactory:
         return response.json()
     
     @classmethod
-    def asset_repo_login(cls, api_key: Optional[Text] = None) -> Dict:
+    def asset_repo_login(cls, set_env: bool = False, api_key: Optional[Text] = None) -> Dict:
         """Return login credentials for the image repository that corresponds with 
         the given API_KEY.
 
         Args:
+            set_env (bool, optional): If True, sets the login variables as environment variables
             api_key (Text, optional): Team API key. Defaults to None.
 
         Returns:
@@ -296,7 +298,12 @@ class ModelFactory:
         else:
             headers = {"x-api-key": f"{cls.api_key}", "Content-Type": "application/json"}
         response = _request_with_retry("post", login_url, headers=headers)
-        return response.json()
+        response_dict = json.loads(response.text)
+        if set_env:
+            os.environ["USERNAME"] = response_dict["username"]
+            os.environ["PASSWORD"] = response_dict["password"]
+            os.environ["REGISTRY"] = response_dict["registry"]
+        return response_dict
     
     @classmethod
     def onboard_model(cls, model_id: Text, image_tag: Text, image_hash: Text, api_key: Optional[Text] = None) -> Dict:
