@@ -82,7 +82,7 @@ The `api-key` parameter is optional and is only used if the environment variable
 
 Find a supported function type that best describes your model's purpose. Note down the function's ID.
 ```console
-$ aixplain list functions [--api-key <TEAM_API_KEY>]
+$ aixplain list functions [--verbose <True/False>] [--api-key <TEAM_API_KEY>]
 {
     "total": 55,
     "pageTotal": 55,
@@ -114,7 +114,7 @@ $ aixplain list functions [--api-key <TEAM_API_KEY>]
     ]
 }
 ```
-Again, `api-key` is optional.
+`verbose` is optional and is set to False by default, meaning only the function names are listed. Setting this to True will additionally list the function ID, output, and params. Again, `api-key` is optional.
 
 Once you have chosen a suitable host machine and function, register your model and create an image repository:
 
