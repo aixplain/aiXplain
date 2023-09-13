@@ -50,6 +50,34 @@ def test_dataset_onboard():
     assert response["status"] == "onboarding"
 
 
+def test_invalid_dataset_onboard():
+    upload_file = "tests/data_onboarding/input/audio-en_url.csv"
+    meta1 = [
+        {
+            "name": "audio",
+            "dtype": "audio",
+            "storage_type": "url",
+            "start_column": "audio_start_time",
+            "end_column": "audio_end_time",
+            "languages": [Language.English_UNITED_STATES],
+        },
+    ]
+    meta2 = [{"name": "text", "dtype": "text", "storage_type": "text", "languages": [Language.English_UNITED_STATES]}]
+
+    with pytest.raises(Exception):
+        response = DatasetFactory.create(
+            name=str(uuid4()),
+            description="Test dataset",
+            license=License.MIT,
+            function=Function.TRANSLATION,
+            content_path=upload_file,
+            input_schema=meta1,
+            output_schema=meta2,
+            tags=[],
+            privacy=Privacy.PRIVATE,
+        )
+
+
 def test_dataset_listing():
     response = DatasetFactory.list()
     assert "results" in response
