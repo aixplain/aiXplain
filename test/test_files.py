@@ -2,7 +2,6 @@ import pytest
 import httpretty
 import os
 from urllib.parse import urljoin
-from aixplain.client import AixplainClient
 from aixplain.assets.files import File
 from aixplain.enums import StorageType
 
