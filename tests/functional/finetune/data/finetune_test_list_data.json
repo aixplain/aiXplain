@@ -1,12 +1,11 @@
 [
     {
-        "task": "translation",
-        "input_language": "en",
-        "output_language": "fr"
+        "function": "translation",
+        "source_language": {"language": "en", "dialect": ""},
+        "target_language": {"language": "fr", "dialect": ""}
     },
     {
-        "task": "speech-recognition",
-        "input_language": "en",
-        "output_language": ""
+        "function": "speech-recognition",
+        "source_language": {"language": "en", "dialect": ""}
     }
 ]

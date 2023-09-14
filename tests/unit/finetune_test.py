@@ -26,6 +26,7 @@ from aixplain.utils import config
 from aixplain.factories import ModelFactory
 from aixplain.factories import FinetuneFactory
 from aixplain.modules import Model, Finetune
+from aixplain.enums import Function
 
 import pytest
 
@@ -108,10 +109,13 @@ def test_list_finetunable_models(is_finetunable):
     list_map = read_data(LIST_FINETUNABLE_FILE)
     with requests_mock.Mocker() as mock:
         print(f"is_finetunable: {is_finetunable}")
-        url = f"{config.BACKEND_URL}/sdk/models/?pageNumber=0&function=translation&isFineTunable={finetunable_str}"
+        url = f"{config.BACKEND_URL}/sdk/models?pageNumber=0&function=translation&isFineTunable={finetunable_str}"
         mock.get(url, headers=FIXED_HEADER, json=list_map)
-        model_list = ModelFactory.get_first_k_assets(k=num_models, task="translation", is_finetunable=is_finetunable)
-        print(model_list)
-    assert len(model_list) == num_models
+        result = ModelFactory.list(function=Function.TRANSLATION, is_finetunable=is_finetunable, page_number=0, page_size=5)
+        print(result)
+    assert result["page_total"] == 5
+    assert result["page_number"] == 0
+    model_list = result["results"]
+    assert len(model_list) > 0
     for model_index in range(len(model_list)):
         assert model_list[model_index].id == list_map["items"][model_index]["id"]
