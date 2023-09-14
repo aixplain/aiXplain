@@ -68,7 +68,7 @@ class BaseAsset:
         method = method or 'GET'
         path = f'sdk/{self.asset_path}/{self.id}'
         if action_paths:
-            path += '/'.join(['', *action_paths])
+            path += '/' + '/'.join(['', *action_paths])
 
         return self.client.request(method, path, **kwargs)
 
@@ -100,7 +100,7 @@ class ListAssetMixin:
     @classmethod
     def _construct_page_path(cls: Type['BaseAsset'], page_number: int,
                              filters: Optional[Dict[str, Any]] = None,
-                             subpaths: Optional[List[str]] = None) -> str:
+                             subpaths: Optional[List[str]] = None, **kwargs) -> str:
         """
         Construct a URL to list assets.
 
@@ -120,7 +120,7 @@ class ListAssetMixin:
 
         query = urlencode(params)
 
-        return f'{path}/?{query}'
+        return f'{path}?{query}'
 
     @classmethod
     def _page(cls: Type['BaseAsset'], path: str,
@@ -134,11 +134,17 @@ class ListAssetMixin:
         :return: List of BaseAsset instances for the specified page.
         """
         payload = cls.client.get(path, **kwargs)
-        return [cls(item) for item in payload['items']]
+        payload_json = payload.json()
+        if 'items' in payload_json:
+            key = 'items'
+        else:
+            key = 'results'
+        return [cls(item) for item in payload_json[key]]
 
     @classmethod
     def page(cls: Type['BaseAsset'], page_number: int,
              filters: Optional[Dict[str, Any]] = None,
+             subpaths: Optional[List[str]] = None,
              **kwargs) -> List['BaseAsset']:
         """
         List assets for a specific page with optional filtering.
@@ -149,9 +155,8 @@ class ListAssetMixin:
         :param kwargs: Additional filter parameters.
         :return: List of BaseAsset instances for the specified page.
         """
-        path = cls._construct_page_path(page_number, filters=filters)
-        return cls._page(path=path, page_number=page_number,
-                         filters=filters, **kwargs)
+        path = cls._construct_page_path(page_number, filters=filters, subpaths = subpaths)
+        return cls._page(path=path, **kwargs)
 
     @classmethod
     def list(cls: Type['BaseAsset'],
@@ -159,6 +164,7 @@ class ListAssetMixin:
              filters: Optional[Dict[str, Any]] = None,
              page_fn: Optional[Callable[[int, Optional[Dict[str, Any]], Any],
                                         List['BaseAsset']]] = None,
+             subpaths: Optional[List[str]] = None,
              **kwargs) -> List['BaseAsset']:
         """
         List assets across the first n pages with optional filtering.
@@ -173,6 +179,6 @@ class ListAssetMixin:
         """
         assets = []
         page_fn = page_fn or cls.page
-        for page_number in range(1, n + 1):
-            assets += page_fn(page_number, filters=filters, **kwargs)
+        for page_number in range(0, n):
+            assets += page_fn(page_number, filters=filters, subpaths = subpaths, **kwargs)
         return assets

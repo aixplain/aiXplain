@@ -1,0 +1,47 @@
+{
+    "id": "61af7662e116cb1eecfa5410",
+    "name": "Translate from English to French",
+    "serviceName": "Amazon Translate",
+    "status": "onboarded",
+    "supplier": {
+        "id": "AWS",
+        "name": "AWS"
+    },
+    "function": {
+        "id": "translation",
+        "name": "Translation"
+    },
+    "pricing": {
+        "price": 0.000015,
+        "unitType": "CHAR",
+        "unitTypeScale": null
+    },
+    "version": {
+        "name": null,
+        "id": null
+    },
+    "subscription": {
+        "id": "64fafa315d437f2e423838a6",
+        "apiKey": "MTU1XzQwOTcyZDM3ZmZjMzhiNWQ3MzZjOThlZWZiMjM5MDk0MjU4OGNjNjcwMzA5YTIzZWI1ODQ2OTdmYWFmM2Y0ZjY2MWRkMTliNDZiNDc0NWI4NDZlNzEwZTJmMzI2Mjc0YWIxNzYwODg2YzljMzM0YjYwM2M5ZDdmNmFkN2EyMjky"
+    },
+    "functionType": "ai",
+    "type": "regular",
+    "params": [
+        {
+            "name": "sourcelanguage",
+            "required": true,
+            "isFixed": true,
+            "values": [
+                {
+                    "value": "en",
+                    "label": "English"
+                }
+            ],
+            "defaultValues": [],
+            "availableOptions": [],
+            "dataType": "label",
+            "dataSubType": "label",
+            "multipleValues": false
+        }        
+    ]
+}
