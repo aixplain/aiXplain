@@ -25,6 +25,7 @@ from aixplain.factories import ModelFactory
 from aixplain.factories import DatasetFactory
 from aixplain.factories import FinetuneFactory
 from aixplain.modules import FinetuneCost
+from aixplain.enums import Function, Language
 
 import pytest
 
@@ -67,11 +68,10 @@ def test_run(run_input_map):
 
 
 def test_list_finetunable_models(list_input_map):
-    model_list = ModelFactory.get_first_k_assets(
-        k=5,
-        task=list_input_map["task"],
-        input_language=list_input_map["input_language"],
-        output_language=list_input_map["output_language"],
+    model_list = ModelFactory.list(
+        function=Function(list_input_map["function"]),
+        source_languages=Language(list_input_map["source_language"]) if "source_language" in list_input_map else None,
+        target_languages=Language(list_input_map["target_language"]) if "target_language" in list_input_map else None,
         is_finetunable=True,
     )
     assert len(model_list) > 0
