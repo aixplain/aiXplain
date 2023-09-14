@@ -1,7 +1,7 @@
 import pytest
 import os
 import httpretty
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlencode
 from aixplain.assets.datasets import Dataset
 
 
@@ -57,4 +57,42 @@ def test_dataset_team_page():
     assert isinstance(team_datasets, list)
     assert len(team_datasets) == 0
 
-test_dataset_team_page()
+@httpretty.activate
+def test_get_model():
+    dataset_id = '61af7662e116cb1eecfa5410'
+    asset_path = 'datasets'
+    dataset = Dataset({'id': dataset_id})
+    #prepare mock response
+    with open('./test/mock_responses/get_dataset_response.json') as f:
+        mock_response = f.read()
+    
+    url = urljoin(BASE_URL,os.path.join('sdk',asset_path,dataset_id))
+    
+    httpretty.register_uri(httpretty.GET, url, status=200, body = mock_response)
+    
+    resp = dataset.get(asset_id = dataset_id)
+    
+    assert resp.team == 155
+    assert resp.function == 'translation'
+
+@httpretty.activate
+def test_list_models_pagination():
+    dataset_id = '61af7662e116cb1eecfa5410'
+    asset_path = 'datasets'
+    dataset = Dataset({'id': dataset_id})
+    
+    with open('./test/mock_responses/list_datasets_response.json') as f:
+        mock_response = f.read()
+    
+    params = {
+        "pageNumber" : 0
+    }
+    url = urljoin(BASE_URL,os.path.join('sdk',asset_path, 'paginate')) + "?" + urlencode(params)
+    httpretty.register_uri(httpretty.GET, url, status=200, body = mock_response)
+    # this need to be implemented in a different way inside the Dataset function
+    resp = dataset.list(subpaths = ['paginate'])
+    
+    first_dataset = resp[0]
+    assert first_dataset.id == '6441b997b5c8cb00128e1b92'
+    assert isinstance(first_dataset, Dataset)
+    assert isinstance(resp, list)

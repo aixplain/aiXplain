@@ -1,0 +1,82 @@
+{
+    "results": [
+        {
+            "id": "6441b997b5c8cb00128e1b92",
+            "jobId": "006173a9-0b34-496a-b6bf-d433a3dee893",
+            "name": "Translation Dataset v3",
+            "description": "Test dataset",
+            "team": 155,
+            "function": "translation",
+            "status": "onboarding",
+            "statusAlternatives": [
+                "onboarding",
+                "onboarded",
+                "failed",
+                "deleted",
+                "rejected"
+            ],
+            "tags": [],
+            "data": [
+                {
+                    "id": "6441b997b5c8cb00128e1b93",
+                    "name": "en",
+                    "segmentsCount": null,
+                    "volume": 0,
+                    "status": "onboarding",
+                    "dataType": "text",
+                    "dataSubtype": "other",
+                    "tags": [],
+                    "metadata": {
+                        "languages": [
+                            {
+                                "language": "en",
+                                "dialect": "United States"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "id": "6441b997b5c8cb00128e1b94",
+                    "name": "pt",
+                    "segmentsCount": null,
+                    "volume": 0,
+                    "status": "onboarding",
+                    "dataType": "text",
+                    "dataSubtype": "other",
+                    "tags": [],
+                    "metadata": {
+                        "languages": [
+                            {
+                                "language": "pt",
+                                "dialect": ""
+                            }
+                        ]
+                    }
+                }
+            ],
+            "createdAt": "2023-04-20T22:15:51.598Z",
+            "license": {
+                "typeId": "620ba3a83e2fa95c500b429d"
+            },
+            "input": [
+                {
+                    "index": 1,
+                    "dataId": "6441b997b5c8cb00128e1b93"
+                }
+            ],
+            "output": [
+                {
+                    "index": 2,
+                    "dataIds": [
+                        "6441b997b5c8cb00128e1b94"
+                    ]
+                }
+            ],
+            "hypotheses": [],
+            "metadata": [],
+            "segmentsCount": null
+        }
+    ],
+    "pageTotal": 1,
+    "total": 109
+}

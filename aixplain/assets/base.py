@@ -135,11 +135,16 @@ class ListAssetMixin:
         """
         payload = cls.client.get(path, **kwargs)
         payload_json = payload.json()
-        return [cls(item) for item in payload_json['items']]
+        if 'items' in payload_json:
+            key = 'items'
+        else:
+            key = 'results'
+        return [cls(item) for item in payload_json[key]]
 
     @classmethod
     def page(cls: Type['BaseAsset'], page_number: int,
              filters: Optional[Dict[str, Any]] = None,
+             subpaths: Optional[List[str]] = None,
              **kwargs) -> List['BaseAsset']:
         """
         List assets for a specific page with optional filtering.
@@ -150,7 +155,7 @@ class ListAssetMixin:
         :param kwargs: Additional filter parameters.
         :return: List of BaseAsset instances for the specified page.
         """
-        path = cls._construct_page_path(page_number, filters=filters)
+        path = cls._construct_page_path(page_number, filters=filters, subpaths = subpaths)
         return cls._page(path=path, **kwargs)
 
     @classmethod
@@ -159,6 +164,7 @@ class ListAssetMixin:
              filters: Optional[Dict[str, Any]] = None,
              page_fn: Optional[Callable[[int, Optional[Dict[str, Any]], Any],
                                         List['BaseAsset']]] = None,
+             subpaths: Optional[List[str]] = None,
              **kwargs) -> List['BaseAsset']:
         """
         List assets across the first n pages with optional filtering.
@@ -174,5 +180,5 @@ class ListAssetMixin:
         assets = []
         page_fn = page_fn or cls.page
         for page_number in range(0, n):
-            assets += page_fn(page_number, filters=filters, **kwargs)
+            assets += page_fn(page_number, filters=filters, subpaths = subpaths, **kwargs)
         return assets
