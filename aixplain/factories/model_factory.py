@@ -173,9 +173,9 @@ class ModelFactory:
             error_message = f"Listing Models: Error in getting {k} Models for {task} : {e}"
             logging.error(error_message)
             return []
-
-    @classmethod  
+ 
     @click.command("hosts")
+    @classmethod 
     def list_host_machines(cls, api_key: Optional[Text] = None) -> List[Dict]:
         """Lists available hosting machines for model.
 
