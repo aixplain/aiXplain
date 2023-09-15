@@ -50,7 +50,7 @@ def load_functions():
     functions_input_output = {
         function["id"]: {
             "input" : {
-                input_data_object["dataType"] for input_data_object in function["params"]
+                input_data_object["dataType"] for input_data_object in function["params"] if input_data_object["required"] is True
             },
             "output" : {
                 output_data_object["dataType"] for output_data_object in function["output"]
