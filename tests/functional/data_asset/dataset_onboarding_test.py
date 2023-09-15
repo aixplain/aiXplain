@@ -50,6 +50,32 @@ def test_dataset_onboard():
     assert response["status"] == "onboarding"
 
 
+def test_referenceless_dataset_onboard():
+    upload_file = "tests/functional/data_asset/input/audio-en_url.csv"
+    meta1 = [
+        {
+            "name": "audio",
+            "dtype": "audio",
+            "storage_type": "url",
+            "start_column": "audio_start_time",
+            "end_column": "audio_end_time",
+            "languages": [Language.English_UNITED_STATES],
+        },
+    ]
+
+    response = DatasetFactory.create(
+        name=str(uuid4()),
+        description="Test dataset",
+        license=License.MIT,
+        function=Function.SPEECH_RECOGNITION,
+        content_path=upload_file,
+        input_schema=meta1,
+        tags=[],
+        privacy=Privacy.PRIVATE,
+    )
+    assert response["status"] == "onboarding"
+
+
 def test_invalid_dataset_onboard():
     upload_file = "tests/functional/data_asset/input/audio-en_url.csv"
     meta1 = [
