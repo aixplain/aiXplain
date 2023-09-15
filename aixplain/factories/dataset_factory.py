@@ -268,7 +268,7 @@ class DatasetFactory(AssetFactory):
         license: License,
         function: Function,
         input_schema: List[Union[Dict, MetaData]],
-        output_schema: List[Union[Dict, MetaData]],
+        output_schema: List[Union[Dict, MetaData]] = [],
         hypotheses_schema: List[Union[Dict, MetaData]] = [],
         metadata_schema: List[Union[Dict, MetaData]] = [],
         content_path: Union[Union[Text, Path], List[Union[Text, Path]]] = [],
@@ -308,17 +308,9 @@ class DatasetFactory(AssetFactory):
         Returns:
             Dict: dataset onboard status
         """
-        
-        dataset_onboarding_validation(
-            input_schema,
-            output_schema,
-            function,
-            content_path,
-            split_labels,
-            split_rate,
-            s3_link
-        )
-        
+
+        dataset_onboarding_validation(input_schema, output_schema, function, content_path, split_labels, split_rate, s3_link)
+
         folder, return_dict, ref_data, csv_path = None, {}, [], None
         # check team key
         try:
