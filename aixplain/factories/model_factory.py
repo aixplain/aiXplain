@@ -349,3 +349,7 @@ class ModelFactory:
             headers = {"x-api-key": f"{cls.api_key}", "Content-Type": "application/json"}
         response = _request_with_retry("get", list_url, headers=headers)
         return response.json()
+
+@click.command("test")
+def test_func():
+    return "trolololololol"

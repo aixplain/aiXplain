@@ -1,13 +1,14 @@
 import click
-from aixplain.factories.model_factory import ModelFactory
+from aixplain.factories.model_factory import ModelFactory, test_func
 
 @click.group('cli')
 def cli():
     pass
 
 @click.group('list')
-def list():
-    pass
+@click.pass_context
+def list(ctx):
+    ctx.obj = ModelFactory()
 
 @click.group('get')
 def get():
@@ -26,9 +27,7 @@ cli.add_command(get)
 cli.add_command(create)
 cli.add_command(onboard)
 
-def mock():
-    return ModelFactory.list_host_machines(ModelFactory)
-list.add_command(mock)
+list.add_command(test_func)
 
 def run_cli():
     cli()
