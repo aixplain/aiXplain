@@ -26,7 +26,9 @@ cli.add_command(get)
 cli.add_command(create)
 cli.add_command(onboard)
 
-list.add_command(ModelFactory.list_host_machines)
+def mock():
+    return ModelFactory.list_host_machines(ModelFactory)
+list.add_command(mock)
 
 def run_cli():
     cli()
