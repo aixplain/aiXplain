@@ -23,7 +23,7 @@ from uuid import uuid4
 
 
 def test_dataset_onboard():
-    upload_file = "tests/functional/data_onboarding/input/audio-en_url.csv"
+    upload_file = "tests/functional/data_asset/input/audio-en_url.csv"
     meta1 = [
         {
             "name": "audio",
@@ -51,7 +51,7 @@ def test_dataset_onboard():
 
 
 def test_invalid_dataset_onboard():
-    upload_file = "tests/functional/data_onboarding/input/audio-en_url.csv"
+    upload_file = "tests/functional/data_asset/input/audio-en_url.csv"
     meta1 = [
         {
             "name": "audio",
