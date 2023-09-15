@@ -1,5 +1,6 @@
 import click
 from aixplain.factories.model_factory_cli import list_host_machines
+from aixplain.factories.model_factory import ModelFactory
 
 @click.group('cli')
 def cli():
@@ -8,7 +9,7 @@ def cli():
 @click.group('list')
 @click.pass_context
 def list(ctx):
-    ctx.obj = ModelFactory()
+    pass
 
 @click.group('get')
 def get():
