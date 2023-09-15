@@ -28,7 +28,7 @@ cli.add_command(create)
 cli.add_command(onboard)
 
 list.add_command(test_func)
-list.add_command(ModelFactory.list_host_machines)
+list.add_command(ModelFactory.list_host_machines__get__(ModelFactory))
 
 def run_cli():
     cli()
