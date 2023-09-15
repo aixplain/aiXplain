@@ -10,6 +10,7 @@ def list_host_machines(api_key):
 
 @click.command("functions")
 @click.option('--verbose', default=False)
+@click.option("--api-key", default=None)
 def list_functions(verbose, api_key):
     ret_val = ModelFactory.list_functions(verbose, api_key)
     click.echo(ret_val)
