@@ -195,7 +195,6 @@ class ModelFactory:
         response_dicts = json.loads(response.text)
         for dictionary in response_dicts:
             del dictionary["id"]
-        click.echo(response_dicts)
         return response_dicts
     
     @classmethod
