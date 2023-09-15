@@ -40,8 +40,9 @@ from aixplain.enums.function import Function
 from aixplain.enums.language import Language
 from aixplain.enums.license import License
 from aixplain.enums.privacy import Privacy
-from aixplain.utils.file_utils import _request_with_retry, s3_to_csv
 from aixplain.utils import config
+from aixplain.utils.convert_datatype_utils import dict_to_metadata
+from aixplain.utils.file_utils import _request_with_retry, s3_to_csv
 from aixplain.utils.validation_utils import dataset_onboarding_validation
 from pathlib import Path
 from tqdm import tqdm
@@ -308,17 +309,19 @@ class DatasetFactory(AssetFactory):
         Returns:
             Dict: dataset onboard status
         """
-        
+
+        dict_to_metadata(metadata_schema)
         dataset_onboarding_validation(
             input_schema,
             output_schema,
             function,
+            metadata_schema = metadata_schema,
             content_path,
             split_labels,
             split_rate,
             s3_link
         )
-        
+
         folder, return_dict, ref_data, csv_path = None, {}, [], None
         # check team key
         try:
