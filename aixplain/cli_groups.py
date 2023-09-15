@@ -26,7 +26,7 @@ cli.add_command(get)
 cli.add_command(create)
 cli.add_command(onboard)
 
-list.add_command(lambda: ModelFactory.list_host_machines())
+list.add_command(ModelFactory.list_host_machines)
 
 def run_cli():
     cli()

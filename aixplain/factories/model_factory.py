@@ -175,7 +175,6 @@ class ModelFactory:
             return []
  
     @click.command("hosts")
-    @staticmethod 
     def list_host_machines(api_key: Optional[Text] = None) -> List[Dict]:
         """Lists available hosting machines for model.
 
