@@ -310,16 +310,19 @@ class DatasetFactory(AssetFactory):
             Dict: dataset onboard status
         """
 
-        dict_to_metadata(metadata_schema)
+        for lmd in (hypotheses_schema, input_schema, output_schema, metadata_schema):
+            dict_to_metadata(lmd)
+
         dataset_onboarding_validation(
-            input_schema,
-            output_schema,
-            function,
+            input_schema = input_schema,
+            output_schema = output_schema,
+            function = function,
+            input_ref_data = input_ref_data,
             metadata_schema = metadata_schema,
-            content_path,
-            split_labels,
-            split_rate,
-            s3_link
+            content_path = content_path,
+            split_labels = split_labels,
+            split_rate = split_rate,
+            s3_link = s3_link
         )
 
         folder, return_dict, ref_data, csv_path = None, {}, [], None
@@ -338,27 +341,9 @@ class DatasetFactory(AssetFactory):
                 csv_path = s3_to_csv(s3_link, aws_credentials)
                 content_paths.append(csv_path)
 
-            assert (
-                len(input_schema) > 0 or len(input_ref_data) > 0
-            ), "Data Asset Onboarding Error: You must specify an input data to onboard a dataset."
-            for i, metadata in enumerate(input_schema):
-                if isinstance(metadata, dict):
-                    input_schema[i] = MetaData(**metadata)
-
             # assert (
             #     len(output_schema) > 0 or len(output_ref_data) > 0
             # ), "Data Asset Onboarding Error: You must specify an output data to onboard a dataset."
-            for i, metadata in enumerate(output_schema):
-                if isinstance(metadata, dict):
-                    output_schema[i] = MetaData(**metadata)
-
-            for i, hypothesis in enumerate(hypotheses_schema):
-                if isinstance(hypothesis, dict):
-                    hypotheses_schema[i] = MetaData(**hypothesis)
-
-            for i, metadata in enumerate(metadata_schema):
-                if isinstance(metadata, dict):
-                    metadata_schema[i] = MetaData(**metadata)
 
             for input_data in input_ref_data:
                 if isinstance(input_ref_data[input_data], Data):

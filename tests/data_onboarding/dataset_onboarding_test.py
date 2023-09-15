@@ -41,6 +41,14 @@ def meta1():
 def meta2():
     return [{"name": "text", "dtype": "text", "storage_type": "text", "languages": [Language.English_UNITED_STATES]}]
 
+@pytest.fixture
+def split():
+    return MetaData(
+            name="split", 
+            dtype=DataType.LABEL, 
+            dsubtype=DataSubtype.SPLIT,
+            storage_type=StorageType.TEXT, 
+        )
 
 
 def test_dataset_onboard(meta1, meta2):
@@ -87,15 +95,8 @@ def test_dataset_get_error():
         response = DatasetFactory.get("131312")
 
 
-def test_invalid_dataset_splitting(meta1, meta2):
+def test_invalid_dataset_splitting(meta1, meta2, split):
     upload_file = "tests/data_onboarding/input/audio-en_with_invalid_split_url.csv"
-
-    split1 = MetaData(
-            name="split", 
-            dtype=DataType.LABEL, 
-            dsubtype=DataSubtype.SPLIT,
-            storage_type=StorageType.TEXT, 
-        )
 
     split2 = MetaData(
             name="split-2", 
@@ -113,21 +114,14 @@ def test_invalid_dataset_splitting(meta1, meta2):
             content_path=upload_file,
             input_schema=meta1,
             output_schema=meta2,
-            metadata_schema= [split1, split2],
+            metadata_schema= [split, split2],
             tags=[],
             privacy=Privacy.PRIVATE,
         )
 
 
-def test_valid_dataset_splitting(meta1, meta2):
+def test_valid_dataset_splitting(meta1, meta2, split):
     upload_file = "tests/data_onboarding/input/audio-en_with_split_url.csv"
-
-    split1 = {
-        "name" : "split",
-        "dtype" : DataType.LABEL,
-        "dsubtype" : DataSubtype.SPLIT,
-        "storage_type" : StorageType.TEXT
-    }
 
     response = DatasetFactory.create(
         name=str(uuid4()),
@@ -137,7 +131,7 @@ def test_valid_dataset_splitting(meta1, meta2):
         content_path=upload_file,
         input_schema=meta1,
         output_schema=meta2,
-        metadata_schema= [split1],
+        metadata_schema= [split],
         tags=[],
         privacy=Privacy.PRIVATE,
     )

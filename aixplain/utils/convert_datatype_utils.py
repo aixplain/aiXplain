@@ -18,18 +18,18 @@ from typing import Union, Dict, List
 from aixplain.modules.metadata import MetaData
 
 
-def dict_to_metadata(metadata_schema: List[Union[Dict, MetaData]]) -> None:
+def dict_to_metadata(metadatas: List[Union[Dict, MetaData]]) -> None:
     
     """Convert all the Dicts to MetaData
 
     Args:
-        metadata_schema (List[Union[Dict, MetaData]], optional): metadata of metadata information of the dataset. Defaults to [].
+        metadatas (List[Union[Dict, MetaData]], optional): metadata of metadata information of the dataset.
 
     """
     try:
-        for i in range(len(metadata_schema)):
-            if isinstance(metadata_schema[i], dict):
-                metadata_schema[i] = MetaData(**metadata_schema[i])
+        for i in range(len(metadatas)):
+            if isinstance(metadatas[i], dict):
+                metadatas[i] = MetaData(**metadatas[i])
     except TypeError:
         raise TypeError(f"Data Asset Onboarding Error: One or more elements in the metadata_schema are not well-structured")
         
