@@ -352,4 +352,5 @@ class ModelFactory:
 
 @click.command("test")
 def test_func():
+    print("test1")
     return "trolololololol"
