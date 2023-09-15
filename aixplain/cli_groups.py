@@ -1,5 +1,5 @@
 import click
-from aixplain.factories.model_factory import ModelFactory, test_func
+from aixplain.factories.model_factory_cli import list_host_machines
 
 @click.group('cli')
 def cli():
@@ -27,10 +27,8 @@ cli.add_command(get)
 cli.add_command(create)
 cli.add_command(onboard)
 
-list.add_command(test_func)
-list.add_command(ModelFactory.list_host_machines.__get__(ModelFactory))
+# list.add_command(test_func)
+list.add_command(list_host_machines)
 
 def run_cli():
-    import ipdb
-    ipdb.set_trace()
     cli()
