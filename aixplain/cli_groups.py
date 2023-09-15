@@ -31,4 +31,6 @@ list.add_command(test_func)
 list.add_command(ModelFactory.list_host_machines.__get__(ModelFactory))
 
 def run_cli():
+    import ipdb
+    ipdb.set_trace()
     cli()
