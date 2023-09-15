@@ -1,5 +1,5 @@
 import click
-from aixplain.factories.model_factory_cli import list_host_machines
+from aixplain.factories.model_factory_cli import list_host_machines, list_functions
 
 @click.group('cli')
 def cli():
@@ -28,6 +28,7 @@ cli.add_command(create)
 cli.add_command(onboard)
 
 list.add_command(list_host_machines)
+list.add_command(list_functions)
 
 def run_cli():
     cli()
