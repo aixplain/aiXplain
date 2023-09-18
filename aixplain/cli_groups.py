@@ -1,5 +1,27 @@
+__author__ = "aiXplain"
+
+"""
+Copyright 2022 The aiXplain SDK authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+Author: Michael Lam
+Date: September 18th 2023
+Description:
+    CLI Runner
+"""
 import click
-from aixplain.factories.model_factory_cli import list_host_machines, list_functions
+from aixplain.factories.cli.model_factory_cli import list_host_machines, list_functions, create_asset_repo, asset_repo_login, onboard_model
 
 @click.group('cli')
 def cli():
@@ -29,6 +51,9 @@ cli.add_command(onboard)
 
 list.add_command(list_host_machines)
 list.add_command(list_functions)
+create.add_command(create_asset_repo)
+get.add_command(asset_repo_login)
+onboard.add_command(onboard_model)
 
 def run_cli():
     cli()

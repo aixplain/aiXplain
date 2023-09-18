@@ -29,8 +29,6 @@ from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
 from urllib.parse import urljoin
 from warnings import warn
-import os
-import click
 
 class ModelFactory:
     """A static class for creating and exploring Model Objects.
@@ -198,10 +196,13 @@ class ModelFactory:
         return response_dicts
     
     @classmethod
-    def list_functions(cls, verbose: bool = False, api_key: Optional[Text] = None) -> List[Dict]:
+    def list_functions(cls, verbose: Optional[bool] = False, 
+                       api_key: Optional[Text] = None) -> List[Dict]:
         """Lists supported model functions on platform.
 
         Args:
+            verbose (Boolean, optional): Set to True if a detailed response 
+                is desired; is otherwise False by default.
             api_key (Text, optional): Team API key. Defaults to None.
 
         Returns:
@@ -225,10 +226,14 @@ class ModelFactory:
             del function_dict["id"]
         return response_dict
     
+    # Will add "always_on" and "is_async" when we support them.
+    # def create_asset_repo(cls, name: Text, hosting_machine: Text, version: Text, 
+    #                       description: Text, function: Text, is_async: bool, 
+    #                       source_language: Text, api_key: Optional[Text] = None) -> Dict:
     @classmethod
     def create_asset_repo(cls, name: Text, hosting_machine: Text, version: Text, 
-                          description: Text, function: Text, is_async: bool, 
-                          source_language: Text, api_key: Optional[Text] = None) -> Dict:
+                          description: Text, function: Text,  source_language: Text,
+                          api_key: Optional[Text] = None) -> Dict:
         """Creates an image repository for this model and registers it in the 
         platform backend.
 
@@ -278,12 +283,11 @@ class ModelFactory:
         return response.json()
     
     @classmethod
-    def asset_repo_login(cls, set_env: bool = False, api_key: Optional[Text] = None) -> Dict:
+    def asset_repo_login(cls, api_key: Optional[Text] = None) -> Dict:
         """Return login credentials for the image repository that corresponds with 
         the given API_KEY.
 
         Args:
-            set_env (bool, optional): If True, sets the login variables as environment variables
             api_key (Text, optional): Team API key. Defaults to None.
 
         Returns:
@@ -297,10 +301,6 @@ class ModelFactory:
             headers = {"x-api-key": f"{cls.api_key}", "Content-Type": "application/json"}
         response = _request_with_retry("post", login_url, headers=headers)
         response_dict = json.loads(response.text)
-        if set_env:
-            os.environ["USERNAME"] = response_dict["username"]
-            os.environ["PASSWORD"] = response_dict["password"]
-            os.environ["REGISTRY"] = response_dict["registry"]
         return response_dict
     
     @classmethod
@@ -349,8 +349,3 @@ class ModelFactory:
             headers = {"x-api-key": f"{cls.api_key}", "Content-Type": "application/json"}
         response = _request_with_retry("get", list_url, headers=headers)
         return response.json()
-
-@click.command("test")
-def test_func():
-    print("test1")
-    return "trolololololol"
