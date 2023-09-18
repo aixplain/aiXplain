@@ -257,7 +257,7 @@ class ModelFactory:
         function_id = None
         for function_dict in function_list:
             if function_dict["name"] == function:
-                function_id = function_dict["id"]
+                function_id = function_dict["code"]
         if function_id is None:
             raise Exception("Invalid function name")
         create_url = urljoin(config.BACKEND_URL, f"sdk/models/register")
