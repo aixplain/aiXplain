@@ -253,6 +253,7 @@ class ModelFactory:
         """
         # Reconcile function name to be function ID in the backend
         function_list = cls.list_functions(True, cls.api_key)["items"]
+        print(function_list)
         function_id = None
         for function_dict in function_list:
             if function_dict["name"] == function:
