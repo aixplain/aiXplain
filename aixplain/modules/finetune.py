@@ -100,7 +100,7 @@ class Finetune(Asset):
         """
         payload = {}
         try:
-            url = urljoin(self.backend_url, f"sdk/finetune")
+            url = urljoin(self.backend_url, f"sdk/finetunes")
             headers = {"Authorization": f"Token {self.api_key}", "Content-Type": "application/json"}
             payload = json.dumps(
                 {
