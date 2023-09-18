@@ -24,7 +24,6 @@ from typing import Dict, List, Optional, Text
 import json
 import logging
 from aixplain.modules.model import Model
-from aixplain.utils.config import MODELS_RUN_URL
 from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
 from urllib.parse import urljoin
