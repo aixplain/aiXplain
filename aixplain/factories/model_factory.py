@@ -267,6 +267,7 @@ class ModelFactory:
             headers = {"x-api-key": f"{cls.api_key}", "Content-Type": "application/json"}
         always_on = False
         is_async = False # Hard-coded to False for first release
+        print(function_id)
         payload = {
             "name": name,
             "hostingMachine": hosting_machine,
@@ -277,6 +278,7 @@ class ModelFactory:
             "isAsync": is_async,
             "sourceLanguage": source_language
         }
+        print(payload)
         payload = json.dumps(payload)
         logging.debug(f"Body: {str(payload)}")
         response = _request_with_retry("post", create_url, headers=headers, data=payload)
