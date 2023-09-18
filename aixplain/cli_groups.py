@@ -28,8 +28,7 @@ def cli():
     pass
 
 @click.group('list')
-@click.pass_context
-def list(ctx):
+def list():
     pass
 
 @click.group('get')
