@@ -48,9 +48,9 @@ cli.add_command(get)
 cli.add_command(create)
 cli.add_command(onboard)
 
+create.add_command(create_asset_repo)
 list.add_command(list_host_machines)
 list.add_command(list_functions)
-create.add_command(create_asset_repo)
 get.add_command(asset_repo_login)
 onboard.add_command(onboard_model)
 
