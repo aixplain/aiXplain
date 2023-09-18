@@ -165,7 +165,7 @@ class DatasetFactory(AssetFactory):
         Returns:
             Dataset: Created 'Dataset' object
         """
-        url = urljoin(cls.backend_url, f"sdk/dataset/{dataset_id}/overview")
+        url = urljoin(cls.backend_url, f"sdk/datasets/{dataset_id}/overview")
         if cls.aixplain_key != "":
             headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
         else:

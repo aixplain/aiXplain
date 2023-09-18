@@ -117,7 +117,7 @@ class CorpusFactory(AssetFactory):
         Returns:
             Corpus: Created 'Corpus' object
         """
-        url = urljoin(cls.backend_url, f"sdk/corpus/{corpus_id}/overview")
+        url = urljoin(cls.backend_url, f"sdk/corpora/{corpus_id}/overview")
         if cls.aixplain_key != "":
             headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
         else:

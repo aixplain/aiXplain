@@ -79,7 +79,7 @@ class FinetuneFactory:
             train_percentage + dev_percentage <= 100
         ), f"Create FineTune: Train percentage + dev percentage ({train_percentage + dev_percentage}) must be less than or equal to one"
         try:
-            url = urljoin(cls.backend_url, f"sdk/finetune/cost-estimation")
+            url = urljoin(cls.backend_url, f"sdk/finetunes/cost-estimation")
             headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
             payload = json.dumps(
                 {
