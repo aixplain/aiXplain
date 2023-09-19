@@ -27,8 +27,8 @@ def test_create_asset_repo():
         with open(Path("tests/mock_responses/create_asset_repo_response.json")) as f:
             mock_json = json.load(f)
         mock.post(url, headers=API_FIXED_HEADER, json=mock_json)
-        model_id = ModelFactory.create_asset_repo("mock_name", "mock_machines", True, "mock_version", 
-                          "mock_description", "mock_function", False, config.TEAM_API_KEY)
+        model_id = ModelFactory.create_asset_repo("mock_name", "mock_machines", "mock_version", 
+                          "mock_description", "mock_function", "en", config.TEAM_API_KEY)
     assert model_id == mock_json
 
 def test_list_host_machines():
