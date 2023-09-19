@@ -32,7 +32,7 @@ def test_create_asset_repo():
             mock_json = json.load(f)
         mock.get(url_function, headers=AUTH_FIXED_HEADER, json=mock_json)
         model_id = ModelFactory.create_asset_repo("mock_name", "mock_machines", "mock_version", 
-                          "mock_description", "mock_function", "en", config.TEAM_API_KEY)
+                          "mock_description", "Speech Recognition", "en", config.TEAM_API_KEY)
     assert model_id == mock_json
 
 def test_list_host_machines():
