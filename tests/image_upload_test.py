@@ -22,14 +22,15 @@ def test_login():
     assert creds == mock_json
 
 def test_create_asset_repo():
-    url =  urljoin(config.BACKEND_URL, f"sdk/models/register")
+    url_register =  urljoin(config.BACKEND_URL, f"sdk/models/register")
+    url_function = urljoin(config.BACKEND_URL, f"sdk/functions")
     with requests_mock.Mocker() as mock:
         with open(Path("tests/mock_responses/create_asset_repo_response.json")) as f:
             mock_json = json.load(f)
-        mock.post(url, headers=API_FIXED_HEADER, json=mock_json)
+        mock.post(url_register, headers=API_FIXED_HEADER, json=mock_json)
         with open(Path("tests/mock_responses/list_functions_response.json")) as f:
             mock_json = json.load(f)
-        mock.get(url, headers=AUTH_FIXED_HEADER, json=mock_json)
+        mock.get(url_function, headers=AUTH_FIXED_HEADER, json=mock_json)
         model_id = ModelFactory.create_asset_repo("mock_name", "mock_machines", "mock_version", 
                           "mock_description", "mock_function", "en", config.TEAM_API_KEY)
     assert model_id == mock_json
