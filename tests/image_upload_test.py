@@ -38,10 +38,17 @@ def test_list_host_machines():
             mock_json = json.load(f)
         mock.get(url, headers=API_FIXED_HEADER, json=mock_json)
         machines = ModelFactory.list_host_machines(config.TEAM_API_KEY)
-    machine_dict = json.loads(machines)
-    mock_json_dict = json.loads(mock_json)
-    for key in machine_dict.keys():
-        assert machine_dict[key] == mock_json_dict[key]
+    machine_dict_list = []
+    for machine in machines:
+        machine_dict_list.append(json.loads(machine))
+    mock_json_list = []
+    for mock_json in mock_json_list:
+        mock_json_list.append(json.loads(mock_json))
+    for i in range(len(machine_dict_list)):
+        machine_dict = machine_dict_list[i]
+        mock_json_dict = mock_json_list[i]
+        for key in machine_dict.keys():
+            assert machine_dict[key] == mock_json_dict[key]
 
 def test_get_functions():
     url =  urljoin(config.BACKEND_URL, f"sdk/functions")
