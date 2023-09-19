@@ -26,14 +26,14 @@ def test_create_asset_repo():
     url_function = urljoin(config.BACKEND_URL, f"sdk/functions")
     with requests_mock.Mocker() as mock:
         with open(Path("tests/mock_responses/create_asset_repo_response.json")) as f:
-            mock_json = json.load(f)
-        mock.post(url_register, headers=API_FIXED_HEADER, json=mock_json)
+            mock_json_register = json.load(f)
+        mock.post(url_register, headers=API_FIXED_HEADER, json=mock_json_register)
         with open(Path("tests/mock_responses/list_functions_response.json")) as f:
-            mock_json = json.load(f)
-        mock.get(url_function, headers=AUTH_FIXED_HEADER, json=mock_json)
+            mock_json_functions = json.load(f)
+        mock.get(url_function, headers=AUTH_FIXED_HEADER, json=mock_json_functions)
         model_id = ModelFactory.create_asset_repo("mock_name", "mock_machines", "mock_version", 
                           "mock_description", "Speech Recognition", "en", config.TEAM_API_KEY)
-    assert model_id == mock_json
+    assert model_id == mock_json_register
 
 def test_list_host_machines():
     url =  urljoin(config.BACKEND_URL, f"sdk/hosting-machines")
