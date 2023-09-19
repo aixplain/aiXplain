@@ -27,6 +27,9 @@ def test_create_asset_repo():
         with open(Path("tests/mock_responses/create_asset_repo_response.json")) as f:
             mock_json = json.load(f)
         mock.post(url, headers=API_FIXED_HEADER, json=mock_json)
+        with open(Path("tests/mock_responses/list_functions_response.json")) as f:
+            mock_json = json.load(f)
+        mock.get(url, headers=AUTH_FIXED_HEADER, json=mock_json)
         model_id = ModelFactory.create_asset_repo("mock_name", "mock_machines", "mock_version", 
                           "mock_description", "mock_function", "en", config.TEAM_API_KEY)
     assert model_id == mock_json
@@ -38,14 +41,6 @@ def test_list_host_machines():
             mock_json = json.load(f)
         mock.get(url, headers=API_FIXED_HEADER, json=mock_json)
         machines = ModelFactory.list_host_machines(config.TEAM_API_KEY)
-    '''
-    machine_dict_list = []
-    for machine in machines:
-        machine_dict_list.append(json.loads(machine))
-    mock_json_list = []
-    for mock_json in mock_json_list:
-        mock_json_list.append(json.loads(mock_json))
-    '''
     for i in range(len(machines)):
         machine_dict = machines[i]
         mock_json_dict = mock_json[i]
