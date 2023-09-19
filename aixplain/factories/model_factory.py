@@ -218,6 +218,7 @@ class ModelFactory:
         response_dict = json.loads(response.text)
         if verbose:
             return response_dict
+        del response_dict["results"]
         function_list = response_dict["items"]
         for function_dict in function_list:
             del function_dict["output"]
