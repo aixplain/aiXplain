@@ -24,6 +24,7 @@ Description:
 from aixplain.factories.model_factory import ModelFactory
 from typing import Dict, List, Optional, Text
 import click
+import yaml
 
 @click.command("hosts")
 @click.option("--api-key", default=None)
@@ -54,7 +55,8 @@ def list_functions(verbose: bool, api_key: Optional[Text] = None) -> None:
         None
     """
     ret_val = ModelFactory.list_functions(verbose, api_key)
-    click.echo(ret_val)
+    ret_val_yaml = yaml.dump(ret_val)
+    click.echo(ret_val_yaml)
 
 @click.command("image-repo")
 @click.option("--name")
