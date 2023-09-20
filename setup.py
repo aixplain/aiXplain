@@ -54,7 +54,7 @@ with open("README.md", "r") as f:
     readme = f.read()
 
 extras = {}
-extras["model-builder"] = "git+https://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@github.com/aixplain/aixplain-models-internal.git@M-4944778984-namespace-change#egg=model_schemas"
+extras["model-builder"] = "model_schemas @ git+https://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@github.com/aixplain/aixplain-models-internal.git@M-4944778984-namespace-change"
 
 setup(
     name=about["__title__"],
