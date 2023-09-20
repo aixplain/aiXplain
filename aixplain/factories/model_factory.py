@@ -251,7 +251,7 @@ class ModelFactory:
         Returns:
             Dict: Backend response
         """
-        # Reconcile function mame to be function ID in the backend
+        # Reconcile function name to be function ID in the backend
         function_list = cls.list_functions(True, cls.api_key)["items"]
         function_id = None
         for function_dict in function_list:
