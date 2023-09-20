@@ -39,7 +39,8 @@ def list_host_machines(api_key: Optional[Text] = None) -> None:
         None
     """
     ret_val = ModelFactory.list_host_machines(api_key)
-    click.echo(ret_val)
+    ret_val_yaml = yaml.dump(ret_val)
+    click.echo(ret_val_yaml)
 
 @click.command("functions")
 @click.option("--verbose", default=False)
@@ -89,7 +90,8 @@ def create_asset_repo(name: Text, hosting_machine: Text, version: Text,
     ret_val = ModelFactory.create_asset_repo(name, hosting_machine, version, 
                                              description, function, 
                                              source_language, api_key)
-    click.echo(ret_val)
+    ret_val_yaml = yaml.dump(ret_val)
+    click.echo(ret_val_yaml)
 
 @click.command("image-repo-login")
 @click.option("--api-key", default=None)
@@ -103,7 +105,8 @@ def asset_repo_login(api_key: Optional[Text] = None) -> None:
         None
     """
     ret_val = ModelFactory.asset_repo_login(api_key)
-    click.echo(ret_val)
+    ret_val_yaml = yaml.dump(ret_val)
+    click.echo(ret_val_yaml)
 
 @click.command("model")
 @click.option("--model-id")
@@ -123,4 +126,5 @@ def onboard_model(model_id: Text, image_tag: Text, image_hash: Text,
         None
     """   
     ret_val = ModelFactory.onboard_model(model_id, image_tag, image_hash, api_key)
-    click.echo(ret_val)
+    ret_val_yaml = yaml.dump(ret_val)
+    click.echo(ret_val_yaml)
