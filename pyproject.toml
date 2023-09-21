@@ -12,5 +12,5 @@ namespaces = true
 [project]
 name = "aiXplain"
 version = "1.0.3"
-description = "Mock description"
-license = { text = "Mock license" }
+description = "aixplain is a software development kit (SDK) for the [aiXplain](https://aixplain.com/) platform. With aixplain, developers can quickly and easily discover aiXplain's ever-expanding catalog of 35,000+ ready-to-use AI models and utilize them, benchmark AI systems by choosing models, datasets and metrics, and design their own custom pipelines and run them."
+license = { text = "Apache License, Version 2.0: http://www.apache.org/licenses/LICENSE-2.0" }
