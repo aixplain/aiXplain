@@ -59,23 +59,17 @@ In addition to exploring and running models, the aiXplain SDK allows you to uplo
 First, choose a hosting machine appropriate for your model. Note down the host machines "code". You can list the available hosting machines' specifications by running the following:
 ```console
 $ aixplain list hosts [--api-key <TEAM_API_KEY>]
-[
-    {
-        "code": "aix-2c-8g-od",
-        "type": "on-demand",
-        "cores": 2,
-        "memory": 8,
-        "hourlyCost": 0.12
-    },
-    {
-        "code": "aix-2c-8g",
-        "type": "always-on",
-        "cores": 2,
-        "memory": 8,
-        "hourlyCost": 0.096
-    },
-    ...
-]
+- code: aix-2c-8g-od
+  cores: 2
+  hourlyCost: 0.12
+  memory: 8
+  type: on-demand
+- code: aix-2c-8g
+  cores: 2
+  hourlyCost: 0.096
+  memory: 8
+  type: always-on
+  ...
 ```
 
 The `api-key` parameter is optional and is only used if the environment variable isn't set or you would like to override the existing environment variable.
@@ -83,36 +77,21 @@ The `api-key` parameter is optional and is only used if the environment variable
 Find a supported function type that best describes your model's purpose. Note down the function's ID.
 ```console
 $ aixplain list functions [--verbose <True/False>] [--api-key <TEAM_API_KEY>]
-{
-    "total": 55,
-    "pageTotal": 55,
-    "items": [
-        {
-            "id": "language-identification",
-            "name": "Language Identification",
-            "output": [
-                {
-                    "name": "Label",
-                    "code": "data",
-                    "dataType": "label",
-                    "defaultValue": []
-                }
-            ],
-            "params": [
-                {
-                    "code": "text",
-                    "name": "Text",
-                    "required": true,
-                    "isFixed": false,
-                    "dataType": "text",
-                    "dataSubType": "text",
-                    "multipleValues": false
-                }
-            ]
-        },
-        ...
-    ]
-}
+filteredFrom: 55
+items:
+- name: Language Identification
+- name: OCR
+- name: Image Label Detection
+- name: Video Forced Alignment
+- name: Offensive Language Identification
+- name: Audio Forced Alignment
+- name: Video Generation
+- name: Split On Silence
+- name: Referenceless Audio Generation Metric
+- name: Audio Generation Metric
+- name: Speaker Diarization Video
+- name: Referenceless Text Generation Metric Default
+...
 ```
 `verbose` is optional and is set to False by default, meaning only the function names are listed. Setting this to True will additionally list the function ID, output, and params. Again, `api-key` is optional.
 

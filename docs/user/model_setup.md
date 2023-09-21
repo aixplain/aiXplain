@@ -94,10 +94,6 @@ Include all python packages that you need to run the model by extracting the req
 ```
 pip freeze >> requirements.txt
 ```
-
-Remove aixplain-models, CUDA, Torch and Tensorflow requirements from this file as their latest versions come pre-baked into the hosting server.
-
-
 ### Testing the model locally
 
 Run your model with the following command:

@@ -174,8 +174,6 @@ class ModelFactory:
             return []
     
     @classmethod
-    # @click.command()
-    # @click.option("--team-api-key", default=None, help="Team API key")
     def list_host_machines(cls, api_key: Optional[Text] = None) -> List[Dict]:
         """Lists available hosting machines for model.
 
@@ -192,11 +190,8 @@ class ModelFactory:
         else:
             headers = {"x-api-key": f"{cls.api_key}", "Content-Type": "application/json"}
         response = _request_with_retry("get", machines_url, headers=headers)
-        response_dict = response.json()
         return response.json()
     
-    @function.command("list")
-    @click.argument("--api_key", required=False)
     @classmethod
     def list_functions(cls, api_key: Optional[Text] = None) -> List[Dict]:
         """Lists supported model functions on platform.
