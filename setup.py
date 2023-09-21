@@ -54,7 +54,7 @@ with open("README.md", "r") as f:
     readme = f.read()
 
 extras = {}
-extras["model-builder"] = "model_schemas @ git+https://{GITHUB_TOKEN}@github.com/aixplain/aixplain-models-internal.git@M-4944778984-namespace-change"
+extras["model-builder"] = "model_interfaces @ git+https://{GITHUB_TOKEN}@github.com/aixplain/aixplain-models-internal.git@M-4944778984-namespace-change"
 
 setup(
     name=about["__title__"],
