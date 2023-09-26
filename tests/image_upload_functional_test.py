@@ -79,4 +79,5 @@ def delete_asset(model_id, api_key):
     logging.debug(f"URL: {delete_url}")
     headers = {"Authorization": f"Token {api_key}", "Content-Type": "application/json"}
     response = _request_with_retry("delete", delete_url, headers=headers)
-    return response.json()
+    print(f"Response {response}")
+    # return response.json()
