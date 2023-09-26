@@ -54,6 +54,7 @@ def test_get_functions():
     # Non-verbose
     response = ModelFactory.list_functions() # Not verbose by default
     for function in response:
+        print(function)
         assert "output" not in function.keys()
         assert "params" not in function.keys()
         assert "id" not in function.keys()
