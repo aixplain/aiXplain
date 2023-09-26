@@ -30,7 +30,7 @@ def test_create_asset_repo():
     assert "repositoryName" in response_dict.keys()
 
     # Test cleanup
-    delete_asset(requests["id"], config.TEAM_API_KEY)
+    delete_asset(response["id"], config.TEAM_API_KEY)
 
 def test_list_host_machines():
     response = ModelFactory.list_host_machines()
