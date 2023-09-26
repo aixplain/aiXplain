@@ -1,7 +1,6 @@
 __author__ = "michaellam"
 from pathlib import Path
 import json
-import requests
 import logging
 from aixplain.utils.file_utils import _request_with_retry
 from urllib.parse import urljoin
@@ -14,6 +13,9 @@ def test_login():
     assert response["username"] == "AWS"
     assert response["registry"] == "535945872701.dkr.ecr.us-east-1.amazonaws.com"
     assert "password" in response.keys()
+
+    # Test cleanup
+    delete_service_account(config.TEAM_API_KEY)
 
 def test_create_asset_repo():
     with open(Path("tests/test_requests/create_asset_request.json")) as f:
@@ -66,18 +68,13 @@ def list_image_repo_tags():
     assert "nextToken" in response.keys()
 
 def delete_asset(model_id, api_key):
-    """List the contents of the image repository corresponding to API_KEY.
-
-    Args:
-        model_id (Text): Model ID obtained from CREATE_ASSET_REPO.
-        api_key (Text, optional): Team API key. Defaults to None.
-
-    Returns:
-        Dict: Backend response
-    """
     delete_url = urljoin(config.BACKEND_URL, f"sdk/inventory/models/{model_id}")
     logging.debug(f"URL: {delete_url}")
     headers = {"Authorization": f"Token {api_key}", "Content-Type": "application/json"}
-    response = _request_with_retry("delete", delete_url, headers=headers)
-    print(f"Response {response}")
-    # return response.json()
+    _ = _request_with_retry("delete", delete_url, headers=headers)
+
+def delete_service_account(api_key):
+    delete_url = urljoin(config.BACKEND_URL, f"sdk/ecr/logout")
+    logging.debug(f"URL: {delete_url}")
+    headers = {"Authorization": f"Token {api_key}", "Content-Type": "application/json"}
+    _ = _request_with_retry("delete", delete_url, headers=headers)
