@@ -16,7 +16,7 @@ def test_login():
     assert "password" in response.keys()
 
 def test_create_asset_repo():
-    with open(Path("tests/mock_requests/create_asset_request.json")) as f:
+    with open(Path("tests/test_requests/create_asset_request.json")) as f:
         mock_register_payload = json.load(f)
     name = mock_register_payload["name"]
     host_machine = mock_register_payload["hostingMachine"]
@@ -53,12 +53,13 @@ def test_get_functions():
 
     # Non-verbose
     response = ModelFactory.list_functions() # Not verbose by default
-    for function in response:
+    items = response["items"]
+    for item in items:
         print(function)
-        assert "output" not in function.keys()
-        assert "params" not in function.keys()
-        assert "id" not in function.keys()
-        assert "name" in function.keys()
+        assert "output" not in item.keys()
+        assert "params" not in item.keys()
+        assert "id" not in item.keys()
+        assert "name" in item.keys()
 
 def list_image_repo_tags():
     response = ModelFactory.list_image_repo_tags()
