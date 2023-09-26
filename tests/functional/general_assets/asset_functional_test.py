@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 load_dotenv()
 from aixplain.factories import ModelFactory, DatasetFactory, MetricFactory, PipelineFactory
 from pathlib import Path
-from aixplain.enums import Function
+from aixplain.enums import Function, Supplier
 
 import pytest
 
@@ -53,3 +53,9 @@ def test_model_function():
     models = ModelFactory.list(function=desired_function)['results']
     for model in models:
         assert model.function == desired_function
+        
+def test_model_supplier():
+    desired_suppliers = [Supplier.GOOGLE]
+    models = ModelFactory.list(suppliers = desired_suppliers)['results']
+    for model in models:
+        assert model.supplier in [desired_supplier.value for desired_supplier in desired_suppliers]

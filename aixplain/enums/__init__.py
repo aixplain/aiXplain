@@ -9,3 +9,4 @@ from .license import License
 from .onboard_status import OnboardStatus
 from .privacy import Privacy
 from .storage_type import StorageType
+from .supplier import Supplier
