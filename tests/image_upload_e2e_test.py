@@ -37,7 +37,7 @@ def test_create_and_upload_model():
     low_level_client = docker.APIClient(base_url='unix://var/run/docker.sock')
     docker_client = docker.from_env(version='1.41')
     low_level_client.pull("535945872701.dkr.ecr.us-east-1.amazonaws.com/bash")
-    docker_client.tag("535945872701.dkr.ecr.us-east-1.amazonaws.com/bash", f"{registry}/{repo_name}")
+    low_level_client.tag("535945872701.dkr.ecr.us-east-1.amazonaws.com/bash", f"{registry}/{repo_name}")
     docker_client.push(f"{registry}/{repo_name}", auth_config={"username":username, "password":password})
 
     # Send an email to finalize onboarding process
