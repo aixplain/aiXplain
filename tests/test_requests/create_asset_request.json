@@ -3,6 +3,6 @@
     "hostingMachine": "aix-2c-8g-od",
     "version": "mock_version",
     "description": "mock_description",
-    "function": "speech-recognition",
+    "function": "Speech Recognition",
     "sourceLanguage": "en"
 }
