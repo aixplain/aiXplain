@@ -1,11 +1,8 @@
 __author__ = "michaellam"
 from pathlib import Path
 import json
-import logging
-from aixplain.utils.file_utils import _request_with_retry
-from urllib.parse import urljoin
 from aixplain.utils import config
-
+from tests.test_utils import delete_asset, delete_service_account
 from aixplain.factories.model_factory import ModelFactory
 
 def test_login():
@@ -66,15 +63,3 @@ def list_image_repo_tags():
     response = ModelFactory.list_image_repo_tags()
     assert "Image tags" in response.keys()
     assert "nextToken" in response.keys()
-
-def delete_asset(model_id, api_key):
-    delete_url = urljoin(config.BACKEND_URL, f"sdk/inventory/models/{model_id}")
-    logging.debug(f"URL: {delete_url}")
-    headers = {"Authorization": f"Token {api_key}", "Content-Type": "application/json"}
-    _ = _request_with_retry("delete", delete_url, headers=headers)
-
-def delete_service_account(api_key):
-    delete_url = urljoin(config.BACKEND_URL, f"sdk/ecr/logout")
-    logging.debug(f"URL: {delete_url}")
-    headers = {"Authorization": f"Token {api_key}", "Content-Type": "application/json"}
-    _ = _request_with_retry("delete", delete_url, headers=headers)
