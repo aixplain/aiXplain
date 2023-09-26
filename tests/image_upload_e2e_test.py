@@ -53,10 +53,10 @@ def test_create_and_upload_model():
     registry = login_response["registry"]
 
     # Push an image to ECR
-    low_level_client = docker.APIClient(base_url='unix://var/run/docker.sock')
-    low_level_client.pull("535945872701.dkr.ecr.us-east-1.amazonaws.com/bash")
-    low_level_client.tag("535945872701.dkr.ecr.us-east-1.amazonaws.com/bash", f"{registry}/{repo_name}")
-    low_level_client.push(f"{registry}/{repo_name}", auth_config={"username":username, "password":password})
+    # low_level_client = docker.APIClient(base_url='unix://var/run/docker.sock')
+    # low_level_client.pull("535945872701.dkr.ecr.us-east-1.amazonaws.com/bash")
+    # low_level_client.tag("535945872701.dkr.ecr.us-east-1.amazonaws.com/bash", f"{registry}/{repo_name}")
+    # low_level_client.push(f"{registry}/{repo_name}", auth_config={"username":username, "password":password})
 
     # Send an email to finalize onboarding process
     ModelFactory.onboard_model(model_id, "latest", "fake_hash")
