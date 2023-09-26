@@ -23,7 +23,7 @@ def test_create_asset_repo():
     version = mock_register_payload["version"]
     description = mock_register_payload["description"]
     function = mock_register_payload["function"]
-    source_language = mock_register_payload["source_language"]
+    source_language = mock_register_payload["sourceLanguage"]
     response = ModelFactory.create_asset_repo(name, host_machine, version, description, function, source_language)
     response_dict = dict(response)
     assert "id" in response_dict.keys()
@@ -55,7 +55,6 @@ def test_get_functions():
     response = ModelFactory.list_functions() # Not verbose by default
     items = response["items"]
     for item in items:
-        print(function)
         assert "output" not in item.keys()
         assert "params" not in item.keys()
         assert "id" not in item.keys()
