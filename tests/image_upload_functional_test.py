@@ -2,6 +2,10 @@ __author__ = "michaellam"
 from pathlib import Path
 import json
 import requests
+import logging
+from aixplain.utils.file_utils import _request_with_retry
+from urllib.parse import urljoin
+from aixplain.utils import config
 
 from aixplain.factories.model_factory import ModelFactory
 
@@ -9,6 +13,7 @@ def test_login():
     response = ModelFactory.asset_repo_login()
     assert response["username"] == "AWS"
     assert response["registry"] == "535945872701.dkr.ecr.us-east-1.amazonaws.com"
+    assert "password" in response.keys()
 
 def test_create_asset_repo():
     with open(Path("tests/mock_requests/create_asset_request.json")) as f:
@@ -23,6 +28,9 @@ def test_create_asset_repo():
     response_dict = dict(response)
     assert "id" in response_dict.keys()
     assert "repositoryName" in response_dict.keys()
+
+    # Test cleanup
+    delete_asset(requests["id"], config.TEAM_API_KEY)
 
 def test_list_host_machines():
     response = ModelFactory.list_host_machines()
@@ -55,3 +63,19 @@ def list_image_repo_tags():
     response = ModelFactory.list_image_repo_tags()
     assert "Image tags" in response.keys()
     assert "nextToken" in response.keys()
+
+def delete_asset(model_id, api_key):
+    """List the contents of the image repository corresponding to API_KEY.
+
+    Args:
+        model_id (Text): Model ID obtained from CREATE_ASSET_REPO.
+        api_key (Text, optional): Team API key. Defaults to None.
+
+    Returns:
+        Dict: Backend response
+    """
+    delete_url = urljoin(config.BACKEND_URL, f"sdk/inventory/models/{model_id}")
+    logging.debug(f"URL: {delete_url}")
+    headers = {"Authorization": f"Token {api_key}", "Content-Type": "application/json"}
+    response = _request_with_retry("delete", delete_url, headers=headers)
+    return response.json()
