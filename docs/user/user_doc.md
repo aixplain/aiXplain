@@ -71,6 +71,7 @@ $ aixplain list hosts [--api-key <TEAM_API_KEY>]
   type: always-on
   ...
 ```
+Note: For any of the CLI commands, running `aixplain [verb] [resource] --help` will display a description of each argument that should be passed into that command.
 
 The `api-key` parameter is optional and is only used if the environment variable isn't set or you would like to override the existing environment variable.
 
