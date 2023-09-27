@@ -27,7 +27,7 @@ import click
 import yaml
 
 @click.command("hosts")
-@click.option("--api-key", default=None)
+@click.option("--api-key", default=None, help="TEAM_API_KEY if not already set in environment")
 def list_host_machines(api_key: Optional[Text] = None) -> None:
     """CLI wrapper function for the LIST_HOST_MACHINES function in 
     ModelFactory.
