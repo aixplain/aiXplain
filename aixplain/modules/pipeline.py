@@ -24,7 +24,9 @@ Description:
 import time
 import json
 import logging
+from aixplain.factories.pipeline_output_factory import PipelineOutputFactory
 from aixplain.modules.asset import Asset
+from aixplain.outputs.pipelines import PipelineOutput
 from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
 from typing import Dict, Optional, Text, Union
@@ -71,7 +73,7 @@ class Pipeline(Asset):
 
     def __polling(
         self, poll_url: Text, name: Text = "pipeline_process", wait_time: float = 1.0, timeout: float = 20000.0
-    ) -> Dict:
+    ) -> PipelineOutput:
         """Keeps polling the platform to check whether an asynchronous call is done.
 
         Args:
@@ -81,18 +83,19 @@ class Pipeline(Asset):
             timeout (float, optional): total polling time. Defaults to 20000.0.
 
         Returns:
-            dict: response obtained by polling call
+            PipelineOutput: PipelineOutput instance
         """
         # TO DO: wait_time = to the longest path of the pipeline * minimum waiting time
-        logging.debug(f"Polling for Pipeline: Start polling for {name} ")
+        logging.debug(f"Polling for Pipeline: Start polling for {name}")
         start, end = time.time(), time.time()
         completed = False
-        response_body = {"status": "FAILED"}
         while not completed and (end - start) < timeout:
             try:
-                response_body = self.poll(poll_url, name=name)
-                logging.debug(f"Polling for Pipeline: Status of polling for {name} : {response_body}")
-                completed = response_body["completed"]
+                pipeline_output = self.poll(poll_url, name=name)
+                logging.debug(f"Polling for Pipeline: Status of polling for {name} : {pipeline_output.__dict__}")
+
+                if pipeline_output.status in ["FAILED", "SUCCESS"]:
+                    completed = True
 
                 end = time.time()
                 if completed is False:
@@ -101,18 +104,18 @@ class Pipeline(Asset):
                         wait_time *= 1.1
             except Exception as e:
                 logging.error(f"Polling for Pipeline: polling for {name} : Continue")
-        if response_body and response_body["status"] == "SUCCESS":
-            try:
-                logging.debug(f"Polling for Pipeline: Final status of polling for {name} : SUCCESS - {response_body}")
-            except Exception as e:
-                logging.error(f"Polling for Pipeline: Final status of polling for {name} : ERROR - {response_body}")
+
+        if pipeline_output.status == "SUCCESS":
+            logging.debug(f"Polling for Pipeline: Final status of polling for {name} : SUCCESS")
+        elif pipeline_output.status == "FAILED":
+            logging.error(f"Polling for Pipeline: Final status of polling for {name} : ERROR")
         else:
             logging.error(
                 f"Polling for Pipeline: Final status of polling for {name} : No response in {timeout} seconds - {response_body}"
             )
-        return response_body
+        return pipeline_output
 
-    def poll(self, poll_url: Text, name: Text = "pipeline_process") -> Dict:
+    def poll(self, poll_url: Text, name: Text = "pipeline_process") -> PipelineOutput:
         """Poll the platform to check whether an asynchronous call is done.
 
         Args:
@@ -120,17 +123,26 @@ class Pipeline(Asset):
             name (Text, optional): ID given to a call. Defaults to "pipeline_process".
 
         Returns:
-            Dict: response obtained by polling call
+            PipelineOutput: PipelineOutput instance
         """
 
         headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}
         r = _request_with_retry("get", poll_url, headers=headers)
         try:
             resp = r.json()
+            if resp["status"] == "IN_PROGRESS":
+                pipeline_output = PipelineOutputFactory.create_in_progress_output(progress=resp["progress"])
+            elif resp["status"] == "SUCCESS":
+                pipeline_output = PipelineOutputFactory.create_success_output(response=resp)
+            else:
+                error_message = ""
+                if "error" in resp:
+                    error_message = resp["error"]
+                pipeline_output = PipelineOutputFactory.create_fail_output(error_message=error_message)
             logging.info(f"Single Poll for Pipeline: Status of polling for {name} : {resp}")
         except Exception as e:
-            resp = {"status": "FAILED"}
-        return resp
+            pipeline_output = PipelineOutputFactory.create_fail_output(error_message=str(e))
+        return pipeline_output
 
     def run(
         self,
@@ -139,7 +151,7 @@ class Pipeline(Asset):
         name: Text = "pipeline_process",
         timeout: float = 20000.0,
         wait_time: float = 1.0,
-    ) -> Dict:
+    ) -> PipelineOutput:
         """Runs a pipeline call.
 
         Args:
@@ -150,25 +162,29 @@ class Pipeline(Asset):
             wait_time (float, optional): wait time in seconds between polling calls. Defaults to 1.0.
 
         Returns:
-            Dict: parsed output from pipeline
+            PipelineOutput: PipelineOutput instance
         """
         start = time.time()
         try:
             response = self.run_async(data, data_asset=data_asset, name=name)
             if response["status"] == "FAILED":
                 end = time.time()
-                response["elapsed_time"] = end - start
-                return response
+                elapsed_time = end - start
+                error_message = ""
+                if "error" in response:
+                    error_message = response["error"]
+                return PipelineOutputFactory.create_fail_output(error_message=error_message, elapsed_time=elapsed_time)
             poll_url = response["url"]
             end = time.time()
-            response = self.__polling(poll_url, name=name, timeout=timeout, wait_time=wait_time)
-            return response
+            pipeline_output = self.__polling(poll_url, name=name, timeout=timeout, wait_time=wait_time)
+            return pipeline_output
         except Exception as e:
             error_message = f"Error in request for {name}: {str(e)}"
             logging.error(error_message)
             logging.exception(error_message)
             end = time.time()
-            return {"status": "FAILED", "error": error_message, "elapsed_time": end - start}
+            elapsed_time = end - start
+            return PipelineOutputFactory.create_fail_output(error_message=error_message, elapsed_time=elapsed_time)
 
     def __prepare_payload(self, data: Union[Text, Dict], data_asset: Optional[Union[Text, Dict]] = None) -> Dict:
         """Prepare pipeline execution payload, validating the input data
