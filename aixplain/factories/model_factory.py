@@ -122,7 +122,9 @@ class ModelFactory:
     @classmethod
     def _get_assets_from_page(
         cls,
+        query,
         page_number: int,
+        page_size: int,
         functions: Function,
         suppliers: List[Supplier],
         source_languages: Union[Language, List[Language]],
@@ -131,7 +133,7 @@ class ModelFactory:
     ) -> List[Model]:
         try:
             url = urljoin(cls.backend_url, f"sdk/models/paginate")
-            filter_params = {"pageNumber": page_number, "pageSize" : 10}
+            filter_params = { "q" : query, "pageNumber": page_number, "pageSize" : page_size}
             if is_finetunable is not None:
                 filter_params["isFineTunable"] = str(is_finetunable).lower()
             if functions is not None:
@@ -175,6 +177,7 @@ class ModelFactory:
     @classmethod
     def list(
         cls,
+        query: Optional[Text] = "",
         function: Optional[Function] = None,
         suppliers: List[Supplier] = None,
         source_languages: Optional[Union[Language, List[Language]]] = None,
@@ -197,22 +200,12 @@ class ModelFactory:
             List[Model]: List of models based on given filters
         """
         try:
-            model_list = []
-            starting_model_index_overall = page_number * page_size
-            ending_model_index_overall = starting_model_index_overall + page_size - 1
-            starting_model_page_number = starting_model_index_overall // 10
-            ending_model_page_number = ending_model_index_overall // 10
-            starting_model_index_filtered = starting_model_index_overall - (starting_model_page_number * 10)
-            ending_model_index_filtered = starting_model_index_filtered + page_size - 1
-            for current_page_number in range(starting_model_page_number, ending_model_page_number + 1):
-                models_on_current_page, total = cls._get_assets_from_page(
-                    current_page_number, function, suppliers, source_languages, target_languages, is_finetunable
-                )
-                model_list += models_on_current_page
-            filtered_model_list = model_list[starting_model_index_filtered : ending_model_index_filtered + 1]
+            models, total = cls._get_assets_from_page(
+                query, page_number, page_size, function, suppliers, source_languages, target_languages, is_finetunable
+            )
             return {
-                "results": filtered_model_list,
-                "page_total": min(page_size, len(filtered_model_list)),
+                "results": models,
+                "page_total": min(page_size, len(models)),
                 "page_number": page_number,
                 "total": total,
             }
