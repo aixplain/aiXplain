@@ -39,8 +39,8 @@ def test_run_with_url():
 
 
 def test_run_with_dataset():
-    data_asset_id = "64dce4da9e76dff1a6124fc1"
-    data_id = "64dce4da9e76dff1a6124fc2"
+    data_asset_id = "6504a0ddf0fee977097114cd"
+    data_id = "6504a0ddf0fee977097114ce"
     pipeline_id = "64da138fa27cffd5e0c3c30d"
     pipeline = PipelineFactory.get(pipeline_id)
 
@@ -61,7 +61,7 @@ def test_run_multipipe_with_datasets():
     pipeline = PipelineFactory.get(pipeline_id)
 
     response = pipeline.run(
-        data={"Input": "64dce4da9e76dff1a6124fc2", "Reference": "64dce4da9e76dff1a6124fc3"},
-        data_asset={"Input": "64dce4da9e76dff1a6124fc1", "Reference": "64dce4da9e76dff1a6124fc1"},
+        data={"Input": "6504a0ddf0fee977097114ce", "Reference": "6504a0ddf0fee977097114cf"},
+        data_asset={"Input": "6504a0ddf0fee977097114cd", "Reference": "6504a0ddf0fee977097114cd"},
     )
     assert response["status"] == "SUCCESS"

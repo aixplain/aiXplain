@@ -269,7 +269,7 @@ class DatasetFactory(AssetFactory):
         license: License,
         function: Function,
         input_schema: List[Union[Dict, MetaData]],
-        output_schema: List[Union[Dict, MetaData]],
+        output_schema: List[Union[Dict, MetaData]] = [],
         hypotheses_schema: List[Union[Dict, MetaData]] = [],
         metadata_schema: List[Union[Dict, MetaData]] = [],
         content_path: Union[Union[Text, Path], List[Union[Text, Path]]] = [],
@@ -314,15 +314,15 @@ class DatasetFactory(AssetFactory):
             dict_to_metadata(lmd)
 
         dataset_onboarding_validation(
-            input_schema = input_schema,
-            output_schema = output_schema,
-            function = function,
-            input_ref_data = input_ref_data,
-            metadata_schema = metadata_schema,
-            content_path = content_path,
-            split_labels = split_labels,
-            split_rate = split_rate,
-            s3_link = s3_link
+            input_schema=input_schema,
+            output_schema=output_schema,
+            function=function,
+            input_ref_data=input_ref_data,
+            metadata_schema=metadata_schema,
+            content_path=content_path,
+            split_labels=split_labels,
+            split_rate=split_rate,
+            s3_link=s3_link,
         )
 
         folder, return_dict, ref_data, csv_path = None, {}, [], None

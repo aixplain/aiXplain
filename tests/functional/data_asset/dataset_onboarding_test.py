@@ -18,7 +18,7 @@ limitations under the License.
 
 import pytest
 from uuid import uuid4
-from aixplain.enums import Function, Language, License, Privacy, DataSubtype, DataType,StorageType
+from aixplain.enums import Function, Language, License, Privacy, DataSubtype, DataType, StorageType
 from aixplain.factories import DatasetFactory
 from aixplain.modules import MetaData
 
@@ -41,14 +41,15 @@ def meta1():
 def meta2():
     return [{"name": "text", "dtype": "text", "storage_type": "text", "languages": [Language.English_UNITED_STATES]}]
 
+
 @pytest.fixture
 def split():
     return MetaData(
-            name="split", 
-            dtype=DataType.LABEL, 
-            dsubtype=DataSubtype.SPLIT,
-            storage_type=StorageType.TEXT, 
-        )
+        name="split",
+        dtype=DataType.LABEL,
+        dsubtype=DataSubtype.SPLIT,
+        storage_type=StorageType.TEXT,
+    )
 
 
 def test_dataset_onboard(meta1, meta2):
@@ -99,11 +100,11 @@ def test_invalid_dataset_splitting(meta1, meta2, split):
     upload_file = "tests/data_onboarding/input/audio-en_with_invalid_split_url.csv"
 
     split2 = MetaData(
-            name="split-2", 
-            dtype=DataType.LABEL, 
-            dsubtype=DataSubtype.SPLIT,
-            storage_type=StorageType.TEXT, 
-        )
+        name="split-2",
+        dtype=DataType.LABEL,
+        dsubtype=DataSubtype.SPLIT,
+        storage_type=StorageType.TEXT,
+    )
 
     with pytest.raises(Exception):
         response = DatasetFactory.create(
@@ -114,7 +115,7 @@ def test_invalid_dataset_splitting(meta1, meta2, split):
             content_path=upload_file,
             input_schema=meta1,
             output_schema=meta2,
-            metadata_schema= [split, split2],
+            metadata_schema=[split, split2],
             tags=[],
             privacy=Privacy.PRIVATE,
         )
@@ -131,7 +132,7 @@ def test_valid_dataset_splitting(meta1, meta2, split):
         content_path=upload_file,
         input_schema=meta1,
         output_schema=meta2,
-        metadata_schema= [split],
+        metadata_schema=[split],
         tags=[],
         privacy=Privacy.PRIVATE,
     )

@@ -16,9 +16,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 
 Author: aiXplain team
-Date: March 20th 2023
+Date: September 25th 2023
 Description:
-    Function Enum
+    Supplier Enum
 """
 
 import logging
@@ -27,14 +27,20 @@ from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
 from enum import Enum
 from urllib.parse import urljoin
+import re
 
+def clean_name(name):
+    cleaned_name = re.sub(r'[ -]+', '_', name)
+    cleaned_name = re.sub(r'[^a-zA-Z0-9_]', '', cleaned_name)
+    cleaned_name = re.sub(r'^\d+', '', cleaned_name)
+    return cleaned_name.upper()
 
-def load_functions():
+def load_suppliers():
     api_key = config.TEAM_API_KEY
     aixplain_key = config.AIXPLAIN_API_KEY
     backend_url = config.BACKEND_URL
 
-    url = urljoin(backend_url, "sdk/functions")
+    url = urljoin(backend_url, "sdk/suppliers")
     if aixplain_key != "":
         api_key = aixplain_key
         headers = {"x-aixplain-key": aixplain_key, "Content-Type": "application/json"}
@@ -43,20 +49,11 @@ def load_functions():
     r = _request_with_retry("get", url, headers=headers)
     if not 200 <= r.status_code < 300:
         raise Exception(
-            f'Functions could not be loaded, probably due to the set API key (e.g. "{api_key}") is not valid. For help, please refer to the documentation (https://github.com/aixplain/aixplain#api-key-setup)'
+            f'Suppliers could not be loaded, probably due to the set API key (e.g. "{api_key}") is not valid. For help, please refer to the documentation (https://github.com/aixplain/aixplain#api-key-setup)'
         )
     resp = r.json()
-    functions = Enum("Function", {w["id"].upper().replace("-", "_"): w["id"] for w in resp["items"]}, type=str)
-    functions_input_output = {
-        function["id"]: {
-            "input" : {
-                input_data_object["dataType"] for input_data_object in function["params"] if input_data_object["required"] is True
-            },
-            "output" : {
-                output_data_object["dataType"] for output_data_object in function["output"]
-            }
-        } for function in resp["items"]
-    }
-    return functions, functions_input_output
+    suppliers = Enum("Supplier", {clean_name(w["name"]): w["code"] for w in resp}, type=str)
 
-Function, FunctionInputOutput  = load_functions()
+    return suppliers
+
+Supplier = load_suppliers()

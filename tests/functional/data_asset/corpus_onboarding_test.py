@@ -24,7 +24,7 @@ from uuid import uuid4
 
 
 def test_corpus_onboard():
-    upload_file = "tests/data_onboarding/input/audio-en_url.csv"
+    upload_file = "tests/functional/data_asset/input/audio-en_url.csv"
     schema = [
         {
             "name": "audio",

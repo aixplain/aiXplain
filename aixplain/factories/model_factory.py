@@ -24,7 +24,7 @@ from typing import Dict, List, Optional, Text, Union
 import json
 import logging
 from aixplain.modules.model import Model
-from aixplain.enums import Function, Language, License, Privacy
+from aixplain.enums import Function, Language, Supplier
 from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
 from urllib.parse import urljoin
@@ -122,19 +122,26 @@ class ModelFactory:
     @classmethod
     def _get_assets_from_page(
         cls,
+        query,
         page_number: int,
-        function: Function,
+        page_size: int,
+        functions: Function,
+        suppliers: Union[Supplier, List[Supplier]],
         source_languages: Union[Language, List[Language]],
         target_languages: Union[Language, List[Language]],
         is_finetunable: bool = None,
     ) -> List[Model]:
         try:
-            url = urljoin(cls.backend_url, f"sdk/models")
-            filter_params = {"pageNumber": page_number}
+            url = urljoin(cls.backend_url, f"sdk/models/paginate")
+            filter_params = {"q": query, "pageNumber": page_number, "pageSize": page_size}
             if is_finetunable is not None:
                 filter_params["isFineTunable"] = str(is_finetunable).lower()
-            if function is not None:
-                filter_params["function"] = function.value
+            if functions is not None:
+                filter_params["functions"] = [functions.value]
+            if suppliers is not None:
+                if isinstance(suppliers, Supplier) is True:
+                    suppliers = [suppliers]
+                filter_params["suppliers"] = [supplier.value for supplier in suppliers]
             lang_filter_params = []
             if source_languages is not None:
                 if isinstance(source_languages, Language):
@@ -158,7 +165,7 @@ class ModelFactory:
             else:
                 headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
 
-            r = _request_with_retry("get", url, headers=headers, params=filter_params)
+            r = _request_with_retry("post", url, headers=headers, json=filter_params)
             resp = r.json()
             logging.info(f"Listing Models: Status of getting Models on Page {page_number}: {r.status_code}")
             all_models = resp["items"]
@@ -172,7 +179,9 @@ class ModelFactory:
     @classmethod
     def list(
         cls,
+        query: Optional[Text] = "",
         function: Optional[Function] = None,
+        suppliers: Optional[Union[Supplier, List[Supplier]]] = None,
         source_languages: Optional[Union[Language, List[Language]]] = None,
         target_languages: Optional[Union[Language, List[Language]]] = None,
         is_finetunable: Optional[bool] = None,
@@ -193,22 +202,12 @@ class ModelFactory:
             List[Model]: List of models based on given filters
         """
         try:
-            model_list = []
-            starting_model_index_overall = page_number * page_size
-            ending_model_index_overall = starting_model_index_overall + page_size - 1
-            starting_model_page_number = starting_model_index_overall // 10
-            ending_model_page_number = ending_model_index_overall // 10
-            starting_model_index_filtered = starting_model_index_overall - (starting_model_page_number * 10)
-            ending_model_index_filtered = starting_model_index_filtered + page_size - 1
-            for current_page_number in range(starting_model_page_number, ending_model_page_number + 1):
-                models_on_current_page, total = cls._get_assets_from_page(
-                    current_page_number, function, source_languages, target_languages, is_finetunable
-                )
-                model_list += models_on_current_page
-            filtered_model_list = model_list[starting_model_index_filtered : ending_model_index_filtered + 1]
+            models, total = cls._get_assets_from_page(
+                query, page_number, page_size, function, suppliers, source_languages, target_languages, is_finetunable
+            )
             return {
-                "results": filtered_model_list,
-                "page_total": min(page_size, len(filtered_model_list)),
+                "results": models,
+                "page_total": min(page_size, len(models)),
                 "page_number": page_number,
                 "total": total,
             }
