@@ -329,24 +329,3 @@ class ModelFactory:
         response = _request_with_retry("post", onboard_url, headers=headers, data=payload)
         print("Your onboarding request has been submitted to an aiXplain specialist for finalization. We will notify you when the process is completed.")
         return response
-    
-
-    @classmethod
-    def list_image_repo_tags(cls, model_id: Text, api_key: Optional[Text] = None) -> Dict:
-        """List the contents of the image repository corresponding to API_KEY.
-
-        Args:
-            model_id (Text): Model ID obtained from CREATE_ASSET_REPO.
-            api_key (Text, optional): Team API key. Defaults to None.
-
-        Returns:
-            Dict: Backend response
-        """
-        list_url = urljoin(config.BACKEND_URL, f"sdk/models/{model_id}/images")
-        logging.debug(f"URL: {list_url}")
-        if api_key:
-            headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
-        else:
-            headers = {"x-api-key": f"{cls.api_key}", "Content-Type": "application/json"}
-        response = _request_with_retry("get", list_url, headers=headers)
-        return response.json()
