@@ -39,16 +39,26 @@ def dataset_onboarding_validation(
     metadata_spliting_schema = list(filter(lambda md: str(md.dsubtype) == "split", metadata_schema))
 
     # validate the input and the output of the dataset
-    input_dtype = str(input_schema[0].dtype)
-    output_dtype = str(output_schema[0].dtype)
-
-    assert (
-        FunctionInputOutput.get(function) is not None and output_dtype in FunctionInputOutput[function]["output"]
-    ), f"Data Asset Onboarding Error: The output data type `{output_dtype}` is not compatible with the `{function}` function.\nThe expected output data type should be one of these data type: `{FunctionInputOutput[function]['output']}`."
-
     assert (
         len(input_schema) > 0 or len(input_ref_data) > 0
     ), "Data Asset Onboarding Error: You must specify an input data to onboard a dataset."
+
+    input_dtype = input_schema[0].dtype if isinstance(input_schema[0], MetaData) else input_schema[0]["dtype"]
+    if isinstance(input_dtype, DataType):
+        input_dtype = input_dtype.value
+
+    assert (
+        FunctionInputOutput.get(function) is not None and input_dtype in FunctionInputOutput[function]["input"]
+    ), f"Data Asset Onboarding Error: The input data type `{input_dtype}` is not compatible with the `{function}` function.\nThe expected input data type should be one of these data type: `{FunctionInputOutput[function]['input']}`."
+
+    if len(output_schema) > 0:
+        output_dtype = output_schema[0].dtype if isinstance(output_schema[0], MetaData) else output_schema[0]["dtype"]
+        if isinstance(output_dtype, DataType):
+            output_dtype = output_dtype.value
+
+        assert (
+            FunctionInputOutput.get(function) is not None and output_dtype in FunctionInputOutput[function]["output"]
+        ), f"Data Asset Onboarding Error: The output data type `{output_dtype}` is not compatible with the `{function}` function.\nThe expected output data type should be one of these data type: `{FunctionInputOutput[function]['output']}`."
 
     # validate the splitting
     assert (

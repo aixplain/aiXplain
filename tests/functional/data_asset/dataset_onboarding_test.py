@@ -53,7 +53,7 @@ def split():
 
 
 def test_dataset_onboard(meta1, meta2):
-    upload_file = "tests/data_onboarding/input/audio-en_url.csv"
+    upload_file = "tests/functional/data_asset/input/audio-en_url.csv"
 
     response = DatasetFactory.create(
         name=str(uuid4()),
@@ -70,7 +70,7 @@ def test_dataset_onboard(meta1, meta2):
 
 
 def test_invalid_dataset_onboard(meta1, meta2):
-    upload_file = "tests/data_onboarding/input/audio-en_url.csv"
+    upload_file = "tests/functional/data_asset/input/audio-en_url.csv"
 
     with pytest.raises(Exception):
         response = DatasetFactory.create(
@@ -97,7 +97,7 @@ def test_dataset_get_error():
 
 
 def test_invalid_dataset_splitting(meta1, meta2, split):
-    upload_file = "tests/data_onboarding/input/audio-en_with_invalid_split_url.csv"
+    upload_file = "tests/functional/data_asset/input/audio-en_with_invalid_split_url.csv"
 
     split2 = MetaData(
         name="split-2",
@@ -122,7 +122,7 @@ def test_invalid_dataset_splitting(meta1, meta2, split):
 
 
 def test_valid_dataset_splitting(meta1, meta2, split):
-    upload_file = "tests/data_onboarding/input/audio-en_with_split_url.csv"
+    upload_file = "tests/functional/data_asset/input/audio-en_with_split_url.csv"
 
     response = DatasetFactory.create(
         name=str(uuid4()),
