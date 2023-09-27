@@ -126,19 +126,21 @@ class ModelFactory:
         page_number: int,
         page_size: int,
         functions: Function,
-        suppliers: List[Supplier],
+        suppliers: Union[Supplier, List[Supplier]],
         source_languages: Union[Language, List[Language]],
         target_languages: Union[Language, List[Language]],
         is_finetunable: bool = None,
     ) -> List[Model]:
         try:
             url = urljoin(cls.backend_url, f"sdk/models/paginate")
-            filter_params = { "q" : query, "pageNumber": page_number, "pageSize" : page_size}
+            filter_params = {"q": query, "pageNumber": page_number, "pageSize": page_size}
             if is_finetunable is not None:
                 filter_params["isFineTunable"] = str(is_finetunable).lower()
             if functions is not None:
                 filter_params["functions"] = [functions.value]
             if suppliers is not None:
+                if isinstance(suppliers, Supplier) is True:
+                    suppliers = [suppliers]
                 filter_params["suppliers"] = [supplier.value for supplier in suppliers]
             lang_filter_params = []
             if source_languages is not None:
@@ -179,7 +181,7 @@ class ModelFactory:
         cls,
         query: Optional[Text] = "",
         function: Optional[Function] = None,
-        suppliers: List[Supplier] = None,
+        suppliers: Optional[Union[Supplier, List[Supplier]]] = None,
         source_languages: Optional[Union[Language, List[Language]]] = None,
         target_languages: Optional[Union[Language, List[Language]]] = None,
         is_finetunable: Optional[bool] = None,
