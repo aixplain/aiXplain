@@ -33,3 +33,6 @@ class DataType(Enum):
     TENSOR = "tensor"
     TEXT = "text"
     VIDEO = "video"
+
+    def __str__(self):
+        return self._value_

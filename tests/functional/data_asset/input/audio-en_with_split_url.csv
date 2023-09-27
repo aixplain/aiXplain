@@ -1,0 +1,21 @@
+,audio,text,audio_start_time,audio_end_time,split
+0,https://aixplain-platform-assets.s3.amazonaws.com/samples/en/discovery_demo.wav,Welcome to another episode of Explain using discover to find and benchmark AI models.,0.9,6.56,TRAIN
+1,https://aixplain-platform-assets.s3.amazonaws.com/samples/en/discovery_demo.wav,"Discover allows you to use natural language input to browse, test and benchmark MTT models from an ever expanding selection of providers.",7.53,15.12,VALIDATION
+2,https://aixplain-platform-assets.s3.amazonaws.com/samples/en/discovery_demo.wav,In this demo I'm going to focus on an Arabic to English translation workflow.,15.93,20.29,TRAIN
+3,https://aixplain-platform-assets.s3.amazonaws.com/samples/en/discovery_demo.wav,We can see here that there are currently 4 providers at different price points to choose from.,21.6,25.62,VALIDATION
+4,https://aixplain-platform-assets.s3.amazonaws.com/samples/en/discovery_demo.wav,We can click on the information icon to review a model in more detail.,26.75,30.05,TRAIN
+5,https://aixplain-platform-assets.s3.amazonaws.com/samples/en/discovery_demo.wav,"In this case, we can see that the provider of this model is Google, at a cost of 20 credits per million characters.",31.5,37.32,TRAIN
+6,https://aixplain-platform-assets.s3.amazonaws.com/samples/en/discovery_demo.wav,"I could enable this model from here, but first I'd like to run a benchmark to determine which provider might be the best fit for my use case.",38.56,45.01,TRAIN
+7,https://aixplain-platform-assets.s3.amazonaws.com/samples/en/discovery_demo.wav,I'm going to select one model from each of the pricing tiers for comparison.,46.32,49.69,TRAIN
+8,https://aixplain-platform-assets.s3.amazonaws.com/samples/en/discovery_demo.wav,You'll notice that our benchmarking function and language pairs are prepopulated from our initial search.,50.6,55.69,TRAIN
+9,https://aixplain-platform-assets.s3.amazonaws.com/samples/en/discovery_demo.wav,All I need to do is provide an Arabic data sample and then run my benchmark.,57.06,60.53,VALIDATION
+10,https://aixplain-platform-assets.s3.amazonaws.com/samples/en/discovery_demo.wav,You'll notice the benchmarking times can vary depending on the characteristics of the specific model selected.,62.52,67.49,VALIDATION
+11,https://aixplain-platform-assets.s3.amazonaws.com/samples/en/discovery_demo.wav,"And here we go. I can now see comparison samples of our translated text, as well as a range of scores from a selection of popular machine translation evaluation models.",68.43,77.46,TEST
+12,https://aixplain-platform-assets.s3.amazonaws.com/samples/en/discovery_demo.wav,"In this case I'm going to focus on class scores where higher scores are better, and I'm looking to find the best price performance option available.",78.25,85.82,TEST
+13,https://aixplain-platform-assets.s3.amazonaws.com/samples/en/discovery_demo.wav,"This looks like the perfect model match for my purposes, so I'm going to enable it in my account.",86.95,91.47,TEST
+14,https://aixplain-platform-assets.s3.amazonaws.com/samples/en/discovery_demo.wav,You'll notice a heads up display here that our model has been saved in the dashboard.,92.54,96.42,TEST
+15,https://aixplain-platform-assets.s3.amazonaws.com/samples/en/discovery_demo.wav,And there it is.,97.48,98.21,TRAIN
+16,https://aixplain-platform-assets.s3.amazonaws.com/samples/en/discovery_demo.wav,"OK, let's click the setting gear icon in our model preview pane to view our usability features.",98.85,103.58,VALIDATION
+17,https://aixplain-platform-assets.s3.amazonaws.com/samples/en/discovery_demo.wav,"Here you'll find your model endpoint, a URL where the model can be accessed and an access key.",104.28,110.0,TRAIN
+18,https://aixplain-platform-assets.s3.amazonaws.com/samples/en/discovery_demo.wav,An API key to authenticate your model access. There are also Java and Python code snippets that can be integrated into any of your custom applications.,110.91,119.35,VALIDATION
+19,https://aixplain-platform-assets.s3.amazonaws.com/samples/en/discovery_demo.wav,"As a member, you'll have full access to all of these features and more. Visit explain to begin your own AI discovery.",120.59,127.9,TRAIN
