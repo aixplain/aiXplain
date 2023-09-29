@@ -327,5 +327,6 @@ class ModelFactory:
         payload = json.dumps(payload)
         logging.debug(f"Body: {str(payload)}")
         response = _request_with_retry("post", onboard_url, headers=headers, data=payload)
-        print("Your onboarding request has been submitted to an aiXplain specialist for finalization. We will notify you when the process is completed.")
+        message = "Your onboarding request has been submitted to an aiXplain specialist for finalization. We will notify you when the process is completed."
+        logging.info(message)
         return response
