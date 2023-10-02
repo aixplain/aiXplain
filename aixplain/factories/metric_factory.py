@@ -22,7 +22,6 @@ Description:
 """
 
 import logging
-import os
 from typing import List
 from aixplain.modules.metric import Metric
 from aixplain.utils import config
