@@ -14,3 +14,19 @@ name = "aiXplain"
 version = "1.0.3"
 description = "aixplain is a software development kit (SDK) for the [aiXplain](https://aixplain.com/) platform. With aixplain, developers can quickly and easily discover aiXplain's ever-expanding catalog of 35,000+ ready-to-use AI models and utilize them, benchmark AI systems by choosing models, datasets and metrics, and design their own custom pipelines and run them."
 license = { text = "Apache License, Version 2.0: http://www.apache.org/licenses/LICENSE-2.0" }
+dependencies = [
+    "requests>=2.1.0", 
+    "tqdm>=4.1.0", 
+    "pandas>=1.2.1", 
+    "python-dotenv>=1.0.0", 
+    "validators>=0.20.0", 
+    "filetype>=1.2.0"
+]
+
+[project.optional-dependencies]
+model-builder = [
+    "model_interfaces @ git+https://{GITHUB_TOKEN}@github.com/aixplain/aixplain-models-internal.git@M-4944778984-namespace-change"
+]
+
+[project.urls]
+Homepage = "https://github.com/aixplain/aiXplain"
