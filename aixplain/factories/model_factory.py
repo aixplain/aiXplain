@@ -165,10 +165,8 @@ class ModelFactory:
             else:
                 headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
 
-            print(json.dumps(filter_params))
             r = _request_with_retry("post", url, headers=headers, json=filter_params)
             resp = r.json()
-            print(f"Response: {resp}")
             logging.info(f"Listing Models: Status of getting Models on Page {page_number}: {r.status_code}")
             all_models = resp["items"]
             model_list = [cls._create_model_from_response(model_info_json) for model_info_json in all_models]
