@@ -125,7 +125,7 @@ class ModelFactory:
         query,
         page_number: int,
         page_size: int,
-        functions: Function,
+        function: Function,
         suppliers: Union[Supplier, List[Supplier]],
         source_languages: Union[Language, List[Language]],
         target_languages: Union[Language, List[Language]],
@@ -135,9 +135,9 @@ class ModelFactory:
             url = urljoin(cls.backend_url, f"sdk/models/paginate")
             filter_params = {"q": query, "pageNumber": page_number, "pageSize": page_size}
             if is_finetunable is not None:
-                filter_params["isFineTunable"] = str(is_finetunable).lower()
-            if functions is not None:
-                filter_params["functions"] = [functions.value]
+                filter_params["isFineTunable"] = is_finetunable
+            if function is not None:
+                filter_params["functions"] = [function.value]
             if suppliers is not None:
                 if isinstance(suppliers, Supplier) is True:
                     suppliers = [suppliers]
@@ -159,7 +159,7 @@ class ModelFactory:
                     code = "targetlanguage"
                     lang_filter_params.append({"code": code, "value": target_languages[0].value["language"]})
             if len(lang_filter_params) != 0:
-                filter_params["ioFilter"] = json.dumps(lang_filter_params)
+                filter_params["ioFilter"] = lang_filter_params
             if cls.aixplain_key != "":
                 headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
             else:
@@ -201,6 +201,7 @@ class ModelFactory:
         Returns:
             List[Model]: List of models based on given filters
         """
+        print(f"Function: {function}")
         try:
             models, total = cls._get_assets_from_page(
                 query, page_number, page_size, function, suppliers, source_languages, target_languages, is_finetunable
