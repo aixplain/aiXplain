@@ -12,7 +12,11 @@ namespaces = true
 [project]
 name = "aiXplain"
 version = "1.0.3"
-description = "aixplain is a software development kit (SDK) for the [aiXplain](https://aixplain.com/) platform. With aixplain, developers can quickly and easily discover aiXplain's ever-expanding catalog of 35,000+ ready-to-use AI models and utilize them, benchmark AI systems by choosing models, datasets and metrics, and design their own custom pipelines and run them."
+description = "aiXplain SDK adds AI functions to software."
+author = "aiXplain"
+author_email = "thiago.ferreira@aixplain.com, krishna.durai@aixplain.com, lucas.pavanelli@aixplain.com"
+url = "https://github.com/aixplain/pipelines/tree/main/docs"
+
 readme = "README.md"
 license = { text = "Apache License, Version 2.0: http://www.apache.org/licenses/LICENSE-2.0" }
 dependencies = [
@@ -24,6 +28,30 @@ dependencies = [
     "filetype>=1.2.0"
 ]
 requires-python = ">=3.5, <4"
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Environment :: Web Environment",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.5",
+    "Programming Language :: Python :: 3.6",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Software Development :: Libraries",
+]
+license = "http://www.apache.org/licenses/LICENSE-2.0"
+
 
 [project.optional-dependencies]
 model-builder = [
