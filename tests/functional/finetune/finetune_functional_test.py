@@ -47,7 +47,6 @@ def run_input_map(request):
 def list_input_map(request):
     return request.param
 
-@pytest.mark.skip(reason="AWS rate limiting causing problems")
 def test_run(run_input_map):
     model = ModelFactory.get(run_input_map["model_id"])
     dataset_list = [DatasetFactory.get(run_input_map["dataset_id"])]
