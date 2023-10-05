@@ -174,12 +174,10 @@ Using the aiXplain SDK, you can also onboard your dataset into the aiXplain plat
 
 [FineTune](https://aixplain.com/platform/finetune) allows you to customize models by tuning them using your data and enhancing their performance. Set up and start fine-tuning with a few lines of code. Once fine-tuning is complete, the model will be deployed into your assets, ready for you to use.
 
-For now, we support the following tasks: `translation`, `speech-recognition`, `search` and `text-generation`. We have a guide for each task available on Google Colab:
+For now, we support the following tasks: `translation`, `search`, and `text-generation`. We have a guide for each task available on Google Colab:
 
 - Translation:
   - [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1rVxxZpHzyP4FWn_Rd_j_g8tHU76S3rVT?usp=sharing)
-- Speech recognition:
-  - [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1IwzIKT4li_YZbUHPzlXsugqLz_7g6ov6?usp=sharing)
 - Search:
   - [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1W56VZuJPm0FilnvEvpo38T92XvZIGDUs?usp=sharing)
 - Text generation:
