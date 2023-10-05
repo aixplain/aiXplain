@@ -51,7 +51,6 @@ dependencies = [
     "validators>=0.20.0", 
     "filetype>=1.2.0"
 ]
-license = {file = "http://www.apache.org/licenses/LICENSE-2.0"}
 
 [project.urls]
 Homepage = "https://github.com/aixplain/aiXplain"
