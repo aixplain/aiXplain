@@ -13,21 +13,14 @@ namespaces = true
 name = "aiXplain"
 version = "1.0.3"
 description = "aiXplain SDK adds AI functions to software."
-author = "aiXplain"
-author_email = "thiago.ferreira@aixplain.com, krishna.durai@aixplain.com, lucas.pavanelli@aixplain.com"
-url = "https://github.com/aixplain/pipelines/tree/main/docs"
-
 readme = "README.md"
-license = { text = "Apache License, Version 2.0: http://www.apache.org/licenses/LICENSE-2.0" }
-dependencies = [
-    "requests>=2.1.0", 
-    "tqdm>=4.1.0", 
-    "pandas>=1.2.1", 
-    "python-dotenv>=1.0.0", 
-    "validators>=0.20.0", 
-    "filetype>=1.2.0"
-]
 requires-python = ">=3.5, <4"
+license = { text = "Apache License, Version 2.0: http://www.apache.org/licenses/LICENSE-2.0" }
+authors = [
+  {email = "thiago.ferreira@aixplain.com"},
+  {email = "krishna.durai@aixplain.com"},
+  {email = "lucas.pavanelli@aixplain.com"}
+]
 classifiers = [
     "Development Status :: 2 - Pre-Alpha",
     "Environment :: Web Environment",
@@ -50,8 +43,22 @@ classifiers = [
     "Topic :: Internet :: WWW/HTTP",
     "Topic :: Software Development :: Libraries",
 ]
-license = "http://www.apache.org/licenses/LICENSE-2.0"
+dependencies = [
+    "requests>=2.1.0", 
+    "tqdm>=4.1.0", 
+    "pandas>=1.2.1", 
+    "python-dotenv>=1.0.0", 
+    "validators>=0.20.0", 
+    "filetype>=1.2.0"
+]
+license = {file = "http://www.apache.org/licenses/LICENSE-2.0"}
 
+[project.urls]
+Homepage = "https://github.com/aixplain/aiXplain"
+Documentation = "https://github.com/aixplain/pipelines/tree/main/docs"
+
+[project.scripts]
+aixplain = "aixplain.cli_groups:run_cli"
 
 [project.optional-dependencies]
 model-builder = [
@@ -61,9 +68,3 @@ test = [
     "python-dotenv~=0.20.0", 
     "pytest>=6.1.0"
 ]
-
-[project.scripts]
-aixplain = "aixplain.cli_groups:run_cli"
-
-[project.urls]
-Homepage = "https://github.com/aixplain/aiXplain"
