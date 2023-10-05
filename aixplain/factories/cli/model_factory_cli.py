@@ -27,7 +27,8 @@ import click
 import yaml
 
 @click.command("hosts")
-@click.option("--api-key", default=None, help="TEAM_API_KEY if not already set in environment")
+@click.option("--api-key", default=None, 
+              help="TEAM_API_KEY if not already set in environment")
 def list_host_machines(api_key: Optional[Text] = None) -> None:
     """CLI wrapper function for the LIST_HOST_MACHINES function in 
     ModelFactory.
@@ -43,8 +44,10 @@ def list_host_machines(api_key: Optional[Text] = None) -> None:
     click.echo(ret_val_yaml)
 
 @click.command("functions")
-@click.option("--verbose", default=False)
-@click.option("--api-key", default=None)
+@click.option("--verbose", default=False, 
+              help="List all function details, False by default.")
+@click.option("--api-key", default=None, 
+              help="TEAM_API_KEY if not already set in environment.")
 def list_functions(verbose: bool, api_key: Optional[Text] = None) -> None:
     """CLI wrapper function for the LIST_FUNCTIONS function in ModelFactory.
 
@@ -60,13 +63,16 @@ def list_functions(verbose: bool, api_key: Optional[Text] = None) -> None:
     click.echo(ret_val_yaml)
 
 @click.command("image-repo")
-@click.option("--name")
-@click.option("--hosting-machine")
-@click.option("--version")
-@click.option("--description")
-@click.option("--function")
-@click.option("--source-language", default="en")
-@click.option("--api-key", default=None)
+@click.option("--name", help="Model name.")
+@click.option("--hosting-machine", 
+              help="Hosting machine code obtained from LIST_HOSTS.")
+@click.option("--version", help="Model version.")
+@click.option("--description", help="Description of model.")
+@click.option("--function", help="Function name obtained from LIST_FUNCTIONS.")
+@click.option("--source-language", default="en", 
+              help="Model source language in 2-character 639-1 code or 3-character 639-3 code.")
+@click.option("--api-key", default=None, 
+              help="TEAM_API_KEY if not already set in environment.")
 def create_asset_repo(name: Text, hosting_machine: Text, version: Text, 
                           description: Text, function: Text, 
                           source_language: Text, 
@@ -94,7 +100,8 @@ def create_asset_repo(name: Text, hosting_machine: Text, version: Text,
     click.echo(ret_val_yaml)
 
 @click.command("image-repo-login")
-@click.option("--api-key", default=None)
+@click.option("--api-key", default=None, 
+              help="TEAM_API_KEY if not already set in environment.")
 def asset_repo_login(api_key: Optional[Text] = None) -> None:
     """CLI wrapper function for the ASSET_REPO_LOGIN function in ModelFactory.
 
@@ -109,10 +116,10 @@ def asset_repo_login(api_key: Optional[Text] = None) -> None:
     click.echo(ret_val_yaml)
 
 @click.command("model")
-@click.option("--model-id")
-@click.option("--image-tag")
-@click.option("--image-hash")
-@click.option("--api-key", default=None)
+@click.option("--model-id", help="Model ID from CREATE_IMAGE_REPO.")
+@click.option("--image-tag", help="The tag of the image that you would like hosted.")
+@click.option("--image-hash", help="The hash of the image you would like onboarded.")
+@click.option("--api-key", default=None, help="TEAM_API_KEY if not already set in environment.")
 def onboard_model(model_id: Text, image_tag: Text, image_hash: Text, 
                   api_key: Optional[Text] = None) -> None:
     """CLI wrapper function for the ONBOARD_MODEL function in ModelFactory.

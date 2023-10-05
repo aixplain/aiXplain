@@ -1,3 +1,8 @@
+<<<<<<< HEAD
+=======
+# aixplain/pyproject.toml
+
+>>>>>>> b37ed7666cf4cf6ce08f28bd16b8038b640c91fa
 [build-system]
 requires = ["setuptools", "setuptools-scm"]
 build-backend = "setuptools.build_meta"
