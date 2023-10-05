@@ -59,7 +59,7 @@ aixplain = "aixplain.cli_groups:run_cli"
 
 [project.optional-dependencies]
 model-builder = [
-    "model_interfaces @ git+https://{GITHUB_TOKEN}@github.com/aixplain/aixplain-models-internal.git@M-4944778984-namespace-change"
+    "model_interfaces~=0.0.1rc2"
 ]
 test = [
     "python-dotenv~=0.20.0", 
