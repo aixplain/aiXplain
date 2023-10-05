@@ -166,7 +166,7 @@ class DatasetFactory(AssetFactory):
         Returns:
             Dataset: Created 'Dataset' object
         """
-        url = urljoin(cls.backend_url, f"sdk/dataset/{dataset_id}/overview")
+        url = urljoin(cls.backend_url, f"sdk/datasets/{dataset_id}/overview")
         if cls.aixplain_key != "":
             headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
         else:
@@ -207,7 +207,7 @@ class DatasetFactory(AssetFactory):
         Returns:
             Dict: list of datasets in agreement with the filters, page number, page total and total elements
         """
-        url = urljoin(cls.backend_url, "sdk/dataset/paginate")
+        url = urljoin(cls.backend_url, "sdk/datasets/paginate")
         if cls.aixplain_key != "":
             headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
         else:

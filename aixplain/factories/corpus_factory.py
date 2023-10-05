@@ -117,7 +117,7 @@ class CorpusFactory(AssetFactory):
         Returns:
             Corpus: Created 'Corpus' object
         """
-        url = urljoin(cls.backend_url, f"sdk/corpus/{corpus_id}/overview")
+        url = urljoin(cls.backend_url, f"sdk/corpora/{corpus_id}/overview")
         if cls.aixplain_key != "":
             headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
         else:
@@ -163,7 +163,7 @@ class CorpusFactory(AssetFactory):
         Returns:
             Dict: list of corpora in agreement with the filters, page number, page total and total elements
         """
-        url = urljoin(cls.backend_url, "sdk/corpus/paginate")
+        url = urljoin(cls.backend_url, "sdk/corpora/paginate")
         if cls.aixplain_key != "":
             headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
         else:
