@@ -42,7 +42,7 @@ consider upgrading to a supported Python version.
     sys.exit(1)
 
 requires = ["requests>=2.1.0", "tqdm>=4.1.0", "pandas>=1.2.1", "python-dotenv>=1.0.0", "validators>=0.20.0", "filetype>=1.2.0"]
-test_requirements = ["python-dotenv~=0.20.0", "pytest>=6.1.0"]
+test_requirements = ["python-dotenv~=0.20.0", "coverage>=7.3.2", "pytest>=6.1.0", "requests-mock>=1.11.0"]
 
 about = {}
 here = os.path.abspath(os.path.dirname(__file__))
