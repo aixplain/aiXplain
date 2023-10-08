@@ -20,14 +20,16 @@ Date: September 1st 2022
 Description:
     Model Factory Class
 """
-from typing import Dict, List, Optional, Text
+from typing import Dict, List, Optional, Text, Union
 import json
 import logging
 from aixplain.modules.model import Model
+from aixplain.enums import Function, Language, Supplier
 from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
 from urllib.parse import urljoin
 from warnings import warn
+
 
 class ModelFactory:
     """A static class for creating and exploring Model Objects.
@@ -53,7 +55,22 @@ class ModelFactory:
         """
         if "api_key" not in response:
             response["api_key"] = cls.api_key
-        return Model(response["id"], response["name"], supplier=response["supplier"]["id"], api_key=response["api_key"])
+
+        parameters = {}
+        if "params" in response:
+            for param in response["params"]:
+                if "language" in param["name"]:
+                    parameters[param["name"]] = [w["value"] for w in param["values"]]
+
+        return Model(
+            response["id"],
+            response["name"],
+            supplier=response["supplier"]["id"],
+            api_key=response["api_key"],
+            pricing=response["pricing"],
+            function=Function(response["function"]["id"]),
+            parameters=parameters,
+        )
 
     @classmethod
     def get(cls, model_id: Text, api_key: Optional[Text] = None) -> Model:
@@ -103,74 +120,103 @@ class ModelFactory:
         return cls.get(model_id)
 
     @classmethod
-    def get_assets_from_page(
-        cls, page_number: int, task: Text, input_language: Optional[Text] = None, output_language: Optional[Text] = None
+    def _get_assets_from_page(
+        cls,
+        query,
+        page_number: int,
+        page_size: int,
+        function: Function,
+        suppliers: Union[Supplier, List[Supplier]],
+        source_languages: Union[Language, List[Language]],
+        target_languages: Union[Language, List[Language]],
+        is_finetunable: bool = None,
     ) -> List[Model]:
-        """Get the list of models from a given page. Additional task and language filters can be also be provided
-
-        Args:
-            page_number (int): Page from which models are to be listed
-            task (Text): Task of listed model
-            input_language (Text, optional): Input language of listed model. Defaults to None.
-            output_language (Text, optional): Output langugage of listed model. Defaults to None.
-
-        Returns:
-            List[Model]: List of models based on given filters
-        """
         try:
-            url = urljoin(cls.backend_url, f"sdk/models/?pageNumber={page_number}&function={task}")
-            filter_params = []
-            if input_language is not None:
-                if task == "translation":
-                    code = "sourcelanguage"
+            url = urljoin(cls.backend_url, f"sdk/models/paginate")
+            filter_params = {"q": query, "pageNumber": page_number, "pageSize": page_size}
+            if is_finetunable is not None:
+                filter_params["isFineTunable"] = is_finetunable
+            if function is not None:
+                filter_params["functions"] = [function.value]
+            if suppliers is not None:
+                if isinstance(suppliers, Supplier) is True:
+                    suppliers = [suppliers]
+                filter_params["suppliers"] = [supplier.value for supplier in suppliers]
+            lang_filter_params = []
+            if source_languages is not None:
+                if isinstance(source_languages, Language):
+                    source_languages = [source_languages]
+                if function == Function.TRANSLATION:
+                    lang_filter_params.append({"code": "sourcelanguage", "value": source_languages[0].value["language"]})
                 else:
-                    code = "language"
-                filter_params.append({"code": code, "value": input_language})
-            if output_language is not None:
-                if task == "translation":
+                    lang_filter_params.append({"code": "language", "value": source_languages[0].value["language"]})
+                    if source_languages[0].value["dialect"] != "":
+                        lang_filter_params.append({"code": "dialect", "value": source_languages[0].value["dialect"]})
+            if target_languages is not None:
+                if isinstance(target_languages, Language):
+                    target_languages = [target_languages]
+                if function == Function.TRANSLATION:
                     code = "targetlanguage"
-                    filter_params.append({"code": code, "value": output_language})
+                    lang_filter_params.append({"code": code, "value": target_languages[0].value["language"]})
+            if len(lang_filter_params) != 0:
+                filter_params["ioFilter"] = lang_filter_params
             if cls.aixplain_key != "":
                 headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
             else:
                 headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
-            r = _request_with_retry("get", url, headers=headers, params={"ioFilter": json.dumps(filter_params)})
+
+            r = _request_with_retry("post", url, headers=headers, json=filter_params)
             resp = r.json()
-            logging.info(f"Listing Models: Status of getting Models on Page {page_number} for {task}: {resp}")
+            logging.info(f"Listing Models: Status of getting Models on Page {page_number}: {r.status_code}")
             all_models = resp["items"]
             model_list = [cls._create_model_from_response(model_info_json) for model_info_json in all_models]
-            return model_list
+            return model_list, resp["total"]
         except Exception as e:
-            error_message = f"Listing Models: Error in getting Models on Page {page_number} for {task}: {e}"
-            logging.error(error_message)
+            error_message = f"Listing Models: Error in getting Models on Page {page_number}: {e}"
+            logging.error(error_message, exc_info=True)
             return []
 
     @classmethod
-    def get_first_k_assets(
-        cls, k: int, task: Text, input_language: Optional[Text] = None, output_language: Optional[Text] = None
+    def list(
+        cls,
+        query: Optional[Text] = "",
+        function: Optional[Function] = None,
+        suppliers: Optional[Union[Supplier, List[Supplier]]] = None,
+        source_languages: Optional[Union[Language, List[Language]]] = None,
+        target_languages: Optional[Union[Language, List[Language]]] = None,
+        is_finetunable: Optional[bool] = None,
+        page_number: int = 0,
+        page_size: int = 20,
     ) -> List[Model]:
         """Gets the first k given models based on the provided task and language filters
 
         Args:
-            k (int): Number of models to get
-            task (Text): Task of listed model
-            input_language (Text, optional): Input language of listed model. Defaults to None.
-            output_language (Text, optional): Output language of listed model. Defaults to None.
+            function (Optional[Function], optional): function filter. Defaults to None.
+            source_languages (Optional[Union[Language, List[Language]]], optional): language filter of input data. Defaults to None.
+            target_languages (Optional[Union[Language, List[Language]]], optional): language filter of output data. Defaults to None.
+            is_finetunable (Optional[bool], optional): can be finetuned or not. Defaults to None.
+            page_number (int, optional): page number. Defaults to 0.
+            page_size (int, optional): page size. Defaults to 20.
 
         Returns:
             List[Model]: List of models based on given filters
         """
+        print(f"Function: {function}")
         try:
-            model_list = []
-            assert k > 0
-            for page_number in range(k // 10 + 1):
-                model_list += cls.get_assets_from_page(page_number, task, input_language, output_language)
-            return model_list[0:k]
+            models, total = cls._get_assets_from_page(
+                query, page_number, page_size, function, suppliers, source_languages, target_languages, is_finetunable
+            )
+            return {
+                "results": models,
+                "page_total": min(page_size, len(models)),
+                "page_number": page_number,
+                "total": total,
+            }
         except Exception as e:
-            error_message = f"Listing Models: Error in getting {k} Models for {task} : {e}"
-            logging.error(error_message)
-            return []
- 
+            error_message = f"Listing Models: Error in Listing Models : {e}"
+            logging.error(error_message, exc_info=True)
+            raise Exception(error_message)
+        
     @classmethod
     def list_host_machines(cls, api_key: Optional[Text] = None) -> List[Dict]:
         """Lists available hosting machines for model.
