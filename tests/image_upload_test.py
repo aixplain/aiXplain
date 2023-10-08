@@ -5,6 +5,7 @@ import requests_mock
 from pathlib import Path
 from aixplain.utils import config
 from urllib.parse import urljoin
+import pytest
 
 from aixplain.factories.model_factory import ModelFactory
 
@@ -57,6 +58,7 @@ def test_get_functions():
         functions = ModelFactory.list_functions(config.TEAM_API_KEY)
     assert functions == mock_json
 
+@pytest.mark.skip(reason="Not currently supported.")
 def test_list_image_repo_tags():
     model_id = "mock_id"
     url =  urljoin(config.BACKEND_URL, f"sdk/models/{model_id}/images")

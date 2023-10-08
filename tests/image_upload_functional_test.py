@@ -4,6 +4,7 @@ import json
 from aixplain.utils import config
 from tests.test_utils import delete_asset, delete_service_account
 from aixplain.factories.model_factory import ModelFactory
+import pytest
 
 def test_login():
     response = ModelFactory.asset_repo_login()
@@ -24,6 +25,7 @@ def test_create_asset_repo():
     function = mock_register_payload["function"]
     source_language = mock_register_payload["sourceLanguage"]
     response = ModelFactory.create_asset_repo(name, host_machine, version, description, function, source_language)
+    print(response)
     response_dict = dict(response)
     assert "id" in response_dict.keys()
     assert "repositoryName" in response_dict.keys()
@@ -59,6 +61,7 @@ def test_get_functions():
         assert "id" not in item.keys()
         assert "name" in item.keys()
 
+@pytest.mark.skip(reason="Not included in first release")
 def list_image_repo_tags():
     response = ModelFactory.list_image_repo_tags()
     assert "Image tags" in response.keys()
