@@ -19,11 +19,12 @@ import re
 import requests
 
 import aixplain.utils.config as config
+from aixplain.enums.license import License
 
 from collections import defaultdict
 from pathlib import Path
 from requests.adapters import HTTPAdapter, Retry
-from typing import Any, Optional, Text, Union, Dict 
+from typing import Any, Optional, Text, Union, Dict, List
 from uuid import uuid4
 from urllib.parse import urljoin, urlparse
 from pandas import DataFrame
@@ -84,12 +85,15 @@ def download_data(url_link, local_filename=None):
 
 
 def upload_data(
-    file_name: Union[Text, Path], content_type: Text = "text/csv", content_encoding: Optional[Text] = None, nattempts: int = 2
+    file_name: Union[Text, Path], tags : Optional[List[Text]] = None, license : Optional[License] = None,  is_temp : bool = True, content_type: Text = "text/csv", content_encoding: Optional[Text] = None, nattempts: int = 2
 ):
     """Upload files to S3 with pre-signed URLs
 
     Args:
         file_name (Union[Text, Path]): local path of file to be uploaded
+        tags (List[Text], optional): tags of the file
+        license (License, optional): the license for the file
+        is_temp (bool): specify if the file that will be upload is a temporary file
         content_type (Text, optional): Type of content. Defaults to "text/csv".
         content_encoding (Text, optional): Content encoding. Defaults to None.
         nattempts (int, optional): Number of attempts for diminish the risk of exceptions. Defaults to 2.
@@ -103,7 +107,17 @@ def upload_data(
     try:
         # Get pre-signed URL
         # URL of aiXplain service which returns a pre-signed URL to onboard the file
-        url = urljoin(config.BACKEND_URL, "sdk/file/upload/temp-url")
+        if is_temp:
+            url = urljoin(config.BACKEND_URL, "sdk/file/upload/temp-url")
+            payload = {"contentType": content_type, "originalName": file_name}
+        else:
+            url = urljoin(config.BACKEND_URL, "sdk/file/upload-url")
+            payload = {
+                "contentType": content_type,
+                "originalName": file_name,
+                "tags" : ",".join(tags),
+                "license" : license.value
+            }
 
         if config.AIXPLAIN_API_KEY != "":
             team_key = config.AIXPLAIN_API_KEY
@@ -112,7 +126,7 @@ def upload_data(
             team_key = config.TEAM_API_KEY
             headers = {"Authorization": "token " + team_key}
 
-        payload = {"contentType": content_type, "originalName": file_name}
+        
         r = _request_with_retry("post", url, headers=headers, data=payload)
         response = r.json()
         path = response["key"]
