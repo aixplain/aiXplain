@@ -20,9 +20,13 @@ Date: September 1st 2022
 Description:
     Pipeline Factory Class
 """
+import json
 import logging
-import os
-from typing import Dict, List, Optional, Text
+from typing import Dict, List, Optional, Text, Union
+from aixplain.enums.data_type import DataType
+from aixplain.enums.function import Function
+from aixplain.enums.supplier import Supplier
+from aixplain.modules.model import Model
 from aixplain.modules.pipeline import Pipeline
 from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
@@ -43,7 +47,7 @@ class PipelineFactory:
     backend_url = config.BACKEND_URL
 
     @classmethod
-    def _create_pipeline_from_response(cls, response: Dict) -> Pipeline:
+    def __from_response(cls, response: Dict) -> Pipeline:
         """Converts response Json to 'Pipeline' object
 
         Args:
@@ -81,7 +85,7 @@ class PipelineFactory:
             resp["api_key"] = cls.api_key
             if api_key is not None:
                 resp["api_key"] = api_key
-            pipeline = cls._create_pipeline_from_response(resp)
+            pipeline = cls.__from_response(resp)
             return pipeline
         except Exception as e:
             status_code = 400
@@ -122,7 +126,7 @@ class PipelineFactory:
             resp = r.json()
             logging.info(f"Listing Pipelines: Status of getting Pipelines on Page {page_number}: {resp}")
             all_pipelines = resp["items"]
-            pipeline_list = [cls._create_pipeline_from_response(pipeline_info_json) for pipeline_info_json in all_pipelines]
+            pipeline_list = [cls.__from_response(pipeline_info_json) for pipeline_info_json in all_pipelines]
             return pipeline_list
         except Exception as e:
             error_message = f"Listing Pipelines: Error in getting Pipelines on Page {page_number}: {e}"
@@ -148,3 +152,73 @@ class PipelineFactory:
             error_message = f"Listing Pipelines: Error in getting {k} Pipelines: {e}"
             logging.error(error_message, exc_info=True)
             return []
+
+    @classmethod
+    def list(
+        cls,
+        query: Optional[Text] = None,
+        functions: Optional[Union[Function, List[Function]]] = None,
+        suppliers: Optional[Union[Supplier, List[Supplier]]] = None,
+        models: Optional[Union[Model, List[Model]]] = None,
+        input_data_types: Optional[Union[DataType, List[DataType]]] = None,
+        output_data_types: Optional[Union[DataType, List[DataType]]] = None,
+        page_number: int = 0,
+        page_size: int = 20,
+        drafts_only: bool = False,
+    ) -> Dict:
+
+        url = urljoin(cls.backend_url, "sdk/pipelines/paginate")
+        if cls.aixplain_key != "":
+            headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
+        else:
+            headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
+
+        assert 0 < page_size <= 100, f"Pipeline List Error: Page size must be greater than 0 and not exceed 100."
+        payload = {
+            "pageSize": page_size,
+            "pageNumber": page_number,
+            # "sort": [{"field": "createdAt", "dir": -1}],
+            "draftsOnly": drafts_only,
+        }
+
+        if query is not None:
+            payload["q"] = str(query)
+
+        if functions is not None:
+            if isinstance(functions, Function) is True:
+                functions = [functions]
+            payload["functions"] = [function.value for function in functions]
+
+        if suppliers is not None:
+            if isinstance(suppliers, Supplier) is True:
+                suppliers = [suppliers]
+            payload["suppliers"] = [supplier.value for supplier in suppliers]
+
+        if models is not None:
+            if isinstance(models, Model) is True:
+                models = [models]
+            payload["models"] = [model.id for model in models]
+
+        if input_data_types is not None:
+            if isinstance(input_data_types, DataType) is True:
+                input_data_types = [input_data_types]
+            payload["inputDataTypes"] = [data_type.value for data_type in input_data_types]
+
+        if output_data_types is not None:
+            if isinstance(output_data_types, DataType) is True:
+                output_data_types = [output_data_types]
+            payload["inputDataTypes"] = [data_type.value for data_type in output_data_types]
+
+        logging.info(f"Start service for POST List Dataset - {url} - {headers} - {json.dumps(payload)}")
+        r = _request_with_retry("post", url, headers=headers, json=payload)
+        resp = r.json()
+
+        pipelines, page_total, total = [], 0, 0
+        if "results" in resp:
+            results = resp["results"]
+            page_total = resp["pageTotal"]
+            total = resp["total"]
+            logging.info(f"Response for POST List Pipeline - Page Total: {page_total} / Total: {total}")
+            for dataset in results:
+                pipelines.append(cls.__from_response(dataset))
+        return {"results": pipelines, "page_total": page_total, "page_number": page_number, "total": total}

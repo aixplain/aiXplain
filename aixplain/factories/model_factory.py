@@ -21,7 +21,6 @@ Description:
     Model Factory Class
 """
 from typing import Dict, List, Optional, Text, Union
-import json
 import logging
 from aixplain.modules.model import Model
 from aixplain.enums import Function, Language, Supplier
