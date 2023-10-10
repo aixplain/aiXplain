@@ -57,6 +57,94 @@ poll_url = start_response["url"]
 poll_response = model.poll(poll_url)
 ```
 
+### Uploading Models
+In addition to exploring and running models, the aiXplain SDK allows you to upload your own models to the aiXplain platform. This requires a working model image in line with the template specified [here](https://github.com/aixplain/model-interfaces/blob/main/docs/user/model_setup.md). [These](https://github.com/aixplain/model-interfaces/tree/main) are the interfaces with which you will be working. You will also be required to have an aiXplain account as well as a TEAM_API_KEY which should be set either as an environment variable or passed into each of the following functions.
+
+First, choose a hosting machine appropriate for your model. Note down the host machines "code". You can list the available hosting machines' specifications by running the following:
+```console
+$ aixplain list hosts [--api-key <TEAM_API_KEY>]
+- code: aix-2c-8g-od
+  cores: 2
+  hourlyCost: 0.12
+  memory: 8
+  type: on-demand
+- code: aix-2c-8g
+  cores: 2
+  hourlyCost: 0.096
+  memory: 8
+  type: always-on
+  ...
+```
+Note: For any of the CLI commands, running `aixplain [verb] [resource] --help` will display a description of each argument that should be passed into that command.
+
+The `api-key` parameter is optional and is only used if the environment variable isn't set or you would like to override the existing environment variable.
+
+Find a supported function type that best describes your model's purpose. Note down the function's ID.
+```console
+$ aixplain list functions [--verbose <True/False>] [--api-key <TEAM_API_KEY>]
+filteredFrom: 55
+items:
+- name: Language Identification
+- name: OCR
+- name: Image Label Detection
+- name: Video Forced Alignment
+- name: Offensive Language Identification
+- name: Audio Forced Alignment
+- name: Video Generation
+- name: Split On Silence
+- name: Referenceless Audio Generation Metric
+- name: Audio Generation Metric
+- name: Speaker Diarization Video
+- name: Referenceless Text Generation Metric Default
+...
+```
+`verbose` is optional and is set to False by default, meaning only the function names are listed. Setting this to True will additionally list the function ID, output, and params. Again, `api-key` is optional.
+
+Once you have chosen a suitable host machine and function, register your model and create an image repository:
+
+```console
+$ aixplain image-create repo --name <model_name> --hosting-machine <machine_code> --version <model_version> --description <model_description> --function <function_name> --source-language <source_language> [--api-key <TEAM_API_KEY>]
+{
+    "repoName": <model_repository_name>,
+    "modelId": <model_id>
+}
+```
+`name` is your model's name. `hosting-machine` should include the code of the hosting machine you would like to use. The `version` field should be set to your model's version number. `description` should hold a short summary of your model's purpose. Specify the function name most closely describe your model's purpose in the `function` field. Finally, `source-language` should contain your model's source language.
+
+This returns a model ID and a repository name. Next, obtain login credentials for the newly created repository:
+
+```console
+$ aixplain get image-repo-login [--api-key <TEAM_API_KEY>]
+{
+    "username": <username>,
+    "password": <password>,
+    "registry": <registry_url>
+}
+```
+
+These credentials are valid for 12 hours, after which you much again log in for a fresh set of valid credentials. If you are using Docker, you can use these credentials to log in with the following:
+```console
+docker login --username $USERNAME --password $PASSWORD
+```
+
+Next, tag your image to match the registry and repository name given in the previous steps. If you are using Docker, this would look like the following:
+```console
+$ docker tag <prev_image> {$REGISTRY}/{$REPO_NAME}:<your-choice-of-tag>
+```
+
+Push the newly tagged image to the corresponding repository:
+```console
+$ docker push {$REGISTRY}/{$REPO_NAME}:<your-choice-of-tag>
+```
+
+Once this is done, onboard the model:
+```console
+$ aixplain onboard model --model-id <model_id> --image-tag <model_image_tag> --image-hash <model_image_hash> [--api-key <TEAM_API_KEY>]
+```
+`model-id` should be the model ID returned by the image-create-repo function used earlier. `image-tag` should be set to whatever string you used to tag your model image.
+
+This will send an email to an aiXplain associate to finalize the onboarding process.
+
 ## Pipelines
 [Design](https://aixplain.com/platform/studio/) is aiXplain’s no-code AI pipeline builder tool that accelerates AI development by providing a seamless experience to build complex AI systems and deploy them within minutes. You can visit our platform and design your own custom pipeline [here](https://platform.aixplain.com/studio).
 

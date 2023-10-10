@@ -1,0 +1,18 @@
+[
+    {
+        "id": "64dce914adc92335dc35beb5",
+        "code": "aix-2c-8g-od",
+        "type": "on-demand",
+        "cores": 2,
+        "memory": 8,
+        "hourlyCost": 0.12
+    },
+    {
+        "id": "64dceafdadc92335dc35beb6",
+        "code": "aix-2c-8g",
+        "type": "always-on",
+        "cores": 2,
+        "memory": 8,
+        "hourlyCost": 0.096
+    }
+]
