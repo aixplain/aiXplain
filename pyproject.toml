@@ -62,7 +62,7 @@ aixplain = "aixplain.cli_groups:run_cli"
 
 [project.optional-dependencies]
 model-builder = [
-    "model_interfaces>=0.0.1rc2"
+    "model-interfaces~=0.0.1rc2"
 ]
 test = [
     "pytest>=6.1.0",
