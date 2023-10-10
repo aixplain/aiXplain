@@ -360,7 +360,7 @@ class ModelFactory:
         Returns:
             Dict: Backend response
         """ 
-        onboard_url = urljoin(config.BACKEND_URL, f"sdk/inventory/models/{model_id}/onboarding")
+        onboard_url = urljoin(config.BACKEND_URL, f"sdk/models/{model_id}/onboarding")
         logging.debug(f"URL: {onboard_url}")
         if api_key:
             headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
