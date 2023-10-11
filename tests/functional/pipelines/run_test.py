@@ -20,10 +20,26 @@ import pytest
 from aixplain.factories import DatasetFactory, PipelineFactory
 
 
+def test_list_pipelines():
+    search_result = PipelineFactory.list()
+
+    assert "results" in search_result
+    assert "page_total" in search_result
+    assert "page_number" in search_result
+    assert "total" in search_result
+    assert len(search_result["results"]) > 0
+
+
+def test_get_pipeline():
+    reference_pipeline = PipelineFactory.list()["results"][0]
+
+    hypothesis_pipeline = PipelineFactory.get(reference_pipeline.id)
+    assert hypothesis_pipeline.id == reference_pipeline.id
+
+
 @pytest.mark.parametrize("batchmode", [True, False])
 def test_run_single_str(batchmode: bool):
-    pipeline_id = "64da138fa27cffd5e0c3c30d"
-    pipeline = PipelineFactory.get(pipeline_id)
+    pipeline = PipelineFactory.list(query="SingleNodePipeline")["results"][0]
 
     response = pipeline.run(data="Translate this thing", **{"batchmode": batchmode})
     assert response["status"] == "SUCCESS"
@@ -31,8 +47,7 @@ def test_run_single_str(batchmode: bool):
 
 @pytest.mark.parametrize("batchmode", [True, False])
 def test_run_with_url(batchmode: bool):
-    pipeline_id = "64da138fa27cffd5e0c3c30d"
-    pipeline = PipelineFactory.get(pipeline_id)
+    pipeline = PipelineFactory.list(query="SingleNodePipeline")["results"][0]
 
     response = pipeline.run(
         data="https://aixplain-platform-assets.s3.amazonaws.com/data/dev/64c81163f8bdcac7443c2dad/data/f8.txt",
@@ -46,8 +61,7 @@ def test_run_with_dataset(batchmode: bool):
     dataset = DatasetFactory.list(query="for_functional_tests")["results"][0]
     data_asset_id = dataset.id
     data_id = dataset.source_data["en"].id
-    pipeline_id = "64da138fa27cffd5e0c3c30d"
-    pipeline = PipelineFactory.get(pipeline_id)
+    pipeline = PipelineFactory.list(query="SingleNodePipeline")["results"][0]
 
     response = pipeline.run(data=data_id, data_asset=data_asset_id, **{"batchmode": batchmode})
     assert response["status"] == "SUCCESS"
@@ -55,8 +69,7 @@ def test_run_with_dataset(batchmode: bool):
 
 @pytest.mark.parametrize("batchmode", [True, False])
 def test_run_multipipe_with_strings(batchmode: bool):
-    pipeline_id = "64da16ce13d879bec2323a7f"
-    pipeline = PipelineFactory.get(pipeline_id)
+    pipeline = PipelineFactory.list(query="MultiInputPipeline")["results"][0]
 
     response = pipeline.run(
         data={"Input": "Translate this thing.", "Reference": "Traduza esta coisa."}, **{"batchmode": batchmode}
@@ -66,8 +79,7 @@ def test_run_multipipe_with_strings(batchmode: bool):
 
 @pytest.mark.parametrize("batchmode", [True, False])
 def test_run_multipipe_with_datasets(batchmode: bool):
-    pipeline_id = "64da16ce13d879bec2323a7f"
-    pipeline = PipelineFactory.get(pipeline_id)
+    pipeline = PipelineFactory.list(query="MultiInputPipeline")["results"][0]
 
     dataset = DatasetFactory.list(query="for_functional_tests")["results"][0]
     data_asset_id = dataset.id

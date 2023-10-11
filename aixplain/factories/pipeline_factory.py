@@ -214,11 +214,11 @@ class PipelineFactory:
         resp = r.json()
 
         pipelines, page_total, total = [], 0, 0
-        if "results" in resp:
-            results = resp["results"]
+        if "items" in resp:
+            results = resp["items"]
             page_total = resp["pageTotal"]
             total = resp["total"]
             logging.info(f"Response for POST List Pipeline - Page Total: {page_total} / Total: {total}")
-            for dataset in results:
-                pipelines.append(cls.__from_response(dataset))
+            for pipeline in results:
+                pipelines.append(cls.__from_response(pipeline))
         return {"results": pipelines, "page_total": page_total, "page_number": page_number, "total": total}
