@@ -34,9 +34,12 @@ MB_25 = 26214400
 MB_50 = 52428800
 MB_300 = 314572800
 
+
 class FileFactory:
     @classmethod
-    def upload(cls, local_path: Text, tags : Optional[List[Text]] = None, license : Optional[License] = None,  is_temp : bool = True) -> Text:
+    def upload(
+        cls, local_path: Text, tags: Optional[List[Text]] = None, license: Optional[License] = None, is_temp: bool = True
+    ) -> Text:
         """
         Uploads a file to an S3 bucket.
 
@@ -58,20 +61,22 @@ class FileFactory:
         # mime type format: {type}/{extension}
         mime_type = filetype.guess_mime(local_path)
         if mime_type is None:
-            content_type = 'text/csv'
+            content_type = "text/csv"
         else:
             content_type = mime_type
-            
-        type_to_max_size = { "audio": MB_50, "application": MB_25, "video": MB_300, "image": MB_25, "other": MB_50 }
+
+        type_to_max_size = {"audio": MB_50, "application": MB_25, "video": MB_300, "image": MB_25, "other": MB_50}
         if mime_type is None or mime_type.split("/")[0] not in type_to_max_size:
             ftype = "other"
         else:
             ftype = mime_type.split("/")[0]
         if os.path.getsize(local_path) > type_to_max_size[ftype]:
-            raise Exception(f'File Upload Error: local file "{local_path}" of type "{mime_type}" exceeds {type_to_max_size[ftype] / MB_1} MB.')
-        
+            raise Exception(
+                f'File Upload Error: local file "{local_path}" of type "{mime_type}" exceeds {type_to_max_size[ftype] / MB_1} MB.'
+            )
+
         if not is_temp:
-            s3_path = upload_data(file_name=local_path, tags = tags, license=license, is_temp = is_temp, content_type=content_type)
+            s3_path = upload_data(file_name=os.path.basename(local_path), tags=tags, license=license, is_temp=is_temp, content_type=content_type)
         else:
             s3_path = upload_data(file_name=local_path)
         return s3_path
@@ -119,7 +124,9 @@ class FileFactory:
         return data
 
     @classmethod
-    def create(cls, local_path: Text, tags : Optional[List[Text]] = None, license : Optional[License] = None,  is_temp : bool = True) -> Text:
+    def create(
+        cls, local_path: Text, tags: Optional[List[Text]] = None, license: Optional[License] = None, is_temp: bool = True
+    ) -> Text:
         """
         Uploads a file to an S3 bucket.
 
@@ -136,5 +143,5 @@ class FileFactory:
             FileNotFoundError: If the local file is not found.
             Exception: If the file size exceeds the maximum allowed size.
         """
-        
-        return cls.upload(local_path = local_path, tags = tags, license = license, is_temp = is_temp)
+
+        return cls.upload(local_path=local_path, tags=tags, license=license, is_temp=is_temp)
