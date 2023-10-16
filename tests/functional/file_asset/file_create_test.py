@@ -30,12 +30,12 @@ def test_file_create():
     )
     assert s3_link.startswith("s3")
 
-def test_file_create():
+def test_file_create_temp():
     upload_file = "tests/functional/file_asset/input/test.csv"
     s3_link = FileFactory.create(
         local_path = upload_file,
         tags = ['test1','test2'],
         license = License.MIT,
-        is_temp = False
+        is_temp = True
     )
     assert s3_link.startswith("s3")
