@@ -2,6 +2,7 @@ from requests.adapters import HTTPAdapter, Retry
 import requests
 from typing import Text
 
+
 def _request_with_retry(method: Text, url: Text, **params) -> requests.Response:
     """Wrapper around requests with Session to retry in case it fails
 
