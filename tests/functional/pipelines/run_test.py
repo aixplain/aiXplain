@@ -17,6 +17,7 @@ limitations under the License.
 """
 
 import pytest
+import os
 from aixplain.factories import DatasetFactory, PipelineFactory
 
 
@@ -42,6 +43,19 @@ def test_run_single_str(batchmode: bool):
     pipeline = PipelineFactory.list(query="SingleNodePipeline")["results"][0]
 
     response = pipeline.run(data="Translate this thing", **{"batchmode": batchmode})
+    assert response["status"] == "SUCCESS"
+
+
+@pytest.mark.parametrize("batchmode", [True, False])
+def test_run_single_local_file(batchmode: bool):
+    pipeline = PipelineFactory.list(query="SingleNodePipeline")["results"][0]
+
+    fname = "translate_this.txt"
+    with open(fname, "w") as f:
+        f.write("Translate this thing")
+
+    response = pipeline.run(data=fname, **{"batchmode": batchmode})
+    os.remove(fname)
     assert response["status"] == "SUCCESS"
 
 
