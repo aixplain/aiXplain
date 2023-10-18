@@ -17,6 +17,7 @@ limitations under the License.
 """
 
 import pytest
+import os
 from aixplain.factories import PipelineFactory
 
 
@@ -25,6 +26,19 @@ def test_run_single_str():
     pipeline = PipelineFactory.get(pipeline_id)
 
     response = pipeline.run(data="Translate this thing")
+    assert response["status"] == "SUCCESS"
+
+
+def test_run_single_local_file():
+    pipeline_id = "64da138fa27cffd5e0c3c30d"
+    pipeline = PipelineFactory.get(pipeline_id)
+
+    fname = "translate_this.txt"
+    with open(fname, "w") as f:
+        f.write("Translate this thing")
+
+    response = pipeline.run(data=fname)
+    os.remove(fname)
     assert response["status"] == "SUCCESS"
 
 
