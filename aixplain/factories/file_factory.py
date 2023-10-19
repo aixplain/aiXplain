@@ -75,7 +75,7 @@ class FileFactory:
                 f'File Upload Error: local file "{local_path}" of type "{mime_type}" exceeds {type_to_max_size[ftype] / MB_1} MB.'
             )
 
-        if not is_temp:
+        if is_temp is False:
             s3_path = upload_data(file_name=os.path.basename(local_path), tags=tags, license=license, is_temp=is_temp, content_type=content_type)
         else:
             s3_path = upload_data(file_name=local_path)
@@ -143,5 +143,7 @@ class FileFactory:
             FileNotFoundError: If the local file is not found.
             Exception: If the file size exceeds the maximum allowed size.
         """
-
+        assert (
+                license is not None if is_temp is False else True
+            ),  "File Asset Creation Error: To upload a non-temporary file, you need to specify the `license`."
         return cls.upload(local_path=local_path, tags=tags, license=license, is_temp=is_temp)

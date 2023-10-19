@@ -113,7 +113,7 @@ def upload_data(
     try:
         # Get pre-signed URL
         # URL of aiXplain service which returns a pre-signed URL to onboard the file
-        if is_temp:
+        if is_temp is True:
             url = urljoin(config.BACKEND_URL, "sdk/file/upload/temp-url")
             payload = {"contentType": content_type, "originalName": file_name}
         else:
