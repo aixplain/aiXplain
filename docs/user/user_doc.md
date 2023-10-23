@@ -103,7 +103,7 @@ items:
 Once you have chosen a suitable host machine and function, register your model and create an image repository:
 
 ```console
-$ aixplain image-create repo --name <model_name> --hosting-machine <machine_code> --version <model_version> --description <model_description> --function <function_name> --source-language <source_language> [--api-key <TEAM_API_KEY>]
+$ aixplain create image-repo --name <model_name> --hosting-machine <machine_code> --version <model_version> --description <model_description> --function <function_name> --source-language <source_language> [--api-key <TEAM_API_KEY>]
 {
     "repoName": <model_repository_name>,
     "modelId": <model_id>
@@ -124,7 +124,7 @@ $ aixplain get image-repo-login [--api-key <TEAM_API_KEY>]
 
 These credentials are valid for 12 hours, after which you much again log in for a fresh set of valid credentials. If you are using Docker, you can use these credentials to log in with the following:
 ```console
-docker login --username $USERNAME --password $PASSWORD
+docker login --username $USERNAME --password $PASSWORD 535945872701.dkr.ecr.us-east-1.amazonaws.com
 ```
 
 Next, tag your image to match the registry and repository name given in the previous steps. If you are using Docker, this would look like the following:
