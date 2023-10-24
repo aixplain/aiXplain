@@ -127,6 +127,12 @@ These credentials are valid for 12 hours, after which you much again log in for 
 docker login --username $USERNAME --password $PASSWORD 535945872701.dkr.ecr.us-east-1.amazonaws.com
 ```
 
+You must first build your image using the following:
+```console
+$ docker build . -t 535945872701.dkr.ecr.us-east-1.amazonaws.com/<repoName>:<tag>
+```
+where the `<repoName>` is that returned by `aixplain create image-repo` and `<tag>` is some sort of descriptor (usually version number) for your specific model.
+
 Next, tag your image to match the registry and repository name given in the previous steps. If you are using Docker, this would look like the following:
 ```console
 $ docker tag <prev_image> {$REGISTRY}/{$REPO_NAME}:<your-choice-of-tag>
@@ -141,7 +147,7 @@ Once this is done, onboard the model:
 ```console
 $ aixplain onboard model --model-id <model_id> --image-tag <model_image_tag> --image-hash <model_image_hash> [--api-key <TEAM_API_KEY>]
 ```
-`model-id` should be the model ID returned by the image-create-repo function used earlier. `image-tag` should be set to whatever string you used to tag your model image.
+`model-id` should be the model ID returned by the image-create-repo function used earlier. `image-tag` should be set to whatever string you used to tag your model image. The image sha256 hash can be obtained by running `docker images --digests`. Choose the hash corresponding to the image you would like onboarded.
 
 This will send an email to an aiXplain associate to finalize the onboarding process.
 
