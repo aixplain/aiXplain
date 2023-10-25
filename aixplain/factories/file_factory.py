@@ -76,7 +76,7 @@ class FileFactory:
             )
 
         if is_temp is False:
-            s3_path = upload_data(file_name=os.path.basename(local_path), tags=tags, license=license, is_temp=is_temp, content_type=content_type)
+            s3_path = upload_data(file_name=local_path, tags=tags, license=license, is_temp=is_temp, content_type=content_type)
         else:
             s3_path = upload_data(file_name=local_path)
         return s3_path

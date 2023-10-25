@@ -115,7 +115,7 @@ def upload_data(
         # URL of aiXplain service which returns a pre-signed URL to onboard the file
         if is_temp is True:
             url = urljoin(config.BACKEND_URL, "sdk/file/upload/temp-url")
-            payload = {"contentType": content_type, "originalName": file_name}
+            payload = {"contentType": content_type, "originalName": os.path.basename(file_name)}
         else:
             url = urljoin(config.BACKEND_URL, "sdk/file/upload-url")
             payload = {"contentType": content_type, "originalName": file_name, "tags": ",".join(tags), "license": license.value}
