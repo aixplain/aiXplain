@@ -125,7 +125,7 @@ class FileFactory:
 
     @classmethod
     def create(
-        cls, local_path: Text, tags: Optional[List[Text]] = None, license: Optional[License] = None, is_temp: bool = True
+        cls, local_path: Text, tags: Optional[List[Text]] = None, license: Optional[License] = None, is_temp: bool = False
     ) -> Text:
         """
         Uploads a file to an S3 bucket.
@@ -144,6 +144,6 @@ class FileFactory:
             Exception: If the file size exceeds the maximum allowed size.
         """
         assert (
-                license is not None if is_temp is False else True
-            ),  "File Asset Creation Error: To upload a non-temporary file, you need to specify the `license`."
+            license is not None if is_temp is False else True
+        ),  "File Asset Creation Error: To upload a non-temporary file, you need to specify the `license`."
         return cls.upload(local_path=local_path, tags=tags, license=license, is_temp=is_temp)

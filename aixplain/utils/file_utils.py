@@ -118,6 +118,8 @@ def upload_data(
             payload = {"contentType": content_type, "originalName": os.path.basename(file_name)}
         else:
             url = urljoin(config.BACKEND_URL, "sdk/file/upload-url")
+            if tags is None:
+                tags = []
             payload = {"contentType": content_type, "originalName": file_name, "tags": ",".join(tags), "license": license.value}
 
         if config.AIXPLAIN_API_KEY != "":
