@@ -131,18 +131,13 @@ class Model(Asset):
                     if wait_time < 60:
                         wait_time *= 1.1
             except Exception as e:
-                response_body = {"status": "ERROR", "completed": False, "error": "No response from the service."}
+                response_body = {"status": "FAILED", "completed": False, "error": "No response from the service."}
                 logging.error(f"Polling for Model: polling for {name}: {e}")
                 break
         if response_body["completed"] is True:
-            try:
-                response_body["status"] = "SUCCESS"
-                logging.info(f"Polling for Model: Final status of polling for {name}: SUCCESS - {response_body}")
-            except Exception as e:
-                response_body["status"] = "ERROR"
-                logging.error(f"Polling for Model:: Final status of polling for {name}: ERROR - {response_body}")
+            logging.info(f"Polling for Model: Final status of polling for {name}: {response_body}")
         else:
-            response_body["status"] = "ERROR"
+            response_body["status"] = "FAILED"
             logging.error(
                 f"Polling for Model: Final status of polling for {name}: No response in {timeout} seconds - {response_body}"
             )
@@ -164,6 +159,8 @@ class Model(Asset):
             resp = r.json()
             if resp["completed"] is True:
                 resp["status"] = "SUCCESS"
+                if "error" in resp or "supplierError" in resp:
+                    resp["status"] = "FAILED"
             else:
                 resp["status"] = "IN_PROGRESS"
             logging.info(f"Single Poll for Model: Status of polling for {name}: {resp}")
