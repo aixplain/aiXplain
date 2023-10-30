@@ -21,6 +21,7 @@ Description:
     Model Factory Class
 """
 from typing import Dict, List, Optional, Text, Union
+import json
 import logging
 from aixplain.modules.model import Model
 from aixplain.enums import Function, Language, Supplier
@@ -215,7 +216,7 @@ class ModelFactory:
             error_message = f"Listing Models: Error in Listing Models : {e}"
             logging.error(error_message, exc_info=True)
             raise Exception(error_message)
-        
+
     @classmethod
     def list_host_machines(cls, api_key: Optional[Text] = None) -> List[Dict]:
         """Lists available hosting machines for model.
@@ -238,14 +239,13 @@ class ModelFactory:
         for dictionary in response_dicts:
             del dictionary["id"]
         return response_dicts
-    
+
     @classmethod
-    def list_functions(cls, verbose: Optional[bool] = False, 
-                       api_key: Optional[Text] = None) -> List[Dict]:
+    def list_functions(cls, verbose: Optional[bool] = False, api_key: Optional[Text] = None) -> List[Dict]:
         """Lists supported model functions on platform.
 
         Args:
-            verbose (Boolean, optional): Set to True if a detailed response 
+            verbose (Boolean, optional): Set to True if a detailed response
                 is desired; is otherwise False by default.
             api_key (Text, optional): Team API key. Defaults to None.
 
@@ -270,16 +270,23 @@ class ModelFactory:
             del function_dict["params"]
             del function_dict["id"]
         return response_dict
-    
+
     # Will add "always_on" and "is_async" when we support them.
-    # def create_asset_repo(cls, name: Text, hosting_machine: Text, version: Text, 
-    #                       description: Text, function: Text, is_async: bool, 
+    # def create_asset_repo(cls, name: Text, hosting_machine: Text, version: Text,
+    #                       description: Text, function: Text, is_async: bool,
     #                       source_language: Text, api_key: Optional[Text] = None) -> Dict:
     @classmethod
-    def create_asset_repo(cls, name: Text, hosting_machine: Text, version: Text, 
-                          description: Text, function: Text,  source_language: Text,
-                          api_key: Optional[Text] = None) -> Dict:
-        """Creates an image repository for this model and registers it in the 
+    def create_asset_repo(
+        cls,
+        name: Text,
+        hosting_machine: Text,
+        version: Text,
+        description: Text,
+        function: Text,
+        source_language: Text,
+        api_key: Optional[Text] = None,
+    ) -> Dict:
+        """Creates an image repository for this model and registers it in the
         platform backend.
 
         Args:
@@ -311,7 +318,7 @@ class ModelFactory:
         else:
             headers = {"x-api-key": f"{cls.api_key}", "Content-Type": "application/json"}
         always_on = False
-        is_async = False # Hard-coded to False for first release
+        is_async = False  # Hard-coded to False for first release
         payload = {
             "name": name,
             "hostingMachine": hosting_machine,
@@ -320,16 +327,16 @@ class ModelFactory:
             "description": description,
             "function": function_id,
             "isAsync": is_async,
-            "sourceLanguage": source_language
+            "sourceLanguage": source_language,
         }
         payload = json.dumps(payload)
         logging.debug(f"Body: {str(payload)}")
         response = _request_with_retry("post", create_url, headers=headers, data=payload)
         return response.json()
-    
+
     @classmethod
     def asset_repo_login(cls, api_key: Optional[Text] = None) -> Dict:
-        """Return login credentials for the image repository that corresponds with 
+        """Return login credentials for the image repository that corresponds with
         the given API_KEY.
 
         Args:
@@ -347,7 +354,7 @@ class ModelFactory:
         response = _request_with_retry("post", login_url, headers=headers)
         response_dict = json.loads(response.text)
         return response_dict
-    
+
     @classmethod
     def onboard_model(cls, model_id: Text, image_tag: Text, image_hash: Text, api_key: Optional[Text] = None) -> Dict:
         """Onboard a model after its image has been pushed to ECR.
@@ -358,17 +365,14 @@ class ModelFactory:
             api_key (Text, optional): Team API key. Defaults to None.
         Returns:
             Dict: Backend response
-        """ 
+        """
         onboard_url = urljoin(config.BACKEND_URL, f"sdk/models/{model_id}/onboarding")
         logging.debug(f"URL: {onboard_url}")
         if api_key:
             headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
         else:
             headers = {"x-api-key": f"{cls.api_key}", "Content-Type": "application/json"}
-        payload = {
-            "image": image_tag,
-            "sha": image_hash
-        }
+        payload = {"image": image_tag, "sha": image_hash}
         payload = json.dumps(payload)
         logging.debug(f"Body: {str(payload)}")
         response = _request_with_retry("post", onboard_url, headers=headers, data=payload)
