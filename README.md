@@ -16,9 +16,14 @@ aixplain is a software development kit (SDK) for the [aiXplain](https://aixplain
 ## Getting Started
 
 ### Installation
-To install simply,
+To install the base package, simply,
 ```bash
 pip install aixplain
+```
+
+To  install aiXplain with additional model building support:
+```bash
+pip install aixplain[model-builder]
 ```
 
 ###  API Key Setup

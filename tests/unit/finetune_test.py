@@ -104,13 +104,11 @@ def test_check_finetuner_status():
 
 @pytest.mark.parametrize("is_finetunable", [True, False])
 def test_list_finetunable_models(is_finetunable):
-    finetunable_str = "true" if is_finetunable else "false"
-    num_models = 5
     list_map = read_data(LIST_FINETUNABLE_FILE)
     with requests_mock.Mocker() as mock:
         print(f"is_finetunable: {is_finetunable}")
-        url = f"{config.BACKEND_URL}/sdk/models?pageNumber=0&function=translation&isFineTunable={finetunable_str}"
-        mock.get(url, headers=FIXED_HEADER, json=list_map)
+        url = f"{config.BACKEND_URL}/sdk/models/paginate"
+        mock.post(url, headers=FIXED_HEADER, json=list_map)
         result = ModelFactory.list(function=Function.TRANSLATION, is_finetunable=is_finetunable, page_number=0, page_size=5)
         print(result)
     assert result["page_total"] == 5

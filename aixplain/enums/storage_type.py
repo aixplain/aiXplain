@@ -28,3 +28,6 @@ class StorageType(Enum):
     TEXT = "text"
     URL = "url"
     FILE = "file"
+
+    def __str__(self):
+        return self._value_

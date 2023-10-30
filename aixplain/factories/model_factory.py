@@ -24,7 +24,7 @@ from typing import Dict, List, Optional, Text, Union
 import json
 import logging
 from aixplain.modules.model import Model
-from aixplain.enums import Function, Language, License, Privacy
+from aixplain.enums import Function, Language, Supplier
 from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
 from urllib.parse import urljoin
@@ -122,19 +122,26 @@ class ModelFactory:
     @classmethod
     def _get_assets_from_page(
         cls,
+        query,
         page_number: int,
+        page_size: int,
         function: Function,
+        suppliers: Union[Supplier, List[Supplier]],
         source_languages: Union[Language, List[Language]],
         target_languages: Union[Language, List[Language]],
         is_finetunable: bool = None,
     ) -> List[Model]:
         try:
-            url = urljoin(cls.backend_url, f"sdk/models")
-            filter_params = {"pageNumber": page_number}
+            url = urljoin(cls.backend_url, f"sdk/models/paginate")
+            filter_params = {"q": query, "pageNumber": page_number, "pageSize": page_size}
             if is_finetunable is not None:
-                filter_params["isFineTunable"] = str(is_finetunable).lower()
+                filter_params["isFineTunable"] = is_finetunable
             if function is not None:
-                filter_params["function"] = function.value
+                filter_params["functions"] = [function.value]
+            if suppliers is not None:
+                if isinstance(suppliers, Supplier) is True:
+                    suppliers = [suppliers]
+                filter_params["suppliers"] = [supplier.value for supplier in suppliers]
             lang_filter_params = []
             if source_languages is not None:
                 if isinstance(source_languages, Language):
@@ -152,13 +159,13 @@ class ModelFactory:
                     code = "targetlanguage"
                     lang_filter_params.append({"code": code, "value": target_languages[0].value["language"]})
             if len(lang_filter_params) != 0:
-                filter_params["ioFilter"] = json.dumps(lang_filter_params)
+                filter_params["ioFilter"] = lang_filter_params
             if cls.aixplain_key != "":
                 headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
             else:
                 headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
 
-            r = _request_with_retry("get", url, headers=headers, params=filter_params)
+            r = _request_with_retry("post", url, headers=headers, json=filter_params)
             resp = r.json()
             logging.info(f"Listing Models: Status of getting Models on Page {page_number}: {r.status_code}")
             all_models = resp["items"]
@@ -172,7 +179,9 @@ class ModelFactory:
     @classmethod
     def list(
         cls,
+        query: Optional[Text] = "",
         function: Optional[Function] = None,
+        suppliers: Optional[Union[Supplier, List[Supplier]]] = None,
         source_languages: Optional[Union[Language, List[Language]]] = None,
         target_languages: Optional[Union[Language, List[Language]]] = None,
         is_finetunable: Optional[bool] = None,
@@ -192,23 +201,14 @@ class ModelFactory:
         Returns:
             List[Model]: List of models based on given filters
         """
+        print(f"Function: {function}")
         try:
-            model_list = []
-            starting_model_index_overall = page_number * page_size
-            ending_model_index_overall = starting_model_index_overall + page_size - 1
-            starting_model_page_number = starting_model_index_overall // 10
-            ending_model_page_number = ending_model_index_overall // 10
-            starting_model_index_filtered = starting_model_index_overall - (starting_model_page_number * 10)
-            ending_model_index_filtered = starting_model_index_filtered + page_size - 1
-            for current_page_number in range(starting_model_page_number, ending_model_page_number + 1):
-                models_on_current_page, total = cls._get_assets_from_page(
-                    current_page_number, function, source_languages, target_languages, is_finetunable
-                )
-                model_list += models_on_current_page
-            filtered_model_list = model_list[starting_model_index_filtered : ending_model_index_filtered + 1]
+            models, total = cls._get_assets_from_page(
+                query, page_number, page_size, function, suppliers, source_languages, target_languages, is_finetunable
+            )
             return {
-                "results": filtered_model_list,
-                "page_total": min(page_size, len(filtered_model_list)),
+                "results": models,
+                "page_total": min(page_size, len(models)),
                 "page_number": page_number,
                 "total": total,
             }
@@ -216,3 +216,166 @@ class ModelFactory:
             error_message = f"Listing Models: Error in Listing Models : {e}"
             logging.error(error_message, exc_info=True)
             raise Exception(error_message)
+
+    @classmethod
+    def list_host_machines(cls, api_key: Optional[Text] = None) -> List[Dict]:
+        """Lists available hosting machines for model.
+
+        Args:
+            api_key (Text, optional): Team API key. Defaults to None.
+
+        Returns:
+            List[Dict]: List of dictionaries containing information about
+            each hosting machine.
+        """
+        machines_url = urljoin(config.BACKEND_URL, f"sdk/hosting-machines")
+        logging.debug(f"URL: {machines_url}")
+        if api_key:
+            headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
+        else:
+            headers = {"x-api-key": f"{cls.api_key}", "Content-Type": "application/json"}
+        response = _request_with_retry("get", machines_url, headers=headers)
+        response_dicts = json.loads(response.text)
+        for dictionary in response_dicts:
+            del dictionary["id"]
+        return response_dicts
+
+    @classmethod
+    def list_functions(cls, verbose: Optional[bool] = False, api_key: Optional[Text] = None) -> List[Dict]:
+        """Lists supported model functions on platform.
+
+        Args:
+            verbose (Boolean, optional): Set to True if a detailed response
+                is desired; is otherwise False by default.
+            api_key (Text, optional): Team API key. Defaults to None.
+
+        Returns:
+            List[Dict]: List of dictionaries containing information about
+            each supported function.
+        """
+        functions_url = urljoin(config.BACKEND_URL, f"sdk/functions")
+        logging.debug(f"URL: {functions_url}")
+        if api_key:
+            headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
+        else:
+            headers = {"x-api-key": f"{cls.api_key}", "Content-Type": "application/json"}
+        response = _request_with_retry("get", functions_url, headers=headers)
+        response_dict = json.loads(response.text)
+        if verbose:
+            return response_dict
+        del response_dict["results"]
+        function_list = response_dict["items"]
+        for function_dict in function_list:
+            del function_dict["output"]
+            del function_dict["params"]
+            del function_dict["id"]
+        return response_dict
+
+    # Will add "always_on" and "is_async" when we support them.
+    # def create_asset_repo(cls, name: Text, hosting_machine: Text, version: Text,
+    #                       description: Text, function: Text, is_async: bool,
+    #                       source_language: Text, api_key: Optional[Text] = None) -> Dict:
+    @classmethod
+    def create_asset_repo(
+        cls,
+        name: Text,
+        hosting_machine: Text,
+        version: Text,
+        description: Text,
+        function: Text,
+        source_language: Text,
+        api_key: Optional[Text] = None,
+    ) -> Dict:
+        """Creates an image repository for this model and registers it in the
+        platform backend.
+
+        Args:
+            name (Text): Model name
+            hosting_machine (Text): Hosting machine ID obtained via list_host_machines
+            always_on (bool): Whether the model should always be on
+            version (Text): Model version
+            description (Text): Model description
+            function (Text): Model function name obtained via LIST_HOST_MACHINES
+            is_async (bool): Whether the model is asynchronous or not (False in first release)
+            source_language (Text): 2-character 639-1 code or 3-character 639-3 language code.
+            api_key (Text, optional): Team API key. Defaults to None.
+
+        Returns:
+            Dict: Backend response
+        """
+        # Reconcile function name to be function ID in the backend
+        function_list = cls.list_functions(True, cls.api_key)["items"]
+        function_id = None
+        for function_dict in function_list:
+            if function_dict["name"] == function:
+                function_id = function_dict["id"]
+        if function_id is None:
+            raise Exception("Invalid function name")
+        create_url = urljoin(config.BACKEND_URL, f"sdk/models/register")
+        logging.debug(f"URL: {create_url}")
+        if api_key:
+            headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
+        else:
+            headers = {"x-api-key": f"{cls.api_key}", "Content-Type": "application/json"}
+        always_on = False
+        is_async = False  # Hard-coded to False for first release
+        payload = {
+            "name": name,
+            "hostingMachine": hosting_machine,
+            "alwaysOn": always_on,
+            "version": version,
+            "description": description,
+            "function": function_id,
+            "isAsync": is_async,
+            "sourceLanguage": source_language,
+        }
+        payload = json.dumps(payload)
+        logging.debug(f"Body: {str(payload)}")
+        response = _request_with_retry("post", create_url, headers=headers, data=payload)
+        return response.json()
+
+    @classmethod
+    def asset_repo_login(cls, api_key: Optional[Text] = None) -> Dict:
+        """Return login credentials for the image repository that corresponds with
+        the given API_KEY.
+
+        Args:
+            api_key (Text, optional): Team API key. Defaults to None.
+
+        Returns:
+            Dict: Backend response
+        """
+        login_url = urljoin(config.BACKEND_URL, f"sdk/ecr/login")
+        logging.debug(f"URL: {login_url}")
+        if api_key:
+            headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
+        else:
+            headers = {"x-api-key": f"{cls.api_key}", "Content-Type": "application/json"}
+        response = _request_with_retry("post", login_url, headers=headers)
+        response_dict = json.loads(response.text)
+        return response_dict
+
+    @classmethod
+    def onboard_model(cls, model_id: Text, image_tag: Text, image_hash: Text, api_key: Optional[Text] = None) -> Dict:
+        """Onboard a model after its image has been pushed to ECR.
+
+        Args:
+            model_id (Text): Model ID obtained from CREATE_ASSET_REPO.
+            image_tag (Text): Image tag to be onboarded.
+            api_key (Text, optional): Team API key. Defaults to None.
+        Returns:
+            Dict: Backend response
+        """
+        onboard_url = urljoin(config.BACKEND_URL, f"sdk/models/{model_id}/onboarding")
+        logging.debug(f"URL: {onboard_url}")
+        if api_key:
+            headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
+        else:
+            headers = {"x-api-key": f"{cls.api_key}", "Content-Type": "application/json"}
+        payload = {"image": image_tag, "sha": image_hash}
+        payload = json.dumps(payload)
+        logging.debug(f"Body: {str(payload)}")
+        response = _request_with_retry("post", onboard_url, headers=headers, data=payload)
+        message = "Your onboarding request has been submitted to an aiXplain specialist for finalization. We will notify you when the process is completed."
+        logging.info(message)
+        return response

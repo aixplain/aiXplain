@@ -139,6 +139,7 @@ class Pipeline(Asset):
         name: Text = "pipeline_process",
         timeout: float = 20000.0,
         wait_time: float = 1.0,
+        **kwargs,
     ) -> Dict:
         """Runs a pipeline call.
 
@@ -148,13 +149,14 @@ class Pipeline(Asset):
             name (Text, optional): ID given to a call. Defaults to "pipeline_process".
             timeout (float, optional): total polling time. Defaults to 20000.0.
             wait_time (float, optional): wait time in seconds between polling calls. Defaults to 1.0.
+            kwargs: A dictionary of keyword arguments. The keys are the argument names
 
         Returns:
             Dict: parsed output from pipeline
         """
         start = time.time()
         try:
-            response = self.run_async(data, data_asset=data_asset, name=name)
+            response = self.run_async(data, data_asset=data_asset, name=name, **kwargs)
             if response["status"] == "FAILED":
                 end = time.time()
                 response["elapsed_time"] = end - start
@@ -270,7 +272,7 @@ class Pipeline(Asset):
         return payload
 
     def run_async(
-        self, data: Union[Text, Dict], data_asset: Optional[Union[Text, Dict]] = None, name: Text = "pipeline_process"
+        self, data: Union[Text, Dict], data_asset: Optional[Union[Text, Dict]] = None, name: Text = "pipeline_process", **kwargs
     ) -> Dict:
         """Runs asynchronously a pipeline call.
 
@@ -278,6 +280,7 @@ class Pipeline(Asset):
             data (Union[Text, Dict]): link to the input data
             data_asset (Optional[Union[Text, Dict]], optional): Data asset to be processed by the pipeline. Defaults to None.
             name (Text, optional): ID given to a call. Defaults to "pipeline_process".
+            kwargs: A dictionary of keyword arguments. The keys are the argument names
 
         Returns:
             Dict: polling URL in response
@@ -285,6 +288,7 @@ class Pipeline(Asset):
         headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}
 
         payload = self.__prepare_payload(data=data, data_asset=data_asset)
+        payload.update(kwargs)
         payload = json.dumps(payload)
         call_url = f"{self.url}/{self.id}"
         logging.info(f"Start service for {name}  - {call_url} - {payload}")

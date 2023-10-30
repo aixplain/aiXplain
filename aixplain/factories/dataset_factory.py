@@ -40,8 +40,9 @@ from aixplain.enums.function import Function
 from aixplain.enums.language import Language
 from aixplain.enums.license import License
 from aixplain.enums.privacy import Privacy
-from aixplain.utils.file_utils import _request_with_retry, s3_to_csv
 from aixplain.utils import config
+from aixplain.utils.convert_datatype_utils import dict_to_metadata
+from aixplain.utils.file_utils import _request_with_retry, s3_to_csv
 from aixplain.utils.validation_utils import dataset_onboarding_validation
 from pathlib import Path
 from tqdm import tqdm
@@ -165,7 +166,7 @@ class DatasetFactory(AssetFactory):
         Returns:
             Dataset: Created 'Dataset' object
         """
-        url = urljoin(cls.backend_url, f"sdk/dataset/{dataset_id}/overview")
+        url = urljoin(cls.backend_url, f"sdk/datasets/{dataset_id}/overview")
         if cls.aixplain_key != "":
             headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
         else:
@@ -206,7 +207,7 @@ class DatasetFactory(AssetFactory):
         Returns:
             Dict: list of datasets in agreement with the filters, page number, page total and total elements
         """
-        url = urljoin(cls.backend_url, "sdk/dataset/paginate")
+        url = urljoin(cls.backend_url, "sdk/datasets/paginate")
         if cls.aixplain_key != "":
             headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
         else:
@@ -309,7 +310,20 @@ class DatasetFactory(AssetFactory):
             Dict: dataset onboard status
         """
 
-        dataset_onboarding_validation(input_schema, output_schema, function, content_path, split_labels, split_rate, s3_link)
+        for lmd in (hypotheses_schema, input_schema, output_schema, metadata_schema):
+            dict_to_metadata(lmd)
+
+        dataset_onboarding_validation(
+            input_schema=input_schema,
+            output_schema=output_schema,
+            function=function,
+            input_ref_data=input_ref_data,
+            metadata_schema=metadata_schema,
+            content_path=content_path,
+            split_labels=split_labels,
+            split_rate=split_rate,
+            s3_link=s3_link,
+        )
 
         folder, return_dict, ref_data, csv_path = None, {}, [], None
         # check team key
@@ -327,27 +341,9 @@ class DatasetFactory(AssetFactory):
                 csv_path = s3_to_csv(s3_link, aws_credentials)
                 content_paths.append(csv_path)
 
-            assert (
-                len(input_schema) > 0 or len(input_ref_data) > 0
-            ), "Data Asset Onboarding Error: You must specify an input data to onboard a dataset."
-            for i, metadata in enumerate(input_schema):
-                if isinstance(metadata, dict):
-                    input_schema[i] = MetaData(**metadata)
-
             # assert (
             #     len(output_schema) > 0 or len(output_ref_data) > 0
             # ), "Data Asset Onboarding Error: You must specify an output data to onboard a dataset."
-            for i, metadata in enumerate(output_schema):
-                if isinstance(metadata, dict):
-                    output_schema[i] = MetaData(**metadata)
-
-            for i, hypothesis in enumerate(hypotheses_schema):
-                if isinstance(hypothesis, dict):
-                    hypotheses_schema[i] = MetaData(**hypothesis)
-
-            for i, metadata in enumerate(metadata_schema):
-                if isinstance(metadata, dict):
-                    metadata_schema[i] = MetaData(**metadata)
 
             for input_data in input_ref_data:
                 if isinstance(input_ref_data[input_data], Data):
