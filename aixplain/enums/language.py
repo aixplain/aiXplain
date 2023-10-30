@@ -24,7 +24,7 @@ Description:
 import logging
 
 from aixplain.utils import config
-from aixplain.utils.file_utils import _request_with_retry
+from aixplain.utils.request_utils import _request_with_retry
 from enum import Enum
 from urllib.parse import urljoin
 

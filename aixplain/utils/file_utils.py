@@ -19,11 +19,12 @@ import re
 import requests
 
 import aixplain.utils.config as config
+from aixplain.enums.license import License
 
 from collections import defaultdict
 from pathlib import Path
 from requests.adapters import HTTPAdapter, Retry
-from typing import Any, Optional, Text, Union, Dict 
+from typing import Any, Optional, Text, Union, Dict, List
 from uuid import uuid4
 from urllib.parse import urljoin, urlparse
 from pandas import DataFrame
@@ -84,12 +85,21 @@ def download_data(url_link, local_filename=None):
 
 
 def upload_data(
-    file_name: Union[Text, Path], content_type: Text = "text/csv", content_encoding: Optional[Text] = None, nattempts: int = 2
+    file_name: Union[Text, Path],
+    tags: Optional[List[Text]] = None,
+    license: Optional[License] = None,
+    is_temp: bool = True,
+    content_type: Text = "text/csv",
+    content_encoding: Optional[Text] = None,
+    nattempts: int = 2,
 ):
     """Upload files to S3 with pre-signed URLs
 
     Args:
         file_name (Union[Text, Path]): local path of file to be uploaded
+        tags (List[Text], optional): tags of the file
+        license (License, optional): the license for the file
+        is_temp (bool): specify if the file that will be upload is a temporary file
         content_type (Text, optional): Type of content. Defaults to "text/csv".
         content_encoding (Text, optional): Content encoding. Defaults to None.
         nattempts (int, optional): Number of attempts for diminish the risk of exceptions. Defaults to 2.
@@ -103,7 +113,14 @@ def upload_data(
     try:
         # Get pre-signed URL
         # URL of aiXplain service which returns a pre-signed URL to onboard the file
-        url = urljoin(config.BACKEND_URL, "sdk/file/upload/temp-url")
+        if is_temp is True:
+            url = urljoin(config.BACKEND_URL, "sdk/file/upload/temp-url")
+            payload = {"contentType": content_type, "originalName": os.path.basename(file_name)}
+        else:
+            url = urljoin(config.BACKEND_URL, "sdk/file/upload-url")
+            if tags is None:
+                tags = []
+            payload = {"contentType": content_type, "originalName": file_name, "tags": ",".join(tags), "license": license.value}
 
         if config.AIXPLAIN_API_KEY != "":
             team_key = config.AIXPLAIN_API_KEY
@@ -112,7 +129,6 @@ def upload_data(
             team_key = config.TEAM_API_KEY
             headers = {"Authorization": "token " + team_key}
 
-        payload = {"contentType": content_type, "originalName": file_name}
         r = _request_with_retry("post", url, headers=headers, data=payload)
         response = r.json()
         path = response["key"]
@@ -141,7 +157,7 @@ def upload_data(
             raise Exception("File Uploading Error: Failure on Uploading to S3.")
 
 
-def s3_to_csv(s3_url: Text, aws_credentials : Dict) -> Text:
+def s3_to_csv(s3_url: Text, aws_credentials: Dict) -> Text:
     """Convert s3 url to a csv file and download the file in `download_path`
 
     Args:
@@ -163,15 +179,17 @@ def s3_to_csv(s3_url: Text, aws_credentials : Dict) -> Text:
     bucket_name = url.netloc
     prefix = url.path[1:]
     try:
-        aws_access_key_id = aws_credentials.get('AWS_ACCESS_KEY_ID') or os.getenv('AWS_ACCESS_KEY_ID')
-        aws_secret_access_key = aws_credentials.get('AWS_SECRET_ACCESS_KEY') or os.getenv('AWS_SECRET_ACCESS_KEY')
+        aws_access_key_id = aws_credentials.get("AWS_ACCESS_KEY_ID") or os.getenv("AWS_ACCESS_KEY_ID")
+        aws_secret_access_key = aws_credentials.get("AWS_SECRET_ACCESS_KEY") or os.getenv("AWS_SECRET_ACCESS_KEY")
         s3 = boto3.client("s3", aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
         response = s3.list_objects_v2(Bucket=bucket_name, Prefix=prefix)
     except NoCredentialsError as e:
-        raise Exception("to use the s3 bucket option you need to set the right AWS credentials [AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY]")
+        raise Exception(
+            "to use the s3 bucket option you need to set the right AWS credentials [AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY]"
+        )
     except Exception as e:
         raise Exception("the bucket you are trying to use does not exist")
-    
+
     try:
         files = []
 

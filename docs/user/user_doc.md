@@ -8,6 +8,7 @@ The assets and services currently supported by the SDK are:
 - [Corpus](#corpus)
 - [Dataset](#datasets)
 - [Metric](#metrics)
+- [File](#file)
 #### Services
 - [Benchmark](#benchmark)
 - [FineTune](#finetune)
@@ -357,6 +358,27 @@ You can even pass a list of inputs in a single call.
 output = metric.run(**{"hypothesis": ["<sample hypothesis 1>", "<sample hypothesis 2>"], "source": ["<sample optional source 1>", "<sample optional source 2>"], "reference": ["<sample optional reference> 1", "<sample optional reference> 2"]})
 ```
 
+## File
+
+In the aiXplain SDK, the `FileFactory` provides functionality for uploading files to the aiXplain platform. This factory enables you to add custom datasets or resources that you want to work with in your AI tasks.
+
+### Uploading Files
+
+You can use the `FileFactory` to upload files to the aiXplain platform. This is achieved through the `create` function, which allows you to specify the local path of the file you want to upload, along with optional parameters such as tags, a license, and whether the file should be temporary. When uploading a file, you can set `is_temp` to `False` to indicate that the file is not temporary, meaning it will persist on the platform. Here's an example of how to upload a file:
+
+```python
+from aixplain.factories import FileFactory
+from aixplain.enums import License
+file_path = "/path/to/your/file.txt"
+s3_link = FileFactory.create(
+        local_path = filepath,
+        tags = ['test1','test2'],
+        license = License.MIT,
+        is_temp = True
+    )
+```
+
+By setting `is_temp` to `False`, you ensure that the uploaded file will not be automatically removed, and it will persist in the aiXplain platform for future use.
 
 ## Benchmark
 

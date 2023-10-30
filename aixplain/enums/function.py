@@ -24,7 +24,7 @@ Description:
 import logging
 
 from aixplain.utils import config
-from aixplain.utils.file_utils import _request_with_retry
+from aixplain.utils.request_utils import _request_with_retry
 from enum import Enum
 from urllib.parse import urljoin
 
@@ -49,14 +49,16 @@ def load_functions():
     functions = Enum("Function", {w["id"].upper().replace("-", "_"): w["id"] for w in resp["items"]}, type=str)
     functions_input_output = {
         function["id"]: {
-            "input" : {
-                input_data_object["dataType"] for input_data_object in function["params"] if input_data_object["required"] is True
+            "input": {
+                input_data_object["dataType"]
+                for input_data_object in function["params"]
+                if input_data_object["required"] is True
             },
-            "output" : {
-                output_data_object["dataType"] for output_data_object in function["output"]
-            }
-        } for function in resp["items"]
+            "output": {output_data_object["dataType"] for output_data_object in function["output"]},
+        }
+        for function in resp["items"]
     }
     return functions, functions_input_output
 
-Function, FunctionInputOutput  = load_functions()
+
+Function, FunctionInputOutput = load_functions()

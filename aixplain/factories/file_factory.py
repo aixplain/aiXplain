@@ -25,22 +25,29 @@ import os
 import validators
 import filetype
 from aixplain.enums.storage_type import StorageType
+from aixplain.enums.license import License
 from aixplain.utils.file_utils import upload_data
-from typing import Any, Dict, Text, Union
+from typing import Any, Dict, Text, Union, Optional, List
 
 MB_1 = 1048576
 MB_25 = 26214400
 MB_50 = 52428800
 MB_300 = 314572800
 
+
 class FileFactory:
     @classmethod
-    def upload(cls, local_path: Text) -> Text:
+    def upload(
+        cls, local_path: Text, tags: Optional[List[Text]] = None, license: Optional[License] = None, is_temp: bool = True
+    ) -> Text:
         """
         Uploads a file to an S3 bucket.
 
         Args:
             local_path (Text): The local path of the file to upload.
+            tags (List[Text], optional): tags of the file
+            license (License, optional): the license for the file
+            is_temp (bool): specify if the file that will be upload is a temporary file
 
         Returns:
             Text: The S3 path where the file was uploaded.
@@ -53,14 +60,25 @@ class FileFactory:
             raise FileNotFoundError(f'File Upload Error: local file "{local_path}" not found.')
         # mime type format: {type}/{extension}
         mime_type = filetype.guess_mime(local_path)
-        type_to_max_size = { "audio": MB_50, "application": MB_25, "video": MB_300, "image": MB_25, "other": MB_50 }
+        if mime_type is None:
+            content_type = "text/csv"
+        else:
+            content_type = mime_type
+
+        type_to_max_size = {"audio": MB_50, "application": MB_25, "video": MB_300, "image": MB_25, "other": MB_50}
         if mime_type is None or mime_type.split("/")[0] not in type_to_max_size:
             ftype = "other"
         else:
             ftype = mime_type.split("/")[0]
         if os.path.getsize(local_path) > type_to_max_size[ftype]:
-            raise Exception(f'File Upload Error: local file "{local_path}" of type "{mime_type}" exceeds {type_to_max_size[ftype] / MB_1} MB.')
-        s3_path = upload_data(file_name=local_path)
+            raise Exception(
+                f'File Upload Error: local file "{local_path}" of type "{mime_type}" exceeds {type_to_max_size[ftype] / MB_1} MB.'
+            )
+
+        if is_temp is False:
+            s3_path = upload_data(file_name=local_path, tags=tags, license=license, is_temp=is_temp, content_type=content_type)
+        else:
+            s3_path = upload_data(file_name=local_path)
         return s3_path
 
     @classmethod
@@ -104,3 +122,28 @@ class FileFactory:
             if cls.check_storage_type(data) == StorageType.FILE:
                 data = cls.upload(local_path=data)
         return data
+
+    @classmethod
+    def create(
+        cls, local_path: Text, tags: Optional[List[Text]] = None, license: Optional[License] = None, is_temp: bool = False
+    ) -> Text:
+        """
+        Uploads a file to an S3 bucket.
+
+        Args:
+            local_path (Text): The local path of the file to upload.
+            tags (List[Text], optional): tags of the file
+            license (License, optional): the license for the file
+            is_temp (bool): specify if the file that will be upload is a temporary file
+
+        Returns:
+            Text: The S3 path where the file was uploaded.
+
+        Raises:
+            FileNotFoundError: If the local file is not found.
+            Exception: If the file size exceeds the maximum allowed size.
+        """
+        assert (
+            license is not None if is_temp is False else True
+        ),  "File Asset Creation Error: To upload a non-temporary file, you need to specify the `license`."
+        return cls.upload(local_path=local_path, tags=tags, license=license, is_temp=is_temp)
