@@ -54,7 +54,9 @@ def load_suppliers():
             f'Suppliers could not be loaded, probably due to the set API key (e.g. "{api_key}") is not valid. For help, please refer to the documentation (https://github.com/aixplain/aixplain#api-key-setup)'
         )
     resp = r.json()
-    suppliers = Enum("Supplier", {clean_name(w["name"]): w["id"] for w in resp}, type=str)
+    suppliers = Enum(
+        "Supplier", {clean_name(w["name"]): {"id": w["id"], "name": w["name"], "code": w["code"]} for w in resp}, type=dict
+    )
 
     return suppliers
 

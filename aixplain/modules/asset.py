@@ -23,7 +23,7 @@ Description:
 from aixplain.enums.license import License
 from aixplain.enums.supplier import Supplier
 from aixplain.enums.privacy import Privacy
-from typing import Optional, Text, Tuple
+from typing import Dict, Optional, Text, Tuple
 
 
 class Asset:
@@ -32,7 +32,7 @@ class Asset:
         id: Text,
         name: Text,
         description: Text,
-        supplier: Tuple[Text, Supplier, int] = "aiXplain",
+        supplier: Tuple[Dict, Text, Supplier, int] = "aiXplain",
         version: Text = "1.0",
         license: Optional[License] = None,
         privacy: Privacy = Privacy.PRIVATE,
@@ -51,7 +51,12 @@ class Asset:
         self.name = name
         self.description = description
         try:
-            self.supplier = Supplier(str(supplier))
+            if isinstance(supplier, Supplier) is True:
+                self.supplier = supplier
+            elif isinstance(supplier, Dict) is True:
+                self.supplier = Supplier(supplier)
+            else:
+                self.supplier = supplier
         except Exception:
             self.supplier = str(supplier)
         self.version = version
