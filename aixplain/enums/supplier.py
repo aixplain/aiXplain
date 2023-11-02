@@ -29,11 +29,13 @@ from enum import Enum
 from urllib.parse import urljoin
 import re
 
+
 def clean_name(name):
-    cleaned_name = re.sub(r'[ -]+', '_', name)
-    cleaned_name = re.sub(r'[^a-zA-Z0-9_]', '', cleaned_name)
-    cleaned_name = re.sub(r'^\d+', '', cleaned_name)
+    cleaned_name = re.sub(r"[ -]+", "_", name)
+    cleaned_name = re.sub(r"[^a-zA-Z0-9_]", "", cleaned_name)
+    cleaned_name = re.sub(r"^\d+", "", cleaned_name)
     return cleaned_name.upper()
+
 
 def load_suppliers():
     api_key = config.TEAM_API_KEY
@@ -52,8 +54,11 @@ def load_suppliers():
             f'Suppliers could not be loaded, probably due to the set API key (e.g. "{api_key}") is not valid. For help, please refer to the documentation (https://github.com/aixplain/aixplain#api-key-setup)'
         )
     resp = r.json()
-    suppliers = Enum("Supplier", {clean_name(w["name"]): w["code"] for w in resp}, type=str)
+    suppliers = Enum(
+        "Supplier", {clean_name(w["name"]): {"id": w["id"], "name": w["name"], "code": w["code"]} for w in resp}, type=dict
+    )
 
     return suppliers
+
 
 Supplier = load_suppliers()

@@ -21,8 +21,9 @@ Description:
     Asset Class
 """
 from aixplain.enums.license import License
+from aixplain.enums.supplier import Supplier
 from aixplain.enums.privacy import Privacy
-from typing import Optional, Text
+from typing import Dict, Optional, Text, Tuple
 
 
 class Asset:
@@ -31,11 +32,11 @@ class Asset:
         id: Text,
         name: Text,
         description: Text,
-        supplier: Text = "aiXplain",
+        supplier: Tuple[Dict, Text, Supplier, int] = "aiXplain",
         version: Text = "1.0",
         license: Optional[License] = None,
         privacy: Privacy = Privacy.PRIVATE,
-        cost: float = 0
+        cost: float = 0,
     ) -> None:
         """Create an Asset with the necessary information
 
@@ -43,13 +44,21 @@ class Asset:
             id (Text): ID of the Asset
             name (Text): Name of the Asset
             description (Text): Description of the Asset
-            supplier (Optional[Text], optional): supplier of the asset. Defaults to "aiXplain".
+            supplier (Tuple[Text, Supplier, int], optional): supplier of the asset. Defaults to "aiXplain".
             version (Optional[Text], optional): asset version. Defaults to "1.0".
         """
         self.id = id
         self.name = name
         self.description = description
-        self.supplier = supplier
+        try:
+            if isinstance(supplier, Supplier) is True:
+                self.supplier = supplier
+            elif isinstance(supplier, Dict) is True:
+                self.supplier = Supplier(supplier)
+            else:
+                self.supplier = supplier
+        except Exception:
+            self.supplier = str(supplier)
         self.version = version
         self.license = license
         self.privacy = privacy

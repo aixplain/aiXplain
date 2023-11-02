@@ -48,20 +48,23 @@ def test_run(inputs, asset_name):
         output = asset.run(payload)
     assert output["completed"] and output["status"] == "SUCCESS"
 
+
 def test_model_function():
     desired_function = Function.TRANSLATION
-    models = ModelFactory.list(function=desired_function)['results']
+    models = ModelFactory.list(function=desired_function)["results"]
     for model in models:
         assert model.function == desired_function
-        
+
+
 def test_model_supplier():
     desired_suppliers = [Supplier.GOOGLE]
-    models = ModelFactory.list(suppliers = desired_suppliers)['results']
+    models = ModelFactory.list(suppliers=desired_suppliers)["results"]
     for model in models:
-        assert model.supplier in [desired_supplier.value for desired_supplier in desired_suppliers]
-        
+        assert model.supplier.value in [desired_supplier.value for desired_supplier in desired_suppliers]
+
+
 def test_model_query():
     query = "Mongo"
-    models = ModelFactory.list(query = query)['results']
+    models = ModelFactory.list(query=query)["results"]
     for model in models:
         assert query in model.name

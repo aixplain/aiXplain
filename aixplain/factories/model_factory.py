@@ -65,7 +65,7 @@ class ModelFactory:
         return Model(
             response["id"],
             response["name"],
-            supplier=response["supplier"]["id"],
+            supplier=response["supplier"],
             api_key=response["api_key"],
             pricing=response["pricing"],
             function=Function(response["function"]["id"]),
@@ -141,7 +141,7 @@ class ModelFactory:
             if suppliers is not None:
                 if isinstance(suppliers, Supplier) is True:
                     suppliers = [suppliers]
-                filter_params["suppliers"] = [supplier.value for supplier in suppliers]
+                filter_params["suppliers"] = [supplier.value["id"] for supplier in suppliers]
             lang_filter_params = []
             if source_languages is not None:
                 if isinstance(source_languages, Language):
