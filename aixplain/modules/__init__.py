@@ -31,4 +31,3 @@ from .pipeline import Pipeline
 from .finetune import Finetune
 from .benchmark import Benchmark
 from .benchmark_job import BenchmarkJob
-from .finetune_cost import FinetuneCost

@@ -20,17 +20,20 @@ Date: June 14th 2023
 Description:
     FineTune Class
 """
-from typing import List, Text
+from typing import List, Text, Optional
 import logging
-from aixplain.utils.file_utils import _request_with_retry
 import json
 from urllib.parse import urljoin
-from aixplain.utils import config
+from aixplain.modules.finetune.cost import FinetuneCost
+from aixplain.modules.finetune.hyperparameters import Hyperparameters
+from aixplain.modules.finetune.peft import Peft
 from aixplain.factories.model_factory import ModelFactory
 from aixplain.modules.asset import Asset
 from aixplain.modules.dataset import Dataset
 from aixplain.modules.model import Model
-from aixplain.modules.finetune_cost import FinetuneCost
+
+from aixplain.utils import config
+from aixplain.utils.file_utils import _request_with_retry
 
 
 class Finetune(Asset):
@@ -47,6 +50,9 @@ class Finetune(Asset):
         version (Text): Version of the FineTune.
         train_percentage (float): Percentage of training samples.
         dev_percentage (float): Percentage of development samples.
+        prompt (Text): Fine-tuning prompt.
+        hyperparameters (Hyperparameters): Hyperparameters for fine-tuning.
+        peft (Peft): PEFT (Parameter-Efficient Fine-Tuning) configuration.
         additional_info (dict): Additional information to be saved with the FineTune.
         backend_url (str): URL of the backend.
         api_key (str): The TEAM API key used for authentication.
@@ -58,13 +64,15 @@ class Finetune(Asset):
         dataset_list: List[Dataset],
         model: Model,
         cost: FinetuneCost,
-        id: Text = "",
-        description: Text = "",
-        supplier: Text = "aiXplain",
-        version: Text = "1.0",
-        train_percentage: float = 100,
-        dev_percentage: float = 0,
-        parameters: dict = None,
+        id: Optional[Text] = "",
+        description: Optional[Text] = "",
+        supplier: Optional[Text] = "aiXplain",
+        version: Optional[Text] = "1.0",
+        train_percentage: Optional[float] = 100,
+        dev_percentage: Optional[float] = 0,
+        prompt: Optional[Text] = None,
+        hyperparameters: Optional[Hyperparameters] = None,
+        peft: Optional[Peft] = None,
         **additional_info,
     ) -> None:
         """Create a FineTune with the necessary information.
@@ -80,6 +88,9 @@ class Finetune(Asset):
             version (Text, optional): Version of the FineTune. Defaults to "1.0".
             train_percentage (float, optional): Percentage of training samples. Defaults to 100.
             dev_percentage (float, optional): Percentage of development samples. Defaults to 0.
+            prompt (Text, optional): Fine-tuning prompt. Defaults to None.
+            hyperparameters (Hyperparameters, optional): Hyperparameters for fine-tuning. Defaults to None.
+            peft (Peft, optional): PEFT (Parameter-Efficient Fine-Tuning) configuration. Defaults to None.
             **additional_info: Additional information to be saved with the FineTune.
         """
         super().__init__(id, name, description, supplier, version)
@@ -88,7 +99,9 @@ class Finetune(Asset):
         self.cost = cost
         self.train_percentage = train_percentage
         self.dev_percentage = dev_percentage
-        self.parameters = parameters
+        self.prompt = prompt
+        self.hyperparameters = hyperparameters
+        self.peft = peft
         self.additional_info = additional_info
         self.backend_url = config.BACKEND_URL
         self.api_key = config.TEAM_API_KEY
@@ -104,23 +117,28 @@ class Finetune(Asset):
         try:
             url = urljoin(self.backend_url, f"sdk/finetune")
             headers = {"Authorization": f"Token {self.api_key}", "Content-Type": "application/json"}
-            payload = json.dumps(
-                {
-                    "name": self.name,
-                    "datasets": [
-                        {
-                            "datasetId": dataset.id,
-                            "trainSamplesPercentage": self.train_percentage,
-                            "devSamplesPercentage": self.dev_percentage,
-                        }
-                        for dataset in self.dataset_list
-                    ],
-                    "sourceModelId": self.model.id,
-                    "parameters": self.parameters,
-                }
-            )
+            payload = {
+                "name": self.name,
+                "datasets": [
+                    {
+                        "datasetId": dataset.id,
+                        "trainSamplesPercentage": self.train_percentage,
+                        "devSamplesPercentage": self.dev_percentage,
+                    }
+                    for dataset in self.dataset_list
+                ],
+                "sourceModelId": self.model.id,
+            }
+            parameters = {}
+            if self.prompt is not None:
+                parameters["prompt"] = self.prompt
+            if self.hyperparameters is not None:
+                parameters["hyperparameters"] = self.hyperparameters.to_dict()
+            if self.peft is not None:
+                parameters["peft"] = self.peft.to_dict()
+            payload["parameters"] = parameters
             logging.info(f"Start service for POST Start FineTune - {url} - {headers} - {json.dumps(payload)}")
-            r = _request_with_retry("post", url, headers=headers, data=payload)
+            r = _request_with_retry("post", url, headers=headers, json=payload)
             resp = r.json()
             logging.info(f"Response for POST Start FineTune - Name: {self.name} / Status {resp}")
             return ModelFactory().get(resp["id"])
