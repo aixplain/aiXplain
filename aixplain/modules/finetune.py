@@ -64,6 +64,7 @@ class Finetune(Asset):
         version: Text = "1.0",
         train_percentage: float = 100,
         dev_percentage: float = 0,
+        parameters: dict = None,
         **additional_info,
     ) -> None:
         """Create a FineTune with the necessary information.
@@ -87,6 +88,7 @@ class Finetune(Asset):
         self.cost = cost
         self.train_percentage = train_percentage
         self.dev_percentage = dev_percentage
+        self.parameters = parameters
         self.additional_info = additional_info
         self.backend_url = config.BACKEND_URL
         self.api_key = config.TEAM_API_KEY
@@ -114,6 +116,7 @@ class Finetune(Asset):
                         for dataset in self.dataset_list
                     ],
                     "sourceModelId": self.model.id,
+                    "parameters": self.parameters,
                 }
             )
             logging.info(f"Start service for POST Start FineTune - {url} - {headers} - {json.dumps(payload)}")
