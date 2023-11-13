@@ -71,5 +71,6 @@ def test_model_query():
 
 
 def test_model_deletion():
+    model = ModelFactory.get("640b517694bf816d35a59125")
     with pytest.raises(Exception):
-        response = ModelFactory.delete("131312")
+        model.delete()

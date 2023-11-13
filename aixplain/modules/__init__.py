@@ -28,6 +28,6 @@ from .metadata import MetaData
 from .metric import Metric
 from .model import Model
 from .pipeline import Pipeline
-from .finetune import Finetune
+from .finetune import Finetune, FinetuneCost
 from .benchmark import Benchmark
 from .benchmark_job import BenchmarkJob

@@ -279,3 +279,17 @@ class Model(Asset):
                 message = f"Status {status_code} - {message}"
             error_message = f"Check FineTune status Model: Error {message}"
             logging.exception(error_message)
+
+    def delete(self) -> None:
+        """Delete Model service"""
+        try:
+            url = urljoin(self.backend_url, f"sdk/models/{self.id}")
+            headers = {"Authorization": f"Token {self.api_key}", "Content-Type": "application/json"}
+            logging.info(f"Start service for DELETE Model  - {url} - {headers}")
+            r = _request_with_retry("delete", url, headers=headers)
+            if r.status_code != 200:
+                raise Exception()
+        except Exception:
+            message = "Model Deletion Error: Make sure the model exists and you are the owner."
+            logging.error(message)
+            raise Exception(f"{message}")

@@ -379,25 +379,3 @@ class ModelFactory:
         message = "Your onboarding request has been submitted to an aiXplain specialist for finalization. We will notify you when the process is completed."
         logging.info(message)
         return response
-
-    @classmethod
-    def delete(cls, model_id: Text) -> None:
-        """Delete Model service
-
-        Args:
-            model_id (Text): model ID
-        """
-        try:
-            url = urljoin(cls.backend_url, f"sdk/models/{model_id}")
-            if cls.aixplain_key != "":
-                headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
-            else:
-                headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
-            logging.info(f"Start service for DELETE Model  - {url} - {headers}")
-            r = _request_with_retry("delete", url, headers=headers)
-            if r.status_code != 200:
-                raise Exception()
-        except Exception:
-            message = "Model Deletion Error: Make sure the model exists and you are the owner."
-            logging.error(message)
-            raise Exception(f"{message}")
