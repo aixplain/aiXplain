@@ -68,3 +68,8 @@ def test_model_query():
     models = ModelFactory.list(query=query)["results"]
     for model in models:
         assert query in model.name
+
+
+def test_model_deletion():
+    with pytest.raises(Exception):
+        response = ModelFactory.delete("131312")
