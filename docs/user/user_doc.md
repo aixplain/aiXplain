@@ -269,8 +269,10 @@ For now, we support the following tasks: `translation`, `search`, and `text-gene
   - [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1rVxxZpHzyP4FWn_Rd_j_g8tHU76S3rVT?usp=sharing)
 - Search:
   - [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1W56VZuJPm0FilnvEvpo38T92XvZIGDUs?usp=sharing)
-- Text generation:
+- Passthrough text generation (e.g. OpenAI ChatGPT 3.5):
   - [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1DeaOalATM2X9h0d7Uw4jOoT36WfB9nsB?usp=sharing)
+- Hosted text generation (e.g. Llama 2 7B):
+  - [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1IsZS6ilNi5jnMK4vhPy018oS37Wh1q3E?usp=sharing)
 
 ### Creating a FineTune
 

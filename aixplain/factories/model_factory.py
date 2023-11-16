@@ -165,6 +165,7 @@ class ModelFactory:
             else:
                 headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
 
+            logging.info(f"Start service for POST Models Paginate - {url} - {headers} - {json.dumps(filter_params)}")
             r = _request_with_retry("post", url, headers=headers, json=filter_params)
             resp = r.json()
             logging.info(f"Listing Models: Status of getting Models on Page {page_number}: {r.status_code}")

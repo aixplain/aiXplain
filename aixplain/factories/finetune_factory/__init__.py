@@ -66,7 +66,7 @@ class FinetuneFactory:
         name: Text,
         dataset_list: List[Dataset],
         model: Model,
-        prompt: Optional[Text] = None,
+        prompt_template: Optional[Text] = None,
         hyperparameters: Optional[Hyperparameters] = None,
         peft: Optional[Peft] = None,
         train_percentage: Optional[float] = 100,
@@ -78,7 +78,7 @@ class FinetuneFactory:
             name (Text): Name of the Finetune.
             dataset_list (List[Dataset]): List of Datasets to be used for fine-tuning.
             model (Model): Model to be fine-tuned.
-            prompt (Text, optional): Fine-tuning prompt. Defaults to None.
+            prompt_template (Text, optional): Fine-tuning prompt_template. Should reference columns in the dataset using format <<COLUMN_NAME>>. Defaults to None.
             hyperparameters (Hyperparameters, optional): Hyperparameters for fine-tuning. Defaults to None.
             peft (Peft, optional): PEFT (Parameter-Efficient Fine-Tuning) configuration. Defaults to None.
             train_percentage (float, optional): Percentage of training samples. Defaults to 100.
@@ -91,8 +91,8 @@ class FinetuneFactory:
         assert (
             train_percentage + dev_percentage <= 100
         ), f"Create FineTune: Train percentage + dev percentage ({train_percentage + dev_percentage}) must be less than or equal to one"
-        if prompt is not None:
-            prompt = validate_prompt(prompt, dataset_list)
+        if prompt_template is not None:
+            prompt_template = validate_prompt(prompt_template, dataset_list)
         try:
             url = urljoin(cls.backend_url, f"sdk/finetune/cost-estimation")
             headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
@@ -104,8 +104,8 @@ class FinetuneFactory:
                 "sourceModelId": model.id,
             }
             parameters = {}
-            if prompt is not None:
-                parameters["prompt"] = prompt
+            if prompt_template is not None:
+                parameters["prompt"] = prompt_template
             if hyperparameters is not None:
                 parameters["hyperparameters"] = hyperparameters.to_dict()
             if peft is not None:
@@ -123,7 +123,7 @@ class FinetuneFactory:
                 cost,
                 train_percentage=train_percentage,
                 dev_percentage=dev_percentage,
-                prompt=prompt,
+                prompt_template=prompt_template,
                 hyperparameters=hyperparameters,
                 peft=peft,
             )
