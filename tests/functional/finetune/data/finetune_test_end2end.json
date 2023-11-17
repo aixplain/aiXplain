@@ -2,11 +2,19 @@
     {
         "model_name": "Chat GPT 3.5",
         "dataset_name": "Test text generation dataset",
-        "inference_data": "Hello!"
+        "inference_data": "Hello!",
+        "required_dev": false
     },
     {
         "model_name": "GPT2",
         "dataset_name": "Test text generation dataset",
-        "inference_data": "Hello!"
+        "inference_data": "Hello!",
+        "required_dev": true
+    },
+    {
+        "model_name": "Search",
+        "dataset_name": "Test search dataset",
+        "inference_data": "Hello!",
+        "required_dev": false
     }
 ]

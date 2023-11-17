@@ -1,5 +1,8 @@
 [
     {
         "function": "text-generation"
+    },
+    {
+        "function": "search"
     }
 ]
