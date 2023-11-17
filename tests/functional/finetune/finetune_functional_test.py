@@ -24,13 +24,13 @@ load_dotenv()
 from aixplain.factories import ModelFactory
 from aixplain.factories import DatasetFactory
 from aixplain.factories import FinetuneFactory
-from aixplain.modules import FinetuneCost
+from aixplain.modules.finetune.cost import FinetuneCost
 from aixplain.enums import Function, Language
 
 import pytest
 
 TIMEOUT = 20000.0
-RUN_FILE = "tests/functional/finetune/data/finetune_test_run_data.json"
+RUN_FILE = "tests/functional/finetune/data/finetune_test_end2end.json"
 LIST_FILE = "tests/functional/finetune/data/finetune_test_list_data.json"
 
 
@@ -47,9 +47,10 @@ def run_input_map(request):
 def list_input_map(request):
     return request.param
 
-def test_run(run_input_map):
-    model = ModelFactory.get(run_input_map["model_id"])
-    dataset_list = [DatasetFactory.get(run_input_map["dataset_id"])]
+
+def test_end2end_text_generation(run_input_map):
+    model = ModelFactory.list(query=run_input_map["model_name"], is_finetunable=True)["results"][0]
+    dataset_list = [DatasetFactory.list(query=run_input_map["dataset_name"])["results"][0]]
     finetune = FinetuneFactory.create(str(uuid.uuid4()), dataset_list, model)
     assert type(finetune.cost) is FinetuneCost
     cost_map = finetune.cost.to_dict()
@@ -64,6 +65,10 @@ def test_run(run_input_map):
         assert status != "failed"
         end = time.time()
     assert finetune_model.check_finetune_status() == "onboarded"
+    result = finetune_model.run(run_input_map["inference_data"])
+    assert result is not None
+    finetune_model.delete()
+
 
 def test_list_finetunable_models(list_input_map):
     model_list = ModelFactory.list(
@@ -71,5 +76,5 @@ def test_list_finetunable_models(list_input_map):
         source_languages=Language(list_input_map["source_language"]) if "source_language" in list_input_map else None,
         target_languages=Language(list_input_map["target_language"]) if "target_language" in list_input_map else None,
         is_finetunable=True,
-    )
+    )["results"]
     assert len(model_list) > 0

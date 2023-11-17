@@ -90,7 +90,7 @@ class ModelFactory:
                 headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
             else:
                 headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
-            logging.info(f"Start service for GET Metric  - {url} - {headers}")
+            logging.info(f"Start service for GET Model  - {url} - {headers}")
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()
             # set api key

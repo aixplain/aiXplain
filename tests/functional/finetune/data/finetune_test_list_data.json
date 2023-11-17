@@ -1,11 +1,5 @@
 [
     {
-        "function": "translation",
-        "source_language": {"language": "en", "dialect": ""},
-        "target_language": {"language": "fr", "dialect": ""}
-    },
-    {
-        "function": "speech-recognition",
-        "source_language": {"language": "en", "dialect": ""}
+        "function": "text-generation"
     }
 ]

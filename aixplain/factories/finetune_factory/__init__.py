@@ -24,10 +24,13 @@ Description:
 import logging
 from typing import Dict, List, Optional, Text
 import json
+from aixplain.factories.finetune_factory.prompt_validator import validate_prompt
+from aixplain.modules.finetune import Finetune
+from aixplain.modules.finetune.cost import FinetuneCost
+from aixplain.modules.finetune.hyperparameters import Hyperparameters
+from aixplain.modules.finetune.peft import Peft
 from aixplain.modules.dataset import Dataset
 from aixplain.modules.model import Model
-from aixplain.modules.finetune import Finetune
-from aixplain.modules.finetune_cost import FinetuneCost
 from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
 from urllib.parse import urljoin
@@ -59,7 +62,15 @@ class FinetuneFactory:
 
     @classmethod
     def create(
-        cls, name: Text, dataset_list: List[Dataset], model: Model, train_percentage: float = 100, dev_percentage: float = 0
+        cls,
+        name: Text,
+        dataset_list: List[Dataset],
+        model: Model,
+        prompt: Optional[Text] = None,
+        hyperparameters: Optional[Hyperparameters] = None,
+        peft: Optional[Peft] = None,
+        train_percentage: Optional[float] = 100,
+        dev_percentage: Optional[float] = 0,
     ) -> Finetune:
         """Create a Finetune object with the provided information.
 
@@ -67,9 +78,11 @@ class FinetuneFactory:
             name (Text): Name of the Finetune.
             dataset_list (List[Dataset]): List of Datasets to be used for fine-tuning.
             model (Model): Model to be fine-tuned.
+            prompt (Text, optional): Fine-tuning prompt. Defaults to None.
+            hyperparameters (Hyperparameters, optional): Hyperparameters for fine-tuning. Defaults to None.
+            peft (Peft, optional): PEFT (Parameter-Efficient Fine-Tuning) configuration. Defaults to None.
             train_percentage (float, optional): Percentage of training samples. Defaults to 100.
             dev_percentage (float, optional): Percentage of development samples. Defaults to 0.
-
         Returns:
             Finetune: The Finetune object created with the provided information or None if there was an error.
         """
@@ -78,24 +91,42 @@ class FinetuneFactory:
         assert (
             train_percentage + dev_percentage <= 100
         ), f"Create FineTune: Train percentage + dev percentage ({train_percentage + dev_percentage}) must be less than or equal to one"
+        if prompt is not None:
+            prompt = validate_prompt(prompt, dataset_list)
         try:
             url = urljoin(cls.backend_url, f"sdk/finetune/cost-estimation")
             headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
-            payload = json.dumps(
-                {
-                    "datasets": [
-                        {"datasetId": dataset.id, "trainPercentage": train_percentage, "devPercentage": dev_percentage}
-                        for dataset in dataset_list
-                    ],
-                    "sourceModelId": model.id,
-                }
-            )
+            payload = {
+                "datasets": [
+                    {"datasetId": dataset.id, "trainPercentage": train_percentage, "devPercentage": dev_percentage}
+                    for dataset in dataset_list
+                ],
+                "sourceModelId": model.id,
+            }
+            parameters = {}
+            if prompt is not None:
+                parameters["prompt"] = prompt
+            if hyperparameters is not None:
+                parameters["hyperparameters"] = hyperparameters.to_dict()
+            if peft is not None:
+                parameters["peft"] = peft.to_dict()
+            payload["parameters"] = parameters
             logging.info(f"Start service for POST Create FineTune - {url} - {headers} - {json.dumps(payload)}")
-            r = _request_with_retry("post", url, headers=headers, data=payload)
+            r = _request_with_retry("post", url, headers=headers, json=payload)
             resp = r.json()
             logging.info(f"Response for POST Create FineTune - Status {resp}")
             cost = cls._create_cost_from_response(resp)
-            return Finetune(name, dataset_list, model, cost, train_percentage=train_percentage, dev_percentage=dev_percentage)
+            return Finetune(
+                name,
+                dataset_list,
+                model,
+                cost,
+                train_percentage=train_percentage,
+                dev_percentage=dev_percentage,
+                prompt=prompt,
+                hyperparameters=hyperparameters,
+                peft=peft,
+            )
         except Exception:
             error_message = f"Create FineTune: Error with payload {json.dumps(payload)}"
             logging.exception(error_message)
