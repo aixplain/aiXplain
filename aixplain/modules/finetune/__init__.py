@@ -50,7 +50,7 @@ class Finetune(Asset):
         version (Text): Version of the FineTune.
         train_percentage (float): Percentage of training samples.
         dev_percentage (float): Percentage of development samples.
-        prompt (Text): Fine-tuning prompt.
+        prompt_template (Text): Fine-tuning prompt_template.
         hyperparameters (Hyperparameters): Hyperparameters for fine-tuning.
         peft (Peft): PEFT (Parameter-Efficient Fine-Tuning) configuration.
         additional_info (dict): Additional information to be saved with the FineTune.
@@ -70,7 +70,7 @@ class Finetune(Asset):
         version: Optional[Text] = "1.0",
         train_percentage: Optional[float] = 100,
         dev_percentage: Optional[float] = 0,
-        prompt: Optional[Text] = None,
+        prompt_template: Optional[Text] = None,
         hyperparameters: Optional[Hyperparameters] = None,
         peft: Optional[Peft] = None,
         **additional_info,
@@ -88,7 +88,7 @@ class Finetune(Asset):
             version (Text, optional): Version of the FineTune. Defaults to "1.0".
             train_percentage (float, optional): Percentage of training samples. Defaults to 100.
             dev_percentage (float, optional): Percentage of development samples. Defaults to 0.
-            prompt (Text, optional): Fine-tuning prompt. Defaults to None.
+            prompt_template (Text, optional): Fine-tuning prompt_template. Should reference columns in the dataset using format <<COLUMN_NAME>>. Defaults to None.
             hyperparameters (Hyperparameters, optional): Hyperparameters for fine-tuning. Defaults to None.
             peft (Peft, optional): PEFT (Parameter-Efficient Fine-Tuning) configuration. Defaults to None.
             **additional_info: Additional information to be saved with the FineTune.
@@ -99,7 +99,7 @@ class Finetune(Asset):
         self.cost = cost
         self.train_percentage = train_percentage
         self.dev_percentage = dev_percentage
-        self.prompt = prompt
+        self.prompt_template = prompt_template
         self.hyperparameters = hyperparameters
         self.peft = peft
         self.additional_info = additional_info
@@ -130,8 +130,8 @@ class Finetune(Asset):
                 "sourceModelId": self.model.id,
             }
             parameters = {}
-            if self.prompt is not None:
-                parameters["prompt"] = self.prompt
+            if self.prompt_template is not None:
+                parameters["prompt"] = self.prompt_template
             if self.hyperparameters is not None:
                 parameters["hyperparameters"] = self.hyperparameters.to_dict()
             if self.peft is not None:

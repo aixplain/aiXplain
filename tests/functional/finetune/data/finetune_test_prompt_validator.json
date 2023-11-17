@@ -1,0 +1,14 @@
+[
+    {
+        "model_name": "GPT2",
+        "dataset_name": "Test text generation dataset",
+        "prompt_template": "Source: <<source>>\nReference: <<reference>>",
+        "is_valid": true
+    },
+    {
+        "model_name": "GPT2",
+        "dataset_name": "Test text generation dataset",
+        "prompt_template": "Source: <<wrong>>\nReference: <<reference>>",
+        "is_valid": false
+    }
+]

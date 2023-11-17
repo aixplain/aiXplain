@@ -32,6 +32,7 @@ import pytest
 TIMEOUT = 20000.0
 RUN_FILE = "tests/functional/finetune/data/finetune_test_end2end.json"
 LIST_FILE = "tests/functional/finetune/data/finetune_test_list_data.json"
+PROMPT_FILE = "tests/functional/finetune/data/finetune_test_prompt_validator.json"
 
 
 def read_data(data_path):
@@ -48,10 +49,20 @@ def list_input_map(request):
     return request.param
 
 
+@pytest.fixture(scope="module", params=read_data(PROMPT_FILE))
+def validate_prompt_input_map(request):
+    return request.param
+
+
 def test_end2end_text_generation(run_input_map):
     model = ModelFactory.list(query=run_input_map["model_name"], is_finetunable=True)["results"][0]
     dataset_list = [DatasetFactory.list(query=run_input_map["dataset_name"])["results"][0]]
-    finetune = FinetuneFactory.create(str(uuid.uuid4()), dataset_list, model)
+    train_percentage, dev_percentage = 100, 0
+    if run_input_map["required_dev"]:
+        train_percentage, dev_percentage = 80, 20
+    finetune = FinetuneFactory.create(
+        str(uuid.uuid4()), dataset_list, model, train_percentage=train_percentage, dev_percentage=dev_percentage
+    )
     assert type(finetune.cost) is FinetuneCost
     cost_map = finetune.cost.to_dict()
     assert "trainingCost" in cost_map
@@ -78,3 +89,19 @@ def test_list_finetunable_models(list_input_map):
         is_finetunable=True,
     )["results"]
     assert len(model_list) > 0
+
+
+def test_prompt_validator(validate_prompt_input_map):
+    model = ModelFactory.list(query=validate_prompt_input_map["model_name"], is_finetunable=True)["results"][0]
+    dataset_list = [DatasetFactory.list(query=validate_prompt_input_map["dataset_name"])["results"][0]]
+    if validate_prompt_input_map["is_valid"]:
+        finetune = FinetuneFactory.create(
+            str(uuid.uuid4()), dataset_list, model, prompt_template=validate_prompt_input_map["prompt_template"]
+        )
+        assert finetune is not None
+    else:
+        with pytest.raises(Exception) as exc_info:
+            finetune = FinetuneFactory.create(
+                str(uuid.uuid4()), dataset_list, model, prompt_template=validate_prompt_input_map["prompt_template"]
+            )
+        assert exc_info.type is AssertionError
