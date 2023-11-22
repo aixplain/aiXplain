@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 load_dotenv()
 from aixplain.factories import ModelFactory, DatasetFactory, MetricFactory, PipelineFactory
 from pathlib import Path
-from aixplain.enums import Function, Supplier
+from aixplain.enums import Function, OwnershipType, Supplier
 
 import pytest
 
@@ -61,6 +61,12 @@ def test_model_supplier():
     models = ModelFactory.list(suppliers=desired_suppliers)["results"]
     for model in models:
         assert model.supplier.value in [desired_supplier.value for desired_supplier in desired_suppliers]
+
+
+def test_model_ownership():
+    models = ModelFactory.list(ownership=OwnershipType.SUBSCRIBED)["results"]
+    for model in models:
+        assert model.is_subscribed == True
 
 
 def test_model_query():

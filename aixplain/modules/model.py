@@ -61,6 +61,7 @@ class Model(Asset):
         supplier: Text = "aiXplain",
         version: Text = "1.0",
         function: Optional[Text] = None,
+        is_subscribed: bool = False,
         **additional_info,
     ) -> None:
         """Model Init
@@ -73,6 +74,7 @@ class Model(Asset):
             supplier (Text, optional): model supplier. Defaults to "aiXplain".
             version (Text, optional): version of the model. Defaults to "1.0".
             function (Text, optional): model AI function. Defaults to None.
+            is_subscribed (bool, optional): Is the user subscribed. Defaults to False.
             **additional_info: Any additional Model info to be saved
         """
         super().__init__(id, name, description, supplier, version)
@@ -81,14 +83,7 @@ class Model(Asset):
         self.url = config.MODELS_RUN_URL
         self.backend_url = config.BACKEND_URL
         self.function = function
-
-    def _is_subscribed(self) -> bool:
-        """Returns if the model is subscribed to
-
-        Returns:
-            bool: True if subscribed
-        """
-        return self.api_key is not None
+        self.is_subscribed = is_subscribed
 
     def to_dict(self) -> Dict:
         """Get the model info as a Dictionary

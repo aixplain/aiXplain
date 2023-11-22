@@ -20,11 +20,11 @@ Date: September 1st 2022
 Description:
     Model Factory Class
 """
-from typing import Dict, List, Optional, Text, Union
+from typing import Dict, List, Optional, Text, Tuple, Union
 import json
 import logging
 from aixplain.modules.model import Model
-from aixplain.enums import Function, Language, Supplier
+from aixplain.enums import Function, Language, OwnershipType, Supplier
 from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
 from urllib.parse import urljoin
@@ -70,6 +70,7 @@ class ModelFactory:
             pricing=response["pricing"],
             function=Function(response["function"]["id"]),
             parameters=parameters,
+            is_subscribed=True if "subscription" in response else False,
         )
 
     @classmethod
@@ -130,6 +131,7 @@ class ModelFactory:
         source_languages: Union[Language, List[Language]],
         target_languages: Union[Language, List[Language]],
         is_finetunable: bool = None,
+        ownership: Optional[Tuple[OwnershipType, List[OwnershipType]]] = None,
     ) -> List[Model]:
         try:
             url = urljoin(cls.backend_url, f"sdk/models/paginate")
@@ -142,6 +144,10 @@ class ModelFactory:
                 if isinstance(suppliers, Supplier) is True:
                     suppliers = [suppliers]
                 filter_params["suppliers"] = [supplier.value["id"] for supplier in suppliers]
+            if ownership is not None:
+                if isinstance(ownership, OwnershipType) is True:
+                    ownership = [ownership]
+                filter_params["ownership"] = [ownership_.value for ownership_ in ownership]
             lang_filter_params = []
             if source_languages is not None:
                 if isinstance(source_languages, Language):
@@ -186,6 +192,7 @@ class ModelFactory:
         source_languages: Optional[Union[Language, List[Language]]] = None,
         target_languages: Optional[Union[Language, List[Language]]] = None,
         is_finetunable: Optional[bool] = None,
+        ownership: Optional[Tuple[OwnershipType, List[OwnershipType]]] = None,
         page_number: int = 0,
         page_size: int = 20,
     ) -> List[Model]:
@@ -196,16 +203,24 @@ class ModelFactory:
             source_languages (Optional[Union[Language, List[Language]]], optional): language filter of input data. Defaults to None.
             target_languages (Optional[Union[Language, List[Language]]], optional): language filter of output data. Defaults to None.
             is_finetunable (Optional[bool], optional): can be finetuned or not. Defaults to None.
+            ownership (Optional[Tuple[OwnershipType, List[OwnershipType]]], optional): Ownership filters (e.g. SUBSCRIBED, OWNER). Defaults to None.
             page_number (int, optional): page number. Defaults to 0.
             page_size (int, optional): page size. Defaults to 20.
 
         Returns:
             List[Model]: List of models based on given filters
         """
-        print(f"Function: {function}")
         try:
             models, total = cls._get_assets_from_page(
-                query, page_number, page_size, function, suppliers, source_languages, target_languages, is_finetunable
+                query,
+                page_number,
+                page_size,
+                function,
+                suppliers,
+                source_languages,
+                target_languages,
+                is_finetunable,
+                ownership,
             )
             return {
                 "results": models,
