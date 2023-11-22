@@ -104,7 +104,7 @@ items:
 Once you have chosen a suitable host machine and function, register your model and create an image repository:
 
 ```console
-$ aixplain image-create repo --name <model_name> --hosting-machine <machine_code> --version <model_version> --description <model_description> --function <function_name> --source-language <source_language> [--api-key <TEAM_API_KEY>]
+$ aixplain create image-repo --name <model_name> --hosting-machine <machine_code> --version <model_version> --description <model_description> --function <function_name> --source-language <source_language> [--api-key <TEAM_API_KEY>]
 {
     "repoName": <model_repository_name>,
     "modelId": <model_id>
@@ -125,8 +125,14 @@ $ aixplain get image-repo-login [--api-key <TEAM_API_KEY>]
 
 These credentials are valid for 12 hours, after which you much again log in for a fresh set of valid credentials. If you are using Docker, you can use these credentials to log in with the following:
 ```console
-docker login --username $USERNAME --password $PASSWORD
+docker login --username $USERNAME --password $PASSWORD 535945872701.dkr.ecr.us-east-1.amazonaws.com
 ```
+
+You must first build your image using the following:
+```console
+$ docker build . -t 535945872701.dkr.ecr.us-east-1.amazonaws.com/<repoName>:<tag>
+```
+where the `<repoName>` is that returned by `aixplain create image-repo` and `<tag>` is some sort of descriptor (usually version number) for your specific model.
 
 Next, tag your image to match the registry and repository name given in the previous steps. If you are using Docker, this would look like the following:
 ```console
@@ -142,7 +148,7 @@ Once this is done, onboard the model:
 ```console
 $ aixplain onboard model --model-id <model_id> --image-tag <model_image_tag> --image-hash <model_image_hash> [--api-key <TEAM_API_KEY>]
 ```
-`model-id` should be the model ID returned by the image-create-repo function used earlier. `image-tag` should be set to whatever string you used to tag your model image.
+`model-id` should be the model ID returned by the image-create-repo function used earlier. `image-tag` should be set to whatever string you used to tag your model image. The image sha256 hash can be obtained by running `docker images --digests`. Choose the hash corresponding to the image you would like onboarded.
 
 This will send an email to an aiXplain associate to finalize the onboarding process.
 
