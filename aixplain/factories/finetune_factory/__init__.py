@@ -40,11 +40,9 @@ class FinetuneFactory:
     """A static class for creating and managing the FineTune experience.
 
     Attributes:
-        api_key (str): The TEAM API key used for authentication.
         backend_url (str): The URL for the backend.
     """
 
-    api_key = config.TEAM_API_KEY
     aixplain_key = config.AIXPLAIN_API_KEY
     backend_url = config.BACKEND_URL
 
@@ -95,7 +93,7 @@ class FinetuneFactory:
             prompt_template = validate_prompt(prompt_template, dataset_list)
         try:
             url = urljoin(cls.backend_url, f"sdk/finetune/cost-estimation")
-            headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
+            headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
             payload = {
                 "datasets": [
                     {"datasetId": dataset.id, "trainPercentage": train_percentage, "devPercentage": dev_percentage}

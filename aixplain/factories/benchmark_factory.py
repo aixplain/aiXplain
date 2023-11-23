@@ -42,11 +42,9 @@ class BenchmarkFactory:
     """A static class for creating and managing the Benchmarking experience.
 
     Attributes:
-        api_key (str): The TEAM API key used for authentication.
         backend_url (str): The URL for the backend.
     """
 
-    api_key = config.TEAM_API_KEY
     aixplain_key = config.AIXPLAIN_API_KEY
     backend_url = config.BACKEND_URL
 
@@ -76,7 +74,7 @@ class BenchmarkFactory:
         if cls.aixplain_key != "":
             headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
         else:
-            headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
+            headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
         r = _request_with_retry("get", url, headers=headers)
         resp = r.json()
         job_list = [cls._create_benchmark_job_from_response(job_info) for job_info in resp]
@@ -114,7 +112,7 @@ class BenchmarkFactory:
             if cls.aixplain_key != "":
                 headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
             else:
-                headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
+                headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
             logging.info(f"Start service for GET Benchmark  - {url} - {headers}")
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()
@@ -145,7 +143,7 @@ class BenchmarkFactory:
         if cls.aixplain_key != "":
             headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
         else:
-            headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
+            headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
         r = _request_with_retry("get", url, headers=headers)
         resp = r.json()
         benchmarkJob = cls._create_benchmark_job_from_response(resp)
@@ -191,7 +189,7 @@ class BenchmarkFactory:
         payload = {}
         try:
             url = urljoin(cls.backend_url, f"sdk/benchmarks")
-            headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
+            headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
             payload = {
                 "name": name,
                 "datasets": [dataset.id for dataset in dataset_list],
@@ -228,7 +226,7 @@ class BenchmarkFactory:
             if cls.aixplain_key != "":
                 headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
             else:
-                headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
+                headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
             payload = json.dumps({"metricId": metric.id, "modelIds": [model.id]})
             r = _request_with_retry("post", url, headers=headers, data=payload)
             resp = r.json()

@@ -56,11 +56,9 @@ class DatasetFactory(AssetFactory):
     """A static class for creating and exploring Dataset Objects.
 
     Attributes:
-        api_key (str): The TEAM API key used for authentication.
         backend_url (str): The URL for the backend.
     """
 
-    api_key = config.TEAM_API_KEY
     aixplain_key = config.AIXPLAIN_API_KEY
     backend_url = config.BACKEND_URL
 
@@ -170,7 +168,7 @@ class DatasetFactory(AssetFactory):
         if cls.aixplain_key != "":
             headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
         else:
-            headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
+            headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
         logging.info(f"Start service for GET Dataset  - {url} - {headers}")
         r = _request_with_retry("get", url, headers=headers)
         resp = r.json()
@@ -211,7 +209,7 @@ class DatasetFactory(AssetFactory):
         if cls.aixplain_key != "":
             headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
         else:
-            headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
+            headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
 
         assert 0 < page_size <= 100, f"Dataset List Error: Page size must be greater than 0 and not exceed 100."
         payload = {
