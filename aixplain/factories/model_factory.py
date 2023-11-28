@@ -20,11 +20,11 @@ Date: September 1st 2022
 Description:
     Model Factory Class
 """
-from typing import Dict, List, Optional, Text, Union
+from typing import Dict, List, Optional, Text, Tuple, Union
 import json
 import logging
 from aixplain.modules.model import Model
-from aixplain.enums import Function, Language, Supplier
+from aixplain.enums import Function, Language, OwnershipType, Supplier
 from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
 from urllib.parse import urljoin
@@ -35,11 +35,9 @@ class ModelFactory:
     """A static class for creating and exploring Model Objects.
 
     Attributes:
-        api_key (str): The TEAM API key used for authentication.
         backend_url (str): The URL for the backend.
     """
 
-    api_key = config.TEAM_API_KEY
     aixplain_key = config.AIXPLAIN_API_KEY
     backend_url = config.BACKEND_URL
 
@@ -54,7 +52,7 @@ class ModelFactory:
             Model: Coverted 'Model' object
         """
         if "api_key" not in response:
-            response["api_key"] = cls.api_key
+            response["api_key"] = config.TEAM_API_KEY
 
         parameters = {}
         if "params" in response:
@@ -70,6 +68,7 @@ class ModelFactory:
             pricing=response["pricing"],
             function=Function(response["function"]["id"]),
             parameters=parameters,
+            is_subscribed=True if "subscription" in response else False,
         )
 
     @classmethod
@@ -89,12 +88,12 @@ class ModelFactory:
             if cls.aixplain_key != "":
                 headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
             else:
-                headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
+                headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
             logging.info(f"Start service for GET Model  - {url} - {headers}")
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()
             # set api key
-            resp["api_key"] = cls.api_key
+            resp["api_key"] = config.TEAM_API_KEY
             if api_key is not None:
                 resp["api_key"] = api_key
             model = cls._create_model_from_response(resp)
@@ -130,6 +129,7 @@ class ModelFactory:
         source_languages: Union[Language, List[Language]],
         target_languages: Union[Language, List[Language]],
         is_finetunable: bool = None,
+        ownership: Optional[Tuple[OwnershipType, List[OwnershipType]]] = None,
     ) -> List[Model]:
         try:
             url = urljoin(cls.backend_url, f"sdk/models/paginate")
@@ -142,6 +142,10 @@ class ModelFactory:
                 if isinstance(suppliers, Supplier) is True:
                     suppliers = [suppliers]
                 filter_params["suppliers"] = [supplier.value["id"] for supplier in suppliers]
+            if ownership is not None:
+                if isinstance(ownership, OwnershipType) is True:
+                    ownership = [ownership]
+                filter_params["ownership"] = [ownership_.value for ownership_ in ownership]
             lang_filter_params = []
             if source_languages is not None:
                 if isinstance(source_languages, Language):
@@ -163,7 +167,7 @@ class ModelFactory:
             if cls.aixplain_key != "":
                 headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
             else:
-                headers = {"Authorization": f"Token {cls.api_key}", "Content-Type": "application/json"}
+                headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
 
             logging.info(f"Start service for POST Models Paginate - {url} - {headers} - {json.dumps(filter_params)}")
             r = _request_with_retry("post", url, headers=headers, json=filter_params)
@@ -186,6 +190,7 @@ class ModelFactory:
         source_languages: Optional[Union[Language, List[Language]]] = None,
         target_languages: Optional[Union[Language, List[Language]]] = None,
         is_finetunable: Optional[bool] = None,
+        ownership: Optional[Tuple[OwnershipType, List[OwnershipType]]] = None,
         page_number: int = 0,
         page_size: int = 20,
     ) -> List[Model]:
@@ -196,16 +201,24 @@ class ModelFactory:
             source_languages (Optional[Union[Language, List[Language]]], optional): language filter of input data. Defaults to None.
             target_languages (Optional[Union[Language, List[Language]]], optional): language filter of output data. Defaults to None.
             is_finetunable (Optional[bool], optional): can be finetuned or not. Defaults to None.
+            ownership (Optional[Tuple[OwnershipType, List[OwnershipType]]], optional): Ownership filters (e.g. SUBSCRIBED, OWNER). Defaults to None.
             page_number (int, optional): page number. Defaults to 0.
             page_size (int, optional): page size. Defaults to 20.
 
         Returns:
             List[Model]: List of models based on given filters
         """
-        print(f"Function: {function}")
         try:
             models, total = cls._get_assets_from_page(
-                query, page_number, page_size, function, suppliers, source_languages, target_languages, is_finetunable
+                query,
+                page_number,
+                page_size,
+                function,
+                suppliers,
+                source_languages,
+                target_languages,
+                is_finetunable,
+                ownership,
             )
             return {
                 "results": models,
@@ -234,7 +247,7 @@ class ModelFactory:
         if api_key:
             headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
         else:
-            headers = {"x-api-key": f"{cls.api_key}", "Content-Type": "application/json"}
+            headers = {"x-api-key": f"{config.TEAM_API_KEY}", "Content-Type": "application/json"}
         response = _request_with_retry("get", machines_url, headers=headers)
         response_dicts = json.loads(response.text)
         for dictionary in response_dicts:
@@ -259,7 +272,7 @@ class ModelFactory:
         if api_key:
             headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
         else:
-            headers = {"x-api-key": f"{cls.api_key}", "Content-Type": "application/json"}
+            headers = {"x-api-key": f"{config.TEAM_API_KEY}", "Content-Type": "application/json"}
         response = _request_with_retry("get", functions_url, headers=headers)
         response_dict = json.loads(response.text)
         if verbose:
@@ -305,7 +318,7 @@ class ModelFactory:
             Dict: Backend response
         """
         # Reconcile function name to be function ID in the backend
-        function_list = cls.list_functions(True, cls.api_key)["items"]
+        function_list = cls.list_functions(True, config.TEAM_API_KEY)["items"]
         function_id = None
         for function_dict in function_list:
             if function_dict["name"] == function:
@@ -317,7 +330,7 @@ class ModelFactory:
         if api_key:
             headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
         else:
-            headers = {"x-api-key": f"{cls.api_key}", "Content-Type": "application/json"}
+            headers = {"x-api-key": f"{config.TEAM_API_KEY}", "Content-Type": "application/json"}
         always_on = False
         is_async = False  # Hard-coded to False for first release
         payload = {
@@ -351,7 +364,7 @@ class ModelFactory:
         if api_key:
             headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
         else:
-            headers = {"x-api-key": f"{cls.api_key}", "Content-Type": "application/json"}
+            headers = {"x-api-key": f"{config.TEAM_API_KEY}", "Content-Type": "application/json"}
         response = _request_with_retry("post", login_url, headers=headers)
         response_dict = json.loads(response.text)
         return response_dict
@@ -372,7 +385,7 @@ class ModelFactory:
         if api_key:
             headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
         else:
-            headers = {"x-api-key": f"{cls.api_key}", "Content-Type": "application/json"}
+            headers = {"x-api-key": f"{config.TEAM_API_KEY}", "Content-Type": "application/json"}
         payload = {"image": image_tag, "sha": image_hash}
         payload = json.dumps(payload)
         logging.debug(f"Body: {str(payload)}")

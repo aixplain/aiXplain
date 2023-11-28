@@ -7,6 +7,7 @@ from .function import Function, FunctionInputOutput
 from .language import Language
 from .license import License
 from .onboard_status import OnboardStatus
+from .ownership_type import OwnershipType
 from .privacy import Privacy
 from .storage_type import StorageType
 from .supplier import Supplier
