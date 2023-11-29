@@ -55,7 +55,7 @@ def validate_prompt_input_map(request):
 
 
 def test_end2end_text_generation(run_input_map):
-    model = ModelFactory.list(query=run_input_map["model_name"], is_finetunable=True)["results"][0]
+    model = ModelFactory.get(run_input_map["model_id"])
     dataset_list = [DatasetFactory.list(query=run_input_map["dataset_name"])["results"][0]]
     train_percentage, dev_percentage = 100, 0
     if run_input_map["required_dev"]:
@@ -74,6 +74,7 @@ def test_end2end_text_generation(run_input_map):
     while status != "onboarded" and (end - start) < TIMEOUT:
         status = finetune_model.check_finetune_status()
         assert status != "failed"
+        time.sleep(5)
         end = time.time()
     assert finetune_model.check_finetune_status() == "onboarded"
     result = finetune_model.run(run_input_map["inference_data"])
