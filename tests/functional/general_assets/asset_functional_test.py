@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 load_dotenv()
 from aixplain.factories import ModelFactory, DatasetFactory, MetricFactory, PipelineFactory
 from pathlib import Path
-from aixplain.enums import Function, OwnershipType, Supplier, SortBy
+from aixplain.enums import Function, Language, OwnershipType, Supplier, SortBy, SortOrder
 
 import pytest
 
@@ -63,6 +63,27 @@ def test_model_supplier():
         assert model.supplier.value in [desired_supplier.value for desired_supplier in desired_suppliers]
 
 
+def test_model_sort():
+    function = Function.TRANSLATION
+    src_language = Language.Portuguese
+    trg_language = Language.English
+
+    models = ModelFactory.list(
+        function=function,
+        source_languages=src_language,
+        target_languages=trg_language,
+        sort_by=SortBy.PRICE,
+        sort_order=SortOrder.ASCENDING,
+    )["results"]
+    for idx in range(1, len(models)):
+        prev_model = models[idx - 1]
+        model = models[idx]
+
+        prev_model_price = prev_model.additional_info["pricing"]["price"]
+        model_price = model.additional_info["pricing"]["price"]
+        assert prev_model_price >= model_price
+
+
 def test_model_ownership():
     models = ModelFactory.list(ownership=OwnershipType.SUBSCRIBED)["results"]
     for model in models:
@@ -80,7 +101,3 @@ def test_model_deletion():
     model = ModelFactory.get("640b517694bf816d35a59125")
     with pytest.raises(Exception):
         model.delete()
-        
-def test_model_sort():
-    models = ModelFactory.list(sort_by = SortBy.DATE)['results']
-    assert bool(models) is True

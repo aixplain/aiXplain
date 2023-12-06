@@ -24,7 +24,6 @@ Description:
 from enum import Enum
 
 
-class SortBy(Enum):
-    CREATION_DATE = "createdAt"
-    PRICE = "normalizedPrice"
-    POPULARITY = "totalSubscribed"
+class SortOrder(Enum):
+    ASCENDING = 1
+    DESCENDING = -1
