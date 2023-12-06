@@ -73,7 +73,7 @@ def test_model_sort():
         source_languages=src_language,
         target_languages=trg_language,
         sort_by=SortBy.PRICE,
-        sort_order=SortOrder.ASCENDING,
+        sort_order=SortOrder.DESCENDING,
     )["results"]
     for idx in range(1, len(models)):
         prev_model = models[idx - 1]
