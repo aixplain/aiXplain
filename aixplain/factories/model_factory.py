@@ -206,7 +206,7 @@ class ModelFactory:
             target_languages (Optional[Union[Language, List[Language]]], optional): language filter of output data. Defaults to None.
             is_finetunable (Optional[bool], optional): can be finetuned or not. Defaults to None.
             ownership (Optional[Tuple[OwnershipType, List[OwnershipType]]], optional): Ownership filters (e.g. SUBSCRIBED, OWNER). Defaults to None.
-            sort_by (Optional[SortBy], optional): sort the retrived models by a specific attrbuite,
+            sort_by (Optional[SortBy], optional): sort the retrived models by a specific attribute,
             page_number (int, optional): page number. Defaults to 0.
             page_size (int, optional): page size. Defaults to 20.
 
