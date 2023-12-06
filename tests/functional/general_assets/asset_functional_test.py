@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 load_dotenv()
 from aixplain.factories import ModelFactory, DatasetFactory, MetricFactory, PipelineFactory
 from pathlib import Path
-from aixplain.enums import Function, OwnershipType, Supplier
+from aixplain.enums import Function, OwnershipType, Supplier, SortBy
 
 import pytest
 
@@ -80,3 +80,7 @@ def test_model_deletion():
     model = ModelFactory.get("640b517694bf816d35a59125")
     with pytest.raises(Exception):
         model.delete()
+        
+def test_model_sort():
+    models = ModelFactory.list(sort_by = SortBy.DATE)['results']
+    assert bool(models) is True
