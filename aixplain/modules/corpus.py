@@ -20,13 +20,18 @@ Date: February 1st 2023
 Description:
     Corpus Class
 """
+import logging
+
 from aixplain.enums.function import Function
 from aixplain.enums.license import License
 from aixplain.enums.onboard_status import OnboardStatus
 from aixplain.enums.privacy import Privacy
 from aixplain.modules.asset import Asset
 from aixplain.modules.data import Data
+from aixplain.utils import config
+from aixplain.utils.file_utils import _request_with_retry
 from typing import Any, List, Optional, Text
+from urllib.parse import urljoin
 
 
 class Corpus(Asset):
@@ -76,3 +81,17 @@ class Corpus(Asset):
         self.data = data
         self.length = length
         self.kwargs = kwargs
+
+    def delete(self) -> None:
+        """Delete Corpus service"""
+        try:
+            url = urljoin(config.BACKEND_URL, f"sdk/corpora/{self.id}")
+            headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+            logging.info(f"Start service for DELETE Corpus  - {url} - {headers}")
+            r = _request_with_retry("delete", url, headers=headers)
+            if r.status_code != 200:
+                raise Exception()
+        except Exception:
+            message = "Corpus Deletion Error: Make sure the corpus exists and you are the owner."
+            logging.error(message)
+            raise Exception(f"{message}")

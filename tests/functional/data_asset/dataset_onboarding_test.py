@@ -17,8 +17,10 @@ limitations under the License.
 """
 
 import pytest
+import time
+
 from uuid import uuid4
-from aixplain.enums import Function, Language, License, Privacy, DataSubtype, DataType, StorageType
+from aixplain.enums import Function, Language, License, Privacy, DataSubtype, DataType, StorageType, OnboardStatus
 from aixplain.factories import DatasetFactory
 from aixplain.modules import MetaData
 
@@ -52,7 +54,7 @@ def split():
     )
 
 
-def test_dataset_onboard(meta1, meta2):
+def test_dataset_onboard_get_delete(meta1, meta2):
     upload_file = "tests/functional/data_asset/input/audio-en_url.csv"
 
     response = DatasetFactory.create(
@@ -66,7 +68,18 @@ def test_dataset_onboard(meta1, meta2):
         tags=[],
         privacy=Privacy.PRIVATE,
     )
-    assert response["status"] == "onboarding"
+    asset_id = response["asset_id"]
+    onboard_status = OnboardStatus(response["status"])
+    while onboard_status == OnboardStatus.ONBOARDING:
+        dataset = DatasetFactory.get(asset_id)
+        onboard_status = dataset.onboard_status
+        time.sleep(1)
+    # assert the asset was onboarded
+    assert onboard_status == OnboardStatus.ONBOARDED
+    # assert the asset was deleted
+    dataset.delete()
+    with pytest.raises(Exception):
+        dataset = DatasetFactory.get(asset_id)
 
 
 def test_invalid_dataset_onboard(meta1, meta2):
@@ -138,3 +151,12 @@ def test_valid_dataset_splitting(meta1, meta2, split):
     )
 
     assert response["status"] == "onboarding"
+    asset_id = response["asset_id"]
+    onboard_status = OnboardStatus(response["status"])
+    while onboard_status == OnboardStatus.ONBOARDING:
+        dataset = DatasetFactory.get(asset_id)
+        onboard_status = dataset.onboard_status
+        time.sleep(1)
+    # assert the asset was onboarded
+    assert onboard_status == OnboardStatus.ONBOARDED
+    dataset.delete()

@@ -17,13 +17,13 @@ limitations under the License.
 """
 
 import pytest
-from aixplain.enums.language import Language
-from aixplain.enums.license import License
+import time
+from aixplain.enums import Language, License, OnboardStatus
 from aixplain.factories.corpus_factory import CorpusFactory
 from uuid import uuid4
 
 
-def test_corpus_onboard():
+def test_corpus_onboard_get_delete():
     upload_file = "tests/functional/data_asset/input/audio-en_url.csv"
     schema = [
         {
@@ -37,14 +37,25 @@ def test_corpus_onboard():
         {"name": "text", "dtype": "text", "storage_type": "text", "languages": [Language.English_UNITED_STATES]},
     ]
 
-    payload = CorpusFactory.create(
+    response = CorpusFactory.create(
         name=str(uuid4()),
         description="This corpus contain 20 English audios with their corresponding transcriptions.",
         license=License.MIT,
         content_path=upload_file,
         schema=schema,
     )
-    assert payload["status"] == "onboarding"
+    asset_id = response["asset_id"]
+    onboard_status = OnboardStatus(response["status"])
+    while onboard_status == OnboardStatus.ONBOARDING:
+        corpus = CorpusFactory.get(asset_id)
+        onboard_status = corpus.onboard_status
+        time.sleep(1)
+    # assert the asset was onboarded
+    assert onboard_status == OnboardStatus.ONBOARDED
+    # assert the asset was deleted
+    corpus.delete()
+    with pytest.raises(Exception):
+        corpus = CorpusFactory.get(asset_id)
 
 
 def test_corpus_listing():

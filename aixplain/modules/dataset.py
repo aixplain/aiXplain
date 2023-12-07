@@ -21,13 +21,17 @@ Description:
     Datasets Class
 """
 
+import logging
+
 from aixplain.enums.function import Function
 from aixplain.enums.license import License
 from aixplain.enums.onboard_status import OnboardStatus
 from aixplain.enums.privacy import Privacy
 from aixplain.modules.asset import Asset
 from aixplain.modules.data import Data
-from aixplain.utils.file_utils import _request_with_retry, save_file
+from aixplain.utils import config
+from aixplain.utils.file_utils import _request_with_retry
+from urllib.parse import urljoin
 from typing import Any, Dict, List, Optional, Text
 
 
@@ -115,3 +119,17 @@ class Dataset(Asset):
 
     def __repr__(self):
         return f"<Dataset: {self.name}>"
+
+    def delete(self) -> None:
+        """Delete Dataset service"""
+        try:
+            url = urljoin(config.BACKEND_URL, f"sdk/datasets/{self.id}")
+            headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+            logging.info(f"Start service for DELETE Dataset  - {url} - {headers}")
+            r = _request_with_retry("delete", url, headers=headers)
+            if r.status_code != 200:
+                raise Exception()
+        except Exception:
+            message = "Dataset Deletion Error: Make sure the dataset exists and you are the owner."
+            logging.error(message)
+            raise Exception(f"{message}")
