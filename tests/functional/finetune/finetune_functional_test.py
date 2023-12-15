@@ -31,6 +31,7 @@ import pytest
 
 TIMEOUT = 20000.0
 RUN_FILE = "tests/functional/finetune/data/finetune_test_end2end.json"
+ESTIMATE_COST_FILE = "tests/functional/finetune/data/finetune_test_cost_estimation.json"
 LIST_FILE = "tests/functional/finetune/data/finetune_test_list_data.json"
 PROMPT_FILE = "tests/functional/finetune/data/finetune_test_prompt_validator.json"
 
@@ -41,6 +42,11 @@ def read_data(data_path):
 
 @pytest.fixture(scope="module", params=read_data(RUN_FILE))
 def run_input_map(request):
+    return request.param
+
+
+@pytest.fixture(scope="module", params=read_data(ESTIMATE_COST_FILE))
+def estimate_cost_input_map(request):
     return request.param
 
 
@@ -80,6 +86,17 @@ def test_end2end_text_generation(run_input_map):
     result = finetune_model.run(run_input_map["inference_data"])
     assert result is not None
     finetune_model.delete()
+
+
+def test_cost_estimation_text_generation(estimate_cost_input_map):
+    model = ModelFactory.get(estimate_cost_input_map["model_id"])
+    dataset_list = [DatasetFactory.list(query=estimate_cost_input_map["dataset_name"])["results"][0]]
+    finetune = FinetuneFactory.create(str(uuid.uuid4()), dataset_list, model)
+    assert type(finetune.cost) is FinetuneCost
+    cost_map = finetune.cost.to_dict()
+    assert "trainingCost" in cost_map
+    assert "hostingCost" in cost_map
+    assert "inferenceCost" in cost_map
 
 
 def test_list_finetunable_models(list_input_map):

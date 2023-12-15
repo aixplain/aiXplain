@@ -1,11 +1,13 @@
 [
     {
+        "model_name": "gpt2",
         "model_id": "64e615671567f848804985e1",
         "dataset_name": "Test text generation dataset",
         "inference_data": "Hello!",
         "required_dev": true
     },
     {
+        "model_name": "aiR",
         "model_id": "6499cc946eb5633de15d82a1",
         "dataset_name": "Test search dataset",
         "inference_data": "Hello!",
