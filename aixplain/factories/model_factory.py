@@ -24,7 +24,7 @@ from typing import Dict, List, Optional, Text, Tuple, Union
 import json
 import logging
 from aixplain.modules.model import Model
-from aixplain.enums import Function, Language, OwnershipType, Supplier
+from aixplain.enums import Function, Language, OwnershipType, Supplier, SortBy, SortOrder
 from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
 from urllib.parse import urljoin
@@ -130,6 +130,8 @@ class ModelFactory:
         target_languages: Union[Language, List[Language]],
         is_finetunable: bool = None,
         ownership: Optional[Tuple[OwnershipType, List[OwnershipType]]] = None,
+        sort_by: Optional[SortBy] = None,
+        sort_order: SortOrder = SortOrder.ASCENDING,
     ) -> List[Model]:
         try:
             url = urljoin(cls.backend_url, f"sdk/models/paginate")
@@ -146,6 +148,7 @@ class ModelFactory:
                 if isinstance(ownership, OwnershipType) is True:
                     ownership = [ownership]
                 filter_params["ownership"] = [ownership_.value for ownership_ in ownership]
+
             lang_filter_params = []
             if source_languages is not None:
                 if isinstance(source_languages, Language):
@@ -162,6 +165,8 @@ class ModelFactory:
                 if function == Function.TRANSLATION:
                     code = "targetlanguage"
                     lang_filter_params.append({"code": code, "value": target_languages[0].value["language"]})
+            if sort_by is not None:
+                filter_params["sort"] = [{"dir": sort_order.value, "field": sort_by.value}]
             if len(lang_filter_params) != 0:
                 filter_params["ioFilter"] = lang_filter_params
             if cls.aixplain_key != "":
@@ -191,6 +196,8 @@ class ModelFactory:
         target_languages: Optional[Union[Language, List[Language]]] = None,
         is_finetunable: Optional[bool] = None,
         ownership: Optional[Tuple[OwnershipType, List[OwnershipType]]] = None,
+        sort_by: Optional[SortBy] = None,
+        sort_order: SortOrder = SortOrder.ASCENDING,
         page_number: int = 0,
         page_size: int = 20,
     ) -> List[Model]:
@@ -202,6 +209,7 @@ class ModelFactory:
             target_languages (Optional[Union[Language, List[Language]]], optional): language filter of output data. Defaults to None.
             is_finetunable (Optional[bool], optional): can be finetuned or not. Defaults to None.
             ownership (Optional[Tuple[OwnershipType, List[OwnershipType]]], optional): Ownership filters (e.g. SUBSCRIBED, OWNER). Defaults to None.
+            sort_by (Optional[SortBy], optional): sort the retrived models by a specific attribute,
             page_number (int, optional): page number. Defaults to 0.
             page_size (int, optional): page size. Defaults to 20.
 
@@ -219,6 +227,8 @@ class ModelFactory:
                 target_languages,
                 is_finetunable,
                 ownership,
+                sort_by,
+                sort_order,
             )
             return {
                 "results": models,
