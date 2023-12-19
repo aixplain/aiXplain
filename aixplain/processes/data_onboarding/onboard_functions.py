@@ -155,7 +155,7 @@ def build_payload_corpus(corpus: Corpus, ref_data: List[Text], error_handler: Er
         "suggestedFunctions": [f.value for f in corpus.functions],
         "onboardingErrorsPolicy": error_handler.value,
         "tags": corpus.tags,
-        "pricing": {"type": "FREE", "cost": 0},
+        "pricing": {"usage": ["benchmark", "finetune"], "type": "free", "cost": 0},
         "privacy": corpus.privacy.value,
         "license": {"typeId": corpus.license.value},
         "refData": ref_data,
