@@ -69,6 +69,7 @@ class ModelFactory:
             function=Function(response["function"]["id"]),
             parameters=parameters,
             is_subscribed=True if "subscription" in response else False,
+            version=response["version"]["id"],
         )
 
     @classmethod
