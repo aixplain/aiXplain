@@ -59,7 +59,7 @@ class Model(Asset):
         description: Text = "",
         api_key: Optional[Text] = None,
         supplier: Text = "aiXplain",
-        version: Text = "1.0",
+        version: Optional[Text] = None,
         function: Optional[Text] = None,
         is_subscribed: bool = False,
         **additional_info,
