@@ -404,3 +404,41 @@ class ModelFactory:
         message = "Your onboarding request has been submitted to an aiXplain specialist for finalization. We will notify you when the process is completed."
         logging.info(message)
         return response
+    
+    @classmethod
+    def deploy_huggingface_model(cls, name: Text, hf_repo_id: Text, hf_token: Optional[Text] = None, api_key: Optional[Text] = None) -> Dict:
+        """Onboards and deploys a Hugging Face large language model.
+
+        Args:
+            name (Text): The user's name for the model.
+            hf_repo_id (Text): The Hugging Face repository ID for this model ({author}/{model name}).
+            hf_token (Text, optional): Hugging Face access token. Defaults to None.
+            api_key (Text, optional): Team API key. Defaults to None.
+        Returns:
+            Dict: Backend response
+        """
+        supplier, model_name = hf_repo_id.split("/")
+        deploy_url = urljoin(config.BACKEND_URL, f"sdk/model-onboarding/onboard")
+        if api_key:
+            headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
+        else:
+            headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+        body = {
+            "model": {
+                "name": name,
+                "description": "A user-deployed Hugging Face model",
+                "connectionType": ["synchronous"],
+                "function": "text-generation",
+                "documentationUrl": "aiXplain",
+                "sourceLanguage": "en",
+            },
+            "source": "huggingface",
+            "onboardingParams": {
+                "name": model_name,
+                "author": supplier,
+                "token": hf_token
+            }
+        }
+        response = _request_with_retry("post", deploy_url, headers=headers, json=body)
+        logging.info(response.text)
+        return response
