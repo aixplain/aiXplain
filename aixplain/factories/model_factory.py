@@ -442,3 +442,22 @@ class ModelFactory:
         response = _request_with_retry("post", deploy_url, headers=headers, json=body)
         logging.info(response.text)
         return response
+    
+    @classmethod
+    def get_huggingface_model_status(cls, model_id: Text, api_key: Optional[Text] = None):
+        """Gets the on-boarding status of a Hugging Face model with ID MODEL_ID. 
+
+        Args:
+            model_id (Text): The model's ID as returned by DEPLOY_HUGGINGFACE_MODEL
+            api_key (Text, optional): Team API key. Defaults to None.
+        Returns:
+            Dict: Backend response
+        """
+        status_url = urljoin(config.BACKEND_URL, f"sdk/models/{model_id}")
+        if api_key:
+            headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
+        else:
+            headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+        response = _request_with_retry("get", status_url, headers=headers)
+        logging.info(response.text)
+        return response
