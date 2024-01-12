@@ -153,7 +153,9 @@ def deploy_huggingface_model(name: Text, hf_repo_id: Text,
     Returns:
         None
     """
-    
+    ret_val = ModelFactory.deploy_huggingface_model(name, hf_repo_id, hf_token, api_key)
+    ret_val_yaml = yaml.dump(ret_val)
+    click.echo(ret_val_yaml)
 
 @click.command("hf-model-status")
 @click.option("--model-id", help="Model ID from DEPLOY_HUGGINGFACE_MODEL.")
