@@ -1,8 +1,10 @@
 from dataclasses import dataclass
 from dataclasses_json import dataclass_json
+from enum import Enum
+from typing import Text
 
 
-class SchedulerType:
+class SchedulerType(Text, Enum):
     LINEAR = "linear"
     COSINE = "cosine"
     COSINE_WITH_RESTARTS = "cosine_with_restarts"
@@ -13,52 +15,49 @@ class SchedulerType:
     REDUCE_ON_PLATEAU = "reduce_lr_on_plateau"
 
 
-EPOCHS = [1]
-BATCH_SIZE = [1]
+EPOCHS_MAX_VALUE = 4
+MAX_SEQ_LENGTH_MAX_VALUE = 4096
+GENERATION_MAX_LENGTH_MAX_VALUE = 225
 
 
 @dataclass_json
 @dataclass
 class Hyperparameters(object):
     epochs: int = 1
-    train_batch_size: int = 1
-    # work with only default values
-    eval_batch_size: int = 1
-    learning_rate: float = 2e-5
+    learning_rate: float = 1e-5
     generation_max_length: int = 225
-    gradient_checkpointing: bool = False
-    gradient_accumulation_steps: int = 1
     max_seq_length: int = 4096
     warmup_ratio: float = 0.0
     warmup_steps: int = 0
     lr_scheduler_type: SchedulerType = SchedulerType.LINEAR
 
-    @property
-    def epochs(self) -> int:
-        return self._epochs
+    def __post_init__(self):
+        if not isinstance(self.epochs, int):
+            raise TypeError("epochs should be of type int")
 
-    @epochs.setter
-    def epochs(self, value: int) -> None:
-        if value not in EPOCHS:
-            raise ValueError(f"epochs must be one of the following values: {EPOCHS}")
-        self._epochs = value
+        if not isinstance(self.learning_rate, float):
+            raise TypeError("learning_rate should be of type float")
 
-    @property
-    def train_batch_size(self) -> int:
-        return self._train_batch_size
+        if not isinstance(self.generation_max_length, int):
+            raise TypeError("generation_max_length should be of type int")
 
-    @train_batch_size.setter
-    def train_batch_size(self, value: int) -> None:
-        if value not in BATCH_SIZE:
-            raise ValueError(f"train_batch_size must be one of the following values: {BATCH_SIZE}")
-        self._train_batch_size = value
+        if not isinstance(self.max_seq_length, int):
+            raise TypeError("max_seq_length should be of type int")
 
-    @property
-    def eval_batch_size(self) -> int:
-        return self._eval_batch_size
+        if not isinstance(self.warmup_ratio, float):
+            raise TypeError("warmup_ratio should be of type float")
 
-    @eval_batch_size.setter
-    def eval_batch_size(self, value: int) -> None:
-        if value not in BATCH_SIZE:
-            raise ValueError(f"eval_batch_size must be one of the following values: {BATCH_SIZE}")
-        self._eval_batch_size = value
+        if not isinstance(self.warmup_steps, int):
+            raise TypeError("warmup_steps should be of type int")
+
+        if not isinstance(self.lr_scheduler_type, SchedulerType):
+            raise TypeError("lr_scheduler_type should be of type SchedulerType")
+
+        if self.epochs > EPOCHS_MAX_VALUE:
+            raise ValueError(f"epochs must be one less than {EPOCHS_MAX_VALUE}")
+
+        if self.max_seq_length > MAX_SEQ_LENGTH_MAX_VALUE:
+            raise ValueError(f"max_seq_length must be less than {MAX_SEQ_LENGTH_MAX_VALUE}")
+
+        if self.generation_max_length > GENERATION_MAX_LENGTH_MAX_VALUE:
+            raise ValueError(f"generation_max_length must be less than {GENERATION_MAX_LENGTH_MAX_VALUE}")
