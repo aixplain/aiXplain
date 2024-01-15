@@ -1,7 +1,7 @@
 [
     {
-        "model_name": "gpt2",
-        "model_id": "64e615671567f848804985e1",
+        "model_name": "llama2 7b", 
+        "model_id": "6543cb991f695e72028e9428",
         "dataset_name": "Test text generation dataset",
         "inference_data": "Hello!",
         "required_dev": true
