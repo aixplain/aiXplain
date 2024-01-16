@@ -441,7 +441,8 @@ class ModelFactory:
         }
         response = _request_with_retry("post", deploy_url, headers=headers, json=body)
         logging.info(response.text)
-        return response
+        response_dicts = json.loads(response.text)
+        return response_dicts
     
     @classmethod
     def get_huggingface_model_status(cls, model_id: Text, api_key: Optional[Text] = None):
