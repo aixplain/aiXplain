@@ -434,9 +434,9 @@ class ModelFactory:
             },
             "source": "huggingface",
             "onboardingParams": {
-                "name": model_name,
-                "author": supplier,
-                "token": hf_token
+                "hf_model_name": model_name,
+                "hf_supplier": supplier,
+                "hf_token": hf_token
             }
         }
         response = _request_with_retry("post", deploy_url, headers=headers, json=body)
