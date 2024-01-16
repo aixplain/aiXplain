@@ -440,7 +440,7 @@ class ModelFactory:
             }
         }
         response = _request_with_retry("post", deploy_url, headers=headers, json=body)
-        logging.info(response.text)
+        logging.debug(response.text)
         response_dicts = json.loads(response.text)
         return response_dicts
     
@@ -460,5 +460,6 @@ class ModelFactory:
         else:
             headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
         response = _request_with_retry("get", status_url, headers=headers)
-        logging.info(response.text)
-        return response
+        logging.debug(response.text)
+        response_dicts = json.loads(response.text)
+        return response_dicts
