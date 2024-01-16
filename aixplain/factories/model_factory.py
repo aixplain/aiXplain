@@ -462,4 +462,10 @@ class ModelFactory:
         response = _request_with_retry("get", status_url, headers=headers)
         logging.debug(response.text)
         response_dicts = json.loads(response.text)
-        return response_dicts
+        ret_dict = {
+            "status": response_dicts["status"],
+            "name": response_dicts["name"],
+            "id": response_dicts["id"],
+            "pricing": response_dicts["pricing"]
+        }
+        return ret_dict
