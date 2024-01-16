@@ -26,7 +26,6 @@ import json
 from urllib.parse import urljoin
 from aixplain.modules.finetune.cost import FinetuneCost
 from aixplain.modules.finetune.hyperparameters import Hyperparameters
-from aixplain.modules.finetune.peft import Peft
 from aixplain.factories.model_factory import ModelFactory
 from aixplain.modules.asset import Asset
 from aixplain.modules.dataset import Dataset
@@ -52,7 +51,6 @@ class Finetune(Asset):
         dev_percentage (float): Percentage of development samples.
         prompt_template (Text): Fine-tuning prompt_template.
         hyperparameters (Hyperparameters): Hyperparameters for fine-tuning.
-        peft (Peft): PEFT (Parameter-Efficient Fine-Tuning) configuration.
         additional_info (dict): Additional information to be saved with the FineTune.
         backend_url (str): URL of the backend.
         api_key (str): The TEAM API key used for authentication.
@@ -72,7 +70,6 @@ class Finetune(Asset):
         dev_percentage: Optional[float] = 0,
         prompt_template: Optional[Text] = None,
         hyperparameters: Optional[Hyperparameters] = None,
-        peft: Optional[Peft] = None,
         **additional_info,
     ) -> None:
         """Create a FineTune with the necessary information.
@@ -90,7 +87,6 @@ class Finetune(Asset):
             dev_percentage (float, optional): Percentage of development samples. Defaults to 0.
             prompt_template (Text, optional): Fine-tuning prompt_template. Should reference columns in the dataset using format <<COLUMN_NAME>>. Defaults to None.
             hyperparameters (Hyperparameters, optional): Hyperparameters for fine-tuning. Defaults to None.
-            peft (Peft, optional): PEFT (Parameter-Efficient Fine-Tuning) configuration. Defaults to None.
             **additional_info: Additional information to be saved with the FineTune.
         """
         super().__init__(id, name, description, supplier, version)
@@ -101,7 +97,6 @@ class Finetune(Asset):
         self.dev_percentage = dev_percentage
         self.prompt_template = prompt_template
         self.hyperparameters = hyperparameters
-        self.peft = peft
         self.additional_info = additional_info
         self.backend_url = config.BACKEND_URL
         self.api_key = config.TEAM_API_KEY
@@ -134,8 +129,6 @@ class Finetune(Asset):
                 parameters["prompt"] = self.prompt_template
             if self.hyperparameters is not None:
                 parameters["hyperparameters"] = self.hyperparameters.to_dict()
-            if self.peft is not None:
-                parameters["peft"] = self.peft.to_dict()
             payload["parameters"] = parameters
             logging.info(f"Start service for POST Start FineTune - {url} - {headers} - {json.dumps(payload)}")
             r = _request_with_retry("post", url, headers=headers, json=payload)
