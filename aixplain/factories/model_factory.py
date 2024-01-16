@@ -420,7 +420,7 @@ class ModelFactory:
         supplier, model_name = hf_repo_id.split("/")
         deploy_url = urljoin(config.BACKEND_URL, f"sdk/model-onboarding/onboard")
         if api_key:
-            headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
+            headers = {"Authorization": f"Token {api_key}", "Content-Type": "application/json"}
         else:
             headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
         body = {
@@ -456,7 +456,7 @@ class ModelFactory:
         """
         status_url = urljoin(config.BACKEND_URL, f"sdk/models/{model_id}")
         if api_key:
-            headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
+            headers = {"Authorization": f"Token {api_key}", "Content-Type": "application/json"}
         else:
             headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
         response = _request_with_retry("get", status_url, headers=headers)
