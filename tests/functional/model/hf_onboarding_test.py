@@ -19,3 +19,10 @@ def test_deploy_model():
 
     # Clean up
     delete_asset(model_id)
+
+def test_nonexistent_model():
+    # Start the deployment
+    model_name = "Test Model"
+    repo_id = "nonexistent-supplier/nonexistent-model"
+    response = ModelFactory.deploy_huggingface_model(model_name, repo_id)
+    assert response["statusCode"] == 400
