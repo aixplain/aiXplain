@@ -4,7 +4,7 @@
         "data": "This is a test sentence."
     },
     "pipeline": {
-        "id" : "64da138fa27cffd5e0c3c30d",
+        "name": "SingleNodePipeline",
         "data": "This is a test sentence."
     },
     "metric": {

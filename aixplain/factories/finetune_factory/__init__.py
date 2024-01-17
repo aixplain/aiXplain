@@ -28,7 +28,6 @@ from aixplain.factories.finetune_factory.prompt_validator import validate_prompt
 from aixplain.modules.finetune import Finetune
 from aixplain.modules.finetune.cost import FinetuneCost
 from aixplain.modules.finetune.hyperparameters import Hyperparameters
-from aixplain.modules.finetune.peft import Peft
 from aixplain.modules.dataset import Dataset
 from aixplain.modules.model import Model
 from aixplain.utils import config
@@ -66,7 +65,6 @@ class FinetuneFactory:
         model: Model,
         prompt_template: Optional[Text] = None,
         hyperparameters: Optional[Hyperparameters] = None,
-        peft: Optional[Peft] = None,
         train_percentage: Optional[float] = 100,
         dev_percentage: Optional[float] = 0,
     ) -> Finetune:
@@ -78,7 +76,6 @@ class FinetuneFactory:
             model (Model): Model to be fine-tuned.
             prompt_template (Text, optional): Fine-tuning prompt_template. Should reference columns in the dataset using format <<COLUMN_NAME>>. Defaults to None.
             hyperparameters (Hyperparameters, optional): Hyperparameters for fine-tuning. Defaults to None.
-            peft (Peft, optional): PEFT (Parameter-Efficient Fine-Tuning) configuration. Defaults to None.
             train_percentage (float, optional): Percentage of training samples. Defaults to 100.
             dev_percentage (float, optional): Percentage of development samples. Defaults to 0.
         Returns:
@@ -106,8 +103,6 @@ class FinetuneFactory:
                 parameters["prompt"] = prompt_template
             if hyperparameters is not None:
                 parameters["hyperparameters"] = hyperparameters.to_dict()
-            if peft is not None:
-                parameters["peft"] = peft.to_dict()
             payload["parameters"] = parameters
             logging.info(f"Start service for POST Create FineTune - {url} - {headers} - {json.dumps(payload)}")
             r = _request_with_retry("post", url, headers=headers, json=payload)
@@ -123,7 +118,6 @@ class FinetuneFactory:
                 dev_percentage=dev_percentage,
                 prompt_template=prompt_template,
                 hyperparameters=hyperparameters,
-                peft=peft,
             )
         except Exception:
             error_message = f"Create FineTune: Error with payload {json.dumps(payload)}"

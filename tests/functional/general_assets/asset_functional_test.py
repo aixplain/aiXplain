@@ -40,7 +40,10 @@ def test_list(asset_name):
 def test_run(inputs, asset_name):
     asset_details = inputs[asset_name]
     AssetFactory = __get_asset_factory(asset_name)
-    asset = AssetFactory.get(asset_details["id"])
+    if asset_name == "pipeline":
+        asset = AssetFactory.list(query=asset_details["name"])["results"][0]
+    else:
+        asset = AssetFactory.get(asset_details["id"])
     payload = asset_details["data"]
     if type(payload) is dict:
         output = asset.run(**payload)
