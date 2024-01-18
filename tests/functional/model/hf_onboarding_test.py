@@ -4,6 +4,7 @@ import time
 
 from aixplain.factories.model_factory import ModelFactory
 from tests.test_utils import delete_asset
+from aixplain.utils import config
 
 def test_deploy_model():
     # Start the deployment
@@ -23,7 +24,7 @@ def test_deploy_model():
             assert ModelFactory.get_huggingface_model_status(model_id)["status"].lower() == "onboarded"
 
     # Clean up
-    delete_asset(model_id)
+    delete_asset(model_id, config.TEAM_API_KEY)
 
 def test_nonexistent_model():
     # Start the deployment
