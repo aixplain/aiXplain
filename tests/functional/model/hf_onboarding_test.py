@@ -14,7 +14,7 @@ def test_deploy_model():
 
     # Check for status
     model_id = response["id"]
-    while ModelFactory.get_huggingface_model_status(model_id).lower() != "onboarded":
+    while ModelFactory.get_huggingface_model_status(model_id)["status"].lower() != "onboarded":
         time.sleep(10)
 
     # Clean up
