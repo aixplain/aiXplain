@@ -406,7 +406,7 @@ class ModelFactory:
         return response
     
     @classmethod
-    def deploy_huggingface_model(cls, name: Text, hf_repo_id: Text, hf_token: Optional[Text] = None, api_key: Optional[Text] = None) -> Dict:
+    def deploy_huggingface_model(cls, name: Text, hf_repo_id: Text, hf_token: Optional[Text] = "", api_key: Optional[Text] = None) -> Dict:
         """Onboards and deploys a Hugging Face large language model.
 
         Args:
