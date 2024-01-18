@@ -14,8 +14,13 @@ def test_deploy_model():
 
     # Check for status
     model_id = response["id"]
+    num_retries = 120
+    counter = 0
     while ModelFactory.get_huggingface_model_status(model_id)["status"].lower() != "onboarded":
         time.sleep(10)
+        counter += 1
+        if counter == num_retries:
+            assert ModelFactory.get_huggingface_model_status(model_id)["status"].lower() == "onboarded"
 
     # Clean up
     delete_asset(model_id)
