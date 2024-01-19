@@ -135,3 +135,41 @@ def onboard_model(model_id: Text, image_tag: Text, image_hash: Text,
     ret_val = ModelFactory.onboard_model(model_id, image_tag, image_hash, api_key)
     ret_val_yaml = yaml.dump(ret_val)
     click.echo(ret_val_yaml)
+
+@click.command("hf-model")
+@click.option("--name", help="User-defined name for Hugging Face model.")
+@click.option("--hf-repo-id", help="Repository ID from Hugging Face in {supplier}/{model name} form.")
+@click.option("--hf-token", help="Hugging Face token used to authenticate to this model.")
+@click.option("--api-key", default=None, help="TEAM_API_KEY if not already set in environment.")
+def deploy_huggingface_model(name: Text, hf_repo_id: Text, 
+                             hf_token: Optional[Text] = None, 
+                             api_key: Optional[Text] = None) -> None:
+    """CLI wrapper function for the DEPLOY_HUGGINGFACE_MODEL function in ModelFactory.
+
+    Args:
+        name (Text): User-defined name for Hugging Face model.
+        api_key (Text, optional): Team API key. Defaults to None.
+
+    Returns:
+        None
+    """
+    ret_val = ModelFactory.deploy_huggingface_model(name, hf_repo_id, hf_token, api_key)
+    ret_val_yaml = yaml.dump(ret_val)
+    click.echo(ret_val_yaml)
+
+@click.command("hf-model-status")
+@click.option("--model-id", help="Model ID from DEPLOY_HUGGINGFACE_MODEL.")
+@click.option("--api-key", default=None, help="TEAM_API_KEY if not already set in environment.")
+def get_huggingface_model_status(model_id: Text, api_key: Optional[Text] = None) -> None:
+    """CLI wrapper function for the GET_HUGGINGFACE_MODEL_STATUS function in ModelFactory.
+
+    Args:
+        model_id (Text): Model ID obtained from DEPLOY_HUGGINGFACE_MODEL.
+        api_key (Text, optional): Team API key. Defaults to None.
+
+    Returns:
+        None
+    """
+    ret_val = ModelFactory.get_huggingface_model_status(model_id, api_key)
+    ret_val_yaml = yaml.dump(ret_val)
+    click.echo(ret_val_yaml)
