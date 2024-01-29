@@ -1,7 +1,7 @@
 {
     "name": "mock_name",
     "description": "mock_description",
-    "function": "text-generation",
+    "function": "Text Generation",
     "input_modality": "text",
     "output_modality": "text",
     "sourceLanguage": "en"
