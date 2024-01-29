@@ -304,10 +304,10 @@ class ModelFactory:
     def create_asset_repo(
         cls,
         name: Text,
-        hosting_machine: Text,
-        version: Text,
         description: Text,
         function: Text,
+        input_modality: Text,
+        output_modality: Text,
         source_language: Text,
         api_key: Optional[Text] = None,
     ) -> Dict:
@@ -316,12 +316,10 @@ class ModelFactory:
 
         Args:
             name (Text): Model name
-            hosting_machine (Text): Hosting machine ID obtained via list_host_machines
-            always_on (bool): Whether the model should always be on
-            version (Text): Model version
             description (Text): Model description
-            function (Text): Model function name obtained via LIST_HOST_MACHINES
-            is_async (bool): Whether the model is asynchronous or not (False in first release)
+            function (Text): Model function name obtained via LIST_FUNCTIONS
+            input_modality (Text): Modality of the inputs to this model.
+            output_modality (Text): Modality of the outputs to this model.
             source_language (Text): 2-character 639-1 code or 3-character 639-3 language code.
             api_key (Text, optional): Team API key. Defaults to None.
 
@@ -336,23 +334,28 @@ class ModelFactory:
                 function_id = function_dict["id"]
         if function_id is None:
             raise Exception("Invalid function name")
-        create_url = urljoin(config.BACKEND_URL, f"sdk/models/register")
+        create_url = urljoin(config.BACKEND_URL, f"sdk/models/onboard")
         logging.debug(f"URL: {create_url}")
         if api_key:
             headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
         else:
             headers = {"x-api-key": f"{config.TEAM_API_KEY}", "Content-Type": "application/json"}
-        always_on = False
-        is_async = False  # Hard-coded to False for first release
         payload = {
-            "name": name,
-            "hostingMachine": hosting_machine,
-            "alwaysOn": always_on,
-            "version": version,
-            "description": description,
-            "function": function_id,
-            "isAsync": is_async,
-            "sourceLanguage": source_language,
+            "model": {
+                "name": name,
+                "description": description,
+                "connectionType": [
+                    "asynchronous"
+                ],
+                "function": function_id,
+                "modalities": [
+                    f"{input_modality}-{output_modality}"
+                ],
+                "documentationUrl": "aiXplain",
+                "sourceLanguage": source_language
+            },
+            "source": "aixplain-ecr",
+            "onboardingParams": {}
         }
         payload = json.dumps(payload)
         logging.debug(f"Body: {str(payload)}")
