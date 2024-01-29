@@ -9,15 +9,6 @@ import docker
 import os
 
 def test_create_and_upload_model():
-    # List the host machines
-    host_response = ModelFactory.list_host_machines()
-    for hosting_machine_dict in host_response:
-        assert "code" in hosting_machine_dict.keys()
-        assert "type" in hosting_machine_dict.keys()
-        assert "cores" in hosting_machine_dict.keys()
-        assert "memory" in hosting_machine_dict.keys()
-        assert "hourlyCost" in hosting_machine_dict.keys()
-
     # List the functions
     response = ModelFactory.list_functions()
     items = response["items"]
@@ -31,12 +22,12 @@ def test_create_and_upload_model():
     with open(Path("tests/test_requests/create_asset_request.json")) as f:
         register_payload = json.load(f)
     name = register_payload["name"]
-    host_machine = register_payload["hostingMachine"]
-    version = register_payload["version"]
     description = register_payload["description"]
     function = register_payload["function"]
+    input_modality = register_payload["input_modality"]
+    output_modality = register_payload["input_modality"]
     source_language = register_payload["sourceLanguage"]
-    register_response = ModelFactory.create_asset_repo(name, host_machine, version, description, function, source_language)
+    register_response = ModelFactory.create_asset_repo(name, description, function, input_modality, output_modality, source_language)
     assert "id" in register_response.keys()
     assert "repositoryName" in register_response.keys()
     model_id = register_response["id"]

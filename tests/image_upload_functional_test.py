@@ -19,12 +19,12 @@ def test_create_asset_repo():
     with open(Path("tests/test_requests/create_asset_request.json")) as f:
         mock_register_payload = json.load(f)
     name = mock_register_payload["name"]
-    host_machine = mock_register_payload["hostingMachine"]
-    version = mock_register_payload["version"]
     description = mock_register_payload["description"]
     function = mock_register_payload["function"]
+    input_modality = mock_register_payload["input_modality"]
+    output_modality = mock_register_payload["input_modality"]
     source_language = mock_register_payload["sourceLanguage"]
-    response = ModelFactory.create_asset_repo(name, host_machine, version, description, function, source_language)
+    response = ModelFactory.create_asset_repo(name, description, function, input_modality, output_modality, source_language)
     print(response)
     response_dict = dict(response)
     assert "id" in response_dict.keys()
