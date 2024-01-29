@@ -1,9 +1,10 @@
 __author__ = "michaellam"
+
 from pathlib import Path
 import json
-from aixplain.utils import config
-from tests.test_utils import delete_asset, delete_service_account
 from aixplain.factories.model_factory import ModelFactory
+from tests.test_utils import delete_asset, delete_service_account
+from aixplain.utils import config
 import pytest
 
 def test_login():
