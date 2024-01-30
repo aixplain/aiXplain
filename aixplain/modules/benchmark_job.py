@@ -92,3 +92,24 @@ class BenchmarkJob:
             error_message = f"Downloading Benchmark Results: Error in Downloading Benchmark Results : {e}"
             logging.error(error_message, exc_info=True)
             raise Exception(error_message)
+
+
+    def get_scores(self):
+        try:
+            resp = self._fetch_current_response(self.id)
+            iterations = resp.get("iterations", [])
+            scores = {}
+            for iteration_info in iterations:
+                model_id = iteration_info["pipeline"]
+                model_info = {
+                    "creditsUsed" : round(iteration_info["credits"],5),
+                    "timeSpent" : round(iteration_info["runtime"],2),
+                    "status" : iteration_info["status"],
+                    "rawScores" : iteration_info["scores"],
+                }
+                scores[model_id] = model_info
+            return scores
+        except Exception as e:
+            error_message = f"Benchmark scores: Error in Getting benchmark scores: {e}"
+            logging.error(error_message, exc_info=True)
+            raise Exception(error_message)
