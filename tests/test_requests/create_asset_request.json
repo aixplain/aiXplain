@@ -65,8 +65,8 @@
     "search":
     {
         "name": "mock_name",
-        "description": "sear",
-        "function": "search",
+        "description": "mock",
+        "function": "Search",
         "input_modality": "text",
         "output_modality": "text",
         "sourceLanguage": "en"
