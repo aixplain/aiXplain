@@ -12,7 +12,7 @@
     {
         "name": "mock_name",
         "description": "mock_description",
-        "function": "Text Summarization",
+        "function": "Text summarization",
         "input_modality": "text",
         "output_modality": "text",
         "sourceLanguage": "en"
