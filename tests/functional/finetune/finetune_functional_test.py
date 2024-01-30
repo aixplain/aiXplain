@@ -110,7 +110,7 @@ def test_list_finetunable_models(list_input_map):
 
 
 def test_prompt_validator(validate_prompt_input_map):
-    model = ModelFactory.list(query=validate_prompt_input_map["model_name"], is_finetunable=True)["results"][0]
+    model = ModelFactory.get(validate_prompt_input_map["model_id"])
     dataset_list = [DatasetFactory.list(query=validate_prompt_input_map["dataset_name"])["results"][0]]
     if validate_prompt_input_map["is_valid"]:
         finetune = FinetuneFactory.create(
