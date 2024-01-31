@@ -37,9 +37,9 @@ def process_text(content: str, storage_type: StorageType) -> Text:
 
     # if the row is a textual URL (which should not be downloaded), tag it
     if storage_type in [StorageType.FILE, StorageType.TEXT] and (
-        text.startswith("s3://")
-        or text.startswith("http://")
-        or text.startswith("https://")
+        str(text).startswith("s3://")
+        or str(text).startswith("http://")
+        or str(text).startswith("https://")
         or validators.url(text)
     ):
         text = "DONOTDOWNLOAD" + str(text)
