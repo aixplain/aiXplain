@@ -288,17 +288,21 @@ def build_payload_dataset(
     return payload
 
 
-def create_data_asset(payload: Dict, data_asset_type: Text = "corpus") -> Dict:
+def create_data_asset(payload: Dict, data_asset_type: Text = "corpus", api_key: Optional[Text] = None) -> Dict:
     """Service to call onboard process in coreengine
 
     Args:
         payload (Dict): onboard payload
         data_asset_type (Text, optional): corpus or dataset. Defaults to "corpus".
+        api_key (Optional[Text]): team api key. Defaults to None.
 
     Returns:
         Dict: onboard status
     """
-    team_key = config.TEAM_API_KEY
+    if api_key is not None:
+        team_key = api_key
+    else:
+        team_key = config.TEAM_API_KEY
     headers = {"Authorization": "token " + team_key}
 
     url = urljoin(config.BACKEND_URL, f"sdk/{data_asset_type}/onboard")
