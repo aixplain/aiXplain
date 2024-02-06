@@ -245,6 +245,7 @@ class CorpusFactory(AssetFactory):
         functions: List[Function] = [],
         privacy: Privacy = Privacy.PRIVATE,
         error_handler: ErrorHandler = ErrorHandler.SKIP,
+        api_key: Optional[Text] = None
     ) -> Dict:
         """Asynchronous call to Upload a corpus to the user's dashboard.
 
@@ -259,6 +260,7 @@ class CorpusFactory(AssetFactory):
             functions (Optional[List[Function]], optional): AI functions for which the corpus may be used. Defaults to [].
             privacy (Optional[Privacy], optional): visibility of the corpus. Defaults to Privacy.PRIVATE.
             error_handler (ErrorHandler, optional): how to handle failed rows in the data asset. Defaults to ErrorHandler.SKIP.
+            api_key (Optional[Text]): team api key. Defaults to None.
 
         Returns:
             Dict: response dict
@@ -351,7 +353,7 @@ class CorpusFactory(AssetFactory):
 
             corpus_payload = onboard_functions.build_payload_corpus(corpus, [ref.id for ref in ref_data], error_handler)
 
-            response = onboard_functions.create_data_asset(corpus_payload)
+            response = onboard_functions.create_data_asset(payload=corpus_payload, api_key=api_key)
             if response["success"] is True:
                 return_dict = {"status": response["status"], "asset_id": response["asset_id"]}
             else:
