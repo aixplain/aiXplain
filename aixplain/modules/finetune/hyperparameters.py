@@ -63,7 +63,7 @@ class Hyperparameters(object):
             raise TypeError("lr_scheduler_type should be of type SchedulerType")
 
         if self.epochs > EPOCHS_MAX_VALUE:
-            raise ValueError(f"epochs must be one less than {EPOCHS_MAX_VALUE}")
+            raise ValueError(f"epochs must be less or equal to {EPOCHS_MAX_VALUE}")
 
         if self.train_batch_size not in BATCH_SIZE_VALUES:
             raise ValueError(f"train_batch_size must be one of the following values: {BATCH_SIZE_VALUES}")
@@ -72,7 +72,7 @@ class Hyperparameters(object):
             raise ValueError(f"eval_batch_size must be one of the following values: {BATCH_SIZE_VALUES}")
 
         if self.max_seq_length > MAX_SEQ_LENGTH_MAX_VALUE:
-            raise ValueError(f"max_seq_length must be less than {MAX_SEQ_LENGTH_MAX_VALUE}")
+            raise ValueError(f"max_seq_length must be less or equal to {MAX_SEQ_LENGTH_MAX_VALUE}")
 
         if self.generation_max_length > GENERATION_MAX_LENGTH_MAX_VALUE:
-            raise ValueError(f"generation_max_length must be less than {GENERATION_MAX_LENGTH_MAX_VALUE}")
+            raise ValueError(f"generation_max_length must be less or equal to {GENERATION_MAX_LENGTH_MAX_VALUE}")
