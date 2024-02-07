@@ -280,8 +280,9 @@ class DatasetFactory(AssetFactory):
         split_labels: Optional[List[Text]] = None,
         split_rate: Optional[List[float]] = None,
         error_handler: ErrorHandler = ErrorHandler.SKIP,
-        s3_link: Optional[str] = None,
-        aws_credentials: Optional[Dict[str, str]] = {"AWS_ACCESS_KEY_ID": None, "AWS_SECRET_ACCESS_KEY": None},
+        s3_link: Optional[Text] = None,
+        aws_credentials: Optional[Dict[Text, Text]] = {"AWS_ACCESS_KEY_ID": None, "AWS_SECRET_ACCESS_KEY": None},
+        api_key: Optional[Text] = None
     ) -> Dict:
         """Dataset Onboard
 
@@ -302,8 +303,9 @@ class DatasetFactory(AssetFactory):
             tags (List[Text], optional): datasets description tags. Defaults to [].
             privacy (Privacy, optional): dataset privacy. Defaults to Privacy.PRIVATE.
             error_handler (ErrorHandler, optional): how to handle failed rows in the data asset. Defaults to ErrorHandler.SKIP.
-            s3_link (Optional[str]): s3 url to files or directories
-            aws_credentials (Optional[Dict[str, str]]) : credentials for AWS and it should contains these two keys `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`
+            s3_link (Optional[Text]): s3 url to files or directories
+            aws_credentials (Optional[Dict[Text, Text]]) : credentials for AWS and it should contains these two keys `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`
+            api_key (Optional[Text]): team api key. Defaults to None.
         Returns:
             Dict: dataset onboard status
         """
@@ -485,7 +487,7 @@ class DatasetFactory(AssetFactory):
             #     len(dataset_payload["output"]) > 0
             # ), "Data Asset Onboarding Error: Please specify the output data of your dataset."
 
-            response = onboard_functions.create_data_asset(dataset_payload, data_asset_type="dataset")
+            response = onboard_functions.create_data_asset(payload=dataset_payload, data_asset_type="dataset", api_key=api_key)
             if response["success"] is True:
                 return_dict = {"status": response["status"], "asset_id": response["asset_id"]}
             else:
