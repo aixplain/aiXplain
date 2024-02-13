@@ -1,4 +1,6 @@
 [
     {"model_name": "llama 2 7b", "model_id": "6543cb991f695e72028e9428", "dataset_name": "Test text generation dataset"},
-    {"model_name": "Llama 2 7B Chat", "model_id": "65519ee7bf42e6037ab109d8", "dataset_name": "Test text generation dataset"}
+    {"model_name": "Llama 2 7B Chat", "model_id": "65519ee7bf42e6037ab109d8", "dataset_name": "Test text generation dataset"},
+    {"model_name": "mistral 7b", "model_id": "6551a9e7bf42e6037ab109de", "dataset_name": "Test text generation dataset"},
+    {"model_name": "solar 10b", "model_id": "65b7baac1d5ea75105c14971", "dataset_name": "Test text generation dataset"}
 ]
