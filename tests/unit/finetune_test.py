@@ -51,12 +51,16 @@ def percentage_exception_map(request):
 
 
 def test_create():
+    model_map = read_data(MODEL_FILE)
     with requests_mock.Mocker() as mock:
+        test_model = "test_asset_id"
+        url = f"{MODEL_URL}/{test_model}"
+        mock.get(url, headers=FIXED_HEADER, json=model_map)
         cost_estimation_map = read_data(COST_ESTIMATION_FILE)
         mock.post(COST_ESTIMATION_URL, headers=FIXED_HEADER, json=cost_estimation_map)
-        test_model = Model("", "")
         finetune = FinetuneFactory.create("", [], test_model)
     assert finetune is not None
+    assert finetune.model.id == test_model
     assert finetune.cost.to_dict() == cost_estimation_map
 
 
