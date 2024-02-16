@@ -82,6 +82,9 @@ class Corpus(Asset):
         self.length = length
         self.kwargs = kwargs
 
+    def __repr__(self):
+        return f"<Corpus: {self.name}>"
+
     def delete(self) -> None:
         """Delete Corpus service"""
         try:
