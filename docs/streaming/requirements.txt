@@ -1,2 +1,2 @@
-grpcio==1.54.0
+grpcio==1.54.3
 grpcio-tools==1.54.0
