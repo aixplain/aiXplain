@@ -29,6 +29,7 @@ from typing import List
 from aixplain.factories.file_factory import FileFactory
 from aixplain.enums import Function, Supplier
 from aixplain.modules.asset import Asset
+from aixplain.modules.finetune.status import FinetuneStatus, FinetuneState
 from aixplain.utils import config
 from urllib.parse import urljoin
 from aixplain.utils.file_utils import _request_with_retry
@@ -251,14 +252,18 @@ class Model(Asset):
                 response["error"] = msg
         return response
 
-    def check_finetune_status(self):
+    def check_finetune_status(self, after_epoch: Optional[int] = None, after_step: Optional[int] = None) -> FinetuneStatus:
         """Check the status of the FineTune model.
+
+        Args:
+            after_epoch (Optional[int], optional): status after a given epoch. Defaults to None.
+            after_step (Optional[int], optional): status after a given step. Defaults to None.
 
         Raises:
             Exception: If the 'TEAM_API_KEY' is not provided.
 
         Returns:
-            str: The status of the FineTune model.
+            FinetuneStatus: The status of the FineTune model.
         """
         headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}
         try:

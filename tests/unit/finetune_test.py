@@ -35,6 +35,7 @@ COST_ESTIMATION_URL = f"{config.BACKEND_URL}/sdk/finetune/cost-estimation"
 COST_ESTIMATION_FILE = "tests/unit/mock_responses/cost_estimation_response.json"
 FINETUNE_URL = f"{config.BACKEND_URL}/sdk/finetune"
 FINETUNE_FILE = "tests/unit/mock_responses/finetune_response.json"
+FINETUNE_STATUS_FILE = "tests/unit/mock_responses/finetune_status_response.json"
 PERCENTAGE_EXCEPTION_FILE = "tests/unit/data/create_finetune_percentage_exception.json"
 MODEL_FILE = "tests/unit/mock_responses/model_response.json"
 MODEL_URL = f"{config.BACKEND_URL}/sdk/models"
@@ -96,14 +97,18 @@ def test_start():
 
 
 def test_check_finetuner_status():
-    model_map = read_data(MODEL_FILE)
+    model_map = read_data(FINETUNE_STATUS_FILE)
     asset_id = "test_id"
     with requests_mock.Mocker() as mock:
         test_model = Model(asset_id, "")
         url = f"{MODEL_URL}/{asset_id}"
         mock.get(url, headers=FIXED_HEADER, json=model_map)
         status = test_model.check_finetune_status()
-    assert status == model_map["status"]
+    assert status.status.value == model_map["status"]
+    assert status.training_loss == 0.007
+    assert status.epoch == 2.75
+    assert status.step == 1500
+    assert status.learning_rate == 8.088235294117648e-06
 
 
 @pytest.mark.parametrize("is_finetunable", [True, False])
