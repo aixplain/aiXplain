@@ -27,7 +27,7 @@ import logging
 import traceback
 from typing import List
 from aixplain.factories.file_factory import FileFactory
-from aixplain.enums import Function
+from aixplain.enums import Function, Supplier
 from aixplain.modules.asset import Asset
 from aixplain.utils import config
 from urllib.parse import urljoin
@@ -44,7 +44,7 @@ class Model(Asset):
         description (Text, optional): description of the model. Defaults to "".
         api_key (Text, optional): API key of the Model. Defaults to None.
         url (Text, optional): endpoint of the model. Defaults to config.MODELS_RUN_URL.
-        supplier (Text, optional): model supplier. Defaults to "aiXplain".
+        supplier (Union[Dict, Text, Supplier, int], optional): supplier of the asset. Defaults to "aiXplain".
         version (Text, optional): version of the model. Defaults to "1.0".
         function (Text, optional): model AI function. Defaults to None.
         url (str): URL to run the model.
@@ -58,7 +58,7 @@ class Model(Asset):
         name: Text,
         description: Text = "",
         api_key: Optional[Text] = None,
-        supplier: Text = "aiXplain",
+        supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
         version: Optional[Text] = None,
         function: Optional[Text] = None,
         is_subscribed: bool = False,
@@ -71,7 +71,7 @@ class Model(Asset):
             name (Text): Name of the Model
             description (Text, optional): description of the model. Defaults to "".
             api_key (Text, optional): API key of the Model. Defaults to None.
-            supplier (Text, optional): model supplier. Defaults to "aiXplain".
+            supplier (Union[Dict, Text, Supplier, int], optional): supplier of the asset. Defaults to "aiXplain".
             version (Text, optional): version of the model. Defaults to "1.0".
             function (Text, optional): model AI function. Defaults to None.
             is_subscribed (bool, optional): Is the user subscribed. Defaults to False.
@@ -95,7 +95,10 @@ class Model(Asset):
         return {"id": self.id, "name": self.name, "supplier": self.supplier, "additional_info": clean_additional_info}
 
     def __repr__(self):
-        return f"<Model: {self.name} by {self.supplier}>"
+        try:
+            return f"<Model: {self.name} by {self.supplier['name']}>"
+        except Exception:
+            return f"<Model: {self.name} by {self.supplier}>"
 
     def __polling(self, poll_url: Text, name: Text = "model_process", wait_time: float = 0.5, timeout: float = 300) -> Dict:
         """Keeps polling the platform to check whether an asynchronous call is done.
