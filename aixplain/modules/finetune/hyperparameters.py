@@ -16,9 +16,8 @@ class SchedulerType(Text, Enum):
 
 
 EPOCHS_MAX_VALUE = 4
-BATCH_SIZE_VALUES = [1, 2, 4, 8, 16, 32, 64, 128]
+BATCH_SIZE_VALUES = [1, 2, 4, 8, 16, 32, 64]
 MAX_SEQ_LENGTH_MAX_VALUE = 4096
-GENERATION_MAX_LENGTH_MAX_VALUE = 225
 
 
 @dataclass_json
@@ -28,7 +27,6 @@ class Hyperparameters(object):
     train_batch_size: int = 4
     eval_batch_size: int = 4
     learning_rate: float = 1e-5
-    generation_max_length: int = 225
     max_seq_length: int = 4096
     warmup_ratio: float = 0.0
     warmup_steps: int = 0
@@ -46,9 +44,6 @@ class Hyperparameters(object):
 
         if not isinstance(self.learning_rate, float):
             raise TypeError("learning_rate should be of type float")
-
-        if not isinstance(self.generation_max_length, int):
-            raise TypeError("generation_max_length should be of type int")
 
         if not isinstance(self.max_seq_length, int):
             raise TypeError("max_seq_length should be of type int")
@@ -73,6 +68,3 @@ class Hyperparameters(object):
 
         if self.max_seq_length > MAX_SEQ_LENGTH_MAX_VALUE:
             raise ValueError(f"max_seq_length must be less or equal to {MAX_SEQ_LENGTH_MAX_VALUE}")
-
-        if self.generation_max_length > GENERATION_MAX_LENGTH_MAX_VALUE:
-            raise ValueError(f"generation_max_length must be less or equal to {GENERATION_MAX_LENGTH_MAX_VALUE}")
