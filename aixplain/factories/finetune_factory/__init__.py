@@ -22,9 +22,11 @@ Description:
 """
 
 import logging
-from typing import Dict, List, Optional, Text
+from typing import Dict, List, Optional, Text, Union
 import json
+from aixplain.factories.dataset_factory import DatasetFactory
 from aixplain.factories.finetune_factory.prompt_validator import validate_prompt
+from aixplain.factories.model_factory import ModelFactory
 from aixplain.modules.finetune import Finetune
 from aixplain.modules.finetune.cost import FinetuneCost
 from aixplain.modules.finetune.hyperparameters import Hyperparameters
@@ -61,8 +63,8 @@ class FinetuneFactory:
     def create(
         cls,
         name: Text,
-        dataset_list: List[Dataset],
-        model: Model,
+        dataset_list: List[Union[Dataset, Text]],
+        model: Union[Model, Text],
         prompt_template: Optional[Text] = None,
         hyperparameters: Optional[Hyperparameters] = None,
         train_percentage: Optional[float] = 100,
@@ -72,8 +74,8 @@ class FinetuneFactory:
 
         Args:
             name (Text): Name of the Finetune.
-            dataset_list (List[Dataset]): List of Datasets to be used for fine-tuning.
-            model (Model): Model to be fine-tuned.
+            dataset_list (List[Dataset]): List of Datasets (or dataset IDs) to be used for fine-tuning.
+            model (Model): Model (Model ID) to be fine-tuned.
             prompt_template (Text, optional): Fine-tuning prompt_template. Should reference columns in the dataset using format <<COLUMN_NAME>>. Defaults to None.
             hyperparameters (Hyperparameters, optional): Hyperparameters for fine-tuning. Defaults to None.
             train_percentage (float, optional): Percentage of training samples. Defaults to 100.
@@ -86,6 +88,14 @@ class FinetuneFactory:
         assert (
             train_percentage + dev_percentage <= 100
         ), f"Create FineTune: Train percentage + dev percentage ({train_percentage + dev_percentage}) must be less than or equal to one"
+        
+        for i, dataset in enumerate(dataset_list):
+            if isinstance(dataset, str) is True:
+                dataset_list[i] = DatasetFactory.get(dataset_id=dataset)
+        
+        if isinstance(model, str) is True:
+            model = ModelFactory.get(model_id=model)
+
         if prompt_template is not None:
             prompt_template = validate_prompt(prompt_template, dataset_list)
         try:

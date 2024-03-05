@@ -23,7 +23,7 @@ Description:
 from aixplain.enums.license import License
 from aixplain.enums.supplier import Supplier
 from aixplain.enums.privacy import Privacy
-from typing import Dict, Optional, Text, Tuple
+from typing import Dict, Optional, Text, Union
 
 
 class Asset:
@@ -32,7 +32,7 @@ class Asset:
         id: Text,
         name: Text,
         description: Text,
-        supplier: Tuple[Dict, Text, Supplier, int] = "aiXplain",
+        supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
         version: Text = "1.0",
         license: Optional[License] = None,
         privacy: Privacy = Privacy.PRIVATE,
@@ -44,7 +44,7 @@ class Asset:
             id (Text): ID of the Asset
             name (Text): Name of the Asset
             description (Text): Description of the Asset
-            supplier (Tuple[Text, Supplier, int], optional): supplier of the asset. Defaults to "aiXplain".
+            supplier (Union[Dict, Text, Supplier, int], optional): supplier of the asset. Defaults to "aiXplain".
             version (Optional[Text], optional): asset version. Defaults to "1.0".
         """
         self.id = id
