@@ -4,13 +4,23 @@
         "model_id": "6543cb991f695e72028e9428",
         "dataset_name": "Test text generation dataset",
         "inference_data": "Hello!",
-        "required_dev": true
+        "required_dev": true,
+        "search_metadata": false
     },
     {
         "model_name": "aiR",
         "model_id": "6499cc946eb5633de15d82a1",
-        "dataset_name": "Test search dataset",
+        "dataset_name": "Test search dataset metadata",
         "inference_data": "Hello!",
-        "required_dev": false
+        "required_dev": false,
+        "search_metadata": true
+    },
+    {
+        "model_name": "vectara",
+        "model_id": "655e20f46eb563062a1aa301",
+        "dataset_name": "Test search dataset metadata",
+        "inference_data": "Hello!",
+        "required_dev": false,
+        "search_metadata": true
     }
 ]

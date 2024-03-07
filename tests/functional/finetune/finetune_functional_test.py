@@ -60,7 +60,7 @@ def validate_prompt_input_map(request):
     return request.param
 
 
-def test_end2end_text_generation(run_input_map):
+def test_end2end(run_input_map):
     model = ModelFactory.get(run_input_map["model_id"])
     dataset_list = [DatasetFactory.list(query=run_input_map["dataset_name"])["results"][0]]
     train_percentage, dev_percentage = 100, 0
@@ -84,7 +84,13 @@ def test_end2end_text_generation(run_input_map):
         end = time.time()
     assert finetune_model.check_finetune_status() == "onboarded"
     result = finetune_model.run(run_input_map["inference_data"])
+    print(f"Result: {result}")
     assert result is not None
+    if run_input_map["search_metadata"]:
+        assert "details" in result
+        assert len(result["details"]) > 0  
+        assert "metadata" in result["details"][0]
+        assert len(result["details"][0]["metadata"]) > 0
     finetune_model.delete()
 
 
