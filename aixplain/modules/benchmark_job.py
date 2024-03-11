@@ -92,9 +92,22 @@ class BenchmarkJob:
             error_message = f"Downloading Benchmark Results: Error in Downloading Benchmark Results : {e}"
             logging.error(error_message, exc_info=True)
             raise Exception(error_message)
+        
+    def __simplify_scores(self, scores):
+        simplified_score_list  = []
+        for model_id, model_info in scores.items():
+            model_scores = model_info["rawScores"]
+            # model = Mode
+            row = {"Model": model_id}
+            for score_info in model_scores:
+                row[score_info["longName"]] = score_info["average"]
+            simplified_score_list.append(row)
+        return simplified_score_list
 
 
-    def get_scores(self):
+
+
+    def get_scores(self, return_simplified=True, return_as_dataframe=True):
         try:
             resp = self._fetch_current_response(self.id)
             iterations = resp.get("iterations", [])
@@ -102,13 +115,20 @@ class BenchmarkJob:
             for iteration_info in iterations:
                 model_id = iteration_info["pipeline"]
                 model_info = {
-                    "creditsUsed" : round(iteration_info["credits"],5),
-                    "timeSpent" : round(iteration_info["runtime"],2),
+                    "creditsUsed" : round(iteration_info.get("credits", 0),5),
+                    "timeSpent" : round(iteration_info.get("runtime", 0),2),
                     "status" : iteration_info["status"],
                     "rawScores" : iteration_info["scores"],
                 }
                 scores[model_id] = model_info
-            return scores
+            
+            if return_simplified:
+                simplified_scores = self.__simplify_scores(scores)
+                if return_as_dataframe:
+                    simplified_scores = pd.DataFrame(simplified_scores)
+                return simplified_scores
+            else:
+                return scores
         except Exception as e:
             error_message = f"Benchmark scores: Error in Getting benchmark scores: {e}"
             logging.error(error_message, exc_info=True)
