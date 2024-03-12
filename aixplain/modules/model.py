@@ -20,7 +20,6 @@ Date: September 1st 2022
 Description:
     Model Class
 """
-
 import time
 import json
 import logging
@@ -29,7 +28,6 @@ from typing import List
 from aixplain.factories.file_factory import FileFactory
 from aixplain.enums import Function, Supplier
 from aixplain.modules.asset import Asset
-from aixplain.modules.finetune.status import FinetuneStatus, FinetuneState
 from aixplain.utils import config
 from urllib.parse import urljoin
 from aixplain.utils.file_utils import _request_with_retry
@@ -252,7 +250,7 @@ class Model(Asset):
                 response["error"] = msg
         return response
 
-    def check_finetune_status(self, after_epoch: Optional[int] = None, after_step: Optional[int] = None) -> FinetuneStatus:
+    def check_finetune_status(self, after_epoch: Optional[int] = None, after_step: Optional[int] = None):
         """Check the status of the FineTune model.
 
         Args:
@@ -265,14 +263,45 @@ class Model(Asset):
         Returns:
             FinetuneStatus: The status of the FineTune model.
         """
+        from aixplain.enums.asset_status import AssetStatus
+        from aixplain.modules.finetune.status import FinetuneStatus
         headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}
+        resp = None
         try:
-            url = urljoin(self.backend_url, f"sdk/models/{self.id}")
+            url = urljoin(self.backend_url, f"sdk/finetune/{self.id}/ml-logs")
             logging.info(f"Start service for GET Check FineTune status Model  - {url} - {headers}")
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()
-            status = resp["status"]
-            logging.info(f"Response for GET Check FineTune status Model - Id {self.id} / Status {status}.")
+            finetune_status = AssetStatus(resp["finetuneStatus"])
+            model_status = AssetStatus(resp["modelStatus"])
+            logs = sorted(resp["logs"], key=lambda x: (float(x["epoch"]), int(x["step"])))
+
+            if after_epoch is None and after_step is None:
+                logs = logs[-1:]
+            else:
+                if after_epoch is not None:
+                    logs = [log for log in logs if float(log["epoch"]) >= after_epoch]
+                if after_step is not None:
+                    logs = [log for log in logs if log["step"] >= after_step]
+            
+            if len(logs) > 0:
+                log = logs[0]
+                status = FinetuneStatus(
+                    status=finetune_status,
+                    model_status=model_status,
+                    epoch=float(log["epoch"]),
+                    step=int(log["step"]),
+                    learning_rate=float(log["learningRate"]),
+                    training_loss=float(log["trainLoss"]),
+                    validation_loss=float(log["validationLoss"]),
+                )
+            else:
+                status = FinetuneStatus(
+                    status=finetune_status,
+                    model_status=model_status,
+                )
+
+            logging.info(f"Response for GET Check FineTune status Model - Id {self.id} / Status {status.status.value}.")
             return status
         except Exception as e:
             message = ""

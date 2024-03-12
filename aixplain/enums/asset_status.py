@@ -18,21 +18,26 @@ limitations under the License.
 Author: Duraikrishna Selvaraju, Thiago Castro Ferreira, Shreyas Sharma and Lucas Pavanelli
 Date: February 21st 2024
 Description:
-    FinetuneCost Class
+    Asset Enum
 """
 
-from aixplain.enums.asset_status import AssetStatus
-from dataclasses import dataclass
-from dataclasses_json import dataclass_json
-from typing import Optional, Text
+from enum import Enum
+from typing import Text
 
-@dataclass_json
-@dataclass
-class FinetuneStatus(object):
-    status: "AssetStatus"
-    model_status: "AssetStatus"
-    epoch: Optional[float] = None
-    step: Optional[int] = None
-    learning_rate: Optional[float] = None
-    training_loss: Optional[float] = None
-    validation_loss: Optional[float] = None
+class AssetStatus(Text, Enum):
+    HIDDEN = 'hidden'
+    SCHEDULED = 'scheduled'
+    ONBOARDING = 'onboarding'
+    ONBOARDED = 'onboarded'
+    PENDING = 'pending'
+    FAILED = 'failed'
+    TRAINING = 'training'
+    REJECTED = 'rejected'
+    ENABLING = 'enabling'
+    DELETING = 'deleting'
+    DISABLED = 'disabled'
+    DELETED = 'deleted'
+    IN_PROGRESS = 'in_progress'
+    COMPLETED = 'completed'
+    CANCELING = 'canceling'
+    CANCELED = 'canceled'

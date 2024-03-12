@@ -27,6 +27,7 @@ from aixplain.factories import ModelFactory
 from aixplain.factories import FinetuneFactory
 from aixplain.modules import Model, Finetune
 from aixplain.enums import Function
+from urllib.parse import urljoin
 
 import pytest
 
@@ -95,20 +96,26 @@ def test_start():
     assert fine_tuned_model is not None
     assert fine_tuned_model.id == model_map["id"]
 
-
-def test_check_finetuner_status():
+@pytest.mark.parametrize(
+    "after_epoch,after_step,training_loss,validation_loss", 
+    [
+        (None, None, 0.4, 0.0217), 
+        (1, 10, 0.1, 0.1106), 
+        (1, 20, 0.2, 0.0482)
+    ]
+)
+def test_check_finetuner_status(after_epoch, after_step, training_loss, validation_loss):
     model_map = read_data(FINETUNE_STATUS_FILE)
     asset_id = "test_id"
     with requests_mock.Mocker() as mock:
         test_model = Model(asset_id, "")
-        url = f"{MODEL_URL}/{asset_id}"
+        url = urljoin(config.BACKEND_URL, f"sdk/finetune/{asset_id}/ml-logs")
         mock.get(url, headers=FIXED_HEADER, json=model_map)
-        status = test_model.check_finetune_status()
-    assert status.status.value == model_map["status"]
-    assert status.training_loss == 0.007
-    assert status.epoch == 2.75
-    assert status.step == 1500
-    assert status.learning_rate == 8.088235294117648e-06
+        status = test_model.check_finetune_status(after_epoch=after_epoch, after_step=after_step)
+    assert status.status.value == model_map["finetuneStatus"]
+    assert status.model_status.value == model_map["modelStatus"]
+    assert status.training_loss == training_loss
+    assert status.validation_loss == validation_loss
 
 
 @pytest.mark.parametrize("is_finetunable", [True, False])
