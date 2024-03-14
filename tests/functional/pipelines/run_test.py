@@ -134,34 +134,34 @@ def test_run_metric(batchmode: bool):
 
 
 @pytest.mark.parametrize(
-    "input,output,batchmode", 
+    "batchmode,input_data,output_data", 
     [
         (True, "https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.wav", "AudioOutput"),
-        (False, "https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.wav", "AudioOutput")
+        (False, "https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.wav", "AudioOutput"),
         (True, "https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.txt", "TextOutput"),
         (False, "https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.txt", "TextOutput")
     ]
 )
-def test_run_router(input, output, batchmode: bool):
+def test_run_router(batchmode: bool, input_data: str, output_data: str):
     pipeline = PipelineFactory.list(query="Router Test - DO NOT DELETE")["results"][0]
-    response = pipeline.run(input, **{"batchmode": batchmode})
+    response = pipeline.run(input_data, **{"batchmode": batchmode})
     
     assert response["status"] == "SUCCESS"
-    assert response["data"][0]["label"] == output
+    assert response["data"][0]["label"] == output_data
 
 
 @pytest.mark.parametrize(
-    "input,output,batchmode", 
+    "batchmode,input_data,output_data", 
     [
         (True, "I love it.", "PositiveOutput"),
-        (False, "I love it.", "PositiveOutput")
+        (False, "I love it.", "PositiveOutput"),
         (True, "I hate it.", "NegativeOutput"),
         (False, "I hate it.", "NegativeOutput")
     ]
 )
-def test_run_decision(input, output, batchmode: bool):
+def test_run_decision(batchmode: bool, input_data: str, output_data: str):
     pipeline = PipelineFactory.list(query="Decision Test - DO NOT DELETE")["results"][0]
-    response = pipeline.run(input, **{"batchmode": batchmode})
+    response = pipeline.run(input_data, **{"batchmode": batchmode})
     
     assert response["status"] == "SUCCESS"
-    assert response["data"][0]["label"] == output
+    assert response["data"][0]["label"] == output_data
