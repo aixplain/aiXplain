@@ -147,8 +147,7 @@ def test_run_router(input, output, batchmode: bool):
     response = pipeline.run(input, **{"batchmode": batchmode})
     
     assert response["status"] == "SUCCESS"
-    output = response["data"][0]
-    assert output["label"] == output
+    assert response["data"][0]["label"] == output
 
 
 @pytest.mark.parametrize(
@@ -165,5 +164,4 @@ def test_run_decision(input, output, batchmode: bool):
     response = pipeline.run(input, **{"batchmode": batchmode})
     
     assert response["status"] == "SUCCESS"
-    output = response["data"][0]
-    assert output["label"] == output
+    assert response["data"][0]["label"] == output
