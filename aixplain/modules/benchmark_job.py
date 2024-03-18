@@ -92,3 +92,132 @@ class BenchmarkJob:
             error_message = f"Downloading Benchmark Results: Error in Downloading Benchmark Results : {e}"
             logging.error(error_message, exc_info=True)
             raise Exception(error_message)
+        
+    def __simplify_scores(self, scores):
+        simplified_score_list  = []
+        for model_id, model_info in scores.items():
+            model_scores = model_info["rawScores"]
+            # model = Mode
+            row = {"Model": model_id}
+            for score_info in model_scores:
+                row[score_info["longName"]] = score_info["average"]
+            simplified_score_list.append(row)
+        return simplified_score_list
+
+
+
+
+    def get_scores(self, return_simplified=True, return_as_dataframe=True):
+        ## Temp
+        temp_data = [
+            {"Model":"Llama 2 7b", "Score": 0.714},
+            {"Model":"Llama 2 7b (Finetuned)", "Score": 0.742},
+        ]
+        return pd.DataFrame(temp_data)
+
+        try:
+            resp = self._fetch_current_response(self.id)
+            iterations = resp.get("iterations", [])
+            scores = {}
+            for iteration_info in iterations:
+                model_id = iteration_info["pipeline"]
+                model_info = {
+                    "creditsUsed" : round(iteration_info.get("credits", 0),5),
+                    "timeSpent" : round(iteration_info.get("runtime", 0),2),
+                    "status" : iteration_info["status"],
+                    "rawScores" : iteration_info["scores"],
+                }
+                scores[model_id] = model_info
+            
+            if return_simplified:
+                simplified_scores = self.__simplify_scores(scores)
+                if return_as_dataframe:
+                    simplified_scores = pd.DataFrame(simplified_scores)
+                return simplified_scores
+            else:
+                return scores
+        except Exception as e:
+            error_message = f"Benchmark scores: Error in Getting benchmark scores: {e}"
+            logging.error(error_message, exc_info=True)
+            raise Exception(error_message)
+        
+    
+    def get_failuire_rate(self, return_as_dataframe=True):
+        try:
+            scores = self.get_scores(return_simplified=False)
+            failure_rates = {}
+            for model_id, model_info in scores.items():
+                if len(model_info["rawScores"]) == 0:
+                    failure_rates[model_id] = 0
+                    continue
+                score_info = model_info["rawScores"][0] 
+                num_succesful = score_info["count"]
+                num_failed = score_info["failedSegmentsCount"]
+                failuire_rate =  (num_failed * 100) / (num_succesful+num_failed)
+                failure_rates[model_id] = failuire_rate
+            if return_as_dataframe:
+                df = pd.DataFrame()
+                df["Model"] = list(failure_rates.keys())
+                df["Failuire Rate"] = list(failure_rates.values())
+                return df
+            else:
+                return failure_rates
+        except Exception as e:
+            error_message = f"Benchmark scores: Error in Getting benchmark failuire rate: {e}"
+            logging.error(error_message, exc_info=True)
+            raise Exception(error_message)
+        
+    def get_all_explanations(self):
+        try:
+            resp = self._fetch_current_response(self)
+            raw_explanations = resp.get("explanation", {})
+            if "metricInDependent" not in raw_explanations:
+                raw_explanations["metricInDependent"] = []
+            if "metricDependent" not in raw_explanations:
+                raw_explanations["metricDependent"] = []
+            return raw_explanations
+        except Exception as e:
+            error_message = f"Benchmark scores: Error in Getting benchmark explanations: {e}"
+            logging.error(error_message, exc_info=True)
+            raise Exception(error_message)
+    
+    def get_localized_explanations(self, metric_dependant: bool, group_by_task: bool = False):
+        try:
+            raw_explanations = self.get_all_explanations()
+            if metric_dependant:
+                localized_explanations = raw_explanations["metricDependent"]
+                if len(localized_explanations) == 0:
+                    localized_explanations = {}
+                else:
+                    grouped_explanations = {}
+                    task_list = []
+                    first_explanation = localized_explanations[0]
+                    for task in first_explanation:
+                        if task not in ["scoreId", "datasetId"]:
+                            task_list.append(task)
+
+                    if group_by_task:
+                        for task in task_list:
+                            task_explanation = {}
+                            for explanation_item in localized_explanations:
+                                item_task_explanation = explanation_item[task]
+                                identifier = explanation_item["scoreId"]
+                                task_explanation[identifier] = item_task_explanation
+                            grouped_explanations[task] = task_explanation
+                    else:
+                        for explanation_item in localized_explanations:
+                            identifier = explanation_item["scoreId"]
+                            grouped_explanations[identifier] = explanation_item
+                    localized_explanations = grouped_explanations
+            else:
+                localized_explanations = raw_explanations["metricInDependent"]
+                if len(localized_explanations) == 0:
+                    localized_explanations =  {}
+                else:
+                    localized_explanations = localized_explanations[0]
+            return localized_explanations
+
+        except Exception as e:
+            error_message = f"Benchmark scores: Error in Getting benchmark explanations: {e}"
+            logging.error(error_message, exc_info=True)
+            raise Exception(error_message)
