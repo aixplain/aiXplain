@@ -159,3 +159,58 @@ class BenchmarkJob:
             error_message = f"Benchmark scores: Error in Getting benchmark failuire rate: {e}"
             logging.error(error_message, exc_info=True)
             raise Exception(error_message)
+        
+    def get_all_explanations(self):
+        try:
+            resp = self._fetch_current_response(self)
+            raw_explanations = resp.get("explanation", {})
+            if "metricInDependent" not in raw_explanations:
+                raw_explanations["metricInDependent"] = []
+            if "metricDependent" not in raw_explanations:
+                raw_explanations["metricDependent"] = []
+            return raw_explanations
+        except Exception as e:
+            error_message = f"Benchmark scores: Error in Getting benchmark explanations: {e}"
+            logging.error(error_message, exc_info=True)
+            raise Exception(error_message)
+    
+    def get_localized_explanations(self, metric_dependant: bool, group_by_task: bool = False):
+        try:
+            raw_explanations = self.get_all_explanations()
+            if metric_dependant:
+                localized_explanations = raw_explanations["metricDependent"]
+                if len(localized_explanations) == 0:
+                    localized_explanations = {}
+                else:
+                    grouped_explanations = {}
+                    task_list = []
+                    first_explanation = localized_explanations[0]
+                    for task in first_explanation:
+                        if task not in ["scoreId", "datasetId"]:
+                            task_list.append(task)
+
+                    if group_by_task:
+                        for task in task_list:
+                            task_explanation = {}
+                            for explanation_item in localized_explanations:
+                                item_task_explanation = explanation_item[task]
+                                identifier = explanation_item["scoreId"]
+                                task_explanation[identifier] = item_task_explanation
+                            grouped_explanations[task] = task_explanation
+                    else:
+                        for explanation_item in localized_explanations:
+                            identifier = explanation_item["scoreId"]
+                            grouped_explanations[identifier] = explanation_item
+                    localized_explanations = grouped_explanations
+            else:
+                localized_explanations = raw_explanations["metricInDependent"]
+                if len(localized_explanations) == 0:
+                    localized_explanations =  {}
+                else:
+                    localized_explanations = localized_explanations[0]
+            return localized_explanations
+
+        except Exception as e:
+            error_message = f"Benchmark scores: Error in Getting benchmark explanations: {e}"
+            logging.error(error_message, exc_info=True)
+            raise Exception(error_message)
