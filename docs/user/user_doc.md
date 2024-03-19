@@ -57,6 +57,17 @@ poll_url = start_response["url"]
 ## Poll to see current job status
 poll_response = model.poll(poll_url)
 ```
+### Deploying Hugging Face Large Language Models
+You can deploy your very own Hugging Face large language models on our platform using the aiXplain SDK:
+```console
+$ aixplain onboard hf-model --name <what you'd like to name your model> --hf-repo-id <Hugging Face repository ID ({supplier}/{name})> --hf-token <Hugging Face token> [--api-key <TEAM_API_KEY>]
+```
+This command will return your model's ID. The on-boarding process will take 5 to 15 minutes, during which you can check the on-boarding status by running the following:
+```console
+$ aixplain get hf-model-status --model-id <model ID> [--api-key <TEAM_API_KEY>]
+```
+
+Once the on-boarding process has completed, you can use this newly-deployed large language model just like any other model on our platform. Note that our platform currently only supports language models up 7 billion parameters in size (~30 GB), so any attempts to deploy larger models will result in an error message.
 
 ### Uploading Models
 In addition to exploring and running models, the aiXplain SDK allows you to upload your own models to the aiXplain platform. This requires a working model image in line with the template specified [here](https://github.com/aixplain/model-interfaces/blob/main/docs/user/model_setup.md). [These](https://github.com/aixplain/model-interfaces/tree/main) are the interfaces with which you will be working. You will also be required to have an aiXplain account as well as a TEAM_API_KEY which should be set either as an environment variable or passed into each of the following functions.
@@ -208,11 +219,17 @@ You can also process an aiXplain data asset, being a Corpus or a Dataset, using 
 
 ```python
 # Run Synchronously
-result = pipeline.run(data="64acbad666608858f693a3a0", data_asset="64acbad666608858f693a39f")
+result = pipeline.run(
+    data_asset="64acbad666608858f693a39f",
+    data="64acbad666608858f693a3a0"
+)
 
 # Run Asynchronously
 ## Start async job
-start_response = pipeline.run_async(data="64acbad666608858f693a3a0", data_asset="64acbad666608858f693a39f")
+start_response = pipeline.run_async(
+    data_asset="64acbad666608858f693a39f",
+    data="64acbad666608858f693a3a0"
+)
 poll_url = start_response["url"]
 ## Poll to see current job status
 poll_response = pipeline.poll(poll_url)
