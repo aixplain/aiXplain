@@ -219,11 +219,17 @@ You can also process an aiXplain data asset, being a Corpus or a Dataset, using 
 
 ```python
 # Run Synchronously
-result = pipeline.run(data="64acbad666608858f693a3a0", data_asset="64acbad666608858f693a39f")
+result = pipeline.run(
+    data_asset="64acbad666608858f693a39f",
+    data="64acbad666608858f693a3a0"
+)
 
 # Run Asynchronously
 ## Start async job
-start_response = pipeline.run_async(data="64acbad666608858f693a3a0", data_asset="64acbad666608858f693a39f")
+start_response = pipeline.run_async(
+    data_asset="64acbad666608858f693a39f",
+    data="64acbad666608858f693a3a0"
+)
 poll_url = start_response["url"]
 ## Poll to see current job status
 poll_response = pipeline.poll(poll_url)

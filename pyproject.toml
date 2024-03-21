@@ -10,7 +10,7 @@ namespaces = true
 
 [project]
 name = "aiXplain"
-version = "0.2.4"
+version = "0.2.5rc"
 description = "aiXplain SDK adds AI functions to software."
 readme = "README.md"
 requires-python = ">=3.5, <4"
@@ -49,7 +49,7 @@ dependencies = [
     "python-dotenv>=1.0.0", 
     "validators>=0.20.0", 
     "filetype>=1.2.0",
-    "click>=8.1.7",
+    "click>=7.1.2,<8.0.0",
     "PyYAML>=6.0.1",
     "dataclasses-json==0.6.1"
 ]

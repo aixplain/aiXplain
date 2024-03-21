@@ -21,11 +21,13 @@ import json
 from dotenv import load_dotenv
 
 load_dotenv()
+import requests
 import requests_mock
 from aixplain.utils import config
 from aixplain.factories import ModelFactory
 from aixplain.factories import FinetuneFactory
 from aixplain.modules import Model, Finetune
+from aixplain.modules.finetune import Hyperparameters
 from aixplain.enums import Function
 from urllib.parse import urljoin
 
@@ -61,10 +63,20 @@ def test_create():
         mock.get(url, headers=FIXED_HEADER, json=model_map)
         cost_estimation_map = read_data(COST_ESTIMATION_FILE)
         mock.post(COST_ESTIMATION_URL, headers=FIXED_HEADER, json=cost_estimation_map)
-        finetune = FinetuneFactory.create("", [], test_model)
+        finetune = FinetuneFactory.create("", [], test_model, prompt_template="test", hyperparameters=Hyperparameters())
     assert finetune is not None
     assert finetune.model.id == test_model
     assert finetune.cost.to_dict() == cost_estimation_map
+
+def test_create_exception():
+    model_map = read_data(MODEL_FILE)
+    with requests_mock.Mocker() as mock:
+        test_model = "test_asset_id"
+        url = f"{MODEL_URL}/{test_model}"
+        mock.get(url, headers=FIXED_HEADER, json=model_map)
+        mock.post(COST_ESTIMATION_URL, exc=requests.exceptions.ConnectTimeout)
+        finetune = FinetuneFactory.create("", [], test_model, prompt_template="test", hyperparameters=Hyperparameters())
+    assert finetune is None
 
 
 def test_create_train_dev_percentage(percentage_exception_map):

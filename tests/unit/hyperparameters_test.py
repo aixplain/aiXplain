@@ -16,18 +16,15 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-import uuid
-import json
 from dotenv import load_dotenv
 
 load_dotenv()
-from aixplain.factories import FinetuneFactory
+
 from aixplain.modules.finetune import Hyperparameters
 from aixplain.modules.finetune.hyperparameters import (
     EPOCHS_MAX_VALUE,
     BATCH_SIZE_VALUES,
     MAX_SEQ_LENGTH_MAX_VALUE,
-    GENERATION_MAX_LENGTH_MAX_VALUE,
 )
 
 
@@ -46,7 +43,6 @@ def test_create():
         {"train_batch_size": "string"},
         {"eval_batch_size": "string"},
         {"learning_rate": "string"},
-        {"generation_max_length": "string"},
         {"max_seq_length": "string"},
         {"warmup_ratio": "string"},
         {"warmup_steps": "string"},
@@ -65,7 +61,6 @@ def test_create_invalid_type(params):
         {"epochs": EPOCHS_MAX_VALUE + 1},
         {"train_batch_size": max(BATCH_SIZE_VALUES) + 1},
         {"eval_batch_size": max(BATCH_SIZE_VALUES) + 1},
-        {"generation_max_length": GENERATION_MAX_LENGTH_MAX_VALUE + 1},
         {"max_seq_length": MAX_SEQ_LENGTH_MAX_VALUE + 1},
     ],
 )

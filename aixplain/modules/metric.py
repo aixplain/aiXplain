@@ -24,6 +24,9 @@ Description:
 from typing import Optional, Text, List, Union
 from aixplain.modules.asset import Asset
 
+from aixplain.utils.file_utils import _request_with_retry
+# from aixplain.factories.model_factory import ModelFactory
+
 
 class Metric(Asset):
     """Represents a metric to be computed on one or more peices of data. It is usually linked to a machine learning task.
