@@ -250,12 +250,11 @@ class Model(Asset):
                 response["error"] = msg
         return response
 
-    def check_finetune_status(self, after_epoch: Optional[int] = None, after_step: Optional[int] = None):
+    def check_finetune_status(self, after_epoch: Optional[int] = None):
         """Check the status of the FineTune model.
 
         Args:
             after_epoch (Optional[int], optional): status after a given epoch. Defaults to None.
-            after_step (Optional[int], optional): status after a given step. Defaults to None.
 
         Raises:
             Exception: If the 'TEAM_API_KEY' is not provided.
@@ -274,31 +273,34 @@ class Model(Asset):
             resp = r.json()
             finetune_status = AssetStatus(resp["finetuneStatus"])
             model_status = AssetStatus(resp["modelStatus"])
-            try:
-                logs = sorted(resp["logs"], key=lambda x: (float(x["epoch"]), int(x["step"])))
-            except Exception:
-                # if step is not stored
-                logs = sorted(resp["logs"], key=lambda x: float(x["epoch"]))
-
-            if after_epoch is None and after_step is None:
-                logs = logs[-1:]
-            else:
-                if after_epoch is not None:
-                    logs = [log for log in logs if float(log["epoch"]) >= after_epoch]
-                if after_step is not None:
-                    if len(logs) > 0 and "step" in logs[0]:
-                        logs = [log for log in logs if log["step"] >= after_step]
+            logs = sorted(resp["logs"], key=lambda x: float(x["epoch"]))
             
-            if len(logs) > 0:
-                log = logs[0]
+            target_epoch = None
+            if after_epoch is not None:
+                logs = [log for log in logs if float(log["epoch"]) > after_epoch]
+                if len(logs) > 0:
+                    target_epoch = float(logs[0]["epoch"])
+            elif len(logs) > 0:
+                target_epoch = float(logs[-1]["epoch"])
+            
+            if target_epoch is not None:
+                log = None
+                for log_ in logs:
+                    if int(log_["epoch"]) == target_epoch:
+                        if log is None:
+                            log = log_
+                        else:
+                            if log_["trainLoss"] is not None:
+                                log["trainLoss"] = log_["trainLoss"]
+                            if log_["evalLoss"] is not None:
+                                log["evalLoss"] = log_["evalLoss"]
+                
                 status = FinetuneStatus(
                     status=finetune_status,
                     model_status=model_status,
                     epoch=float(log["epoch"]) if "epoch" in log and log["epoch"] is not None else None,
-                    step=int(log["step"]) if "step" in log and log["step"] is not None else None,
-                    learning_rate=float(log["learningRate"]) if "learningRate" in log and log["learningRate"] is not None else None,
                     training_loss=float(log["trainLoss"]) if "trainLoss" in log and log["trainLoss"] is not None else None,
-                    validation_loss=float(log["validationLoss"]) if "validationLoss" in log and log["validationLoss"] is not None else None,
+                    validation_loss=float(log["evalLoss"]) if "evalLoss" in log and log["evalLoss"] is not None else None,
                 )
             else:
                 status = FinetuneStatus(

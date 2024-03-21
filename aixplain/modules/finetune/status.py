@@ -32,7 +32,5 @@ class FinetuneStatus(object):
     status: "AssetStatus"
     model_status: "AssetStatus"
     epoch: Optional[float] = None
-    step: Optional[int] = None
-    learning_rate: Optional[float] = None
     training_loss: Optional[float] = None
     validation_loss: Optional[float] = None
