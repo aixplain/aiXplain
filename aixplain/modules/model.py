@@ -20,7 +20,6 @@ Date: September 1st 2022
 Description:
     Model Class
 """
-
 import time
 import json
 import logging
@@ -251,23 +250,65 @@ class Model(Asset):
                 response["error"] = msg
         return response
 
-    def check_finetune_status(self):
+    def check_finetune_status(self, after_epoch: Optional[int] = None):
         """Check the status of the FineTune model.
+
+        Args:
+            after_epoch (Optional[int], optional): status after a given epoch. Defaults to None.
 
         Raises:
             Exception: If the 'TEAM_API_KEY' is not provided.
 
         Returns:
-            str: The status of the FineTune model.
+            FinetuneStatus: The status of the FineTune model.
         """
+        from aixplain.enums.asset_status import AssetStatus
+        from aixplain.modules.finetune.status import FinetuneStatus
         headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}
+        resp = None
         try:
-            url = urljoin(self.backend_url, f"sdk/models/{self.id}")
+            url = urljoin(self.backend_url, f"sdk/finetune/{self.id}/ml-logs")
             logging.info(f"Start service for GET Check FineTune status Model  - {url} - {headers}")
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()
-            status = resp["status"]
-            logging.info(f"Response for GET Check FineTune status Model - Id {self.id} / Status {status}.")
+            finetune_status = AssetStatus(resp["finetuneStatus"])
+            model_status = AssetStatus(resp["modelStatus"])
+            logs = sorted(resp["logs"], key=lambda x: float(x["epoch"]))
+            
+            target_epoch = None
+            if after_epoch is not None:
+                logs = [log for log in logs if float(log["epoch"]) > after_epoch]
+                if len(logs) > 0:
+                    target_epoch = float(logs[0]["epoch"])
+            elif len(logs) > 0:
+                target_epoch = float(logs[-1]["epoch"])
+            
+            if target_epoch is not None:
+                log = None
+                for log_ in logs:
+                    if int(log_["epoch"]) == target_epoch:
+                        if log is None:
+                            log = log_
+                        else:
+                            if log_["trainLoss"] is not None:
+                                log["trainLoss"] = log_["trainLoss"]
+                            if log_["evalLoss"] is not None:
+                                log["evalLoss"] = log_["evalLoss"]
+                
+                status = FinetuneStatus(
+                    status=finetune_status,
+                    model_status=model_status,
+                    epoch=float(log["epoch"]) if "epoch" in log and log["epoch"] is not None else None,
+                    training_loss=float(log["trainLoss"]) if "trainLoss" in log and log["trainLoss"] is not None else None,
+                    validation_loss=float(log["evalLoss"]) if "evalLoss" in log and log["evalLoss"] is not None else None,
+                )
+            else:
+                status = FinetuneStatus(
+                    status=finetune_status,
+                    model_status=model_status,
+                )
+
+            logging.info(f"Response for GET Check FineTune status Model - Id {self.id} / Status {status.status.value}.")
             return status
         except Exception as e:
             message = ""
