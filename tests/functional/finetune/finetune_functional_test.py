@@ -76,13 +76,13 @@ def test_end2end(run_input_map):
     assert "inferenceCost" in cost_map
     finetune_model = finetune.start()
     start, end = time.time(), time.time()
-    status = finetune_model.check_finetune_status()
+    status = finetune_model.check_finetune_status().model_status.value
     while status != "onboarded" and (end - start) < TIMEOUT:
-        status = finetune_model.check_finetune_status()
+        status = finetune_model.check_finetune_status().model_status.value
         assert status != "failed"
         time.sleep(5)
         end = time.time()
-    assert finetune_model.check_finetune_status() == "onboarded"
+    assert finetune_model.check_finetune_status().model_status.value == "onboarded"
     result = finetune_model.run(run_input_map["inference_data"])
     print(f"Result: {result}")
     assert result is not None
