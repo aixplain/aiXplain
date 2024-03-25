@@ -26,7 +26,7 @@ def process_text(content: str, storage_type: StorageType) -> Text:
         Text: textual content
     """
     if storage_type == StorageType.FILE:
-        # Check the size of file and assert a limit of 50 MB
+        # Check the size of file and assert a limit of 25 MB
         assert (
             os.path.getsize(content) <= 25000000
         ), f'Data Asset Onboarding Error: Local text file "{content}" exceeds the size limit of 25 MB.'

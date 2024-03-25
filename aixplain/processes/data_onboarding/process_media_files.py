@@ -16,6 +16,7 @@ from aixplain.utils.file_utils import upload_data
 from pathlib import Path
 from tqdm import tqdm
 from typing import List, Tuple
+from urllib.parse import urlparse
 
 AUDIO_MAX_SIZE = 50000000
 IMAGE_TEXT_MAX_SIZE = 25000000
@@ -45,6 +46,15 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 100) ->
     Returns:
         Tuple[List[File], int, int, int]: list of s3 links; data, start and end columns index, and number of rows
     """
+    if metadata.dtype == DataType.INTERVAL_LABEL:
+        assert (
+            metadata.storage_type not in StorageType.TEXT
+        ), f'Data Asset Onboarding Error: Column "{metadata.name}" of type "{metadata.dtype}" can not be stored in text. Label data should be stored in a JSON file.'
+    else:
+        assert (
+            metadata.storage_type not in StorageType.TEXT
+        ), f'Data Asset Onboarding Error: Column "{metadata.name}" of type "{metadata.dtype}" can not be stored in text.'
+
     # if files are stored locally, create a folder to store it
     media_folder = Path(".")
     if metadata.storage_type == StorageType.FILE:
@@ -95,6 +105,14 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 100) ->
                     assert (
                         os.path.getsize(media_path) <= AUDIO_MAX_SIZE
                     ), f'Data Asset Onboarding Error: Local audio file "{media_path}" exceeds the size limit of 50 MB.'
+                elif metadata.dtype == DataType.INTERVAL_LABEL:
+                    assert (
+                        os.path.getsize(media_path) <= IMAGE_TEXT_MAX_SIZE
+                    ), f'Data Asset Onboarding Error: JSON file with labels "{media_path}" exceeds the size limit of 25 MB.'
+                    _, extension = os.path.splitext(media_path)
+                    assert (
+                        extension == ".json"
+                    ), f'Data Asset Onboarding Error: Label data should be stored in a JSON file and "{media_path}" is not one.'
                 else:
                     assert (
                         os.path.getsize(media_path) <= IMAGE_TEXT_MAX_SIZE
@@ -105,6 +123,12 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 100) ->
                     shutil.copy2(media_path, new_path)
                 batch.append(fname)
             else:
+                if metadata.dtype == DataType.INTERVAL_LABEL:
+                    path = urlparse(media_path).path
+                    _, extension = os.path.splitext(path)
+                    assert (
+                        extension == ".json"
+                    ), f'Data Asset Onboarding Error: Label data should be stored in a JSON file and "{media_path}" is not one.'
                 batch.append(media_path)
 
             # crop intervals can not be used with interval data types
