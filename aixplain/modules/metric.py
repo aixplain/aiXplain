@@ -23,6 +23,7 @@ Description:
 
 from typing import Optional, Text, List, Union
 from aixplain.modules.asset import Asset
+
 from aixplain.utils.file_utils import _request_with_retry
 from aixplain.factories.model_factory import ModelFactory
 
@@ -92,6 +93,7 @@ class Metric(Asset):
             source (Optional[Union[str, List[str]]], optional): Can give a single source or a list of sources for metric calculation. Defaults to None.
             reference (Optional[Union[str, List[str]]], optional): Can give a single reference or a list of references for metric calculation. Defaults to None.
         """
+        from aixplain.factories.model_factory import ModelFactory
         model = ModelFactory.get(self.id)
         payload = {
             "function": self.function,

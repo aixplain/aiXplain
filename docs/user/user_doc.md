@@ -352,9 +352,12 @@ Once a `FineTune` is created (refer to the [section above](#creating-a-finetune)
 ```python
 finetune_model = finetune.start()
 ```
-We receive a model that we can check the fine-tuning status:
+We receive a model that we can check the fine-tuning info (status, epoch, training and validation losses):
  ```python
-status = finetune_model.check_finetune_status()
+finetune_model_info = finetune_model.check_finetune_status()
+epoch = finetune_model_info.epoch
+training_loss = finetune_model_info.training_loss
+validation_loss = finetune_model_info.validation_loss
 ```
 Status can be one of the following: `onboarding`, `onboarded`, `hidden`, `training`, `deleted`, `enabling`, `disabled`, `failed`, `deleting`.
 

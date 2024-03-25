@@ -26,6 +26,7 @@ from typing import Dict, List, Optional, Text
 import json
 import pandas as pd
 from pathlib import Path
+from aixplain.enums.supplier import Supplier
 from aixplain.modules import Dataset, Metric, Model
 from aixplain.modules.benchmark_job import BenchmarkJob
 from aixplain.modules.benchmark import Benchmark
@@ -237,3 +238,24 @@ class BenchmarkFactory:
             error_message = f"Listing Normalization Options: Error in getting Normalization Options: {e}"
             logging.error(error_message, exc_info=True)
             return []
+
+    @classmethod
+    def get_benchmark_job_scores(cls, job_id):
+        def __get_model_name(model_id):
+            model = ModelFactory.get(model_id)
+            supplier = str(model.supplier)
+            try:
+                if isinstance(supplier, Supplier):
+                    name = f"{supplier.name}"
+                else:
+                    name = f"{eval(supplier)['name']}"
+            except Exception as e:
+                logging.error(f"{e}")
+                name = f"{supplier}"
+            if model.version is not None:
+                name = f"{name}({model.version})"
+            return name
+        benchmarkJob = cls.get_job(job_id)
+        scores_df = benchmarkJob.get_scores()
+        scores_df["Model"] = scores_df["Model"].apply(lambda x: __get_model_name(x))
+        return scores_df
