@@ -1,0 +1,100 @@
+{
+    "links": [
+        {
+            "from": 0,
+            "to": 1,
+            "paramMapping": [
+                {
+                    "from": "input",
+                    "to": "text"
+                }
+            ]
+        },
+        {
+            "from": 1,
+            "to": 2,
+            "paramMapping": [
+                {
+                    "from": "data",
+                    "to": "text"
+                }
+            ]
+        },
+        {
+            "from": 2,
+            "to": 3,
+            "paramMapping": [
+                {
+                    "from": "data",
+                    "to": "output"
+                }
+            ]
+        }
+    ],
+    "nodes": [
+        {
+            "number": 0,
+            "type": "INPUT"
+        },
+        {
+            "number": 1,
+            "type": "ASSET",
+            "function": "sentiment-analysis",
+            "inputValues": [
+                {
+                    "code": "language",
+                    "value": "en"
+                },
+                {
+                    "code": "text",
+                    "dataType": "text"
+                }
+            ],
+            "assetId": "6172874f720b09325cbcdc33",
+            "assetType": "MODEL",
+            "autoSelectOptions": [],
+            "functionType": "AI",
+            "status": "Exists",
+            "outputValues": [
+                {
+                    "code": "data",
+                    "dataType": "label"
+                }
+            ]
+        },
+        {
+            "number": 2,
+            "type": "ASSET",
+            "function": "translation",
+            "inputValues": [
+                {
+                    "code": "sourcelanguage",
+                    "value": "en"
+                },
+                {
+                    "code": "targetlanguage",
+                    "value": "es"
+                },
+                {
+                    "code": "text",
+                    "dataType": "text"
+                }
+            ],
+            "assetId": "61b097551efecf30109d3316",
+            "assetType": "MODEL",
+            "autoSelectOptions": [],
+            "functionType": "AI",
+            "status": "Exists",
+            "outputValues": [
+                {
+                    "code": "data",
+                    "dataType": "text"
+                }
+            ]
+        },
+        {
+            "number": 3,
+            "type": "OUTPUT"
+        }
+    ]
+}
