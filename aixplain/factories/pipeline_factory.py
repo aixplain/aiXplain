@@ -224,6 +224,19 @@ class PipelineFactory:
 
     @classmethod
     def create(cls, name: Text, pipeline: Union[Text, Dict], status: Text = "draft") -> Pipeline:
+        """Pipeline Creation
+
+        Args:
+            name (Text): Pipeline Name
+            pipeline (Union[Text, Dict]): Pipeline as a Python dictionary or in a JSON file
+            status (Text, optional): Status of the pipeline. Currently only draft pipelines can be saved. Defaults to "draft".
+
+        Raises:
+            Exception: Currently just the creation of draft pipelines are supported
+
+        Returns:
+            Pipeline: instance of the new pipeline
+        """
         try:
             assert status == "draft", "Pipeline Creation Error: Currently just the creation of draft pipelines are supported."
             if isinstance(pipeline, str) is True:

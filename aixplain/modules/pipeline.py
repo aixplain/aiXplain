@@ -310,6 +310,14 @@ class Pipeline(Asset):
         return response
 
     def update(self, pipeline: Union[Text, Dict]):
+        """Update Pipeline
+
+        Args:
+            pipeline (Union[Text, Dict]): Pipeline as a Python dictionary or in a JSON file
+
+        Raises:
+            Exception: Make sure the pipeline to be save is in a JSON file.
+        """
         try:
             if isinstance(pipeline, str) is True:
                 _, ext = os.path.splitext(pipeline)
