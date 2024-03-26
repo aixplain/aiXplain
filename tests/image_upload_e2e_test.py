@@ -6,8 +6,10 @@ from aixplain.factories.model_factory import ModelFactory
 from tests.test_utils import delete_asset, delete_service_account
 from aixplain.utils import config
 import docker
-import os
+import pytest
 
+
+@pytest.mark.skip(reason="Model Upload is deactivated for improvements.")
 def test_create_and_upload_model():
     # List the host machines
     host_response = ModelFactory.list_host_machines()
@@ -44,7 +46,7 @@ def test_create_and_upload_model():
 
     # Log into the image repository.
     login_response = ModelFactory.asset_repo_login()
-    
+
     assert login_response["username"] == "AWS"
     assert login_response["registry"] == "535945872701.dkr.ecr.us-east-1.amazonaws.com"
     assert "password" in login_response.keys()
@@ -55,12 +57,12 @@ def test_create_and_upload_model():
 
     # Push an image to ECR
     # os.system("aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 535945872701.dkr.ecr.us-east-1.amazonaws.com")
-    low_level_client = docker.APIClient(base_url='unix://var/run/docker.sock')
+    low_level_client = docker.APIClient(base_url="unix://var/run/docker.sock")
     # low_level_client.pull("535945872701.dkr.ecr.us-east-1.amazonaws.com/bash")
     # low_level_client.tag("535945872701.dkr.ecr.us-east-1.amazonaws.com/bash", f"{registry}/{repo_name}")
     low_level_client.pull("bash")
     low_level_client.tag("bash", f"{registry}/{repo_name}")
-    low_level_client.push(f"{registry}/{repo_name}", auth_config={"username":username, "password":password})
+    low_level_client.push(f"{registry}/{repo_name}", auth_config={"username": username, "password": password})
 
     # Send an email to finalize onboarding process
     ModelFactory.onboard_model(model_id, "latest", "fake_hash")

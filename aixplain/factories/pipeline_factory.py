@@ -22,6 +22,7 @@ Description:
 """
 import json
 import logging
+import os
 from typing import Dict, List, Optional, Text, Union
 from aixplain.enums.data_type import DataType
 from aixplain.enums.function import Function
@@ -207,7 +208,7 @@ class PipelineFactory:
                 output_data_types = [output_data_types]
             payload["inputDataTypes"] = [data_type.value for data_type in output_data_types]
 
-        logging.info(f"Start service for POST List Dataset - {url} - {headers} - {json.dumps(payload)}")
+        logging.info(f"Start service for POST List Pipeline - {url} - {headers} - {json.dumps(payload)}")
         r = _request_with_retry("post", url, headers=headers, json=payload)
         resp = r.json()
 
@@ -220,3 +221,40 @@ class PipelineFactory:
             for pipeline in results:
                 pipelines.append(cls.__from_response(pipeline))
         return {"results": pipelines, "page_total": page_total, "page_number": page_number, "total": total}
+
+    @classmethod
+    def create(cls, name: Text, pipeline: Union[Text, Dict], status: Text = "draft") -> Pipeline:
+        """Pipeline Creation
+
+        Args:
+            name (Text): Pipeline Name
+            pipeline (Union[Text, Dict]): Pipeline as a Python dictionary or in a JSON file
+            status (Text, optional): Status of the pipeline. Currently only draft pipelines can be saved. Defaults to "draft".
+
+        Raises:
+            Exception: Currently just the creation of draft pipelines are supported
+
+        Returns:
+            Pipeline: instance of the new pipeline
+        """
+        try:
+            assert status == "draft", "Pipeline Creation Error: Currently just the creation of draft pipelines are supported."
+            if isinstance(pipeline, str) is True:
+                _, ext = os.path.splitext(pipeline)
+                assert (
+                    os.path.exists(pipeline) and ext == ".json"
+                ), "Pipeline Creation Error: Make sure the pipeline to be save is in a JSON file."
+                with open(pipeline) as f:
+                    pipeline = json.load(f)
+
+            # prepare payload
+            payload = {"name": name, "status": "draft", "architecture": pipeline}
+            url = urljoin(cls.backend_url, "sdk/pipelines")
+            headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+            logging.info(f"Start service for POST Create Pipeline - {url} - {headers} - {json.dumps(payload)}")
+            r = _request_with_retry("post", url, headers=headers, json=payload)
+            response = r.json()
+
+            return Pipeline(response["id"], name, config.TEAM_API_KEY)
+        except Exception as e:
+            raise Exception(e)

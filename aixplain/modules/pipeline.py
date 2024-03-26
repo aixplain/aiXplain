@@ -23,11 +23,13 @@ Description:
 
 import time
 import json
+import os
 import logging
 from aixplain.modules.asset import Asset
 from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
 from typing import Dict, Optional, Text, Union
+from urllib.parse import urljoin
 
 
 class Pipeline(Asset):
@@ -306,3 +308,32 @@ class Pipeline(Asset):
             if resp is not None:
                 response["error"] = resp
         return response
+
+    def update(self, pipeline: Union[Text, Dict]):
+        """Update Pipeline
+
+        Args:
+            pipeline (Union[Text, Dict]): Pipeline as a Python dictionary or in a JSON file
+
+        Raises:
+            Exception: Make sure the pipeline to be save is in a JSON file.
+        """
+        try:
+            if isinstance(pipeline, str) is True:
+                _, ext = os.path.splitext(pipeline)
+                assert (
+                    os.path.exists(pipeline) and ext == ".json"
+                ), "Pipeline Update Error: Make sure the pipeline to be save is in a JSON file."
+                with open(pipeline) as f:
+                    pipeline = json.load(f)
+
+            # prepare payload
+            payload = {"name": self.name, "status": "draft", "architecture": pipeline}
+            url = urljoin(config.BACKEND_URL, f"sdk/pipelines/{self.id}")
+            headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+            logging.info(f"Start service for PUT Update Pipeline - {url} - {headers} - {json.dumps(payload)}")
+            r = _request_with_retry("put", url, headers=headers, json=payload)
+            response = r.json()
+            logging.info(f"Pipeline {response['id']} Updated.")
+        except Exception as e:
+            raise Exception(e)

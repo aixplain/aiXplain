@@ -6,6 +6,8 @@ from tests.test_utils import delete_asset, delete_service_account
 from aixplain.factories.model_factory import ModelFactory
 import pytest
 
+
+@pytest.mark.skip(reason="Model Upload is deactivated for improvements.")
 def test_login():
     response = ModelFactory.asset_repo_login()
     assert response["username"] == "AWS"
@@ -15,6 +17,8 @@ def test_login():
     # Test cleanup
     delete_service_account(config.TEAM_API_KEY)
 
+
+@pytest.mark.skip(reason="Model Upload is deactivated for improvements.")
 def test_create_asset_repo():
     with open(Path("tests/test_requests/create_asset_request.json")) as f:
         mock_register_payload = json.load(f)
@@ -33,6 +37,8 @@ def test_create_asset_repo():
     # Test cleanup
     delete_asset(response["id"], config.TEAM_API_KEY)
 
+
+@pytest.mark.skip(reason="Model Upload is deactivated for improvements.")
 def test_list_host_machines():
     response = ModelFactory.list_host_machines()
     for hosting_machine_dict in response:
@@ -42,6 +48,8 @@ def test_list_host_machines():
         assert "memory" in hosting_machine_dict.keys()
         assert "hourlyCost" in hosting_machine_dict.keys()
 
+
+@pytest.mark.skip(reason="Model Upload is deactivated for improvements.")
 def test_get_functions():
     # Verbose
     response = ModelFactory.list_functions(True)
@@ -53,13 +61,14 @@ def test_get_functions():
         assert "name" in item.keys()
 
     # Non-verbose
-    response = ModelFactory.list_functions() # Not verbose by default
+    response = ModelFactory.list_functions()  # Not verbose by default
     items = response["items"]
     for item in items:
         assert "output" not in item.keys()
         assert "params" not in item.keys()
         assert "id" not in item.keys()
         assert "name" in item.keys()
+
 
 @pytest.mark.skip(reason="Not included in first release")
 def list_image_repo_tags():

@@ -1,11 +1,14 @@
 __author__ = "michaellam"
 
-import time 
+import pytest
+import time
 
 from aixplain.factories.model_factory import ModelFactory
 from tests.test_utils import delete_asset
 from aixplain.utils import config
 
+
+@pytest.mark.skip(reason="Model Deployment is deactivated for improvements.")
 def test_deploy_model():
     # Start the deployment
     model_name = "Test Model"
@@ -26,6 +29,8 @@ def test_deploy_model():
     # Clean up
     delete_asset(model_id, config.TEAM_API_KEY)
 
+
+@pytest.mark.skip(reason="Model Deployment is deactivated for improvements.")
 def test_nonexistent_model():
     # Start the deployment
     model_name = "Test Model"
@@ -34,6 +39,8 @@ def test_nonexistent_model():
     assert response["statusCode"] == 400
     assert response["message"] == "err.unable_to_onboard_model"
 
+
+@pytest.mark.skip(reason="Model Deployment is deactivated for improvements.")
 def test_size_limit():
     # Start the deployment
     model_name = "Test Model"
@@ -42,6 +49,8 @@ def test_size_limit():
     assert response["statusCode"] == 400
     assert response["message"] == "err.unable_to_onboard_model"
 
+
+@pytest.mark.skip(reason="Model Deployment is deactivated for improvements.")
 def test_gated_model():
     # Start the deployment
     model_name = "Test Model"
