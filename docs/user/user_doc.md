@@ -58,6 +58,8 @@ poll_url = start_response["url"]
 poll_response = model.poll(poll_url)
 ```
 ### Deploying Hugging Face Large Language Models
+This feature is currently under maintenance.
+<!---
 You can deploy your very own Hugging Face large language models on our platform using the aiXplain SDK:
 ```console
 $ aixplain onboard hf-model --name <what you'd like to name your model> --hf-repo-id <Hugging Face repository ID ({supplier}/{name})> --hf-token <Hugging Face token> [--api-key <TEAM_API_KEY>]
@@ -67,9 +69,11 @@ This command will return your model's ID. The on-boarding process will take 5 to
 $ aixplain get hf-model-status --model-id <model ID> [--api-key <TEAM_API_KEY>]
 ```
 
-Once the on-boarding process has completed, you can use this newly-deployed large language model just like any other model on our platform. Note that our platform currently only supports language models up 7 billion parameters in size (~30 GB), so any attempts to deploy larger models will result in an error message.
+Once the on-boarding process has completed, you can use this newly-deployed large language model just like any other model on our platform. Note that our platform currently only supports language models up 7 billion parameters in size (~30 GB), so any attempts to deploy larger models will result in an error message.-->
 
 ### Uploading Models
+This feature is currently under maintenance.
+<!---
 In addition to exploring and running models, the aiXplain SDK allows you to upload your own models to the aiXplain platform. This requires a working model image in line with the template specified [here](https://github.com/aixplain/model-interfaces/blob/main/docs/user/model_setup.md). [These](https://github.com/aixplain/model-interfaces/tree/main) are the interfaces with which you will be working. You will also be required to have an aiXplain account as well as a TEAM_API_KEY which should be set either as an environment variable or passed into each of the following functions.
 
 First, choose a hosting machine appropriate for your model. Note down the host machines "code". You can list the available hosting machines' specifications by running the following:
@@ -161,7 +165,7 @@ $ aixplain onboard model --model-id <model_id> --image-tag <model_image_tag> --i
 ```
 `model-id` should be the model ID returned by the image-create-repo function used earlier. `image-tag` should be set to whatever string you used to tag your model image. The image sha256 hash can be obtained by running `docker images --digests`. Choose the hash corresponding to the image you would like onboarded.
 
-This will send an email to an aiXplain associate to finalize the onboarding process.
+This will send an email to an aiXplain associate to finalize the onboarding process. --->
 
 ## Pipelines
 [Design](https://aixplain.com/platform/studio/) is aiXplain’s no-code AI pipeline builder tool that accelerates AI development by providing a seamless experience to build complex AI systems and deploy them within minutes. You can visit our platform and design your own custom pipeline [here](https://platform.aixplain.com/studio).
