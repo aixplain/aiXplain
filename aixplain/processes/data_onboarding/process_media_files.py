@@ -48,11 +48,11 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 100) ->
     """
     if metadata.dtype == DataType.INTERVAL_LABEL:
         assert (
-            metadata.storage_type not in StorageType.TEXT
+            metadata.storage_type != StorageType.TEXT
         ), f'Data Asset Onboarding Error: Column "{metadata.name}" of type "{metadata.dtype}" can not be stored in text. Label data should be stored in a JSON file.'
     else:
         assert (
-            metadata.storage_type not in StorageType.TEXT
+            metadata.storage_type != StorageType.TEXT
         ), f'Data Asset Onboarding Error: Column "{metadata.name}" of type "{metadata.dtype}" can not be stored in text.'
 
     # if files are stored locally, create a folder to store it
