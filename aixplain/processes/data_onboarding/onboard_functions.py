@@ -405,3 +405,126 @@ def split_data(paths: List, split_rate: List[float], split_labels: List[Text]) -
         dataframe.to_csv(path, index=False)
 
     return MetaData(name=column_name, dtype=DataType.LABEL, dsubtype=DataSubtype.SPLIT, storage_type=StorageType.TEXT)
+
+
+def fill_with_blanks(paths: List[Text], schema: List[MetaData], dataset_data: List[Text]) -> List[MetaData]:
+    """Fill with blanks missing dataset columns
+
+    Args:
+        paths (List[Text]): list of content files
+        schema (List[MetaData]): schema with columns to be updated provided by the user
+        dataset_data (List[Text]): list of all columns from the target dataset
+
+    Returns:
+        List[MetaData]: new schema with missing columns
+    """
+    schema_data_ids = [data.id for data in schema]
+    absent_data = [data for data in dataset_data if data.id not in schema_data_ids]
+
+    # fill missing columns with blank values
+    for path in paths:
+        df = pd.read_csv(path)
+        size = len(df)
+        for data in absent_data:
+            df[data.id] = [""] * size
+        df.to_csv(path)
+
+    # update schema with missing columns
+    for data in absent_data:
+        schema.append(
+            MetaData(
+                id=data.id,
+                name=data.name,
+                dtype=data.dtype,
+                storage_type="text",
+            )
+        )
+    return schema
+
+
+def get_column_names(paths: List[Text], schema: List[MetaData]) -> List[Text]:
+    """Get the name of the columns corresponding to the data
+
+    Args:
+        paths (List[Text]): list of content files
+        schema (List[MetaData]): metadata schema
+
+    Returns:
+        List[Text]: _description_
+    """
+    path = paths[0]
+    df = pd.read_csv(path)
+
+    columns = df.columns
+    column_names = []
+    for data in schema:
+        if data.id in columns:
+            column_names.append(data.id)
+        else:
+            column_names.append(data.name)
+    return column_names
+
+
+def build_payload_update(dataset_data: List[Data]) -> Dict:
+    """Build payload to update data asset
+
+    Args:
+        dataset_data (List[Data]): list of data from a data asset
+
+    Returns:
+        Dict: _description_
+    """
+    payload = {"updateData": []}
+
+    for data in dataset_data:
+        data_payload = {
+            "dataId": data.id,
+            "batches": [{"tempFilePath": str(file.path), "order": idx + 1} for idx, file in enumerate(data.files)],
+        }
+        payload["updateData"].append(data_payload)
+    return payload
+
+
+def update_data_asset(
+    data_asset_id: Text, payload: Dict, data_asset_type: Text = "corpus", api_key: Optional[Text] = None
+) -> Dict:
+    """Service to call update process in coreengine
+
+    Args:
+        data_asset_id (Dict): Data Asset ID
+        payload (Dict): onboard payload
+        data_asset_type (Text, optional): corpus or dataset. Defaults to "corpus".
+        api_key (Optional[Text]): team api key. Defaults to None.
+
+    Returns:
+        Dict: onboard status
+    """
+    if api_key is not None:
+        team_key = api_key
+    else:
+        team_key = config.TEAM_API_KEY
+    headers = {"Authorization": "token " + team_key}
+
+    url = urljoin(config.BACKEND_URL, f"sdk/{data_asset_type}/{data_asset_id}/append-data")
+
+    r = _request_with_retry("post", url, headers=headers, json=payload)
+    if 200 <= r.status_code < 300:
+        response = r.json()
+
+        asset_id = response["id"]
+        status = response["status"]
+
+        return {
+            "success": True,
+            "asset_id": asset_id,
+            "status": status,
+            # "coreengine_payload": coreengine_payload
+        }
+    else:
+        try:
+            response = r.json()
+            msg = response["message"]
+            error_msg = f"Data Asset Onboarding Error: {msg}"
+        except Exception as e:
+            error_msg = f"Data Asset Onboarding Error: Failure on updating the {data_asset_type} `{data_asset_id}`. Please contant the administrators."
+        return {"success": False, "error": error_msg}

@@ -282,7 +282,7 @@ class DatasetFactory(AssetFactory):
         error_handler: ErrorHandler = ErrorHandler.SKIP,
         s3_link: Optional[Text] = None,
         aws_credentials: Optional[Dict[Text, Text]] = {"AWS_ACCESS_KEY_ID": None, "AWS_SECRET_ACCESS_KEY": None},
-        api_key: Optional[Text] = None
+        api_key: Optional[Text] = None,
     ) -> Dict:
         """Dataset Onboard
 
@@ -500,5 +500,120 @@ class DatasetFactory(AssetFactory):
                 shutil.rmtree(folder)
             if csv_path is not None and os.path.exists(csv_path) is True:
                 os.remove(csv_path)
+            raise Exception(e)
+        return return_dict
+
+    @classmethod
+    def update(
+        cls,
+        dataset_id: Text,
+        schema: List[Union[Dict, MetaData]],
+        content_path: Union[Union[Text, Path], List[Union[Text, Path]]] = [],
+        api_key: Optional[Text] = None,
+    ) -> Dict:
+        """Append Rows into a Dataset
+
+        Args:
+            dataset_id (Text): dataset ID
+            schema (List[Union[Dict, Data]]): new rows to be appended
+            content_path (Union[Union[Text, Path], List[Union[Text, Path]]]): path to files which contain the data content
+            api_key (Optional[Text]): team api key. Defaults to None.
+        Returns:
+            Dict: dataset onboard status
+        """
+        # check whether the user has access to the dataset
+        try:
+            dataset = DatasetFactory.get(dataset_id=dataset_id)
+        except Exception:
+            raise Exception(
+                f"Data Asset Onboarding Error: Dataset `{dataset_id}` does not exist or you do not have access to it."
+            )
+
+        # convert schema to a list of metadata
+        dict_to_metadata(schema)
+
+        # get all Dataset data
+        dataset_data = []
+        for source in dataset.source_data:
+            dataset_data.append(dataset.source_data[source])
+        for target in dataset.target_data:
+            for data in dataset.target_data[target]:
+                dataset_data.append(data)
+        for metadata in dataset.metadata:
+            dataset_data.append(dataset.metadata[metadata])
+        for hypothesis in dataset.hypotheses:
+            dataset_data.append(dataset.hypotheses[hypothesis])
+
+        # validation on schema to be updated
+        dataset_data_ids = [data.id for data in dataset_data]
+        for i, data in enumerate(schema):
+            assert (
+                data.id is not None
+            ), f"Data Asset Onboarding Error: Please specify the ID of the data to be updated in schema."
+            assert (
+                data.id in dataset_data_ids
+            ), f"Data Asset Onboarding Error: Data `{data.id}` is not part of Dataset `{dataset_id}`."
+
+        folder, return_dict = None, {}
+        # check team key
+        try:
+            # process data and create files
+            folder = Path(dataset.name)
+            folder.mkdir(exist_ok=True)
+
+            if isinstance(content_path, list) is False:
+                content_paths = [content_path]
+            else:
+                content_paths = content_path
+
+            # get file extension paths to process
+            paths = onboard_functions.get_paths(content_paths)
+            # fill missing columns with empty values
+            schema = onboard_functions.fill_with_blanks(dataset_data=dataset_data, paths=paths, schema=schema)
+            # get column names
+            column_names = onboard_functions.get_column_names(paths=paths, schema=schema)
+
+            dataset_data, sizes = [], []
+            for i in tqdm(range(len(schema)), desc=f" Dataset's onboard progress", position=0):
+                metadata = schema[i]
+                column_name = column_names[i]
+
+                files, data_column_idx, start_column_idx, end_column_idx, nrows = onboard_functions.process_data_files(
+                    data_asset_name=column_name, metadata=metadata, paths=paths, folder=dataset.name
+                )
+
+                # save size
+                sizes.append(nrows)
+
+                dataset_data.append(
+                    Data(
+                        id=metadata.id,
+                        name=metadata.name,
+                        dtype=metadata.dtype,
+                        dsubtype=metadata.dsubtype,
+                        privacy=metadata.privacy,
+                        onboard_status="onboarding",
+                        data_column=data_column_idx,
+                        start_column=start_column_idx,
+                        end_column=end_column_idx,
+                        files=files,
+                        languages=metadata.languages,
+                        length=nrows,
+                    )
+                )
+
+            dataset_payload = onboard_functions.build_payload_update(dataset_data=dataset_data)
+
+            response = onboard_functions.update_data_asset(
+                data_asset_id=dataset.id, payload=dataset_payload, data_asset_type="datasets", api_key=api_key
+            )
+            if response["success"] is True:
+                return_dict = {"status": response["status"], "asset_id": response["asset_id"]}
+            else:
+                raise Exception(response["error"])
+            shutil.rmtree(folder)
+        except Exception as e:
+            if folder is not None:
+                shutil.rmtree(folder)
             raise Exception(e)
         return return_dict
