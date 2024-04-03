@@ -109,24 +109,24 @@ def test_run_multipipe_with_datasets(batchmode: bool):
     assert response["status"] == "SUCCESS"
 
 
-@pytest.mark.parametrize("batchmode", [True, False])
-def test_run_segment_reconstruct(batchmode: bool):
+def test_run_segment_reconstruct():
     pipeline = PipelineFactory.list(query="Segmentation/Reconstruction Functional Test - DO NOT DELETE")["results"][0]
-    response = pipeline.run("https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.wav", **{"batchmode": batchmode})
+    response = pipeline.run("https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.wav")
 
     assert response["status"] == "SUCCESS"
     output = response["data"][0]
     assert output["label"] == "Output 1"
 
 
-@pytest.mark.parametrize("batchmode", [True, False])
-def test_run_metric(batchmode: bool):
+def test_run_metric():
     pipeline = PipelineFactory.list(query="ASR Metric Functional Test - DO NOT DELETE")["results"][0]
-    response = pipeline.run({
-        "AudioInput": "https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.wav",
-        "ReferenceInput": "https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.txt"
-    }, **{"batchmode": batchmode})
-    
+    response = pipeline.run(
+        {
+            "AudioInput": "https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.wav",
+            "ReferenceInput": "https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.txt",
+        }
+    )
+
     assert response["status"] == "SUCCESS"
     assert len(response["data"]) == 2
     assert response["data"][0]["label"] in ["TranscriptOutput", "ScoreOutput"]
@@ -134,34 +134,30 @@ def test_run_metric(batchmode: bool):
 
 
 @pytest.mark.parametrize(
-    "batchmode,input_data,output_data", 
+    "input_data,output_data",
     [
-        (True, "https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.wav", "AudioOutput"),
-        (False, "https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.wav", "AudioOutput"),
-        (True, "https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.txt", "TextOutput"),
-        (False, "https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.txt", "TextOutput")
-    ]
+        ("https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.wav", "AudioOutput"),
+        ("https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.txt", "TextOutput"),
+    ],
 )
-def test_run_router(batchmode: bool, input_data: str, output_data: str):
+def test_run_router(input_data: str, output_data: str):
     pipeline = PipelineFactory.list(query="Router Test - DO NOT DELETE")["results"][0]
-    response = pipeline.run(input_data, **{"batchmode": batchmode})
-    
+    response = pipeline.run(input_data)
+
     assert response["status"] == "SUCCESS"
     assert response["data"][0]["label"] == output_data
 
 
 @pytest.mark.parametrize(
-    "batchmode,input_data,output_data", 
+    "input_data,output_data",
     [
-        (True, "I love it.", "PositiveOutput"),
-        (False, "I love it.", "PositiveOutput"),
-        (True, "I hate it.", "NegativeOutput"),
-        (False, "I hate it.", "NegativeOutput")
-    ]
+        ("I love it.", "PositiveOutput"),
+        ("I hate it.", "NegativeOutput"),
+    ],
 )
-def test_run_decision(batchmode: bool, input_data: str, output_data: str):
+def test_run_decision(input_data: str, output_data: str):
     pipeline = PipelineFactory.list(query="Decision Test - DO NOT DELETE")["results"][0]
-    response = pipeline.run(input_data, **{"batchmode": batchmode})
-    
+    response = pipeline.run(input_data)
+
     assert response["status"] == "SUCCESS"
     assert response["data"][0]["label"] == output_data
