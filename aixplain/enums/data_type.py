@@ -29,7 +29,6 @@ class DataType(Enum):
     FLOAT = "float"
     IMAGE = "image"
     INTEGER = "integer"
-    INTERVAL_LABEL = "label"
     LABEL = "label"
     TENSOR = "tensor"
     TEXT = "text"
