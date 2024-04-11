@@ -283,7 +283,7 @@ Using the aiXplain SDK, you can also onboard your dataset into the aiXplain plat
   - [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1Asnjeq5JQ9pV6UUQ2Z20XtrjnoaFD0nf?usp=sharing) 
 
 - Image Label Detection Dataset:
-  - [Link](docs/samples/label_dataset_onboarding/label_dataset_onboarding.ipynb)
+  - [Link](../samples/label_dataset_onboarding/label_dataset_onboarding.ipynb)
 
 ## FineTune
 
