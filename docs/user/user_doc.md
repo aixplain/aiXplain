@@ -282,6 +282,9 @@ Using the aiXplain SDK, you can also onboard your dataset into the aiXplain plat
 - Machine translation dataset directly from s3:
   - [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1Asnjeq5JQ9pV6UUQ2Z20XtrjnoaFD0nf?usp=sharing) 
 
+- Image Label Detection Dataset:
+  - [Link](docs/samples/label_dataset_onboarding/label_dataset_onboarding.ipynb)
+
 ## FineTune
 
 [FineTune](https://aixplain.com/platform/finetune) allows you to customize models by tuning them using your data and enhancing their performance. Set up and start fine-tuning with a few lines of code. Once fine-tuning is complete, the model will be deployed into your assets, ready for you to use.
