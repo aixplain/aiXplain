@@ -1,0 +1,41 @@
+{
+    "finetuneStatus": "onboarding",
+    "modelStatus": "onboarded",
+    "logs": [
+        {
+            "epoch": 1,
+            "learningRate": 9.938725490196079e-05,
+            "trainLoss": 0.1,
+            "evalLoss": 0.1106,
+            "step": 10
+        },
+        {
+            "epoch": 2,
+            "learningRate": 9.877450980392157e-05,
+            "trainLoss": 0.2,
+            "evalLoss": 0.0482,
+            "step": 20
+        },
+        {
+            "epoch": 3,
+            "learningRate": 9.816176470588235e-05,
+            "trainLoss": 0.3,
+            "evalLoss": 0.0251,
+            "step": 30
+        },
+        {
+            "epoch": 4,
+            "learningRate": 9.754901960784314e-05,
+            "trainLoss": 0.9,
+            "evalLoss": 0.0228,
+            "step": 40
+        },
+        {
+            "epoch": 5,
+            "learningRate": 9.693627450980392e-05,
+            "trainLoss": 0.4,
+            "evalLoss": 0.0217,
+            "step": 50
+        }
+    ]
+}

@@ -1,0 +1,49 @@
+{
+    "id": "65fb26268fe9153a6c9c29c4",
+    "finetuneStatus": "in_progress",
+    "modelStatus": "training",
+    "logs": [
+        {
+            "epoch": 1,
+            "learningRate": null,
+            "trainLoss": null,
+            "validationLoss": null,
+            "step": null,
+            "evalLoss": 2.684150457382,
+            "totalFlos": null,
+            "evalRuntime": 12.4129,
+            "trainRuntime": null,
+            "evalStepsPerSecond": 0.322,
+            "trainStepsPerSecond": null,
+            "evalSamplesPerSecond": 16.112
+        },
+        {
+            "epoch": 2,
+            "learningRate": null,
+            "trainLoss": null,
+            "validationLoss": null,
+            "step": null,
+            "evalLoss": 2.596168756485,
+            "totalFlos": null,
+            "evalRuntime": 11.8249,
+            "trainRuntime": null,
+            "evalStepsPerSecond": 0.338,
+            "trainStepsPerSecond": null,
+            "evalSamplesPerSecond": 16.913
+        },
+        {
+            "epoch": 2,
+            "learningRate": null,
+            "trainLoss": 2.657801408034,
+            "validationLoss": null,
+            "step": null,
+            "evalLoss": null,
+            "totalFlos": 11893948284928,
+            "evalRuntime": null,
+            "trainRuntime": 221.7946,
+            "evalStepsPerSecond": null,
+            "trainStepsPerSecond": 0.117,
+            "evalSamplesPerSecond": null
+        }
+    ]
+}

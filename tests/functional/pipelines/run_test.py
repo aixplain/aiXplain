@@ -107,3 +107,57 @@ def test_run_multipipe_with_datasets(batchmode: bool):
         **{"batchmode": batchmode}
     )
     assert response["status"] == "SUCCESS"
+
+
+def test_run_segment_reconstruct():
+    pipeline = PipelineFactory.list(query="Segmentation/Reconstruction Functional Test - DO NOT DELETE")["results"][0]
+    response = pipeline.run("https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.wav")
+
+    assert response["status"] == "SUCCESS"
+    output = response["data"][0]
+    assert output["label"] == "Output 1"
+
+
+def test_run_metric():
+    pipeline = PipelineFactory.list(query="ASR Metric Functional Test - DO NOT DELETE")["results"][0]
+    response = pipeline.run(
+        {
+            "AudioInput": "https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.wav",
+            "ReferenceInput": "https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.txt",
+        }
+    )
+
+    assert response["status"] == "SUCCESS"
+    assert len(response["data"]) == 2
+    assert response["data"][0]["label"] in ["TranscriptOutput", "ScoreOutput"]
+    assert response["data"][1]["label"] in ["TranscriptOutput", "ScoreOutput"]
+
+
+@pytest.mark.parametrize(
+    "input_data,output_data",
+    [
+        ("https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.wav", "AudioOutput"),
+        ("https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.txt", "TextOutput"),
+    ],
+)
+def test_run_router(input_data: str, output_data: str):
+    pipeline = PipelineFactory.list(query="Router Test - DO NOT DELETE")["results"][0]
+    response = pipeline.run(input_data)
+
+    assert response["status"] == "SUCCESS"
+    assert response["data"][0]["label"] == output_data
+
+
+@pytest.mark.parametrize(
+    "input_data,output_data",
+    [
+        ("I love it.", "PositiveOutput"),
+        ("I hate it.", "NegativeOutput"),
+    ],
+)
+def test_run_decision(input_data: str, output_data: str):
+    pipeline = PipelineFactory.list(query="Decision Test - DO NOT DELETE")["results"][0]
+    response = pipeline.run(input_data)
+
+    assert response["status"] == "SUCCESS"
+    assert response["data"][0]["label"] == output_data
