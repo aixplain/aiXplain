@@ -46,11 +46,7 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 100) ->
     Returns:
         Tuple[List[File], int, int, int]: list of s3 links; data, start and end columns index, and number of rows
     """
-    if metadata.dtype == DataType.LABEL:
-        assert (
-            metadata.storage_type != StorageType.TEXT
-        ), f'Data Asset Onboarding Error: Column "{metadata.name}" of type "{metadata.dtype}" can not be stored in text. Label data should be stored in a JSON file.'
-    else:
+    if metadata.dtype != DataType.LABEL:
         assert (
             metadata.storage_type != StorageType.TEXT
         ), f'Data Asset Onboarding Error: Column "{metadata.name}" of type "{metadata.dtype}" can not be stored in text.'
@@ -108,11 +104,7 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 100) ->
                 elif metadata.dtype == DataType.LABEL:
                     assert (
                         os.path.getsize(media_path) <= IMAGE_TEXT_MAX_SIZE
-                    ), f'Data Asset Onboarding Error: JSON file with labels "{media_path}" exceeds the size limit of 25 MB.'
-                    _, extension = os.path.splitext(media_path)
-                    assert (
-                        extension == ".json"
-                    ), f'Data Asset Onboarding Error: Label data should be stored in a JSON file and "{media_path}" is not one.'
+                    ), f'Data Asset Onboarding Error: Local label file "{media_path}" exceeds the size limit of 25 MB.'
                 else:
                     assert (
                         os.path.getsize(media_path) <= IMAGE_TEXT_MAX_SIZE
@@ -123,12 +115,6 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 100) ->
                     shutil.copy2(media_path, new_path)
                 batch.append(fname)
             else:
-                if metadata.dtype == DataType.LABEL:
-                    path = urlparse(media_path).path
-                    _, extension = os.path.splitext(path)
-                    assert (
-                        extension == ".json"
-                    ), f'Data Asset Onboarding Error: Label data should be stored in a JSON file and "{media_path}" is not one.'
                 batch.append(media_path)
 
             # crop intervals can not be used with interval data types
