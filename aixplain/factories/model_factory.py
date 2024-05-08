@@ -264,6 +264,25 @@ class ModelFactory:
         for dictionary in response_dicts:
             del dictionary["id"]
         return response_dicts
+    
+    @classmethod
+    def list_gpus(cls, api_key: Optional[Text] = None) -> List[List[Text]]:
+        """List GPU names on which you can host your language model.
+
+        Args:
+            api_key (Text, optional): Team API key. Defaults to None.
+
+        Returns:
+            List[List[Text]]: List of all available GPUs and their prices.
+        """
+        gpu_url = urljoin(config.BACKEND_URL, "sdk/model-onboarding/gpus")
+        if api_key:
+            headers = {"Authorization": f"Token {api_key}", "Content-Type": "application/json"}
+        else:
+            headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+        response = _request_with_retry("get", gpu_url, headers=headers)
+        response_list = json.loads(response.text)
+        return response_list
 
     @classmethod
     def list_functions(cls, verbose: Optional[bool] = False, api_key: Optional[Text] = None) -> List[Dict]:
