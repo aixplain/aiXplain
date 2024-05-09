@@ -48,6 +48,7 @@ class Model(Asset):
         function (Text, optional): model AI function. Defaults to None.
         url (str): URL to run the model.
         backend_url (str): URL of the backend.
+        pricing (Dict, optional): model price. Defaults to None.
         **additional_info: Any additional Model info to be saved
     """
 
@@ -61,6 +62,7 @@ class Model(Asset):
         version: Optional[Text] = None,
         function: Optional[Text] = None,
         is_subscribed: bool = False,
+        cost: Optional[Dict] = None,
         **additional_info,
     ) -> None:
         """Model Init
@@ -74,9 +76,10 @@ class Model(Asset):
             version (Text, optional): version of the model. Defaults to "1.0".
             function (Text, optional): model AI function. Defaults to None.
             is_subscribed (bool, optional): Is the user subscribed. Defaults to False.
+            cost (Dict, optional): model price. Defaults to None.
             **additional_info: Any additional Model info to be saved
         """
-        super().__init__(id, name, description, supplier, version)
+        super().__init__(id, name, description, supplier, version, cost=cost)
         self.api_key = api_key
         self.additional_info = additional_info
         self.url = config.MODELS_RUN_URL
@@ -264,6 +267,7 @@ class Model(Asset):
         """
         from aixplain.enums.asset_status import AssetStatus
         from aixplain.modules.finetune.status import FinetuneStatus
+
         headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}
         resp = None
         try:
@@ -274,7 +278,7 @@ class Model(Asset):
             finetune_status = AssetStatus(resp["finetuneStatus"])
             model_status = AssetStatus(resp["modelStatus"])
             logs = sorted(resp["logs"], key=lambda x: float(x["epoch"]))
-            
+
             target_epoch = None
             if after_epoch is not None:
                 logs = [log for log in logs if float(log["epoch"]) > after_epoch]
@@ -282,7 +286,7 @@ class Model(Asset):
                     target_epoch = float(logs[0]["epoch"])
             elif len(logs) > 0:
                 target_epoch = float(logs[-1]["epoch"])
-            
+
             if target_epoch is not None:
                 log = None
                 for log_ in logs:
@@ -294,7 +298,7 @@ class Model(Asset):
                                 log["trainLoss"] = log_["trainLoss"]
                             if log_["evalLoss"] is not None:
                                 log["evalLoss"] = log_["evalLoss"]
-                
+
                 status = FinetuneStatus(
                     status=finetune_status,
                     model_status=model_status,

@@ -82,8 +82,8 @@ def test_model_sort():
         prev_model = models[idx - 1]
         model = models[idx]
 
-        prev_model_price = prev_model.additional_info["pricing"]["price"]
-        model_price = model.additional_info["pricing"]["price"]
+        prev_model_price = prev_model.cost["price"]
+        model_price = model.cost["price"]
         assert prev_model_price >= model_price
 
 
