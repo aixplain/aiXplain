@@ -32,3 +32,5 @@ from .finetune import Finetune, FinetuneCost
 from .finetune.status import FinetuneStatus
 from .benchmark import Benchmark
 from .benchmark_job import BenchmarkJob
+from .agent import Agent
+from .agent.tool import Tool
