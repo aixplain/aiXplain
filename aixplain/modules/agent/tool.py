@@ -20,7 +20,7 @@ Date: May 16th 2024
 Description:
     Agentification Class
 """
-from typing import Dict, Text, Optional, Union
+from typing import Text, Optional
 
 from aixplain.enums.function import Function
 from aixplain.enums.supplier import Supplier
@@ -41,7 +41,7 @@ class Tool:
         name: Text,
         description: Text,
         function: Function,
-        supplier: Optional[Union[Dict, Text, Supplier, int]] = None,
+        supplier: Optional[Supplier] = None,
         **additional_info,
     ) -> None:
         """Specialized software or resource designed to assist the AI in executing specific tasks or functions based on user commands.

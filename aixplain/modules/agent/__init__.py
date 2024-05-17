@@ -53,6 +53,7 @@ class Agent(Model):
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
         version: Optional[Text] = None,
         cost: Optional[Dict] = None,
+        llm_id: Optional[Text] = None,
         **additional_info,
     ) -> None:
         """Create a FineTune with the necessary information.
@@ -73,3 +74,4 @@ class Agent(Model):
         super().__init__(id, name, description, api_key, supplier, version, cost=cost)
         self.additional_info = additional_info
         self.tools = tools
+        self.llm_id = llm_id

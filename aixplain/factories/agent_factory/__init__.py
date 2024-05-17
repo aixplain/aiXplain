@@ -44,28 +44,40 @@ class AgentFactory:
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
         version: Optional[Text] = None,
         cost: Optional[Dict] = None,
+        llm_id: Optional[Text] = None,
     ) -> Agent:
         """Create a new agent in the platform."""
         try:
             agent = None
-            url = "http://54.86.247.242:8000/execute"
+            url = "http://54.86.247.242:8000/create"
             headers = {"Authorization": "token " + api_key}
 
-            if isinstance(Supplier, dict):
+            if isinstance(supplier, dict):
                 supplier = supplier["code"]
             elif isinstance(supplier, Supplier):
-                supplier = supplier.value
+                supplier = supplier.value["code"]
 
             payload = {
                 "name": name,
-                "tools": [tool.function.value for tool in tools],
+                "tools": [
+                    {
+                        "function": tool.function.value,
+                        "name": tool.name,
+                        "description": tool.description,
+                        "supplier": tool.supplier.value if tool.supplier else None,
+                    }
+                    for tool in tools
+                ],
                 "description": description,
                 "supplier": supplier,
                 "version": version,
                 "cost": cost,
             }
-            logging.info(f"Start service for POST Create Agent  - {url} - {headers}")
-            r = _request_with_retry("post", url, headers=headers, json=payload)
+
+            if llm_id is not None:
+                payload["language_model_id"] = llm_id
+            logging.info(f"Start service for POST Create Agent  - {url} - {headers} - {json.dumps(payload)}")
+            r = _request_with_retry("post", url, headers=headers, data=json.dumps(payload))
             if 200 <= r.status_code < 300:
                 response = r.json()
 
