@@ -20,6 +20,9 @@ Date: May 16th 2024
 Description:
     Agentification Class
 """
+import logging
+
+from aixplain.utils.file_utils import _request_with_retry
 from aixplain.enums.supplier import Supplier
 from aixplain.modules.model import Model
 from aixplain.modules.agent.tool import Tool
@@ -75,3 +78,17 @@ class Agent(Model):
         self.additional_info = additional_info
         self.tools = tools
         self.llm_id = llm_id
+
+    def delete(self) -> None:
+        """Delete Corpus service"""
+        try:
+            url = f"http://54.86.247.242:8000/delete/{self.id}"
+            headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+            logging.info(f"Start service for DELETE Agent  - {url} - {headers}")
+            r = _request_with_retry("delete", url, headers=headers)
+            if r.status_code != 200:
+                raise Exception()
+        except Exception:
+            message = "Agent Deletion Error: Make sure the agent exists and you are the owner."
+            logging.error(message)
+            raise Exception(f"{message}")
