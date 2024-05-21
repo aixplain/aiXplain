@@ -406,11 +406,10 @@ class ModelFactory:
         return response
     
     @classmethod
-    def deploy_huggingface_model(cls, name: Text, hf_repo_id: Text, hf_token: Optional[Text] = "", api_key: Optional[Text] = None) -> Dict:
+    def deploy_huggingface_model(cls, hf_repo_id: Text, hf_token: Optional[Text] = "", api_key: Optional[Text] = None) -> Dict:
         """Onboards and deploys a Hugging Face large language model.
 
         Args:
-            name (Text): The user's name for the model.
             hf_repo_id (Text): The Hugging Face repository ID for this model ({author}/{model name}).
             hf_token (Text, optional): Hugging Face access token. Defaults to None.
             api_key (Text, optional): Team API key. Defaults to None.
@@ -425,7 +424,7 @@ class ModelFactory:
             headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
         body = {
             "model": {
-                "name": name,
+                "name": f"{supplier} {model_name}",
                 "description": "A user-deployed Hugging Face model",
                 "connectionType": ["synchronous"],
                 "function": "text-generation",
