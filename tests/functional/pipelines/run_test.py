@@ -18,6 +18,7 @@ limitations under the License.
 
 import pytest
 import os
+import requests
 from aixplain.factories import DatasetFactory, PipelineFactory
 
 
@@ -116,6 +117,24 @@ def test_run_segment_reconstruct():
     assert response["status"] == "SUCCESS"
     output = response["data"][0]
     assert output["label"] == "Output 1"
+
+
+def test_run_translation_metric():
+    dataset = DatasetFactory.list(query="for_functional_tests")["results"][0]
+    data_asset_id = dataset.id
+
+    reference_id = dataset.target_data["pt"][0].id
+
+    pipeline = PipelineFactory.list(query="Translation Metric Functional Test - DO NOT DELETE")["results"][0]
+    response = pipeline.run(
+        data={"TextInput": reference_id, "ReferenceInput": reference_id},
+        data_asset={"TextInput": data_asset_id, "ReferenceInput": data_asset_id},
+    )
+
+    assert response["status"] == "SUCCESS"
+    data = response["data"][0]["segments"][0]["response"]
+    data = requests.get(data).text
+    assert float(data) == 100.0
 
 
 def test_run_metric():
