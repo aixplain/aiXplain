@@ -400,12 +400,14 @@ class ModelFactory:
         return response_dict
 
     @classmethod
-    def onboard_model(cls, model_id: Text, image_tag: Text, image_hash: Text, api_key: Optional[Text] = None) -> Dict:
+    def onboard_model(cls, model_id: Text, image_tag: Text, image_hash: Text, host_machine: Optional[Text] = "", api_key: Optional[Text] = None) -> Dict:
         """Onboard a model after its image has been pushed to ECR.
 
         Args:
             model_id (Text): Model ID obtained from CREATE_ASSET_REPO.
             image_tag (Text): Image tag to be onboarded.
+            image_hash (Text): Image digest.
+            host_machine (Text, optional): Machine on which to host model.
             api_key (Text, optional): Team API key. Defaults to None.
         Returns:
             Dict: Backend response
@@ -416,10 +418,9 @@ class ModelFactory:
             headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
         else:
             headers = {"x-api-key": f"{config.TEAM_API_KEY}", "Content-Type": "application/json"}
-        payload = {"image": image_tag, "sha": image_hash}
-        payload = json.dumps(payload)
+        payload = {"image": image_tag, "sha": image_hash, "hostMachine": host_machine}
         logging.debug(f"Body: {str(payload)}")
-        response = _request_with_retry("post", onboard_url, headers=headers, data=payload)
+        response = _request_with_retry("post", onboard_url, headers=headers, json=payload)
         message = "Your onboarding request has been submitted to an aiXplain specialist for finalization. We will notify you when the process is completed."
         logging.info(message)
         return response
