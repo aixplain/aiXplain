@@ -421,8 +421,11 @@ class ModelFactory:
         payload = {"image": image_tag, "sha": image_hash, "hostMachine": host_machine}
         logging.debug(f"Body: {str(payload)}")
         response = _request_with_retry("post", onboard_url, headers=headers, json=payload)
-        message = "Your onboarding request has been submitted to an aiXplain specialist for finalization. We will notify you when the process is completed."
-        logging.info(message)
+        if response.status_code == 201:
+            message = "Your onboarding request has been submitted to an aiXplain specialist for finalization. We will notify you when the process is completed."
+            logging.info(message)
+        else:
+            message = "An error has occurred. Please make sure your model_id is valid and your host_machine, if set, is a valid option from the LIST_GPUS function."
         return response
     
     @classmethod

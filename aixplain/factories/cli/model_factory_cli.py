@@ -62,6 +62,21 @@ def list_functions(verbose: bool, api_key: Optional[Text] = None) -> None:
     ret_val_yaml = yaml.dump(ret_val)
     click.echo(ret_val_yaml)
 
+@click.command("gpus")
+@click.option("--api-key", default=None, 
+              help="TEAM_API_KEY if not already set in environment.")
+def list_gpus(api_key: Optional[Text] = None) -> List[List[Text]]:
+    """CLI wrapper function for the LIST_GPUS function in ModelFactory.
+
+    Args:
+        api_key (Text, optional): Team API key. Defaults to None.
+    Returns:
+        None
+    """
+    ret_val = ModelFactory.list_gpus(api_key)
+    ret_val_yaml = yaml.dump(ret_val)
+    click.echo(ret_val_yaml)
+
 @click.command("image-repo")
 @click.option("--name", help="Model name.")
 @click.option("--hosting-machine", 
@@ -119,8 +134,10 @@ def asset_repo_login(api_key: Optional[Text] = None) -> None:
 @click.option("--model-id", help="Model ID from CREATE_IMAGE_REPO.")
 @click.option("--image-tag", help="The tag of the image that you would like hosted.")
 @click.option("--image-hash", help="The hash of the image you would like onboarded.")
+@click.option("--host-machine", help="The machine on which to host the model.")
 @click.option("--api-key", default=None, help="TEAM_API_KEY if not already set in environment.")
 def onboard_model(model_id: Text, image_tag: Text, image_hash: Text, 
+                  host_machine: Optional[Text] = "", 
                   api_key: Optional[Text] = None) -> None:
     """CLI wrapper function for the ONBOARD_MODEL function in ModelFactory.
 
@@ -132,7 +149,8 @@ def onboard_model(model_id: Text, image_tag: Text, image_hash: Text,
     Returns:
         None
     """   
-    ret_val = ModelFactory.onboard_model(model_id, image_tag, image_hash, api_key)
+    ret_val = ModelFactory.onboard_model(model_id, image_tag, image_hash, 
+                                         host_machine, api_key)
     ret_val_yaml = yaml.dump(ret_val)
     click.echo(ret_val_yaml)
 

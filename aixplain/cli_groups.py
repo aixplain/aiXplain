@@ -21,7 +21,7 @@ Description:
     CLI Runner
 """
 import click
-from aixplain.factories.cli.model_factory_cli import list_host_machines, list_functions, create_asset_repo, asset_repo_login, onboard_model, deploy_huggingface_model, get_huggingface_model_status
+from aixplain.factories.cli.model_factory_cli import list_host_machines, list_functions, create_asset_repo, asset_repo_login, onboard_model, deploy_huggingface_model, get_huggingface_model_status, list_gpus
 
 @click.group('cli')
 def cli():
@@ -51,6 +51,7 @@ cli.add_command(onboard)
 create.add_command(create_asset_repo)
 list.add_command(list_host_machines)
 list.add_command(list_functions)
+list.add_command(list_gpus)
 get.add_command(asset_repo_login)
 get.add_command(get_huggingface_model_status)
 onboard.add_command(onboard_model)
