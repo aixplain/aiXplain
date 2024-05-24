@@ -136,7 +136,7 @@ def asset_repo_login(api_key: Optional[Text] = None) -> None:
 @click.option("--model-id", help="Model ID from CREATE_IMAGE_REPO.")
 @click.option("--image-tag", help="The tag of the image that you would like hosted.")
 @click.option("--image-hash", help="The hash of the image you would like onboarded.")
-@click.option("--host-machine", help="The machine on which to host the model.")
+@click.option("--host-machine", default="", help="The machine on which to host the model.")
 @click.option("--api-key", default=None, help="TEAM_API_KEY if not already set in environment.")
 def onboard_model(model_id: Text, image_tag: Text, image_hash: Text, 
                   host_machine: Optional[Text] = "", 
