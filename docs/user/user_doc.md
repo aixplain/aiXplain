@@ -108,7 +108,7 @@ items:
 Once you have chosen a suitable host machine and function, register your model and create an image repository:
 
 ```console
-aixplain create image-repo --name <model_name> --description <model_description> --function <function_name> --source-language <source_language> --input-modality <input_type> --output-modality <output_type> --documentation_url <information_url>  [--api-key <TEAM_API_KEY>]
+aixplain create image-repo --name <model_name> --description <model_description> --function <function_name> --source-language <source_language> --input-modality <input_type> --output-modality <output_type> --documentation-url <information_url>  [--api-key <TEAM_API_KEY>]
 {
     "repoName": <model_repository_name>,
     "modelId": <model_id>
@@ -140,18 +140,18 @@ where the `<repoName>` is that returned by `aixplain create image-repo` and `<ta
 
 Next, tag your image to match the registry and repository name given in the previous steps. If you are using Docker, this would look like the following:
 ```console
-docker tag <prev_image> {$REGISTRY}/{$REPO_NAME}:<your-choice-of-tag>
+docker tag <prev_image> $REGISTRY/$REPO_NAME:<your-choice-of-tag>
 ```
 
 Push the newly tagged image to the corresponding repository:
 ```console
-$ docker push {$REGISTRY}/{$REPO_NAME}:<your-choice-of-tag>
+$ docker push $REGISTRY/$REPO_NAME:<your-choice-of-tag>
 ```
 
 
 Once this is done, onboard the model:
 ```console
-$ aixplain onboard model --model-id <model_id> --image-tag <model_image_tag> --image-hash <model_image_hash> [--api-key <TEAM_API_KEY>]
+$ aixplain onboard model --model-id <model_id> --image-tag <model_image_tag> --image-hash <model_image_hash> --host-machine <host_machine_code> [--api-key <TEAM_API_KEY>]
 ```
 `model-id` should be the model ID returned by the image-create-repo function used earlier. `image-tag` should be set to whatever string you used to tag your model image. The image sha256 hash can be obtained by running `docker images --digests`. Choose the hash corresponding to the image you would like onboarded. `host-machine` should contain the machine code on which to host the model. A list of all the models can be obtained via `aixplain list gpus` as follow:
 
