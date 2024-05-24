@@ -65,7 +65,7 @@ def list_functions(verbose: bool, api_key: Optional[Text] = None) -> None:
 @click.command("gpus")
 @click.option("--api-key", default=None, 
               help="TEAM_API_KEY if not already set in environment.")
-def list_gpus(api_key: Optional[Text] = None) -> List[List[Text]]:
+def list_gpus(api_key: Optional[Text] = None) -> None:
     """CLI wrapper function for the LIST_GPUS function in ModelFactory.
 
     Args:
@@ -79,19 +79,20 @@ def list_gpus(api_key: Optional[Text] = None) -> List[List[Text]]:
 
 @click.command("image-repo")
 @click.option("--name", help="Model name.")
-@click.option("--hosting-machine", 
-              help="Hosting machine code obtained from LIST_HOSTS.")
-@click.option("--version", help="Model version.")
 @click.option("--description", help="Description of model.")
 @click.option("--function", help="Function name obtained from LIST_FUNCTIONS.")
 @click.option("--source-language", default="en", 
               help="Model source language in 2-character 639-1 code or 3-character 639-3 code.")
+@click.option("--input-modality", help="Input type (text, video, image, etc.)")
+@click.option("--output-modality", help="Output type (text, video, image, etc.)")
+@click.option("--documentation_url", default="", help="Link to model documentation.")
 @click.option("--api-key", default=None, 
               help="TEAM_API_KEY if not already set in environment.")
-def create_asset_repo(name: Text, hosting_machine: Text, version: Text, 
-                          description: Text, function: Text, 
-                          source_language: Text, 
-                          api_key: Optional[Text] = None) -> None:
+def create_asset_repo(name: Text, description: Text, function: Text,
+                      source_language: Text, input_modality: Text, 
+                      output_modality: Text, 
+                      documentation_url: Optional[Text] = "",
+                      api_key: Optional[Text] = None) -> None:
     """CLI wrapper function for the CREATE_ASSET_REPO function in ModelFactory.
 
     Args:
@@ -108,9 +109,10 @@ def create_asset_repo(name: Text, hosting_machine: Text, version: Text,
     Returns:
         None
     """
-    ret_val = ModelFactory.create_asset_repo(name, hosting_machine, version, 
-                                             description, function, 
-                                             source_language, api_key)
+    ret_val = ModelFactory.create_asset_repo(name, description, function, 
+                                             source_language, input_modality, 
+                                             output_modality, documentation_url, 
+                                             api_key)
     ret_val_yaml = yaml.dump(ret_val)
     click.echo(ret_val_yaml)
 

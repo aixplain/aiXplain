@@ -323,15 +323,13 @@ class ModelFactory:
     def create_asset_repo(
         cls,
         name: Text,
-        hosting_machine: Text,
-        version: Text,
         description: Text,
         function: Text,
         source_language: Text,
         input_modality: Text,
         output_modality: Text,
-        documentation_url: Text,
-        api_key: Optional[Text] = None,
+        documentation_url: Optional[Text] = "",
+        api_key: Optional[Text] = None
     ) -> Dict:
         """Creates an image repository for this model and registers it in the
         platform backend.
@@ -358,14 +356,12 @@ class ModelFactory:
                 function_id = function_dict["id"]
         if function_id is None:
             raise Exception("Invalid function name")
-        create_url = urljoin(config.BACKEND_URL, f"sdk/models/register")
+        create_url = urljoin(config.BACKEND_URL, f"sdk/models/onboard")
         logging.debug(f"URL: {create_url}")
         if api_key:
             headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
         else:
             headers = {"x-api-key": f"{config.TEAM_API_KEY}", "Content-Type": "application/json"}
-        always_on = False
-        is_async = False  # Hard-coded to False for first release
 
         payload = {
             "model": {
@@ -385,11 +381,12 @@ class ModelFactory:
             "onboardingParams": {
             }
         }
-
-        payload = json.dumps(payload)
         logging.debug(f"Body: {str(payload)}")
-        response = _request_with_retry("post", create_url, headers=headers, data=payload)
-        return response.status_code
+        response = _request_with_retry("post", create_url, headers=headers, json=payload)
+
+        assert response.status_code == 201
+
+        return response.json()
 
     @classmethod
     def asset_repo_login(cls, api_key: Optional[Text] = None) -> Dict:
