@@ -328,6 +328,9 @@ class ModelFactory:
         description: Text,
         function: Text,
         source_language: Text,
+        input_modality: Text,
+        output_modality: Text,
+        documentation_url: Text,
         api_key: Optional[Text] = None,
     ) -> Dict:
         """Creates an image repository for this model and registers it in the
@@ -363,20 +366,30 @@ class ModelFactory:
             headers = {"x-api-key": f"{config.TEAM_API_KEY}", "Content-Type": "application/json"}
         always_on = False
         is_async = False  # Hard-coded to False for first release
+
         payload = {
-            "name": name,
-            "hostingMachine": hosting_machine,
-            "alwaysOn": always_on,
-            "version": version,
-            "description": description,
-            "function": function_id,
-            "isAsync": is_async,
-            "sourceLanguage": source_language,
+            "model": {
+                "name": name,
+                "description": description,
+                "connectionType": [
+                    "synchronous"
+                ],
+                "function": function_id,
+                "modalities": [
+                    f"{input_modality}-{output_modality}"
+                ],
+                "documentationUrl": documentation_url,
+                "sourceLanguage": source_language
+            },
+            "source": "aixplain-ecr",
+            "onboardingParams": {
+            }
         }
+
         payload = json.dumps(payload)
         logging.debug(f"Body: {str(payload)}")
         response = _request_with_retry("post", create_url, headers=headers, data=payload)
-        return response.json()
+        return response.status_code
 
     @classmethod
     def asset_repo_login(cls, api_key: Optional[Text] = None) -> Dict:
@@ -392,10 +405,11 @@ class ModelFactory:
         login_url = urljoin(config.BACKEND_URL, f"sdk/ecr/login")
         logging.debug(f"URL: {login_url}")
         if api_key:
-            headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
+            headers = {"Authorization": f"Token {api_key}", "Content-Type": "application/json"}
         else:
-            headers = {"x-api-key": f"{config.TEAM_API_KEY}", "Content-Type": "application/json"}
+            headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
         response = _request_with_retry("post", login_url, headers=headers)
+        print(f"Response: {response}")
         response_dict = json.loads(response.text)
         return response_dict
 
