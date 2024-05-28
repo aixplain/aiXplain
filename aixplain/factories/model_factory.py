@@ -65,7 +65,7 @@ class ModelFactory:
             response["name"],
             supplier=response["supplier"],
             api_key=response["api_key"],
-            pricing=response["pricing"],
+            cost=response["pricing"],
             function=Function(response["function"]["id"]),
             parameters=parameters,
             is_subscribed=True if "subscription" in response else False,
@@ -404,9 +404,11 @@ class ModelFactory:
         message = "Your onboarding request has been submitted to an aiXplain specialist for finalization. We will notify you when the process is completed."
         logging.info(message)
         return response
-    
+
     @classmethod
-    def deploy_huggingface_model(cls, name: Text, hf_repo_id: Text, hf_token: Optional[Text] = "", api_key: Optional[Text] = None) -> Dict:
+    def deploy_huggingface_model(
+        cls, name: Text, hf_repo_id: Text, hf_token: Optional[Text] = "", api_key: Optional[Text] = None
+    ) -> Dict:
         """Onboards and deploys a Hugging Face large language model.
 
         Args:
@@ -433,20 +435,16 @@ class ModelFactory:
                 "sourceLanguage": "en",
             },
             "source": "huggingface",
-            "onboardingParams": {
-                "hf_model_name": model_name,
-                "hf_supplier": supplier,
-                "hf_token": hf_token
-            }
+            "onboardingParams": {"hf_model_name": model_name, "hf_supplier": supplier, "hf_token": hf_token},
         }
         response = _request_with_retry("post", deploy_url, headers=headers, json=body)
         logging.debug(response.text)
         response_dicts = json.loads(response.text)
         return response_dicts
-    
+
     @classmethod
     def get_huggingface_model_status(cls, model_id: Text, api_key: Optional[Text] = None):
-        """Gets the on-boarding status of a Hugging Face model with ID MODEL_ID. 
+        """Gets the on-boarding status of a Hugging Face model with ID MODEL_ID.
 
         Args:
             model_id (Text): The model's ID as returned by DEPLOY_HUGGINGFACE_MODEL
@@ -466,6 +464,6 @@ class ModelFactory:
             "status": response_dicts["status"],
             "name": response_dicts["name"],
             "id": response_dicts["id"],
-            "pricing": response_dicts["pricing"]
+            "pricing": response_dicts["pricing"],
         }
         return ret_dict
