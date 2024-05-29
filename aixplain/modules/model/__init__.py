@@ -45,7 +45,7 @@ class Model(Asset):
         url (Text, optional): endpoint of the model. Defaults to config.MODELS_RUN_URL.
         supplier (Union[Dict, Text, Supplier, int], optional): supplier of the asset. Defaults to "aiXplain".
         version (Text, optional): version of the model. Defaults to "1.0".
-        function (Text, optional): model AI function. Defaults to None.
+        function (Function, optional): model AI function. Defaults to None.
         url (str): URL to run the model.
         backend_url (str): URL of the backend.
         pricing (Dict, optional): model price. Defaults to None.
@@ -60,7 +60,7 @@ class Model(Asset):
         api_key: Optional[Text] = None,
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
         version: Optional[Text] = None,
-        function: Optional[Text] = None,
+        function: Optional[Function] = None,
         is_subscribed: bool = False,
         cost: Optional[Dict] = None,
         **additional_info,
@@ -102,7 +102,7 @@ class Model(Asset):
         except Exception:
             return f"<Model: {self.name} by {self.supplier}>"
 
-    def __polling(self, poll_url: Text, name: Text = "model_process", wait_time: float = 0.5, timeout: float = 300) -> Dict:
+    def sync_poll(self, poll_url: Text, name: Text = "model_process", wait_time: float = 0.5, timeout: float = 300) -> Dict:
         """Keeps polling the platform to check whether an asynchronous call is done.
 
         Args:
@@ -198,7 +198,7 @@ class Model(Asset):
                 return response
             poll_url = response["url"]
             end = time.time()
-            response = self.__polling(poll_url, name=name, timeout=timeout, wait_time=wait_time)
+            response = self.sync_poll(poll_url, name=name, timeout=timeout, wait_time=wait_time)
             return response
         except Exception as e:
             msg = f"Error in request for {name} - {traceback.format_exc()}"

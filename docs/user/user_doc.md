@@ -33,6 +33,22 @@ from aixplain.factories import ModelFactory
 model = ModelFactory.get(<MODEL_ID>) 
 ```
 
+You may also set special parameters for Large Language Models in our platform.
+
+```python
+from aixplain.factories import ModelFactory
+from aixplain.enums import Function
+model = ModelFactory.list(query="GPT-4o", function=Function.TEXT_GENERATION)["results"][0]
+response = model.run(
+    data="What is my name?", # last utterance
+    context="Always assist with care, respect, and truth. Respond with utmost utility yet securely. Avoid harmful, unethical, prejudiced, or negative content. Ensure replies promote fairness and positivity.", # system prompt
+    history=[
+        { "role": "user", "content": "Hello! My name is James." },
+        { "role": "assistant", "content": "Hello!" }
+    ] # conversation history
+)
+```
+
 *2. Through the SDK:*
 
 If you need, the aixplain SDK allows searching for existing models that match a specific criteria. `ModelFactory` can search for machine learning models that perform a particular task and optionally support a specific input/output language pair.

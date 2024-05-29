@@ -27,6 +27,7 @@ from .file import File
 from .metadata import MetaData
 from .metric import Metric
 from .model import Model
+from .model.llm_model import LLMModel
 from .pipeline import Pipeline
 from .finetune import Finetune, FinetuneCost
 from .finetune.status import FinetuneStatus

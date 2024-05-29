@@ -24,6 +24,7 @@ from typing import Dict, List, Optional, Text, Tuple, Union
 import json
 import logging
 from aixplain.modules.model import Model
+from aixplain.modules.model.llm_model import LLMModel
 from aixplain.enums import Function, Language, OwnershipType, Supplier, SortBy, SortOrder
 from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
@@ -60,13 +61,18 @@ class ModelFactory:
                 if "language" in param["name"]:
                     parameters[param["name"]] = [w["value"] for w in param["values"]]
 
-        return Model(
+        function = Function(response["function"]["id"])
+        ModelClass = Model
+        if function == Function.TEXT_GENERATION:
+            ModelClass = LLMModel
+
+        return ModelClass(
             response["id"],
             response["name"],
             supplier=response["supplier"],
             api_key=response["api_key"],
             cost=response["pricing"],
-            function=Function(response["function"]["id"]),
+            function=function,
             parameters=parameters,
             is_subscribed=True if "subscription" in response else False,
             version=response["version"]["id"],
