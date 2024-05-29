@@ -46,6 +46,11 @@ class PipelineFactory:
     backend_url = config.BACKEND_URL
 
     @classmethod
+    def __get_typed_nodes(cls, response: Dict, type: str) -> List[Dict]:
+        # read "nodes" field from response and return the nodes that are marked by "type": type
+        return [node for node in response["nodes"] if node["type"].lower() == type.lower()]
+
+    @classmethod
     def __from_response(cls, response: Dict) -> Pipeline:
         """Converts response Json to 'Pipeline' object
 
@@ -57,7 +62,9 @@ class PipelineFactory:
         """
         if "api_key" not in response:
             response["api_key"] = config.TEAM_API_KEY
-        return Pipeline(response["id"], response["name"], response["api_key"])
+        input = cls.__get_typed_nodes(response, "input")
+        output = cls.__get_typed_nodes(response, "output")
+        return Pipeline(response["id"], response["name"], response["api_key"], input=input, output=output)
 
     @classmethod
     def get(cls, pipeline_id: Text, api_key: Optional[Text] = None) -> Pipeline:
@@ -73,7 +80,9 @@ class PipelineFactory:
         resp = None
         try:
             url = urljoin(cls.backend_url, f"sdk/pipelines/{pipeline_id}")
-            if cls.aixplain_key != "":
+            if api_key is not None:
+                headers = {"Authorization": f"Token {api_key}", "Content-Type": "application/json"}
+            elif cls.aixplain_key != "":
                 headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
             else:
                 headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
