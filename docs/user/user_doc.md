@@ -132,18 +132,13 @@ docker login --username $USERNAME --password $PASSWORD 535945872701.dkr.ecr.us-e
 
 You must first build your image using the following:
 ```console
-docker build . -t 535945872701.dkr.ecr.us-east-1.amazonaws.com/<repoName>:<tag>
+docker build . -t $REGISTRY/$REPO_NAME:<your-choice-of-tag>
 ```
-where the `<repoName>` is that returned by `aixplain create image-repo` and `<tag>` is some sort of descriptor (usually a version tag like v0.0.1) for your specific model.
-
-Next, tag your image to match the registry and repository name given in the previous steps. If you are using Docker, this would look like the following:
-```console
-docker tag <prev_image> $REGISTRY/$REPO_NAME:<your-choice-of-tag>
-```
+where `<tag>` is some sort of descriptor (usually a version tag like v0.0.1) for your specific model.
 
 Push the newly tagged image to the corresponding repository:
 ```console
-$ docker push $REGISTRY/$REPO_NAME:<your-choice-of-tag>
+$ docker push $REGISTRY/$REPO_NAME:<the-tag-you-chose>
 ```
 
 

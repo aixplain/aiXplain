@@ -44,7 +44,7 @@ def list_host_machines(api_key: Optional[Text] = None) -> None:
     click.echo(ret_val_yaml)
 
 @click.command("functions")
-@click.option("--verbose", default=False, 
+@click.option("--verbose", is_flag=True, 
               help="List all function details, False by default.")
 @click.option("--api-key", default=None, 
               help="TEAM_API_KEY if not already set in environment.")
