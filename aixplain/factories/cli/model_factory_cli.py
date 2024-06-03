@@ -85,7 +85,7 @@ def list_gpus(api_key: Optional[Text] = None) -> None:
               help="Model source language in 2-character 639-1 code or 3-character 639-3 code.")
 @click.option("--input-modality", help="Input type (text, video, image, etc.)")
 @click.option("--output-modality", help="Output type (text, video, image, etc.)")
-@click.option("--documentation_url", default="", help="Link to model documentation.")
+@click.option("--documentation-url", default="", help="Link to model documentation.")
 @click.option("--api-key", default=None, 
               help="TEAM_API_KEY if not already set in environment.")
 def create_asset_repo(name: Text, description: Text, function: Text,

@@ -72,8 +72,6 @@ $ aixplain get hf-model-status --model-id <model ID> [--api-key <TEAM_API_KEY>]
 Once the on-boarding process has completed, you can use this newly-deployed large language model just like any other model on our platform. Note that our platform currently only supports language models up 7 billion parameters in size (~30 GB), so any attempts to deploy larger models will result in an error message.-->
 
 ### Uploading Models
-This feature is currently undergoing maintenance.
-
 In addition to exploring and running models, the aiXplain SDK allows you to upload your own models to the aiXplain platform. This requires a working model image in line with the template specified [here](https://github.com/aixplain/model-interfaces/blob/main/docs/user/model_setup.md). [These](https://github.com/aixplain/model-interfaces/tree/main) are the interfaces with which you will be working. You will also be required to have an aiXplain account as well as a TEAM_API_KEY which should be set either as an environment variable or passed into each of the following functions.
 
 Note: For any of the CLI commands, running `aixplain [verb] [resource] --help` will display a description of each argument that should be passed into that command.
@@ -127,7 +125,7 @@ aixplain get image-repo-login [--api-key <TEAM_API_KEY>]
 }
 ```
 
-These credentials are valid for 12 hours, after which you much again log in for a fresh set of valid credentials. If you are using Docker, you can use these credentials to log in with the following:
+These credentials are valid for 12 hours, after which you must again log in for a fresh set of valid credentials. If you are using Docker, you can use these credentials to log in with the following:
 ```console
 docker login --username $USERNAME --password $PASSWORD 535945872701.dkr.ecr.us-east-1.amazonaws.com
 ```
@@ -136,7 +134,7 @@ You must first build your image using the following:
 ```console
 docker build . -t 535945872701.dkr.ecr.us-east-1.amazonaws.com/<repoName>:<tag>
 ```
-where the `<repoName>` is that returned by `aixplain create image-repo` and `<tag>` is some sort of descriptor (usually version number) for your specific model.
+where the `<repoName>` is that returned by `aixplain create image-repo` and `<tag>` is some sort of descriptor (usually a version tag like v0.0.1) for your specific model.
 
 Next, tag your image to match the registry and repository name given in the previous steps. If you are using Docker, this would look like the following:
 ```console
