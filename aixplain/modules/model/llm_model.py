@@ -1,7 +1,7 @@
 __author__ = "lucaspavanelli"
 
 """
-Copyright 2022 The aiXplain SDK authors
+Copyright 2024 The aiXplain SDK authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -15,10 +15,10 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 
-Author: Duraikrishna Selvaraju, Thiago Castro Ferreira, Shreyas Sharma and Lucas Pavanelli
-Date: September 1st 2022
+Author: Thiago Castro Ferreira, Shreyas Sharma and Lucas Pavanelli
+Date: June 4th 2024
 Description:
-    Model Class
+    Large Language Model Class
 """
 import time
 import json
@@ -28,12 +28,11 @@ from aixplain.factories.file_factory import FileFactory
 from aixplain.enums import Function, Supplier
 from aixplain.modules.model import Model
 from aixplain.utils import config
-from urllib.parse import urljoin
 from aixplain.utils.file_utils import _request_with_retry
 from typing import Union, Optional, List, Text, Dict
 
 
-class LLMModel(Model):
+class LLM(Model):
     """Ready-to-use LLM model. This model can be run in both synchronous and asynchronous manner.
 
     Attributes:
@@ -64,7 +63,7 @@ class LLMModel(Model):
         cost: Optional[Dict] = None,
         **additional_info,
     ) -> None:
-        """LLMModel Init
+        """LLM Init
 
         Args:
             id (Text): ID of the Model
@@ -78,9 +77,7 @@ class LLMModel(Model):
             cost (Dict, optional): model price. Defaults to None.
             **additional_info: Any additional Model info to be saved
         """
-        assert (
-            function == Function.TEXT_GENERATION
-        ), "LLMModel only supports large language models (i.e. text generation function)"
+        assert function == Function.TEXT_GENERATION, "LLM only supports large language models (i.e. text generation function)"
         super().__init__(
             id=id,
             name=name,
@@ -154,7 +151,7 @@ class LLMModel(Model):
             return response
         except Exception as e:
             msg = f"Error in request for {name} - {traceback.format_exc()}"
-            logging.error(f"LLMModel Run: Error in running for {name}: {e}")
+            logging.error(f"LLM Run: Error in running for {name}: {e}")
             end = time.time()
             return {"status": "FAILED", "error": msg, "elapsed_time": end - start}
 
@@ -200,7 +197,7 @@ class LLMModel(Model):
                     if isinstance(payload, int) is True or isinstance(payload, float) is True:
                         payload = str(payload)
                     payload = {"data": payload}
-            except Exception as e:
+            except Exception:
                 payload = {"data": data}
         parameters.update(
             {
@@ -227,7 +224,7 @@ class LLMModel(Model):
 
             poll_url = resp["data"]
             response = {"status": "IN_PROGRESS", "url": poll_url}
-        except Exception as e:
+        except Exception:
             response = {"status": "FAILED"}
             msg = f"Error in request for {name} - {traceback.format_exc()}"
             logging.error(f"Model Run Async: Error in running for {name}: {resp}")

@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 from aixplain.factories import ModelFactory, DatasetFactory, MetricFactory, PipelineFactory
-from aixplain.modules import LLMModel
+from aixplain.modules import LLM
 from pathlib import Path
 from aixplain.enums import Function, Language, OwnershipType, Supplier, SortBy, SortOrder
 
@@ -91,7 +91,7 @@ def test_model_sort():
 def test_model_ownership():
     models = ModelFactory.list(ownership=OwnershipType.SUBSCRIBED)["results"]
     for model in models:
-        assert model.is_subscribed == True
+        assert model.is_subscribed is True
 
 
 def test_model_query():
@@ -111,4 +111,4 @@ def test_model_deletion():
 def test_llm_instantiation():
     """Test that the LLM model is correctly instantiated."""
     models = ModelFactory.list(function=Function.TEXT_GENERATION)["results"]
-    assert type(models[0]) == LLMModel
+    assert isinstance(models[0], LLM)
