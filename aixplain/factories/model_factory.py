@@ -468,8 +468,8 @@ class ModelFactory:
             },
             "source": "huggingface",
             "onboardingParams": {
-                "hf_model_name": model_name,
                 "hf_supplier": supplier,
+                "hf_model_name": model_name,
                 "hf_token": hf_token
             }
         }
