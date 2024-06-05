@@ -26,6 +26,8 @@ from aixplain.utils.file_utils import _request_with_retry
 from aixplain.enums.supplier import Supplier
 from aixplain.modules.model import Model
 from aixplain.modules.agent.tool import Tool
+from aixplain.modules.agent.tool.model_tool import ModelTool
+from aixplain.modules.agent.tool.pipeline_tool import PipelineTool
 from typing import Dict, List, Text, Optional, Union
 
 from aixplain.utils import config

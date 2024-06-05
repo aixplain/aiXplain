@@ -26,6 +26,8 @@ import logging
 
 from aixplain.enums.supplier import Supplier
 from aixplain.modules.agent import Agent, Tool
+from aixplain.modules.agent.tool.model_tool import ModelTool
+from aixplain.modules.agent.tool.pipeline_tool import PipelineTool
 from aixplain.utils import config
 from typing import Dict, List, Optional, Text, Union
 
@@ -40,7 +42,7 @@ class AgentFactory:
         name: Text,
         tools: List[Tool] = [],
         description: Text = "",
-        api_key: Optional[Text] = config.TEAM_API_KEY,
+        api_key: Text = config.TEAM_API_KEY,
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
         version: Optional[Text] = None,
         cost: Optional[Dict] = None,
@@ -57,25 +59,40 @@ class AgentFactory:
             elif isinstance(supplier, Supplier):
                 supplier = supplier.value["code"]
 
+            tool_payload = []
+            for tool in tools:
+                if isinstance(tool, ModelTool):
+                    tool_payload.append(
+                        {
+                            "function": tool.function.value,
+                            "name": tool.name,
+                            "description": tool.description,
+                            "supplier": tool.supplier.value if tool.supplier else None,
+                        }
+                    )
+                elif isinstance(tool, PipelineTool):
+                    tool_payload.append(
+                        {
+                            "id": tool.pipeline,
+                            "name": tool.name,
+                            "description": tool.description,
+                        }
+                    )
+                else:
+                    raise Exception("Agent Creation Error: Tool type not supported.")
+
             payload = {
                 "name": name,
-                "tools": [
-                    {
-                        "function": tool.function.value,
-                        "name": tool.name,
-                        "description": tool.description,
-                        "supplier": tool.supplier.value if tool.supplier else None,
-                    }
-                    for tool in tools
-                ],
+                "api_key": api_key,
+                "tools": tool_payload,
                 "description": description,
                 "supplier": supplier,
                 "version": version,
                 "cost": cost,
             }
-
             if llm_id is not None:
                 payload["language_model_id"] = llm_id
+
             logging.info(f"Start service for POST Create Agent  - {url} - {headers} - {json.dumps(payload)}")
             r = _request_with_retry("post", url, headers=headers, data=json.dumps(payload))
             if 200 <= r.status_code < 300:
@@ -83,7 +100,14 @@ class AgentFactory:
 
                 asset_id = response["id"]
                 agent = Agent(
-                    id=asset_id, name=name, tools=tools, description=description, supplier=supplier, version=version, cost=cost
+                    id=asset_id,
+                    name=name,
+                    tools=tools,
+                    description=description,
+                    supplier=supplier,
+                    version=version,
+                    cost=cost,
+                    api_key=api_key,
                 )
             else:
                 error_msg = "Agent Onboarding Error: Please contant the administrators."
