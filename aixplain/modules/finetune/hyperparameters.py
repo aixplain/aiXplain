@@ -16,17 +16,16 @@ class SchedulerType(Text, Enum):
 
 
 EPOCHS_MAX_VALUE = 4
-BATCH_SIZE_VALUES = [1, 2, 4, 8, 16, 32, 64]
 MAX_SEQ_LENGTH_MAX_VALUE = 4096
+GENERATION_MAX_LENGTH_MAX_VALUE = 225
 
 
 @dataclass_json
 @dataclass
 class Hyperparameters(object):
     epochs: int = 1
-    train_batch_size: int = 4
-    eval_batch_size: int = 4
     learning_rate: float = 1e-5
+    generation_max_length: int = 225
     max_seq_length: int = 4096
     warmup_ratio: float = 0.0
     warmup_steps: int = 0
@@ -36,14 +35,11 @@ class Hyperparameters(object):
         if not isinstance(self.epochs, int):
             raise TypeError("epochs should be of type int")
 
-        if not isinstance(self.train_batch_size, int):
-            raise TypeError("train_batch_size should be of type int")
-
-        if not isinstance(self.eval_batch_size, int):
-            raise TypeError("eval_batch_size should be of type int")
-
         if not isinstance(self.learning_rate, float):
             raise TypeError("learning_rate should be of type float")
+
+        if not isinstance(self.generation_max_length, int):
+            raise TypeError("generation_max_length should be of type int")
 
         if not isinstance(self.max_seq_length, int):
             raise TypeError("max_seq_length should be of type int")
@@ -58,13 +54,10 @@ class Hyperparameters(object):
             raise TypeError("lr_scheduler_type should be of type SchedulerType")
 
         if self.epochs > EPOCHS_MAX_VALUE:
-            raise ValueError(f"epochs must be less or equal to {EPOCHS_MAX_VALUE}")
-
-        if self.train_batch_size not in BATCH_SIZE_VALUES:
-            raise ValueError(f"train_batch_size must be one of the following values: {BATCH_SIZE_VALUES}")
-
-        if self.eval_batch_size not in BATCH_SIZE_VALUES:
-            raise ValueError(f"eval_batch_size must be one of the following values: {BATCH_SIZE_VALUES}")
+            raise ValueError(f"epochs must be one less than {EPOCHS_MAX_VALUE}")
 
         if self.max_seq_length > MAX_SEQ_LENGTH_MAX_VALUE:
-            raise ValueError(f"max_seq_length must be less or equal to {MAX_SEQ_LENGTH_MAX_VALUE}")
+            raise ValueError(f"max_seq_length must be less than {MAX_SEQ_LENGTH_MAX_VALUE}")
+
+        if self.generation_max_length > GENERATION_MAX_LENGTH_MAX_VALUE:
+            raise ValueError(f"generation_max_length must be less than {GENERATION_MAX_LENGTH_MAX_VALUE}")
