@@ -10,7 +10,7 @@
     {
         "model_name": "aiR",
         "model_id": "6499cc946eb5633de15d82a1",
-        "dataset_name": "Test search dataset",
+        "dataset_name": "Test search dataset metadata",
         "inference_data": "Hello!",
         "required_dev": false,
         "search_metadata": false

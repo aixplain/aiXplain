@@ -267,7 +267,6 @@ class Model(Asset):
         """
         from aixplain.enums.asset_status import AssetStatus
         from aixplain.modules.finetune.status import FinetuneStatus
-
         headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}
         resp = None
         try:
@@ -278,7 +277,6 @@ class Model(Asset):
             finetune_status = AssetStatus(resp["finetuneStatus"])
             model_status = AssetStatus(resp["modelStatus"])
             logs = sorted(resp["logs"], key=lambda x: float(x["epoch"]))
-
             target_epoch = None
             if after_epoch is not None:
                 logs = [log for log in logs if float(log["epoch"]) > after_epoch]
@@ -286,7 +284,6 @@ class Model(Asset):
                     target_epoch = float(logs[0]["epoch"])
             elif len(logs) > 0:
                 target_epoch = float(logs[-1]["epoch"])
-
             if target_epoch is not None:
                 log = None
                 for log_ in logs:
@@ -298,7 +295,6 @@ class Model(Asset):
                                 log["trainLoss"] = log_["trainLoss"]
                             if log_["evalLoss"] is not None:
                                 log["evalLoss"] = log_["evalLoss"]
-
                 status = FinetuneStatus(
                     status=finetune_status,
                     model_status=model_status,
