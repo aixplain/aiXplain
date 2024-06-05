@@ -102,7 +102,6 @@ class LLM(Model):
         temperature: float = 0.001,
         max_tokens: int = 128,
         top_p: float = 1.0,
-        frequency_penalty: float = 0.0,
         name: Text = "model_process",
         timeout: float = 300,
         parameters: Dict = {},
@@ -118,7 +117,6 @@ class LLM(Model):
             temperature (float, optional): LLM temperature. Defaults to 0.001.
             max_tokens (int, optional): Maximum Generation Tokens. Defaults to 128.
             top_p (float, optional): Top P. Defaults to 1.0.
-            frequency_penalty (float, optional): Frequency Penalty. Defaults to 0.0.
             name (Text, optional): ID given to a call. Defaults to "model_process".
             timeout (float, optional): total polling time. Defaults to 300.
             parameters (Dict, optional): optional parameters to the model. Defaults to "{}".
@@ -135,7 +133,6 @@ class LLM(Model):
                 temperature=temperature,
                 max_tokens=max_tokens,
                 top_p=top_p,
-                frequency_penalty=frequency_penalty,
                 context=context,
                 prompt=prompt,
                 history=history,
@@ -164,7 +161,6 @@ class LLM(Model):
         temperature: float = 0.001,
         max_tokens: int = 128,
         top_p: float = 1.0,
-        frequency_penalty: float = 0.0,
         name: Text = "model_process",
         parameters: Dict = {},
     ) -> Dict:
@@ -178,7 +174,6 @@ class LLM(Model):
             temperature (float, optional): LLM temperature. Defaults to 0.001.
             max_tokens (int, optional): Maximum Generation Tokens. Defaults to 128.
             top_p (float, optional): Top P. Defaults to 1.0.
-            frequency_penalty (float, optional): Frequency Penalty. Defaults to 0.0.
             name (Text, optional): ID given to a call. Defaults to "model_process".
             parameters (Dict, optional): optional parameters to the model. Defaults to "{}".
 
@@ -207,7 +202,6 @@ class LLM(Model):
                 "temperature": temperature,
                 "max_tokens": max_tokens,
                 "top_p": top_p,
-                "frequency_penalty": frequency_penalty,
             }
         )
         payload.update(parameters)
