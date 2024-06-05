@@ -24,6 +24,7 @@ from typing import Dict, List, Optional, Text, Tuple, Union
 import json
 import logging
 from aixplain.modules.model import Model
+from aixplain.modules.model.llm_model import LLM
 from aixplain.enums import Function, Language, OwnershipType, Supplier, SortBy, SortOrder
 from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
@@ -60,13 +61,18 @@ class ModelFactory:
                 if "language" in param["name"]:
                     parameters[param["name"]] = [w["value"] for w in param["values"]]
 
-        return Model(
+        function = Function(response["function"]["id"])
+        ModelClass = Model
+        if function == Function.TEXT_GENERATION:
+            ModelClass = LLM
+
+        return ModelClass(
             response["id"],
             response["name"],
             supplier=response["supplier"],
             api_key=response["api_key"],
             cost=response["pricing"],
-            function=Function(response["function"]["id"]),
+            function=function,
             parameters=parameters,
             is_subscribed=True if "subscription" in response else False,
             version=response["version"]["id"],
@@ -100,7 +106,7 @@ class ModelFactory:
             model = cls._create_model_from_response(resp)
             logging.info(f"Model Creation: Model {model_id} instantiated.")
             return model
-        except Exception as e:
+        except Exception:
             if resp is not None and "statusCode" in resp:
                 status_code = resp["statusCode"]
                 message = resp["message"]
@@ -135,7 +141,7 @@ class ModelFactory:
         sort_order: SortOrder = SortOrder.ASCENDING,
     ) -> List[Model]:
         try:
-            url = urljoin(cls.backend_url, f"sdk/models/paginate")
+            url = urljoin(cls.backend_url, "sdk/models/paginate")
             filter_params = {"q": query, "pageNumber": page_number, "pageSize": page_size}
             if is_finetunable is not None:
                 filter_params["isFineTunable"] = is_finetunable
@@ -253,7 +259,7 @@ class ModelFactory:
             List[Dict]: List of dictionaries containing information about
             each hosting machine.
         """
-        machines_url = urljoin(config.BACKEND_URL, f"sdk/hosting-machines")
+        machines_url = urljoin(config.BACKEND_URL, "sdk/hosting-machines")
         logging.debug(f"URL: {machines_url}")
         if api_key:
             headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
@@ -278,7 +284,7 @@ class ModelFactory:
             List[Dict]: List of dictionaries containing information about
             each supported function.
         """
-        functions_url = urljoin(config.BACKEND_URL, f"sdk/functions")
+        functions_url = urljoin(config.BACKEND_URL, "sdk/functions")
         logging.debug(f"URL: {functions_url}")
         if api_key:
             headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
@@ -336,7 +342,7 @@ class ModelFactory:
                 function_id = function_dict["id"]
         if function_id is None:
             raise Exception("Invalid function name")
-        create_url = urljoin(config.BACKEND_URL, f"sdk/models/register")
+        create_url = urljoin(config.BACKEND_URL, "sdk/models/register")
         logging.debug(f"URL: {create_url}")
         if api_key:
             headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
@@ -370,7 +376,7 @@ class ModelFactory:
         Returns:
             Dict: Backend response
         """
-        login_url = urljoin(config.BACKEND_URL, f"sdk/ecr/login")
+        login_url = urljoin(config.BACKEND_URL, "sdk/ecr/login")
         logging.debug(f"URL: {login_url}")
         if api_key:
             headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
@@ -420,7 +426,7 @@ class ModelFactory:
             Dict: Backend response
         """
         supplier, model_name = hf_repo_id.split("/")
-        deploy_url = urljoin(config.BACKEND_URL, f"sdk/model-onboarding/onboard")
+        deploy_url = urljoin(config.BACKEND_URL, "sdk/model-onboarding/onboard")
         if api_key:
             headers = {"Authorization": f"Token {api_key}", "Content-Type": "application/json"}
         else:
