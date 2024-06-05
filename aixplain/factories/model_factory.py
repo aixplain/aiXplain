@@ -440,7 +440,7 @@ class ModelFactory:
         return response
     
     @classmethod
-    def deploy_huggingface_model(cls, name: Text, hf_repo_id: Text, hf_token: Optional[Text] = "", api_key: Optional[Text] = None) -> Dict:
+    def deploy_huggingface_model(cls, name: Text, hf_repo_id: Text, revision: Optional[Text] = "", hf_token: Optional[Text] = "", api_key: Optional[Text] = None) -> Dict:
         """Onboards and deploys a Hugging Face large language model.
 
         Args:
@@ -470,7 +470,8 @@ class ModelFactory:
             "onboardingParams": {
                 "hf_supplier": supplier,
                 "hf_model_name": model_name,
-                "hf_token": hf_token
+                "hf_token": hf_token,
+                "revision": revision
             }
         }
         response = _request_with_retry("post", deploy_url, headers=headers, json=body)

@@ -159,10 +159,12 @@ def onboard_model(model_id: Text, image_tag: Text, image_hash: Text,
 @click.command("hf-model")
 @click.option("--name", help="User-defined name for Hugging Face model.")
 @click.option("--hf-repo-id", help="Repository ID from Hugging Face in {supplier}/{model name} form.")
-@click.option("--hf-token", help="Hugging Face token used to authenticate to this model.")
+@click.option("--revision", default="", help="Commit hash of repository.")
+@click.option("--hf-token", default=None, help="Hugging Face token used to authenticate to this model.")
 @click.option("--api-key", default=None, help="TEAM_API_KEY if not already set in environment.")
 def deploy_huggingface_model(name: Text, hf_repo_id: Text, 
                              hf_token: Optional[Text] = None, 
+                             revision: Optional[Text] = None,
                              api_key: Optional[Text] = None) -> None:
     """CLI wrapper function for the DEPLOY_HUGGINGFACE_MODEL function in ModelFactory.
 
@@ -173,7 +175,7 @@ def deploy_huggingface_model(name: Text, hf_repo_id: Text,
     Returns:
         None
     """
-    ret_val = ModelFactory.deploy_huggingface_model(name, hf_repo_id, hf_token, api_key)
+    ret_val = ModelFactory.deploy_huggingface_model(name, hf_repo_id, revision, hf_token, api_key)
     ret_val_yaml = yaml.dump(ret_val)
     click.echo(ret_val_yaml)
 
