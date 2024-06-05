@@ -40,8 +40,13 @@ set LOG_LEVEL=DEBUG
 %env LOG_LEVEL=DEBUG
 ```
 
+## Architecture
 
-## Data Asset Onboard
+### Diagram
+
+<img src="../assets/architecture.png" alt="Data Asset Onboard Process" style="height: 50%; width:50%;"/>
+
+### Data Asset Onboard
 
 The image below depicts the onboard process of a data asset (e.g. corpora and datasets):
 

@@ -57,6 +57,24 @@ poll_url = start_response["url"]
 ## Poll to see current job status
 poll_response = model.poll(poll_url)
 ```
+
+You may also set special parameters for Large Language Models in the platform.
+
+```python
+from aixplain.factories import ModelFactory
+from aixplain.enums import Function
+model = ModelFactory.list(query="GPT-4o", function=Function.TEXT_GENERATION)["results"][0]
+response = model.run(
+    data="What is my name?", # last utterance
+    context="Always assist with care, respect, and truth. Respond with utmost utility yet securely. Avoid harmful, unethical, prejudiced, or negative content. Ensure replies promote fairness and positivity.", # system prompt
+    history=[
+        { "role": "user", "content": "Hello! My name is James." },
+        { "role": "assistant", "content": "Hello!" }
+    ], # conversation history,
+    temperature=0.7
+)
+```
+
 ### Deploying Hugging Face Large Language Models
 
 You can deploy your very own Hugging Face large language models on our platform using the aiXplain SDK:
@@ -283,6 +301,9 @@ Using the aiXplain SDK, you can also onboard your dataset into the aiXplain plat
 
 - Machine translation dataset directly from s3:
   - [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1Asnjeq5JQ9pV6UUQ2Z20XtrjnoaFD0nf?usp=sharing) 
+
+- Image Label Detection Dataset:
+  - [Link](../samples/label_dataset_onboarding/label_dataset_onboarding.ipynb)
 
 ## FineTune
 

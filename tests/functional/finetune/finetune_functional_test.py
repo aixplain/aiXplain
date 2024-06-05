@@ -83,6 +83,8 @@ def test_end2end(run_input_map):
         time.sleep(5)
         end = time.time()
     assert finetune_model.check_finetune_status().model_status.value == "onboarded"
+    time.sleep(30)
+    print(f"Model dict: {finetune_model.__dict__}")
     result = finetune_model.run(run_input_map["inference_data"])
     print(f"Result: {result}")
     assert result is not None

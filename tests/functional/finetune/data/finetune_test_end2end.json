@@ -13,14 +13,14 @@
         "dataset_name": "Test search dataset metadata",
         "inference_data": "Hello!",
         "required_dev": false,
-        "search_metadata": true
+        "search_metadata": false
     },
     {
         "model_name": "vectara",
         "model_id": "655e20f46eb563062a1aa301",
-        "dataset_name": "Test search dataset metadata",
+        "dataset_name": "Test search dataset",
         "inference_data": "Hello!",
         "required_dev": false,
-        "search_metadata": true
+        "search_metadata": false
     }
 ]
