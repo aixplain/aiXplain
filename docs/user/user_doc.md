@@ -61,14 +61,14 @@ poll_response = model.poll(poll_url)
 
 You can deploy your very own Hugging Face large language models on our platform using the aiXplain SDK:
 ```console
-$ aixplain onboard hf-model --name <what you'd like to name your model> --hf-repo-id <Hugging Face repository ID ({supplier}/{name})> --hf-token <Hugging Face token> [--api-key <TEAM_API_KEY>]
+$ aixplain onboard hf-model --name <what you'd like to name your model> --hf-repo-id <Hugging Face repository ID ({supplier}/{name})> --revision <revision-hash> --hf-token <Hugging Face token> [--api-key <TEAM_API_KEY>]
 ```
 This command will return your model's ID. The on-boarding process will take 5 to 15 minutes, during which you can check the on-boarding status by running the following:
 ```console
 $ aixplain get hf-model-status --model-id <model ID> [--api-key <TEAM_API_KEY>]
 ```
 
-Once the on-boarding process has completed, you can use this newly-deployed large language model just like any other model on our platform. Note that our platform currently only supports language models up 7 billion parameters in size (~30 GB), so any attempts to deploy larger models will result in an error message.
+Once the on-boarding process has completed, you can use this newly-deployed large language model just like any other private model on our platform. Note that our platform currently only supports language models up 7 billion parameters in size (~30 GB), so any attempts to deploy larger models will result in an error message.
 
 ### Uploading Models
 ## Uploading Models
