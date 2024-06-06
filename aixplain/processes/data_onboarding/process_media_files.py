@@ -5,6 +5,7 @@ import os
 import pandas as pd
 import shutil
 import tarfile
+import validators
 
 from aixplain.enums.data_subtype import DataSubtype
 from aixplain.enums.data_type import DataType
@@ -115,6 +116,13 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 100) ->
                     shutil.copy2(media_path, new_path)
                 batch.append(fname)
             else:
+                if metadata.storage_type == StorageType.TEXT and (
+                    str(media_path).startswith("s3://")
+                    or str(media_path).startswith("http://")
+                    or str(media_path).startswith("https://")
+                    or validators.url(media_path)
+                ):
+                    media_path = "DONOTDOWNLOAD" + str(media_path)
                 batch.append(media_path)
 
             # crop intervals can not be used with interval data types

@@ -36,7 +36,7 @@ class Asset:
         version: Text = "1.0",
         license: Optional[License] = None,
         privacy: Privacy = Privacy.PRIVATE,
-        cost: float = 0,
+        cost: Optional[Union[Dict, float]] = None,
     ) -> None:
         """Create an Asset with the necessary information
 
@@ -46,6 +46,7 @@ class Asset:
             description (Text): Description of the Asset
             supplier (Union[Dict, Text, Supplier, int], optional): supplier of the asset. Defaults to "aiXplain".
             version (Optional[Text], optional): asset version. Defaults to "1.0".
+            cost (Optional[Union[Dict, float]], optional): asset price. Defaults to None.
         """
         self.id = id
         self.name = name
