@@ -72,7 +72,7 @@ class ModelFactory:
             supplier=response["supplier"],
             api_key=response["api_key"],
             cost=response["pricing"],
-            function=Function(response["function"]["id"]),
+            function=function,
             parameters=parameters,
             is_subscribed=True if "subscription" in response else False,
             version=response["version"]["id"],
