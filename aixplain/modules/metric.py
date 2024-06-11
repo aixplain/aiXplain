@@ -97,6 +97,7 @@ class Metric(Asset):
             reference (Optional[Union[str, List[str]]], optional): Can give a single reference or a list of references for metric calculation. Defaults to None.
         """
         from aixplain.factories.model_factory import ModelFactory
+
         model = ModelFactory.get(self.id)
         payload = {
             "function": self.function,
