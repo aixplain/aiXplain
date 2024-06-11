@@ -267,6 +267,7 @@ class Model(Asset):
         """
         from aixplain.enums.asset_status import AssetStatus
         from aixplain.modules.finetune.status import FinetuneStatus
+
         headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}
         resp = None
         try:
