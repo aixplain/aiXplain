@@ -341,3 +341,17 @@ class Pipeline(Asset):
             logging.info(f"Pipeline {response['id']} Updated.")
         except Exception as e:
             raise Exception(e)
+
+    def delete(self) -> None:
+        """Delete Dataset service"""
+        try:
+            url = urljoin(config.BACKEND_URL, f"sdk/pipelines/{self.id}")
+            headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+            logging.info(f"Start service for DELETE Pipeline  - {url} - {headers}")
+            r = _request_with_retry("delete", url, headers=headers)
+            if r.status_code != 200:
+                raise Exception()
+        except Exception:
+            message = "Pipeline Deletion Error: Make sure the pipeline exists and you are the owner."
+            logging.error(message)
+            raise Exception(f"{message}")
