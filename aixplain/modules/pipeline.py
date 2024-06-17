@@ -101,12 +101,12 @@ class Pipeline(Asset):
                     time.sleep(wait_time)
                     if wait_time < 60:
                         wait_time *= 1.1
-            except Exception as e:
+            except Exception:
                 logging.error(f"Polling for Pipeline: polling for {name} : Continue")
         if response_body and response_body["status"] == "SUCCESS":
             try:
                 logging.debug(f"Polling for Pipeline: Final status of polling for {name} : SUCCESS - {response_body}")
-            except Exception as e:
+            except Exception:
                 logging.error(f"Polling for Pipeline: Final status of polling for {name} : ERROR - {response_body}")
         else:
             logging.error(
@@ -130,7 +130,7 @@ class Pipeline(Asset):
         try:
             resp = r.json()
             logging.info(f"Single Poll for Pipeline: Status of polling for {name} : {resp}")
-        except Exception as e:
+        except Exception:
             resp = {"status": "FAILED"}
         return resp
 
@@ -206,7 +206,7 @@ class Pipeline(Asset):
                         if isinstance(payload, int) is True or isinstance(payload, float) is True:
                             payload = str(payload)
                         payload = {"data": payload}
-                except Exception as e:
+                except Exception:
                     payload = {"data": data}
         else:
             payload = {}
@@ -251,7 +251,7 @@ class Pipeline(Asset):
                                     if target_row.id == data[node_label]:
                                         data_found = True
                                         break
-                                if data_found == True:
+                                if data_found is True:
                                     break
                     except Exception:
                         data_asset_found = False
@@ -303,17 +303,18 @@ class Pipeline(Asset):
 
             poll_url = resp["url"]
             response = {"status": "IN_PROGRESS", "url": poll_url}
-        except Exception as e:
+        except Exception:
             response = {"status": "FAILED"}
             if resp is not None:
                 response["error"] = resp
         return response
 
-    def update(self, pipeline: Union[Text, Dict]):
+    def update(self, pipeline: Union[Text, Dict], save_as_asset: bool = False):
         """Update Pipeline
 
         Args:
             pipeline (Union[Text, Dict]): Pipeline as a Python dictionary or in a JSON file
+            save_as_asset (bool, optional): Save as asset (True) or draft (False). Defaults to False.
 
         Raises:
             Exception: Make sure the pipeline to be save is in a JSON file.
@@ -323,12 +324,18 @@ class Pipeline(Asset):
                 _, ext = os.path.splitext(pipeline)
                 assert (
                     os.path.exists(pipeline) and ext == ".json"
-                ), "Pipeline Update Error: Make sure the pipeline to be save is in a JSON file."
+                ), "Pipeline Update Error: Make sure the pipeline to be saved is in a JSON file."
                 with open(pipeline) as f:
                     pipeline = json.load(f)
 
+            for i, node in enumerate(pipeline["nodes"]):
+                if "functionType" in node and node["functionType"] == "AI":
+                    pipeline["nodes"][i]["functionType"] = pipeline["nodes"][i]["functionType"].lower()
             # prepare payload
-            payload = {"name": self.name, "status": "draft", "architecture": pipeline}
+            status = "draft"
+            if save_as_asset is True:
+                status = "onboarded"
+            payload = {"name": self.name, "status": status, "architecture": pipeline}
             url = urljoin(config.BACKEND_URL, f"sdk/pipelines/{self.id}")
             headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
             logging.info(f"Start service for PUT Update Pipeline - {url} - {headers} - {json.dumps(payload)}")
@@ -337,3 +344,17 @@ class Pipeline(Asset):
             logging.info(f"Pipeline {response['id']} Updated.")
         except Exception as e:
             raise Exception(e)
+
+    def delete(self) -> None:
+        """Delete Dataset service"""
+        try:
+            url = urljoin(config.BACKEND_URL, f"sdk/pipelines/{self.id}")
+            headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+            logging.info(f"Start service for DELETE Pipeline  - {url} - {headers}")
+            r = _request_with_retry("delete", url, headers=headers)
+            if r.status_code != 200:
+                raise Exception()
+        except Exception:
+            message = "Pipeline Deletion Error: Make sure the pipeline exists and you are the owner."
+            logging.error(message)
+            raise Exception(f"{message}")

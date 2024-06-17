@@ -30,6 +30,7 @@ def test_create_pipeline_from_json():
 
     assert isinstance(pipeline, Pipeline)
     assert pipeline.id != ""
+    pipeline.delete()
 
 
 def test_create_pipeline_from_string():
@@ -42,6 +43,7 @@ def test_create_pipeline_from_string():
 
     assert isinstance(pipeline, Pipeline)
     assert pipeline.id != ""
+    pipeline.delete()
 
 
 def test_update_pipeline():
@@ -52,13 +54,14 @@ def test_update_pipeline():
     pipeline_name = str(uuid4())
     pipeline = PipelineFactory.create(name=pipeline_name, pipeline=pipeline_dict)
 
-    pipeline.update(pipeline=pipeline_json)
+    pipeline.update(pipeline=pipeline_json, save_as_asset=True)
     assert isinstance(pipeline, Pipeline)
     assert pipeline.id != ""
+    pipeline.delete()
 
 
 def test_create_pipeline_wrong_path():
     pipeline_name = str(uuid4())
 
     with pytest.raises(Exception):
-        pipeline = PipelineFactory.create(name=pipeline_name, pipeline="/")
+        PipelineFactory.create(name=pipeline_name, pipeline="/")
