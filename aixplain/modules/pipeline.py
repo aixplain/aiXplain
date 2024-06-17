@@ -309,12 +309,13 @@ class Pipeline(Asset):
                 response["error"] = resp
         return response
 
-    def update(self, pipeline: Union[Text, Dict], save_as_asset: bool = False):
+    def update(self, pipeline: Union[Text, Dict], save_as_asset: bool = False, api_key: Optional[Text] = None):
         """Update Pipeline
 
         Args:
             pipeline (Union[Text, Dict]): Pipeline as a Python dictionary or in a JSON file
             save_as_asset (bool, optional): Save as asset (True) or draft (False). Defaults to False.
+            api_key (Optional[Text], optional): Team API Key to create the Pipeline. Defaults to None.
 
         Raises:
             Exception: Make sure the pipeline to be save is in a JSON file.
@@ -337,7 +338,8 @@ class Pipeline(Asset):
                 status = "onboarded"
             payload = {"name": self.name, "status": status, "architecture": pipeline}
             url = urljoin(config.BACKEND_URL, f"sdk/pipelines/{self.id}")
-            headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+            api_key = api_key if api_key is not None else config.TEAM_API_KEY
+            headers = {"Authorization": f"Token {api_key}", "Content-Type": "application/json"}
             logging.info(f"Start service for PUT Update Pipeline - {url} - {headers} - {json.dumps(payload)}")
             r = _request_with_retry("put", url, headers=headers, json=payload)
             response = r.json()
