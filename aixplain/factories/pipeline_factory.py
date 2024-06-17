@@ -225,16 +225,13 @@ class PipelineFactory:
         return {"results": pipelines, "page_total": page_total, "page_number": page_number, "total": total}
 
     @classmethod
-    def create(
-        cls, name: Text, pipeline: Union[Text, Dict], status: Text = "draft", api_key: Optional[Text] = None
-    ) -> Pipeline:
-        """Pipeline Creation
+    def create(cls, name: Text, pipeline: Union[Text, Dict], api_key: Optional[Text] = None) -> Pipeline:
+        """Draft Pipeline Creation
 
         Args:
             name (Text): Pipeline Name
             pipeline (Union[Text, Dict]): Pipeline as a Python dictionary or in a JSON file
-            status (Text, optional): Status of the pipeline. Currently only draft pipelines can be saved. Defaults to "draft".
-            api_key (Optional[Text], optional): _description_. Defaults to None.
+            api_key (Optional[Text], optional): Team API Key to create the Pipeline. Defaults to None.
 
         Raises:
             Exception: Currently just the creation of draft pipelines are supported
@@ -243,12 +240,11 @@ class PipelineFactory:
             Pipeline: instance of the new pipeline
         """
         try:
-            assert status == "draft", "Pipeline Creation Error: Currently just the creation of draft pipelines are supported."
             if isinstance(pipeline, str) is True:
                 _, ext = os.path.splitext(pipeline)
                 assert (
                     os.path.exists(pipeline) and ext == ".json"
-                ), "Pipeline Creation Error: Make sure the pipeline to be save is in a JSON file."
+                ), "Pipeline Creation Error: Make sure the pipeline to be saved is in a JSON file."
                 with open(pipeline) as f:
                     pipeline = json.load(f)
 
