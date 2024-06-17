@@ -248,6 +248,9 @@ class PipelineFactory:
                 with open(pipeline) as f:
                     pipeline = json.load(f)
 
+            for i, node in enumerate(pipeline["nodes"]):
+                if "functionType" in node and node["functionType"] == "AI":
+                    pipeline["nodes"][i]["functionType"] = pipeline["nodes"][i]["functionType"].lower()
             # prepare payload
             payload = {"name": name, "status": "draft", "architecture": pipeline}
             url = urljoin(cls.backend_url, "sdk/pipelines")

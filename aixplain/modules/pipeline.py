@@ -328,6 +328,9 @@ class Pipeline(Asset):
                 with open(pipeline) as f:
                     pipeline = json.load(f)
 
+            for i, node in enumerate(pipeline["nodes"]):
+                if "functionType" in node and node["functionType"] == "AI":
+                    pipeline["nodes"][i]["functionType"] = pipeline["nodes"][i]["functionType"].lower()
             # prepare payload
             status = "draft"
             if save_as_asset is True:
