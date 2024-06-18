@@ -234,7 +234,7 @@ class PipelineFactory:
             name (Text): Pipeline Name
             pipeline (Union[Text, Dict]): Pipeline as a Python dictionary or in a JSON file
             status (Text, optional): Status of the pipeline. Currently only draft pipelines can be saved. Defaults to "draft".
-            api_key (Optional[Text], optional): _description_. Defaults to None.
+            api_key (Optional[Text], optional): API Key. Defaults to None.
 
         Raises:
             Exception: Currently just the creation of draft pipelines are supported
