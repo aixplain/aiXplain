@@ -33,6 +33,7 @@ from typing import Dict, List, Optional, Text, Union
 
 from aixplain.factories.agent_factory.utils import build_agent
 from aixplain.utils.file_utils import _request_with_retry
+from urllib.parse import urljoin
 
 
 class AgentFactory:
@@ -51,7 +52,7 @@ class AgentFactory:
         """Create a new agent in the platform."""
         try:
             agent = None
-            url = "http://54.86.247.242:8000/create"
+            url = urljoin(config.BACKEND_URL, f"sdk/agents")
             headers = {"Authorization": "token " + api_key}
 
             if isinstance(supplier, dict):
@@ -65,17 +66,20 @@ class AgentFactory:
                     tool_payload.append(
                         {
                             "function": tool.function.value,
+                            "type": "model",
                             "name": tool.name,
                             "description": tool.description,
                             "supplier": tool.supplier.value if tool.supplier else None,
+                            "version": tool.version if tool.version else ""
                         }
                     )
                 elif isinstance(tool, PipelineTool):
                     tool_payload.append(
                         {
-                            "id": tool.pipeline,
+                            "assetId": tool.pipeline,
                             "name": tool.name,
                             "description": tool.description,
+                            "type": "pipeline",
                         }
                     )
                 else:
@@ -83,8 +87,7 @@ class AgentFactory:
 
             payload = {
                 "name": name,
-                "api_key": api_key,
-                "tools": tool_payload,
+                "assets": tool_payload,
                 "description": description,
                 "supplier": supplier,
                 "version": version,
@@ -93,7 +96,7 @@ class AgentFactory:
             if llm_id is not None:
                 payload["language_model_id"] = llm_id
 
-            logging.info(f"Start service for POST Create Agent  - {url} - {headers} - {json.dumps(payload)}")
+            logging.debug(f"Start service for POST Create Agent  - {url} - {headers} - {json.dumps(payload)}")
             r = _request_with_retry("post", url, headers=headers, data=json.dumps(payload))
             if 200 <= r.status_code < 300:
                 response = r.json()
@@ -110,7 +113,10 @@ class AgentFactory:
                     api_key=api_key,
                 )
             else:
+                error = r.json()
                 error_msg = "Agent Onboarding Error: Please contant the administrators."
+                if "message" in error:
+                    error_msg = f"Agent Onboarding Error: {error['message']}"
                 logging.exception(error_msg)
                 raise Exception(error_msg)
         except Exception as e:
@@ -120,14 +126,11 @@ class AgentFactory:
     @classmethod
     def list(cls) -> Dict:
         """List all agents available in the platform."""
-        url = "http://54.86.247.242:8000/list"
-        if config.AIXPLAIN_API_KEY != "":
-            headers = {"x-aixplain-key": f"{config.AIXPLAIN_API_KEY}", "Content-Type": "application/json"}
-        else:
-            headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+        url = urljoin(cls.backend_url, f"sdk/agents")
+        headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
 
         payload = {}
-        logging.info(f"Start service for POST List Agents - {url} - {headers} - {json.dumps(payload)}")
+        logging.debug(f"Start service for GET List Agents - {url} - {headers} - {json.dumps(payload)}")
         r = _request_with_retry("get", url, headers=headers)
         resp = r.json()
 
@@ -135,7 +138,7 @@ class AgentFactory:
         results = resp
         page_total = len(results)
         total = len(results)
-        logging.info(f"Response for POST List Dataset - Page Total: {page_total} / Total: {total}")
+        logging.debug(f"Response for GET List Agents - Page Total: {page_total} / Total: {total}")
         for agent in results:
             agents.append(build_agent(agent))
         return {"results": agents, "page_total": page_total, "page_number": 0, "total": total}
@@ -148,7 +151,7 @@ class AgentFactory:
             headers = {"x-aixplain-key": f"{config.AIXPLAIN_API_KEY}", "Content-Type": "application/json"}
         else:
             headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
-        logging.info(f"Start service for GET Agent  - {url} - {headers}")
+        logging.debug(f"Start service for GET Agent  - {url} - {headers}")
         r = _request_with_retry("get", url, headers=headers)
         resp = r.json()
         return build_agent(resp)

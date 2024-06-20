@@ -86,7 +86,7 @@ class Agent(Model):
         try:
             url = f"http://54.86.247.242:8000/delete/{self.id}"
             headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
-            logging.info(f"Start service for DELETE Agent  - {url} - {headers}")
+            logging.debug(f"Start service for DELETE Agent  - {url} - {headers}")
             r = _request_with_retry("delete", url, headers=headers)
             if r.status_code != 200:
                 raise Exception()
