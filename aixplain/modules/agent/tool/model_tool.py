@@ -31,7 +31,6 @@ class ModelTool(Tool):
     """Specialized software or resource designed to assist the AI in executing specific tasks or functions based on user commands.
 
     Attributes:
-        name (Text): name of the tool
         description (Text): descriptiion of the tool
         function (Function): task that the tool performs
         supplier (Optional[Union[Dict, Text, Supplier, int]], optional): Preferred supplier to perform the task. Defaults to None.
@@ -39,7 +38,6 @@ class ModelTool(Tool):
 
     def __init__(
         self,
-        name: Text,
         description: Text,
         function: Function,
         supplier: Optional[Supplier] = None,
@@ -53,7 +51,7 @@ class ModelTool(Tool):
             function (Function): task that the tool performs
             supplier (Optional[Union[Dict, Text, Supplier, int]], optional): Preferred supplier to perform the task. Defaults to None.
         """
-        super().__init__(name, description, **additional_info)
+        super().__init__("", description, **additional_info)
         if isinstance(function, str):
             function = Function(function)
         self.function = function

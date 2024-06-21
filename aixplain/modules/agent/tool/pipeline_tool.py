@@ -30,13 +30,11 @@ class PipelineTool(Tool):
     """Specialized software or resource designed to assist the AI in executing specific tasks or functions based on user commands.
 
     Attributes:
-        name (Text): name of the tool
         description (Text): descriptiion of the tool
     """
 
     def __init__(
         self,
-        name: Text,
         description: Text,
         pipeline: Union[Text, Pipeline],
         **additional_info,
@@ -44,11 +42,10 @@ class PipelineTool(Tool):
         """Specialized software or resource designed to assist the AI in executing specific tasks or functions based on user commands.
 
         Args:
-            name (Text): name of the tool
             description (Text): description of the tool
             pipeline (Union[Text, Pipeline]): pipeline
         """
-        super().__init__(name, description, **additional_info)
+        super().__init__("", description, **additional_info)
         if isinstance(pipeline, Pipeline):
             pipeline = pipeline.id
         self.pipeline = pipeline
