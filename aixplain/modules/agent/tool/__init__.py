@@ -21,7 +21,7 @@ Description:
     Agentification Class
 """
 from abc import ABC
-from typing import Text
+from typing import Optional, Text
 
 
 class Tool(ABC):
@@ -30,12 +30,14 @@ class Tool(ABC):
     Attributes:
         name (Text): name of the tool
         description (Text): descriptiion of the tool
+        version (Text): version of the tool
     """
 
     def __init__(
         self,
         name: Text,
         description: Text,
+        version: Optional[Text] = None,
         **additional_info,
     ) -> None:
         """Specialized software or resource designed to assist the AI in executing specific tasks or functions based on user commands.
@@ -43,7 +45,9 @@ class Tool(ABC):
         Args:
             name (Text): name of the tool
             description (Text): descriptiion of the tool
+            version (Text): version of the tool
         """
         self.name = name
         self.description = description
+        self.version = version
         self.additional_info = additional_info
