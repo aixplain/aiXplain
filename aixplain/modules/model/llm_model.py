@@ -196,12 +196,12 @@ class LLM(Model):
                 payload = {"data": data}
         parameters.update(
             {
-                "context": context,
-                "prompt": prompt,
-                "history": history,
-                "temperature": temperature,
-                "max_tokens": max_tokens,
-                "top_p": top_p,
+                "context": payload["context"] if "context" in payload else context,
+                "prompt": payload["prompt"] if "prompt" in payload else prompt,
+                "history": payload["history"] if "history" in payload else history,
+                "temperature": payload["temperature"] if "temperature" in payload else temperature,
+                "max_tokens": payload["max_tokens"] if "max_tokens" in payload else max_tokens,
+                "top_p": payload["top_p"] if "top_p" in payload else top_p,
             }
         )
         payload.update(parameters)
