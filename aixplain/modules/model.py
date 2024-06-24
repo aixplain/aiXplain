@@ -100,7 +100,7 @@ class Model(Asset):
         except Exception:
             return f"<Model: {self.name} by {self.supplier}>"
 
-    def __polling(self, poll_url: Text, name: Text = "model_process", wait_time: float = 0.5, timeout: float = 300) -> Dict:
+    def sync_poll(self, poll_url: Text, name: Text = "model_process", wait_time: float = 0.5, timeout: float = 300) -> Dict:
         """Keeps polling the platform to check whether an asynchronous call is done.
 
         Args:
@@ -161,7 +161,7 @@ class Model(Asset):
                     resp["status"] = "FAILED"
             else:
                 resp["status"] = "IN_PROGRESS"
-            logging.info(f"Single Poll for Model: Status of polling for {name}: {resp}")
+            logging.debug(f"Single Poll for Model: Status of polling for {name}: {resp}")
         except Exception as e:
             resp = {"status": "FAILED"}
             logging.error(f"Single Poll for Model: Error of polling for {name}: {e}")
@@ -196,7 +196,7 @@ class Model(Asset):
                 return response
             poll_url = response["url"]
             end = time.time()
-            response = self.__polling(poll_url, name=name, timeout=timeout, wait_time=wait_time)
+            response = self.sync_poll(poll_url, name=name, timeout=timeout, wait_time=wait_time)
             return response
         except Exception as e:
             msg = f"Error in request for {name} - {traceback.format_exc()}"

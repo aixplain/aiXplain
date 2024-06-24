@@ -20,7 +20,10 @@ Date: May 16th 2024
 Description:
     Agentification Class
 """
+import json
 import logging
+import time
+import traceback
 
 from aixplain.utils.file_utils import _request_with_retry
 from aixplain.enums.supplier import Supplier
@@ -87,15 +90,101 @@ class Agent(Model):
         if isinstance(status, str):
             try:
                 status = AssetStatus(status)
-            except:
+            except Exception:
                 status = AssetStatus.ONBOARDING
         self.status = status
+
+    def run(
+        self,
+        query: Text,
+        session_id: Optional[Text] = None,
+        history: Optional[List[Dict]] = None,
+        name: Text = "model_process",
+        timeout: float = 300,
+        parameters: Dict = {},
+        wait_time: float = 0.5,
+    ) -> Dict:
+        """Runs an agent call.
+
+        Args:
+            query (Text): query to be processed by the agent.
+            session_id (Optional[Text], optional): conversation Session ID. Defaults to None.
+            history (Optional[List[Dict]], optional): chat history (in case session ID is None). Defaults to None.
+            name (Text, optional): ID given to a call. Defaults to "model_process".
+            timeout (float, optional): total polling time. Defaults to 300.
+            parameters (Dict, optional): optional parameters to the model. Defaults to "{}".
+            wait_time (float, optional): wait time in seconds between polling calls. Defaults to 0.5.
+
+        Returns:
+            Dict: parsed output from model
+        """
+        start = time.time()
+        try:
+            response = self.run_async(query=query, session_id=session_id, history=history, name=name, parameters=parameters)
+            if response["status"] == "FAILED":
+                end = time.time()
+                response["elapsed_time"] = end - start
+                return response
+            poll_url = response["url"]
+            end = time.time()
+            response = self.sync_poll(poll_url, name=name, timeout=timeout, wait_time=wait_time)
+            return response
+        except Exception as e:
+            msg = f"Error in request for {name} - {traceback.format_exc()}"
+            logging.error(f"Model Run: Error in running for {name}: {e}")
+            end = time.time()
+            return {"status": "FAILED", "error": msg, "elapsed_time": end - start}
+
+    def run_async(
+        self,
+        query: Text,
+        session_id: Optional[Text] = None,
+        history: Optional[List[Dict]] = None,
+        name: Text = "model_process",
+        parameters: Dict = {},
+    ) -> Dict:
+        """Runs asynchronously an agent call.
+
+        Args:
+            query (Text): query to be processed by the agent.
+            session_id (Optional[Text], optional): conversation Session ID. Defaults to None.
+            history (Optional[List[Dict]], optional): chat history (in case session ID is None). Defaults to None.
+            name (Text, optional): ID given to a call. Defaults to "model_process".
+            parameters (Dict, optional): optional parameters to the model. Defaults to "{}".
+
+        Returns:
+            dict: polling URL in response
+        """
+        headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}
+        from aixplain.factories.file_factory import FileFactory
+
+        payload = {"id": self.id, "query": FileFactory.to_link(query), "sessionId": session_id, "history": history}
+        payload.update(parameters)
+        payload = json.dumps(payload)
+
+        r = _request_with_retry("post", self.url, headers=headers, data=payload)
+        logging.info(f"Model Run Async: Start service for {name} - {self.url} - {payload} - {headers}")
+
+        resp = None
+        try:
+            resp = r.json()
+            logging.info(f"Result of request for {name} - {r.status_code} - {resp}")
+
+            poll_url = resp["data"]
+            response = {"status": "IN_PROGRESS", "url": poll_url}
+        except Exception:
+            response = {"status": "FAILED"}
+            msg = f"Error in request for {name} - {traceback.format_exc()}"
+            logging.error(f"Model Run Async: Error in running for {name}: {resp}")
+            if resp is not None:
+                response["error"] = msg
+        return response
 
     def delete(self) -> None:
         """Delete Corpus service"""
         try:
             url = urljoin(config.BACKEND_URL, f"sdk/agents/{self.id}")
-            headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+            headers = {"x-api-key": config.TEAM_API_KEY, "Content-Type": "application/json"}
             logging.debug(f"Start service for DELETE Agent  - {url} - {headers}")
             r = _request_with_retry("delete", url, headers=headers)
             if r.status_code != 200:

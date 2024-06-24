@@ -51,8 +51,8 @@ class AgentFactory:
         """Create a new agent in the platform."""
         try:
             agent = None
-            url = urljoin(config.BACKEND_URL, f"sdk/agents")
-            headers = {"Authorization": "token " + api_key}
+            url = urljoin(config.BACKEND_URL, "sdk/agents")
+            headers = {"x-api-key": api_key}
 
             if isinstance(supplier, dict):
                 supplier = supplier["code"]
@@ -68,7 +68,7 @@ class AgentFactory:
                             "type": "model",
                             "description": tool.description,
                             "supplier": tool.supplier.value["code"] if tool.supplier else None,
-                            "version": tool.version if tool.version else None
+                            "version": tool.version if tool.version else None,
                         }
                     )
                 elif isinstance(tool, PipelineTool):
@@ -101,12 +101,12 @@ class AgentFactory:
                 error = r.json()
                 error_msg = "Agent Onboarding Error: Please contant the administrators."
                 if "message" in error:
-                    msg = error['message']
+                    msg = error["message"]
                     if error["message"] == "err.name_already_exists":
                         msg = "Agent name already exists."
                     elif error["message"] == "err.asset_is_not_available":
                         msg = "Some the tools are not available."
-                    error_msg = f"Agent Onboarding Error: {msg}"
+                    error_msg = f"Agent Onboarding Error (HTTP {r.status_code}): {msg}"
                 logging.exception(error_msg)
                 raise Exception(error_msg)
         except Exception as e:
@@ -116,22 +116,33 @@ class AgentFactory:
     @classmethod
     def list(cls) -> Dict:
         """List all agents available in the platform."""
-        url = urljoin(config.BACKEND_URL, f"sdk/agents")
-        headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+        url = urljoin(config.BACKEND_URL, "sdk/agents")
+        headers = {"x-api-key": config.TEAM_API_KEY, "Content-Type": "application/json"}
 
         payload = {}
         logging.info(f"Start service for GET List Agents - {url} - {headers} - {json.dumps(payload)}")
-        r = _request_with_retry("get", url, headers=headers)
-        resp = r.json()
+        try:
+            r = _request_with_retry("get", url, headers=headers)
+            resp = r.json()
 
-        agents, page_total, total = [], 0, 0
-        results = resp
-        page_total = len(results)
-        total = len(results)
-        logging.info(f"Response for GET List Agents - Page Total: {page_total} / Total: {total}")
-        for agent in results:
-            agents.append(build_agent(agent))
-        return {"results": agents, "page_total": page_total, "page_number": 0, "total": total}
+            if 200 <= r.status_code < 300:
+                agents, page_total, total = [], 0, 0
+                results = resp
+                page_total = len(results)
+                total = len(results)
+                logging.info(f"Response for GET List Agents - Page Total: {page_total} / Total: {total}")
+                for agent in results:
+                    agents.append(build_agent(agent))
+                return {"results": agents, "page_total": page_total, "page_number": 0, "total": total}
+            else:
+                error_msg = "Agent Listing Error: Please contant the administrators."
+                if "message" in resp:
+                    msg = resp["message"]
+                    error_msg = f"Agent Listing Error (HTTP {r.status_code}): {msg}"
+                logging.exception(error_msg)
+                raise Exception(error_msg)
+        except Exception as e:
+            raise Exception(e)
 
     @classmethod
     def get(cls, agent_id: Text, api_key: Optional[Text] = None) -> Agent:
@@ -141,7 +152,7 @@ class AgentFactory:
             headers = {"x-aixplain-key": f"{config.AIXPLAIN_API_KEY}", "Content-Type": "application/json"}
         else:
             api_key = api_key if api_key is not None else config.TEAM_API_KEY
-            headers = {"Authorization": f"Token {api_key}", "Content-Type": "application/json"}
+            headers = {"x-api-key": api_key, "Content-Type": "application/json"}
         logging.info(f"Start service for GET Agent  - {url} - {headers}")
         r = _request_with_retry("get", url, headers=headers)
         resp = r.json()
@@ -150,6 +161,6 @@ class AgentFactory:
         else:
             msg = "Please contant the administrators."
             if "message" in resp:
-                msg = resp['message']
+                msg = resp["message"]
             error_msg = f"Agent Get Error (HTTP {r.status_code}): {msg}"
             raise Exception(error_msg)

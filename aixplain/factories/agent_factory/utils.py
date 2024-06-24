@@ -1,10 +1,11 @@
 __author__ = "thiagocastroferreira"
 
-import aixplain.utils.config as config 
+import aixplain.utils.config as config
 from aixplain.enums import Function, Supplier
 from aixplain.enums.asset_status import AssetStatus
 from aixplain.modules.agent import Agent, ModelTool, PipelineTool
 from typing import Dict, Text
+from urllib.parse import urljoin
 
 
 def build_agent(payload: Dict, api_key: Text = config.TEAM_API_KEY) -> Agent:
@@ -16,7 +17,7 @@ def build_agent(payload: Dict, api_key: Text = config.TEAM_API_KEY) -> Agent:
                 if tool["supplier"].lower() in [supplier.value["code"].lower(), supplier.value["name"].lower()]:
                     tool["supplier"] = supplier
                     break
-            
+
             tool = ModelTool(
                 description=tool["description"],
                 function=Function(tool["function"]),
@@ -39,6 +40,7 @@ def build_agent(payload: Dict, api_key: Text = config.TEAM_API_KEY) -> Agent:
         cost=payload["cost"] if "cost" in payload else None,
         llm_id=payload["llmId"] if "llmId" in payload else "6646261c6eb563165658bbb1",
         api_key=api_key,
+        status=AssetStatus(payload["status"]),
     )
-    agent.url = "http://54.86.247.242:8000/async-execute"
+    agent.url = urljoin(config.BACKEND_URL, f"sdk/agents/{agent.id}/run")
     return agent
