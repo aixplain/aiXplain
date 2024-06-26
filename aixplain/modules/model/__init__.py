@@ -24,9 +24,7 @@ import time
 import json
 import logging
 import traceback
-from typing import List
-from aixplain.factories.file_factory import FileFactory
-from aixplain.enums import Function, Supplier
+from aixplain.enums import Supplier, Function
 from aixplain.modules.asset import Asset
 from aixplain.utils import config
 from urllib.parse import urljoin
@@ -57,7 +55,7 @@ class Model(Asset):
         id: Text,
         name: Text,
         description: Text = "",
-        api_key: Optional[Text] = None,
+        api_key: Text = config.TEAM_API_KEY,
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
         version: Optional[Text] = None,
         function: Optional[Function] = None,
@@ -163,7 +161,7 @@ class Model(Asset):
                     resp["status"] = "FAILED"
             else:
                 resp["status"] = "IN_PROGRESS"
-            logging.info(f"Single Poll for Model: Status of polling for {name}: {resp}")
+            logging.debug(f"Single Poll for Model: Status of polling for {name}: {resp}")
         except Exception as e:
             resp = {"status": "FAILED"}
             logging.error(f"Single Poll for Model: Error of polling for {name}: {e}")
@@ -218,6 +216,7 @@ class Model(Asset):
             dict: polling URL in response
         """
         headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}
+        from aixplain.factories.file_factory import FileFactory
 
         data = FileFactory.to_link(data)
         if isinstance(data, dict):
@@ -229,7 +228,7 @@ class Model(Asset):
                     if isinstance(payload, int) is True or isinstance(payload, float) is True:
                         payload = str(payload)
                     payload = {"data": payload}
-            except Exception as e:
+            except Exception:
                 payload = {"data": data}
         payload.update(parameters)
         payload = json.dumps(payload)
@@ -245,7 +244,7 @@ class Model(Asset):
 
             poll_url = resp["data"]
             response = {"status": "IN_PROGRESS", "url": poll_url}
-        except Exception as e:
+        except Exception:
             response = {"status": "FAILED"}
             msg = f"Error in request for {name} - {traceback.format_exc()}"
             logging.error(f"Model Run Async: Error in running for {name}: {resp}")
@@ -267,7 +266,7 @@ class Model(Asset):
         """
         from aixplain.enums.asset_status import AssetStatus
         from aixplain.modules.finetune.status import FinetuneStatus
-        
+
         headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}
         resp = None
         try:
@@ -311,7 +310,7 @@ class Model(Asset):
 
             logging.info(f"Response for GET Check FineTune status Model - Id {self.id} / Status {status.status.value}.")
             return status
-        except Exception as e:
+        except Exception:
             message = ""
             if resp is not None and "statusCode" in resp:
                 status_code = resp["statusCode"]

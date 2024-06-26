@@ -20,6 +20,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 from .asset_factory import AssetFactory
+from .agent_factory import AgentFactory
 from .benchmark_factory import BenchmarkFactory
 from .corpus_factory import CorpusFactory
 from .data_factory import DataFactory

@@ -57,7 +57,13 @@ class Asset:
             elif isinstance(supplier, Dict) is True:
                 self.supplier = Supplier(supplier)
             else:
-                self.supplier = supplier
+                self.supplier = None
+                for supplier_ in Supplier:
+                    if supplier.lower() in [supplier_.value["code"].lower(), supplier_.value["name"].lower()]:
+                        self.supplier = supplier_
+                        break
+                if self.supplier is None:
+                    self.supplier = supplier
         except Exception:
             self.supplier = str(supplier)
         self.version = version
