@@ -24,7 +24,6 @@ from aixplain.utils import config
 from aixplain.factories import PipelineFactory
 from aixplain.modules import Pipeline
 from urllib.parse import urljoin
-import pytest
 
 
 def test_create_pipeline():
@@ -34,6 +33,6 @@ def test_create_pipeline():
         ref_response = {"id": "12345"}
         mock.post(url, headers=headers, json=ref_response)
         ref_pipeline = Pipeline(id="12345", name="Pipeline Test", api_key=config.TEAM_API_KEY)
-        hyp_pipeline = PipelineFactory.create(pipeline={}, name="Pipeline Test")
+        hyp_pipeline = PipelineFactory.create(pipeline={"nodes": []}, name="Pipeline Test")
     assert hyp_pipeline.id == ref_pipeline.id
     assert hyp_pipeline.name == ref_pipeline.name
