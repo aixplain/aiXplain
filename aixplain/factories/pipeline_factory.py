@@ -95,7 +95,7 @@ class PipelineFactory:
                 resp["api_key"] = api_key
             pipeline = cls.__from_response(resp)
             return pipeline
-        except Exception as e:
+        except Exception:
             status_code = 400
             if resp is not None and "statusCode" in resp:
                 status_code = resp["statusCode"]
@@ -181,7 +181,7 @@ class PipelineFactory:
         else:
             headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
 
-        assert 0 < page_size <= 100, f"Pipeline List Error: Page size must be greater than 0 and not exceed 100."
+        assert 0 < page_size <= 100, "Pipeline List Error: Page size must be greater than 0 and not exceed 100."
         payload = {
             "pageSize": page_size,
             "pageNumber": page_number,
@@ -232,13 +232,13 @@ class PipelineFactory:
         return {"results": pipelines, "page_total": page_total, "page_number": page_number, "total": total}
 
     @classmethod
-    def create(cls, name: Text, pipeline: Union[Text, Dict], status: Text = "draft") -> Pipeline:
-        """Pipeline Creation
+    def create(cls, name: Text, pipeline: Union[Text, Dict], api_key: Optional[Text] = None) -> Pipeline:
+        """Draft Pipeline Creation
 
         Args:
             name (Text): Pipeline Name
             pipeline (Union[Text, Dict]): Pipeline as a Python dictionary or in a JSON file
-            status (Text, optional): Status of the pipeline. Currently only draft pipelines can be saved. Defaults to "draft".
+            api_key (Optional[Text], optional): Team API Key to create the Pipeline. Defaults to None.
 
         Raises:
             Exception: Currently just the creation of draft pipelines are supported
@@ -247,23 +247,26 @@ class PipelineFactory:
             Pipeline: instance of the new pipeline
         """
         try:
-            assert status == "draft", "Pipeline Creation Error: Currently just the creation of draft pipelines are supported."
             if isinstance(pipeline, str) is True:
                 _, ext = os.path.splitext(pipeline)
                 assert (
                     os.path.exists(pipeline) and ext == ".json"
-                ), "Pipeline Creation Error: Make sure the pipeline to be save is in a JSON file."
+                ), "Pipeline Creation Error: Make sure the pipeline to be saved is in a JSON file."
                 with open(pipeline) as f:
                     pipeline = json.load(f)
 
+            for i, node in enumerate(pipeline["nodes"]):
+                if "functionType" in node and node["functionType"] == "AI":
+                    pipeline["nodes"][i]["functionType"] = pipeline["nodes"][i]["functionType"].lower()
             # prepare payload
             payload = {"name": name, "status": "draft", "architecture": pipeline}
             url = urljoin(cls.backend_url, "sdk/pipelines")
-            headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+            api_key = api_key if api_key is not None else config.TEAM_API_KEY
+            headers = {"Authorization": f"Token {api_key}", "Content-Type": "application/json"}
             logging.info(f"Start service for POST Create Pipeline - {url} - {headers} - {json.dumps(payload)}")
             r = _request_with_retry("post", url, headers=headers, json=payload)
             response = r.json()
 
-            return Pipeline(response["id"], name, config.TEAM_API_KEY)
+            return Pipeline(response["id"], name, api_key)
         except Exception as e:
             raise Exception(e)

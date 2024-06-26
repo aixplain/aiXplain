@@ -24,7 +24,7 @@ import time
 import json
 import logging
 import traceback
-from aixplain.enums import Supplier
+from aixplain.enums import Supplier, Function
 from aixplain.modules.asset import Asset
 from aixplain.utils import config
 from urllib.parse import urljoin
@@ -43,7 +43,7 @@ class Model(Asset):
         url (Text, optional): endpoint of the model. Defaults to config.MODELS_RUN_URL.
         supplier (Union[Dict, Text, Supplier, int], optional): supplier of the asset. Defaults to "aiXplain".
         version (Text, optional): version of the model. Defaults to "1.0".
-        function (Text, optional): model AI function. Defaults to None.
+        function (Function, optional): model AI function. Defaults to None.
         url (str): URL to run the model.
         backend_url (str): URL of the backend.
         pricing (Dict, optional): model price. Defaults to None.
@@ -58,7 +58,7 @@ class Model(Asset):
         api_key: Text = config.TEAM_API_KEY,
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
         version: Optional[Text] = None,
-        function: Optional[Text] = None,
+        function: Optional[Function] = None,
         is_subscribed: bool = False,
         cost: Optional[Dict] = None,
         **additional_info,
@@ -277,7 +277,6 @@ class Model(Asset):
             finetune_status = AssetStatus(resp["finetuneStatus"])
             model_status = AssetStatus(resp["modelStatus"])
             logs = sorted(resp["logs"], key=lambda x: float(x["epoch"]))
-
             target_epoch = None
             if after_epoch is not None:
                 logs = [log for log in logs if float(log["epoch"]) > after_epoch]
@@ -285,7 +284,6 @@ class Model(Asset):
                     target_epoch = float(logs[0]["epoch"])
             elif len(logs) > 0:
                 target_epoch = float(logs[-1]["epoch"])
-
             if target_epoch is not None:
                 log = None
                 for log_ in logs:
@@ -297,7 +295,6 @@ class Model(Asset):
                                 log["trainLoss"] = log_["trainLoss"]
                             if log_["evalLoss"] is not None:
                                 log["evalLoss"] = log_["evalLoss"]
-
                 status = FinetuneStatus(
                     status=finetune_status,
                     model_status=model_status,
