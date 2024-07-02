@@ -82,7 +82,7 @@ class Agent(Model):
             api_key (str): The TEAM API key used for authentication.
             cost (Dict, optional): model price. Defaults to None.
         """
-        assert len(tools) > 0, "At least one tool must be provided."
+        # assert len(tools) > 0, "At least one tool must be provided."
         super().__init__(id, name, description, api_key, supplier, version, cost=cost)
         self.additional_info = additional_info
         self.tools = tools
