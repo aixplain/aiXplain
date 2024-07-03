@@ -224,7 +224,7 @@ def test_run_router(input_data: str, output_data: str, version: str):
 
 
 @pytest.mark.parametrize(
-    "input_data,output_data",
+    "input_data,output_data,version",
     [
         ("I love it.", "PositiveOutput", "2.0"),
         ("I hate it.", "NegativeOutput", "2.0"),
