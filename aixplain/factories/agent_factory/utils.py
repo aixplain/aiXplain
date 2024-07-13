@@ -14,12 +14,14 @@ def build_agent(payload: Dict, api_key: Text = config.TEAM_API_KEY) -> Agent:
     for i, tool in enumerate(tools):
         if tool["type"] == "model":
             for supplier in Supplier:
-                if tool["supplier"] is not None and tool["supplier"].lower() in [supplier.value["code"].lower(), supplier.value["name"].lower()]:
+                if tool["supplier"] is not None and tool["supplier"].lower() in [
+                    supplier.value["code"].lower(),
+                    supplier.value["name"].lower(),
+                ]:
                     tool["supplier"] = supplier
                     break
 
             tool = ModelTool(
-                description=tool["description"],
                 function=Function(tool["function"]),
                 supplier=tool["supplier"],
                 version=tool["version"],
