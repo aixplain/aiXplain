@@ -26,7 +26,6 @@ import json
 from urllib.parse import urljoin
 from aixplain.modules.finetune.cost import FinetuneCost
 from aixplain.modules.finetune.hyperparameters import Hyperparameters
-from aixplain.factories.model_factory import ModelFactory
 from aixplain.modules.asset import Asset
 from aixplain.modules.dataset import Dataset
 from aixplain.modules.model import Model
@@ -110,7 +109,7 @@ class Finetune(Asset):
         """
         payload = {}
         try:
-            url = urljoin(self.backend_url, f"sdk/finetune")
+            url = urljoin(self.backend_url, "sdk/finetune")
             headers = {"Authorization": f"Token {self.api_key}", "Content-Type": "application/json"}
             payload = {
                 "name": self.name,
@@ -134,6 +133,8 @@ class Finetune(Asset):
             r = _request_with_retry("post", url, headers=headers, json=payload)
             resp = r.json()
             logging.info(f"Response for POST Start FineTune - Name: {self.name} / Status {resp}")
+            from aixplain.factories.model_factory import ModelFactory
+
             return ModelFactory().get(resp["id"])
         except Exception:
             message = ""
