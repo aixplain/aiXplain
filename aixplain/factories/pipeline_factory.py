@@ -46,6 +46,11 @@ class PipelineFactory:
     backend_url = config.BACKEND_URL
 
     @classmethod
+    def __get_typed_nodes(cls, response: Dict, type: str) -> List[Dict]:
+        # read "nodes" field from response and return the nodes that are marked by "type": type
+        return [node for node in response["nodes"] if node["type"].lower() == type.lower()]
+
+    @classmethod
     def __from_response(cls, response: Dict) -> Pipeline:
         """Converts response Json to 'Pipeline' object
 
@@ -57,7 +62,9 @@ class PipelineFactory:
         """
         if "api_key" not in response:
             response["api_key"] = config.TEAM_API_KEY
-        return Pipeline(response["id"], response["name"], response["api_key"])
+        input = cls.__get_typed_nodes(response, "input")
+        output = cls.__get_typed_nodes(response, "output")
+        return Pipeline(response["id"], response["name"], response["api_key"], input=input, output=output)
 
     @classmethod
     def get(cls, pipeline_id: Text, api_key: Optional[Text] = None) -> Pipeline:
