@@ -20,7 +20,7 @@ Date: May 16th 2024
 Description:
     Agentification Class
 """
-from typing import Text, Optional
+from typing import Optional
 
 from aixplain.enums.function import Function
 from aixplain.enums.supplier import Supplier
@@ -31,14 +31,12 @@ class ModelTool(Tool):
     """Specialized software or resource designed to assist the AI in executing specific tasks or functions based on user commands.
 
     Attributes:
-        description (Text): descriptiion of the tool
         function (Function): task that the tool performs
         supplier (Optional[Union[Dict, Text, Supplier, int]], optional): Preferred supplier to perform the task. Defaults to None.
     """
 
     def __init__(
         self,
-        description: Text,
         function: Function,
         supplier: Optional[Supplier] = None,
         **additional_info,
@@ -46,12 +44,10 @@ class ModelTool(Tool):
         """Specialized software or resource designed to assist the AI in executing specific tasks or functions based on user commands.
 
         Args:
-            name (Text): name of the tool
-            description (Text): descriptiion of the tool
             function (Function): task that the tool performs
             supplier (Optional[Union[Dict, Text, Supplier, int]], optional): Preferred supplier to perform the task. Defaults to None.
         """
-        super().__init__("", description, **additional_info)
+        super().__init__("", "", **additional_info)
         if isinstance(function, str):
             function = Function(function)
         self.function = function

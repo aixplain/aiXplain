@@ -31,6 +31,7 @@ class PipelineTool(Tool):
 
     Attributes:
         description (Text): descriptiion of the tool
+        pipeline (Union[Text, Pipeline]): pipeline
     """
 
     def __init__(

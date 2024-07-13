@@ -41,12 +41,12 @@ class AgentFactory:
     def create(
         cls,
         name: Text,
+        llm_id: Text,
         tools: List[Tool] = [],
         description: Text = "",
         api_key: Text = config.TEAM_API_KEY,
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
         version: Optional[Text] = None,
-        llm_id: Optional[Text] = None,
     ) -> Agent:
         """Create a new agent in the platform."""
         try:
