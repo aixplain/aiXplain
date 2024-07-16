@@ -64,21 +64,16 @@ class AgentFactory:
                 if isinstance(tool, ModelTool):
                     tool_payload.append(
                         {
-                            "function": tool.function.value,
+                            "function": tool.function.value if tool.function else None,
                             "type": "model",
                             "description": tool.description,
                             "supplier": tool.supplier.value["code"] if tool.supplier else None,
                             "version": tool.version if tool.version else None,
+                            "modelId": tool.model if tool.model else None,
                         }
                     )
                 elif isinstance(tool, PipelineTool):
-                    tool_payload.append(
-                        {
-                            "assetId": tool.pipeline,
-                            "description": tool.description,
-                            "type": "pipeline",
-                        }
-                    )
+                    tool_payload.append({"pipelineId": tool.pipeline, "description": tool.description, "type": "pipeline"})
                 else:
                     raise Exception("Agent Creation Error: Tool type not supported.")
 
@@ -105,7 +100,7 @@ class AgentFactory:
                     if error["message"] == "err.name_already_exists":
                         msg = "Agent name already exists."
                     elif error["message"] == "err.asset_is_not_available":
-                        msg = "Some the tools are not available."
+                        msg = "Some of the tools are not available."
                     error_msg = f"Agent Onboarding Error (HTTP {r.status_code}): {msg}"
                 logging.exception(error_msg)
                 raise Exception(error_msg)

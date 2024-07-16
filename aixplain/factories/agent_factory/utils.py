@@ -1,7 +1,7 @@
 __author__ = "thiagocastroferreira"
 
 import aixplain.utils.config as config
-from aixplain.enums import Function, Supplier
+from aixplain.enums import Supplier
 from aixplain.enums.asset_status import AssetStatus
 from aixplain.modules.agent import Agent, ModelTool, PipelineTool
 from typing import Dict, Text
@@ -22,12 +22,13 @@ def build_agent(payload: Dict, api_key: Text = config.TEAM_API_KEY) -> Agent:
                     break
 
             tool = ModelTool(
-                function=Function(tool["function"]),
-                supplier=tool["supplier"],
-                version=tool["version"],
+                function=tool["function"] if "function" in tool else None,
+                supplier=tool["supplier"] if "supplier" in tool else None,
+                version=tool["version"] if "version" in tool else None,
+                model=tool["modelId"] if "modelId" in tool else None,
             )
         elif tool["type"] == "pipeline":
-            tool = PipelineTool(description=tool["description"], pipeline=tool["assetId"])
+            tool = PipelineTool(description=tool["description"] if "description" in tool else "", pipeline=tool["pipelineId"])
         else:
             raise Exception("Agent Creation Error: Tool type not supported.")
         tools[i] = tool

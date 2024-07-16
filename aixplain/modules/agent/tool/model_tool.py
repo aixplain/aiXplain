@@ -20,33 +20,38 @@ Date: May 16th 2024
 Description:
     Agentification Class
 """
-from typing import Optional
+from typing import Optional, Union, Text, Dict
 
 from aixplain.enums.function import Function
 from aixplain.enums.supplier import Supplier
 from aixplain.modules.agent.tool import Tool
+from aixplain.modules.model import Model
 
 
 class ModelTool(Tool):
     """Specialized software or resource designed to assist the AI in executing specific tasks or functions based on user commands.
 
     Attributes:
-        function (Function): task that the tool performs
-        supplier (Optional[Union[Dict, Text, Supplier, int]], optional): Preferred supplier to perform the task. Defaults to None.
+        function (Optional[Union[Function, Text]]): task that the tool performs
+        supplier (Optional[Union[Dict, Supplier]]): Preferred supplier to perform the task. Defaults to None.
+        model (Optional[Union[Text, Model]]): Model used by the tool. Defaults to None.
     """
 
     def __init__(
         self,
-        function: Function,
-        supplier: Optional[Supplier] = None,
+        function: Optional[Union[Function, Text]] = None,
+        supplier: Optional[Union[Dict, Supplier]] = None,
+        model: Optional[Union[Text, Model]] = None,
         **additional_info,
     ) -> None:
         """Specialized software or resource designed to assist the AI in executing specific tasks or functions based on user commands.
 
         Args:
-            function (Function): task that the tool performs
-            supplier (Optional[Union[Dict, Text, Supplier, int]], optional): Preferred supplier to perform the task. Defaults to None.
+            function (Optional[Union[Function, Text]]): task that the tool performs
+            supplier (Optional[Union[Dict, Supplier]]): Preferred supplier to perform the task. Defaults to None.
+            model (Optional[Union[Text, Model]]): Model used by the tool. Defaults to None.
         """
+        assert function is not None or model is not None, "Either function or model must be provided."
         super().__init__("", "", **additional_info)
         if isinstance(function, str):
             function = Function(function)
@@ -58,3 +63,7 @@ class ModelTool(Tool):
         except Exception:
             supplier = None
         self.supplier = supplier
+
+        if isinstance(model, Model):
+            model = model.id
+        self.model = model
