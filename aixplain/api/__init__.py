@@ -2,7 +2,7 @@ import uuid
 
 from enum import Enum
 from dataclasses import dataclass, field, asdict, InitVar
-from typing import List, Union, Tuple
+from typing import Any, List, Union, Tuple
 
 # these are commented out because of circular imports, please fix it
 # "any" is used to avoid circular imports, should be replaced with the correct
@@ -14,8 +14,8 @@ from typing import List, Union, Tuple
 
 from aixplain.factories import ModelFactory
 from aixplain.factories import PipelineFactory
-from aixplain.factories import DatasetFactory
 from aixplain.factories.file_factory import FileFactory
+from aixplain.enums.function import FunctionInputOutput
 
 
 class DataType(str, Enum):
@@ -34,6 +34,7 @@ class NodeType(str, Enum):
     SEGMENTOR = 'SEGMENTOR'
     RECONSTRUCTOR = 'RECONSTRUCTOR'
     ROUTER = 'ROUTER'
+    DECISION = 'DECISION'
 
 
 class AssetType(str, Enum):
@@ -62,13 +63,20 @@ class Link:
 @dataclass
 class Param:
     code: str
+    dataType: DataType
     value: str
+    node: InitVar['Node'] = None
 
+    def __post_init__(self, node: 'Node' = None):
+        self.node = node
 
-@dataclass
-class Value:
-    code: str
-    dataType: str
+    def link(self, to_param: 'Param') -> 'Param':
+        assert self.node, 'Param not added to a node'
+        to_param.back_link(self)
+
+    def back_link(self, from_param: 'Param') -> 'Param':
+        assert self.node, 'Param not added to a node'
+        from_param.node.link(self.node, from_param.code, self.code)
 
 
 @dataclass
@@ -81,110 +89,203 @@ class Route:
 
 @dataclass
 class Node:
-    pipeline: InitVar['Pipeline']
+    pipeline: InitVar['Pipeline'] = None
     number: int = field(default=None, init=False)
     label: str = field(default=None, init=False)
     type: NodeType = field(default=None, init=False)
-    inputValues: List[Value] = field(default_factory=list, init=False)
-    outputValues: List[Value] = field(default_factory=list, init=False)
+    inputValues: List[Param] = field(default_factory=list, init=False)
+    outputValues: List[Param] = field(default_factory=list, init=False)
 
-    def __post_init__(self, pipeline):
+    def __post_init__(self, pipeline=None):
+        if pipeline:
+            pipeline.add_node(self)
         self.pipeline = pipeline
 
-    def link(self, to_node: any, from_param: str = None,
+    def asdict(self) -> dict:
+        return asdict(self)
+
+    def add_input_param(
+        self,
+        code: str,
+        dataType: DataType,
+        value: any = None
+    ) -> 'Node':
+        self.inputValues.append(
+            Param(code=code, dataType=dataType, value=value, node=self)
+        )
+        return self
+
+    def add_output_param(
+        self,
+        code: str,
+        dataType: DataType,
+        value: any = None
+    ) -> 'Node':
+        self.outputValues.append(
+            Param(code=code, dataType=dataType, value=value, node=self)
+        )
+        return self
+
+    def set_input_param(self, param: str, value: any) -> 'Node':
+        for param_obj in self.inputValues:
+            if param_obj.code == param:
+                param_obj.value = value
+                return self
+        raise ValueError(f'Param {param} not found')
+
+    def set_output_param(self, param: str, value: any) -> 'Node':
+        for param_obj in self.outputValues:
+            if param_obj.code == param:
+                param_obj.value = value
+                return self
+        raise ValueError(f'Param {param} not found')
+
+    def get_input_param(self, code: str):
+        for param in self.inputValues:
+            if param.code == code:
+                return param
+        raise ValueError(f'Param {code} not found')
+
+    def get_output_param(self, code: str):
+        for param in self.outputValues:
+            if param.code == code:
+                return param
+        raise ValueError(f'Param {code} not found')
+
+    def link(self, to_node: 'Node', from_param: str = None,
              to_param: str = None) -> 'Node':
-        self.pipeline.link(self, to_node, from_param=from_param,
-                           to_param=to_param)
-        return to_node
+
+        pipeline = self.pipeline or to_node.pipeline
+        assert pipeline, 'Node not added to a pipeline'
+
+        self.pipeline = pipeline
+        to_node.pipeline = pipeline
+
+        param_mapping = []
+        if from_param and to_param:
+            param_mapping = [
+                ParamMapping(from_param=from_param, to_param=to_param)
+            ]
+        link = Link(from_node=self.number, to_node=to_node.number,
+                    paramMapping=param_mapping)
+        return self.pipeline.add_link(link)
 
     def route(self, conditions: List[Tuple[DataType, 'Node']]) -> 'Node':
+        assert self.pipeline, 'Node not added to a pipeline'
+
         return self.pipeline.route(self, conditions)
+
+    def __getattr__(self, name: str) -> Any:
+        # if name all capital and starts with 'INPUT_' or 'OUTPUT_'
+        # return the value of the param with the same code
+        if name.isupper() and name.startswith('INPUT_'):
+            return self.get_input_param(name[6:].lower())
+        if name.isupper() and name.startswith('OUTPUT_'):
+            return self.get_output_param(name[7:].lower())
 
 
 @dataclass
 class Asset(Node):
-    assetId: str
-    function: str
+    assetId: str = None
+    function: str = None
     supplier: str = None
     version: str = None
     assetType: AssetType = AssetType.MODEL
     functionType: FunctionType = FunctionType.AI
-    params: List[Param] = field(default_factory=list)
+    instance: InitVar[any] = None
+
+    type: NodeType = NodeType.ASSET
+
+    def __post_init__(self, pipeline: any = None, instance: any = None):
+        super().__post_init__(pipeline=pipeline)
+        if not self.assetId and not self.instance:
+            raise ValueError('assetId or instance is required')
+
+        if not self.instance:
+            instance = ModelFactory.get(self.assetId)
+
+        function = FunctionInputOutput[instance.function.value]['spec']
+        self.function = instance.function.value
+        self.supplier = instance.supplier.value['code']
+        self.version = instance.version
+        self.instance = instance
+        self.assetId = instance.id
+
+        for item in function['params']:
+            self.add_input_param(code=item['code'],
+                                 dataType=item['dataType'])
+
+        for item in function['output']:
+            self.add_output_param(code=item['code'],
+                                  dataType=item['dataType'])
 
 
 @dataclass
 class Input(Node):
     dataType: List[DataType] = field(default_factory=list)
     data: str = None
+    type: NodeType = NodeType.INPUT
+
+    def __post_init__(self, pipeline: any = None):
+        super().__post_init__(pipeline=pipeline)
+        if not self.dataType:
+            self.dataType = [DataType.TEXT]
+
+        self.add_output_param('input', self.dataType[0])
+
+        if self.data:
+            self.data = FileFactory.to_link(self.data)
 
 
 @dataclass
 class Output(Node):
     dataType: List[DataType] = field(default_factory=list)
+    type: NodeType = NodeType.OUTPUT
+
+    def __post_init__(self, pipeline: any = None):
+        super().__post_init__(pipeline=pipeline)
+        if not self.dataType:
+            self.dataType = [DataType.TEXT]
+
+        self.add_input_param('output', self.dataType[0])
 
 
 @dataclass
 class Script(Node):
-    fileUrl: str
+    fileUrl: str = None
+    script_path: InitVar[str] = None
+    type: NodeType = NodeType.SCRIPT
+
+    def __post_init__(self, pipeline: any = None, script_path: str = None):
+        super().__post_init__(pipeline=pipeline)
+        if script_path:
+            self.fileUrl = FileFactory.create(local_path=script_path)
+        if not self.fileUrl:
+            raise ValueError('fileUrl is required')
 
 
 @dataclass
 class Router(Node):
     routes: List[Route] = field(default_factory=list)
+    type: NodeType = NodeType.ROUTER
 
-
-@dataclass
-class DecisionNode(Node):
-    pass
-
-
-@dataclass
-class Segmentor(Asset):
-    pass
-
-
-@dataclass
-class Reconstructor(Asset):
-    pass
+    def __post_init__(self, pipeline):
+        super().__post_init__(pipeline)
+        self.add_output_param('input', None)
 
 
 @dataclass
 class Pipeline:
-
     nodes: List[Node] = field(default_factory=list)
     links: List[Link] = field(default_factory=list)
     number_of_nodes: InitVar[int] = 0
     instance: InitVar[any] = None
 
-    def add(self, node: Node):
+    def add_node(self, node: Node):
+        node.pipeline = self
         if not node.number:
             node.number = self.number_of_nodes
             self.number_of_nodes += 1
-
-        if isinstance(node, Asset):
-            node.type = NodeType.ASSET
-        elif isinstance(node, Input):
-            node.type = NodeType.INPUT
-            if not node.dataType:
-                node.dataType = [DataType.TEXT]
-        elif isinstance(node, Output):
-            node.type = NodeType.OUTPUT
-            if not node.dataType:
-                node.dataType = [DataType.TEXT]
-        elif isinstance(node, Router):
-            node.type = NodeType.ROUTER
-        elif isinstance(node, Script):
-            node.type = NodeType.SCRIPT
-            if not node.inputValues:
-                node.inputValues = [Value(code='data', dataType='text')]
-            if not node.outputValues:
-                node.outputValues = [Value(code='data', dataType='text')]
-        elif isinstance(node, Segmentor):
-            node.type = NodeType.SEGMENTOR
-            node.functionType = FunctionType.SEGMENTOR
-        elif isinstance(node, Reconstructor):
-            node.type = NodeType.RECONSTRUCTOR
-            node.functionType = FunctionType.RECONSTRUCTOR
 
         if not node.label:
             node.label = f'{node.type.value}-{node.number}'
@@ -192,97 +293,30 @@ class Pipeline:
         self.nodes.append(node)
         return node
 
-    def add_asset(self, asset: Union[str, any]) -> Asset:
-        asset = self.ensure_model(asset)
-        return self.add(Asset(self,
-                              asset.id,
-                              asset.function.value,
-                              asset.supplier.value['code'],
-                              asset.version))
+    def add_nodes(self, *nodes: Node) -> List[Node]:
+        return [self.add_node(node) for node in nodes]
 
-    def add_segmentor(self, asset: Union[str, any]) -> Segmentor:
-        asset = self.ensure_model(asset)
-        return self.add(Segmentor(self,
-                                  asset.id,
-                                  asset.function.value,
-                                  asset.supplier.value['code'],
-                                  asset.version))
-
-    def add_reconstructor(self, asset: Union[str, any]) -> Reconstructor:
-        asset = self.ensure_model(asset)
-        return self.add(Reconstructor(self,
-                                      asset.id,
-                                      asset.function.value,
-                                      asset.supplier.value['code'],
-                                      asset.version))
-
-    def add_router(self, **kwargs) -> Router:
-        return self.add(Router(self, **kwargs))
-
-    def ensure_model(self, model: Union[str, any]) -> any:
-        if isinstance(model, str):
-            try:
-                return ModelFactory.get(model)
-            except Exception as e:
-                raise ValueError(f'Model {model} not found') from e
-        return model
-
-    def ensure_dataset(self, dataset: Union[str, any]) -> any:
-        if isinstance(dataset, str):
-            try:
-                return DatasetFactory.get(dataset)
-            except Exception as e:
-                raise ValueError(f'Dataset {dataset} not found') from e
-        return dataset
-
-    def add_input(self, **kwargs) -> Input:
-        if 'data' in kwargs:
-            kwargs['data'] = FileFactory.to_link(kwargs['data'])
-        return self.add(Input(self, **kwargs))
-
-    def add_output(self, **kwargs) -> Output:
-        return self.add(Output(self, **kwargs))
-
-    def add_script(self, script_path: str = None, **kwargs) -> Script:
-        if script_path:
-            if 'fileUrl' in kwargs:
-                raise ValueError('fileUrl should not be provided')
-            try:
-                kwargs['fileUrl'] = FileFactory.create(local_path=script_path)
-            except Exception as e:
-                raise ValueError(
-                    f'Error uploading script {script_path}') from e
-        return self.add(Script(self, **kwargs))
-
-    def link(self, from_node: Node, to_node: Node, from_param: str = None,
-             to_param: str = None) -> Node:
-        param_mapping = []
-
-        if from_param and not to_param:
-            raise ValueError('to_param is required')
-        if to_param and not from_param:
-            raise ValueError('from_param is required')
-
-        if from_param and to_param:
-            param_mapping = [
-                ParamMapping(from_param=from_param, to_param=to_param)
-            ]
-        link = Link(from_node.number, to_node.number,
-                    paramMapping=param_mapping)
+    def add_link(self, link: Link) -> Node:
         self.links.append(link)
-        return to_node
+        return link
 
-    def route(self, from_node: Node,
-              conditions: Tuple[DataType, Node]) -> Node:
-        routes = []
-        for data_type, to_node in conditions:
-            routes.append(Route(value=data_type, path=[to_node.number]))
-        router = self.add_router(routes=routes)
-        self.link(from_node, router)
-        for data_type, to_node in conditions:
-            # Here, what we supposed to do while determining the parameters?
-            self.link(router, to_node, 'input', data_type.value)
-        return from_node
+    def node(self, node_cls, *args, **kwargs) -> Node:
+        return self.add_node(node_cls(*args, **kwargs))
+
+    def input(self, data: str = None, **kwargs) -> Node:
+        return self.node(Input, data=data, **kwargs)
+
+    def asset(self, assetId: str, *args, **kwargs) -> Node:
+        return self.node(Asset, assetId=assetId, **kwargs)
+
+    def output(self, *args, **kwargs) -> Node:
+        return self.node(Output, *args, **kwargs)
+
+    def router(self, routes: List[Tuple[DataType, Node]] = None,
+               **kwargs) -> Node:
+        return self.node(Router, routes=[
+            Route(value=route[0], path=[route[1].number]) for route in routes
+        ])
 
     def to_dict(self) -> dict:
         obj = asdict(self)
