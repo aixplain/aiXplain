@@ -2,7 +2,7 @@ import uuid
 
 from enum import Enum
 from dataclasses import dataclass, field, asdict, InitVar
-from typing import Any, List, Tuple
+from typing import Any, List, Tuple, Union
 
 # these are commented out because of circular imports, please fix it
 # "any" is used to avoid circular imports, should be replaced with the correct
@@ -127,12 +127,6 @@ class Node:
         self.inputs = ParamProxy(self.inputValues)
         self.outputs = ParamProxy(self.outputValues)
 
-    def use_output(self, param_code: str) -> 'Node':
-        assert self.pipeline, 'Node not added to a pipeline'
-        output = self.pipeline.node(Output)
-        self.outputs[param_code].link(output.inputs.output)
-        return output
-
     def asdict(self) -> dict:
         return asdict(self)
 
@@ -158,6 +152,9 @@ class Node:
         )
         return self
 
+
+class LinkableMixin:
+
     def link(self, to_node: 'Node', from_param: str = None,
              to_param: str = None) -> 'Node':
 
@@ -177,8 +174,33 @@ class Node:
         return self.pipeline.add_link(link)
 
 
+class RoutableMixin:
+
+    def route(self, conditions: List[Tuple[DataType, Param]]) -> 'Node':
+        assert self.pipeline, 'Node not added to a pipeline'
+
+        router = self.pipeline.router([
+            (condition[0], condition[1].node) for condition in conditions
+        ])
+        self.link(router)
+        for condition in conditions:
+            router.outputs.input.link(condition[1])
+
+        return router
+
+
+class OutputableMixin:
+
+    def use_output(self, param: Union[str, Param]) -> 'Node':
+        assert self.pipeline, 'Node not added to a pipeline'
+        output = self.pipeline.node(Output)
+        param = param if isinstance(param, Param) else self.outputs[param]
+        param.link(output.inputs.output)
+        return output
+
+
 @dataclass
-class Asset(Node):
+class Asset(Node, LinkableMixin, OutputableMixin):
     assetId: str = None
     function: str = None
     supplier: str = None
@@ -212,9 +234,16 @@ class Asset(Node):
             self.add_output_param(code=item['code'],
                                   dataType=item['dataType'])
 
+    def use_output(self, param: Union[str, Param]) -> 'Node':
+        assert self.pipeline, 'Node not added to a pipeline'
+        output = self.pipeline.node(Output)
+        param = param if isinstance(param, Param) else self.outputs[param]
+        param.link(output.inputs.output)
+        return output
+
 
 @dataclass
-class Input(Node):
+class Input(Node, LinkableMixin, RoutableMixin):
     dataType: List[DataType] = field(default_factory=list)
     data: str = None
     type: NodeType = NodeType.INPUT
@@ -227,19 +256,7 @@ class Input(Node):
         self.add_output_param('input', self.dataType[0])
 
         if self.data:
-            self.data = FileFactory.to_link(self.data)
-
-    def route(self, conditions: List[Tuple[DataType, Param]]) -> 'Node':
-        assert self.pipeline, 'Node not added to a pipeline'
-
-        router = self.pipeline.router([
-            (condition[0], condition[1].node) for condition in conditions
-        ])
-        self.link(router)
-        for condition in conditions:
-            router.outputs.input.link(condition[1])
-
-        return router
+            self.data = FileFactory.to_link(self.data, is_temp=True)
 
 
 @dataclass
@@ -256,7 +273,7 @@ class Output(Node):
 
 
 @dataclass
-class Script(Node):
+class Script(Node, LinkableMixin, OutputableMixin):
     fileUrl: str = None
     script_path: InitVar[str] = None
     type: NodeType = NodeType.SCRIPT
@@ -264,19 +281,32 @@ class Script(Node):
     def __post_init__(self, pipeline: any = None, script_path: str = None):
         super().__post_init__(pipeline=pipeline)
         if script_path:
-            self.fileUrl = FileFactory.create(local_path=script_path)
+            self.fileUrl = FileFactory.to_link(script_path,
+                                               is_temp=True)
         if not self.fileUrl:
             raise ValueError('fileUrl is required')
 
 
 @dataclass
-class Router(Node):
+class Router(Node, LinkableMixin):
     routes: List[Route] = field(default_factory=list)
     type: NodeType = NodeType.ROUTER
 
     def __post_init__(self, pipeline):
         super().__post_init__(pipeline)
         self.add_output_param('input', None)
+
+
+@dataclass
+class Segmentor(Asset):
+    type: NodeType = NodeType.SEGMENTOR
+    functionType: FunctionType = FunctionType.SEGMENTOR
+
+
+@dataclass
+class Reconstructor(Asset):
+    type: NodeType = NodeType.RECONSTRUCTOR
+    functionType: FunctionType = FunctionType.RECONSTRUCTOR
 
 
 @dataclass
@@ -313,6 +343,15 @@ class Pipeline:
 
     def asset(self, assetId: str, *args, **kwargs) -> Node:
         return self.node(Asset, assetId=assetId, **kwargs)
+
+    def segmentor(self, assetId: str, *args, **kwargs) -> Node:
+        return self.node(Segmentor, assetId=assetId, **kwargs)
+
+    def reconstructor(self, assetId: str, *args, **kwargs) -> Node:
+        return self.node(Reconstructor, assetId=assetId, **kwargs)
+
+    def script(self, *args, **kwargs) -> Node:
+        return self.node(Script, *args, **kwargs)
 
     def output(self, *args, **kwargs) -> Node:
         return self.node(Output, *args, **kwargs)
