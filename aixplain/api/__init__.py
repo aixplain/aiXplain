@@ -2,7 +2,7 @@ import uuid
 
 from enum import Enum
 from dataclasses import dataclass, field, asdict, InitVar
-from typing import Any, List, Union, Tuple
+from typing import Any, List, Tuple
 
 # these are commented out because of circular imports, please fix it
 # "any" is used to avoid circular imports, should be replaced with the correct
@@ -87,6 +87,30 @@ class Route:
     type: str = 'checkType'
 
 
+class ParamProxy:
+    def __init__(self, params: List[Param]):
+        self.params = params
+
+    def get_param(self, code: str) -> Param:
+        for param in self.params:
+            if param.code == code:
+                return param
+        raise ValueError(f'Param {code} not found')
+
+    def set_param(self, code: str, value: any) -> None:
+        param = self.get_param(code)
+        param.value = value
+
+    def __call__(self, code: str) -> Param:
+        return self.get_param(code)
+
+    def __getitem__(self, code: str) -> Param:
+        return self.get_param(code)
+
+    def __getattr__(self, name: str) -> Any:
+        return self.get_param(name)
+
+
 @dataclass
 class Node:
     pipeline: InitVar['Pipeline'] = None
@@ -100,6 +124,14 @@ class Node:
         if pipeline:
             pipeline.add_node(self)
         self.pipeline = pipeline
+        self.inputs = ParamProxy(self.inputValues)
+        self.outputs = ParamProxy(self.outputValues)
+
+    def use_output(self, param_code: str) -> 'Node':
+        assert self.pipeline, 'Node not added to a pipeline'
+        output = self.pipeline.node(Output)
+        self.outputs[param_code].link(output.inputs.output)
+        return output
 
     def asdict(self) -> dict:
         return asdict(self)
@@ -126,32 +158,6 @@ class Node:
         )
         return self
 
-    def set_input_param(self, param: str, value: any) -> 'Node':
-        for param_obj in self.inputValues:
-            if param_obj.code == param:
-                param_obj.value = value
-                return self
-        raise ValueError(f'Param {param} not found')
-
-    def set_output_param(self, param: str, value: any) -> 'Node':
-        for param_obj in self.outputValues:
-            if param_obj.code == param:
-                param_obj.value = value
-                return self
-        raise ValueError(f'Param {param} not found')
-
-    def get_input_param(self, code: str):
-        for param in self.inputValues:
-            if param.code == code:
-                return param
-        raise ValueError(f'Param {code} not found')
-
-    def get_output_param(self, code: str):
-        for param in self.outputValues:
-            if param.code == code:
-                return param
-        raise ValueError(f'Param {code} not found')
-
     def link(self, to_node: 'Node', from_param: str = None,
              to_param: str = None) -> 'Node':
 
@@ -169,19 +175,6 @@ class Node:
         link = Link(from_node=self.number, to_node=to_node.number,
                     paramMapping=param_mapping)
         return self.pipeline.add_link(link)
-
-    def route(self, conditions: List[Tuple[DataType, 'Node']]) -> 'Node':
-        assert self.pipeline, 'Node not added to a pipeline'
-
-        return self.pipeline.route(self, conditions)
-
-    def __getattr__(self, name: str) -> Any:
-        # if name all capital and starts with 'INPUT_' or 'OUTPUT_'
-        # return the value of the param with the same code
-        if name.isupper() and name.startswith('INPUT_'):
-            return self.get_input_param(name[6:].lower())
-        if name.isupper() and name.startswith('OUTPUT_'):
-            return self.get_output_param(name[7:].lower())
 
 
 @dataclass
@@ -235,6 +228,18 @@ class Input(Node):
 
         if self.data:
             self.data = FileFactory.to_link(self.data)
+
+    def route(self, conditions: List[Tuple[DataType, Param]]) -> 'Node':
+        assert self.pipeline, 'Node not added to a pipeline'
+
+        router = self.pipeline.router([
+            (condition[0], condition[1].node) for condition in conditions
+        ])
+        self.link(router)
+        for condition in conditions:
+            router.outputs.input.link(condition[1])
+
+        return router
 
 
 @dataclass
