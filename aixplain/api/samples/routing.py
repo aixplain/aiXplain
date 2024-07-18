@@ -1,6 +1,6 @@
 import json
 
-from aixplain.api import Pipeline, DataType
+from aixplain.api import Pipeline
 
 
 pipeline = Pipeline()
@@ -10,10 +10,10 @@ input = pipeline.input()
 translation = pipeline.asset('60ddefae8d38c51c5885eff7')
 speech_recognition = pipeline.asset('621cf3fa6442ef511d2830af')
 
-input.route([
-    (DataType.TEXT, translation.inputs.text),
-    (DataType.AUDIO, speech_recognition.inputs.source_audio)
-])
+input.route(
+    translation.inputs.text,
+    speech_recognition.inputs.source_audio
+)
 
 translation.use_output('data')
 speech_recognition.use_output('data')

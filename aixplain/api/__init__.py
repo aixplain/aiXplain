@@ -176,16 +176,15 @@ class LinkableMixin:
 
 class RoutableMixin:
 
-    def route(self, conditions: List[Tuple[DataType, Param]]) -> 'Node':
+    def route(self, *params: Param) -> 'Node':
         assert self.pipeline, 'Node not added to a pipeline'
 
         router = self.pipeline.router([
-            (condition[0], condition[1].node) for condition in conditions
+            (param.dataType, param.node) for param in params
         ])
         self.link(router)
-        for condition in conditions:
-            router.outputs.input.link(condition[1])
-
+        for param in params:
+            router.outputs.input.link(param)
         return router
 
 
