@@ -26,6 +26,20 @@ class DataType(str, Enum):
     LABEL = 'label'
 
 
+class RouteType(str, Enum):
+    CHECK_TYPE = 'checkType'
+    CHECK_VALUE = 'checkValue'
+
+
+class Operation(str, Enum):
+    GREATER_THAN = 'greaterThan'
+    GREATER_THAN_OR_EQUAL = 'greaterThanOrEqual'
+    LESS_THAN = 'lessThan'
+    LESS_THAN_OR_EQUAL = 'lessThanOrEqual'
+    EQUAL = 'equal'
+    DIFFERENT = 'different'
+
+
 class NodeType(str, Enum):
     ASSET = 'ASSET'
     INPUT = 'INPUT'
@@ -82,9 +96,14 @@ class Param:
 @dataclass
 class Route:
     value: DataType
-    path: List[int] = field(default_factory=list)
-    operation: str = 'equal'
-    type: str = 'checkType'
+    path: List[Union['Node', int]] = field(default_factory=list)
+    operation: Operation = None
+    type: RouteType = None
+
+    def __post_init__(self):
+        # convert nodes to node numbers if they are nodes
+        self.path = [node.number if isinstance(node, Node) else node
+                     for node in self.path]
 
 
 class ParamProxy:
@@ -179,7 +198,7 @@ class RoutableMixin:
     def route(self, *params: Param) -> 'Node':
         assert self.pipeline, 'Node not added to a pipeline'
 
-        router = self.pipeline.router([
+        router = self.pipeline.router(*[
             (param.dataType, param.node) for param in params
         ])
         self.link(router)
@@ -296,7 +315,15 @@ class Router(Node, LinkableMixin):
         self.add_output_param('input', None)
 
 
-@dataclass
+class Decision(Router):
+    type: NodeType = NodeType.DECISION
+
+    def __post_init__(self, pipeline):
+        super().__post_init__(pipeline)
+        self.add_input_param('comparison', None)
+        self.add_input_param('passthrough', None)
+
+
 class Segmentor(Asset):
     type: NodeType = NodeType.SEGMENTOR
     functionType: FunctionType = FunctionType.SEGMENTOR
@@ -355,14 +382,24 @@ class Pipeline:
     def output(self, *args, **kwargs) -> Node:
         return self.node(Output, *args, **kwargs)
 
-    def router(self, routes: List[Tuple[DataType, Node]] = None,
-               **kwargs) -> Node:
+    def decision(self, *args, **kwargs) -> Node:
+        return self.node(Decision, *args, **kwargs)
+
+    def router(self, *routes: Tuple[DataType, Node]) -> Node:
         return self.node(Router, routes=[
-            Route(value=route[0], path=[route[1].number]) for route in routes
+            Route(
+                value=route[0],
+                path=[route[1]],
+                type=RouteType.CHECK_TYPE,
+                operation=Operation.EQUAL
+            ) for route in routes
         ])
 
+    def asdict(self) -> dict:
+        return asdict(self)
+
     def to_dict(self) -> dict:
-        obj = asdict(self)
+        obj = self.asdict()
         for link in obj['links']:
             link['from'] = link.pop('from_node')
             link['to'] = link.pop('to_node')
