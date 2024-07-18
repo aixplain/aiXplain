@@ -179,9 +179,6 @@ model1.outputs.confidence.link(decision1.inputs.comparison)
 model1.outputs.data.link(decision1.inputs.passthrough)
 decision1.outputs.data.link(model2.inputs.text)
 
-model2.use_output('data')
-
-
 # use the output of the last node
 model2.use_output('data')
 
