@@ -62,6 +62,11 @@ class FunctionType(str, Enum):
     RECONSTRUCTOR = "RECONSTRUCTOR"
 
 
+class ParamType:
+    INPUT = "INPUT"
+    OUTPUT = "OUTPUT"
+
+
 @dataclass
 class Param:
     """
@@ -71,13 +76,29 @@ class Param:
     code: str
     dataType: DataType
     value: str
+    param_type: InitVar[ParamType] = None
     node: InitVar["Node"] = None
 
     def __post_init__(self, node: "Node" = None):
         """
         Post init method to set the node of the param.
         """
+        if node:
+            self.attach(node)
+
+    def attach(self, node: "Node"):
+        """
+        Attach the param to the node.
+        :param node: the node
+        """
+        assert not self.node, "Param already attached to a node"
         self.node = node
+        if self.param_type == ParamType.INPUT:
+            node.inputValues.append(self)
+        elif self.param_type == ParamType.OUTPUT:
+            node.outputValues.append(self)
+        else:
+            raise ValueError(f"Invalid param type: {self.param_type}")
 
     def link(self, to_param: "Param") -> "Param":
         """
@@ -85,7 +106,10 @@ class Param:
         :param to_param: the input param
         :return: the param
         """
-        assert self.node, "Param not added to a node"
+        assert (
+            self.node and self in self.node.outputValues
+        ), "Param not attached to a node"
+        assert to_param.param_type == ParamType.INPUT, "Invalid param type"
         to_param.back_link(self)
 
     def back_link(self, from_param: "Param") -> "Param":
@@ -94,8 +118,23 @@ class Param:
         :param from_param: the output param
         :return: the param
         """
-        assert self.node, "Param not added to a node"
+        assert (
+            self.node and self in self.node.inputValues
+        ), "Param not attached to a node"
+        assert from_param.param_type == ParamType.OUTPUT, "Invalid param type"
         from_param.node.link(self.node, from_param.code, self.code)
+
+
+@dataclass
+class InputParam(Param):
+
+    param_type: ParamType = ParamType.INPUT
+
+
+@dataclass
+class OutputParam(Param):
+
+    param_type: ParamType = ParamType.OUTPUT
 
 
 @dataclass
@@ -243,7 +282,7 @@ class Node:
 
     def add_input_param(
         self, code: str, dataType: DataType, value: any = None
-    ) -> "Node":
+    ) -> InputParam:
         """
         Add an input parameter to the node. This method will add an input
         parameter to the node.
@@ -252,10 +291,7 @@ class Node:
         :param value: the value of the parameter
         :return: the node
         """
-        self.inputValues.append(
-            Param(code=code, dataType=dataType, value=value, node=self)
-        )
-        return self
+        return InputParam(code=code, dataType=dataType, value=value, node=self)
 
     def add_output_param(
         self, code: str, dataType: DataType, value: any = None
@@ -268,10 +304,9 @@ class Node:
         :param value: the value of the parameter
         :return: the node
         """
-        self.outputValues.append(
-            Param(code=code, dataType=dataType, value=value, node=self)
+        return OutputParam(
+            code=code, dataType=dataType, value=value, node=self
         )
-        return self
 
 
 class LinkableMixin:
@@ -336,11 +371,8 @@ class LinkableMixin:
         :return: the link
         """
 
-        pipeline = self.pipeline or to_node.pipeline
-        assert pipeline, "Node not added to a pipeline"
-
-        self.pipeline = pipeline
-        to_node.pipeline = pipeline
+        assert self.pipeline, "Node not added to a pipeline"
+        assert to_node.pipeline, "Node not added to a pipeline"
 
         self.validate(to_node, from_param, to_param)
 
@@ -595,13 +627,16 @@ class Pipeline:
         :param node: the node
         :return: the node
         """
-        node.pipeline = self
-        if not node.number:
-            node.number = self.number_of_nodes
-            self.number_of_nodes += 1
 
-        if not node.label:
-            node.label = f"{node.type.value}(ID={node.number})"
+        assert not node.pipeline, "Node already added to a pipeline"
+        assert not node.number, "Node number already set"
+        assert not node.label, "Node label already set"
+        assert node.type, "Node type not set"
+
+        node.pipeline = self
+        node.number = self.number_of_nodes
+        self.number_of_nodes += 1
+        node.label = f"{node.type.value}(ID={node.number})"
 
         self.nodes.append(node)
         return node
