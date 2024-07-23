@@ -48,7 +48,6 @@ def test_create_pipeline():
 
     assert pipeline.nodes == []
     assert pipeline.links == []
-    assert pipeline.number_of_nodes == 0
     assert not pipeline.instance
 
 
@@ -206,7 +205,6 @@ def test_add_node():
     pipeline.add_node(node)
     assert pipeline.nodes == [node]
     assert pipeline.links == []
-    assert pipeline.number_of_nodes == 1
 
     class AssetNode(Node):
         type: NodeType = NodeType.ASSET
@@ -215,7 +213,6 @@ def test_add_node():
     pipeline.add_node(node1)
     assert pipeline.nodes == [node, node1]
     assert pipeline.links == []
-    assert pipeline.number_of_nodes == 2
 
     class OutputNode(Node):
         type: NodeType = NodeType.OUTPUT
@@ -224,7 +221,6 @@ def test_add_node():
     pipeline.add_node(node2)
     assert pipeline.nodes == [node, node1, node2]
     assert pipeline.links == []
-    assert pipeline.number_of_nodes == 3
 
 
 def test_add_link():

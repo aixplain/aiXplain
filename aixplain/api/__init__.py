@@ -266,13 +266,27 @@ class Node:
         Post init method to set the pipeline and input/output proxies.
         :param pipeline: the pipeline
         """
-        if pipeline:
-            pipeline.add_node(self)
-        self.pipeline = pipeline
         self.inputs = ParamProxy(self.inputValues)
         self.outputs = ParamProxy(self.outputValues)
+        if pipeline:
+            self.attach(pipeline)
 
-    def asdict(self) -> dict:
+    def attach(self, pipeline: "Pipeline"):
+        """
+        Attach the node to the pipeline.
+        :param pipeline: the pipeline
+        """
+        assert not self.pipeline, "Node already attached to a pipeline"
+        assert not self.number, "Node number already set"
+        assert not self.label, "Node label already set"
+        assert self.type, "Node type not set"
+
+        self.pipeline = pipeline
+        self.number = len(pipeline.nodes)
+        self.label = f"{self.type.value}(ID={self.number})"
+        pipeline.nodes.append(self)
+
+    def to_dict(self) -> dict:
         """
         Convert the node to a dictionary. This method will convert the node to
         a dictionary.
@@ -409,7 +423,7 @@ class RoutableMixin:
         assert self.pipeline, "Node not added to a pipeline"
 
         router = self.pipeline.router(
-            *[(param.dataType, param.node) for param in params]
+            [(param.dataType, param.node) for param in params]
         )
         self.link(router)
         for param in params:
@@ -614,7 +628,6 @@ class Reconstructor(Asset):
 class Pipeline:
     nodes: List[Node] = field(default_factory=list)
     links: List[Link] = field(default_factory=list)
-    number_of_nodes: InitVar[int] = 0
     instance: InitVar[any] = None
 
     def add_node(self, node: Node):
@@ -627,18 +640,7 @@ class Pipeline:
         :param node: the node
         :return: the node
         """
-
-        assert not node.pipeline, "Node already added to a pipeline"
-        assert not node.number, "Node number already set"
-        assert not node.label, "Node label already set"
-        assert node.type, "Node type not set"
-
-        node.pipeline = self
-        node.number = self.number_of_nodes
-        self.number_of_nodes += 1
-        node.label = f"{node.type.value}(ID={node.number})"
-
-        self.nodes.append(node)
+        node.attach(self)
         return node
 
     def add_nodes(self, *nodes: Node) -> List[Node]:
@@ -740,7 +742,8 @@ class Pipeline:
         :param kwargs: keyword arguments
         :return: the node
         """
-        return self.node(Reconstructor, assetId=assetId, **kwargs)
+        kwargs["assetId"] = assetId
+        return Reconstructor(self, *args, **kwargs)
 
     def script(self, *args, **kwargs) -> Script:
         """
@@ -751,7 +754,7 @@ class Pipeline:
         :param kwargs: keyword arguments
         :return: the node
         """
-        return self.node(Script, *args, **kwargs)
+        return Script(self, *args, **kwargs)
 
     def output(self, *args, **kwargs) -> Output:
         """
@@ -762,7 +765,7 @@ class Pipeline:
         :param kwargs: keyword arguments
         :return: the node
         """
-        return self.node(Output, *args, **kwargs)
+        return Output(self, *args, **kwargs)
 
     def decision(self, *args, **kwargs) -> Node:
         """
@@ -773,9 +776,9 @@ class Pipeline:
         :param kwargs: keyword arguments
         :return: the node
         """
-        return self.node(Decision, *args, **kwargs)
+        return Decision(self, *args, **kwargs)
 
-    def router(self, *routes: Tuple[DataType, Node], **kwargs) -> Node:
+    def router(self, routes: Tuple[DataType, Node], *args, **kwargs) -> Node:
         """
         Shortcut to create an decision node for the current pipeline.
         All params will be passed as keyword arguments to the node
@@ -786,17 +789,18 @@ class Pipeline:
         :param kwargs: keyword arguments
         :return: the node
         """
-        return self.node(
-            Router,
-            routes=[
-                Route(
-                    value=route[0],
-                    path=[route[1]],
-                    type=RouteType.CHECK_TYPE,
-                    operation=Operation.EQUAL,
-                )
-                for route in routes
-            ],
+        kwargs["routes"] = [
+            Route(
+                value=route[0],
+                path=[route[1]],
+                type=RouteType.CHECK_TYPE,
+                operation=Operation.EQUAL,
+            )
+            for route in routes
+        ]
+        return Router(
+            self,
+            *args,
             **kwargs,
         )
 
