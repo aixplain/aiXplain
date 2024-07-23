@@ -404,17 +404,31 @@ def test_pipeline_add_node():
     assert pipeline.links == []
 
 
-def test_pipeline_add_link():
+def test_pipeline_add_nodes():
     pipeline = Pipeline()
 
     class InputNode(Node):
         type: NodeType = NodeType.INPUT
 
     node = InputNode()
-    pipeline.add_node(node)
+    pipeline.add_nodes(node)
+    assert pipeline.nodes == [node]
+    assert pipeline.links == []
+
+    node1 = InputNode()
+    node2 = InputNode()
+    pipeline.add_nodes(node1, node2)
+    assert pipeline.nodes == [node, node1, node2]
+
+
+def test_pipeline_add_link():
+    pipeline = Pipeline()
 
     class AssetNode(Node):
         type: NodeType = NodeType.ASSET
+
+    node = AssetNode()
+    pipeline.add_node(node)
 
     node1 = AssetNode()
     pipeline.add_node(node1)
@@ -425,3 +439,48 @@ def test_pipeline_add_link():
         paramMapping=[ParamMapping(from_param="output", to_param="input")],
     )
     pipeline.add_link(link)
+    with mock.patch.object(link, "attach") as mock_attach:
+        pipeline.add_link(link)
+        mock_attach.assert_called_once_with(pipeline)
+
+
+def test_pipeline_save():
+    pipeline = Pipeline()
+
+    class AssetNode(Node):
+        type: NodeType = NodeType.ASSET
+
+    node = AssetNode()
+    pipeline.add_node(node)
+
+    node1 = AssetNode()
+    pipeline.add_node(node1)
+
+    link = Link(
+        from_node=node,
+        to_node=node1,
+        paramMapping=[ParamMapping(from_param="output", to_param="input")],
+    )
+    pipeline.add_link(link)
+
+    with mock.patch.object(pipeline, "validate") as mock_validate:
+        with mock.patch(
+            "aixplain.factories.pipeline_factory.PipelineFactory.create"
+        ) as mock_create:
+            pipeline.save()
+            mock_create.assert_called_once()
+            assert pipeline.instance is mock_create.return_value
+        mock_validate.assert_called_once()
+
+
+def test_pipeline_run():
+    pipeline = Pipeline()
+
+    with pytest.raises(AssertionError) as excinfo:
+        pipeline.run()
+
+    assert "Pipeline not saved" in str(excinfo.value)
+
+    pipeline.instance = mock.MagicMock()
+    pipeline.run("foo", "bar")
+    pipeline.instance.run.assert_called_once_with("foo", "bar")
