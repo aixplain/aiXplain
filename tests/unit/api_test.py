@@ -4,15 +4,15 @@ import unittest.mock as mock
 from aixplain.api import (
     Node,
     Pipeline,
-    ParamProxy,
     NodeType,
     Link,
     ParamMapping,
     InputParam,
     OutputParam,
     ParamType,
-    DataType,
     LinkableMixin,
+    ParamProxy,
+    DataType,
 )
 
 
@@ -66,7 +66,7 @@ def test_create_input_output_param(param_cls, expected_param_type):
     assert param.param_type == expected_param_type
     assert not param.node
 
-    class AssetNode(Node, LinkableMixin):
+    class AssetNode(Node):
         type: NodeType = NodeType.ASSET
 
     node = AssetNode()
@@ -83,7 +83,7 @@ def test_create_input_output_param(param_cls, expected_param_type):
 
 
 def test_param_attach():
-    class AssetNode(Node, LinkableMixin):
+    class AssetNode(Node):
         type: NodeType = NodeType.ASSET
 
     node = AssetNode()
