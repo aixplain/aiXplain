@@ -476,7 +476,7 @@ def test_pipeline_save():
 def test_pipeline_run():
     pipeline = Pipeline()
 
-    with pytest.raises(AssertionError) as excinfo:
+    with pytest.raises(ValueError) as excinfo:
         pipeline.run()
 
     assert "Pipeline not saved" in str(excinfo.value)

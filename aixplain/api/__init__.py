@@ -1,5 +1,4 @@
-from .pipeline import (
-    Pipeline,
+from .nodes import (
     Asset,
     Decision,
     Script,
@@ -8,6 +7,9 @@ from .pipeline import (
     Router,
     Reconstructor,
     Segmentor,
+)
+from .pipeline import (
+    Pipeline,
 )
 from .base import (
     Node,
