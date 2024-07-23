@@ -262,6 +262,77 @@ def test_param_proxy():
     assert param_proxy.transcripts.value == "baz"
 
 
+def test_node_to_dict():
+    class AssetNode(Node):
+        type: NodeType = NodeType.ASSET
+
+    node = AssetNode()
+    assert node.to_dict() == {
+        "number": node.number,
+        "type": NodeType.ASSET,
+        "inputValues": [],
+        "outputValues": [],
+        "label": node.label,
+    }
+
+
+def test_node_attach():
+    class AssetNode(Node):
+        type: NodeType = NodeType.ASSET
+
+    node = AssetNode()
+
+    pipeline = Pipeline()
+    node.attach(pipeline)
+    assert node.pipeline is pipeline
+    assert node.number == 0
+    assert node.label == "ASSET(ID=0)"
+
+    node1 = AssetNode()
+    node1.attach(pipeline)
+    assert node1.pipeline is pipeline
+    assert node1.number == 1
+    assert node1.label == "ASSET(ID=1)"
+
+    with pytest.raises(AssertionError) as excinfo:
+        node.attach(pipeline)
+
+    assert "Node already attached to a pipeline" in str(excinfo.value)
+
+    node = Node()
+    with pytest.raises(AssertionError) as excinfo:
+        node.attach(pipeline)
+
+    assert "Node type not set" in str(excinfo.value)
+
+
+def test_node_add_input_output_param():
+    class AssetNode(Node):
+        type: NodeType = NodeType.ASSET
+
+    node = AssetNode()
+    node.add_input_param("input", DataType.TEXT, "foo")
+    assert len(node.inputValues) == 1
+    assert node.inputValues[0].code == "input"
+    assert node.inputValues[0].dataType == DataType.TEXT
+    assert node.inputValues[0].value == "foo"
+    assert node.inputValues[0].node is node
+
+    node.add_input_param("input", DataType.TEXT, "bar")
+    assert len(node.inputValues) == 2
+    assert node.inputValues[1].code == "input"
+    assert node.inputValues[1].dataType == DataType.TEXT
+    assert node.inputValues[1].value == "bar"
+    assert node.inputValues[1].node is node
+
+    node.add_output_param("output", DataType.TEXT, "bar")
+    assert len(node.outputValues) == 1
+    assert node.outputValues[0].code == "output"
+    assert node.outputValues[0].dataType == DataType.TEXT
+    assert node.outputValues[0].value == "bar"
+    assert node.outputValues[0].node is node
+
+
 def test_node_link():
 
     class AssetNode(Node, LinkableMixin):
