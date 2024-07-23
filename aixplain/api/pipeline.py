@@ -17,6 +17,7 @@ from .nodes import (
     Script,
     Input,
     Output,
+    Route,
     Router,
     Reconstructor,
     Segmentor,
