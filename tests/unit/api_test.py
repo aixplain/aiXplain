@@ -231,6 +231,37 @@ def test_link_attach():
     assert link in pipeline.links
 
 
+def test_param_proxy():
+    params = [
+        InputParam(code="transcripts", dataType=DataType.TEXT, value="foo"),
+        InputParam(code="speakers", dataType=DataType.LABEL, value="bar"),
+    ]
+    param_proxy = ParamProxy(params)
+    assert param_proxy.params == params
+    assert param_proxy.transcripts == params[0]
+    assert param_proxy.speakers == params[1]
+
+    assert param_proxy["transcripts"] == params[0]
+    assert param_proxy["speakers"] == params[1]
+
+    assert param_proxy("transcripts") == params[0]
+    assert param_proxy("speakers") == params[1]
+
+    with pytest.raises(AttributeError) as excinfo:
+        param_proxy.foo
+
+    assert "Param 'foo' not found" in str(excinfo.value)
+
+    param_proxy.transcripts = "bar"
+    assert param_proxy.transcripts.value == "bar"
+
+    param_proxy["transcripts"] = "foo"
+    assert param_proxy.transcripts.value == "foo"
+
+    param_proxy("transcripts", "baz")
+    assert param_proxy.transcripts.value == "baz"
+
+
 def test_node_link():
 
     class AssetNode(Node, LinkableMixin):
@@ -274,7 +305,7 @@ def test_node_link():
     assert pipeline.links[1].paramMapping == []
 
 
-def test_add_node():
+def test_pipeline_add_node():
     pipeline = Pipeline()
 
     class InputNode(Node):
@@ -302,7 +333,7 @@ def test_add_node():
     assert pipeline.links == []
 
 
-def test_add_link():
+def test_pipeline_add_link():
     pipeline = Pipeline()
 
     class InputNode(Node):

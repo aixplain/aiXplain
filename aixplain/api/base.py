@@ -152,7 +152,7 @@ class ParamProxy:
         for param in self.params:
             if param.code == code:
                 return param
-        raise ValueError(f"Param {code} not found")
+        raise AttributeError(f"Param '{code}' not found")
 
     def set_param(self, code: str, value: any) -> None:
         """
@@ -164,10 +164,12 @@ class ParamProxy:
         param = self.get_param(code)
         param.value = value
 
-    def __call__(self, code: str) -> Param:
+    def __call__(self, code: str, value: any = None) -> Param:
         """
         This is a convenience callable method to get the parameter by code.
         """
+        if value:
+            self.set_param(code, value)
         return self.get_param(code)
 
     def __getitem__(self, code: str) -> Param:
@@ -176,11 +178,26 @@ class ParamProxy:
         """
         return self.get_param(code)
 
+    def __setitem__(self, code: str, value: any) -> None:
+        """
+        This is a convenience setitem method to set the parameter value.
+        """
+        self.set_param(code, value)
+
     def __getattr__(self, name: str) -> Any:
         """
         This is a convenience getattr method to get the parameter.
         """
         return self.get_param(name)
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        """
+        This is a convenience setattr method to set the parameter value.
+        """
+        if name in ["params"]:
+            super().__setattr__(name, value)
+        else:
+            self.set_param(name, value)
 
 
 @dataclass
