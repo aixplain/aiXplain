@@ -16,6 +16,18 @@ from aixplain.api import (
 )
 
 
+def test_create_param_mapping():
+    param_mapping = ParamMapping(from_param="output", to_param="input")
+    assert param_mapping.from_param == "output"
+    assert param_mapping.to_param == "input"
+
+    output = OutputParam(code="output", dataType=DataType.TEXT, value="foo")
+    input = InputParam(code="input", dataType=DataType.TEXT, value="bar")
+    param_mapping = ParamMapping(from_param=output, to_param=input)
+    assert param_mapping.from_param == "output"
+    assert param_mapping.to_param == "input"
+
+
 def test_create_node():
     node = Node()
     assert node.pipeline is None
@@ -72,16 +84,16 @@ def test_create_input_output_param(param_cls, expected_param_type):
         type: NodeType = NodeType.ASSET
 
     node = AssetNode()
-    param = param_cls(
-        code="param", dataType=DataType.TEXT, value="foo", node=node
-    )
-    assert param.code == "param"
-    assert param.dataType == DataType.TEXT
-    assert param.value == "foo"
-    assert param.param_type == expected_param_type
-    with mock.patch.object(param, "attach") as mock_attach:
-        param.attach()
-        mock_attach.assert_called_once()
+
+    with mock.patch("aixplain.api.Param.attach") as mock_attach:
+        param = param_cls(
+            code="param", dataType=DataType.TEXT, value="foo", node=node
+        )
+        mock_attach.assert_called_once_with(node)
+        assert param.code == "param"
+        assert param.dataType == DataType.TEXT
+        assert param.value == "foo"
+        assert param.param_type == expected_param_type
 
 
 def test_param_attach():
@@ -165,6 +177,58 @@ def test_param_back_link():
     with mock.patch.object(a, "link") as mock_node_link:
         input.back_link(output)
         mock_node_link.assert_called_once_with(b, output.code, input.code)
+
+
+def test_link_create():
+    link = Link(
+        from_node=0,
+        to_node=1,
+        paramMapping=[ParamMapping(from_param="output", to_param="input")],
+    )
+    assert link.from_node == 0
+    assert link.to_node == 1
+    assert link.paramMapping == [
+        ParamMapping(from_param="output", to_param="input")
+    ]
+    assert not link.pipeline
+
+    class AssetNode(Node, LinkableMixin):
+        type: NodeType = NodeType.ASSET
+
+    pipeline = Pipeline()
+    a = AssetNode(pipeline=pipeline)
+    b = AssetNode(pipeline=pipeline)
+
+    pipeline = Pipeline()
+    with mock.patch("aixplain.api.Link.attach") as mock_attach:
+        link = Link(
+            from_node=a.number,
+            to_node=b.number,
+            paramMapping=[ParamMapping(from_param="output", to_param="input")],
+            pipeline=pipeline,
+        )
+        assert link.from_node == 0
+        assert link.to_node == 1
+        assert link.paramMapping == [
+            ParamMapping(from_param="output", to_param="input")
+        ]
+        mock_attach.assert_called_once_with(pipeline)
+
+
+def test_link_attach():
+
+    pipeline = Pipeline()
+
+    link = Link(
+        from_node=0,
+        to_node=1,
+        paramMapping=[ParamMapping(from_param="output", to_param="input")],
+    )
+
+    link.attach(pipeline)
+
+    assert link.pipeline is pipeline
+    assert link in pipeline.links
 
 
 def test_node_link():

@@ -105,14 +105,18 @@ class Link:
     input of another node.
     """
 
-    from_node: int
-    to_node: int
+    from_node: Union[int, "Node"]
+    to_node: Union[int, "Node"]
     paramMapping: List[ParamMapping] = field(default_factory=list)
     pipeline: InitVar["Pipeline"] = None
 
     def __post_init__(self, pipeline: "Pipeline" = None):
         if pipeline:
             self.attach(pipeline)
+        if isinstance(self.from_node, Node):
+            self.from_node = self.from_node.number
+        if isinstance(self.to_node, Node):
+            self.to_node = self.to_node.number
 
     def attach(self, pipeline: "Pipeline"):
         """
@@ -120,6 +124,7 @@ class Link:
         :param pipeline: the pipeline
         """
         assert not self.pipeline, "Link already attached to a pipeline"
+
         self.pipeline = pipeline
         pipeline.links.append(self)
         return self
