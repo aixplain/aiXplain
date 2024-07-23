@@ -168,6 +168,21 @@ class Link:
     from_node: int
     to_node: int
     paramMapping: List[ParamMapping] = field(default_factory=list)
+    pipeline: InitVar["Pipeline"] = None
+
+    def __post_init__(self, pipeline: "Pipeline" = None):
+        if pipeline:
+            self.attach(pipeline)
+
+    def attach(self, pipeline: "Pipeline"):
+        """
+        Attach the link to the pipeline.
+        :param pipeline: the pipeline
+        """
+        assert not self.pipeline, "Link already attached to a pipeline"
+        self.pipeline = pipeline
+        pipeline.links.append(self)
+        return self
 
 
 @dataclass
@@ -285,6 +300,7 @@ class Node:
         self.number = len(pipeline.nodes)
         self.label = f"{self.type.value}(ID={self.number})"
         pipeline.nodes.append(self)
+        return self
 
     def to_dict(self) -> dict:
         """
@@ -396,13 +412,12 @@ class LinkableMixin:
                 ParamMapping(from_param=from_param, to_param=to_param)
             ]
 
-        link = Link(
+        return Link(
+            pipeline=self.pipeline,
             from_node=self.number,
             to_node=to_node.number,
             paramMapping=param_mapping,
         )
-
-        return self.pipeline.add_link(link)
 
 
 class RoutableMixin:
@@ -447,7 +462,7 @@ class OutputableMixin:
         :return: the output node
         """
         assert self.pipeline, "Node not added to a pipeline"
-        output = self.pipeline.node(Output)
+        output = self.pipeline.output()
         param = param if isinstance(param, Param) else self.outputs[param]
         param.link(output.inputs.output)
         return output
@@ -640,8 +655,7 @@ class Pipeline:
         :param node: the node
         :return: the node
         """
-        node.attach(self)
-        return node
+        return node.attach(self)
 
     def add_nodes(self, *nodes: Node) -> List[Node]:
         """
@@ -658,22 +672,9 @@ class Pipeline:
         :param link: the link
         :return: the link
         """
-        self.links.append(link)
-        return link
+        return link.attach(self)
 
-    def node(self, node_cls, *args, **kwargs) -> Node:
-        """
-        Shortcut to create a node for the current pipeline.
-        All params will be passed as keyword arguments to the node
-        constructor.
-        :param node_cls: the node class
-        :param args: positional arguments
-        :param kwargs: keyword arguments
-        :return: the node
-        """
-        return self.add_node(node_cls(*args, **kwargs))
-
-    def input(self, data: str = None, **kwargs) -> Node:
+    def input(self, data: str = None, *args, **kwargs) -> Node:
         """
         Shortcut to create an input node for the current pipeline.
         All params will be passed as keyword arguments to the node
@@ -687,7 +688,8 @@ class Pipeline:
         :param kwargs: keyword arguments
         :return: the node
         """
-        return self.node(Input, data=data, **kwargs)
+        kwargs["data"] = data
+        return Input(self, *args, **kwargs)
 
     def asset(self, assetId: str, *args, **kwargs) -> Node:
         """
@@ -708,7 +710,8 @@ class Pipeline:
         :param kwargs: keyword arguments
         :return: the node
         """
-        return self.node(Asset, assetId=assetId, **kwargs)
+        kwargs["assetId"] = assetId
+        return Asset(self, *args, **kwargs)
 
     def segmentor(self, assetId: str, *args, **kwargs) -> Node:
         """
@@ -725,7 +728,8 @@ class Pipeline:
         :param kwargs: keyword arguments
         :return: the node
         """
-        return self.node(Segmentor, assetId=assetId, **kwargs)
+        kwargs["assetId"] = assetId
+        return Segmentor(self, *args, **kwargs)
 
     def reconstructor(self, assetId: str, *args, **kwargs) -> Node:
         """
