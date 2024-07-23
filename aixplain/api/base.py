@@ -46,10 +46,10 @@ class Param:
         :param to_param: the input param
         :return: the param
         """
+        assert to_param.param_type == ParamType.INPUT, "Invalid param type"
         assert (
             self.node and self in self.node.outputValues
         ), "Param not attached to a node"
-        assert to_param.param_type == ParamType.INPUT, "Invalid param type"
         to_param.back_link(self)
 
     def back_link(self, from_param: "Param") -> "Param":
@@ -58,10 +58,10 @@ class Param:
         :param from_param: the output param
         :return: the param
         """
+        assert from_param.param_type == ParamType.OUTPUT, "Invalid param type"
         assert (
             self.node and self in self.node.inputValues
         ), "Param not attached to a node"
-        assert from_param.param_type == ParamType.OUTPUT, "Invalid param type"
         from_param.node.link(self.node, from_param.code, self.code)
 
 

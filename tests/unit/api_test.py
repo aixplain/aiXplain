@@ -24,8 +24,10 @@ def test_create_node():
 
     pipeline = Pipeline()
 
-    with pytest.raises(AssertionError):
+    with pytest.raises(AssertionError) as excinfo:
         node = Node(pipeline=pipeline)
+
+    assert "Node type not set" in str(excinfo.value)
 
     class InputNode(Node):
         type: NodeType = NodeType.INPUT
@@ -105,33 +107,10 @@ def test_param_link():
     input = InputParam(code="input", dataType=DataType.TEXT, value="foo")
     output = OutputParam(code="output", dataType=DataType.TEXT, value="bar")
 
-    with pytest.raises(AssertionError):
+    with pytest.raises(AssertionError) as excinfo:
         output.link(input)
 
-    class AssetNode(Node, LinkableMixin):
-        type: NodeType = NodeType.ASSET
-
-    node = AssetNode()
-
-    input = InputParam(code="input", dataType=DataType.TEXT, value="foo")
-    output = OutputParam(
-        code="output", dataType=DataType.TEXT, value="bar", node=node
-    )
-
-    with pytest.raises(AssertionError):
-        input.link(output)
-
-    with mock.patch.object(input, "back_link") as mock_back_link:
-        output.link(input)
-        mock_back_link.assert_called_once_with(output)
-
-
-def test_param_back_link():
-    input = InputParam(code="input", dataType=DataType.TEXT, value="foo")
-    output = OutputParam(code="output", dataType=DataType.TEXT, value="bar")
-
-    with pytest.raises(AssertionError):
-        input.back_link(output)
+    assert "Param not attached to a node" in str(excinfo.value)
 
     class AssetNode(Node, LinkableMixin):
         type: NodeType = NodeType.ASSET
@@ -146,8 +125,42 @@ def test_param_back_link():
         code="input", dataType=DataType.TEXT, value="foo", node=b
     )
 
-    with pytest.raises(AssertionError):
+    with pytest.raises(AssertionError) as excinfo:
+        input.link(output)
+
+    assert "Invalid param type" in str(excinfo.value)
+
+    with mock.patch.object(input, "back_link") as mock_back_link:
+        output.link(input)
+        mock_back_link.assert_called_once_with(output)
+
+
+def test_param_back_link():
+    input = InputParam(code="input", dataType=DataType.TEXT, value="foo")
+    output = OutputParam(code="output", dataType=DataType.TEXT, value="bar")
+
+    with pytest.raises(AssertionError) as excinfo:
+        input.back_link(output)
+
+    assert "Param not attached to a node" in str(excinfo.value)
+
+    class AssetNode(Node, LinkableMixin):
+        type: NodeType = NodeType.ASSET
+
+    a = AssetNode()
+    b = AssetNode()
+
+    output = OutputParam(
+        code="output", dataType=DataType.TEXT, value="bar", node=a
+    )
+    input = InputParam(
+        code="input", dataType=DataType.TEXT, value="foo", node=b
+    )
+
+    with pytest.raises(AssertionError) as excinfo:
         output.back_link(input)
+
+    assert "Invalid param type" in str(excinfo.value)
 
     with mock.patch.object(a, "link") as mock_node_link:
         input.back_link(output)
@@ -169,8 +182,10 @@ def test_node_link():
         code="input", dataType=DataType.TEXT, value="foo", node=b
     )
 
-    with pytest.raises(AssertionError):
+    with pytest.raises(AssertionError) as excinfo:
         a.link(b, output.code, input.code)
+
+    assert "Node not attached to a pipeline" in str(excinfo.value)
 
     pipeline = Pipeline()
     pipeline.add_nodes(a, b)

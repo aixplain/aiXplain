@@ -65,8 +65,8 @@ class LinkableMixin:
         :return: the link
         """
 
-        assert self.pipeline, "Node not added to a pipeline"
-        assert to_node.pipeline, "Node not added to a pipeline"
+        assert self.pipeline, "Node not attached to a pipeline"
+        assert to_node.pipeline, "Node not attached to a pipeline"
 
         self.validate(to_node, from_param, to_param)
 
@@ -99,7 +99,7 @@ class RoutableMixin:
         :param params: the output parameters
         :return: the router node
         """
-        assert self.pipeline, "Node not added to a pipeline"
+        assert self.pipeline, "Node not attached to a pipeline"
 
         router = self.pipeline.router(
             [(param.dataType, param.node) for param in params]
@@ -125,7 +125,7 @@ class OutputableMixin:
         :param param: the output parameter or the code of the output parameter
         :return: the output node
         """
-        assert self.pipeline, "Node not added to a pipeline"
+        assert self.pipeline, "Node not attached to a pipeline"
         output = self.pipeline.output()
         param = param if isinstance(param, Param) else self.outputs[param]
         param.link(output.inputs.output)
