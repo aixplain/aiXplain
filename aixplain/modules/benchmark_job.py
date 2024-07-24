@@ -214,3 +214,36 @@ class BenchmarkJob:
             error_message = f"Benchmark scores: Error in Getting benchmark explanations: {e}"
             logging.error(error_message, exc_info=True)
             raise Exception(error_message)
+    
+    @classmethod
+    def __convert_list_to_dict(cls, input_list):
+        converted_dict = {}
+        for item in input_list:
+            key, value = item["name"], item["values"]:
+            if type(value) is list:
+                value = cls.__convert_list_to_dict(value)
+            converted_dict[key] = value
+        return converted_dict
+
+    def fetch_dataset_breakdown(self):
+        """Fetch metadata breakdown based on categorical information of the input dataset
+
+        Returns:
+            dict: dataset metadata breakdown dictionary
+        """
+        try:
+            url = urljoin(config.BACKEND_URL, f"sdk/benchmarks/reports/{self.id}/breakdown")
+            if  config.AIXPLAIN_API_KEY != "":
+                headers = {"x-aixplain-key": f"{config.AIXPLAIN_API_KEY}", "Content-Type": "application/json"}
+            else:
+                headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+            r = _request_with_retry("get", url, headers=headers)
+            resp = r.json()
+            metadata_dict = self.__convert_list_to_dict(resp)
+            return metadata_dict
+        except Exception as e:
+            error_message = f"Benchmark Job: Error in Getting benchmark metadata: {e}"
+            logging.error(error_message, exc_info=True)
+            raise Exception(error_message)
+    
+
