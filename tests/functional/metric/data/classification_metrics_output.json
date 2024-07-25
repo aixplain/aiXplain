@@ -1,0 +1,18 @@
+{
+    "666c8ffe6eb5634c5779d191": {
+        "data": [{"score": 0.8333, "options": {"Paramns": null}}],
+        "details": [{"sentence-level": [1, 0.6667], "corpus-level": 0.8333, "options": {"Paramns": null}}]
+    },
+    "666c91826eb5631382436291": {
+        "data": [{"score": 0.8571, "options": {"Paramns": null}}],
+        "details": [{"sentence-level": [0.75, 1.0], "corpus-level": 0.8571, "options": {"Paramns": null}}]
+    },
+    "666c914d6eb5630a427d5ed1": {
+        "data": [{"score": 0.8571, "options": {"Paramns": null}}],
+        "details": [{"sentence-level": [0.75, 1.0], "corpus-level": 0.8571, "options": {"Paramns": null}}]
+    },
+    "666c91706eb5630fbd6456a1": {
+        "data": [{"score": 0.8571, "options": {"Paramns": null}}],
+        "details": [{"sentence-level": [1, 0.75], "corpus-level": 0.8571, "options": {"Paramns": null}}]
+    }
+}
