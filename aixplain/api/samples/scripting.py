@@ -8,8 +8,10 @@ pipeline = Pipeline()
 # add nodes to the pipeline
 input = pipeline.input(dataType=[DataType.AUDIO])
 
-segmentor = pipeline.segmentor("62fab6ecb39cca09ca5bc365")
-speech_recognition = pipeline.asset("60ddefab8d38c51c5885ee38")
+segmentor = pipeline.segmentor(assetId="62fab6ecb39cca09ca5bc365")
+
+speech_recognition = pipeline.asset(assetId="60ddefab8d38c51c5885ee38")
+speech_recognition.inputs.language = "en"
 
 # build script node with input and output params
 script = pipeline.script(script_path="aixplain/api/samples/fixtures/script.py")

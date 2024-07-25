@@ -59,114 +59,6 @@ class Pipeline:
         """
         return link.attach(self)
 
-    def input(self, data: str = None, *args, **kwargs) -> Node:
-        """
-        Shortcut to create an input node for the current pipeline.
-        All params will be passed as keyword arguments to the node
-        constructor.
-
-        `data` is a special convenient parameter that will be uploaded to the
-        aixplain platform and the link will be passed as the input to the node.
-
-        :param data: the data to be uploaded
-        :param args: positional arguments
-        :param kwargs: keyword arguments
-        :return: the node
-        """
-        kwargs["data"] = data
-        return Input(self, *args, **kwargs)
-
-    def asset(self, assetId: str, *args, **kwargs) -> Node:
-        """
-        Shortcut to create an asset node for the current pipeline.
-        The asset id is required and will be passed as a keyword argument
-        to the node constructor. All other params will be passed as keyword
-        arguments to the node constructor.
-
-        assetId will be used to fetch the asset from the aixplain platform.
-
-        :example:
-        >>> my_asset = pipeline.asset("60ddefae8d38c51c5885eff7")
-        >>> print(my_asset.supplier)
-        "openai"
-
-        :param assetId: the asset id
-        :param args: positional arguments
-        :param kwargs: keyword arguments
-        :return: the node
-        """
-        kwargs["assetId"] = assetId
-        return Asset(self, *args, **kwargs)
-
-    def segmentor(self, assetId: str, *args, **kwargs) -> Node:
-        """
-        Shortcut to create an segmentor node for the current pipeline.
-        The asset id is required and will be passed as a keyword argument
-        to the node constructor. All other params will be passed as keyword
-        arguments to the node constructor.
-
-        assetId will be used to fetch the segmentor asset from the aixplain
-        platform.
-
-        :param assetId: the asset id
-        :param args: positional arguments
-        :param kwargs: keyword arguments
-        :return: the node
-        """
-        kwargs["assetId"] = assetId
-        return Segmentor(self, *args, **kwargs)
-
-    def reconstructor(self, assetId: str, *args, **kwargs) -> Node:
-        """
-        Shortcut to create an reconstructor node for the current pipeline.
-        The asset id is required and will be passed as a keyword argument
-        to the node constructor. All other params will be passed as keyword
-        arguments to the node constructor.
-
-        assetId will be used to fetch the reconstructor asset from the aixplain
-        platform.
-
-        :param assetId: the asset id
-        :param args: positional arguments
-        :param kwargs: keyword arguments
-        :return: the node
-        """
-        kwargs["assetId"] = assetId
-        return Reconstructor(self, *args, **kwargs)
-
-    def script(self, *args, **kwargs) -> Script:
-        """
-        Shortcut to create an script node for the current pipeline.
-        All params will be passed as keyword arguments to the node
-        constructor.
-        :param args: positional arguments
-        :param kwargs: keyword arguments
-        :return: the node
-        """
-        return Script(self, *args, **kwargs)
-
-    def output(self, *args, **kwargs) -> Output:
-        """
-        Shortcut to create an output node for the current pipeline.
-        All params will be passed as keyword arguments to the node
-        constructor.
-        :param args: positional arguments
-        :param kwargs: keyword arguments
-        :return: the node
-        """
-        return Output(self, *args, **kwargs)
-
-    def decision(self, *args, **kwargs) -> Node:
-        """
-        Shortcut to create an decision node for the current pipeline.
-        All params will be passed as keyword arguments to the node
-        constructor.
-        :param args: positional arguments
-        :param kwargs: keyword arguments
-        :return: the node
-        """
-        return Decision(self, *args, **kwargs)
-
     def router(self, routes: Tuple[DataType, Node], *args, **kwargs) -> Node:
         """
         Shortcut to create an decision node for the current pipeline.
@@ -187,8 +79,8 @@ class Pipeline:
             )
             for route in routes
         ]
+        kwargs["pipeline"] = self
         return Router(
-            self,
             *args,
             **kwargs,
         )
@@ -223,21 +115,33 @@ class Pipeline:
         """
         link_from_map = {link.from_node: link for link in self.links}
         link_to_map = {link.to_node: link for link in self.links}
+        contains_input = False
+        contains_output = False
+        contains_asset = False
         for node in self.nodes:
             # validate every input node is linked out
             if node.type == NodeType.INPUT:
+                contains_input = True
                 if node.number not in link_from_map:
                     raise ValueError(f"Input node {node.label} not linked out")
             # validate every output node is linked in
             elif node.type == NodeType.OUTPUT:
+                contains_output = True
                 if node.number not in link_to_map:
                     raise ValueError(f"Output node {node.label} not linked in")
             # validate rest of the nodes are linked in and out
             else:
+                if isinstance(node, Asset):
+                    contains_asset = True
                 if node.number not in link_from_map:
                     raise ValueError(f"Node {node.label} not linked in")
                 if node.number not in link_to_map:
                     raise ValueError(f"Node {node.label} not linked out")
+
+        if not contains_input or not contains_output or not contains_asset:
+            raise ValueError(
+                "Pipeline must contain at least one input, output and asset node"
+            )
 
     def is_param_linked(self, node, param):
         """
@@ -352,3 +256,26 @@ class Pipeline:
             raise ValueError("Pipeline not saved")
 
         return self.instance.run(*args, **kwargs)
+
+
+# dynamically populate node instantiators by using the list of node classes
+for node_class in [
+    Asset,
+    Decision,
+    Script,
+    Input,
+    Output,
+    Route,
+    # Router is a special case, so we will handle it separately
+    # Router,
+    Reconstructor,
+    Segmentor,
+]:
+
+    def create_node(node_class):
+        def create_node_instance(self, *args, **kwargs):
+            return node_class(*args, pipeline=self, **kwargs)
+
+        return create_node_instance
+
+    setattr(Pipeline, node_class.__name__.lower(), create_node(node_class))

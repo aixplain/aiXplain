@@ -9,11 +9,11 @@ pipeline = Pipeline()
 
 # add nodes to the pipeline
 input = pipeline.input()
-translation = pipeline.asset(TRANSLATION_ASSET)
+translation = pipeline.asset(assetId=TRANSLATION_ASSET)
 translation.inputs.sourcelanguage = SOURCE_LANGUAGE
 translation.inputs.targetlanguage = TARGET_LANGUAGE
 
-speech_recognition = pipeline.asset(SPEECH_RECOGNITION_ASSET)
+speech_recognition = pipeline.asset(assetId=SPEECH_RECOGNITION_ASSET)
 speech_recognition.inputs.language = SOURCE_LANGUAGE
 
 # route the input to the translation and speech recognition nodes

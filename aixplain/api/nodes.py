@@ -5,6 +5,7 @@ from aixplain.factories import ModelFactory
 from aixplain.factories.file_factory import FileFactory
 from aixplain.factories.script_factory import ScriptFactory
 from aixplain.enums.function import FunctionInputOutput
+from aixplain.modules.asset import Asset as AssetInstance
 
 from .enums import (
     NodeType,
@@ -34,31 +35,31 @@ class Asset(Node, LinkableMixin, OutputableMixin):
     asset function spec.
     """
 
-    assetId: str = None
+    assetId: Union[AssetInstance, str] = None
     function: str = None
     supplier: str = None
     version: str = None
     assetType: AssetType = AssetType.MODEL
     functionType: FunctionType = FunctionType.AI
-    instance: InitVar[any] = None
 
     type: NodeType = NodeType.ASSET
 
-    def __post_init__(self, pipeline: "Pipeline" = None, instance: any = None):
+    def __post_init__(self, pipeline: "Pipeline" = None):
         super().__post_init__(pipeline=pipeline)
-        if not self.assetId and not self.instance:
-            raise ValueError("assetId or instance is required")
 
-        if not self.instance:
-            instance = ModelFactory.get(self.assetId)
+        if isinstance(self.assetId, str):
+            self.asset = ModelFactory.get(self.assetId)
+        elif isinstance(self.assetId, AssetInstance):
+            self.asset = self.assetId
+            self.assetId = self.assetId.id
+        else:
+            raise ValueError("assetId should be a string or an AssetInstance")
 
-        function = FunctionInputOutput[instance.function.value]["spec"]
+        function = FunctionInputOutput[self.asset.function.value]["spec"]
         self.function_spec = function
-        self.function = instance.function.value
-        self.supplier = instance.supplier.value["code"]
-        self.version = instance.version
-        self.instance = instance
-        self.assetId = instance.id
+        self.function = self.asset.function.value
+        self.supplier = self.asset.supplier.value["code"]
+        self.version = self.asset.version
 
         for item in function["params"]:
             self.add_input_param(
@@ -207,8 +208,8 @@ class Segmentor(Asset):
     type: NodeType = NodeType.SEGMENTOR
     functionType: FunctionType = FunctionType.SEGMENTOR
 
-    def __post_init__(self, pipeline: "Pipeline" = None, instance: any = None):
-        super().__post_init__(pipeline=pipeline, instance=instance)
+    def __post_init__(self, pipeline: "Pipeline" = None):
+        super().__post_init__(pipeline=pipeline)
         self.add_output_param("audio", DataType.AUDIO)
 
 
