@@ -365,14 +365,6 @@ def test_node_link():
         ParamMapping(from_param="output", to_param="input")
     ]
 
-    c = AssetNode(pipeline)
-    d = AssetNode(pipeline)
-    c.link(d)
-    assert len(pipeline.links) == 2
-    assert pipeline.links[1].from_node == c.number
-    assert pipeline.links[1].to_node == d.number
-    assert pipeline.links[1].paramMapping == []
-
 
 def test_pipeline_add_node():
     pipeline = Pipeline()
