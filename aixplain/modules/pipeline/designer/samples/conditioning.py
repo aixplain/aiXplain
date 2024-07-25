@@ -189,9 +189,7 @@ print(pipeline.to_dict())
 pipeline.save()
 
 # run the pipeline
-output = pipeline.run(
-    "https://aixplain-temp-0001.s3.amazonaws.com/coreengine_tests/test_audio.wav"  # noqa
-)
+output = pipeline.run("https://aixplain-temp-0001.s3.amazonaws.com/coreengine_tests/test_audio.wav")  # noqa
 
 # print the output
 print(output)

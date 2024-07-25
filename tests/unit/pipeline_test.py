@@ -19,20 +19,12 @@ limitations under the License.
 from dotenv import load_dotenv
 
 load_dotenv()
-import requests_mock
 from aixplain.utils import config
 from aixplain.factories import PipelineFactory
 from aixplain.modules import Pipeline
-from urllib.parse import urljoin
 
 
 def test_create_pipeline():
-    with requests_mock.Mocker() as mock:
-        url = urljoin(config.BACKEND_URL, "sdk/pipelines")
-        headers = {"x-api-key": config.TEAM_API_KEY, "Content-Type": "application/json"}
-        ref_response = {"id": "12345"}
-        mock.post(url, headers=headers, json=ref_response)
-        ref_pipeline = Pipeline(id="12345", name="Pipeline Test", api_key=config.TEAM_API_KEY)
-        hyp_pipeline = PipelineFactory.create(pipeline={"nodes": []}, name="Pipeline Test")
-    assert hyp_pipeline.id == ref_pipeline.id
+    ref_pipeline = Pipeline(id="12345", name="Pipeline Test", api_key=config.TEAM_API_KEY)
+    hyp_pipeline = PipelineFactory.create(name="Pipeline Test")
     assert hyp_pipeline.name == ref_pipeline.name

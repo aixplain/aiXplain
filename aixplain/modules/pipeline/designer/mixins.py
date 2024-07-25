@@ -72,9 +72,7 @@ class LinkableMixin:
 
         param_mapping = []
         if from_param and to_param:
-            param_mapping = [
-                ParamMapping(from_param=from_param, to_param=to_param)
-            ]
+            param_mapping = [ParamMapping(from_param=from_param, to_param=to_param)]
 
         return Link(
             pipeline=self.pipeline,
@@ -101,9 +99,7 @@ class RoutableMixin:
         """
         assert self.pipeline, "Node not attached to a pipeline"
 
-        router = self.pipeline.router(
-            [(param.dataType, param.node) for param in params]
-        )
+        router = self.pipeline.router([(param.dataType, param.node) for param in params])
         self.link(router)
         for param in params:
             router.outputs.input.link(param)

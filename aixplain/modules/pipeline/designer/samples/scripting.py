@@ -32,9 +32,7 @@ print(json.dumps(pipeline.to_dict(), indent=2))
 pipeline.save()
 
 # run the pipeline
-output = pipeline.run(
-    "https://aixplain-platform-assets.s3.amazonaws.com/samples/en/discovery_demo.wav"  # noqa
-)
+output = pipeline.run("https://aixplain-platform-assets.s3.amazonaws.com/samples/en/discovery_demo.wav")  # noqa
 
 # print the output
 print(output)

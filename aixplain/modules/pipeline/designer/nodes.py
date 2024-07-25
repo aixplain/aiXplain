@@ -1,9 +1,6 @@
 from dataclasses import dataclass, field, InitVar
 from typing import List, Union, TYPE_CHECKING
 
-from aixplain.factories import ModelFactory
-from aixplain.factories.file_factory import FileFactory
-from aixplain.factories.script_factory import ScriptFactory
 from aixplain.enums.function import FunctionInputOutput
 
 from .enums import (
@@ -18,11 +15,11 @@ from .base import Node
 from .mixins import LinkableMixin, RoutableMixin, OutputableMixin
 
 if TYPE_CHECKING:
-    from .pipeline import Pipeline
+    from aixplain.modules.pipeline import Pipeline
 
 
 @dataclass
-class Asset(Node, LinkableMixin, OutputableMixin):
+class NodeAsset(Node, LinkableMixin, OutputableMixin):
     """
     Asset node class, this node will be used to fetch the asset from the
     aixplain platform and use it in the pipeline.
@@ -45,6 +42,8 @@ class Asset(Node, LinkableMixin, OutputableMixin):
     type: NodeType = NodeType.ASSET
 
     def __post_init__(self, pipeline: "Pipeline" = None, instance: any = None):
+        from aixplain.factories import ModelFactory
+
         super().__post_init__(pipeline=pipeline)
         if not self.assetId and not self.instance:
             raise ValueError("assetId or instance is required")
@@ -91,6 +90,8 @@ class Input(Node, LinkableMixin, RoutableMixin):
         self.add_output_param("input", self.dataType[0])
 
         if self.data:
+            from aixplain.factories.file_factory import FileFactory
+
             self.data = FileFactory.to_link(self.data, is_temp=True)
 
 
@@ -128,11 +129,11 @@ class Script(Node, LinkableMixin, OutputableMixin):
     script_path: InitVar[str] = None
     type: NodeType = NodeType.SCRIPT
 
-    def __post_init__(
-        self, pipeline: "Pipeline" = None, script_path: str = None
-    ):
+    def __post_init__(self, pipeline: "Pipeline" = None, script_path: str = None):
         super().__post_init__(pipeline=pipeline)
         if script_path:
+            from aixplain.factories.script_factory import ScriptFactory
+
             self.fileId, _ = ScriptFactory.upload_script(script_path)
         if not self.fileId:
             raise ValueError("fileId is required")
@@ -156,10 +157,7 @@ class Route:
         nodes.
         """
         # convert nodes to node numbers if they are nodes
-        self.path = [
-            node.number if isinstance(node, Node) else node
-            for node in self.path
-        ]
+        self.path = [node.number if isinstance(node, Node) else node for node in self.path]
 
 
 @dataclass
@@ -193,7 +191,7 @@ class Decision(Router):
 
 
 @dataclass
-class Segmentor(Asset):
+class Segmentor(NodeAsset):
     """
     Segmentor node class, this node will be used to segment the input data
     into smaller fragments for much easier and efficient processing.
@@ -208,7 +206,7 @@ class Segmentor(Asset):
 
 
 @dataclass
-class Reconstructor(Asset):
+class Reconstructor(NodeAsset):
     """
     Reconstructor node class, this node will be used to reconstruct the
     output of the segmented lines of execution.

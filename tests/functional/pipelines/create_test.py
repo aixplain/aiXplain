@@ -16,52 +16,104 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-import json
 import pytest
 from aixplain.factories import PipelineFactory
+from aixplain.modules.pipeline.designer import DataType
 from aixplain.modules import Pipeline
-from uuid import uuid4
 
 
-def test_create_pipeline_from_json():
-    pipeline_json = "tests/functional/pipelines/data/pipeline.json"
-    pipeline_name = str(uuid4())
-    pipeline = PipelineFactory.create(name=pipeline_name, pipeline=pipeline_json)
+def test_create_asr_pipeline():
+    pipeline = PipelineFactory.create(
+        name="Pipeline for SDK Designer Test with Audio Input",
+    )
+
+    # add nodes to the pipeline
+    input = pipeline.input(dataType=[DataType.AUDIO])
+    model1 = pipeline.asset("60ddefab8d38c51c5885ee38")
+    model2 = pipeline.asset("60ddefd68d38c51c588608f1")
+
+    # link the nodes
+    input.outputs.input.link(model1.inputs.source_audio)
+    model1.outputs.data.link(model2.inputs.text)
+
+    # use the output of the last node
+    model1.use_output("data")
+    model2.use_output("data")
+
+    # save the pipeline as draft
+    pipeline.save()
 
     assert isinstance(pipeline, Pipeline)
     assert pipeline.id != ""
     pipeline.delete()
 
 
-def test_create_pipeline_from_string():
-    pipeline_json = "tests/functional/pipelines/data/pipeline.json"
-    with open(pipeline_json) as f:
-        pipeline_dict = json.load(f)
+def test_create_mt_pipeline_and_run():
+    pipeline = PipelineFactory.create(
+        name="Pipeline for SDK Designer with Text Input to Run",
+    )
 
-    pipeline_name = str(uuid4())
-    pipeline = PipelineFactory.create(name=pipeline_name, pipeline=pipeline_dict)
+    # add nodes to the pipeline
+    input = pipeline.input(dataType=[DataType.TEXT])
+    model1 = pipeline.asset("60ddef828d38c51c5885d491")
+
+    # link the nodes
+    input.outputs.input.link(model1.inputs.text)
+
+    # use the output of the last node
+    model1.use_output("data")
+
+    # save the pipeline as an asset
+    pipeline.save(save_as_asset=True)
 
     assert isinstance(pipeline, Pipeline)
     assert pipeline.id != ""
+
+    # run the pipeline
+    output = pipeline.run(
+        "https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.txt", **{"batchmode": False, "version": "2.0"}
+    )
     pipeline.delete()
+    # print the output
+    print(output)
+    assert output["status"] == "SUCCESS"
 
 
-def test_update_pipeline():
-    pipeline_json = "tests/functional/pipelines/data/pipeline.json"
-    with open(pipeline_json) as f:
-        pipeline_dict = json.load(f)
+@pytest.mark.parametrize(
+    ["data", "dataType"],
+    [
+        ("This is a sample text!", DataType.TEXT),
+        # (
+        #     "https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.wav",
+        #     DataType.AUDIO,
+        # ),
+    ],
+)
+def test_routing_pipeline(data, dataType):
 
-    pipeline_name = str(uuid4())
-    pipeline = PipelineFactory.create(name=pipeline_name, pipeline=pipeline_dict)
+    TRANSLATION_ASSET = "60ddefae8d38c51c5885eff7"
+    SPEECH_RECOGNITION_ASSET = "621cf3fa6442ef511d2830af"
 
-    pipeline.update(pipeline=pipeline_json, save_as_asset=True)
-    assert isinstance(pipeline, Pipeline)
-    assert pipeline.id != ""
-    pipeline.delete()
+    pipeline = Pipeline()
 
+    input = pipeline.input(dataType=[dataType])
+    translation = pipeline.asset(TRANSLATION_ASSET)
+    speech_recognition = pipeline.asset(SPEECH_RECOGNITION_ASSET)
 
-def test_create_pipeline_wrong_path():
-    pipeline_name = str(uuid4())
+    input.route(translation.inputs.text, speech_recognition.inputs.source_audio)
 
-    with pytest.raises(Exception):
-        PipelineFactory.create(name=pipeline_name, pipeline="/")
+    translation.use_output("data")
+    speech_recognition.use_output("data")
+
+    pipeline.save()
+
+    output = pipeline.run(data)
+
+    assert output["status"] == "SUCCESS"
+    assert output.get("data") is not None
+    assert len(output["data"]) > 0
+    assert output["data"][0].get("segments") is not None
+    assert len(output["data"][0]["segments"]) > 0
+
+    # would like to assert the output of the pipeline but it's not
+    # deterministic, so we can't really assert the output

@@ -1,34 +1,31 @@
-__author__ = "aiXplain"
-
-"""
-Copyright 2022 The aiXplain SDK authors
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-     http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-
-Author: Duraikrishna Selvaraju, Thiago Castro Ferreira, Shreyas Sharma and Lucas Pavanelli
-Date: September 1st 2022
-Description:
-    Pipeline Class
-"""
-
 import time
 import json
-import os
 import logging
+from dataclasses import asdict
+
+from aixplain.modules.pipeline.designer.enums import (
+    NodeType,
+    DataType,
+    RouteType,
+    Operation,
+)
+from aixplain.modules.pipeline.designer.base import Node, Link
+from aixplain.modules.pipeline.designer.nodes import (
+    NodeAsset,
+    Decision,
+    Script,
+    Input,
+    Output,
+    Route,
+    Router,
+    Reconstructor,
+    Segmentor,
+)
 from aixplain.modules.asset import Asset
+from aixplain.modules.pipeline.utils import prepare_payload
 from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
-from typing import Dict, Optional, Text, Union
+from typing import Any, Dict, Optional, List, Text, Tuple, Union
 from urllib.parse import urljoin
 
 
@@ -53,6 +50,9 @@ class Pipeline(Asset):
         url: Text = config.BACKEND_URL,
         supplier: Text = "aiXplain",
         version: Text = "1.0",
+        nodes: List[Node] = [],
+        links: List[Link] = [],
+        instance: Any = None,
         **additional_info,
     ) -> None:
         """Create a Pipeline with the necessary information
@@ -69,7 +69,216 @@ class Pipeline(Asset):
         super().__init__(id, name, "", supplier, version)
         self.api_key = api_key
         self.url = f"{url}/assets/pipeline/execution/run"
+        self.nodes = nodes
+        self.links = links
+        self.instance = instance
         self.additional_info = additional_info
+
+    def add_node(self, node: Node):
+        """
+        Add a node to the current pipeline.
+
+        This method will take care of setting the pipeline instance to the
+        node and setting the node number if it's not set.
+
+        :param node: the node
+        :return: the node
+        """
+        return node.attach(self)
+
+    def add_nodes(self, *nodes: Node) -> List[Node]:
+        """
+        Add multiple nodes to the current pipeline.
+
+        :param nodes: the nodes
+        :return: the nodes
+        """
+        return [self.add_node(node) for node in nodes]
+
+    def add_link(self, link: Link) -> Link:
+        """
+        Add a link to the current pipeline.
+        :param link: the link
+        :return: the link
+        """
+        return link.attach(self)
+
+    def input(self, data: str = None, *args, **kwargs) -> Node:
+        """
+        Shortcut to create an input node for the current pipeline.
+        All params will be passed as keyword arguments to the node
+        constructor.
+
+        `data` is a special convenient parameter that will be uploaded to the
+        aixplain platform and the link will be passed as the input to the node.
+
+        :param data: the data to be uploaded
+        :param args: positional arguments
+        :param kwargs: keyword arguments
+        :return: the node
+        """
+        kwargs["data"] = data
+        return Input(self, *args, **kwargs)
+
+    def asset(self, assetId: str, *args, **kwargs) -> Node:
+        """
+        Shortcut to create an asset node for the current pipeline.
+        The asset id is required and will be passed as a keyword argument
+        to the node constructor. All other params will be passed as keyword
+        arguments to the node constructor.
+
+        assetId will be used to fetch the asset from the aixplain platform.
+
+        :example:
+        >>> my_asset = pipeline.asset("60ddefae8d38c51c5885eff7")
+        >>> print(my_asset.supplier)
+        "openai"
+
+        :param assetId: the asset id
+        :param args: positional arguments
+        :param kwargs: keyword arguments
+        :return: the node
+        """
+        kwargs["assetId"] = assetId
+        return NodeAsset(self, *args, **kwargs)
+
+    def segmentor(self, assetId: str, *args, **kwargs) -> Node:
+        """
+        Shortcut to create an segmentor node for the current pipeline.
+        The asset id is required and will be passed as a keyword argument
+        to the node constructor. All other params will be passed as keyword
+        arguments to the node constructor.
+
+        assetId will be used to fetch the segmentor asset from the aixplain
+        platform.
+
+        :param assetId: the asset id
+        :param args: positional arguments
+        :param kwargs: keyword arguments
+        :return: the node
+        """
+        kwargs["assetId"] = assetId
+        return Segmentor(self, *args, **kwargs)
+
+    def reconstructor(self, assetId: str, *args, **kwargs) -> Node:
+        """
+        Shortcut to create an reconstructor node for the current pipeline.
+        The asset id is required and will be passed as a keyword argument
+        to the node constructor. All other params will be passed as keyword
+        arguments to the node constructor.
+
+        assetId will be used to fetch the reconstructor asset from the aixplain
+        platform.
+
+        :param assetId: the asset id
+        :param args: positional arguments
+        :param kwargs: keyword arguments
+        :return: the node
+        """
+        kwargs["assetId"] = assetId
+        return Reconstructor(self, *args, **kwargs)
+
+    def script(self, *args, **kwargs) -> Script:
+        """
+        Shortcut to create an script node for the current pipeline.
+        All params will be passed as keyword arguments to the node
+        constructor.
+        :param args: positional arguments
+        :param kwargs: keyword arguments
+        :return: the node
+        """
+        return Script(self, *args, **kwargs)
+
+    def output(self, *args, **kwargs) -> Output:
+        """
+        Shortcut to create an output node for the current pipeline.
+        All params will be passed as keyword arguments to the node
+        constructor.
+        :param args: positional arguments
+        :param kwargs: keyword arguments
+        :return: the node
+        """
+        return Output(self, *args, **kwargs)
+
+    def decision(self, *args, **kwargs) -> Node:
+        """
+        Shortcut to create an decision node for the current pipeline.
+        All params will be passed as keyword arguments to the node
+        constructor.
+        :param args: positional arguments
+        :param kwargs: keyword arguments
+        :return: the node
+        """
+        return Decision(self, *args, **kwargs)
+
+    def router(self, routes: Tuple[DataType, Node], *args, **kwargs) -> Node:
+        """
+        Shortcut to create an decision node for the current pipeline.
+        All params will be passed as keyword arguments to the node
+        constructor. The routes will be handled specially and will be
+        converted to Route instances in a convenient way.
+
+        :param routes: the routes
+        :param kwargs: keyword arguments
+        :return: the node
+        """
+        kwargs["routes"] = [
+            Route(
+                value=route[0],
+                path=[route[1]],
+                type=RouteType.CHECK_TYPE,
+                operation=Operation.EQUAL,
+            )
+            for route in routes
+        ]
+        return Router(
+            self,
+            *args,
+            **kwargs,
+        )
+
+    def to_dict(self) -> dict:
+        """
+        Convert the pipeline to a dictionary. This method will convert the
+        pipeline to a dictionary and will replace the node instances with
+        their numbers.
+
+        :return: the pipeline as a dictionary
+        """
+        obj = {"nodes": [asdict(node) for node in self.nodes], "links": [asdict(link) for link in self.links]}
+        for link in obj["links"]:
+            link["from"] = link.pop("from_node")
+            link["to"] = link.pop("to_node")
+            params = link.get("paramMapping", []) or []
+            for param in params:
+                param["from"] = param.pop("from_param")
+                param["to"] = param.pop("to_param")
+        return obj
+
+    def validate(self) -> bool:
+        """
+        Validate the pipeline. This method will check if all input nodes are
+        linked to output nodes and all output nodes are linked to input nodes.
+
+        :raises ValueError: if the pipeline is not valid
+        """
+        link_from_map = {link.from_node: link for link in self.links}
+        link_to_map = {link.to_node: link for link in self.links}
+        for node in self.nodes:
+            # validate every input node is linked out
+            if node.type == NodeType.INPUT:
+                if node.number not in link_from_map:
+                    raise ValueError(f"Input node {node.label} not linked out")
+            # validate every output node is linked in
+            elif node.type == NodeType.OUTPUT:
+                if node.number not in link_to_map:
+                    raise ValueError(f"Output node {node.label} not linked in")
+            # validate rest of the nodes are linked in and out
+            else:
+                if node.number not in link_from_map:
+                    raise ValueError(f"Node {node.label} not linked in")
+                if node.number not in link_to_map:
+                    raise ValueError(f"Node {node.label} not linked out")
 
     def __polling(
         self, poll_url: Text, name: Text = "pipeline_process", wait_time: float = 1.0, timeout: float = 20000.0
@@ -174,105 +383,6 @@ class Pipeline(Asset):
             end = time.time()
             return {"status": "FAILED", "error": error_message, "elapsed_time": end - start}
 
-    def __prepare_payload(self, data: Union[Text, Dict], data_asset: Optional[Union[Text, Dict]] = None) -> Dict:
-        """Prepare pipeline execution payload, validating the input data
-
-        Args:
-            data (Union[Text, Dict]): input data
-            data_asset (Optional[Union[Text, Dict]], optional): input data asset. Defaults to None.
-
-        Returns:
-            Dict: pipeline execution payload
-        """
-        from aixplain.factories import CorpusFactory, DatasetFactory, FileFactory
-
-        # if an input data asset is provided, just handle the data
-        if data_asset is None:
-            # upload the data when a local path is provided
-            data = FileFactory.to_link(data)
-            if isinstance(data, dict):
-                payload = data
-                for key in payload:
-                    payload[key] = {"value": payload[key]}
-
-                for node_label in payload:
-                    payload[node_label]["nodeId"] = node_label
-
-                payload = {"data": list(payload.values())}
-            else:
-                try:
-                    payload = json.loads(data)
-                    if isinstance(payload, dict) is False:
-                        if isinstance(payload, int) is True or isinstance(payload, float) is True:
-                            payload = str(payload)
-                        payload = {"data": payload}
-                except Exception:
-                    payload = {"data": data}
-        else:
-            payload = {}
-            if isinstance(data_asset, str) is True:
-                data_asset = {"1": data_asset}
-
-                # make sure data asset and data are provided in the same format,
-                # mostly when in a multi-input scenario, where a dictionary should be provided.
-                if isinstance(data, dict) is True:
-                    raise Exception(
-                        'Pipeline Run Error: Similar to "data", please specify the node input label where the data asset should be set in "data_asset".'
-                    )
-                else:
-                    data = {"1": data}
-            elif isinstance(data, str) is True:
-                raise Exception(
-                    'Pipeline Run Error: Similar to "data_asset", please specify the node input label where the data should be set in "data".'
-                )
-
-            # validate the existence of data asset and data
-            for node_label in data_asset:
-                asset_payload = {"dataAsset": {}}
-                data_asset_found, data_found = True, False
-                try:
-                    dasset = CorpusFactory.get(str(data_asset[node_label]))
-                    asset_payload["dataAsset"]["corpus_id"] = dasset.id
-                    if len([d for d in dasset.data if d.id == data[node_label]]) > 0:
-                        data_found = True
-                except Exception:
-                    try:
-                        dasset = DatasetFactory.get(str(data_asset[node_label]))
-                        asset_payload["dataAsset"]["dataset_id"] = dasset.id
-
-                        if (
-                            len([dfield for dfield in dasset.source_data if dasset.source_data[dfield].id == data[node_label]])
-                            > 0
-                        ):
-                            data_found = True
-                        else:
-                            for target in dasset.target_data:
-                                for target_row in dasset.target_data[target]:
-                                    if target_row.id == data[node_label]:
-                                        data_found = True
-                                        break
-                                if data_found is True:
-                                    break
-                    except Exception:
-                        data_asset_found = False
-                if data_asset_found is False:
-                    raise Exception(
-                        f'Pipeline Run Error: Data Asset "{data_asset[node_label]}" not found. Make sure this asset exists or you have access to it.'
-                    )
-                elif data_found is False:
-                    raise Exception(
-                        f'Pipeline Run Error: Data "{data[node_label]}" not found in Data Asset "{data_asset[node_label]}" not found.'
-                    )
-
-                asset_payload["dataAsset"]["data_id"] = data[node_label]
-                payload[node_label] = asset_payload
-
-            if len(payload) > 1:
-                for node_label in payload:
-                    payload[node_label]["nodeId"] = node_label
-            payload = {"data": list(payload.values())}
-        return payload
-
     def run_async(
         self, data: Union[Text, Dict], data_asset: Optional[Union[Text, Dict]] = None, name: Text = "pipeline_process", **kwargs
     ) -> Dict:
@@ -287,9 +397,10 @@ class Pipeline(Asset):
         Returns:
             Dict: polling URL in response
         """
+        assert self.id != "", "Make sure the pipeline is saved."
         headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}
 
-        payload = self.__prepare_payload(data=data, data_asset=data_asset)
+        payload = prepare_payload(data=data, data_asset=data_asset)
         payload.update(kwargs)
         payload = json.dumps(payload)
         call_url = f"{self.url}/{self.id}"
@@ -309,11 +420,10 @@ class Pipeline(Asset):
                 response["error"] = resp
         return response
 
-    def update(self, pipeline: Union[Text, Dict], save_as_asset: bool = False, api_key: Optional[Text] = None):
-        """Update Pipeline
+    def save(self, save_as_asset: bool = False, api_key: Optional[Text] = None):
+        """Save Pipeline
 
         Args:
-            pipeline (Union[Text, Dict]): Pipeline as a Python dictionary or in a JSON file
             save_as_asset (bool, optional): Save as asset (True) or draft (False). Defaults to False.
             api_key (Optional[Text], optional): Team API Key to create the Pipeline. Defaults to None.
 
@@ -321,13 +431,7 @@ class Pipeline(Asset):
             Exception: Make sure the pipeline to be save is in a JSON file.
         """
         try:
-            if isinstance(pipeline, str) is True:
-                _, ext = os.path.splitext(pipeline)
-                assert (
-                    os.path.exists(pipeline) and ext == ".json"
-                ), "Pipeline Update Error: Make sure the pipeline to be saved is in a JSON file."
-                with open(pipeline) as f:
-                    pipeline = json.load(f)
+            pipeline = self.to_dict()
 
             for i, node in enumerate(pipeline["nodes"]):
                 if "functionType" in node and node["functionType"] == "AI":
@@ -337,13 +441,20 @@ class Pipeline(Asset):
             if save_as_asset is True:
                 status = "onboarded"
             payload = {"name": self.name, "status": status, "architecture": pipeline}
-            url = urljoin(config.BACKEND_URL, f"sdk/pipelines/{self.id}")
+
+            if self.id != "":
+                method = "put"
+                url = urljoin(config.BACKEND_URL, f"sdk/pipelines/{self.id}")
+            else:
+                method = "post"
+                url = urljoin(config.BACKEND_URL, "sdk/pipelines")
             api_key = api_key if api_key is not None else config.TEAM_API_KEY
             headers = {"Authorization": f"Token {api_key}", "Content-Type": "application/json"}
-            logging.info(f"Start service for PUT Update Pipeline - {url} - {headers} - {json.dumps(payload)}")
-            r = _request_with_retry("put", url, headers=headers, json=payload)
+            logging.info(f"Start service for Save Pipeline - {url} - {headers} - {json.dumps(payload)}")
+            r = _request_with_retry(method, url, headers=headers, json=payload)
             response = r.json()
-            logging.info(f"Pipeline {response['id']} Updated.")
+            self.id = response["id"]
+            logging.info(f"Pipeline {response['id']} Saved.")
         except Exception as e:
             raise Exception(e)
 

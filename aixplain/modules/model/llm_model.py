@@ -24,7 +24,6 @@ import time
 import json
 import logging
 import traceback
-from aixplain.factories.file_factory import FileFactory
 from aixplain.enums import Function, Supplier
 from aixplain.modules.model import Model
 from aixplain.utils import config
@@ -181,6 +180,7 @@ class LLM(Model):
             dict: polling URL in response
         """
         headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}
+        from aixplain.factories.file_factory import FileFactory
 
         data = FileFactory.to_link(data)
         if isinstance(data, dict):
