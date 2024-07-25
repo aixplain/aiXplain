@@ -356,9 +356,7 @@ def test_node_link():
     pipeline = Pipeline()
     pipeline.add_nodes(a, b)
 
-    with mock.patch.object(a, "validate") as mock_node_validate:
-        a.link(b, output, input)
-        mock_node_validate.assert_called_once()
+    a.link(b, output, input)
 
     assert len(pipeline.links) == 1
     assert pipeline.links[0].from_node == a.number

@@ -69,6 +69,14 @@ class Param:
 class InputParam(Param):
 
     param_type: ParamType = ParamType.INPUT
+    is_required: InitVar[bool] = True
+
+    def __post_init__(self, node: "Node" = None, is_required: bool = False):
+        """
+        Post init method to set the required flag.
+        """
+        super().__post_init__(node=node)
+        self.is_required = is_required
 
 
 @dataclass
@@ -190,6 +198,28 @@ class ParamProxy:
         """
         return self.get_param(name)
 
+    def __hasattr__(self, name: str) -> bool:
+        """
+        This is a convenience hasattr method to check if the parameter exists.
+        """
+        return self.has_param(name)
+
+    def has_param(self, code: str) -> bool:
+        """
+        Check if the parameter exists.
+        :param code: the code of the parameter
+        :return: True if the parameter exists, False otherwise
+        """
+        return any(param.code == code for param in self.params)
+
+    def __contains__(self, code: str) -> bool:
+        """
+        Check if the parameter exists.
+        :param code: the code of the parameter
+        :return: True if the parameter exists, False otherwise
+        """
+        return self.has_param(code)
+
     def __setattr__(self, name: str, value: Any) -> None:
         """
         This is a convenience setattr method to set the parameter value.
@@ -249,7 +279,11 @@ class Node:
         return asdict(self)
 
     def add_input_param(
-        self, code: str, dataType: DataType, value: any = None
+        self,
+        code: str,
+        dataType: DataType,
+        value: any = None,
+        is_required: bool = False,
     ) -> InputParam:
         """
         Add an input parameter to the node. This method will add an input
@@ -259,7 +293,13 @@ class Node:
         :param value: the value of the parameter
         :return: the node
         """
-        return InputParam(code=code, dataType=dataType, value=value, node=self)
+        return InputParam(
+            code=code,
+            dataType=dataType,
+            value=value,
+            node=self,
+            is_required=is_required,
+        )
 
     def add_output_param(
         self, code: str, dataType: DataType, value: any = None

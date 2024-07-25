@@ -211,10 +211,13 @@ class Pipeline:
                 param["to"] = param.pop("to_param")
         return obj
 
-    def validate(self) -> bool:
+    def validate_nodes(self):
         """
-        Validate the pipeline. This method will check if all input nodes are
-        linked to output nodes and all output nodes are linked to input nodes.
+        Validate the linkage of the pipeline. This method will validate the
+        linkage of the pipeline by applying the following checks:
+        - All input nodes are linked out
+        - All output nodes are linked in
+        - All other nodes are linked in and out
 
         :raises ValueError: if the pipeline is not valid
         """
@@ -235,6 +238,92 @@ class Pipeline:
                     raise ValueError(f"Node {node.label} not linked in")
                 if node.number not in link_to_map:
                     raise ValueError(f"Node {node.label} not linked out")
+
+    def is_param_linked(self, node, param):
+        """
+        Check if the param is linked to another node. This method will check
+        if the param is linked to another node.
+        :param node: the node
+        :param param: the param
+        :return: True if the param is linked, False otherwise
+        """
+        link_to_map = {link.to_node: link for link in self.links}
+        link = link_to_map.get(node.number)
+        if link and param.code in [p.to_param for p in link.paramMapping]:
+            return True
+        return False
+
+    def is_param_set(self, node, param):
+        """
+        Check if the param is set. This method will check if the param is set
+        or linked to another node.
+        :param node: the node
+        :param param: the param
+        :return: True if the param is set, False otherwise
+        """
+        return param.value or self.is_param_linked(node, param)
+
+    def validate_params(self):
+        """
+        This method will check if all required params are either set or linked
+
+        :raises ValueError: if the pipeline is not valid
+        """
+        for node in self.nodes:
+            for param in node.inputValues:
+                if param.is_required and not self.is_param_set(node, param):
+                    raise ValueError(
+                        f"Param {param.code} of node {node.label} is required"
+                    )
+
+    def validate_links(self):
+        """
+        This method will check whether all links pointing to the correct
+        nodes and corresponding params.
+
+        :raises ValueError: if the pipeline is not valid
+        """
+        for link in self.links:
+            from_node = next(
+                (node for node in self.nodes if node.number == link.from_node),
+                None,
+            )
+            to_node = next(
+                (node for node in self.nodes if node.number == link.to_node),
+                None,
+            )
+            if not from_node:
+                raise ValueError(f"Node {link.from_node} not found")
+            if not to_node:
+                raise ValueError(f"Node {link.to_node} not found")
+            for param in link.paramMapping:
+                if param.from_param not in from_node.outputs:
+                    raise ValueError(
+                        f"Param {param.from_param} not found in node {from_node.label}"
+                    )
+                if param.to_param not in to_node.inputs:
+                    raise ValueError(
+                        f"Param {param.to_param} not found in node {to_node.label}"
+                    )
+
+                # Here do we need to check the output and input params together
+                # to make sure they have the same data type?
+
+    def validate(self):
+        """
+        Validate the pipeline. This method will validate the pipeline by
+        series of checks:
+        - Validate all nodes are linked correctly
+        - Validate all links are pointing to the correct nodes and params
+        - Validate all required params are set or linked
+
+        Any other validation checks can be added here.
+
+        :raises ValueError: if the pipeline is not valid
+        """
+        self.validate_nodes()
+        self.validate_links()
+        self.validate_params()
 
     def save(self) -> "Pipeline":
         """

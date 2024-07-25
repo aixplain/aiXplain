@@ -17,12 +17,18 @@ def test_routing_pipeline(data, dataType):
 
     TRANSLATION_ASSET = "60ddefae8d38c51c5885eff7"
     SPEECH_RECOGNITION_ASSET = "621cf3fa6442ef511d2830af"
+    SOURCE_LANGUAGE = "en"
+    TARGET_LANGUAGE = "fr"
 
     pipeline = Pipeline()
 
     input = pipeline.input(dataType=[dataType])
     translation = pipeline.asset(TRANSLATION_ASSET)
+    translation.inputs.sourcelanguage = SOURCE_LANGUAGE
+    translation.inputs.targetlanguage = TARGET_LANGUAGE
+
     speech_recognition = pipeline.asset(SPEECH_RECOGNITION_ASSET)
+    speech_recognition.inputs.language = SOURCE_LANGUAGE
 
     input.route(
         translation.inputs.text, speech_recognition.inputs.source_audio

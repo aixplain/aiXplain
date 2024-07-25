@@ -61,7 +61,11 @@ class Asset(Node, LinkableMixin, OutputableMixin):
         self.assetId = instance.id
 
         for item in function["params"]:
-            self.add_input_param(code=item["code"], dataType=item["dataType"])
+            self.add_input_param(
+                code=item["code"],
+                dataType=item["dataType"],
+                is_required=item["required"],
+            )
 
         for item in function["output"]:
             self.add_output_param(code=item["code"], dataType=item["dataType"])
@@ -174,6 +178,7 @@ class Router(Node, LinkableMixin):
 
     def __post_init__(self, pipeline: "Pipeline" = None):
         super().__post_init__(pipeline=pipeline)
+        self.add_input_param("input", None)
         self.add_output_param("input", None)
 
 
