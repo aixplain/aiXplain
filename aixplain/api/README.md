@@ -26,8 +26,6 @@ print(outputs)
 
 ## Instantiating Nodes
 
-### Basic Instantiation
-
 To create a pipeline and instantiate nodes, use the following code:
 
 ```python
@@ -56,7 +54,7 @@ Or directly instantiate the node within the pipeline:
 input_node = pipeline.input(*args, **kwargs)
 ```
 
-### Adding Output Nodes
+## Adding Output Nodes
 
 Each pipeline should have at least one input, asset, and output node. Add output nodes like any other node:
 
@@ -190,4 +188,3 @@ print(outputs)
 ```
 
 This guide covers the basic usage of the programmatic api of Aixplan SDK for creating and running pipelines. For more advanced features, refer to the code itself.
-```
