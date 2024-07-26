@@ -85,20 +85,20 @@ we can explicitly specify from and to parameters by using keyword arguments
 
 
 ```python
-input.link(translation, from_param='output', to_param='input')
+input.link(translation, from_param='input', to_param='text')
 ```
 
 
 or we can use parameter instances rather than strings:
 
 ```python
-input.link(translation, from_param=input.output, to_param=translation.input)
+input.link(translation, from_param=input.outputs.input, to_param=translation.inputs.text)
 ```
 
 or we can even link the parameters directly:
 
 ```python
-input.output.link(translation.input)
+input.outputs.input.link(translation.inputs.text)
 ```
 
 ### Validating the pipeline
