@@ -237,7 +237,7 @@ class Pipeline:
         :param node: the node
         :return: the next nodes
         """
-        links = [l for l in self.links if l.from_node == node.number]
+        links = [link for link in self.links if link.from_node == node.number]
         next_nodes = []
         for link in links:
             next_node = next(
