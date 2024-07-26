@@ -74,7 +74,7 @@ output_node = translation_node.use_output('parameter_name_we_are_interested_in')
 
 ## Asset Nodes and Automatic Population
 
-Asset nodes are used to run models and should have an asset ID. Once instantiated, an asset node contains all model information and parameters.
+Asset nodes are used to run models and should have an asset ID. Once instantiated, an asset node contains all model information and parameters which is populated automatically by interacting with the Aixplain platform.
 
 ```python
 translation_node = pipeline.asset(assetId=TRANSLATION_ASSET_ID)
@@ -104,10 +104,10 @@ Alternatively, instantiate parameters directly using `InputParam` or `OutputPara
 from aixplain.api import InputParam, OutputParam
 
 source_language = InputParam(
-code='source_language',
-dataType=DataType.TEXT,
-is_required=True,
-node=translation_node
+    code='source_language',
+    dataType=DataType.TEXT,
+    is_required=True,
+    node=translation_node
 )
 ```
 
@@ -117,6 +117,15 @@ Or add parameters explicitly:
 source_audio = OutputParam(dataType=DataType.AUDIO, code='source_audio')
 translation_node.add_param(source_audio)
 ```
+
+In case of need, any parameter value can be set directly without requiring node linking:
+
+```python
+translation_node.inputs.text = 'This is example text to translate'
+translation_node.inputs.source_language = 'en'
+```
+
+This will implicity set the `value` attribute of the parameter object.
 
 ## Linking Nodes
 
@@ -147,7 +156,7 @@ Or use parameter instances:
 input_node.link(translation_node, from_param=input_node.outputs.input, to_param=translation_node.inputs.text)
 ```
 
-Link parameters directly:
+You can also link parameters directly if you find it more convenient:
 
 ```python
 input_node.outputs.input.link(translation_node.inputs.text)
@@ -161,6 +170,15 @@ Use the `validate` method to ensure the pipeline is valid and ready to run. This
 pipeline.validate()
 ```
 
+This method will check the following:
+ * Contains at least one input, asset, and output node
+ * All input nodes are linked in, output nodes are linked out, and rest are linked in and out
+ * All links pointing to the correct nodes and corresponding params.
+ * All required params are either set or linked
+ * All linked params have the same data type
+
+Otherwise raises `ValueError` with a cause if the pipeline is not valid.
+
 ## Save and Run the Pipeline
 
 Save the pipeline before running it. The `save` method implicitly calls the `validate` method. Use the `run` method to execute the pipeline with input data.
@@ -171,4 +189,5 @@ outputs = pipeline.run('This is example text to translate')
 print(outputs)
 ```
 
-This guide covers the basic usage of the Aixplan SDK for creating and running pipelines. For more detailed information, please refer to the official documentation.
+This guide covers the basic usage of the programmatic api of Aixplan SDK for creating and running pipelines. For more advanced features, refer to the code itself.
+```
