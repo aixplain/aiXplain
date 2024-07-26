@@ -133,7 +133,7 @@ source_language = InputParam(
 )
 ```
 
-# or we can add the parameter to the node explicitly
+or we can add the parameter to the node explicitly
 
 ```python
 ...
