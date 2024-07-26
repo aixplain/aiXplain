@@ -278,6 +278,15 @@ class Node:
         """
         return asdict(self)
 
+    def add_param(self, param: Param) -> Param:
+        """
+        Add a parameter to the node. This method will add a parameter to the
+        node.
+        :param param: the parameter
+        :return: the parameter
+        """
+        return param.attach(self)
+
     def add_input_param(
         self,
         code: str,
