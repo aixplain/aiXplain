@@ -349,14 +349,14 @@ def test_node_link():
     )
 
     with pytest.raises(AssertionError) as excinfo:
-        a.link(b, output.code, input.code)
+        a.link(b, from_param=output.code, to_param=input.code)
 
     assert "Node not attached to a pipeline" in str(excinfo.value)
 
     pipeline = Pipeline()
     pipeline.add_nodes(a, b)
 
-    a.link(b, output, input)
+    a.link(b, from_param=output, to_param=input)
 
     assert len(pipeline.links) == 1
     assert pipeline.links[0].from_node == a.number
