@@ -90,10 +90,7 @@ class Input(Node, LinkableMixin, RoutableMixin):
 
     def __post_init__(self, pipeline: "Pipeline" = None):
         super().__post_init__(pipeline=pipeline)
-        if not self.dataType:
-            self.dataType = [DataType.TEXT]
-
-        self.add_output_param("input", self.dataType[0])
+        self.add_output_param("input", None)
 
         if self.data:
             self.data = FileFactory.to_link(self.data, is_temp=True)
@@ -113,10 +110,7 @@ class Output(Node):
 
     def __post_init__(self, pipeline: "Pipeline" = None):
         super().__post_init__(pipeline=pipeline)
-        if not self.dataType:
-            self.dataType = [DataType.TEXT]
-
-        self.add_input_param("output", self.dataType[0])
+        self.add_input_param("output", None)
 
 
 @dataclass

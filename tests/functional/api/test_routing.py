@@ -1,19 +1,18 @@
 import pytest
 
-from aixplain.api import Pipeline, DataType
+from aixplain.api import Pipeline
 
 
 @pytest.mark.parametrize(
-    ["data", "dataType"],
+    ["data"],
     [
-        ("This is a sample text!", DataType.TEXT),
+        ("This is a sample text!",),
         # (
         #     "https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.wav",
-        #     DataType.AUDIO,
         # ),
     ],
 )
-def test_routing_pipeline(data, dataType):
+def test_routing_pipeline(data):
 
     TRANSLATION_ASSET = "60ddefae8d38c51c5885eff7"
     SPEECH_RECOGNITION_ASSET = "621cf3fa6442ef511d2830af"
@@ -22,7 +21,7 @@ def test_routing_pipeline(data, dataType):
 
     pipeline = Pipeline()
 
-    input = pipeline.input(dataType=[dataType])
+    input = pipeline.input()
     translation = pipeline.asset(assetId=TRANSLATION_ASSET)
     translation.inputs.sourcelanguage = SOURCE_LANGUAGE
     translation.inputs.targetlanguage = TARGET_LANGUAGE

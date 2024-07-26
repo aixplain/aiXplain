@@ -230,6 +230,56 @@ class Pipeline:
         self.validate_links()
         self.validate_params()
 
+    def get_next_nodes(self, node):
+        links = [l for l in self.links if l.from_node == node.number]
+        next_nodes = []
+        for link in links:
+            next_node = next(
+                (n for n in self.nodes if n.number == link.to_node), None
+            )
+            if next_node:
+                next_nodes.append(next_node)
+        return next_nodes
+
+    def get_prev_nodes(self, node):
+        links = [l for l in self.links if l.to_node == node.number]
+        prev_nodes = []
+        for link in links:
+            prev_node = next(
+                (n for n in self.nodes if n.number == link.from_node), None
+            )
+            if prev_node:
+                prev_nodes.append(prev_node)
+        return prev_nodes
+
+    def auto_infer_next(self, node):
+        dataTypes = set()
+        next_nodes = self.get_next_nodes(node)
+        for next_node in next_nodes:
+            if isinstance(next_node, Router):
+                self.auto_infer_next(next_node)
+                node.dataType = next_node.dataType
+                return
+            for param in next_node.inputValues:
+                if param._link:
+                    dataTypes.add(param.dataType)
+        node.dataType = list(dataTypes)
+
+    def auto_infer_prev(self, node):
+        dataTypes = set()
+        prev_nodes = self.get_prev_nodes(node)
+        for prev_node in prev_nodes:
+            for param in prev_node.outputValues:
+                dataTypes.add(param.dataType)
+        node.dataType = list(dataTypes)
+
+    def auto_infer(self):
+        for node in self.nodes:
+            if isinstance(node, Input):
+                self.auto_infer_next(node)
+            elif isinstance(node, Output):
+                self.auto_infer_prev(node)
+
     def save(self) -> "Pipeline":
         """
         Save the pipeline to able to run it later. This method will first
@@ -237,6 +287,7 @@ class Pipeline:
 
         :return: the pipeline instance
         """
+        self.auto_infer()
         self.validate()
 
         name = self.name or f"pipeline-{uuid.uuid4()}"

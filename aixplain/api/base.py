@@ -25,6 +25,7 @@ class Param:
         """
         if node:
             self.attach(node)
+        self._link = None
 
     def attach(self, node: "Node"):
         """
@@ -50,7 +51,7 @@ class Param:
         assert (
             self.node and self in self.node.outputValues
         ), "Param not attached to a node"
-        to_param.back_link(self)
+        return to_param.back_link(self)
 
     def back_link(self, from_param: "Param") -> "Param":
         """
@@ -62,7 +63,10 @@ class Param:
         assert (
             self.node and self in self.node.inputValues
         ), "Param not attached to a node"
-        from_param.node.link(self.node, from_param.code, self.code)
+        link = from_param.node.link(self.node, from_param.code, self.code)
+        self._link = link
+        from_param._link = link
+        return link
 
 
 @dataclass
