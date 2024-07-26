@@ -26,6 +26,7 @@ from .nodes import (
 
 @dataclass
 class Pipeline:
+    name: InitVar[str] = None
     nodes: List[Node] = field(default_factory=list)
     links: List[Link] = field(default_factory=list)
     instance: InitVar[any] = None
@@ -140,7 +141,7 @@ class Pipeline:
 
         if not contains_input or not contains_output or not contains_asset:
             raise ValueError(
-                "Pipeline must contain at least one input, output and asset node"
+                "Pipeline must contain at least one input, output and asset node"  # noqa
             )
 
     def is_param_linked(self, node, param):
@@ -203,15 +204,15 @@ class Pipeline:
             for param in link.paramMapping:
                 if param.from_param not in from_node.outputs:
                     raise ValueError(
-                        f"Param {param.from_param} not found in node {from_node.label}"
+                        f"Param {param.from_param} not found in node {from_node.label}"  # noqa
                     )
                 if param.to_param not in to_node.inputs:
                     raise ValueError(
-                        f"Param {param.to_param} not found in node {to_node.label}"
+                        f"Param {param.to_param} not found in node {to_node.label}"  # noqa
                     )
 
-                # Here do we need to check the output and input params together
-                # to make sure they have the same data type?
+        # Here do we need to check the output and input params together
+        # to make sure they have the same data type?
 
     def validate(self):
         """
@@ -238,7 +239,7 @@ class Pipeline:
         """
         self.validate()
 
-        name = f"pipeline-{uuid.uuid4()}"
+        name = self.name or f"pipeline-{uuid.uuid4()}"
         self.instance = PipelineFactory.create(name, self.to_dict())
         return self
 
