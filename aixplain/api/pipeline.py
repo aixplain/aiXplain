@@ -231,6 +231,12 @@ class Pipeline:
         self.validate_params()
 
     def get_next_nodes(self, node):
+        """
+        Get the next nodes of the given node.
+
+        :param node: the node
+        :return: the next nodes
+        """
         links = [l for l in self.links if l.from_node == node.number]
         next_nodes = []
         for link in links:
@@ -242,7 +248,13 @@ class Pipeline:
         return next_nodes
 
     def get_prev_nodes(self, node):
-        links = [l for l in self.links if l.to_node == node.number]
+        """
+        Get the previous nodes of the given node.
+
+        :param node: the node
+        :return: the previous nodes
+        """
+        links = [link for link in self.links if link.to_node == node.number]
         prev_nodes = []
         for link in links:
             prev_node = next(
@@ -253,6 +265,15 @@ class Pipeline:
         return prev_nodes
 
     def auto_infer_next(self, node):
+        """
+        Automatically infer the data types of the next nodes in the pipeline.
+        Here we are assuming that the data types of the next nodes are the
+        union of the data types of the input params of the next nodes.
+        Traversing forward has a special case for the Router node, so we will
+        handle it separately.
+
+        :param node: the node
+        """
         dataTypes = set()
         next_nodes = self.get_next_nodes(node)
         for next_node in next_nodes:
@@ -266,6 +287,9 @@ class Pipeline:
         node.dataType = list(dataTypes)
 
     def auto_infer_prev(self, node):
+        """
+        Automatically infer the data types of the previous nodes in the pipeline.
+        """
         dataTypes = set()
         prev_nodes = self.get_prev_nodes(node)
         for prev_node in prev_nodes:
@@ -274,6 +298,12 @@ class Pipeline:
         node.dataType = list(dataTypes)
 
     def auto_infer(self):
+        """
+        Automatically infer the data types of the nodes in the pipeline.
+        This method will automatically infer the data types of the nodes in the
+        pipeline by traversing the pipeline and setting the data types of the
+        nodes based on the data types of the connected nodes.
+        """
         for node in self.nodes:
             if isinstance(node, Input):
                 self.auto_infer_next(node)
