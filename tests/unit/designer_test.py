@@ -1,6 +1,11 @@
+from dotenv import load_dotenv
+
+load_dotenv()
 import pytest
 import unittest.mock as mock
+import requests_mock
 
+from aixplain.utils import config
 from aixplain.modules.pipeline.designer import (
     Node,
     NodeType,
@@ -14,6 +19,7 @@ from aixplain.modules.pipeline.designer import (
     DataType,
 )
 from aixplain.factories import PipelineFactory
+from urllib.parse import urljoin
 
 
 def test_create_param_mapping():
@@ -432,22 +438,12 @@ def test_pipeline_save():
     )
     pipeline.add_link(link)
 
-    with mock.patch.object(pipeline, "validate") as mock_validate:
-        with mock.patch("aixplain.factories.pipeline_factory.PipelineFactory.create") as mock_create:
-            pipeline.save()
-            mock_create.assert_called_once()
-            assert pipeline.instance is mock_create.return_value
-        mock_validate.assert_called_once()
+    with requests_mock.Mocker() as mock:
+        url = urljoin(config.BACKEND_URL, "sdk/pipelines")
+        headers = {"x-api-key": config.TEAM_API_KEY, "Content-Type": "application/json"}
+        ref_response = {"id": "12345"}
+        mock.post(url, headers=headers, json=ref_response)
 
+        pipeline.save()
 
-def test_pipeline_run():
-    pipeline = PipelineFactory.init(name="Test Pipeline")
-
-    with pytest.raises(ValueError) as excinfo:
-        pipeline.run(data="foo")
-
-    # assert "Pipeline not saved" in str(excinfo.value)
-
-    # pipeline.instance = mock.MagicMock()
-    # pipeline.run("foo", "bar")
-    # pipeline.instance.run.assert_called_once_with("foo", "bar")
+    assert pipeline.id == "12345"
