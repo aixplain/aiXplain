@@ -34,12 +34,12 @@ def test_create_node():
     assert isinstance(node.inputs, ParamProxy)
     assert isinstance(node.outputs, ParamProxy)
 
-    pipeline = PipelineFactory.create(name="Test Pipeline")
+    pipeline = PipelineFactory.init(name="Test Pipeline")
 
     with pytest.raises(AssertionError) as excinfo:
         node = Node(pipeline=pipeline)
 
-    assert "Node type not set" in str(excinfo.value)
+        assert "Node type not set" in str(excinfo.value)
 
     class InputNode(Node):
         type: NodeType = NodeType.INPUT
@@ -58,7 +58,7 @@ def test_create_node():
 
 
 def test_create_pipeline():
-    pipeline = PipelineFactory.create(name="Test Pipeline")
+    pipeline = PipelineFactory.init(name="Test Pipeline")
 
     assert pipeline.nodes == []
     assert pipeline.links == []
@@ -183,11 +183,11 @@ def test_link_create():
     class AssetNode(Node, LinkableMixin):
         type: NodeType = NodeType.ASSET
 
-    pipeline = PipelineFactory.create(name="Test Pipeline")
+    pipeline = PipelineFactory.init(name="Test Pipeline")
     a = AssetNode(pipeline=pipeline)
     b = AssetNode(pipeline=pipeline)
 
-    pipeline = PipelineFactory.create(name="Test Pipeline")
+    pipeline = PipelineFactory.init(name="Test Pipeline")
     with mock.patch("aixplain.modules.pipeline.designer.Link.attach") as mock_attach:
         link = Link(
             from_node=a.number,
@@ -203,7 +203,7 @@ def test_link_create():
 
 def test_link_attach():
 
-    pipeline = PipelineFactory.create(name="Test Pipeline")
+    pipeline = PipelineFactory.init(name="Test Pipeline")
 
     link = Link(
         from_node=0,
@@ -268,7 +268,7 @@ def test_node_attach():
 
     node = AssetNode()
 
-    pipeline = PipelineFactory.create(name="Test Pipeline")
+    pipeline = PipelineFactory.init(name="Test Pipeline")
     node.attach(pipeline)
     assert node.pipeline is pipeline
     assert node.number == 0
@@ -334,7 +334,7 @@ def test_node_link():
 
     assert "Node not attached to a pipeline" in str(excinfo.value)
 
-    pipeline = PipelineFactory.create(name="Test Pipeline")
+    pipeline = PipelineFactory.init(name="Test Pipeline")
     pipeline.add_nodes(a, b)
 
     a.link(b, from_param=output, to_param=input)
@@ -346,7 +346,7 @@ def test_node_link():
 
 
 def test_pipeline_add_node():
-    pipeline = PipelineFactory.create(name="Test Pipeline")
+    pipeline = PipelineFactory.init(name="Test Pipeline")
 
     class InputNode(Node):
         type: NodeType = NodeType.INPUT
@@ -374,7 +374,7 @@ def test_pipeline_add_node():
 
 
 def test_pipeline_add_nodes():
-    pipeline = PipelineFactory.create(name="Test Pipeline")
+    pipeline = PipelineFactory.init(name="Test Pipeline")
 
     class InputNode(Node):
         type: NodeType = NodeType.INPUT
@@ -391,7 +391,7 @@ def test_pipeline_add_nodes():
 
 
 def test_pipeline_add_link():
-    pipeline = PipelineFactory.create(name="Test Pipeline")
+    pipeline = PipelineFactory.init(name="Test Pipeline")
 
     class AssetNode(Node):
         type: NodeType = NodeType.ASSET
@@ -414,7 +414,7 @@ def test_pipeline_add_link():
 
 
 def test_pipeline_save():
-    pipeline = PipelineFactory.create(name="Test Pipeline")
+    pipeline = PipelineFactory.init(name="Test Pipeline")
 
     class AssetNode(Node):
         type: NodeType = NodeType.ASSET
@@ -441,7 +441,7 @@ def test_pipeline_save():
 
 
 def test_pipeline_run():
-    pipeline = PipelineFactory.create(name="Test Pipeline")
+    pipeline = PipelineFactory.init(name="Test Pipeline")
 
     with pytest.raises(ValueError) as excinfo:
         pipeline.run(data="foo")
