@@ -57,7 +57,10 @@ class NodeAsset(Node, LinkableMixin, OutputableMixin):
         function = FunctionInputOutput[self.asset.function.value]["spec"]
         self.function_spec = function
         self.function = self.asset.function.value
-        self.supplier = self.asset.supplier.value["code"]
+        try:
+            self.supplier = self.asset.supplier.value["code"]
+        except Exception:
+            self.supplier = self.asset.supplier
         self.version = self.asset.version
 
         for item in function["params"]:

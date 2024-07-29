@@ -13,6 +13,7 @@ from aixplain.modules.pipeline.designer import (
     Reconstructor,
     Router,
     Route,
+    Script,
     Link,
     ParamMapping,
 )
@@ -54,6 +55,8 @@ def build_from_response(response: Dict) -> Pipeline:
             node = Decision()
         elif node_json["type"].lower() == "router":
             node = Router(routes=[Route(**route) for route in node_json["routes"]])
+        elif node_json["type"].lower() == "script":
+            node = Script(fileId=node_json["fileId"])
         elif node_json["type"].lower() == "output":
             node = Output()
         node.number = node_json["number"]
