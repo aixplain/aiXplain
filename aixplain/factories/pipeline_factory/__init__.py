@@ -24,6 +24,7 @@ import json
 import os
 import logging
 from typing import Dict, List, Optional, Text, Union
+from aixplain.factories.pipeline_factory.utils import build_from_response
 from aixplain.enums.data_type import DataType
 from aixplain.enums.function import Function
 from aixplain.enums.supplier import Supplier
@@ -44,27 +45,6 @@ class PipelineFactory:
 
     aixplain_key = config.AIXPLAIN_API_KEY
     backend_url = config.BACKEND_URL
-
-    @classmethod
-    def __get_typed_nodes(cls, response: Dict, type: str) -> List[Dict]:
-        # read "nodes" field from response and return the nodes that are marked by "type": type
-        return [node for node in response["nodes"] if node["type"].lower() == type.lower()]
-
-    @classmethod
-    def __from_response(cls, response: Dict) -> Pipeline:
-        """Converts response Json to 'Pipeline' object
-
-        Args:
-            response (Dict): Json from API
-
-        Returns:
-            Pipeline: Coverted 'Pipeline' object
-        """
-        if "api_key" not in response:
-            response["api_key"] = config.TEAM_API_KEY
-        input = cls.__get_typed_nodes(response, "input")
-        output = cls.__get_typed_nodes(response, "output")
-        return Pipeline(response["id"], response["name"], response["api_key"], input=input, output=output)
 
     @classmethod
     def get(cls, pipeline_id: Text, api_key: Optional[Text] = None) -> Pipeline:
@@ -93,7 +73,7 @@ class PipelineFactory:
             resp["api_key"] = config.TEAM_API_KEY
             if api_key is not None:
                 resp["api_key"] = api_key
-            pipeline = cls.__from_response(resp)
+            pipeline = build_from_response(resp)
             return pipeline
         except Exception:
             status_code = 400
@@ -134,7 +114,7 @@ class PipelineFactory:
             resp = r.json()
             logging.info(f"Listing Pipelines: Status of getting Pipelines on Page {page_number}: {resp}")
             all_pipelines = resp["items"]
-            pipeline_list = [cls.__from_response(pipeline_info_json) for pipeline_info_json in all_pipelines]
+            pipeline_list = [build_from_response(pipeline_info_json) for pipeline_info_json in all_pipelines]
             return pipeline_list
         except Exception as e:
             error_message = f"Listing Pipelines: Error in getting Pipelines on Page {page_number}: {e}"
@@ -228,7 +208,7 @@ class PipelineFactory:
             total = resp["total"]
             logging.info(f"Response for POST List Pipeline - Page Total: {page_total} / Total: {total}")
             for pipeline in results:
-                pipelines.append(cls.__from_response(pipeline))
+                pipelines.append(build_from_response(pipeline))
         return {"results": pipelines, "page_total": page_total, "page_number": page_number, "total": total}
 
     @classmethod

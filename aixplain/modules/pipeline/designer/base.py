@@ -260,13 +260,13 @@ class Node:
         :param pipeline: the pipeline
         """
         assert not self.pipeline, "Node already attached to a pipeline"
-        assert not self.number, "Node number already set"
-        assert not self.label, "Node label already set"
         assert self.type, "Node type not set"
 
         self.pipeline = pipeline
-        self.number = len(pipeline.nodes)
-        self.label = f"{self.type.value}(ID={self.number})"
+        if self.number is None:
+            self.number = len(pipeline.nodes)
+        if self.label is None:
+            self.label = f"{self.type.value}(ID={self.number})"
         pipeline.nodes.append(self)
         return self
 
