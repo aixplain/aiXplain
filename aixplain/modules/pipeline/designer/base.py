@@ -25,6 +25,7 @@ class Param:
         """
         if node:
             self.attach(node)
+        self._link = None
 
     def attach(self, node: "Node"):
         """
@@ -48,7 +49,7 @@ class Param:
         """
         assert to_param.param_type == ParamType.INPUT, "Invalid param type"
         assert self.node and self in self.node.outputValues, "Param not attached to a node"
-        to_param.back_link(self)
+        return to_param.back_link(self)
 
     def back_link(self, from_param: "Param") -> "Param":
         """
@@ -58,13 +59,24 @@ class Param:
         """
         assert from_param.param_type == ParamType.OUTPUT, "Invalid param type"
         assert self.node and self in self.node.inputValues, "Param not attached to a node"
-        from_param.node.link(self.node, from_param.code, self.code)
+        link = from_param.node.link(self.node, from_param.code, self.code)
+        self._link = link
+        from_param._link = link
+        return link
 
 
 @dataclass
 class InputParam(Param):
 
     param_type: ParamType = ParamType.INPUT
+    is_required: InitVar[bool] = True
+
+    def __post_init__(self, node: "Node" = None, is_required: bool = False):
+        """
+        Post init method to set the required flag.
+        """
+        super().__post_init__(node=node)
+        self.is_required = is_required
 
 
 @dataclass
@@ -186,6 +198,28 @@ class ParamProxy:
         """
         return self.get_param(name)
 
+    def __hasattr__(self, name: str) -> bool:
+        """
+        This is a convenience hasattr method to check if the parameter exists.
+        """
+        return self.has_param(name)
+
+    def has_param(self, code: str) -> bool:
+        """
+        Check if the parameter exists.
+        :param code: the code of the parameter
+        :return: True if the parameter exists, False otherwise
+        """
+        return any(param.code == code for param in self.params)
+
+    def __contains__(self, code: str) -> bool:
+        """
+        Check if the parameter exists.
+        :param code: the code of the parameter
+        :return: True if the parameter exists, False otherwise
+        """
+        return self.has_param(code)
+
     def __setattr__(self, name: str, value: Any) -> None:
         """
         This is a convenience setattr method to set the parameter value.
@@ -244,7 +278,22 @@ class Node:
         """
         return asdict(self)
 
-    def add_input_param(self, code: str, dataType: DataType, value: any = None) -> InputParam:
+    def add_param(self, param: Param) -> Param:
+        """
+        Add a parameter to the node. This method will add a parameter to the
+        node.
+        :param param: the parameter
+        :return: the parameter
+        """
+        return param.attach(self)
+
+    def add_input_param(
+        self,
+        code: str,
+        dataType: DataType,
+        value: any = None,
+        is_required: bool = False,
+    ) -> InputParam:
         """
         Add an input parameter to the node. This method will add an input
         parameter to the node.
@@ -253,7 +302,13 @@ class Node:
         :param value: the value of the parameter
         :return: the node
         """
-        return InputParam(code=code, dataType=dataType, value=value, node=self)
+        return InputParam(
+            code=code,
+            dataType=dataType,
+            value=value,
+            node=self,
+            is_required=is_required,
+        )
 
     def add_output_param(self, code: str, dataType: DataType, value: any = None) -> "Node":
         """

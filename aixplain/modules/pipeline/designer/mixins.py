@@ -12,47 +12,11 @@ class LinkableMixin:
     another node.
     """
 
-    def validate(
-        self,
-        to_node: Node,
-        from_param: Union[str, Param] = None,
-        to_param: Union[str, Param] = None,
-    ) -> None:
-        """
-        Validate the link between the nodes. This method will validate if the
-        link between the nodes is valid.
-
-        :param to_node: the node to link to
-        :param from_param: the output parameter or the code of the output
-        parameter
-        :param to_param: the input parameter or the code of the input parameter
-        :raises ValueError: if the link is not valid
-        """
-        if from_param:
-            if isinstance(from_param, str):
-                from_param = self.outputs[from_param]
-            assert from_param, "From param not found"
-
-        if to_param:
-            if isinstance(to_param, str):
-                to_param = to_node.inputs[to_param]
-            assert to_param, "To param not found"
-
-        # if from_param and to_param:
-        #     # validate if both params has the same data type
-        #     # if they're not none
-        #     if from_param.dataType and to_param.dataType:
-        #         if from_param.dataType != to_param.dataType:
-        #             raise ValueError(
-        #                 f"Param {from_param.code} and {to_param.code} "
-        #                 "have different data types"
-        #             )
-
     def link(
         self,
         to_node: Node,
-        from_param: Union[str, Param] = None,
-        to_param: Union[str, Param] = None,
+        from_param: Union[str, Param],
+        to_param: Union[str, Param],
     ) -> Link:
         """
         Link the output of the node to the input of another node. This method

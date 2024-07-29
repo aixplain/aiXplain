@@ -330,29 +330,19 @@ def test_node_link():
     input = InputParam(code="input", dataType=DataType.TEXT, value="foo", node=b)
 
     with pytest.raises(AssertionError) as excinfo:
-        a.link(b, output.code, input.code)
+        a.link(b, from_param=output.code, to_param=input.code)
 
     assert "Node not attached to a pipeline" in str(excinfo.value)
 
     pipeline = PipelineFactory.create(name="Test Pipeline")
     pipeline.add_nodes(a, b)
 
-    with mock.patch.object(a, "validate") as mock_node_validate:
-        a.link(b, output, input)
-        mock_node_validate.assert_called_once()
+    a.link(b, from_param=output, to_param=input)
 
     assert len(pipeline.links) == 1
     assert pipeline.links[0].from_node == a.number
     assert pipeline.links[0].to_node == b.number
     assert pipeline.links[0].paramMapping == [ParamMapping(from_param="output", to_param="input")]
-
-    c = AssetNode(pipeline)
-    d = AssetNode(pipeline)
-    c.link(d)
-    assert len(pipeline.links) == 2
-    assert pipeline.links[1].from_node == c.number
-    assert pipeline.links[1].to_node == d.number
-    assert pipeline.links[1].paramMapping == []
 
 
 def test_pipeline_add_node():
