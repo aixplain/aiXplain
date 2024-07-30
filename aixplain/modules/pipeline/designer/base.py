@@ -4,7 +4,7 @@ from typing import Any, List, Union, TYPE_CHECKING
 from .enums import NodeType, ParamType, DataType
 
 if TYPE_CHECKING:
-    from .pipeline import Pipeline
+    from aixplain.modules.pipeline import Pipeline
 
 
 @dataclass
@@ -48,9 +48,7 @@ class Param:
         :return: the param
         """
         assert to_param.param_type == ParamType.INPUT, "Invalid param type"
-        assert (
-            self.node and self in self.node.outputValues
-        ), "Param not attached to a node"
+        assert self.node and self in self.node.outputValues, "Param not attached to a node"
         return to_param.back_link(self)
 
     def back_link(self, from_param: "Param") -> "Param":
@@ -60,9 +58,7 @@ class Param:
         :return: the param
         """
         assert from_param.param_type == ParamType.OUTPUT, "Invalid param type"
-        assert (
-            self.node and self in self.node.inputValues
-        ), "Param not attached to a node"
+        assert self.node and self in self.node.inputValues, "Param not attached to a node"
         link = from_param.node.link(self.node, from_param.code, self.code)
         self._link = link
         from_param._link = link
@@ -264,13 +260,13 @@ class Node:
         :param pipeline: the pipeline
         """
         assert not self.pipeline, "Node already attached to a pipeline"
-        assert not self.number, "Node number already set"
-        assert not self.label, "Node label already set"
         assert self.type, "Node type not set"
 
         self.pipeline = pipeline
-        self.number = len(pipeline.nodes)
-        self.label = f"{self.type.value}(ID={self.number})"
+        if self.number is None:
+            self.number = len(pipeline.nodes)
+        if self.label is None:
+            self.label = f"{self.type.value}(ID={self.number})"
         pipeline.nodes.append(self)
         return self
 
@@ -314,9 +310,7 @@ class Node:
             is_required=is_required,
         )
 
-    def add_output_param(
-        self, code: str, dataType: DataType, value: any = None
-    ) -> "Node":
+    def add_output_param(self, code: str, dataType: DataType, value: any = None) -> "Node":
         """
         Add an output parameter to the node. This method will add an output
         parameter to the node.
@@ -325,6 +319,4 @@ class Node:
         :param value: the value of the parameter
         :return: the node
         """
-        return OutputParam(
-            code=code, dataType=dataType, value=value, node=self
-        )
+        return OutputParam(code=code, dataType=dataType, value=value, node=self)

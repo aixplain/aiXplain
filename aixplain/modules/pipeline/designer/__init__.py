@@ -1,5 +1,5 @@
 from .nodes import (
-    Asset,
+    NodeAsset,
     Decision,
     Script,
     Input,
@@ -9,9 +9,7 @@ from .nodes import (
     Reconstructor,
     Segmentor,
 )
-from .pipeline import (
-    Pipeline,
-)
+
 from .base import (
     Node,
     Link,
@@ -35,7 +33,7 @@ from .mixins import LinkableMixin, OutputableMixin, RoutableMixin
 
 __all__ = [
     "Pipeline",
-    "Asset",
+    "NodeAsset",
     "Decision",
     "Script",
     "Input",
