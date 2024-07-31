@@ -1,8 +1,9 @@
 {
     "name": "mock_name",
-    "hostingMachine": "aix-2c-8g-od",
-    "version": "mock_version",
     "description": "mock_description",
-    "function": "Speech Recognition",
-    "sourceLanguage": "en"
+    "function": "Text Generation",
+    "sourceLanguage": "en",
+    "input_modality": "text",
+    "output_modality": "text",
+    "documentation_url": ""
 }

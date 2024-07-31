@@ -13,7 +13,6 @@ AUTH_FIXED_HEADER = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-T
 API_FIXED_HEADER = {"x-api-key": f"{config.TEAM_API_KEY}", "Content-Type": "application/json"}
 
 
-@pytest.mark.skip(reason="Model Upload is deactivated for improvements.")
 def test_login():
     url = urljoin(config.BACKEND_URL, f"sdk/ecr/login")
     with requests_mock.Mocker() as mock:
@@ -24,24 +23,26 @@ def test_login():
     assert creds == mock_json
 
 
-@pytest.mark.skip(reason="Model Upload is deactivated for improvements.")
 def test_create_asset_repo():
-    url_register = urljoin(config.BACKEND_URL, f"sdk/models/register")
+    url_register = urljoin(config.BACKEND_URL, f"sdk/models/onboard")
     url_function = urljoin(config.BACKEND_URL, f"sdk/functions")
+    print(f"URL_Register {url_register}")
     with requests_mock.Mocker() as mock:
         with open(Path("tests/mock_responses/create_asset_repo_response.json")) as f:
             mock_json_register = json.load(f)
-        mock.post(url_register, headers=API_FIXED_HEADER, json=mock_json_register)
+        mock.post(url_register, headers=API_FIXED_HEADER, json=mock_json_register, status_code=201)
+
         with open(Path("tests/mock_responses/list_functions_response.json")) as f:
             mock_json_functions = json.load(f)
         mock.get(url_function, headers=AUTH_FIXED_HEADER, json=mock_json_functions)
+
         model_id = ModelFactory.create_asset_repo(
-            "mock_name", "mock_machines", "mock_version", "mock_description", "Speech Recognition", "en", config.TEAM_API_KEY
+            "mock_name", "mock_description", "Text Generation", "en", "text", "text", api_key=config.TEAM_API_KEY
         )
+        # print(f"Model ID {model_id}")
     assert model_id == mock_json_register
 
 
-@pytest.mark.skip(reason="Model Upload is deactivated for improvements.")
 def test_list_host_machines():
     url = urljoin(config.BACKEND_URL, f"sdk/hosting-machines")
     with requests_mock.Mocker() as mock:
@@ -55,8 +56,6 @@ def test_list_host_machines():
         for key in machine_dict.keys():
             assert machine_dict[key] == mock_json_dict[key]
 
-
-@pytest.mark.skip(reason="Model Upload is deactivated for improvements.")
 def test_get_functions():
     url = urljoin(config.BACKEND_URL, f"sdk/functions")
     with requests_mock.Mocker() as mock:
@@ -65,7 +64,6 @@ def test_get_functions():
         mock.get(url, headers=AUTH_FIXED_HEADER, json=mock_json)
         functions = ModelFactory.list_functions(config.TEAM_API_KEY)
     assert functions == mock_json
-
 
 @pytest.mark.skip(reason="Not currently supported.")
 def test_list_image_repo_tags():
