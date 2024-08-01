@@ -7,9 +7,12 @@ import requests_mock
 
 from aixplain.utils import config
 from aixplain.modules.pipeline.designer import (
+    Input,
+    NodeAsset,
     Node,
     NodeType,
     Link,
+    Output,
     ParamMapping,
     InputParam,
     OutputParam,
@@ -422,19 +425,25 @@ def test_pipeline_add_link():
 def test_pipeline_save():
     pipeline = PipelineFactory.init(name="Test Pipeline")
 
-    class AssetNode(Node):
-        type: NodeType = NodeType.ASSET
-
-    node = AssetNode()
+    node = Input()
     pipeline.add_node(node)
 
-    node1 = AssetNode()
+    node1 = NodeAsset(assetId="60ddefd68d38c51c588608f1")
     pipeline.add_node(node1)
 
     link = Link(
         from_node=node,
         to_node=node1,
-        paramMapping=[ParamMapping(from_param="output", to_param="input")],
+        paramMapping=[ParamMapping(from_param="input", to_param="text")],
+    )
+    pipeline.add_link(link)
+
+    node2 = Output()
+    pipeline.add_node(node2)
+    link = Link(
+        from_node=node1,
+        to_node=node2,
+        paramMapping=[ParamMapping(from_param="data", to_param="output")],
     )
     pipeline.add_link(link)
 

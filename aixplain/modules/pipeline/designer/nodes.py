@@ -12,7 +12,7 @@ from .enums import (
     RouteType,
     Operation,
 )
-from .base import Node
+from .base import Node, Link, Param
 from .mixins import LinkableMixin, RoutableMixin, OutputableMixin
 
 if TYPE_CHECKING:
@@ -68,6 +68,7 @@ class NodeAsset(Node, LinkableMixin, OutputableMixin):
                 code=item["code"],
                 dataType=item["dataType"],
                 is_required=item["required"],
+                value=self.asset.additional_info["parameters"].get(item["code"]),
             )
 
         for item in function["output"]:
@@ -191,6 +192,16 @@ class Decision(Router):
         super().__post_init__(pipeline=pipeline)
         self.add_input_param("comparison", None)
         self.add_input_param("passthrough", None)
+
+    def link(
+        self,
+        to_node: Node,
+        from_param: Union[str, Param],
+        to_param: Union[str, Param],
+    ) -> Link:
+        link = super().link(to_node, from_param, to_param)
+        self.outputs.input.dataType = self.inputs.passthrough.dataType
+        return link
 
 
 @dataclass

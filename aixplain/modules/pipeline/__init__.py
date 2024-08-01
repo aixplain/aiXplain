@@ -232,8 +232,8 @@ class Pipeline(Asset):
             )
             for route in routes
         ]
+        kwargs["pipeline"] = self
         return Router(
-            self,
             *args,
             **kwargs,
         )
@@ -255,31 +255,6 @@ class Pipeline(Asset):
                 param["from"] = param.pop("from_param")
                 param["to"] = param.pop("to_param")
         return obj
-
-    def validate(self) -> bool:
-        """
-        Validate the pipeline. This method will check if all input nodes are
-        linked to output nodes and all output nodes are linked to input nodes.
-
-        :raises ValueError: if the pipeline is not valid
-        """
-        link_from_map = {link.from_node: link for link in self.links}
-        link_to_map = {link.to_node: link for link in self.links}
-        for node in self.nodes:
-            # validate every input node is linked out
-            if node.type == NodeType.INPUT:
-                if node.number not in link_from_map:
-                    raise ValueError(f"Input node {node.label} not linked out")
-            # validate every output node is linked in
-            elif node.type == NodeType.OUTPUT:
-                if node.number not in link_to_map:
-                    raise ValueError(f"Output node {node.label} not linked in")
-            # validate rest of the nodes are linked in and out
-            else:
-                if node.number not in link_from_map:
-                    raise ValueError(f"Node {node.label} not linked in")
-                if node.number not in link_to_map:
-                    raise ValueError(f"Node {node.label} not linked out")
 
     def __polling(
         self, poll_url: Text, name: Text = "pipeline_process", wait_time: float = 1.0, timeout: float = 20000.0
@@ -421,6 +396,162 @@ class Pipeline(Asset):
                 response["error"] = resp
         return response
 
+    def validate_nodes(self):
+        """
+        Validate the linkage of the pipeline. This method will validate the
+        linkage of the pipeline by applying the following checks:
+        - All input nodes are linked out
+        - All output nodes are linked in
+        - All other nodes are linked in and out
+
+        :raises ValueError: if the pipeline is not valid
+        """
+        link_from_map = {link.from_node: link for link in self.links}
+        link_to_map = {link.to_node: link for link in self.links}
+        contains_input = False
+        contains_output = False
+        contains_asset = False
+        for node in self.nodes:
+            # validate every input node is linked out
+            if node.type == NodeType.INPUT:
+                contains_input = True
+                if node.number not in link_from_map:
+                    raise ValueError(f"Input node {node.label} not linked out")
+            # validate every output node is linked in
+            elif node.type == NodeType.OUTPUT:
+                contains_output = True
+                if node.number not in link_to_map:
+                    raise ValueError(f"Output node {node.label} not linked in")
+            # validate rest of the nodes are linked in and out
+            else:
+                if isinstance(node, NodeAsset):
+                    contains_asset = True
+                if node.number not in link_from_map:
+                    raise ValueError(f"Node {node.label} not linked in")
+                if node.number not in link_to_map:
+                    raise ValueError(f"Node {node.label} not linked out")
+
+        if not contains_input or not contains_output or not contains_asset:
+            raise ValueError("Pipeline must contain at least one input, output and asset node")  # noqa
+
+    def is_param_linked(self, node, param):
+        """
+        Check if the param is linked to another node. This method will check
+        if the param is linked to another node.
+        :param node: the node
+        :param param: the param
+        :return: True if the param is linked, False otherwise
+        """
+        link_to_map = {link.to_node: link for link in self.links}
+        link = link_to_map.get(node.number)
+        if link and param.code in [p.to_param for p in link.paramMapping]:
+            return True
+        return False
+
+    def is_param_set(self, node, param):
+        """
+        Check if the param is set. This method will check if the param is set
+        or linked to another node.
+        :param node: the node
+        :param param: the param
+        :return: True if the param is set, False otherwise
+        """
+        return param.value or self.is_param_linked(node, param)
+
+    def validate_params(self):
+        """
+        This method will check if all required params are either set or linked
+
+        :raises ValueError: if the pipeline is not valid
+        """
+        for node in self.nodes:
+            for param in node.inputValues:
+                if param.is_required and not self.is_param_set(node, param):
+                    raise ValueError(f"Param {param.code} of node {node.label} is required")
+
+    def validate_links(self):
+        """
+        This method will check whether all links pointing to the correct
+        nodes and corresponding params.
+
+        :raises ValueError: if the pipeline is not valid
+        """
+        for link in self.links:
+            from_node = next(
+                (node for node in self.nodes if node.number == link.from_node),
+                None,
+            )
+            to_node = next(
+                (node for node in self.nodes if node.number == link.to_node),
+                None,
+            )
+            if not from_node:
+                raise ValueError(f"Node {link.from_node} not found")
+            if not to_node:
+                raise ValueError(f"Node {link.to_node} not found")
+            for param in link.paramMapping:
+                if param.from_param not in from_node.outputs:
+                    raise ValueError(f"Param {param.from_param} not found in node {from_node.label}")  # noqa
+                if param.to_param not in to_node.inputs:
+                    raise ValueError(f"Param {param.to_param} not found in node {to_node.label}")  # noqa
+
+        # Here do we need to check the output and input params together
+        # to make sure they have the same data type?
+
+    def validate(self):
+        """
+        Validate the pipeline. This method will validate the pipeline by
+        series of checks:
+        - Validate all nodes are linked correctly
+        - Validate all links are pointing to the correct nodes and params
+        - Validate all required params are set or linked
+
+        Any other validation checks can be added here.
+
+        :raises ValueError: if the pipeline is not valid
+        """
+        self.validate_nodes()
+        self.validate_links()
+        self.validate_params()
+
+    def auto_infer(self):
+        """
+        Automatically infer the data types of the nodes in the pipeline.
+        This method will automatically infer the data types of the nodes in the
+        pipeline by traversing the pipeline and setting the data types of the
+        nodes based on the data types of the connected nodes.
+        """
+        for link in self.links:
+            from_node = next(
+                (node for node in self.nodes if node.number == link.from_node),
+                None,
+            )
+            to_node = next(
+                (node for node in self.nodes if node.number == link.to_node),
+                None,
+            )
+            if not from_node or not to_node:
+                continue  # will be handled by the validation
+            for param in link.paramMapping:
+                from_param = from_node.outputs[param.from_param]
+                to_param = to_node.inputs[param.to_param]
+                if not from_param or not to_param:
+                    continue  # will be handled by the validation
+                # if one of the data types is missing, infer the other one
+                dataType = from_param.dataType or to_param.dataType
+                from_param.dataType = dataType
+                to_param.dataType = dataType
+
+            def infer_data_type(node):
+                from aixplain.modules.pipeline.designer.nodes import Input, Output
+
+                if isinstance(node, Input) or isinstance(node, Output):
+                    if dataType and dataType not in node.dataType:
+                        node.dataType.append(dataType)
+
+            infer_data_type(self)
+            infer_data_type(to_node)
+
     def save(self, save_as_asset: bool = False, api_key: Optional[Text] = None):
         """Save Pipeline
 
@@ -431,6 +562,8 @@ class Pipeline(Asset):
         Raises:
             Exception: Make sure the pipeline to be save is in a JSON file.
         """
+        self.auto_infer()
+        self.validate()
         try:
             pipeline = self.to_dict()
 

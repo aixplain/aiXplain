@@ -32,13 +32,36 @@ class LinkableMixin:
         assert self.pipeline, "Node not attached to a pipeline"
         assert to_node.pipeline, "Node not attached to a pipeline"
 
-        param_mapping = [ParamMapping(from_param=from_param, to_param=to_param)]
+        if isinstance(from_param, str):
+            from_param = self.outputs[from_param]
+        if isinstance(to_param, str):
+            to_param = to_node.inputs[to_param]
+
+        # Should we check for data type mismatch?
+        if from_param.dataType and to_param.dataType:
+            if from_param.dataType != to_param.dataType:
+                raise ValueError(f"Data type mismatch between {from_param.dataType} and {to_param.dataType}")  # noqa
+
+        # if one of the data types is missing, infer the other one
+        dataType = from_param.dataType or to_param.dataType
+        from_param.dataType = dataType
+        to_param.dataType = dataType
+
+        def infer_data_type(node):
+            from .nodes import Input, Output
+
+            if isinstance(node, Input) or isinstance(node, Output):
+                if dataType and dataType not in node.dataType:
+                    node.dataType.append(dataType)
+
+        infer_data_type(self)
+        infer_data_type(to_node)
 
         return Link(
             pipeline=self.pipeline,
             from_node=self.number,
             to_node=to_node.number,
-            paramMapping=param_mapping,
+            paramMapping=[ParamMapping(from_param=from_param, to_param=to_param)],
         )
 
 
