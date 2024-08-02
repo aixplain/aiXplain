@@ -29,6 +29,7 @@ from aixplain.enums.supplier import Supplier
 from aixplain.modules.agent import Agent, Tool
 from aixplain.modules.agent.tool.model_tool import ModelTool
 from aixplain.modules.agent.tool.pipeline_tool import PipelineTool
+from aixplain.modules.model import Model
 from aixplain.modules.pipeline import Pipeline
 from aixplain.utils import config
 from typing import Dict, List, Optional, Text, Union
@@ -66,11 +67,12 @@ class AgentFactory:
                 if isinstance(tool, ModelTool):
                     tool_payload.append(
                         {
-                            "function": tool.function.value,
+                            "function": tool.function.value if tool.function is not None else None,
                             "type": "model",
                             "description": tool.description,
                             "supplier": tool.supplier.value["code"] if tool.supplier else None,
                             "version": tool.version if tool.version else None,
+                            "assetId": tool.model,
                         }
                     )
                 elif isinstance(tool, PipelineTool):
@@ -116,9 +118,14 @@ class AgentFactory:
         return agent
 
     @classmethod
-    def create_model_tool(cls, function: Union[Function, Text], supplier: Optional[Union[Supplier, Text]] = None) -> ModelTool:
+    def create_model_tool(
+        cls,
+        model: Optional[Union[Model, Text]] = None,
+        function: Optional[Union[Function, Text]] = None,
+        supplier: Optional[Union[Supplier, Text]] = None,
+    ) -> ModelTool:
         """Create a new model tool."""
-        if isinstance(function, str):
+        if function is not None and isinstance(function, str):
             function = Function(function)
 
         if supplier is not None:
@@ -129,7 +136,7 @@ class AgentFactory:
                         break
                 if isinstance(supplier, str):
                     supplier = None
-        return ModelTool(function=function, supplier=supplier)
+        return ModelTool(function=function, supplier=supplier, model=model)
 
     @classmethod
     def create_pipeline_tool(cls, description: Text, pipeline: Union[Pipeline, Text]) -> PipelineTool:
