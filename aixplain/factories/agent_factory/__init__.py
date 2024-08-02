@@ -24,10 +24,12 @@ Description:
 import json
 import logging
 
+from aixplain.enums.function import Function
 from aixplain.enums.supplier import Supplier
 from aixplain.modules.agent import Agent, Tool
 from aixplain.modules.agent.tool.model_tool import ModelTool
 from aixplain.modules.agent.tool.pipeline_tool import PipelineTool
+from aixplain.modules.pipeline import Pipeline
 from aixplain.utils import config
 from typing import Dict, List, Optional, Text, Union
 
@@ -112,6 +114,27 @@ class AgentFactory:
         except Exception as e:
             raise Exception(e)
         return agent
+
+    @classmethod
+    def create_model_tool(cls, function: Union[Function, Text], supplier: Optional[Union[Supplier, Text]] = None) -> ModelTool:
+        """Create a new model tool."""
+        if isinstance(function, str):
+            function = Function(function)
+
+        if supplier is not None:
+            if isinstance(supplier, str):
+                for supplier_ in Supplier:
+                    if supplier.lower() in [supplier.value["code"].lower(), supplier.value["name"].lower()]:
+                        supplier = supplier_
+                        break
+                if isinstance(supplier, str):
+                    supplier = None
+        return ModelTool(function=function, supplier=supplier)
+
+    @classmethod
+    def create_pipeline_tool(cls, description: Text, pipeline: Union[Pipeline, Text]) -> PipelineTool:
+        """Create a new pipeline tool."""
+        return PipelineTool(description=description, pipeline=pipeline)
 
     @classmethod
     def list(cls) -> Dict:
