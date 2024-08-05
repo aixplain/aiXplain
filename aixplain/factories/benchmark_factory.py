@@ -59,7 +59,15 @@ class BenchmarkFactory:
         Returns:
             BenchmarkJob: Coverted 'BenchmarkJob' object
         """
-        return BenchmarkJob(response["jobId"], response["status"], response["benchmark"]["id"])
+        benchmark_id = response["benchmark"]["id"]
+        model_list = [ModelFactory().get(model_id) for model_id in response["benchmark"]["model"]]
+        dataset_list = [DatasetFactory().get(dataset_id) for dataset_id in response["benchmark"]["datasets"]]
+        metric_list = []
+        for metric_info in response["benchmark"]["metrics"]:
+            metric = MetricFactory().get(metric_info["id"])
+            metric.normalization_options = metric_info["configurations"]
+            metric_list.append(metric)
+        return BenchmarkJob(response["jobId"], response["status"], response["benchmark"]["id"], model_list=model_list, metric_list=metric_list, dataset_list=dataset_list)
 
     @classmethod
     def _get_benchmark_jobs_from_benchmark_id(cls, benchmark_id: Text) -> List[BenchmarkJob]:

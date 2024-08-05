@@ -5,6 +5,7 @@ from aixplain.modules import Asset, Dataset, Metric, Model
 from urllib.parse import urljoin
 import pandas as pd
 from pathlib import Path
+import json
 from aixplain.utils.file_utils import _request_with_retry, save_file
 
 class BenchmarkJob:
@@ -219,7 +220,8 @@ class BenchmarkJob:
     def __convert_list_to_dict(cls, input_list):
         converted_dict = {}
         for item in input_list:
-            key, value = item["name"], item["values"]:
+            key = item["name"]
+            value = item.get("values", item.get("value", None))
             if type(value) is list:
                 value = cls.__convert_list_to_dict(value)
             converted_dict[key] = value
@@ -245,5 +247,71 @@ class BenchmarkJob:
             error_message = f"Benchmark Job: Error in Getting benchmark metadata: {e}"
             logging.error(error_message, exc_info=True)
             raise Exception(error_message)
+        
+    def fetch_filtered_bias_analysis(self, category: str, metric: Metric, model: Model = None):
+        """Fetch filtered bias analysis based on category, metric and model(optional)
+
+        Args:
+            category (str): Category Name to be filetered upon
+            metric (Metric): Metric to be filtered upon
+            model (Model, optional): Model to be fileterd upon. Defaults to None and returns analysis for all models.
+        """
+        try:
+            url = urljoin(config.BACKEND_URL, f"sdk/benchmarks/reports/{self.id}/bias-analysis")
+            if  config.AIXPLAIN_API_KEY != "":
+                headers = {"x-aixplain-key": f"{config.AIXPLAIN_API_KEY}", "Content-Type": "application/json"}
+            else:
+                headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+            payload = json.dumps({
+                "metadata": category,
+                "metric": metric.id,
+                "normalizationOption": metric.normalization_options
+                })
+            r = _request_with_retry("post", url, headers=headers, data=payload)
+            resp = r.json()
+            if model is not None:
+                filtered_resp = []
+                for bias_item in resp:
+                    if bias_item["modelId"] == model.id:
+                        filtered_resp.append(bias_item)
+                resp = filtered_resp
+            return resp
+        except Exception as e:
+            error_message = f"Benchmark Job: Error in Getting filtered benchmark bias analysis: {e}"
+            logging.error(error_message, exc_info=True)
+            raise Exception(error_message)
+
     
 
+    def fetch_bias_analysis(self, group_by="category"):
+        """get the bias analysis of the benchmark report, grouped by a particular field
+
+        Args:
+            group_by (str, optional): Group the bias info by this field. Allowed values are {'category', 'model', 'metric'}. Defaults to "category".
+        """
+        try:
+            dataset_breakdown = self.fetch_dataset_breakdown()
+            categories = dataset_breakdown.keys()
+            metric_list = self.additional_info['metric_list']
+            bias_analaysis_response = {}
+            if group_by == "category":
+                for category in categories:
+                    category_bias_analysis = {}
+                    for metric in metric_list:
+                        normalizations = metric.normalization_options
+                        if len(normalizations) == 0:
+                            normalizations = [[]]
+                        for normalization in normalizations:
+                            metric.normalization_options = [normalization]
+                            metric_full_name = metric.name if len(normalization) == 0 else f"{metric.name} {str(normalization)}"
+                            filtered_bias_response = self.fetch_filtered_bias_analysis(category, metric)
+                            cleaned_bias_response = {}
+                            for item in filtered_bias_response:
+                                cleaned_bias_response[item["modelId"]] = item["items"]
+                            category_bias_analysis[metric_full_name] = cleaned_bias_response
+                    bias_analaysis_response[category] = category_bias_analysis
+            return bias_analaysis_response
+        except Exception as e:
+            error_message = f"Benchmark Job: Error in Getting benchmark bias analysis: {e}"
+            logging.error(error_message, exc_info=True)
+            raise Exception(error_message)
