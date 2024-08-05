@@ -28,6 +28,7 @@ import traceback
 from aixplain.utils.file_utils import _request_with_retry
 from aixplain.enums.supplier import Supplier
 from aixplain.enums.asset_status import AssetStatus
+from aixplain.enums.storage_type import StorageType
 from aixplain.modules.model import Model
 from aixplain.modules.agent.tool import Tool
 from aixplain.modules.agent.tool.model_tool import ModelTool
@@ -103,6 +104,7 @@ class Agent(Model):
         timeout: float = 300,
         parameters: Dict = {},
         wait_time: float = 0.5,
+        content_inputs: List[Text] = [],
     ) -> Dict:
         """Runs an agent call.
 
@@ -114,13 +116,21 @@ class Agent(Model):
             timeout (float, optional): total polling time. Defaults to 300.
             parameters (Dict, optional): optional parameters to the model. Defaults to "{}".
             wait_time (float, optional): wait time in seconds between polling calls. Defaults to 0.5.
+            content_inputs (List[Text], optional): Content inputs to be processed according to the query. Defaults to [].
 
         Returns:
             Dict: parsed output from model
         """
         start = time.time()
         try:
-            response = self.run_async(query=query, session_id=session_id, history=history, name=name, parameters=parameters)
+            response = self.run_async(
+                query=query,
+                session_id=session_id,
+                history=history,
+                name=name,
+                parameters=parameters,
+                content_inputs=content_inputs,
+            )
             if response["status"] == "FAILED":
                 end = time.time()
                 response["elapsed_time"] = end - start
@@ -142,6 +152,7 @@ class Agent(Model):
         history: Optional[List[Dict]] = None,
         name: Text = "model_process",
         parameters: Dict = {},
+        content_inputs: List[Text] = [],
     ) -> Dict:
         """Runs asynchronously an agent call.
 
@@ -151,12 +162,25 @@ class Agent(Model):
             history (Optional[List[Dict]], optional): chat history (in case session ID is None). Defaults to None.
             name (Text, optional): ID given to a call. Defaults to "model_process".
             parameters (Dict, optional): optional parameters to the model. Defaults to "{}".
+            content_inputs (List[Text], optional): Content inputs to be processed according to the query. Defaults to [].
 
         Returns:
             dict: polling URL in response
         """
-        headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}
         from aixplain.factories.file_factory import FileFactory
+
+        # process content inputs
+        content_inputs = list(set(content_inputs))
+        if len(content_inputs) > 0:
+            assert (
+                FileFactory.check_storage_type(query) == StorageType.TEXT
+            ), "When providing 'content_inputs', query must be text."
+            assert len(content_inputs) <= 3, "The maximum number of content inputs is 3."
+            for input_link in content_inputs:
+                input_link = FileFactory.to_link(input_link)
+                query += f"\n{input_link}"
+
+        headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}
 
         payload = {"id": self.id, "query": FileFactory.to_link(query), "sessionId": session_id, "history": history}
         payload.update(parameters)
