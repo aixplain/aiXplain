@@ -27,6 +27,8 @@ from enum import Enum
 class DataType(Enum):
     AUDIO = "audio"
     FLOAT = "float"
+    EMBEDDING = "embedding"
+    NUMBER = "number"
     IMAGE = "image"
     INTEGER = "integer"
     LABEL = "label"

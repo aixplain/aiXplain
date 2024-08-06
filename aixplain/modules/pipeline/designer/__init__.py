@@ -1,23 +1,24 @@
 from .nodes import (
-    NodeAsset,
+    AssetNode,
     Decision,
     Script,
     Input,
     Output,
     Route,
     Router,
-    Reconstructor,
-    Segmentor,
+    BaseReconstructor,
+    BaseSegmentor,
 )
 
 from .base import (
     Node,
     Link,
     Param,
-    ParamMapping,
+    ParamProxy,
     InputParam,
     OutputParam,
-    ParamProxy,
+    Inputs,
+    Outputs,
 )
 from .enums import (
     ParamType,
@@ -32,20 +33,18 @@ from .mixins import LinkableMixin, OutputableMixin, RoutableMixin
 
 
 __all__ = [
-    "Pipeline",
-    "NodeAsset",
+    "AssetNode",
     "Decision",
     "Script",
     "Input",
     "Output",
     "Route",
     "Router",
-    "Reconstructor",
-    "Segmentor",
+    "BaseReconstructor",
+    "BaseSegmentor",
     "Node",
     "Link",
     "Param",
-    "ParamMapping",
     "ParamType",
     "InputParam",
     "OutputParam",
@@ -58,5 +57,7 @@ __all__ = [
     "LinkableMixin",
     "OutputableMixin",
     "RoutableMixin",
+    "Inputs",
+    "Outputs",
     "ParamProxy",
 ]

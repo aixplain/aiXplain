@@ -29,7 +29,7 @@ from aixplain.enums.supplier import Supplier
 from aixplain.modules.agent import Agent, Tool
 from aixplain.modules.agent.tool.model_tool import ModelTool
 from aixplain.modules.agent.tool.pipeline_tool import PipelineTool
-from aixplain.modules.pipeline import Pipeline
+from aixplain.modules.pipeline.pipeline_base import BasePipeline as Pipeline
 from aixplain.utils import config
 from typing import Dict, List, Optional, Text, Union
 

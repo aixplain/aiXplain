@@ -1,20 +1,13 @@
+import json
 from aixplain.api import Pipeline
-
-TRANSLATION_ASSET = "60ddefae8d38c51c5885eff7"
-SPEECH_RECOGNITION_ASSET = "621cf3fa6442ef511d2830af"
-SOURCE_LANGUAGE = "en"
-TARGET_LANGUAGE = "fr"
 
 pipeline = Pipeline()
 
 # add nodes to the pipeline
 input = pipeline.input()
-translation = pipeline.asset(assetId=TRANSLATION_ASSET)
-translation.inputs.sourcelanguage = SOURCE_LANGUAGE
-translation.inputs.targetlanguage = TARGET_LANGUAGE
+translation = pipeline.translation(assetId="60ddefae8d38c51c5885eff7")
 
-speech_recognition = pipeline.asset(assetId=SPEECH_RECOGNITION_ASSET)
-speech_recognition.inputs.language = SOURCE_LANGUAGE
+speech_recognition = pipeline.speech_recognition(assetId="621cf3fa6442ef511d2830af")
 
 # route the input to the translation and speech recognition nodes
 input.route(translation.inputs.text, speech_recognition.inputs.source_audio)
@@ -23,6 +16,8 @@ input.route(translation.inputs.text, speech_recognition.inputs.source_audio)
 # to the output
 translation.use_output("data")
 speech_recognition.use_output("data")
+
+print(json.dumps(pipeline.serialize(), indent=2))
 
 # save the pipeline as draft
 pipeline.save()

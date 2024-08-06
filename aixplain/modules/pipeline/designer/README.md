@@ -15,7 +15,7 @@ TRANSLATION_ASSET_ID = 'your-translation-asset-id'
 
 pipeline = Pipeline('Translation Pipeline')
 input_node = pipeline.input()
-translation_node = pipeline.asset(assetId=TRANSLATION_ASSET_ID)
+translation_node = pipeline.translation(assetId=TRANSLATION_ASSET_ID)
 output_node = translation_node.use_output('data')
 
 pipeline.save()
@@ -59,7 +59,7 @@ input_node = pipeline.input(*args, **kwargs)
 Each pipeline should have at least one input, asset, and output node. Add output nodes like any other node:
 
 ```python
-translation_node = pipeline.asset(assetId=TRANSLATION_ASSET_ID)
+translation_node = pipeline.translation(assetId=TRANSLATION_ASSET_ID)
 output_node = pipeline.output(*args, **kwargs)
 translation_node.link(output_node, 'data', 'output')
 ```
@@ -75,9 +75,9 @@ output_node = translation_node.use_output('parameter_name_we_are_interested_in')
 Asset nodes are used to run models and should have an asset ID. Once instantiated, an asset node contains all model information and parameters which is populated automatically by interacting with the Aixplain platform.
 
 ```python
-translation_node = pipeline.asset(assetId=TRANSLATION_ASSET_ID)
-print(translation_node.inputValues)
-print(translation_node.outputValues)
+translation_node = pipeline.translation(assetId=TRANSLATION_ASSET_ID)
+print(translation_node.inputs)
+print(translation_node.outputs)
 ```
 
 ## Handling Parameters
@@ -89,11 +89,11 @@ print(translation_node.inputs.text)
 print(translation_node.outputs.data)
 ```
 
-Add parameters to a node using `add_input_parameter` and `add_output_parameter`:
+Add parameters to a node using `create_param` on corresponding `inputs` or `outputs` attribute:
 
 ```python
-translation_node.add_input_parameter('source_language', DataType.TEXT)
-translation_node.add_output_parameter('source_audio', DataType.AUDIO)
+translation_node.inputs.create_param('source_language', DataType.TEXT)
+translation_node.outputs.create_param('source_audio', DataType.AUDIO)
 ```
 
 Alternatively, instantiate parameters directly using `InputParam` or `OutputParam` classes:
@@ -113,7 +113,7 @@ Or add parameters explicitly:
 
 ```python
 source_audio = OutputParam(dataType=DataType.AUDIO, code='source_audio')
-translation_node.add_param(source_audio)
+translation_node.outputs.add_param(source_audio)
 ```
 
 In case of need, any parameter value can be set directly without requiring node linking:
@@ -133,7 +133,7 @@ Consider the following nodes:
 
 ```python
 input_node = pipeline.input()
-translation_node = pipeline.asset(assetId=TRANSLATION_ASSET_ID)
+translation_node = pipeline.translation(assetId=TRANSLATION_ASSET_ID)
 ```
 
 Link nodes together:

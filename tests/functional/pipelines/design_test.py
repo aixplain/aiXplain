@@ -18,8 +18,11 @@ limitations under the License.
 
 import pytest
 from aixplain.factories import PipelineFactory
+from aixplain.modules.pipeline.designer.base import Link
 from aixplain.modules.pipeline.designer import DataType
 from aixplain.modules import Pipeline
+
+from aixplain.modules.pipeline.designer import AssetNode
 
 
 def test_create_asr_pipeline():
@@ -28,13 +31,29 @@ def test_create_asr_pipeline():
     )
 
     # add nodes to the pipeline
-    input = pipeline.input(dataType=[DataType.AUDIO])
-    model1 = pipeline.asset("60ddefab8d38c51c5885ee38")
-    model2 = pipeline.asset("60ddefd68d38c51c588608f1")
+    input = pipeline.input()
+    model1 = AssetNode(assetId="60ddefab8d38c51c5885ee38")
+    pipeline.add_node(model1)
+
+    model2 = AssetNode(assetId="60ddefd68d38c51c588608f1")
+    pipeline.add_node(model2)
 
     # link the nodes
-    input.outputs.input.link(model1.inputs.source_audio)
-    model1.outputs.data.link(model2.inputs.text)
+    link1 = Link(
+        from_node=input,
+        to_node=model1,
+        from_param="input",
+        to_param="source_audio",
+    )
+    pipeline.add_link(link1)
+
+    link2 = Link(
+        from_node=model1,
+        to_node=model2,
+        from_param="data",
+        to_param="text",
+    )
+    pipeline.add_link(link2)
 
     # use the output of the last node
     model1.use_output("data")
@@ -54,14 +73,15 @@ def test_create_mt_pipeline_and_run():
     )
 
     # add nodes to the pipeline
-    input = pipeline.input(dataType=[DataType.TEXT])
-    model1 = pipeline.asset("60ddef828d38c51c5885d491")
+    input = pipeline.input()
+    model1 = pipeline.translation(assetId="60ddef828d38c51c5885d491")
+    output = pipeline.output()
 
     # link the nodes
-    input.outputs.input.link(model1.inputs.text)
+    input.link(to_node=model1, from_param=input.outputs.input, to_param=model1.inputs.text)
 
     # use the output of the last node
-    model1.use_output("data")
+    model1.link(to_node=output, from_param=model1.outputs.data, to_param=output.inputs.output)
 
     # save the pipeline as an asset
     pipeline.save(save_as_asset=True)
@@ -96,7 +116,7 @@ def test_routing_pipeline(data, dataType):
         name="Pipeline for SDK Designer Test with Audio Input",
     )
 
-    input = pipeline.input(dataType=[dataType])
+    input = pipeline.input()
     translation = pipeline.asset(TRANSLATION_ASSET)
     speech_recognition = pipeline.asset(SPEECH_RECOGNITION_ASSET)
 

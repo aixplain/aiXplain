@@ -1,6 +1,5 @@
 from typing import Union
-
-from .base import Node, Link, Param, ParamMapping
+from .base import Node, Link, Param
 
 
 class LinkableMixin:
@@ -28,40 +27,12 @@ class LinkableMixin:
         :param to_param: the input parameter or the code of the input parameter
         :return: the link
         """
-
-        assert self.pipeline, "Node not attached to a pipeline"
-        assert to_node.pipeline, "Node not attached to a pipeline"
-
-        if isinstance(from_param, str):
-            from_param = self.outputs[from_param]
-        if isinstance(to_param, str):
-            to_param = to_node.inputs[to_param]
-
-        # Should we check for data type mismatch?
-        if from_param.dataType and to_param.dataType:
-            if from_param.dataType != to_param.dataType:
-                raise ValueError(f"Data type mismatch between {from_param.dataType} and {to_param.dataType}")  # noqa
-
-        # if one of the data types is missing, infer the other one
-        dataType = from_param.dataType or to_param.dataType
-        from_param.dataType = dataType
-        to_param.dataType = dataType
-
-        def infer_data_type(node):
-            from .nodes import Input, Output
-
-            if isinstance(node, Input) or isinstance(node, Output):
-                if dataType and dataType not in node.dataType:
-                    node.dataType.append(dataType)
-
-        infer_data_type(self)
-        infer_data_type(to_node)
-
         return Link(
             pipeline=self.pipeline,
-            from_node=self.number,
-            to_node=to_node.number,
-            paramMapping=[ParamMapping(from_param=from_param, to_param=to_param)],
+            from_node=self,
+            to_node=to_node,
+            from_param=from_param,
+            to_param=to_param,
         )
 
 
@@ -82,7 +53,7 @@ class RoutableMixin:
         """
         assert self.pipeline, "Node not attached to a pipeline"
 
-        router = self.pipeline.router([(param.dataType, param.node) for param in params])
+        router = self.pipeline.router([(param.data_type, param.node) for param in params])
         self.outputs.input.link(router.inputs.input)
         for param in params:
             router.outputs.input.link(param)
@@ -106,6 +77,7 @@ class OutputableMixin:
         """
         assert self.pipeline, "Node not attached to a pipeline"
         output = self.pipeline.output()
-        param = param if isinstance(param, Param) else self.outputs[param]
+        if isinstance(param, str):
+            param = self.outputs[param]
         param.link(output.inputs.output)
         return output

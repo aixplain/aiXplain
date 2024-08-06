@@ -8,14 +8,13 @@ from aixplain.modules.pipeline.designer import (
     Decision,
     Input,
     Output,
-    NodeAsset,
-    Segmentor,
-    Reconstructor,
+    AssetNode,
+    BaseSegmentor,
+    BaseReconstructor,
     Router,
     Route,
     Script,
     Link,
-    ParamMapping,
 )
 from typing import Dict, List
 
@@ -46,11 +45,11 @@ def build_from_response(response: Dict) -> Pipeline:
         if node_json["type"].lower() == "input":
             node = Input(dataType=[DataType(typ) for typ in node_json["dataType"]])
         elif node_json["type"].lower() == "asset":
-            node = NodeAsset(assetId=node_json["assetId"])
+            node = AssetNode(assetId=node_json["assetId"])
         elif node_json["type"].lower() == "segmentor":
-            node = Segmentor()
+            node = BaseSegmentor()
         elif node_json["type"].lower() == "reconstructor":
-            node = Reconstructor()
+            node = BaseReconstructor()
         elif node_json["type"].lower() == "decision":
             node = Decision()
         elif node_json["type"].lower() == "router":
@@ -68,7 +67,9 @@ def build_from_response(response: Dict) -> Pipeline:
         link = Link(
             from_node=link_json["from"],
             to_node=link_json["to"],
-            paramMapping=[ParamMapping(from_param=param["from"], to_param=param["to"]) for param in link_json["paramMapping"]],
+            from_param=link_json["from_param"][0],
+            to_param=link_json["to_param"][0],
+            # paramMapping=[ParamMapping(from_param=param["from"], to_param=param["to"]) for param in link_json["paramMapping"]],
         )
         pipeline.add_link(link)
     return pipeline

@@ -23,7 +23,7 @@ Description:
 from typing import Text, Union
 
 from aixplain.modules.agent.tool import Tool
-from aixplain.modules.pipeline import Pipeline
+from aixplain.modules.pipeline.pipeline_base import BasePipeline as Pipeline
 
 
 class PipelineTool(Tool):

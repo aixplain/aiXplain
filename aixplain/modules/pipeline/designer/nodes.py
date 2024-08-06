@@ -1,26 +1,35 @@
-from dataclasses import dataclass, field, InitVar
-from typing import List, Union, TYPE_CHECKING
+from typing import List, Union, Type, TYPE_CHECKING
 
 from aixplain.enums.function import FunctionInputOutput
-from aixplain.modules.asset import Asset as AssetInstance
+from aixplain.modules.model import Model
 
 from .enums import (
     NodeType,
     DataType,
-    AssetType,
     FunctionType,
     RouteType,
     Operation,
+    AssetType,
 )
-from .base import Node, Link, Param
-from .mixins import LinkableMixin, RoutableMixin, OutputableMixin
+from .base import (
+    Node,
+    Link,
+    Param,
+    InputParam,
+    OutputParam,
+    TI,
+    TO,
+    Inputs,
+    Outputs,
+    Serializable,
+)
+from .mixins import LinkableMixin, OutputableMixin, RoutableMixin
 
 if TYPE_CHECKING:
     from aixplain.modules.pipeline import Pipeline
 
 
-@dataclass
-class NodeAsset(Node, LinkableMixin, OutputableMixin):
+class AssetNode(Node[TI, TO], LinkableMixin, OutputableMixin):
     """
     Asset node class, this node will be used to fetch the asset from the
     aixplain platform and use it in the pipeline.
@@ -32,7 +41,7 @@ class NodeAsset(Node, LinkableMixin, OutputableMixin):
     asset function spec.
     """
 
-    assetId: Union[AssetInstance, str] = None
+    assetId: Union[Model, str] = None
     function: str = None
     supplier: str = None
     version: str = None
@@ -41,18 +50,30 @@ class NodeAsset(Node, LinkableMixin, OutputableMixin):
 
     type: NodeType = NodeType.ASSET
 
-    def __post_init__(self, pipeline: "Pipeline" = None, instance: any = None):
-        from aixplain.factories import ModelFactory
+    def __init__(
+        self,
+        assetId: Union[Model, str] = None,
+        supplier: str = None,
+        version: str = None,
+        pipeline: "Pipeline" = None,
+    ):
+        super().__init__(pipeline=pipeline)
+        self.assetId = assetId
+        self.supplier = supplier
+        self.version = version
 
-        super().__post_init__(pipeline=pipeline)
+        if not self.assetId:
+            return
 
         if isinstance(self.assetId, str):
+            from aixplain.factories.model_factory import ModelFactory
+
             self.asset = ModelFactory.get(self.assetId)
-        elif isinstance(self.assetId, AssetInstance):
+        elif isinstance(self.assetId, Model):
             self.asset = self.assetId
             self.assetId = self.assetId.id
         else:
-            raise ValueError("assetId should be a string or an AssetInstance")
+            raise ValueError("assetId should be a string or an Asset instance")
 
         function = FunctionInputOutput[self.asset.function.value]["spec"]
         self.function_spec = function
@@ -60,23 +81,64 @@ class NodeAsset(Node, LinkableMixin, OutputableMixin):
         try:
             self.supplier = self.asset.supplier.value["code"]
         except Exception:
-            self.supplier = self.asset.supplier
+            self.supplier = str(self.asset.supplier)
         self.version = self.asset.version
 
-        for item in function["params"]:
-            self.add_input_param(
-                code=item["code"],
-                dataType=item["dataType"],
-                is_required=item["required"],
-                value=self.asset.additional_info["parameters"].get(item["code"]),
-            )
+        if len(self.inputs._params) == 0:
+            for item in function["params"]:
+                self.inputs.create_param(
+                    code=item["code"],
+                    data_type=item["dataType"],
+                    is_required=item["required"],
+                    value=self.asset.additional_info["parameters"].get(item["code"]),
+                )
 
-        for item in function["output"]:
-            self.add_output_param(code=item["code"], dataType=item["dataType"])
+        if len(self.outputs._params) == 0:
+            for item in function["output"]:
+                self.outputs.create_param(
+                    code=item["code"],
+                    data_type=item["dataType"],
+                )
+
+        self._auto_set_params()
+        self.validate_asset()
+
+    def validate_asset(self):
+        if self.asset.function.value != self.function:
+            raise ValueError(f"Function {self.function} is not supported by asset {self.assetId}")  # noqa
+
+    def _auto_set_params(self):
+        for k, v in self.asset.additional_info["parameters"].items():
+            if isinstance(v, list):
+                self.inputs[k] = v[0]
+            else:
+                self.inputs[k] = v
+
+    def serialize(self) -> dict:
+        obj = super().serialize()
+        obj["function"] = self.function
+        obj["assetId"] = self.assetId
+        obj["supplier"] = self.supplier
+        obj["version"] = self.version
+        obj["assetType"] = self.assetType
+        obj["functionType"] = self.functionType
+        obj["type"] = self.type
+        return obj
 
 
-@dataclass
-class Input(Node, LinkableMixin, RoutableMixin):
+class InputInputs(Inputs):
+    pass
+
+
+class InputOutputs(Outputs):
+    input: OutputParam = None
+
+    def __init__(self, node: Node):
+        super().__init__(node)
+        self.input = self.create_param("input")
+
+
+class Input(Node[InputInputs, InputOutputs], LinkableMixin, RoutableMixin):
     """
     Input node class, this node will be used to input the data to the
     pipeline.
@@ -87,22 +149,40 @@ class Input(Node, LinkableMixin, RoutableMixin):
     aixplain platform and the link will be passed as the input to the node.
     """
 
-    dataType: List[DataType] = field(default_factory=list)
+    data_types: List[DataType] = None
     data: str = None
     type: NodeType = NodeType.INPUT
+    inputs_class: Type[TI] = InputInputs
+    outputs_class: Type[TO] = InputOutputs
 
-    def __post_init__(self, pipeline: "Pipeline" = None):
-        super().__post_init__(pipeline=pipeline)
-        self.add_output_param("input", None)
-
+    def __init__(self, pipeline: "Pipeline" = None):
+        super().__init__(pipeline=pipeline)
+        self.data_types = []
         if self.data:
             from aixplain.factories.file_factory import FileFactory
 
             self.data = FileFactory.to_link(self.data, is_temp=True)
 
+    def serialize(self) -> dict:
+        obj = super().serialize()
+        obj["data"] = self.data
+        obj["dataType"] = [str(dt) for dt in self.data_types]
+        return obj
 
-@dataclass
-class Output(Node):
+
+class OutputInputs(Inputs):
+    output: InputParam = None
+
+    def __init__(self, node: Node):
+        super().__init__(node)
+        self.output = self.create_param("output")
+
+
+class OutputOutputs(Outputs):
+    pass
+
+
+class Output(Node[OutputInputs, OutputOutputs]):
     """
     Output node class, this node will be used to output the result of the
     pipeline.
@@ -110,16 +190,22 @@ class Output(Node):
     Output nodes has only one input parameter called `output`.
     """
 
-    dataType: List[DataType] = field(default_factory=list)
+    data_types: List[DataType] = None
     type: NodeType = NodeType.OUTPUT
+    inputs_class: Type[TI] = OutputInputs
+    outputs_class: Type[TO] = OutputOutputs
 
-    def __post_init__(self, pipeline: "Pipeline" = None):
-        super().__post_init__(pipeline=pipeline)
-        self.add_input_param("output", None)
+    def __init__(self, pipeline: "Pipeline" = None):
+        super().__init__(pipeline=pipeline)
+        self.data_types = []
+
+    def serialize(self) -> dict:
+        obj = super().serialize()
+        obj["dataType"] = [str(dt) for dt in self.data_types]
+        return obj
 
 
-@dataclass
-class Script(Node, LinkableMixin, OutputableMixin):
+class Script(Node[TI, TO], LinkableMixin, OutputableMixin):
     """
     Script node class, this node will be used to run a script on the input
     data.
@@ -129,11 +215,11 @@ class Script(Node, LinkableMixin, OutputableMixin):
     """
 
     fileId: str = None
-    script_path: InitVar[str] = None
+    script_path: str = None
     type: NodeType = NodeType.SCRIPT
 
-    def __post_init__(self, pipeline: "Pipeline" = None, script_path: str = None):
-        super().__post_init__(pipeline=pipeline)
+    def __init__(self, pipeline: "Pipeline" = None, script_path: str = None):
+        super().__init__(pipeline=pipeline)
         if script_path:
             from aixplain.factories.script_factory import ScriptFactory
 
@@ -141,57 +227,123 @@ class Script(Node, LinkableMixin, OutputableMixin):
         if not self.fileId:
             raise ValueError("fileId is required")
 
+    def serialize(self) -> dict:
+        obj = super().serialize()
+        obj["fileId"] = self.fileId
+        return obj
 
-@dataclass
-class Route:
+
+class Route(Serializable):
     """
     Route class, this class will be used to route the input data to different
     nodes based on the input data type.
     """
 
     value: DataType
-    path: List[Union[Node, int]] = field(default_factory=list)
-    operation: Operation = None
-    type: RouteType = None
+    path: List[Union[Node, int]]
+    operation: Operation
+    type: RouteType
 
-    def __post_init__(self):
+    def __init__(
+        self,
+        value: DataType,
+        path: List[Union[Node, int]],
+        operation: Operation,
+        type: RouteType,
+    ):
         """
         Post init method to convert the nodes to node numbers if they are
         nodes.
         """
+        self.value = value
+        self.path = path
+        self.operation = operation
+        self.type = type
+
+        if not self.path:
+            raise ValueError("Path is not valid, should be a list of nodes")
+
         # convert nodes to node numbers if they are nodes
         self.path = [node.number if isinstance(node, Node) else node for node in self.path]
 
+    def serialize(self) -> dict:
+        return {
+            "value": self.value,
+            "path": self.path,
+            "operation": self.operation,
+            "type": self.type,
+        }
 
-@dataclass
-class Router(Node, LinkableMixin):
+
+class RouterInputs(Inputs):
+    input: InputParam = None
+
+    def __init__(self, node: Node):
+        super().__init__(node)
+        self.input = self.create_param("input")
+
+
+class RouterOutputs(Outputs):
+    input: OutputParam = None
+
+    def __init__(self, node: Node):
+        super().__init__(node)
+        self.input = self.create_param("input")
+
+
+class Router(Node[RouterInputs, RouterOutputs], LinkableMixin):
     """
     Router node class, this node will be used to route the input data to
     different nodes based on the input data type.
     """
 
-    routes: List[Route] = field(default_factory=list)
+    routes: List[Route] = None
     type: NodeType = NodeType.ROUTER
+    inputs_class: Type[TI] = RouterInputs
+    outputs_class: Type[TO] = RouterOutputs
 
-    def __post_init__(self, pipeline: "Pipeline" = None):
-        super().__post_init__(pipeline=pipeline)
-        self.add_input_param("input", None)
-        self.add_output_param("input", None)
+    def __init__(self, routes: List[Route], pipeline: "Pipeline" = None):
+        super().__init__(pipeline=pipeline)
+        self.routes = routes
+
+    def serialize(self) -> dict:
+        obj = super().serialize()
+        obj["routes"] = [route.serialize() for route in self.routes]
+        return obj
 
 
-@dataclass
-class Decision(Router):
+class DecisionInputs(Inputs):
+    comparison: InputParam = None
+    passthrough: InputParam = None
+
+    def __init__(self, node: Node):
+        super().__init__(node)
+        self.comparison = self.create_param("comparison")
+        self.passthrough = self.create_param("passthrough")
+
+
+class DecisionOutputs(Outputs):
+    input: OutputParam = None
+
+    def __init__(self, node: Node):
+        super().__init__(node)
+        self.input = self.create_param("input")
+
+
+class Decision(Node[DecisionInputs, DecisionOutputs], LinkableMixin):
     """
     Decision node class, this node will be used to make decisions based on
     the input data.
     """
 
+    routes: List[Route] = None
     type: NodeType = NodeType.DECISION
+    inputs_class: Type[TI] = DecisionInputs
+    outputs_class: Type[TO] = DecisionOutputs
 
-    def __post_init__(self, pipeline: "Pipeline" = None):
-        super().__post_init__(pipeline=pipeline)
-        self.add_input_param("comparison", None)
-        self.add_input_param("passthrough", None)
+    def __init__(self, routes: List[Route], pipeline: "Pipeline" = None):
+        super().__init__(pipeline=pipeline)
+        self.routes = routes
 
     def link(
         self,
@@ -200,12 +352,16 @@ class Decision(Router):
         to_param: Union[str, Param],
     ) -> Link:
         link = super().link(to_node, from_param, to_param)
-        self.outputs.input.dataType = self.inputs.passthrough.dataType
+        self.outputs.input.data_type = self.inputs.passthrough.data_type
         return link
 
+    def serialize(self) -> dict:
+        obj = super().serialize()
+        obj["routes"] = [route.serialize() for route in self.routes]
+        return obj
 
-@dataclass
-class Segmentor(NodeAsset):
+
+class BaseSegmentor(AssetNode[TI, TO]):
     """
     Segmentor node class, this node will be used to segment the input data
     into smaller fragments for much easier and efficient processing.
@@ -214,13 +370,32 @@ class Segmentor(NodeAsset):
     type: NodeType = NodeType.SEGMENTOR
     functionType: FunctionType = FunctionType.SEGMENTOR
 
-    def __post_init__(self, pipeline: "Pipeline" = None):
-        super().__post_init__(pipeline=pipeline)
-        self.add_output_param("audio", DataType.AUDIO)
+
+class SegmentorInputs(Inputs):
+    pass
 
 
-@dataclass
-class Reconstructor(NodeAsset):
+class SegmentorOutputs(Outputs):
+    audio: OutputParam = None
+
+    def __init__(self, node: Node):
+        super().__init__(node)
+        self.audio = self.create_param("audio")
+
+
+class BareSegmentor(BaseSegmentor[SegmentorInputs, SegmentorOutputs]):
+    """
+    Segmentor node class, this node will be used to segment the input data
+    into smaller fragments for much easier and efficient processing.
+    """
+
+    type: NodeType = NodeType.SEGMENTOR
+    functionType: FunctionType = FunctionType.SEGMENTOR
+    inputs_class: Type[TI] = SegmentorInputs
+    outputs_class: Type[TO] = SegmentorOutputs
+
+
+class BaseReconstructor(AssetNode[TI, TO]):
     """
     Reconstructor node class, this node will be used to reconstruct the
     output of the segmented lines of execution.
@@ -228,3 +403,31 @@ class Reconstructor(NodeAsset):
 
     type: NodeType = NodeType.RECONSTRUCTOR
     functionType: FunctionType = FunctionType.RECONSTRUCTOR
+
+
+class ReconstructorInputs(Inputs):
+    data: InputParam = None
+
+    def __init__(self, node: Node):
+        super().__init__(node)
+        self.data = self.create_param("data")
+
+
+class ReconstructorOutputs(Outputs):
+    data: OutputParam = None
+
+    def __init__(self, node: Node):
+        super().__init__(node)
+        self.data = self.create_param("data")
+
+
+class BareReconstructor(BaseReconstructor[ReconstructorInputs, ReconstructorOutputs]):
+    """
+    Reconstructor node class, this node will be used to reconstruct the
+    output of the segmented lines of execution.
+    """
+
+    type: NodeType = NodeType.RECONSTRUCTOR
+    functionType: FunctionType = FunctionType.RECONSTRUCTOR
+    inputs_class: Type[TI] = ReconstructorInputs
+    outputs_class: Type[TO] = ReconstructorOutputs

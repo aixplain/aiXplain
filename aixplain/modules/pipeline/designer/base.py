@@ -1,45 +1,75 @@
-from dataclasses import dataclass, field, asdict, InitVar
-from typing import Any, List, Union, TYPE_CHECKING
+from typing import (
+    List,
+    Union,
+    TYPE_CHECKING,
+    Generic,
+    TypeVar,
+    Type,
+    Optional,
+    Iterator,
+)
 
 from .enums import NodeType, ParamType, DataType
 
+
 if TYPE_CHECKING:
-    from aixplain.modules.pipeline import Pipeline
+    from aixplain.modules.pipeline.pipeline_base import BasePipeline as Pipeline
+
+TI = TypeVar("TI", bound="Inputs")
+TO = TypeVar("TO", bound="Outputs")
 
 
-@dataclass
-class Param:
+class Serializable:
+    def serialize(self) -> dict:
+        raise NotImplementedError()
+
+
+class Param(Serializable):
     """
     Param class, this class will be used to create the parameters of the node.
     """
 
     code: str
-    dataType: DataType
-    value: str
-    param_type: InitVar[ParamType] = None
-    node: InitVar["Node"] = None
+    param_type: ParamType
+    data_type: Optional[DataType] = None
+    value: Optional[str] = None
+    node: Optional["Node"] = None
+    link_: Optional["Link"] = None
 
-    def __post_init__(self, node: "Node" = None):
-        """
-        Post init method to set the node of the param.
-        """
+    def __init__(
+        self,
+        code: str,
+        data_type: Optional[DataType] = None,
+        value: Optional[str] = None,
+        node: Optional["Node"] = None,
+        param_type: Optional[ParamType] = None,
+    ):
+        self.code = code
+        self.data_type = data_type
+        self.value = value
+
+        # is subclasses do not set the param type, set it to None
+        self.param_type = getattr(self, "param_type", param_type)
+
         if node:
-            self.attach(node)
-        self._link = None
+            self.attach_to(node)
 
-    def attach(self, node: "Node"):
+    def attach_to(self, node: "Node") -> "Param":
         """
         Attach the param to the node.
         :param node: the node
+        :return: the param
         """
         assert not self.node, "Param already attached to a node"
-        self.node = node
+        assert self.param_type, "Param type not set"
         if self.param_type == ParamType.INPUT:
-            node.inputValues.append(self)
+            node.inputs.add_param(self)
         elif self.param_type == ParamType.OUTPUT:
-            node.outputValues.append(self)
+            node.outputs.add_param(self)
         else:
-            raise ValueError(f"Invalid param type: {self.param_type}")
+            raise ValueError("Invalid param type")
+        self.node = node
+        return self
 
     def link(self, to_param: "Param") -> "Param":
         """
@@ -47,8 +77,9 @@ class Param:
         :param to_param: the input param
         :return: the param
         """
+        assert self.node, "Param not attached to a node"
         assert to_param.param_type == ParamType.INPUT, "Invalid param type"
-        assert self.node and self in self.node.outputValues, "Param not attached to a node"
+        assert self in self.node.outputs, "Param not registered as output"
         return to_param.back_link(self)
 
     def back_link(self, from_param: "Param") -> "Param":
@@ -57,209 +88,246 @@ class Param:
         :param from_param: the output param
         :return: the param
         """
+        assert self.node, "Param not attached to a node"
         assert from_param.param_type == ParamType.OUTPUT, "Invalid param type"
-        assert self.node and self in self.node.inputValues, "Param not attached to a node"
-        link = from_param.node.link(self.node, from_param.code, self.code)
-        self._link = link
-        from_param._link = link
+        assert self.code in self.node.inputs, "Param not registered as input"
+        link = from_param.node.link(self.node, from_param, self)
+        self.link_ = link
+        from_param.link_ = link
         return link
 
+    def serialize(self) -> dict:
+        return {
+            "code": self.code,
+            "dataType": str(self.data_type),
+            "value": self.value,
+        }
 
-@dataclass
+
 class InputParam(Param):
 
     param_type: ParamType = ParamType.INPUT
-    is_required: InitVar[bool] = True
+    is_required: bool = True
 
-    def __post_init__(self, node: "Node" = None, is_required: bool = False):
-        """
-        Post init method to set the required flag.
-        """
-        super().__post_init__(node=node)
+    def __init__(self, *args, is_required: bool = True, **kwargs):
+        super().__init__(*args, **kwargs)
         self.is_required = is_required
 
 
-@dataclass
 class OutputParam(Param):
 
     param_type: ParamType = ParamType.OUTPUT
 
 
-@dataclass
-class ParamMapping:
-    """
-    Param mapping class, this class will be used to map the output of the
-    node to the input of another node.
-    """
-
-    from_param: Union[str, Param]
-    to_param: Union[str, Param]
-
-    def __post_init__(self):
-        """
-        Post init method to convert the params to param codes if they are
-        params.
-        """
-        if isinstance(self.from_param, Param):
-            self.from_param = self.from_param.code
-        if isinstance(self.to_param, Param):
-            self.to_param = self.to_param.code
-
-
-@dataclass
-class Link:
+class Link(Serializable):
     """
     Link class, this class will be used to link the output of the node to the
     input of another node.
     """
 
-    from_node: Union[int, "Node"]
-    to_node: Union[int, "Node"]
-    paramMapping: List[ParamMapping] = field(default_factory=list)
-    pipeline: InitVar["Pipeline"] = None
+    from_node: "Node"
+    to_node: "Node"
+    from_param: str
+    to_param: str
 
-    def __post_init__(self, pipeline: "Pipeline" = None):
+    pipeline: Optional["Pipeline"] = None
+
+    def __init__(
+        self,
+        from_node: "Node",
+        to_node: "Node",
+        from_param: Union[Param, str],
+        to_param: Union[Param, str],
+        pipeline: "Pipeline" = None,
+    ):
+
+        assert from_param in from_node.outputs, "Invalid from param"
+        assert to_param in to_node.inputs, "Invalid to param"
+
+        if isinstance(from_param, Param):
+            from_param = from_param.code
+        if isinstance(to_param, Param):
+            to_param = to_param.code
+
+        self.from_node = from_node
+        self.to_node = to_node
+        self.from_param = from_param
+        self.to_param = to_param
+
         if pipeline:
-            self.attach(pipeline)
-        if isinstance(self.from_node, Node):
-            self.from_node = self.from_node.number
-        if isinstance(self.to_node, Node):
-            self.to_node = self.to_node.number
+            self.attach_to(pipeline)
 
-    def attach(self, pipeline: "Pipeline"):
+        # self.validate()
+        self.auto_infer()
+
+    def auto_infer(self):
+        from_param = self.from_node.outputs[self.from_param]
+        to_param = self.to_node.inputs[self.to_param]
+
+        # if one of the data types is missing, infer the other one
+        data_type = from_param.data_type or to_param.data_type
+        from_param.data_type = data_type
+        to_param.data_type = data_type
+
+        def infer_data_type(node):
+            from .nodes import Input, Output
+
+            if isinstance(node, Input) or isinstance(node, Output):
+                if data_type and data_type not in node.data_types:
+                    node.data_types.append(data_type)
+
+        infer_data_type(self.from_node)
+        infer_data_type(self.to_node)
+
+    def validate(self):
+        from_param = self.from_node.outputs[self.from_param]
+        to_param = self.to_node.inputs[self.to_param]
+
+        # Should we check for data type mismatch?
+        if from_param.data_type and to_param.data_type:
+            if from_param.data_type != to_param.data_type:
+                raise ValueError(f"Data type mismatch between {from_param.data_type} and {to_param.data_type}")  # noqa
+
+    def attach_to(self, pipeline: "Pipeline"):
         """
         Attach the link to the pipeline.
         :param pipeline: the pipeline
         """
         assert not self.pipeline, "Link already attached to a pipeline"
+        if not self.from_node.pipeline or self.from_node not in pipeline.nodes:
+            self.from_node.attach_to(pipeline)
+        if not self.to_node.pipeline or self.to_node not in pipeline.nodes:
+            self.to_node.attach_to(pipeline)
 
         self.pipeline = pipeline
-        pipeline.links.append(self)
+        self.pipeline.links.append(self)
         return self
 
+    def serialize(self) -> dict:
+        assert self.from_node.number is not None, "From node number not set"
+        assert self.to_node.number is not None, "To node number not set"
+        return {
+            "from": self.from_node.number,
+            "to": self.to_node.number,
+            "paramMapping": [
+                {
+                    "from": self.from_param,
+                    "to": self.to_param,
+                }
+            ],
+        }
 
-class ParamProxy:
-    """
-    Param proxy class, this class will be used to get and set the parameters
-    of the node.
-    """
 
-    def __init__(self, params: List[Param]):
-        """
-        Initialize the param proxy with the parameters of the node.
-        :param params: the parameters of the node
-        """
-        self.params = params
+class ParamProxy(Serializable):
 
-    def get_param(self, code: str) -> Param:
-        """
-        Get the parameter by code. This method will get the parameter by code.
-        :param code: the code of the parameter
-        :return: the parameter
-        """
-        for param in self.params:
-            if param.code == code:
-                return param
-        raise AttributeError(f"Param '{code}' not found")
+    node: "Node"
 
-    def set_param(self, code: str, value: any) -> None:
-        """
-        Set the parameter value by code. This method will set the parameter
-        value by code.
-        :param code: the code of the parameter
-        :param value: the value of the parameter
-        """
-        param = self.get_param(code)
-        param.value = value
+    def __init__(self, node: "Node", *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.node = node
+        self._params = []
 
-    def __call__(self, code: str, value: any = None) -> Param:
-        """
-        This is a convenience callable method to get the parameter by code.
-        """
-        if value:
-            self.set_param(code, value)
-        return self.get_param(code)
+    def add_param(self, param: Param) -> None:
+        # check if param already registered
+        if param in self:
+            raise ValueError(f"Parameter with code '{param.code}' already exists.")
+        self._params.append(param)
+        # also set attribute on the node dynamically if there's no
+        # any attribute with the same name
+        if not hasattr(self, param.code):
+            setattr(self, param.code, param)
+
+    def _create_param(self, code: str, data_type: DataType = None, value: any = None) -> Param:
+        raise NotImplementedError()
+
+    def create_param(
+        self,
+        code: str,
+        data_type: DataType = None,
+        value: any = None,
+        is_required: bool = False,
+    ) -> Param:
+        param = self._create_param(code, data_type, value)
+        param.is_required = is_required
+        self.add_param(param)
+        param.node = self.node
+        return param
 
     def __getitem__(self, code: str) -> Param:
-        """
-        This is a convenience getitem method to get the parameter
-        """
-        return self.get_param(code)
+        for param in self._params:
+            if param.code == code:
+                return param
+        raise KeyError(f"Parameter with code '{code}' not found.")
 
-    def __setitem__(self, code: str, value: any) -> None:
-        """
-        This is a convenience setitem method to set the parameter value.
-        """
-        self.set_param(code, value)
+    def __setitem__(self, code: str, value: str) -> None:
+        # set param value on set item to avoid setting it manually
+        self[code].value = value
 
-    def __getattr__(self, name: str) -> Any:
-        """
-        This is a convenience getattr method to get the parameter.
-        """
-        return self.get_param(name)
+    def __contains__(self, param: Union[str, Param]) -> bool:
+        code = param if isinstance(param, str) else param.code
+        return any(param.code == code for param in self._params)
 
-    def __hasattr__(self, name: str) -> bool:
-        """
-        This is a convenience hasattr method to check if the parameter exists.
-        """
-        return self.has_param(name)
+    def __iter__(self) -> Iterator[Param]:
+        return iter(self._params)
 
-    def has_param(self, code: str) -> bool:
-        """
-        Check if the parameter exists.
-        :param code: the code of the parameter
-        :return: True if the parameter exists, False otherwise
-        """
-        return any(param.code == code for param in self.params)
+    def __len__(self) -> int:
+        return len(self._params)
 
-    def __contains__(self, code: str) -> bool:
-        """
-        Check if the parameter exists.
-        :param code: the code of the parameter
-        :return: True if the parameter exists, False otherwise
-        """
-        return self.has_param(code)
-
-    def __setattr__(self, name: str, value: Any) -> None:
-        """
-        This is a convenience setattr method to set the parameter value.
-        """
-        if name in ["params"]:
-            super().__setattr__(name, value)
-        else:
-            self.set_param(name, value)
+    def serialize(self) -> List[dict]:
+        return [param.serialize() for param in self._params]
 
 
-@dataclass
-class Node:
+class Inputs(ParamProxy):
+    def _create_param(
+        self,
+        code: str,
+        data_type: DataType = None,
+        value: any = None,
+        is_required: bool = False,
+    ) -> InputParam:
+        return InputParam(
+            code=code,
+            data_type=data_type,
+            value=value,
+            is_required=is_required,
+        )
+
+
+class Outputs(ParamProxy):
+    def _create_param(self, code: str, data_type: DataType = None, value: any = None) -> OutputParam:
+        return OutputParam(code=code, data_type=data_type, value=value)
+
+
+class Node(Generic[TI, TO], Serializable):
     """
     Node class is the base class for all the nodes in the pipeline. This class
     will be used to create the nodes and link them together.
     """
 
-    pipeline: InitVar["Pipeline"] = None
-    number: int = field(default=None, init=False)
-    label: str = field(default=None, init=False)
-    type: NodeType = field(default=None, init=False)
-    inputValues: List[Param] = field(default_factory=list, init=False)
-    outputValues: List[Param] = field(default_factory=list, init=False)
+    number: Optional[int] = None
+    label: Optional[str] = None
+    type: Optional[NodeType] = None
 
-    def __post_init__(self, pipeline=None):
-        """
-        Post init method to set the pipeline and input/output proxies.
-        :param pipeline: the pipeline
-        """
-        self.inputs = ParamProxy(self.inputValues)
-        self.outputs = ParamProxy(self.outputValues)
+    inputs: Optional[TI] = None
+    outputs: Optional[TO] = None
+    inputs_class: Optional[Type[TI]] = Inputs
+    outputs_class: Optional[Type[TO]] = Outputs
+    pipeline: Optional["Pipeline"] = None
+
+    def __init__(self, pipeline: "Pipeline" = None):
+        self.inputs = self.inputs_class(node=self)
+        self.outputs = self.outputs_class(node=self)
+
         if pipeline:
-            self.attach(pipeline)
+            self.attach_to(pipeline)
 
-    def attach(self, pipeline: "Pipeline"):
+    def attach_to(self, pipeline: "Pipeline"):
         """
         Attach the node to the pipeline.
         :param pipeline: the pipeline
         """
         assert not self.pipeline, "Node already attached to a pipeline"
+        assert self not in pipeline.nodes, "Node already attached to a pipeline"
         assert self.type, "Node type not set"
 
         self.pipeline = pipeline
@@ -270,53 +338,11 @@ class Node:
         pipeline.nodes.append(self)
         return self
 
-    def to_dict(self) -> dict:
-        """
-        Convert the node to a dictionary. This method will convert the node to
-        a dictionary.
-        :return: the node as a dictionary
-        """
-        return asdict(self)
-
-    def add_param(self, param: Param) -> Param:
-        """
-        Add a parameter to the node. This method will add a parameter to the
-        node.
-        :param param: the parameter
-        :return: the parameter
-        """
-        return param.attach(self)
-
-    def add_input_param(
-        self,
-        code: str,
-        dataType: DataType,
-        value: any = None,
-        is_required: bool = False,
-    ) -> InputParam:
-        """
-        Add an input parameter to the node. This method will add an input
-        parameter to the node.
-        :param code: the code of the parameter
-        :param dataType: the data type of the parameter
-        :param value: the value of the parameter
-        :return: the node
-        """
-        return InputParam(
-            code=code,
-            dataType=dataType,
-            value=value,
-            node=self,
-            is_required=is_required,
-        )
-
-    def add_output_param(self, code: str, dataType: DataType, value: any = None) -> "Node":
-        """
-        Add an output parameter to the node. This method will add an output
-        parameter to the node.
-        :param code: the code of the parameter
-        :param dataType: the data type of the parameter
-        :param value: the value of the parameter
-        :return: the node
-        """
-        return OutputParam(code=code, dataType=dataType, value=value, node=self)
+    def serialize(self) -> dict:
+        return {
+            "number": self.number,
+            "label": self.label,
+            "type": self.type.value,
+            "inputValues": self.inputs.serialize(),
+            "outputValues": self.outputs.serialize(),
+        }
