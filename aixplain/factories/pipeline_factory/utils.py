@@ -4,7 +4,6 @@ import aixplain.utils.config as config
 
 from aixplain.modules.pipeline import Pipeline
 from aixplain.modules.pipeline.designer import (
-    DataType,
     Decision,
     Input,
     Output,
@@ -43,7 +42,7 @@ def build_from_response(response: Dict) -> Pipeline:
     # instantiating nodes
     for node_json in response["nodes"]:
         if node_json["type"].lower() == "input":
-            node = Input(dataType=[DataType(typ) for typ in node_json["dataType"]])
+            node = Input()
         elif node_json["type"].lower() == "asset":
             node = AssetNode(assetId=node_json["assetId"])
         elif node_json["type"].lower() == "segmentor":
@@ -65,10 +64,10 @@ def build_from_response(response: Dict) -> Pipeline:
     # instantiating links
     for link_json in response["links"]:
         link = Link(
-            from_node=link_json["from"],
-            to_node=link_json["to"],
-            from_param=link_json["from_param"][0],
-            to_param=link_json["to_param"][0],
+            from_node=pipeline.get_node(link_json["from"]),
+            to_node=pipeline.get_node(link_json["to"]),
+            from_param=link_json["paramMapping"][0]["from"],
+            to_param=link_json["paramMapping"][0]["to"],
             # paramMapping=[ParamMapping(from_param=param["from"], to_param=param["to"]) for param in link_json["paramMapping"]],
         )
         pipeline.add_link(link)

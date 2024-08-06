@@ -89,6 +89,8 @@ def test_create_mt_pipeline_and_run():
     assert isinstance(pipeline, Pipeline)
     assert pipeline.id != ""
 
+    pipeline = PipelineFactory.get(pipeline.id)
+
     # run the pipeline
     output = pipeline.run(
         "https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.txt", **{"batchmode": False, "version": "2.0"}
