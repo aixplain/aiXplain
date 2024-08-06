@@ -283,7 +283,7 @@ class BenchmarkJob:
 
     
 
-    def fetch_bias_analysis(self, group_by="category"):
+    def fetch_bias_analysis(self, group_by="category", return_as_dataframe=False):
         """get the bias analysis of the benchmark report, grouped by a particular field
 
         Args:
@@ -294,6 +294,7 @@ class BenchmarkJob:
             categories = dataset_breakdown.keys()
             metric_list = self.additional_info['metric_list']
             bias_analaysis_response = {}
+            record_list = []
             if group_by == "category":
                 for category in categories:
                     category_bias_analysis = {}
@@ -308,9 +309,19 @@ class BenchmarkJob:
                             cleaned_bias_response = {}
                             for item in filtered_bias_response:
                                 cleaned_bias_response[item["modelId"]] = item["items"]
+                                for item_rec in item["items"]:
+                                    record = {
+                                        "metricName": metric_full_name,
+                                        "modelID": item["modelId"]
+                                    }
+                                    record.update(item_rec)
+                                    record_list.append(record)
                             category_bias_analysis[metric_full_name] = cleaned_bias_response
                     bias_analaysis_response[category] = category_bias_analysis
-            return bias_analaysis_response
+            if return_as_dataframe:
+                return pd.DataFrame(record_list)
+            else:
+                return bias_analaysis_response
         except Exception as e:
             error_message = f"Benchmark Job: Error in Getting benchmark bias analysis: {e}"
             logging.error(error_message, exc_info=True)
