@@ -180,7 +180,6 @@ class LLM(Model):
             dict: polling URL in response
         """
         headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}
-
         from aixplain.factories.file_factory import FileFactory
 
         data = FileFactory.to_link(data)
