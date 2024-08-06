@@ -104,7 +104,7 @@ class FileFactory:
             return StorageType.TEXT
 
     @classmethod
-    def to_link(cls, data: Union[Text, Dict]) -> Union[Text, Dict]:
+    def to_link(cls, data: Union[Text, Dict], **kwargs) -> Union[Text, Dict]:
         """If user input data is a local file, upload to aiXplain platform
 
         Args:
@@ -117,10 +117,10 @@ class FileFactory:
             for key in data:
                 if isinstance(data[key], str):
                     if cls.check_storage_type(data[key]) == StorageType.FILE:
-                        data[key] = cls.upload(local_path=data[key])
+                        data[key] = cls.upload(local_path=data[key], **kwargs)
         elif isinstance(data, str):
             if cls.check_storage_type(data) == StorageType.FILE:
-                data = cls.upload(local_path=data)
+                data = cls.upload(local_path=data, **kwargs)
         return data
 
     @classmethod
@@ -145,5 +145,5 @@ class FileFactory:
         """
         assert (
             license is not None if is_temp is False else True
-        ),  "File Asset Creation Error: To upload a non-temporary file, you need to specify the `license`."
+        ), "File Asset Creation Error: To upload a non-temporary file, you need to specify the `license`."
         return cls.upload(local_path=local_path, tags=tags, license=license, is_temp=is_temp)
