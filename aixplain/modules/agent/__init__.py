@@ -97,26 +97,28 @@ class Agent(Model):
 
     def run(
         self,
-        query: Text,
+        data: Optional[Union[Dict, Text]] = None,
+        query: Optional[Text] = None,
         session_id: Optional[Text] = None,
         history: Optional[List[Dict]] = None,
         name: Text = "model_process",
         timeout: float = 300,
         parameters: Dict = {},
         wait_time: float = 0.5,
-        content_inputs: List[Text] = [],
+        content: List[Text] = [],
     ) -> Dict:
         """Runs an agent call.
 
         Args:
-            query (Text): query to be processed by the agent.
+            data (Optional[Union[Dict, Text]], optional): data to be processed by the agent. Defaults to None.
+            query (Optional[Text], optional): query to be processed by the agent. Defaults to None.
             session_id (Optional[Text], optional): conversation Session ID. Defaults to None.
             history (Optional[List[Dict]], optional): chat history (in case session ID is None). Defaults to None.
             name (Text, optional): ID given to a call. Defaults to "model_process".
             timeout (float, optional): total polling time. Defaults to 300.
             parameters (Dict, optional): optional parameters to the model. Defaults to "{}".
             wait_time (float, optional): wait time in seconds between polling calls. Defaults to 0.5.
-            content_inputs (List[Text], optional): Content inputs to be processed according to the query. Defaults to [].
+            content (List[Text], optional): Content inputs to be processed according to the query. Defaults to [].
 
         Returns:
             Dict: parsed output from model
@@ -124,12 +126,13 @@ class Agent(Model):
         start = time.time()
         try:
             response = self.run_async(
+                data=data,
                 query=query,
                 session_id=session_id,
                 history=history,
                 name=name,
                 parameters=parameters,
-                content_inputs=content_inputs,
+                content=content,
             )
             if response["status"] == "FAILED":
                 end = time.time()
@@ -147,36 +150,50 @@ class Agent(Model):
 
     def run_async(
         self,
-        query: Text,
+        data: Optional[Union[Dict, Text]] = None,
+        query: Optional[Text] = None,
         session_id: Optional[Text] = None,
         history: Optional[List[Dict]] = None,
         name: Text = "model_process",
         parameters: Dict = {},
-        content_inputs: List[Text] = [],
+        content: List[Text] = [],
     ) -> Dict:
         """Runs asynchronously an agent call.
 
         Args:
-            query (Text): query to be processed by the agent.
+            data (Optional[Union[Dict, Text]], optional): data to be processed by the agent. Defaults to None.
+            query (Optional[Text], optional): query to be processed by the agent. Defaults to None.
             session_id (Optional[Text], optional): conversation Session ID. Defaults to None.
             history (Optional[List[Dict]], optional): chat history (in case session ID is None). Defaults to None.
             name (Text, optional): ID given to a call. Defaults to "model_process".
             parameters (Dict, optional): optional parameters to the model. Defaults to "{}".
-            content_inputs (List[Text], optional): Content inputs to be processed according to the query. Defaults to [].
+            content (List[Text], optional): Content inputs to be processed according to the query. Defaults to [].
 
         Returns:
             dict: polling URL in response
         """
         from aixplain.factories.file_factory import FileFactory
 
+        assert data is not None or query is not None, "Either 'data' or 'query' must be provided."
+        if data is not None:
+            if isinstance(data, dict):
+                assert "query" in data and data["query"] is not None, "When providing a dictionary, 'query' must be provided."
+                query = data.get("query")
+                if session_id is None:
+                    session_id = data.get("session_id")
+                if history is None:
+                    history = data.get("history")
+                if len(content) == 0:
+                    content = data.get("content", [])
+            else:
+                query = data
+
         # process content inputs
-        content_inputs = list(set(content_inputs))
-        if len(content_inputs) > 0:
-            assert (
-                FileFactory.check_storage_type(query) == StorageType.TEXT
-            ), "When providing 'content_inputs', query must be text."
-            assert len(content_inputs) <= 3, "The maximum number of content inputs is 3."
-            for input_link in content_inputs:
+        content = list(set(content))
+        if len(content) > 0:
+            assert FileFactory.check_storage_type(query) == StorageType.TEXT, "When providing 'content', query must be text."
+            assert len(content) <= 3, "The maximum number of content inputs is 3."
+            for input_link in content:
                 input_link = FileFactory.to_link(input_link)
                 query += f"\n{input_link}"
 
