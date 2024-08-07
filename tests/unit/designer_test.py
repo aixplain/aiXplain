@@ -1,10 +1,8 @@
 import pytest
 import unittest.mock as mock
 
-from aixplain.api import (
+from aixplain.modules.pipeline.designer.base import (
     Node,
-    Pipeline,
-    NodeType,
     Link,
     Param,
     ParamProxy,
@@ -12,10 +10,16 @@ from aixplain.api import (
     Outputs,
     InputParam,
     OutputParam,
-    ParamType,
-    LinkableMixin,
-    DataType,
 )
+
+from aixplain.modules.pipeline.designer.enums import (
+    DataType,
+    ParamType,
+    NodeType,
+)
+
+from aixplain.modules.pipeline.designer.mixins import LinkableMixin
+from aixplain.modules.pipeline.designer.pipeline import Pipeline
 
 
 def test_create_node():
@@ -25,7 +29,9 @@ def test_create_node():
     class BareNode(Node):
         pass
 
-    with mock.patch("aixplain.api.Node.attach_to") as mock_attach_to:
+    with mock.patch(
+        "aixplain.modules.pipeline.designer.Node.attach_to"
+    ) as mock_attach_to:
         node = BareNode()
         mock_attach_to.assert_not_called()
         assert isinstance(node.inputs, Inputs)
@@ -41,7 +47,9 @@ def test_create_node():
         inputs_class = FooNodeInputs
         outputs_class = FooNodeOutputs
 
-    with mock.patch("aixplain.api.Node.attach_to") as mock_attach_to:
+    with mock.patch(
+        "aixplain.modules.pipeline.designer.Node.attach_to"
+    ) as mock_attach_to:
         node = FooNode(pipeline=pipeline)
         mock_attach_to.assert_called_once_with(pipeline)
         assert isinstance(node.inputs, FooNodeInputs)
@@ -142,7 +150,9 @@ def test_create_param():
     class TypedParam(Param):
         param_type = ParamType.INPUT
 
-    with mock.patch("aixplain.api.Param.attach_to") as mock_attach_to:
+    with mock.patch(
+        "aixplain.modules.pipeline.designer.Param.attach_to"
+    ) as mock_attach_to:
         param = TypedParam(
             code="param",
             data_type=DataType.TEXT,
@@ -155,7 +165,9 @@ def test_create_param():
     assert param.value == "foo"
     assert param.param_type == ParamType.INPUT
 
-    with mock.patch("aixplain.api.Param.attach_to") as mock_attach_to:
+    with mock.patch(
+        "aixplain.modules.pipeline.designer.Param.attach_to"
+    ) as mock_attach_to:
         param = TypedParam(
             code="param",
             data_type=DataType.TEXT,
@@ -172,7 +184,9 @@ def test_create_param():
     class UnTypedParam(Param):
         pass
 
-    with mock.patch("aixplain.api.Param.attach_to") as mock_attach_to:
+    with mock.patch(
+        "aixplain.modules.pipeline.designer.Param.attach_to"
+    ) as mock_attach_to:
         param = UnTypedParam(
             code="param",
             data_type=DataType.TEXT,
@@ -183,7 +197,9 @@ def test_create_param():
 
     assert param.param_type == ParamType.OUTPUT
 
-    with mock.patch("aixplain.api.Param.attach_to") as mock_attach_to:
+    with mock.patch(
+        "aixplain.modules.pipeline.designer.Param.attach_to"
+    ) as mock_attach_to:
         param = UnTypedParam(
             code="param",
             data_type=DataType.TEXT,
@@ -199,7 +215,9 @@ def test_create_param():
 
     node = AssetNode()
 
-    with mock.patch("aixplain.api.Param.attach_to") as mock_attach_to:
+    with mock.patch(
+        "aixplain.modules.pipeline.designer.Param.attach_to"
+    ) as mock_attach_to:
         param = UnTypedParam(
             code="param",
             data_type=DataType.TEXT,
@@ -223,7 +241,9 @@ def test_create_input_output_param(param_cls, expected_param_type):
 
     node = AssetNode()
 
-    with mock.patch("aixplain.api.Param.attach_to") as mock_attach_to:
+    with mock.patch(
+        "aixplain.modules.pipeline.designer.Param.attach_to"
+    ) as mock_attach_to:
         param = param_cls(
             code="param", data_type=DataType.TEXT, value="foo", node=node
         )
@@ -408,7 +428,9 @@ def test_link_create():
 
     pipeline = Pipeline()
 
-    with mock.patch("aixplain.api.Link.attach_to") as mock_attach_to:
+    with mock.patch(
+        "aixplain.modules.pipeline.designer.Link.attach_to"
+    ) as mock_attach_to:
         link = Link(
             from_node=a,
             to_node=b,
@@ -682,45 +704,3 @@ def test_pipeline_add_link():
     with mock.patch.object(link, "attach_to") as mock_attach_to:
         pipeline.add_link(link)
         mock_attach_to.assert_called_once_with(pipeline)
-
-
-def test_pipeline_save():
-    pipeline = Pipeline()
-
-    class AssetNode(Node):
-        type: NodeType = NodeType.ASSET
-
-    node = AssetNode()
-    node.outputs.create_param("output", DataType.TEXT, "foo")
-    pipeline.add_node(node)
-
-    node1 = AssetNode()
-    node1.inputs.create_param("input", DataType.TEXT, "bar")
-    pipeline.add_node(node1)
-
-    link = Link(
-        from_node=node, to_node=node1, from_param="output", to_param="input"
-    )
-    pipeline.add_link(link)
-
-    with mock.patch.object(pipeline, "validate") as mock_validate:
-        with mock.patch(
-            "aixplain.factories.pipeline_factory.PipelineFactory.create"
-        ) as mock_create:
-            pipeline.save()
-            mock_create.assert_called_once()
-            assert pipeline.instance is mock_create.return_value
-        mock_validate.assert_called_once()
-
-
-def test_pipeline_run():
-    pipeline = Pipeline()
-
-    with pytest.raises(ValueError) as excinfo:
-        pipeline.run()
-
-    assert "Pipeline not saved" in str(excinfo.value)
-
-    pipeline.instance = mock.MagicMock()
-    pipeline.run("foo", "bar")
-    pipeline.instance.run.assert_called_once_with("foo", "bar")

@@ -14,25 +14,27 @@ SEGMENTOR_FUNCTIONS = [
 
 RECONSTRUCTOR_FUNCTIONS = ["text-reconstruction", "audio-reconstruction"]
 
-BASE_DIR = "aixplain/api"
 MODULE_NAME = "pipeline"
 TEMPLATE = """
 # This is an auto generated module.
 
-from enum import Enum
+
 from typing import Union, Type
 
-from .base import InputParam, OutputParam, Inputs, Outputs, TI, TO
-from .nodes import Asset, BaseReconstructor, BaseSegmentor
-from .pipeline_base import BasePipeline
-
+from .designer import (
+    InputParam,
+    OutputParam,
+    Inputs,
+    Outputs,
+    DataType,
+    TI,
+    TO,
+    Asset,
+    BaseReconstructor,
+    BaseSegmentor,
+)
+from .default import DefaultPipeline
 from aixplain.modules import asset
-
-
-class DataType(str, Enum):
-{% for data_type in data_types %}
-    {{ data_type | upper }} = "{{ data_type }}"
-{% endfor %}
 
 {% for spec in specs %}
 
@@ -83,7 +85,7 @@ class {{ spec.class_name }}({{spec.base_class}}[{{ spec.class_name }}Inputs, {{ 
 {% endfor %}
 
 
-class Pipeline(BasePipeline):
+class Pipeline(DefaultPipeline):
 
 {% for spec in specs %}
     def {{ spec.function_name }}(self, assetId: Union[str, asset.Asset], *args, **kwargs) -> {{ spec.class_name }}:

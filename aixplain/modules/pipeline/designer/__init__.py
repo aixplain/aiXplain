@@ -9,7 +9,7 @@ from .nodes import (
     BaseReconstructor,
     BaseSegmentor,
 )
-from .pipeline import Pipeline, DataType
+from .pipeline import Pipeline
 from .base import (
     Node,
     Link,
@@ -19,6 +19,8 @@ from .base import (
     OutputParam,
     Inputs,
     Outputs,
+    TI,
+    TO,
 )
 from .enums import (
     ParamType,
@@ -27,6 +29,7 @@ from .enums import (
     NodeType,
     AssetType,
     FunctionType,
+    DataType,
 )
 from .mixins import LinkableMixin, OutputableMixin, RoutableMixin
 
@@ -60,4 +63,6 @@ __all__ = [
     "Inputs",
     "Outputs",
     "ParamProxy",
+    "TI",
+    "TO",
 ]

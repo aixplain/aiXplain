@@ -1,9 +1,9 @@
 import json
 
-from aixplain.api import Pipeline, DataType
+from aixplain.factories.pipeline_factory import PipelineFactory
+from aixplain.modules.pipeline.designer import DataType
 
-
-pipeline = Pipeline()
+pipeline = PipelineFactory.init()
 
 # add nodes to the pipeline
 input = pipeline.input()
@@ -17,7 +17,9 @@ speech_recognition = pipeline.speech_recognition(
 )
 
 # build script node with input and output params
-script = pipeline.script(script_path="aixplain/api/samples/fixtures/script.py")
+script = pipeline.script(
+    script_path="aixplain/modules/pipeline/samples/fixtures/script.py"
+)
 script.inputs.create_param(code="transcripts", data_type=DataType.TEXT)
 script.inputs.create_param(code="speakers", data_type=DataType.LABEL)
 script.outputs.create_param(code="data", data_type=DataType.TEXT)

@@ -1,8 +1,5 @@
 from typing import List, Union, Type, TYPE_CHECKING
 
-from aixplain.factories.file_factory import FileFactory
-from aixplain.factories.script_factory import ScriptFactory
-from aixplain.factories.model_factory import ModelFactory
 from aixplain.modules import asset
 
 from .enums import (
@@ -11,6 +8,7 @@ from .enums import (
     RouteType,
     Operation,
     AssetType,
+    DataType,
 )
 from .base import (
     Node,
@@ -27,8 +25,7 @@ from .base import (
 from .mixins import LinkableMixin, OutputableMixin, RoutableMixin
 
 if TYPE_CHECKING:
-    from .pipeline_base import BasePipeline as Pipeline
-    from .pipeline import DataType
+    from .pipeline import Pipeline
 
 
 class Asset(Node[TI, TO], LinkableMixin, OutputableMixin):
@@ -59,6 +56,8 @@ class Asset(Node[TI, TO], LinkableMixin, OutputableMixin):
         version: str = None,
         pipeline: "Pipeline" = None,
     ):
+        from aixplain.factories.model_factory import ModelFactory
+
         super().__init__(pipeline=pipeline)
         self.assetId = assetId
         self.supplier = supplier
@@ -129,13 +128,15 @@ class Input(Node[InputInputs, InputOutputs], LinkableMixin, RoutableMixin):
     aixplain platform and the link will be passed as the input to the node.
     """
 
-    data_types: List["DataType"] = None
+    data_types: List[DataType] = None
     data: str = None
     type: NodeType = NodeType.INPUT
     inputs_class: Type[TI] = InputInputs
     outputs_class: Type[TO] = InputOutputs
 
     def __init__(self, pipeline: "Pipeline" = None):
+        from aixplain.factories.file_factory import FileFactory
+
         super().__init__(pipeline=pipeline)
         self.data_types = []
         if self.data:
@@ -168,7 +169,7 @@ class Output(Node[OutputInputs, OutputOutputs]):
     Output nodes has only one input parameter called `output`.
     """
 
-    data_types: List["DataType"] = None
+    data_types: List[DataType] = None
     type: NodeType = NodeType.OUTPUT
     inputs_class: Type[TI] = OutputInputs
     outputs_class: Type[TO] = OutputOutputs
@@ -197,6 +198,8 @@ class Script(Node[TI, TO], LinkableMixin, OutputableMixin):
     type: NodeType = NodeType.SCRIPT
 
     def __init__(self, pipeline: "Pipeline" = None, script_path: str = None):
+        from aixplain.factories.script_factory import ScriptFactory
+
         super().__init__(pipeline=pipeline)
         if script_path:
             self.fileId, _ = ScriptFactory.upload_script(script_path)
@@ -215,14 +218,14 @@ class Route(Serializable):
     nodes based on the input data type.
     """
 
-    value: "DataType"
+    value: DataType
     path: List[Union[Node, int]]
     operation: Operation
     type: RouteType
 
     def __init__(
         self,
-        value: "DataType",
+        value: DataType,
         path: List[Union[Node, int]],
         operation: Operation,
         type: RouteType,

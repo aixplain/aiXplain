@@ -23,6 +23,7 @@ Description:
 import json
 import logging
 import os
+import uuid
 from typing import Dict, List, Optional, Text, Union
 from aixplain.enums.data_type import DataType
 from aixplain.enums.function import Function
@@ -44,6 +45,22 @@ class PipelineFactory:
 
     aixplain_key = config.AIXPLAIN_API_KEY
     backend_url = config.BACKEND_URL
+
+    @classmethod
+    def init(cls, name: Optional[Text] = None, api_key: Optional[Text] = None) -> Pipeline:
+        """Initialize a new Pipeline
+
+        Args:
+            name (Text): Pipeline Name
+            api_key (Optional[Text], optional): Team API Key to create the Pipeline. Defaults to None.
+
+        Returns:
+            Pipeline: instance of the new pipeline
+        """
+        if api_key is None:
+            api_key = config.TEAM_API_KEY
+        name = name or f"pipeline-{uuid.uuid4()}"
+        return Pipeline(id="", name=name, api_key=api_key, nodes=[], links=[], instance=None)
 
     @classmethod
     def __get_typed_nodes(cls, response: Dict, type: str) -> List[Dict]:

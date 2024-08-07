@@ -1,6 +1,6 @@
 import pytest
 
-from aixplain.api import Pipeline
+from aixplain.factories.pipeline_factory import PipelineFactory
 
 
 @pytest.mark.parametrize(
@@ -11,7 +11,7 @@ from aixplain.api import Pipeline
 )
 def test_routing_pipeline(data):
 
-    pipeline = Pipeline()
+    pipeline = PipelineFactory.init()
 
     # add nodes to the pipeline
     input = pipeline.input()
@@ -40,6 +40,3 @@ def test_routing_pipeline(data):
     assert len(output["data"]) > 0
     assert output["data"][0].get("segments") is not None
     assert len(output["data"][0]["segments"]) > 0
-
-    # would like to assert the output of the pipeline but it's not
-    # deterministic, so we can't really assert the output

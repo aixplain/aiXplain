@@ -1,9 +1,9 @@
 import json
 
-from aixplain.api import Pipeline
+from aixplain.factories.pipeline_factory import PipelineFactory
 
 
-pipeline = Pipeline()
+pipeline = PipelineFactory.init()
 
 # add nodes to the pipeline
 input = pipeline.input()
