@@ -9,11 +9,11 @@ pipeline = PipelineFactory.init()
 input = pipeline.input()
 
 segmentor = pipeline.speaker_diarization_audio(
-    assetId="62fab6ecb39cca09ca5bc365"
+    asset_id="62fab6ecb39cca09ca5bc365"
 )
 
 speech_recognition = pipeline.speech_recognition(
-    assetId="60ddefab8d38c51c5885ee38"
+    asset_id="60ddefab8d38c51c5885ee38"
 )
 
 # build script node with input and output params

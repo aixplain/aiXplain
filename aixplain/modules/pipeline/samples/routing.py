@@ -5,10 +5,10 @@ pipeline = PipelineFactory.init()
 
 # add nodes to the pipeline
 input = pipeline.input()
-translation = pipeline.translation(assetId="60ddefae8d38c51c5885eff7")
+translation = pipeline.asset(asset_id="60ddefae8d38c51c5885eff7")
 
 speech_recognition = pipeline.speech_recognition(
-    assetId="621cf3fa6442ef511d2830af"
+    asset_id="621cf3fa6442ef511d2830af"
 )
 
 # route the input to the translation and speech recognition nodes

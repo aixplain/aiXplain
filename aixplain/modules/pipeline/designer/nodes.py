@@ -40,7 +40,7 @@ class Asset(Node[TI, TO], LinkableMixin, OutputableMixin):
     asset function spec.
     """
 
-    assetId: Union[asset.Asset, str] = None
+    asset_id: Union[asset.Asset, str] = None
     function: str = None
     supplier: str = None
     version: str = None
@@ -51,39 +51,63 @@ class Asset(Node[TI, TO], LinkableMixin, OutputableMixin):
 
     def __init__(
         self,
-        assetId: Union[asset.Asset, str] = None,
+        asset_id: Union[asset.Asset, str] = None,
         supplier: str = None,
         version: str = None,
         pipeline: "Pipeline" = None,
     ):
-        from aixplain.factories.model_factory import ModelFactory
-
         super().__init__(pipeline=pipeline)
-        self.assetId = assetId
+        self.asset_id = asset_id
         self.supplier = supplier
         self.version = version
 
-        if not self.assetId:
-            return
+        if self.asset_id:
+            self.populate_asset()
 
-        if isinstance(self.assetId, str):
-            self.asset = ModelFactory.get(self.assetId)
-        elif isinstance(self.assetId, asset.Asset):
-            self.asset = self.assetId
-            self.assetId = self.assetId.id
+    def populate_asset(self):
+        from aixplain.factories.model_factory import ModelFactory
+
+        if isinstance(self.asset_id, str):
+            self.asset = ModelFactory.get(self.asset_id)
+        elif isinstance(self.asset_id, asset.Asset):
+            self.asset = self.asset_id
+            self.asset_id = self.asset_id.id
         else:
             raise ValueError("assetId should be a string or an Asset instance")
 
-        self.supplier = self.asset.supplier.value["code"]
+        try:
+            self.supplier = self.asset.supplier.value["code"]
+        except Exception:
+            self.supplier = str(self.asset.supplier)
+
         self.version = self.asset.version
 
-        self._auto_set_params()
-        self.validate_asset()
+        if self.function:
+            if self.asset.function.value != self.function:
+                raise ValueError(
+                    f"Function {self.function} is not supported by asset {self.asset_id}"  # noqa
+                )
+        else:
+            self.function = self.asset.function.value
+            self._auto_populate_params()
 
-    def validate_asset(self):
-        if self.asset.function.value != self.function:
-            raise ValueError(
-                f"Function {self.function} is not supported by asset {self.assetId}"  # noqa
+        self._auto_set_params()
+
+    def _auto_populate_params(self):
+        from aixplain.enums.function import FunctionInputOutput
+
+        spec = FunctionInputOutput[self.asset.function.value]["spec"]
+        for item in spec["params"]:
+            self.inputs.create_param(
+                code=item["code"],
+                data_type=item["dataType"],
+                is_required=item["required"],
+            )
+
+        for item in spec["output"]:
+            self.outputs.create_param(
+                code=item["code"],
+                data_type=item["dataType"],
             )
 
     def _auto_set_params(self):
@@ -96,7 +120,7 @@ class Asset(Node[TI, TO], LinkableMixin, OutputableMixin):
     def serialize(self) -> dict:
         obj = super().serialize()
         obj["function"] = self.function
-        obj["assetId"] = self.assetId
+        obj["assetId"] = self.asset_id
         obj["supplier"] = self.supplier
         obj["version"] = self.version
         obj["assetType"] = self.assetType

@@ -87,11 +87,11 @@ class {{ spec.class_name }}({{spec.base_class}}[{{ spec.class_name }}Inputs, {{ 
 class Pipeline(DefaultPipeline):
 
 {% for spec in specs %}
-    def {{ spec.function_name }}(self, assetId: Union[str, asset.Asset], *args, **kwargs) -> {{ spec.class_name }}:
+    def {{ spec.function_name }}(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> {{ spec.class_name }}:
         \"\"\"
         {{ spec.description | wordwrap }}
         \"\"\"
-        return {{ spec.class_name }}(*args, assetId=assetId, pipeline=self, **kwargs)
+        return {{ spec.class_name }}(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
 {% endfor %}
 """

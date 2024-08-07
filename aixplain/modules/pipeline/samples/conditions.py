@@ -8,7 +8,7 @@ pipeline = PipelineFactory.init()
 input = pipeline.input()
 
 sentiment_analysis = pipeline.sentiment_analysis(
-    assetId="6172874f720b09325cbcdc33"
+    asset_id="6172874f720b09325cbcdc33"
 )
 
 positive_output = pipeline.output()

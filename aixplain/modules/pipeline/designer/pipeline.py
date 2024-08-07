@@ -226,7 +226,9 @@ class Pipeline(Serializable):
             infer_data_type(self)
             infer_data_type(to_node)
 
-    def asset(self, asset_class: Type[T], *args, **kwargs) -> T:
+    def asset(
+        self, asset_id: str, *args, asset_class: Type[T] = Asset, **kwargs
+    ) -> T:
         """
         Shortcut to create an asset node for the current pipeline.
         All params will be passed as keyword arguments to the node
@@ -235,7 +237,7 @@ class Pipeline(Serializable):
         :param kwargs: keyword arguments
         :return: the node
         """
-        return asset_class(*args, pipeline=self, **kwargs)
+        return asset_class(asset_id, *args, pipeline=self, **kwargs)
 
     def decision(self, *args, **kwargs) -> Decision:
         """
