@@ -8,6 +8,11 @@
             {
                 "function": "translation",
                 "supplier": "AWS"
+            },
+            {
+                "model": "60ddefca8d38c51c58860108",
+                "function": null,
+                "supplier": null
             }
         ]
     }
