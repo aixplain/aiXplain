@@ -22,9 +22,10 @@ def build_agent(payload: Dict, api_key: Text = config.TEAM_API_KEY) -> Agent:
                     break
 
             tool = ModelTool(
-                function=Function(tool["function"]),
+                function=Function(tool["function"]) if tool["function"] is not None else None,
                 supplier=tool["supplier"],
                 version=tool["version"],
+                model=tool["assetId"],
             )
         elif tool["type"] == "pipeline":
             tool = PipelineTool(description=tool["description"], pipeline=tool["assetId"])
