@@ -325,9 +325,16 @@ class Node(Generic[TI, TO], Serializable):
     outputs_class: Optional[Type[TO]] = Outputs
     pipeline: Optional["Pipeline"] = None
 
-    def __init__(self, pipeline: "Pipeline" = None):
+    def __init__(
+        self,
+        pipeline: "Pipeline" = None,
+        number: Optional[int] = None,
+        label: Optional[str] = None,
+    ):
         self.inputs = self.inputs_class(node=self)
         self.outputs = self.outputs_class(node=self)
+        self.number = number
+        self.label = label
 
         if pipeline:
             self.attach_to(pipeline)
@@ -341,13 +348,15 @@ class Node(Generic[TI, TO], Serializable):
         assert (
             self not in pipeline.nodes
         ), "Node already attached to a pipeline"
-        assert self.number is None, "Node number already set"
-        assert not self.label, "Node label already set"
         assert self.type, "Node type not set"
 
         self.pipeline = pipeline
-        self.number = len(pipeline.nodes)
-        self.label = f"{self.type.value}(ID={self.number})"
+        if not self.number:
+            self.number = len(pipeline.nodes)
+        if not self.label:
+            self.label = f"{self.type.value}(ID={self.number})"
+
+        assert not pipeline.get_node(self.number), "Node number already exists"
         pipeline.nodes.append(self)
         return self
 

@@ -32,10 +32,12 @@ def test_create_node():
     with mock.patch(
         "aixplain.modules.pipeline.designer.Node.attach_to"
     ) as mock_attach_to:
-        node = BareNode()
+        node = BareNode(number=3, label="FOO")
         mock_attach_to.assert_not_called()
         assert isinstance(node.inputs, Inputs)
         assert isinstance(node.outputs, Outputs)
+        assert node.number == 3
+        assert node.label == "FOO"
 
     class FooNodeInputs(Inputs):
         pass
@@ -50,10 +52,12 @@ def test_create_node():
     with mock.patch(
         "aixplain.modules.pipeline.designer.Node.attach_to"
     ) as mock_attach_to:
-        node = FooNode(pipeline=pipeline)
+        node = FooNode(pipeline=pipeline, number=3, label="FOO")
         mock_attach_to.assert_called_once_with(pipeline)
         assert isinstance(node.inputs, FooNodeInputs)
         assert isinstance(node.outputs, FooNodeOutputs)
+        assert node.number == 3
+        assert node.label == "FOO"
 
 
 def test_node_attach_to():
@@ -72,41 +76,38 @@ def test_node_attach_to():
     class AssetNode(Node):
         type: NodeType = NodeType.ASSET
 
-    node = AssetNode()
-    node.number = 0
-    with pytest.raises(AssertionError) as excinfo:
-        node.attach_to(pipeline)
+    a = AssetNode()
+    b = AssetNode()
+    c = AssetNode()
+    d = AssetNode(number=8)
+    e = AssetNode(number=8)
 
-    assert "Node number already set" in str(excinfo.value)
-
-    node = AssetNode()
-    node.label = "ASSET(ID=0)"
-
-    with pytest.raises(AssertionError) as excinfo:
-        node.attach_to(pipeline)
-
-    assert "Node label already set" in str(excinfo.value)
-
-    node = AssetNode()
-    node.attach_to(pipeline)
-    assert node.pipeline is pipeline
-    assert node.number == 0
-    assert node.label == "ASSET(ID=0)"
-    assert node in pipeline.nodes
-    assert len(pipeline.nodes) == 1
-
-    node1 = AssetNode()
-    node1.attach_to(pipeline)
-    assert node1.pipeline is pipeline
-    assert node1.number == 1
-    assert node1.label == "ASSET(ID=1)"
-    assert node in pipeline.nodes
+    a.attach_to(pipeline)
+    b.attach_to(pipeline)
+    assert b.pipeline is pipeline
+    assert b.number == 1
+    assert b.label == "ASSET(ID=1)"
+    assert b in pipeline.nodes
     assert len(pipeline.nodes) == 2
 
-    with pytest.raises(AssertionError) as excinfo:
-        node.attach_to(pipeline)
+    c.attach_to(pipeline)
+    assert c.pipeline is pipeline
+    assert c.number == 2
+    assert c.label == "ASSET(ID=2)"
+    assert c in pipeline.nodes
+    assert len(pipeline.nodes) == 3
 
-    assert "Node already attached to a pipeline" in str(excinfo.value)
+    d.attach_to(pipeline)
+    assert d.pipeline is pipeline
+    assert d.number == 8
+    assert d.label == "ASSET(ID=8)"
+    assert d in pipeline.nodes
+    assert len(pipeline.nodes) == 4
+
+    with pytest.raises(AssertionError) as excinfo:
+        e.attach_to(pipeline)
+
+    assert "Node number already exists" in str(excinfo.value)
 
 
 def test_node_serialize():
