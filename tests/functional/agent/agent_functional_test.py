@@ -55,7 +55,7 @@ def test_end2end(run_input_map):
     agent = AgentFactory.create(name=run_input_map["agent_name"], llm_id=run_input_map["llm_id"], tools=tools)
     print(f"Agent created: {agent.__dict__}")
     print("Running agent")
-    response = agent.run(query=run_input_map["query"])
+    response = agent.run(data=run_input_map["query"])
     print(f"Agent response: {response}")
     assert response is not None
     assert response["completed"] is True
