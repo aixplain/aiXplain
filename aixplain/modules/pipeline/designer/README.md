@@ -9,11 +9,11 @@ Aixplan SDK provides a programmatic API to create pipelines for building solutio
 Here's a quick example to get you started:
 
 ```python
-from aixplain.api import Pipeline
+from aixplain.factories.pipeline_factory import PipelineFactory
 
 TRANSLATION_ASSET_ID = 'your-translation-asset-id'
 
-pipeline = Pipeline('Translation Pipeline')
+pipeline = PipelineFactory.init('Translation Pipeline')
 input_node = pipeline.input()
 translation_node = pipeline.translation(assetId=TRANSLATION_ASSET_ID)
 output_node = translation_node.use_output('data')
@@ -29,9 +29,10 @@ print(outputs)
 To create a pipeline and instantiate nodes, use the following code:
 
 ```python
-from aixplain.api import Pipeline, Input
+from aixplain.factories.pipeline_factory import PipelineFactory
+from aixplain.modules.pipeline.designer import Input
 
-pipeline = Pipeline()
+pipeline = PipelineFactory.init()
 input_node = Input(*args, **kwargs)
 input_node.attach(pipeline)
 ```
@@ -99,7 +100,7 @@ translation_node.outputs.create_param('source_audio', DataType.AUDIO)
 Alternatively, instantiate parameters directly using `InputParam` or `OutputParam` classes:
 
 ```python
-from aixplain.api import InputParam, OutputParam
+from aixplain.modules.pipeline.designer import InputParam, OutputParam
 
 source_language = InputParam(
     code='source_language',
