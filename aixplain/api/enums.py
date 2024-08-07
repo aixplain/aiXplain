@@ -1,14 +1,6 @@
 from enum import Enum
 
 
-class DataType(str, Enum):
-    TEXT = "text"
-    IMAGE = "image"
-    AUDIO = "audio"
-    VIDEO = "video"
-    LABEL = "label"
-
-
 class RouteType(str, Enum):
     CHECK_TYPE = "checkType"
     CHECK_VALUE = "checkValue"

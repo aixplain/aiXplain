@@ -9,11 +9,12 @@ from typing import (
     Iterator,
 )
 
-from .enums import NodeType, ParamType, DataType
+from .enums import NodeType, ParamType
 
 
 if TYPE_CHECKING:
     from .pipeline_base import BasePipeline as Pipeline
+    from .pipeline import DataType
 
 TI = TypeVar("TI", bound="Inputs")
 TO = TypeVar("TO", bound="Outputs")
@@ -32,7 +33,7 @@ class Param(Serializable):
 
     code: str
     param_type: ParamType
-    data_type: Optional[DataType] = None
+    data_type: Optional["DataType"] = None
     value: Optional[str] = None
     node: Optional["Node"] = None
     link_: Optional["Link"] = None
@@ -40,7 +41,7 @@ class Param(Serializable):
     def __init__(
         self,
         code: str,
-        data_type: Optional[DataType] = None,
+        data_type: Optional["DataType"] = None,
         value: Optional[str] = None,
         node: Optional["Node"] = None,
         param_type: Optional[ParamType] = None,
@@ -243,14 +244,14 @@ class ParamProxy(Serializable):
             setattr(self, param.code, param)
 
     def _create_param(
-        self, code: str, data_type: DataType = None, value: any = None
+        self, code: str, data_type: "DataType" = None, value: any = None
     ) -> Param:
         raise NotImplementedError()
 
     def create_param(
         self,
         code: str,
-        data_type: DataType = None,
+        data_type: "DataType" = None,
         value: any = None,
         is_required: bool = False,
     ) -> Param:
@@ -289,7 +290,7 @@ class Inputs(ParamProxy):
     def _create_param(
         self,
         code: str,
-        data_type: DataType = None,
+        data_type: "DataType" = None,
         value: any = None,
         is_required: bool = False,
     ) -> InputParam:
@@ -304,7 +305,7 @@ class Inputs(ParamProxy):
 class Outputs(ParamProxy):
 
     def _create_param(
-        self, code: str, data_type: DataType = None, value: any = None
+        self, code: str, data_type: "DataType" = None, value: any = None
     ) -> OutputParam:
         return OutputParam(code=code, data_type=data_type, value=value)
 

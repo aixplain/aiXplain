@@ -7,7 +7,6 @@ from aixplain.modules import asset
 
 from .enums import (
     NodeType,
-    DataType,
     FunctionType,
     RouteType,
     Operation,
@@ -29,6 +28,7 @@ from .mixins import LinkableMixin, OutputableMixin, RoutableMixin
 
 if TYPE_CHECKING:
     from .pipeline_base import BasePipeline as Pipeline
+    from .pipeline import DataType
 
 
 class Asset(Node[TI, TO], LinkableMixin, OutputableMixin):
@@ -129,7 +129,7 @@ class Input(Node[InputInputs, InputOutputs], LinkableMixin, RoutableMixin):
     aixplain platform and the link will be passed as the input to the node.
     """
 
-    data_types: List[DataType] = None
+    data_types: List["DataType"] = None
     data: str = None
     type: NodeType = NodeType.INPUT
     inputs_class: Type[TI] = InputInputs
@@ -168,7 +168,7 @@ class Output(Node[OutputInputs, OutputOutputs]):
     Output nodes has only one input parameter called `output`.
     """
 
-    data_types: List[DataType] = None
+    data_types: List["DataType"] = None
     type: NodeType = NodeType.OUTPUT
     inputs_class: Type[TI] = OutputInputs
     outputs_class: Type[TO] = OutputOutputs
@@ -215,14 +215,14 @@ class Route(Serializable):
     nodes based on the input data type.
     """
 
-    value: DataType
+    value: "DataType"
     path: List[Union[Node, int]]
     operation: Operation
     type: RouteType
 
     def __init__(
         self,
-        value: DataType,
+        value: "DataType",
         path: List[Union[Node, int]],
         operation: Operation,
         type: RouteType,

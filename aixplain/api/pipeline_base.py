@@ -1,5 +1,5 @@
 import uuid
-from typing import List, Type, Tuple, TypeVar
+from typing import List, Type, Tuple, TypeVar, TYPE_CHECKING
 
 from .base import Serializable, Node, Link
 from .nodes import (
@@ -13,9 +13,12 @@ from .nodes import (
     BareReconstructor,
     BareSegmentor,
 )
-from .enums import NodeType, DataType, RouteType, Operation
+from .enums import NodeType, RouteType, Operation
 
 from aixplain.factories.pipeline_factory import PipelineFactory
+
+if TYPE_CHECKING:
+    from .pipeline import DataType
 
 T = TypeVar("T", bound="Asset")
 
@@ -312,7 +315,9 @@ class BasePipeline(Serializable):
         """
         return Output(*args, pipeline=self, **kwargs)
 
-    def router(self, routes: Tuple[DataType, Node], *args, **kwargs) -> Router:
+    def router(
+        self, routes: Tuple["DataType", Node], *args, **kwargs
+    ) -> Router:
         """
         Shortcut to create an decision node for the current pipeline.
         All params will be passed as keyword arguments to the node

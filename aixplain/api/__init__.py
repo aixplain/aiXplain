@@ -9,9 +9,7 @@ from .nodes import (
     BaseReconstructor,
     BaseSegmentor,
 )
-from .pipeline import (
-    Pipeline,
-)
+from .pipeline import Pipeline, DataType
 from .base import (
     Node,
     Link,
@@ -25,7 +23,6 @@ from .base import (
 from .enums import (
     ParamType,
     RouteType,
-    DataType,
     Operation,
     NodeType,
     AssetType,
