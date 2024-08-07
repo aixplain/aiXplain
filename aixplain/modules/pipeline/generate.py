@@ -15,8 +15,7 @@ SEGMENTOR_FUNCTIONS = [
 RECONSTRUCTOR_FUNCTIONS = ["text-reconstruction", "audio-reconstruction"]
 
 MODULE_NAME = "pipeline"
-TEMPLATE = """
-# This is an auto generated module.
+TEMPLATE = """# This is an auto generated module. PLEASE DO NOT EDIT
 
 
 from typing import Union, Type
