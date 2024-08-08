@@ -47,9 +47,7 @@ class PipelineFactory:
     backend_url = config.BACKEND_URL
 
     @classmethod
-    def get(
-        cls, pipeline_id: Text, api_key: Optional[Text] = None
-    ) -> Pipeline:
+    def get(cls, pipeline_id: Text, api_key: Optional[Text] = None) -> Pipeline:
         """Create a 'Pipeline' object from pipeline id
 
         Args:
@@ -77,9 +75,7 @@ class PipelineFactory:
                     "Authorization": f"Token {config.TEAM_API_KEY}",
                     "Content-Type": "application/json",
                 }
-            logging.info(
-                f"Start service for GET Pipeline  - {url} - {headers}"
-            )
+            logging.info(f"Start service for GET Pipeline  - {url} - {headers}")
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()
             # set api key
@@ -94,11 +90,9 @@ class PipelineFactory:
             if resp is not None and "statusCode" in resp:
                 status_code = resp["statusCode"]
                 message = resp["message"]
-                message = (
-                    f"Pipeline Creation: Status {status_code} - {message}"
-                )
+                message = f"Pipeline Creation: Status {status_code} - {message}"
             else:
-                message = "Pipeline Creation: Unspecified Error"
+                message = f"Pipeline Creation: Unspecified Error {e}"
             logging.error(message)
             raise Exception(f"Status {status_code}: {message}")
 
@@ -121,9 +115,7 @@ class PipelineFactory:
             List[Pipeline]: List of pipelines based on given filters
         """
         try:
-            url = urljoin(
-                cls.backend_url, f"sdk/pipelines/?pageNumber={page_number}"
-            )
+            url = urljoin(cls.backend_url, f"sdk/pipelines/?pageNumber={page_number}")
             if cls.aixplain_key != "":
                 headers = {
                     "x-aixplain-key": f"{cls.aixplain_key}",
@@ -136,14 +128,9 @@ class PipelineFactory:
                 }
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()
-            logging.info(
-                f"Listing Pipelines: Status of getting Pipelines on Page {page_number}: {resp}"
-            )
+            logging.info(f"Listing Pipelines: Status of getting Pipelines on Page {page_number}: {resp}")
             all_pipelines = resp["items"]
-            pipeline_list = [
-                build_from_response(pipeline_info_json)
-                for pipeline_info_json in all_pipelines
-            ]
+            pipeline_list = [build_from_response(pipeline_info_json) for pipeline_info_json in all_pipelines]
             return pipeline_list
         except Exception as e:
             error_message = f"Listing Pipelines: Error in getting Pipelines on Page {page_number}: {e}"
@@ -166,9 +153,7 @@ class PipelineFactory:
                 pipeline_list += cls.get_assets_from_page(page_number)
             return pipeline_list
         except Exception as e:
-            error_message = (
-                f"Listing Pipelines: Error in getting {k} Pipelines: {e}"
-            )
+            error_message = f"Listing Pipelines: Error in getting {k} Pipelines: {e}"
             logging.error(error_message, exc_info=True)
             return []
 
@@ -198,9 +183,7 @@ class PipelineFactory:
                 "Content-Type": "application/json",
             }
 
-        assert (
-            0 < page_size <= 100
-        ), "Pipeline List Error: Page size must be greater than 0 and not exceed 100."
+        assert 0 < page_size <= 100, "Pipeline List Error: Page size must be greater than 0 and not exceed 100."
         payload = {
             "pageSize": page_size,
             "pageNumber": page_number,
@@ -229,20 +212,14 @@ class PipelineFactory:
         if input_data_types is not None:
             if isinstance(input_data_types, DataType) is True:
                 input_data_types = [input_data_types]
-            payload["inputDataTypes"] = [
-                data_type.value for data_type in input_data_types
-            ]
+            payload["inputDataTypes"] = [data_type.value for data_type in input_data_types]
 
         if output_data_types is not None:
             if isinstance(output_data_types, DataType) is True:
                 output_data_types = [output_data_types]
-            payload["inputDataTypes"] = [
-                data_type.value for data_type in output_data_types
-            ]
+            payload["inputDataTypes"] = [data_type.value for data_type in output_data_types]
 
-        logging.info(
-            f"Start service for POST List Pipeline - {url} - {headers} - {json.dumps(payload)}"
-        )
+        logging.info(f"Start service for POST List Pipeline - {url} - {headers} - {json.dumps(payload)}")
         r = _request_with_retry("post", url, headers=headers, json=payload)
         resp = r.json()
 
@@ -251,9 +228,7 @@ class PipelineFactory:
             results = resp["items"]
             page_total = resp["pageTotal"]
             total = resp["total"]
-            logging.info(
-                f"Response for POST List Pipeline - Page Total: {page_total} / Total: {total}"
-            )
+            logging.info(f"Response for POST List Pipeline - Page Total: {page_total} / Total: {total}")
             for pipeline in results:
                 pipelines.append(build_from_response(pipeline))
         return {
@@ -316,9 +291,7 @@ class PipelineFactory:
 
             for i, node in enumerate(pipeline["nodes"]):
                 if "functionType" in node and node["functionType"] == "AI":
-                    pipeline["nodes"][i]["functionType"] = pipeline["nodes"][
-                        i
-                    ]["functionType"].lower()
+                    pipeline["nodes"][i]["functionType"] = pipeline["nodes"][i]["functionType"].lower()
             # prepare payload
             payload = {
                 "name": name,
@@ -331,9 +304,7 @@ class PipelineFactory:
                 "Authorization": f"Token {api_key}",
                 "Content-Type": "application/json",
             }
-            logging.info(
-                f"Start service for POST Create Pipeline - {url} - {headers} - {json.dumps(payload)}"
-            )
+            logging.info(f"Start service for POST Create Pipeline - {url} - {headers} - {json.dumps(payload)}")
             r = _request_with_retry("post", url, headers=headers, json=payload)
             response = r.json()
 

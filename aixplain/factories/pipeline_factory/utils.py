@@ -36,7 +36,7 @@ def build_from_response(response: Dict, load_architecture: bool = False) -> Pipe
             for node_json in response["nodes"]:
                 if node_json["type"].lower() == "input":
                     node = Input(
-                        data=node_json["data"],
+                        data=node_json["data"] if "data" in node_json else None,
                         data_types=[DataType(dt) for dt in node_json["dataType"]],
                     )
                 elif node_json["type"].lower() == "asset":
@@ -64,6 +64,7 @@ def build_from_response(response: Dict, load_architecture: bool = False) -> Pipe
                         from_node=pipeline.get_node(link_json["from"]),
                         to_node=pipeline.get_node(link_json["to"]),
                         from_param=param_mapping["from"],
+                        to_param=param_mapping["to"],
                     )
                     pipeline.add_link(link)
         except Exception as e:
