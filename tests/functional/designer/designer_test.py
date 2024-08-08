@@ -1,6 +1,6 @@
 import pytest
-from aixplain.enums import DataType
 
+from aixplain.enums import DataType
 from aixplain.factories import PipelineFactory
 from aixplain.modules.pipeline.designer.base import Link
 from aixplain.modules import Pipeline
