@@ -105,7 +105,7 @@ class Agent(Model):
         timeout: float = 300,
         parameters: Dict = {},
         wait_time: float = 0.5,
-        content: List[Text] = [],
+        content: Optional[Union[Dict[Text, Text], List[Text]]] = None,
     ) -> Dict:
         """Runs an agent call.
 
@@ -118,7 +118,7 @@ class Agent(Model):
             timeout (float, optional): total polling time. Defaults to 300.
             parameters (Dict, optional): optional parameters to the model. Defaults to "{}".
             wait_time (float, optional): wait time in seconds between polling calls. Defaults to 0.5.
-            content (List[Text], optional): Content inputs to be processed according to the query. Defaults to [].
+            content (Union[Dict[Text, Text], List[Text]], optional): Content inputs to be processed according to the query. Defaults to None.
 
         Returns:
             Dict: parsed output from model
@@ -156,7 +156,7 @@ class Agent(Model):
         history: Optional[List[Dict]] = None,
         name: Text = "model_process",
         parameters: Dict = {},
-        content: List[Text] = [],
+        content: Optional[Union[Dict[Text, Text], List[Text]]] = None,
     ) -> Dict:
         """Runs asynchronously an agent call.
 
@@ -167,7 +167,7 @@ class Agent(Model):
             history (Optional[List[Dict]], optional): chat history (in case session ID is None). Defaults to None.
             name (Text, optional): ID given to a call. Defaults to "model_process".
             parameters (Dict, optional): optional parameters to the model. Defaults to "{}".
-            content (List[Text], optional): Content inputs to be processed according to the query. Defaults to [].
+            content (Union[Dict[Text, Text], List[Text]], optional): Content inputs to be processed according to the query. Defaults to None.
 
         Returns:
             dict: polling URL in response
@@ -183,19 +183,25 @@ class Agent(Model):
                     session_id = data.get("session_id")
                 if history is None:
                     history = data.get("history")
-                if len(content) == 0:
-                    content = data.get("content", [])
+                if content is None:
+                    content = data.get("content")
             else:
                 query = data
 
         # process content inputs
-        content = list(set(content))
-        if len(content) > 0:
+        if content is not None:
             assert FileFactory.check_storage_type(query) == StorageType.TEXT, "When providing 'content', query must be text."
-            assert len(content) <= 3, "The maximum number of content inputs is 3."
-            for input_link in content:
-                input_link = FileFactory.to_link(input_link)
-                query += f"\n{input_link}"
+
+            if isinstance(content, list):
+                assert len(content) <= 3, "The maximum number of content inputs is 3."
+                for input_link in content:
+                    input_link = FileFactory.to_link(input_link)
+                    query += f"\n{input_link}"
+            elif isinstance(content, dict):
+                for key, value in content.items():
+                    assert key in query, f"Key '{key}' not found in query."
+                    value = FileFactory.to_link(value)
+                    query = query.replace(key, f"'{value}'")
 
         headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}
 
