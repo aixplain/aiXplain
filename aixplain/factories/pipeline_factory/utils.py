@@ -15,9 +15,7 @@ from aixplain.modules.pipeline.designer import (
 from typing import Dict
 
 
-def build_from_response(
-    response: Dict, load_architecture: bool = False
-) -> Pipeline:
+def build_from_response(response: Dict, load_architecture: bool = False) -> Pipeline:
     """Converts response Json to 'Pipeline' object
 
     Args:
@@ -31,7 +29,6 @@ def build_from_response(
         response["api_key"] = config.TEAM_API_KEY
 
     # instantiating pipeline generic info
-    print(response)
     pipeline = Pipeline(response["id"], response["name"], response["api_key"])
     if load_architecture is True:
         try:
@@ -40,9 +37,7 @@ def build_from_response(
                 if node_json["type"].lower() == "input":
                     node = Input(
                         data=node_json["data"],
-                        data_types=[
-                            DataType(dt) for dt in node_json["dataType"]
-                        ],
+                        data_types=[DataType(dt) for dt in node_json["dataType"]],
                     )
                 elif node_json["type"].lower() == "asset":
                     node = AssetNode(asset_id=node_json["assetId"])
@@ -53,11 +48,7 @@ def build_from_response(
                 elif node_json["type"].lower() == "decision":
                     raise NotImplementedError()
                 elif node_json["type"].lower() == "router":
-                    node = Router(
-                        routes=[
-                            Route(**route) for route in node_json["routes"]
-                        ]
-                    )
+                    node = Router(routes=[Route(**route) for route in node_json["routes"]])
                 elif node_json["type"].lower() == "script":
                     raise NotImplementedError()
                 elif node_json["type"].lower() == "output":
@@ -76,9 +67,7 @@ def build_from_response(
                     )
                     pipeline.add_link(link)
         except Exception as e:
-            logging.warning(
-                "Error loading pipeline architecture:, error: %s", e
-            )
+            logging.warning("Error loading pipeline architecture:, error: %s", e)
             pipeline.nodes = []
             pipeline.links = []
     return pipeline

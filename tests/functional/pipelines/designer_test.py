@@ -5,13 +5,25 @@ from aixplain.factories import PipelineFactory
 from aixplain.modules.pipeline.designer.base import Link
 from aixplain.modules import Pipeline
 from aixplain.modules.pipeline.designer import AssetNode
+from uuid import uuid4
 
 
-def test_create_asr_pipeline():
+@pytest.fixture
+def pipeline():
+    # Setup: Initialize the pipeline
     pipeline = PipelineFactory.init(
-        name="Pipeline for SDK Designer Test with Audio Input",
+        name=str(uuid4()),
     )
 
+    # Yield control back to the test function
+    yield pipeline
+
+    # Teardown: Ensure the pipeline is deleted
+    if pipeline is not None:
+        pipeline.delete()
+
+
+def test_create_asr_pipeline(pipeline):
     # add nodes to the pipeline
     input = pipeline.input()
     model1 = AssetNode(asset_id="60ddefab8d38c51c5885ee38")
@@ -46,14 +58,9 @@ def test_create_asr_pipeline():
 
     assert isinstance(pipeline, Pipeline)
     assert pipeline.id != ""
-    pipeline.delete()
 
 
-def test_create_mt_pipeline_and_run():
-    pipeline = PipelineFactory.init(
-        name="Pipeline for SDK Designer with Text Input to Run",
-    )
-
+def test_create_mt_pipeline_and_run(pipeline):
     # add nodes to the pipeline
     input = pipeline.input()
     model1 = pipeline.translation(asset_id="60ddef828d38c51c5885d491")
@@ -86,7 +93,6 @@ def test_create_mt_pipeline_and_run():
         "https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.txt",
         **{"batchmode": False, "version": "2.0"},
     )
-    pipeline.delete()
     assert output["status"] == "SUCCESS"
 
 
@@ -100,22 +106,16 @@ def test_create_mt_pipeline_and_run():
         # ),
     ],
 )
-def test_routing_pipeline(data, dataType):
+def test_routing_pipeline(pipeline, data, dataType):
 
     TRANSLATION_ASSET = "60ddefae8d38c51c5885eff7"
     SPEECH_RECOGNITION_ASSET = "621cf3fa6442ef511d2830af"
-
-    pipeline = PipelineFactory.init(
-        name="Pipeline for SDK Designer Test with Audio Input",
-    )
 
     input = pipeline.input()
     translation = pipeline.asset(TRANSLATION_ASSET)
     speech_recognition = pipeline.asset(SPEECH_RECOGNITION_ASSET)
 
-    input.route(
-        translation.inputs.text, speech_recognition.inputs.source_audio
-    )
+    input.route(translation.inputs.text, speech_recognition.inputs.source_audio)
 
     translation.use_output("data")
     speech_recognition.use_output("data")
@@ -124,7 +124,6 @@ def test_routing_pipeline(data, dataType):
 
     output = pipeline.run(data)
 
-    pipeline.delete()
     assert output["status"] == "SUCCESS"
     assert output.get("data") is not None
     assert len(output["data"]) > 0
