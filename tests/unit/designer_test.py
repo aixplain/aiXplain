@@ -1,6 +1,7 @@
 import pytest
 import unittest.mock as mock
 
+from aixplain.enums import DataType
 from aixplain.modules.pipeline.designer.base import (
     Node,
     Link,
@@ -13,18 +14,17 @@ from aixplain.modules.pipeline.designer.base import (
 )
 
 from aixplain.modules.pipeline.designer.enums import (
-    DataType,
     ParamType,
     NodeType,
 )
 
 from aixplain.modules.pipeline.designer.mixins import LinkableMixin
-from aixplain.modules.pipeline.designer.pipeline import Pipeline
+from aixplain.modules.pipeline.designer.pipeline import DesignerPipeline
 
 
 def test_create_node():
 
-    pipeline = Pipeline()
+    pipeline = DesignerPipeline()
 
     class BareNode(Node):
         pass
@@ -62,7 +62,7 @@ def test_create_node():
 
 def test_node_attach_to():
 
-    pipeline = Pipeline()
+    pipeline = DesignerPipeline()
 
     class BareNode(Node):
         pass
@@ -111,7 +111,7 @@ def test_node_attach_to():
 
 
 def test_node_serialize():
-    pipeline = Pipeline()
+    pipeline = DesignerPipeline()
 
     class AssetNode(Node):
         type: NodeType = NodeType.ASSET
@@ -376,7 +376,7 @@ def test_param_back_link():
 
 
 def test_create_pipeline():
-    pipeline = Pipeline(name="foo")
+    pipeline = DesignerPipeline(name="foo")
 
     assert pipeline.nodes == []
     assert pipeline.links == []
@@ -427,7 +427,7 @@ def test_link_create():
     assert link.from_param == "output"
     assert link.to_param == "input"
 
-    pipeline = Pipeline()
+    pipeline = DesignerPipeline()
 
     with mock.patch(
         "aixplain.modules.pipeline.designer.Link.attach_to"
@@ -444,7 +444,7 @@ def test_link_create():
 
 def test_link_attach_to():
 
-    pipeline = Pipeline()
+    pipeline = DesignerPipeline()
 
     class AssetNode(Node, LinkableMixin):
         type: NodeType = NodeType.ASSET
@@ -497,7 +497,7 @@ def test_link_attach_to():
 
 
 def test_link_serialize():
-    pipeline = Pipeline()
+    pipeline = DesignerPipeline()
 
     class AssetNode(Node, LinkableMixin):
         type: NodeType = NodeType.ASSET
@@ -649,7 +649,7 @@ def test_node_link():
 
 
 def test_pipeline_add_node():
-    pipeline = Pipeline()
+    pipeline = DesignerPipeline()
 
     class InputNode(Node):
         type: NodeType = NodeType.INPUT
@@ -669,7 +669,7 @@ def test_pipeline_add_node():
 
 
 def test_pipeline_add_nodes():
-    pipeline = Pipeline()
+    pipeline = DesignerPipeline()
 
     class InputNode(Node):
         type: NodeType = NodeType.INPUT
@@ -689,7 +689,7 @@ def test_pipeline_add_nodes():
 
 
 def test_pipeline_add_link():
-    pipeline = Pipeline()
+    pipeline = DesignerPipeline()
 
     class AssetNode(Node):
         type: NodeType = NodeType.ASSET

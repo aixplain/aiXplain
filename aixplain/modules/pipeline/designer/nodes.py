@@ -1,6 +1,7 @@
 from typing import List, Union, Type, TYPE_CHECKING
 
 from aixplain.modules import asset
+from aixplain.enums import DataType
 
 from .enums import (
     NodeType,
@@ -8,7 +9,6 @@ from .enums import (
     RouteType,
     Operation,
     AssetType,
-    DataType,
 )
 from .base import (
     Node,
@@ -25,10 +25,10 @@ from .base import (
 from .mixins import LinkableMixin, OutputableMixin, RoutableMixin
 
 if TYPE_CHECKING:
-    from .pipeline import Pipeline
+    from .pipeline import DesignerPipeline
 
 
-class Asset(Node[TI, TO], LinkableMixin, OutputableMixin):
+class AssetNode(Node[TI, TO], LinkableMixin, OutputableMixin):
     """
     Asset node class, this node will be used to fetch the asset from the
     aixplain platform and use it in the pipeline.
@@ -54,7 +54,7 @@ class Asset(Node[TI, TO], LinkableMixin, OutputableMixin):
         asset_id: Union[asset.Asset, str] = None,
         supplier: str = None,
         version: str = None,
-        pipeline: "Pipeline" = None,
+        pipeline: "DesignerPipeline" = None,
     ):
         super().__init__(pipeline=pipeline)
         self.asset_id = asset_id
@@ -158,7 +158,7 @@ class Input(Node[InputInputs, InputOutputs], LinkableMixin, RoutableMixin):
     inputs_class: Type[TI] = InputInputs
     outputs_class: Type[TO] = InputOutputs
 
-    def __init__(self, pipeline: "Pipeline" = None):
+    def __init__(self, pipeline: "DesignerPipeline" = None):
         from aixplain.factories.file_factory import FileFactory
 
         super().__init__(pipeline=pipeline)
@@ -198,7 +198,7 @@ class Output(Node[OutputInputs, OutputOutputs]):
     inputs_class: Type[TI] = OutputInputs
     outputs_class: Type[TO] = OutputOutputs
 
-    def __init__(self, pipeline: "Pipeline" = None):
+    def __init__(self, pipeline: "DesignerPipeline" = None):
         super().__init__(pipeline=pipeline)
         self.data_types = []
 
@@ -221,7 +221,9 @@ class Script(Node[TI, TO], LinkableMixin, OutputableMixin):
     script_path: str = None
     type: NodeType = NodeType.SCRIPT
 
-    def __init__(self, pipeline: "Pipeline" = None, script_path: str = None):
+    def __init__(
+        self, pipeline: "DesignerPipeline" = None, script_path: str = None
+    ):
         from aixplain.factories.script_factory import ScriptFactory
 
         super().__init__(pipeline=pipeline)
@@ -308,7 +310,9 @@ class Router(Node[RouterInputs, RouterOutputs], LinkableMixin):
     inputs_class: Type[TI] = RouterInputs
     outputs_class: Type[TO] = RouterOutputs
 
-    def __init__(self, routes: List[Route], pipeline: "Pipeline" = None):
+    def __init__(
+        self, routes: List[Route], pipeline: "DesignerPipeline" = None
+    ):
         super().__init__(pipeline=pipeline)
         self.routes = routes
 
@@ -347,7 +351,9 @@ class Decision(Node[DecisionInputs, DecisionOutputs], LinkableMixin):
     inputs_class: Type[TI] = DecisionInputs
     outputs_class: Type[TO] = DecisionOutputs
 
-    def __init__(self, routes: List[Route], pipeline: "Pipeline" = None):
+    def __init__(
+        self, routes: List[Route], pipeline: "DesignerPipeline" = None
+    ):
         super().__init__(pipeline=pipeline)
         self.routes = routes
 
@@ -367,7 +373,7 @@ class Decision(Node[DecisionInputs, DecisionOutputs], LinkableMixin):
         return obj
 
 
-class BaseSegmentor(Asset[TI, TO]):
+class BaseSegmentor(AssetNode[TI, TO]):
     """
     Segmentor node class, this node will be used to segment the input data
     into smaller fragments for much easier and efficient processing.
@@ -401,7 +407,7 @@ class BareSegmentor(BaseSegmentor[SegmentorInputs, SegmentorOutputs]):
     outputs_class: Type[TO] = SegmentorOutputs
 
 
-class BaseReconstructor(Asset[TI, TO]):
+class BaseReconstructor(AssetNode[TI, TO]):
     """
     Reconstructor node class, this node will be used to reconstruct the
     output of the segmented lines of execution.

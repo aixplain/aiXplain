@@ -1,8 +1,10 @@
 from typing import List, Type, Tuple, TypeVar
 
+from aixplain.enums import DataType
+
 from .base import Serializable, Node, Link
 from .nodes import (
-    Asset,
+    AssetNode,
     Decision,
     Script,
     Input,
@@ -12,13 +14,13 @@ from .nodes import (
     BareReconstructor,
     BareSegmentor,
 )
-from .enums import NodeType, RouteType, Operation, DataType
+from .enums import NodeType, RouteType, Operation
 
 
-T = TypeVar("T", bound="Asset")
+T = TypeVar("T", bound="AssetNode")
 
 
-class Pipeline(Serializable):
+class DesignerPipeline(Serializable):
     name: str = None
     nodes: List[Node] = None
     links: List[Link] = None
@@ -98,7 +100,7 @@ class Pipeline(Serializable):
                     raise ValueError(f"Output node {node.label} not linked in")
             # validate rest of the nodes are linked in and out
             else:
-                if isinstance(node, Asset):
+                if isinstance(node, AssetNode):
                     contains_asset = True
                 if node.number not in link_from_map:
                     raise ValueError(f"Node {node.label} not linked in")
@@ -227,7 +229,7 @@ class Pipeline(Serializable):
             infer_data_type(to_node)
 
     def asset(
-        self, asset_id: str, *args, asset_class: Type[T] = Asset, **kwargs
+        self, asset_id: str, *args, asset_class: Type[T] = AssetNode, **kwargs
     ) -> T:
         """
         Shortcut to create an asset node for the current pipeline.

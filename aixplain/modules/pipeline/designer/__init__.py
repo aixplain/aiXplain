@@ -1,5 +1,5 @@
 from .nodes import (
-    Asset,
+    AssetNode,
     Decision,
     Script,
     Input,
@@ -9,7 +9,7 @@ from .nodes import (
     BaseReconstructor,
     BaseSegmentor,
 )
-from .pipeline import Pipeline
+from .pipeline import DesignerPipeline
 from .base import (
     Node,
     Link,
@@ -29,14 +29,13 @@ from .enums import (
     NodeType,
     AssetType,
     FunctionType,
-    DataType,
 )
 from .mixins import LinkableMixin, OutputableMixin, RoutableMixin
 
 
 __all__ = [
-    "Pipeline",
-    "Asset",
+    "DesignerPipeline",
+    "AssetNode",
     "Decision",
     "Script",
     "Input",
@@ -52,7 +51,6 @@ __all__ = [
     "InputParam",
     "OutputParam",
     "RouteType",
-    "DataType",
     "Operation",
     "NodeType",
     "AssetType",

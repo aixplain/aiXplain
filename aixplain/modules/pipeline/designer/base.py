@@ -9,11 +9,12 @@ from typing import (
     Iterator,
 )
 
-from .enums import NodeType, ParamType, DataType
+from aixplain.enums import DataType
+from .enums import NodeType, ParamType
 
 
 if TYPE_CHECKING:
-    from .pipeline import Pipeline
+    from .pipeline import DesignerPipeline
 
 TI = TypeVar("TI", bound="Inputs")
 TO = TypeVar("TO", bound="Outputs")
@@ -131,7 +132,7 @@ class Link(Serializable):
     from_param: str
     to_param: str
 
-    pipeline: Optional["Pipeline"] = None
+    pipeline: Optional["DesignerPipeline"] = None
 
     def __init__(
         self,
@@ -139,7 +140,7 @@ class Link(Serializable):
         to_node: "Node",
         from_param: Union[Param, str],
         to_param: Union[Param, str],
-        pipeline: "Pipeline" = None,
+        pipeline: "DesignerPipeline" = None,
     ):
 
         assert from_param in from_node.outputs, "Invalid from param"
@@ -191,7 +192,7 @@ class Link(Serializable):
                     f"Data type mismatch between {from_param.data_type} and {to_param.data_type}"  # noqa
                 )
 
-    def attach_to(self, pipeline: "Pipeline"):
+    def attach_to(self, pipeline: "DesignerPipeline"):
         """
         Attach the link to the pipeline.
         :param pipeline: the pipeline
@@ -323,11 +324,11 @@ class Node(Generic[TI, TO], Serializable):
     outputs: Optional[TO] = None
     inputs_class: Optional[Type[TI]] = Inputs
     outputs_class: Optional[Type[TO]] = Outputs
-    pipeline: Optional["Pipeline"] = None
+    pipeline: Optional["DesignerPipeline"] = None
 
     def __init__(
         self,
-        pipeline: "Pipeline" = None,
+        pipeline: "DesignerPipeline" = None,
         number: Optional[int] = None,
         label: Optional[str] = None,
     ):
@@ -339,7 +340,7 @@ class Node(Generic[TI, TO], Serializable):
         if pipeline:
             self.attach_to(pipeline)
 
-    def attach_to(self, pipeline: "Pipeline"):
+    def attach_to(self, pipeline: "DesignerPipeline"):
         """
         Attach the node to the pipeline.
         :param pipeline: the pipeline

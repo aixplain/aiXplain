@@ -1,16 +1,6 @@
 from enum import Enum
 
 
-class DataType(str, Enum):
-    VIDEO = "video"
-    EMBEDDING = "embedding"
-    TEXT = "text"
-    NUMBER = "number"
-    IMAGE = "image"
-    LABEL = "label"
-    AUDIO = "audio"
-
-
 class RouteType(str, Enum):
     CHECK_TYPE = "checkType"
     CHECK_VALUE = "checkValue"
@@ -23,6 +13,8 @@ class Operation(str, Enum):
     LESS_THAN_OR_EQUAL = "lessThanOrEqual"
     EQUAL = "equal"
     DIFFERENT = "different"
+    CONTAIN = "contain"
+    NOT_CONTAIN = "notContain"
 
 
 class NodeType(str, Enum):

@@ -1,12 +1,12 @@
 from .asset import Pipeline as PipelineAsset
-from .designer import Pipeline as PipelineDesigner
+from .designer import DesignerPipeline
 
 
-class DefaultPipeline(PipelineAsset, PipelineDesigner):
+class DefaultPipeline(PipelineAsset, DesignerPipeline):
 
     def __init__(self, *args, **kwargs):
         PipelineAsset.__init__(self, *args, **kwargs)
-        PipelineDesigner.__init__(self)
+        DesignerPipeline.__init__(self)
 
     def save(self, *args, **kwargs):
         self.auto_infer()

@@ -2,16 +2,16 @@
 
 
 from typing import Union, Type
+from aixplain.enums import DataType
 
 from .designer import (
     InputParam,
     OutputParam,
     Inputs,
     Outputs,
-    DataType,
     TI,
     TO,
-    Asset,
+    AssetNode,
     BaseReconstructor,
     BaseSegmentor,
 )
@@ -35,7 +35,7 @@ class ObjectDetectionOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.LABEL)
 
 
-class ObjectDetection(Asset[ObjectDetectionInputs, ObjectDetectionOutputs]):
+class ObjectDetection(AssetNode[ObjectDetectionInputs, ObjectDetectionOutputs]):
     """
     Object Detection is a computer vision technology that identifies and locates
 objects within an image, typically by drawing bounding boxes around the
@@ -68,7 +68,7 @@ class LanguageIdentificationOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.LABEL)
 
 
-class LanguageIdentification(Asset[LanguageIdentificationInputs, LanguageIdentificationOutputs]):
+class LanguageIdentification(AssetNode[LanguageIdentificationInputs, LanguageIdentificationOutputs]):
     """
     Language Identification is the process of automatically determining the
 language in which a given piece of text is written.
@@ -102,7 +102,7 @@ class OcrOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.TEXT)
 
 
-class Ocr(Asset[OcrInputs, OcrOutputs]):
+class Ocr(AssetNode[OcrInputs, OcrOutputs]):
     """
     OCR, or Optical Character Recognition, is a technology that converts different
 types of documents, such as scanned paper documents, PDFs, or images captured
@@ -136,7 +136,7 @@ class ScriptExecutionOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.TEXT)
 
 
-class ScriptExecution(Asset[ScriptExecutionInputs, ScriptExecutionOutputs]):
+class ScriptExecution(AssetNode[ScriptExecutionInputs, ScriptExecutionOutputs]):
     """
     Script Execution refers to the process of running a set of programmed
 instructions or code within a computing environment, enabling the automated
@@ -171,7 +171,7 @@ class ImageLabelDetectionOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.LABEL)
 
 
-class ImageLabelDetection(Asset[ImageLabelDetectionInputs, ImageLabelDetectionOutputs]):
+class ImageLabelDetection(AssetNode[ImageLabelDetectionInputs, ImageLabelDetectionOutputs]):
     """
     Image Label Detection is a function that automatically identifies and assigns
 descriptive tags or labels to objects, scenes, or elements within an image,
@@ -204,7 +204,7 @@ class ImageCaptioningOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.TEXT)
 
 
-class ImageCaptioning(Asset[ImageCaptioningInputs, ImageCaptioningOutputs]):
+class ImageCaptioning(AssetNode[ImageCaptioningInputs, ImageCaptioningOutputs]):
     """
     Image Captioning is a process that involves generating a textual description of
 an image, typically using machine learning models to analyze the visual content
@@ -238,7 +238,7 @@ class AudioLanguageIdentificationOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.LABEL)
 
 
-class AudioLanguageIdentification(Asset[AudioLanguageIdentificationInputs, AudioLanguageIdentificationOutputs]):
+class AudioLanguageIdentification(AssetNode[AudioLanguageIdentificationInputs, AudioLanguageIdentificationOutputs]):
     """
     Audio Language Identification is a process that involves analyzing an audio
 recording to determine the language being spoken.
@@ -270,7 +270,7 @@ class AsrAgeClassificationOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.LABEL)
 
 
-class AsrAgeClassification(Asset[AsrAgeClassificationInputs, AsrAgeClassificationOutputs]):
+class AsrAgeClassification(AssetNode[AsrAgeClassificationInputs, AsrAgeClassificationOutputs]):
     """
     The ASR Age Classification function is designed to analyze audio recordings of
 speech to determine the speaker's age group by leveraging automatic speech
@@ -307,7 +307,7 @@ class BenchmarkScoringMtOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.LABEL)
 
 
-class BenchmarkScoringMt(Asset[BenchmarkScoringMtInputs, BenchmarkScoringMtOutputs]):
+class BenchmarkScoringMt(AssetNode[BenchmarkScoringMtInputs, BenchmarkScoringMtOutputs]):
     """
     Benchmark Scoring MT is a function designed to evaluate and score machine
 translation systems by comparing their output against a set of predefined
@@ -340,7 +340,7 @@ class AsrGenderClassificationOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.LABEL)
 
 
-class AsrGenderClassification(Asset[AsrGenderClassificationInputs, AsrGenderClassificationOutputs]):
+class AsrGenderClassification(AssetNode[AsrGenderClassificationInputs, AsrGenderClassificationOutputs]):
     """
     The ASR Gender Classification function analyzes audio recordings to determine
 and classify the speaker's gender based on their voice characteristics.
@@ -374,7 +374,7 @@ class BaseModelOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.TEXT)
 
 
-class BaseModel(Asset[BaseModelInputs, BaseModelOutputs]):
+class BaseModel(AssetNode[BaseModelInputs, BaseModelOutputs]):
     """
     The Base-Model function serves as a foundational framework designed to provide
 essential features and capabilities upon which more specialized or advanced
@@ -407,7 +407,7 @@ class LanguageIdentificationAudioOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.LABEL)
 
 
-class LanguageIdentificationAudio(Asset[LanguageIdentificationAudioInputs, LanguageIdentificationAudioOutputs]):
+class LanguageIdentificationAudio(AssetNode[LanguageIdentificationAudioInputs, LanguageIdentificationAudioOutputs]):
     """
     The Language Identification Audio function analyzes audio input to determine
 and identify the language being spoken.
@@ -439,7 +439,7 @@ class LoglikelihoodOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.NUMBER)
 
 
-class Loglikelihood(Asset[LoglikelihoodInputs, LoglikelihoodOutputs]):
+class Loglikelihood(AssetNode[LoglikelihoodInputs, LoglikelihoodOutputs]):
     """
     The Log Likelihood function measures the probability of observing the given
 data under a specific statistical model by taking the natural logarithm of the
@@ -475,7 +475,7 @@ class VideoEmbeddingOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.EMBEDDING)
 
 
-class VideoEmbedding(Asset[VideoEmbeddingInputs, VideoEmbeddingOutputs]):
+class VideoEmbedding(AssetNode[VideoEmbeddingInputs, VideoEmbeddingOutputs]):
     """
     Video Embedding is a process that transforms video content into a fixed-
 dimensional vector representation, capturing essential features and patterns to
@@ -510,7 +510,7 @@ class TextSegmenationOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.TEXT)
 
 
-class TextSegmenation(Asset[TextSegmenationInputs, TextSegmenationOutputs]):
+class TextSegmenation(AssetNode[TextSegmenationInputs, TextSegmenationOutputs]):
     """
     Text Segmentation is the process of dividing a continuous text into meaningful
 units, such as words, sentences, or topics, to facilitate easier analysis and
@@ -545,7 +545,7 @@ class ImageEmbeddingOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.TEXT)
 
 
-class ImageEmbedding(Asset[ImageEmbeddingInputs, ImageEmbeddingOutputs]):
+class ImageEmbedding(AssetNode[ImageEmbeddingInputs, ImageEmbeddingOutputs]):
     """
     Image Embedding is a process that transforms an image into a fixed-dimensional
 vector representation, capturing its essential features and enabling efficient
@@ -581,7 +581,7 @@ class ImageManipulationOutputs(Outputs):
         self.image = self.create_param(code="image", data_type=DataType.IMAGE)
 
 
-class ImageManipulation(Asset[ImageManipulationInputs, ImageManipulationOutputs]):
+class ImageManipulation(AssetNode[ImageManipulationInputs, ImageManipulationOutputs]):
     """
     Image Manipulation refers to the process of altering or enhancing digital
 images using various techniques and tools to achieve desired visual effects,
@@ -616,7 +616,7 @@ class ImageToVideoGenerationOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.VIDEO)
 
 
-class ImageToVideoGeneration(Asset[ImageToVideoGenerationInputs, ImageToVideoGenerationOutputs]):
+class ImageToVideoGeneration(AssetNode[ImageToVideoGenerationInputs, ImageToVideoGenerationOutputs]):
     """
     The Image To Video Generation function transforms a series of static images
 into a cohesive, dynamic video sequence, often incorporating transitions,
@@ -660,7 +660,7 @@ class AudioForcedAlignmentOutputs(Outputs):
         self.audio = self.create_param(code="audio", data_type=DataType.AUDIO)
 
 
-class AudioForcedAlignment(Asset[AudioForcedAlignmentInputs, AudioForcedAlignmentOutputs]):
+class AudioForcedAlignment(AssetNode[AudioForcedAlignmentInputs, AudioForcedAlignmentOutputs]):
     """
     Audio Forced Alignment is a process that synchronizes a given audio recording
 with its corresponding transcript by precisely aligning each spoken word or
@@ -697,7 +697,7 @@ class BenchmarkScoringAsrOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.LABEL)
 
 
-class BenchmarkScoringAsr(Asset[BenchmarkScoringAsrInputs, BenchmarkScoringAsrOutputs]):
+class BenchmarkScoringAsr(AssetNode[BenchmarkScoringAsrInputs, BenchmarkScoringAsrOutputs]):
     """
     Benchmark Scoring ASR is a function that evaluates and compares the performance
 of automatic speech recognition systems by analyzing their accuracy, speed, and
@@ -734,7 +734,7 @@ class VisualQuestionAnsweringOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.TEXT)
 
 
-class VisualQuestionAnswering(Asset[VisualQuestionAnsweringInputs, VisualQuestionAnsweringOutputs]):
+class VisualQuestionAnswering(AssetNode[VisualQuestionAnsweringInputs, VisualQuestionAnsweringOutputs]):
     """
     Visual Question Answering (VQA) is a task in artificial intelligence that
 involves analyzing an image and providing accurate, contextually relevant
@@ -767,7 +767,7 @@ class DocumentImageParsingOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.TEXT)
 
 
-class DocumentImageParsing(Asset[DocumentImageParsingInputs, DocumentImageParsingOutputs]):
+class DocumentImageParsing(AssetNode[DocumentImageParsingInputs, DocumentImageParsingOutputs]):
     """
     Document Image Parsing is the process of analyzing and converting scanned or
 photographed images of documents into structured, machine-readable formats by
@@ -800,7 +800,7 @@ class DocumentInformationExtractionOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.TEXT)
 
 
-class DocumentInformationExtraction(Asset[DocumentInformationExtractionInputs, DocumentInformationExtractionOutputs]):
+class DocumentInformationExtraction(AssetNode[DocumentInformationExtractionInputs, DocumentInformationExtractionOutputs]):
     """
     Document Information Extraction is the process of automatically identifying,
 extracting, and structuring relevant data from unstructured or semi-structured
@@ -836,7 +836,7 @@ class DepthEstimationOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.TEXT)
 
 
-class DepthEstimation(Asset[DepthEstimationInputs, DepthEstimationOutputs]):
+class DepthEstimation(AssetNode[DepthEstimationInputs, DepthEstimationOutputs]):
     """
     Depth estimation is a computational process that determines the distance of
 objects from a viewpoint, typically using visual data from cameras or sensors
@@ -869,7 +869,7 @@ class VideoGenerationOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.VIDEO)
 
 
-class VideoGeneration(Asset[VideoGenerationInputs, VideoGenerationOutputs]):
+class VideoGeneration(AssetNode[VideoGenerationInputs, VideoGenerationOutputs]):
     """
     Video Generation is the process of creating video content through automated or
 semi-automated means, often utilizing algorithms, artificial intelligence, or
@@ -907,7 +907,7 @@ class ReferencelessAudioGenerationMetricOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.TEXT)
 
 
-class ReferencelessAudioGenerationMetric(Asset[ReferencelessAudioGenerationMetricInputs, ReferencelessAudioGenerationMetricOutputs]):
+class ReferencelessAudioGenerationMetric(AssetNode[ReferencelessAudioGenerationMetricInputs, ReferencelessAudioGenerationMetricOutputs]):
     """
     The Referenceless Audio Generation Metric is a tool designed to evaluate the
 quality of generated audio content without the need for a reference or original
@@ -940,7 +940,7 @@ class MultiClassImageClassificationOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.LABEL)
 
 
-class MultiClassImageClassification(Asset[MultiClassImageClassificationInputs, MultiClassImageClassificationOutputs]):
+class MultiClassImageClassification(AssetNode[MultiClassImageClassificationInputs, MultiClassImageClassificationOutputs]):
     """
     Multi Class Image Classification is a machine learning task where an algorithm
 is trained to categorize images into one of several predefined classes or
@@ -973,7 +973,7 @@ class SemanticSegmentationOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.LABEL)
 
 
-class SemanticSegmentation(Asset[SemanticSegmentationInputs, SemanticSegmentationOutputs]):
+class SemanticSegmentation(AssetNode[SemanticSegmentationInputs, SemanticSegmentationOutputs]):
     """
     Semantic segmentation is a computer vision process that involves classifying
 each pixel in an image into a predefined category, effectively partitioning the
@@ -1006,7 +1006,7 @@ class InstanceSegmentationOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.LABEL)
 
 
-class InstanceSegmentation(Asset[InstanceSegmentationInputs, InstanceSegmentationOutputs]):
+class InstanceSegmentation(AssetNode[InstanceSegmentationInputs, InstanceSegmentationOutputs]):
     """
     Instance segmentation is a computer vision task that involves detecting and
 delineating each distinct object within an image, assigning a unique label and
@@ -1040,7 +1040,7 @@ class ImageColorizationOutputs(Outputs):
         self.image = self.create_param(code="image", data_type=DataType.IMAGE)
 
 
-class ImageColorization(Asset[ImageColorizationInputs, ImageColorizationOutputs]):
+class ImageColorization(AssetNode[ImageColorizationInputs, ImageColorizationOutputs]):
     """
     Image colorization is a process that involves adding color to grayscale images,
 transforming them from black-and-white to full-color representations, often
@@ -1080,7 +1080,7 @@ class AudioGenerationMetricOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.TEXT)
 
 
-class AudioGenerationMetric(Asset[AudioGenerationMetricInputs, AudioGenerationMetricOutputs]):
+class AudioGenerationMetric(AssetNode[AudioGenerationMetricInputs, AudioGenerationMetricOutputs]):
     """
     The Audio Generation Metric is a quantitative measure used to evaluate the
 quality, accuracy, and overall performance of audio generated by artificial
@@ -1114,7 +1114,7 @@ class ImageImpaintingOutputs(Outputs):
         self.image = self.create_param(code="image", data_type=DataType.IMAGE)
 
 
-class ImageImpainting(Asset[ImageImpaintingInputs, ImageImpaintingOutputs]):
+class ImageImpainting(AssetNode[ImageImpaintingInputs, ImageImpaintingOutputs]):
     """
     Image inpainting is a process that involves filling in missing or damaged parts
 of an image in a way that is visually coherent and seamlessly blends with the
@@ -1148,7 +1148,7 @@ class StyleTransferOutputs(Outputs):
         self.image = self.create_param(code="image", data_type=DataType.IMAGE)
 
 
-class StyleTransfer(Asset[StyleTransferInputs, StyleTransferOutputs]):
+class StyleTransfer(AssetNode[StyleTransferInputs, StyleTransferOutputs]):
     """
     Style Transfer is a technique in artificial intelligence that applies the
 visual style of one image (such as the brushstrokes of a famous painting) to
@@ -1184,7 +1184,7 @@ class MultiClassTextClassificationOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.LABEL)
 
 
-class MultiClassTextClassification(Asset[MultiClassTextClassificationInputs, MultiClassTextClassificationOutputs]):
+class MultiClassTextClassification(AssetNode[MultiClassTextClassificationInputs, MultiClassTextClassificationOutputs]):
     """
     Multi Class Text Classification is a natural language processing task that
 involves categorizing a given text into one of several predefined classes or
@@ -1223,7 +1223,7 @@ class TextEmbeddingOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.LABEL)
 
 
-class TextEmbedding(Asset[TextEmbeddingInputs, TextEmbeddingOutputs]):
+class TextEmbedding(AssetNode[TextEmbeddingInputs, TextEmbeddingOutputs]):
     """
     Text embedding is a process that converts text into numerical vectors,
 capturing the semantic meaning and contextual relationships of words or
@@ -1259,7 +1259,7 @@ class MultiLabelTextClassificationOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.LABEL)
 
 
-class MultiLabelTextClassification(Asset[MultiLabelTextClassificationInputs, MultiLabelTextClassificationOutputs]):
+class MultiLabelTextClassification(AssetNode[MultiLabelTextClassificationInputs, MultiLabelTextClassificationOutputs]):
     """
     Multi Label Text Classification is a natural language processing task where a
 given text is analyzed and assigned multiple relevant labels or categories from
@@ -1327,7 +1327,7 @@ class FactCheckingOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.LABEL)
 
 
-class FactChecking(Asset[FactCheckingInputs, FactCheckingOutputs]):
+class FactChecking(AssetNode[FactCheckingInputs, FactCheckingOutputs]):
     """
     Fact Checking is the process of verifying the accuracy and truthfulness of
 information, statements, or claims by cross-referencing with reliable sources
@@ -1366,7 +1366,7 @@ class SpeechClassificationOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.LABEL)
 
 
-class SpeechClassification(Asset[SpeechClassificationInputs, SpeechClassificationOutputs]):
+class SpeechClassification(AssetNode[SpeechClassificationInputs, SpeechClassificationOutputs]):
     """
     Speech Classification is a process that involves analyzing and categorizing
 spoken language into predefined categories or classes based on various features
@@ -1401,7 +1401,7 @@ class IntentClassificationOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.LABEL)
 
 
-class IntentClassification(Asset[IntentClassificationInputs, IntentClassificationOutputs]):
+class IntentClassification(AssetNode[IntentClassificationInputs, IntentClassificationOutputs]):
     """
     Intent Classification is a natural language processing task that involves
 analyzing and categorizing user text input to determine the underlying purpose
@@ -1437,7 +1437,7 @@ class PartOfSpeechTaggingOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.LABEL)
 
 
-class PartOfSpeechTagging(Asset[PartOfSpeechTaggingInputs, PartOfSpeechTaggingOutputs]):
+class PartOfSpeechTagging(AssetNode[PartOfSpeechTaggingInputs, PartOfSpeechTaggingOutputs]):
     """
     Part of Speech Tagging is a natural language processing task that involves
 assigning each word in a sentence its corresponding part of speech, such as
@@ -1471,7 +1471,7 @@ class MetricAggregationOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.TEXT)
 
 
-class MetricAggregation(Asset[MetricAggregationInputs, MetricAggregationOutputs]):
+class MetricAggregation(AssetNode[MetricAggregationInputs, MetricAggregationOutputs]):
     """
     Metric Aggregation is a function that computes and summarizes numerical data by
 applying statistical operations, such as averaging, summing, or finding the
@@ -1507,7 +1507,7 @@ class DialectDetectionOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.TEXT)
 
 
-class DialectDetection(Asset[DialectDetectionInputs, DialectDetectionOutputs]):
+class DialectDetection(AssetNode[DialectDetectionInputs, DialectDetectionOutputs]):
     """
     Dialect Detection is a function that identifies and classifies the specific
 regional or social variations of a language spoken or written by an individual,
@@ -1541,7 +1541,7 @@ class InverseTextNormalizationOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.LABEL)
 
 
-class InverseTextNormalization(Asset[InverseTextNormalizationInputs, InverseTextNormalizationOutputs]):
+class InverseTextNormalization(AssetNode[InverseTextNormalizationInputs, InverseTextNormalizationOutputs]):
     """
     Inverse Text Normalization is the process of converting spoken or written
 language in its normalized form, such as numbers, dates, and abbreviations,
@@ -1576,7 +1576,7 @@ class TextToAudioOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.AUDIO)
 
 
-class TextToAudio(Asset[TextToAudioInputs, TextToAudioOutputs]):
+class TextToAudio(AssetNode[TextToAudioInputs, TextToAudioOutputs]):
     """
     The Text to Audio function converts written text into spoken words, allowing
 users to listen to the content instead of reading it.
@@ -1614,7 +1614,7 @@ class FillTextMaskOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.TEXT)
 
 
-class FillTextMask(Asset[FillTextMaskInputs, FillTextMaskOutputs]):
+class FillTextMask(AssetNode[FillTextMaskInputs, FillTextMaskOutputs]):
     """
     The "Fill Text Mask" function takes a text input with masked or placeholder
 characters and replaces those placeholders with specified or contextually
@@ -1649,7 +1649,7 @@ class VideoContentModerationOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.LABEL)
 
 
-class VideoContentModeration(Asset[VideoContentModerationInputs, VideoContentModerationOutputs]):
+class VideoContentModeration(AssetNode[VideoContentModerationInputs, VideoContentModerationOutputs]):
     """
     Video Content Moderation is the process of reviewing, analyzing, and filtering
 video content to ensure it adheres to community guidelines, legal standards,
@@ -1683,7 +1683,7 @@ class ExtractAudioFromVideoOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.AUDIO)
 
 
-class ExtractAudioFromVideo(Asset[ExtractAudioFromVideoInputs, ExtractAudioFromVideoOutputs]):
+class ExtractAudioFromVideo(AssetNode[ExtractAudioFromVideoInputs, ExtractAudioFromVideoOutputs]):
     """
     The "Extract Audio From Video" function allows users to separate and save the
 audio track from a video file, enabling them to obtain just the sound without
@@ -1718,7 +1718,7 @@ class ImageCompressionOutputs(Outputs):
         self.image = self.create_param(code="image", data_type=DataType.IMAGE)
 
 
-class ImageCompression(Asset[ImageCompressionInputs, ImageCompressionOutputs]):
+class ImageCompression(AssetNode[ImageCompressionInputs, ImageCompressionOutputs]):
     """
     Image compression is a process that reduces the file size of an image by
 removing redundant or non-essential data, while maintaining an acceptable level
@@ -1753,7 +1753,7 @@ class MultilingualSpeechRecognitionOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.TEXT)
 
 
-class MultilingualSpeechRecognition(Asset[MultilingualSpeechRecognitionInputs, MultilingualSpeechRecognitionOutputs]):
+class MultilingualSpeechRecognition(AssetNode[MultilingualSpeechRecognitionInputs, MultilingualSpeechRecognitionOutputs]):
     """
     Multilingual Speech Recognition is a technology that enables the automatic
 transcription of spoken language into text across multiple languages, allowing
@@ -1790,7 +1790,7 @@ class ReferencelessTextGenerationMetricOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.TEXT)
 
 
-class ReferencelessTextGenerationMetric(Asset[ReferencelessTextGenerationMetricInputs, ReferencelessTextGenerationMetricOutputs]):
+class ReferencelessTextGenerationMetric(AssetNode[ReferencelessTextGenerationMetricInputs, ReferencelessTextGenerationMetricOutputs]):
     """
     The Referenceless Text Generation Metric is a method for evaluating the quality
 of generated text without requiring a reference text for comparison, often
@@ -1830,7 +1830,7 @@ class TextGenerationMetricDefaultOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.TEXT)
 
 
-class TextGenerationMetricDefault(Asset[TextGenerationMetricDefaultInputs, TextGenerationMetricDefaultOutputs]):
+class TextGenerationMetricDefault(AssetNode[TextGenerationMetricDefaultInputs, TextGenerationMetricDefaultOutputs]):
     """
     The "Text Generation Metric Default" function provides a standard set of
 evaluation metrics for assessing the quality and performance of text generation
@@ -1863,7 +1863,7 @@ class NoiseRemovalOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.AUDIO)
 
 
-class NoiseRemoval(Asset[NoiseRemovalInputs, NoiseRemovalOutputs]):
+class NoiseRemoval(AssetNode[NoiseRemovalInputs, NoiseRemovalOutputs]):
     """
     Noise Removal is a process that involves identifying and eliminating unwanted
 random variations or disturbances from an audio signal to enhance the clarity
@@ -1941,7 +1941,7 @@ class VoiceCloningOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.AUDIO)
 
 
-class VoiceCloning(Asset[VoiceCloningInputs, VoiceCloningOutputs]):
+class VoiceCloning(AssetNode[VoiceCloningInputs, VoiceCloningOutputs]):
     """
     Voice cloning is a technology that uses artificial intelligence to create a
 digital replica of a person's voice, allowing for the generation of speech that
@@ -1980,7 +1980,7 @@ class DiacritizationOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.TEXT)
 
 
-class Diacritization(Asset[DiacritizationInputs, DiacritizationOutputs]):
+class Diacritization(AssetNode[DiacritizationInputs, DiacritizationOutputs]):
     """
     Diacritization is the process of adding diacritical marks to letters in a text
 to indicate pronunciation, stress, tone, or meaning, often used in languages
@@ -2014,7 +2014,7 @@ class AudioEmotionDetectionOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.LABEL)
 
 
-class AudioEmotionDetection(Asset[AudioEmotionDetectionInputs, AudioEmotionDetectionOutputs]):
+class AudioEmotionDetection(AssetNode[AudioEmotionDetectionInputs, AudioEmotionDetectionOutputs]):
     """
     Audio Emotion Detection is a technology that analyzes vocal characteristics and
 patterns in audio recordings to identify and classify the emotional state of
@@ -2053,7 +2053,7 @@ class TextSummarizationOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.TEXT)
 
 
-class TextSummarization(Asset[TextSummarizationInputs, TextSummarizationOutputs]):
+class TextSummarization(AssetNode[TextSummarizationInputs, TextSummarizationOutputs]):
     """
     Text summarization is the process of condensing a large body of text into a
 shorter version, capturing the main points and essential information while
@@ -2090,7 +2090,7 @@ class EntityLinkingOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.LABEL)
 
 
-class EntityLinking(Asset[EntityLinkingInputs, EntityLinkingOutputs]):
+class EntityLinking(AssetNode[EntityLinkingInputs, EntityLinkingOutputs]):
     """
     Entity Linking is the process of identifying and connecting mentions of
 entities within a text to their corresponding entries in a structured knowledge
@@ -2130,7 +2130,7 @@ class TextGenerationMetricOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.TEXT)
 
 
-class TextGenerationMetric(Asset[TextGenerationMetricInputs, TextGenerationMetricOutputs]):
+class TextGenerationMetric(AssetNode[TextGenerationMetricInputs, TextGenerationMetricOutputs]):
     """
     A Text Generation Metric is a quantitative measure used to evaluate the quality
 and effectiveness of text produced by natural language processing models, often
@@ -2204,7 +2204,7 @@ class SentimentAnalysisOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.LABEL)
 
 
-class SentimentAnalysis(Asset[SentimentAnalysisInputs, SentimentAnalysisOutputs]):
+class SentimentAnalysis(AssetNode[SentimentAnalysisInputs, SentimentAnalysisOutputs]):
     """
     Sentiment Analysis is a natural language processing technique used to determine
 and classify the emotional tone or subjective information expressed in a piece
@@ -2238,7 +2238,7 @@ class KeywordSpottingOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.LABEL)
 
 
-class KeywordSpotting(Asset[KeywordSpottingInputs, KeywordSpottingOutputs]):
+class KeywordSpotting(AssetNode[KeywordSpottingInputs, KeywordSpottingOutputs]):
     """
     Keyword Spotting is a function that enables the detection and identification of
 specific words or phrases within a stream of audio, often used in voice-
@@ -2277,7 +2277,7 @@ class TextClassificationOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.LABEL)
 
 
-class TextClassification(Asset[TextClassificationInputs, TextClassificationOutputs]):
+class TextClassification(AssetNode[TextClassificationInputs, TextClassificationOutputs]):
     """
     Text Classification is a natural language processing task that involves
 categorizing text into predefined labels or classes based on its content,
@@ -2313,7 +2313,7 @@ class OtherMultipurposeOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.TEXT)
 
 
-class OtherMultipurpose(Asset[OtherMultipurposeInputs, OtherMultipurposeOutputs]):
+class OtherMultipurpose(AssetNode[OtherMultipurposeInputs, OtherMultipurposeOutputs]):
     """
     The "Other (Multipurpose)" function serves as a versatile category designed to
 accommodate a wide range of tasks and activities that do not fit neatly into
@@ -2359,7 +2359,7 @@ class SpeechSynthesisOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.AUDIO)
 
 
-class SpeechSynthesis(Asset[SpeechSynthesisInputs, SpeechSynthesisOutputs]):
+class SpeechSynthesis(AssetNode[SpeechSynthesisInputs, SpeechSynthesisOutputs]):
     """
     Speech synthesis is the artificial production of human speech, typically
 achieved through software or hardware systems that convert text into spoken
@@ -2392,7 +2392,7 @@ class AudioIntentDetectionOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.LABEL)
 
 
-class AudioIntentDetection(Asset[AudioIntentDetectionInputs, AudioIntentDetectionOutputs]):
+class AudioIntentDetection(AssetNode[AudioIntentDetectionInputs, AudioIntentDetectionOutputs]):
     """
     Audio Intent Detection is a process that involves analyzing audio signals to
 identify and interpret the underlying intentions or purposes behind spoken
@@ -2428,7 +2428,7 @@ class VideoLabelDetectionOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.LABEL)
 
 
-class VideoLabelDetection(Asset[VideoLabelDetectionInputs, VideoLabelDetectionOutputs]):
+class VideoLabelDetection(AssetNode[VideoLabelDetectionInputs, VideoLabelDetectionOutputs]):
     """
     Video Label Detection is a function that automatically identifies and tags
 various objects, scenes, activities, and other relevant elements within a
@@ -2464,7 +2464,7 @@ class AsrQualityEstimationOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.LABEL)
 
 
-class AsrQualityEstimation(Asset[AsrQualityEstimationInputs, AsrQualityEstimationOutputs]):
+class AsrQualityEstimation(AssetNode[AsrQualityEstimationInputs, AsrQualityEstimationOutputs]):
     """
     ASR Quality Estimation is a process that evaluates the accuracy and reliability
 of automatic speech recognition systems by analyzing their performance in
@@ -2505,7 +2505,7 @@ class AudioTranscriptAnalysisOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.TEXT)
 
 
-class AudioTranscriptAnalysis(Asset[AudioTranscriptAnalysisInputs, AudioTranscriptAnalysisOutputs]):
+class AudioTranscriptAnalysis(AssetNode[AudioTranscriptAnalysisInputs, AudioTranscriptAnalysisOutputs]):
     """
     Audio Transcript Analysis is a process that involves converting spoken language
 from audio recordings into written text, followed by examining and interpreting
@@ -2539,7 +2539,7 @@ class SearchOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.TEXT)
 
 
-class Search(Asset[SearchInputs, SearchOutputs]):
+class Search(AssetNode[SearchInputs, SearchOutputs]):
     """
     The "Search" function allows users to input keywords or phrases to quickly
 locate specific information, files, or content within a database, website, or
@@ -2582,7 +2582,7 @@ class VideoForcedAlignmentOutputs(Outputs):
         self.video = self.create_param(code="video", data_type=DataType.VIDEO)
 
 
-class VideoForcedAlignment(Asset[VideoForcedAlignmentInputs, VideoForcedAlignmentOutputs]):
+class VideoForcedAlignment(AssetNode[VideoForcedAlignmentInputs, VideoForcedAlignmentOutputs]):
     """
     Video Forced Alignment is a process that synchronizes video footage with
 corresponding audio tracks by precisely aligning the visual and auditory
@@ -2621,7 +2621,7 @@ class VisemeGenerationOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.LABEL)
 
 
-class VisemeGeneration(Asset[VisemeGenerationInputs, VisemeGenerationOutputs]):
+class VisemeGeneration(AssetNode[VisemeGenerationInputs, VisemeGenerationOutputs]):
     """
     Viseme Generation is the process of creating visual representations of
 phonemes, which are the distinct units of sound in speech, to synchronize lip
@@ -2660,7 +2660,7 @@ class TopicClassificationOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.LABEL)
 
 
-class TopicClassification(Asset[TopicClassificationInputs, TopicClassificationOutputs]):
+class TopicClassification(AssetNode[TopicClassificationInputs, TopicClassificationOutputs]):
     """
     Topic Classification is a natural language processing function that categorizes
 text into predefined topics or subjects based on its content, enabling
@@ -2699,7 +2699,7 @@ class OffensiveLanguageIdentificationOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.LABEL)
 
 
-class OffensiveLanguageIdentification(Asset[OffensiveLanguageIdentificationInputs, OffensiveLanguageIdentificationOutputs]):
+class OffensiveLanguageIdentification(AssetNode[OffensiveLanguageIdentificationInputs, OffensiveLanguageIdentificationOutputs]):
     """
     Offensive Language Identification is a function that analyzes text to detect
 and flag language that is abusive, harmful, or inappropriate, helping to
@@ -2742,7 +2742,7 @@ class SpeechTranslationOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.TEXT)
 
 
-class SpeechTranslation(Asset[SpeechTranslationInputs, SpeechTranslationOutputs]):
+class SpeechTranslation(AssetNode[SpeechTranslationInputs, SpeechTranslationOutputs]):
     """
     Speech Translation is a technology that converts spoken language in real-time
 from one language to another, enabling seamless communication between speakers
@@ -2827,7 +2827,7 @@ class AudioTranscriptImprovementOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.TEXT)
 
 
-class AudioTranscriptImprovement(Asset[AudioTranscriptImprovementInputs, AudioTranscriptImprovementOutputs]):
+class AudioTranscriptImprovement(AssetNode[AudioTranscriptImprovementInputs, AudioTranscriptImprovementOutputs]):
     """
     Audio Transcript Improvement is a function that enhances the accuracy and
 clarity of transcribed audio recordings by correcting errors, refining
@@ -2867,7 +2867,7 @@ class SpeechNonSpeechClassificationOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.LABEL)
 
 
-class SpeechNonSpeechClassification(Asset[SpeechNonSpeechClassificationInputs, SpeechNonSpeechClassificationOutputs]):
+class SpeechNonSpeechClassification(AssetNode[SpeechNonSpeechClassificationInputs, SpeechNonSpeechClassificationOutputs]):
     """
     The function "Speech or Non-Speech Classification" is designed to analyze audio
 input and determine whether the sound is human speech or non-speech noise,
@@ -2909,7 +2909,7 @@ class TextDenormalizationOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.LABEL)
 
 
-class TextDenormalization(Asset[TextDenormalizationInputs, TextDenormalizationOutputs]):
+class TextDenormalization(AssetNode[TextDenormalizationInputs, TextDenormalizationOutputs]):
     """
     Text Denormalization is the process of converting abbreviated, contracted, or
 otherwise simplified text into its full, standard form, often to improve
@@ -2944,7 +2944,7 @@ class ImageContentModerationOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.LABEL)
 
 
-class ImageContentModeration(Asset[ImageContentModerationInputs, ImageContentModerationOutputs]):
+class ImageContentModeration(AssetNode[ImageContentModerationInputs, ImageContentModerationOutputs]):
     """
     Image Content Moderation is a process that involves analyzing and filtering
 images to detect and manage inappropriate, harmful, or sensitive content,
@@ -2981,7 +2981,7 @@ class ReferencelessTextGenerationMetricDefaultOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.TEXT)
 
 
-class ReferencelessTextGenerationMetricDefault(Asset[ReferencelessTextGenerationMetricDefaultInputs, ReferencelessTextGenerationMetricDefaultOutputs]):
+class ReferencelessTextGenerationMetricDefault(AssetNode[ReferencelessTextGenerationMetricDefaultInputs, ReferencelessTextGenerationMetricDefaultOutputs]):
     """
     The Referenceless Text Generation Metric Default is a function designed to
 evaluate the quality of generated text without relying on reference texts for
@@ -3022,7 +3022,7 @@ class NamedEntityRecognitionOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.LABEL)
 
 
-class NamedEntityRecognition(Asset[NamedEntityRecognitionInputs, NamedEntityRecognitionOutputs]):
+class NamedEntityRecognition(AssetNode[NamedEntityRecognitionInputs, NamedEntityRecognitionOutputs]):
     """
     Named Entity Recognition (NER) is a natural language processing task that
 involves identifying and classifying proper nouns in text into predefined
@@ -3062,7 +3062,7 @@ class TextContentModerationOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.LABEL)
 
 
-class TextContentModeration(Asset[TextContentModerationInputs, TextContentModerationOutputs]):
+class TextContentModeration(AssetNode[TextContentModerationInputs, TextContentModerationOutputs]):
     """
     Text Content Moderation is the process of reviewing, filtering, and managing
 user-generated content to ensure it adheres to community guidelines, legal
@@ -3102,7 +3102,7 @@ class SpeakerDiarizationVideoOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.VIDEO)
 
 
-class SpeakerDiarizationVideo(Asset[SpeakerDiarizationVideoInputs, SpeakerDiarizationVideoOutputs]):
+class SpeakerDiarizationVideo(AssetNode[SpeakerDiarizationVideoInputs, SpeakerDiarizationVideoOutputs]):
     """
     The Speaker Diarization Video function identifies and segments different
 speakers in a video, attributing portions of the audio to individual speakers
@@ -3135,7 +3135,7 @@ class SplitOnSilenceOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.AUDIO)
 
 
-class SplitOnSilence(Asset[SplitOnSilenceInputs, SplitOnSilenceOutputs]):
+class SplitOnSilence(AssetNode[SplitOnSilenceInputs, SplitOnSilenceOutputs]):
     """
     The "Split On Silence" function divides an audio recording into separate
 segments based on periods of silence, allowing for easier editing and analysis
@@ -3174,7 +3174,7 @@ class EmotionDetectionOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.LABEL)
 
 
-class EmotionDetection(Asset[EmotionDetectionInputs, EmotionDetectionOutputs]):
+class EmotionDetection(AssetNode[EmotionDetectionInputs, EmotionDetectionOutputs]):
     """
     Emotion Detection is a process that involves analyzing text to identify and
 categorize the emotional states or sentiments expressed by individuals, such as
@@ -3213,7 +3213,7 @@ class TextSpamDetectionOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.LABEL)
 
 
-class TextSpamDetection(Asset[TextSpamDetectionInputs, TextSpamDetectionOutputs]):
+class TextSpamDetection(AssetNode[TextSpamDetectionInputs, TextSpamDetectionOutputs]):
     """
     Text Spam Detection is a process that involves analyzing and identifying
 unsolicited or irrelevant messages within text communications, typically using
@@ -3261,7 +3261,7 @@ class TranslationOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.TEXT)
 
 
-class Translation(Asset[TranslationInputs, TranslationOutputs]):
+class Translation(AssetNode[TranslationInputs, TranslationOutputs]):
     """
     Translation is the process of converting text from one language into an
 equivalent text in another language, preserving the original meaning and
@@ -3343,7 +3343,7 @@ class SpeechEmbeddingOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.TEXT)
 
 
-class SpeechEmbedding(Asset[SpeechEmbeddingInputs, SpeechEmbeddingOutputs]):
+class SpeechEmbedding(AssetNode[SpeechEmbeddingInputs, SpeechEmbeddingOutputs]):
     """
     Speech Embedding is a process that transforms spoken language into a fixed-
 dimensional vector representation, capturing essential features and
@@ -3385,7 +3385,7 @@ class SubtitlingTranslationOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.TEXT)
 
 
-class SubtitlingTranslation(Asset[SubtitlingTranslationInputs, SubtitlingTranslationOutputs]):
+class SubtitlingTranslation(AssetNode[SubtitlingTranslationInputs, SubtitlingTranslationOutputs]):
     """
     Subtitling Translation is the process of converting spoken dialogue from one
 language into written text in another language, which is then displayed on-
@@ -3426,7 +3426,7 @@ class TextGenerationOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.TEXT)
 
 
-class TextGeneration(Asset[TextGenerationInputs, TextGenerationOutputs]):
+class TextGeneration(AssetNode[TextGenerationInputs, TextGenerationOutputs]):
     """
     Text Generation is a process in which artificial intelligence models, such as
 neural networks, produce coherent and contextually relevant text based on a
@@ -3467,7 +3467,7 @@ class VideoUnderstandingOutputs(Outputs):
         self.text = self.create_param(code="text", data_type=DataType.TEXT)
 
 
-class VideoUnderstanding(Asset[VideoUnderstandingInputs, VideoUnderstandingOutputs]):
+class VideoUnderstanding(AssetNode[VideoUnderstandingInputs, VideoUnderstandingOutputs]):
     """
     Video Understanding is the process of analyzing and interpreting video content
 to extract meaningful information, such as identifying objects, actions,
@@ -3502,7 +3502,7 @@ class TextToVideoGenerationOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.VIDEO)
 
 
-class TextToVideoGeneration(Asset[TextToVideoGenerationInputs, TextToVideoGenerationOutputs]):
+class TextToVideoGeneration(AssetNode[TextToVideoGenerationInputs, TextToVideoGenerationOutputs]):
     """
     Text To Video Generation is a process that converts written descriptions or
 scripts into dynamic, visual video content using advanced algorithms and
@@ -3539,7 +3539,7 @@ class TextNormalizationOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.LABEL)
 
 
-class TextNormalization(Asset[TextNormalizationInputs, TextNormalizationOutputs]):
+class TextNormalization(AssetNode[TextNormalizationInputs, TextNormalizationOutputs]):
     """
     Text normalization is the process of transforming text into a standard,
 consistent format by correcting spelling errors, converting all characters to a
@@ -3581,7 +3581,7 @@ class SpeechRecognitionOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.TEXT)
 
 
-class SpeechRecognition(Asset[SpeechRecognitionInputs, SpeechRecognitionOutputs]):
+class SpeechRecognition(AssetNode[SpeechRecognitionInputs, SpeechRecognitionOutputs]):
     """
     Speech recognition is a technology that enables a computer or device to
 identify and process spoken language, converting it into text.
@@ -3623,7 +3623,7 @@ class SubtitlingOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.TEXT)
 
 
-class Subtitling(Asset[SubtitlingInputs, SubtitlingOutputs]):
+class Subtitling(AssetNode[SubtitlingInputs, SubtitlingOutputs]):
     """
     Subtitling is the process of displaying written text on a screen to represent
 the spoken dialogue, narration, or other audio elements in a video, typically
@@ -3665,7 +3665,7 @@ class ClassificationMetricOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.NUMBER)
 
 
-class ClassificationMetric(Asset[ClassificationMetricInputs, ClassificationMetricOutputs]):
+class ClassificationMetric(AssetNode[ClassificationMetricInputs, ClassificationMetricOutputs]):
     """
     A Classification Metric is a quantitative measure used to evaluate the quality
 and effectiveness of classification models.
@@ -3697,7 +3697,7 @@ class TextToImageGenerationOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.IMAGE)
 
 
-class TextToImageGeneration(Asset[TextToImageGenerationInputs, TextToImageGenerationOutputs]):
+class TextToImageGeneration(AssetNode[TextToImageGenerationInputs, TextToImageGenerationOutputs]):
     """
     Text To Image Generation is a process where a system creates visual images
 based on descriptive text input, translating written language into

@@ -19,16 +19,16 @@ TEMPLATE = """# This is an auto generated module. PLEASE DO NOT EDIT
 
 
 from typing import Union, Type
+from aixplain.enums import DataType
 
 from .designer import (
     InputParam,
     OutputParam,
     Inputs,
     Outputs,
-    DataType,
     TI,
     TO,
-    Asset,
+    AssetNode,
     BaseReconstructor,
     BaseSegmentor,
 )
@@ -153,7 +153,7 @@ def populate_specs(functions: list):
             .replace("(", "_")
             .replace(")", "_")
         )
-        base_class = "Asset"
+        base_class = "AssetNode"
         is_segmentor = function["id"] in SEGMENTOR_FUNCTIONS
         is_reconstructor = function["id"] in RECONSTRUCTOR_FUNCTIONS
         if is_segmentor:

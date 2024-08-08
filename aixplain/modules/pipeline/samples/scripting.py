@@ -1,7 +1,7 @@
 import json
 
 from aixplain.factories.pipeline_factory import PipelineFactory
-from aixplain.modules.pipeline.designer import DataType
+from aixplain.enums import DataType
 
 pipeline = PipelineFactory.init()
 
