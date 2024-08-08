@@ -1,30 +1,18 @@
 __author__ = "aixplain"
-
-import aixplain.utils.config as config
 import logging
+
+from aixplain.enums import DataType
+import aixplain.utils.config as config
 from aixplain.modules.pipeline import Pipeline
 from aixplain.modules.pipeline.designer import (
-    Decision,
     Input,
     Output,
     AssetNode,
-    BaseSegmentor,
-    BaseReconstructor,
     Router,
     Route,
-    Script,
     Link,
 )
-from typing import Dict, List
-
-
-def get_typed_nodes(response: Dict, type: str) -> List[Dict]:
-    # read "nodes" field from response and return the nodes that are marked by "type": type
-    return [
-        node
-        for node in response["nodes"]
-        if node["type"].lower() == type.lower()
-    ]
+from typing import Dict
 
 
 def build_from_response(
@@ -41,8 +29,6 @@ def build_from_response(
     """
     if "api_key" not in response:
         response["api_key"] = config.TEAM_API_KEY
-    input = get_typed_nodes(response, "input")
-    output = get_typed_nodes(response, "output")
 
     # instantiating pipeline generic info
     print(response)
@@ -52,15 +38,20 @@ def build_from_response(
             # instantiating nodes
             for node_json in response["nodes"]:
                 if node_json["type"].lower() == "input":
-                    node = Input()
+                    node = Input(
+                        data=node_json["data"],
+                        data_types=[
+                            DataType(dt) for dt in node_json["dataType"]
+                        ],
+                    )
                 elif node_json["type"].lower() == "asset":
                     node = AssetNode(asset_id=node_json["assetId"])
                 elif node_json["type"].lower() == "segmentor":
-                    node = BaseSegmentor()
+                    raise NotImplementedError()
                 elif node_json["type"].lower() == "reconstructor":
-                    node = BaseReconstructor()
+                    raise NotImplementedError()
                 elif node_json["type"].lower() == "decision":
-                    node = Decision()
+                    raise NotImplementedError()
                 elif node_json["type"].lower() == "router":
                     node = Router(
                         routes=[
@@ -68,7 +59,7 @@ def build_from_response(
                         ]
                     )
                 elif node_json["type"].lower() == "script":
-                    node = Script(fileId=node_json["fileId"])
+                    raise NotImplementedError()
                 elif node_json["type"].lower() == "output":
                     node = Output()
                 node.number = node_json["number"]
@@ -77,16 +68,17 @@ def build_from_response(
 
             # instantiating links
             for link_json in response["links"]:
-                link = Link(
-                    from_node=pipeline.get_node(link_json["from"]),
-                    to_node=pipeline.get_node(link_json["to"]),
-                    from_param=link_json["paramMapping"][0]["from"],
-                    to_param=link_json["paramMapping"][0]["to"],
-                    # paramMapping=[ParamMapping(from_param=param["from"], to_param=param["to"]) for param in link_json["paramMapping"]],
-                )
-                pipeline.add_link(link)
-        except Exception:
-            logging.warning("Error loading pipeline architecture")
+                for param_mapping in link_json["paramMapping"]:
+                    link = Link(
+                        from_node=pipeline.get_node(link_json["from"]),
+                        to_node=pipeline.get_node(link_json["to"]),
+                        from_param=param_mapping["from"],
+                    )
+                    pipeline.add_link(link)
+        except Exception as e:
+            logging.warning(
+                "Error loading pipeline architecture:, error: %s", e
+            )
             pipeline.nodes = []
             pipeline.links = []
     return pipeline

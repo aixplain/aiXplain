@@ -1,4 +1,4 @@
-from typing import List, Union, Type, TYPE_CHECKING
+from typing import List, Union, Type, TYPE_CHECKING, Optional
 
 from aixplain.modules import asset
 from aixplain.enums import DataType
@@ -152,17 +152,24 @@ class Input(Node[InputInputs, InputOutputs], LinkableMixin, RoutableMixin):
     aixplain platform and the link will be passed as the input to the node.
     """
 
-    data_types: List[DataType] = None
-    data: str = None
+    data_types: Optional[List[DataType]] = None
+    data: Optional[str] = None
     type: NodeType = NodeType.INPUT
     inputs_class: Type[TI] = InputInputs
     outputs_class: Type[TO] = InputOutputs
 
-    def __init__(self, pipeline: "DesignerPipeline" = None):
+    def __init__(
+        self,
+        data: Optional[str] = None,
+        dataTypes: Optional[List[DataType]] = None,
+        pipeline: "DesignerPipeline" = None,
+    ):
         from aixplain.factories.file_factory import FileFactory
 
         super().__init__(pipeline=pipeline)
-        self.data_types = []
+        self.data_types = dataTypes or []
+        self.data = data
+
         if self.data:
             self.data = FileFactory.to_link(self.data, is_temp=True)
 
@@ -193,14 +200,18 @@ class Output(Node[OutputInputs, OutputOutputs]):
     Output nodes has only one input parameter called `output`.
     """
 
-    data_types: List[DataType] = None
+    data_types: Optional[List[DataType]] = None
     type: NodeType = NodeType.OUTPUT
     inputs_class: Type[TI] = OutputInputs
     outputs_class: Type[TO] = OutputOutputs
 
-    def __init__(self, pipeline: "DesignerPipeline" = None):
+    def __init__(
+        self,
+        data_types: Optional[List[DataType]] = None,
+        pipeline: "DesignerPipeline" = None,
+    ):
         super().__init__(pipeline=pipeline)
-        self.data_types = []
+        self.data_types = data_types or []
 
     def serialize(self) -> dict:
         obj = super().serialize()
@@ -217,15 +228,15 @@ class Script(Node[TI, TO], LinkableMixin, OutputableMixin):
     the aixplain platform and the link will be passed as the input to the node.
     """
 
-    fileId: str = None
-    script_path: str = None
+    fileId: Optional[str] = None
+    script_path: Optional[str] = None
     type: NodeType = NodeType.SCRIPT
 
     def __init__(
         self,
         pipeline: "DesignerPipeline" = None,
-        script_path: str = None,
-        fileId: str = None,
+        script_path: Optional[str] = None,
+        fileId: Optional[str] = None,
     ):
         from aixplain.factories.script_factory import ScriptFactory
 
@@ -309,7 +320,7 @@ class Router(Node[RouterInputs, RouterOutputs], LinkableMixin):
     different nodes based on the input data type.
     """
 
-    routes: List[Route] = None
+    routes: List[Route]
     type: NodeType = NodeType.ROUTER
     inputs_class: Type[TI] = RouterInputs
     outputs_class: Type[TO] = RouterOutputs
@@ -350,7 +361,7 @@ class Decision(Node[DecisionInputs, DecisionOutputs], LinkableMixin):
     the input data.
     """
 
-    routes: List[Route] = None
+    routes: List[Route]
     type: NodeType = NodeType.DECISION
     inputs_class: Type[TI] = DecisionInputs
     outputs_class: Type[TO] = DecisionOutputs
