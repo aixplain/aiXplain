@@ -377,11 +377,10 @@ def test_param_back_link():
 
 
 def test_create_pipeline():
-    pipeline = DesignerPipeline(name="foo")
+    pipeline = DesignerPipeline()
 
     assert pipeline.nodes == []
     assert pipeline.links == []
-    assert pipeline.name == "foo"
     assert not pipeline.instance
 
 

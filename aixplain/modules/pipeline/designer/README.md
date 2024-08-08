@@ -32,7 +32,7 @@ To create a pipeline and instantiate nodes, use the following code:
 from aixplain.factories.pipeline_factory import PipelineFactory
 from aixplain.modules.pipeline.designer import Input
 
-pipeline = PipelineFactory.init()
+pipeline = PipelineFactory.init("My Pipeline")
 input_node = Input(*args, **kwargs)
 input_node.attach(pipeline)
 ```

@@ -1,10 +1,9 @@
 import pytest
-from aixplain.enums import DataType
 
+from aixplain.enums import DataType
 from aixplain.factories import PipelineFactory
 from aixplain.modules.pipeline.designer.base import Link
 from aixplain.modules import Pipeline
-
 from aixplain.modules.pipeline.designer import AssetNode
 
 
@@ -114,7 +113,9 @@ def test_routing_pipeline(data, dataType):
     translation = pipeline.asset(TRANSLATION_ASSET)
     speech_recognition = pipeline.asset(SPEECH_RECOGNITION_ASSET)
 
-    input.route(translation.inputs.text, speech_recognition.inputs.source_audio)
+    input.route(
+        translation.inputs.text, speech_recognition.inputs.source_audio
+    )
 
     translation.use_output("data")
     speech_recognition.use_output("data")

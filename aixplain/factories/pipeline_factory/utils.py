@@ -20,10 +20,16 @@ from typing import Dict, List
 
 def get_typed_nodes(response: Dict, type: str) -> List[Dict]:
     # read "nodes" field from response and return the nodes that are marked by "type": type
-    return [node for node in response["nodes"] if node["type"].lower() == type.lower()]
+    return [
+        node
+        for node in response["nodes"]
+        if node["type"].lower() == type.lower()
+    ]
 
 
-def build_from_response(response: Dict, load_architecture: bool = False) -> Pipeline:
+def build_from_response(
+    response: Dict, load_architecture: bool = False
+) -> Pipeline:
     """Converts response Json to 'Pipeline' object
 
     Args:
@@ -40,7 +46,7 @@ def build_from_response(response: Dict, load_architecture: bool = False) -> Pipe
 
     # instantiating pipeline generic info
     print(response)
-    pipeline = Pipeline(response["id"], response["name"], response["api_key"], input=input, output=output, nodes=[], links=[])
+    pipeline = Pipeline(response["id"], response["name"], response["api_key"])
     if load_architecture is True:
         try:
             # instantiating nodes
@@ -56,7 +62,11 @@ def build_from_response(response: Dict, load_architecture: bool = False) -> Pipe
                 elif node_json["type"].lower() == "decision":
                     node = Decision()
                 elif node_json["type"].lower() == "router":
-                    node = Router(routes=[Route(**route) for route in node_json["routes"]])
+                    node = Router(
+                        routes=[
+                            Route(**route) for route in node_json["routes"]
+                        ]
+                    )
                 elif node_json["type"].lower() == "script":
                     node = Script(fileId=node_json["fileId"])
                 elif node_json["type"].lower() == "output":

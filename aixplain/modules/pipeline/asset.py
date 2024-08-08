@@ -24,6 +24,7 @@ Description:
 import time
 import json
 import os
+import uuid
 import logging
 from aixplain.modules.asset import Asset
 from aixplain.utils import config
@@ -66,6 +67,9 @@ class Pipeline(Asset):
             version (Text, optional): version of the pipeline. Defaults to "1.0".
             **additional_info: Any additional Pipeline info to be saved
         """
+        if not name:
+            raise ValueError("Pipeline name is required")
+
         super().__init__(id, name, "", supplier, version)
         self.api_key = api_key
         self.url = f"{url}/assets/pipeline/execution/run"

@@ -3,7 +3,7 @@ import json
 from aixplain.factories.pipeline_factory import PipelineFactory
 from aixplain.enums import DataType
 
-pipeline = PipelineFactory.init()
+pipeline = PipelineFactory.init("Pipeline with Scripting")
 
 # add nodes to the pipeline
 input = pipeline.input()

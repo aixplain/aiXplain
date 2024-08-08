@@ -21,13 +21,11 @@ T = TypeVar("T", bound="AssetNode")
 
 
 class DesignerPipeline(Serializable):
-    name: str = None
     nodes: List[Node] = None
     links: List[Link] = None
     instance: any = None
 
-    def __init__(self, name: str = None):
-        self.name = name
+    def __init__(self):
         self.nodes = []
         self.links = []
 

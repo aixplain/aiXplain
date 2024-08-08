@@ -2,7 +2,7 @@ import json
 from aixplain.factories.pipeline_factory import PipelineFactory
 from aixplain.modules.pipeline.designer import Route, RouteType, Operation
 
-pipeline = PipelineFactory.init()
+pipeline = PipelineFactory.init("Pipeline with Conditions")
 
 # add nodes to the pipeline
 input = pipeline.input()

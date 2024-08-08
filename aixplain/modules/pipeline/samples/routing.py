@@ -1,7 +1,7 @@
 import json
 from aixplain.factories.pipeline_factory import PipelineFactory
 
-pipeline = PipelineFactory.init()
+pipeline = PipelineFactory.init("Pipeline with Routing")
 
 # add nodes to the pipeline
 input = pipeline.input()
