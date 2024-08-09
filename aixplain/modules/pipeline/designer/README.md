@@ -16,10 +16,10 @@ TRANSLATION_ASSET_ID = 'your-translation-asset-id'
 pipeline = PipelineFactory.init('Translation Pipeline')
 input_node = pipeline.input()
 translation_node = pipeline.translation(assetId=TRANSLATION_ASSET_ID)
-output_node = translation_node.use_output('data')
 
 input_node.link(translation_node, 'input', 'text')
 
+output_node = translation_node.use_output('data')
 
 pipeline.save()
 outputs = pipeline.run('This is example text to translate')
