@@ -1,6 +1,6 @@
 from typing import List, Union, Type, TYPE_CHECKING, Optional
 
-from aixplain.modules import asset
+from aixplain.modules import Model
 from aixplain.enums import DataType
 
 from .enums import (
@@ -40,7 +40,7 @@ class AssetNode(Node[TI, TO], LinkableMixin, OutputableMixin):
     asset function spec.
     """
 
-    asset_id: Union[asset.Asset, str] = None
+    asset_id: Union[Model, str] = None
     function: str = None
     supplier: str = None
     version: str = None
@@ -51,7 +51,7 @@ class AssetNode(Node[TI, TO], LinkableMixin, OutputableMixin):
 
     def __init__(
         self,
-        asset_id: Union[asset.Asset, str] = None,
+        asset_id: Union[Model, str] = None,
         supplier: str = None,
         version: str = None,
         pipeline: "DesignerPipeline" = None,
@@ -69,7 +69,7 @@ class AssetNode(Node[TI, TO], LinkableMixin, OutputableMixin):
 
         if isinstance(self.asset_id, str):
             self.asset = ModelFactory.get(self.asset_id)
-        elif isinstance(self.asset_id, asset.Asset):
+        elif isinstance(self.asset_id, Model):
             self.asset = self.asset_id
             self.asset_id = self.asset_id.id
         else:
