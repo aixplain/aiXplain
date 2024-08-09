@@ -8,6 +8,7 @@ from aixplain.modules.pipeline.designer import (
     Input,
     Output,
     AssetNode,
+    Decision,
     Router,
     Route,
     Script,
@@ -35,6 +36,7 @@ def build_from_response(response: Dict, load_architecture: bool = False) -> Pipe
         try:
             # instantiating nodes
             for node_json in response["nodes"]:
+                print(node_json)
                 if node_json["type"].lower() == "input":
                     node = Input(
                         data=node_json["data"] if "data" in node_json else None,
@@ -47,7 +49,7 @@ def build_from_response(response: Dict, load_architecture: bool = False) -> Pipe
                 elif node_json["type"].lower() == "reconstructor":
                     raise NotImplementedError()
                 elif node_json["type"].lower() == "decision":
-                    raise NotImplementedError()
+                    node = Decision(routes=[Route(**route) for route in node_json["routes"]])
                 elif node_json["type"].lower() == "router":
                     node = Router(routes=[Route(**route) for route in node_json["routes"]])
                 elif node_json["type"].lower() == "script":

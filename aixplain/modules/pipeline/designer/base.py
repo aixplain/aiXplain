@@ -21,7 +21,6 @@ TO = TypeVar("TO", bound="Outputs")
 
 
 class Serializable:
-
     def serialize(self) -> dict:
         raise NotImplementedError()
 
@@ -188,9 +187,7 @@ class Link(Serializable):
         # Should we check for data type mismatch?
         if from_param.data_type and to_param.data_type:
             if from_param.data_type != to_param.data_type:
-                raise ValueError(
-                    f"Data type mismatch between {from_param.data_type} and {to_param.data_type}"  # noqa
-                )
+                raise ValueError(f"Data type mismatch between {from_param.data_type} and {to_param.data_type}")  # noqa
 
     def attach_to(self, pipeline: "DesignerPipeline"):
         """
@@ -234,18 +231,14 @@ class ParamProxy(Serializable):
     def add_param(self, param: Param) -> None:
         # check if param already registered
         if param in self:
-            raise ValueError(
-                f"Parameter with code '{param.code}' already exists."
-            )
+            raise ValueError(f"Parameter with code '{param.code}' already exists.")
         self._params.append(param)
         # also set attribute on the node dynamically if there's no
         # any attribute with the same name
         if not hasattr(self, param.code):
             setattr(self, param.code, param)
 
-    def _create_param(
-        self, code: str, data_type: DataType = None, value: any = None
-    ) -> Param:
+    def _create_param(self, code: str, data_type: DataType = None, value: any = None) -> Param:
         raise NotImplementedError()
 
     def create_param(
@@ -286,7 +279,6 @@ class ParamProxy(Serializable):
 
 
 class Inputs(ParamProxy):
-
     def _create_param(
         self,
         code: str,
@@ -303,10 +295,7 @@ class Inputs(ParamProxy):
 
 
 class Outputs(ParamProxy):
-
-    def _create_param(
-        self, code: str, data_type: DataType = None, value: any = None
-    ) -> OutputParam:
+    def _create_param(self, code: str, data_type: DataType = None, value: any = None) -> OutputParam:
         return OutputParam(code=code, data_type=data_type, value=value)
 
 
@@ -346,15 +335,13 @@ class Node(Generic[TI, TO], Serializable):
         :param pipeline: the pipeline
         """
         assert not self.pipeline, "Node already attached to a pipeline"
-        assert (
-            self not in pipeline.nodes
-        ), "Node already attached to a pipeline"
+        assert self not in pipeline.nodes, "Node already attached to a pipeline"
         assert self.type, "Node type not set"
 
         self.pipeline = pipeline
-        if not self.number:
+        if self.number is None:
             self.number = len(pipeline.nodes)
-        if not self.label:
+        if self.label is None:
             self.label = f"{self.type.value}(ID={self.number})"
 
         assert not pipeline.get_node(self.number), "Node number already exists"
