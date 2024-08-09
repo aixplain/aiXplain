@@ -21,9 +21,10 @@ Description:
     Pipeline Factory Class
 """
 import json
-import logging
 import os
+import logging
 from typing import Dict, List, Optional, Text, Union
+from aixplain.factories.pipeline_factory.utils import build_from_response
 from aixplain.enums.data_type import DataType
 from aixplain.enums.function import Function
 from aixplain.enums.supplier import Supplier
@@ -46,27 +47,6 @@ class PipelineFactory:
     backend_url = config.BACKEND_URL
 
     @classmethod
-    def __get_typed_nodes(cls, response: Dict, type: str) -> List[Dict]:
-        # read "nodes" field from response and return the nodes that are marked by "type": type
-        return [node for node in response["nodes"] if node["type"].lower() == type.lower()]
-
-    @classmethod
-    def __from_response(cls, response: Dict) -> Pipeline:
-        """Converts response Json to 'Pipeline' object
-
-        Args:
-            response (Dict): Json from API
-
-        Returns:
-            Pipeline: Coverted 'Pipeline' object
-        """
-        if "api_key" not in response:
-            response["api_key"] = config.TEAM_API_KEY
-        input = cls.__get_typed_nodes(response, "input")
-        output = cls.__get_typed_nodes(response, "output")
-        return Pipeline(response["id"], response["name"], response["api_key"], input=input, output=output)
-
-    @classmethod
     def get(cls, pipeline_id: Text, api_key: Optional[Text] = None) -> Pipeline:
         """Create a 'Pipeline' object from pipeline id
 
@@ -81,11 +61,20 @@ class PipelineFactory:
         try:
             url = urljoin(cls.backend_url, f"sdk/pipelines/{pipeline_id}")
             if api_key is not None:
-                headers = {"Authorization": f"Token {api_key}", "Content-Type": "application/json"}
+                headers = {
+                    "Authorization": f"Token {api_key}",
+                    "Content-Type": "application/json",
+                }
             elif cls.aixplain_key != "":
-                headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
+                headers = {
+                    "x-aixplain-key": f"{cls.aixplain_key}",
+                    "Content-Type": "application/json",
+                }
             else:
-                headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+                headers = {
+                    "Authorization": f"Token {config.TEAM_API_KEY}",
+                    "Content-Type": "application/json",
+                }
             logging.info(f"Start service for GET Pipeline  - {url} - {headers}")
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()
@@ -93,16 +82,17 @@ class PipelineFactory:
             resp["api_key"] = config.TEAM_API_KEY
             if api_key is not None:
                 resp["api_key"] = api_key
-            pipeline = cls.__from_response(resp)
+            pipeline = build_from_response(resp, load_architecture=True)
             return pipeline
-        except Exception:
+        except Exception as e:
+            logging.exception(e)
             status_code = 400
             if resp is not None and "statusCode" in resp:
                 status_code = resp["statusCode"]
                 message = resp["message"]
                 message = f"Pipeline Creation: Status {status_code} - {message}"
             else:
-                message = "Pipeline Creation: Unspecified Error"
+                message = f"Pipeline Creation: Unspecified Error {e}"
             logging.error(message)
             raise Exception(f"Status {status_code}: {message}")
 
@@ -127,14 +117,20 @@ class PipelineFactory:
         try:
             url = urljoin(cls.backend_url, f"sdk/pipelines/?pageNumber={page_number}")
             if cls.aixplain_key != "":
-                headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
+                headers = {
+                    "x-aixplain-key": f"{cls.aixplain_key}",
+                    "Content-Type": "application/json",
+                }
             else:
-                headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+                headers = {
+                    "Authorization": f"Token {config.TEAM_API_KEY}",
+                    "Content-Type": "application/json",
+                }
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()
             logging.info(f"Listing Pipelines: Status of getting Pipelines on Page {page_number}: {resp}")
             all_pipelines = resp["items"]
-            pipeline_list = [cls.__from_response(pipeline_info_json) for pipeline_info_json in all_pipelines]
+            pipeline_list = [build_from_response(pipeline_info_json) for pipeline_info_json in all_pipelines]
             return pipeline_list
         except Exception as e:
             error_message = f"Listing Pipelines: Error in getting Pipelines on Page {page_number}: {e}"
@@ -177,9 +173,15 @@ class PipelineFactory:
 
         url = urljoin(cls.backend_url, "sdk/pipelines/paginate")
         if cls.aixplain_key != "":
-            headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
+            headers = {
+                "x-aixplain-key": f"{cls.aixplain_key}",
+                "Content-Type": "application/json",
+            }
         else:
-            headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+            headers = {
+                "Authorization": f"Token {config.TEAM_API_KEY}",
+                "Content-Type": "application/json",
+            }
 
         assert 0 < page_size <= 100, "Pipeline List Error: Page size must be greater than 0 and not exceed 100."
         payload = {
@@ -228,11 +230,43 @@ class PipelineFactory:
             total = resp["total"]
             logging.info(f"Response for POST List Pipeline - Page Total: {page_total} / Total: {total}")
             for pipeline in results:
-                pipelines.append(cls.__from_response(pipeline))
-        return {"results": pipelines, "page_total": page_total, "page_number": page_number, "total": total}
+                pipelines.append(build_from_response(pipeline))
+        return {
+            "results": pipelines,
+            "page_total": page_total,
+            "page_number": page_number,
+            "total": total,
+        }
 
     @classmethod
-    def create(cls, name: Text, pipeline: Union[Text, Dict], api_key: Optional[Text] = None) -> Pipeline:
+    def init(cls, name: Text, api_key: Optional[Text] = None) -> Pipeline:
+        """Initialize a new Pipeline
+
+        Args:
+            name (Text): Pipeline Name
+            api_key (Optional[Text], optional): Team API Key to create the Pipeline. Defaults to None.
+
+        Returns:
+            Pipeline: instance of the new pipeline
+        """
+        if api_key is None:
+            api_key = config.TEAM_API_KEY
+        return Pipeline(
+            id="",
+            name=name,
+            api_key=api_key,
+            nodes=[],
+            links=[],
+            instance=None,
+        )
+
+    @classmethod
+    def create(
+        cls,
+        name: Text,
+        pipeline: Union[Text, Dict],
+        api_key: Optional[Text] = None,
+    ) -> Pipeline:
         """Draft Pipeline Creation
 
         Args:
@@ -259,10 +293,17 @@ class PipelineFactory:
                 if "functionType" in node and node["functionType"] == "AI":
                     pipeline["nodes"][i]["functionType"] = pipeline["nodes"][i]["functionType"].lower()
             # prepare payload
-            payload = {"name": name, "status": "draft", "architecture": pipeline}
+            payload = {
+                "name": name,
+                "status": "draft",
+                "architecture": pipeline,
+            }
             url = urljoin(cls.backend_url, "sdk/pipelines")
             api_key = api_key if api_key is not None else config.TEAM_API_KEY
-            headers = {"Authorization": f"Token {api_key}", "Content-Type": "application/json"}
+            headers = {
+                "Authorization": f"Token {api_key}",
+                "Content-Type": "application/json",
+            }
             logging.info(f"Start service for POST Create Pipeline - {url} - {headers} - {json.dumps(payload)}")
             r = _request_with_retry("post", url, headers=headers, json=payload)
             response = r.json()
