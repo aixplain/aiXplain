@@ -2,7 +2,12 @@ import pytest
 
 from aixplain.enums import DataType
 from aixplain.factories import PipelineFactory
-from aixplain.modules.pipeline.designer.base import Link
+from aixplain.modules.pipeline.designer import (
+    Link,
+    Operation,
+    Route,
+    RouteType,
+)
 from aixplain.modules import Pipeline
 from aixplain.modules.pipeline.designer import AssetNode
 from uuid import uuid4
@@ -96,17 +101,7 @@ def test_create_mt_pipeline_and_run(pipeline):
     assert output["status"] == "SUCCESS"
 
 
-@pytest.mark.parametrize(
-    ["data", "dataType"],
-    [
-        ("This is a sample text!", DataType.TEXT),
-        # (
-        #     "https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.wav",
-        #     DataType.AUDIO,
-        # ),
-    ],
-)
-def test_routing_pipeline(pipeline, data, dataType):
+def test_routing_pipeline(pipeline):
 
     TRANSLATION_ASSET = "60ddefae8d38c51c5885eff7"
     SPEECH_RECOGNITION_ASSET = "621cf3fa6442ef511d2830af"
@@ -115,14 +110,16 @@ def test_routing_pipeline(pipeline, data, dataType):
     translation = pipeline.asset(TRANSLATION_ASSET)
     speech_recognition = pipeline.asset(SPEECH_RECOGNITION_ASSET)
 
-    input.route(translation.inputs.text, speech_recognition.inputs.source_audio)
+    input.route(
+        translation.inputs.text, speech_recognition.inputs.source_audio
+    )
 
     translation.use_output("data")
     speech_recognition.use_output("data")
 
     pipeline.save()
 
-    output = pipeline.run(data)
+    output = pipeline.run("This is a sample text!")
 
     assert output["status"] == "SUCCESS"
     assert output.get("data") is not None
@@ -130,5 +127,122 @@ def test_routing_pipeline(pipeline, data, dataType):
     assert output["data"][0].get("segments") is not None
     assert len(output["data"][0]["segments"]) > 0
 
-    # would like to assert the output of the pipeline but it's not
-    # deterministic, so we can't really assert the output
+
+def test_scripting_pipeline(pipeline):
+
+    SPEAKER_DIARIZATION_AUDIO_ASSET = "62fab6ecb39cca09ca5bc365"
+    SPEECH_RECOGNITION_ASSET = "621cf3fa6442ef511d2830af"
+
+    input = pipeline.input()
+
+    segmentor = pipeline.speaker_diarization_audio(
+        asset_id=SPEAKER_DIARIZATION_AUDIO_ASSET
+    )
+
+    speech_recognition = pipeline.speech_recognition(
+        asset_id=SPEECH_RECOGNITION_ASSET
+    )
+
+    script = pipeline.script(
+        script_path="tests/functional/pipelines/data/script.py"
+    )
+    script.inputs.create_param(code="transcripts", data_type=DataType.TEXT)
+    script.inputs.create_param(code="speakers", data_type=DataType.LABEL)
+    script.outputs.create_param(code="data", data_type=DataType.TEXT)
+
+    input.outputs.input.link(segmentor.inputs.audio)
+    segmentor.outputs.audio.link(speech_recognition.inputs.source_audio)
+    segmentor.outputs.data.link(script.inputs.speakers)
+    speech_recognition.outputs.data.link(script.inputs.transcripts)
+
+    script.use_output("data")
+
+    pipeline.save()
+
+    output = pipeline.run(
+        "s3://aixplain-platform-assets/samples/en/CPAC1x2.wav",
+        version="2.0",
+    )
+
+    assert output["status"] == "SUCCESS"
+    assert output.get("data") is not None
+    assert len(output["data"]) > 0
+    assert output["data"][0].get("segments") is not None
+    assert len(output["data"][0]["segments"]) > 0
+
+
+def test_decision_pipeline(pipeline):
+
+    SENTIMENT_ANALYSIS_ASSET = "6172874f720b09325cbcdc33"
+
+    input = pipeline.input()
+
+    sentiment_analysis = pipeline.sentiment_analysis(
+        asset_id=SENTIMENT_ANALYSIS_ASSET
+    )
+
+    positive_output = pipeline.output()
+    negative_output = pipeline.output()
+    decision_node = pipeline.decision(
+        routes=[
+            Route(
+                type=RouteType.CHECK_VALUE,
+                operation=Operation.EQUAL,
+                value="POSITIVE",
+                path=[positive_output],
+            ),
+            Route(
+                type=RouteType.CHECK_VALUE,
+                operation=Operation.DIFFERENT,
+                value="POSITIVE",
+                path=[negative_output],
+            ),
+        ]
+    )
+
+    input.outputs.input.link(sentiment_analysis.inputs.text)
+    sentiment_analysis.outputs.data.link(decision_node.inputs.comparison)
+    input.outputs.input.link(decision_node.inputs.passthrough)
+    decision_node.outputs.input.link(positive_output.inputs.output)
+    decision_node.outputs.input.link(negative_output.inputs.output)
+
+    pipeline.save()
+
+    output = pipeline.run("I feel so bad today!")
+
+    assert output["status"] == "SUCCESS"
+    assert output.get("data") is not None
+    assert len(output["data"]) > 0
+    assert output["data"][0].get("segments") is not None
+    assert len(output["data"][0]["segments"]) > 0
+
+
+def test_reconstructing_pipeline(pipeline):
+    input = pipeline.input()
+
+    segmentor = pipeline.speaker_diarization_audio(
+        asset_id="62fab6ecb39cca09ca5bc365"
+    )
+
+    speech_recognition = pipeline.speech_recognition(
+        asset_id="60ddefab8d38c51c5885ee38"
+    )
+
+    reconstructor = pipeline.bare_reconstructor()
+
+    input.outputs.input.link(segmentor.inputs.audio)
+    segmentor.outputs.audio.link(speech_recognition.inputs.source_audio)
+    speech_recognition.outputs.data.link(reconstructor.inputs.data)
+
+    reconstructor.use_output("data")
+
+    pipeline.save()
+
+    output = pipeline.run(
+        "s3://aixplain-platform-assets/samples/en/CPAC1x2.wav",
+    )
+    assert output["status"] == "SUCCESS"
+    assert output.get("data") is not None
+    assert len(output["data"]) > 0
+    assert output["data"][0].get("segments") is not None
+    assert len(output["data"][0]["segments"]) > 0

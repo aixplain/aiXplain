@@ -84,7 +84,9 @@ class AssetNode(Node[TI, TO], LinkableMixin, OutputableMixin):
 
         if self.function:
             if self.asset.function.value != self.function:
-                raise ValueError(f"Function {self.function} is not supported by asset {self.asset_id}")  # noqa
+                raise ValueError(
+                    f"Function {self.function} is not supported by asset {self.asset_id}"
+                )  # noqa
         else:
             self.function = self.asset.function.value
             self._auto_populate_params()
@@ -243,7 +245,7 @@ class Script(Node[TI, TO], LinkableMixin, OutputableMixin):
         assert script_path or fileId, "script_path or fileId is required"
 
         if not fileId:
-            self.fileId = ScriptFactory.to_link(script_path, is_temp=True)
+            self.fileId = ScriptFactory.upload_script(script_path)
         else:
             self.fileId = fileId
 
@@ -284,7 +286,10 @@ class Route(Serializable):
             raise ValueError("Path is not valid, should be a list of nodes")
 
         # convert nodes to node numbers if they are nodes
-        self.path = [node.number if isinstance(node, Node) else node for node in self.path]
+        self.path = [
+            node.number if isinstance(node, Node) else node
+            for node in self.path
+        ]
 
     def serialize(self) -> dict:
         return {
@@ -322,7 +327,9 @@ class Router(Node[RouterInputs, RouterOutputs], LinkableMixin):
     inputs_class: Type[TI] = RouterInputs
     outputs_class: Type[TO] = RouterOutputs
 
-    def __init__(self, routes: List[Route], pipeline: "DesignerPipeline" = None):
+    def __init__(
+        self, routes: List[Route], pipeline: "DesignerPipeline" = None
+    ):
         super().__init__(pipeline=pipeline)
         self.routes = routes
 
@@ -361,7 +368,9 @@ class Decision(Node[DecisionInputs, DecisionOutputs], LinkableMixin):
     inputs_class: Type[TI] = DecisionInputs
     outputs_class: Type[TO] = DecisionOutputs
 
-    def __init__(self, routes: List[Route], pipeline: "DesignerPipeline" = None):
+    def __init__(
+        self, routes: List[Route], pipeline: "DesignerPipeline" = None
+    ):
         super().__init__(pipeline=pipeline)
         self.routes = routes
 
@@ -441,7 +450,9 @@ class ReconstructorOutputs(Outputs):
         self.data = self.create_param("data")
 
 
-class BareReconstructor(BaseReconstructor[ReconstructorInputs, ReconstructorOutputs]):
+class BareReconstructor(
+    BaseReconstructor[ReconstructorInputs, ReconstructorOutputs]
+):
     """
     Reconstructor node class, this node will be used to reconstruct the
     output of the segmented lines of execution.
