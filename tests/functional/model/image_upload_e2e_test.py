@@ -9,7 +9,6 @@ import docker
 import pytest
 
 
-@pytest.mark.skip(reason="Model Upload is deactivated for improvements.")
 def test_create_and_upload_model():
     # List the host machines
     host_response = ModelFactory.list_host_machines()
@@ -31,14 +30,15 @@ def test_create_and_upload_model():
 
     # Register the model, and create an image repository for it.
     with open(Path("tests/test_requests/create_asset_request.json")) as f:
-        register_payload = json.load(f)
-    name = register_payload["name"]
-    host_machine = register_payload["hostingMachine"]
-    version = register_payload["version"]
-    description = register_payload["description"]
-    function = register_payload["function"]
-    source_language = register_payload["sourceLanguage"]
-    register_response = ModelFactory.create_asset_repo(name, host_machine, version, description, function, source_language)
+        mock_register_payload = json.load(f)
+    name = mock_register_payload["name"]
+    description = mock_register_payload["description"]
+    function = mock_register_payload["function"]
+    source_language = mock_register_payload["sourceLanguage"]
+    input_modality = mock_register_payload["input_modality"]
+    output_modality = mock_register_payload["output_modality"]
+    documentation_url = mock_register_payload["documentation_url"]
+    register_response = ModelFactory.create_asset_repo(name, description, function, source_language, input_modality, output_modality, documentation_url, config.TEAM_API_KEY)
     assert "id" in register_response.keys()
     assert "repositoryName" in register_response.keys()
     model_id = register_response["id"]
@@ -56,10 +56,7 @@ def test_create_and_upload_model():
     registry = login_response["registry"]
 
     # Push an image to ECR
-    # os.system("aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 535945872701.dkr.ecr.us-east-1.amazonaws.com")
     low_level_client = docker.APIClient(base_url="unix://var/run/docker.sock")
-    # low_level_client.pull("535945872701.dkr.ecr.us-east-1.amazonaws.com/bash")
-    # low_level_client.tag("535945872701.dkr.ecr.us-east-1.amazonaws.com/bash", f"{registry}/{repo_name}")
     low_level_client.pull("bash")
     low_level_client.tag("bash", f"{registry}/{repo_name}")
     low_level_client.push(f"{registry}/{repo_name}", auth_config={"username": username, "password": password})
