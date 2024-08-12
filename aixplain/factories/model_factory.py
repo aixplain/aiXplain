@@ -361,7 +361,7 @@ class ModelFactory:
             if function_dict["name"] == function:
                 function_id = function_dict["id"]
         if function_id is None:
-            raise Exception("Invalid function name")
+            raise Exception(f"Invalid function name {function}")
         create_url = urljoin(config.BACKEND_URL, f"sdk/models/onboard")
         logging.debug(f"URL: {create_url}")
         if api_key:
