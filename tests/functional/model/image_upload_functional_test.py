@@ -1,13 +1,12 @@
 __author__ = "michaellam"
 from pathlib import Path
 import json
-from aixplain.utils import config
-from tests.test_utils import delete_asset, delete_service_account
 from aixplain.factories.model_factory import ModelFactory
+from tests.test_utils import delete_asset, delete_service_account
+from aixplain.utils import config
+import docker
 import pytest
 
-
-@pytest.mark.skip(reason="Model Upload is deactivated for improvements.")
 def test_login():
     response = ModelFactory.asset_repo_login()
     assert response["username"] == "AWS"
@@ -18,18 +17,17 @@ def test_login():
     delete_service_account(config.TEAM_API_KEY)
 
 
-@pytest.mark.skip(reason="Model Upload is deactivated for improvements.")
 def test_create_asset_repo():
     with open(Path("tests/test_requests/create_asset_request.json")) as f:
         mock_register_payload = json.load(f)
     name = mock_register_payload["name"]
-    host_machine = mock_register_payload["hostingMachine"]
-    version = mock_register_payload["version"]
     description = mock_register_payload["description"]
     function = mock_register_payload["function"]
     source_language = mock_register_payload["sourceLanguage"]
-    response = ModelFactory.create_asset_repo(name, host_machine, version, description, function, source_language)
-    print(response)
+    input_modality = mock_register_payload["input_modality"]
+    output_modality = mock_register_payload["output_modality"]
+    documentation_url = mock_register_payload["documentation_url"]
+    response = ModelFactory.create_asset_repo(name, description, function, source_language, input_modality, output_modality, documentation_url, config.TEAM_API_KEY)
     response_dict = dict(response)
     assert "id" in response_dict.keys()
     assert "repositoryName" in response_dict.keys()
@@ -38,7 +36,6 @@ def test_create_asset_repo():
     delete_asset(response["id"], config.TEAM_API_KEY)
 
 
-@pytest.mark.skip(reason="Model Upload is deactivated for improvements.")
 def test_list_host_machines():
     response = ModelFactory.list_host_machines()
     for hosting_machine_dict in response:
@@ -49,7 +46,6 @@ def test_list_host_machines():
         assert "hourlyCost" in hosting_machine_dict.keys()
 
 
-@pytest.mark.skip(reason="Model Upload is deactivated for improvements.")
 def test_get_functions():
     # Verbose
     response = ModelFactory.list_functions(True)
