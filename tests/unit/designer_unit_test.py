@@ -30,9 +30,7 @@ def test_create_node():
     class BareNode(Node):
         pass
 
-    with mock.patch(
-        "aixplain.modules.pipeline.designer.Node.attach_to"
-    ) as mock_attach_to:
+    with mock.patch("aixplain.modules.pipeline.designer.Node.attach_to") as mock_attach_to:
         node = BareNode(number=3, label="FOO")
         mock_attach_to.assert_not_called()
         assert isinstance(node.inputs, Inputs)
@@ -50,9 +48,7 @@ def test_create_node():
         inputs_class = FooNodeInputs
         outputs_class = FooNodeOutputs
 
-    with mock.patch(
-        "aixplain.modules.pipeline.designer.Node.attach_to"
-    ) as mock_attach_to:
+    with mock.patch("aixplain.modules.pipeline.designer.Node.attach_to") as mock_attach_to:
         node = FooNode(pipeline=pipeline, number=3, label="FOO")
         mock_attach_to.assert_called_once_with(pipeline)
         assert isinstance(node.inputs, FooNodeInputs)
@@ -120,9 +116,7 @@ def test_node_serialize():
     node = AssetNode()
 
     with mock.patch.object(node.inputs, "serialize") as mock_inputs_serialize:
-        with mock.patch.object(
-            node.outputs, "serialize"
-        ) as mock_outputs_serialize:
+        with mock.patch.object(node.outputs, "serialize") as mock_outputs_serialize:
             assert node.serialize() == {
                 "number": node.number,
                 "type": NodeType.ASSET,
@@ -148,13 +142,10 @@ def test_node_serialize():
 
 
 def test_create_param():
-
     class TypedParam(Param):
         param_type = ParamType.INPUT
 
-    with mock.patch(
-        "aixplain.modules.pipeline.designer.Param.attach_to"
-    ) as mock_attach_to:
+    with mock.patch("aixplain.modules.pipeline.designer.Param.attach_to") as mock_attach_to:
         param = TypedParam(
             code="param",
             data_type=DataType.TEXT,
@@ -167,9 +158,7 @@ def test_create_param():
     assert param.value == "foo"
     assert param.param_type == ParamType.INPUT
 
-    with mock.patch(
-        "aixplain.modules.pipeline.designer.Param.attach_to"
-    ) as mock_attach_to:
+    with mock.patch("aixplain.modules.pipeline.designer.Param.attach_to") as mock_attach_to:
         param = TypedParam(
             code="param",
             data_type=DataType.TEXT,
@@ -186,9 +175,7 @@ def test_create_param():
     class UnTypedParam(Param):
         pass
 
-    with mock.patch(
-        "aixplain.modules.pipeline.designer.Param.attach_to"
-    ) as mock_attach_to:
+    with mock.patch("aixplain.modules.pipeline.designer.Param.attach_to") as mock_attach_to:
         param = UnTypedParam(
             code="param",
             data_type=DataType.TEXT,
@@ -199,9 +186,7 @@ def test_create_param():
 
     assert param.param_type == ParamType.OUTPUT
 
-    with mock.patch(
-        "aixplain.modules.pipeline.designer.Param.attach_to"
-    ) as mock_attach_to:
+    with mock.patch("aixplain.modules.pipeline.designer.Param.attach_to") as mock_attach_to:
         param = UnTypedParam(
             code="param",
             data_type=DataType.TEXT,
@@ -217,9 +202,7 @@ def test_create_param():
 
     node = AssetNode()
 
-    with mock.patch(
-        "aixplain.modules.pipeline.designer.Param.attach_to"
-    ) as mock_attach_to:
+    with mock.patch("aixplain.modules.pipeline.designer.Param.attach_to") as mock_attach_to:
         param = UnTypedParam(
             code="param",
             data_type=DataType.TEXT,
@@ -243,12 +226,8 @@ def test_create_input_output_param(param_cls, expected_param_type):
 
     node = AssetNode()
 
-    with mock.patch(
-        "aixplain.modules.pipeline.designer.Param.attach_to"
-    ) as mock_attach_to:
-        param = param_cls(
-            code="param", data_type=DataType.TEXT, value="foo", node=node
-        )
+    with mock.patch("aixplain.modules.pipeline.designer.Param.attach_to") as mock_attach_to:
+        param = param_cls(code="param", data_type=DataType.TEXT, value="foo", node=node)
         mock_attach_to.assert_called_once_with(node)
         assert param.code == "param"
         assert param.data_type == DataType.TEXT
@@ -322,12 +301,8 @@ def test_param_link():
 
     assert "Param not registered as output" in str(excinfo.value)
 
-    output = OutputParam(
-        code="output", data_type=DataType.TEXT, value="bar", node=a
-    )
-    input = InputParam(
-        code="input", data_type=DataType.TEXT, value="foo", node=b
-    )
+    output = OutputParam(code="output", data_type=DataType.TEXT, value="bar", node=a)
+    input = InputParam(code="input", data_type=DataType.TEXT, value="foo", node=b)
 
     with mock.patch.object(input, "back_link") as mock_back_link:
         output.link(input)
@@ -364,12 +339,8 @@ def test_param_back_link():
 
     assert "Param not registered as input" in str(excinfo.value)
 
-    output = OutputParam(
-        code="output", data_type=DataType.TEXT, value="bar", node=a
-    )
-    input = InputParam(
-        code="input", data_type=DataType.TEXT, value="foo", node=b
-    )
+    output = OutputParam(code="output", data_type=DataType.TEXT, value="bar", node=a)
+    input = InputParam(code="input", data_type=DataType.TEXT, value="foo", node=b)
 
     with mock.patch.object(a, "link") as mock_link:
         input.back_link(output)
@@ -429,9 +400,7 @@ def test_link_create():
 
     pipeline = DesignerPipeline()
 
-    with mock.patch(
-        "aixplain.modules.pipeline.designer.Link.attach_to"
-    ) as mock_attach_to:
+    with mock.patch("aixplain.modules.pipeline.designer.Link.attach_to") as mock_attach_to:
         link = Link(
             from_node=a,
             to_node=b,
@@ -588,12 +557,8 @@ def test_param_proxy_create_param():
 
     with mock.patch.object(param_proxy, "_create_param") as mock_create_param:
         with mock.patch.object(param_proxy, "add_param") as mock_add_param:
-            param = param_proxy.create_param(
-                "foo", DataType.TEXT, "bar", is_required=True
-            )
-            mock_create_param.assert_called_once_with(
-                "foo", DataType.TEXT, "bar"
-            )
+            param = param_proxy.create_param("foo", DataType.TEXT, "bar", is_required=True)
+            mock_create_param.assert_called_once_with("foo", DataType.TEXT, "bar")
             mock_add_param.assert_called_once_with(param)
             assert param.is_required is True
 
@@ -624,19 +589,14 @@ def test_param_proxy_attr_access():
 
 
 def test_node_link():
-
     class AssetNode(Node, LinkableMixin):
         type: NodeType = NodeType.ASSET
 
     a = AssetNode()
     b = AssetNode()
 
-    output = OutputParam(
-        code="output", data_type=DataType.TEXT, value="bar", node=a
-    )
-    input = InputParam(
-        code="input", data_type=DataType.TEXT, value="foo", node=b
-    )
+    output = OutputParam(code="output", data_type=DataType.TEXT, value="bar", node=a)
+    input = InputParam(code="input", data_type=DataType.TEXT, value="foo", node=b)
 
     # here too lazy to mock Link class properly
     # checking the output instance instead
