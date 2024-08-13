@@ -67,7 +67,7 @@ class AgentFactory:
                 if isinstance(tool, ModelTool):
                     tool_payload.append(
                         {
-                            "function": tool.function.value,
+                            "function": tool.function.value if tool.function is not None else None,
                             "type": "model",
                             "description": tool.description,
                             "supplier": tool.supplier.value["code"] if tool.supplier else None,

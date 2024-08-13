@@ -50,7 +50,6 @@ def test_end2end(run_input_map):
                 ]:
                     tool["supplier"] = supplier
                     break
-            print("TOOL: ", tool)
             tools.append(AgentFactory.create_model_tool(**tool))
     if "pipeline_tools" in run_input_map:
         for tool in run_input_map["pipeline_tools"]:
