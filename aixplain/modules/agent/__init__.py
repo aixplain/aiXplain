@@ -199,9 +199,9 @@ class Agent(Model):
                     query += f"\n{input_link}"
             elif isinstance(content, dict):
                 for key, value in content.items():
-                    assert key in query, f"Key '{key}' not found in query."
+                    assert "{{" + key + "}}" in query, f"Key '{key}' not found in query."
                     value = FileFactory.to_link(value)
-                    query = query.replace(key, f"'{value}'")
+                    query = query.replace("{{" + key + "}}", f"'{value}'")
 
         headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}
 
