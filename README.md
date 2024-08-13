@@ -60,7 +60,7 @@ translation = model.run("This is a sample text") # Alternatively, you can input 
 * [Team API Key Guide](docs/user/api_setup.md)
 * [User Documentation](docs/user/user_doc.md)
 * [Developer Guide](docs/development/developer_guide.md)
-* [API Reference](https://docs.aixplain.com/main.html)
+* [API Reference](https://docs.aixplain.com)
 * [Release notes](https://github.com/aixplain/aiXplain/releases)
 
 ## Support
