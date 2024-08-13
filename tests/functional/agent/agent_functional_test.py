@@ -37,6 +37,9 @@ def run_input_map(request):
 
 
 def test_end2end(run_input_map):
+    for agent in AgentFactory.list()["results"]:
+        agent.delete()
+
     tools = []
     if "model_tools" in run_input_map:
         for tool in run_input_map["model_tools"]:
