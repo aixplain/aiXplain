@@ -57,7 +57,6 @@ class ModelTool(Tool):
         if function is not None:
             if isinstance(function, str):
                 function = Function(function)
-        self.function = function
 
         try:
             if isinstance(supplier, dict):
@@ -70,8 +69,10 @@ class ModelTool(Tool):
                 from aixplain.factories.model_factory import ModelFactory
 
                 model = ModelFactory.get(model)
+            function = model.function
             if isinstance(model.supplier, Supplier):
                 supplier = model.supplier
             model = model.id
         self.supplier = supplier
         self.model = model
+        self.function = function
