@@ -24,7 +24,6 @@ from typing import Optional, Union, Text
 
 from aixplain.enums.function import Function
 from aixplain.enums.supplier import Supplier
-from aixplain.factories.model_factory import ModelFactory
 from aixplain.modules.agent.tool import Tool
 from aixplain.modules.model import Model
 
@@ -58,7 +57,6 @@ class ModelTool(Tool):
         if function is not None:
             if isinstance(function, str):
                 function = Function(function)
-        self.function = function
 
         try:
             if isinstance(supplier, dict):
@@ -68,9 +66,13 @@ class ModelTool(Tool):
 
         if model is not None:
             if isinstance(model, Text) is True:
+                from aixplain.factories.model_factory import ModelFactory
+
                 model = ModelFactory.get(model)
+            function = model.function
             if isinstance(model.supplier, Supplier):
                 supplier = model.supplier
             model = model.id
         self.supplier = supplier
         self.model = model
+        self.function = function
