@@ -24,10 +24,13 @@ Description:
 import json
 import logging
 
+from aixplain.enums.function import Function
 from aixplain.enums.supplier import Supplier
 from aixplain.modules.agent import Agent, Tool
 from aixplain.modules.agent.tool.model_tool import ModelTool
 from aixplain.modules.agent.tool.pipeline_tool import PipelineTool
+from aixplain.modules.model import Model
+from aixplain.modules.pipeline import Pipeline
 from aixplain.utils import config
 from typing import Dict, List, Optional, Text, Union
 
@@ -64,11 +67,12 @@ class AgentFactory:
                 if isinstance(tool, ModelTool):
                     tool_payload.append(
                         {
-                            "function": tool.function.value,
+                            "function": tool.function.value if tool.function is not None else None,
                             "type": "model",
                             "description": tool.description,
                             "supplier": tool.supplier.value["code"] if tool.supplier else None,
                             "version": tool.version if tool.version else None,
+                            "assetId": tool.model,
                         }
                     )
                 elif isinstance(tool, PipelineTool):
@@ -112,6 +116,32 @@ class AgentFactory:
         except Exception as e:
             raise Exception(e)
         return agent
+
+    @classmethod
+    def create_model_tool(
+        cls,
+        model: Optional[Union[Model, Text]] = None,
+        function: Optional[Union[Function, Text]] = None,
+        supplier: Optional[Union[Supplier, Text]] = None,
+    ) -> ModelTool:
+        """Create a new model tool."""
+        if function is not None and isinstance(function, str):
+            function = Function(function)
+
+        if supplier is not None:
+            if isinstance(supplier, str):
+                for supplier_ in Supplier:
+                    if supplier.lower() in [supplier.value["code"].lower(), supplier.value["name"].lower()]:
+                        supplier = supplier_
+                        break
+                if isinstance(supplier, str):
+                    supplier = None
+        return ModelTool(function=function, supplier=supplier, model=model)
+
+    @classmethod
+    def create_pipeline_tool(cls, description: Text, pipeline: Union[Pipeline, Text]) -> PipelineTool:
+        """Create a new pipeline tool."""
+        return PipelineTool(description=description, pipeline=pipeline)
 
     @classmethod
     def list(cls) -> Dict:

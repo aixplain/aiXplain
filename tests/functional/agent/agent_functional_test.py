@@ -20,7 +20,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 from aixplain.factories import AgentFactory
-from aixplain.modules.agent import ModelTool, PipelineTool
 from aixplain.enums.supplier import Supplier
 
 import pytest
@@ -38,6 +37,9 @@ def run_input_map(request):
 
 
 def test_end2end(run_input_map):
+    for agent in AgentFactory.list()["results"]:
+        agent.delete()
+
     tools = []
     if "model_tools" in run_input_map:
         for tool in run_input_map["model_tools"]:
@@ -48,15 +50,15 @@ def test_end2end(run_input_map):
                 ]:
                     tool["supplier"] = supplier
                     break
-            tools.append(ModelTool(function=tool["function"], supplier=tool["supplier"]))
+            tools.append(AgentFactory.create_model_tool(**tool))
     if "pipeline_tools" in run_input_map:
         for tool in run_input_map["pipeline_tools"]:
-            tools.append(PipelineTool(description=tool["description"], pipeline=tool["pipeline_id"]))
+            tools.append(AgentFactory.create_pipeline_tool(pipeline=tool["pipeline_id"], description=tool["description"]))
     print(f"Creating agent with tools: {tools}")
     agent = AgentFactory.create(name=run_input_map["agent_name"], llm_id=run_input_map["llm_id"], tools=tools)
     print(f"Agent created: {agent.__dict__}")
     print("Running agent")
-    response = agent.run(query=run_input_map["query"])
+    response = agent.run(data=run_input_map["query"])
     print(f"Agent response: {response}")
     assert response is not None
     assert response["completed"] is True

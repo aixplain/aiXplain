@@ -66,13 +66,20 @@ class Pipeline(Asset):
             version (Text, optional): version of the pipeline. Defaults to "1.0".
             **additional_info: Any additional Pipeline info to be saved
         """
+        if not name:
+            raise ValueError("Pipeline name is required")
+
         super().__init__(id, name, "", supplier, version)
         self.api_key = api_key
         self.url = f"{url}/assets/pipeline/execution/run"
         self.additional_info = additional_info
 
     def __polling(
-        self, poll_url: Text, name: Text = "pipeline_process", wait_time: float = 1.0, timeout: float = 20000.0
+        self,
+        poll_url: Text,
+        name: Text = "pipeline_process",
+        wait_time: float = 1.0,
+        timeout: float = 20000.0,
     ) -> Dict:
         """Keeps polling the platform to check whether an asynchronous call is done.
 
@@ -125,7 +132,10 @@ class Pipeline(Asset):
             Dict: response obtained by polling call
         """
 
-        headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}
+        headers = {
+            "x-api-key": self.api_key,
+            "Content-Type": "application/json",
+        }
         r = _request_with_retry("get", poll_url, headers=headers)
         try:
             resp = r.json()
@@ -172,9 +182,17 @@ class Pipeline(Asset):
             logging.error(error_message)
             logging.exception(error_message)
             end = time.time()
-            return {"status": "FAILED", "error": error_message, "elapsed_time": end - start}
+            return {
+                "status": "FAILED",
+                "error": error_message,
+                "elapsed_time": end - start,
+            }
 
-    def __prepare_payload(self, data: Union[Text, Dict], data_asset: Optional[Union[Text, Dict]] = None) -> Dict:
+    def __prepare_payload(
+        self,
+        data: Union[Text, Dict],
+        data_asset: Optional[Union[Text, Dict]] = None,
+    ) -> Dict:
         """Prepare pipeline execution payload, validating the input data
 
         Args:
@@ -184,7 +202,11 @@ class Pipeline(Asset):
         Returns:
             Dict: pipeline execution payload
         """
-        from aixplain.factories import CorpusFactory, DatasetFactory, FileFactory
+        from aixplain.factories import (
+            CorpusFactory,
+            DatasetFactory,
+            FileFactory,
+        )
 
         # if an input data asset is provided, just handle the data
         if data_asset is None:
@@ -287,7 +309,10 @@ class Pipeline(Asset):
         Returns:
             Dict: polling URL in response
         """
-        headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}
+        headers = {
+            "x-api-key": self.api_key,
+            "Content-Type": "application/json",
+        }
 
         payload = self.__prepare_payload(data=data, data_asset=data_asset)
         payload.update(kwargs)
@@ -309,7 +334,12 @@ class Pipeline(Asset):
                 response["error"] = resp
         return response
 
-    def update(self, pipeline: Union[Text, Dict], save_as_asset: bool = False, api_key: Optional[Text] = None):
+    def update(
+        self,
+        pipeline: Union[Text, Dict],
+        save_as_asset: bool = False,
+        api_key: Optional[Text] = None,
+    ):
         """Update Pipeline
 
         Args:
@@ -336,10 +366,17 @@ class Pipeline(Asset):
             status = "draft"
             if save_as_asset is True:
                 status = "onboarded"
-            payload = {"name": self.name, "status": status, "architecture": pipeline}
+            payload = {
+                "name": self.name,
+                "status": status,
+                "architecture": pipeline,
+            }
             url = urljoin(config.BACKEND_URL, f"sdk/pipelines/{self.id}")
             api_key = api_key if api_key is not None else config.TEAM_API_KEY
-            headers = {"Authorization": f"Token {api_key}", "Content-Type": "application/json"}
+            headers = {
+                "Authorization": f"Token {api_key}",
+                "Content-Type": "application/json",
+            }
             logging.info(f"Start service for PUT Update Pipeline - {url} - {headers} - {json.dumps(payload)}")
             r = _request_with_retry("put", url, headers=headers, json=payload)
             response = r.json()
@@ -351,7 +388,10 @@ class Pipeline(Asset):
         """Delete Dataset service"""
         try:
             url = urljoin(config.BACKEND_URL, f"sdk/pipelines/{self.id}")
-            headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+            headers = {
+                "Authorization": f"Token {config.TEAM_API_KEY}",
+                "Content-Type": "application/json",
+            }
             logging.info(f"Start service for DELETE Pipeline  - {url} - {headers}")
             r = _request_with_retry("delete", url, headers=headers)
             if r.status_code != 200:
@@ -360,3 +400,48 @@ class Pipeline(Asset):
             message = "Pipeline Deletion Error: Make sure the pipeline exists and you are the owner."
             logging.error(message)
             raise Exception(f"{message}")
+
+    def save(self, save_as_asset: bool = False, api_key: Optional[Text] = None):
+        """Save Pipeline
+
+        Args:
+            save_as_asset (bool, optional): Save as asset (True) or draft (False). Defaults to False.
+            api_key (Optional[Text], optional): Team API Key to create the Pipeline. Defaults to None.
+
+        Raises:
+            Exception: Make sure the pipeline to be save is in a JSON file.
+        """
+        try:
+            pipeline = self.to_dict()
+
+            for i, node in enumerate(pipeline["nodes"]):
+                if "functionType" in node and node["functionType"] == "AI":
+                    pipeline["nodes"][i]["functionType"] = pipeline["nodes"][i]["functionType"].lower()
+            # prepare payload
+            status = "draft"
+            if save_as_asset is True:
+                status = "onboarded"
+            payload = {
+                "name": self.name,
+                "status": status,
+                "architecture": pipeline,
+            }
+
+            if self.id != "":
+                method = "put"
+                url = urljoin(config.BACKEND_URL, f"sdk/pipelines/{self.id}")
+            else:
+                method = "post"
+                url = urljoin(config.BACKEND_URL, "sdk/pipelines")
+            api_key = api_key if api_key is not None else config.TEAM_API_KEY
+            headers = {
+                "Authorization": f"Token {api_key}",
+                "Content-Type": "application/json",
+            }
+            logging.info(f"Start service for Save Pipeline - {url} - {headers} - {json.dumps(payload)}")
+            r = _request_with_retry(method, url, headers=headers, json=payload)
+            response = r.json()
+            self.id = response["id"]
+            logging.info(f"Pipeline {response['id']} Saved.")
+        except Exception as e:
+            raise Exception(e)
