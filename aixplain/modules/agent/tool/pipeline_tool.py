@@ -30,7 +30,7 @@ class PipelineTool(Tool):
     """Specialized software or resource designed to assist the AI in executing specific tasks or functions based on user commands.
 
     Attributes:
-        description (Text): descriptiion of the tool
+        description (Text): description of the tool
         pipeline (Union[Text, Pipeline]): pipeline
     """
 

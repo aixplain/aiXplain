@@ -21,6 +21,7 @@ limitations under the License.
 """
 from .asset_factory import AssetFactory
 from .agent_factory import AgentFactory
+from .community_factory import CommunityFactory
 from .benchmark_factory import BenchmarkFactory
 from .corpus_factory import CorpusFactory
 from .data_factory import DataFactory

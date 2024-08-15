@@ -103,13 +103,13 @@ class AgentFactory:
                 agent = build_agent(payload=response, api_key=api_key)
             else:
                 error = r.json()
-                error_msg = "Agent Onboarding Error: Please contant the administrators."
+                error_msg = "Agent Onboarding Error: Please contact the administrators."
                 if "message" in error:
                     msg = error["message"]
                     if error["message"] == "err.name_already_exists":
                         msg = "Agent name already exists."
                     elif error["message"] == "err.asset_is_not_available":
-                        msg = "Some the tools are not available."
+                        msg = "Some tools are not available."
                     error_msg = f"Agent Onboarding Error (HTTP {r.status_code}): {msg}"
                 logging.exception(error_msg)
                 raise Exception(error_msg)
@@ -165,7 +165,7 @@ class AgentFactory:
                     agents.append(build_agent(agent))
                 return {"results": agents, "page_total": page_total, "page_number": 0, "total": total}
             else:
-                error_msg = "Agent Listing Error: Please contant the administrators."
+                error_msg = "Agent Listing Error: Please contact the administrators."
                 if "message" in resp:
                     msg = resp["message"]
                     error_msg = f"Agent Listing Error (HTTP {r.status_code}): {msg}"
@@ -189,7 +189,7 @@ class AgentFactory:
         if 200 <= r.status_code < 300:
             return build_agent(resp)
         else:
-            msg = "Please contant the administrators."
+            msg = "Please contact the administrators."
             if "message" in resp:
                 msg = resp["message"]
             error_msg = f"Agent Get Error (HTTP {r.status_code}): {msg}"
