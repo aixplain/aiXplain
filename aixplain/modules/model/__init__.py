@@ -247,7 +247,20 @@ class Model(Asset):
         except Exception:
             response = {"status": "FAILED"}
             msg = f"Error in request for {name} - {traceback.format_exc()}"
-            logging.error(f"Model Run Async: Error in running for {name}: {resp}")
+            if r.status_code == 401:
+                error_msg = "Unauthorized API key"
+            elif 460 <= r.status_code < 470:
+                error_msg = "Subscription-related error"
+            elif 470 <= r.status_code < 480:
+                error_msg = "Billing-related error"
+            elif 480 <= r.status_code < 490:
+                error_msg = "Supplier-related error"
+            elif 490 <= r.status_code < 500:
+                error_msg = "Validation-related error"
+            else:
+                status_code = str(r.status_code)
+                error_msg = f"Status {status_code}: Unspecified error"
+            logging.error(f"Model Run Async: Error in running for {name}: {resp}, Status {r.status_code} : {error_msg}")
             if resp is not None:
                 response["error"] = msg
         return response
