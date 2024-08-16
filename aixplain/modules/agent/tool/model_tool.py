@@ -82,5 +82,5 @@ class ModelTool(Tool):
 
         try:
             ModelFactory.get(self.model)
-        except:  # noqa: E722
+        except Exception:
             raise Exception(f"Model Tool Unavailable. Make sure model '{self.model}' exists or you have access to it.")
