@@ -24,7 +24,6 @@ from typing import Optional, Union, Text
 
 from aixplain.enums.function import Function
 from aixplain.enums.supplier import Supplier
-from aixplain.factories.model_factory import ModelFactory
 from aixplain.modules.agent.tool import Tool
 from aixplain.modules.model import Model
 
@@ -80,7 +79,8 @@ class ModelTool(Tool):
 
     def validate(self):
         from aixplain.factories.model_factory import ModelFactory
+
         try:
-            model = ModelFactory.get(self.model)
-        except:
+            ModelFactory.get(self.model)
+        except:  # noqa: E722
             raise Exception(f"Model Tool Unavailable. Make sure model '{self.model}' exists or you have access to it.")

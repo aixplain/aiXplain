@@ -50,11 +50,11 @@ class PipelineTool(Tool):
         if isinstance(pipeline, Pipeline):
             pipeline = pipeline.id
         self.pipeline = pipeline
-    
 
     def validate(self):
         from aixplain.factories.pipeline_factory import PipelineFactory
+
         try:
-            pipeline = PipelineFactory.get(self.pipeline)
-        except:
-            raise Exception(f"Model Tool Unavailable. Make sure Pipeline '{self.pipeline}' exists or you have access to it.")
+            PipelineFactory.get(self.pipeline)
+        except:  # noqa: E722
+            raise Exception(f"Pipeline Tool Unavailable. Make sure Pipeline '{self.pipeline}' exists or you have access to it.")

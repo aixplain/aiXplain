@@ -2,6 +2,8 @@ import pytest
 import requests_mock
 from aixplain.modules import Agent
 from aixplain.utils import config
+from aixplain.factories import AgentFactory
+from aixplain.modules.agent import PipelineTool, ModelTool
 
 
 def test_fail_no_data_query():
@@ -61,3 +63,15 @@ def test_sucess_query_content():
         response = agent.run_async(data={"query": "Translate the text: {{input1}}"}, content={"input1": "Hello, how are you?"})
     assert response["status"] == ref_response["status"]
     assert response["url"] == ref_response["data"]
+
+
+def test_invalid_pipelinetool():
+    with pytest.raises(Exception) as exc_info:
+        AgentFactory.create(name="Test", tools=[PipelineTool(pipeline="309851793")])
+    assert str(exc_info.value) == "Pipeline Tool Unavailable. Make sure Pipeline '309851793' exists or you have access to it."
+
+
+def test_invalid_modeltool():
+    with pytest.raises(Exception) as exc_info:
+        AgentFactory.create(name="Test", tools=[ModelTool(model="309851793")])
+    assert str(exc_info.value) == "Model Tool Unavailable. Make sure Model '309851793' exists or you have access to it."
