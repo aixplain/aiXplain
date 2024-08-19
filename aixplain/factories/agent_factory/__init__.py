@@ -34,7 +34,7 @@ from aixplain.modules.pipeline import Pipeline
 from aixplain.utils import config
 from typing import Dict, List, Optional, Text, Union
 
-from aixplain.factories.agent_factory.utils import build_agent
+from aixplain.factories.agent_factory.utils import build_agent, validate_llm
 from aixplain.utils.file_utils import _request_with_retry
 from urllib.parse import urljoin
 
@@ -50,8 +50,44 @@ class AgentFactory:
         api_key: Text = config.TEAM_API_KEY,
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
         version: Optional[Text] = None,
+        use_supervisor: bool = True,
+        supervisor_llm_id: Optional[Text] = None,
+        use_planner: bool = False,
+        planner_llm_id: Optional[Text] = None,
     ) -> Agent:
-        """Create a new agent in the platform."""
+        """Create a new agent in the platform.
+
+        Args:
+            name (Text): name of the agent
+            llm_id (Text): aiXplain ID of the large language model to be used as agent.
+            tools (List[Tool], optional): list of tool for the agent. Defaults to [].
+            description (Text, optional): description of the agent role. Defaults to "".
+            api_key (Text, optional): team/user API key. Defaults to config.TEAM_API_KEY.
+            supplier (Union[Dict, Text, Supplier, int], optional): owner of the agent. Defaults to "aiXplain".
+            version (Optional[Text], optional): version of the agent. Defaults to None.
+            use_supervisor (bool, optional): flag to enable a multi-agent supervisor. Defaults to True.
+            supervisor_llm_id (Optional[Text], optional): aiXplain ID of the large language model to be used as the supervisor. Defaults to None.
+            use_planner (bool, optional): flag to enable a planning agent (which only works when a supervisor is enables). Defaults to False.
+            planner_llm_id (Optional[Text], optional): aiXplain ID of the large language model to be used as the planner. Defaults to None.
+
+        Returns:
+            Agent: created Agent
+        """
+        # validate LLM ID
+        validate_llm(llm_id)
+
+        if use_supervisor is True:
+            if supervisor_llm_id is None:
+                supervisor_llm_id = llm_id
+            else:
+                validate_llm(model_id=supervisor_llm_id)
+        if use_planner is True:
+            assert use_supervisor is True, "Planner can only be used with a supervisor agent."
+            if planner_llm_id is None:
+                planner_llm_id = llm_id
+            else:
+                validate_llm(model_id=planner_llm_id)
+
         try:
             agent = None
             url = urljoin(config.BACKEND_URL, "sdk/agents")
@@ -92,9 +128,10 @@ class AgentFactory:
                 "description": description,
                 "supplier": supplier,
                 "version": version,
+                "llmId": llm_id,
+                "supervisorId": supervisor_llm_id,
+                "plannerId": planner_llm_id,
             }
-            if llm_id is not None:
-                payload["llmId"] = llm_id
 
             logging.info(f"Start service for POST Create Agent  - {url} - {headers} - {json.dumps(payload)}")
             r = _request_with_retry("post", url, headers=headers, json=payload)

@@ -24,7 +24,6 @@ from typing import Optional, Union, Text
 
 from aixplain.enums.function import Function
 from aixplain.enums.supplier import Supplier
-from aixplain.factories.model_factory import ModelFactory
 from aixplain.modules.agent.tool import Tool
 from aixplain.modules.model import Model
 
