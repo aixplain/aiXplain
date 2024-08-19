@@ -258,6 +258,7 @@ class Model(Asset):
                 else:
                     status_code = str(r.status_code)
                     error_msg = f"Status {status_code}: Unspecified error"
+                    
                 response = {"status": "FAILED", "error_message": error_msg}
                 logging.error(f"Error in request for {name} - {r.status_code}: {error_msg}")
         except Exception:
