@@ -240,13 +240,6 @@ class Model(Asset):
         resp = None
         try:
             resp = r.json()
-            logging.info(f"Result of request for {name} - {r.status_code} - {resp}")
-
-            poll_url = resp["data"]
-            response = {"status": "IN_PROGRESS", "url": poll_url}
-        except Exception:
-            response = {"status": "FAILED"}
-            msg = f"Error in request for {name} - {traceback.format_exc()}"
             if r.status_code == 401:
                 error_msg = "Unauthorized API key"
             elif 460 <= r.status_code < 470:
@@ -260,9 +253,12 @@ class Model(Asset):
             else:
                 status_code = str(r.status_code)
                 error_msg = f"Status {status_code}: Unspecified error"
-            logging.error(f"Model Run Async: Error in running for {name}: {resp}, Status {r.status_code} : {error_msg}")
-            if resp is not None:
-                response["error"] = msg
+            logging.info(f"Result of request for {name} - {r.status_code} - {resp}")
+            poll_url = resp["data"]
+            response = {"status": "IN_PROGRESS", "url": poll_url}
+        except Exception:
+            logging.error(f"Model Run Async: Error in running for {name}: {resp}")
+            response = {"status": "FAILED" , "error": error_msg}
         return response
 
     def check_finetune_status(self, after_epoch: Optional[int] = None):

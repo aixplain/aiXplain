@@ -324,12 +324,6 @@ class Pipeline(Asset):
         resp = None
         try:
             resp = r.json()
-            logging.info(f"Result of request for {name}  - {r.status_code} - {resp}")
-
-            poll_url = resp["url"]
-            response = {"status": "IN_PROGRESS", "url": poll_url}
-        except Exception:
-            response = {"status": "FAILED"}
             if r.status_code == 401:
                 error_msg = "Unauthorized API key"
             elif 460 <= r.status_code < 470:
@@ -343,9 +337,11 @@ class Pipeline(Asset):
             else:
                 status_code = str(r.status_code)
                 error_msg = f"Status {status_code}: Unspecified error"
-            logging.error(f"Pipeline Run Async: Error in running for {name}: {resp}, Status {r.status_code} : {error_msg}")
-            if resp is not None:
-                response["error"] = resp
+            logging.info(f"Result of request for {name}  - {r.status_code} - {resp}")
+            poll_url = resp["url"]
+            response = {"status": "IN_PROGRESS", "url": poll_url}
+        except Exception:
+            response = {"status": "FAILED", "error": error_msg}
         return response
 
     def update(
