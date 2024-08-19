@@ -67,11 +67,13 @@ def test_sucess_query_content():
 
 def test_invalid_pipelinetool():
     with pytest.raises(Exception) as exc_info:
-        AgentFactory.create(name="Test", tools=[PipelineTool(pipeline="309851793")])
+        AgentFactory.create(
+            name="Test", tools=[PipelineTool(pipeline="309851793", description="Test")], llm_id="6646261c6eb563165658bbb1"
+        )
     assert str(exc_info.value) == "Pipeline Tool Unavailable. Make sure Pipeline '309851793' exists or you have access to it."
 
 
 def test_invalid_modeltool():
     with pytest.raises(Exception) as exc_info:
-        AgentFactory.create(name="Test", tools=[ModelTool(model="309851793")])
+        AgentFactory.create(name="Test", tools=[ModelTool(model="309851793")], llm_id="6646261c6eb563165658bbb1")
     assert str(exc_info.value) == "Model Tool Unavailable. Make sure Model '309851793' exists or you have access to it."
