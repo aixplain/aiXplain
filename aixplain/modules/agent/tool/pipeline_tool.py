@@ -56,5 +56,5 @@ class PipelineTool(Tool):
 
         try:
             PipelineFactory.get(self.pipeline)
-        except:  # noqa: E722
+        except Exception:
             raise Exception(f"Pipeline Tool Unavailable. Make sure Pipeline '{self.pipeline}' exists or you have access to it.")
