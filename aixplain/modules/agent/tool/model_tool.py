@@ -79,8 +79,8 @@ class ModelTool(Tool):
 
     def validate(self):
         from aixplain.factories.model_factory import ModelFactory
-
         try:
-            ModelFactory.get(self.model)
+            if self.model != None:
+                ModelFactory.get(self.model)
         except Exception:
             raise Exception(f"Model Tool Unavailable. Make sure model '{self.model}' exists or you have access to it.")
