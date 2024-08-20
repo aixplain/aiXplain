@@ -1,13 +1,16 @@
+__author__ = "aixplain"
+
 from aixplain.factories import WalletFactory
-import pytest
-
-def test_wallet():
-    factory = WalletFactory()
-    with pytest.raises(Exception):
-        wallet = factory.get()
-    total_balance_str= f"Total Balance: {wallet.totalBalance}."
-    reserved_balance_str= f"Reserved Balance: {wallet.reservedBalance}."
-    assert str(total_balance_str) == "Total Balance: 5."
-    assert str(reserved_balance_str=="Reserced Balance: 0.")
+import aixplain.utils.config as config
+import requests_mock
 
 
+def test_wallet_service():
+    with requests_mock.Mocker() as mock:
+        url = f"{config.BACKEND_URL}/sdk/billing/wallet"
+        headers = {"x-api-key": config.TEAM_API_KEY, "Content-Type": "application/json"}
+        ref_response = {"totalBalance": 5, "reservedBalance": "0"}
+        mock.get(url, headers=headers, json=ref_response)
+        wallet = WalletFactory.get()
+    assert wallet.total_balance == ref_response["totalBalance"]
+    assert wallet.reserved_balance == ref_response["reservedBalance"]
