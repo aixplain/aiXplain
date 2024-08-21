@@ -51,9 +51,7 @@ class AgentFactory:
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
         version: Optional[Text] = None,
         use_supervisor: bool = True,
-        supervisor_llm_id: Optional[Text] = None,
-        use_planner: bool = False,
-        planner_llm_id: Optional[Text] = None,
+        use_mentalist_and_inspector: bool = False,
     ) -> Agent:
         """Create a new agent in the platform.
 
@@ -66,9 +64,7 @@ class AgentFactory:
             supplier (Union[Dict, Text, Supplier, int], optional): owner of the agent. Defaults to "aiXplain".
             version (Optional[Text], optional): version of the agent. Defaults to None.
             use_supervisor (bool, optional): flag to enable a multi-agent supervisor. Defaults to True.
-            supervisor_llm_id (Optional[Text], optional): aiXplain ID of the large language model to be used as the supervisor. Defaults to None.
-            use_planner (bool, optional): flag to enable a planning agent (which only works when a supervisor is enables). Defaults to False.
-            planner_llm_id (Optional[Text], optional): aiXplain ID of the large language model to be used as the planner. Defaults to None.
+            use_mentalist_and_inspector (bool, optional): flag to enable mentalist and inspector agents (which only works when a supervisor is enabled). Defaults to False.
 
         Returns:
             Agent: created Agent
@@ -76,17 +72,12 @@ class AgentFactory:
         # validate LLM ID
         validate_llm(llm_id)
 
+        supervisor_llm_id, mentalist_and_inspector_llm_id = None, None
         if use_supervisor is True:
-            if supervisor_llm_id is None:
-                supervisor_llm_id = llm_id
-            else:
-                validate_llm(model_id=supervisor_llm_id)
-        if use_planner is True:
+            supervisor_llm_id = llm_id
+        if use_mentalist_and_inspector is True:
             assert use_supervisor is True, "Planner can only be used with a supervisor agent."
-            if planner_llm_id is None:
-                planner_llm_id = llm_id
-            else:
-                validate_llm(model_id=planner_llm_id)
+            mentalist_and_inspector_llm_id = llm_id
 
         try:
             agent = None
@@ -132,7 +123,7 @@ class AgentFactory:
                 "version": version,
                 "llmId": llm_id,
                 "supervisorId": supervisor_llm_id,
-                "plannerId": planner_llm_id,
+                "plannerId": mentalist_and_inspector_llm_id,
             }
 
             logging.info(f"Start service for POST Create Agent  - {url} - {headers} - {json.dumps(payload)}")

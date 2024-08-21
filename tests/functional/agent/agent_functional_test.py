@@ -89,7 +89,7 @@ def test_fail_planning_without_supervision():
             name="Test Agent",
             llm_id="6646261c6eb563165658bbb1",
             tools=[AgentFactory.create_model_tool(supplier=Supplier.OPENAI, function="text-generation")],
-            use_planner=True,
+            use_mentalist_and_inspector=True,
             use_supervisor=False,
         )
     assert str(exc_info.value) == "Planner can only be used with a supervisor agent."
