@@ -24,7 +24,6 @@ from typing import Optional, Union, Text
 
 from aixplain.enums.function import Function
 from aixplain.enums.supplier import Supplier
-from aixplain.factories.model_factory import ModelFactory
 from aixplain.modules.agent.tool import Tool
 from aixplain.modules.model import Model
 
@@ -67,9 +66,8 @@ class ModelTool(Tool):
 
         if model is not None:
             if isinstance(model, Text) is True:
-                from aixplain.factories.model_factory import ModelFactory
-
-                model = ModelFactory.get(model)
+                self.model = model
+                model = self.validate()
             function = model.function
             if isinstance(model.supplier, Supplier):
                 supplier = model.supplier
@@ -77,3 +75,14 @@ class ModelTool(Tool):
         self.supplier = supplier
         self.model = model
         self.function = function
+
+    def validate(self) -> Model:
+        from aixplain.factories.model_factory import ModelFactory
+
+        try:
+            model = None
+            if self.model is not None:
+                model = ModelFactory.get(self.model)
+            return model
+        except Exception:
+            raise Exception(f"Model Tool Unavailable. Make sure Model '{self.model}' exists or you have access to it.")
