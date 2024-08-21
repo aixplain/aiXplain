@@ -334,9 +334,9 @@ class Pipeline(Asset):
                 elif 460 <= r.status_code < 470:
                     error = "Subscription-related error: Please ensure that your subscription is active and has not expired."
                 elif 470 <= r.status_code < 480:
-                    error = "Billing-related error: Please ensure you have enough credits to run this model. "
+                    error = "Billing-related error: Please ensure you have enough credits to run this pipeline. "
                 elif 480 <= r.status_code < 490:
-                    error = "Supplier-related error: Please ensure that the selected supplier provides the model you are trying to access."
+                    error = "Supplier-related error: Please ensure that the selected supplier provides the pipeline you are trying to access."
                 elif 490 <= r.status_code < 500:
                     error = "Validation-related error: Please ensure all required fields are provided and correctly formatted."
                 else:
