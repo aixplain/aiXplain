@@ -330,20 +330,20 @@ class Pipeline(Asset):
                 response = {"status": "IN_PROGRESS", "url": poll_url}
             else:
                 if r.status_code == 401:
-                    error_msg = "Unauthorized API key"
+                    error = "Unauthorized API key: Please verify the spelling of the API key and its current validity."
                 elif 460 <= r.status_code < 470:
-                    error_msg = "Subscription-related error"
+                    error = "Subscription-related error: Please ensure that your subscription is active and has not expired."
                 elif 470 <= r.status_code < 480:
-                    error_msg = "Billing-related error"
+                    error = "Billing-related error: Please ensure you have enough credits to run this model. "
                 elif 480 <= r.status_code < 490:
-                    error_msg = "Supplier-related error"
+                    error = "Supplier-related error: Please ensure that the selected supplier provides the model you are trying to access."
                 elif 490 <= r.status_code < 500:
-                    error_msg = "Validation-related error"
+                    error = "Validation-related error: Please ensure all required fields are provided and correctly formatted."
                 else:
                     status_code = str(r.status_code)
-                    error_msg = f"Status {status_code}: Unspecified error"
-                response = {"status": "FAILED", "error_message": error_msg}
-                logging.error(f"Error in request for {name} - {r.status_code}: {error_msg}")               
+                    error = f"Status {status_code}: Unspecified error: An unspecified error occurred while processing your request."
+                response = {"status": "FAILED", "error_message": error}
+                logging.error(f"Error in request for {name} - {r.status_code}: {error}")               
         except Exception:
             response = {"status": "FAILED"}
             if resp is not None:
