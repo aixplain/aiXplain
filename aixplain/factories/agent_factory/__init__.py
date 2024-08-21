@@ -101,6 +101,7 @@ class AgentFactory:
             tool_payload = []
             for tool in tools:
                 if isinstance(tool, ModelTool):
+                    tool.validate()
                     tool_payload.append(
                         {
                             "function": tool.function.value if tool.function is not None else None,
@@ -112,6 +113,7 @@ class AgentFactory:
                         }
                     )
                 elif isinstance(tool, PipelineTool):
+                    tool.validate()
                     tool_payload.append(
                         {
                             "assetId": tool.pipeline,

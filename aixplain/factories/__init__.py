@@ -30,3 +30,4 @@ from .metric_factory import MetricFactory
 from .model_factory import ModelFactory
 from .pipeline_factory import PipelineFactory
 from .finetune_factory import FinetuneFactory
+from .wallet_factory import WalletFactory
