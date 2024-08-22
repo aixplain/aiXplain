@@ -34,7 +34,7 @@ from aixplain.modules.pipeline import Pipeline
 from aixplain.utils import config
 from typing import Dict, List, Optional, Text, Union
 
-from aixplain.factories.agent_factory.utils import build_agent
+from aixplain.factories.agent_factory.utils import build_agent, validate_llm
 from aixplain.utils.file_utils import _request_with_retry
 from urllib.parse import urljoin
 
@@ -50,8 +50,30 @@ class AgentFactory:
         api_key: Text = config.TEAM_API_KEY,
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
         version: Optional[Text] = None,
+        use_mentalist_and_inspector: bool = False,
     ) -> Agent:
-        """Create a new agent in the platform."""
+        """Create a new agent in the platform.
+
+        Args:
+            name (Text): name of the agent
+            llm_id (Text): aiXplain ID of the large language model to be used as agent.
+            tools (List[Tool], optional): list of tool for the agent. Defaults to [].
+            description (Text, optional): description of the agent role. Defaults to "".
+            api_key (Text, optional): team/user API key. Defaults to config.TEAM_API_KEY.
+            supplier (Union[Dict, Text, Supplier, int], optional): owner of the agent. Defaults to "aiXplain".
+            version (Optional[Text], optional): version of the agent. Defaults to None.
+            use_mentalist_and_inspector (bool, optional): flag to enable mentalist and inspector agents (which only works when a supervisor is enabled). Defaults to False.
+
+        Returns:
+            Agent: created Agent
+        """
+        # validate LLM ID
+        validate_llm(llm_id)
+
+        orchestrator_llm_id, mentalist_and_inspector_llm_id = llm_id, None
+        if use_mentalist_and_inspector is True:
+            mentalist_and_inspector_llm_id = llm_id
+
         try:
             agent = None
             url = urljoin(config.BACKEND_URL, "sdk/agents")
@@ -94,9 +116,10 @@ class AgentFactory:
                 "description": description,
                 "supplier": supplier,
                 "version": version,
+                "llmId": llm_id,
+                "supervisorId": orchestrator_llm_id,
+                "plannerId": mentalist_and_inspector_llm_id,
             }
-            if llm_id is not None:
-                payload["llmId"] = llm_id
 
             logging.info(f"Start service for POST Create Agent  - {url} - {headers} - {json.dumps(payload)}")
             r = _request_with_retry("post", url, headers=headers, json=payload)
