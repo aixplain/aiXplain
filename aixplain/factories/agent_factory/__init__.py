@@ -50,7 +50,6 @@ class AgentFactory:
         api_key: Text = config.TEAM_API_KEY,
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
         version: Optional[Text] = None,
-        use_supervisor: bool = True,
         use_mentalist_and_inspector: bool = False,
     ) -> Agent:
         """Create a new agent in the platform.
@@ -63,7 +62,6 @@ class AgentFactory:
             api_key (Text, optional): team/user API key. Defaults to config.TEAM_API_KEY.
             supplier (Union[Dict, Text, Supplier, int], optional): owner of the agent. Defaults to "aiXplain".
             version (Optional[Text], optional): version of the agent. Defaults to None.
-            use_supervisor (bool, optional): flag to enable a multi-agent supervisor. Defaults to True.
             use_mentalist_and_inspector (bool, optional): flag to enable mentalist and inspector agents (which only works when a supervisor is enabled). Defaults to False.
 
         Returns:
@@ -72,11 +70,8 @@ class AgentFactory:
         # validate LLM ID
         validate_llm(llm_id)
 
-        supervisor_llm_id, mentalist_and_inspector_llm_id = None, None
-        if use_supervisor is True:
-            supervisor_llm_id = llm_id
+        orchestrator_llm_id, mentalist_and_inspector_llm_id = llm_id, None
         if use_mentalist_and_inspector is True:
-            assert use_supervisor is True, "Planner can only be used with a supervisor agent."
             mentalist_and_inspector_llm_id = llm_id
 
         try:
@@ -122,7 +117,7 @@ class AgentFactory:
                 "supplier": supplier,
                 "version": version,
                 "llmId": llm_id,
-                "supervisorId": supervisor_llm_id,
+                "supervisorId": orchestrator_llm_id,
                 "plannerId": mentalist_and_inspector_llm_id,
             }
 
