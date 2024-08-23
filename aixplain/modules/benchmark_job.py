@@ -163,7 +163,7 @@ class BenchmarkJob:
         
     def get_all_explanations(self):
         try:
-            resp = self._fetch_current_response(self)
+            resp = self._fetch_current_response(self.id)
             raw_explanations = resp.get("explanation", {})
             if "metricInDependent" not in raw_explanations:
                 raw_explanations["metricInDependent"] = []
