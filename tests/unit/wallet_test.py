@@ -11,6 +11,6 @@ def test_wallet_service():
         headers = {"x-api-key": config.TEAM_API_KEY, "Content-Type": "application/json"}
         ref_response = {"totalBalance": 5, "reservedBalance": "0"}
         mock.get(url, headers=headers, json=ref_response)
-        wallet = WalletFactory.get()
+        wallet = WalletFactory.get(config.AIXPLAIN_API_KEY)
     assert wallet.total_balance == ref_response["totalBalance"]
     assert wallet.reserved_balance == ref_response["reservedBalance"]
