@@ -2,6 +2,7 @@ import aixplain.utils.config as config
 from aixplain.modules.wallet import Wallet
 from aixplain.utils.file_utils import _request_with_retry
 import logging
+from typing import Text
 
 
 class WalletFactory:
@@ -9,7 +10,7 @@ class WalletFactory:
     backend_url = config.BACKEND_URL
 
     @classmethod
-    def get(cls, api_key) -> Wallet:
+    def get(cls, api_key: Text = config.TEAM_API_KEY) -> Wallet:     
         """Get wallet information"""
         try:
             resp = None
