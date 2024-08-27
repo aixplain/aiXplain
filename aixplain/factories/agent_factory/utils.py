@@ -47,3 +47,13 @@ def build_agent(payload: Dict, api_key: Text = config.TEAM_API_KEY) -> Agent:
     )
     agent.url = urljoin(config.BACKEND_URL, f"sdk/agents/{agent.id}/run")
     return agent
+
+
+def validate_llm(model_id: Text) -> None:
+    from aixplain.factories.model_factory import ModelFactory
+
+    try:
+        llm = ModelFactory.get(model_id)
+        assert llm.function == Function.TEXT_GENERATION, "Large Language Model must be a text generation model."
+    except Exception:
+        raise Exception(f"Large Language Model with ID '{model_id}' not found.")

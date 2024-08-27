@@ -239,11 +239,27 @@ class Model(Asset):
 
         resp = None
         try:
-            resp = r.json()
-            logging.info(f"Result of request for {name} - {r.status_code} - {resp}")
-
-            poll_url = resp["data"]
-            response = {"status": "IN_PROGRESS", "url": poll_url}
+            if 200 <= r.status_code < 300:
+                resp = r.json()
+                logging.info(f"Result of request for {name} - {r.status_code} - {resp}")
+                poll_url = resp["data"]
+                response = {"status": "IN_PROGRESS", "url": poll_url}
+            else:
+                if r.status_code == 401:
+                    error = "Unauthorized API key: Please verify the spelling of the API key and its current validity."
+                elif 460 <= r.status_code < 470:
+                    error = "Subscription-related error: Please ensure that your subscription is active and has not expired."
+                elif 470 <= r.status_code < 480:
+                    error = "Billing-related error: Please ensure you have enough credits to run this model. "
+                elif 480 <= r.status_code < 490:
+                    error = "Supplier-related error: Please ensure that the selected supplier provides the model you are trying to access."
+                elif 490 <= r.status_code < 500:
+                    error = "Validation-related error: Please ensure all required fields are provided and correctly formatted."
+                else:
+                    status_code = str(r.status_code)
+                    error = f"Status {status_code}: Unspecified error: An unspecified error occurred while processing your request."
+                response = {"status": "FAILED", "error_message": error}
+                logging.error(f"Error in request for {name} - {r.status_code}: {error}")
         except Exception:
             response = {"status": "FAILED"}
             msg = f"Error in request for {name} - {traceback.format_exc()}"

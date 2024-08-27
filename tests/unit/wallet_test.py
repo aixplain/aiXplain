@@ -14,4 +14,4 @@ def test_wallet_service():
         wallet = WalletFactory.get()
     assert wallet.total_balance == float(ref_response["totalBalance"])
     assert wallet.reserved_balance == float(ref_response["reservedBalance"])
-    assert wallet.available_balance == float(ref_response["totalBalance"])- float(ref_response["reservedBalance"])
+    assert wallet.available_balance == float(ref_response["totalBalance"]) - float(ref_response["reservedBalance"])
