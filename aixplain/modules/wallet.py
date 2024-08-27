@@ -26,9 +26,9 @@ class Wallet:
     def __init__(self, total_balance: float, reserved_balance: float):
         """
         Args:
-            total_balance (float)
-            reserved_balance (float)
-            available_balance (float)
+            total_balance (float): total credit balance
+            reserved_balance (float): reserved credit balance
+            available_balance (float): available balance (total - credit)
         """
         self.total_balance = total_balance
         self.reserved_balance = reserved_balance
