@@ -75,3 +75,9 @@ def test_list_agents():
     assert "results" in agents
     agents_result = agents["results"]
     assert type(agents_result) is list
+
+
+def test_fail_non_existent_llm():
+    with pytest.raises(Exception) as exc_info:
+        AgentFactory.create(name="Test Agent", llm_id="non_existent_llm", tools=[])
+    assert str(exc_info.value) == "Large Language Model with ID 'non_existent_llm' not found."
