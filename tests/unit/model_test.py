@@ -17,10 +17,11 @@ limitations under the License.
 """
 
 from dotenv import load_dotenv
+from urllib.parse import urljoin
+import requests_mock
 
 load_dotenv()
 import re
-import requests_mock
 from aixplain.utils import config
 from aixplain.modules import Model
 
@@ -57,3 +58,29 @@ def test_failed_poll():
     assert hyp_response["error"] == ref_response["error"]
     assert hyp_response["supplierError"] == ref_response["supplierError"]
     assert hyp_response["status"] == "FAILED"
+
+
+@pytest.mark.parametrize(
+    "status_code,error_message",
+    [
+        (401,"Unauthorized API key: Please verify the spelling of the API key and its current validity."),
+        (465,"Subscription-related error: Please ensure that your subscription is active and has not expired."),
+        (475,"Billing-related error: Please ensure you have enough credits to run this model. "),
+        (485, "Supplier-related error: Please ensure that the selected supplier provides the model you are trying to access."),
+        (495, "Validation-related error: Please ensure all required fields are provided and correctly formatted."),
+        (501, "Status 501: Unspecified error: An unspecified error occurred while processing your request."),
+
+    ],
+)
+
+def test_run_async_errors(status_code, error_message):
+    base_url = config.MODELS_RUN_URL
+    model_id = "model-id"
+    execute_url = urljoin(base_url, f"execute/{model_id}")
+    
+    with requests_mock.Mocker() as mock:
+        mock.post(execute_url, status_code=status_code)
+        test_model = Model(id=model_id, name="Test Model",url=base_url)
+        response = test_model.run_async(data="input_data")
+    assert response["status"] == "FAILED"
+    assert response["error_message"] == error_message
