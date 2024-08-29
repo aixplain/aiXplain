@@ -187,7 +187,7 @@ class BenchmarkJob:
                     task_list = []
                     first_explanation = localized_explanations[0]
                     for task in first_explanation:
-                        if task not in ["scoreId", "datasetId"]:
+                        if task not in ["scoreId", "datasetId", "normalizationOptions", "longName"]:
                             task_list.append(task)
 
                     if group_by_task:
@@ -195,12 +195,12 @@ class BenchmarkJob:
                             task_explanation = {}
                             for explanation_item in localized_explanations:
                                 item_task_explanation = explanation_item[task]
-                                identifier = explanation_item["scoreId"]
+                                identifier = explanation_item["longName"]
                                 task_explanation[identifier] = item_task_explanation
                             grouped_explanations[task] = task_explanation
                     else:
                         for explanation_item in localized_explanations:
-                            identifier = explanation_item["scoreId"]
+                            identifier = explanation_item["longName"]
                             grouped_explanations[identifier] = explanation_item
                     localized_explanations = grouped_explanations
             else:
@@ -304,7 +304,8 @@ class BenchmarkJob:
                             normalizations = [[]]
                         for normalization in normalizations:
                             metric.normalization_options = [normalization]
-                            metric_full_name = metric.name if len(normalization) == 0 else f"{metric.name} {str(normalization)}"
+                            metric_partial_name = f"{metric.name} by {metric.supplier}"
+                            metric_full_name = metric_partial_name if len(normalization) == 0 else f"{metric_partial_name} ({', '.join(normalization)})"
                             filtered_bias_response = self.fetch_filtered_bias_analysis(category, metric)
                             cleaned_bias_response = {}
                             for item in filtered_bias_response:
