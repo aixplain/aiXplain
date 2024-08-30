@@ -30,7 +30,7 @@ from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
 from urllib.parse import urljoin
 from warnings import warn
-
+from datetime import datetime
 
 class ModelFactory:
     """A static class for creating and exploring Model Objects.
@@ -66,6 +66,10 @@ class ModelFactory:
         if function == Function.TEXT_GENERATION:
             ModelClass = LLM
 
+        created_at = None
+        if "createdAt" in response and response["createdAt"]:
+            created_at = datetime.fromisoformat(response["createdAt"].replace("Z", "+00:00"))
+
         return ModelClass(
             response["id"],
             response["name"],
@@ -73,6 +77,7 @@ class ModelFactory:
             api_key=response["api_key"],
             cost=response["pricing"],
             function=function,
+            createdAt=created_at,
             parameters=parameters,
             is_subscribed=True if "subscription" in response else False,
             version=response["version"]["id"],
@@ -412,7 +417,6 @@ class ModelFactory:
         else:
             headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
         response = _request_with_retry("post", login_url, headers=headers)
-        print(f"Response: {response}")
         response_dict = json.loads(response.text)
         return response_dict
 

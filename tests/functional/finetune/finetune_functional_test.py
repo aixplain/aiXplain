@@ -1,3 +1,4 @@
+
 __author__ = "lucaspavanelli"
 
 """
@@ -61,49 +62,39 @@ def validate_prompt_input_map(request):
 
 
 def test_end2end(run_input_map):
-    models = ModelFactory.list(
-    function=Function.TEXT_GENERATION, 
-    is_finetunable=True, 
-    #Add date condition here
+    model = ModelFactory.get(run_input_map["model_id"])
+    dataset_list = [DatasetFactory.list(query=run_input_map["dataset_name"])["results"][0]]
+    train_percentage, dev_percentage = 100, 0
+    if run_input_map["required_dev"]:
+        train_percentage, dev_percentage = 80, 20
+    finetune = FinetuneFactory.create(
+        str(uuid.uuid4()), dataset_list, model, train_percentage=train_percentage, dev_percentage=dev_percentage
     )
-    for model_id in models:
-        model = ModelFactory.get(model_id)
-        dataset_list = [DatasetFactory.list(query=run_input_map["dataset_name"])["results"][0]]
-        train_percentage, dev_percentage = 100, 0
-        if run_input_map["required_dev"]:
-            train_percentage, dev_percentage = 80, 20
-
-        finetune = FinetuneFactory.create(
-            str(uuid.uuid4()), dataset_list, model, train_percentage=train_percentage, dev_percentage=dev_percentage
-        )
-
-        assert type(finetune.cost) is FinetuneCost
-        cost_map = finetune.cost.to_dict()
-        assert "trainingCost" in cost_map
-        assert "hostingCost" in cost_map
-        assert "inferenceCost" in cost_map
-        
-        finetune_model = finetune.start()
-        start, end = time.time(), time.time()
+    assert type(finetune.cost) is FinetuneCost
+    cost_map = finetune.cost.to_dict()
+    assert "trainingCost" in cost_map
+    assert "hostingCost" in cost_map
+    assert "inferenceCost" in cost_map
+    finetune_model = finetune.start()
+    start, end = time.time(), time.time()
+    status = finetune_model.check_finetune_status().model_status.value
+    while status != "onboarded" and (end - start) < TIMEOUT:
         status = finetune_model.check_finetune_status().model_status.value
-        while status != "onboarded" and (end - start) < TIMEOUT:
-            status = finetune_model.check_finetune_status().model_status.value
-            assert status != "failed"
-            time.sleep(5)
-            end = time.time()
-        assert finetune_model.check_finetune_status().model_status.value == "onboarded"
-        time.sleep(30)
-        print(f"Model dict: {finetune_model.__dict__}")
-        result = finetune_model.run(run_input_map["inference_data"])
-        print(f"Result: {result}")
-        assert result is not None
-        if run_input_map["search_metadata"]:
-            assert "details" in result
-            assert len(result["details"]) > 0  
-            assert "metadata" in result["details"][0]
-            assert len(result["details"][0]["metadata"]) > 0
-        finetune_model.delete()
-
+        assert status != "failed"
+        time.sleep(5)
+        end = time.time()
+    assert finetune_model.check_finetune_status().model_status.value == "onboarded"
+    time.sleep(30)
+    print(f"Model dict: {finetune_model.__dict__}")
+    result = finetune_model.run(run_input_map["inference_data"])
+    print(f"Result: {result}")
+    assert result is not None
+    if run_input_map["search_metadata"]:
+        assert "details" in result
+        assert len(result["details"]) > 0  
+        assert "metadata" in result["details"][0]
+        assert len(result["details"][0]["metadata"]) > 0
+    finetune_model.delete()
 
 
 def test_cost_estimation_text_generation(estimate_cost_input_map):

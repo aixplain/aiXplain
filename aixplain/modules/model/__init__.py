@@ -30,7 +30,7 @@ from aixplain.utils import config
 from urllib.parse import urljoin
 from aixplain.utils.file_utils import _request_with_retry
 from typing import Union, Optional, Text, Dict
-
+from datetime import datetime
 
 class Model(Asset):
     """This is ready-to-use AI model. This model can be run in both synchronous and asynchronous manner.
@@ -61,6 +61,7 @@ class Model(Asset):
         function: Optional[Function] = None,
         is_subscribed: bool = False,
         cost: Optional[Dict] = None,
+        createdAt: Optional[datetime] = None,  # Add createdAt here
         **additional_info,
     ) -> None:
         """Model Init
@@ -84,6 +85,7 @@ class Model(Asset):
         self.backend_url = config.BACKEND_URL
         self.function = function
         self.is_subscribed = is_subscribed
+        self.createdAt = createdAt
 
     def to_dict(self) -> Dict:
         """Get the model info as a Dictionary
