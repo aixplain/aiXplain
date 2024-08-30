@@ -59,6 +59,8 @@ class Model(Asset):
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
         version: Optional[Text] = None,
         function: Optional[Function] = None,
+        input_params: Dict = {},
+        output_params: Dict = {},
         is_subscribed: bool = False,
         cost: Optional[Dict] = None,
         **additional_info,
@@ -83,6 +85,8 @@ class Model(Asset):
         self.url = config.MODELS_RUN_URL
         self.backend_url = config.BACKEND_URL
         self.function = function
+        self.input_params = input_params
+        self.output_params = output_params
         self.is_subscribed = is_subscribed
 
     def to_dict(self) -> Dict:
@@ -92,7 +96,7 @@ class Model(Asset):
             Dict: Model Information
         """
         clean_additional_info = {k: v for k, v in self.additional_info.items() if v is not None}
-        return {"id": self.id, "name": self.name, "supplier": self.supplier, "additional_info": clean_additional_info}
+        return {"id": self.id, "name": self.name, "supplier": self.supplier,"input_params": self.input_params,"output_params": self.output_params, "additional_info": clean_additional_info}
 
     def __repr__(self):
         try:

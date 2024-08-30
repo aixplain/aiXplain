@@ -24,6 +24,7 @@ load_dotenv()
 import re
 from aixplain.utils import config
 from aixplain.modules import Model
+from aixplain.factories import ModelFactory
 
 import pytest
 
@@ -84,3 +85,13 @@ def test_run_async_errors(status_code, error_message):
         response = test_model.run_async(data="input_data")
     assert response["status"] == "FAILED"
     assert response["error_message"] == error_message
+
+def test_model_io():
+    model_id = "64aee5824d34b1221e70ac07"
+    model = ModelFactory.get(model_id)
+
+    expected_input = {"text"}
+    expected_output = {"image"}
+
+    assert model.input_params == expected_input
+    assert model.output_params == expected_output
