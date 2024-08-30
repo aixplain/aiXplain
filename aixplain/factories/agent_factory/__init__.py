@@ -44,7 +44,7 @@ class AgentFactory:
     def create(
         cls,
         name: Text,
-        llm_id: Text,
+        llm_id: Text = "669a63646eb56306647e1091",
         tools: List[Tool] = [],
         description: Text = "",
         api_key: Text = config.TEAM_API_KEY,
@@ -56,7 +56,7 @@ class AgentFactory:
 
         Args:
             name (Text): name of the agent
-            llm_id (Text): aiXplain ID of the large language model to be used as agent.
+            llm_id (Text, optional): aiXplain ID of the large language model to be used as agent. Defaults to "669a63646eb56306647e1091" (GPT-4o mini).
             tools (List[Tool], optional): list of tool for the agent. Defaults to [].
             description (Text, optional): description of the agent role. Defaults to "".
             api_key (Text, optional): team/user API key. Defaults to config.TEAM_API_KEY.
@@ -67,6 +67,8 @@ class AgentFactory:
         Returns:
             Agent: created Agent
         """
+        # assert that at least one tool is provided
+        assert len(tools) > 0, "At least one tool must be provided."
         # validate LLM ID
         validate_llm(llm_id)
 
