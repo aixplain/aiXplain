@@ -61,7 +61,7 @@ class Model(Asset):
         function: Optional[Function] = None,
         is_subscribed: bool = False,
         cost: Optional[Dict] = None,
-        createdAt: Optional[datetime] = None,  # Add createdAt here
+        createdAt: Optional[datetime] = None, 
         **additional_info,
     ) -> None:
         """Model Init
