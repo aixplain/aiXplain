@@ -19,12 +19,12 @@ limitations under the License.
 from dotenv import load_dotenv
 from urllib.parse import urljoin
 import requests_mock
+from aixplain.factories import ModelFactory
 
 load_dotenv()
 import re
 from aixplain.utils import config
 from aixplain.modules import Model
-from aixplain.factories import ModelFactory
 
 import pytest
 
