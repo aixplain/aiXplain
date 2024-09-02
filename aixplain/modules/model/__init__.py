@@ -48,6 +48,8 @@ class Model(Asset):
         backend_url (str): URL of the backend.
         pricing (Dict, optional): model price. Defaults to None.
         **additional_info: Any additional Model info to be saved
+        input_params (Dict, optional): input parameters for the function.
+        output_params (Dict, optional): output parameters for the function.
     """
 
     def __init__(
@@ -59,10 +61,10 @@ class Model(Asset):
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
         version: Optional[Text] = None,
         function: Optional[Function] = None,
-        input_params: Dict = {},
-        output_params: Dict = {},
         is_subscribed: bool = False,
         cost: Optional[Dict] = None,
+        input_params: Optional[Dict] = None,
+        output_params: Optional[Dict] = None,
         **additional_info,
     ) -> None:
         """Model Init
@@ -85,9 +87,9 @@ class Model(Asset):
         self.url = config.MODELS_RUN_URL
         self.backend_url = config.BACKEND_URL
         self.function = function
-        self.input_params = input_params
-        self.output_params = output_params
         self.is_subscribed = is_subscribed
+        self.input_params = input_params 
+        self.output_params = output_params 
 
     def to_dict(self) -> Dict:
         """Get the model info as a Dictionary
@@ -96,7 +98,7 @@ class Model(Asset):
             Dict: Model Information
         """
         clean_additional_info = {k: v for k, v in self.additional_info.items() if v is not None}
-        return {"id": self.id, "name": self.name, "supplier": self.supplier,"input_params": self.input_params,"output_params": self.output_params, "additional_info": clean_additional_info}
+        return {"id": self.id, "name": self.name, "supplier": self.supplier, "additional_info": clean_additional_info, "input_params": self.input_params,"output_params": self.output_params,}
 
     def __repr__(self):
         try:
