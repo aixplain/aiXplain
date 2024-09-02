@@ -30,7 +30,8 @@ from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
 from urllib.parse import urljoin
 from warnings import warn
-from datetime import datetime
+ENG-467-ai-xplain-sdk-update-finetune-functional-tests-to-cover-all-new-finetunable-models
+from aixplain.enums.function import FunctionInputOutput
 
 class ModelFactory:
     """A static class for creating and exploring Model Objects.
@@ -69,6 +70,11 @@ class ModelFactory:
         created_at = None
         if "createdAt" in response and response["createdAt"]:
             created_at = datetime.fromisoformat(response["createdAt"].replace("Z", "+00:00"))
+        function_id = response["function"]["id"]
+        function = Function(function_id)
+        function_io = FunctionInputOutput.get(function_id, None)
+        input_params = {param["code"]: param for param in function_io["spec"]["params"]}
+        output_params = {param["code"]: param for param in function_io["spec"]["output"]}
 
         return ModelClass(
             response["id"],
@@ -79,6 +85,8 @@ class ModelFactory:
             function=function,
             createdAt=created_at,
             parameters=parameters,
+            input_params=input_params,
+            output_params=output_params,
             is_subscribed=True if "subscription" in response else False,
             version=response["version"]["id"],
         )
@@ -275,7 +283,7 @@ class ModelFactory:
         for dictionary in response_dicts:
             del dictionary["id"]
         return response_dicts
-    
+
     @classmethod
     def list_gpus(cls, api_key: Optional[Text] = None) -> List[List[Text]]:
         """List GPU names on which you can host your language model.
@@ -340,7 +348,7 @@ class ModelFactory:
         input_modality: Text,
         output_modality: Text,
         documentation_url: Optional[Text] = "",
-        api_key: Optional[Text] = None
+        api_key: Optional[Text] = None,
     ) -> Dict:
         """Creates an image repository for this model and registers it in the
         platform backend.
@@ -367,7 +375,7 @@ class ModelFactory:
                 function_id = function_dict["id"]
         if function_id is None:
             raise Exception(f"Invalid function name {function}")
-        create_url = urljoin(config.BACKEND_URL, f"sdk/models/onboard")
+        create_url = urljoin(config.BACKEND_URL, "sdk/models/onboard")
         logging.debug(f"URL: {create_url}")
         if api_key:
             headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
@@ -378,19 +386,14 @@ class ModelFactory:
             "model": {
                 "name": name,
                 "description": description,
-                "connectionType": [
-                    "synchronous"
-                ],
+                "connectionType": ["synchronous"],
                 "function": function_id,
-                "modalities": [
-                    f"{input_modality}-{output_modality}"
-                ],
+                "modalities": [f"{input_modality}-{output_modality}"],
                 "documentationUrl": documentation_url,
-                "sourceLanguage": source_language
+                "sourceLanguage": source_language,
             },
             "source": "aixplain-ecr",
-            "onboardingParams": {
-            }
+            "onboardingParams": {},
         }
         logging.debug(f"Body: {str(payload)}")
         response = _request_with_retry("post", create_url, headers=headers, json=payload)
@@ -421,7 +424,14 @@ class ModelFactory:
         return response_dict
 
     @classmethod
-    def onboard_model(cls, model_id: Text, image_tag: Text, image_hash: Text, host_machine: Optional[Text] = "", api_key: Optional[Text] = None) -> Dict:
+    def onboard_model(
+        cls,
+        model_id: Text,
+        image_tag: Text,
+        image_hash: Text,
+        host_machine: Optional[Text] = "",
+        api_key: Optional[Text] = None,
+    ) -> Dict:
         """Onboard a model after its image has been pushed to ECR.
 
         Args:
@@ -450,7 +460,14 @@ class ModelFactory:
         return response
 
     @classmethod
-    def deploy_huggingface_model(cls, name: Text, hf_repo_id: Text, revision: Optional[Text] = "", hf_token: Optional[Text] = "", api_key: Optional[Text] = None) -> Dict:
+    def deploy_huggingface_model(
+        cls,
+        name: Text,
+        hf_repo_id: Text,
+        revision: Optional[Text] = "",
+        hf_token: Optional[Text] = "",
+        api_key: Optional[Text] = None,
+    ) -> Dict:
         """Onboards and deploys a Hugging Face large language model.
 
         Args:
@@ -481,8 +498,8 @@ class ModelFactory:
                 "hf_supplier": supplier,
                 "hf_model_name": model_name,
                 "hf_token": hf_token,
-                "revision": revision
-            }
+                "revision": revision,
+            },
         }
         response = _request_with_retry("post", deploy_url, headers=headers, json=body)
         logging.debug(response.text)
