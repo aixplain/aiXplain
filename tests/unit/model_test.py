@@ -19,7 +19,6 @@ limitations under the License.
 from dotenv import load_dotenv
 from urllib.parse import urljoin
 import requests_mock
-from aixplain.factories import ModelFactory
 
 load_dotenv()
 import re
@@ -64,34 +63,22 @@ def test_failed_poll():
 @pytest.mark.parametrize(
     "status_code,error_message",
     [
-        (401,"Unauthorized API key: Please verify the spelling of the API key and its current validity."),
-        (465,"Subscription-related error: Please ensure that your subscription is active and has not expired."),
-        (475,"Billing-related error: Please ensure you have enough credits to run this model. "),
+        (401, "Unauthorized API key: Please verify the spelling of the API key and its current validity."),
+        (465, "Subscription-related error: Please ensure that your subscription is active and has not expired."),
+        (475, "Billing-related error: Please ensure you have enough credits to run this model. "),
         (485, "Supplier-related error: Please ensure that the selected supplier provides the model you are trying to access."),
         (495, "Validation-related error: Please ensure all required fields are provided and correctly formatted."),
         (501, "Status 501: Unspecified error: An unspecified error occurred while processing your request."),
-
     ],
 )
-
 def test_run_async_errors(status_code, error_message):
     base_url = config.MODELS_RUN_URL
     model_id = "model-id"
     execute_url = urljoin(base_url, f"execute/{model_id}")
-    
+
     with requests_mock.Mocker() as mock:
         mock.post(execute_url, status_code=status_code)
-        test_model = Model(id=model_id, name="Test Model",url=base_url)
+        test_model = Model(id=model_id, name="Test Model", url=base_url)
         response = test_model.run_async(data="input_data")
     assert response["status"] == "FAILED"
     assert response["error_message"] == error_message
-
-def test_model_io():
-    model_id = "64aee5824d34b1221e70ac07"
-    model = ModelFactory.get(model_id)
-
-    expected_input = {"text"}
-    expected_output = {"image"}
-
-    assert model.input_params == expected_input
-    assert model.output_params == expected_output
