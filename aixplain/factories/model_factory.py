@@ -30,7 +30,7 @@ from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
 from urllib.parse import urljoin
 from warnings import warn
-from aixplain.enums.function import load_functions
+from aixplain.enums.function import FunctionInputOutput
 
 class ModelFactory:
     """A static class for creating and exploring Model Objects.
@@ -65,11 +65,13 @@ class ModelFactory:
         ModelClass = Model
         if function == Function.TEXT_GENERATION:
             ModelClass = LLM
-
-        _, functionio= load_functions()
-        input_data= functionio[function]["input"]
-        output_data= functionio[function]["output"]
         
+        function_id = response["function"]["id"]
+        function = Function(function_id)
+        function_io = FunctionInputOutput.get(function_id, None)
+        input_params= function_io['input']
+        output_params=function_io['output']
+
         return ModelClass(
             response["id"],
             response["name"],
@@ -78,8 +80,8 @@ class ModelFactory:
             cost=response["pricing"],
             function=function,
             parameters=parameters,
-            input_params=input_data, 
-            output_params=output_data,
+            input_params=input_params, 
+            output_params=output_params,
             is_subscribed=True if "subscription" in response else False,
             version=response["version"]["id"],
         )
@@ -418,7 +420,6 @@ class ModelFactory:
         else:
             headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
         response = _request_with_retry("post", login_url, headers=headers)
-        print(f"Response: {response}")
         response_dict = json.loads(response.text)
         return response_dict
 
