@@ -30,8 +30,8 @@ from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
 from urllib.parse import urljoin
 from warnings import warn
-ENG-467-ai-xplain-sdk-update-finetune-functional-tests-to-cover-all-new-finetunable-models
 from aixplain.enums.function import FunctionInputOutput
+
 
 class ModelFactory:
     """A static class for creating and exploring Model Objects.
