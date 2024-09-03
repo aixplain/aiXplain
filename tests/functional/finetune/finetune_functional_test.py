@@ -1,5 +1,4 @@
 __author__ = "lucaspavanelli"
-
 """
 Copyright 2022 The aiXplain SDK authors
 
@@ -26,6 +25,7 @@ from aixplain.factories import DatasetFactory
 from aixplain.factories import FinetuneFactory
 from aixplain.modules.finetune.cost import FinetuneCost
 from aixplain.enums import Function, Language
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -60,8 +60,22 @@ def validate_prompt_input_map(request):
     return request.param
 
 
-def test_end2end(run_input_map):
-    model = ModelFactory.get(run_input_map["model_id"])
+@pytest.fixture(scope="module", params=read_data(RUN_FILE))
+def finetunable_llms_from_last_4_weeks(request):
+    four_weeks_ago = datetime.now(timezone.utc) - timedelta(weeks=4)
+    models = ModelFactory.list(function=Function.TEXT_GENERATION, is_finetunable=True)["results"]
+
+    recent_models = [model for model in models if model.createdAt >= four_weeks_ago]
+
+    if not recent_models:
+        yield ModelFactory.get(request.param["model_id"])
+    else:
+        for model in recent_models:
+            yield model
+
+
+def test_end2end(run_input_map, finetunable_llms_from_last_4_weeks):
+    model = finetunable_llms_from_last_4_weeks
     dataset_list = [DatasetFactory.list(query=run_input_map["dataset_name"])["results"][0]]
     train_percentage, dev_percentage = 100, 0
     if run_input_map["required_dev"]:
@@ -90,7 +104,7 @@ def test_end2end(run_input_map):
     assert result is not None
     if run_input_map["search_metadata"]:
         assert "details" in result
-        assert len(result["details"]) > 0  
+        assert len(result["details"]) > 0
         assert "metadata" in result["details"][0]
         assert len(result["details"][0]["metadata"]) > 0
     finetune_model.delete()
