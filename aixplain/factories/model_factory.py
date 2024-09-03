@@ -31,6 +31,7 @@ from aixplain.utils.file_utils import _request_with_retry
 from urllib.parse import urljoin
 from warnings import warn
 from aixplain.enums.function import FunctionInputOutput
+from datetime import datetime
 
 
 class ModelFactory:
@@ -67,6 +68,9 @@ class ModelFactory:
         if function == Function.TEXT_GENERATION:
             ModelClass = LLM
 
+        created_at = None
+        if "createdAt" in response and response["createdAt"]:
+            created_at = datetime.fromisoformat(response["createdAt"].replace("Z", "+00:00"))
         function_id = response["function"]["id"]
         function = Function(function_id)
         function_io = FunctionInputOutput.get(function_id, None)
@@ -80,6 +84,7 @@ class ModelFactory:
             api_key=response["api_key"],
             cost=response["pricing"],
             function=function,
+            createdAt=created_at,
             parameters=parameters,
             input_params=input_params,
             output_params=output_params,
