@@ -31,6 +31,7 @@ from aixplain.utils.file_utils import _request_with_retry
 from urllib.parse import urljoin
 from warnings import warn
 from aixplain.enums.function import FunctionInputOutput
+from datetime import datetime
 
 
 class ModelFactory:
@@ -83,7 +84,7 @@ class ModelFactory:
             api_key=response["api_key"],
             cost=response["pricing"],
             function=function,
-            createdAt=created_at,
+            created_at=created_at,
             parameters=parameters,
             input_params=input_params,
             output_params=output_params,

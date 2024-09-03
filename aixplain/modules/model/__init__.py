@@ -32,6 +32,7 @@ from aixplain.utils.file_utils import _request_with_retry
 from typing import Union, Optional, Text, Dict
 from datetime import datetime
 
+
 class Model(Asset):
     """This is ready-to-use AI model. This model can be run in both synchronous and asynchronous manner.
 
@@ -63,7 +64,7 @@ class Model(Asset):
         function: Optional[Function] = None,
         is_subscribed: bool = False,
         cost: Optional[Dict] = None,
-        createdAt: Optional[datetime] = None, 
+        created_at: Optional[datetime] = None,
         input_params: Optional[Dict] = None,
         output_params: Optional[Dict] = None,
         **additional_info,
@@ -89,9 +90,9 @@ class Model(Asset):
         self.backend_url = config.BACKEND_URL
         self.function = function
         self.is_subscribed = is_subscribed
-        self.createdAt = createdAt
-        self.input_params = input_params 
-        self.output_params = output_params 
+        self.created_at = created_at
+        self.input_params = input_params
+        self.output_params = output_params
 
     def to_dict(self) -> Dict:
         """Get the model info as a Dictionary
@@ -100,7 +101,14 @@ class Model(Asset):
             Dict: Model Information
         """
         clean_additional_info = {k: v for k, v in self.additional_info.items() if v is not None}
-        return {"id": self.id, "name": self.name, "supplier": self.supplier, "additional_info": clean_additional_info, "input_params": self.input_params,"output_params": self.output_params,}
+        return {
+            "id": self.id,
+            "name": self.name,
+            "supplier": self.supplier,
+            "additional_info": clean_additional_info,
+            "input_params": self.input_params,
+            "output_params": self.output_params,
+        }
 
     def __repr__(self):
         try:
@@ -265,7 +273,9 @@ class Model(Asset):
                     error = "Validation-related error: Please ensure all required fields are provided and correctly formatted."
                 else:
                     status_code = str(r.status_code)
-                    error = f"Status {status_code}: Unspecified error: An unspecified error occurred while processing your request."
+                    error = (
+                        f"Status {status_code}: Unspecified error: An unspecified error occurred while processing your request."
+                    )
                 response = {"status": "FAILED", "error_message": error}
                 logging.error(f"Error in request for {name} - {r.status_code}: {error}")
         except Exception:

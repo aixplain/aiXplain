@@ -40,11 +40,6 @@ def read_data(data_path):
     return json.load(open(data_path, "r"))
 
 
-@pytest.fixture(scope="module", params=read_data(RUN_FILE))
-def run_input_map(request):
-    return request.param
-
-
 @pytest.fixture(scope="module", params=read_data(ESTIMATE_COST_FILE))
 def estimate_cost_input_map(request):
     return request.param
@@ -60,25 +55,32 @@ def validate_prompt_input_map(request):
     return request.param
 
 
-@pytest.fixture(scope="module", params=read_data(RUN_FILE))
-def finetunable_llms_from_last_4_weeks(request):
-    four_weeks_ago = datetime.now(timezone.utc) - timedelta(weeks=4)
-    models = ModelFactory.list(function=Function.TEXT_GENERATION, is_finetunable=True)["results"]
+def pytest_generate_tests(metafunc):
+    if "input_map" in metafunc.fixturenames:
+        four_weeks_ago = datetime.now(timezone.utc) - timedelta(weeks=4)
+        models = ModelFactory.list(function=Function.TEXT_GENERATION, is_finetunable=True)["results"]
 
-    recent_models = [model for model in models if model.createdAt >= four_weeks_ago]
+        recent_models = [
+            {
+                "model_name": model.name,
+                "model_id": model.id,
+                "dataset_name": "Test text generation dataset",
+                "inference_data": "Hello!",
+                "required_dev": True,
+                "search_metadata": False,
+            }
+            for model in models
+            if model.created_at is not None and model.created_at >= four_weeks_ago
+        ]
+        recent_models += read_data(RUN_FILE)
+        metafunc.parametrize("input_map", recent_models)
 
-    if not recent_models:
-        yield ModelFactory.get(request.param["model_id"])
-    else:
-        for model in recent_models:
-            yield model
 
-
-def test_end2end(run_input_map, finetunable_llms_from_last_4_weeks):
-    model = finetunable_llms_from_last_4_weeks
-    dataset_list = [DatasetFactory.list(query=run_input_map["dataset_name"])["results"][0]]
+def test_end2end(input_map):
+    model = input_map["model_id"]
+    dataset_list = [DatasetFactory.list(query=input_map["dataset_name"])["results"][0]]
     train_percentage, dev_percentage = 100, 0
-    if run_input_map["required_dev"]:
+    if input_map["required_dev"]:
         train_percentage, dev_percentage = 80, 20
     finetune = FinetuneFactory.create(
         str(uuid.uuid4()), dataset_list, model, train_percentage=train_percentage, dev_percentage=dev_percentage
@@ -99,10 +101,10 @@ def test_end2end(run_input_map, finetunable_llms_from_last_4_weeks):
     assert finetune_model.check_finetune_status().model_status.value == "onboarded"
     time.sleep(30)
     print(f"Model dict: {finetune_model.__dict__}")
-    result = finetune_model.run(run_input_map["inference_data"])
+    result = finetune_model.run(input_map["inference_data"])
     print(f"Result: {result}")
     assert result is not None
-    if run_input_map["search_metadata"]:
+    if input_map["search_metadata"]:
         assert "details" in result
         assert len(result["details"]) > 0
         assert "metadata" in result["details"][0]
