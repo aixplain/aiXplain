@@ -8,6 +8,7 @@ from .nodes import (
     Router,
     BaseReconstructor,
     BaseSegmentor,
+    BaseMetric
 )
 from .pipeline import DesignerPipeline
 from .base import (
@@ -63,4 +64,5 @@ __all__ = [
     "ParamProxy",
     "TI",
     "TO",
+    "BaseMetric"
 ]

@@ -5,6 +5,7 @@ from aixplain.enums import DataType
 from .base import Serializable, Node, Link
 from .nodes import (
     AssetNode,
+    BareAsset,
     Decision,
     Script,
     Input,
@@ -13,6 +14,7 @@ from .nodes import (
     Route,
     BareReconstructor,
     BareSegmentor,
+    BareMetric
 )
 from .enums import NodeType, RouteType, Operation
 
@@ -227,7 +229,7 @@ class DesignerPipeline(Serializable):
             infer_data_type(to_node)
 
     def asset(
-        self, asset_id: str, *args, asset_class: Type[T] = AssetNode, **kwargs
+        self, asset_id: str, *args, asset_class: Type[T] = BareAsset, **kwargs
     ) -> T:
         """
         Shortcut to create an asset node for the current pipeline.
@@ -326,3 +328,14 @@ class DesignerPipeline(Serializable):
         :return: the node
         """
         return BareSegmentor(*args, pipeline=self, **kwargs)
+
+    def metric(self, *args, **kwargs) -> BareMetric:
+        """
+        Shortcut to create an metric node for the current pipeline.
+        All params will be passed as keyword arguments to the node
+        constructor.
+
+        :param kwargs: keyword arguments
+        :return: the node
+        """
+        return BareMetric(*args, pipeline=self, **kwargs)

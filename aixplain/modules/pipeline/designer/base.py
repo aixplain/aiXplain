@@ -188,8 +188,8 @@ class Link(Serializable):
         if from_param.data_type and to_param.data_type:
             if from_param.data_type != to_param.data_type:
                 raise ValueError(
-                    f"Data type mismatch between {from_param.data_type} and {to_param.data_type}"
-                )  # noqa
+                    f"Data type mismatch between {from_param.data_type} and {to_param.data_type}"  # noqa
+                )
 
     def attach_to(self, pipeline: "DesignerPipeline"):
         """
@@ -344,6 +344,9 @@ class Node(Generic[TI, TO], Serializable):
         if pipeline:
             self.attach_to(pipeline)
 
+    def build_label(self):
+        self.label = f"{self.type.value}(ID={self.number})"
+
     def attach_to(self, pipeline: "DesignerPipeline"):
         """
         Attach the node to the pipeline.
@@ -359,7 +362,7 @@ class Node(Generic[TI, TO], Serializable):
         if self.number is None:
             self.number = len(pipeline.nodes)
         if self.label is None:
-            self.label = f"{self.type.value}(ID={self.number})"
+            self.label = self.build_label()
 
         assert not pipeline.get_node(self.number), "Node number already exists"
         pipeline.nodes.append(self)

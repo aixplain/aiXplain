@@ -85,8 +85,8 @@ class AssetNode(Node[TI, TO], LinkableMixin, OutputableMixin):
         if self.function:
             if self.asset.function.value != self.function:
                 raise ValueError(
-                    f"Function {self.function} is not supported by asset {self.asset_id}"
-                )  # noqa
+                    f"Function {self.function} is not supported by asset {self.asset_id}"  # noqa
+                )
         else:
             self.function = self.asset.function.value
             self._auto_populate_params()
@@ -127,6 +127,18 @@ class AssetNode(Node[TI, TO], LinkableMixin, OutputableMixin):
         obj["functionType"] = self.functionType
         obj["type"] = self.type
         return obj
+
+
+class BareAssetInputs(Inputs):
+    pass
+
+
+class BareAssetOutputs(Outputs):
+    pass
+
+
+class BareAsset(AssetNode[BareAssetInputs, BareAssetOutputs]):
+    pass
 
 
 class InputInputs(Inputs):
@@ -462,3 +474,36 @@ class BareReconstructor(
     functionType: FunctionType = FunctionType.RECONSTRUCTOR
     inputs_class: Type[TI] = ReconstructorInputs
     outputs_class: Type[TO] = ReconstructorOutputs
+
+
+class BaseMetric(AssetNode[TI, TO]):
+    functionType: FunctionType = FunctionType.METRIC
+
+    def build_label(self):
+        return f"METRIC({self.number})"
+
+
+class MetricInputs(Inputs):
+
+    hypotheses: InputParam = None
+    references: InputParam = None
+    sources: InputParam = None
+
+    def __init__(self, node: Node):
+        super().__init__(node)
+        self.hypotheses = self.create_param("hypotheses")
+        self.references = self.create_param("references")
+        self.sources = self.create_param("sources")
+
+
+class MetricOutputs(Outputs):
+
+    data: OutputParam = None
+
+    def __init__(self, node: Node):
+        super().__init__(node)
+        self.data = self.create_param("data")
+
+
+class BareMetric(BaseMetric[MetricInputs, MetricOutputs]):
+    pass
