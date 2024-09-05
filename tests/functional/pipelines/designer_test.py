@@ -1,7 +1,7 @@
 import pytest
 
 from aixplain.enums import DataType
-from aixplain.factories import PipelineFactory
+from aixplain.factories import PipelineFactory, DatasetFactory
 from aixplain.modules.pipeline.designer import (
     Link,
     Operation,
@@ -241,6 +241,55 @@ def test_reconstructing_pipeline(pipeline):
     output = pipeline.run(
         "s3://aixplain-platform-assets/samples/en/CPAC1x2.wav",
     )
+    assert output["status"] == "SUCCESS"
+    assert output.get("data") is not None
+    assert len(output["data"]) > 0
+    assert output["data"][0].get("segments") is not None
+    assert len(output["data"][0]["segments"]) > 0
+
+
+def test_metric_pipeline(pipeline):
+
+    dataset = DatasetFactory.list(query="for_functional_tests")["results"][0]
+    data_asset_id = dataset.id
+    reference_id = dataset.target_data["pt"][0].id
+
+    # Instantiate input nodes
+    text_input_node = pipeline.input()
+    reference_input_node = pipeline.input()
+
+    # Instantiate the metric node
+    translation_metric_node = pipeline\
+        .text_generation_metric(asset_id='639874ab506c987b1ae1acc6')
+
+    # Instantiate output node
+    score_output_node = pipeline.output()
+
+    # Link the nodes
+    text_input_node.link(translation_metric_node,
+                         from_param='input',
+                         to_param='hypotheses')
+
+    reference_input_node.link(translation_metric_node,
+                              from_param='input',
+                              to_param='references')
+
+    translation_metric_node.link(score_output_node,
+                                 from_param='data',
+                                 to_param='output')
+
+    translation_metric_node.inputs.score_identifier = "bleu"
+
+    # Save and run the pipeline
+    pipeline.save()
+    print(pipeline)
+    output = pipeline.run(data={
+        "TextInput": reference_id, "ReferenceInput": reference_id
+        }, data_asset={
+            "TextInput": data_asset_id, "ReferenceInput": data_asset_id
+        }
+    )
+
     assert output["status"] == "SUCCESS"
     assert output.get("data") is not None
     assert len(output["data"]) > 0
