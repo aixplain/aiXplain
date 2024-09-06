@@ -286,9 +286,8 @@ def test_metric_pipeline(pipeline):
     output = pipeline.run(data={
         "TextInput": reference_id, "ReferenceInput": reference_id
         }, data_asset={
-            "TextInput": data_asset_id, "ReferenceInput": data_asset_id
-        },
-        **{"batchmode": False, "version": "3.0"}
+            "TextInput": data_asset_id, "ReferenceInput": reference_id
+        }
     )
 
     assert output["status"] == "SUCCESS"
