@@ -255,8 +255,8 @@ def test_metric_pipeline(pipeline):
     reference_id = dataset.target_data["pt"][0].id
 
     # Instantiate input nodes
-    text_input_node = pipeline.input()
-    reference_input_node = pipeline.input()
+    text_input_node = pipeline.input(label="TextInput")
+    reference_input_node = pipeline.input("ReferenceInput")
 
     # Instantiate the metric node
     translation_metric_node = pipeline\
@@ -282,12 +282,13 @@ def test_metric_pipeline(pipeline):
 
     # Save and run the pipeline
     pipeline.save()
-    print(pipeline)
+
     output = pipeline.run(data={
         "TextInput": reference_id, "ReferenceInput": reference_id
         }, data_asset={
             "TextInput": data_asset_id, "ReferenceInput": data_asset_id
-        }
+        },
+        **{"batchmode": False, "version": "3.0"}
     )
 
     assert output["status"] == "SUCCESS"

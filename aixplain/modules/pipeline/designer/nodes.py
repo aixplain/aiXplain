@@ -55,8 +55,9 @@ class AssetNode(Node[TI, TO], LinkableMixin, OutputableMixin):
         supplier: str = None,
         version: str = None,
         pipeline: "DesignerPipeline" = None,
+        **kwargs
     ):
-        super().__init__(pipeline=pipeline)
+        super().__init__(pipeline=pipeline, **kwargs)
         self.asset_id = asset_id
         self.supplier = supplier
         self.version = version
@@ -175,10 +176,11 @@ class Input(Node[InputInputs, InputOutputs], LinkableMixin, RoutableMixin):
         data: Optional[str] = None,
         data_types: Optional[List[DataType]] = None,
         pipeline: "DesignerPipeline" = None,
+        **kwargs
     ):
         from aixplain.factories.file_factory import FileFactory
 
-        super().__init__(pipeline=pipeline)
+        super().__init__(pipeline=pipeline, **kwargs)
         self.data_types = data_types or []
         self.data = data
 
@@ -221,8 +223,9 @@ class Output(Node[OutputInputs, OutputOutputs]):
         self,
         data_types: Optional[List[DataType]] = None,
         pipeline: "DesignerPipeline" = None,
+        **kwargs
     ):
-        super().__init__(pipeline=pipeline)
+        super().__init__(pipeline=pipeline, **kwargs)
         self.data_types = data_types or []
 
     def serialize(self) -> dict:
@@ -249,10 +252,11 @@ class Script(Node[TI, TO], LinkableMixin, OutputableMixin):
         pipeline: "DesignerPipeline" = None,
         script_path: Optional[str] = None,
         fileId: Optional[str] = None,
+        **kwargs
     ):
         from aixplain.factories.script_factory import ScriptFactory
 
-        super().__init__(pipeline=pipeline)
+        super().__init__(pipeline=pipeline, **kwargs)
 
         assert script_path or fileId, "script_path or fileId is required"
 
@@ -284,6 +288,7 @@ class Route(Serializable):
         path: List[Union[Node, int]],
         operation: Operation,
         type: RouteType,
+        **kwargs
     ):
         """
         Post init method to convert the nodes to node numbers if they are
@@ -340,9 +345,10 @@ class Router(Node[RouterInputs, RouterOutputs], LinkableMixin):
     outputs_class: Type[TO] = RouterOutputs
 
     def __init__(
-        self, routes: List[Route], pipeline: "DesignerPipeline" = None
+        self, routes: List[Route], pipeline: "DesignerPipeline" = None,
+        **kwargs
     ):
-        super().__init__(pipeline=pipeline)
+        super().__init__(pipeline=pipeline, **kwargs)
         self.routes = routes
 
     def serialize(self) -> dict:
@@ -381,9 +387,10 @@ class Decision(Node[DecisionInputs, DecisionOutputs], LinkableMixin):
     outputs_class: Type[TO] = DecisionOutputs
 
     def __init__(
-        self, routes: List[Route], pipeline: "DesignerPipeline" = None
+        self, routes: List[Route], pipeline: "DesignerPipeline" = None,
+        **kwargs
     ):
-        super().__init__(pipeline=pipeline)
+        super().__init__(pipeline=pipeline, **kwargs)
         self.routes = routes
 
     def link(
