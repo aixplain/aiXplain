@@ -256,7 +256,7 @@ def test_metric_pipeline(pipeline):
 
     # Instantiate input nodes
     text_input_node = pipeline.input(label="TextInput")
-    reference_input_node = pipeline.input("ReferenceInput")
+    reference_input_node = pipeline.input(label="ReferenceInput")
 
     # Instantiate the metric node
     translation_metric_node = pipeline\
