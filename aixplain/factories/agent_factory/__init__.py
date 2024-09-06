@@ -67,8 +67,6 @@ class AgentFactory:
         Returns:
             Agent: created Agent
         """
-        # assert that at least one tool is provided
-        assert len(tools) > 0, "At least one tool must be provided."
         # validate LLM ID
         validate_llm(llm_id)
 
