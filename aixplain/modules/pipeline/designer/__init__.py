@@ -8,7 +8,9 @@ from .nodes import (
     Router,
     BaseReconstructor,
     BaseSegmentor,
-    BaseMetric
+    BaseMetric,
+    BareAsset,
+    BareMetric
 )
 from .pipeline import DesignerPipeline
 from .base import (
@@ -37,6 +39,7 @@ from .mixins import LinkableMixin, OutputableMixin, RoutableMixin
 __all__ = [
     "DesignerPipeline",
     "AssetNode",
+    "BareAsset",
     "Decision",
     "Script",
     "Input",
@@ -64,5 +67,6 @@ __all__ = [
     "ParamProxy",
     "TI",
     "TO",
-    "BaseMetric"
+    "BaseMetric",
+    "BareMetric"
 ]

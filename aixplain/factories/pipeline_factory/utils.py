@@ -7,7 +7,8 @@ from aixplain.modules.pipeline import Pipeline
 from aixplain.modules.pipeline.designer import (
     Input,
     Output,
-    AssetNode,
+    BareAsset,
+    BareMetric,
     Decision,
     Router,
     Route,
@@ -43,7 +44,10 @@ def build_from_response(response: Dict, load_architecture: bool = False) -> Pipe
                         data_types=[DataType(dt) for dt in node_json["dataType"]],
                     )
                 elif node_json["type"].lower() == "asset":
-                    node = AssetNode(asset_id=node_json["assetId"])
+                    if node_json["functionType"] == "metric":
+                        node = BareMetric(asset_id=node_json["assetId"])
+                    else:
+                        node = BareAsset(asset_id=node_json["assetId"])
                 elif node_json["type"].lower() == "segmentor":
                     raise NotImplementedError()
                 elif node_json["type"].lower() == "reconstructor":
