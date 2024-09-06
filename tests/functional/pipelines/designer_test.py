@@ -286,7 +286,7 @@ def test_metric_pipeline(pipeline):
     output = pipeline.run(data={
         "TextInput": reference_id, "ReferenceInput": reference_id
         }, data_asset={
-            "TextInput": data_asset_id, "ReferenceInput": reference_id
+            "TextInput": data_asset_id, "ReferenceInput": data_asset_id
         }
     )
 
