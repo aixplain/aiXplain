@@ -69,7 +69,10 @@ def test_sucess_query_content():
 def test_invalid_pipelinetool():
     with pytest.raises(Exception) as exc_info:
         AgentFactory.create(
-            name="Test", tools=[PipelineTool(pipeline="309851793", description="Test")], llm_id="6646261c6eb563165658bbb1"
+            name="Test",
+            description="Test Description",
+            tools=[PipelineTool(pipeline="309851793", description="Test")],
+            llm_id="6646261c6eb563165658bbb1",
         )
     assert str(exc_info.value) == "Pipeline Tool Unavailable. Make sure Pipeline '309851793' exists or you have access to it."
 
