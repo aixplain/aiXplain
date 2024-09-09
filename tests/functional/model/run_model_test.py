@@ -14,7 +14,9 @@ def pytest_generate_tests(metafunc):
 
         predefined_models = ["Groq Llama 3 70B", "Chat GPT 3.5", "GPT-4o", "GPT 4 (32k)"]
         recent_models = [model for model in models if model.created_at and model.created_at >= four_weeks_ago]
-        combined_models = recent_models + [ModelFactory.list(query=model) for model in predefined_models]
+        combined_models = recent_models + [
+            ModelFactory.list(query=model, function=Function.TEXT_GENERATION)["results"][0] for model in predefined_models
+        ]
         metafunc.parametrize("llm_model", combined_models)
 
 
