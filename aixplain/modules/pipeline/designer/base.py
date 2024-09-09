@@ -345,7 +345,7 @@ class Node(Generic[TI, TO], Serializable):
             self.attach_to(pipeline)
 
     def build_label(self):
-        self.label = f"{self.type.value}(ID={self.number})"
+        return f"{self.type.value}(ID={self.number})"
 
     def attach_to(self, pipeline: "DesignerPipeline"):
         """

@@ -5,7 +5,6 @@ from aixplain.enums import DataType
 from .base import Serializable, Node, Link
 from .nodes import (
     AssetNode,
-    BareAsset,
     Decision,
     Script,
     Input,
@@ -229,7 +228,7 @@ class DesignerPipeline(Serializable):
             infer_data_type(to_node)
 
     def asset(
-        self, asset_id: str, *args, asset_class: Type[T] = BareAsset, **kwargs
+        self, asset_id: str, *args, asset_class: Type[T] = AssetNode, **kwargs
     ) -> T:
         """
         Shortcut to create an asset node for the current pipeline.
