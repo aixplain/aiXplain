@@ -37,7 +37,6 @@ def build_from_response(response: Dict, load_architecture: bool = False) -> Pipe
         try:
             # instantiating nodes
             for node_json in response["nodes"]:
-                print(node_json)
                 if node_json["type"].lower() == "input":
                     node = Input(
                         data=node_json["data"] if "data" in node_json else None,
