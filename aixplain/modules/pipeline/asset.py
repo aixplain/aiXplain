@@ -24,7 +24,6 @@ Description:
 import time
 import json
 import os
-import uuid
 import logging
 from aixplain.modules.asset import Asset
 from aixplain.utils import config
@@ -101,9 +100,7 @@ class Pipeline(Asset):
         while not completed and (end - start) < timeout:
             try:
                 response_body = self.poll(poll_url, name=name)
-                logging.debug(
-                    f"Polling for Pipeline: Status of polling for {name} : {response_body}"
-                )
+                logging.debug(f"Polling for Pipeline: Status of polling for {name} : {response_body}")
                 completed = response_body["completed"]
 
                 end = time.time()
@@ -112,18 +109,12 @@ class Pipeline(Asset):
                     if wait_time < 60:
                         wait_time *= 1.1
             except Exception:
-                logging.error(
-                    f"Polling for Pipeline: polling for {name} : Continue"
-                )
+                logging.error(f"Polling for Pipeline: polling for {name} : Continue")
         if response_body and response_body["status"] == "SUCCESS":
             try:
-                logging.debug(
-                    f"Polling for Pipeline: Final status of polling for {name} : SUCCESS - {response_body}"
-                )
+                logging.debug(f"Polling for Pipeline: Final status of polling for {name} : SUCCESS - {response_body}")
             except Exception:
-                logging.error(
-                    f"Polling for Pipeline: Final status of polling for {name} : ERROR - {response_body}"
-                )
+                logging.error(f"Polling for Pipeline: Final status of polling for {name} : ERROR - {response_body}")
         else:
             logging.error(
                 f"Polling for Pipeline: Final status of polling for {name} : No response in {timeout} seconds - {response_body}"
@@ -148,9 +139,7 @@ class Pipeline(Asset):
         r = _request_with_retry("get", poll_url, headers=headers)
         try:
             resp = r.json()
-            logging.info(
-                f"Single Poll for Pipeline: Status of polling for {name} : {resp}"
-            )
+            logging.info(f"Single Poll for Pipeline: Status of polling for {name} : {resp}")
         except Exception:
             resp = {"status": "FAILED"}
         return resp
@@ -179,18 +168,14 @@ class Pipeline(Asset):
         """
         start = time.time()
         try:
-            response = self.run_async(
-                data, data_asset=data_asset, name=name, **kwargs
-            )
+            response = self.run_async(data, data_asset=data_asset, name=name, **kwargs)
             if response["status"] == "FAILED":
                 end = time.time()
                 response["elapsed_time"] = end - start
                 return response
             poll_url = response["url"]
             end = time.time()
-            response = self.__polling(
-                poll_url, name=name, timeout=timeout, wait_time=wait_time
-            )
+            response = self.__polling(poll_url, name=name, timeout=timeout, wait_time=wait_time)
             return response
         except Exception as e:
             error_message = f"Error in request for {name}: {str(e)}"
@@ -240,10 +225,7 @@ class Pipeline(Asset):
                 try:
                     payload = json.loads(data)
                     if isinstance(payload, dict) is False:
-                        if (
-                            isinstance(payload, int) is True
-                            or isinstance(payload, float) is True
-                        ):
+                        if isinstance(payload, int) is True or isinstance(payload, float) is True:
                             payload = str(payload)
                         payload = {"data": payload}
                 except Exception:
@@ -273,35 +255,18 @@ class Pipeline(Asset):
                 try:
                     dasset = CorpusFactory.get(str(data_asset[node_label]))
                     asset_payload["dataAsset"]["corpus_id"] = dasset.id
-                    if (
-                        len(
-                            [
-                                d
-                                for d in dasset.data
-                                if d.id == data[node_label]
-                            ]
-                        )
-                        > 0
-                    ):
+                    if len([d for d in dasset.data if d.id == data[node_label]]) > 0:
                         data_found = True
                 except Exception:
                     try:
-                        dasset = DatasetFactory.get(
-                            str(data_asset[node_label])
-                        )
+                        dasset = DatasetFactory.get(str(data_asset[node_label]))
                         asset_payload["dataAsset"]["dataset_id"] = dasset.id
 
-                        if (
-                            len(
-                                [
-                                    dfield
-                                    for dfield in dasset.source_data
-                                    if dasset.source_data[dfield].id
-                                    == data[node_label]
-                                ]
-                            )
-                            > 0
-                        ):
+                        source_data_list = [
+                            dfield for dfield in dasset.source_data if dasset.source_data[dfield].id == data[node_label]
+                        ]
+
+                        if len(source_data_list) > 0:
                             data_found = True
                         else:
                             for target in dasset.target_data:
@@ -332,11 +297,7 @@ class Pipeline(Asset):
         return payload
 
     def run_async(
-        self,
-        data: Union[Text, Dict],
-        data_asset: Optional[Union[Text, Dict]] = None,
-        name: Text = "pipeline_process",
-        **kwargs
+        self, data: Union[Text, Dict], data_asset: Optional[Union[Text, Dict]] = None, name: Text = "pipeline_process", **kwargs
     ) -> Dict:
         """Runs asynchronously a pipeline call.
 
@@ -359,19 +320,33 @@ class Pipeline(Asset):
         payload = json.dumps(payload)
         call_url = f"{self.url}/{self.id}"
         logging.info(f"Start service for {name}  - {call_url} - {payload}")
-        r = _request_with_retry(
-            "post", call_url, headers=headers, data=payload
-        )
+        r = _request_with_retry("post", call_url, headers=headers, data=payload)
 
         resp = None
         try:
-            resp = r.json()
-            logging.info(
-                f"Result of request for {name}  - {r.status_code} - {resp}"
-            )
-
-            poll_url = resp["url"]
-            response = {"status": "IN_PROGRESS", "url": poll_url}
+            if 200 <= r.status_code < 300:
+                resp = r.json()
+                logging.info(f"Result of request for {name}  - {r.status_code} - {resp}")
+                poll_url = resp["url"]
+                response = {"status": "IN_PROGRESS", "url": poll_url}
+            else:
+                if r.status_code == 401:
+                    error = "Unauthorized API key: Please verify the spelling of the API key and its current validity."
+                elif 460 <= r.status_code < 470:
+                    error = "Subscription-related error: Please ensure that your subscription is active and has not expired."
+                elif 470 <= r.status_code < 480:
+                    error = "Billing-related error: Please ensure you have enough credits to run this pipeline. "
+                elif 480 <= r.status_code < 490:
+                    error = "Supplier-related error: Please ensure that the selected supplier provides the pipeline you are trying to access."
+                elif 490 <= r.status_code < 500:
+                    error = "Validation-related error: Please ensure all required fields are provided and correctly formatted."
+                else:
+                    status_code = str(r.status_code)
+                    error = (
+                        f"Status {status_code}: Unspecified error: An unspecified error occurred while processing your request."
+                    )
+                response = {"status": "FAILED", "error_message": error}
+                logging.error(f"Error in request for {name} - {r.status_code}: {error}")
         except Exception:
             response = {"status": "FAILED"}
             if resp is not None:
@@ -383,6 +358,7 @@ class Pipeline(Asset):
         pipeline: Union[Text, Dict],
         save_as_asset: bool = False,
         api_key: Optional[Text] = None,
+        name: Optional[Text] = None,
     ):
         """Update Pipeline
 
@@ -405,13 +381,13 @@ class Pipeline(Asset):
 
             for i, node in enumerate(pipeline["nodes"]):
                 if "functionType" in node and node["functionType"] == "AI":
-                    pipeline["nodes"][i]["functionType"] = pipeline["nodes"][
-                        i
-                    ]["functionType"].lower()
+                    pipeline["nodes"][i]["functionType"] = pipeline["nodes"][i]["functionType"].lower()
             # prepare payload
             status = "draft"
             if save_as_asset is True:
                 status = "onboarded"
+            if name:
+                self.name = name
             payload = {
                 "name": self.name,
                 "status": status,
@@ -423,9 +399,7 @@ class Pipeline(Asset):
                 "Authorization": f"Token {api_key}",
                 "Content-Type": "application/json",
             }
-            logging.info(
-                f"Start service for PUT Update Pipeline - {url} - {headers} - {json.dumps(payload)}"
-            )
+            logging.info(f"Start service for PUT Update Pipeline - {url} - {headers} - {json.dumps(payload)}")
             r = _request_with_retry("put", url, headers=headers, json=payload)
             response = r.json()
             logging.info(f"Pipeline {response['id']} Updated.")
@@ -440,9 +414,7 @@ class Pipeline(Asset):
                 "Authorization": f"Token {config.TEAM_API_KEY}",
                 "Content-Type": "application/json",
             }
-            logging.info(
-                f"Start service for DELETE Pipeline  - {url} - {headers}"
-            )
+            logging.info(f"Start service for DELETE Pipeline  - {url} - {headers}")
             r = _request_with_retry("delete", url, headers=headers)
             if r.status_code != 200:
                 raise Exception()
@@ -451,9 +423,7 @@ class Pipeline(Asset):
             logging.error(message)
             raise Exception(f"{message}")
 
-    def save(
-        self, save_as_asset: bool = False, api_key: Optional[Text] = None
-    ):
+    def save(self, save_as_asset: bool = False, api_key: Optional[Text] = None):
         """Save Pipeline
 
         Args:
@@ -468,9 +438,7 @@ class Pipeline(Asset):
 
             for i, node in enumerate(pipeline["nodes"]):
                 if "functionType" in node and node["functionType"] == "AI":
-                    pipeline["nodes"][i]["functionType"] = pipeline["nodes"][
-                        i
-                    ]["functionType"].lower()
+                    pipeline["nodes"][i]["functionType"] = pipeline["nodes"][i]["functionType"].lower()
             # prepare payload
             status = "draft"
             if save_as_asset is True:
@@ -492,9 +460,7 @@ class Pipeline(Asset):
                 "Authorization": f"Token {api_key}",
                 "Content-Type": "application/json",
             }
-            logging.info(
-                f"Start service for Save Pipeline - {url} - {headers} - {json.dumps(payload)}"
-            )
+            logging.info(f"Start service for Save Pipeline - {url} - {headers} - {json.dumps(payload)}")
             r = _request_with_retry(method, url, headers=headers, json=payload)
             response = r.json()
             self.id = response["id"]

@@ -112,3 +112,25 @@ def test_llm_instantiation():
     """Test that the LLM model is correctly instantiated."""
     models = ModelFactory.list(function=Function.TEXT_GENERATION)["results"]
     assert isinstance(models[0], LLM)
+
+
+def test_model_io():
+    model_id = "64aee5824d34b1221e70ac07"
+    model = ModelFactory.get(model_id)
+
+    expected_input = {
+        "text": {
+            "name": "Text Prompt",
+            "code": "text",
+            "required": True,
+            "isFixed": False,
+            "dataType": "text",
+            "dataSubType": "text",
+            "multipleValues": False,
+            "defaultValues": [],
+        }
+    }
+    expected_output = {"data": {"name": "Generated Image", "code": "data", "defaultValue": [], "dataType": "image"}}
+
+    assert model.input_params == expected_input
+    assert model.output_params == expected_output

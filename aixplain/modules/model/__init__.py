@@ -30,6 +30,7 @@ from aixplain.utils import config
 from urllib.parse import urljoin
 from aixplain.utils.file_utils import _request_with_retry
 from typing import Union, Optional, Text, Dict
+from datetime import datetime
 
 
 class Model(Asset):
@@ -48,6 +49,8 @@ class Model(Asset):
         backend_url (str): URL of the backend.
         pricing (Dict, optional): model price. Defaults to None.
         **additional_info: Any additional Model info to be saved
+        input_params (Dict, optional): input parameters for the function.
+        output_params (Dict, optional): output parameters for the function.
     """
 
     def __init__(
@@ -61,6 +64,9 @@ class Model(Asset):
         function: Optional[Function] = None,
         is_subscribed: bool = False,
         cost: Optional[Dict] = None,
+        created_at: Optional[datetime] = None,
+        input_params: Optional[Dict] = None,
+        output_params: Optional[Dict] = None,
         **additional_info,
     ) -> None:
         """Model Init
@@ -84,6 +90,9 @@ class Model(Asset):
         self.backend_url = config.BACKEND_URL
         self.function = function
         self.is_subscribed = is_subscribed
+        self.created_at = created_at
+        self.input_params = input_params
+        self.output_params = output_params
 
     def to_dict(self) -> Dict:
         """Get the model info as a Dictionary
@@ -92,7 +101,14 @@ class Model(Asset):
             Dict: Model Information
         """
         clean_additional_info = {k: v for k, v in self.additional_info.items() if v is not None}
-        return {"id": self.id, "name": self.name, "supplier": self.supplier, "additional_info": clean_additional_info}
+        return {
+            "id": self.id,
+            "name": self.name,
+            "supplier": self.supplier,
+            "additional_info": clean_additional_info,
+            "input_params": self.input_params,
+            "output_params": self.output_params,
+        }
 
     def __repr__(self):
         try:
@@ -239,11 +255,29 @@ class Model(Asset):
 
         resp = None
         try:
-            resp = r.json()
-            logging.info(f"Result of request for {name} - {r.status_code} - {resp}")
-
-            poll_url = resp["data"]
-            response = {"status": "IN_PROGRESS", "url": poll_url}
+            if 200 <= r.status_code < 300:
+                resp = r.json()
+                logging.info(f"Result of request for {name} - {r.status_code} - {resp}")
+                poll_url = resp["data"]
+                response = {"status": "IN_PROGRESS", "url": poll_url}
+            else:
+                if r.status_code == 401:
+                    error = "Unauthorized API key: Please verify the spelling of the API key and its current validity."
+                elif 460 <= r.status_code < 470:
+                    error = "Subscription-related error: Please ensure that your subscription is active and has not expired."
+                elif 470 <= r.status_code < 480:
+                    error = "Billing-related error: Please ensure you have enough credits to run this model. "
+                elif 480 <= r.status_code < 490:
+                    error = "Supplier-related error: Please ensure that the selected supplier provides the model you are trying to access."
+                elif 490 <= r.status_code < 500:
+                    error = "Validation-related error: Please ensure all required fields are provided and correctly formatted."
+                else:
+                    status_code = str(r.status_code)
+                    error = (
+                        f"Status {status_code}: Unspecified error: An unspecified error occurred while processing your request."
+                    )
+                response = {"status": "FAILED", "error_message": error}
+                logging.error(f"Error in request for {name} - {r.status_code}: {error}")
         except Exception:
             response = {"status": "FAILED"}
             msg = f"Error in request for {name} - {traceback.format_exc()}"

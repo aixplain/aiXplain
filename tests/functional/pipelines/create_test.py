@@ -54,7 +54,8 @@ def test_update_pipeline():
     pipeline_name = str(uuid4())
     pipeline = PipelineFactory.create(name=pipeline_name, pipeline=pipeline_dict)
 
-    pipeline.update(pipeline=pipeline_json, save_as_asset=True)
+    pipeline.update(pipeline=pipeline_json, save_as_asset=True, name="NEW NAME")
+    assert pipeline.name == "NEW NAME"
     assert isinstance(pipeline, Pipeline)
     assert pipeline.id != ""
     pipeline.delete()
