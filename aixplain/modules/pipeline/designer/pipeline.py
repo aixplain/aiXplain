@@ -13,6 +13,7 @@ from .nodes import (
     Route,
     BareReconstructor,
     BareSegmentor,
+    BareMetric
 )
 from .enums import NodeType, RouteType, Operation
 
@@ -326,3 +327,14 @@ class DesignerPipeline(Serializable):
         :return: the node
         """
         return BareSegmentor(*args, pipeline=self, **kwargs)
+
+    def metric(self, *args, **kwargs) -> BareMetric:
+        """
+        Shortcut to create an metric node for the current pipeline.
+        All params will be passed as keyword arguments to the node
+        constructor.
+
+        :param kwargs: keyword arguments
+        :return: the node
+        """
+        return BareMetric(*args, pipeline=self, **kwargs)

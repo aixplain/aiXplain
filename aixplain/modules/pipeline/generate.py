@@ -31,6 +31,7 @@ from .designer import (
     AssetNode,
     BaseReconstructor,
     BaseSegmentor,
+    BaseMetric
 )
 from .default import DefaultPipeline
 from aixplain.modules import asset
@@ -160,6 +161,8 @@ def populate_specs(functions: list):
             base_class = "BaseSegmentor"
         elif is_reconstructor:
             base_class = "BaseReconstructor"
+        elif "metric" in function_name.split("_"):  # noqa: Advise a better distinguisher please
+            base_class = "BaseMetric"
 
         spec = {
             "id": function["id"],
