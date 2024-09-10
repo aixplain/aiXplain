@@ -56,7 +56,9 @@ def test_end2end(run_input_map):
         for tool in run_input_map["pipeline_tools"]:
             tools.append(AgentFactory.create_pipeline_tool(pipeline=tool["pipeline_id"], description=tool["description"]))
     print(f"Creating agent with tools: {tools}")
-    agent = AgentFactory.create(name=run_input_map["agent_name"], llm_id=run_input_map["llm_id"], tools=tools)
+    agent = AgentFactory.create(
+        name=run_input_map["agent_name"], description=run_input_map["agent_name"], llm_id=run_input_map["llm_id"], tools=tools
+    )
     print(f"Agent created: {agent.__dict__}")
     print("Running agent")
     response = agent.run(data=run_input_map["query"])

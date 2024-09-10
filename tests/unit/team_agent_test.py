@@ -1,6 +1,7 @@
 import pytest
 import requests_mock
 from aixplain.modules import TeamAgent
+from aixplain.factories import TeamAgentFactory
 from aixplain.utils import config
 
 
@@ -63,3 +64,10 @@ def test_sucess_query_content():
         )
     assert response["status"] == ref_response["status"]
     assert response["url"] == ref_response["data"]
+
+
+def test_fail_number_agents():
+    with pytest.raises(Exception) as exc_info:
+        TeamAgentFactory.create(name="Test Team Agent", agents=[])
+
+    assert str(exc_info.value) == "TeamAgent Onboarding Error: At least one agent must be provided."

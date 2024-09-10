@@ -50,7 +50,6 @@ class AgentFactory:
         api_key: Text = config.TEAM_API_KEY,
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
         version: Optional[Text] = None,
-        use_mentalist_and_inspector: bool = False,
     ) -> Agent:
         """Create a new agent in the platform.
 
@@ -62,17 +61,12 @@ class AgentFactory:
             api_key (Text, optional): team/user API key. Defaults to config.TEAM_API_KEY.
             supplier (Union[Dict, Text, Supplier, int], optional): owner of the agent. Defaults to "aiXplain".
             version (Optional[Text], optional): version of the agent. Defaults to None.
-            use_mentalist_and_inspector (bool, optional): flag to enable mentalist and inspector agents (which only works when a supervisor is enabled). Defaults to False.
 
         Returns:
             Agent: created Agent
         """
         # validate LLM ID
         validate_llm(llm_id)
-
-        orchestrator_llm_id, mentalist_and_inspector_llm_id = llm_id, None
-        if use_mentalist_and_inspector is True:
-            mentalist_and_inspector_llm_id = llm_id
 
         try:
             agent = None
@@ -117,8 +111,6 @@ class AgentFactory:
                 "supplier": supplier,
                 "version": version,
                 "llmId": llm_id,
-                "supervisorId": orchestrator_llm_id,
-                "plannerId": mentalist_and_inspector_llm_id,
             }
 
             logging.info(f"Start service for POST Create Agent  - {url} - {headers} - {json.dumps(payload)}")

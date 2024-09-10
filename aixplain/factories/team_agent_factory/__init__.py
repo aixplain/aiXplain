@@ -25,13 +25,14 @@ import json
 import logging
 
 from aixplain.enums.supplier import Supplier
+from aixplain.factories.agent_factory import AgentFactory
+from aixplain.factories.agent_factory.utils import validate_llm
 from aixplain.modules.agent import Agent
 from aixplain.modules.team_agent import TeamAgent
 from aixplain.utils import config
-from typing import Dict, List, Optional, Text, Union
-
 from aixplain.factories.team_agent_factory.utils import build_team_agent
 from aixplain.utils.file_utils import _request_with_retry
+from typing import Dict, List, Optional, Text, Union
 from urllib.parse import urljoin
 
 
@@ -40,18 +41,31 @@ class TeamAgentFactory:
     def create(
         cls,
         name: Text,
-        agents: List[Agent],
+        agents: List[Union[Text, Agent]],
         llm_id: Text = "669a63646eb56306647e1091",
         description: Text = "",
         api_key: Text = config.TEAM_API_KEY,
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
         version: Optional[Text] = None,
+        use_mentalist_and_inspector: bool = True,
     ) -> TeamAgent:
         """Create a new team agent in the platform."""
+        # validate LLM ID
+        validate_llm(llm_id)
         assert len(agents) > 0, "TeamAgent Onboarding Error: At least one agent must be provided."
         for agent in agents:
-            assert isinstance(agent, Agent), "TeamAgent Onboarding Error: Agents must be instances of Agent class"
-            assert agent.plann, "TeamAgent Onboarding Error: Agents must have the same LLM ID"
+            if isinstance(agent, Text) is True:
+                try:
+                    agent = AgentFactory.get(agent)
+                except Exception:
+                    raise Exception(f"TeamAgent Onboarding Error: Agent {agent} does not exist.")
+            else:
+                assert isinstance(agent, Agent), "TeamAgent Onboarding Error: Agents must be instances of Agent class"
+            # assert agent.plann, "TeamAgent Onboarding Error: Agents must have the same LLM ID"
+
+        mentalist_and_inspector_llm_id = None
+        if use_mentalist_and_inspector is True:
+            mentalist_and_inspector_llm_id = llm_id
         try:
             team_agent = None
             url = urljoin(config.BACKEND_URL, "sdk/agent-communities")
@@ -64,12 +78,12 @@ class TeamAgentFactory:
 
             payload = {
                 "name": name,
-                "agents": agents,
+                "agents": [agent.id for agent in agents],
                 "links": [],
                 "description": description,
-                "llm_id": llm_id,
+                "llmId": llm_id,
                 "supervisorId": llm_id,
-                "plannerId": llm_id,
+                "plannerId": mentalist_and_inspector_llm_id,
                 "supplier": supplier,
                 "version": version,
             }
