@@ -44,6 +44,7 @@ def build_agent(payload: Dict, api_key: Text = config.TEAM_API_KEY) -> Agent:
         version=payload["version"] if "version" in payload else None,
         cost=payload["cost"] if "cost" in payload else None,
         llm_id=payload["llmId"] if "llmId" in payload else GPT_4o_ID,
+        use_mentalist_and_inspector=True if "plannerId" in payload and payload["plannerId"] is not None else False,
         api_key=api_key,
         status=AssetStatus(payload["status"]),
     )

@@ -18,7 +18,7 @@ limitations under the License.
 Author: Lucas Pavanelli and Thiago Castro Ferreira
 Date: August 15th 2024
 Description:
-    Community Class
+    Team Agent Class
 """
 
 import json
@@ -38,17 +38,17 @@ from urllib.parse import urljoin
 from aixplain.utils import config
 
 
-class Community(Model):
+class TeamAgent(Model):
     """Advanced AI system capable of using multiple agents to perform a variety of tasks.
 
     Attributes:
-        id (Text): ID of the Community
-        name (Text): Name of the Community
-        agents (List[Agent]): List of Agents that the Community uses.
-        description (Text, optional): description of the Community. Defaults to "".
+        id (Text): ID of the Team Agent
+        name (Text): Name of the Team Agent
+        agents (List[Agent]): List of Agents that the Team Agent uses.
+        description (Text, optional): description of the Team Agent. Defaults to "".
         llm_id (Text, optional): large language model. Defaults to GPT-4o (6646261c6eb563165658bbb1).
-        supplier (Text): Supplier of the Community.
-        version (Text): Version of the Community.
+        supplier (Text): Supplier of the Team Agent.
+        version (Text): Version of the Team Agent.
         backend_url (str): URL of the backend.
         api_key (str): The TEAM API key used for authentication.
         cost (Dict, optional): model price. Defaults to None.
@@ -71,13 +71,13 @@ class Community(Model):
         """Create a FineTune with the necessary information.
 
         Args:
-            id (Text): ID of the Community
-            name (Text): Name of the Community
-            agents (List[Agent]): List of agents that the Community uses.
-            description (Text, optional): description of the Community. Defaults to "".
+            id (Text): ID of the Team Agent
+            name (Text): Name of the Team Agent
+            agents (List[Agent]): List of agents that the Team Agent uses.
+            description (Text, optional): description of the Team Agent. Defaults to "".
             llm_id (Text, optional): large language model. Defaults to GPT-4o (6646261c6eb563165658bbb1).
-            supplier (Text): Supplier of the Community.
-            version (Text): Version of the Community.
+            supplier (Text): Supplier of the Team Agent.
+            version (Text): Version of the Team Agent.
             backend_url (str): URL of the backend.
             api_key (str): The TEAM API key used for authentication.
             cost (Dict, optional): model price. Defaults to None.
@@ -105,11 +105,11 @@ class Community(Model):
         wait_time: float = 0.5,
         content: Optional[Union[Dict[Text, Text], List[Text]]] = None,
     ) -> Dict:
-        """Runs a community call.
+        """Runs a team agent call.
 
         Args:
-            data (Optional[Union[Dict, Text]], optional): data to be processed by the community. Defaults to None.
-            query (Optional[Text], optional): query to be processed by the community. Defaults to None.
+            data (Optional[Union[Dict, Text]], optional): data to be processed by the team agent. Defaults to None.
+            query (Optional[Text], optional): query to be processed by the team agent. Defaults to None.
             session_id (Optional[Text], optional): conversation Session ID. Defaults to None.
             history (Optional[List[Dict]], optional): chat history (in case session ID is None). Defaults to None.
             name (Text, optional): ID given to a call. Defaults to "model_process".
@@ -142,7 +142,7 @@ class Community(Model):
             return response
         except Exception as e:
             msg = f"Error in request for {name} - {traceback.format_exc()}"
-            logging.error(f"Community Run: Error in running for {name}: {e}")
+            logging.error(f"Team Agent Run: Error in running for {name}: {e}")
             end = time.time()
             return {"status": "FAILED", "error": msg, "elapsed_time": end - start}
 
@@ -156,11 +156,11 @@ class Community(Model):
         parameters: Dict = {},
         content: Optional[Union[Dict[Text, Text], List[Text]]] = None,
     ) -> Dict:
-        """Runs asynchronously a community call.
+        """Runs asynchronously a Team Agent call.
 
         Args:
-            data (Optional[Union[Dict, Text]], optional): data to be processed by the community. Defaults to None.
-            query (Optional[Text], optional): query to be processed by the community. Defaults to None.
+            data (Optional[Union[Dict, Text]], optional): data to be processed by the Team Agent. Defaults to None.
+            query (Optional[Text], optional): query to be processed by the Team Agent. Defaults to None.
             session_id (Optional[Text], optional): conversation Session ID. Defaults to None.
             history (Optional[List[Dict]], optional): chat history (in case session ID is None). Defaults to None.
             name (Text, optional): ID given to a call. Defaults to "model_process".
@@ -208,7 +208,7 @@ class Community(Model):
         payload = json.dumps(payload)
 
         r = _request_with_retry("post", self.url, headers=headers, data=payload)
-        logging.info(f"Community Run Async: Start service for {name} - {self.url} - {payload} - {headers}")
+        logging.info(f"Team Agent Run Async: Start service for {name} - {self.url} - {payload} - {headers}")
 
         resp = None
         try:
@@ -220,7 +220,7 @@ class Community(Model):
         except Exception:
             response = {"status": "FAILED"}
             msg = f"Error in request for {name} - {traceback.format_exc()}"
-            logging.error(f"Community Run Async: Error in running for {name}: {resp}")
+            logging.error(f"Team Agent Run Async: Error in running for {name}: {resp}")
             if resp is not None:
                 response["error"] = msg
         return response
@@ -228,13 +228,15 @@ class Community(Model):
     def delete(self) -> None:
         """Delete Corpus service"""
         try:
-            url = urljoin(config.BACKEND_URL, f"sdk/community/{self.id}")
+            url = urljoin(config.BACKEND_URL, f"sdk/agent-communities/{self.id}")
             headers = {"x-api-key": config.TEAM_API_KEY, "Content-Type": "application/json"}
-            logging.debug(f"Start service for DELETE Community  - {url} - {headers}")
+            logging.debug(f"Start service for DELETE Team Agent  - {url} - {headers}")
             r = _request_with_retry("delete", url, headers=headers)
             if r.status_code != 200:
                 raise Exception()
         except Exception:
-            message = f"Community Deletion Error (HTTP {r.status_code}): Make sure the community exists and you are the owner."
+            message = (
+                f"Team Agent Deletion Error (HTTP {r.status_code}): Make sure the Team Agent exists and you are the owner."
+            )
             logging.error(message)
             raise Exception(f"{message}")

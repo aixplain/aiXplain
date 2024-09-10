@@ -47,35 +47,37 @@ class Agent(Model):
         name (Text): Name of the Agent
         tools (List[Tool]): List of tools that the Agent uses.
         description (Text, optional): description of the Agent. Defaults to "".
-        llm_id (Text, optional): large language model. Defaults to GPT-4o (6646261c6eb563165658bbb1).
+        llm_id (Text): large language model. Defaults to GPT-4o (6646261c6eb563165658bbb1).
         supplier (Text): Supplier of the Agent.
         version (Text): Version of the Agent.
         backend_url (str): URL of the backend.
         api_key (str): The TEAM API key used for authentication.
         cost (Dict, optional): model price. Defaults to None.
+        use_mentalist_and_inspector (bool): Use Mentalist and Inspector tools. Defaults to False.
     """
 
     def __init__(
         self,
         id: Text,
         name: Text,
+        description: Text,
         tools: List[Tool] = [],
-        description: Text = "",
         llm_id: Text = "6646261c6eb563165658bbb1",
         api_key: Optional[Text] = config.TEAM_API_KEY,
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
         version: Optional[Text] = None,
         cost: Optional[Dict] = None,
         status: AssetStatus = AssetStatus.ONBOARDING,
+        use_mentalist_and_inspector: bool = False,
         **additional_info,
     ) -> None:
-        """Create a FineTune with the necessary information.
+        """Create an Agent with the necessary information.
 
         Args:
             id (Text): ID of the Agent
             name (Text): Name of the Agent
+            description (Text): description of the Agent.
             tools (List[Tool]): List of tools that the Agent uses.
-            description (Text, optional): description of the Agent. Defaults to "".
             llm_id (Text, optional): large language model. Defaults to GPT-4o (6646261c6eb563165658bbb1).
             supplier (Text): Supplier of the Agent.
             version (Text): Version of the Agent.
@@ -87,6 +89,7 @@ class Agent(Model):
         self.additional_info = additional_info
         self.tools = tools
         self.llm_id = llm_id
+        self.use_mentalist_and_inspector = use_mentalist_and_inspector
         if isinstance(status, str):
             try:
                 status = AssetStatus(status)
