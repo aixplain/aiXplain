@@ -61,7 +61,6 @@ class TeamAgentFactory:
                     raise Exception(f"TeamAgent Onboarding Error: Agent {agent} does not exist.")
             else:
                 assert isinstance(agent, Agent), "TeamAgent Onboarding Error: Agents must be instances of Agent class"
-            # assert agent.plann, "TeamAgent Onboarding Error: Agents must have the same LLM ID"
 
         mentalist_and_inspector_llm_id = None
         if use_mentalist_and_inspector is True:
@@ -76,9 +75,13 @@ class TeamAgentFactory:
             elif isinstance(supplier, Supplier):
                 supplier = supplier.value["code"]
 
+            agent_list = []
+            for idx, agent in enumerate(agents):
+                agent_list.append({"assetId": agent.id, "number": idx, "type": "AGENT", "label": "AGENT"})
+
             payload = {
                 "name": name,
-                "agents": [agent.id for agent in agents],
+                "agents": agent_list,
                 "links": [],
                 "description": description,
                 "llmId": llm_id,
@@ -108,3 +111,55 @@ class TeamAgentFactory:
         except Exception as e:
             raise Exception(e)
         return team_agent
+
+    @classmethod
+    def list(cls) -> Dict:
+        """List all agents available in the platform."""
+        url = urljoin(config.BACKEND_URL, "sdk/agent-communities")
+        headers = {"x-api-key": config.TEAM_API_KEY, "Content-Type": "application/json"}
+
+        payload = {}
+        logging.info(f"Start service for GET List Agents - {url} - {headers} - {json.dumps(payload)}")
+        try:
+            r = _request_with_retry("get", url, headers=headers)
+            resp = r.json()
+
+            if 200 <= r.status_code < 300:
+                agents, page_total, total = [], 0, 0
+                results = resp
+                page_total = len(results)
+                total = len(results)
+                logging.info(f"Response for GET List Agents - Page Total: {page_total} / Total: {total}")
+                for agent in results:
+                    agents.append(build_team_agent(agent))
+                return {"results": agents, "page_total": page_total, "page_number": 0, "total": total}
+            else:
+                error_msg = "Agent Listing Error: Please contact the administrators."
+                if "message" in resp:
+                    msg = resp["message"]
+                    error_msg = f"Agent Listing Error (HTTP {r.status_code}): {msg}"
+                logging.exception(error_msg)
+                raise Exception(error_msg)
+        except Exception as e:
+            raise Exception(e)
+
+    @classmethod
+    def get(cls, agent_id: Text, api_key: Optional[Text] = None) -> Agent:
+        """Get agent by id."""
+        url = urljoin(config.BACKEND_URL, f"sdk/agent-communities/{agent_id}")
+        if config.AIXPLAIN_API_KEY != "":
+            headers = {"x-aixplain-key": f"{config.AIXPLAIN_API_KEY}", "Content-Type": "application/json"}
+        else:
+            api_key = api_key if api_key is not None else config.TEAM_API_KEY
+            headers = {"x-api-key": api_key, "Content-Type": "application/json"}
+        logging.info(f"Start service for GET Agent  - {url} - {headers}")
+        r = _request_with_retry("get", url, headers=headers)
+        resp = r.json()
+        if 200 <= r.status_code < 300:
+            return build_team_agent(resp)
+        else:
+            msg = "Please contact the administrators."
+            if "message" in resp:
+                msg = resp["message"]
+            error_msg = f"Agent Get Error (HTTP {r.status_code}): {msg}"
+            raise Exception(error_msg)

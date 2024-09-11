@@ -52,6 +52,7 @@ class TeamAgent(Model):
         backend_url (str): URL of the backend.
         api_key (str): The TEAM API key used for authentication.
         cost (Dict, optional): model price. Defaults to None.
+        use_mentalist_and_inspector (bool): Use Mentalist and Inspector tools. Defaults to True.
     """
 
     def __init__(
@@ -65,6 +66,7 @@ class TeamAgent(Model):
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
         version: Optional[Text] = None,
         cost: Optional[Dict] = None,
+        use_mentalist_and_inspector: bool = True,
         status: AssetStatus = AssetStatus.ONBOARDING,
         **additional_info,
     ) -> None:
@@ -81,11 +83,13 @@ class TeamAgent(Model):
             backend_url (str): URL of the backend.
             api_key (str): The TEAM API key used for authentication.
             cost (Dict, optional): model price. Defaults to None.
+            use_mentalist_and_inspector (bool): Use Mentalist and Inspector tools. Defaults to True.
         """
         super().__init__(id, name, description, api_key, supplier, version, cost=cost)
         self.additional_info = additional_info
         self.agents = agents
         self.llm_id = llm_id
+        self.use_mentalist_and_inspector = use_mentalist_and_inspector
         if isinstance(status, str):
             try:
                 status = AssetStatus(status)

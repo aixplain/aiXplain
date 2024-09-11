@@ -53,7 +53,6 @@ class Agent(Model):
         backend_url (str): URL of the backend.
         api_key (str): The TEAM API key used for authentication.
         cost (Dict, optional): model price. Defaults to None.
-        use_mentalist_and_inspector (bool): Use Mentalist and Inspector tools. Defaults to False.
     """
 
     def __init__(
@@ -68,7 +67,6 @@ class Agent(Model):
         version: Optional[Text] = None,
         cost: Optional[Dict] = None,
         status: AssetStatus = AssetStatus.ONBOARDING,
-        use_mentalist_and_inspector: bool = False,
         **additional_info,
     ) -> None:
         """Create an Agent with the necessary information.
@@ -89,7 +87,6 @@ class Agent(Model):
         self.additional_info = additional_info
         self.tools = tools
         self.llm_id = llm_id
-        self.use_mentalist_and_inspector = use_mentalist_and_inspector
         if isinstance(status, str):
             try:
                 status = AssetStatus(status)
