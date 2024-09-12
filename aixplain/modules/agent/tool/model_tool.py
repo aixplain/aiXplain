@@ -20,7 +20,7 @@ Date: May 16th 2024
 Description:
     Agentification Class
 """
-from typing import Optional, Union, Text
+from typing import Optional, Union, Text, Dict
 
 from aixplain.enums.function import Function
 from aixplain.enums.supplier import Supplier
@@ -32,23 +32,24 @@ class ModelTool(Tool):
     """Specialized software or resource designed to assist the AI in executing specific tasks or functions based on user commands.
 
     Attributes:
-        function (Function): task that the tool performs
-        supplier (Optional[Union[Dict, Text, Supplier, int]], optional): Preferred supplier to perform the task. Defaults to None.
+        function (Optional[Union[Function, Text]]): task that the tool performs.
+        supplier (Optional[Union[Dict, Supplier]]): Preferred supplier to perform the task.
+        model (Optional[Union[Text, Model]]): Model function.
     """
 
     def __init__(
         self,
-        function: Optional[Function] = None,
-        supplier: Optional[Supplier] = None,
+        function: Optional[Union[Function, Text]] = None,
+        supplier: Optional[Union[Dict, Supplier]] = None,
         model: Optional[Union[Text, Model]] = None,
         **additional_info,
     ) -> None:
         """Specialized software or resource designed to assist the AI in executing specific tasks or functions based on user commands.
 
         Args:
-            function (Optional[Function], optional): task that the tool performs. Defaults to None.
-            supplier (Optional[Supplier], optional): Preferred supplier to perform the task. Defaults to None.. Defaults to None.
-            model (Optional[Union[Text, Model]], optional): Model function. Defaults to None.
+            function (Optional[Union[Function, Text]]): task that the tool performs. Defaults to None.
+            supplier (Optional[Union[Dict, Supplier]]): Preferred supplier to perform the task. Defaults to None. Defaults to None.
+            model (Optional[Union[Text, Model]]): Model function. Defaults to None.
         """
         assert (
             function is not None or model is not None
