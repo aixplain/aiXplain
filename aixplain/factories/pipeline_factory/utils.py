@@ -56,7 +56,7 @@ def build_from_response(response: Dict, load_architecture: bool = False) -> Pipe
                 elif node_json["type"].lower() == "router":
                     node = Router(routes=[Route(**route) for route in node_json["routes"]])
                 elif node_json["type"].lower() == "script":
-                    node = Script(fileId=node_json["fileId"])
+                    node = Script(fileId=node_json["fileId"], fileMetadata=node_json["fileMetadata"])
                 elif node_json["type"].lower() == "output":
                     node = Output()
 
