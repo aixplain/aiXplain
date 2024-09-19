@@ -82,3 +82,5 @@ def test_run_async_errors(status_code, error_message):
         response = test_model.run_async(data="input_data")
     assert response["status"] == "FAILED"
     assert response["error_message"] == error_message
+
+ 
