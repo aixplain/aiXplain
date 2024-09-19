@@ -262,10 +262,11 @@ class Pipeline(Asset):
                         dasset = DatasetFactory.get(str(data_asset[node_label]))
                         asset_payload["dataAsset"]["dataset_id"] = dasset.id
 
-                        if (
-                            len([dfield for dfield in dasset.source_data if dasset.source_data[dfield].id == data[node_label]])
-                            > 0
-                        ):
+                        source_data_list = [
+                            dfield for dfield in dasset.source_data if dasset.source_data[dfield].id == data[node_label]
+                        ]
+
+                        if len(source_data_list) > 0:
                             data_found = True
                         else:
                             for target in dasset.target_data:
@@ -341,9 +342,11 @@ class Pipeline(Asset):
                     error = "Validation-related error: Please ensure all required fields are provided and correctly formatted."
                 else:
                     status_code = str(r.status_code)
-                    error = f"Status {status_code}: Unspecified error: An unspecified error occurred while processing your request."
+                    error = (
+                        f"Status {status_code}: Unspecified error: An unspecified error occurred while processing your request."
+                    )
                 response = {"status": "FAILED", "error_message": error}
-                logging.error(f"Error in request for {name} - {r.status_code}: {error}")               
+                logging.error(f"Error in request for {name} - {r.status_code}: {error}")
         except Exception:
             response = {"status": "FAILED"}
             if resp is not None:
@@ -355,6 +358,7 @@ class Pipeline(Asset):
         pipeline: Union[Text, Dict],
         save_as_asset: bool = False,
         api_key: Optional[Text] = None,
+        name: Optional[Text] = None,
     ):
         """Update Pipeline
 
@@ -382,6 +386,8 @@ class Pipeline(Asset):
             status = "draft"
             if save_as_asset is True:
                 status = "onboarded"
+            if name:
+                self.name = name
             payload = {
                 "name": self.name,
                 "status": status,

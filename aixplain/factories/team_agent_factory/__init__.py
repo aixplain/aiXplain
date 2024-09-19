@@ -16,61 +16,58 @@ See the License for the specific language governing permissions and
 limitations under the License.
 
 Author: Thiago Castro Ferreira and Lucas Pavanelli
-Date: May 16th 2024
+Date: August 15th 2024
 Description:
-    Agent Factory Class
+    TeamAgent Factory Class
 """
 
 import json
 import logging
 
-from aixplain.enums.function import Function
 from aixplain.enums.supplier import Supplier
-from aixplain.modules.agent import Agent, Tool
-from aixplain.modules.agent.tool.model_tool import ModelTool
-from aixplain.modules.agent.tool.pipeline_tool import PipelineTool
-from aixplain.modules.model import Model
-from aixplain.modules.pipeline import Pipeline
+from aixplain.factories.agent_factory import AgentFactory
+from aixplain.factories.agent_factory.utils import validate_llm
+from aixplain.modules.agent import Agent
+from aixplain.modules.team_agent import TeamAgent
 from aixplain.utils import config
-from typing import Dict, List, Optional, Text, Union
-
-from aixplain.factories.agent_factory.utils import build_agent, validate_llm
+from aixplain.factories.team_agent_factory.utils import build_team_agent
 from aixplain.utils.file_utils import _request_with_retry
+from typing import Dict, List, Optional, Text, Union
 from urllib.parse import urljoin
 
 
-class AgentFactory:
+class TeamAgentFactory:
     @classmethod
     def create(
         cls,
         name: Text,
-        description: Text,
+        agents: List[Union[Text, Agent]],
         llm_id: Text = "669a63646eb56306647e1091",
-        tools: List[Tool] = [],
+        description: Text = "",
         api_key: Text = config.TEAM_API_KEY,
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
         version: Optional[Text] = None,
-    ) -> Agent:
-        """Create a new agent in the platform.
-
-        Args:
-            name (Text): name of the agent
-            description (Text): description of the agent role.
-            llm_id (Text, optional): aiXplain ID of the large language model to be used as agent. Defaults to "669a63646eb56306647e1091" (GPT-4o mini).
-            tools (List[Tool], optional): list of tool for the agent. Defaults to [].
-            api_key (Text, optional): team/user API key. Defaults to config.TEAM_API_KEY.
-            supplier (Union[Dict, Text, Supplier, int], optional): owner of the agent. Defaults to "aiXplain".
-            version (Optional[Text], optional): version of the agent. Defaults to None.
-
-        Returns:
-            Agent: created Agent
-        """
+        use_mentalist_and_inspector: bool = True,
+    ) -> TeamAgent:
+        """Create a new team agent in the platform."""
         # validate LLM ID
         validate_llm(llm_id)
+        assert len(agents) > 0, "TeamAgent Onboarding Error: At least one agent must be provided."
+        for agent in agents:
+            if isinstance(agent, Text) is True:
+                try:
+                    agent = AgentFactory.get(agent)
+                except Exception:
+                    raise Exception(f"TeamAgent Onboarding Error: Agent {agent} does not exist.")
+            else:
+                assert isinstance(agent, Agent), "TeamAgent Onboarding Error: Agents must be instances of Agent class"
 
+        mentalist_and_inspector_llm_id = None
+        if use_mentalist_and_inspector is True:
+            mentalist_and_inspector_llm_id = llm_id
         try:
-            agent = None
-            url = urljoin(config.BACKEND_URL, "sdk/agents")
+            team_agent = None
+            url = urljoin(config.BACKEND_URL, "sdk/agent-communities")
             headers = {"x-api-key": api_key}
 
             if isinstance(supplier, dict):
@@ -78,92 +75,47 @@ class AgentFactory:
             elif isinstance(supplier, Supplier):
                 supplier = supplier.value["code"]
 
-            tool_payload = []
-            for tool in tools:
-                if isinstance(tool, ModelTool):
-                    tool.validate()
-                    tool_payload.append(
-                        {
-                            "function": tool.function.value if tool.function is not None else None,
-                            "type": "model",
-                            "description": tool.description,
-                            "supplier": tool.supplier.value["code"] if tool.supplier else None,
-                            "version": tool.version if tool.version else None,
-                            "assetId": tool.model,
-                        }
-                    )
-                elif isinstance(tool, PipelineTool):
-                    tool.validate()
-                    tool_payload.append(
-                        {
-                            "assetId": tool.pipeline,
-                            "description": tool.description,
-                            "type": "pipeline",
-                        }
-                    )
-                else:
-                    raise Exception("Agent Creation Error: Tool type not supported.")
+            agent_list = []
+            for idx, agent in enumerate(agents):
+                agent_list.append({"assetId": agent.id, "number": idx, "type": "AGENT", "label": "AGENT"})
 
             payload = {
                 "name": name,
-                "assets": tool_payload,
+                "agents": agent_list,
+                "links": [],
                 "description": description,
+                "llmId": llm_id,
+                "supervisorId": llm_id,
+                "plannerId": mentalist_and_inspector_llm_id,
                 "supplier": supplier,
                 "version": version,
-                "llmId": llm_id,
             }
 
-            logging.info(f"Start service for POST Create Agent  - {url} - {headers} - {json.dumps(payload)}")
+            logging.info(f"Start service for POST Create TeamAgent  - {url} - {headers} - {json.dumps(payload)}")
             r = _request_with_retry("post", url, headers=headers, json=payload)
             if 200 <= r.status_code < 300:
                 response = r.json()
-                agent = build_agent(payload=response, api_key=api_key)
+                team_agent = build_team_agent(payload=response, api_key=api_key)
             else:
                 error = r.json()
-                error_msg = "Agent Onboarding Error: Please contact the administrators."
+                error_msg = "TeamAgent Onboarding Error: Please contact the administrators."
                 if "message" in error:
                     msg = error["message"]
                     if error["message"] == "err.name_already_exists":
-                        msg = "Agent name already exists."
+                        msg = "TeamAgent name already exists."
                     elif error["message"] == "err.asset_is_not_available":
                         msg = "Some tools are not available."
-                    error_msg = f"Agent Onboarding Error (HTTP {r.status_code}): {msg}"
+                    error_msg = f"TeamAgent Onboarding Error (HTTP {r.status_code}): {msg}"
                 logging.exception(error_msg)
                 raise Exception(error_msg)
         except Exception as e:
             raise Exception(e)
-        return agent
-
-    @classmethod
-    def create_model_tool(
-        cls,
-        model: Optional[Union[Model, Text]] = None,
-        function: Optional[Union[Function, Text]] = None,
-        supplier: Optional[Union[Supplier, Text]] = None,
-    ) -> ModelTool:
-        """Create a new model tool."""
-        if function is not None and isinstance(function, str):
-            function = Function(function)
-
-        if supplier is not None:
-            if isinstance(supplier, str):
-                for supplier_ in Supplier:
-                    if supplier.lower() in [supplier.value["code"].lower(), supplier.value["name"].lower()]:
-                        supplier = supplier_
-                        break
-                if isinstance(supplier, str):
-                    supplier = None
-        return ModelTool(function=function, supplier=supplier, model=model)
-
-    @classmethod
-    def create_pipeline_tool(cls, description: Text, pipeline: Union[Pipeline, Text]) -> PipelineTool:
-        """Create a new pipeline tool."""
-        return PipelineTool(description=description, pipeline=pipeline)
+        return team_agent
 
     @classmethod
     def list(cls) -> Dict:
         """List all agents available in the platform."""
-        url = urljoin(config.BACKEND_URL, "sdk/agents")
+        url = urljoin(config.BACKEND_URL, "sdk/agent-communities")
         headers = {"x-api-key": config.TEAM_API_KEY, "Content-Type": "application/json"}
 
         payload = {}
@@ -179,7 +131,7 @@ class AgentFactory:
                 total = len(results)
                 logging.info(f"Response for GET List Agents - Page Total: {page_total} / Total: {total}")
                 for agent in results:
-                    agents.append(build_agent(agent))
+                    agents.append(build_team_agent(agent))
                 return {"results": agents, "page_total": page_total, "page_number": 0, "total": total}
             else:
                 error_msg = "Agent Listing Error: Please contact the administrators."
@@ -194,7 +146,7 @@ class AgentFactory:
     @classmethod
     def get(cls, agent_id: Text, api_key: Optional[Text] = None) -> Agent:
         """Get agent by id."""
-        url = urljoin(config.BACKEND_URL, f"sdk/agents/{agent_id}")
+        url = urljoin(config.BACKEND_URL, f"sdk/agent-communities/{agent_id}")
         if config.AIXPLAIN_API_KEY != "":
             headers = {"x-aixplain-key": f"{config.AIXPLAIN_API_KEY}", "Content-Type": "application/json"}
         else:
@@ -204,7 +156,7 @@ class AgentFactory:
         r = _request_with_retry("get", url, headers=headers)
         resp = r.json()
         if 200 <= r.status_code < 300:
-            return build_agent(resp)
+            return build_team_agent(resp)
         else:
             msg = "Please contact the administrators."
             if "message" in resp:

@@ -325,9 +325,9 @@ def create_data_asset(payload: Dict, data_asset_type: Text = "corpus", api_key: 
             response = r.json()
             msg = response["message"]
             error_msg = f"Data Asset Onboarding Error: {msg}"
-        except Exception as e:
+        except Exception:
             error_msg = (
-                f"Data Asset Onboarding Error: Failure on creating the {data_asset_type}. Please contant the administrators."
+                f"Data Asset Onboarding Error: Failure on creating the {data_asset_type}. Please contact the administrators."
             )
         return {"success": False, "error": error_msg}
 
@@ -352,7 +352,7 @@ def is_data(data_id: Text) -> bool:
         if "id" in resp:
             return True
         return False
-    except:
+    except Exception:
         return False
 
 
@@ -379,13 +379,13 @@ def split_data(paths: List, split_rate: List[float], split_labels: List[Text]) -
 
             if column_name is not None:
                 break
-        except Exception as e:
+        except Exception:
             message = f'Data Asset Onboarding Error: Local file "{path}" not found.'
             logging.exception(message)
             raise Exception(message)
 
     if column_name is None:
-        message = f"Data Asset Onboarding Error: All split names are used."
+        message = "Data Asset Onboarding Error: All split names are used."
         raise Exception(message)
 
     for path in paths:

@@ -36,6 +36,7 @@ class FunctionType(str, Enum):
     AI = "AI"
     SEGMENTOR = "SEGMENTOR"
     RECONSTRUCTOR = "RECONSTRUCTOR"
+    METRIC = "METRIC"
 
 
 class ParamType:

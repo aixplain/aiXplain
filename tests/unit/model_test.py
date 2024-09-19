@@ -71,7 +71,6 @@ def test_failed_poll():
         (501, "Status 501: Unspecified error: An unspecified error occurred while processing your request."),
     ],
 )
-
 def test_run_async_errors(status_code, error_message):
     base_url = config.MODELS_RUN_URL
     model_id = "model-id"
@@ -84,3 +83,4 @@ def test_run_async_errors(status_code, error_message):
     assert response["status"] == "FAILED"
     assert response["error_message"] == error_message
 
+ 
