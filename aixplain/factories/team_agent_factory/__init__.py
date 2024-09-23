@@ -26,7 +26,7 @@ import logging
 
 from aixplain.enums.supplier import Supplier
 from aixplain.factories.agent_factory import AgentFactory
-from aixplain.factories.agent_factory.utils import validate_llm
+from aixplain.factories.agent_factory.utils import validate_llm, validate_name
 from aixplain.modules.agent import Agent
 from aixplain.modules.team_agent import TeamAgent
 from aixplain.utils import config
@@ -50,6 +50,7 @@ class TeamAgentFactory:
         use_mentalist_and_inspector: bool = True,
     ) -> TeamAgent:
         """Create a new team agent in the platform."""
+        validate_name(name)
         # validate LLM ID
         validate_llm(llm_id)
         assert len(agents) > 0, "TeamAgent Onboarding Error: At least one agent must be provided."
