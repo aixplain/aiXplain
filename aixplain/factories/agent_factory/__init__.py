@@ -34,7 +34,7 @@ from aixplain.modules.pipeline import Pipeline
 from aixplain.utils import config
 from typing import Dict, List, Optional, Text, Union
 
-from aixplain.factories.agent_factory.utils import build_agent, validate_llm
+from aixplain.factories.agent_factory.utils import build_agent, validate_llm, validate_name
 from aixplain.utils.file_utils import _request_with_retry
 from urllib.parse import urljoin
 
@@ -65,6 +65,7 @@ class AgentFactory:
         Returns:
             Agent: created Agent
         """
+        validate_name(name)
         # validate LLM ID
         validate_llm(llm_id)
 

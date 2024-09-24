@@ -59,3 +59,11 @@ def validate_llm(model_id: Text) -> None:
         assert llm.function == Function.TEXT_GENERATION, "Large Language Model must be a text generation model."
     except Exception:
         raise Exception(f"Large Language Model with ID '{model_id}' not found.")
+
+
+def validate_name(name: Text) -> None:
+    import re
+
+    assert (
+        re.match("^[a-zA-Z0-9 ]*$", name) is not None
+    ), "Agent Creation Error: Agent name must not contain special characters."
