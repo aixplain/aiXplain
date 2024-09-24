@@ -218,7 +218,7 @@ def test_reconstructing_pipeline(pipeline):
 
     input.outputs.input.link(segmentor.inputs.audio)
     segmentor.outputs.audio.link(speech_recognition.inputs.source_audio)
-    speech_recognition.outputs.data.link(reconstructor.inputs.data)
+    speech_recognition.outputs.data.link(reconstructor.inputs.text)
 
     reconstructor.use_output("data")
 
