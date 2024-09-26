@@ -290,7 +290,7 @@ class PipelineFactory:
                     pipeline = json.load(f)
 
             for i, node in enumerate(pipeline["nodes"]):
-                if "functionType" in node and node["functionType"] == "AI":
+                if "functionType" in node:
                     pipeline["nodes"][i]["functionType"] = pipeline["nodes"][i]["functionType"].lower()
             # prepare payload
             payload = {

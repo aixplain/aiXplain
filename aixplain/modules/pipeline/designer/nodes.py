@@ -395,7 +395,7 @@ class BaseSegmentor(AssetNode[TI, TO]):
     into smaller fragments for much easier and efficient processing.
     """
 
-    type: NodeType = NodeType.SEGMENTOR
+    type: NodeType = NodeType.ASSET
     functionType: FunctionType = FunctionType.SEGMENTOR
 
 
@@ -417,7 +417,7 @@ class BareSegmentor(BaseSegmentor[SegmentorInputs, SegmentorOutputs]):
     into smaller fragments for much easier and efficient processing.
     """
 
-    type: NodeType = NodeType.SEGMENTOR
+    type: NodeType = NodeType.ASSET
     functionType: FunctionType = FunctionType.SEGMENTOR
     inputs_class: Type[TI] = SegmentorInputs
     outputs_class: Type[TO] = SegmentorOutputs
@@ -429,7 +429,7 @@ class BaseReconstructor(AssetNode[TI, TO]):
     output of the segmented lines of execution.
     """
 
-    type: NodeType = NodeType.RECONSTRUCTOR
+    type: NodeType = NodeType.ASSET
     functionType: FunctionType = FunctionType.RECONSTRUCTOR
 
 
@@ -455,7 +455,7 @@ class BareReconstructor(BaseReconstructor[ReconstructorInputs, ReconstructorOutp
     output of the segmented lines of execution.
     """
 
-    type: NodeType = NodeType.RECONSTRUCTOR
+    type: NodeType = NodeType.ASSET
     functionType: FunctionType = FunctionType.RECONSTRUCTOR
     inputs_class: Type[TI] = ReconstructorInputs
     outputs_class: Type[TO] = ReconstructorOutputs

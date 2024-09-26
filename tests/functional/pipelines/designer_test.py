@@ -110,9 +110,7 @@ def test_routing_pipeline(pipeline):
     translation = pipeline.asset(TRANSLATION_ASSET)
     speech_recognition = pipeline.asset(SPEECH_RECOGNITION_ASSET)
 
-    input.route(
-        translation.inputs.text, speech_recognition.inputs.source_audio
-    )
+    input.route(translation.inputs.text, speech_recognition.inputs.source_audio)
 
     translation.use_output("data")
     speech_recognition.use_output("data")
@@ -135,17 +133,11 @@ def test_scripting_pipeline(pipeline):
 
     input = pipeline.input()
 
-    segmentor = pipeline.speaker_diarization_audio(
-        asset_id=SPEAKER_DIARIZATION_AUDIO_ASSET
-    )
+    segmentor = pipeline.speaker_diarization_audio(asset_id=SPEAKER_DIARIZATION_AUDIO_ASSET)
 
-    speech_recognition = pipeline.speech_recognition(
-        asset_id=SPEECH_RECOGNITION_ASSET
-    )
+    speech_recognition = pipeline.speech_recognition(asset_id=SPEECH_RECOGNITION_ASSET)
 
-    script = pipeline.script(
-        script_path="tests/functional/pipelines/data/script.py"
-    )
+    script = pipeline.script(script_path="tests/functional/pipelines/data/script.py")
     script.inputs.create_param(code="transcripts", data_type=DataType.TEXT)
     script.inputs.create_param(code="speakers", data_type=DataType.LABEL)
     script.outputs.create_param(code="data", data_type=DataType.TEXT)
@@ -177,9 +169,7 @@ def test_decision_pipeline(pipeline):
 
     input = pipeline.input()
 
-    sentiment_analysis = pipeline.sentiment_analysis(
-        asset_id=SENTIMENT_ANALYSIS_ASSET
-    )
+    sentiment_analysis = pipeline.sentiment_analysis(asset_id=SENTIMENT_ANALYSIS_ASSET)
 
     positive_output = pipeline.output()
     negative_output = pipeline.output()
@@ -220,19 +210,15 @@ def test_decision_pipeline(pipeline):
 def test_reconstructing_pipeline(pipeline):
     input = pipeline.input()
 
-    segmentor = pipeline.speaker_diarization_audio(
-        asset_id="62fab6ecb39cca09ca5bc365"
-    )
+    segmentor = pipeline.speaker_diarization_audio(asset_id="62fab6ecb39cca09ca5bc365")
 
-    speech_recognition = pipeline.speech_recognition(
-        asset_id="60ddefab8d38c51c5885ee38"
-    )
+    speech_recognition = pipeline.speech_recognition(asset_id="60ddefab8d38c51c5885ee38")
 
-    reconstructor = pipeline.bare_reconstructor()
+    reconstructor = pipeline.text_reconstruction(asset_id="636cf7ab0f8ddf0db97929e4")
 
     input.outputs.input.link(segmentor.inputs.audio)
     segmentor.outputs.audio.link(speech_recognition.inputs.source_audio)
-    speech_recognition.outputs.data.link(reconstructor.inputs.data)
+    speech_recognition.outputs.data.link(reconstructor.inputs.text)
 
     reconstructor.use_output("data")
 
@@ -259,35 +245,26 @@ def test_metric_pipeline(pipeline):
     reference_input_node = pipeline.input(label="ReferenceInput")
 
     # Instantiate the metric node
-    translation_metric_node = pipeline\
-        .text_generation_metric(asset_id='639874ab506c987b1ae1acc6')
+    translation_metric_node = pipeline.text_generation_metric(asset_id="639874ab506c987b1ae1acc6")
 
     # Instantiate output node
     score_output_node = pipeline.output()
 
     # Link the nodes
-    text_input_node.link(translation_metric_node,
-                         from_param='input',
-                         to_param='hypotheses')
+    text_input_node.link(translation_metric_node, from_param="input", to_param="hypotheses")
 
-    reference_input_node.link(translation_metric_node,
-                              from_param='input',
-                              to_param='references')
+    reference_input_node.link(translation_metric_node, from_param="input", to_param="references")
 
-    translation_metric_node.link(score_output_node,
-                                 from_param='data',
-                                 to_param='output')
+    translation_metric_node.link(score_output_node, from_param="data", to_param="output")
 
     translation_metric_node.inputs.score_identifier = "bleu"
 
     # Save and run the pipeline
     pipeline.save()
 
-    output = pipeline.run(data={
-        "TextInput": reference_id, "ReferenceInput": reference_id
-        }, data_asset={
-            "TextInput": data_asset_id, "ReferenceInput": data_asset_id
-        }
+    output = pipeline.run(
+        data={"TextInput": reference_id, "ReferenceInput": reference_id},
+        data_asset={"TextInput": data_asset_id, "ReferenceInput": data_asset_id},
     )
 
     assert output["status"] == "SUCCESS"
