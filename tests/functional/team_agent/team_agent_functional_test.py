@@ -70,6 +70,10 @@ def test_end2end(run_input_map):
         llm_id=run_input_map["llm_id"],
         use_mentalist_and_inspector=True,
     )
+    assert team_agent is not None
+    print("Getting team agent")
+    team_agent = TeamAgentFactory.get(team_agent.id)
+    assert team_agent is not None
     print("Running team agent")
     response = team_agent.run(data=run_input_map["query"])
     print(f"Team Agent response: {response}")
