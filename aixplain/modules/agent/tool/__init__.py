@@ -29,7 +29,7 @@ class Tool(ABC):
 
     Attributes:
         name (Text): name of the tool
-        description (Text): descriptiion of the tool
+        description (Text): description of the tool
         version (Text): version of the tool
     """
 

@@ -16,10 +16,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 
 Author: Lucas Pavanelli and Thiago Castro Ferreira
-Date: May 16th 2024
+Date: August 15th 2024
 Description:
-    Agentification Class
+    Team Agent Class
 """
+
 import json
 import logging
 import time
@@ -30,63 +31,65 @@ from aixplain.enums.supplier import Supplier
 from aixplain.enums.asset_status import AssetStatus
 from aixplain.enums.storage_type import StorageType
 from aixplain.modules.model import Model
-from aixplain.modules.agent.tool import Tool
-from aixplain.modules.agent.tool.model_tool import ModelTool
-from aixplain.modules.agent.tool.pipeline_tool import PipelineTool
+from aixplain.modules.agent import Agent
 from typing import Dict, List, Text, Optional, Union
 from urllib.parse import urljoin
 
 from aixplain.utils import config
 
 
-class Agent(Model):
-    """Advanced AI system capable of performing tasks by leveraging specialized software tools and resources from aiXplain marketplace.
+class TeamAgent(Model):
+    """Advanced AI system capable of using multiple agents to perform a variety of tasks.
 
     Attributes:
-        id (Text): ID of the Agent
-        name (Text): Name of the Agent
-        tools (List[Tool]): List of tools that the Agent uses.
-        description (Text, optional): description of the Agent. Defaults to "".
-        llm_id (Text): large language model. Defaults to GPT-4o (6646261c6eb563165658bbb1).
-        supplier (Text): Supplier of the Agent.
-        version (Text): Version of the Agent.
+        id (Text): ID of the Team Agent
+        name (Text): Name of the Team Agent
+        agents (List[Agent]): List of Agents that the Team Agent uses.
+        description (Text, optional): description of the Team Agent. Defaults to "".
+        llm_id (Text, optional): large language model. Defaults to GPT-4o (6646261c6eb563165658bbb1).
+        supplier (Text): Supplier of the Team Agent.
+        version (Text): Version of the Team Agent.
         backend_url (str): URL of the backend.
         api_key (str): The TEAM API key used for authentication.
         cost (Dict, optional): model price. Defaults to None.
+        use_mentalist_and_inspector (bool): Use Mentalist and Inspector tools. Defaults to True.
     """
 
     def __init__(
         self,
         id: Text,
         name: Text,
-        description: Text,
-        tools: List[Tool] = [],
+        agents: List[Agent] = [],
+        description: Text = "",
         llm_id: Text = "6646261c6eb563165658bbb1",
         api_key: Optional[Text] = config.TEAM_API_KEY,
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
         version: Optional[Text] = None,
         cost: Optional[Dict] = None,
+        use_mentalist_and_inspector: bool = True,
         status: AssetStatus = AssetStatus.ONBOARDING,
         **additional_info,
     ) -> None:
-        """Create an Agent with the necessary information.
+        """Create a FineTune with the necessary information.
 
         Args:
-            id (Text): ID of the Agent
-            name (Text): Name of the Agent
-            description (Text): description of the Agent.
-            tools (List[Tool]): List of tools that the Agent uses.
+            id (Text): ID of the Team Agent
+            name (Text): Name of the Team Agent
+            agents (List[Agent]): List of agents that the Team Agent uses.
+            description (Text, optional): description of the Team Agent. Defaults to "".
             llm_id (Text, optional): large language model. Defaults to GPT-4o (6646261c6eb563165658bbb1).
-            supplier (Text): Supplier of the Agent.
-            version (Text): Version of the Agent.
+            supplier (Text): Supplier of the Team Agent.
+            version (Text): Version of the Team Agent.
             backend_url (str): URL of the backend.
             api_key (str): The TEAM API key used for authentication.
             cost (Dict, optional): model price. Defaults to None.
+            use_mentalist_and_inspector (bool): Use Mentalist and Inspector tools. Defaults to True.
         """
         super().__init__(id, name, description, api_key, supplier, version, cost=cost)
         self.additional_info = additional_info
-        self.tools = tools
+        self.agents = agents
         self.llm_id = llm_id
+        self.use_mentalist_and_inspector = use_mentalist_and_inspector
         if isinstance(status, str):
             try:
                 status = AssetStatus(status)
@@ -106,11 +109,11 @@ class Agent(Model):
         wait_time: float = 0.5,
         content: Optional[Union[Dict[Text, Text], List[Text]]] = None,
     ) -> Dict:
-        """Runs an agent call.
+        """Runs a team agent call.
 
         Args:
-            data (Optional[Union[Dict, Text]], optional): data to be processed by the agent. Defaults to None.
-            query (Optional[Text], optional): query to be processed by the agent. Defaults to None.
+            data (Optional[Union[Dict, Text]], optional): data to be processed by the team agent. Defaults to None.
+            query (Optional[Text], optional): query to be processed by the team agent. Defaults to None.
             session_id (Optional[Text], optional): conversation Session ID. Defaults to None.
             history (Optional[List[Dict]], optional): chat history (in case session ID is None). Defaults to None.
             name (Text, optional): ID given to a call. Defaults to "model_process".
@@ -143,7 +146,7 @@ class Agent(Model):
             return response
         except Exception as e:
             msg = f"Error in request for {name} - {traceback.format_exc()}"
-            logging.error(f"Agent Run: Error in running for {name}: {e}")
+            logging.error(f"Team Agent Run: Error in running for {name}: {e}")
             end = time.time()
             return {"status": "FAILED", "error": msg, "elapsed_time": end - start}
 
@@ -157,11 +160,11 @@ class Agent(Model):
         parameters: Dict = {},
         content: Optional[Union[Dict[Text, Text], List[Text]]] = None,
     ) -> Dict:
-        """Runs asynchronously an agent call.
+        """Runs asynchronously a Team Agent call.
 
         Args:
-            data (Optional[Union[Dict, Text]], optional): data to be processed by the agent. Defaults to None.
-            query (Optional[Text], optional): query to be processed by the agent. Defaults to None.
+            data (Optional[Union[Dict, Text]], optional): data to be processed by the Team Agent. Defaults to None.
+            query (Optional[Text], optional): query to be processed by the Team Agent. Defaults to None.
             session_id (Optional[Text], optional): conversation Session ID. Defaults to None.
             history (Optional[List[Dict]], optional): chat history (in case session ID is None). Defaults to None.
             name (Text, optional): ID given to a call. Defaults to "model_process".
@@ -209,7 +212,7 @@ class Agent(Model):
         payload = json.dumps(payload)
 
         r = _request_with_retry("post", self.url, headers=headers, data=payload)
-        logging.info(f"Agent Run Async: Start service for {name} - {self.url} - {payload} - {headers}")
+        logging.info(f"Team Agent Run Async: Start service for {name} - {self.url} - {payload} - {headers}")
 
         resp = None
         try:
@@ -221,21 +224,23 @@ class Agent(Model):
         except Exception:
             response = {"status": "FAILED"}
             msg = f"Error in request for {name} - {traceback.format_exc()}"
-            logging.error(f"Agent Run Async: Error in running for {name}: {resp}")
+            logging.error(f"Team Agent Run Async: Error in running for {name}: {resp}")
             if resp is not None:
                 response["error"] = msg
         return response
 
     def delete(self) -> None:
-        """Delete Agent service"""
+        """Delete Corpus service"""
         try:
-            url = urljoin(config.BACKEND_URL, f"sdk/agents/{self.id}")
+            url = urljoin(config.BACKEND_URL, f"sdk/agent-communities/{self.id}")
             headers = {"x-api-key": config.TEAM_API_KEY, "Content-Type": "application/json"}
-            logging.debug(f"Start service for DELETE Agent  - {url} - {headers}")
+            logging.debug(f"Start service for DELETE Team Agent  - {url} - {headers}")
             r = _request_with_retry("delete", url, headers=headers)
             if r.status_code != 200:
                 raise Exception()
         except Exception:
-            message = f"Agent Deletion Error (HTTP {r.status_code}): Make sure the agent exists and you are the owner."
+            message = (
+                f"Team Agent Deletion Error (HTTP {r.status_code}): Make sure the Team Agent exists and you are the owner."
+            )
             logging.error(message)
             raise Exception(f"{message}")

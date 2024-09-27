@@ -7,7 +7,8 @@ from aixplain.modules.pipeline import Pipeline
 from aixplain.modules.pipeline.designer import (
     Input,
     Output,
-    AssetNode,
+    BareAsset,
+    BareMetric,
     Decision,
     Router,
     Route,
@@ -36,14 +37,16 @@ def build_from_response(response: Dict, load_architecture: bool = False) -> Pipe
         try:
             # instantiating nodes
             for node_json in response["nodes"]:
-                print(node_json)
                 if node_json["type"].lower() == "input":
                     node = Input(
                         data=node_json["data"] if "data" in node_json else None,
                         data_types=[DataType(dt) for dt in node_json["dataType"]],
                     )
                 elif node_json["type"].lower() == "asset":
-                    node = AssetNode(asset_id=node_json["assetId"])
+                    if node_json["functionType"] == "metric":
+                        node = BareMetric(asset_id=node_json["assetId"])
+                    else:
+                        node = BareAsset(asset_id=node_json["assetId"])
                 elif node_json["type"].lower() == "segmentor":
                     raise NotImplementedError()
                 elif node_json["type"].lower() == "reconstructor":
@@ -53,7 +56,7 @@ def build_from_response(response: Dict, load_architecture: bool = False) -> Pipe
                 elif node_json["type"].lower() == "router":
                     node = Router(routes=[Route(**route) for route in node_json["routes"]])
                 elif node_json["type"].lower() == "script":
-                    node = Script(fileId=node_json["fileId"])
+                    node = Script(fileId=node_json["fileId"], fileMetadata=node_json["fileMetadata"])
                 elif node_json["type"].lower() == "output":
                     node = Output()
 

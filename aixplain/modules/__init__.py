@@ -35,3 +35,4 @@ from .benchmark import Benchmark
 from .benchmark_job import BenchmarkJob
 from .agent import Agent
 from .agent.tool import Tool
+from .team_agent import TeamAgent

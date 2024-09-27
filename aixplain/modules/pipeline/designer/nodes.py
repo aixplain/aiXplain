@@ -55,8 +55,9 @@ class AssetNode(Node[TI, TO], LinkableMixin, OutputableMixin):
         supplier: str = None,
         version: str = None,
         pipeline: "DesignerPipeline" = None,
+        **kwargs,
     ):
-        super().__init__(pipeline=pipeline)
+        super().__init__(pipeline=pipeline, **kwargs)
         self.asset_id = asset_id
         self.supplier = supplier
         self.version = version
@@ -84,9 +85,7 @@ class AssetNode(Node[TI, TO], LinkableMixin, OutputableMixin):
 
         if self.function:
             if self.asset.function.value != self.function:
-                raise ValueError(
-                    f"Function {self.function} is not supported by asset {self.asset_id}"
-                )  # noqa
+                raise ValueError(f"Function {self.function} is not supported by asset {self.asset_id}")  # noqa
         else:
             self.function = self.asset.function.value
             self._auto_populate_params()
@@ -129,6 +128,18 @@ class AssetNode(Node[TI, TO], LinkableMixin, OutputableMixin):
         return obj
 
 
+class BareAssetInputs(Inputs):
+    pass
+
+
+class BareAssetOutputs(Outputs):
+    pass
+
+
+class BareAsset(AssetNode[BareAssetInputs, BareAssetOutputs]):
+    pass
+
+
 class InputInputs(Inputs):
     pass
 
@@ -163,10 +174,11 @@ class Input(Node[InputInputs, InputOutputs], LinkableMixin, RoutableMixin):
         data: Optional[str] = None,
         data_types: Optional[List[DataType]] = None,
         pipeline: "DesignerPipeline" = None,
+        **kwargs,
     ):
         from aixplain.factories.file_factory import FileFactory
 
-        super().__init__(pipeline=pipeline)
+        super().__init__(pipeline=pipeline, **kwargs)
         self.data_types = data_types or []
         self.data = data
 
@@ -205,12 +217,8 @@ class Output(Node[OutputInputs, OutputOutputs]):
     inputs_class: Type[TI] = OutputInputs
     outputs_class: Type[TO] = OutputOutputs
 
-    def __init__(
-        self,
-        data_types: Optional[List[DataType]] = None,
-        pipeline: "DesignerPipeline" = None,
-    ):
-        super().__init__(pipeline=pipeline)
+    def __init__(self, data_types: Optional[List[DataType]] = None, pipeline: "DesignerPipeline" = None, **kwargs):
+        super().__init__(pipeline=pipeline, **kwargs)
         self.data_types = data_types or []
 
     def serialize(self) -> dict:
@@ -237,21 +245,25 @@ class Script(Node[TI, TO], LinkableMixin, OutputableMixin):
         pipeline: "DesignerPipeline" = None,
         script_path: Optional[str] = None,
         fileId: Optional[str] = None,
+        fileMetadata: Optional[str] = None,
+        **kwargs,
     ):
         from aixplain.factories.script_factory import ScriptFactory
 
-        super().__init__(pipeline=pipeline)
+        super().__init__(pipeline=pipeline, **kwargs)
 
         assert script_path or fileId, "script_path or fileId is required"
 
         if not fileId:
-            self.fileId = ScriptFactory.upload_script(script_path)
+            self.fileId, self.fileMetadata = ScriptFactory.upload_script(script_path)
         else:
             self.fileId = fileId
+            self.fileMetadata = fileMetadata
 
     def serialize(self) -> dict:
         obj = super().serialize()
         obj["fileId"] = self.fileId
+        obj["fileMetadata"] = self.fileMetadata
         return obj
 
 
@@ -266,13 +278,7 @@ class Route(Serializable):
     operation: Operation
     type: RouteType
 
-    def __init__(
-        self,
-        value: DataType,
-        path: List[Union[Node, int]],
-        operation: Operation,
-        type: RouteType,
-    ):
+    def __init__(self, value: DataType, path: List[Union[Node, int]], operation: Operation, type: RouteType, **kwargs):
         """
         Post init method to convert the nodes to node numbers if they are
         nodes.
@@ -286,10 +292,7 @@ class Route(Serializable):
             raise ValueError("Path is not valid, should be a list of nodes")
 
         # convert nodes to node numbers if they are nodes
-        self.path = [
-            node.number if isinstance(node, Node) else node
-            for node in self.path
-        ]
+        self.path = [node.number if isinstance(node, Node) else node for node in self.path]
 
     def serialize(self) -> dict:
         return {
@@ -327,10 +330,8 @@ class Router(Node[RouterInputs, RouterOutputs], LinkableMixin):
     inputs_class: Type[TI] = RouterInputs
     outputs_class: Type[TO] = RouterOutputs
 
-    def __init__(
-        self, routes: List[Route], pipeline: "DesignerPipeline" = None
-    ):
-        super().__init__(pipeline=pipeline)
+    def __init__(self, routes: List[Route], pipeline: "DesignerPipeline" = None, **kwargs):
+        super().__init__(pipeline=pipeline, **kwargs)
         self.routes = routes
 
     def serialize(self) -> dict:
@@ -368,10 +369,8 @@ class Decision(Node[DecisionInputs, DecisionOutputs], LinkableMixin):
     inputs_class: Type[TI] = DecisionInputs
     outputs_class: Type[TO] = DecisionOutputs
 
-    def __init__(
-        self, routes: List[Route], pipeline: "DesignerPipeline" = None
-    ):
-        super().__init__(pipeline=pipeline)
+    def __init__(self, routes: List[Route], pipeline: "DesignerPipeline" = None, **kwargs):
+        super().__init__(pipeline=pipeline, **kwargs)
         self.routes = routes
 
     def link(
@@ -396,7 +395,7 @@ class BaseSegmentor(AssetNode[TI, TO]):
     into smaller fragments for much easier and efficient processing.
     """
 
-    type: NodeType = NodeType.SEGMENTOR
+    type: NodeType = NodeType.ASSET
     functionType: FunctionType = FunctionType.SEGMENTOR
 
 
@@ -418,7 +417,7 @@ class BareSegmentor(BaseSegmentor[SegmentorInputs, SegmentorOutputs]):
     into smaller fragments for much easier and efficient processing.
     """
 
-    type: NodeType = NodeType.SEGMENTOR
+    type: NodeType = NodeType.ASSET
     functionType: FunctionType = FunctionType.SEGMENTOR
     inputs_class: Type[TI] = SegmentorInputs
     outputs_class: Type[TO] = SegmentorOutputs
@@ -430,7 +429,7 @@ class BaseReconstructor(AssetNode[TI, TO]):
     output of the segmented lines of execution.
     """
 
-    type: NodeType = NodeType.RECONSTRUCTOR
+    type: NodeType = NodeType.ASSET
     functionType: FunctionType = FunctionType.RECONSTRUCTOR
 
 
@@ -450,15 +449,46 @@ class ReconstructorOutputs(Outputs):
         self.data = self.create_param("data")
 
 
-class BareReconstructor(
-    BaseReconstructor[ReconstructorInputs, ReconstructorOutputs]
-):
+class BareReconstructor(BaseReconstructor[ReconstructorInputs, ReconstructorOutputs]):
     """
     Reconstructor node class, this node will be used to reconstruct the
     output of the segmented lines of execution.
     """
 
-    type: NodeType = NodeType.RECONSTRUCTOR
+    type: NodeType = NodeType.ASSET
     functionType: FunctionType = FunctionType.RECONSTRUCTOR
     inputs_class: Type[TI] = ReconstructorInputs
     outputs_class: Type[TO] = ReconstructorOutputs
+
+
+class BaseMetric(AssetNode[TI, TO]):
+    functionType: FunctionType = FunctionType.METRIC
+
+    def build_label(self):
+        return f"METRIC({self.number})"
+
+
+class MetricInputs(Inputs):
+
+    hypotheses: InputParam = None
+    references: InputParam = None
+    sources: InputParam = None
+
+    def __init__(self, node: Node):
+        super().__init__(node)
+        self.hypotheses = self.create_param("hypotheses")
+        self.references = self.create_param("references")
+        self.sources = self.create_param("sources")
+
+
+class MetricOutputs(Outputs):
+
+    data: OutputParam = None
+
+    def __init__(self, node: Node):
+        super().__init__(node)
+        self.data = self.create_param("data")
+
+
+class BareMetric(BaseMetric[MetricInputs, MetricOutputs]):
+    pass

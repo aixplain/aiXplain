@@ -7,6 +7,8 @@ from aixplain.modules.agent import Agent, ModelTool, PipelineTool
 from typing import Dict, Text
 from urllib.parse import urljoin
 
+GPT_4o_ID = "6646261c6eb563165658bbb1"
+
 
 def build_agent(payload: Dict, api_key: Text = config.TEAM_API_KEY) -> Agent:
     """Instantiate a new agent in the platform."""
@@ -41,7 +43,7 @@ def build_agent(payload: Dict, api_key: Text = config.TEAM_API_KEY) -> Agent:
         supplier=payload["teamId"] if "teamId" in payload else None,
         version=payload["version"] if "version" in payload else None,
         cost=payload["cost"] if "cost" in payload else None,
-        llm_id=payload["llmId"] if "llmId" in payload else "6646261c6eb563165658bbb1",
+        llm_id=payload["llmId"] if "llmId" in payload else GPT_4o_ID,
         api_key=api_key,
         status=AssetStatus(payload["status"]),
     )
@@ -57,3 +59,11 @@ def validate_llm(model_id: Text) -> None:
         assert llm.function == Function.TEXT_GENERATION, "Large Language Model must be a text generation model."
     except Exception:
         raise Exception(f"Large Language Model with ID '{model_id}' not found.")
+
+
+def validate_name(name: Text) -> None:
+    import re
+
+    assert (
+        re.match("^[a-zA-Z0-9 ]*$", name) is not None
+    ), "Agent Creation Error: Agent name must not contain special characters."

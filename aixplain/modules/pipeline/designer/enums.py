@@ -22,8 +22,6 @@ class NodeType(str, Enum):
     INPUT = "INPUT"
     OUTPUT = "OUTPUT"
     SCRIPT = "SCRIPT"
-    SEGMENTOR = "SEGMENT"
-    RECONSTRUCTOR = "RECONSTRUCT"
     ROUTER = "ROUTER"
     DECISION = "DECISION"
 
@@ -33,9 +31,11 @@ class AssetType(str, Enum):
 
 
 class FunctionType(str, Enum):
-    AI = "AI"
-    SEGMENTOR = "SEGMENTOR"
-    RECONSTRUCTOR = "RECONSTRUCTOR"
+    AI = "ai"
+    SEGMENTOR = "segmentor"
+    RECONSTRUCTOR = "reconstructor"
+    UTILITY = "utility"
+    METRIC = "metric"
 
 
 class ParamType:
