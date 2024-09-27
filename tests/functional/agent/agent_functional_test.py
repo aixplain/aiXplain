@@ -55,25 +55,19 @@ def test_end2end(run_input_map):
     if "pipeline_tools" in run_input_map:
         for tool in run_input_map["pipeline_tools"]:
             tools.append(AgentFactory.create_pipeline_tool(pipeline=tool["pipeline_id"], description=tool["description"]))
-    print(f"Creating agent with tools: {tools}")
     agent = AgentFactory.create(
         name=run_input_map["agent_name"], description=run_input_map["agent_name"], llm_id=run_input_map["llm_id"], tools=tools
     )
     assert agent is not None
-    print(f"Agent created: {agent.__dict__}")
-    print("Getting team agent")
     agent = AgentFactory.get(agent.id)
     assert agent is not None
-    print("Running agent")
     response = agent.run(data=run_input_map["query"])
-    print(f"Agent response: {response}")
     assert response is not None
     assert response["completed"] is True
     assert response["status"].lower() == "success"
     assert "data" in response
     assert response["data"]["session_id"] is not None
     assert response["data"]["output"] is not None
-    print("Deleting agent")
     agent.delete()
 
 
