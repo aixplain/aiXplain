@@ -57,7 +57,6 @@ def test_end2end(run_input_map):
         if "pipeline_tools" in agent:
             for tool in agent["pipeline_tools"]:
                 tools.append(AgentFactory.create_pipeline_tool(pipeline=tool["pipeline_id"], description=tool["description"]))
-        print(f"Creating agent with tools: {tools}")
         agent = AgentFactory.create(
             name=agent["agent_name"], description=agent["agent_name"], llm_id=agent["llm_id"], tools=tools
         )
@@ -70,16 +69,16 @@ def test_end2end(run_input_map):
         llm_id=run_input_map["llm_id"],
         use_mentalist_and_inspector=True,
     )
-    print("Running team agent")
+    assert team_agent is not None
+    team_agent = TeamAgentFactory.get(team_agent.id)
+    assert team_agent is not None
     response = team_agent.run(data=run_input_map["query"])
-    print(f"Team Agent response: {response}")
     assert response is not None
     assert response["completed"] is True
     assert response["status"].lower() == "success"
     assert "data" in response
     assert response["data"]["session_id"] is not None
     assert response["data"]["output"] is not None
-    print("Deleting team agent")
     team_agent.delete()
 
 
