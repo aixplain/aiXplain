@@ -27,33 +27,33 @@ class APIKey:
     def __init__(
         self,
         name: Text,
-        budget: float,
-        global_limits: Union[Dict, APIKeyGlobalLimits],
-        asset_limits: List[APIKeyGlobalLimits],
         expires_at: Union[datetime, Text],
-        id: int = None,
-        access_key: Text = None,
-        is_admin: bool = None,
+        budget: Optional[float] = None,
+        asset_limits: List[APIKeyGlobalLimits] = [],
+        global_limits: Optional[Union[Dict, APIKeyGlobalLimits]] = None,
+        id: int = "",
+        access_key: Optional[Text] = None,
+        is_admin: bool = False,
     ):
         self.id = id
         self.name = name
         self.budget = budget
         self.global_limits = global_limits
-        if isinstance(global_limits, dict):
+        if global_limits is not None and isinstance(global_limits, dict):
             self.global_limits = APIKeyGlobalLimits(
-                token_per_minute=global_limits["token_per_minute"],
-                token_per_day=global_limits["token_per_day"],
-                request_per_minute=global_limits["request_per_minute"],
-                request_per_day=global_limits["request_per_day"],
+                token_per_minute=global_limits["tpm"],
+                token_per_day=global_limits["tpd"],
+                request_per_minute=global_limits["rpm"],
+                request_per_day=global_limits["rpd"],
             )
         self.asset_limits = asset_limits
         for i, asset_limit in enumerate(self.asset_limits):
             if isinstance(asset_limit, dict):
                 self.asset_limits[i] = APIKeyGlobalLimits(
-                    token_per_minute=asset_limit["token_per_minute"],
-                    token_per_day=asset_limit["token_per_day"],
-                    request_per_minute=asset_limit["request_per_minute"],
-                    request_per_day=asset_limit["request_per_day"],
+                    token_per_minute=asset_limit["tpm"],
+                    token_per_day=asset_limit["tpd"],
+                    request_per_minute=asset_limit["rpm"],
+                    request_per_day=asset_limit["rpd"],
                     model=asset_limit["model"],
                 )
         self.expires_at = expires_at
@@ -65,11 +65,13 @@ class APIKey:
         """Validate the APIKey object"""
         from aixplain.factories import ModelFactory
 
-        assert self.budget > 0, "Budget must be greater than 0"
-        assert self.global_limits.request_per_day > 0, "Request per day must be greater than 0"
-        assert self.global_limits.request_per_minute > 0, "Request per minute must be greater than 0"
-        assert self.global_limits.token_per_day > 0, "Token per day must be greater than 0"
-        assert self.global_limits.token_per_minute > 0, "Token per minute must be greater than 0"
+        if self.budget is not None:
+            assert self.budget > 0, "Budget must be greater than 0"
+        if self.global_limits is not None:
+            assert self.global_limits.request_per_day > 0, "Request per day must be greater than 0"
+            assert self.global_limits.request_per_minute > 0, "Request per minute must be greater than 0"
+            assert self.global_limits.token_per_day > 0, "Token per day must be greater than 0"
+            assert self.global_limits.token_per_minute > 0, "Token per minute must be greater than 0"
         for i, asset_limit in enumerate(self.asset_limits):
             assert asset_limit.model is not None, f"Asset limit {i} must have a model."
             assert asset_limit.request_per_day > 0, f"Asset limit {i} request per day must be greater than 0"
@@ -89,12 +91,28 @@ class APIKey:
             "id": self.id,
             "name": self.name,
             "budget": self.budget,
-            "globalLimits": self.global_limits.__dict__,
-            "assetLimits": [asset_limit.__dict__ for asset_limit in self.asset_limits],
-            "expiresAt": "2024-10-02T20:09:53.848Z",  # self.expires_at.strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+            "assetLimits": [],
+            "expiresAt": self.expires_at.strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
         }
+
+        if self.global_limits is not None:
+            payload["globalLimits"] = {
+                "tpm": self.global_limits.token_per_minute,
+                "tpd": self.global_limits.token_per_day,
+                "rpm": self.global_limits.request_per_minute,
+                "rpd": self.global_limits.request_per_day,
+            }
+
         for i, asset_limit in enumerate(self.asset_limits):
-            payload["assetLimits"][i]["model"] = asset_limit.model.id
+            payload["assetLimits"].append(
+                {
+                    "tpm": asset_limit.token_per_minute,
+                    "tpd": asset_limit.token_per_day,
+                    "rpm": asset_limit.request_per_minute,
+                    "rpd": asset_limit.request_per_day,
+                    "model": asset_limit.model.id,
+                }
+            )
         return payload
 
     def delete(self) -> None:

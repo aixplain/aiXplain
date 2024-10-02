@@ -11,32 +11,9 @@ class APIKeyFactory:
     backend_url = config.BACKEND_URL
 
     @classmethod
-    def get(cls, api_key_id: Text) -> APIKey:
-        """Get an API key by ID"""
-        try:
-            url = f"{cls.backend_url}/sdk/models/{api_key_id}"
-            headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
-            logging.info(f"Start service for GET API key  - {url} - {headers}")
-            r = _request_with_retry("get", url, headers=headers)
-            resp = r.json()
-        except Exception:
-            raise Exception(f"API Key GET Error: Failed to get api key with ID {api_key_id}")
-
-        if r.status_code == 200:
-            api_key = APIKey(
-                name=resp["name"],
-                budget=resp["budget"],
-                global_limits=resp["globalLimits"],
-                asset_limits=resp["assetLimits"],
-                expires_at=resp["expiresAt"],
-            )
-            return api_key
-        else:
-            raise Exception(f"API Key GET Error: Failed to get api key with ID {api_key_id}. Error: {str(resp)}")
-
-    @classmethod
     def list(cls) -> List[APIKey]:
         """List all API keys"""
+        resp = "Unspecified error"
         try:
             url = f"{cls.backend_url}/sdk/api-keys"
             headers = {"Content-Type": "application/json", "Authorization": f"Token {config.TEAM_API_KEY}"}
@@ -46,15 +23,17 @@ class APIKeyFactory:
         except Exception:
             raise Exception("API Key List Error: Failed to list API keys")
 
-        resp = "Unspecified error"
-        if r.status_code == 200:
+        if 200 <= r.status_code < 300:
             api_keys = [
                 APIKey(
+                    id=key["id"],
                     name=key["name"],
-                    budget=key["budget"],
-                    global_limits=key["globalLimits"],
-                    asset_limits=key["assetLimits"],
-                    expires_at=key["expiresAt"],
+                    budget=key["budget"] if "budget" in key else None,
+                    global_limits=key["globalLimits"] if "globalLimits" in key else None,
+                    asset_limits=key["assetLimits"] if "assetLimits" in key else [],
+                    expires_at=key["expiresAt"] if "expiresAt" in key else None,
+                    access_key=key["accessKey"],
+                    is_admin=key["isAdmin"],
                 )
                 for key in resp
             ]
@@ -72,6 +51,7 @@ class APIKeyFactory:
         expires_at: datetime,
     ) -> APIKey:
         """Create a new API key"""
+        resp = "Unspecified error"
         url = f"{cls.backend_url}/sdk/api-keys"
         headers = {"Content-Type": "application/json", "Authorization": f"Token {config.TEAM_API_KEY}"}
 
@@ -86,15 +66,16 @@ class APIKeyFactory:
         except Exception as e:
             raise Exception(f"API Key Creation Error: Failed to create a new API key. Error: {str(e)}")
 
-        resp = "Unspecified error"
-        if r.status_code == 200:
+        if 200 <= r.status_code < 300:
             api_key = APIKey(
                 id=resp["id"],
                 name=resp["name"],
-                budget=resp["budget"],
-                global_limits=resp["globalLimits"],
-                asset_limits=resp["assetLimits"],
-                expires_at=resp["expiresAt"],
+                budget=resp["budget"] if "budget" in resp else None,
+                global_limits=resp["globalLimits"] if "globalLimits" in resp else None,
+                asset_limits=resp["assetLimits"] if "assetLimits" in resp else [],
+                expires_at=resp["expiresAt"] if "expiresAt" in resp else None,
+                access_key=resp["accessKey"],
+                is_admin=resp["isAdmin"],
             )
             return api_key
         else:
@@ -115,14 +96,16 @@ class APIKeyFactory:
             raise Exception(f"API Key Update Error: Failed to update API key with ID {id}. Error: {str(e)}")
 
         resp = "Unspecified error"
-        if r.status_code == 200:
+        if 200 <= r.status_code < 300:
             api_key = APIKey(
                 id=resp["id"],
                 name=resp["name"],
-                budget=resp["budget"],
-                global_limits=resp["globalLimits"],
-                asset_limits=resp["assetLimits"],
-                expires_at=resp["expiresAt"],
+                budget=resp["budget"] if "budget" in resp else None,
+                global_limits=resp["globalLimits"] if "globalLimits" in resp else None,
+                asset_limits=resp["assetLimits"] if "assetLimits" in resp else [],
+                expires_at=resp["expiresAt"] if "expiresAt" in resp else None,
+                access_key=resp["accessKey"],
+                is_admin=resp["isAdmin"],
             )
             return api_key
         else:
