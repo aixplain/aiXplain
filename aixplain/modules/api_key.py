@@ -129,6 +129,6 @@ class APIKey:
             if r.status_code != 200:
                 raise Exception()
         except Exception:
-            message = "Dataset Deletion Error: Make sure the API Key exists and you are the owner."
+            message = "API Deletion Error: Make sure the API Key exists and you are the owner."
             logging.error(message)
             raise Exception(f"{message}")
