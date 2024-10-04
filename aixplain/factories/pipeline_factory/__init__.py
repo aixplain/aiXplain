@@ -263,7 +263,6 @@ class PipelineFactory:
     @classmethod
     def create(
         cls,
-        name: Text,
         pipeline: Union[Text, Dict],
         api_key: Optional[Text] = None,
     ) -> Pipeline:
@@ -294,7 +293,7 @@ class PipelineFactory:
                     pipeline["nodes"][i]["functionType"] = pipeline["nodes"][i]["functionType"].lower()
             # prepare payload
             payload = {
-                "name": name,
+                "name": "name",
                 "status": "draft",
                 "architecture": pipeline,
             }
@@ -308,6 +307,6 @@ class PipelineFactory:
             r = _request_with_retry("post", url, headers=headers, json=payload)
             response = r.json()
 
-            return Pipeline(response["id"], name, api_key)
+            return Pipeline(response["id"], "name", api_key)
         except Exception as e:
             raise Exception(e)

@@ -80,13 +80,13 @@ def test_invalid_pipelinetool():
 def test_invalid_modeltool():
     with pytest.raises(Exception) as exc_info:
         AgentFactory.create(name="Test", tools=[ModelTool(model="309851793")], llm_id="6646261c6eb563165658bbb1")
-    assert str(exc_info.value) == "Model Tool Unavailable. Make sure Model '309851793' exists or you have access to it."
+    assert str(exc_info.value) == "Model Tool Unavailable. Make sure Model '309851' exists or you have access to it."
 
 
 def test_invalid_agent_name():
     with pytest.raises(Exception) as exc_info:
         AgentFactory.create(name="[Test]", description="", tools=[], llm_id="6646261c6eb563165658bbb1")
-    assert str(exc_info.value) == "Agent Creation Error: Agent name must not contain special characters."
+    assert str(exc_info.value) == "Agent Creation: Agent name must not contain special characters."
 
 
 def test_create_agent():

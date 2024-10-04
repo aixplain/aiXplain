@@ -172,7 +172,7 @@ class Model(Asset):
         try:
             resp = r.json()
             if resp["completed"] is True:
-                resp["status"] = "SUCCESS"
+                resp["status"] = "SUCCES"
                 if "error" in resp or "supplierError" in resp:
                     resp["status"] = "FAILED"
             else:
