@@ -109,7 +109,7 @@ class DesignerPipeline(Serializable):
 
         if not contains_input or not contains_output or not contains_asset:
             raise ValueError(
-                "Pipeline must contain at least one input, output and 'Outputable' node"  # noqa
+                "The pipeline requires at least one asset or script node, along with both input and output nodes."  # noqa
             )
 
     def is_param_linked(self, node, param):
