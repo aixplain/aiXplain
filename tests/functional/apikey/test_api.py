@@ -1,10 +1,3 @@
-import os
-
-os.environ["BACKEND_URL"] = "https://dev-platform-api.aixplain.com"
-os.environ["BENCHMARKS_BACKEND_URL"] = "https://dev-platform-api.aixplain.com"
-os.environ["MODELS_RUN_URL"] = "https://dev-models.aixplain.com/api/v1/execute"
-os.environ["TEAM_API_KEY"] = ""
-
 from aixplain.factories.api_key_factory import APIKeyFactory
 from aixplain.modules import APIKey, APIKeyGlobalLimits
 from datetime import datetime
