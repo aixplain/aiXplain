@@ -3,7 +3,7 @@ import os
 os.environ["BACKEND_URL"] = "https://dev-platform-api.aixplain.com"
 os.environ["BENCHMARKS_BACKEND_URL"] = "https://dev-platform-api.aixplain.com"
 os.environ["MODELS_RUN_URL"] = "https://dev-models.aixplain.com/api/v1/execute"
-os.environ["TEAM_API_KEY"] = "232fc8f986d9fa91cd18bdf988b5758de2c857c605e31b63e1de61fb4b3743d9"
+os.environ["TEAM_API_KEY"] = ""
 
 from aixplain.factories.api_key_factory import APIKeyFactory
 from aixplain.modules import APIKey, APIKeyGlobalLimits
