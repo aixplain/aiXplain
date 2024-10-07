@@ -16,6 +16,7 @@ from .nodes import (
     BareMetric
 )
 from .enums import NodeType, RouteType, Operation
+from .mixins import OutputableMixin
 
 
 T = TypeVar("T", bound="AssetNode")
@@ -99,7 +100,7 @@ class DesignerPipeline(Serializable):
                     raise ValueError(f"Output node {node.label} not linked in")
             # validate rest of the nodes are linked in and out
             else:
-                if isinstance(node, AssetNode):
+                if isinstance(node, OutputableMixin):
                     contains_asset = True
                 if node.number not in link_from_map:
                     raise ValueError(f"Node {node.label} not linked in")
@@ -108,7 +109,7 @@ class DesignerPipeline(Serializable):
 
         if not contains_input or not contains_output or not contains_asset:
             raise ValueError(
-                "Pipeline must contain at least one input, output and asset node"  # noqa
+                "The pipeline requires at least one asset or script node, along with both input and output nodes."  # noqa
             )
 
     def is_param_linked(self, node, param):
