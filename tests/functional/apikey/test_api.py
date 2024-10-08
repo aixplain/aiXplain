@@ -1,5 +1,5 @@
 from aixplain.factories.api_key_factory import APIKeyFactory
-from aixplain.modules import APIKey, APIKeyGlobalLimits
+from aixplain.modules import APIKey, APIKeyGlobalLimits, APIKeyUsageLimit
 from datetime import datetime
 import json
 import pytest
@@ -80,6 +80,9 @@ def test_list_api_keys():
     for api_key in api_keys:
         assert isinstance(api_key, APIKey)
         assert api_key.id != ""
+
+        usage = api_key.get_usage()
+        assert isinstance(usage, APIKeyUsageLimit)
 
 
 def test_create_api_key_wrong_input():
