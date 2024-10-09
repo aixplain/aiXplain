@@ -25,7 +25,7 @@ def test_api_key_service():
             "accessKey": "access-key",
             "budget": 1000,
             "globalLimits": {"tpm": 100, "tpd": 1000, "rpd": 1000, "rpm": 100},
-            "assetLimits": [{"model": model_id, "tpm": 100, "tpd": 1000, "rpd": 1000, "rpm": 100}],
+            "assetLimits": [{"assetId": model_id, "tpm": 100, "tpd": 1000, "rpd": 1000, "rpm": 100}],
             "expiresAt": "2024-10-07T00:00:00Z",
             "isAdmin": False,
         }

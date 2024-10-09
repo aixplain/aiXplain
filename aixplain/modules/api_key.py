@@ -1,3 +1,6 @@
+import logging
+from aixplain.utils import config
+from aixplain.utils.file_utils import _request_with_retry
 from aixplain.modules import Model
 from datetime import datetime
 from typing import Dict, List, Optional, Text, Union
@@ -21,6 +24,22 @@ class APIKeyGlobalLimits:
             from aixplain.factories import ModelFactory
 
             self.model = ModelFactory.get(model)
+
+
+class APIKeyUsageLimit:
+    def __init__(self, request_count: int, request_count_limit: int, token_count: int, token_count_limit: int):
+        """Get the usage limits of an API key
+
+        Args:
+            request_count (int): number of requests made
+            request_count_limit (int): limit of requests
+            token_count (int): number of tokens used
+            token_count_limit (int): limit of tokens
+        """
+        self.request_count = request_count
+        self.request_count_limit = request_count_limit
+        self.token_count = token_count
+        self.token_count_limit = token_count_limit
 
 
 class APIKey:
@@ -54,7 +73,7 @@ class APIKey:
                     token_per_day=asset_limit["tpd"],
                     request_per_minute=asset_limit["rpm"],
                     request_per_day=asset_limit["rpd"],
-                    model=asset_limit["model"],
+                    model=asset_limit["assetId"],
                 )
         self.expires_at = expires_at
         self.access_key = access_key
@@ -110,17 +129,13 @@ class APIKey:
                     "tpd": asset_limit.token_per_day,
                     "rpm": asset_limit.request_per_minute,
                     "rpd": asset_limit.request_per_day,
-                    "model": asset_limit.model.id,
+                    "assetId": asset_limit.model.id,
                 }
             )
         return payload
 
     def delete(self) -> None:
         """Delete an API key by its ID"""
-        import logging
-        from aixplain.utils import config
-        from aixplain.utils.file_utils import _request_with_retry
-
         try:
             url = f"{config.BACKEND_URL}/sdk/api-keys/{self.id}"
             headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
@@ -132,3 +147,28 @@ class APIKey:
             message = "API Key Deletion Error: Make sure the API Key exists and you are the owner."
             logging.error(message)
             raise Exception(f"{message}")
+
+    def get_usage(self, asset_id: Optional[Text] = None) -> APIKeyUsageLimit:
+        """Get the usage limits of an API key"""
+        try:
+            url = f"{config.BACKEND_URL}/sdk/api-keys/{self.id}/usage-limits"
+            headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+            logging.info(f"Start service for GET API Key Usage  - {url} - {headers}")
+            if asset_id is not None:
+                url += f"?assetId={asset_id}"
+            r = _request_with_retry("GET", url, headers=headers)
+            resp = r.json()
+        except Exception:
+            message = "API Key Usage Error: Make sure the API Key exists and you are the owner."
+            logging.error(message)
+            raise Exception(f"{message}")
+
+        if 200 <= r.status_code < 300:
+            return APIKeyUsageLimit(
+                request_count=resp["requestCount"],
+                request_count_limit=resp["requestCountLimit"],
+                token_count=resp["tokenCount"],
+                token_count_limit=resp["tokenCountLimit"],
+            )
+        else:
+            raise Exception(f"API Key Usage Error: Failed to get usage. Error: {str(resp)}")
