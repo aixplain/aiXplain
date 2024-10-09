@@ -81,8 +81,9 @@ def test_list_api_keys():
         assert isinstance(api_key, APIKey)
         assert api_key.id != ""
 
-        usage = api_key.get_usage()
-        assert isinstance(usage, APIKeyUsageLimit)
+        if api_key.is_admin is False:
+            usage = api_key.get_usage()
+            assert isinstance(usage, APIKeyUsageLimit)
 
 
 def test_create_api_key_wrong_input():

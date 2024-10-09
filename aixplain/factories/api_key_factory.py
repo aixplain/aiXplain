@@ -2,7 +2,7 @@ import json
 import logging
 import aixplain.utils.config as config
 from datetime import datetime
-from typing import Text, List, Dict, Union
+from typing import Text, List, Optional, Dict, Union
 from aixplain.utils.file_utils import _request_with_retry
 from aixplain.modules.api_key import APIKey, APIKeyGlobalLimits, APIKeyUsageLimit
 
@@ -112,10 +112,12 @@ class APIKeyFactory:
             raise Exception(f"API Key Update Error: Failed to update API key with ID {api_key.id}. Error: {str(resp)}")
 
     @classmethod
-    def get_usage_limit(cls, api_key: Text) -> APIKeyUsageLimit:
+    def get_usage_limit(cls, api_key: Text = config.TEAM_API_KEY, asset_id: Optional[Text] = None) -> APIKeyUsageLimit:
         """Get API key usage limit"""
         try:
             url = f"{config.BACKEND_URL}/sdk/api-keys/usage-limits"
+            if asset_id is not None:
+                url += f"?assetId={asset_id}"
             headers = {"Authorization": f"Token {api_key}", "Content-Type": "application/json"}
             logging.info(f"Start service for GET API Key Usage  - {url} - {headers}")
             r = _request_with_retry("GET", url, headers=headers)
