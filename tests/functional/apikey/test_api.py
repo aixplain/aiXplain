@@ -85,7 +85,6 @@ def test_list_api_keys():
             usage = api_key.get_usage()
             assert isinstance(usage, APIKeyUsageLimit)
 
-
 def test_create_api_key_wrong_input():
     api_key_name = "Test API Key"
 
