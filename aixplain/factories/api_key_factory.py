@@ -72,7 +72,7 @@ class APIKeyFactory:
                 name=resp["name"],
                 budget=resp["budget"] if "budget" in resp else None,
                 global_limits=resp["globalLimits"] if "globalLimits" in resp else None,
-                asset_limits=resp["assetLimits"] if "assetLimits" in resp else [],
+                asset_limits=resp["assetsLimits"] if "assetsLimits" in resp else [],
                 expires_at=resp["expiresAt"] if "expiresAt" in resp else None,
                 access_key=resp["accessKey"],
                 is_admin=resp["isAdmin"],
