@@ -73,7 +73,7 @@ class APIKey:
                     token_per_day=asset_limit["tpd"],
                     request_per_minute=asset_limit["rpm"],
                     request_per_day=asset_limit["rpd"],
-                    model=asset_limit["model"],
+                    model=asset_limit["assetId"],
                 )
         self.expires_at = expires_at
         self.access_key = access_key
@@ -129,7 +129,7 @@ class APIKey:
                     "tpd": asset_limit.token_per_day,
                     "rpm": asset_limit.request_per_minute,
                     "rpd": asset_limit.request_per_day,
-                    "model": asset_limit.model.id,
+                    "assetId": asset_limit.model.id,
                 }
             )
         return payload
