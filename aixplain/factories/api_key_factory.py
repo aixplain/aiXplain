@@ -4,7 +4,7 @@ import aixplain.utils.config as config
 from datetime import datetime
 from typing import Text, List, Dict, Union
 from aixplain.utils.file_utils import _request_with_retry
-from aixplain.modules.api_key import APIKey, APIKeyGlobalLimits
+from aixplain.modules.api_key import APIKey, APIKeyGlobalLimits, APIKeyUsageLimit
 
 
 class APIKeyFactory:
@@ -110,3 +110,27 @@ class APIKeyFactory:
             return api_key
         else:
             raise Exception(f"API Key Update Error: Failed to update API key with ID {api_key.id}. Error: {str(resp)}")
+
+    @classmethod
+    def get_usage_limit(cls, api_key: Text) -> APIKeyUsageLimit:
+        """Get API key usage limit"""
+        try:
+            url = f"{config.BACKEND_URL}/sdk/api-keys/usage-limits"
+            headers = {"Authorization": f"Token {api_key}", "Content-Type": "application/json"}
+            logging.info(f"Start service for GET API Key Usage  - {url} - {headers}")
+            r = _request_with_retry("GET", url, headers=headers)
+            resp = r.json()
+        except Exception:
+            message = "API Key Usage Error: Make sure the API Key exists and you are the owner."
+            logging.error(message)
+            raise Exception(f"{message}")
+
+        if 200 <= r.status_code < 300:
+            return APIKeyUsageLimit(
+                request_count=resp["requestCount"],
+                request_count_limit=resp["requestCountLimit"],
+                token_count=resp["tokenCount"],
+                token_count_limit=resp["tokenCountLimit"],
+            )
+        else:
+            raise Exception(f"API Key Usage Error: Failed to get usage. Error: {str(resp)}")
