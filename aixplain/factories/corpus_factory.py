@@ -21,7 +21,6 @@ Description:
     Corpus Factory Class
 """
 
-import aixplain.utils.config as config
 import aixplain.processes.data_onboarding.onboard_functions as onboard_functions
 import json
 import logging
@@ -86,12 +85,12 @@ class CorpusFactory(AssetFactory):
 
         try:
             license = License(response["license"]["typeId"])
-        except:
+        except Exception:
             license = None
 
         try:
             length = int(response["segmentsCount"])
-        except:
+        except Exception:
             length = None
 
         corpus = Corpus(
@@ -116,17 +115,26 @@ class CorpusFactory(AssetFactory):
         Returns:
             Corpus: Created 'Corpus' object
         """
-        url = urljoin(cls.backend_url, f"sdk/corpora/{corpus_id}/overview")
-        if cls.aixplain_key != "":
-            headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
-        else:
-            headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
-        logging.info(f"Start service for GET Corpus  - {url} - {headers}")
-        r = _request_with_retry("get", url, headers=headers)
-        resp = r.json()
-        if "statusCode" in resp and resp["statusCode"] == 404:
-            raise Exception(f"Corpus GET Error: Dataset {corpus_id} not found.")
-        return cls.__from_response(resp)
+        try:
+            url = urljoin(cls.backend_url, f"sdk/corpora/{corpus_id}/overview")
+            if cls.aixplain_key != "":
+                headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
+            else:
+                headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+            logging.info(f"Start service for GET Corpus  - {url} - {headers}")
+            r = _request_with_retry("get", url, headers=headers)
+            resp = r.json()
+            if 200 <= r.status_code < 300:
+                logging.info(f"Corpus {corpus_id} retrieved successfully.")
+                return cls.__from_response(resp)
+            else:
+                error_message = f"Corpus GET Error: Status {r.status_code} - {resp.get('message', 'No message')}"
+                logging.error(error_message)
+                raise Exception(error_message)
+        except Exception as e:
+            error_message = f"Error retrieving Corpus {corpus_id}: {str(e)}"
+            logging.error(error_message, exc_info=True)
+            raise Exception(error_message)
 
     @classmethod
     def create_asset_from_id(cls, corpus_id: Text) -> Corpus:
@@ -162,52 +170,63 @@ class CorpusFactory(AssetFactory):
         Returns:
             Dict: list of corpora in agreement with the filters, page number, page total and total elements
         """
-        url = urljoin(cls.backend_url, "sdk/corpora/paginate")
-        if cls.aixplain_key != "":
-            headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
-        else:
-            headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+        try:
+            url = urljoin(cls.backend_url, "sdk/corpora/paginate")
+            if cls.aixplain_key != "":
+                headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
+            else:
+                headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
 
-        assert 0 < page_size <= 100, f"Corpus List Error: Page size must be greater than 0 and not exceed 100."
-        payload = {"pageSize": page_size, "pageNumber": page_number, "sort": [{"field": "createdAt", "dir": -1}]}
+            assert 0 < page_size <= 100, "Corpus List Error: Page size must be greater than 0 and not exceed 100."
+            payload = {"pageSize": page_size, "pageNumber": page_number, "sort": [{"field": "createdAt", "dir": -1}]}
 
-        if query is not None:
-            payload["q"] = str(query)
+            if query is not None:
+                payload["q"] = str(query)
 
-        if function is not None:
-            payload["function"] = function.value
+            if function is not None:
+                payload["function"] = function.value
 
-        if license is not None:
-            payload["license"] = license.value
+            if license is not None:
+                payload["license"] = license.value
 
-        if data_type is not None:
-            payload["dataType"] = data_type.value
+            if data_type is not None:
+                payload["dataType"] = data_type.value
 
-        if language is not None:
-            if isinstance(language, Language):
-                language = [language]
-            payload["language"] = [lng.value["language"] for lng in language]
+            if language is not None:
+                if isinstance(language, Language):
+                    language = [language]
+                payload["language"] = [lng.value["language"] for lng in language]
 
-        logging.info(f"Start service for POST List Corpus - {url} - {headers} - {json.dumps(payload)}")
-        r = _request_with_retry("post", url, headers=headers, json=payload)
-        resp = r.json()
-        corpora, page_total, total = [], 0, 0
-        if "results" in resp:
-            results = resp["results"]
-            page_total = resp["pageTotal"]
-            total = resp["total"]
-            logging.info(f"Response for POST List Corpus - Page Total: {page_total} / Total: {total}")
-            for corpus in results:
-                corpus_ = cls.__from_response(corpus)
-                # add languages
-                languages = []
-                for lng in corpus["languages"]:
-                    if "dialect" not in lng:
-                        lng["dialect"] = ""
-                    languages.append(Language(lng))
-                corpus_.kwargs["languages"] = languages
-                corpora.append(corpus_)
-        return {"results": corpora, "page_total": page_total, "page_number": page_number, "total": total}
+            logging.info(f"Start service for POST List Corpus - {url} - {headers} - {json.dumps(payload)}")
+            r = _request_with_retry("post", url, headers=headers, json=payload)
+            resp = r.json()
+            if 200 <= r.status_code < 300:
+                corpora, page_total, total = [], 0, 0
+                if "results" in resp:
+                    results = resp["results"]
+                    page_total = resp["pageTotal"]
+                    total = resp["total"]
+                    logging.info(f"Response for POST List Corpus - Page Total: {page_total} / Total: {total}")
+                    for corpus in results:
+                        corpus_ = cls.__from_response(corpus)
+                        # add languages
+                        languages = []
+                        for lng in corpus["languages"]:
+                            if "dialect" not in lng:
+                                lng["dialect"] = ""
+                            languages.append(Language(lng))
+                        corpus_.kwargs["languages"] = languages
+                        corpora.append(corpus_)
+                return {"results": corpora, "page_total": page_total, "page_number": page_number, "total": total}
+            else:
+                error_message = f"Corpus List Error: Status {r.status_code} - {resp.get('message', 'No message')}"
+                logging.error(error_message)
+                raise Exception(error_message)
+
+        except Exception as e:
+            error_message = f"Error listing corpora: {str(e)}"
+            logging.error(error_message, exc_info=True)
+            raise Exception(error_message)
 
     @classmethod
     def get_assets_from_page(
@@ -245,7 +264,7 @@ class CorpusFactory(AssetFactory):
         functions: List[Function] = [],
         privacy: Privacy = Privacy.PRIVATE,
         error_handler: ErrorHandler = ErrorHandler.SKIP,
-        api_key: Optional[Text] = None
+        api_key: Optional[Text] = None,
     ) -> Dict:
         """Asynchronous call to Upload a corpus to the user's dashboard.
 
