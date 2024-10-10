@@ -21,7 +21,6 @@ Description:
     Dataset Factory Class
 """
 
-import aixplain.utils.config as config
 import aixplain.processes.data_onboarding.onboard_functions as onboard_functions
 import json
 import os
@@ -49,7 +48,6 @@ from tqdm import tqdm
 from typing import Any, Dict, List, Optional, Text, Union
 from urllib.parse import urljoin
 from uuid import uuid4
-from warnings import warn
 
 
 class DatasetFactory(AssetFactory):
@@ -122,7 +120,7 @@ class DatasetFactory(AssetFactory):
                 target_data_list = [data[data_id] for data_id in out["dataIds"]]
                 data_name = target_data_list[0].name
                 target_data[data_name] = target_data_list
-            except:
+            except Exception:
                 pass
 
         # process function
@@ -164,17 +162,26 @@ class DatasetFactory(AssetFactory):
         Returns:
             Dataset: Created 'Dataset' object
         """
-        url = urljoin(cls.backend_url, f"sdk/datasets/{dataset_id}/overview")
-        if cls.aixplain_key != "":
-            headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
-        else:
-            headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
-        logging.info(f"Start service for GET Dataset  - {url} - {headers}")
-        r = _request_with_retry("get", url, headers=headers)
-        resp = r.json()
-        if "statusCode" in resp and resp["statusCode"] == 404:
-            raise Exception(f"Dataset GET Error: Dataset {dataset_id} not found.")
-        return cls.__from_response(resp)
+        try:
+            url = urljoin(cls.backend_url, f"sdk/datasets/{dataset_id}/overview")
+            if cls.aixplain_key != "":
+                headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
+            else:
+                headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+            logging.info(f"Start service for GET Dataset  - {url} - {headers}")
+            r = _request_with_retry("get", url, headers=headers)
+            resp = r.json()
+            if 200 <= r.status_code < 300:
+                logging.info(f"Dataset {dataset_id} retrieved successfully.")
+                return cls.__from_response(resp)
+            else:
+                error_message = f"Dataset GET Error: Status {r.status_code} - {resp.get('message', 'No message')}"
+                logging.error(error_message)
+                raise Exception(error_message)
+        except Exception as e:
+            error_message = f"Error retrieving Dataset {dataset_id}: {str(e)}"
+            logging.error(error_message, exc_info=True)
+            raise Exception(error_message)
 
     @classmethod
     def list(
@@ -205,59 +212,70 @@ class DatasetFactory(AssetFactory):
         Returns:
             Dict: list of datasets in agreement with the filters, page number, page total and total elements
         """
-        url = urljoin(cls.backend_url, "sdk/datasets/paginate")
-        if cls.aixplain_key != "":
-            headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
-        else:
-            headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+        try:
+            url = urljoin(cls.backend_url, "sdk/datasets/paginate")
+            if cls.aixplain_key != "":
+                headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
+            else:
+                headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
 
-        assert 0 < page_size <= 100, f"Dataset List Error: Page size must be greater than 0 and not exceed 100."
-        payload = {
-            "pageSize": page_size,
-            "pageNumber": page_number,
-            "sort": [{"field": "createdAt", "dir": -1}],
-            "input": {},
-            "output": {},
-        }
+            assert 0 < page_size <= 100, "Dataset List Error: Page size must be greater than 0 and not exceed 100."
+            payload = {
+                "pageSize": page_size,
+                "pageNumber": page_number,
+                "sort": [{"field": "createdAt", "dir": -1}],
+                "input": {},
+                "output": {},
+            }
 
-        if query is not None:
-            payload["q"] = str(query)
+            if query is not None:
+                payload["q"] = str(query)
 
-        if function is not None:
-            payload["function"] = function.value
+            if function is not None:
+                payload["function"] = function.value
 
-        if license is not None:
-            payload["license"] = license.value
+            if license is not None:
+                payload["license"] = license.value
 
-        if data_type is not None:
-            payload["dataType"] = data_type.value
+            if data_type is not None:
+                payload["dataType"] = data_type.value
 
-        if is_referenceless is not None:
-            payload["isReferenceless"] = is_referenceless
+            if is_referenceless is not None:
+                payload["isReferenceless"] = is_referenceless
 
-        if source_languages is not None:
-            if isinstance(source_languages, Language):
-                source_languages = [source_languages]
-            payload["input"]["languages"] = [lng.value["language"] for lng in source_languages]
+            if source_languages is not None:
+                if isinstance(source_languages, Language):
+                    source_languages = [source_languages]
+                payload["input"]["languages"] = [lng.value["language"] for lng in source_languages]
 
-        if target_languages is not None:
-            if isinstance(target_languages, Language):
-                target_languages = [target_languages]
-            payload["output"]["languages"] = [lng.value["language"] for lng in target_languages]
+            if target_languages is not None:
+                if isinstance(target_languages, Language):
+                    target_languages = [target_languages]
+                payload["output"]["languages"] = [lng.value["language"] for lng in target_languages]
 
-        logging.info(f"Start service for POST List Dataset - {url} - {headers} - {json.dumps(payload)}")
-        r = _request_with_retry("post", url, headers=headers, json=payload)
-        resp = r.json()
+            logging.info(f"Start service for POST List Dataset - {url} - {headers} - {json.dumps(payload)}")
+            r = _request_with_retry("post", url, headers=headers, json=payload)
+            resp = r.json()
 
-        datasets, page_total, total = [], 0, 0
-        if "results" in resp:
-            results = resp["results"]
-            page_total = resp["pageTotal"]
-            total = resp["total"]
-            logging.info(f"Response for POST List Dataset - Page Total: {page_total} / Total: {total}")
-            for dataset in results:
-                datasets.append(cls.__from_response(dataset))
-        return {"results": datasets, "page_total": page_total, "page_number": page_number, "total": total}
+            if 200 <= r.status_code < 300:
+                datasets, page_total, total = [], 0, 0
+                if "results" in resp:
+                    results = resp["results"]
+                    page_total = resp["pageTotal"]
+                    total = resp["total"]
+                    logging.info(f"Response for POST List Dataset - Page Total: {page_total} / Total: {total}")
+                    for dataset in results:
+                        datasets.append(cls.__from_response(dataset))
+                    return {"results": datasets, "page_total": page_total, "page_number": page_number, "total": total}
+            else:
+                error_message = f"Dataset List Error: Status {r.status_code} - {resp.get('message', 'No message')}"
+                logging.error(error_message)
+                raise Exception(error_message)
+
+        except Exception as e:
+            error_message = f"Error listing datasets: {str(e)}"
+            logging.error(error_message, exc_info=True)
+            raise Exception(error_message)
 
     @classmethod
     def create(
@@ -282,7 +300,7 @@ class DatasetFactory(AssetFactory):
         error_handler: ErrorHandler = ErrorHandler.SKIP,
         s3_link: Optional[Text] = None,
         aws_credentials: Optional[Dict[Text, Text]] = {"AWS_ACCESS_KEY_ID": None, "AWS_SECRET_ACCESS_KEY": None},
-        api_key: Optional[Text] = None
+        api_key: Optional[Text] = None,
     ) -> Dict:
         """Dataset Onboard
 
