@@ -46,7 +46,7 @@ class APIKey:
     def __init__(
         self,
         name: Text,
-        expires_at: Union[datetime, Text],
+        expires_at: Optional[Union[datetime, Text]] = None,
         budget: Optional[float] = None,
         asset_limits: List[APIKeyGlobalLimits] = [],
         global_limits: Optional[Union[Dict, APIKeyGlobalLimits]] = None,
@@ -111,8 +111,11 @@ class APIKey:
             "name": self.name,
             "budget": self.budget,
             "assetLimits": [],
-            "expiresAt": self.expires_at.strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+            "expiresAt": self.expires_at,
         }
+
+        if self.expires_at is not None and isinstance(self.expires_at, datetime):
+            payload["expiresAt"] = self.expires_at.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
 
         if self.global_limits is not None:
             payload["globalLimits"] = {
