@@ -85,6 +85,7 @@ class APIKeyFactory:
     def update(cls, api_key: APIKey) -> APIKey:
         """Update an existing API key"""
         try:
+            resp = "Unspecified error"
             url = f"{cls.backend_url}/sdk/api-keys/{api_key.id}"
             headers = {"Content-Type": "application/json", "Authorization": f"Token {config.TEAM_API_KEY}"}
             payload = api_key.to_dict()
@@ -95,14 +96,13 @@ class APIKeyFactory:
         except Exception as e:
             raise Exception(f"API Key Update Error: Failed to update API key with ID {id}. Error: {str(e)}")
 
-        resp = "Unspecified error"
         if 200 <= r.status_code < 300:
             api_key = APIKey(
                 id=resp["id"],
                 name=resp["name"],
                 budget=resp["budget"] if "budget" in resp else None,
                 global_limits=resp["globalLimits"] if "globalLimits" in resp else None,
-                asset_limits=resp["assetLimits"] if "assetLimits" in resp else [],
+                asset_limits=resp["assetsLimits"] if "assetsLimits" in resp else [],
                 expires_at=resp["expiresAt"] if "expiresAt" in resp else None,
                 access_key=resp["accessKey"],
                 is_admin=resp["isAdmin"],
