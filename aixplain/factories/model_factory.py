@@ -113,19 +113,7 @@ class ModelFactory:
             logging.info(f"Start service for GET Model  - {url} - {headers}")
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()
-            if 200 <= r.status_code < 300:
-                resp["api_key"] = config.TEAM_API_KEY
-                if api_key is not None:
-                    resp["api_key"] = api_key
-                model = cls._create_model_from_response(resp)
-                logging.info(f"Model Creation: Model {model_id} instantiated.")
-                return model
-            else:
-                error_message = (
-                    f"Model GET Error: Failed to retrieve model {model_id}. Status Code: {r.status_code}. Error: {resp}"
-                )
-                logging.error(error_message)
-                raise Exception(error_message)
+
         except Exception:
             if resp is not None and "statusCode" in resp:
                 status_code = resp["statusCode"]
@@ -135,6 +123,17 @@ class ModelFactory:
                 message = "Model Creation: Unspecified Error"
             logging.error(message)
             raise Exception(f"{message}")
+        if 200 <= r.status_code < 300:
+            resp["api_key"] = config.TEAM_API_KEY
+            if api_key is not None:
+                resp["api_key"] = api_key
+            model = cls._create_model_from_response(resp)
+            logging.info(f"Model Creation: Model {model_id} instantiated.")
+            return model
+        else:
+            error_message = f"Model GET Error: Failed to retrieve model {model_id}. Status Code: {r.status_code}. Error: {resp}"
+            logging.error(error_message)
+            raise Exception(error_message)
 
     @classmethod
     def create_asset_from_id(cls, model_id: Text) -> Model:
@@ -204,19 +203,20 @@ class ModelFactory:
             logging.info(f"Start service for POST Models Paginate - {url} - {headers} - {json.dumps(filter_params)}")
             r = _request_with_retry("post", url, headers=headers, json=filter_params)
             resp = r.json()
-            if 200 <= r.status_code < 300:
-                logging.info(f"Listing Models: Status of getting Models on Page {page_number}: {r.status_code}")
-                all_models = resp["items"]
-                model_list = [cls._create_model_from_response(model_info_json) for model_info_json in all_models]
-                return model_list, resp["total"]
-            else:
-                error_message = f"Listing Models Error: Failed to retrieve models. Status Code: {r.status_code}. Error: {resp}"
-                logging.error(error_message)
-                raise Exception(error_message)
+
         except Exception as e:
             error_message = f"Listing Models: Error in getting Models on Page {page_number}: {e}"
             logging.error(error_message, exc_info=True)
             return []
+        if 200 <= r.status_code < 300:
+            logging.info(f"Listing Models: Status of getting Models on Page {page_number}: {r.status_code}")
+            all_models = resp["items"]
+            model_list = [cls._create_model_from_response(model_info_json) for model_info_json in all_models]
+            return model_list, resp["total"]
+        else:
+            error_message = f"Listing Models Error: Failed to retrieve models. Status Code: {r.status_code}. Error: {resp}"
+            logging.error(error_message)
+            raise Exception(error_message)
 
     @classmethod
     def list(

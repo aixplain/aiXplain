@@ -79,18 +79,6 @@ class PipelineFactory:
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()
 
-            if 200 <= r.status_code < 300:
-                resp["api_key"] = config.TEAM_API_KEY
-                if api_key is not None:
-                    resp["api_key"] = api_key
-                pipeline = build_from_response(resp, load_architecture=True)
-                logging.info(f"Pipeline {pipeline_id} retrieved successfully.")
-                return pipeline
-
-            else:
-                error_message = f"Pipeline GET Error: Failed to retrieve pipeline {pipeline_id}. Status Code: {r.status_code}. Error: {resp}"
-                logging.error(error_message)
-                raise Exception(error_message)
         except Exception as e:
             logging.exception(e)
             status_code = 400
@@ -102,6 +90,20 @@ class PipelineFactory:
                 message = f"Pipeline Creation: Unspecified Error {e}"
             logging.error(message)
             raise Exception(f"Status {status_code}: {message}")
+        if 200 <= r.status_code < 300:
+            resp["api_key"] = config.TEAM_API_KEY
+            if api_key is not None:
+                resp["api_key"] = api_key
+            pipeline = build_from_response(resp, load_architecture=True)
+            logging.info(f"Pipeline {pipeline_id} retrieved successfully.")
+            return pipeline
+
+        else:
+            error_message = (
+                f"Pipeline GET Error: Failed to retrieve pipeline {pipeline_id}. Status Code: {r.status_code}. Error: {resp}"
+            )
+            logging.error(error_message)
+            raise Exception(error_message)
 
     @classmethod
     def create_asset_from_id(cls, pipeline_id: Text) -> Pipeline:
@@ -230,30 +232,29 @@ class PipelineFactory:
         try:
             r = _request_with_retry("post", url, headers=headers, json=payload)
             resp = r.json()
-            if 200 <= r.status_code < 300:
-                pipelines, page_total, total = [], 0, 0
-                if "items" in resp:
-                    results = resp["items"]
-                    page_total = resp["pageTotal"]
-                    total = resp["total"]
-                    logging.info(f"Response for POST List Pipeline - Page Total: {page_total} / Total: {total}")
-                    for pipeline in results:
-                        pipelines.append(build_from_response(pipeline))
-                return {
-                    "results": pipelines,
-                    "page_total": page_total,
-                    "page_number": page_number,
-                    "total": total,
-                }
-            else:
-                error_message = (
-                    f"Pipeline List Error: Failed to retrieve pipelines. Status Code: {r.status_code}. Error: {resp}"
-                )
-                logging.error(error_message)
-                raise Exception(error_message)
+
         except Exception as e:
             error_message = f"Pipeline List Error: {str(e)}"
             logging.error(error_message, exc_info=True)
+            raise Exception(error_message)
+        if 200 <= r.status_code < 300:
+            pipelines, page_total, total = [], 0, 0
+            if "items" in resp:
+                results = resp["items"]
+                page_total = resp["pageTotal"]
+                total = resp["total"]
+                logging.info(f"Response for POST List Pipeline - Page Total: {page_total} / Total: {total}")
+                for pipeline in results:
+                    pipelines.append(build_from_response(pipeline))
+            return {
+                "results": pipelines,
+                "page_total": page_total,
+                "page_number": page_number,
+                "total": total,
+            }
+        else:
+            error_message = f"Pipeline List Error: Failed to retrieve pipelines. Status Code: {r.status_code}. Error: {resp}"
+            logging.error(error_message)
             raise Exception(error_message)
 
     @classmethod

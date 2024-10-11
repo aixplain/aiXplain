@@ -114,14 +114,7 @@ class BenchmarkFactory:
             logging.info(f"Start service for GET Benchmark  - {url} - {headers}")
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()
-            if 200 <= r.status_code < 300:
-                benchmark = cls._create_benchmark_from_response(resp)
-                logging.info(f"Benchmark {benchmark_id} retrieved successfully.")
-                return benchmark
-            else:
-                error_message = f"Benchmark GET Error: Status {r.status_code} - {resp.get('message', 'No message')}"
-                logging.error(error_message)
-                raise Exception(error_message)
+
         except Exception as e:
             status_code = 400
             if resp is not None and "statusCode" in resp:
@@ -132,6 +125,14 @@ class BenchmarkFactory:
                 message = "Benchmark Creation: Unspecified Error"
             logging.error(f"Benchmark Creation Failed: {e}")
             raise Exception(f"Status {status_code}: {message}")
+        if 200 <= r.status_code < 300:
+            benchmark = cls._create_benchmark_from_response(resp)
+            logging.info(f"Benchmark {benchmark_id} retrieved successfully.")
+            return benchmark
+        else:
+            error_message = f"Benchmark GET Error: Status {r.status_code} - {resp.get('message', 'No message')}"
+            logging.error(error_message)
+            raise Exception(error_message)
 
     @classmethod
     def get_job(cls, job_id: Text) -> BenchmarkJob:
@@ -207,17 +208,19 @@ class BenchmarkFactory:
             payload = json.dumps(clean_payload)
             r = _request_with_retry("post", url, headers=headers, data=payload)
             resp = r.json()
-            if 200 <= r.status_code < 300:
-                logging.info(f"Benchmark {name} created successfully: {resp}")
-                return cls.get(resp["id"])
-            else:
-                error_message = f"Benchmark Creation Error: Status {r.status_code} - {resp.get('message', 'No message')}"
-                logging.error(error_message)
-                raise Exception(error_message)
+
         except Exception as e:
             error_message = f"Creating Benchmark Job: Error in Creating Benchmark with payload {payload} : {e}"
             logging.error(error_message, exc_info=True)
-            return None
+            raise Exception(error_message)
+
+        if 200 <= r.status_code < 300:
+            logging.info(f"Benchmark {name} created successfully: {resp}")
+            return cls.get(resp["id"])
+        else:
+            error_message = f"Benchmark Creation Error: Status {r.status_code} - {resp.get('message', 'No message')}"
+            logging.error(error_message)
+            raise Exception(error_message)
 
     @classmethod
     def list_normalization_options(cls, metric: Metric, model: Model) -> List[str]:
@@ -240,20 +243,19 @@ class BenchmarkFactory:
             r = _request_with_retry("post", url, headers=headers, data=payload)
             resp = r.json()
 
-            if 200 <= r.status_code < 300:
-                logging.info(f"Listing Normalization Options: Status of listing options: {resp}")
-                normalization_options = [item["value"] for item in resp]
-                return normalization_options
-            else:
-                error_message = (
-                    f"Error listing normalization options: Status {r.status_code} - {resp.get('message', 'No message')}"
-                )
-                logging.error(error_message)
-                return []
         except Exception as e:
             error_message = f"Listing Normalization Options: Error in getting Normalization Options: {e}"
             logging.error(error_message, exc_info=True)
-            return []
+            raise Exception(error_message)
+
+        if 200 <= r.status_code < 300:
+            logging.info(f"Listing Normalization Options: Status of listing options: {resp}")
+            normalization_options = [item["value"] for item in resp]
+            return normalization_options
+        else:
+            error_message = f"Error listing normalization options: Status {r.status_code} - {resp.get('message', 'No message')}"
+            logging.error(error_message)
+            raise Exception(error_message)
 
     @classmethod
     def get_benchmark_job_scores(cls, job_id):

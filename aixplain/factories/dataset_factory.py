@@ -171,16 +171,17 @@ class DatasetFactory(AssetFactory):
             logging.info(f"Start service for GET Dataset  - {url} - {headers}")
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()
-            if 200 <= r.status_code < 300:
-                logging.info(f"Dataset {dataset_id} retrieved successfully.")
-                return cls.__from_response(resp)
-            else:
-                error_message = f"Dataset GET Error: Status {r.status_code} - {resp.get('message', 'No message')}"
-                logging.error(error_message)
-                raise Exception(error_message)
+
         except Exception as e:
             error_message = f"Error retrieving Dataset {dataset_id}: {str(e)}"
             logging.error(error_message, exc_info=True)
+            raise Exception(error_message)
+        if 200 <= r.status_code < 300:
+            logging.info(f"Dataset {dataset_id} retrieved successfully.")
+            return cls.__from_response(resp)
+        else:
+            error_message = f"Dataset GET Error: Status {r.status_code} - {resp.get('message', 'No message')}"
+            logging.error(error_message)
             raise Exception(error_message)
 
     @classmethod
@@ -257,24 +258,23 @@ class DatasetFactory(AssetFactory):
             r = _request_with_retry("post", url, headers=headers, json=payload)
             resp = r.json()
 
-            if 200 <= r.status_code < 300:
-                datasets, page_total, total = [], 0, 0
-                if "results" in resp:
-                    results = resp["results"]
-                    page_total = resp["pageTotal"]
-                    total = resp["total"]
-                    logging.info(f"Response for POST List Dataset - Page Total: {page_total} / Total: {total}")
-                    for dataset in results:
-                        datasets.append(cls.__from_response(dataset))
-                    return {"results": datasets, "page_total": page_total, "page_number": page_number, "total": total}
-            else:
-                error_message = f"Dataset List Error: Status {r.status_code} - {resp.get('message', 'No message')}"
-                logging.error(error_message)
-                raise Exception(error_message)
-
         except Exception as e:
             error_message = f"Error listing datasets: {str(e)}"
             logging.error(error_message, exc_info=True)
+            raise Exception(error_message)
+        if 200 <= r.status_code < 300:
+            datasets, page_total, total = [], 0, 0
+            if "results" in resp:
+                results = resp["results"]
+                page_total = resp["pageTotal"]
+                total = resp["total"]
+                logging.info(f"Response for POST List Dataset - Page Total: {page_total} / Total: {total}")
+                for dataset in results:
+                    datasets.append(cls.__from_response(dataset))
+                return {"results": datasets, "page_total": page_total, "page_number": page_number, "total": total}
+        else:
+            error_message = f"Dataset List Error: Status {r.status_code} - {resp.get('message', 'No message')}"
+            logging.error(error_message)
             raise Exception(error_message)
 
     @classmethod
