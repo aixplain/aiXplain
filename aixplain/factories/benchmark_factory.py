@@ -130,7 +130,7 @@ class BenchmarkFactory:
             logging.info(f"Benchmark {benchmark_id} retrieved successfully.")
             return benchmark
         else:
-            error_message = f"Benchmark GET Error: Status {r.status_code} - {resp.get('message', 'No message')}"
+            error_message = f"Benchmark GET Error: Status {r.status_code} - {resp}"
             logging.error(error_message)
             raise Exception(error_message)
 
@@ -215,10 +215,10 @@ class BenchmarkFactory:
             raise Exception(error_message)
 
         if 200 <= r.status_code < 300:
-            logging.info(f"Benchmark {name} created successfully: {resp}")
+            logging.info(f"Benchmark {name} created successfully.")
             return cls.get(resp["id"])
         else:
-            error_message = f"Benchmark Creation Error: Status {r.status_code} - {resp.get('message', 'No message')}"
+            error_message = f"Benchmark Creation Error: Status {r.status_code} - {resp}"
             logging.error(error_message)
             raise Exception(error_message)
 
@@ -249,11 +249,11 @@ class BenchmarkFactory:
             raise Exception(error_message)
 
         if 200 <= r.status_code < 300:
-            logging.info(f"Listing Normalization Options: Status of listing options: {resp}")
+            logging.info("Listing Normalization Options: ")
             normalization_options = [item["value"] for item in resp]
             return normalization_options
         else:
-            error_message = f"Error listing normalization options: Status {r.status_code} - {resp.get('message', 'No message')}"
+            error_message = f"Error listing normalization options: Status {r.status_code} - {resp}"
             logging.error(error_message)
             raise Exception(error_message)
 

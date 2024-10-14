@@ -180,7 +180,7 @@ class DatasetFactory(AssetFactory):
             logging.info(f"Dataset {dataset_id} retrieved successfully.")
             return cls.__from_response(resp)
         else:
-            error_message = f"Dataset GET Error: Status {r.status_code} - {resp.get('message', 'No message')}"
+            error_message = f"Dataset GET Error: Status {r.status_code} - {resp}"
             logging.error(error_message)
             raise Exception(error_message)
 
@@ -273,7 +273,7 @@ class DatasetFactory(AssetFactory):
                     datasets.append(cls.__from_response(dataset))
                 return {"results": datasets, "page_total": page_total, "page_number": page_number, "total": total}
         else:
-            error_message = f"Dataset List Error: Status {r.status_code} - {resp.get('message', 'No message')}"
+            error_message = f"Dataset List Error: Status {r.status_code} - {resp}"
             logging.error(error_message)
             raise Exception(error_message)
 

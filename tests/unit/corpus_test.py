@@ -17,7 +17,7 @@ def test_get_corpus_error_response():
         with pytest.raises(Exception) as excinfo:
             CorpusFactory.get(corpus_id=corpus_id)
 
-        assert "Corpus GET Error: Status 404 - Not Found" in str(excinfo.value)
+        assert "Corpus GET Error: Status 404 - {'message': 'Not Found'}" in str(excinfo.value)
 
 
 def test_list_corpus_error_response():
@@ -31,4 +31,4 @@ def test_list_corpus_error_response():
         with pytest.raises(Exception) as excinfo:
             CorpusFactory.list(query="test_query", page_number=0, page_size=20)
 
-        assert "Corpus List Error: Status 500 - Internal Server Error" in str(excinfo.value)
+        assert "Corpus List Error: Status 500 - {'message': 'Internal Server Error'}" in str(excinfo.value)

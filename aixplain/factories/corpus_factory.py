@@ -133,7 +133,7 @@ class CorpusFactory(AssetFactory):
             logging.info(f"Corpus {corpus_id} retrieved successfully.")
             return cls.__from_response(resp)
         else:
-            error_message = f"Corpus GET Error: Status {r.status_code} - {resp.get('message', 'No message')}"
+            error_message = f"Corpus GET Error: Status {r.status_code} - {resp}"
             logging.error(error_message)
             raise Exception(error_message)
 
@@ -225,7 +225,7 @@ class CorpusFactory(AssetFactory):
                     corpora.append(corpus_)
             return {"results": corpora, "page_total": page_total, "page_number": page_number, "total": total}
         else:
-            error_message = f"Corpus List Error: Status {r.status_code} - {resp.get('message', 'No message')}"
+            error_message = f"Corpus List Error: Status {r.status_code} - {resp}"
             logging.error(error_message)
             raise Exception(error_message)
 

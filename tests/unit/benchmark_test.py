@@ -35,7 +35,7 @@ def test_create_benchmark_error_response():
         with pytest.raises(Exception) as excinfo:
             BenchmarkFactory.create(name=name, dataset_list=dataset_list, model_list=model_list, metric_list=metric_list)
 
-        assert "Benchmark Creation Error: Status 400 - Invalid request" in str(excinfo.value)
+        assert "Benchmark Creation Error: Status 400 - {'statusCode': 400, 'message': 'Invalid request'}" in str(excinfo.value)
 
 
 def test_get_benchmark_error():
@@ -50,7 +50,7 @@ def test_get_benchmark_error():
         with pytest.raises(Exception) as excinfo:
             BenchmarkFactory.get(benchmark_id)
 
-        assert "Benchmark GET Error: Status 404 - Benchmark not found" in str(excinfo.value)
+        assert "Benchmark GET Error: Status 404 - {'statusCode': 404, 'message': 'Benchmark not found'}" in str(excinfo.value)
 
 
 def test_list_normalization_options_error():
@@ -67,4 +67,4 @@ def test_list_normalization_options_error():
         with pytest.raises(Exception) as excinfo:
             BenchmarkFactory.list_normalization_options(metric, model)
 
-        assert "Error listing normalization options: Status 500 - Internal Server Error" in str(excinfo.value)
+        assert "Error listing normalization options: Status 500 - {'message': 'Internal Server Error'}" in str(excinfo.value)
