@@ -29,6 +29,7 @@ def build_payload(data: Union[Text, Dict], parameters: Dict = {}):
 def call_run_endpoint(url: Text, api_key: Text, payload: Dict) -> Dict:
     headers = {"x-api-key": api_key, "Content-Type": "application/json"}
 
+    resp = "unspecified error"
     try:
         r = _request_with_retry("post", url, headers=headers, data=payload)
         resp = r.json()
@@ -60,7 +61,7 @@ def call_run_endpoint(url: Text, api_key: Text, payload: Dict) -> Dict:
                 "Supplier-related error: Please ensure that the selected supplier provides the model you are trying to access."
             )
         elif 490 <= r.status_code < 500:
-            error = "Validation-related error: Please ensure all required fields are provided and correctly formatted."
+            error = f"Validation-related error: Please ensure all required fields are provided and correctly formatted. Details: {resp}"
         else:
             status_code = str(r.status_code)
             error = f"Status {status_code} - Unspecified error: {resp}"
