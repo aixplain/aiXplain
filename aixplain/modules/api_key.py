@@ -110,7 +110,7 @@ class APIKey:
             "id": self.id,
             "name": self.name,
             "budget": self.budget,
-            "assetLimits": [],
+            "assetsLimits": [],
             "expiresAt": self.expires_at,
         }
 
@@ -126,7 +126,7 @@ class APIKey:
             }
 
         for i, asset_limit in enumerate(self.asset_limits):
-            payload["assetLimits"].append(
+            payload["assetsLimits"].append(
                 {
                     "tpm": asset_limit.token_per_minute,
                     "tpd": asset_limit.token_per_day,

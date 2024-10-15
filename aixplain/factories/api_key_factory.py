@@ -30,7 +30,7 @@ class APIKeyFactory:
                     name=key["name"],
                     budget=key["budget"] if "budget" in key else None,
                     global_limits=key["globalLimits"] if "globalLimits" in key else None,
-                    asset_limits=key["assetLimits"] if "assetLimits" in key else [],
+                    asset_limits=key["assetsLimits"] if "assetsLimits" in key else [],
                     expires_at=key["expiresAt"] if "expiresAt" in key else None,
                     access_key=key["accessKey"],
                     is_admin=key["isAdmin"],
