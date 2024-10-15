@@ -213,47 +213,47 @@ class DatasetFactory(AssetFactory):
         Returns:
             Dict: list of datasets in agreement with the filters, page number, page total and total elements
         """
+        url = urljoin(cls.backend_url, "sdk/datasets/paginate")
+        if cls.aixplain_key != "":
+            headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
+        else:
+            headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+
+        assert 0 < page_size <= 100, "Dataset List Error: Page size must be greater than 0 and not exceed 100."
+        payload = {
+            "pageSize": page_size,
+            "pageNumber": page_number,
+            "sort": [{"field": "createdAt", "dir": -1}],
+            "input": {},
+            "output": {},
+        }
+
+        if query is not None:
+            payload["q"] = str(query)
+
+        if function is not None:
+            payload["function"] = function.value
+
+        if license is not None:
+            payload["license"] = license.value
+
+        if data_type is not None:
+            payload["dataType"] = data_type.value
+
+        if is_referenceless is not None:
+            payload["isReferenceless"] = is_referenceless
+
+        if source_languages is not None:
+            if isinstance(source_languages, Language):
+                source_languages = [source_languages]
+            payload["input"]["languages"] = [lng.value["language"] for lng in source_languages]
+
+        if target_languages is not None:
+            if isinstance(target_languages, Language):
+                target_languages = [target_languages]
+            payload["output"]["languages"] = [lng.value["language"] for lng in target_languages]
+
         try:
-            url = urljoin(cls.backend_url, "sdk/datasets/paginate")
-            if cls.aixplain_key != "":
-                headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
-            else:
-                headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
-
-            assert 0 < page_size <= 100, "Dataset List Error: Page size must be greater than 0 and not exceed 100."
-            payload = {
-                "pageSize": page_size,
-                "pageNumber": page_number,
-                "sort": [{"field": "createdAt", "dir": -1}],
-                "input": {},
-                "output": {},
-            }
-
-            if query is not None:
-                payload["q"] = str(query)
-
-            if function is not None:
-                payload["function"] = function.value
-
-            if license is not None:
-                payload["license"] = license.value
-
-            if data_type is not None:
-                payload["dataType"] = data_type.value
-
-            if is_referenceless is not None:
-                payload["isReferenceless"] = is_referenceless
-
-            if source_languages is not None:
-                if isinstance(source_languages, Language):
-                    source_languages = [source_languages]
-                payload["input"]["languages"] = [lng.value["language"] for lng in source_languages]
-
-            if target_languages is not None:
-                if isinstance(target_languages, Language):
-                    target_languages = [target_languages]
-                payload["output"]["languages"] = [lng.value["language"] for lng in target_languages]
-
             logging.info(f"Start service for POST List Dataset - {url} - {headers} - {json.dumps(payload)}")
             r = _request_with_retry("post", url, headers=headers, json=payload)
             resp = r.json()

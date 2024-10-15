@@ -171,33 +171,33 @@ class CorpusFactory(AssetFactory):
         Returns:
             Dict: list of corpora in agreement with the filters, page number, page total and total elements
         """
+        url = urljoin(cls.backend_url, "sdk/corpora/paginate")
+        if cls.aixplain_key != "":
+            headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
+        else:
+            headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+
+        assert 0 < page_size <= 100, "Corpus List Error: Page size must be greater than 0 and not exceed 100."
+        payload = {"pageSize": page_size, "pageNumber": page_number, "sort": [{"field": "createdAt", "dir": -1}]}
+
+        if query is not None:
+            payload["q"] = str(query)
+
+        if function is not None:
+            payload["function"] = function.value
+
+        if license is not None:
+            payload["license"] = license.value
+
+        if data_type is not None:
+            payload["dataType"] = data_type.value
+
+        if language is not None:
+            if isinstance(language, Language):
+                language = [language]
+            payload["language"] = [lng.value["language"] for lng in language]
+
         try:
-            url = urljoin(cls.backend_url, "sdk/corpora/paginate")
-            if cls.aixplain_key != "":
-                headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
-            else:
-                headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
-
-            assert 0 < page_size <= 100, "Corpus List Error: Page size must be greater than 0 and not exceed 100."
-            payload = {"pageSize": page_size, "pageNumber": page_number, "sort": [{"field": "createdAt", "dir": -1}]}
-
-            if query is not None:
-                payload["q"] = str(query)
-
-            if function is not None:
-                payload["function"] = function.value
-
-            if license is not None:
-                payload["license"] = license.value
-
-            if data_type is not None:
-                payload["dataType"] = data_type.value
-
-            if language is not None:
-                if isinstance(language, Language):
-                    language = [language]
-                payload["language"] = [lng.value["language"] for lng in language]
-
             logging.info(f"Start service for POST List Corpus - {url} - {headers} - {json.dumps(payload)}")
             r = _request_with_retry("post", url, headers=headers, json=payload)
             resp = r.json()
@@ -206,6 +206,7 @@ class CorpusFactory(AssetFactory):
             error_message = f"Error listing corpora: {str(e)}"
             logging.error(error_message, exc_info=True)
             raise Exception(error_message)
+
         if 200 <= r.status_code < 300:
             corpora, page_total, total = [], 0, 0
             if "results" in resp:

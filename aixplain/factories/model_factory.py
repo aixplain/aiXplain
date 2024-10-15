@@ -248,30 +248,25 @@ class ModelFactory:
         Returns:
             List[Model]: List of models based on given filters
         """
-        try:
-            models, total = cls._get_assets_from_page(
-                query,
-                page_number,
-                page_size,
-                function,
-                suppliers,
-                source_languages,
-                target_languages,
-                is_finetunable,
-                ownership,
-                sort_by,
-                sort_order,
-            )
-            return {
-                "results": models,
-                "page_total": min(page_size, len(models)),
-                "page_number": page_number,
-                "total": total,
-            }
-        except Exception as e:
-            error_message = f"Listing Models: Error in Listing Models : {e}"
-            logging.error(error_message, exc_info=True)
-            raise Exception(error_message)
+        models, total = cls._get_assets_from_page(
+            query,
+            page_number,
+            page_size,
+            function,
+            suppliers,
+            source_languages,
+            target_languages,
+            is_finetunable,
+            ownership,
+            sort_by,
+            sort_order,
+        )
+        return {
+            "results": models,
+            "page_total": min(page_size, len(models)),
+            "page_number": page_number,
+            "total": total,
+        }
 
     @classmethod
     def list_host_machines(cls, api_key: Optional[Text] = None) -> List[Dict]:
