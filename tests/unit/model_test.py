@@ -25,6 +25,8 @@ import json
 from aixplain.utils import config
 from aixplain.modules import Model
 from aixplain.modules.model.utils import build_payload, call_run_endpoint
+from aixplain.factories import ModelFactory
+from aixplain.enums import Function
 
 import pytest
 
@@ -135,3 +137,43 @@ def test_run_async_errors(status_code, error_message):
         response = test_model.run_async(data="input_data")
     assert response["status"] == "FAILED"
     assert response["error_message"] == error_message
+
+
+def test_get_model_error_response():
+    with requests_mock.Mocker() as mock:
+        model_id = "test-model-id"
+        url = urljoin(config.BACKEND_URL, f"sdk/models/{model_id}")
+        headers = {"x-aixplain-key": config.AIXPLAIN_API_KEY, "Content-Type": "application/json"}
+
+        error_response = {"statusCode": 404, "message": "Model not found"}
+        mock.get(url, headers=headers, json=error_response, status_code=404)
+
+        with pytest.raises(Exception) as excinfo:
+            ModelFactory.get(model_id)
+
+        assert "Model GET Error: Failed to retrieve model test-model-id" in str(excinfo.value)
+
+
+def test_get_assets_from_page_error():
+    with requests_mock.Mocker() as mock:
+        query = "test-query"
+        page_number = 0
+        page_size = 2
+        url = urljoin(config.BACKEND_URL, "sdk/models/paginate")
+        headers = {"x-aixplain-key": config.AIXPLAIN_API_KEY, "Content-Type": "application/json"}
+
+        error_response = {"statusCode": 500, "message": "Internal Server Error"}
+        mock.post(url, headers=headers, json=error_response, status_code=500)
+
+        with pytest.raises(Exception) as excinfo:
+            ModelFactory._get_assets_from_page(
+                query=query,
+                page_number=page_number,
+                page_size=page_size,
+                function=Function.TEXT_GENERATION,
+                suppliers=None,
+                source_languages=None,
+                target_languages=None,
+            )
+
+        assert "Listing Models Error: Failed to retrieve models" in str(excinfo.value)
