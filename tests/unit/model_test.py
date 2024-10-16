@@ -27,6 +27,7 @@ from aixplain.modules import Model
 from aixplain.modules.model.utils import build_payload, call_run_endpoint
 from aixplain.factories import ModelFactory
 from aixplain.enums import Function
+from urllib.parse import urljoin
 
 import pytest
 
