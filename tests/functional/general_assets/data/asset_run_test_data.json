@@ -3,6 +3,10 @@
         "id" : "61b097551efecf30109d32da",
         "data": "This is a test sentence."
     },
+    "model2" : {
+        "id" : "60ddefab8d38c51c5885ee38",
+        "data": "https://aixplain-platform-assets.s3.amazonaws.com/samples/en/myname.mp3"
+    },
     "pipeline": {
         "name": "SingleNodePipeline",
         "data": "This is a test sentence."
