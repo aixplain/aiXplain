@@ -46,20 +46,25 @@ def call_run_endpoint(url: Text, api_key: Text, payload: Dict) -> Dict:
         status = resp.get("status", "IN_PROGRESS")
         data = resp.get("data", None)
         if status == "IN_PROGRESS":
-            response = {"status": status, "url": data, "completed": True}
+            if data is not None:
+                response = {"status": status, "url": data, "completed": True}
+            else:
+                response = {
+                    "status": "FAILED",
+                    "completed": True,
+                    "error_message": "Model Run: An error occurred while processing your request.",
+                }
         else:
             response = {"status": status, "data": data, "completed": True}
     else:
         if r.status_code == 401:
-            error = "Unauthorized API key: Please verify the spelling of the API key and its current validity."
+            error = f"Unauthorized API key: Please verify the spelling of the API key and its current validity. Details: {resp}"
         elif 460 <= r.status_code < 470:
-            error = "Subscription-related error: Please ensure that your subscription is active and has not expired."
+            error = f"Subscription-related error: Please ensure that your subscription is active and has not expired. Details: {resp}"
         elif 470 <= r.status_code < 480:
-            error = "Billing-related error: Please ensure you have enough credits to run this model. "
+            error = f"Billing-related error: Please ensure you have enough credits to run this model. Details: {resp}"
         elif 480 <= r.status_code < 490:
-            error = (
-                "Supplier-related error: Please ensure that the selected supplier provides the model you are trying to access."
-            )
+            error = f"Supplier-related error: Please ensure that the selected supplier provides the model you are trying to access. Details: {resp}"
         elif 490 <= r.status_code < 500:
             error = f"Validation-related error: Please ensure all required fields are provided and correctly formatted. Details: {resp}"
         else:

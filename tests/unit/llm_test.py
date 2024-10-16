@@ -12,10 +12,22 @@ import pytest
 @pytest.mark.parametrize(
     "status_code,error_message",
     [
-        (401, "Unauthorized API key: Please verify the spelling of the API key and its current validity."),
-        (465, "Subscription-related error: Please ensure that your subscription is active and has not expired."),
-        (475, "Billing-related error: Please ensure you have enough credits to run this model. "),
-        (485, "Supplier-related error: Please ensure that the selected supplier provides the model you are trying to access."),
+        (
+            401,
+            "Unauthorized API key: Please verify the spelling of the API key and its current validity. Details: {'error': 'An unspecified error occurred while processing your request.'}",
+        ),
+        (
+            465,
+            "Subscription-related error: Please ensure that your subscription is active and has not expired. Details: {'error': 'An unspecified error occurred while processing your request.'}",
+        ),
+        (
+            475,
+            "Billing-related error: Please ensure you have enough credits to run this model. Details: {'error': 'An unspecified error occurred while processing your request.'}",
+        ),
+        (
+            485,
+            "Supplier-related error: Please ensure that the selected supplier provides the model you are trying to access. Details: {'error': 'An unspecified error occurred while processing your request.'}",
+        ),
         (
             495,
             "Validation-related error: Please ensure all required fields are provided and correctly formatted. Details: {'error': 'An unspecified error occurred while processing your request.'}",
