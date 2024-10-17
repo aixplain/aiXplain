@@ -31,3 +31,15 @@ def test_llm_run(llm_model):
     )
     assert response["status"] == "SUCCESS"
     assert "thiago" in response["data"].lower()
+
+
+def test_run_async():
+    """Testing Model Async"""
+    model = ModelFactory.get("60ddef828d38c51c5885d491")
+
+    response = model.run_async("Test")
+    poll_url = response["url"]
+    response = model.sync_poll(poll_url)
+
+    assert response["status"] == "SUCCESS"
+    assert "teste" in response["data"].lower()
