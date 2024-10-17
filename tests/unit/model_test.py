@@ -43,7 +43,7 @@ def test_build_payload():
 def test_call_run_endpoint_async():
     base_url = config.MODELS_RUN_URL
     model_id = "model-id"
-    execute_url = f"{base_url}/api/v1/execute/{model_id}"
+    execute_url = f"{base_url}/{model_id}"
     payload = {"data": "input_data"}
     ref_response = {
         "completed": True,
@@ -64,7 +64,7 @@ def test_call_run_endpoint_async():
 def test_call_run_endpoint_sync():
     base_url = config.MODELS_RUN_URL
     model_id = "model-id"
-    execute_url = f"{base_url}/api/v1/execute/{model_id}"
+    execute_url = f"{base_url}/{model_id}".replace("/api/v1/execute", "/api/v2/execute")
     payload = {"data": "input_data"}
     ref_response = {"completed": True, "status": "SUCCESS", "data": "Hello"}
 
@@ -72,7 +72,6 @@ def test_call_run_endpoint_sync():
         mock.post(execute_url, json=ref_response)
         response = call_run_endpoint(url=execute_url, api_key=config.TEAM_API_KEY, payload=payload)
 
-    print(response)
     assert response["completed"] == ref_response["completed"]
     assert response["status"] == ref_response["status"]
     assert response["data"] == ref_response["data"]
@@ -139,7 +138,7 @@ def test_failed_poll():
 def test_run_async_errors(status_code, error_message):
     base_url = config.MODELS_RUN_URL
     model_id = "model-id"
-    execute_url = f"{base_url}/api/v1/execute/{model_id}"
+    execute_url = f"{base_url}/{model_id}"
     ref_response = {
         "error": "An unspecified error occurred while processing your request.",
     }

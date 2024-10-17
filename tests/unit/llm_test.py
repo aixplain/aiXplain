@@ -38,7 +38,7 @@ import pytest
 def test_run_async_errors(status_code, error_message):
     base_url = config.MODELS_RUN_URL
     llm_id = "llm-id"
-    execute_url = f"{base_url}/api/v1/execute/{llm_id}"
+    execute_url = f"{base_url}/{llm_id}"
     ref_response = {
         "error": "An unspecified error occurred while processing your request.",
     }

@@ -205,7 +205,7 @@ class Model(Asset):
         """
         start = time.time()
         payload = build_payload(data=data, parameters=parameters)
-        url = f"{self.url}/api/v2/execute/{self.id}"
+        url = f"{self.url}/{self.id}".replace("api/v1/execute", "api/v2/execute")
         logging.debug(f"Model Run Sync: Start service for {name} - {url}")
         response = call_run_endpoint(payload=payload, url=url, api_key=self.api_key)
         if response["status"] == "IN_PROGRESS":
@@ -231,7 +231,7 @@ class Model(Asset):
         Returns:
             dict: polling URL in response
         """
-        url = f"{self.url}/api/v1/execute/{self.id}"
+        url = f"{self.url}/{self.id}"
         logging.debug(f"Model Run Async: Start service for {name} - {url}")
         payload = build_payload(data=data, parameters=parameters)
         response = call_run_endpoint(payload=payload, url=url, api_key=self.api_key)
