@@ -17,17 +17,65 @@ limitations under the License.
 """
 
 from dotenv import load_dotenv
-from urllib.parse import urljoin
 import requests_mock
 
 load_dotenv()
 import re
+import json
 from aixplain.utils import config
 from aixplain.modules import Model
+from aixplain.modules.model.utils import build_payload, call_run_endpoint
 from aixplain.factories import ModelFactory
 from aixplain.enums import Function
+from urllib.parse import urljoin
 
 import pytest
+
+
+def test_build_payload():
+    data = "input_data"
+    parameters = {"context": "context_data"}
+    ref_payload = json.dumps({"data": data, **parameters})
+    hyp_payload = build_payload(data, parameters)
+    assert hyp_payload == ref_payload
+
+
+def test_call_run_endpoint_async():
+    base_url = config.MODELS_RUN_URL
+    model_id = "model-id"
+    execute_url = f"{base_url}/api/v1/execute/{model_id}"
+    payload = {"data": "input_data"}
+    ref_response = {
+        "completed": True,
+        "status": "IN_PROGRESS",
+        "data": "https://models.aixplain.com/api/v1/data/a90c2078-edfe-403f-acba-d2d94cf71f42",
+    }
+
+    with requests_mock.Mocker() as mock:
+        mock.post(execute_url, json=ref_response)
+        response = call_run_endpoint(url=execute_url, api_key=config.TEAM_API_KEY, payload=payload)
+
+    print(response)
+    assert response["completed"] == ref_response["completed"]
+    assert response["status"] == ref_response["status"]
+    assert response["url"] == ref_response["data"]
+
+
+def test_call_run_endpoint_sync():
+    base_url = config.MODELS_RUN_URL
+    model_id = "model-id"
+    execute_url = f"{base_url}/api/v1/execute/{model_id}"
+    payload = {"data": "input_data"}
+    ref_response = {"completed": True, "status": "SUCCESS", "data": "Hello"}
+
+    with requests_mock.Mocker() as mock:
+        mock.post(execute_url, json=ref_response)
+        response = call_run_endpoint(url=execute_url, api_key=config.TEAM_API_KEY, payload=payload)
+
+    print(response)
+    assert response["completed"] == ref_response["completed"]
+    assert response["status"] == ref_response["status"]
+    assert response["data"] == ref_response["data"]
 
 
 def test_success_poll():
@@ -65,21 +113,39 @@ def test_failed_poll():
 @pytest.mark.parametrize(
     "status_code,error_message",
     [
-        (401, "Unauthorized API key: Please verify the spelling of the API key and its current validity."),
-        (465, "Subscription-related error: Please ensure that your subscription is active and has not expired."),
-        (475, "Billing-related error: Please ensure you have enough credits to run this model. "),
-        (485, "Supplier-related error: Please ensure that the selected supplier provides the model you are trying to access."),
-        (495, "Validation-related error: Please ensure all required fields are provided and correctly formatted."),
-        (501, "Status 501: Unspecified error: An unspecified error occurred while processing your request."),
+        (
+            401,
+            "Unauthorized API key: Please verify the spelling of the API key and its current validity. Details: {'error': 'An unspecified error occurred while processing your request.'}",
+        ),
+        (
+            465,
+            "Subscription-related error: Please ensure that your subscription is active and has not expired. Details: {'error': 'An unspecified error occurred while processing your request.'}",
+        ),
+        (
+            475,
+            "Billing-related error: Please ensure you have enough credits to run this model. Details: {'error': 'An unspecified error occurred while processing your request.'}",
+        ),
+        (
+            485,
+            "Supplier-related error: Please ensure that the selected supplier provides the model you are trying to access. Details: {'error': 'An unspecified error occurred while processing your request.'}",
+        ),
+        (
+            495,
+            "Validation-related error: Please ensure all required fields are provided and correctly formatted. Details: {'error': 'An unspecified error occurred while processing your request.'}",
+        ),
+        (501, "Status 501 - Unspecified error: {'error': 'An unspecified error occurred while processing your request.'}"),
     ],
 )
 def test_run_async_errors(status_code, error_message):
     base_url = config.MODELS_RUN_URL
     model_id = "model-id"
-    execute_url = urljoin(base_url, f"execute/{model_id}")
+    execute_url = f"{base_url}/api/v1/execute/{model_id}"
+    ref_response = {
+        "error": "An unspecified error occurred while processing your request.",
+    }
 
     with requests_mock.Mocker() as mock:
-        mock.post(execute_url, status_code=status_code)
+        mock.post(execute_url, status_code=status_code, json=ref_response)
         test_model = Model(id=model_id, name="Test Model", url=base_url)
         response = test_model.run_async(data="input_data")
     assert response["status"] == "FAILED"
