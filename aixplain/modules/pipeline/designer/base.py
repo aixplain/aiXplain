@@ -142,13 +142,24 @@ class Link(Serializable):
         pipeline: "DesignerPipeline" = None,
     ):
 
-        assert from_param in from_node.outputs, "Invalid from param"
-        assert to_param in to_node.inputs, "Invalid to param"
-
         if isinstance(from_param, Param):
             from_param = from_param.code
         if isinstance(to_param, Param):
             to_param = to_param.code
+
+        assert from_param in from_node.outputs, \
+            "Invalid from param. "\
+            "Make sure all input params are already linked accordingly"
+
+        fp_instance = from_node.outputs[from_param]
+        from .nodes import Decision
+        if (isinstance(to_node, Decision) and
+                to_param == to_node.inputs.passthrough.code):
+            to_node.outputs.create_param(from_param,
+                                         fp_instance.data_type,
+                                         is_required=fp_instance.is_required)
+
+        assert to_param in to_node.inputs, "Invalid to param"
 
         self.from_node = from_node
         self.to_node = to_node
