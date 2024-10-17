@@ -112,8 +112,8 @@ class APIKeyFactory:
             raise Exception(f"API Key Update Error: Failed to update API key with ID {api_key.id}. Error: {str(resp)}")
 
     @classmethod
-    def get_usage_limit(cls, api_key: Text = config.TEAM_API_KEY, asset_id: Optional[Text] = None) -> APIKeyUsageLimit:
-        """Get API key usage limit"""
+    def get_usage_limits(cls, api_key: Text = config.TEAM_API_KEY, asset_id: Optional[Text] = None) -> List[APIKeyUsageLimit]:
+        """Get API key usage limits"""
         try:
             url = f"{config.BACKEND_URL}/sdk/api-keys/usage-limits"
             if asset_id is not None:
@@ -128,11 +128,15 @@ class APIKeyFactory:
             raise Exception(f"{message}")
 
         if 200 <= r.status_code < 300:
-            return APIKeyUsageLimit(
-                request_count=resp["requestCount"],
-                request_count_limit=resp["requestCountLimit"],
-                token_count=resp["tokenCount"],
-                token_count_limit=resp["tokenCountLimit"],
-            )
+            return [
+                APIKeyUsageLimit(
+                    request_count=limit["requestCount"],
+                    request_count_limit=limit["requestCountLimit"],
+                    token_count=limit["tokenCount"],
+                    token_count_limit=limit["tokenCountLimit"],
+                    model=limit["assetId"] if "assetId" in limit else None,
+                )
+                for limit in resp
+            ]
         else:
             raise Exception(f"API Key Usage Error: Failed to get usage. Error: {str(resp)}")

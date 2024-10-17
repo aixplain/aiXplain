@@ -27,19 +27,31 @@ class APIKeyGlobalLimits:
 
 
 class APIKeyUsageLimit:
-    def __init__(self, request_count: int, request_count_limit: int, token_count: int, token_count_limit: int):
-        """Get the usage limits of an API key
+    def __init__(
+        self,
+        request_count: int,
+        request_count_limit: int,
+        token_count: int,
+        token_count_limit: int,
+        model: Optional[Union[Text, Model]] = None,
+    ):
+        """Get the usage limits of an API key globally (model equals to None) or for a specific model.
 
         Args:
             request_count (int): number of requests made
             request_count_limit (int): limit of requests
             token_count (int): number of tokens used
             token_count_limit (int): limit of tokens
+            model (Optional[Union[Text, Model]], optional): Model which the limits apply. Defaults to None.
         """
         self.request_count = request_count
         self.request_count_limit = request_count_limit
         self.token_count = token_count
         self.token_count_limit = token_count_limit
+        if model is not None and isinstance(model, str):
+            from aixplain.factories import ModelFactory
+
+            self.model = ModelFactory.get(model)
 
 
 class APIKey:
@@ -167,11 +179,15 @@ class APIKey:
             raise Exception(f"{message}")
 
         if 200 <= r.status_code < 300:
-            return APIKeyUsageLimit(
-                request_count=resp["requestCount"],
-                request_count_limit=resp["requestCountLimit"],
-                token_count=resp["tokenCount"],
-                token_count_limit=resp["tokenCountLimit"],
-            )
+            return [
+                APIKeyUsageLimit(
+                    request_count=limit["requestCount"],
+                    request_count_limit=limit["requestCountLimit"],
+                    token_count=limit["tokenCount"],
+                    token_count_limit=limit["tokenCountLimit"],
+                    model=limit["assetId"] if "assetId" in limit else None,
+                )
+                for limit in resp
+            ]
         else:
             raise Exception(f"API Key Usage Error: Failed to get usage. Error: {str(resp)}")
