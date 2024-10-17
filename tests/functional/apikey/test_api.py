@@ -134,7 +134,9 @@ def test_list_api_keys():
 
         if api_key.is_admin is False:
             usage = api_key.get_usage()
-            assert isinstance(usage, APIKeyUsageLimit)
+            assert isinstance(usage, list)
+            if len(usage) > 0:
+                assert isinstance(usage[0], APIKeyUsageLimit)
 
 
 def test_list_update_api_keys():
