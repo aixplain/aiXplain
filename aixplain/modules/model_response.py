@@ -23,15 +23,3 @@ class ModelResponse:
         if key in self.__dict__:
             return self.__dict__[key]
         raise KeyError(f"Key '{key}' not found in ModelResponse.")
-
-
-# We return a dictionary
-# Run the models get the parameters
-# Create a class with the 4 attributes + the error
-# Every time they run a model returns a model response class
-# getitem method for if someone is using the old code they want to access it as a dictionary.
-# write unit
-
-# Create a task for running the additional tests
-# For our datasets run again with llaam3.1 topb=0 run with orchestrator, and one with orchestrator mentalist and inspector, and also single agent
-# For each instance running three times
