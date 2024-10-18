@@ -31,6 +31,7 @@ from urllib.parse import urljoin
 from aixplain.utils.file_utils import _request_with_retry
 from typing import Union, Optional, Text, Dict
 from datetime import datetime
+from aixplain.modules.model_response import ModelResponse
 
 
 class Model(Asset):
@@ -208,17 +209,28 @@ class Model(Asset):
             response = self.run_async(data, name=name, parameters=parameters)
             if response["status"] == "FAILED":
                 end = time.time()
-                response["elapsed_time"] = end - start
-                return response
+                return ModelResponse(
+                    status="FAILED",
+                    data=response.get("data", ""),
+                    completed=False,
+                    error_message=response.get("error", ""),
+                    elapsed_time=end - start,
+                )
             poll_url = response["url"]
             end = time.time()
             response = self.sync_poll(poll_url, name=name, timeout=timeout, wait_time=wait_time)
-            return response
+            return ModelResponse(
+                status=response.get("status", "SUCCESS"),
+                data=response.get("data", ""),
+                completed=response.get("completed", True),
+                error_message="",
+                elapsed_time=end - start,
+            )
         except Exception as e:
             msg = f"Error in request for {name} - {traceback.format_exc()}"
             logging.error(f"Model Run: Error in running for {name}: {e}")
             end = time.time()
-            return {"status": "FAILED", "error": msg, "elapsed_time": end - start}
+            return ModelResponse(status="FAILED", data="", completed=False, error_message=msg, elapsed_time=end - start)
 
     def run_async(self, data: Union[Text, Dict], name: Text = "model_process", parameters: Dict = {}) -> Dict:
         """Runs asynchronously a model call.
@@ -259,7 +271,7 @@ class Model(Asset):
                 resp = r.json()
                 logging.info(f"Result of request for {name} - {r.status_code} - {resp}")
                 poll_url = resp["data"]
-                response = {"status": "IN_PROGRESS", "url": poll_url}
+                return ModelResponse(status="IN_PROGRESS", data=poll_url, url=poll_url)
             else:
                 if r.status_code == 401:
                     error = "Unauthorized API key: Please verify the spelling of the API key and its current validity."
@@ -276,15 +288,12 @@ class Model(Asset):
                     error = (
                         f"Status {status_code}: Unspecified error: An unspecified error occurred while processing your request."
                     )
-                response = {"status": "FAILED", "error_message": error}
                 logging.error(f"Error in request for {name} - {r.status_code}: {error}")
+                return ModelResponse(status="FAILED", error_message=error)
         except Exception:
-            response = {"status": "FAILED"}
             msg = f"Error in request for {name} - {traceback.format_exc()}"
             logging.error(f"Model Run Async: Error in running for {name}: {resp}")
-            if resp is not None:
-                response["error"] = msg
-        return response
+            return ModelResponse(status="FAILED", error_message=msg)
 
     def check_finetune_status(self, after_epoch: Optional[int] = None):
         """Check the status of the FineTune model.
