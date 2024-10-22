@@ -169,8 +169,6 @@ class APIKey:
             url = f"{config.BACKEND_URL}/sdk/api-keys/{self.id}/usage-limits"
             headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
             logging.info(f"Start service for GET API Key Usage  - {url} - {headers}")
-            if asset_id is not None:
-                url += f"?assetId={asset_id}"
             r = _request_with_retry("GET", url, headers=headers)
             resp = r.json()
         except Exception:
@@ -188,6 +186,7 @@ class APIKey:
                     model=limit["assetId"] if "assetId" in limit else None,
                 )
                 for limit in resp
+                if asset_id is None or ("assetId" in limit and limit["assetId"] == asset_id)
             ]
         else:
             raise Exception(f"API Key Usage Error: Failed to get usage. Error: {str(resp)}")

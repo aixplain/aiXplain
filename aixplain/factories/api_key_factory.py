@@ -116,8 +116,6 @@ class APIKeyFactory:
         """Get API key usage limits"""
         try:
             url = f"{config.BACKEND_URL}/sdk/api-keys/usage-limits"
-            if asset_id is not None:
-                url += f"?assetId={asset_id}"
             headers = {"Authorization": f"Token {api_key}", "Content-Type": "application/json"}
             logging.info(f"Start service for GET API Key Usage  - {url} - {headers}")
             r = _request_with_retry("GET", url, headers=headers)
@@ -137,6 +135,7 @@ class APIKeyFactory:
                     model=limit["assetId"] if "assetId" in limit else None,
                 )
                 for limit in resp
+                if asset_id is None or ("assetId" in limit and limit["assetId"] == asset_id)
             ]
         else:
             raise Exception(f"API Key Usage Error: Failed to get usage. Error: {str(resp)}")
