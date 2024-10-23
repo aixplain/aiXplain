@@ -55,7 +55,7 @@ def call_run_endpoint(url: Text, api_key: Text, payload: Dict) -> Dict:
                     "error_message": "Model Run: An error occurred while processing your request.",
                 }
         else:
-            response = {"status": status, "data": data, "completed": True}
+            response = resp
     else:
         if r.status_code == 401:
             error = f"Unauthorized API key: Please verify the spelling of the API key and its current validity. Details: {resp}"
