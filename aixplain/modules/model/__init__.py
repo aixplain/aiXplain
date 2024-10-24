@@ -270,7 +270,8 @@ class Model(Asset):
                 elif 480 <= r.status_code < 490:
                     error = "Supplier-related error: Please ensure that the selected supplier provides the model you are trying to access."
                 elif 490 <= r.status_code < 500:
-                    error = "Validation-related error: Please ensure all required fields are provided and correctly formatted."
+                    resp = r.json()
+                    error = f"{resp}"
                 else:
                     status_code = str(r.status_code)
                     error = (

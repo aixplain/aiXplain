@@ -102,6 +102,11 @@ def test_create_update_api_key_from_dict():
     assert api_key.id != ""
     assert api_key.name == api_key_name
 
+    api_key_ = APIKeyFactory.get(api_key=api_key.access_key)
+    assert isinstance(api_key_, APIKey)
+    assert api_key_.id != ""
+    assert api_key_.name == api_key_name
+
     api_key.global_limits.token_per_day = 222
     api_key.global_limits.token_per_minute = 222
     api_key.global_limits.request_per_day = 222
@@ -134,7 +139,9 @@ def test_list_api_keys():
 
         if api_key.is_admin is False:
             usage = api_key.get_usage()
-            assert isinstance(usage, APIKeyUsageLimit)
+            assert isinstance(usage, list)
+            if len(usage) > 0:
+                assert isinstance(usage[0], APIKeyUsageLimit)
 
 
 def test_list_update_api_keys():
