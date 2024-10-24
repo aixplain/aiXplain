@@ -229,12 +229,15 @@ class LLM(Model):
                 elif 480 <= r.status_code < 490:
                     error = "Supplier-related error: Please ensure that the selected supplier provides the model you are trying to access."
                 elif 490 <= r.status_code < 500:
-                    error = "Validation-related error: Please ensure all required fields are provided and correctly formatted."
+                    resp = r.json()
+                    error = f"{resp}"
                 else:
                     status_code = str(r.status_code)
-                    error = f"Status {status_code}: Unspecified error: An unspecified error occurred while processing your request."
+                    error = (
+                        f"Status {status_code}: Unspecified error: An unspecified error occurred while processing your request."
+                    )
                 response = {"status": "FAILED", "error_message": error}
-                logging.error(f"Error in request for {name} - {r.status_code}: {error}")               
+                logging.error(f"Error in request for {name} - {r.status_code}: {error}")
         except Exception:
             response = {"status": "FAILED"}
             msg = f"Error in request for {name} - {traceback.format_exc()}"

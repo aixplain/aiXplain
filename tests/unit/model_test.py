@@ -67,7 +67,10 @@ def test_failed_poll():
         (465, "Subscription-related error: Please ensure that your subscription is active and has not expired."),
         (475, "Billing-related error: Please ensure you have enough credits to run this model. "),
         (485, "Supplier-related error: Please ensure that the selected supplier provides the model you are trying to access."),
-        (495, "Validation-related error: Please ensure all required fields are provided and correctly formatted."),
+        (
+            495,
+            "{'error': 'An unspecified error occurred while processing your request.'}",
+        ),
         (501, "Status 501: Unspecified error: An unspecified error occurred while processing your request."),
     ],
 )
@@ -75,9 +78,12 @@ def test_run_async_errors(status_code, error_message):
     base_url = config.MODELS_RUN_URL
     model_id = "model-id"
     execute_url = urljoin(base_url, f"execute/{model_id}")
+    ref_response = {
+        "error": "An unspecified error occurred while processing your request.",
+    }
 
     with requests_mock.Mocker() as mock:
-        mock.post(execute_url, status_code=status_code)
+        mock.post(execute_url, status_code=status_code, json=ref_response)
         test_model = Model(id=model_id, name="Test Model", url=base_url)
         response = test_model.run_async(data="input_data")
     assert response["status"] == "FAILED"
