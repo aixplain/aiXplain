@@ -28,6 +28,7 @@ from aixplain.modules.model.utils import build_payload, call_run_endpoint
 from aixplain.factories import ModelFactory
 from aixplain.enums import Function
 from urllib.parse import urljoin
+from aixplain.enums import ModelStatus
 
 import pytest
 
@@ -66,7 +67,7 @@ def test_call_run_endpoint_sync():
     model_id = "model-id"
     execute_url = f"{base_url}/{model_id}".replace("/api/v1/execute", "/api/v2/execute")
     payload = {"data": "input_data"}
-    ref_response = {"completed": True, "status": "SUCCESS", "data": "Hello"}
+    ref_response = {"completed": True, "status": ModelStatus.SUCCESS, "data": "Hello"}
 
     with requests_mock.Mocker() as mock:
         mock.post(execute_url, json=ref_response)
@@ -86,7 +87,7 @@ def test_success_poll():
         test_model = Model("", "")
         hyp_response = test_model.poll(poll_url=poll_url)
     assert hyp_response["completed"] == ref_response["completed"]
-    assert hyp_response["status"] == "SUCCESS"
+    assert hyp_response["status"] == ModelStatus.SUCCESS
 
 
 def test_failed_poll():
@@ -95,18 +96,18 @@ def test_failed_poll():
         headers = {"x-api-key": config.TEAM_API_KEY, "Content-Type": "application/json"}
         ref_response = {
             "completed": True,
-            "error": "err.supplier_error",
+            "error_message": "err.supplier_error",
             "supplierError": re.escape(
-                '{"error":{"message":"The model `<supplier_model_id>` does not exist","type":"invalid_request_error","param":null,"code":"model_not_found"}}'
+                '{"error_message":{"message":"The model `<supplier_model_id>` does not exist","type":"invalid_request_error","param":null,"code":"model_not_found"}}'
             ),
         }
         mock.get(poll_url, headers=headers, json=ref_response)
         test_model = Model("", "")
         hyp_response = test_model.poll(poll_url=poll_url)
     assert hyp_response["completed"] == ref_response["completed"]
-    assert hyp_response["error"] == ref_response["error"]
+    assert hyp_response["error_message"] == ref_response["error_message"]
     assert hyp_response["supplierError"] == ref_response["supplierError"]
-    assert hyp_response["status"] == "FAILED"
+    assert hyp_response["status"] == ModelStatus.FAILED
 
 
 @pytest.mark.parametrize(
@@ -114,25 +115,25 @@ def test_failed_poll():
     [
         (
             401,
-            "Unauthorized API key: Please verify the spelling of the API key and its current validity. Details: {'error': 'An unspecified error occurred while processing your request.'}",
+            "Unauthorized API key: Please verify the spelling of the API key and its current validity. Details: {'error_message': 'An unspecified error occurred while processing your request.'}",
         ),
         (
             465,
-            "Subscription-related error: Please ensure that your subscription is active and has not expired. Details: {'error': 'An unspecified error occurred while processing your request.'}",
+            "Subscription-related error: Please ensure that your subscription is active and has not expired. Details: {'error_message': 'An unspecified error occurred while processing your request.'}",
         ),
         (
             475,
-            "Billing-related error: Please ensure you have enough credits to run this model. Details: {'error': 'An unspecified error occurred while processing your request.'}",
+            "Billing-related error: Please ensure you have enough credits to run this model. Details: {'error_message': 'An unspecified error occurred while processing your request.'}",
         ),
         (
             485,
-            "Supplier-related error: Please ensure that the selected supplier provides the model you are trying to access. Details: {'error': 'An unspecified error occurred while processing your request.'}",
+            "Supplier-related error: Please ensure that the selected supplier provides the model you are trying to access. Details: {'error_message': 'An unspecified error occurred while processing your request.'}",
         ),
         (
             495,
-            "Validation-related error: Please ensure all required fields are provided and correctly formatted. Details: {'error': 'An unspecified error occurred while processing your request.'}",
+            "Validation-related error: Please ensure all required fields are provided and correctly formatted. Details: {'error_message': 'An unspecified error occurred while processing your request.'}",
         ),
-        (501, "Status 501 - Unspecified error: {'error': 'An unspecified error occurred while processing your request.'}"),
+        (501, "Status 501 - Unspecified error: {'error_message': 'An unspecified error occurred while processing your request.'}"),
     ],
 )
 def test_run_async_errors(status_code, error_message):
@@ -140,14 +141,14 @@ def test_run_async_errors(status_code, error_message):
     model_id = "model-id"
     execute_url = f"{base_url}/{model_id}"
     ref_response = {
-        "error": "An unspecified error occurred while processing your request.",
+        "error_message": "An unspecified error occurred while processing your request.",
     }
 
     with requests_mock.Mocker() as mock:
         mock.post(execute_url, status_code=status_code, json=ref_response)
         test_model = Model(id=model_id, name="Test Model", url=base_url)
         response = test_model.run_async(data="input_data")
-    assert response["status"] == "FAILED"
+    assert response["status"] == ModelStatus.FAILED
     assert response["error_message"] == error_message
 
 
