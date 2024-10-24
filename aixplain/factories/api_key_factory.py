@@ -11,6 +11,14 @@ class APIKeyFactory:
     backend_url = config.BACKEND_URL
 
     @classmethod
+    def get(cls, api_key: Text) -> APIKey:
+        """Get an API key"""
+        for api_key_obj in cls.list():
+            if str(api_key_obj.access_key).startswith(api_key[:4]) and str(api_key_obj.access_key).endswith(api_key[-4:]):
+                return api_key_obj
+        raise Exception(f"API Key Error: API key {api_key} not found")
+
+    @classmethod
     def list(cls) -> List[APIKey]:
         """List all API keys"""
         resp = "Unspecified error"

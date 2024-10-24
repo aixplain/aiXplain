@@ -30,7 +30,7 @@ import pytest
         ),
         (
             495,
-            "Validation-related error: Please ensure all required fields are provided and correctly formatted. Details: {'error': 'An unspecified error occurred while processing your request.'}",
+            "{'error': 'An unspecified error occurred while processing your request.'}",
         ),
         (501, "Status 501 - Unspecified error: {'error': 'An unspecified error occurred while processing your request.'}"),
     ],
