@@ -136,10 +136,10 @@ class APIKeyFactory:
         if 200 <= r.status_code < 300:
             return [
                 APIKeyUsageLimit(
-                    request_count=limit["requestCount"],
-                    request_count_limit=limit["requestCountLimit"],
-                    token_count=limit["tokenCount"],
-                    token_count_limit=limit["tokenCountLimit"],
+                    daily_request_count=limit["requestCount"],
+                    daily_request_limit=limit["requestCountLimit"],
+                    daily_token_count=limit["tokenCount"],
+                    daily_token_limit=limit["tokenCountLimit"],
                     model=limit["assetId"] if "assetId" in limit else None,
                 )
                 for limit in resp
