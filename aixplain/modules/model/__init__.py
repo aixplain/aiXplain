@@ -32,7 +32,7 @@ from aixplain.utils.file_utils import _request_with_retry
 from typing import Union, Optional, Text, Dict
 from datetime import datetime
 from aixplain.modules.model_response import ModelResponse
-from aixplain.enums import ModelStatus
+from aixplain.enums import Status
 
 
 class Model(Asset):
@@ -174,11 +174,11 @@ class Model(Asset):
         try:
             resp = r.json()
             if resp["completed"] is True:
-                status = ModelStatus.SUCCESS
+                status = Status.SUCCESS
                 if "error_message" in resp or "supplierError" in resp:
-                    status = ModelStatus.FAILED
+                    status = Status.FAILED
             else:
-                status = ModelStatus.IN_PROGRESS
+                status = Status.IN_PROGRESS
             logging.debug(f"Single Poll for Model: Status of polling for {name}: {resp}")
             return ModelResponse(
                 status=status,
@@ -194,7 +194,7 @@ class Model(Asset):
             resp = {"status": "FAILED"}
             logging.error(f"Single Poll for Model: Error of polling for {name}: {e}")
             return ModelResponse(
-            status=ModelStatus.FAILED,
+            status=Status.FAILED,
             error_message=str(e),
             completed=False
         )
@@ -230,7 +230,7 @@ class Model(Asset):
                 end = time.time()
                 response = self.sync_poll(poll_url, name=name, timeout=timeout, wait_time=wait_time)
                 return ModelResponse(
-                    status=ModelStatus.SUCCESS if response["status"] == "SUCCESS" else ModelStatus.FAILED,
+                    status=Status.SUCCESS if response["status"] == "SUCCESS" else Status.FAILED,
                     data=response.get("data", ""),
                     completed=response.get("completed", False),
                     error_message=response.get("error_message", ""),
@@ -244,13 +244,13 @@ class Model(Asset):
                 logging.error(f"Model Run: Error in running for {name}: {e}")
                 end = time.time()
                 return ModelResponse(
-                    status=ModelStatus.FAILED,
+                    status=Status.FAILED,
                     error_message=msg,
                     elapsed_time=end - start
                 )
         else:
             return ModelResponse(
-                status=ModelStatus.FAILED,
+                status=Status.FAILED,
                 error_message="Unexpected status response from the model",
                 elapsed_time=time.time() - start
             )
@@ -271,7 +271,7 @@ class Model(Asset):
         payload = build_payload(data=data, parameters=parameters)
         response = call_run_endpoint(payload=payload, url=url, api_key=self.api_key)
         return ModelResponse(
-            status=ModelStatus.IN_PROGRESS if response["status"] == "IN_PROGRESS" else ModelStatus.FAILED,
+            status=Status.IN_PROGRESS if response["status"] == "IN_PROGRESS" else Status.FAILED,
             data=response.get("data", ""),
             completed=False,
             error_message=response.get("error_message", ""),

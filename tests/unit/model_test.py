@@ -28,7 +28,7 @@ from aixplain.modules.model.utils import build_payload, call_run_endpoint
 from aixplain.factories import ModelFactory
 from aixplain.enums import Function
 from urllib.parse import urljoin
-from aixplain.enums import ModelStatus
+from aixplain.enums import Status
 
 import pytest
 
@@ -67,7 +67,7 @@ def test_call_run_endpoint_sync():
     model_id = "model-id"
     execute_url = f"{base_url}/{model_id}".replace("/api/v1/execute", "/api/v2/execute")
     payload = {"data": "input_data"}
-    ref_response = {"completed": True, "status": ModelStatus.SUCCESS, "data": "Hello"}
+    ref_response = {"completed": True, "status": Status.SUCCESS, "data": "Hello"}
 
     with requests_mock.Mocker() as mock:
         mock.post(execute_url, json=ref_response)
@@ -87,7 +87,7 @@ def test_success_poll():
         test_model = Model("", "")
         hyp_response = test_model.poll(poll_url=poll_url)
     assert hyp_response["completed"] == ref_response["completed"]
-    assert hyp_response["status"] == ModelStatus.SUCCESS
+    assert hyp_response["status"] == Status.SUCCESS
 
 
 def test_failed_poll():
@@ -107,7 +107,7 @@ def test_failed_poll():
     assert hyp_response["completed"] == ref_response["completed"]
     assert hyp_response["error_message"] == ref_response["error_message"]
     assert hyp_response["supplierError"] == ref_response["supplierError"]
-    assert hyp_response["status"] == ModelStatus.FAILED
+    assert hyp_response["status"] == Status.FAILED
 
 
 @pytest.mark.parametrize(
@@ -148,7 +148,7 @@ def test_run_async_errors(status_code, error_message):
         mock.post(execute_url, status_code=status_code, json=ref_response)
         test_model = Model(id=model_id, name="Test Model", url=base_url)
         response = test_model.run_async(data="input_data")
-    assert response["status"] == ModelStatus.FAILED
+    assert response["status"] == Status.FAILED
     assert response["error_message"] == error_message
 
 

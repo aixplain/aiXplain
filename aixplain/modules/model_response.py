@@ -1,13 +1,13 @@
 from dataclasses import dataclass
 from typing import Text, Any, Optional, Dict
-from aixplain.enums import ModelStatus
+from aixplain.enums import Status
 
 
 @dataclass
 class ModelResponse:
     """Class for keeping track of an item in inventory."""
 
-    status: ModelStatus
+    status: Status
     data: Text
     completed: bool
     error_message: Text
@@ -18,7 +18,7 @@ class ModelResponse:
     additional_fields: Dict[str, Any] = None
     def __init__(
         self,
-        status: ModelStatus,
+        status: Status,
         data: Text = "",
         completed: bool = False,
         error_message: Text = "",
