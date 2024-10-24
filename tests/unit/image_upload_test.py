@@ -56,6 +56,7 @@ def test_list_host_machines():
         for key in machine_dict.keys():
             assert machine_dict[key] == mock_json_dict[key]
 
+
 def test_get_functions():
     url = urljoin(config.BACKEND_URL, f"sdk/functions")
     with requests_mock.Mocker() as mock:
@@ -64,6 +65,7 @@ def test_get_functions():
         mock.get(url, headers=AUTH_FIXED_HEADER, json=mock_json)
         functions = ModelFactory.list_functions(config.TEAM_API_KEY)
     assert functions == mock_json
+
 
 @pytest.mark.skip(reason="Not currently supported.")
 def test_list_image_repo_tags():

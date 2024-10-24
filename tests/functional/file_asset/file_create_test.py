@@ -20,22 +20,14 @@ import pytest
 from aixplain.enums import License
 from aixplain.factories import FileFactory
 
+
 def test_file_create():
     upload_file = "tests/functional/file_asset/input/test.csv"
-    s3_link = FileFactory.create(
-        local_path = upload_file,
-        tags = ['test1','test2'],
-        license = License.MIT,
-        is_temp = False
-    )
+    s3_link = FileFactory.create(local_path=upload_file, tags=["test1", "test2"], license=License.MIT, is_temp=False)
     assert s3_link.startswith("s3")
+
 
 def test_file_create_temp():
     upload_file = "tests/functional/file_asset/input/test.csv"
-    s3_link = FileFactory.create(
-        local_path = upload_file,
-        tags = ['test1','test2'],
-        license = License.MIT,
-        is_temp = True
-    )
+    s3_link = FileFactory.create(local_path=upload_file, tags=["test1", "test2"], license=License.MIT, is_temp=True)
     assert s3_link.startswith("s3")

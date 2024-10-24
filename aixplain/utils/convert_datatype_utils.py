@@ -14,12 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-from typing import Union, Dict, List 
+from typing import Union, Dict, List
 from aixplain.modules.metadata import MetaData
 
 
 def dict_to_metadata(metadatas: List[Union[Dict, MetaData]]) -> None:
-    
+
     """Convert all the Dicts to MetaData
 
     Args:
@@ -32,5 +32,3 @@ def dict_to_metadata(metadatas: List[Union[Dict, MetaData]]) -> None:
                 metadatas[i] = MetaData(**metadatas[i])
     except TypeError:
         raise TypeError(f"Data Asset Onboarding Error: One or more elements in the metadata_schema are not well-structured")
-        
-    

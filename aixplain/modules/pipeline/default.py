@@ -3,7 +3,6 @@ from .designer import DesignerPipeline
 
 
 class DefaultPipeline(PipelineAsset, DesignerPipeline):
-
     def __init__(self, *args, **kwargs):
         PipelineAsset.__init__(self, *args, **kwargs)
         DesignerPipeline.__init__(self)

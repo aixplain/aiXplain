@@ -10,7 +10,7 @@ class WalletFactory:
     backend_url = config.BACKEND_URL
 
     @classmethod
-    def get(cls, api_key: Text = config.TEAM_API_KEY) -> Wallet:     
+    def get(cls, api_key: Text = config.TEAM_API_KEY) -> Wallet:
         """Get wallet information"""
         try:
             resp = None
@@ -22,7 +22,7 @@ class WalletFactory:
             resp = r.json()
             total_balance = float(resp.get("totalBalance", 0.0))
             reserved_balance = float(resp.get("reservedBalance", 0.0))
-        
+
             return Wallet(total_balance=total_balance, reserved_balance=reserved_balance)
         except Exception as e:
             raise Exception(f"Failed to get the wallet credit information. Error: {str(e)}")

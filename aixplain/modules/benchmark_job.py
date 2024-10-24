@@ -7,6 +7,7 @@ import pandas as pd
 from pathlib import Path
 from aixplain.utils.file_utils import _request_with_retry, save_file
 
+
 class BenchmarkJob:
     """Benchmark Job Represents a single run of an already created Benchmark.
 
@@ -35,29 +36,29 @@ class BenchmarkJob:
     @classmethod
     def _create_benchmark_job_from_response(cls, response: Dict):
         return BenchmarkJob(response["jobId"], response["status"], response["benchmark"]["id"])
-    
+
     @classmethod
     def _fetch_current_response(cls, job_id: Text) -> dict:
         url = urljoin(config.BACKEND_URL, f"sdk/benchmarks/jobs/{job_id}")
-        if  config.AIXPLAIN_API_KEY != "":
+        if config.AIXPLAIN_API_KEY != "":
             headers = {"x-aixplain-key": f"{config.AIXPLAIN_API_KEY}", "Content-Type": "application/json"}
         else:
             headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
         r = _request_with_retry("get", url, headers=headers)
         resp = r.json()
         return resp
-    
+
     def _update_from_response(self, response: dict):
-        self.status = response['status']
+        self.status = response["status"]
 
     def __repr__(self) -> str:
         return f"<Benchmark Job({self.id})>"
-    
+
     def check_status(self):
         response = self._fetch_current_response(self.id)
         self._update_from_response(response)
         return self.status
-    
+
     def download_results_as_csv(self, save_path: Optional[Text] = None, return_dataframe: bool = False):
         """Get the results of the benchmark job in a CSV format.
         The results can either be downloaded locally or returned in the form of pandas.DataFrame.
@@ -73,7 +74,7 @@ class BenchmarkJob:
         try:
             resp = self._fetch_current_response(self.id)
             logging.info(f"Downloading Benchmark Results: Status of downloading results for {self.id}: {resp}")
-            if "reportUrl" not in resp or resp['reportUrl'] == "":
+            if "reportUrl" not in resp or resp["reportUrl"] == "":
                 logging.error(
                     f"Downloading Benchmark Results: Can't get download results as they aren't generated yet. Please wait for a while."
                 )
@@ -92,9 +93,9 @@ class BenchmarkJob:
             error_message = f"Downloading Benchmark Results: Error in Downloading Benchmark Results : {e}"
             logging.error(error_message, exc_info=True)
             raise Exception(error_message)
-        
+
     def __simplify_scores(self, scores):
-        simplified_score_list  = []
+        simplified_score_list = []
         for model_id, model_info in scores.items():
             model_scores = model_info["rawScores"]
             # model = Mode
@@ -104,9 +105,6 @@ class BenchmarkJob:
             simplified_score_list.append(row)
         return simplified_score_list
 
-
-
-
     def get_scores(self, return_simplified=True, return_as_dataframe=True):
         try:
             resp = self._fetch_current_response(self.id)
@@ -115,13 +113,13 @@ class BenchmarkJob:
             for iteration_info in iterations:
                 model_id = iteration_info["pipeline"]
                 model_info = {
-                    "creditsUsed" : round(iteration_info.get("credits", 0),5),
-                    "timeSpent" : round(iteration_info.get("runtime", 0),2),
-                    "status" : iteration_info["status"],
-                    "rawScores" : iteration_info["scores"],
+                    "creditsUsed": round(iteration_info.get("credits", 0), 5),
+                    "timeSpent": round(iteration_info.get("runtime", 0), 2),
+                    "status": iteration_info["status"],
+                    "rawScores": iteration_info["scores"],
                 }
                 scores[model_id] = model_info
-            
+
             if return_simplified:
                 simplified_scores = self.__simplify_scores(scores)
                 if return_as_dataframe:
@@ -133,8 +131,7 @@ class BenchmarkJob:
             error_message = f"Benchmark scores: Error in Getting benchmark scores: {e}"
             logging.error(error_message, exc_info=True)
             raise Exception(error_message)
-        
-    
+
     def get_failuire_rate(self, return_as_dataframe=True):
         try:
             scores = self.get_scores(return_simplified=False)
@@ -143,10 +140,10 @@ class BenchmarkJob:
                 if len(model_info["rawScores"]) == 0:
                     failure_rates[model_id] = 0
                     continue
-                score_info = model_info["rawScores"][0] 
+                score_info = model_info["rawScores"][0]
                 num_succesful = score_info["count"]
                 num_failed = score_info["failedSegmentsCount"]
-                failuire_rate =  (num_failed * 100) / (num_succesful+num_failed)
+                failuire_rate = (num_failed * 100) / (num_succesful + num_failed)
                 failure_rates[model_id] = failuire_rate
             if return_as_dataframe:
                 df = pd.DataFrame()
@@ -159,7 +156,7 @@ class BenchmarkJob:
             error_message = f"Benchmark scores: Error in Getting benchmark failuire rate: {e}"
             logging.error(error_message, exc_info=True)
             raise Exception(error_message)
-        
+
     def get_all_explanations(self):
         try:
             resp = self._fetch_current_response(self)
@@ -173,7 +170,7 @@ class BenchmarkJob:
             error_message = f"Benchmark scores: Error in Getting benchmark explanations: {e}"
             logging.error(error_message, exc_info=True)
             raise Exception(error_message)
-    
+
     def get_localized_explanations(self, metric_dependant: bool, group_by_task: bool = False):
         try:
             raw_explanations = self.get_all_explanations()
@@ -205,7 +202,7 @@ class BenchmarkJob:
             else:
                 localized_explanations = raw_explanations["metricInDependent"]
                 if len(localized_explanations) == 0:
-                    localized_explanations =  {}
+                    localized_explanations = {}
                 else:
                     localized_explanations = localized_explanations[0]
             return localized_explanations

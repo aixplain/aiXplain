@@ -7,6 +7,7 @@ from aixplain.utils import config
 import docker
 import pytest
 
+
 def test_login():
     response = ModelFactory.asset_repo_login()
     assert response["username"] == "AWS"
@@ -27,7 +28,9 @@ def test_create_asset_repo():
     input_modality = mock_register_payload["input_modality"]
     output_modality = mock_register_payload["output_modality"]
     documentation_url = mock_register_payload["documentation_url"]
-    response = ModelFactory.create_asset_repo(name, description, function, source_language, input_modality, output_modality, documentation_url, config.TEAM_API_KEY)
+    response = ModelFactory.create_asset_repo(
+        name, description, function, source_language, input_modality, output_modality, documentation_url, config.TEAM_API_KEY
+    )
     response_dict = dict(response)
     assert "id" in response_dict.keys()
     assert "repositoryName" in response_dict.keys()

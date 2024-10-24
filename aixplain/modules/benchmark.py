@@ -56,7 +56,7 @@ class Benchmark(Asset):
         description: Text = "",
         supplier: Text = "aiXplain",
         version: Text = "1.0",
-        **additional_info
+        **additional_info,
     ) -> None:
         """Create a Benchmark with the necessary information.
 
@@ -84,7 +84,6 @@ class Benchmark(Asset):
     def __repr__(self) -> str:
         return f"<Benchmark {self.name}>"
 
-    
     def start(self) -> BenchmarkJob:
         """Starts a new benchmark job(run)  for the current benchmark
 

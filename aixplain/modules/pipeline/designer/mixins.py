@@ -53,9 +53,7 @@ class RoutableMixin:
         """
         assert self.pipeline, "Node not attached to a pipeline"
 
-        router = self.pipeline.router(
-            [(param.data_type, param.node) for param in params]
-        )
+        router = self.pipeline.router([(param.data_type, param.node) for param in params])
         self.outputs.input.link(router.inputs.input)
         for param in params:
             router.outputs.input.link(param)
