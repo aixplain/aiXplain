@@ -255,7 +255,7 @@ class Model(Asset):
                 elapsed_time=time.time() - start
             )
 
-    def run_async(self, data: Union[Text, Dict], name: Text = "model_process", parameters: Dict = {}) -> Dict:
+    def run_async(self, data: Union[Text, Dict], name: Text = "model_process", parameters: Dict = {}) -> ModelResponse:
         """Runs asynchronously a model call.
 
         Args:
