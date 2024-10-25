@@ -3,6 +3,9 @@ from typing import Text
 
 
 class ModelStatus(Text, Enum):
-    FAILED = "failed"
-    IN_PROGRESS = "in_progress"
-    SUCCESS = "success"
+    FAILED = "FAILED"
+    IN_PROGRESS = "IN_PROGRESS"
+    SUCCESS = "SUCCESS"
+
+    def __str__(self):
+        return self._value_
