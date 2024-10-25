@@ -92,6 +92,7 @@ class APIKeyFactory:
     @classmethod
     def update(cls, api_key: APIKey) -> APIKey:
         """Update an existing API key"""
+        api_key.validate()
         try:
             resp = "Unspecified error"
             url = f"{cls.backend_url}/sdk/api-keys/{api_key.id}"
