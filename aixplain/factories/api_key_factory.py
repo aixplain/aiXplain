@@ -4,7 +4,7 @@ import aixplain.utils.config as config
 from datetime import datetime
 from typing import Text, List, Optional, Dict, Union
 from aixplain.utils.file_utils import _request_with_retry
-from aixplain.modules.api_key import APIKey, APIKeyGlobalLimits, APIKeyUsageLimit
+from aixplain.modules.api_key import APIKey, APIKeyLimits, APIKeyUsageLimit
 
 
 class APIKeyFactory:
@@ -54,8 +54,8 @@ class APIKeyFactory:
         cls,
         name: Text,
         budget: int,
-        global_limits: Union[Dict, APIKeyGlobalLimits],
-        asset_limits: List[Union[Dict, APIKeyGlobalLimits]],
+        global_limits: Union[Dict, APIKeyLimits],
+        asset_limits: List[Union[Dict, APIKeyLimits]],
         expires_at: datetime,
     ) -> APIKey:
         """Create a new API key"""

@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Dict, List, Optional, Text, Union
 
 
-class APIKeyGlobalLimits:
+class APIKeyLimits:
     def __init__(
         self,
         token_per_minute: int,
@@ -60,8 +60,8 @@ class APIKey:
         name: Text,
         expires_at: Optional[Union[datetime, Text]] = None,
         budget: Optional[float] = None,
-        asset_limits: List[APIKeyGlobalLimits] = [],
-        global_limits: Optional[Union[Dict, APIKeyGlobalLimits]] = None,
+        asset_limits: List[APIKeyLimits] = [],
+        global_limits: Optional[Union[Dict, APIKeyLimits]] = None,
         id: int = "",
         access_key: Optional[Text] = None,
         is_admin: bool = False,
@@ -71,7 +71,7 @@ class APIKey:
         self.budget = budget
         self.global_limits = global_limits
         if global_limits is not None and isinstance(global_limits, dict):
-            self.global_limits = APIKeyGlobalLimits(
+            self.global_limits = APIKeyLimits(
                 token_per_minute=global_limits["tpm"],
                 token_per_day=global_limits["tpd"],
                 request_per_minute=global_limits["rpm"],
@@ -80,7 +80,7 @@ class APIKey:
         self.asset_limits = asset_limits
         for i, asset_limit in enumerate(self.asset_limits):
             if isinstance(asset_limit, dict):
-                self.asset_limits[i] = APIKeyGlobalLimits(
+                self.asset_limits[i] = APIKeyLimits(
                     token_per_minute=asset_limit["tpm"],
                     token_per_day=asset_limit["tpd"],
                     request_per_minute=asset_limit["rpm"],
@@ -190,3 +190,35 @@ class APIKey:
             ]
         else:
             raise Exception(f"API Key Usage Error: Failed to get usage. Error: {str(resp)}")
+
+    def __set_limit(self, limit: int, model: Optional[Union[Text, Model]], limit_type: Text) -> None:
+        """Set a limit for an API key"""
+        if model is None:
+            setattr(self.global_limits, limit_type, limit)
+        else:
+            if isinstance(model, Model):
+                model = model.id
+            is_found = False
+            for i, asset_limit in enumerate(self.asset_limits):
+                if asset_limit.model.id == model:
+                    setattr(self.asset_limits[i], limit_type, limit)
+                    is_found = True
+                    break
+            if is_found is False:
+                raise Exception(f"Limit for Model {model} not found in the API key.")
+
+    def set_token_per_day(self, token_per_day: int, model: Optional[Union[Text, Model]] = None) -> None:
+        """Set the token per day limit of an API key"""
+        self.__set_limit(token_per_day, model, "token_per_day")
+
+    def set_token_per_minute(self, token_per_minute: int, model: Optional[Union[Text, Model]] = None) -> None:
+        """Set the token per minute limit of an API key"""
+        self.__set_limit(token_per_minute, model, "token_per_minute")
+
+    def set_request_per_day(self, request_per_day: int, model: Optional[Union[Text, Model]] = None) -> None:
+        """Set the request per day limit of an API key"""
+        self.__set_limit(request_per_day, model, "request_per_day")
+
+    def set_request_per_minute(self, request_per_minute: int, model: Optional[Union[Text, Model]] = None) -> None:
+        """Set the request per minute limit of an API key"""
+        self.__set_limit(request_per_minute, model, "request_per_minute")
