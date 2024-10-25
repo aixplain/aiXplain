@@ -57,6 +57,7 @@ def call_run_endpoint(url: Text, api_key: Text, payload: Dict) -> Dict:
         else:
             response = resp
     else:
+        resp = resp["error"] if "error" in resp else resp
         if r.status_code == 401:
             error = f"Unauthorized API key: Please verify the spelling of the API key and its current validity. Details: {resp}"
         elif 460 <= r.status_code < 470:
