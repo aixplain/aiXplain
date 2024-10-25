@@ -30,7 +30,8 @@ from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
 from typing import Dict, Optional, Text, Union
 from urllib.parse import urljoin
-
+from aixplain.modules.pipeline_response import PipelineResponse
+from aixplain.enums import Status
 
 class Pipeline(Asset):
     """Representing a custom pipeline that was created on the aiXplain Platform
@@ -96,7 +97,7 @@ class Pipeline(Asset):
         logging.debug(f"Polling for Pipeline: Start polling for {name} ")
         start, end = time.time(), time.time()
         completed = False
-        response_body = {"status": "FAILED"}
+        response_body = {"status":Status.FAILED}
         while not completed and (end - start) < timeout:
             try:
                 response_body = self.poll(poll_url, name=name)
@@ -141,7 +142,7 @@ class Pipeline(Asset):
             resp = r.json()
             logging.info(f"Single Poll for Pipeline: Status of polling for {name} : {resp}")
         except Exception:
-            resp = {"status": "FAILED"}
+            resp = {"status": Status.FAILED}
         return resp
 
     def run(
@@ -171,22 +172,33 @@ class Pipeline(Asset):
             response = self.run_async(data, data_asset=data_asset, name=name, **kwargs)
             if response["status"] == "FAILED":
                 end = time.time()
-                response["elapsed_time"] = end - start
-                return response
+                return PipelineResponse(
+                status=Status.FAILED,
+                error={"error": response.get("error", ""), "status": "ERROR"},
+                elapsed_time=end - start,
+                **kwargs
+                )
             poll_url = response["url"]
             end = time.time()
-            response = self.__polling(poll_url, name=name, timeout=timeout, wait_time=wait_time)
-            return response
+            polling_response = self.__polling(poll_url, name=name, timeout=timeout, wait_time=wait_time)
+
+            return PipelineResponse(
+                status=Status.SUCCESS if polling_response["status"] == "SUCCESS" else Status.FAILED,
+                error=polling_response.get("error", {}),
+                elapsed_time=end - start,
+                **kwargs
+            )
         except Exception as e:
             error_message = f"Error in request for {name}: {str(e)}"
             logging.error(error_message)
             logging.exception(error_message)
             end = time.time()
-            return {
-                "status": "FAILED",
-                "error": error_message,
-                "elapsed_time": end - start,
-            }
+            return PipelineResponse(
+                status=Status.FAILED,
+                error={"error": error_message, "status": "ERROR"},
+                elapsed_time=end - start,
+                **kwargs
+            )
 
     def __prepare_payload(
         self,
@@ -298,7 +310,7 @@ class Pipeline(Asset):
 
     def run_async(
         self, data: Union[Text, Dict], data_asset: Optional[Union[Text, Dict]] = None, name: Text = "pipeline_process", **kwargs
-    ) -> Dict:
+    ) -> PipelineResponse: 
         """Runs asynchronously a pipeline call.
 
         Args:
@@ -328,7 +340,13 @@ class Pipeline(Asset):
                 resp = r.json()
                 logging.info(f"Result of request for {name}  - {r.status_code} - {resp}")
                 poll_url = resp["url"]
-                response = {"status": "IN_PROGRESS", "url": poll_url}
+                return PipelineResponse(
+                    status=Status.IN_PROGRESS,
+                    error=None,
+                    elapsed_time=None,
+                    url=poll_url, 
+                    **kwargs
+                )
             else:
                 if r.status_code == 401:
                     error = "Unauthorized API key: Please verify the spelling of the API key and its current validity."
@@ -347,11 +365,19 @@ class Pipeline(Asset):
                     )
                 response = {"status": "FAILED", "error_message": error}
                 logging.error(f"Error in request for {name} - {r.status_code}: {error}")
-        except Exception:
-            response = {"status": "FAILED"}
-            if resp is not None:
-                response["error"] = resp
-        return response
+                return PipelineResponse(
+                    status=Status.FAILED,
+                    error={"error": error, "status": "ERROR"},
+                    elapsed_time=None,
+                    **kwargs
+                )
+        except Exception as e:
+            return PipelineResponse(
+            status=Status.FAILED,
+            error={"error": str(e), "status": "ERROR"},
+            elapsed_time=None,
+            **kwargs
+        )
 
     def update(
         self,

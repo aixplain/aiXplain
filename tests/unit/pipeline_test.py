@@ -25,7 +25,7 @@ from aixplain.utils import config
 from aixplain.factories import PipelineFactory
 from aixplain.modules import Pipeline
 from urllib.parse import urljoin
-
+from aixplain.enums import Status
 
 def test_create_pipeline():
     with requests_mock.Mocker() as mock:
@@ -42,15 +42,15 @@ def test_create_pipeline():
 @pytest.mark.parametrize(
     "status_code,error_message",
     [
-        (401, "Unauthorized API key: Please verify the spelling of the API key and its current validity."),
-        (465, "Subscription-related error: Please ensure that your subscription is active and has not expired."),
-        (475, "Billing-related error: Please ensure you have enough credits to run this pipeline. "),
+        (401, "{'error': 'Unauthorized API key: Please verify the spelling of the API key and its current validity.', 'status': 'ERROR'}"),
+        (465, "{'error': 'Subscription-related error: Please ensure that your subscription is active and has not expired.', 'status': 'ERROR'}"),
+        (475, "{'error': 'Billing-related error: Please ensure you have enough credits to run this pipeline. ', 'status': 'ERROR'}"),
         (
             485,
-            "Supplier-related error: Please ensure that the selected supplier provides the pipeline you are trying to access.",
+            "{'error': 'Supplier-related error: Please ensure that the selected supplier provides the pipeline you are trying to access.', 'status': 'ERROR'}",
         ),
-        (495, "Validation-related error: Please ensure all required fields are provided and correctly formatted."),
-        (501, "Status 501: Unspecified error: An unspecified error occurred while processing your request."),
+        (495, "{'error': 'Validation-related error: Please ensure all required fields are provided and correctly formatted.', 'status': 'ERROR'}"),
+        (501, "{'error': 'Status 501: Unspecified error: An unspecified error occurred while processing your request.', 'status': 'ERROR'}"),
     ],
 )
 def test_run_async_errors(status_code, error_message):
@@ -62,8 +62,8 @@ def test_run_async_errors(status_code, error_message):
         mock.post(execute_url, status_code=status_code)
         test_pipeline = Pipeline(id=pipeline_id, api_key=config.TEAM_API_KEY, name="Test Pipeline", url=base_url)
         response = test_pipeline.run_async(data="input_data")
-    assert response["status"] == "FAILED"
-    assert response["error_message"] == error_message
+    assert response["status"] == Status.FAILED
+    assert str(response["error"]) == error_message
 
 
 def test_list_pipelines_error_response():
