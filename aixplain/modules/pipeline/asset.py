@@ -141,9 +141,18 @@ class Pipeline(Asset):
         try:
             resp = r.json()
             logging.info(f"Single Poll for Pipeline: Status of polling for {name} : {resp}")
-        except Exception:
+            return PipelineResponse(
+                status=resp.pop("status", resp),
+                error=resp.pop("error_message", ""),
+                elapsed_time=resp.pop("runTime", 0),
+                **resp,
+            )
+        except Exception as e:
             resp = {"status": Status.FAILED}
-        return resp
+            PipelineResponse(
+                status=resp.pop("status", Status.FAILED),
+                error=str(e)
+            )
 
     def run(
         self,
@@ -363,7 +372,6 @@ class Pipeline(Asset):
                     error = (
                         f"Status {status_code}: Unspecified error: An unspecified error occurred while processing your request."
                     )
-                response = {"status": "FAILED", "error_message": error}
                 logging.error(f"Error in request for {name} - {r.status_code}: {error}")
                 return PipelineResponse(
                     status=Status.FAILED,
