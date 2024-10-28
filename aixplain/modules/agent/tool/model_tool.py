@@ -79,11 +79,20 @@ class ModelTool(Tool):
 
     def to_dict(self) -> Dict:
         """Converts the tool to a dictionary."""
+        supplier = self.supplier
+        if supplier is not None:
+            if isinstance(supplier, dict):
+                supplier = supplier["code"]
+            elif isinstance(supplier, Supplier):
+                supplier = supplier.value["code"]
+            else:
+                supplier = str(supplier)
+
         return {
             "function": self.function.value if self.function is not None else None,
             "type": "model",
             "description": self.description,
-            "supplier": self.supplier.value["code"] if self.supplier else None,
+            "supplier": supplier,
             "version": self.version if self.version else None,
             "assetId": self.model,
         }

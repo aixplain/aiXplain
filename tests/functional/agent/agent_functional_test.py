@@ -15,13 +15,16 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
+import copy
 import json
 from dotenv import load_dotenv
 
 load_dotenv()
 from aixplain.factories import AgentFactory
+from aixplain.enums.asset_status import AssetStatus
 from aixplain.enums.function import Function
 from aixplain.enums.supplier import Supplier
+from uuid import uuid4
 
 import pytest
 
@@ -44,14 +47,15 @@ def test_end2end(run_input_map):
     tools = []
     if "model_tools" in run_input_map:
         for tool in run_input_map["model_tools"]:
+            tool_ = copy.copy(tool)
             for supplier in Supplier:
                 if tool["supplier"] is not None and tool["supplier"].lower() in [
                     supplier.value["code"].lower(),
                     supplier.value["name"].lower(),
                 ]:
-                    tool["supplier"] = supplier
+                    tool_["supplier"] = supplier
                     break
-            tools.append(AgentFactory.create_model_tool(**tool))
+            tools.append(AgentFactory.create_model_tool(**tool_))
     if "pipeline_tools" in run_input_map:
         for tool in run_input_map["pipeline_tools"]:
             tools.append(AgentFactory.create_pipeline_tool(pipeline=tool["pipeline_id"], description=tool["description"]))
@@ -60,6 +64,11 @@ def test_end2end(run_input_map):
         name=run_input_map["agent_name"], description=run_input_map["agent_name"], llm_id=run_input_map["llm_id"], tools=tools
     )
     assert agent is not None
+    assert agent.status == AssetStatus.DRAFT
+    # deploy agent
+    agent.deploy()
+    assert agent.status == AssetStatus.ONBOARDED
+
     agent = AgentFactory.get(agent.id)
     assert agent is not None
     response = agent.run(data=run_input_map["query"])
@@ -77,6 +86,40 @@ def test_list_agents():
     assert "results" in agents
     agents_result = agents["results"]
     assert type(agents_result) is list
+
+
+def test_update_draft_agent(run_input_map):
+    for agent in AgentFactory.list()["results"]:
+        agent.delete()
+
+    tools = []
+    if "model_tools" in run_input_map:
+        for tool in run_input_map["model_tools"]:
+            tool_ = copy.copy(tool)
+            for supplier in Supplier:
+                if tool["supplier"] is not None and tool["supplier"].lower() in [
+                    supplier.value["code"].lower(),
+                    supplier.value["name"].lower(),
+                ]:
+                    tool_["supplier"] = supplier
+                    break
+            tools.append(AgentFactory.create_model_tool(**tool_))
+    if "pipeline_tools" in run_input_map:
+        for tool in run_input_map["pipeline_tools"]:
+            tools.append(AgentFactory.create_pipeline_tool(pipeline=tool["pipeline_id"], description=tool["description"]))
+
+    agent = AgentFactory.create(
+        name=run_input_map["agent_name"], description=run_input_map["agent_name"], llm_id=run_input_map["llm_id"], tools=tools
+    )
+
+    agent_name = str(uuid4()).replace("-", "")
+    agent.name = agent_name
+    agent.update()
+
+    agent = AgentFactory.get(agent.id)
+    assert agent.name == agent_name
+    assert agent.status == AssetStatus.DRAFT
+    agent.delete()
 
 
 def test_fail_non_existent_llm():

@@ -1,6 +1,7 @@
 import pytest
 import requests_mock
-from aixplain.modules import TeamAgent
+from aixplain.modules import Agent, TeamAgent
+from aixplain.modules.agent import ModelTool
 from aixplain.factories import TeamAgentFactory
 from aixplain.utils import config
 
@@ -71,3 +72,35 @@ def test_fail_number_agents():
         TeamAgentFactory.create(name="Test Team Agent", agents=[])
 
     assert str(exc_info.value) == "TeamAgent Onboarding Error: At least one agent must be provided."
+
+
+def test_to_dict():
+    team_agent = TeamAgent(
+        id="123",
+        name="Test Team Agent",
+        agents=[
+            Agent(
+                id="",
+                name="Test Agent",
+                description="Test Agent Description",
+                llm_id="6646261c6eb563165658bbb1",
+                tools=[ModelTool(function="text-generation")],
+            )
+        ],
+        description="Test Team Agent Description",
+        llm_id="6646261c6eb563165658bbb1",
+        use_mentalist_and_inspector=False,
+    )
+
+    team_agent_dict = team_agent.to_dict()
+    assert team_agent_dict["id"] == "123"
+    assert team_agent_dict["name"] == "Test Team Agent"
+    assert team_agent_dict["description"] == "Test Team Agent Description"
+    assert team_agent_dict["llmId"] == "6646261c6eb563165658bbb1"
+    assert team_agent_dict["supervisorId"] == "6646261c6eb563165658bbb1"
+    assert team_agent_dict["plannerId"] is None
+    assert len(team_agent_dict["agents"]) == 1
+    assert team_agent_dict["agents"][0]["assetId"] == ""
+    assert team_agent_dict["agents"][0]["number"] == 0
+    assert team_agent_dict["agents"][0]["type"] == "AGENT"
+    assert team_agent_dict["agents"][0]["label"] == "AGENT"

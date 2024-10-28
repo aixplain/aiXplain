@@ -264,10 +264,11 @@ class Agent(Model):
 
     def to_dict(self) -> Dict:
         return {
+            "id": self.id,
             "name": self.name,
             "assets": [tool.to_dict() for tool in self.tools],
             "description": self.description,
-            "supplier": self.supplier,
+            "supplier": self.supplier.value["code"] if isinstance(self.supplier, Supplier) else self.supplier,
             "version": self.version,
             "llmId": self.llm_id,
             "status": self.status.value,

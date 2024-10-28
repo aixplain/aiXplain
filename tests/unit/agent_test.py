@@ -1,5 +1,6 @@
 import pytest
 import requests_mock
+from aixplain.enums.asset_status import AssetStatus
 from aixplain.modules import Agent
 from aixplain.utils import config
 from aixplain.factories import AgentFactory
@@ -53,7 +54,7 @@ def test_fail_key_not_found():
     assert str(exc_info.value) == "Key 'input2' not found in query."
 
 
-def test_sucess_query_content():
+def test_success_query_content():
     agent = Agent("123", "Test Agent", "Sample Description")
     with requests_mock.Mocker() as mock:
         url = agent.url
@@ -83,6 +84,12 @@ def test_invalid_modeltool():
     assert str(exc_info.value) == "Model Tool Unavailable. Make sure Model '309851793' exists or you have access to it."
 
 
+def test_invalid_llm_id():
+    with pytest.raises(Exception) as exc_info:
+        AgentFactory.create(name="Test", description="", tools=[], llm_id="123")
+    assert str(exc_info.value) == "Large Language Model with ID '123' not found."
+
+
 def test_invalid_agent_name():
     with pytest.raises(Exception) as exc_info:
         AgentFactory.create(name="[Test]", description="", tools=[], llm_id="6646261c6eb563165658bbb1")
@@ -102,7 +109,7 @@ def test_create_agent():
             "description": "Test Agent Description",
             "teamId": "123",
             "version": "1.0",
-            "status": "onboarded",
+            "status": "draft",
             "llmId": "6646261c6eb563165658bbb1",
             "pricing": {"currency": "USD", "value": 0.0},
             "assets": [
@@ -134,9 +141,83 @@ def test_create_agent():
             name="Test Agent",
             description="Test Agent Description",
             llm_id="6646261c6eb563165658bbb1",
-            tools=[AgentFactory.create_model_tool(supplier=Supplier.OPENAI, function="text-generation")],
+            tools=[ModelTool(function="text-generation", supplier=Supplier.OPENAI)],
         )
 
+    assert agent.name == ref_response["name"]
+    assert agent.description == ref_response["description"]
+    assert agent.llm_id == ref_response["llmId"]
+    assert agent.tools[0].function.value == ref_response["assets"][0]["function"]
+    assert agent.status == AssetStatus.DRAFT
+
+
+def test_to_dict():
+    agent = Agent(
+        id="",
+        name="Test Agent",
+        description="Test Agent Description",
+        llm_id="6646261c6eb563165658bbb1",
+        tools=[AgentFactory.create_model_tool(function="text-generation")],
+    )
+
+    agent_json = agent.to_dict()
+    assert agent_json["id"] == ""
+    assert agent_json["name"] == "Test Agent"
+    assert agent_json["description"] == "Test Agent Description"
+    assert agent_json["llmId"] == "6646261c6eb563165658bbb1"
+    assert agent_json["assets"][0]["function"] == "text-generation"
+    assert agent_json["assets"][0]["type"] == "model"
+
+
+def test_update_success():
+    agent = Agent(
+        id="123",
+        name="Test Agent",
+        description="Test Agent Description",
+        llm_id="6646261c6eb563165658bbb1",
+        tools=[AgentFactory.create_model_tool(function="text-generation")],
+    )
+
+    with requests_mock.Mocker() as mock:
+        url = urljoin(config.BACKEND_URL, f"sdk/agents/{agent.id}")
+        headers = {"x-api-key": config.TEAM_API_KEY, "Content-Type": "application/json"}
+        ref_response = {
+            "id": "123",
+            "name": "Test Agent",
+            "description": "Test Agent Description",
+            "teamId": "123",
+            "version": "1.0",
+            "status": "onboarded",
+            "llmId": "6646261c6eb563165658bbb1",
+            "pricing": {"currency": "USD", "value": 0.0},
+            "assets": [
+                {
+                    "type": "model",
+                    "supplier": "openai",
+                    "version": "1.0",
+                    "assetId": "6646261c6eb563165658bbb1",
+                    "function": "text-generation",
+                }
+            ],
+        }
+        mock.put(url, headers=headers, json=ref_response)
+
+        url = urljoin(config.BACKEND_URL, "sdk/models/6646261c6eb563165658bbb1")
+        model_ref_response = {
+            "id": "6646261c6eb563165658bbb1",
+            "name": "Test LLM",
+            "description": "Test LLM Description",
+            "function": {"id": "text-generation"},
+            "supplier": "openai",
+            "version": {"id": "1.0"},
+            "status": "onboarded",
+            "pricing": {"currency": "USD", "value": 0.0},
+        }
+        mock.get(url, headers=headers, json=model_ref_response)
+
+        agent.update()
+
+    assert agent.id == ref_response["id"]
     assert agent.name == ref_response["name"]
     assert agent.description == ref_response["description"]
     assert agent.llm_id == ref_response["llmId"]

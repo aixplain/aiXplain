@@ -264,6 +264,7 @@ class TeamAgent(Model):
 
     def to_dict(self) -> Dict:
         return {
+            "id": self.id,
             "name": self.name,
             "agents": [
                 {"assetId": agent.id, "number": idx, "type": "AGENT", "label": "AGENT"} for idx, agent in enumerate(self.agents)
@@ -272,7 +273,7 @@ class TeamAgent(Model):
             "description": self.description,
             "llmId": self.llm_id,
             "supervisorId": self.llm_id,
-            "plannerId": self.mentalist_and_inspector_llm_id,
+            "plannerId": self.llm_id if self.use_mentalist_and_inspector else None,
             "supplier": self.supplier,
             "version": self.version,
         }

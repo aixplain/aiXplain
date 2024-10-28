@@ -14,19 +14,20 @@ def build_agent(payload: Dict, api_key: Text = config.TEAM_API_KEY) -> Agent:
     """Instantiate a new agent in the platform."""
     tools_dict = payload["assets"]
     tools = []
-    for i, tool in enumerate(tools_dict):
+    for tool in tools_dict:
         if tool["type"] == "model":
-            for supplier in Supplier:
+            supplier = "aixplain"
+            for supplier_ in Supplier:
                 if tool["supplier"] is not None and tool["supplier"].lower() in [
-                    supplier.value["code"].lower(),
-                    supplier.value["name"].lower(),
+                    supplier_.value["code"].lower(),
+                    supplier_.value["name"].lower(),
                 ]:
-                    tool["supplier"] = supplier
+                    supplier = supplier_
                     break
 
             tool = ModelTool(
                 function=Function(tool.get("function", None)),
-                supplier=tool["supplier"],
+                supplier=supplier,
                 version=tool["version"],
                 model=tool["assetId"],
             )
