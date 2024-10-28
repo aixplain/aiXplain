@@ -65,53 +65,56 @@ class TeamAgentFactory:
         mentalist_and_inspector_llm_id = None
         if use_mentalist_and_inspector is True:
             mentalist_and_inspector_llm_id = llm_id
+
+        team_agent = None
+        url = urljoin(config.BACKEND_URL, "sdk/agent-communities")
+        headers = {"x-api-key": api_key}
+
+        if isinstance(supplier, dict):
+            supplier = supplier["code"]
+        elif isinstance(supplier, Supplier):
+            supplier = supplier.value["code"]
+
+        agent_list = []
+        for idx, agent in enumerate(agents):
+            agent_list.append({"assetId": agent.id, "number": idx, "type": "AGENT", "label": "AGENT"})
+
+        payload = {
+            "name": name,
+            "agents": agent_list,
+            "links": [],
+            "description": description,
+            "llmId": llm_id,
+            "supervisorId": llm_id,
+            "plannerId": mentalist_and_inspector_llm_id,
+            "supplier": supplier,
+            "version": version,
+            "status": "draft",
+        }
+
+        team_agent = build_team_agent(payload=payload, api_key=api_key)
+        team_agent.validate()
+        response = "Unspecified error"
         try:
-            team_agent = None
-            url = urljoin(config.BACKEND_URL, "sdk/agent-communities")
-            headers = {"x-api-key": api_key}
-
-            if isinstance(supplier, dict):
-                supplier = supplier["code"]
-            elif isinstance(supplier, Supplier):
-                supplier = supplier.value["code"]
-
-            agent_list = []
-            for idx, agent in enumerate(agents):
-                agent_list.append({"assetId": agent.id, "number": idx, "type": "AGENT", "label": "AGENT"})
-
-            payload = {
-                "name": name,
-                "agents": agent_list,
-                "links": [],
-                "description": description,
-                "llmId": llm_id,
-                "supervisorId": llm_id,
-                "plannerId": mentalist_and_inspector_llm_id,
-                "supplier": supplier,
-                "version": version,
-            }
-
-            team_agent = build_team_agent(payload=payload, api_key=api_key)
-            team_agent.validate()
-            logging.info(f"Start service for POST Create TeamAgent  - {url} - {headers} - {json.dumps(payload)}")
+            logging.debug(f"Start service for POST Create TeamAgent  - {url} - {headers} - {json.dumps(payload)}")
             r = _request_with_retry("post", url, headers=headers, json=payload)
-            if 200 <= r.status_code < 300:
-                response = r.json()
-                team_agent = build_team_agent(payload=response, api_key=api_key)
-            else:
-                error = r.json()
-                error_msg = "TeamAgent Onboarding Error: Please contact the administrators."
-                if "message" in error:
-                    msg = error["message"]
-                    if error["message"] == "err.name_already_exists":
-                        msg = "TeamAgent name already exists."
-                    elif error["message"] == "err.asset_is_not_available":
-                        msg = "Some tools are not available."
-                    error_msg = f"TeamAgent Onboarding Error (HTTP {r.status_code}): {msg}"
-                logging.exception(error_msg)
-                raise Exception(error_msg)
+            response = r.json()
         except Exception as e:
             raise Exception(e)
+
+        if 200 <= r.status_code < 300:
+            team_agent = build_team_agent(payload=response, api_key=api_key)
+        else:
+            error_msg = f"{response}"
+            if "message" in response:
+                msg = response["message"]
+                if response["message"] == "err.name_already_exists":
+                    msg = "TeamAgent name already exists."
+                elif response["message"] == "err.asset_is_not_available":
+                    msg = "Some tools are not available."
+                error_msg = f"TeamAgent Onboarding Error (HTTP {r.status_code}): {msg}"
+            logging.exception(error_msg)
+            raise Exception(error_msg)
         return team_agent
 
     @classmethod

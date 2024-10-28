@@ -13,10 +13,11 @@ def build_team_agent(payload: Dict, api_key: Text = config.TEAM_API_KEY) -> Team
     """Instantiate a new team agent in the platform."""
     from aixplain.factories.agent_factory import AgentFactory
 
-    agents = payload["agents"]
-    for i, agent in enumerate(agents):
+    agents_dict = payload["agents"]
+    agents = []
+    for i, agent in enumerate(agents_dict):
         agent = AgentFactory.get(agent["assetId"])
-        agents[i] = agent
+        agents.append(agent)
 
     team_agent = TeamAgent(
         id=payload.get("id", ""),
