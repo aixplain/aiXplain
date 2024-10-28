@@ -25,8 +25,6 @@ import json
 import logging
 
 from aixplain.enums.supplier import Supplier
-from aixplain.factories.agent_factory import AgentFactory
-from aixplain.factories.agent_factory.utils import validate_llm, validate_name
 from aixplain.modules.agent import Agent
 from aixplain.modules.team_agent import TeamAgent
 from aixplain.utils import config
@@ -50,17 +48,18 @@ class TeamAgentFactory:
         use_mentalist_and_inspector: bool = True,
     ) -> TeamAgent:
         """Create a new team agent in the platform."""
-        validate_name(name)
-        # validate LLM ID
-        validate_llm(llm_id)
         assert len(agents) > 0, "TeamAgent Onboarding Error: At least one agent must be provided."
         for agent in agents:
             if isinstance(agent, Text) is True:
                 try:
+                    from aixplain.factories.agent_factory import AgentFactory
+
                     agent = AgentFactory.get(agent)
                 except Exception:
                     raise Exception(f"TeamAgent Onboarding Error: Agent {agent} does not exist.")
             else:
+                from aixplain.modules.agent import Agent
+
                 assert isinstance(agent, Agent), "TeamAgent Onboarding Error: Agents must be instances of Agent class"
 
         mentalist_and_inspector_llm_id = None
@@ -92,6 +91,8 @@ class TeamAgentFactory:
                 "version": version,
             }
 
+            team_agent = build_team_agent(payload=payload, api_key=api_key)
+            team_agent.validate()
             logging.info(f"Start service for POST Create TeamAgent  - {url} - {headers} - {json.dumps(payload)}")
             r = _request_with_retry("post", url, headers=headers, json=payload)
             if 200 <= r.status_code < 300:
@@ -145,7 +146,7 @@ class TeamAgentFactory:
             raise Exception(e)
 
     @classmethod
-    def get(cls, agent_id: Text, api_key: Optional[Text] = None) -> Agent:
+    def get(cls, agent_id: Text, api_key: Optional[Text] = None) -> TeamAgent:
         """Get agent by id."""
         url = urljoin(config.BACKEND_URL, f"sdk/agent-communities/{agent_id}")
         if config.AIXPLAIN_API_KEY != "":
@@ -153,7 +154,7 @@ class TeamAgentFactory:
         else:
             api_key = api_key if api_key is not None else config.TEAM_API_KEY
             headers = {"x-api-key": api_key, "Content-Type": "application/json"}
-        logging.info(f"Start service for GET Agent  - {url} - {headers}")
+        logging.info(f"Start service for GET Team Agent  - {url} - {headers}")
         r = _request_with_retry("get", url, headers=headers)
         resp = r.json()
         if 200 <= r.status_code < 300:
@@ -162,5 +163,5 @@ class TeamAgentFactory:
             msg = "Please contact the administrators."
             if "message" in resp:
                 msg = resp["message"]
-            error_msg = f"Agent Get Error (HTTP {r.status_code}): {msg}"
+            error_msg = f"Team Agent Get Error (HTTP {r.status_code}): {msg}"
             raise Exception(error_msg)

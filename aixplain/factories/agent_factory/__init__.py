@@ -34,7 +34,6 @@ from aixplain.modules.pipeline import Pipeline
 from aixplain.utils import config
 from typing import Dict, List, Optional, Text, Union
 
-from aixplain.factories.agent_factory.utils import build_agent, validate_llm, validate_name
 from aixplain.utils.file_utils import _request_with_retry
 from urllib.parse import urljoin
 
@@ -65,74 +64,49 @@ class AgentFactory:
         Returns:
             Agent: created Agent
         """
-        validate_name(name)
-        # validate LLM ID
-        validate_llm(llm_id)
+        from aixplain.factories.agent_factory.utils import build_agent
 
+        agent = None
+        url = urljoin(config.BACKEND_URL, "sdk/agents")
+        headers = {"x-api-key": api_key}
+
+        if isinstance(supplier, dict):
+            supplier = supplier["code"]
+        elif isinstance(supplier, Supplier):
+            supplier = supplier.value["code"]
+
+        payload = {
+            "name": name,
+            "assets": [tool.to_dict() for tool in tools],
+            "description": description,
+            "supplier": supplier,
+            "version": version,
+            "llmId": llm_id,
+            "status": "draft",
+        }
+        agent = build_agent(payload=payload, api_key=api_key)
+        agent.validate()
+        response = "Unspecified error"
         try:
-            agent = None
-            url = urljoin(config.BACKEND_URL, "sdk/agents")
-            headers = {"x-api-key": api_key}
-
-            if isinstance(supplier, dict):
-                supplier = supplier["code"]
-            elif isinstance(supplier, Supplier):
-                supplier = supplier.value["code"]
-
-            tool_payload = []
-            for tool in tools:
-                if isinstance(tool, ModelTool):
-                    tool.validate()
-                    tool_payload.append(
-                        {
-                            "function": tool.function.value if tool.function is not None else None,
-                            "type": "model",
-                            "description": tool.description,
-                            "supplier": tool.supplier.value["code"] if tool.supplier else None,
-                            "version": tool.version if tool.version else None,
-                            "assetId": tool.model,
-                        }
-                    )
-                elif isinstance(tool, PipelineTool):
-                    tool.validate()
-                    tool_payload.append(
-                        {
-                            "assetId": tool.pipeline,
-                            "description": tool.description,
-                            "type": "pipeline",
-                        }
-                    )
-                else:
-                    raise Exception("Agent Creation Error: Tool type not supported.")
-
-            payload = {
-                "name": name,
-                "assets": tool_payload,
-                "description": description,
-                "supplier": supplier,
-                "version": version,
-                "llmId": llm_id,
-            }
-
-            logging.info(f"Start service for POST Create Agent  - {url} - {headers} - {json.dumps(payload)}")
+            logging.debug(f"Start service for POST Create Agent  - {url} - {headers} - {json.dumps(payload)}")
             r = _request_with_retry("post", url, headers=headers, json=payload)
-            if 200 <= r.status_code < 300:
-                response = r.json()
-                agent = build_agent(payload=response, api_key=api_key)
-            else:
-                error = r.json()
-                error_msg = "Agent Onboarding Error: Please contact the administrators."
-                if "message" in error:
-                    msg = error["message"]
-                    if error["message"] == "err.name_already_exists":
-                        msg = "Agent name already exists."
-                    elif error["message"] == "err.asset_is_not_available":
-                        msg = "Some tools are not available."
-                    error_msg = f"Agent Onboarding Error (HTTP {r.status_code}): {msg}"
-                logging.exception(error_msg)
-                raise Exception(error_msg)
-        except Exception as e:
-            raise Exception(e)
+            response = r.json()
+        except Exception:
+            raise Exception("Agent Onboarding Error: Please contact the administrators.")
+
+        if 200 <= r.status_code < 300:
+            agent = build_agent(payload=response, api_key=api_key)
+        else:
+            error_msg = f"Agent Onboarding Error: {response}"
+            if "message" in response:
+                msg = response["message"]
+                if response["message"] == "err.name_already_exists":
+                    msg = "Agent name already exists."
+                elif response["message"] == "err.asset_is_not_available":
+                    msg = "Some tools are not available."
+                error_msg = f"Agent Onboarding Error (HTTP {r.status_code}): {msg}"
+            logging.exception(error_msg)
+            raise Exception(error_msg)
         return agent
 
     @classmethod
@@ -164,6 +138,8 @@ class AgentFactory:
     @classmethod
     def list(cls) -> Dict:
         """List all agents available in the platform."""
+        from aixplain.factories.agent_factory.utils import build_agent
+
         url = urljoin(config.BACKEND_URL, "sdk/agents")
         headers = {"x-api-key": config.TEAM_API_KEY, "Content-Type": "application/json"}
 
@@ -195,6 +171,8 @@ class AgentFactory:
     @classmethod
     def get(cls, agent_id: Text, api_key: Optional[Text] = None) -> Agent:
         """Get agent by id."""
+        from aixplain.factories.agent_factory.utils import build_agent
+
         url = urljoin(config.BACKEND_URL, f"sdk/agents/{agent_id}")
         if config.AIXPLAIN_API_KEY != "":
             headers = {"x-aixplain-key": f"{config.AIXPLAIN_API_KEY}", "Content-Type": "application/json"}

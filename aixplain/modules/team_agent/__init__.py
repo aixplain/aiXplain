@@ -25,8 +25,10 @@ import json
 import logging
 import time
 import traceback
+import re
 
 from aixplain.utils.file_utils import _request_with_retry
+from aixplain.enums.function import Function
 from aixplain.enums.supplier import Supplier
 from aixplain.enums.asset_status import AssetStatus
 from aixplain.enums.storage_type import StorageType
@@ -259,3 +261,67 @@ class TeamAgent(Model):
             )
             logging.error(message)
             raise Exception(f"{message}")
+
+    def to_dict(self) -> Dict:
+        return {
+            "name": self.name,
+            "agents": [
+                {"assetId": agent.id, "number": idx, "type": "AGENT", "label": "AGENT"} for idx, agent in enumerate(self.agents)
+            ],
+            "links": [],
+            "description": self.description,
+            "llmId": self.llm_id,
+            "supervisorId": self.llm_id,
+            "plannerId": self.mentalist_and_inspector_llm_id,
+            "supplier": self.supplier,
+            "version": self.version,
+        }
+
+    def validate(self) -> None:
+        """Validate the Team."""
+        from aixplain.factories.model_factory import ModelFactory
+
+        # validate name
+        assert (
+            re.match("^[a-zA-Z0-9 ]*$", self.name) is not None
+        ), "Team Agent Creation Error: Team name must not contain special characters."
+
+        try:
+            llm = ModelFactory.get(self.llm_id)
+            assert llm.function == Function.TEXT_GENERATION, "Large Language Model must be a text generation model."
+        except Exception:
+            raise Exception(f"Large Language Model with ID '{self.llm_id}' not found.")
+
+        for agent in self.agents:
+            agent.validate()
+
+    def update(self) -> None:
+        """Update the Team Agent."""
+        from aixplain.factories.team_agent_factory.utils import build_team_agent
+
+        self.validate()
+        url = urljoin(config.BACKEND_URL, f"sdk/agent-communities/{self.id}")
+        headers = {"x-api-key": config.TEAM_API_KEY, "Content-Type": "application/json"}
+
+        payload = self.to_dict()
+
+        logging.debug(f"Start service for PUT Update Team Agent  - {url} - {headers} - {json.dumps(payload)}")
+        resp = "No specified error."
+        try:
+            r = _request_with_retry("put", url, headers=headers, json=payload)
+            resp = r.json()
+        except Exception:
+            raise Exception("Team Agent Update Error: Please contact the administrators.")
+
+        if 200 <= r.status_code < 300:
+            return build_team_agent(resp)
+        else:
+            error_msg = f"Team Agent Update Error (HTTP {r.status_code}): {resp}"
+            raise Exception(error_msg)
+
+    def deploy(self) -> None:
+        """Deploy the Team Agent."""
+        assert self.status == AssetStatus.DRAFT, "Team Agent Deployment Error: Team Agent must be in draft status."
+        assert self.status != AssetStatus.ONBOARDED, "Team Agent Deployment Error: Team Agent must be onboarded."
+        self.status = AssetStatus.ONBOARDED
+        self.update()

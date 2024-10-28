@@ -77,6 +77,17 @@ class ModelTool(Tool):
         self.model = model
         self.function = function
 
+    def to_dict(self) -> Dict:
+        """Converts the tool to a dictionary."""
+        return {
+            "function": self.function.value if self.function is not None else None,
+            "type": "model",
+            "description": self.description,
+            "supplier": self.supplier.value["code"] if self.supplier else None,
+            "version": self.version if self.version else None,
+            "assetId": self.model,
+        }
+
     def validate(self) -> Model:
         from aixplain.factories.model_factory import ModelFactory
 
