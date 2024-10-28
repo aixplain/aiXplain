@@ -248,6 +248,7 @@ class ModelFactory:
         Returns:
             List[Model]: List of models based on given filters
         """
+        assert function, "The 'function' argument is required and cannot be None."
         models, total = cls._get_assets_from_page(
             query,
             page_number,
