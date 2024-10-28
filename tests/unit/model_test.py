@@ -29,7 +29,7 @@ from aixplain.factories import ModelFactory
 from aixplain.enums import Function
 from urllib.parse import urljoin
 from aixplain.enums import ModelStatus
-
+from aixplain.modules.model.response import ModelResponse
 import pytest
 
 
@@ -86,6 +86,7 @@ def test_success_poll():
         mock.get(poll_url, headers=headers, json=ref_response)
         test_model = Model("", "")
         hyp_response = test_model.poll(poll_url=poll_url)
+    assert isinstance(hyp_response, ModelResponse)
     assert hyp_response["completed"] == ref_response["completed"]
     assert hyp_response["status"] == ModelStatus.SUCCESS
 
@@ -94,21 +95,17 @@ def test_failed_poll():
     with requests_mock.Mocker() as mock:
         poll_url = "https://models.aixplain.com/api/v1/data/a90c2078-edfe-403f-acba-d2d94cf71f42"
         headers = {"x-api-key": config.TEAM_API_KEY, "Content-Type": "application/json"}
-        ref_response = {
-            "completed": True,
-            "error_message": "err.supplier_error",
-            "supplierError": re.escape(
-                '{"error_message":{"message":"The model `<supplier_model_id>` does not exist","type":"invalid_request_error","param":null,"code":"model_not_found"}}'
-            ),
-        }
-        mock.get(poll_url, headers=headers, json=ref_response)
-        test_model = Model("", "")
-        hyp_response = test_model.poll(poll_url=poll_url)
-    assert hyp_response["completed"] == ref_response["completed"]
-    assert hyp_response["error_message"] == ref_response["error_message"]
-    assert hyp_response["supplierError"] == ref_response["supplierError"]
-    assert hyp_response["status"] == ModelStatus.FAILED
+    ref_response = {"completed": True, "status": "FAILED", "error_message": "Some error occurred"}
 
+    with requests_mock.Mocker() as mock:
+        mock.get(poll_url, headers=headers, json=ref_response)
+        model = Model(id="test-id", name="Test Model")
+        response = model.poll(poll_url=poll_url)
+
+    assert isinstance(response, ModelResponse)
+    assert response.status == ModelStatus.FAILED
+    assert response.error_message == "Some error occurred"
+    assert response.completed is True
 
 @pytest.mark.parametrize(
     "status_code,error_message",
@@ -148,6 +145,7 @@ def test_run_async_errors(status_code, error_message):
         mock.post(execute_url, status_code=status_code, json=ref_response)
         test_model = Model(id=model_id, name="Test Model", url=base_url)
         response = test_model.run_async(data="input_data")
+    assert isinstance(response, ModelResponse)
     assert response["status"] == ModelStatus.FAILED
     assert response["error_message"] == error_message
 

@@ -144,7 +144,8 @@ class LLM(Model):
             try:
                 poll_url = response["url"]
                 end = time.time()
-                return(self.sync_poll(poll_url, name=name, timeout=timeout, wait_time=wait_time))
+                return self.sync_poll(poll_url, name=name, timeout=timeout, wait_time=wait_time)
+
             except Exception as e:
                 msg = f"Error in request for {name} - {traceback.format_exc()}"
                 logging.error(f"Model Run: Error in running for {name}: {e}")
