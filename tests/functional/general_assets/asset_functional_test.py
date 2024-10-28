@@ -33,7 +33,7 @@ def __get_asset_factory(asset_name):
 @pytest.mark.parametrize("asset_name", ["model", "dataset", "metric"])
 def test_list(asset_name):
     AssetFactory = __get_asset_factory(asset_name)
-    asset_list = AssetFactory.list()
+    asset_list = AssetFactory.list(Function.TRANSLATION)
     assert asset_list["page_total"] == len(asset_list["results"])
 
 
@@ -62,7 +62,7 @@ def test_model_function():
 
 def test_model_supplier():
     desired_suppliers = [Supplier.GOOGLE]
-    models = ModelFactory.list(suppliers=desired_suppliers)["results"]
+    models = ModelFactory.list(suppliers=desired_suppliers, function=Function.TRANSLATION)["results"]
     for model in models:
         assert model.supplier.value in [desired_supplier.value for desired_supplier in desired_suppliers]
 
@@ -89,14 +89,14 @@ def test_model_sort():
 
 
 def test_model_ownership():
-    models = ModelFactory.list(ownership=OwnershipType.SUBSCRIBED)["results"]
+    models = ModelFactory.list(ownership=OwnershipType.SUBSCRIBED,function=Function.TRANSLATION)["results"]
     for model in models:
         assert model.is_subscribed is True
 
 
 def test_model_query():
     query = "Mongo"
-    models = ModelFactory.list(query=query)["results"]
+    models = ModelFactory.list(query=query, function=Function.TRANSLATION)["results"]
     for model in models:
         assert query in model.name
 
