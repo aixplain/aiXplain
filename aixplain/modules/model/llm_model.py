@@ -102,7 +102,7 @@ class LLM(Model):
         top_p: float = 1.0,
         name: Text = "model_process",
         timeout: float = 300,
-        parameters: Dict = {},
+        parameters: Optional[Dict] = {},
         wait_time: float = 0.5,
     ) -> Dict:
         """Synchronously running a Large Language Model (LLM) model.
@@ -160,7 +160,7 @@ class LLM(Model):
         max_tokens: int = 128,
         top_p: float = 1.0,
         name: Text = "model_process",
-        parameters: Dict = {},
+        parameters: Optional[Dict] = {},
     ) -> Dict:
         """Runs asynchronously a model call.
 
