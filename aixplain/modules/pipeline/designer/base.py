@@ -142,13 +142,33 @@ class Link(Serializable):
         pipeline: "DesignerPipeline" = None,
     ):
 
-        assert from_param in from_node.outputs, "Invalid from param"
-        assert to_param in to_node.inputs, "Invalid to param"
-
         if isinstance(from_param, Param):
             from_param = from_param.code
         if isinstance(to_param, Param):
             to_param = to_param.code
+
+        assert from_param in from_node.outputs, (
+            "Invalid from param. "
+            "Make sure all input params are already linked accordingly"
+        )
+
+        fp_instance = from_node.outputs[from_param]
+        from .nodes import Decision
+
+        if (
+            isinstance(to_node, Decision)
+            and to_param == to_node.inputs.passthrough.code
+        ):
+            if from_param not in to_node.outputs:
+                to_node.outputs.create_param(
+                    from_param,
+                    fp_instance.data_type,
+                    is_required=fp_instance.is_required,
+                )
+            else:
+                to_node.outputs[from_param].data_type = fp_instance.data_type
+
+        assert to_param in to_node.inputs, "Invalid to param"
 
         self.from_node = from_node
         self.to_node = to_node
@@ -233,9 +253,7 @@ class ParamProxy(Serializable):
     def add_param(self, param: Param) -> None:
         # check if param already registered
         if param in self:
-            raise ValueError(
-                f"Parameter with code '{param.code}' already exists."
-            )
+            raise ValueError(f"Parameter with code '{param.code}' already exists.")
         self._params.append(param)
         # also set attribute on the node dynamically if there's no
         # any attribute with the same name
@@ -353,9 +371,7 @@ class Node(Generic[TI, TO], Serializable):
         :param pipeline: the pipeline
         """
         assert not self.pipeline, "Node already attached to a pipeline"
-        assert (
-            self not in pipeline.nodes
-        ), "Node already attached to a pipeline"
+        assert self not in pipeline.nodes, "Node already attached to a pipeline"
         assert self.type, "Node type not set"
 
         self.pipeline = pipeline

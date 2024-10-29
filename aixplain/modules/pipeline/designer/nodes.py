@@ -288,11 +288,15 @@ class Route(Serializable):
         self.operation = operation
         self.type = type
 
-        if not self.path:
-            raise ValueError("Path is not valid, should be a list of nodes")
+        # Path can be an empty list in case the user has a valid case
+        # if not self.path:
+        #     raise ValueError("Path is not valid, should be a list of nodes")
 
         # convert nodes to node numbers if they are nodes
-        self.path = [node.number if isinstance(node, Node) else node for node in self.path]
+        self.path = [
+            node.number if isinstance(node, Node) else node
+            for node in self.path
+        ]
 
     def serialize(self) -> dict:
         return {
