@@ -80,6 +80,7 @@ class ModelFactory:
         return ModelClass(
             response["id"],
             response["name"],
+            description=response.get("description", ""),
             supplier=response["supplier"],
             api_key=response["api_key"],
             cost=response["pricing"],
