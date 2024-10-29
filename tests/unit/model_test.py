@@ -188,3 +188,70 @@ def test_get_assets_from_page_error():
             )
 
         assert "Listing Models Error: Failed to retrieve models" in str(excinfo.value)
+
+def test_run_sync():
+    model_id = "test-model-id"
+    base_url = config.MODELS_RUN_URL
+    execute_url = f"{base_url}/{model_id}".replace("/api/v1/execute", "/api/v2/execute")
+
+    ref_response = {
+        "status": "IN_PROGRESS",  
+        "data": "https://models.aixplain.com/api/v1/data/a90c2078-edfe-403f-acba-d2d94cf71f42"
+    }
+
+    poll_response = {
+        "completed": True,
+        "status": "SUCCESS", 
+        "data": "Test Model Result"
+    }
+
+    with requests_mock.Mocker() as mock:
+        mock.post(execute_url, json=ref_response)
+
+        poll_url = ref_response["data"] 
+        mock.get(poll_url, json=poll_response)
+
+        test_model = Model(id=model_id, name="Test Model", url=base_url, api_key=config.TEAM_API_KEY)
+
+        input_data = {"data": "input_data"} 
+        response = test_model.run(data=input_data, name="test_run")
+
+    assert isinstance(response, ModelResponse)
+    assert response.status == ModelStatus.SUCCESS  
+    assert response.data == "Test Model Result"
+    assert response.completed is True
+from unittest.mock import patch
+
+def test_sync_poll():
+    poll_url = "https://models.aixplain.com/api/v1/data/mock-model-id/poll"
+
+    in_progress_response = ModelResponse(
+        status="IN_PROGRESS",
+        data="",
+        completed=False,
+        error_message="",
+        used_credits=0,
+        run_time=0,
+        usage=None
+    )
+
+    success_response = ModelResponse(
+        status="SUCCESS",
+        data="Polling successful result",
+        completed=True,
+        error_message="",
+        used_credits=0,
+        run_time=0,
+        usage=None
+    )
+
+    model = Model(id="mock-model-id", name="Mock Model")
+
+    with patch.object(model, 'poll', side_effect=[in_progress_response, in_progress_response, success_response]) as mock_poll:
+
+        response = model.sync_poll(poll_url=poll_url, name="test_poll", timeout=5)
+
+        assert isinstance(response, ModelResponse)
+        assert response["status"] == "SUCCESS"
+        assert response["completed"] is True
+        assert response["data"] == "Polling successful result"
