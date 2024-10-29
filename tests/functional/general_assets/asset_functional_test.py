@@ -33,7 +33,10 @@ def __get_asset_factory(asset_name):
 @pytest.mark.parametrize("asset_name", ["model", "dataset", "metric"])
 def test_list(asset_name):
     AssetFactory = __get_asset_factory(asset_name)
-    asset_list = AssetFactory.list(Function.TRANSLATION)
+    if asset_name == "model":
+        asset_list = AssetFactory.list(function=Function.TRANSLATION)
+    else:
+        asset_list = AssetFactory.list()
     assert asset_list["page_total"] == len(asset_list["results"])
 
 
@@ -89,7 +92,7 @@ def test_model_sort():
 
 
 def test_model_ownership():
-    models = ModelFactory.list(ownership=OwnershipType.SUBSCRIBED,function=Function.TRANSLATION)["results"]
+    models = ModelFactory.list(ownership=OwnershipType.SUBSCRIBED, function=Function.TRANSLATION)["results"]
     for model in models:
         assert model.is_subscribed is True
 
