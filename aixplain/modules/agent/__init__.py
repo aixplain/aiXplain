@@ -249,12 +249,13 @@ class Agent(Model):
             headers = {"x-api-key": config.TEAM_API_KEY, "Content-Type": "application/json"}
             logging.debug(f"Start service for DELETE Agent  - {url} - {headers}")
             r = _request_with_retry("delete", url, headers=headers)
+            logging.debug(f"Result of request for DELETE Agent - {r.status_code}")
             if r.status_code != 200:
                 raise Exception()
         except Exception:
             try:
                 response_json = r.json()
-                message = f"Agent Deletion Error (HTTP {r.status_code}): {response_json.get('message')}."
+                message = f"Agent Deletion Error (HTTP {r.status_code}): {response_json.get('message').strip('{{}}')}."
             except ValueError:
                 message = f"Agent Deletion Error (HTTP {r.status_code}): There was an error in deleting the agent."
             logging.error(message)
