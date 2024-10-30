@@ -252,6 +252,10 @@ class Agent(Model):
             if r.status_code != 200:
                 raise Exception()
         except Exception:
-            message = f"Agent Deletion Error (HTTP {r.status_code}): Make sure the agent exists and you are the owner."
+            try:
+                response_json = r.json()
+                message = f"Agent Deletion Error (HTTP {r.status_code}): {response_json.get('message')}."
+            except ValueError:
+                message = f"Agent Deletion Error (HTTP {r.status_code}): There was an error in deleting the agent."
             logging.error(message)
-            raise Exception(f"{message}")
+            raise Exception(message)
