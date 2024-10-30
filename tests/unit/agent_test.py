@@ -112,6 +112,7 @@ def test_create_agent():
                     "version": "1.0",
                     "assetId": "6646261c6eb563165658bbb1",
                     "function": "text-generation",
+                    "description": "Test Tool",
                 }
             ],
         }
@@ -134,10 +135,13 @@ def test_create_agent():
             name="Test Agent",
             description="Test Agent Description",
             llm_id="6646261c6eb563165658bbb1",
-            tools=[AgentFactory.create_model_tool(supplier=Supplier.OPENAI, function="text-generation")],
+            tools=[
+                AgentFactory.create_model_tool(supplier=Supplier.OPENAI, function="text-generation", description="Test Tool")
+            ],
         )
 
     assert agent.name == ref_response["name"]
     assert agent.description == ref_response["description"]
     assert agent.llm_id == ref_response["llmId"]
     assert agent.tools[0].function.value == ref_response["assets"][0]["function"]
+    assert agent.tools[0].description == ref_response["assets"][0]["description"]

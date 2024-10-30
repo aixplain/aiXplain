@@ -42,6 +42,7 @@ class ModelTool(Tool):
         function: Optional[Union[Function, Text]] = None,
         supplier: Optional[Union[Dict, Supplier]] = None,
         model: Optional[Union[Text, Model]] = None,
+        description: Text = "",
         **additional_info,
     ) -> None:
         """Specialized software or resource designed to assist the AI in executing specific tasks or functions based on user commands.
@@ -50,11 +51,12 @@ class ModelTool(Tool):
             function (Optional[Union[Function, Text]]): task that the tool performs. Defaults to None.
             supplier (Optional[Union[Dict, Supplier]]): Preferred supplier to perform the task. Defaults to None. Defaults to None.
             model (Optional[Union[Text, Model]]): Model function. Defaults to None.
+            description (Text): Description of the tool. Defaults to "".
         """
         assert (
             function is not None or model is not None
         ), "Agent Creation Error: Either function or model must be provided when instantiating a tool."
-        super().__init__("", "", **additional_info)
+        super().__init__(name="", description=description, **additional_info)
         if function is not None:
             if isinstance(function, str):
                 function = Function(function)

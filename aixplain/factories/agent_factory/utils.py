@@ -28,6 +28,7 @@ def build_agent(payload: Dict, api_key: Text = config.TEAM_API_KEY) -> Agent:
                 supplier=tool["supplier"],
                 version=tool["version"],
                 model=tool["assetId"],
+                description=tool.get("description", ""),
             )
         elif tool["type"] == "pipeline":
             tool = PipelineTool(description=tool["description"], pipeline=tool["assetId"])
