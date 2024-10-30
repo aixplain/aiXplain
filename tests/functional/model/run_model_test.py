@@ -12,7 +12,7 @@ def pytest_generate_tests(metafunc):
         four_weeks_ago = datetime.now(timezone.utc) - timedelta(weeks=4)
         models = ModelFactory.list(function=Function.TEXT_GENERATION)["results"]
 
-        predefined_models = ["Groq Llama 3 70B", "Chat GPT 3.5", "GPT-4o", "GPT 4 (32k)"]
+        predefined_models = ["Groq Llama 3 70B", "Chat GPT 3.5", "GPT-4o"]
         recent_models = [model for model in models if model.created_at and model.created_at >= four_weeks_ago]
         combined_models = recent_models + [
             ModelFactory.list(query=model, function=Function.TEXT_GENERATION)["results"][0] for model in predefined_models

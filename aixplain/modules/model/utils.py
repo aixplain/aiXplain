@@ -57,6 +57,7 @@ def call_run_endpoint(url: Text, api_key: Text, payload: Dict) -> Dict:
         else:
             response = resp
     else:
+        resp = resp["error"] if isinstance(resp, dict) and "error" in resp else resp
         if r.status_code == 401:
             error = f"Unauthorized API key: Please verify the spelling of the API key and its current validity. Details: {resp}"
         elif 460 <= r.status_code < 470:
@@ -66,7 +67,7 @@ def call_run_endpoint(url: Text, api_key: Text, payload: Dict) -> Dict:
         elif 480 <= r.status_code < 490:
             error = f"Supplier-related error: Please ensure that the selected supplier provides the model you are trying to access. Details: {resp}"
         elif 490 <= r.status_code < 500:
-            error = f"Validation-related error: Please ensure all required fields are provided and correctly formatted. Details: {resp}"
+            error = f"{resp}"
         else:
             status_code = str(r.status_code)
             error = f"Status {status_code} - Unspecified error: {resp}"

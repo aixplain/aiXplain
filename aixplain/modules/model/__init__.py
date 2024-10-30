@@ -205,7 +205,7 @@ class Model(Asset):
         data: Union[Text, Dict],
         name: Text = "model_process",
         timeout: float = 300,
-        parameters: Dict = {},
+        parameters: Optional[Dict] = {},
         wait_time: float = 0.5,
     ) -> ModelResponse:
         """Runs a model call.
@@ -247,7 +247,7 @@ class Model(Asset):
             **response,
         )
 
-    def run_async(self, data: Union[Text, Dict], name: Text = "model_process", parameters: Dict = {}) -> ModelResponse:
+    def run_async(self, data: Union[Text, Dict], name: Text = "model_process", parameters: Optional[Dict] = {}) -> ModelResponse:
         """Runs asynchronously a model call.
 
         Args:
