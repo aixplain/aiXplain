@@ -242,6 +242,7 @@ def test_sync_poll():
     success_response = ModelResponse(
         status="SUCCESS",
         data="Polling successful result",
+        details={"test": "test"},
         completed=True,
         error_message="",
         used_credits=0,
@@ -258,4 +259,5 @@ def test_sync_poll():
         assert isinstance(response, ModelResponse)
         assert response["status"] == "SUCCESS"
         assert response["completed"] is True
+        assert response["details"] == {"test": "test"}
         assert response["data"] == "Polling successful result"

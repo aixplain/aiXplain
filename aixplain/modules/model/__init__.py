@@ -183,6 +183,7 @@ class Model(Asset):
             return ModelResponse(
                 status=resp.pop("status", status),
                 data=resp.pop("data", ""),
+                details=resp.pop("details", {}),
                 completed=resp.pop("completed", False),
                 error_message=resp.pop("error_message", ""),
                 used_credits=resp.pop("usedCredits", 0),
@@ -237,6 +238,7 @@ class Model(Asset):
         return ModelResponse(
             status=response.pop("status", ModelStatus.FAILED),
             data=response.pop("data", ""),
+            details=response.pop("details", {}),
             completed=response.pop("completed", False),
             error_message=response.pop("error_message", ""),
             used_credits=response.pop("usedCredits", 0),
@@ -263,6 +265,7 @@ class Model(Asset):
         return ModelResponse(
             status=response.pop("status", ModelStatus.FAILED),
             data=response.pop("data", ""),
+            details=response.pop("details", {}),
             completed=response.pop("completed", False),
             error_message=response.pop("error_message", ""),
             url=response.pop("url", None),

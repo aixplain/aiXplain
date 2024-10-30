@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Text, Any, Optional, Dict
+from typing import Text, Any, Optional, Dict, List, Union
 from aixplain.enums import ModelStatus
 
 
@@ -11,6 +11,7 @@ class ModelResponse:
         self,
         status: ModelStatus,
         data: Text = "",
+        details: Optional[Union[Dict, List]] = {},
         completed: bool = False,
         error_message: Text = "",
         used_credits: float = 0.0,
@@ -21,6 +22,7 @@ class ModelResponse:
     ):
         self.status = status
         self.data = data
+        self.details = details
         self.completed = completed
         self.error_message = error_message
         self.used_credits = used_credits
