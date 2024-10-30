@@ -20,7 +20,6 @@ from dotenv import load_dotenv
 import requests_mock
 
 load_dotenv()
-import re
 import json
 from aixplain.utils import config
 from aixplain.modules import Model
@@ -31,6 +30,7 @@ from urllib.parse import urljoin
 from aixplain.enums import ModelStatus
 from aixplain.modules.model.response import ModelResponse
 import pytest
+from unittest.mock import patch
 
 
 def test_build_payload():
@@ -107,6 +107,7 @@ def test_failed_poll():
     assert response.error_message == "Some error occurred"
     assert response.completed is True
 
+
 @pytest.mark.parametrize(
     "status_code,error_message",
     [
@@ -130,7 +131,10 @@ def test_failed_poll():
             495,
             "Validation-related error: Please ensure all required fields are provided and correctly formatted. Details: {'error_message': 'An unspecified error occurred while processing your request.'}",
         ),
-        (501, "Status 501 - Unspecified error: {'error_message': 'An unspecified error occurred while processing your request.'}"),
+        (
+            501,
+            "Status 501 - Unspecified error: {'error_message': 'An unspecified error occurred while processing your request.'}",
+        ),
     ],
 )
 def test_run_async_errors(status_code, error_message):
@@ -189,50 +193,50 @@ def test_get_assets_from_page_error():
 
         assert "Listing Models Error: Failed to retrieve models" in str(excinfo.value)
 
+
 def test_run_sync():
     model_id = "test-model-id"
     base_url = config.MODELS_RUN_URL
     execute_url = f"{base_url}/{model_id}".replace("/api/v1/execute", "/api/v2/execute")
 
     ref_response = {
-        "status": "IN_PROGRESS",  
-        "data": "https://models.aixplain.com/api/v1/data/a90c2078-edfe-403f-acba-d2d94cf71f42"
+        "status": "IN_PROGRESS",
+        "data": "https://models.aixplain.com/api/v1/data/a90c2078-edfe-403f-acba-d2d94cf71f42",
     }
 
     poll_response = {
         "completed": True,
-        "status": "SUCCESS", 
-        "data": "Test Model Result"
+        "status": "SUCCESS",
+        "data": "Test Model Result",
+        "usedCredits": 0,
+        "runTime": 0,
     }
 
     with requests_mock.Mocker() as mock:
         mock.post(execute_url, json=ref_response)
 
-        poll_url = ref_response["data"] 
+        poll_url = ref_response["data"]
         mock.get(poll_url, json=poll_response)
 
         test_model = Model(id=model_id, name="Test Model", url=base_url, api_key=config.TEAM_API_KEY)
 
-        input_data = {"data": "input_data"} 
+        input_data = {"data": "input_data"}
         response = test_model.run(data=input_data, name="test_run")
 
     assert isinstance(response, ModelResponse)
-    assert response.status == ModelStatus.SUCCESS  
+    assert response.status == ModelStatus.SUCCESS
     assert response.data == "Test Model Result"
     assert response.completed is True
-from unittest.mock import patch
+    assert response.used_credits == 0
+    assert response.run_time == 0
+    assert response.usage is None
+
 
 def test_sync_poll():
     poll_url = "https://models.aixplain.com/api/v1/data/mock-model-id/poll"
 
     in_progress_response = ModelResponse(
-        status="IN_PROGRESS",
-        data="",
-        completed=False,
-        error_message="",
-        used_credits=0,
-        run_time=0,
-        usage=None
+        status="IN_PROGRESS", data="", completed=False, error_message="", used_credits=0, run_time=0, usage=None
     )
 
     success_response = ModelResponse(
@@ -242,12 +246,12 @@ def test_sync_poll():
         error_message="",
         used_credits=0,
         run_time=0,
-        usage=None
+        usage=None,
     )
 
     model = Model(id="mock-model-id", name="Mock Model")
 
-    with patch.object(model, 'poll', side_effect=[in_progress_response, in_progress_response, success_response]) as mock_poll:
+    with patch.object(model, "poll", side_effect=[in_progress_response, in_progress_response, success_response]):
 
         response = model.sync_poll(poll_url=poll_url, name="test_poll", timeout=5)
 
