@@ -26,6 +26,7 @@ from aixplain.factories import PipelineFactory
 from aixplain.modules import Pipeline
 from urllib.parse import urljoin
 from aixplain.enums import Status
+from aixplain.modules.pipeline_response import PipelineResponse
 
 def test_create_pipeline():
     with requests_mock.Mocker() as mock:
@@ -96,3 +97,56 @@ def test_get_pipeline_error_response():
             PipelineFactory.get(pipeline_id=pipeline_id)
 
         assert "Pipeline GET Error: Failed to retrieve pipeline test-pipeline-id. Status Code: 404" in str(excinfo.value)
+
+
+@pytest.fixture
+def mock_pipeline():
+    return Pipeline(id="12345", name="Pipeline Test", api_key=config.TEAM_API_KEY)
+
+def test_run_async_success(mock_pipeline):
+    with requests_mock.Mocker() as mock:
+        execute_url = urljoin(config.BACKEND_URL, f"assets/pipeline/execution/run/{mock_pipeline.id}")
+        success_response = {
+            "status": "SUCCESS",
+            "data": {"output": "some_result"}, 
+            "url" : "randomurl" 
+        }
+        mock.post(execute_url, json=success_response, status_code=200)
+        
+        response = mock_pipeline.run_async(data="input_data")
+        
+    assert isinstance(response, PipelineResponse)
+    assert response.status == Status.SUCCESS
+    print(response)
+    assert response.data["output"] == "some_result" 
+
+def test_run_sync_success(mock_pipeline):
+    with requests_mock.Mocker() as mock:
+        execute_url = urljoin(config.BACKEND_URL, f"assets/pipeline/execution/run/{mock_pipeline.id}")
+        success_response = {
+            "status": "SUCCESS",
+            "data": {"output": "some_result"}, 
+            "url" : "randomurl" 
+        }
+        mock.post(execute_url, json=success_response, status_code=200)
+        
+        response = mock_pipeline.run(data="input_data")
+        
+    assert isinstance(response, PipelineResponse)
+    assert response.status == Status.SUCCESS
+    assert response.data["output"] == "some_result"
+
+def test_poll_success(mock_pipeline):
+    with requests_mock.Mocker() as mock:
+        poll_url = urljoin(config.BACKEND_URL, f"assets/pipeline/execution/poll/{mock_pipeline.id}")
+        poll_response = {
+            "status": "SUCCESS",
+            "data": {"output": "poll_result"}
+        }
+        mock.get(poll_url, json=poll_response, status_code=200)
+        
+        response = mock_pipeline.poll(poll_url=poll_url)
+        
+    assert isinstance(response, PipelineResponse)
+    assert response.status == Status.SUCCESS
+    assert response.data["output"] == "poll_result"

@@ -122,7 +122,7 @@ class Pipeline(Asset):
             )
         return response_body
 
-    def poll(self, poll_url: Text, name: Text = "pipeline_process") -> Dict:
+    def poll(self, poll_url: Text, name: Text = "pipeline_process") -> PipelineResponse:
         """Poll the platform to check whether an asynchronous call is done.
 
         Args:
@@ -141,16 +141,19 @@ class Pipeline(Asset):
         try:
             resp = r.json()
             logging.info(f"Single Poll for Pipeline: Status of polling for {name} : {resp}")
+            
+            # Convert status to lowercase to match Status enum values
+            status = Status(resp.pop("status", "failed").lower())
             return PipelineResponse(
-                status=resp.pop("status", resp),
+                status=status,
                 error=resp.pop("error_message", ""),
                 elapsed_time=resp.pop("runTime", 0),
                 **resp,
             )
         except Exception as e:
-            resp = {"status": Status.FAILED}
-            PipelineResponse(
-                status=resp.pop("status", Status.FAILED),
+            logging.error(f"Error during polling: {e}")
+            return PipelineResponse(
+                status=Status.FAILED,
                 error=str(e)
             )
 
@@ -162,39 +165,31 @@ class Pipeline(Asset):
         timeout: float = 20000.0,
         wait_time: float = 1.0,
         **kwargs,
-    ) -> Dict:
-        """Runs a pipeline call.
-
-        Args:
-            data (Union[Text, Dict]): link to the input data
-            data_asset (Optional[Union[Text, Dict]], optional): Data asset to be processed by the pipeline. Defaults to None.
-            name (Text, optional): ID given to a call. Defaults to "pipeline_process".
-            timeout (float, optional): total polling time. Defaults to 20000.0.
-            wait_time (float, optional): wait time in seconds between polling calls. Defaults to 1.0.
-            kwargs: A dictionary of keyword arguments. The keys are the argument names
-
-        Returns:
-            Dict: parsed output from pipeline
-        """
+    ) -> PipelineResponse:
         start = time.time()
         try:
             response = self.run_async(data, data_asset=data_asset, name=name, **kwargs)
-            if response["status"] == "FAILED":
+            
+            if response["status"].lower() == "failed": 
                 end = time.time()
                 return PipelineResponse(
-                status=Status.FAILED,
-                error={"error": response.get("error", ""), "status": "ERROR"},
-                elapsed_time=end - start,
-                **kwargs
+                    status=Status.FAILED,
+                    error={"error": response.error, "status": "ERROR"},
+                    elapsed_time=end - start,
+                    **kwargs
                 )
-            poll_url = response["url"]
-            end = time.time()
-            polling_response = self.__polling(poll_url, name=name, timeout=timeout, wait_time=wait_time)
 
+            poll_url = response["url"]
+            polling_response = self.__polling(poll_url, name=name, timeout=timeout, wait_time=wait_time)
+            end = time.time()
+
+            status = Status(polling_response.status)
+            
             return PipelineResponse(
-                status=Status.SUCCESS if polling_response["status"] == "SUCCESS" else Status.FAILED,
-                error=polling_response.get("error", {}),
+                status=status,
+                error=polling_response.error,
                 elapsed_time=end - start,
+                data=polling_response.error,
                 **kwargs
             )
         except Exception as e:
@@ -348,9 +343,11 @@ class Pipeline(Asset):
             if 200 <= r.status_code < 300:
                 resp = r.json()
                 logging.info(f"Result of request for {name}  - {r.status_code} - {resp}")
+                print(resp)
                 poll_url = resp["url"]
                 return PipelineResponse(
-                    status=Status.IN_PROGRESS,
+                    status=Status(resp.pop("status", "failed").lower()),
+                    data=resp["data"],
                     error=None,
                     elapsed_time=None,
                     url=poll_url, 
