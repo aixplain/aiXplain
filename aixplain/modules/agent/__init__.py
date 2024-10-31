@@ -255,7 +255,7 @@ class Agent(Model):
         except Exception:
             try:
                 response_json = r.json()
-                message = f"Agent Deletion Error (HTTP {r.status_code}): {response_json.get('message').strip('{{}}')}."
+                message = f"Agent Deletion Error (HTTP {r.status_code}): {response_json.get('message', '').strip('{{}}')}."
             except ValueError:
                 message = f"Agent Deletion Error (HTTP {r.status_code}): There was an error in deleting the agent."
             logging.error(message)
