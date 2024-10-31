@@ -41,3 +41,30 @@ class ModelResponse:
         elif key == "runTime":
             return self.run_time
         raise KeyError(f"Key '{key}' not found in ModelResponse.")
+
+    def get(self, key: Text) -> Any:
+        return self[key]
+
+    def __repr__(self) -> str:
+        fields = []
+        if self.status:
+            fields.append(f"status={self.status}")
+        if self.data:
+            fields.append(f"data='{self.data}'")
+        if self.details:
+            fields.append(f"details={self.details}")
+        if self.completed:
+            fields.append(f"completed={self.completed}")
+        if self.error_message:
+            fields.append(f"error_message='{self.error_message}'")
+        if self.used_credits:
+            fields.append(f"used_credits={self.used_credits}")
+        if self.run_time:
+            fields.append(f"run_time={self.run_time}")
+        if self.usage:
+            fields.append(f"usage={self.usage}")
+        if self.url:
+            fields.append(f"url='{self.url}'")
+        if self.additional_fields:
+            fields.extend([f"{k}={repr(v)}" for k, v in self.additional_fields.items()])
+        return f"ModelResponse({', '.join(fields)})"
