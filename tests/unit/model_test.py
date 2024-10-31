@@ -138,9 +138,7 @@ def test_run_async_errors(status_code, error_message):
     base_url = config.MODELS_RUN_URL
     model_id = "model-id"
     execute_url = f"{base_url}/{model_id}"
-    ref_response = {
-        "error_message": "An unspecified error occurred while processing your request.",
-    }
+    ref_response = "An unspecified error occurred while processing your request."
 
     with requests_mock.Mocker() as mock:
         mock.post(execute_url, status_code=status_code, json=ref_response)

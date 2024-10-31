@@ -34,6 +34,10 @@ class ModelResponse:
     def __getitem__(self, key: Text) -> Any:
         if key in self.__dict__:
             return self.__dict__[key]
-        if self.additional_fields and key in self.additional_fields:
+        elif self.additional_fields and key in self.additional_fields:
             return self.additional_fields[key]
+        elif key == "usedCredits":
+            return self.used_credits
+        elif key == "runTime":
+            return self.run_time
         raise KeyError(f"Key '{key}' not found in ModelResponse.")
