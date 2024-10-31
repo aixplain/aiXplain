@@ -19,7 +19,7 @@ import json
 from dotenv import load_dotenv
 
 load_dotenv()
-from aixplain.factories import AgentFactory
+from aixplain.factories import AgentFactory, TeamAgentFactory
 from aixplain.enums.function import Function
 from aixplain.enums.supplier import Supplier
 
@@ -36,11 +36,23 @@ def read_data(data_path):
 def run_input_map(request):
     return request.param
 
-
-def test_end2end(run_input_map):
+@pytest.fixture(scope="function")
+def delete_agents_and_team_agents():
+    for team_agent in TeamAgentFactory.list()["results"]:
+        team_agent.delete()
     for agent in AgentFactory.list()["results"]:
         agent.delete()
 
+    yield True
+
+    for team_agent in TeamAgentFactory.list()["results"]:
+        team_agent.delete()
+    for agent in AgentFactory.list()["results"]:
+        agent.delete()
+
+
+def test_end2end(run_input_map, delete_agents_and_team_agents):
+    assert delete_agents_and_team_agents
     tools = []
     if "model_tools" in run_input_map:
         for tool in run_input_map["model_tools"]:
@@ -88,3 +100,21 @@ def test_fail_non_existent_llm():
             tools=[AgentFactory.create_model_tool(function=Function.TRANSLATION)],
         )
     assert str(exc_info.value) == "Large Language Model with ID 'non_existent_llm' not found."
+
+def test_delete_agent_in_use(delete_agents_and_team_agents):
+    assert delete_agents_and_team_agents
+    agent = AgentFactory.create(
+        name="Test Agent",
+        description="Test description",
+        tools=[AgentFactory.create_model_tool(function=Function.TRANSLATION)],
+    )
+    TeamAgentFactory.create(
+        name="Test Team Agent",
+        agents=[agent],
+        description="Test description",
+        use_mentalist_and_inspector=True,
+    )
+    
+    with pytest.raises(Exception) as exc_info:
+        agent.delete()
+    assert str(exc_info.value) == "Agent Deletion Error (HTTP 403): err.agent_is_in_use."
