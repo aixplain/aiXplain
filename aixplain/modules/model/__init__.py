@@ -21,11 +21,11 @@ Description:
     Model Class
 """
 import time
-import json
 import logging
 import traceback
 from aixplain.enums import Supplier, Function
 from aixplain.modules.asset import Asset
+from aixplain.modules.model.utils import build_payload, call_run_endpoint
 from aixplain.utils import config
 from urllib.parse import urljoin
 from aixplain.utils.file_utils import _request_with_retry
@@ -149,7 +149,7 @@ class Model(Asset):
                 logging.error(f"Polling for Model: polling for {name}: {e}")
                 break
         if response_body["completed"] is True:
-            logging.info(f"Polling for Model: Final status of polling for {name}: {response_body}")
+            logging.debug(f"Polling for Model: Final status of polling for {name}: {response_body}")
         else:
             response_body["status"] = "FAILED"
             logging.error(
@@ -188,7 +188,7 @@ class Model(Asset):
         data: Union[Text, Dict],
         name: Text = "model_process",
         timeout: float = 300,
-        parameters: Dict = {},
+        parameters: Optional[Dict] = {},
         wait_time: float = 0.5,
     ) -> Dict:
         """Runs a model call.
@@ -204,23 +204,23 @@ class Model(Asset):
             Dict: parsed output from model
         """
         start = time.time()
-        try:
-            response = self.run_async(data, name=name, parameters=parameters)
-            if response["status"] == "FAILED":
+        payload = build_payload(data=data, parameters=parameters)
+        url = f"{self.url}/{self.id}".replace("api/v1/execute", "api/v2/execute")
+        logging.debug(f"Model Run Sync: Start service for {name} - {url}")
+        response = call_run_endpoint(payload=payload, url=url, api_key=self.api_key)
+        if response["status"] == "IN_PROGRESS":
+            try:
+                poll_url = response["url"]
                 end = time.time()
-                response["elapsed_time"] = end - start
-                return response
-            poll_url = response["url"]
-            end = time.time()
-            response = self.sync_poll(poll_url, name=name, timeout=timeout, wait_time=wait_time)
-            return response
-        except Exception as e:
-            msg = f"Error in request for {name} - {traceback.format_exc()}"
-            logging.error(f"Model Run: Error in running for {name}: {e}")
-            end = time.time()
-            return {"status": "FAILED", "error": msg, "elapsed_time": end - start}
+                response = self.sync_poll(poll_url, name=name, timeout=timeout, wait_time=wait_time)
+            except Exception as e:
+                msg = f"Error in request for {name} - {traceback.format_exc()}"
+                logging.error(f"Model Run: Error in running for {name}: {e}")
+                end = time.time()
+                response = {"status": "FAILED", "error": msg, "elapsed_time": end - start}
+        return response
 
-    def run_async(self, data: Union[Text, Dict], name: Text = "model_process", parameters: Dict = {}) -> Dict:
+    def run_async(self, data: Union[Text, Dict], name: Text = "model_process", parameters: Optional[Dict] = {}) -> Dict:
         """Runs asynchronously a model call.
 
         Args:
@@ -231,59 +231,10 @@ class Model(Asset):
         Returns:
             dict: polling URL in response
         """
-        headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}
-        from aixplain.factories.file_factory import FileFactory
-
-        data = FileFactory.to_link(data)
-        if isinstance(data, dict):
-            payload = data
-        else:
-            try:
-                payload = json.loads(data)
-                if isinstance(payload, dict) is False:
-                    if isinstance(payload, int) is True or isinstance(payload, float) is True:
-                        payload = str(payload)
-                    payload = {"data": payload}
-            except Exception:
-                payload = {"data": data}
-        payload.update(parameters)
-        payload = json.dumps(payload)
-
-        call_url = f"{self.url}/{self.id}"
-        r = _request_with_retry("post", call_url, headers=headers, data=payload)
-        logging.info(f"Model Run Async: Start service for {name} - {self.url} - {payload} - {headers}")
-
-        resp = None
-        try:
-            if 200 <= r.status_code < 300:
-                resp = r.json()
-                logging.info(f"Result of request for {name} - {r.status_code} - {resp}")
-                poll_url = resp["data"]
-                response = {"status": "IN_PROGRESS", "url": poll_url}
-            else:
-                if r.status_code == 401:
-                    error = "Unauthorized API key: Please verify the spelling of the API key and its current validity."
-                elif 460 <= r.status_code < 470:
-                    error = "Subscription-related error: Please ensure that your subscription is active and has not expired."
-                elif 470 <= r.status_code < 480:
-                    error = "Billing-related error: Please ensure you have enough credits to run this model. "
-                elif 480 <= r.status_code < 490:
-                    error = "Supplier-related error: Please ensure that the selected supplier provides the model you are trying to access."
-                elif 490 <= r.status_code < 500:
-                    error = "Validation-related error: Please ensure all required fields are provided and correctly formatted."
-                else:
-                    status_code = str(r.status_code)
-                    error = (
-                        f"Status {status_code}: Unspecified error: An unspecified error occurred while processing your request."
-                    )
-                response = {"status": "FAILED", "error_message": error}
-                logging.error(f"Error in request for {name} - {r.status_code}: {error}")
-        except Exception:
-            response = {"status": "FAILED"}
-            msg = f"Error in request for {name} - {traceback.format_exc()}"
-            logging.error(f"Model Run Async: Error in running for {name}: {resp}")
-            if resp is not None:
-                response["error"] = msg
+        url = f"{self.url}/{self.id}"
+        logging.debug(f"Model Run Async: Start service for {name} - {url}")
+        payload = build_payload(data=data, parameters=parameters)
+        response = call_run_endpoint(payload=payload, url=url, api_key=self.api_key)
         return response
 
     def check_finetune_status(self, after_epoch: Optional[int] = None):
