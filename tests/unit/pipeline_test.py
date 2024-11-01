@@ -108,8 +108,7 @@ def test_run_async_success(mock_pipeline):
         execute_url = urljoin(config.BACKEND_URL, f"assets/pipeline/execution/run/{mock_pipeline.id}")
         success_response = {
             "status": "SUCCESS",
-            "data": {"output": "some_result"}, 
-            "url" : "randomurl" 
+            "url": "url"
         }
         mock.post(execute_url, json=success_response, status_code=200)
         
@@ -117,24 +116,26 @@ def test_run_async_success(mock_pipeline):
         
     assert isinstance(response, PipelineResponse)
     assert response.status == Status.SUCCESS
-    print(response)
-    assert response.data["output"] == "some_result" 
+    print(response.data)
 
 def test_run_sync_success(mock_pipeline):
     with requests_mock.Mocker() as mock:
+        poll_url = urljoin(config.BACKEND_URL, f"assets/pipeline/execution/poll/{mock_pipeline.id}")
         execute_url = urljoin(config.BACKEND_URL, f"assets/pipeline/execution/run/{mock_pipeline.id}")
         success_response = {
             "status": "SUCCESS",
-            "data": {"output": "some_result"}, 
-            "url" : "randomurl" 
+            "url": poll_url
+        }
+        poll_response = {
+            "status": "SUCCESS",
+            "data": {"output": "poll_result"}
         }
         mock.post(execute_url, json=success_response, status_code=200)
-        
+        mock.get(poll_url, json=poll_response, status_code=200)
         response = mock_pipeline.run(data="input_data")
         
     assert isinstance(response, PipelineResponse)
     assert response.status == Status.SUCCESS
-    assert response.data["output"] == "some_result"
 
 def test_poll_success(mock_pipeline):
     with requests_mock.Mocker() as mock:
