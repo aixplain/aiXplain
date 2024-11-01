@@ -20,7 +20,7 @@ import json
 from dotenv import load_dotenv
 
 load_dotenv()
-from aixplain.factories import AgentFactory
+from aixplain.factories import AgentFactory, TeamAgentFactory
 from aixplain.enums.asset_status import AssetStatus
 from aixplain.enums.function import Function
 from aixplain.enums.supplier import Supplier
@@ -41,6 +41,9 @@ def run_input_map(request):
 
 
 def test_end2end(run_input_map):
+    for team in TeamAgentFactory.list()["results"]:
+        team.delete()
+
     for agent in AgentFactory.list()["results"]:
         agent.delete()
 
@@ -89,6 +92,9 @@ def test_list_agents():
 
 
 def test_update_draft_agent(run_input_map):
+    for team in TeamAgentFactory.list()["results"]:
+        team.delete()
+
     for agent in AgentFactory.list()["results"]:
         agent.delete()
 
