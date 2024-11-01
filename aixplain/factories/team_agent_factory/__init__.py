@@ -123,30 +123,31 @@ class TeamAgentFactory:
         url = urljoin(config.BACKEND_URL, "sdk/agent-communities")
         headers = {"x-api-key": config.TEAM_API_KEY, "Content-Type": "application/json"}
 
+        resp = {}
         payload = {}
         logging.info(f"Start service for GET List Agents - {url} - {headers} - {json.dumps(payload)}")
         try:
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()
+        except Exception:
+            raise Exception("Team Agent Listing Error: Please contact the administrators.")
 
-            if 200 <= r.status_code < 300:
-                agents, page_total, total = [], 0, 0
-                results = resp
-                page_total = len(results)
-                total = len(results)
-                logging.info(f"Response for GET List Agents - Page Total: {page_total} / Total: {total}")
-                for agent in results:
-                    agents.append(build_team_agent(agent))
-                return {"results": agents, "page_total": page_total, "page_number": 0, "total": total}
-            else:
-                error_msg = "Agent Listing Error: Please contact the administrators."
-                if "message" in resp:
-                    msg = resp["message"]
-                    error_msg = f"Agent Listing Error (HTTP {r.status_code}): {msg}"
-                logging.exception(error_msg)
-                raise Exception(error_msg)
-        except Exception as e:
-            raise Exception(e)
+        if 200 <= r.status_code < 300:
+            agents, page_total, total = [], 0, 0
+            results = resp
+            page_total = len(results)
+            total = len(results)
+            logging.info(f"Response for GET List Agents - Page Total: {page_total} / Total: {total}")
+            for agent in results:
+                agents.append(build_team_agent(agent))
+            return {"results": agents, "page_total": page_total, "page_number": 0, "total": total}
+        else:
+            error_msg = "Agent Listing Error: Please contact the administrators."
+            if isinstance(resp, dict) and "message" in resp:
+                msg = resp["message"]
+                error_msg = f"Agent Listing Error (HTTP {r.status_code}): {msg}"
+            logging.exception(error_msg)
+            raise Exception(error_msg)
 
     @classmethod
     def get(cls, agent_id: Text, api_key: Optional[Text] = None) -> TeamAgent:
@@ -158,8 +159,12 @@ class TeamAgentFactory:
             api_key = api_key if api_key is not None else config.TEAM_API_KEY
             headers = {"x-api-key": api_key, "Content-Type": "application/json"}
         logging.info(f"Start service for GET Team Agent  - {url} - {headers}")
-        r = _request_with_retry("get", url, headers=headers)
-        resp = r.json()
+        try:
+            r = _request_with_retry("get", url, headers=headers)
+            resp = r.json()
+        except Exception:
+            raise Exception("Team Agent Get Error: Please contact the administrators.")
+
         if 200 <= r.status_code < 300:
             return build_team_agent(resp)
         else:
