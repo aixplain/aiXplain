@@ -55,7 +55,7 @@ def load_functions():
                 if input_data_object["required"] is True
             },
             "output": {output_data_object["dataType"] for output_data_object in function["output"]},
-            "spec": function
+            "spec": function,
         }
         for function in resp["items"]
     }

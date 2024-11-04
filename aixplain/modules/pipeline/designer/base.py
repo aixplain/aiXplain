@@ -147,17 +147,26 @@ class Link(Serializable):
         if isinstance(to_param, Param):
             to_param = to_param.code
 
-        assert from_param in from_node.outputs, \
-            "Invalid from param. "\
+        assert from_param in from_node.outputs, (
+            "Invalid from param. "
             "Make sure all input params are already linked accordingly"
+        )
 
         fp_instance = from_node.outputs[from_param]
         from .nodes import Decision
-        if (isinstance(to_node, Decision) and
-                to_param == to_node.inputs.passthrough.code):
-            to_node.outputs.create_param(from_param,
-                                         fp_instance.data_type,
-                                         is_required=fp_instance.is_required)
+
+        if (
+            isinstance(to_node, Decision)
+            and to_param == to_node.inputs.passthrough.code
+        ):
+            if from_param not in to_node.outputs:
+                to_node.outputs.create_param(
+                    from_param,
+                    fp_instance.data_type,
+                    is_required=fp_instance.is_required,
+                )
+            else:
+                to_node.outputs[from_param].data_type = fp_instance.data_type
 
         assert to_param in to_node.inputs, "Invalid to param"
 
@@ -198,9 +207,7 @@ class Link(Serializable):
         # Should we check for data type mismatch?
         if from_param.data_type and to_param.data_type:
             if from_param.data_type != to_param.data_type:
-                raise ValueError(
-                    f"Data type mismatch between {from_param.data_type} and {to_param.data_type}"  # noqa
-                )
+                raise ValueError(f"Data type mismatch between {from_param.data_type} and {to_param.data_type}")  # noqa
 
     def attach_to(self, pipeline: "DesignerPipeline"):
         """
@@ -244,18 +251,14 @@ class ParamProxy(Serializable):
     def add_param(self, param: Param) -> None:
         # check if param already registered
         if param in self:
-            raise ValueError(
-                f"Parameter with code '{param.code}' already exists."
-            )
+            raise ValueError(f"Parameter with code '{param.code}' already exists.")
         self._params.append(param)
         # also set attribute on the node dynamically if there's no
         # any attribute with the same name
         if not hasattr(self, param.code):
             setattr(self, param.code, param)
 
-    def _create_param(
-        self, code: str, data_type: DataType = None, value: any = None
-    ) -> Param:
+    def _create_param(self, code: str, data_type: DataType = None, value: any = None) -> Param:
         raise NotImplementedError()
 
     def create_param(
@@ -319,9 +322,7 @@ class Inputs(ParamProxy):
 
 
 class Outputs(ParamProxy):
-    def _create_param(
-        self, code: str, data_type: DataType = None, value: any = None
-    ) -> OutputParam:
+    def _create_param(self, code: str, data_type: DataType = None, value: any = None) -> OutputParam:
         return OutputParam(code=code, data_type=data_type, value=value)
 
 
@@ -364,9 +365,7 @@ class Node(Generic[TI, TO], Serializable):
         :param pipeline: the pipeline
         """
         assert not self.pipeline, "Node already attached to a pipeline"
-        assert (
-            self not in pipeline.nodes
-        ), "Node already attached to a pipeline"
+        assert self not in pipeline.nodes, "Node already attached to a pipeline"
         assert self.type, "Node type not set"
 
         self.pipeline = pipeline

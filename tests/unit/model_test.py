@@ -20,7 +20,6 @@ from dotenv import load_dotenv
 import requests_mock
 
 load_dotenv()
-import re
 import json
 from aixplain.utils import config
 from aixplain.modules import Model
@@ -28,8 +27,10 @@ from aixplain.modules.model.utils import build_payload, call_run_endpoint
 from aixplain.factories import ModelFactory
 from aixplain.enums import Function
 from urllib.parse import urljoin
-
+from aixplain.enums import ModelStatus
+from aixplain.modules.model.response import ModelResponse
 import pytest
+from unittest.mock import patch
 
 
 def test_build_payload():
@@ -66,7 +67,7 @@ def test_call_run_endpoint_sync():
     model_id = "model-id"
     execute_url = f"{base_url}/{model_id}".replace("/api/v1/execute", "/api/v2/execute")
     payload = {"data": "input_data"}
-    ref_response = {"completed": True, "status": "SUCCESS", "data": "Hello"}
+    ref_response = {"completed": True, "status": ModelStatus.SUCCESS, "data": "Hello"}
 
     with requests_mock.Mocker() as mock:
         mock.post(execute_url, json=ref_response)
@@ -85,28 +86,26 @@ def test_success_poll():
         mock.get(poll_url, headers=headers, json=ref_response)
         test_model = Model("", "")
         hyp_response = test_model.poll(poll_url=poll_url)
+    assert isinstance(hyp_response, ModelResponse)
     assert hyp_response["completed"] == ref_response["completed"]
-    assert hyp_response["status"] == "SUCCESS"
+    assert hyp_response["status"] == ModelStatus.SUCCESS
 
 
 def test_failed_poll():
     with requests_mock.Mocker() as mock:
         poll_url = "https://models.aixplain.com/api/v1/data/a90c2078-edfe-403f-acba-d2d94cf71f42"
         headers = {"x-api-key": config.TEAM_API_KEY, "Content-Type": "application/json"}
-        ref_response = {
-            "completed": True,
-            "error": "err.supplier_error",
-            "supplierError": re.escape(
-                '{"error":{"message":"The model `<supplier_model_id>` does not exist","type":"invalid_request_error","param":null,"code":"model_not_found"}}'
-            ),
-        }
+    ref_response = {"completed": True, "status": "FAILED", "error_message": "Some error occurred"}
+
+    with requests_mock.Mocker() as mock:
         mock.get(poll_url, headers=headers, json=ref_response)
-        test_model = Model("", "")
-        hyp_response = test_model.poll(poll_url=poll_url)
-    assert hyp_response["completed"] == ref_response["completed"]
-    assert hyp_response["error"] == ref_response["error"]
-    assert hyp_response["supplierError"] == ref_response["supplierError"]
-    assert hyp_response["status"] == "FAILED"
+        model = Model(id="test-id", name="Test Model")
+        response = model.poll(poll_url=poll_url)
+
+    assert isinstance(response, ModelResponse)
+    assert response.status == ModelStatus.FAILED
+    assert response.error_message == "Some error occurred"
+    assert response.completed is True
 
 
 @pytest.mark.parametrize(
@@ -139,15 +138,14 @@ def test_run_async_errors(status_code, error_message):
     base_url = config.MODELS_RUN_URL
     model_id = "model-id"
     execute_url = f"{base_url}/{model_id}"
-    ref_response = {
-        "error": "An unspecified error occurred while processing your request.",
-    }
+    ref_response = "An unspecified error occurred while processing your request."
 
     with requests_mock.Mocker() as mock:
         mock.post(execute_url, status_code=status_code, json=ref_response)
         test_model = Model(id=model_id, name="Test Model", url=base_url)
         response = test_model.run_async(data="input_data")
-    assert response["status"] == "FAILED"
+    assert isinstance(response, ModelResponse)
+    assert response["status"] == ModelStatus.FAILED
     assert response["error_message"] == error_message
 
 
@@ -189,3 +187,72 @@ def test_get_assets_from_page_error():
             )
 
         assert "Listing Models Error: Failed to retrieve models" in str(excinfo.value)
+
+
+def test_run_sync():
+    model_id = "test-model-id"
+    base_url = config.MODELS_RUN_URL
+    execute_url = f"{base_url}/{model_id}".replace("/api/v1/execute", "/api/v2/execute")
+
+    ref_response = {
+        "status": "IN_PROGRESS",
+        "data": "https://models.aixplain.com/api/v1/data/a90c2078-edfe-403f-acba-d2d94cf71f42",
+    }
+
+    poll_response = {
+        "completed": True,
+        "status": "SUCCESS",
+        "data": "Test Model Result",
+        "usedCredits": 0,
+        "runTime": 0,
+    }
+
+    with requests_mock.Mocker() as mock:
+        mock.post(execute_url, json=ref_response)
+
+        poll_url = ref_response["data"]
+        mock.get(poll_url, json=poll_response)
+
+        test_model = Model(id=model_id, name="Test Model", url=base_url, api_key=config.TEAM_API_KEY)
+
+        input_data = {"data": "input_data"}
+        response = test_model.run(data=input_data, name="test_run")
+
+    assert isinstance(response, ModelResponse)
+    assert response.status == ModelStatus.SUCCESS
+    assert response.data == "Test Model Result"
+    assert response.completed is True
+    assert response.used_credits == 0
+    assert response.run_time == 0
+    assert response.usage is None
+
+
+def test_sync_poll():
+    poll_url = "https://models.aixplain.com/api/v1/data/mock-model-id/poll"
+
+    in_progress_response = ModelResponse(
+        status="IN_PROGRESS", data="", completed=False, error_message="", used_credits=0, run_time=0, usage=None
+    )
+
+    success_response = ModelResponse(
+        status="SUCCESS",
+        data="Polling successful result",
+        details={"test": "test"},
+        completed=True,
+        error_message="",
+        used_credits=0,
+        run_time=0,
+        usage=None,
+    )
+
+    model = Model(id="mock-model-id", name="Mock Model")
+
+    with patch.object(model, "poll", side_effect=[in_progress_response, in_progress_response, success_response]):
+
+        response = model.sync_poll(poll_url=poll_url, name="test_poll", timeout=5)
+
+        assert isinstance(response, ModelResponse)
+        assert response["status"] == "SUCCESS"
+        assert response["completed"] is True
+        assert response["details"] == {"test": "test"}
+        assert response["data"] == "Polling successful result"

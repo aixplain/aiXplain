@@ -33,17 +33,28 @@ RUN_FILE = "tests/functional/team_agent/data/team_agent_test_end2end.json"
 def read_data(data_path):
     return json.load(open(data_path, "r"))
 
+@pytest.fixture(scope="function")
+def delete_agents_and_team_agents():
+    for team_agent in TeamAgentFactory.list()["results"]:
+        team_agent.delete()
+    for agent in AgentFactory.list()["results"]:
+        agent.delete()
+
+    yield True
+
+    for team_agent in TeamAgentFactory.list()["results"]:
+        team_agent.delete()
+    for agent in AgentFactory.list()["results"]:
+        agent.delete()
+
 
 @pytest.fixture(scope="module", params=read_data(RUN_FILE))
 def run_input_map(request):
     return request.param
 
 
-def test_end2end(run_input_map):
-    for team in TeamAgentFactory.list()["results"]:
-        team.delete()
-    for agent in AgentFactory.list()["results"]:
-        agent.delete()
+def test_end2end(run_input_map, delete_agents_and_team_agents):
+    assert delete_agents_and_team_agents
 
     agents = []
     for agent in run_input_map["agents"]:
