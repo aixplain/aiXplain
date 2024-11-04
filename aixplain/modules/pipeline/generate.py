@@ -148,12 +148,7 @@ def populate_specs(functions: list):
     for function in functions:
         # slugify function name by trimming some special chars and
         # transforming it to snake case
-        function_name = (
-            function["id"]
-            .replace("-", "_")
-            .replace("(", "_")
-            .replace(")", "_")
-        )
+        function_name = function["id"].replace("-", "_").replace("(", "_").replace(")", "_")
         base_class = "AssetNode"
         is_segmentor = function["id"] in SEGMENTOR_FUNCTIONS
         is_reconstructor = function["id"] in RECONSTRUCTOR_FUNCTIONS
@@ -170,9 +165,7 @@ def populate_specs(functions: list):
             "is_reconstructor": function["id"] in RECONSTRUCTOR_FUNCTIONS,
             "function_name": function_name,
             "base_class": base_class,
-            "class_name": "".join(
-                [w.title() for w in function_name.split("_")]
-            ),
+            "class_name": "".join([w.title() for w in function_name.split("_")]),
             "description": function["metaData"]["description"],
             "input_type": function["metaData"]["InputType"],
             "output_type": function["metaData"]["OutputType"],
@@ -209,9 +202,7 @@ if __name__ == "__main__":
     data_types = populate_data_types(functions)
     specs = populate_specs(functions)
 
-    print(
-        f"Populating module with {len(data_types)} data types and {len(specs)} specs"
-    )
+    print(f"Populating module with {len(data_types)} data types and {len(specs)} specs")
     env = Environment(
         loader=BaseLoader(),
         trim_blocks=True,

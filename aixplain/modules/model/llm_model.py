@@ -28,6 +28,8 @@ from aixplain.modules.model import Model
 from aixplain.modules.model.utils import build_payload, call_run_endpoint
 from aixplain.utils import config
 from typing import Union, Optional, List, Text, Dict
+from aixplain.modules.model.response import ModelResponse
+from aixplain.enums import ModelStatus
 
 
 class LLM(Model):
@@ -104,7 +106,7 @@ class LLM(Model):
         timeout: float = 300,
         parameters: Optional[Dict] = {},
         wait_time: float = 0.5,
-    ) -> Dict:
+    ) -> ModelResponse:
         """Synchronously running a Large Language Model (LLM) model.
 
         Args:
@@ -142,13 +144,24 @@ class LLM(Model):
             try:
                 poll_url = response["url"]
                 end = time.time()
-                response = self.sync_poll(poll_url, name=name, timeout=timeout, wait_time=wait_time)
+                return self.sync_poll(poll_url, name=name, timeout=timeout, wait_time=wait_time)
+
             except Exception as e:
                 msg = f"Error in request for {name} - {traceback.format_exc()}"
                 logging.error(f"Model Run: Error in running for {name}: {e}")
                 end = time.time()
                 response = {"status": "FAILED", "error": msg, "elapsed_time": end - start}
-        return response
+        return ModelResponse(
+            status=response.pop("status", ModelStatus.FAILED),
+            data=response.pop("data", ""),
+            details=response.pop("details", {}),
+            completed=response.pop("completed", False),
+            error_message=response.pop("error_message", ""),
+            used_credits=response.pop("usedCredits", 0),
+            run_time=response.pop("runTime", 0),
+            usage=response.pop("usage", None),
+            **response,
+        )
 
     def run_async(
         self,
@@ -161,7 +174,7 @@ class LLM(Model):
         top_p: float = 1.0,
         name: Text = "model_process",
         parameters: Optional[Dict] = {},
-    ) -> Dict:
+    ) -> ModelResponse:
         """Runs asynchronously a model call.
 
         Args:
@@ -192,4 +205,12 @@ class LLM(Model):
         )
         payload = build_payload(data=data, parameters=parameters)
         response = call_run_endpoint(payload=payload, url=url, api_key=self.api_key)
-        return response
+        return ModelResponse(
+            status=response.pop("status", ModelStatus.FAILED),
+            data=response.pop("data", ""),
+            details=response.pop("details", {}),
+            completed=response.pop("completed", False),
+            error_message=response.pop("error_message", ""),
+            url=response.pop("url", None),
+            **response,
+        )

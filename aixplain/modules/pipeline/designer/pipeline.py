@@ -3,18 +3,7 @@ from typing import List, Type, Tuple, TypeVar
 from aixplain.enums import DataType
 
 from .base import Serializable, Node, Link
-from .nodes import (
-    AssetNode,
-    Decision,
-    Script,
-    Input,
-    Output,
-    Router,
-    Route,
-    BareReconstructor,
-    BareSegmentor,
-    BareMetric
-)
+from .nodes import AssetNode, Decision, Script, Input, Output, Router, Route, BareReconstructor, BareSegmentor, BareMetric
 from .enums import NodeType, RouteType, Operation
 from .mixins import OutputableMixin
 
@@ -121,10 +110,7 @@ class DesignerPipeline(Serializable):
         :return: True if the param is linked, False otherwise
         """
         for link in self.links:
-            if (
-                link.to_node.number == node.number
-                and param.code == link.to_param
-            ):
+            if link.to_node.number == node.number and param.code == link.to_param:
                 return True
 
         return False
@@ -148,9 +134,7 @@ class DesignerPipeline(Serializable):
         for node in self.nodes:
             for param in node.inputs:
                 if param.is_required and not self.is_param_set(node, param):
-                    raise ValueError(
-                        f"Param {param.code} of node {node.label} is required"
-                    )
+                    raise ValueError(f"Param {param.code} of node {node.label} is required")
 
     def validate(self):
         """
@@ -176,11 +160,7 @@ class DesignerPipeline(Serializable):
         :return: the link
         """
         return next(
-            (
-                link
-                for link in self.links
-                if link.from_node == from_node and link.to_node == to_node
-            ),
+            (link for link in self.links if link.from_node == from_node and link.to_node == to_node),
             None,
         )
 
@@ -192,9 +172,7 @@ class DesignerPipeline(Serializable):
         :param node_number: the node number
         :return: the node
         """
-        return next(
-            (node for node in self.nodes if node.number == node_number), None
-        )
+        return next((node for node in self.nodes if node.number == node_number), None)
 
     def auto_infer(self):
         """
@@ -228,9 +206,7 @@ class DesignerPipeline(Serializable):
             infer_data_type(self)
             infer_data_type(to_node)
 
-    def asset(
-        self, asset_id: str, *args, asset_class: Type[T] = AssetNode, **kwargs
-    ) -> T:
+    def asset(self, asset_id: str, *args, asset_class: Type[T] = AssetNode, **kwargs) -> T:
         """
         Shortcut to create an asset node for the current pipeline.
         All params will be passed as keyword arguments to the node
