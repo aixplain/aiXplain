@@ -68,3 +68,10 @@ class ModelResponse:
         if self.additional_fields:
             fields.extend([f"{k}={repr(v)}" for k, v in self.additional_fields.items()])
         return f"ModelResponse({', '.join(fields)})"
+
+    def __contains__(self, key: Text) -> bool:
+        try:
+            self[key]
+            return True
+        except KeyError:
+            return False

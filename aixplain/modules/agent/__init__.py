@@ -22,10 +22,12 @@ Description:
 """
 import json
 import logging
+import re
 import time
 import traceback
 
 from aixplain.utils.file_utils import _request_with_retry
+from aixplain.enums.function import Function
 from aixplain.enums.supplier import Supplier
 from aixplain.enums.asset_status import AssetStatus
 from aixplain.enums.storage_type import StorageType
@@ -66,7 +68,7 @@ class Agent(Model):
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
         version: Optional[Text] = None,
         cost: Optional[Dict] = None,
-        status: AssetStatus = AssetStatus.ONBOARDING,
+        status: AssetStatus = AssetStatus.DRAFT,
         **additional_info,
     ) -> None:
         """Create an Agent with the necessary information.
@@ -91,8 +93,26 @@ class Agent(Model):
             try:
                 status = AssetStatus(status)
             except Exception:
-                status = AssetStatus.ONBOARDING
+                status = AssetStatus.DRAFT
         self.status = status
+
+    def validate(self) -> None:
+        """Validate the Agent."""
+        from aixplain.factories.model_factory import ModelFactory
+
+        # validate name
+        assert (
+            re.match("^[a-zA-Z0-9 ]*$", self.name) is not None
+        ), "Agent Creation Error: Agent name must not contain special characters."
+
+        try:
+            llm = ModelFactory.get(self.llm_id)
+            assert llm.function == Function.TEXT_GENERATION, "Large Language Model must be a text generation model."
+        except Exception:
+            raise Exception(f"Large Language Model with ID '{self.llm_id}' not found.")
+
+        for tool in self.tools:
+            tool.validate()
 
     def run(
         self,
@@ -242,6 +262,18 @@ class Agent(Model):
                 response["error"] = msg
         return response
 
+    def to_dict(self) -> Dict:
+        return {
+            "id": self.id,
+            "name": self.name,
+            "assets": [tool.to_dict() for tool in self.tools],
+            "description": self.description,
+            "supplier": self.supplier.value["code"] if isinstance(self.supplier, Supplier) else self.supplier,
+            "version": self.version,
+            "llmId": self.llm_id,
+            "status": self.status.value,
+        }
+
     def delete(self) -> None:
         """Delete Agent service"""
         try:
@@ -259,4 +291,34 @@ class Agent(Model):
             except ValueError:
                 message = f"Agent Deletion Error (HTTP {r.status_code}): There was an error in deleting the agent."
             logging.error(message)
-            raise Exception(message)
+            raise Exception(f"{message}")
+
+    def update(self) -> None:
+        """Update agent."""
+        from aixplain.factories.agent_factory.utils import build_agent
+
+        self.validate()
+        url = urljoin(config.BACKEND_URL, f"sdk/agents/{self.id}")
+        headers = {"x-api-key": config.TEAM_API_KEY, "Content-Type": "application/json"}
+
+        payload = self.to_dict()
+
+        logging.debug(f"Start service for PUT Update Agent  - {url} - {headers} - {json.dumps(payload)}")
+        resp = "No specified error."
+        try:
+            r = _request_with_retry("put", url, headers=headers, json=payload)
+            resp = r.json()
+        except Exception:
+            raise Exception("Agent Update Error: Please contact the administrators.")
+
+        if 200 <= r.status_code < 300:
+            return build_agent(resp)
+        else:
+            error_msg = f"Agent Update Error (HTTP {r.status_code}): {resp}"
+            raise Exception(error_msg)
+
+    def deploy(self) -> None:
+        assert self.status == AssetStatus.DRAFT, "Agent must be in draft status to be deployed."
+        assert self.status != AssetStatus.ONBOARDED, "Agent is already deployed."
+        self.status = AssetStatus.ONBOARDED
+        self.update()

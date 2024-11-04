@@ -26,6 +26,7 @@ from typing import Text
 
 
 class AssetStatus(Text, Enum):
+    DRAFT = "draft"
     HIDDEN = "hidden"
     SCHEDULED = "scheduled"
     ONBOARDING = "onboarding"
