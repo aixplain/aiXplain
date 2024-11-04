@@ -141,6 +141,7 @@ class AgentFactory:
         model: Optional[Union[Model, Text]] = None,
         function: Optional[Union[Function, Text]] = None,
         supplier: Optional[Union[Supplier, Text]] = None,
+        description: Text = "",
     ) -> ModelTool:
         """Create a new model tool."""
         if function is not None and isinstance(function, str):
@@ -154,7 +155,7 @@ class AgentFactory:
                         break
                 if isinstance(supplier, str):
                     supplier = None
-        return ModelTool(function=function, supplier=supplier, model=model)
+        return ModelTool(function=function, supplier=supplier, model=model, description=description)
 
     @classmethod
     def create_pipeline_tool(cls, description: Text, pipeline: Union[Pipeline, Text]) -> PipelineTool:
