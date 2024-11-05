@@ -106,6 +106,7 @@ class Model(Asset):
         return {
             "id": self.id,
             "name": self.name,
+            "description": self.description,
             "supplier": self.supplier,
             "additional_info": clean_additional_info,
             "input_params": self.input_params,
@@ -205,7 +206,7 @@ class Model(Asset):
         data: Union[Text, Dict],
         name: Text = "model_process",
         timeout: float = 300,
-        parameters: Optional[Dict] = {},
+        parameters: Optional[Dict] = None,
         wait_time: float = 0.5,
     ) -> ModelResponse:
         """Runs a model call.
@@ -214,7 +215,7 @@ class Model(Asset):
             data (Union[Text, Dict]): link to the input data
             name (Text, optional): ID given to a call. Defaults to "model_process".
             timeout (float, optional): total polling time. Defaults to 300.
-            parameters (Dict, optional): optional parameters to the model. Defaults to "{}".
+            parameters (Dict, optional): optional parameters to the model. Defaults to None.
             wait_time (float, optional): wait time in seconds between polling calls. Defaults to 0.5.
 
         Returns:
@@ -247,13 +248,15 @@ class Model(Asset):
             **response,
         )
 
-    def run_async(self, data: Union[Text, Dict], name: Text = "model_process", parameters: Optional[Dict] = {}) -> ModelResponse:
+    def run_async(
+        self, data: Union[Text, Dict], name: Text = "model_process", parameters: Optional[Dict] = None
+    ) -> ModelResponse:
         """Runs asynchronously a model call.
 
         Args:
             data (Union[Text, Dict]): link to the input data
             name (Text, optional): ID given to a call. Defaults to "model_process".
-            parameters (Dict, optional): optional parameters to the model. Defaults to "{}".
+            parameters (Dict, optional): optional parameters to the model. Defaults to None.
 
         Returns:
             dict: polling URL in response

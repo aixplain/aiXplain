@@ -3,11 +3,14 @@ __author__ = "thiagocastroferreira"
 import json
 import logging
 from aixplain.utils.file_utils import _request_with_retry
-from typing import Dict, Text, Union
+from typing import Dict, Text, Union, Optional
 
 
-def build_payload(data: Union[Text, Dict], parameters: Dict = {}):
+def build_payload(data: Union[Text, Dict], parameters: Optional[Dict] = None):
     from aixplain.factories import FileFactory
+
+    if parameters is None:
+        parameters = {}
 
     data = FileFactory.to_link(data)
     if isinstance(data, dict):
