@@ -32,6 +32,6 @@ class DataSubtype(Enum):
     RACE = "race"
     SPLIT = "split"
     TOPIC = "topic"
-    
+
     def __str__(self):
         return self._value_

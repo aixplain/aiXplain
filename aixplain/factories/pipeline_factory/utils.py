@@ -82,6 +82,14 @@ def build_from_response(response: Dict, load_architecture: bool = False) -> Pipe
                         for output_param in node_json["outputValues"]
                         if output_param["code"] not in node.outputs
                     ]
+                if "customInputs" in node_json:
+                    for custom_input in node_json["customInputs"]:
+                        node.inputs.create_param(
+                            data_type=custom_input.get("dataType"),
+                            code=custom_input["code"],
+                            value=custom_input.get("value"),
+                            is_required=custom_input.get("isRequired", False),
+                        )
                 node.number = node_json["number"]
                 node.label = node_json["label"]
                 pipeline.add_node(node)

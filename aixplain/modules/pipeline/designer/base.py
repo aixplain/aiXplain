@@ -207,9 +207,7 @@ class Link(Serializable):
         # Should we check for data type mismatch?
         if from_param.data_type and to_param.data_type:
             if from_param.data_type != to_param.data_type:
-                raise ValueError(
-                    f"Data type mismatch between {from_param.data_type} and {to_param.data_type}"  # noqa
-                )
+                raise ValueError(f"Data type mismatch between {from_param.data_type} and {to_param.data_type}")  # noqa
 
     def attach_to(self, pipeline: "DesignerPipeline"):
         """
@@ -260,9 +258,7 @@ class ParamProxy(Serializable):
         if not hasattr(self, param.code):
             setattr(self, param.code, param)
 
-    def _create_param(
-        self, code: str, data_type: DataType = None, value: any = None
-    ) -> Param:
+    def _create_param(self, code: str, data_type: DataType = None, value: any = None) -> Param:
         raise NotImplementedError()
 
     def create_param(
@@ -326,9 +322,7 @@ class Inputs(ParamProxy):
 
 
 class Outputs(ParamProxy):
-    def _create_param(
-        self, code: str, data_type: DataType = None, value: any = None
-    ) -> OutputParam:
+    def _create_param(self, code: str, data_type: DataType = None, value: any = None) -> OutputParam:
         return OutputParam(code=code, data_type=data_type, value=value)
 
 
