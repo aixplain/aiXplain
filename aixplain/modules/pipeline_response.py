@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Any, Optional, Dict, Text
+from typing import Any, Optional, Dict, List, Union, Text
 from aixplain.enums import Status 
 
 @dataclass
@@ -10,7 +10,8 @@ class PipelineResponse:
         status: Status, 
         error: Optional[Dict[str, Any]] = None,
         elapsed_time: Optional[float] = 0.0,
-        data: Optional[Dict[str, Any]] = None,
+        data: Optional[Text] = None,
+        url: Optional[Text]="",
         **kwargs,  
     ):
         self.status = status
@@ -18,7 +19,7 @@ class PipelineResponse:
         self.elapsed_time = elapsed_time
         self.data = data 
         self.additional_fields = kwargs
-
+        self.url=url
     def __getitem__(self, key: str) -> Any:
         if key in self.__dict__:
             return self.__dict__[key]

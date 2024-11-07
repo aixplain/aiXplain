@@ -108,7 +108,7 @@ def test_run_async_success(mock_pipeline):
         execute_url = urljoin(config.BACKEND_URL, f"assets/pipeline/execution/run/{mock_pipeline.id}")
         success_response = {
             "status": "SUCCESS",
-            "url": "url"
+            "url": execute_url
         }
         mock.post(execute_url, json=success_response, status_code=200)
         

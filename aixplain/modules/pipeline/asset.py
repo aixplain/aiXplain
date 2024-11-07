@@ -139,15 +139,23 @@ class Pipeline(Asset):
         r = _request_with_retry("get", poll_url, headers=headers)
         try:
             resp = r.json()
+            print("resp in poll")
+            print(resp)
             logging.info(f"Single Poll for Pipeline: Status of polling for {name} : {resp}")
             status = Status(resp.pop("status", "failed").lower())
-            return PipelineResponse(
+            response = PipelineResponse(
                 status=status,
                 error=resp.pop("error", ""),
                 elapsed_time=resp.pop("elapsed_time", 0),
                 **resp,
             )
-        except Exception:
+            print("pipeline response in poll")
+            print(response)
+            return response 
+
+        except Exception as e:
+            print("exception in poll")
+            print(e)
             return PipelineResponse(
                 status=Status.FAILED,
                 error=resp.pop("error", ""),
@@ -167,7 +175,9 @@ class Pipeline(Asset):
         start = time.time()
         try:
             response = self.run_async(data, data_asset=data_asset, name=name, **kwargs)
-            if response["status"].lower() == "failed": 
+            print("response in run")
+            print(response)
+            if response["status"] == Status.FAILED: 
                 end = time.time()
                 return PipelineResponse(
                     status=Status.FAILED,
@@ -175,23 +185,24 @@ class Pipeline(Asset):
                     elapsed_time=end - start,
                     **kwargs
                 )
-            print("HERE")
-            logging.error(response)
-            print(response)
-            poll_url = response["data"]
-            polling_response = self.__polling(poll_url, name=name, timeout=timeout, wait_time=wait_time)
-
+            poll_url = response["url"]
+            polling_response = self.__polling(poll_url, name=name, timeout=timeout, wait_time=wait_time) 
+            print("poll response")
+            print(polling_response)
             end = time.time()
-
-            status = Status(polling_response.status)
+            status = Status(polling_response["status"])
             
-            return PipelineResponse(
+            response=  PipelineResponse(
                 status=status,
                 error=polling_response.error,
                 elapsed_time=end - start,
-                data=poll_url,
                 **kwargs
             )
+            print("Response Attributes:")
+            for attr in vars(response):
+                print(f"{attr}: {getattr(response, attr)}")
+            return response
+
         except Exception as e:
             error_message = f"Error in request for {name}: {str(e)}"
             logging.error(error_message)
@@ -337,20 +348,24 @@ class Pipeline(Asset):
         call_url = f"{self.url}/{self.id}"
         logging.info(f"Start service for {name}  - {call_url} - {payload}")
         r = _request_with_retry("post", call_url, headers=headers, data=payload)
-
+        print("r in run_async")
+        print(r.json())    
         resp = None
         try:
             if 200 <= r.status_code < 300:
                 resp = r.json()
                 logging.info(f"Result of request for {name}  - {r.status_code} - {resp}")
-                print(resp)
-                return PipelineResponse(
+                res = PipelineResponse(
                     status=Status(resp.pop("status", "failed").lower()),
-                    data=resp["url"],
-                    error=None,
+                    url=resp["url"],
                     elapsed_time=None,
                     **kwargs
                 )
+                print("res in run_async")
+                print(resp)
+                return res
+            
+
             else:
                 if r.status_code == 401:
                     error = "Unauthorized API key: Please verify the spelling of the API key and its current validity."
@@ -367,6 +382,8 @@ class Pipeline(Asset):
                     error = (
                         f"Status {status_code}: Unspecified error: An unspecified error occurred while processing your request."
                     )
+                print("error in run_async")
+                print(error)
                 logging.error(f"Error in request for {name} - {r.status_code}: {error}")
                 return PipelineResponse(
                     status=Status.FAILED,
