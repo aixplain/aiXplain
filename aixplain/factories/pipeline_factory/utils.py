@@ -88,7 +88,7 @@ def build_from_response(response: Dict, load_architecture: bool = False) -> Pipe
                             data_type=custom_input.get("dataType"),
                             code=custom_input["code"],
                             value=custom_input.get("value"),
-                            is_required=custom_input.get("isRequired", False),
+                            is_required=custom_input.get("isRequired", True),
                         )
                 node.number = node_json["number"]
                 node.label = node_json["label"]
