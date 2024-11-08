@@ -25,21 +25,7 @@ from enum import Enum
 from typing import Text
 
 
-class AssetStatus(Text, Enum):
-    DRAFT = "draft"
-    HIDDEN = "hidden"
-    SCHEDULED = "scheduled"
-    ONBOARDING = "onboarding"
-    ONBOARDED = "onboarded"
-    PENDING = "pending"
-    FAILED = "failed"
-    TRAINING = "training"
-    REJECTED = "rejected"
-    ENABLING = "enabling"
-    DELETING = "deleting"
-    DISABLED = "disabled"
-    DELETED = "deleted"
-    IN_PROGRESS = "in_progress"
-    COMPLETED = "completed"
-    CANCELING = "canceling"
-    CANCELED = "canceled"
+class ResponseStatus(Text, Enum):
+    IN_PROGRESS = "IN_PROGRESS"
+    SUCCESS = "SUCCESS"
+    FAILED = "FAILED"
