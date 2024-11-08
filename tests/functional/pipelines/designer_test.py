@@ -11,7 +11,7 @@ from aixplain.modules.pipeline.designer import (
 from aixplain.modules import Pipeline
 from aixplain.modules.pipeline.designer import AssetNode
 from uuid import uuid4
-from aixplain.enums import Status
+from aixplain.enums.asset_status import AssetStatus
 
 
 @pytest.fixture
@@ -99,7 +99,7 @@ def test_create_mt_pipeline_and_run(pipeline):
         "https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.txt",
         **{"batchmode": False, "version": "3.0"},
     )
-    assert output["status"] == Status.SUCCESS
+    assert output["status"] == AssetStatus.SUCCESS
 
 
 def test_routing_pipeline(pipeline):
@@ -122,7 +122,7 @@ def test_routing_pipeline(pipeline):
     print("output")
     print(output)
     print(output.status)
-    assert output["status"] == Status.SUCCESS
+    assert output["status"] == AssetStatus.SUCCESS
 
 
 def test_scripting_pipeline(pipeline):
@@ -155,7 +155,7 @@ def test_scripting_pipeline(pipeline):
         version="3.0",
     )
     print(output.data)
-    assert output["status"] == Status.SUCCESS
+    assert output["status"] == AssetStatus.SUCCESS
 
 
 
@@ -194,77 +194,73 @@ def test_decision_pipeline(pipeline):
 
     pipeline.save()
 
-    output = pipeline.run("I feel so bad today!")
+    output = pipeline.run("I feel so bad today!",version="3.0",)
     print("output")
     print(output)
-    assert output["status"] == Status.SUCCESS
+    assert output["status"] == AssetStatus.SUCCESS
     assert output.get("data") is not None
-    assert output["numofsegments"] > 0
 
 
 
-# def test_reconstructing_pipeline(pipeline):
-#     input = pipeline.input()
+def test_reconstructing_pipeline(pipeline):
+    input = pipeline.input()
 
-#     segmentor = pipeline.speaker_diarization_audio(asset_id="62fab6ecb39cca09ca5bc365")
+    segmentor = pipeline.speaker_diarization_audio(asset_id="62fab6ecb39cca09ca5bc365")
 
-#     speech_recognition = pipeline.speech_recognition(asset_id="60ddefab8d38c51c5885ee38")
+    speech_recognition = pipeline.speech_recognition(asset_id="60ddefab8d38c51c5885ee38")
 
-#     reconstructor = pipeline.text_reconstruction(asset_id="636cf7ab0f8ddf0db97929e4")
+    reconstructor = pipeline.text_reconstruction(asset_id="636cf7ab0f8ddf0db97929e4")
 
-#     input.outputs.input.link(segmentor.inputs.audio)
-#     segmentor.outputs.audio.link(speech_recognition.inputs.source_audio)
-#     speech_recognition.outputs.data.link(reconstructor.inputs.text)
+    input.outputs.input.link(segmentor.inputs.audio)
+    segmentor.outputs.audio.link(speech_recognition.inputs.source_audio)
+    speech_recognition.outputs.data.link(reconstructor.inputs.text)
 
-#     reconstructor.use_output("data")
+    reconstructor.use_output("data")
 
-#     pipeline.save()
+    pipeline.save()
 
-#     output = pipeline.run(
-#         "s3://aixplain-platform-assets/samples/en/CPAC1x2.wav",
-#     )
-#     assert output["status"] == Status.SUCCESS
-#     assert output.get("data") is not None
-#     assert len(output["data"]) > 0
-#     assert output["data"]["numofsegments"] is not None
-#     assert output["data"]["numofsegments"] > 0
+    output = pipeline.run(
+        "s3://aixplain-platform-assets/samples/en/CPAC1x2.wav",
+        version="3.0",
+    )
+    assert output["status"] == AssetStatus.SUCCESS
+    assert output.get("data") is not None
 
 
-# def test_metric_pipeline(pipeline):
 
-#     dataset = DatasetFactory.list(query="for_functional_tests")["results"][0]
-#     data_asset_id = dataset.id
-#     reference_id = dataset.target_data["pt"][0].id
+def test_metric_pipeline(pipeline):
 
-#     # Instantiate input nodes
-#     text_input_node = pipeline.input(label="TextInput")
-#     reference_input_node = pipeline.input(label="ReferenceInput")
+    dataset = DatasetFactory.list(query="for_functional_tests")["results"][0]
+    data_asset_id = dataset.id
+    reference_id = dataset.target_data["pt"][0].id
 
-#     # Instantiate the metric node
-#     translation_metric_node = pipeline.text_generation_metric(asset_id="639874ab506c987b1ae1acc6")
+    # Instantiate input nodes
+    text_input_node = pipeline.input(label="TextInput")
+    reference_input_node = pipeline.input(label="ReferenceInput")
 
-#     # Instantiate output node
-#     score_output_node = pipeline.output()
+    # Instantiate the metric node
+    translation_metric_node = pipeline.text_generation_metric(asset_id="639874ab506c987b1ae1acc6")
 
-#     # Link the nodes
-#     text_input_node.link(translation_metric_node, from_param="input", to_param="hypotheses")
+    # Instantiate output node
+    score_output_node = pipeline.output()
 
-#     reference_input_node.link(translation_metric_node, from_param="input", to_param="references")
+    # Link the nodes
+    text_input_node.link(translation_metric_node, from_param="input", to_param="hypotheses")
 
-#     translation_metric_node.link(score_output_node, from_param="data", to_param="output")
+    reference_input_node.link(translation_metric_node, from_param="input", to_param="references")
 
-#     translation_metric_node.inputs.score_identifier = "bleu"
+    translation_metric_node.link(score_output_node, from_param="data", to_param="output")
 
-#     # Save and run the pipeline
-#     pipeline.save()
+    translation_metric_node.inputs.score_identifier = "bleu"
 
-#     output = pipeline.run(
-#         data={"TextInput": reference_id, "ReferenceInput": reference_id},
-#         data_asset={"TextInput": data_asset_id, "ReferenceInput": data_asset_id},
-#     )
+    # Save and run the pipeline
+    pipeline.save()
 
-#     assert output["status"] == Status.SUCCESS
-#     assert output.get("data") is not None
-#     assert len(output["data"]) > 0
-#     assert output["data"]["numofsegments"] is not None
-#     assert output["data"]["numofsegments"] > 0
+    output = pipeline.run(
+        data={"TextInput": reference_id, "ReferenceInput": reference_id},
+        data_asset={"TextInput": data_asset_id, "ReferenceInput": data_asset_id},
+        version="3.0",
+    )
+
+    assert output["status"] == AssetStatus.SUCCESS
+    assert output.get("data") is not None

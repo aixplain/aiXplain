@@ -41,3 +41,4 @@ class AssetStatus(Text, Enum):
     COMPLETED = 'completed'
     CANCELING = 'canceling'
     CANCELED = 'canceled'
+    SUCCESS = "success"

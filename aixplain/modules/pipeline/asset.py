@@ -139,23 +139,18 @@ class Pipeline(Asset):
         r = _request_with_retry("get", poll_url, headers=headers)
         try:
             resp = r.json()
-            print("resp in poll")
-            print(resp)
             logging.info(f"Single Poll for Pipeline: Status of polling for {name} : {resp}")
             status = Status(resp.pop("status", "failed").lower())
+            print("resp in poll", resp)
             response = PipelineResponse(
                 status=status,
                 error=resp.pop("error", ""),
                 elapsed_time=resp.pop("elapsed_time", 0),
                 **resp,
             )
-            print("pipeline response in poll")
-            print(response)
             return response 
 
-        except Exception as e:
-            print("exception in poll")
-            print(e)
+        except Exception :
             return PipelineResponse(
                 status=Status.FAILED,
                 error=resp.pop("error", ""),
@@ -175,8 +170,6 @@ class Pipeline(Asset):
         start = time.time()
         try:
             response = self.run_async(data, data_asset=data_asset, name=name, **kwargs)
-            print("response in run")
-            print(response)
             if response["status"] == Status.FAILED: 
                 end = time.time()
                 return PipelineResponse(
@@ -187,20 +180,16 @@ class Pipeline(Asset):
                 )
             poll_url = response["url"]
             polling_response = self.__polling(poll_url, name=name, timeout=timeout, wait_time=wait_time) 
-            print("poll response")
-            print(polling_response)
             end = time.time()
             status = Status(polling_response["status"])
-            
+            print("polling_response in run", polling_response)
             response=  PipelineResponse(
                 status=status,
                 error=polling_response.error,
                 elapsed_time=end - start,
+                data=polling_response.data,
                 **kwargs
             )
-            print("Response Attributes:")
-            for attr in vars(response):
-                print(f"{attr}: {getattr(response, attr)}")
             return response
 
         except Exception as e:
@@ -348,21 +337,18 @@ class Pipeline(Asset):
         call_url = f"{self.url}/{self.id}"
         logging.info(f"Start service for {name}  - {call_url} - {payload}")
         r = _request_with_retry("post", call_url, headers=headers, data=payload)
-        print("r in run_async")
-        print(r.json())    
         resp = None
         try:
             if 200 <= r.status_code < 300:
                 resp = r.json()
                 logging.info(f"Result of request for {name}  - {r.status_code} - {resp}")
+                print("resp in run_async", resp)
                 res = PipelineResponse(
                     status=Status(resp.pop("status", "failed").lower()),
                     url=resp["url"],
                     elapsed_time=None,
                     **kwargs
                 )
-                print("res in run_async")
-                print(resp)
                 return res
             
 
@@ -382,8 +368,7 @@ class Pipeline(Asset):
                     error = (
                         f"Status {status_code}: Unspecified error: An unspecified error occurred while processing your request."
                     )
-                print("error in run_async")
-                print(error)
+
                 logging.error(f"Error in request for {name} - {r.status_code}: {error}")
                 return PipelineResponse(
                     status=Status.FAILED,
