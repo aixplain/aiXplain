@@ -241,3 +241,13 @@ def test_run_decision(input_data: str, output_data: str, version: str):
 
     assert response["status"] == "SUCCESS"
     assert response["data"][0]["label"] == output_data
+
+
+@pytest.mark.parametrize("version", ["2.0", "3.0"])
+def test_run_script(version: str):
+    pipeline = PipelineFactory.list(query="Script Functional Test - DO NOT DELETE")["results"][0]
+    response = pipeline.run("https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.wav", **{"version": version})
+
+    assert response["status"] == "SUCCESS"
+    data = response["data"][0]["segments"][0]["response"]
+    assert data.startswith("SCRIPT MODIFIED:")
