@@ -141,10 +141,9 @@ class Pipeline(Asset):
             resp = r.json()
             logging.info(f"Single Poll for Pipeline: Status of polling for {name} : {resp}")
             status = Status(resp.pop("status", "failed").lower())
-            print("resp in poll", resp)
             response = PipelineResponse(
                 status=status,
-                error=resp.pop("error", ""),
+                error=resp.pop("error", "None"),
                 elapsed_time=resp.pop("elapsed_time", 0),
                 **resp,
             )
@@ -153,7 +152,7 @@ class Pipeline(Asset):
         except Exception :
             return PipelineResponse(
                 status=Status.FAILED,
-                error=resp.pop("error", ""),
+                error=resp.pop("error", "None"),
                 elapsed_time=resp.pop("elapsed_time", 0),
                 **resp,
             )
@@ -182,7 +181,6 @@ class Pipeline(Asset):
             polling_response = self.__polling(poll_url, name=name, timeout=timeout, wait_time=wait_time) 
             end = time.time()
             status = Status(polling_response["status"])
-            print("polling_response in run", polling_response)
             response=  PipelineResponse(
                 status=status,
                 error=polling_response.error,
@@ -342,7 +340,6 @@ class Pipeline(Asset):
             if 200 <= r.status_code < 300:
                 resp = r.json()
                 logging.info(f"Result of request for {name}  - {r.status_code} - {resp}")
-                print("resp in run_async", resp)
                 res = PipelineResponse(
                     status=Status(resp.pop("status", "failed").lower()),
                     url=resp["url"],
