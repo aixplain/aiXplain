@@ -38,7 +38,9 @@ def test_create_and_upload_model():
     input_modality = mock_register_payload["input_modality"]
     output_modality = mock_register_payload["output_modality"]
     documentation_url = mock_register_payload["documentation_url"]
-    register_response = ModelFactory.create_asset_repo(name, description, function, source_language, input_modality, output_modality, documentation_url, config.TEAM_API_KEY)
+    register_response = ModelFactory.create_asset_repo(
+        name, description, function, source_language, input_modality, output_modality, documentation_url, config.TEAM_API_KEY
+    )
     assert "id" in register_response.keys()
     assert "repositoryName" in register_response.keys()
     model_id = register_response["id"]

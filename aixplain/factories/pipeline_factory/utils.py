@@ -82,12 +82,35 @@ def build_from_response(response: Dict, load_architecture: bool = False) -> Pipe
                         for output_param in node_json["outputValues"]
                         if output_param["code"] not in node.outputs
                     ]
+                if "customInputs" in node_json:
+                    for custom_input in node_json["customInputs"]:
+                        node.inputs.create_param(
+                            data_type=custom_input.get("dataType"),
+                            code=custom_input["code"],
+                            value=custom_input.get("value"),
+                            is_required=custom_input.get("isRequired", True),
+                        )
                 node.number = node_json["number"]
                 node.label = node_json["label"]
                 pipeline.add_node(node)
 
+            # Decision nodes' output parameters are defined based on their
+            # input parameters linked. So here we have to make sure that
+            # decision nodes (having passthrough parameter) should be first
+            # linked
+            link_jsons = response["links"][:]
+            decision_links = []
+            for link_json in link_jsons:
+                for pm in link_json["paramMapping"]:
+                    if pm["to"] == "passthrough":
+                        decision_link_index = link_jsons.index(link_json)
+                        decision_link = link_jsons.pop(decision_link_index)
+                        decision_links.append(decision_link)
+
+            link_jsons = decision_links + link_jsons
+
             # instantiating links
-            for link_json in response["links"]:
+            for link_json in link_jsons:
                 for param_mapping in link_json["paramMapping"]:
                     link = Link(
                         from_node=pipeline.get_node(link_json["from"]),

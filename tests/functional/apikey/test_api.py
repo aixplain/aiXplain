@@ -1,5 +1,5 @@
 from aixplain.factories.api_key_factory import APIKeyFactory
-from aixplain.modules import APIKey, APIKeyGlobalLimits, APIKeyUsageLimit
+from aixplain.modules import APIKey, APIKeyLimits, APIKeyUsageLimit
 from datetime import datetime
 import json
 import pytest
@@ -16,7 +16,7 @@ def test_create_api_key_from_json():
     api_key = APIKeyFactory.create(
         name=api_key_data["name"],
         asset_limits=[
-            APIKeyGlobalLimits(
+            APIKeyLimits(
                 model=api_key_data["asset_limits"][0]["model"],
                 token_per_minute=api_key_data["asset_limits"][0]["token_per_minute"],
                 token_per_day=api_key_data["asset_limits"][0]["token_per_day"],
@@ -24,7 +24,7 @@ def test_create_api_key_from_json():
                 request_per_minute=api_key_data["asset_limits"][0]["request_per_minute"],
             )
         ],
-        global_limits=APIKeyGlobalLimits(
+        global_limits=APIKeyLimits(
             token_per_minute=api_key_data["global_limits"]["token_per_minute"],
             token_per_day=api_key_data["global_limits"]["token_per_day"],
             request_per_day=api_key_data["global_limits"]["request_per_day"],
@@ -60,8 +60,8 @@ def test_create_api_key_from_dict():
     api_key_name = "Test API Key"
     api_key = APIKeyFactory.create(
         name=api_key_name,
-        asset_limits=[APIKeyGlobalLimits(**limit) for limit in api_key_dict["asset_limits"]],
-        global_limits=APIKeyGlobalLimits(**api_key_dict["global_limits"]),
+        asset_limits=[APIKeyLimits(**limit) for limit in api_key_dict["asset_limits"]],
+        global_limits=APIKeyLimits(**api_key_dict["global_limits"]),
         budget=api_key_dict["budget"],
         expires_at=datetime.strptime(api_key_dict["expires_at"], "%Y-%m-%dT%H:%M:%SZ"),
     )
@@ -92,8 +92,8 @@ def test_create_update_api_key_from_dict():
     api_key_name = "Test API Key"
     api_key = APIKeyFactory.create(
         name=api_key_name,
-        asset_limits=[APIKeyGlobalLimits(**limit) for limit in api_key_dict["asset_limits"]],
-        global_limits=APIKeyGlobalLimits(**api_key_dict["global_limits"]),
+        asset_limits=[APIKeyLimits(**limit) for limit in api_key_dict["asset_limits"]],
+        global_limits=APIKeyLimits(**api_key_dict["global_limits"]),
         budget=api_key_dict["budget"],
         expires_at=datetime.strptime(api_key_dict["expires_at"], "%Y-%m-%dT%H:%M:%SZ"),
     )
@@ -101,6 +101,11 @@ def test_create_update_api_key_from_dict():
     assert isinstance(api_key, APIKey)
     assert api_key.id != ""
     assert api_key.name == api_key_name
+
+    api_key_ = APIKeyFactory.get(api_key=api_key.access_key)
+    assert isinstance(api_key_, APIKey)
+    assert api_key_.id != ""
+    assert api_key_.name == api_key_name
 
     api_key.global_limits.token_per_day = 222
     api_key.global_limits.token_per_minute = 222
@@ -134,7 +139,9 @@ def test_list_api_keys():
 
         if api_key.is_admin is False:
             usage = api_key.get_usage()
-            assert isinstance(usage, APIKeyUsageLimit)
+            assert isinstance(usage, list)
+            if len(usage) > 0:
+                assert isinstance(usage[0], APIKeyUsageLimit)
 
 
 def test_list_update_api_keys():
@@ -149,7 +156,7 @@ def test_list_update_api_keys():
 
         number = randint(0, 10000)
         if api_key.global_limits is None:
-            api_key.global_limits = APIKeyGlobalLimits(
+            api_key.global_limits = APIKeyLimits(
                 token_per_minute=number,
                 token_per_day=number,
                 request_per_day=number,
@@ -166,7 +173,7 @@ def test_list_update_api_keys():
 
         if len(api_key.asset_limits) == 0:
             api_key.asset_limits.append(
-                APIKeyGlobalLimits(
+                APIKeyLimits(
                     model="640b517694bf816d35a59125",
                     token_per_minute=number,
                     token_per_day=number,

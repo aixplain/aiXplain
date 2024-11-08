@@ -51,3 +51,10 @@ class Tool(ABC):
         self.description = description
         self.version = version
         self.additional_info = additional_info
+
+    def to_dict(self):
+        """Converts the tool to a dictionary."""
+        raise NotImplementedError
+
+    def validate(self):
+        raise NotImplementedError

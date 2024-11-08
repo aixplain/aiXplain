@@ -4,11 +4,19 @@ import aixplain.utils.config as config
 from datetime import datetime
 from typing import Text, List, Optional, Dict, Union
 from aixplain.utils.file_utils import _request_with_retry
-from aixplain.modules.api_key import APIKey, APIKeyGlobalLimits, APIKeyUsageLimit
+from aixplain.modules.api_key import APIKey, APIKeyLimits, APIKeyUsageLimit
 
 
 class APIKeyFactory:
     backend_url = config.BACKEND_URL
+
+    @classmethod
+    def get(cls, api_key: Text) -> APIKey:
+        """Get an API key"""
+        for api_key_obj in cls.list():
+            if str(api_key_obj.access_key).startswith(api_key[:4]) and str(api_key_obj.access_key).endswith(api_key[-4:]):
+                return api_key_obj
+        raise Exception(f"API Key Error: API key {api_key} not found")
 
     @classmethod
     def list(cls) -> List[APIKey]:
@@ -30,7 +38,7 @@ class APIKeyFactory:
                     name=key["name"],
                     budget=key["budget"] if "budget" in key else None,
                     global_limits=key["globalLimits"] if "globalLimits" in key else None,
-                    asset_limits=key["assetLimits"] if "assetLimits" in key else [],
+                    asset_limits=key["assetsLimits"] if "assetsLimits" in key else [],
                     expires_at=key["expiresAt"] if "expiresAt" in key else None,
                     access_key=key["accessKey"],
                     is_admin=key["isAdmin"],
@@ -46,8 +54,8 @@ class APIKeyFactory:
         cls,
         name: Text,
         budget: int,
-        global_limits: Union[Dict, APIKeyGlobalLimits],
-        asset_limits: List[Union[Dict, APIKeyGlobalLimits]],
+        global_limits: Union[Dict, APIKeyLimits],
+        asset_limits: List[Union[Dict, APIKeyLimits]],
         expires_at: datetime,
     ) -> APIKey:
         """Create a new API key"""
@@ -84,6 +92,7 @@ class APIKeyFactory:
     @classmethod
     def update(cls, api_key: APIKey) -> APIKey:
         """Update an existing API key"""
+        api_key.validate()
         try:
             resp = "Unspecified error"
             url = f"{cls.backend_url}/sdk/api-keys/{api_key.id}"
@@ -112,12 +121,10 @@ class APIKeyFactory:
             raise Exception(f"API Key Update Error: Failed to update API key with ID {api_key.id}. Error: {str(resp)}")
 
     @classmethod
-    def get_usage_limit(cls, api_key: Text = config.TEAM_API_KEY, asset_id: Optional[Text] = None) -> APIKeyUsageLimit:
-        """Get API key usage limit"""
+    def get_usage_limits(cls, api_key: Text = config.TEAM_API_KEY, asset_id: Optional[Text] = None) -> List[APIKeyUsageLimit]:
+        """Get API key usage limits"""
         try:
             url = f"{config.BACKEND_URL}/sdk/api-keys/usage-limits"
-            if asset_id is not None:
-                url += f"?assetId={asset_id}"
             headers = {"Authorization": f"Token {api_key}", "Content-Type": "application/json"}
             logging.info(f"Start service for GET API Key Usage  - {url} - {headers}")
             r = _request_with_retry("GET", url, headers=headers)
@@ -128,11 +135,16 @@ class APIKeyFactory:
             raise Exception(f"{message}")
 
         if 200 <= r.status_code < 300:
-            return APIKeyUsageLimit(
-                request_count=resp["requestCount"],
-                request_count_limit=resp["requestCountLimit"],
-                token_count=resp["tokenCount"],
-                token_count_limit=resp["tokenCountLimit"],
-            )
+            return [
+                APIKeyUsageLimit(
+                    daily_request_count=limit["requestCount"],
+                    daily_request_limit=limit["requestCountLimit"],
+                    daily_token_count=limit["tokenCount"],
+                    daily_token_limit=limit["tokenCountLimit"],
+                    model=limit["assetId"] if "assetId" in limit else None,
+                )
+                for limit in resp
+                if asset_id is None or ("assetId" in limit and limit["assetId"] == asset_id)
+            ]
         else:
             raise Exception(f"API Key Usage Error: Failed to get usage. Error: {str(resp)}")

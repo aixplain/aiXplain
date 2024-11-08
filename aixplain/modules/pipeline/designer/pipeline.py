@@ -3,21 +3,10 @@ from typing import List, Type, Tuple, TypeVar
 from aixplain.enums import DataType
 
 from .base import Serializable, Node, Link
-from .nodes import (
-    AssetNode,
-    Decision,
-    Script,
-    Input,
-    Output,
-    Router,
-    Route,
-    BareReconstructor,
-    BareSegmentor,
-    BareMetric
-)
+from .nodes import AssetNode, Decision, Script, Input, Output, Router, Route, BareReconstructor, BareSegmentor, BareMetric
 from .enums import NodeType, RouteType, Operation
 from .mixins import OutputableMixin
-
+from .utils import find_prompt_params
 
 T = TypeVar("T", bound="AssetNode")
 
@@ -121,10 +110,7 @@ class DesignerPipeline(Serializable):
         :return: True if the param is linked, False otherwise
         """
         for link in self.links:
-            if (
-                link.to_node.number == node.number
-                and param.code == link.to_param
-            ):
+            if link.to_node.number == node.number and param.code == link.to_param:
                 return True
 
         return False
@@ -139,6 +125,24 @@ class DesignerPipeline(Serializable):
         """
         return param.value or self.is_param_linked(node, param)
 
+    def special_prompt_validation(self, node: Node):
+        """
+        This method will handle the special rule for asset nodes having
+        `text-generation` function type where if any prompt variable exists
+        then the `text` param is not required but the prompt param are.
+
+        :param node: the node
+        :raises ValueError: if the pipeline is not valid
+        """
+        if isinstance(node, AssetNode) and node.asset.function == "text-generation":
+            if self.is_param_set(node, node.inputs.prompt):
+                matches = find_prompt_params(node.inputs.prompt.value)
+                if matches:
+                    node.inputs.text.is_required = False
+                    for match in matches:
+                        if match not in node.inputs:
+                            raise ValueError(f"Param {match} of node {node.label} should be defined and set")
+
     def validate_params(self):
         """
         This method will check if all required params are either set or linked
@@ -146,11 +150,10 @@ class DesignerPipeline(Serializable):
         :raises ValueError: if the pipeline is not valid
         """
         for node in self.nodes:
+            self.special_prompt_validation(node)
             for param in node.inputs:
                 if param.is_required and not self.is_param_set(node, param):
-                    raise ValueError(
-                        f"Param {param.code} of node {node.label} is required"
-                    )
+                    raise ValueError(f"Param {param.code} of node {node.label} is required")
 
     def validate(self):
         """
@@ -176,11 +179,7 @@ class DesignerPipeline(Serializable):
         :return: the link
         """
         return next(
-            (
-                link
-                for link in self.links
-                if link.from_node == from_node and link.to_node == to_node
-            ),
+            (link for link in self.links if link.from_node == from_node and link.to_node == to_node),
             None,
         )
 
@@ -192,9 +191,7 @@ class DesignerPipeline(Serializable):
         :param node_number: the node number
         :return: the node
         """
-        return next(
-            (node for node in self.nodes if node.number == node_number), None
-        )
+        return next((node for node in self.nodes if node.number == node_number), None)
 
     def auto_infer(self):
         """
@@ -228,9 +225,7 @@ class DesignerPipeline(Serializable):
             infer_data_type(self)
             infer_data_type(to_node)
 
-    def asset(
-        self, asset_id: str, *args, asset_class: Type[T] = AssetNode, **kwargs
-    ) -> T:
+    def asset(self, asset_id: str, *args, asset_class: Type[T] = AssetNode, **kwargs) -> T:
         """
         Shortcut to create an asset node for the current pipeline.
         All params will be passed as keyword arguments to the node
