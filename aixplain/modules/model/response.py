@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from typing import Text, Any, Optional, Dict, List, Union
-from aixplain.enums import ModelStatus
+from aixplain.enums.asset_status import AssetStatus
 
 
 @dataclass
@@ -9,7 +9,7 @@ class ModelResponse:
 
     def __init__(
         self,
-        status: ModelStatus,
+        status: AssetStatus,
         data: Text = "",
         details: Optional[Union[Dict, List]] = {},
         completed: bool = False,

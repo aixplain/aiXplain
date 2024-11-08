@@ -32,7 +32,7 @@ from aixplain.utils.file_utils import _request_with_retry
 from typing import Union, Optional, Text, Dict
 from datetime import datetime
 from aixplain.modules.model.response import ModelResponse
-from aixplain.enums import ModelStatus
+from aixplain.enums.asset_status import AssetStatus
 
 
 class Model(Asset):
@@ -118,7 +118,7 @@ class Model(Asset):
         except Exception:
             return f"<Model: {self.name} by {self.supplier}>"
 
-    def sync_poll(self, poll_url: Text, name: Text = "model_process", wait_time: float = 0.5, timeout: float = 300) -> Dict:
+    def sync_poll(self, poll_url: Text, name: Text = "model_process", wait_time: float = 0.5, timeout: float = 300) -> ModelResponse:
         """Keeps polling the platform to check whether an asynchronous call is done.
 
         Args:
@@ -135,7 +135,7 @@ class Model(Asset):
         # keep wait time as 0.2 seconds the minimum
         wait_time = max(wait_time, 0.2)
         completed = False
-        response_body = {"status": "FAILED", "completed": False}
+        response_body = ModelResponse(status=AssetStatus.FAILED, completed=False)
         while not completed and (end - start) < timeout:
             try:
                 response_body = self.poll(poll_url, name=name)
@@ -147,13 +147,21 @@ class Model(Asset):
                     if wait_time < 60:
                         wait_time *= 1.1
             except Exception as e:
-                response_body = {"status": "FAILED", "completed": False, "error_message": "No response from the service."}
+                response_body = ModelResponse(
+                status=AssetStatus.FAILED, 
+                completed=False, 
+                error_message="No response from the service."
+            )
                 logging.error(f"Polling for Model: polling for {name}: {e}")
                 break
         if response_body["completed"] is True:
             logging.debug(f"Polling for Model: Final status of polling for {name}: {response_body}")
         else:
-            response_body["status"] = "FAILED"
+            response_body = ModelResponse(
+                status=AssetStatus.FAILED, 
+                completed=False, 
+                error_message="No response from the service."
+            )
             logging.error(
                 f"Polling for Model: Final status of polling for {name}: No response in {timeout} seconds - {response_body}"
             )
@@ -174,11 +182,11 @@ class Model(Asset):
         try:
             resp = r.json()
             if resp["completed"] is True:
-                status = ModelStatus.SUCCESS
+                status = AssetStatus.SUCCESS
                 if "error_message" in resp or "supplierError" in resp:
-                    status = ModelStatus.FAILED
+                    status = AssetStatus.FAILED
             else:
-                status = ModelStatus.IN_PROGRESS
+                status = AssetStatus.IN_PROGRESS
             logging.debug(f"Single Poll for Model: Status of polling for {name}: {resp}")
             return ModelResponse(
                 status=resp.pop("status", status),
@@ -195,7 +203,7 @@ class Model(Asset):
             resp = {"status": "FAILED"}
             logging.error(f"Single Poll for Model: Error of polling for {name}: {e}")
             return ModelResponse(
-                status=ModelStatus.FAILED,
+                status=AssetStatus.FAILED,
                 error_message=str(e),
                 completed=False,
             )
@@ -236,7 +244,7 @@ class Model(Asset):
                 end = time.time()
                 response = {"status": "FAILED", "error": msg, "runTime": end - start}
         return ModelResponse(
-            status=response.pop("status", ModelStatus.FAILED),
+            status=response.pop("status", AssetStatus.FAILED),
             data=response.pop("data", ""),
             details=response.pop("details", {}),
             completed=response.pop("completed", False),
@@ -263,7 +271,7 @@ class Model(Asset):
         payload = build_payload(data=data, parameters=parameters)
         response = call_run_endpoint(payload=payload, url=url, api_key=self.api_key)
         return ModelResponse(
-            status=response.pop("status", ModelStatus.FAILED),
+            status=response.pop("status", AssetStatus.FAILED),
             data=response.pop("data", ""),
             details=response.pop("details", {}),
             completed=response.pop("completed", False),

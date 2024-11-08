@@ -32,7 +32,7 @@ class AssetStatus(Text, Enum):
     ONBOARDING = "onboarding"
     ONBOARDED = "onboarded"
     PENDING = "pending"
-    FAILED = "failed"
+    FAILED = "FAILED"
     TRAINING = "training"
     REJECTED = "rejected"
     ENABLING = "enabling"
@@ -43,3 +43,4 @@ class AssetStatus(Text, Enum):
     COMPLETED = "completed"
     CANCELING = "canceling"
     CANCELED = "canceled"
+    SUCCESS = "SUCCESS"
