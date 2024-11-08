@@ -1,0 +1,11 @@
+[
+    {"name": "rouge", "id": "65e1d5ac95487dea3023a0b8", "hypothesis": "test", "reference": "test", "score": 1.0},
+    {"name": "overlap f1", "id": "66df3e2d6eb56336b6628171", "hypothesis": "test", "reference": "test", "score": 1.0},
+    {"name": "wder", "id": "66df3d0a6eb56302656a1c41", "hypothesis": "test", "reference": "test", "score": 1.0},
+    {"name": "der", "id": "66155bc16eb56341b1291e61", "hypothesis": "test", "reference": "test", "score": 1.0},
+    {"name": "wer", "id": "646d371caec2a04700e61945", "hypothesis": "test", "reference": "test", "score": 1.0},
+    {"name": "precision", "id": "666c914d6eb5630a427d5ed1", "hypothesis": "test", "reference": "test", "score": 1.0},
+    {"name": "recall", "id": "666c91706eb5630fbd6456a1", "hypothesis": "test", "reference": "test", "score": 1.0},
+    {"name": "f1", "id": "666c91826eb5631382436291", "hypothesis": "test", "reference": "test", "score": 1.0},
+    {"name": "accuracy", "id": "666c8ffe6eb5634c5779d191", "hypothesis": "test", "reference": "test", "score": 1.0}
+]
