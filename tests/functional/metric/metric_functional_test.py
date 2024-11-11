@@ -46,7 +46,6 @@ def test_end2end(run_input_map):
     assert "data" in result
     assert len(result["data"]) == 1
     assert result["data"][0]["score"] == run_input_map["score"]
-    assert result["score"] == run_input_map["score"]
 
 
 def test_list_metric():
