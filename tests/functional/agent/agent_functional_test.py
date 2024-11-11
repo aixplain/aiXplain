@@ -39,6 +39,7 @@ def read_data(data_path):
 def run_input_map(request):
     return request.param
 
+
 @pytest.fixture(scope="function")
 def delete_agents_and_team_agents():
     for team_agent in TeamAgentFactory.list()["results"]:
@@ -100,12 +101,8 @@ def test_list_agents():
     assert type(agents_result) is list
 
 
-def test_update_draft_agent(run_input_map):
-    for team in TeamAgentFactory.list()["results"]:
-        team.delete()
-
-    for agent in AgentFactory.list()["results"]:
-        agent.delete()
+def test_update_draft_agent(run_input_map, delete_agents_and_team_agents):
+    assert delete_agents_and_team_agents
 
     tools = []
     if "model_tools" in run_input_map:
@@ -137,7 +134,8 @@ def test_update_draft_agent(run_input_map):
     agent.delete()
 
 
-def test_fail_non_existent_llm():
+def test_fail_non_existent_llm(delete_agents_and_team_agents):
+    assert delete_agents_and_team_agents
     with pytest.raises(Exception) as exc_info:
         AgentFactory.create(
             name="Test Agent",
@@ -146,6 +144,7 @@ def test_fail_non_existent_llm():
             tools=[AgentFactory.create_model_tool(function=Function.TRANSLATION)],
         )
     assert str(exc_info.value) == "Large Language Model with ID 'non_existent_llm' not found."
+
 
 def test_delete_agent_in_use(delete_agents_and_team_agents):
     assert delete_agents_and_team_agents
@@ -160,7 +159,7 @@ def test_delete_agent_in_use(delete_agents_and_team_agents):
         description="Test description",
         use_mentalist_and_inspector=True,
     )
-    
+
     with pytest.raises(Exception) as exc_info:
         agent.delete()
     assert str(exc_info.value) == "Agent Deletion Error (HTTP 403): err.agent_is_in_use."

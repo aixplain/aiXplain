@@ -48,6 +48,7 @@ def load_suppliers():
         headers = {"x-aixplain-key": aixplain_key, "Content-Type": "application/json"}
     else:
         headers = {"x-api-key": api_key, "Content-Type": "application/json"}
+    logging.debug(f"Start service for GET API Creation  - {url} - {headers}")
     r = _request_with_retry("get", url, headers=headers)
     if not 200 <= r.status_code < 300:
         raise Exception(

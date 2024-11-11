@@ -1,15 +1,13 @@
-from dataclasses import dataclass
 from typing import Text, Any, Optional, Dict, List, Union
-from aixplain.enums import ModelStatus
+from aixplain.enums import ResponseStatus
 
 
-@dataclass
 class ModelResponse:
     """ModelResponse class to store the response of the model run."""
 
     def __init__(
         self,
-        status: ModelStatus,
+        status: ResponseStatus,
         data: Text = "",
         details: Optional[Union[Dict, List]] = {},
         completed: bool = False,

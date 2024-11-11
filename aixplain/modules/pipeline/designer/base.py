@@ -1,3 +1,4 @@
+import re
 from typing import (
     List,
     Union,
@@ -11,7 +12,7 @@ from typing import (
 
 from aixplain.enums import DataType
 from .enums import NodeType, ParamType
-
+from .utils import find_prompt_params
 
 if TYPE_CHECKING:
     from .pipeline import DesignerPipeline
@@ -280,14 +281,31 @@ class ParamProxy(Serializable):
                 return param
         raise KeyError(f"Parameter with code '{code}' not found.")
 
+    def special_prompt_handling(self, code: str, value: str) -> None:
+        """
+        This method will handle the special prompt handling for asset nodes
+        having `text-generation` function type.
+        """
+        from .nodes import AssetNode
+
+        if isinstance(self.node, AssetNode) and self.node.asset.function == "text-generation":
+            if code == "prompt":
+                matches = find_prompt_params(value)
+                for match in matches:
+                    self.node.inputs.create_param(match, DataType.TEXT, is_required=True)
+
+    def set_param_value(self, code: str, value: str) -> None:
+        self.special_prompt_handling(code, value)
+        self[code].value = value
+
     def __setitem__(self, code: str, value: str) -> None:
         # set param value on set item to avoid setting it manually
-        self[code].value = value
+        self.set_param_value(code, value)
 
     def __setattr__(self, name: str, value: any) -> None:
         # set param value on attribute assignment to avoid setting it manually
         if isinstance(value, str) and hasattr(self, name):
-            self[name].value = value
+            self.set_param_value(name, value)
         else:
             super().__setattr__(name, value)
 

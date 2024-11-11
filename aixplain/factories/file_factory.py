@@ -91,7 +91,7 @@ class FileFactory:
         Returns:
             StorageType: URL, TEXT or FILE
         """
-        if os.path.exists(input_link) is True:
+        if os.path.exists(input_link) is True and os.path.isfile(input_link) is True:
             return StorageType.FILE
         elif (
             input_link.startswith("s3://")

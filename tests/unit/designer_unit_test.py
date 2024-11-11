@@ -1,6 +1,5 @@
 import pytest
-import unittest.mock as mock
-
+from unittest.mock import patch, Mock, call
 
 from aixplain.enums import DataType
 from aixplain.modules.pipeline.designer.base import (
@@ -21,7 +20,7 @@ from aixplain.modules.pipeline.designer.enums import (
 
 from aixplain.modules.pipeline.designer.mixins import LinkableMixin
 from aixplain.modules.pipeline.designer.pipeline import DesignerPipeline
-
+from aixplain.modules.pipeline.designer.base import find_prompt_params
 
 def test_create_node():
 
@@ -30,7 +29,7 @@ def test_create_node():
     class BareNode(Node):
         pass
 
-    with mock.patch("aixplain.modules.pipeline.designer.Node.attach_to") as mock_attach_to:
+    with patch("aixplain.modules.pipeline.designer.Node.attach_to") as mock_attach_to:
         node = BareNode(number=3, label="FOO")
         mock_attach_to.assert_not_called()
         assert isinstance(node.inputs, Inputs)
@@ -48,7 +47,7 @@ def test_create_node():
         inputs_class = FooNodeInputs
         outputs_class = FooNodeOutputs
 
-    with mock.patch("aixplain.modules.pipeline.designer.Node.attach_to") as mock_attach_to:
+    with patch("aixplain.modules.pipeline.designer.Node.attach_to") as mock_attach_to:
         node = FooNode(pipeline=pipeline, number=3, label="FOO")
         mock_attach_to.assert_called_once_with(pipeline)
         assert isinstance(node.inputs, FooNodeInputs)
@@ -115,8 +114,8 @@ def test_node_serialize():
 
     node = AssetNode()
 
-    with mock.patch.object(node.inputs, "serialize") as mock_inputs_serialize:
-        with mock.patch.object(node.outputs, "serialize") as mock_outputs_serialize:
+    with patch.object(node.inputs, "serialize") as mock_inputs_serialize:
+        with patch.object(node.outputs, "serialize") as mock_outputs_serialize:
             assert node.serialize() == {
                 "number": node.number,
                 "type": NodeType.ASSET,
@@ -145,7 +144,7 @@ def test_create_param():
     class TypedParam(Param):
         param_type = ParamType.INPUT
 
-    with mock.patch("aixplain.modules.pipeline.designer.Param.attach_to") as mock_attach_to:
+    with patch("aixplain.modules.pipeline.designer.Param.attach_to") as mock_attach_to:
         param = TypedParam(
             code="param",
             data_type=DataType.TEXT,
@@ -158,7 +157,7 @@ def test_create_param():
     assert param.value == "foo"
     assert param.param_type == ParamType.INPUT
 
-    with mock.patch("aixplain.modules.pipeline.designer.Param.attach_to") as mock_attach_to:
+    with patch("aixplain.modules.pipeline.designer.Param.attach_to") as mock_attach_to:
         param = TypedParam(
             code="param",
             data_type=DataType.TEXT,
@@ -175,7 +174,7 @@ def test_create_param():
     class UnTypedParam(Param):
         pass
 
-    with mock.patch("aixplain.modules.pipeline.designer.Param.attach_to") as mock_attach_to:
+    with patch("aixplain.modules.pipeline.designer.Param.attach_to") as mock_attach_to:
         param = UnTypedParam(
             code="param",
             data_type=DataType.TEXT,
@@ -186,7 +185,7 @@ def test_create_param():
 
     assert param.param_type == ParamType.OUTPUT
 
-    with mock.patch("aixplain.modules.pipeline.designer.Param.attach_to") as mock_attach_to:
+    with patch("aixplain.modules.pipeline.designer.Param.attach_to") as mock_attach_to:
         param = UnTypedParam(
             code="param",
             data_type=DataType.TEXT,
@@ -202,7 +201,7 @@ def test_create_param():
 
     node = AssetNode()
 
-    with mock.patch("aixplain.modules.pipeline.designer.Param.attach_to") as mock_attach_to:
+    with patch("aixplain.modules.pipeline.designer.Param.attach_to") as mock_attach_to:
         param = UnTypedParam(
             code="param",
             data_type=DataType.TEXT,
@@ -226,7 +225,7 @@ def test_create_input_output_param(param_cls, expected_param_type):
 
     node = AssetNode()
 
-    with mock.patch("aixplain.modules.pipeline.designer.Param.attach_to") as mock_attach_to:
+    with patch("aixplain.modules.pipeline.designer.Param.attach_to") as mock_attach_to:
         param = param_cls(code="param", data_type=DataType.TEXT, value="foo", node=node)
         mock_attach_to.assert_called_once_with(node)
         assert param.code == "param"
@@ -253,7 +252,7 @@ def test_param_attach_to():
 
     input = InputParam(code="input", data_type=DataType.TEXT, value="foo")
 
-    with mock.patch.object(node.inputs, "add_param") as mock_add_param:
+    with patch.object(node.inputs, "add_param") as mock_add_param:
         input.attach_to(node)
         mock_add_param.assert_called_once_with(input)
     assert input.node is node
@@ -265,7 +264,7 @@ def test_param_attach_to():
 
     output = OutputParam(code="output", data_type=DataType.TEXT, value="bar")
 
-    with mock.patch.object(node.outputs, "add_param") as mock_add_param:
+    with patch.object(node.outputs, "add_param") as mock_add_param:
         output.attach_to(node)
         mock_add_param.assert_called_once_with(output)
     assert output.node is node
@@ -304,7 +303,7 @@ def test_param_link():
     output = OutputParam(code="output", data_type=DataType.TEXT, value="bar", node=a)
     input = InputParam(code="input", data_type=DataType.TEXT, value="foo", node=b)
 
-    with mock.patch.object(input, "back_link") as mock_back_link:
+    with patch.object(input, "back_link") as mock_back_link:
         output.link(input)
         mock_back_link.assert_called_once_with(output)
 
@@ -342,7 +341,7 @@ def test_param_back_link():
     output = OutputParam(code="output", data_type=DataType.TEXT, value="bar", node=a)
     input = InputParam(code="input", data_type=DataType.TEXT, value="foo", node=b)
 
-    with mock.patch.object(a, "link") as mock_link:
+    with patch.object(a, "link") as mock_link:
         input.back_link(output)
         mock_link.assert_called_once_with(b, output, input)
 
@@ -400,7 +399,7 @@ def test_link_create():
 
     pipeline = DesignerPipeline()
 
-    with mock.patch("aixplain.modules.pipeline.designer.Link.attach_to") as mock_attach_to:
+    with patch("aixplain.modules.pipeline.designer.Link.attach_to") as mock_attach_to:
         link = Link(
             from_node=a,
             to_node=b,
@@ -431,8 +430,8 @@ def test_link_attach_to():
         to_param="input",
     )
 
-    with mock.patch.object(a, "attach_to") as mock_a_attach_to:
-        with mock.patch.object(b, "attach_to") as mock_b_attach_to:
+    with patch.object(a, "attach_to") as mock_a_attach_to:
+        with patch.object(b, "attach_to") as mock_b_attach_to:
             link.attach_to(pipeline)
             mock_a_attach_to.assert_called_once_with(pipeline)
             mock_b_attach_to.assert_called_once_with(pipeline)
@@ -451,8 +450,8 @@ def test_link_attach_to():
         to_param="input",
     )
 
-    with mock.patch.object(a, "attach_to") as mock_a_attach_to:
-        with mock.patch.object(b, "attach_to") as mock_b_attach_to:
+    with patch.object(a, "attach_to") as mock_a_attach_to:
+        with patch.object(b, "attach_to") as mock_b_attach_to:
             link.attach_to(pipeline)
             mock_a_attach_to.assert_not_called()
             mock_b_attach_to.assert_not_called()
@@ -555,8 +554,8 @@ def test_param_proxy_create_param():
 
     param_proxy = ParamProxy(node)
 
-    with mock.patch.object(param_proxy, "_create_param") as mock_create_param:
-        with mock.patch.object(param_proxy, "add_param") as mock_add_param:
+    with patch.object(param_proxy, "_create_param") as mock_create_param:
+        with patch.object(param_proxy, "add_param") as mock_add_param:
             param = param_proxy.create_param("foo", DataType.TEXT, "bar", is_required=True)
             mock_create_param.assert_called_once_with("foo", DataType.TEXT, "bar")
             mock_add_param.assert_called_once_with(param)
@@ -586,6 +585,48 @@ def test_param_proxy_attr_access():
         param_proxy["bar"]
 
     assert "'bar'" in str(excinfo.value)
+
+
+def test_param_proxy_set_param_value():
+    prompt_param = Mock(spec=Param, code="prompt")
+    param_proxy = ParamProxy(Mock())
+    param_proxy._params = [prompt_param]
+    with patch.object(param_proxy, "special_prompt_handling") as mock_special_prompt_handling:
+        param_proxy.set_param_value("prompt", "hello {{foo}}")
+        mock_special_prompt_handling.assert_called_once_with("prompt", "hello {{foo}}")
+        assert prompt_param.value == "hello {{foo}}"
+
+
+def test_param_proxy_special_prompt_handling():
+    from aixplain.modules.pipeline.designer.nodes import AssetNode
+
+    asset_node = Mock(spec=AssetNode, asset=Mock(function="text-generation"))
+    param_proxy = ParamProxy(asset_node)
+    with patch(
+        "aixplain.modules.pipeline.designer.base.find_prompt_params"
+    ) as mock_find_prompt_params:
+        mock_find_prompt_params.return_value = []
+        param_proxy.special_prompt_handling("prompt", "hello {{foo}}")
+        mock_find_prompt_params.assert_called_once_with("hello {{foo}}")
+        asset_node.inputs.create_param.assert_not_called()
+        asset_node.reset_mock()
+        mock_find_prompt_params.reset_mock()
+
+        mock_find_prompt_params.return_value = ["foo"]
+        param_proxy.special_prompt_handling("prompt", "hello {{foo}}")
+        mock_find_prompt_params.assert_called_once_with("hello {{foo}}")
+        asset_node.inputs.create_param.assert_called_once_with("foo", DataType.TEXT, is_required=True)
+        asset_node.reset_mock()
+        mock_find_prompt_params.reset_mock()
+
+        mock_find_prompt_params.return_value = ["foo", "bar"]
+        param_proxy.special_prompt_handling("prompt", "hello {{foo}} {{bar}}")
+        mock_find_prompt_params.assert_called_once_with("hello {{foo}} {{bar}}")
+        assert asset_node.inputs.create_param.call_count == 2
+        assert asset_node.inputs.create_param.call_args_list == [
+            call("foo", DataType.TEXT, is_required=True),
+            call("bar", DataType.TEXT, is_required=True),
+        ]
 
 
 def test_node_link():
@@ -623,7 +664,7 @@ def test_pipeline_add_node():
         type: NodeType = NodeType.ASSET
 
     node1 = AssetNode()
-    with mock.patch.object(node1, "attach_to") as mock_attach_to:
+    with patch.object(node1, "attach_to") as mock_attach_to:
         pipeline.add_node(node1)
         mock_attach_to.assert_called_once_with(pipeline)
 
@@ -636,14 +677,14 @@ def test_pipeline_add_nodes():
 
     node = InputNode()
 
-    with mock.patch.object(pipeline, "add_node") as mock_add_node:
+    with patch.object(pipeline, "add_node") as mock_add_node:
         pipeline.add_nodes(node)
         assert mock_add_node.call_count == 1
 
     node1 = InputNode()
     node2 = InputNode()
 
-    with mock.patch.object(pipeline, "add_node") as mock_add_node:
+    with patch.object(pipeline, "add_node") as mock_add_node:
         pipeline.add_nodes(node1, node2)
         assert mock_add_node.call_count == 2
 
@@ -662,6 +703,95 @@ def test_pipeline_add_link():
     link = Link(from_node=a, to_node=b, from_param="output", to_param="input")
     pipeline.add_link(link)
 
-    with mock.patch.object(link, "attach_to") as mock_attach_to:
+    with patch.object(link, "attach_to") as mock_attach_to:
         pipeline.add_link(link)
         mock_attach_to.assert_called_once_with(pipeline)
+
+
+def test_pipeline_special_prompt_validation():
+    from aixplain.modules.pipeline.designer.nodes import AssetNode
+
+    pipeline = DesignerPipeline()
+    asset_node = Mock(
+        spec=AssetNode,
+        label="LLM(ID=1)",
+        asset=Mock(function="text-generation"),
+        inputs=Mock(prompt=Mock(value="hello {{foo}}"), text=Mock(is_required=True)),
+    )
+    with patch.object(pipeline, "is_param_set") as mock_is_param_set:
+        mock_is_param_set.return_value = False
+        pipeline.special_prompt_validation(asset_node)
+        mock_is_param_set.assert_called_once_with(asset_node, asset_node.inputs.prompt)
+        assert asset_node.inputs.text.is_required is True
+        mock_is_param_set.reset_mock()
+        mock_is_param_set.return_value = True
+        with patch(
+            "aixplain.modules.pipeline.designer.pipeline.find_prompt_params"
+        ) as mock_find_prompt_params:
+            mock_find_prompt_params.return_value = []
+            pipeline.special_prompt_validation(asset_node)
+            mock_is_param_set.assert_called_once_with(
+                asset_node, asset_node.inputs.prompt
+            )
+            mock_find_prompt_params.assert_called_once_with(
+                asset_node.inputs.prompt.value
+            )
+            assert asset_node.inputs.text.is_required is True
+
+            mock_is_param_set.reset_mock()
+            mock_is_param_set.return_value = True
+            mock_find_prompt_params.reset_mock()
+            mock_find_prompt_params.return_value = ["foo"]
+            asset_node.inputs.__contains__ = Mock(return_value=False)
+
+            with pytest.raises(
+                ValueError,
+                match="Param foo of node LLM\\(ID=1\\) should be defined and set",
+            ):
+                pipeline.special_prompt_validation(asset_node)
+
+            mock_is_param_set.assert_called_once_with(
+                asset_node, asset_node.inputs.prompt
+            )
+            mock_find_prompt_params.assert_called_once_with(
+                asset_node.inputs.prompt.value
+            )
+            assert asset_node.inputs.text.is_required is False
+
+            mock_is_param_set.reset_mock()
+            mock_is_param_set.return_value = True
+            mock_find_prompt_params.reset_mock()
+            mock_find_prompt_params.return_value = ["foo"]
+            asset_node.inputs.text.is_required = True
+
+            asset_node.inputs.__contains__ = Mock(return_value=True)
+            pipeline.special_prompt_validation(asset_node)
+            mock_is_param_set.assert_called_once_with(
+                asset_node, asset_node.inputs.prompt
+            )
+            mock_find_prompt_params.assert_called_once_with(
+                asset_node.inputs.prompt.value
+            )
+            assert asset_node.inputs.text.is_required is False
+
+
+@pytest.mark.parametrize(
+    "input, expected",
+    [
+        ("hello {{foo}}", ["foo"]),
+        ("hello {{foo}} {{bar}}", ["foo", "bar"]),
+        ("hello {{foo}} {{bar}} {{baz}}", ["foo", "bar", "baz"]),
+        # no match cases
+        ("hello bar", []),
+        ("hello {{foo]] bar", []),
+        ("hello {foo} bar", []),
+        # edge cases
+        ("", []),
+        ("{{}}", []),
+        # interesting cases
+        ("hello {{foo {{bar}} baz}} {{bar}} {{baz}}", ["foo {{bar", "bar", "baz"]),
+    ],
+)
+def test_find_prompt_params(input, expected):
+    print(input, expected)
+    assert find_prompt_params(input) == expected

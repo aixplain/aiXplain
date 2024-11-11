@@ -29,7 +29,7 @@ from aixplain.modules.model.utils import build_payload, call_run_endpoint
 from aixplain.utils import config
 from typing import Union, Optional, List, Text, Dict
 from aixplain.modules.model.response import ModelResponse
-from aixplain.enums import ModelStatus
+from aixplain.enums.response_status import ResponseStatus
 
 
 class LLM(Model):
@@ -154,7 +154,7 @@ class LLM(Model):
                 end = time.time()
                 response = {"status": "FAILED", "error": msg, "elapsed_time": end - start}
         return ModelResponse(
-            status=response.pop("status", ModelStatus.FAILED),
+            status=response.pop("status", ResponseStatus.FAILED),
             data=response.pop("data", ""),
             details=response.pop("details", {}),
             completed=response.pop("completed", False),
@@ -210,7 +210,7 @@ class LLM(Model):
         payload = build_payload(data=data, parameters=parameters)
         response = call_run_endpoint(payload=payload, url=url, api_key=self.api_key)
         return ModelResponse(
-            status=response.pop("status", ModelStatus.FAILED),
+            status=response.pop("status", ResponseStatus.FAILED),
             data=response.pop("data", ""),
             details=response.pop("details", {}),
             completed=response.pop("completed", False),
