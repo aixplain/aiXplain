@@ -29,9 +29,7 @@ from aixplain.modules.model.utils import build_payload, call_run_endpoint
 from aixplain.utils import config
 from typing import Union, Optional, List, Text, Dict
 from aixplain.modules.model.response import ModelResponse
-from aixplain.enums.asset_status import AssetStatus
 from aixplain.enums.response_status import ResponseStatus
-
 
 
 class LLM(Model):
