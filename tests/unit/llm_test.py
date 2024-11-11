@@ -4,7 +4,7 @@ from aixplain.enums import Function
 
 load_dotenv()
 from aixplain.utils import config
-from aixplain.enums import ModelStatus
+from aixplain.enums import ResponseStatus
 from aixplain.modules.model.response import ModelResponse
 from aixplain.modules import LLM
 
@@ -85,7 +85,7 @@ def test_run_sync():
         response = test_model.run(data=input_data, temperature=0.001, max_tokens=128, top_p=1.0)
 
     assert isinstance(response, ModelResponse)
-    assert response.status == ModelStatus.SUCCESS
+    assert response.status == ResponseStatus.SUCCESS
     assert response.data == "Test Model Result"
     assert response.completed is True
     assert response.used_credits == 0

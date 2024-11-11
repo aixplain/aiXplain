@@ -27,7 +27,7 @@ from aixplain.modules.model.utils import build_payload, call_run_endpoint
 from aixplain.factories import ModelFactory
 from aixplain.enums import Function
 from urllib.parse import urljoin
-from aixplain.enums import ModelStatus
+from aixplain.enums import ResponseStatus
 from aixplain.modules.model.response import ModelResponse
 import pytest
 from unittest.mock import patch
@@ -67,7 +67,7 @@ def test_call_run_endpoint_sync():
     model_id = "model-id"
     execute_url = f"{base_url}/{model_id}".replace("/api/v1/execute", "/api/v2/execute")
     payload = {"data": "input_data"}
-    ref_response = {"completed": True, "status": ModelStatus.SUCCESS, "data": "Hello"}
+    ref_response = {"completed": True, "status": ResponseStatus.SUCCESS, "data": "Hello"}
 
     with requests_mock.Mocker() as mock:
         mock.post(execute_url, json=ref_response)
@@ -88,7 +88,7 @@ def test_success_poll():
         hyp_response = test_model.poll(poll_url=poll_url)
     assert isinstance(hyp_response, ModelResponse)
     assert hyp_response["completed"] == ref_response["completed"]
-    assert hyp_response["status"] == ModelStatus.SUCCESS
+    assert hyp_response["status"] == ResponseStatus.SUCCESS
 
 
 def test_failed_poll():
@@ -103,7 +103,7 @@ def test_failed_poll():
         response = model.poll(poll_url=poll_url)
 
     assert isinstance(response, ModelResponse)
-    assert response.status == ModelStatus.FAILED
+    assert response.status == ResponseStatus.FAILED
     assert response.error_message == "Some error occurred"
     assert response.completed is True
 
@@ -145,7 +145,7 @@ def test_run_async_errors(status_code, error_message):
         test_model = Model(id=model_id, name="Test Model", url=base_url)
         response = test_model.run_async(data="input_data")
     assert isinstance(response, ModelResponse)
-    assert response["status"] == ModelStatus.FAILED
+    assert response["status"] == ResponseStatus.FAILED
     assert response["error_message"] == error_message
 
 
@@ -219,7 +219,7 @@ def test_run_sync():
         response = test_model.run(data=input_data, name="test_run")
 
     assert isinstance(response, ModelResponse)
-    assert response.status == ModelStatus.SUCCESS
+    assert response.status == ResponseStatus.SUCCESS
     assert response.data == "Test Model Result"
     assert response.completed is True
     assert response.used_credits == 0
