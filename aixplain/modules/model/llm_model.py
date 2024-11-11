@@ -29,7 +29,7 @@ from aixplain.modules.model.utils import build_payload, call_run_endpoint
 from aixplain.utils import config
 from typing import Union, Optional, List, Text, Dict
 from aixplain.modules.model.response import ModelResponse
-from aixplain.enums import ModelStatus
+from aixplain.enums.response_status import ResponseStatus
 
 
 class LLM(Model):
@@ -104,7 +104,7 @@ class LLM(Model):
         top_p: float = 1.0,
         name: Text = "model_process",
         timeout: float = 300,
-        parameters: Optional[Dict] = {},
+        parameters: Optional[Dict] = None,
         wait_time: float = 0.5,
     ) -> ModelResponse:
         """Synchronously running a Large Language Model (LLM) model.
@@ -119,21 +119,23 @@ class LLM(Model):
             top_p (float, optional): Top P. Defaults to 1.0.
             name (Text, optional): ID given to a call. Defaults to "model_process".
             timeout (float, optional): total polling time. Defaults to 300.
-            parameters (Dict, optional): optional parameters to the model. Defaults to "{}".
+            parameters (Dict, optional): optional parameters to the model. Defaults to None.
             wait_time (float, optional): wait time in seconds between polling calls. Defaults to 0.5.
 
         Returns:
             Dict: parsed output from model
         """
         start = time.time()
+        if parameters is None:
+            parameters = {}
         parameters.update(
             {
-                "context": parameters["context"] if "context" in parameters else context,
-                "prompt": parameters["prompt"] if "prompt" in parameters else prompt,
-                "history": parameters["history"] if "history" in parameters else history,
-                "temperature": parameters["temperature"] if "temperature" in parameters else temperature,
-                "max_tokens": parameters["max_tokens"] if "max_tokens" in parameters else max_tokens,
-                "top_p": parameters["top_p"] if "top_p" in parameters else top_p,
+                "context": parameters.get("context", context),
+                "prompt": parameters.get("prompt", prompt),
+                "history": parameters.get("history", history),
+                "temperature": parameters.get("temperature", temperature),
+                "max_tokens": parameters.get("max_tokens", max_tokens),
+                "top_p": parameters.get("top_p", top_p),
             }
         )
         payload = build_payload(data=data, parameters=parameters)
@@ -152,7 +154,7 @@ class LLM(Model):
                 end = time.time()
                 response = {"status": "FAILED", "error": msg, "elapsed_time": end - start}
         return ModelResponse(
-            status=response.pop("status", ModelStatus.FAILED),
+            status=response.pop("status", ResponseStatus.FAILED),
             data=response.pop("data", ""),
             details=response.pop("details", {}),
             completed=response.pop("completed", False),
@@ -173,7 +175,7 @@ class LLM(Model):
         max_tokens: int = 128,
         top_p: float = 1.0,
         name: Text = "model_process",
-        parameters: Optional[Dict] = {},
+        parameters: Optional[Dict] = None,
     ) -> ModelResponse:
         """Runs asynchronously a model call.
 
@@ -186,27 +188,29 @@ class LLM(Model):
             max_tokens (int, optional): Maximum Generation Tokens. Defaults to 128.
             top_p (float, optional): Top P. Defaults to 1.0.
             name (Text, optional): ID given to a call. Defaults to "model_process".
-            parameters (Dict, optional): optional parameters to the model. Defaults to "{}".
+            parameters (Dict, optional): optional parameters to the model. Defaults to None.
 
         Returns:
             dict: polling URL in response
         """
         url = f"{self.url}/{self.id}"
         logging.debug(f"Model Run Async: Start service for {name} - {url}")
+        if parameters is None:
+            parameters = {}
         parameters.update(
             {
-                "context": parameters["context"] if "context" in parameters else context,
-                "prompt": parameters["prompt"] if "prompt" in parameters else prompt,
-                "history": parameters["history"] if "history" in parameters else history,
-                "temperature": parameters["temperature"] if "temperature" in parameters else temperature,
-                "max_tokens": parameters["max_tokens"] if "max_tokens" in parameters else max_tokens,
-                "top_p": parameters["top_p"] if "top_p" in parameters else top_p,
+                "context": parameters.get("context", context),
+                "prompt": parameters.get("prompt", prompt),
+                "history": parameters.get("history", history),
+                "temperature": parameters.get("temperature", temperature),
+                "max_tokens": parameters.get("max_tokens", max_tokens),
+                "top_p": parameters.get("top_p", top_p),
             }
         )
         payload = build_payload(data=data, parameters=parameters)
         response = call_run_endpoint(payload=payload, url=url, api_key=self.api_key)
         return ModelResponse(
-            status=response.pop("status", ModelStatus.FAILED),
+            status=response.pop("status", ResponseStatus.FAILED),
             data=response.pop("data", ""),
             details=response.pop("details", {}),
             completed=response.pop("completed", False),

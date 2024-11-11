@@ -222,7 +222,7 @@ class ModelFactory:
     @classmethod
     def list(
         cls,
-        function: Function,
+        function: Optional[Function] = None,
         query: Optional[Text] = "",
         suppliers: Optional[Union[Supplier, List[Supplier]]] = None,
         source_languages: Optional[Union[Language, List[Language]]] = None,

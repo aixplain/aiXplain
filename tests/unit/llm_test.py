@@ -4,7 +4,7 @@ from aixplain.enums import Function
 
 load_dotenv()
 from aixplain.utils import config
-from aixplain.enums import ModelStatus
+from aixplain.enums import ResponseStatus
 from aixplain.modules.model.response import ModelResponse
 from aixplain.modules import LLM
 
@@ -85,9 +85,76 @@ def test_run_sync():
         response = test_model.run(data=input_data, temperature=0.001, max_tokens=128, top_p=1.0)
 
     assert isinstance(response, ModelResponse)
-    assert response.status == ModelStatus.SUCCESS
+    assert response.status == ResponseStatus.SUCCESS
     assert response.data == "Test Model Result"
     assert response.completed is True
     assert response.used_credits == 0
     assert response.run_time == 0
     assert response.usage is None
+
+
+@pytest.mark.skip(reason="Need to fix model response")
+def test_run_sync_polling_error():
+    """Test handling of polling errors in the run method"""
+    model_id = "test-model-id"
+    base_url = config.MODELS_RUN_URL
+    execute_url = f"{base_url}/{model_id}".replace("/api/v1/execute", "/api/v2/execute")
+
+    ref_response = {
+        "status": "IN_PROGRESS",
+        "data": "https://models.aixplain.com/api/v1/data/invalid-id",
+    }
+
+    with requests_mock.Mocker() as mock:
+        # Mock the initial execution call
+        mock.post(execute_url, json=ref_response)
+
+        # Mock the polling URL to raise an exception
+        poll_url = ref_response["data"]
+        mock.get(poll_url, exc=Exception("Polling failed"))
+
+        test_model = LLM(id=model_id, name="Test Model", function=Function.TEXT_GENERATION, url=base_url)
+
+        response = test_model.run(data="test input")
+
+    # Updated assertions to match ModelResponse structure
+    assert isinstance(response, ModelResponse)
+    assert response.status == ResponseStatus.FAILED
+    assert response.completed is False
+    assert "No response from the service" in response.error_message
+    assert response.data == ""
+    assert response.used_credits == 0
+    assert response.run_time == 0
+    assert response.usage is None
+
+
+def test_run_with_custom_parameters():
+    """Test run method with custom parameters"""
+    model_id = "test-model-id"
+    base_url = config.MODELS_RUN_URL
+    execute_url = f"{base_url}/{model_id}".replace("/api/v1/execute", "/api/v2/execute")
+
+    ref_response = {
+        "completed": True,
+        "status": "SUCCESS",
+        "data": "Test Result",
+        "usedCredits": 10,
+        "runTime": 1.5,
+        "usage": {"prompt_tokens": 10, "completion_tokens": 20},
+    }
+
+    with requests_mock.Mocker() as mock:
+        mock.post(execute_url, json=ref_response)
+
+        test_model = LLM(id=model_id, name="Test Model", function=Function.TEXT_GENERATION, url=base_url)
+
+        custom_params = {"custom_param": "value", "temperature": 0.8}  # This should override the default
+
+        response = test_model.run(data="test input", temperature=0.5, parameters=custom_params)
+
+    assert isinstance(response, ModelResponse)
+    assert response.status == ResponseStatus.SUCCESS
+    assert response.data == "Test Result"
+    assert response.used_credits == 10
+    assert response.run_time == 1.5
+    assert response.usage == {"prompt_tokens": 10, "completion_tokens": 20}
