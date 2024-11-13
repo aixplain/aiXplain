@@ -139,7 +139,7 @@ class Pipeline(Asset):
         r = _request_with_retry("get", poll_url, headers=headers)
         try:
             resp = r.json()
-            if isinstance(resp["data"], str):
+            if "data" in resp and isinstance(resp["data"], str):
                 try:
                     resp["data"] = json.loads(resp["data"])["response"]
                 except Exception:
