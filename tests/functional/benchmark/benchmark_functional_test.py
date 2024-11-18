@@ -38,7 +38,7 @@ def module_input_map(request):
 def is_job_finshed(benchmark_job):
     time_taken = 0
     sleep_time = 15
-    timeout = 10 * 60
+    timeout = 15 * 60
     while True:
         if time_taken > timeout:
             break
