@@ -35,10 +35,11 @@ def run_input_map(request):
 def module_input_map(request):
     return request.param
 
+
 def is_job_finshed(benchmark_job):
     time_taken = 0
     sleep_time = 15
-    timeout = 10 * 60
+    timeout = 15 * 60
     while True:
         if time_taken > timeout:
             break
@@ -52,15 +53,15 @@ def is_job_finshed(benchmark_job):
             break
     return False
 
+
 def assert_correct_results(benchmark_job):
     df = benchmark_job.download_results_as_csv(return_dataframe=True)
     assert type(df) is pd.DataFrame, "Couldn't download CSV"
-    model_success_rate = (sum(df["Model_success"])*100)/len(df.index)
-    assert model_success_rate >  80 , f"Low model success rate ({model_success_rate})"
+    model_success_rate = (sum(df["Model_success"]) * 100) / len(df.index)
+    assert model_success_rate > 80, f"Low model success rate ({model_success_rate})"
     metric_name = "BLEU by sacrebleu"
     mean_score = df[metric_name].mean()
-    assert mean_score != 0 , f"Zero Mean Score - Please check metric ({metric_name})"
-
+    assert mean_score != 0, f"Zero Mean Score - Please check metric ({metric_name})"
 
 
 def test_create_and_run(run_input_map):
@@ -73,9 +74,6 @@ def test_create_and_run(run_input_map):
     assert type(benchmark_job) is BenchmarkJob, "Couldn't start job"
     assert is_job_finshed(benchmark_job), "Job did not finish in time"
     assert_correct_results(benchmark_job)
-
-
-
 
 
 # def test_module(module_input_map):

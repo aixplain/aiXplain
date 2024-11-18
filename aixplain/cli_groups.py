@@ -21,27 +21,42 @@ Description:
     CLI Runner
 """
 import click
-from aixplain.factories.cli.model_factory_cli import list_host_machines, list_functions, create_asset_repo, asset_repo_login, onboard_model, deploy_huggingface_model, get_huggingface_model_status, list_gpus
+from aixplain.factories.cli.model_factory_cli import (
+    list_host_machines,
+    list_functions,
+    create_asset_repo,
+    asset_repo_login,
+    onboard_model,
+    deploy_huggingface_model,
+    get_huggingface_model_status,
+    list_gpus,
+)
 
-@click.group('cli')
+
+@click.group("cli")
 def cli():
     pass
 
-@click.group('list')
+
+@click.group("list")
 def list():
     pass
 
-@click.group('get')
+
+@click.group("get")
 def get():
     pass
 
-@click.group('create')
+
+@click.group("create")
 def create():
     pass
 
-@click.group('onboard')
+
+@click.group("onboard")
 def onboard():
     pass
+
 
 cli.add_command(list)
 cli.add_command(get)

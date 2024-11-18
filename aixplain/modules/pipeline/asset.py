@@ -139,6 +139,11 @@ class Pipeline(Asset):
         r = _request_with_retry("get", poll_url, headers=headers)
         try:
             resp = r.json()
+            if "data" in resp and isinstance(resp["data"], str):
+                try:
+                    resp["data"] = json.loads(resp["data"])["response"]
+                except Exception:
+                    resp = r.json()
             logging.info(f"Single Poll for Pipeline: Status of polling for {name} : {resp}")
         except Exception:
             resp = {"status": "FAILED"}
@@ -151,6 +156,7 @@ class Pipeline(Asset):
         name: Text = "pipeline_process",
         timeout: float = 20000.0,
         wait_time: float = 1.0,
+        batch_mode: bool = True,
         **kwargs,
     ) -> Dict:
         """Runs a pipeline call.
@@ -161,6 +167,7 @@ class Pipeline(Asset):
             name (Text, optional): ID given to a call. Defaults to "pipeline_process".
             timeout (float, optional): total polling time. Defaults to 20000.0.
             wait_time (float, optional): wait time in seconds between polling calls. Defaults to 1.0.
+            batch_mode (bool, optional): Whether to run the pipeline in batch mode or online. Defaults to True.
             kwargs: A dictionary of keyword arguments. The keys are the argument names
 
         Returns:
@@ -168,7 +175,7 @@ class Pipeline(Asset):
         """
         start = time.time()
         try:
-            response = self.run_async(data, data_asset=data_asset, name=name, **kwargs)
+            response = self.run_async(data, data_asset=data_asset, name=name, batch_mode=batch_mode, **kwargs)
             if response["status"] == "FAILED":
                 end = time.time()
                 response["elapsed_time"] = end - start
@@ -297,7 +304,12 @@ class Pipeline(Asset):
         return payload
 
     def run_async(
-        self, data: Union[Text, Dict], data_asset: Optional[Union[Text, Dict]] = None, name: Text = "pipeline_process", **kwargs
+        self,
+        data: Union[Text, Dict],
+        data_asset: Optional[Union[Text, Dict]] = None,
+        name: Text = "pipeline_process",
+        batch_mode: bool = True,
+        **kwargs,
     ) -> Dict:
         """Runs asynchronously a pipeline call.
 
@@ -305,6 +317,7 @@ class Pipeline(Asset):
             data (Union[Text, Dict]): link to the input data
             data_asset (Optional[Union[Text, Dict]], optional): Data asset to be processed by the pipeline. Defaults to None.
             name (Text, optional): ID given to a call. Defaults to "pipeline_process".
+            batch_mode (bool, optional): Whether to run the pipeline in batch mode or online. Defaults to True.
             kwargs: A dictionary of keyword arguments. The keys are the argument names
 
         Returns:
@@ -316,6 +329,7 @@ class Pipeline(Asset):
         }
 
         payload = self.__prepare_payload(data=data, data_asset=data_asset)
+        payload["batchmode"] = batch_mode
         payload.update(kwargs)
         payload = json.dumps(payload)
         call_url = f"{self.url}/{self.id}"

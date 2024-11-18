@@ -91,7 +91,7 @@ class FileFactory:
         Returns:
             StorageType: URL, TEXT or FILE
         """
-        if os.path.exists(input_link) is True:
+        if os.path.exists(input_link) is True and os.path.isfile(input_link) is True:
             return StorageType.FILE
         elif (
             input_link.startswith("s3://")
@@ -145,5 +145,5 @@ class FileFactory:
         """
         assert (
             license is not None if is_temp is False else True
-        ),  "File Asset Creation Error: To upload a non-temporary file, you need to specify the `license`."
+        ), "File Asset Creation Error: To upload a non-temporary file, you need to specify the `license`."
         return cls.upload(local_path=local_path, tags=tags, license=license, is_temp=is_temp)

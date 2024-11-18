@@ -51,7 +51,7 @@ def test_get_pipeline():
 def test_run_single_str(batchmode: bool, version: str):
     pipeline = PipelineFactory.list(query="SingleNodePipeline")["results"][0]
 
-    response = pipeline.run(data="Translate this thing", **{"batchmode": batchmode, "version": version})
+    response = pipeline.run(data="Translate this thing", batch_mode=batchmode, **{"version": version})
     assert response["status"] == "SUCCESS"
 
 
@@ -71,7 +71,7 @@ def test_run_single_local_file(batchmode: bool, version: str):
     with open(fname, "w") as f:
         f.write("Translate this thing")
 
-    response = pipeline.run(data=fname, **{"batchmode": batchmode, "version": version})
+    response = pipeline.run(data=fname, batch_mode=batchmode, **{"version": version})
     os.remove(fname)
     assert response["status"] == "SUCCESS"
 
@@ -90,7 +90,8 @@ def test_run_with_url(batchmode: bool, version: str):
 
     response = pipeline.run(
         data="https://aixplain-platform-assets.s3.amazonaws.com/data/dev/64c81163f8bdcac7443c2dad/data/f8.txt",
-        **{"batchmode": batchmode, "version": version}
+        batch_mode=batchmode,
+        **{"version": version}
     )
     assert response["status"] == "SUCCESS"
 
@@ -110,7 +111,7 @@ def test_run_with_dataset(batchmode: bool, version: str):
     data_id = dataset.source_data["en"].id
     pipeline = PipelineFactory.list(query="SingleNodePipeline")["results"][0]
 
-    response = pipeline.run(data=data_id, data_asset=data_asset_id, **{"batchmode": batchmode, "version": version})
+    response = pipeline.run(data=data_id, data_asset=data_asset_id, batch_mode=batchmode, **{"version": version})
     assert response["status"] == "SUCCESS"
 
 
@@ -128,7 +129,8 @@ def test_run_multipipe_with_strings(batchmode: bool, version: str):
 
     response = pipeline.run(
         data={"Input": "Translate this thing.", "Reference": "Traduza esta coisa."},
-        **{"batchmode": batchmode, "version": version}
+        batch_mode=batchmode,
+        **{"version": version}
     )
     assert response["status"] == "SUCCESS"
 
@@ -154,7 +156,8 @@ def test_run_multipipe_with_datasets(batchmode: bool, version: str):
     response = pipeline.run(
         data={"Input": input_id, "Reference": reference_id},
         data_asset={"Input": data_asset_id, "Reference": data_asset_id},
-        **{"batchmode": batchmode, "version": version}
+        batch_mode=batchmode,
+        **{"version": version}
     )
     assert response["status"] == "SUCCESS"
 
@@ -238,3 +241,13 @@ def test_run_decision(input_data: str, output_data: str, version: str):
 
     assert response["status"] == "SUCCESS"
     assert response["data"][0]["label"] == output_data
+
+
+@pytest.mark.parametrize("version", ["3.0"])
+def test_run_script(version: str):
+    pipeline = PipelineFactory.list(query="Script Functional Test - DO NOT DELETE")["results"][0]
+    response = pipeline.run("https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.wav", **{"version": version})
+
+    assert response["status"] == "SUCCESS"
+    data = response["data"][0]["segments"][0]["response"]
+    assert data.startswith("SCRIPT MODIFIED:")

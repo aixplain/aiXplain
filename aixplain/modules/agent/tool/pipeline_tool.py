@@ -51,6 +51,13 @@ class PipelineTool(Tool):
             pipeline = pipeline.id
         self.pipeline = pipeline
 
+    def to_dict(self):
+        return {
+            "assetId": self.pipeline,
+            "description": self.description,
+            "type": "pipeline",
+        }
+
     def validate(self):
         from aixplain.factories.pipeline_factory import PipelineFactory
 
