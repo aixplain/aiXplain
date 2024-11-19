@@ -2,6 +2,7 @@ import pytest
 import requests_mock
 from aixplain.enums.asset_status import AssetStatus
 from aixplain.modules import Agent
+from aixplain.modules.agent import ResponseFormat
 from aixplain.utils import config
 from aixplain.factories import AgentFactory
 from aixplain.modules.agent import PipelineTool, ModelTool
@@ -226,3 +227,20 @@ def test_update_success():
     assert agent.description == ref_response["description"]
     assert agent.llm_id == ref_response["llmId"]
     assert agent.tools[0].function.value == ref_response["assets"][0]["function"]
+
+
+def test_run_success():
+    agent = Agent("123", "Test Agent", "Sample Description")
+    url = urljoin(config.BACKEND_URL, f"sdk/agents/{agent.id}/run")
+    agent.url = url
+    with requests_mock.Mocker() as mock:
+        headers = {"x-aixplain-key": config.AIXPLAIN_API_KEY, "Content-Type": "application/json"}
+
+        ref_response = {"data": "www.aixplain.com", "status": "IN_PROGRESS"}
+        mock.post(url, headers=headers, json=ref_response)
+
+        response = agent.run_async(
+            data={"query": "Hello, how are you?"}, max_iterations=10, response_format=ResponseFormat.MARKDOWN
+        )
+    assert response["status"] == "IN_PROGRESS"
+    assert response["url"] == ref_response["data"]
