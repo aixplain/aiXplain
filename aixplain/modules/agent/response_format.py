@@ -26,5 +26,5 @@ from typing import Text
 
 
 class ResponseFormat(Text, Enum):
-    MARKDOWN = "MARKDOWN"
-    TEXT = "TEXT"
+    MARKDOWN = "markdown"
+    TEXT = "text"
