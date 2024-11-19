@@ -240,7 +240,7 @@ def test_run_success():
         mock.post(url, headers=headers, json=ref_response)
 
         response = agent.run_async(
-            data={"query": "Hello, how are you?"}, max_iterations=10, response_format=ResponseFormat.MARKDOWN
+            data={"query": "Hello, how are you?"}, max_iterations=10, output_format=ResponseFormat.MARKDOWN
         )
     assert response["status"] == "IN_PROGRESS"
     assert response["url"] == ref_response["data"]
