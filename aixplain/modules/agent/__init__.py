@@ -32,7 +32,7 @@ from aixplain.enums.supplier import Supplier
 from aixplain.enums.asset_status import AssetStatus
 from aixplain.enums.storage_type import StorageType
 from aixplain.modules.model import Model
-from aixplain.modules.agent.response_format import ResponseFormat
+from aixplain.modules.agent.output_format import OutputFormat
 from aixplain.modules.agent.tool import Tool
 from aixplain.modules.agent.tool.model_tool import ModelTool
 from aixplain.modules.agent.tool.pipeline_tool import PipelineTool
@@ -128,7 +128,7 @@ class Agent(Model):
         content: Optional[Union[Dict[Text, Text], List[Text]]] = None,
         max_tokens: int = 2048,
         max_iterations: int = 10,
-        output_format: ResponseFormat = ResponseFormat.TEXT,
+        output_format: OutputFormat = OutputFormat.TEXT,
     ) -> Dict:
         """Runs an agent call.
 
@@ -187,7 +187,7 @@ class Agent(Model):
         content: Optional[Union[Dict[Text, Text], List[Text]]] = None,
         max_tokens: int = 2048,
         max_iterations: int = 10,
-        output_format: ResponseFormat = ResponseFormat.TEXT,
+        output_format: OutputFormat = OutputFormat.TEXT,
     ) -> Dict:
         """Runs asynchronously an agent call.
 

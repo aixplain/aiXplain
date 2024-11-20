@@ -25,6 +25,6 @@ from enum import Enum
 from typing import Text
 
 
-class ResponseFormat(Text, Enum):
+class OutputFormat(Text, Enum):
     MARKDOWN = "markdown"
     TEXT = "text"

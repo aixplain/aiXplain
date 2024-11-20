@@ -33,7 +33,7 @@ from aixplain.enums.supplier import Supplier
 from aixplain.enums.asset_status import AssetStatus
 from aixplain.enums.storage_type import StorageType
 from aixplain.modules.model import Model
-from aixplain.modules.agent import Agent, ResponseFormat
+from aixplain.modules.agent import Agent, OutputFormat
 from typing import Dict, List, Text, Optional, Union
 from urllib.parse import urljoin
 
@@ -112,7 +112,7 @@ class TeamAgent(Model):
         content: Optional[Union[Dict[Text, Text], List[Text]]] = None,
         max_tokens: int = 2048,
         max_iterations: int = 30,
-        output_format: ResponseFormat = ResponseFormat.TEXT,
+        output_format: OutputFormat = OutputFormat.TEXT,
     ) -> Dict:
         """Runs a team agent call.
 
@@ -171,7 +171,7 @@ class TeamAgent(Model):
         content: Optional[Union[Dict[Text, Text], List[Text]]] = None,
         max_tokens: int = 2048,
         max_iterations: int = 30,
-        output_format: ResponseFormat = ResponseFormat.TEXT,
+        output_format: OutputFormat = OutputFormat.TEXT,
     ) -> Dict:
         """Runs asynchronously a Team Agent call.
 

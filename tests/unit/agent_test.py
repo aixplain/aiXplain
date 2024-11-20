@@ -2,7 +2,7 @@ import pytest
 import requests_mock
 from aixplain.enums.asset_status import AssetStatus
 from aixplain.modules import Agent
-from aixplain.modules.agent import ResponseFormat
+from aixplain.modules.agent import OutputFormat
 from aixplain.utils import config
 from aixplain.factories import AgentFactory
 from aixplain.modules.agent import PipelineTool, ModelTool
@@ -240,7 +240,7 @@ def test_run_success():
         mock.post(url, headers=headers, json=ref_response)
 
         response = agent.run_async(
-            data={"query": "Hello, how are you?"}, max_iterations=10, output_format=ResponseFormat.MARKDOWN
+            data={"query": "Hello, how are you?"}, max_iterations=10, output_format=OutputFormat.MARKDOWN
         )
     assert response["status"] == "IN_PROGRESS"
     assert response["url"] == ref_response["data"]
