@@ -1,0 +1,41 @@
+name: Run Unit Tests via Pytest
+
+on:
+  push:
+    branches:
+      - development
+      - test
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10"]
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install coverage pytest requests tqdm==4.1.0 pandas python-dotenv==1.0.0 validators==0.20.0 filetype==1.2.0 click==7.1.2 PyYAML==6.0.1 urllib3 dataclasses-json==0.5.2 Jinja2==3.1.4 requests_mock
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+      - name: Lint with Ruff
+        run: |
+          pip install ruff
+          ruff --format=github --target-version=py${{ matrix.python-version }} .
+        continue-on-error: true
+      - name: Run Unit Tests with pytest
+        env:
+          BACKEND_URL: https://test-platform-api.aixplain.com
+          MODELS_RUN_URL: https://test-models.aixplain.com/api/v1/execute
+          TEAM_API_KEY: 88d3cbdc84d20c740d2daa27b5becdaeb13874f82156ded27455dac2f7ebb05e
+        run: |
+          coverage run -m pytest -v -s tests/unit
+      - name: Generate Coverage Report
+        run: |
+          coverage report -m
