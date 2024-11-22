@@ -34,6 +34,7 @@ from aixplain.enums.asset_status import AssetStatus
 from aixplain.enums.storage_type import StorageType
 from aixplain.modules.model import Model
 from aixplain.modules.agent import Agent, OutputFormat
+from aixplain.modules.agent.utils import process_variables
 from typing import Dict, List, Text, Optional, Union
 from urllib.parse import urljoin
 
@@ -223,19 +224,7 @@ class TeamAgent(Model):
         headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}
 
         # build query
-        variables = re.findall(r"(?<!{){([^}]+)}(?!})", self.description)
-        input_data = {"input": FileFactory.to_link(query)}
-        for variable in variables:
-            if isinstance(data, dict):
-                assert (
-                    variable in data or variable in parameters
-                ), f"Variable '{variable}' not found in data or parameters. This variable is required by the agent according to its description ('{self.description}')."
-                input_data[variable] = data.pop(variable) if variable in data else parameters.pop(variable)
-            else:
-                assert (
-                    variable in parameters
-                ), f"Variable '{variable}' not found in parameters. This variable is required by the agent according to its description ('{self.description}')."
-                input_data[variable] = parameters.pop(variable)
+        input_data = process_variables(query, data, parameters, self.description)
 
         payload = {
             "id": self.id,

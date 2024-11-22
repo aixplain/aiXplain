@@ -6,6 +6,7 @@ from aixplain.modules.agent import OutputFormat
 from aixplain.utils import config
 from aixplain.factories import AgentFactory
 from aixplain.modules.agent import PipelineTool, ModelTool
+from aixplain.modules.agent.utils import process_variables
 from urllib.parse import urljoin
 
 
@@ -254,3 +255,13 @@ def test_run_variable_error():
         str(exc_info.value)
         == "Variable 'target_language' not found in data or parameters. This variable is required by the agent according to its description ('Translate the input data into {target_language}')."
     )
+
+
+def test_process_variables():
+    query = "Hello, how are you?"
+    data = {"target_language": "English"}
+    agent_description = "Translate the input data into {target_language}"
+    assert process_variables(query=query, data=data, parameters={}, agent_description=agent_description) == {
+        "input": "Hello, how are you?",
+        "target_language": "English",
+    }
