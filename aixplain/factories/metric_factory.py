@@ -39,7 +39,6 @@ class MetricFactory:
         backend_url (str): The URL for the backend.
     """
 
-    aixplain_key = config.AIXPLAIN_API_KEY
     backend_url = config.BACKEND_URL
 
     @classmethod
@@ -76,10 +75,7 @@ class MetricFactory:
         resp, status_code = None, 200
         try:
             url = urljoin(cls.backend_url, f"sdk/metrics/{metric_id}")
-            if cls.aixplain_key != "":
-                headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
-            else:
-                headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+            headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
             logging.info(f"Start service for GET Metric  - {url} - {headers}")
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()
@@ -126,10 +122,7 @@ class MetricFactory:
             if is_reference_required is not None:
                 filter_params["referenceRequired"] = 1 if is_reference_required else 0
 
-            if cls.aixplain_key != "":
-                headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
-            else:
-                headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+            headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
             r = _request_with_retry("get", url, headers=headers, params=filter_params)
             resp = r.json()
             logging.info(f"Listing Metrics: Status of getting metrics: {resp}")

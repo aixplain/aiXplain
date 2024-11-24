@@ -103,7 +103,7 @@ def fetch_functions():
     Fetch functions from the backend
     """
     api_key = config.TEAM_API_KEY
-    aixplain_key = config.AIXPLAIN_API_KEY
+
     backend_url = config.BACKEND_URL
 
     url = urljoin(backend_url, "sdk/functions")
