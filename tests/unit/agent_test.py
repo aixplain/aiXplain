@@ -2,9 +2,11 @@ import pytest
 import requests_mock
 from aixplain.enums.asset_status import AssetStatus
 from aixplain.modules import Agent
+from aixplain.modules.agent import OutputFormat
 from aixplain.utils import config
 from aixplain.factories import AgentFactory
 from aixplain.modules.agent import PipelineTool, ModelTool
+from aixplain.modules.agent.utils import process_variables
 from urllib.parse import urljoin
 
 
@@ -226,3 +228,40 @@ def test_update_success():
     assert agent.description == ref_response["description"]
     assert agent.llm_id == ref_response["llmId"]
     assert agent.tools[0].function.value == ref_response["assets"][0]["function"]
+
+
+def test_run_success():
+    agent = Agent("123", "Test Agent", "Sample Description")
+    url = urljoin(config.BACKEND_URL, f"sdk/agents/{agent.id}/run")
+    agent.url = url
+    with requests_mock.Mocker() as mock:
+        headers = {"x-aixplain-key": config.AIXPLAIN_API_KEY, "Content-Type": "application/json"}
+
+        ref_response = {"data": "www.aixplain.com", "status": "IN_PROGRESS"}
+        mock.post(url, headers=headers, json=ref_response)
+
+        response = agent.run_async(
+            data={"query": "Hello, how are you?"}, max_iterations=10, output_format=OutputFormat.MARKDOWN
+        )
+    assert response["status"] == "IN_PROGRESS"
+    assert response["url"] == ref_response["data"]
+
+
+def test_run_variable_error():
+    agent = Agent("123", "Test Agent", "Translate the input data into {target_language}")
+    with pytest.raises(Exception) as exc_info:
+        agent.run_async(data={"query": "Hello, how are you?"}, output_format=OutputFormat.MARKDOWN)
+    assert (
+        str(exc_info.value)
+        == "Variable 'target_language' not found in data or parameters. This variable is required by the agent according to its description ('Translate the input data into {target_language}')."
+    )
+
+
+def test_process_variables():
+    query = "Hello, how are you?"
+    data = {"target_language": "English"}
+    agent_description = "Translate the input data into {target_language}"
+    assert process_variables(query=query, data=data, parameters={}, agent_description=agent_description) == {
+        "input": "Hello, how are you?",
+        "target_language": "English",
+    }
