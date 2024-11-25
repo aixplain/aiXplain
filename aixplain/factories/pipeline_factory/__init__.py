@@ -43,7 +43,6 @@ class PipelineFactory:
         backend_url (str): The URL for the backend.
     """
 
-    aixplain_key = config.AIXPLAIN_API_KEY
     backend_url = config.BACKEND_URL
 
     @classmethod
@@ -63,11 +62,6 @@ class PipelineFactory:
             if api_key is not None:
                 headers = {
                     "Authorization": f"Token {api_key}",
-                    "Content-Type": "application/json",
-                }
-            elif cls.aixplain_key != "":
-                headers = {
-                    "x-aixplain-key": f"{cls.aixplain_key}",
                     "Content-Type": "application/json",
                 }
             else:
@@ -125,13 +119,8 @@ class PipelineFactory:
         """
         try:
             url = urljoin(cls.backend_url, f"sdk/pipelines/?pageNumber={page_number}")
-            if cls.aixplain_key != "":
-                headers = {
-                    "x-aixplain-key": f"{cls.aixplain_key}",
-                    "Content-Type": "application/json",
-                }
-            else:
-                headers = {
+
+            headers = {
                     "Authorization": f"Token {config.TEAM_API_KEY}",
                     "Content-Type": "application/json",
                 }
@@ -181,13 +170,8 @@ class PipelineFactory:
     ) -> Dict:
 
         url = urljoin(cls.backend_url, "sdk/pipelines/paginate")
-        if cls.aixplain_key != "":
-            headers = {
-                "x-aixplain-key": f"{cls.aixplain_key}",
-                "Content-Type": "application/json",
-            }
-        else:
-            headers = {
+
+        headers = {
                 "Authorization": f"Token {config.TEAM_API_KEY}",
                 "Content-Type": "application/json",
             }

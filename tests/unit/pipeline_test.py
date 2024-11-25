@@ -72,7 +72,7 @@ def test_list_pipelines_error_response():
         page_number = 0
         page_size = 20
         url = urljoin(config.BACKEND_URL, "sdk/pipelines/paginate")
-        headers = {"x-aixplain-key": config.AIXPLAIN_API_KEY, "Content-Type": "application/json"}
+        headers = {"Authorization": f"Token {config.AIXPLAIN_API_KEY}", "Content-Type": "application/json"}
 
         error_response = {"statusCode": 400, "message": "Bad Request"}
         mock.post(url, headers=headers, json=error_response, status_code=400)

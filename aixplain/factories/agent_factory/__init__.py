@@ -176,11 +176,9 @@ class AgentFactory:
         from aixplain.factories.agent_factory.utils import build_agent
 
         url = urljoin(config.BACKEND_URL, f"sdk/agents/{agent_id}")
-        if config.AIXPLAIN_API_KEY != "":
-            headers = {"x-aixplain-key": f"{config.AIXPLAIN_API_KEY}", "Content-Type": "application/json"}
-        else:
-            api_key = api_key if api_key is not None else config.TEAM_API_KEY
-            headers = {"x-api-key": api_key, "Content-Type": "application/json"}
+
+        api_key = api_key if api_key is not None else config.TEAM_API_KEY
+        headers = {"x-api-key": api_key, "Content-Type": "application/json"}
         logging.info(f"Start service for GET Agent  - {url} - {headers}")
         r = _request_with_retry("get", url, headers=headers)
         resp = r.json()

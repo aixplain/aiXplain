@@ -28,7 +28,7 @@ from aixplain.utils import config
 
 
 class AssetFactory:
-    aixplain_key = config.AIXPLAIN_API_KEY
+
     backend_url = config.BACKEND_URL
 
     @abstractmethod

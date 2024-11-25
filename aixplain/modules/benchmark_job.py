@@ -40,10 +40,7 @@ class BenchmarkJob:
     @classmethod
     def _fetch_current_response(cls, job_id: Text) -> dict:
         url = urljoin(config.BACKEND_URL, f"sdk/benchmarks/jobs/{job_id}")
-        if config.AIXPLAIN_API_KEY != "":
-            headers = {"x-aixplain-key": f"{config.AIXPLAIN_API_KEY}", "Content-Type": "application/json"}
-        else:
-            headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+        headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
         r = _request_with_retry("get", url, headers=headers)
         resp = r.json()
         return resp
