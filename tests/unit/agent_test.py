@@ -235,7 +235,7 @@ def test_run_success():
     url = urljoin(config.BACKEND_URL, f"sdk/agents/{agent.id}/run")
     agent.url = url
     with requests_mock.Mocker() as mock:
-        headers = {"x-aixplain-key": config.AIXPLAIN_API_KEY, "Content-Type": "application/json"}
+        headers = {"x-api-key": config.AIXPLAIN_API_KEY, "Content-Type": "application/json"}
 
         ref_response = {"data": "www.aixplain.com", "status": "IN_PROGRESS"}
         mock.post(url, headers=headers, json=ref_response)

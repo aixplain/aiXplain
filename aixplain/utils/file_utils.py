@@ -122,12 +122,8 @@ def upload_data(
                 tags = []
             payload = {"contentType": content_type, "originalName": file_name, "tags": ",".join(tags), "license": license.value}
 
-        if config.AIXPLAIN_API_KEY != "":
-            team_key = config.AIXPLAIN_API_KEY
-            headers = {"x-aixplain-key": team_key}
-        else:
-            team_key = config.TEAM_API_KEY
-            headers = {"Authorization": "token " + team_key}
+        team_key = config.TEAM_API_KEY
+        headers = {"Authorization": "token " + team_key}
 
         r = _request_with_retry("post", url, headers=headers, data=payload)
         response = r.json()
