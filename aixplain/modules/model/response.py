@@ -40,8 +40,11 @@ class ModelResponse:
             return self.run_time
         raise KeyError(f"Key '{key}' not found in ModelResponse.")
 
-    def get(self, key: Text) -> Any:
-        return self[key]
+    def get(self, key: Text, default: Optional[Any] = None) -> Any:
+        try:
+            return self[key]
+        except KeyError:
+            return default
 
     def __repr__(self) -> str:
         fields = []

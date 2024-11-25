@@ -87,7 +87,7 @@ def test_success_poll():
         hyp_response = test_model.poll(poll_url=poll_url)
     assert isinstance(hyp_response, ModelResponse)
     assert hyp_response["completed"] == ref_response["completed"]
-    assert hyp_response["status"] == ResponseStatus.SUCCESS
+    assert hyp_response.get("status") == ResponseStatus.SUCCESS
 
 
 def test_failed_poll():
