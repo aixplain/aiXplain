@@ -36,6 +36,7 @@ from aixplain.modules.agent.output_format import OutputFormat
 from aixplain.modules.agent.tool import Tool
 from aixplain.modules.agent.tool.model_tool import ModelTool
 from aixplain.modules.agent.tool.pipeline_tool import PipelineTool
+from aixplain.modules.agent.utils import process_variables
 from typing import Dict, List, Text, Optional, Union
 from urllib.parse import urljoin
 
@@ -238,9 +239,12 @@ class Agent(Model):
 
         headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}
 
+        # build query
+        input_data = process_variables(query, data, parameters, self.description)
+
         payload = {
             "id": self.id,
-            "query": FileFactory.to_link(query),
+            "query": input_data,
             "sessionId": session_id,
             "history": history,
             "executionParams": {
