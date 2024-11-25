@@ -111,10 +111,7 @@ def fetch_functions():
         "Content-Type": "application/json",
     }
 
-    if aixplain_key:
-        headers["x-aixplain-key"] = aixplain_key
-    else:
-        headers["x-api-key"] = api_key
+    headers["x-api-key"] = api_key
 
     r = requests.get(url, headers=headers)
     try:
