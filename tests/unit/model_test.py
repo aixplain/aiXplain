@@ -77,51 +77,6 @@ def test_call_run_endpoint_sync():
     assert response["data"] == ref_response["data"]
 
 
-def test_build_payload():
-    data = "input_data"
-    parameters = {"context": "context_data"}
-    ref_payload = json.dumps({"data": data, **parameters})
-    hyp_payload = build_payload(data, parameters)
-    assert hyp_payload == ref_payload
-
-
-def test_call_run_endpoint_async():
-    base_url = config.MODELS_RUN_URL
-    model_id = "model-id"
-    execute_url = f"{base_url}/{model_id}"
-    payload = {"data": "input_data"}
-    ref_response = {
-        "completed": True,
-        "status": "IN_PROGRESS",
-        "data": "https://models.aixplain.com/api/v1/data/a90c2078-edfe-403f-acba-d2d94cf71f42",
-    }
-
-    with requests_mock.Mocker() as mock:
-        mock.post(execute_url, json=ref_response)
-        response = call_run_endpoint(url=execute_url, api_key=config.TEAM_API_KEY, payload=payload)
-
-    print(response)
-    assert response["completed"] == ref_response["completed"]
-    assert response["status"] == ref_response["status"]
-    assert response["url"] == ref_response["data"]
-
-
-def test_call_run_endpoint_sync():
-    base_url = config.MODELS_RUN_URL
-    model_id = "model-id"
-    execute_url = f"{base_url}/{model_id}".replace("/api/v1/execute", "/api/v2/execute")
-    payload = {"data": "input_data"}
-    ref_response = {"completed": True, "status": "SUCCESS", "data": "Hello"}
-
-    with requests_mock.Mocker() as mock:
-        mock.post(execute_url, json=ref_response)
-        response = call_run_endpoint(url=execute_url, api_key=config.TEAM_API_KEY, payload=payload)
-
-    assert response["completed"] == ref_response["completed"]
-    assert response["status"] == ref_response["status"]
-    assert response["data"] == ref_response["data"]
-
-
 def test_success_poll():
     with requests_mock.Mocker() as mock:
         poll_url = "https://models.aixplain.com/api/v1/data/a90c2078-edfe-403f-acba-d2d94cf71f42"
@@ -132,7 +87,7 @@ def test_success_poll():
         hyp_response = test_model.poll(poll_url=poll_url)
     assert isinstance(hyp_response, ModelResponse)
     assert hyp_response["completed"] == ref_response["completed"]
-    assert hyp_response["status"] == ResponseStatus.SUCCESS
+    assert hyp_response.get("status") == ResponseStatus.SUCCESS
 
 
 def test_failed_poll():
@@ -197,7 +152,7 @@ def test_get_model_error_response():
     with requests_mock.Mocker() as mock:
         model_id = "test-model-id"
         url = urljoin(config.BACKEND_URL, f"sdk/models/{model_id}")
-        headers = {"x-aixplain-key": config.AIXPLAIN_API_KEY, "Content-Type": "application/json"}
+        headers = {"Authorization": f"Token {config.AIXPLAIN_API_KEY}", "Content-Type": "application/json"}
 
         error_response = {"statusCode": 404, "message": "Model not found"}
         mock.get(url, headers=headers, json=error_response, status_code=404)
@@ -214,7 +169,7 @@ def test_get_assets_from_page_error():
         page_number = 0
         page_size = 2
         url = urljoin(config.BACKEND_URL, "sdk/models/paginate")
-        headers = {"x-aixplain-key": config.AIXPLAIN_API_KEY, "Content-Type": "application/json"}
+        headers = {"Authorization": f"Token {config.AIXPLAIN_API_KEY}", "Content-Type": "application/json"}
 
         error_response = {"statusCode": 500, "message": "Internal Server Error"}
         mock.post(url, headers=headers, json=error_response, status_code=500)

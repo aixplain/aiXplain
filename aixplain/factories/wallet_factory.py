@@ -6,7 +6,6 @@ from typing import Text
 
 
 class WalletFactory:
-    aixplain_key = config.AIXPLAIN_API_KEY
     backend_url = config.BACKEND_URL
 
     @classmethod

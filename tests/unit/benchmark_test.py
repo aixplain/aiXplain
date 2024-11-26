@@ -42,7 +42,7 @@ def test_get_benchmark_error():
     with requests_mock.Mocker() as mock:
         benchmark_id = "test-benchmark-id"
         url = urljoin(config.BACKEND_URL, f"sdk/benchmarks/{benchmark_id}")
-        headers = {"x-aixplain-key": config.AIXPLAIN_API_KEY, "Content-Type": "application/json"}
+        headers = {"Authorization": f"Token {config.AIXPLAIN_API_KEY}", "Content-Type": "application/json"}
 
         error_response = {"statusCode": 404, "message": "Benchmark not found"}
         mock.get(url, headers=headers, json=error_response, status_code=404)
@@ -59,7 +59,7 @@ def test_list_normalization_options_error():
         model = Model(id="model1", name="Test Model", description="Test model", supplier="Test supplier", cost=10, version="v1")
 
         url = urljoin(config.BACKEND_URL, "sdk/benchmarks/normalization-options")
-        headers = {"x-aixplain-key": config.AIXPLAIN_API_KEY, "Content-Type": "application/json"}
+        headers = {"Authorization": f"Token {config.AIXPLAIN_API_KEY}", "Content-Type": "application/json"}
 
         error_response = {"message": "Internal Server Error"}
         mock.post(url, headers=headers, json=error_response, status_code=500)

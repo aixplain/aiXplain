@@ -41,7 +41,6 @@ class ModelFactory:
         backend_url (str): The URL for the backend.
     """
 
-    aixplain_key = config.AIXPLAIN_API_KEY
     backend_url = config.BACKEND_URL
 
     @classmethod
@@ -107,10 +106,8 @@ class ModelFactory:
         resp = None
         try:
             url = urljoin(cls.backend_url, f"sdk/models/{model_id}")
-            if cls.aixplain_key != "":
-                headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
-            else:
-                headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+
+            headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
             logging.info(f"Start service for GET Model  - {url} - {headers}")
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()
@@ -196,10 +193,8 @@ class ModelFactory:
                 filter_params["sort"] = [{"dir": sort_order.value, "field": sort_by.value}]
             if len(lang_filter_params) != 0:
                 filter_params["ioFilter"] = lang_filter_params
-            if cls.aixplain_key != "":
-                headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
-            else:
-                headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+
+            headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
 
             logging.info(f"Start service for POST Models Paginate - {url} - {headers} - {json.dumps(filter_params)}")
             r = _request_with_retry("post", url, headers=headers, json=filter_params)

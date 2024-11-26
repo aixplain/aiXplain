@@ -23,6 +23,15 @@ MODELS_RUN_URL = os.getenv("MODELS_RUN_URL", "https://models.aixplain.com/api/v1
 # GET THE API KEY FROM CMD
 TEAM_API_KEY = os.getenv("TEAM_API_KEY", "")
 AIXPLAIN_API_KEY = os.getenv("AIXPLAIN_API_KEY", "")
+
+if AIXPLAIN_API_KEY and TEAM_API_KEY:
+    if AIXPLAIN_API_KEY != TEAM_API_KEY:
+        raise Exception("Conflicting API keys: 'AIXPLAIN_API_KEY' and 'TEAM_API_KEY' are both provided but do not match. Please provide only one API key.")
+
+
+if AIXPLAIN_API_KEY and not TEAM_API_KEY:
+    TEAM_API_KEY = AIXPLAIN_API_KEY
+
 PIPELINE_API_KEY = os.getenv("PIPELINE_API_KEY", "")
 MODEL_API_KEY = os.getenv("MODEL_API_KEY", "")
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")

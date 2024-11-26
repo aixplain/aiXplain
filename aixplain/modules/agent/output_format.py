@@ -1,7 +1,7 @@
-__author__ = "aiXplain"
+__author__ = "thiagocastroferreira"
 
 """
-Copyright 2022 The aiXplain SDK authors
+Copyright 2024 The aiXplain SDK authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -16,29 +16,15 @@ See the License for the specific language governing permissions and
 limitations under the License.
 
 Author: Duraikrishna Selvaraju, Thiago Castro Ferreira, Shreyas Sharma and Lucas Pavanelli
-Date: December 27th 2022
+Date: February 21st 2024
 Description:
-    Asset Factory Class
+    Asset Enum
 """
 
-from abc import abstractmethod
-from typing import List, Text
-from aixplain.modules.asset import Asset
-from aixplain.utils import config
+from enum import Enum
+from typing import Text
 
 
-class AssetFactory:
-
-    backend_url = config.BACKEND_URL
-
-    @abstractmethod
-    def get(self, asset_id: Text) -> Asset:
-        """Create a 'Asset' object from id
-
-        Args:
-            asset_id (str): ID of required asset.
-
-        Returns:
-            Asset: Created 'Asset' object
-        """
-        pass
+class OutputFormat(Text, Enum):
+    MARKDOWN = "markdown"
+    TEXT = "text"
