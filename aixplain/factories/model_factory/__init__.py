@@ -38,7 +38,6 @@ class ModelFactory:
         backend_url (str): The URL for the backend.
     """
 
-    aixplain_key = config.AIXPLAIN_API_KEY
     backend_url = config.BACKEND_URL
 
     @classmethod
@@ -103,10 +102,8 @@ class ModelFactory:
         resp = None
         try:
             url = urljoin(cls.backend_url, f"sdk/models/{model_id}")
-            if cls.aixplain_key != "":
-                headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
-            else:
-                headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+
+            headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
             logging.info(f"Start service for GET Model  - {url} - {headers}")
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()

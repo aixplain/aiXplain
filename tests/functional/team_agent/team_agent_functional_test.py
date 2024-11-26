@@ -160,3 +160,62 @@ def test_fail_non_existent_llm():
             tools=[AgentFactory.create_model_tool(function=Function.TRANSLATION)],
         )
     assert str(exc_info.value) == "Large Language Model with ID 'non_existent_llm' not found."
+
+def test_add_remove_agents_from_team_agent(run_input_map, delete_agents_and_team_agents):
+    assert delete_agents_and_team_agents
+
+    agents = []
+    for agent in run_input_map["agents"]:
+        tools = []
+        if "model_tools" in agent:
+            for tool in agent["model_tools"]:
+                tool_ = copy(tool)
+                for supplier in Supplier:
+                    if tool["supplier"] is not None and tool["supplier"].lower() in [
+                        supplier.value["code"].lower(),
+                        supplier.value["name"].lower(),
+                    ]:
+                        tool_["supplier"] = supplier
+                        break
+                tools.append(AgentFactory.create_model_tool(**tool_))
+        if "pipeline_tools" in agent:
+            for tool in agent["pipeline_tools"]:
+                tools.append(AgentFactory.create_pipeline_tool(pipeline=tool["pipeline_id"], description=tool["description"]))
+
+        agent = AgentFactory.create(
+            name=agent["agent_name"], description=agent["agent_name"], llm_id=agent["llm_id"], tools=tools
+        )
+        agents.append(agent)
+
+    team_agent = TeamAgentFactory.create(
+        name=run_input_map["team_agent_name"],
+        agents=agents,
+        description=run_input_map["team_agent_name"],
+        llm_id=run_input_map["llm_id"],
+        use_mentalist_and_inspector=True,
+    )
+
+    assert team_agent is not None
+    assert team_agent.status == AssetStatus.DRAFT
+
+    new_agent = AgentFactory.create(
+        name="New Agent",
+        description="Agent added to team",
+        llm_id=run_input_map["llm_id"],
+    )
+    team_agent.agents.append(new_agent)
+    team_agent.update()
+
+    team_agent = TeamAgentFactory.get(team_agent.id)
+    assert new_agent.id in [agent.id for agent in team_agent.agents]
+    assert len(team_agent.agents) == len(agents) + 1
+
+    removed_agent = team_agent.agents.pop(0)  
+    team_agent.update()
+
+    team_agent = TeamAgentFactory.get(team_agent.id)
+    assert removed_agent.id not in [agent.id for agent in team_agent.agents]
+    assert len(team_agent.agents) == len(agents) 
+
+    team_agent.delete()
+    new_agent.delete()

@@ -152,7 +152,7 @@ def test_get_model_error_response():
     with requests_mock.Mocker() as mock:
         model_id = "test-model-id"
         url = urljoin(config.BACKEND_URL, f"sdk/models/{model_id}")
-        headers = {"x-aixplain-key": config.AIXPLAIN_API_KEY, "Content-Type": "application/json"}
+        headers = {"Authorization": f"Token {config.AIXPLAIN_API_KEY}", "Content-Type": "application/json"}
 
         error_response = {"statusCode": 404, "message": "Model not found"}
         mock.get(url, headers=headers, json=error_response, status_code=404)
@@ -171,7 +171,7 @@ def test_get_assets_from_page_error():
         page_number = 0
         page_size = 2
         url = urljoin(config.BACKEND_URL, "sdk/models/paginate")
-        headers = {"x-aixplain-key": config.AIXPLAIN_API_KEY, "Content-Type": "application/json"}
+        headers = {"Authorization": f"Token {config.AIXPLAIN_API_KEY}", "Content-Type": "application/json"}
 
         error_response = {"statusCode": 500, "message": "Internal Server Error"}
         mock.post(url, headers=headers, json=error_response, status_code=500)
