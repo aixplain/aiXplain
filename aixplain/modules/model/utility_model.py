@@ -72,6 +72,7 @@ class UtilityModel(Model):
         description: Text,
         code: Text,
         inputs: List[UtilityModelInput],
+        output_description: Text,
         api_key: Optional[Text] = None,
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
         version: Optional[Text] = None,
@@ -88,6 +89,7 @@ class UtilityModel(Model):
             description (Text): description of the model.
             code (Text): code of the model.
             inputs (List[UtilityModelInput]): inputs of the model.
+            output_description (Text): description of the output
             api_key (Text, optional): API key of the Model. Defaults to None.
             supplier (Union[Dict, Text, Supplier, int], optional): supplier of the asset. Defaults to "aiXplain".
             version (Text, optional): version of the model. Defaults to "1.0".
@@ -113,6 +115,7 @@ class UtilityModel(Model):
         self.backend_url = config.BACKEND_URL
         self.code = code
         self.inputs = inputs
+        self.output_description = output_description
         self.validate()
 
     def validate(self):
@@ -123,6 +126,7 @@ class UtilityModel(Model):
         assert self.description and self.description.strip() != "", "Description is required"
         assert self.code and self.code.strip() != "", "Code is required"
         assert self.inputs and len(self.inputs) > 0, "At least one input is required"
+        assert self.output_description and self.output_description.strip() != "", "Output description is required"
 
         self.code = FileFactory.to_link(self.code)
         # store code in a temporary local path if it is not a valid URL or S3 path
@@ -140,6 +144,7 @@ class UtilityModel(Model):
             "inputs": [input.to_dict() for input in self.inputs],
             "code": self.code,
             "function": self.function.value,
+            "outputDescription": self.output_description,
         }
 
     def update(self):

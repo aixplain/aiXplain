@@ -42,7 +42,9 @@ class ModelFactory:
     backend_url = config.BACKEND_URL
 
     @classmethod
-    def create_utility_model(cls, name: Text, description: Text, inputs: List[UtilityModelInput], code: Text) -> UtilityModel:
+    def create_utility_model(
+        cls, name: Text, description: Text, inputs: List[UtilityModelInput], code: Text, output_description: Text
+    ) -> UtilityModel:
         """Create a utility model
 
         Args:
@@ -50,6 +52,7 @@ class ModelFactory:
             description (Text): description of the model
             inputs (List[UtilityModelInput]): inputs of the model
             code (Text): code of the model
+            output_description (Text): description of the output
 
         Returns:
             UtilityModel: created utility model
@@ -62,6 +65,7 @@ class ModelFactory:
             code=code,
             function=Function.UTILITIES,
             api_key=config.TEAM_API_KEY,
+            output_description=output_description,
         )
         payload = utility_model.to_dict()
         url = urljoin(cls.backend_url, "sdk/utilities")
