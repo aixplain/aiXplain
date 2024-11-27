@@ -164,6 +164,8 @@ def test_get_model_error_response():
 
 
 def test_get_assets_from_page_error():
+    from aixplain.factories.model_factory.utils import get_assets_from_page
+
     with requests_mock.Mocker() as mock:
         query = "test-query"
         page_number = 0
@@ -175,7 +177,7 @@ def test_get_assets_from_page_error():
         mock.post(url, headers=headers, json=error_response, status_code=500)
 
         with pytest.raises(Exception) as excinfo:
-            ModelFactory._get_assets_from_page(
+            get_assets_from_page(
                 query=query,
                 page_number=page_number,
                 page_size=page_size,

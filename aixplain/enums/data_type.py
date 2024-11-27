@@ -35,6 +35,7 @@ class DataType(str, Enum):
     VIDEO = "video"
     EMBEDDING = "embedding"
     NUMBER = "number"
+    BOOLEAN = "boolean"
 
     def __str__(self):
         return self._value_
