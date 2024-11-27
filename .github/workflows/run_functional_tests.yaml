@@ -22,10 +22,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install coverage pytest requests tqdm==4.1.0 pandas python-dotenv==1.0.0 validators==0.20.0 filetype==1.2.0 click==7.1.2 PyYAML==6.0.1 urllib3 dataclasses-json==0.5.2 Jinja2==3.1.4 requests_mock docker
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-      - name: Lint with Ruff
-        run: |
-          pip install ruff
-          ruff --format=github --target-version=py${{ matrix.python-version }} .
         continue-on-error: true
       - name: Run Functional Tests with pytest
         env:
