@@ -486,3 +486,14 @@ def test_check_finetune_status_no_logs():
         assert status.epoch is None
         assert status.training_loss is None
         assert status.validation_loss is None
+
+
+def test_model_response():
+    response = ModelResponse(status="SUCCESS", data="test", used_credits=0, run_time=0, usage=None)
+    assert response["data"] == "test"
+    response["data"] = "thiago"
+    assert response["data"] == "thiago"
+    value = response.get("data")
+    assert value == "thiago"
+    value = response.get("not_found", "default_value")
+    assert value == "default_value"
