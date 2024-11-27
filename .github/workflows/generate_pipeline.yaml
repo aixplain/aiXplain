@@ -2,6 +2,9 @@ name: Generate Pipeline
 
 on:
   push:
+    branches:
+      -  development
+      -  test
 
 jobs:
   generate-pipeline:
