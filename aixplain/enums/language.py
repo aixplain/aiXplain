@@ -21,59 +21,18 @@ Description:
     Language Enum
 """
 
-import logging
-import os
-import json
-import time
-from datetime import datetime, timedelta
 from enum import Enum
 from urllib.parse import urljoin
 from aixplain.utils import config
 from aixplain.utils.request_utils import _request_with_retry
+from .cache_utils import save_to_cache, load_from_cache
 
 CACHE_FILE = ".aixplain_cache/languages.json"
-CACHE_DURATION = timedelta(hours=24)
-
-
-def save_to_cache(languages):
-    cache_data = {
-        "timestamp": time.time(),
-        "languages": languages,
-    }
-    temp_file = CACHE_FILE + ".tmp"
-    try:
-        os.makedirs(os.path.dirname(CACHE_FILE), exist_ok=True)
-        with open(temp_file, "w") as f:
-            json.dump(cache_data, f)
-            f.flush()
-            os.fsync(f.fileno())
-        os.replace(temp_file, CACHE_FILE)
-        logging.info("Languages cache saved successfully.")
-    except Exception as e:
-        logging.error(f"Failed to save languages cache: {e}")
-
-def load_from_cache():
-    try:
-        with open(CACHE_FILE, "r") as f:
-            cache_data = json.load(f)
-            timestamp = cache_data["timestamp"]
-            languages = cache_data["languages"]
-            return languages, timestamp
-    except (json.JSONDecodeError, FileNotFoundError) as e:
-        logging.error(f"Failed to load languages cache: {e}")
-        raise e
-    
 
 def load_languages():
-    if os.path.exists(CACHE_FILE):
-        try:
-            languages, timestamp = load_from_cache()
-            cache_time = datetime.fromtimestamp(timestamp)
-            if datetime.now() - cache_time < CACHE_DURATION:
-                logging.info("Loaded languages from cache.")
-                return Enum("Language", languages, type=dict)
-        except Exception as e:
-            logging.warning(f"Failed to load languages cache: {e}. Refreshing languages.")
+    cached_languages = load_from_cache(CACHE_FILE)
+    if cached_languages:
+        return Enum("Language", cached_languages, type=dict)
 
     api_key = config.TEAM_API_KEY
     backend_url = config.BACKEND_URL
@@ -97,7 +56,7 @@ def load_languages():
             dialect_value = dialect["value"]
 
             languages[language_label + "_" + dialect_label] = {"language": language, "dialect": dialect_value}
-    save_to_cache(languages)
+    save_to_cache(CACHE_FILE, languages)
     return Enum("Language", languages, type=dict)
 
 
