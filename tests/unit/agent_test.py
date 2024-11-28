@@ -122,7 +122,11 @@ def test_create_agent():
                     "assetId": "6646261c6eb563165658bbb1",
                     "function": "text-generation",
                     "description": "Test Tool",
-                }
+                },
+                {
+                    "type": "utility",
+                    "description": "Test Utility",
+                },
             ],
         }
         mock.post(url, headers=headers, json=ref_response)
@@ -145,7 +149,8 @@ def test_create_agent():
             description="Test Agent Description",
             llm_id="6646261c6eb563165658bbb1",
             tools=[
-                AgentFactory.create_model_tool(supplier=Supplier.OPENAI, function="text-generation", description="Test Tool")
+                AgentFactory.create_model_tool(supplier=Supplier.OPENAI, function="text-generation", description="Test Tool"),
+                AgentFactory.create_custom_python_code_tool(description="Test Utility"),
             ],
         )
 
@@ -154,6 +159,7 @@ def test_create_agent():
     assert agent.llm_id == ref_response["llmId"]
     assert agent.tools[0].function.value == ref_response["assets"][0]["function"]
     assert agent.tools[0].description == ref_response["assets"][0]["description"]
+    assert agent.tools[1].description == ref_response["assets"][1]["description"]
     assert agent.status == AssetStatus.DRAFT
 
 

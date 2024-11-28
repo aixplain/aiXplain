@@ -29,6 +29,7 @@ from aixplain.enums.supplier import Supplier
 from aixplain.modules.agent import Agent, Tool
 from aixplain.modules.agent.tool.model_tool import ModelTool
 from aixplain.modules.agent.tool.pipeline_tool import PipelineTool
+from aixplain.modules.agent.tool.custom_python_code_tool import CustomPythonCodeTool
 from aixplain.modules.model import Model
 from aixplain.modules.pipeline import Pipeline
 from aixplain.utils import config
@@ -135,6 +136,11 @@ class AgentFactory:
     def create_pipeline_tool(cls, description: Text, pipeline: Union[Pipeline, Text]) -> PipelineTool:
         """Create a new pipeline tool."""
         return PipelineTool(description=description, pipeline=pipeline)
+
+    @classmethod
+    def create_custom_python_code_tool(cls, description: Text) -> CustomPythonCodeTool:
+        """Create a new custom python code tool."""
+        return CustomPythonCodeTool(description=description)
 
     @classmethod
     def list(cls) -> Dict:
