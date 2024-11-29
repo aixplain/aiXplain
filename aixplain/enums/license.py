@@ -26,12 +26,11 @@ from enum import Enum
 from urllib.parse import urljoin
 from aixplain.utils import config
 from aixplain.utils.request_utils import _request_with_retry
-from .cache_utils import save_to_cache, load_from_cache
-
-CACHE_FILE = ".aixplain_cache/licenses.json"
+from ..utils.cache_utils import save_to_cache, load_from_cache
+from ..utils.config import CACHE_FILE_LICENSE
 
 def load_licenses():
-    cached_licenses = load_from_cache(CACHE_FILE)
+    cached_licenses = load_from_cache(CACHE_FILE_LICENSE)
     if cached_licenses:
         return Enum("License", cached_licenses, type=str)
 
@@ -50,7 +49,7 @@ def load_licenses():
         resp = r.json()
         licenses = {"_".join(w["name"].split()): w["id"] for w in resp}
         
-        save_to_cache(CACHE_FILE, licenses)
+        save_to_cache(CACHE_FILE_LICENSE, licenses)
         return Enum("License", licenses, type=str)
     except Exception as e:
         logging.exception("License Loading Error")

@@ -28,12 +28,11 @@ from aixplain.utils.request_utils import _request_with_retry
 from enum import Enum
 from urllib.parse import urljoin
 import logging
-from .cache_utils import save_to_cache, load_from_cache
-
-CACHE_FILE = ".aixplain_cache/functions.json"
+from ..utils.cache_utils import save_to_cache, load_from_cache
+from ..utils.config import CACHE_FILE_FUNCTION
 
 def load_functions():
-    cached_data = load_from_cache(CACHE_FILE)
+    cached_data = load_from_cache(CACHE_FILE_FUNCTION)
     if cached_data:
         return Enum("Function", cached_data["enum"], type=str), cached_data["input_output"]
 
@@ -65,7 +64,7 @@ def load_functions():
             for function in resp["items"]
         }
 
-        save_to_cache(CACHE_FILE, {"enum": functions_enum, "input_output": functions_input_output})
+        save_to_cache(CACHE_FILE_FUNCTION, {"enum": functions_enum, "input_output": functions_input_output})
 
         return Enum("Function", functions_enum, type=str), functions_input_output
 

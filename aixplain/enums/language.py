@@ -25,12 +25,12 @@ from enum import Enum
 from urllib.parse import urljoin
 from aixplain.utils import config
 from aixplain.utils.request_utils import _request_with_retry
-from .cache_utils import save_to_cache, load_from_cache
+from ..utils.cache_utils import save_to_cache, load_from_cache
+from ..utils.config import CACHE_FILE_LANGUAGES
 
-CACHE_FILE = ".aixplain_cache/languages.json"
 
 def load_languages():
-    cached_languages = load_from_cache(CACHE_FILE)
+    cached_languages = load_from_cache(CACHE_FILE_LANGUAGES)
     if cached_languages:
         return Enum("Language", cached_languages, type=dict)
 
@@ -56,7 +56,7 @@ def load_languages():
             dialect_value = dialect["value"]
 
             languages[language_label + "_" + dialect_label] = {"language": language, "dialect": dialect_value}
-    save_to_cache(CACHE_FILE, languages)
+    save_to_cache(CACHE_FILE_LANGUAGES, languages)
     return Enum("Language", languages, type=dict)
 
 
