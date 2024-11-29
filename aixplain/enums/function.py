@@ -29,13 +29,31 @@ from enum import Enum
 from urllib.parse import urljoin
 import logging
 from ..utils.cache_utils import save_to_cache, load_from_cache
-from ..utils.config import CACHE_FILE_FUNCTION
+
+CACHE_FILE = ".aixplain_cache/functions.json"
+
+def process(info):
+    functions_enum = {
+            w["id"].upper().replace("-", "_"): w["id"] for w in info["items"]
+        }
+    functions_input_output = {
+            function["id"]: {
+                "input": {
+                    input_data_object["dataType"]
+                    for input_data_object in function["params"]
+                    if input_data_object["required"] is True
+                },
+                "output": {output_data_object["dataType"] for output_data_object in function["output"]},
+                "spec": function,
+            }
+            for function in info["items"]
+        }
+    return Enum("Function", functions_enum, type=str), functions_input_output
 
 def load_functions():
-    cached_data = load_from_cache(CACHE_FILE_FUNCTION)
+    cached_data = load_from_cache(CACHE_FILE)
     if cached_data:
-        return Enum("Function", cached_data["enum"], type=str), cached_data["input_output"]
-
+        return process(cached_data)
 
     try:
         api_key = config.TEAM_API_KEY
@@ -47,27 +65,9 @@ def load_functions():
         if not 200 <= r.status_code < 300:
             raise Exception("Functions could not be loaded. Invalid API key or server issue.")
 
-        resp = r.json()
-        functions_enum = {
-            w["id"].upper().replace("-", "_"): w["id"] for w in resp["items"]
-        }
-        functions_input_output = {
-            function["id"]: {
-                "input": {
-                    input_data_object["dataType"]
-                    for input_data_object in function["params"]
-                    if input_data_object["required"] is True
-                },
-                "output": {output_data_object["dataType"] for output_data_object in function["output"]},
-                "spec": function,
-            }
-            for function in resp["items"]
-        }
-
-        save_to_cache(CACHE_FILE_FUNCTION, {"enum": functions_enum, "input_output": functions_input_output})
-
-        return Enum("Function", functions_enum, type=str), functions_input_output
-
+        resp = r.json()   
+        save_to_cache(CACHE_FILE,resp)
+        return process(resp)
     except Exception as e:
         logging.error(f"Failed to load functions from API: {e}")
         raise Exception("Unable to load functions from cache or API.")
