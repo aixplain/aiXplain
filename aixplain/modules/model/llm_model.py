@@ -130,15 +130,17 @@ class LLM(Model):
             parameters = {}
         parameters.update(
             {
-                "context": parameters.get("context", context),
-                "prompt": parameters.get("prompt", prompt),
-                "history": parameters.get("history", history),
-                "temperature": parameters.get("temperature", temperature),
-                "max_tokens": parameters.get("max_tokens", max_tokens),
-                "top_p": parameters.get("top_p", top_p),
+                "context": parameters.get("context") or data.get("context", context),
+                "prompt": parameters.get("prompt") or data.get("prompt", prompt),
+                "history": parameters.get("history") or data.get("history", history),
+                "temperature": parameters.get("temperature") or data.get("temperature", temperature),
+                "max_tokens": parameters.get("max_tokens") or data.get("max_tokens", max_tokens),
+                "top_p": parameters.get("top_p") or data.get("top_p", top_p),
             }
         )
         payload = build_payload(data=data, parameters=parameters)
+        logging.info("payload")
+        logging.info(payload)
         url = f"{self.url}/{self.id}".replace("/api/v1/execute", "/api/v2/execute")
         logging.debug(f"Model Run Sync: Start service for {name} - {url}")
         response = call_run_endpoint(payload=payload, url=url, api_key=self.api_key)
@@ -199,12 +201,12 @@ class LLM(Model):
             parameters = {}
         parameters.update(
             {
-                "context": parameters.get("context", context),
-                "prompt": parameters.get("prompt", prompt),
-                "history": parameters.get("history", history),
-                "temperature": parameters.get("temperature", temperature),
-                "max_tokens": parameters.get("max_tokens", max_tokens),
-                "top_p": parameters.get("top_p", top_p),
+                "context": parameters.get("context") or data.get("context", context),
+                "prompt": parameters.get("prompt") or data.get("prompt", prompt),
+                "history": parameters.get("history") or data.get("history", history),
+                "temperature": parameters.get("temperature") or data.get("temperature", temperature),
+                "max_tokens": parameters.get("max_tokens") or data.get("max_tokens", max_tokens),
+                "top_p": parameters.get("top_p") or data.get("top_p", top_p),
             }
         )
         payload = build_payload(data=data, parameters=parameters)
