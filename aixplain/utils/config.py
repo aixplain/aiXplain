@@ -38,5 +38,3 @@ PIPELINE_API_KEY = os.getenv("PIPELINE_API_KEY", "")
 MODEL_API_KEY = os.getenv("MODEL_API_KEY", "")
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 HF_TOKEN = os.getenv("HF_TOKEN", "")
-
-CACHE_FOLDER = ".aixplain_cache"

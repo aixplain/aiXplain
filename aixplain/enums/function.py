@@ -25,9 +25,9 @@ from aixplain.utils import config
 from aixplain.utils.request_utils import _request_with_retry
 from enum import Enum
 from urllib.parse import urljoin
-from aixplain.utils.cache_utils import save_to_cache, load_from_cache
+from aixplain.utils.cache_utils import save_to_cache, load_from_cache, CACHE_FOLDER
 
-CACHE_FILE = f"{config.CACHE_FOLDER}/functions.json"
+CACHE_FILE = f"{CACHE_FOLDER}/functions.json"
 
 
 def load_functions():

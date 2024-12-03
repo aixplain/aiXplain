@@ -26,9 +26,9 @@ from enum import Enum
 from urllib.parse import urljoin
 from aixplain.utils import config
 from aixplain.utils.request_utils import _request_with_retry
-from aixplain.utils.cache_utils import save_to_cache, load_from_cache
+from aixplain.utils.cache_utils import save_to_cache, load_from_cache, CACHE_FOLDER
 
-CACHE_FILE = ".aixplain_cache/licenses.json"
+CACHE_FILE = f"{CACHE_FOLDER}/licenses.json"
 
 
 def load_licenses():

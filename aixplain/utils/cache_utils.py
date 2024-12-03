@@ -4,6 +4,7 @@ import time
 import logging
 
 CACHE_DURATION = 24 * 60 * 60
+CACHE_FOLDER = ".aixplain_cache"
 
 
 def save_to_cache(cache_file, data):
