@@ -25,27 +25,28 @@ from enum import Enum
 from urllib.parse import urljoin
 from aixplain.utils import config
 from aixplain.utils.request_utils import _request_with_retry
-from .cache_utils import save_to_cache, load_from_cache
+from aixplain.utils.cache_utils import save_to_cache, load_from_cache
 
 CACHE_FILE = ".aixplain_cache/languages.json"
 
+
 def load_languages():
-    cached_languages = load_from_cache(CACHE_FILE)
-    if cached_languages:
-        return Enum("Language", cached_languages, type=dict)
+    resp = load_from_cache(CACHE_FILE)
+    if resp is None:
+        api_key = config.TEAM_API_KEY
+        backend_url = config.BACKEND_URL
 
-    api_key = config.TEAM_API_KEY
-    backend_url = config.BACKEND_URL
+        url = urljoin(backend_url, "sdk/languages")
 
-    url = urljoin(backend_url, "sdk/languages")
+        headers = {"x-api-key": api_key, "Content-Type": "application/json"}
+        r = _request_with_retry("get", url, headers=headers)
+        if not 200 <= r.status_code < 300:
+            raise Exception(
+                f'Languages could not be loaded, probably due to the set API key (e.g. "{api_key}") is not valid. For help, please refer to the documentation (https://github.com/aixplain/aixplain#api-key-setup)'
+            )
+        resp = r.json()
+        save_to_cache(CACHE_FILE, resp)
 
-    headers = {"x-api-key": api_key, "Content-Type": "application/json"}
-    r = _request_with_retry("get", url, headers=headers)
-    if not 200 <= r.status_code < 300:
-        raise Exception(
-            f'Languages could not be loaded, probably due to the set API key (e.g. "{api_key}") is not valid. For help, please refer to the documentation (https://github.com/aixplain/aixplain#api-key-setup)'
-        )
-    resp = r.json()
     languages = {}
     for w in resp:
         language = w["value"]
@@ -56,7 +57,6 @@ def load_languages():
             dialect_value = dialect["value"]
 
             languages[language_label + "_" + dialect_label] = {"language": language, "dialect": dialect_value}
-    save_to_cache(CACHE_FILE, languages)
     return Enum("Language", languages, type=dict)
 
 

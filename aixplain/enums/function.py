@@ -21,57 +21,46 @@ Description:
     Function Enum
 """
 
-import logging
-
 from aixplain.utils import config
 from aixplain.utils.request_utils import _request_with_retry
 from enum import Enum
 from urllib.parse import urljoin
-import logging
-from .cache_utils import save_to_cache, load_from_cache
+from aixplain.utils.cache_utils import save_to_cache, load_from_cache
 
 CACHE_FILE = ".aixplain_cache/functions.json"
 
+
 def load_functions():
-    cached_data = load_from_cache(CACHE_FILE)
-    if cached_data:
-        return Enum("Function", cached_data["enum"], type=str), cached_data["input_output"]
+    api_key = config.TEAM_API_KEY
+    backend_url = config.BACKEND_URL
 
-
-    try:
-        api_key = config.TEAM_API_KEY
-        backend_url = config.BACKEND_URL
+    resp = load_from_cache(CACHE_FILE)
+    if resp is None:
         url = urljoin(backend_url, "sdk/functions")
-        headers = {"x-api-key": api_key, "Content-Type": "application/json"}
 
+        headers = {"x-api-key": api_key, "Content-Type": "application/json"}
         r = _request_with_retry("get", url, headers=headers)
         if not 200 <= r.status_code < 300:
-            raise Exception("Functions could not be loaded. Invalid API key or server issue.")
-
+            raise Exception(
+                f'Functions could not be loaded, probably due to the set API key (e.g. "{api_key}") is not valid. For help, please refer to the documentation (https://github.com/aixplain/aixplain#api-key-setup)'
+            )
         resp = r.json()
-        functions_enum = {
-            w["id"].upper().replace("-", "_"): w["id"] for w in resp["items"]
+        save_to_cache(CACHE_FILE, resp)
+
+    functions = Enum("Function", {w["id"].upper().replace("-", "_"): w["id"] for w in resp["items"]}, type=str)
+    functions_input_output = {
+        function["id"]: {
+            "input": {
+                input_data_object["dataType"]
+                for input_data_object in function["params"]
+                if input_data_object["required"] is True
+            },
+            "output": {output_data_object["dataType"] for output_data_object in function["output"]},
+            "spec": function,
         }
-        functions_input_output = {
-            function["id"]: {
-                "input": {
-                    input_data_object["dataType"]
-                    for input_data_object in function["params"]
-                    if input_data_object["required"] is True
-                },
-                "output": {output_data_object["dataType"] for output_data_object in function["output"]},
-                "spec": function,
-            }
-            for function in resp["items"]
-        }
-
-        save_to_cache(CACHE_FILE, {"enum": functions_enum, "input_output": functions_input_output})
-
-        return Enum("Function", functions_enum, type=str), functions_input_output
-
-    except Exception as e:
-        logging.error(f"Failed to load functions from API: {e}")
-        raise Exception("Unable to load functions from cache or API.")
+        for function in resp["items"]
+    }
+    return functions, functions_input_output
 
 
 Function, FunctionInputOutput = load_functions()

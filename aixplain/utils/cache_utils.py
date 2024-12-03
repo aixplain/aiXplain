@@ -3,7 +3,8 @@ import json
 import time
 import logging
 
-CACHE_DURATION = 24 * 60 * 60 
+CACHE_DURATION = 24 * 60 * 60
+
 
 def save_to_cache(cache_file, data):
     try:
@@ -13,8 +14,9 @@ def save_to_cache(cache_file, data):
     except Exception as e:
         logging.error(f"Failed to save cache to {cache_file}: {e}")
 
+
 def load_from_cache(cache_file):
-    try:
+    if os.path.exists(cache_file) is True:
         with open(cache_file, "r") as f:
             cache_data = json.load(f)
             if time.time() - cache_data["timestamp"] < CACHE_DURATION:
@@ -23,7 +25,4 @@ def load_from_cache(cache_file):
             else:
                 logging.info(f"Cache expired for {cache_file}.")
                 return None
-    except FileNotFoundError:
-        return None
-    except json.JSONDecodeError:
-        return None
+    return None

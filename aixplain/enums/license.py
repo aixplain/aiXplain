@@ -26,33 +26,33 @@ from enum import Enum
 from urllib.parse import urljoin
 from aixplain.utils import config
 from aixplain.utils.request_utils import _request_with_retry
-from .cache_utils import save_to_cache, load_from_cache
+from aixplain.utils.cache_utils import save_to_cache, load_from_cache
 
 CACHE_FILE = ".aixplain_cache/licenses.json"
 
+
 def load_licenses():
-    cached_licenses = load_from_cache(CACHE_FILE)
-    if cached_licenses:
-        return Enum("License", cached_licenses, type=str)
+    resp = load_from_cache(CACHE_FILE)
 
     try:
-        api_key = config.TEAM_API_KEY
-        backend_url = config.BACKEND_URL
+        if resp is None:
+            api_key = config.TEAM_API_KEY
+            backend_url = config.BACKEND_URL
 
-        url = urljoin(backend_url, "sdk/licenses")
+            url = urljoin(backend_url, "sdk/licenses")
 
-        headers = {"x-api-key": api_key, "Content-Type": "application/json"}
-        r = _request_with_retry("get", url, headers=headers)
-        if not 200 <= r.status_code < 300:
-            raise Exception(
-                f'Licenses could not be loaded, probably due to the set API key (e.g. "{api_key}") is not valid. For help, please refer to the documentation (https://github.com/aixplain/aixplain#api-key-setup)'
-            )
-        resp = r.json()
+            headers = {"x-api-key": api_key, "Content-Type": "application/json"}
+            r = _request_with_retry("get", url, headers=headers)
+            if not 200 <= r.status_code < 300:
+                raise Exception(
+                    f'Licenses could not be loaded, probably due to the set API key (e.g. "{api_key}") is not valid. For help, please refer to the documentation (https://github.com/aixplain/aixplain#api-key-setup)'
+                )
+            resp = r.json()
+            save_to_cache(CACHE_FILE, resp)
         licenses = {"_".join(w["name"].split()): w["id"] for w in resp}
-        
-        save_to_cache(CACHE_FILE, licenses)
+
         return Enum("License", licenses, type=str)
-    except Exception as e:
+    except Exception:
         logging.exception("License Loading Error")
         raise Exception("License Loading Error")
 
