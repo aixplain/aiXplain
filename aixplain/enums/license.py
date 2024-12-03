@@ -50,7 +50,6 @@ def load_licenses():
             resp = r.json()
             save_to_cache(CACHE_FILE, resp)
         licenses = {"_".join(w["name"].split()): w["id"] for w in resp}
-
         return Enum("License", licenses, type=str)
     except Exception:
         logging.exception("License Loading Error")

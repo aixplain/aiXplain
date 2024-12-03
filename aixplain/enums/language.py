@@ -27,7 +27,7 @@ from aixplain.utils import config
 from aixplain.utils.request_utils import _request_with_retry
 from aixplain.utils.cache_utils import save_to_cache, load_from_cache
 
-CACHE_FILE = ".aixplain_cache/languages.json"
+CACHE_FILE = f"{config.CACHE_FOLDER}/languages.json"
 
 
 def load_languages():

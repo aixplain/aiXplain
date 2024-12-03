@@ -20,9 +20,7 @@ def load_from_cache(cache_file):
         with open(cache_file, "r") as f:
             cache_data = json.load(f)
             if time.time() - cache_data["timestamp"] < CACHE_DURATION:
-                logging.info(f"Loaded valid cache from {cache_file}.")
                 return cache_data["data"]
             else:
-                logging.info(f"Cache expired for {cache_file}.")
                 return None
     return None

@@ -27,7 +27,7 @@ from enum import Enum
 from urllib.parse import urljoin
 from aixplain.utils.cache_utils import save_to_cache, load_from_cache
 
-CACHE_FILE = ".aixplain_cache/functions.json"
+CACHE_FILE = f"{config.CACHE_FOLDER}/functions.json"
 
 
 def load_functions():
