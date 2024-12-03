@@ -20,7 +20,7 @@ Date: September 1st 2022
 Description:
     Model Factory Class
 """
-from typing import Dict, List, Optional, Text, Tuple, Union
+from typing import Callable, Dict, List, Optional, Text, Tuple, Union
 import json
 import logging
 from aixplain.modules.model import Model
@@ -42,7 +42,12 @@ class ModelFactory:
 
     @classmethod
     def create_utility_model(
-        cls, name: Text, description: Text, inputs: List[UtilityModelInput], code: Text, output_description: Text
+        cls,
+        name: Text,
+        description: Text,
+        inputs: List[UtilityModelInput],
+        code: Union[Text, Callable],
+        output_description: Text,
     ) -> UtilityModel:
         """Create a utility model
 
@@ -50,7 +55,7 @@ class ModelFactory:
             name (Text): name of the model
             description (Text): description of the model
             inputs (List[UtilityModelInput]): inputs of the model
-            code (Text): code of the model
+            code (Union[Text, Callable]): code of the model
             output_description (Text): description of the output
 
         Returns:
