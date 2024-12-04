@@ -20,7 +20,7 @@ Date: September 1st 2022
 Description:
     Model Factory Class
 """
-from typing import Dict, List, Optional, Text, Tuple, Union
+from typing import Callable, Dict, List, Optional, Text, Tuple, Union
 import json
 import logging
 from aixplain.modules.model import Model
@@ -42,16 +42,21 @@ class ModelFactory:
 
     @classmethod
     def create_utility_model(
-        cls, name: Text, description: Text, inputs: List[UtilityModelInput], code: Text, output_description: Text
+        cls,
+        name: Text,
+        code: Union[Text, Callable],
+        inputs: List[UtilityModelInput] = [],
+        description: Optional[Text] = None,
+        output_examples: Text = "",
     ) -> UtilityModel:
         """Create a utility model
 
         Args:
             name (Text): name of the model
-            description (Text): description of the model
-            inputs (List[UtilityModelInput]): inputs of the model
-            code (Text): code of the model
-            output_description (Text): description of the output
+            code (Union[Text, Callable]): code of the model
+            description (Text, optional): description of the model
+            inputs (List[UtilityModelInput], optional): inputs of the model
+            output_examples (Text, optional): output examples
 
         Returns:
             UtilityModel: created utility model
@@ -64,7 +69,7 @@ class ModelFactory:
             code=code,
             function=Function.UTILITIES,
             api_key=config.TEAM_API_KEY,
-            output_description=output_description,
+            output_examples=output_examples,
         )
         payload = utility_model.to_dict()
         url = urljoin(cls.backend_url, "sdk/utilities")
