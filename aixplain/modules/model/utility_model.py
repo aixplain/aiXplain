@@ -55,7 +55,7 @@ class UtilityModel(Model):
         code (Union[Text, Callable]): code of the model.
         description (Text): description of the model. Defaults to "".
         inputs (List[UtilityModelInput]): inputs of the model. Defaults to [].
-        output_description (Text): description of the output. Defaults to "".
+        output_examples (Text): output examples. Defaults to "".
         api_key (Text, optional): API key of the Model. Defaults to None.
         supplier (Union[Dict, Text, Supplier, int], optional): supplier of the asset. Defaults to "aiXplain".
         version (Text, optional): version of the model. Defaults to "1.0".
@@ -72,7 +72,7 @@ class UtilityModel(Model):
         code: Union[Text, Callable],
         description: Optional[Text] = None,
         inputs: List[UtilityModelInput] = [],
-        output_description: Text = "",
+        output_examples: Text = "",
         api_key: Optional[Text] = None,
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
         version: Optional[Text] = None,
@@ -89,7 +89,7 @@ class UtilityModel(Model):
             code (Union[Text, Callable]): code of the model.
             description (Text): description of the model. Defaults to "".
             inputs (List[UtilityModelInput]): inputs of the model. Defaults to [].
-            output_description (Text): description of the output. Defaults to "".
+            output_examples (Text): output examples. Defaults to "".
             api_key (Text, optional): API key of the Model. Defaults to None.
             supplier (Union[Dict, Text, Supplier, int], optional): supplier of the asset. Defaults to "aiXplain".
             version (Text, optional): version of the model. Defaults to "1.0".
@@ -115,7 +115,7 @@ class UtilityModel(Model):
         self.backend_url = config.BACKEND_URL
         self.code = code
         self.inputs = inputs
-        self.output_description = output_description
+        self.output_examples = output_examples
         self.validate()
 
     def validate(self):
@@ -128,7 +128,7 @@ class UtilityModel(Model):
         assert self.name and self.name.strip() != "", "Name is required"
         assert self.description and self.description.strip() != "", "Description is required"
         assert self.code and self.code.strip() != "", "Code is required"
-        assert self.output_description and self.output_description.strip() != "", "Output description is required"
+        assert self.output_examples and self.output_examples.strip() != "", "Output description is required"
 
     def to_dict(self):
         return {
@@ -137,7 +137,7 @@ class UtilityModel(Model):
             "inputs": [input.to_dict() for input in self.inputs],
             "code": self.code,
             "function": self.function.value,
-            "outputDescription": self.output_description,
+            "outputDescription": self.output_examples,
         }
 
     def update(self):

@@ -85,6 +85,7 @@ def parse_code(code: Union[Text, Callable]) -> Tuple[Text, List, Text]:
     import re
     import requests
     import validators
+    from aixplain.enums import DataType
     from aixplain.modules.model.utility_model import UtilityModelInput
     from aixplain.factories.file_factory import FileFactory
     from uuid import uuid4
@@ -93,7 +94,7 @@ def parse_code(code: Union[Text, Callable]) -> Tuple[Text, List, Text]:
 
     if isinstance(code, Callable):
         str_code = inspect.getsource(code)
-        description = code.__doc__
+        description = code.__doc__.strip() if code.__doc__ else ""
     elif os.path.exists(code):
         with open(code, "r") as f:
             str_code = f.read()
@@ -119,15 +120,15 @@ def parse_code(code: Union[Text, Callable]) -> Tuple[Text, List, Text]:
 
         if input_type in ["int", "float"]:
             input_type = "number"
-            inputs.append(UtilityModelInput(name=input_name, type=input_type, description=""))
+            inputs.append(UtilityModelInput(name=input_name, type=DataType.NUMBER, description=""))
         elif input_type == "bool":
             input_type = "boolean"
-            inputs.append(UtilityModelInput(name=input_name, type=input_type, description=""))
+            inputs.append(UtilityModelInput(name=input_name, type=DataType.BOOLEAN, description=""))
         elif input_type == "str":
             input_type = "text"
-            inputs.append(UtilityModelInput(name=input_name, type=input_type, description=""))
+            inputs.append(UtilityModelInput(name=input_name, type=DataType.TEXT, description=""))
         else:
-            raise Exception(f"Utility Model Error:Unsupported input type: {input_type}")
+            raise Exception(f"Utility Model Error: Unsupported input type: {input_type}")
 
     local_path = str(uuid4())
     with open(local_path, "w") as f:

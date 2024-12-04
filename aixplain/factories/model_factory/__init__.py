@@ -44,19 +44,19 @@ class ModelFactory:
     def create_utility_model(
         cls,
         name: Text,
-        description: Text,
-        inputs: List[UtilityModelInput],
         code: Union[Text, Callable],
-        output_description: Text,
+        inputs: List[UtilityModelInput] = [],
+        description: Optional[Text] = None,
+        output_examples: Text = "",
     ) -> UtilityModel:
         """Create a utility model
 
         Args:
             name (Text): name of the model
-            description (Text): description of the model
-            inputs (List[UtilityModelInput]): inputs of the model
             code (Union[Text, Callable]): code of the model
-            output_description (Text): description of the output
+            description (Text, optional): description of the model
+            inputs (List[UtilityModelInput], optional): inputs of the model
+            output_examples (Text, optional): output examples
 
         Returns:
             UtilityModel: created utility model
@@ -69,7 +69,7 @@ class ModelFactory:
             code=code,
             function=Function.UTILITIES,
             api_key=config.TEAM_API_KEY,
-            output_description=output_description,
+            output_examples=output_examples,
         )
         payload = utility_model.to_dict()
         url = urljoin(cls.backend_url, "sdk/utilities")
