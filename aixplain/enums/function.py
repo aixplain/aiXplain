@@ -21,27 +21,32 @@ Description:
     Function Enum
 """
 
-import logging
-
 from aixplain.utils import config
 from aixplain.utils.request_utils import _request_with_retry
 from enum import Enum
 from urllib.parse import urljoin
+from aixplain.utils.cache_utils import save_to_cache, load_from_cache, CACHE_FOLDER
+
+CACHE_FILE = f"{CACHE_FOLDER}/functions.json"
 
 
 def load_functions():
     api_key = config.TEAM_API_KEY
     backend_url = config.BACKEND_URL
 
-    url = urljoin(backend_url, "sdk/functions")
+    resp = load_from_cache(CACHE_FILE)
+    if resp is None:
+        url = urljoin(backend_url, "sdk/functions")
 
-    headers = {"x-api-key": api_key, "Content-Type": "application/json"}
-    r = _request_with_retry("get", url, headers=headers)
-    if not 200 <= r.status_code < 300:
-        raise Exception(
-            f'Functions could not be loaded, probably due to the set API key (e.g. "{api_key}") is not valid. For help, please refer to the documentation (https://github.com/aixplain/aixplain#api-key-setup)'
-        )
-    resp = r.json()
+        headers = {"x-api-key": api_key, "Content-Type": "application/json"}
+        r = _request_with_retry("get", url, headers=headers)
+        if not 200 <= r.status_code < 300:
+            raise Exception(
+                f'Functions could not be loaded, probably due to the set API key (e.g. "{api_key}") is not valid. For help, please refer to the documentation (https://github.com/aixplain/aixplain#api-key-setup)'
+            )
+        resp = r.json()
+        save_to_cache(CACHE_FILE, resp)
+
     functions = Enum("Function", {w["id"].upper().replace("-", "_"): w["id"] for w in resp["items"]}, type=str)
     functions_input_output = {
         function["id"]: {
@@ -56,5 +61,6 @@ def load_functions():
         for function in resp["items"]
     }
     return functions, functions_input_output
+
 
 Function, FunctionInputOutput = load_functions()
