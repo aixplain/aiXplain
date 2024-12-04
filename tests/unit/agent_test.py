@@ -125,7 +125,7 @@ def test_create_agent():
                 },
                 {
                     "type": "utility",
-                    "description": "Test Utility",
+                    "description": "",
                 },
             ],
         }
@@ -150,7 +150,7 @@ def test_create_agent():
             llm_id="6646261c6eb563165658bbb1",
             tools=[
                 AgentFactory.create_model_tool(supplier=Supplier.OPENAI, function="text-generation", description="Test Tool"),
-                AgentFactory.create_custom_python_code_tool(description="Test Utility"),
+                AgentFactory.create_python_interpreter_tool(),
             ],
         )
 

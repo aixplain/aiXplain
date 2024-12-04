@@ -3,7 +3,7 @@ __author__ = "thiagocastroferreira"
 import aixplain.utils.config as config
 from aixplain.enums import Function, Supplier
 from aixplain.enums.asset_status import AssetStatus
-from aixplain.modules.agent import Agent, ModelTool, PipelineTool, CustomPythonCodeTool
+from aixplain.modules.agent import Agent, ModelTool, PipelineTool, PythonInterpreterTool
 from typing import Dict, Text
 from urllib.parse import urljoin
 
@@ -35,7 +35,7 @@ def build_agent(payload: Dict, api_key: Text = config.TEAM_API_KEY) -> Agent:
         elif tool["type"] == "pipeline":
             tool = PipelineTool(description=tool["description"], pipeline=tool["assetId"])
         elif tool["type"] == "utility":
-            tool = CustomPythonCodeTool(description=tool["description"])
+            tool = PythonInterpreterTool()
         else:
             raise Exception("Agent Creation Error: Tool type not supported.")
         tools.append(tool)

@@ -20,33 +20,20 @@ Date: May 16th 2024
 Description:
     Agentification Class
 """
-from typing import Text
 
 from aixplain.modules.agent.tool import Tool
 
 
-class CustomPythonCodeTool(Tool):
-    """Custom Python Code Tool
+class PythonInterpreterTool(Tool):
+    """Python Interpreter Tool"""
 
-    Attributes:
-        description (Text): description of the tool
-    """
-
-    def __init__(
-        self,
-        description: Text,
-        **additional_info,
-    ) -> None:
-        """Custom Python Code Tool
-
-        Attributes:
-            description (Text): description of the tool
-        """
-        super().__init__("", description, **additional_info)
+    def __init__(self, **additional_info) -> None:
+        """Python Interpreter Tool"""
+        super().__init__(name="Python Interpreter", description="", **additional_info)
 
     def to_dict(self):
         return {
-            "description": self.description,
+            "description": "",
             "type": "utility",
             "utility": "custom_python_code",
         }
