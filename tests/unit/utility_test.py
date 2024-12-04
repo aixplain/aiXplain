@@ -111,6 +111,25 @@ def test_update_utility_model():
                     assert utility_model.description == "updated_description"
 
 
+def test_delete_utility_model():
+    with requests_mock.Mocker() as mock:
+        with patch("aixplain.factories.file_factory.FileFactory.to_link", return_value="def main(originCode: str)"):
+            with patch("aixplain.factories.file_factory.FileFactory.upload", return_value="def main(originCode: str)"):
+                mock.delete(urljoin(config.BACKEND_URL, "sdk/utilities/123"), status_code=200, json={"id": "123"})
+                utility_model = UtilityModel(
+                    id="123",
+                    name="utility_model_test",
+                    description="utility_model_test",
+                    code="def main(originCode: str)",
+                    output_examples="output_description",
+                    inputs=[UtilityModelInput(name="originCode", description="originCode", type=DataType.TEXT)],
+                    function=Function.UTILITIES,
+                    api_key=config.TEAM_API_KEY,
+                )
+                utility_model.delete()
+                assert mock.called
+
+
 def test_parse_code():
     # Code is a string
     with patch("aixplain.factories.file_factory.FileFactory.to_link", return_value="code_link"):
