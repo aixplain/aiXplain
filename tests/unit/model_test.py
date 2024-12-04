@@ -164,6 +164,8 @@ def test_get_model_error_response():
 
 
 def test_get_assets_from_page_error():
+    from aixplain.factories.model_factory.utils import get_assets_from_page
+
     with requests_mock.Mocker() as mock:
         query = "test-query"
         page_number = 0
@@ -175,7 +177,7 @@ def test_get_assets_from_page_error():
         mock.post(url, headers=headers, json=error_response, status_code=500)
 
         with pytest.raises(Exception) as excinfo:
-            ModelFactory._get_assets_from_page(
+            get_assets_from_page(
                 query=query,
                 page_number=page_number,
                 page_size=page_size,
@@ -486,3 +488,14 @@ def test_check_finetune_status_no_logs():
         assert status.epoch is None
         assert status.training_loss is None
         assert status.validation_loss is None
+
+
+def test_model_response():
+    response = ModelResponse(status="SUCCESS", data="test", used_credits=0, run_time=0, usage=None)
+    assert response["data"] == "test"
+    response["data"] = "thiago"
+    assert response["data"] == "thiago"
+    value = response.get("data")
+    assert value == "thiago"
+    value = response.get("not_found", "default_value")
+    assert value == "default_value"
