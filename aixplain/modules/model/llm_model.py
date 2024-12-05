@@ -129,7 +129,7 @@ class LLM(Model):
         parameters = parameters or {}
 
         if isinstance(data, dict):
-            parameters = {**data, **parameters} 
+            parameters = {**data, **parameters}
             data = data.get("data", "")
 
         parameters.setdefault("context", context)
@@ -138,9 +138,8 @@ class LLM(Model):
         parameters.setdefault("temperature", temperature)
         parameters.setdefault("max_tokens", max_tokens)
         parameters.setdefault("top_p", top_p)
-       
+
         payload = build_payload(data=data, parameters=parameters)
-        logging.info("payload")
         logging.info(payload)
         url = f"{self.url}/{self.id}".replace("/api/v1/execute", "/api/v2/execute")
         logging.debug(f"Model Run Sync: Start service for {name} - {url}")
@@ -201,7 +200,7 @@ class LLM(Model):
         parameters = parameters or {}
 
         if isinstance(data, dict):
-            parameters = {**data, **parameters} 
+            parameters = {**data, **parameters}
             data = data.get("data", "")
 
         parameters.setdefault("context", context)
