@@ -27,7 +27,7 @@ jobs:
       - name: Run generate.py to create pipeline.py
         working-directory: aixplain/modules/pipeline
         env:
-          BACKEND_URL: https://test-platform-api.aixplain.com
+          BACKEND_URL: ${{ github.ref == 'refs/heads/development' && 'https://dev-platform-api.aixplain.com' || 'https://test-platform-api.aixplain.com' }}
           MODELS_RUN_URL: https://test-models.aixplain.com/api/v1/execute
           TEAM_API_KEY: ${{ secrets.TEAM_API_KEY }}
         run: |
