@@ -128,6 +128,11 @@ class LLM(Model):
         start = time.time()
         if parameters is None:
             parameters = {}
+        if isinstance(data, dict):
+            for key, value in data.items():
+                if key not in parameters:
+                    parameters[key] = value
+            data = data.get("data", "")
         parameters.update(
         {
             "context": parameters.get("context") or (data if isinstance(data, dict) else context),
@@ -199,6 +204,11 @@ class LLM(Model):
         logging.debug(f"Model Run Async: Start service for {name} - {url}")
         if parameters is None:
             parameters = {}
+        if isinstance(data, dict):
+            for key, value in data.items():
+                if key not in parameters:
+                    parameters[key] = value
+            data = data.get("data", "")
         parameters.update(
             {
                 "context": parameters.get("context") or (data if isinstance(data, dict) else context),
