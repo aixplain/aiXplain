@@ -126,23 +126,19 @@ class LLM(Model):
             Dict: parsed output from model
         """
         start = time.time()
-        if parameters is None:
-            parameters = {}
+        parameters = parameters or {}
+
         if isinstance(data, dict):
-            for key, value in data.items():
-                if key not in parameters:
-                    parameters[key] = value
+            parameters = {**data, **parameters} 
             data = data.get("data", "")
-        parameters.update(
-        {
-            "context": parameters.get("context") or (data if isinstance(data, dict) else context),
-            "prompt": parameters.get("prompt") or (data if isinstance(data, dict) else prompt),
-            "history": parameters.get("history") or (data.get("history") if isinstance(data, dict) else history),
-            "temperature": parameters.get("temperature") or (data.get("temperature") if isinstance(data, dict) else temperature),
-            "max_tokens": parameters.get("max_tokens") or (data.get("max_tokens") if isinstance(data, dict) else max_tokens),
-            "top_p": parameters.get("top_p") or (data.get("top_p") if isinstance(data, dict) else top_p),
-            }
-        )
+
+        parameters.setdefault("context", context)
+        parameters.setdefault("prompt", prompt)
+        parameters.setdefault("history", history)
+        parameters.setdefault("temperature", temperature)
+        parameters.setdefault("max_tokens", max_tokens)
+        parameters.setdefault("top_p", top_p)
+       
         payload = build_payload(data=data, parameters=parameters)
         logging.info("payload")
         logging.info(payload)
@@ -202,23 +198,18 @@ class LLM(Model):
         """
         url = f"{self.url}/{self.id}"
         logging.debug(f"Model Run Async: Start service for {name} - {url}")
-        if parameters is None:
-            parameters = {}
+        parameters = parameters or {}
+
         if isinstance(data, dict):
-            for key, value in data.items():
-                if key not in parameters:
-                    parameters[key] = value
+            parameters = {**data, **parameters} 
             data = data.get("data", "")
-        parameters.update(
-            {
-                "context": parameters.get("context") or (data if isinstance(data, dict) else context),
-                "prompt": parameters.get("prompt") or (data if isinstance(data, dict) else prompt),
-                "history": parameters.get("history") or (data.get("history") if isinstance(data, dict) else history),
-                "temperature": parameters.get("temperature") or (data.get("temperature") if isinstance(data, dict) else temperature),
-                "max_tokens": parameters.get("max_tokens") or (data.get("max_tokens") if isinstance(data, dict) else max_tokens),
-                "top_p": parameters.get("top_p") or (data.get("top_p") if isinstance(data, dict) else top_p),
-            }
-        )
+
+        parameters.setdefault("context", context)
+        parameters.setdefault("prompt", prompt)
+        parameters.setdefault("history", history)
+        parameters.setdefault("temperature", temperature)
+        parameters.setdefault("max_tokens", max_tokens)
+        parameters.setdefault("top_p", top_p)
         payload = build_payload(data=data, parameters=parameters)
         response = call_run_endpoint(payload=payload, url=url, api_key=self.api_key)
         return ModelResponse(
