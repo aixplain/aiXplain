@@ -14,13 +14,21 @@ class IndexModel(Model):
         }
         return self.run(data=data)
 
-    def ingest(self, documents: list) -> ModelResponse:
+    def add(self, documents: list) -> ModelResponse:
         payloads = [{"value": doc, "value_type": "text", "id": str(i)} for i, doc in enumerate(documents)]
         data = {
             "action": "ingest",
             "data": "",
             "payload": {
                 "payloads": payloads
+            }
+        }
+        return self.run(data=data)
+    def create(self, name: str, description: str) -> ModelResponse:
+        data = {
+            "data": name,
+            "payload": {
+                "description": description
             }
         }
         return self.run(data=data)
