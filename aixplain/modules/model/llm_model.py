@@ -129,13 +129,13 @@ class LLM(Model):
         if parameters is None:
             parameters = {}
         parameters.update(
-            {
-                "context": parameters.get("context") or data.get("context", context),
-                "prompt": parameters.get("prompt") or data.get("prompt", prompt),
-                "history": parameters.get("history") or data.get("history", history),
-                "temperature": parameters.get("temperature") or data.get("temperature", temperature),
-                "max_tokens": parameters.get("max_tokens") or data.get("max_tokens", max_tokens),
-                "top_p": parameters.get("top_p") or data.get("top_p", top_p),
+        {
+            "context": parameters.get("context") or (data if isinstance(data, dict) else context),
+            "prompt": parameters.get("prompt") or (data if isinstance(data, dict) else prompt),
+            "history": parameters.get("history") or (data.get("history") if isinstance(data, dict) else history),
+            "temperature": parameters.get("temperature") or (data.get("temperature") if isinstance(data, dict) else temperature),
+            "max_tokens": parameters.get("max_tokens") or (data.get("max_tokens") if isinstance(data, dict) else max_tokens),
+            "top_p": parameters.get("top_p") or (data.get("top_p") if isinstance(data, dict) else top_p),
             }
         )
         payload = build_payload(data=data, parameters=parameters)
@@ -201,12 +201,12 @@ class LLM(Model):
             parameters = {}
         parameters.update(
             {
-                "context": parameters.get("context") or data.get("context", context),
-                "prompt": parameters.get("prompt") or data.get("prompt", prompt),
-                "history": parameters.get("history") or data.get("history", history),
-                "temperature": parameters.get("temperature") or data.get("temperature", temperature),
-                "max_tokens": parameters.get("max_tokens") or data.get("max_tokens", max_tokens),
-                "top_p": parameters.get("top_p") or data.get("top_p", top_p),
+                "context": parameters.get("context") or (data if isinstance(data, dict) else context),
+                "prompt": parameters.get("prompt") or (data if isinstance(data, dict) else prompt),
+                "history": parameters.get("history") or (data.get("history") if isinstance(data, dict) else history),
+                "temperature": parameters.get("temperature") or (data.get("temperature") if isinstance(data, dict) else temperature),
+                "max_tokens": parameters.get("max_tokens") or (data.get("max_tokens") if isinstance(data, dict) else max_tokens),
+                "top_p": parameters.get("top_p") or (data.get("top_p") if isinstance(data, dict) else top_p),
             }
         )
         payload = build_payload(data=data, parameters=parameters)
