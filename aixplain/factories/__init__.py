@@ -33,3 +33,4 @@ from .pipeline_factory import PipelineFactory
 from .finetune_factory import FinetuneFactory
 from .wallet_factory import WalletFactory
 from .api_key_factory import APIKeyFactory
+from .index_model_factory import IndexModelFactory
