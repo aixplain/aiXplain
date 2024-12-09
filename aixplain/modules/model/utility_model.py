@@ -116,7 +116,6 @@ class UtilityModel(Model):
         self.code = code
         self.inputs = inputs
         self.output_examples = output_examples
-        self.validate()
 
     def validate(self):
         self.code, inputs, description = parse_code(self.code)
@@ -128,7 +127,6 @@ class UtilityModel(Model):
         assert self.name and self.name.strip() != "", "Name is required"
         assert self.description and self.description.strip() != "", "Description is required"
         assert self.code and self.code.strip() != "", "Code is required"
-        assert self.output_examples and self.output_examples.strip() != "", "Output description is required"
 
     def to_dict(self):
         return {
