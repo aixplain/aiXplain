@@ -97,7 +97,7 @@ class TeamAgent(Model):
             try:
                 status = AssetStatus(status)
             except Exception:
-                status = AssetStatus.ONBOARDING
+                status = AssetStatus.DRAFT
         self.status = status
 
     def run(

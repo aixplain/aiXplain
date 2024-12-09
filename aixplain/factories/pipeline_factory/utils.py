@@ -32,7 +32,9 @@ def build_from_response(response: Dict, load_architecture: bool = False) -> Pipe
         response["api_key"] = config.TEAM_API_KEY
 
     # instantiating pipeline generic info
-    pipeline = Pipeline(response["id"], response["name"], response["api_key"])
+    pipeline = Pipeline(
+        id=response["id"], name=response["name"], api_key=response["api_key"], status=response.get("status", "draft")
+    )
     if load_architecture is True:
         try:
             # instantiating nodes
