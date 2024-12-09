@@ -70,7 +70,7 @@ class TeamAgent(Model):
         version: Optional[Text] = None,
         cost: Optional[Dict] = None,
         use_mentalist_and_inspector: bool = True,
-        status: AssetStatus = AssetStatus.ONBOARDING,
+        status: AssetStatus = AssetStatus.DRAFT,
         **additional_info,
     ) -> None:
         """Create a FineTune with the necessary information.
@@ -286,8 +286,9 @@ class TeamAgent(Model):
             "llmId": self.llm_id,
             "supervisorId": self.llm_id,
             "plannerId": self.llm_id if self.use_mentalist_and_inspector else None,
-            "supplier": self.supplier,
+            "supplier": self.supplier.value["code"] if isinstance(self.supplier, Supplier) else self.supplier,
             "version": self.version,
+            "status": self.status.value,
         }
 
     def validate(self) -> None:
