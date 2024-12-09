@@ -71,6 +71,7 @@ class ModelFactory:
             api_key=config.TEAM_API_KEY,
             output_examples=output_examples,
         )
+        utility_model.validate()
         payload = utility_model.to_dict()
         url = urljoin(cls.backend_url, "sdk/utilities")
         headers = {"x-api-key": f"{config.TEAM_API_KEY}", "Content-Type": "application/json"}
