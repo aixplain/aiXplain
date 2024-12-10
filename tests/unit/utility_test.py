@@ -67,7 +67,7 @@ def test_utility_model_to_dict():
                     id="123",
                     name="utility_model_test",
                     description="utility_model_test",
-                    code="def main(originCode: str)",
+                    code="utility_model_test",
                     output_examples="output_description",
                     inputs=[UtilityModelInput(name="originCode", description="originCode", type=DataType.TEXT)],
                     function=Function.UTILITIES,
