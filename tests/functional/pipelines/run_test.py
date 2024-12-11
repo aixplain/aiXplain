@@ -251,3 +251,20 @@ def test_run_script(version: str):
     assert response["status"] == "SUCCESS"
     data = response["data"][0]["segments"][0]["response"]
     assert data.startswith("SCRIPT MODIFIED:")
+
+
+@pytest.mark.parametrize("version", ["2.0", "3.0"])
+def test_run_text_reconstruction(version: str):
+    pipeline = PipelineFactory.list(query="Text Reconstruction - DO NOT DELETE")["results"][0]
+    response = pipeline.run("Segment A\nSegment B\nSegment C", **{"version": version})
+
+    assert response["status"] == "SUCCESS"
+    labels = [d["label"] for d in response["data"]]
+    assert "Audio (Direct)" in labels
+    assert "Audio (Text Reconstruction)" in labels
+    assert "Audio (Audio Reconstruction)" in labels
+    assert "Text Reconstruction" in labels
+
+    for d in response["data"]:
+        assert len(d["segments"]) > 0
+        assert d["segments"][0]["success"] is True

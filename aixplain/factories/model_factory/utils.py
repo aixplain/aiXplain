@@ -31,10 +31,13 @@ def create_model_from_response(response: Dict) -> Model:
                 parameters[param["name"]] = [w["value"] for w in param["values"]]
 
     function = Function(response["function"]["id"])
-    inputs = []
+    inputs, temperature = [], None
     ModelClass = Model
     if function == Function.TEXT_GENERATION:
         ModelClass = LLM
+        f = [p for p in response.get("params", []) if p["name"] == "temperature"]
+        if len(f) > 0 and len(f[0].get("defaultValues", [])) > 0:
+            temperature = float(f[0]["defaultValues"][0]["value"])
     elif function == Function.UTILITIES:
         ModelClass = UtilityModel
         inputs = [
@@ -67,6 +70,7 @@ def create_model_from_response(response: Dict) -> Model:
         is_subscribed=True if "subscription" in response else False,
         version=response["version"]["id"],
         inputs=inputs,
+        temperature=temperature,
     )
 
 
