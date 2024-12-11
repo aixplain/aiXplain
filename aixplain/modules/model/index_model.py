@@ -32,3 +32,20 @@ class IndexModel(Model):
             }
         }
         return self.run(data=data)
+    def update(self, documents: list) -> ModelResponse:
+        payloads = [{"value": doc, "value_type": "text", "id": str(i)} for i, doc in enumerate(documents)]
+        data = {
+            "action": "update",
+            "data": "",
+            "payload": {
+                "payloads": payloads
+            }
+        }
+        return self.run(data=data)
+    
+    def count(self) -> ModelResponse:
+        data = {
+            "action": "count",
+            "data": ""
+        }
+        return self.run(data=data)
