@@ -24,7 +24,7 @@ from aixplain.factories import ModelFactory
 from aixplain.factories import DatasetFactory
 from aixplain.factories import FinetuneFactory
 from aixplain.modules.finetune.cost import FinetuneCost
-from aixplain.enums import Function, Language, Supplier
+from aixplain.enums import Function, Language
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -71,14 +71,15 @@ def pytest_generate_tests(metafunc):
             for model in models
             if model.created_at is not None
             and model.created_at >= four_weeks_ago
-            and eval(str(model.supplier))["name"] != "aiXplain-testing"
+            and "aiXplain-testing" not in str(model.supplier)
         ]
 
         run_file_models = read_data(RUN_FILE)
         for model_data in run_file_models:
             if not any(rm["model_id"] == model_data["model_id"] for rm in recent_models):
                 recent_models.append(model_data)
-        metafunc.parametrize("input_map", recent_models)
+        model_ids = [model["model_id"] for model in recent_models]
+        metafunc.parametrize("input_map", recent_models, ids=model_ids)
 
 
 def test_end2end(input_map):
