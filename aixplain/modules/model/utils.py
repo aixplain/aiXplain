@@ -120,13 +120,19 @@ def parse_code(code: Union[Text, Callable]) -> Tuple[Text, List, Text]:
 
         if input_type in ["int", "float"]:
             input_type = "number"
-            inputs.append(UtilityModelInput(name=input_name, type=DataType.NUMBER, description=""))
+            inputs.append(
+                UtilityModelInput(name=input_name, type=DataType.NUMBER, description=f"The {input_name} input is a number")
+            )
         elif input_type == "bool":
             input_type = "boolean"
-            inputs.append(UtilityModelInput(name=input_name, type=DataType.BOOLEAN, description=""))
+            inputs.append(
+                UtilityModelInput(name=input_name, type=DataType.BOOLEAN, description=f"The {input_name} input is a boolean")
+            )
         elif input_type == "str":
             input_type = "text"
-            inputs.append(UtilityModelInput(name=input_name, type=DataType.TEXT, description=""))
+            inputs.append(
+                UtilityModelInput(name=input_name, type=DataType.TEXT, description=f"The {input_name} input is a text")
+            )
         else:
             raise Exception(f"Utility Model Error: Unsupported input type: {input_type}")
 

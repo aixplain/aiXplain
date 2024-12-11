@@ -24,7 +24,9 @@ def test_utility_model():
                 assert utility_model.name == "utility_model_test"
                 assert utility_model.description == "utility_model_test"
                 assert utility_model.code == "utility_model_test"
-                assert utility_model.inputs == [UtilityModelInput(name="originCode", description="", type=DataType.TEXT)]
+                assert utility_model.inputs == [
+                    UtilityModelInput(name="originCode", description="The originCode input is a text", type=DataType.TEXT)
+                ]
                 assert utility_model.output_examples == "output_description"
 
 
@@ -136,7 +138,9 @@ def test_parse_code():
         with patch("aixplain.factories.file_factory.FileFactory.upload", return_value="code_link"):
             code = "def main(originCode: str) -> str:\n    return originCode"
             code_link, inputs, description = parse_code(code)
-            assert inputs == [UtilityModelInput(name="originCode", description="", type=DataType.TEXT)]
+            assert inputs == [
+                UtilityModelInput(name="originCode", description="The originCode input is a text", type=DataType.TEXT)
+            ]
             assert description == ""
             assert code_link == "code_link"
 
@@ -152,8 +156,8 @@ def test_parse_code():
             code = main
             code_link, inputs, description = parse_code(code)
             assert inputs == [
-                UtilityModelInput(name="a", description="", type=DataType.NUMBER),
-                UtilityModelInput(name="b", description="", type=DataType.NUMBER),
+                UtilityModelInput(name="a", description="The a input is a number", type=DataType.NUMBER),
+                UtilityModelInput(name="b", description="The b input is a number", type=DataType.NUMBER),
             ]
             assert description == "This function adds two numbers"
             assert code_link == "code_link"
