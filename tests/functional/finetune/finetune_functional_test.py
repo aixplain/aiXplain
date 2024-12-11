@@ -24,7 +24,7 @@ from aixplain.factories import ModelFactory
 from aixplain.factories import DatasetFactory
 from aixplain.factories import FinetuneFactory
 from aixplain.modules.finetune.cost import FinetuneCost
-from aixplain.enums import Function, Language
+from aixplain.enums import Function, Language, Supplier
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -59,7 +59,6 @@ def pytest_generate_tests(metafunc):
     if "input_map" in metafunc.fixturenames:
         four_weeks_ago = datetime.now(timezone.utc) - timedelta(weeks=4)
         models = ModelFactory.list(function=Function.TEXT_GENERATION, is_finetunable=True)["results"]
-
         recent_models = [
             {
                 "model_name": model.name,
@@ -70,9 +69,15 @@ def pytest_generate_tests(metafunc):
                 "search_metadata": False,
             }
             for model in models
-            if model.created_at is not None and model.created_at >= four_weeks_ago
+            if model.created_at is not None
+            and model.created_at >= four_weeks_ago
+            and eval(str(model.supplier))["name"] != "aiXplain-testing"
         ]
-        recent_models += read_data(RUN_FILE)
+
+        run_file_models = read_data(RUN_FILE)
+        for model_data in run_file_models:
+            if not any(rm["model_id"] == model_data["model_id"] for rm in recent_models):
+                recent_models.append(model_data)
         metafunc.parametrize("input_map", recent_models)
 
 
