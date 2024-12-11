@@ -18,12 +18,13 @@ def build_agent(payload: Dict, api_key: Text = config.TEAM_API_KEY) -> Agent:
         if tool["type"] == "model":
             supplier = "aixplain"
             for supplier_ in Supplier:
-                if tool["supplier"] is not None and tool["supplier"].lower() in [
-                    supplier_.value["code"].lower(),
-                    supplier_.value["name"].lower(),
-                ]:
-                    supplier = supplier_
-                    break
+                if isinstance(tool["supplier"], str):
+                    if tool["supplier"] is not None and tool["supplier"].lower() in [
+                        supplier_.value["code"].lower(),
+                        supplier_.value["name"].lower(),
+                    ]:
+                        supplier = supplier_
+                        break
 
             tool = ModelTool(
                 function=Function(tool.get("function", None)),
