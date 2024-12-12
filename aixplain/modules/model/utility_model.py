@@ -35,10 +35,7 @@ class UtilityModelInput:
     description: Text
     type: DataType = DataType.TEXT
 
-    def __post_init__(self):
-        self.validate_type()
-
-    def validate_type(self):
+    def validate(self):
         if self.type not in [DataType.TEXT, DataType.BOOLEAN, DataType.NUMBER]:
             raise ValueError("Utility Model Input type must be TEXT, BOOLEAN or NUMBER")
 
@@ -124,6 +121,8 @@ class UtilityModel(Model):
             self.description = description
         if len(self.inputs) == 0:
             self.inputs = inputs
+        for input in self.inputs:
+            input.validate()
         assert self.name and self.name.strip() != "", "Name is required"
         assert self.description and self.description.strip() != "", "Description is required"
         assert self.code and self.code.strip() != "", "Code is required"
