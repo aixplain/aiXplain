@@ -121,7 +121,7 @@ class Pipeline(Asset):
             )
         return response_body
 
-    def poll(self, poll_url: Text, name: Text = "pipeline_process") -> PipelineResponse:
+    def poll(self, poll_url: Text, name: Text = "pipeline_process", version: Text = "v2") -> Union[Dict, PipelineResponse]:
         """Poll the platform to check whether an asynchronous call is done.
 
         Args:
@@ -140,6 +140,8 @@ class Pipeline(Asset):
         try:
             resp = r.json()
             logging.info(f"Single Poll for Pipeline: Status of polling for {name} : {resp}")
+            if version == "v1":
+                return resp
             status = Status(resp.pop("status", "failed").lower())
             response = PipelineResponse(
                 status=status,
@@ -164,16 +166,24 @@ class Pipeline(Asset):
         name: Text = "pipeline_process",
         timeout: float = 20000.0,
         wait_time: float = 1.0,
+        version: Text = "v2",
         **kwargs,
-    ) -> PipelineResponse:
+    ) -> Union[Dict, PipelineResponse]:
         start = time.time()
         try:
             response = self.run_async(data, data_asset=data_asset, name=name, **kwargs)
             if response["status"] == Status.FAILED: 
                 end = time.time()
+                if version == "v1":
+                    return {
+                        "status": "failed",
+                        "error": response.get("error", "ERROR"),
+                        "elapsed_time": end - start,
+                        **kwargs
+                    }
                 return PipelineResponse(
                     status=Status.FAILED,
-                    error={"error": response.error, "status": "ERROR"},
+                    error={"error": response.get("error", "ERROR"), "status": "ERROR"},
                     elapsed_time=end - start,
                     **kwargs
                 )
@@ -181,20 +191,30 @@ class Pipeline(Asset):
             polling_response = self.__polling(poll_url, name=name, timeout=timeout, wait_time=wait_time) 
             end = time.time()
             status = Status(polling_response["status"])
-            response=  PipelineResponse(
+            if version == "v1":
+                polling_response["elapsed_time"] = end - start
+                return polling_response
+            status = Status(polling_response.status)
+            return PipelineResponse(
                 status=status,
                 error=polling_response.error,
                 elapsed_time=end - start,
-                data=polling_response.data,
+                data=getattr(polling_response, "data", {}),
                 **kwargs
             )
-            return response
 
         except Exception as e:
             error_message = f"Error in request for {name}: {str(e)}"
             logging.error(error_message)
             logging.exception(error_message)
             end = time.time()
+            if version == "v1":
+                return {
+                    "status": "failed",
+                    "error": error_message,
+                    "elapsed_time": end - start,
+                    **kwargs
+                }
             return PipelineResponse(
                 status=Status.FAILED,
                 error={"error": error_message, "status": "ERROR"},
@@ -311,8 +331,8 @@ class Pipeline(Asset):
         return payload
 
     def run_async(
-        self, data: Union[Text, Dict], data_asset: Optional[Union[Text, Dict]] = None, name: Text = "pipeline_process", **kwargs
-    ) -> PipelineResponse: 
+        self, data: Union[Text, Dict], data_asset: Optional[Union[Text, Dict]] = None, name: Text = "pipeline_process",version: Text = "v2", **kwargs
+    ) -> Union[Dict, PipelineResponse]: 
         """Runs asynchronously a pipeline call.
 
         Args:
@@ -340,6 +360,8 @@ class Pipeline(Asset):
             if 200 <= r.status_code < 300:
                 resp = r.json()
                 logging.info(f"Result of request for {name}  - {r.status_code} - {resp}")
+                if version == "v1":
+                    return resp
                 res = PipelineResponse(
                     status=Status(resp.pop("status", "failed").lower()),
                     url=resp["url"],
@@ -367,6 +389,13 @@ class Pipeline(Asset):
                     )
 
                 logging.error(f"Error in request for {name} - {r.status_code}: {error}")
+                if version == "v1":
+                    return {
+                        "status": "failed",
+                        "error": error,
+                        "elapsed_time": None,
+                        **kwargs
+                    }
                 return PipelineResponse(
                     status=Status.FAILED,
                     error={"error": error, "status": "ERROR"},
@@ -374,6 +403,13 @@ class Pipeline(Asset):
                     **kwargs
                 )
         except Exception as e:
+            if version == "v1":
+                return {
+                    "status": "failed",
+                    "error": str(e),
+                    "elapsed_time": None,
+                    **kwargs
+                }
             return PipelineResponse(
             status=Status.FAILED,
             error={"error": str(e), "status": "ERROR"},
