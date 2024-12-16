@@ -46,6 +46,18 @@ class ModelResponse:
         except KeyError:
             return default
 
+    def __setitem__(self, key: Text, value: Any) -> None:
+        if key in self.__dict__:
+            self.__dict__[key] = value
+        elif self.additional_fields and key in self.additional_fields:
+            self.additional_fields[key] = value
+        elif key == "usedCredits":
+            self.used_credits = value
+        elif key == "runTime":
+            self.run_time = value
+        else:
+            raise KeyError(f"Key '{key}' not found in ModelResponse.")
+
     def __repr__(self) -> str:
         fields = []
         if self.status:

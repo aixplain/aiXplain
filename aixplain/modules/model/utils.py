@@ -3,7 +3,7 @@ __author__ = "thiagocastroferreira"
 import json
 import logging
 from aixplain.utils.file_utils import _request_with_retry
-from typing import Dict, Text, Union, Optional
+from typing import Callable, Dict, List, Text, Tuple, Union, Optional
 
 
 def build_payload(data: Union[Text, Dict], parameters: Optional[Dict] = None):
@@ -77,3 +77,68 @@ def call_run_endpoint(url: Text, api_key: Text, payload: Dict) -> Dict:
         response = {"status": "FAILED", "error_message": error, "completed": True}
         logging.error(f"Error in request: {r.status_code}: {error}")
     return response
+
+
+def parse_code(code: Union[Text, Callable]) -> Tuple[Text, List, Text]:
+    import inspect
+    import os
+    import re
+    import requests
+    import validators
+    from aixplain.enums import DataType
+    from aixplain.modules.model.utility_model import UtilityModelInput
+    from aixplain.factories.file_factory import FileFactory
+    from uuid import uuid4
+
+    inputs, description = [], ""
+
+    if isinstance(code, Callable):
+        str_code = inspect.getsource(code)
+        description = code.__doc__.strip() if code.__doc__ else ""
+    elif os.path.exists(code):
+        with open(code, "r") as f:
+            str_code = f.read()
+    elif validators.url(code):
+        str_code = requests.get(code).text
+    else:
+        str_code = code
+
+    # assert str_code has a main function
+    if "def main(" not in str_code:
+        raise Exception("Utility Model Error: Code must have a main function")
+
+    f = re.findall(r"main\((.*?(?:\s*=\s*[^,)]+)?(?:\s*,\s*.*?(?:\s*=\s*[^,)]+)?)*)\)", str_code)
+    parameters = f[0].split(",") if len(f) > 0 else []
+
+    for input in parameters:
+        assert (
+            len(input.split(":")) > 1
+        ), "Utility Model Error: Input type is required. For instance def main(a: int, b: int) -> int:"
+        input_name, input_type = input.split(":")
+        input_name = input_name.strip()
+        input_type = input_type.split("=")[0].strip()
+
+        if input_type in ["int", "float"]:
+            input_type = "number"
+            inputs.append(
+                UtilityModelInput(name=input_name, type=DataType.NUMBER, description=f"The {input_name} input is a number")
+            )
+        elif input_type == "bool":
+            input_type = "boolean"
+            inputs.append(
+                UtilityModelInput(name=input_name, type=DataType.BOOLEAN, description=f"The {input_name} input is a boolean")
+            )
+        elif input_type == "str":
+            input_type = "text"
+            inputs.append(
+                UtilityModelInput(name=input_name, type=DataType.TEXT, description=f"The {input_name} input is a text")
+            )
+        else:
+            raise Exception(f"Utility Model Error: Unsupported input type: {input_type}")
+
+    local_path = str(uuid4())
+    with open(local_path, "w") as f:
+        f.write(str_code)
+    code = FileFactory.upload(local_path=local_path, is_temp=True)
+    os.remove(local_path)
+    return code, inputs, description

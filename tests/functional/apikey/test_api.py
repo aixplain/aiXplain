@@ -1,6 +1,6 @@
 from aixplain.factories.api_key_factory import APIKeyFactory
 from aixplain.modules import APIKey, APIKeyLimits, APIKeyUsageLimit
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 import json
 import pytest
 
@@ -11,7 +11,7 @@ def test_create_api_key_from_json():
     with open(api_key_json, "r") as file:
         api_key_data = json.load(file)
 
-    expires_at = datetime.strptime(api_key_data["expires_at"], "%Y-%m-%dT%H:%M:%SZ")
+    expires_at = (datetime.now(timezone.utc) + timedelta(weeks=4)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     api_key = APIKeyFactory.create(
         name=api_key_data["name"],
@@ -54,7 +54,7 @@ def test_create_api_key_from_dict():
         ],
         "global_limits": {"token_per_minute": 100, "token_per_day": 1000, "request_per_day": 1000, "request_per_minute": 100},
         "budget": 1000,
-        "expires_at": "2024-12-12T00:00:00Z",
+        "expires_at": (datetime.now(timezone.utc) + timedelta(weeks=4)).strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
 
     api_key_name = "Test API Key"
@@ -86,7 +86,7 @@ def test_create_update_api_key_from_dict():
         ],
         "global_limits": {"token_per_minute": 100, "token_per_day": 1000, "request_per_day": 1000, "request_per_minute": 100},
         "budget": 1000,
-        "expires_at": "2024-12-12T00:00:00Z",
+        "expires_at": (datetime.now(timezone.utc) + timedelta(weeks=4)).strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
 
     api_key_name = "Test API Key"

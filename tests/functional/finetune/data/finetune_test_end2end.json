@@ -8,8 +8,8 @@
         "search_metadata": false
     },
     {
-        "model_name": "aiR",
-        "model_id": "6499cc946eb5633de15d82a1",
+        "model_name": "aiR v2",
+        "model_id": "66eae6656eb56311f2595011",
         "dataset_name": "Test search dataset",
         "inference_data": "Hello!",
         "required_dev": false,
