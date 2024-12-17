@@ -54,7 +54,7 @@ class IndexModel(Model):
         return self.run(data=data)
 
     def add(self, documents: list) -> ModelResponse:
-        payloads = [{"value": doc, "value_type": "text", "id": str(i)} for i, doc in enumerate(documents)]
+        payloads = [{"value": doc, "value_type": "text", "id": str(i), "uri": "","attributes": {}} for i, doc in enumerate(documents)]
         data = {"action": "ingest", "data": "", "payload": {"payloads": payloads}}
         return self.run(data=data)
 
