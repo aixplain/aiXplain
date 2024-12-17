@@ -61,6 +61,7 @@ class LLM(Model):
         function: Optional[Function] = None,
         is_subscribed: bool = False,
         cost: Optional[Dict] = None,
+        temperature: float = 0.001,
         **additional_info,
     ) -> None:
         """LLM Init
@@ -92,6 +93,7 @@ class LLM(Model):
         )
         self.url = config.MODELS_RUN_URL
         self.backend_url = config.BACKEND_URL
+        self.temperature = temperature
 
     def run(
         self,
@@ -99,7 +101,7 @@ class LLM(Model):
         context: Optional[Text] = None,
         prompt: Optional[Text] = None,
         history: Optional[List[Dict]] = None,
-        temperature: float = 0.001,
+        temperature: Optional[float] = None,
         max_tokens: int = 128,
         top_p: float = 1.0,
         name: Text = "model_process",
@@ -114,7 +116,7 @@ class LLM(Model):
             context (Optional[Text], optional): System message. Defaults to None.
             prompt (Optional[Text], optional): Prompt Message which comes on the left side of the last utterance. Defaults to None.
             history (Optional[List[Dict]], optional): Conversation history in OpenAI format ([{ "role": "assistant", "content": "Hello, world!"}]). Defaults to None.
-            temperature (float, optional): LLM temperature. Defaults to 0.001.
+            temperature (Optional[float], optional): LLM temperature. Defaults to None.
             max_tokens (int, optional): Maximum Generation Tokens. Defaults to 128.
             top_p (float, optional): Top P. Defaults to 1.0.
             name (Text, optional): ID given to a call. Defaults to "model_process".
@@ -126,19 +128,21 @@ class LLM(Model):
             Dict: parsed output from model
         """
         start = time.time()
-        if parameters is None:
-            parameters = {}
-        parameters.update(
-            {
-                "context": parameters.get("context", context),
-                "prompt": parameters.get("prompt", prompt),
-                "history": parameters.get("history", history),
-                "temperature": parameters.get("temperature", temperature),
-                "max_tokens": parameters.get("max_tokens", max_tokens),
-                "top_p": parameters.get("top_p", top_p),
-            }
-        )
+        parameters = parameters or {}
+
+        if isinstance(data, dict):
+            parameters = {**data, **parameters}
+            data = data.get("data", "")
+
+        parameters.setdefault("context", context)
+        parameters.setdefault("prompt", prompt)
+        parameters.setdefault("history", history)
+        parameters.setdefault("temperature", temperature if temperature is not None else self.temperature)
+        parameters.setdefault("max_tokens", max_tokens)
+        parameters.setdefault("top_p", top_p)
+
         payload = build_payload(data=data, parameters=parameters)
+        logging.info(payload)
         url = f"{self.url}/{self.id}".replace("/api/v1/execute", "/api/v2/execute")
         logging.debug(f"Model Run Sync: Start service for {name} - {url}")
         response = call_run_endpoint(payload=payload, url=url, api_key=self.api_key)
@@ -171,7 +175,7 @@ class LLM(Model):
         context: Optional[Text] = None,
         prompt: Optional[Text] = None,
         history: Optional[List[Dict]] = None,
-        temperature: float = 0.001,
+        temperature: Optional[float] = None,
         max_tokens: int = 128,
         top_p: float = 1.0,
         name: Text = "model_process",
@@ -184,7 +188,7 @@ class LLM(Model):
             context (Optional[Text], optional): System message. Defaults to None.
             prompt (Optional[Text], optional): Prompt Message which comes on the left side of the last utterance. Defaults to None.
             history (Optional[List[Dict]], optional): Conversation history in OpenAI format ([{ "role": "assistant", "content": "Hello, world!"}]). Defaults to None.
-            temperature (float, optional): LLM temperature. Defaults to 0.001.
+            temperature (Optional[float], optional): LLM temperature. Defaults to None.
             max_tokens (int, optional): Maximum Generation Tokens. Defaults to 128.
             top_p (float, optional): Top P. Defaults to 1.0.
             name (Text, optional): ID given to a call. Defaults to "model_process".
@@ -195,18 +199,18 @@ class LLM(Model):
         """
         url = f"{self.url}/{self.id}"
         logging.debug(f"Model Run Async: Start service for {name} - {url}")
-        if parameters is None:
-            parameters = {}
-        parameters.update(
-            {
-                "context": parameters.get("context", context),
-                "prompt": parameters.get("prompt", prompt),
-                "history": parameters.get("history", history),
-                "temperature": parameters.get("temperature", temperature),
-                "max_tokens": parameters.get("max_tokens", max_tokens),
-                "top_p": parameters.get("top_p", top_p),
-            }
-        )
+        parameters = parameters or {}
+
+        if isinstance(data, dict):
+            parameters = {**data, **parameters}
+            data = data.get("data", "")
+
+        parameters.setdefault("context", context)
+        parameters.setdefault("prompt", prompt)
+        parameters.setdefault("history", history)
+        parameters.setdefault("temperature", temperature if temperature is not None else self.temperature)
+        parameters.setdefault("max_tokens", max_tokens)
+        parameters.setdefault("top_p", top_p)
         payload = build_payload(data=data, parameters=parameters)
         response = call_run_endpoint(payload=payload, url=url, api_key=self.api_key)
         return ModelResponse(

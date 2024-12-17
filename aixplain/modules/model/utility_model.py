@@ -19,14 +19,13 @@ Description:
     Utility Model Class
 """
 import logging
-import os
-import validators
 from aixplain.enums import Function, Supplier, DataType
 from aixplain.modules.model import Model
 from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
+from aixplain.modules.model.utils import parse_code
 from dataclasses import dataclass
-from typing import Union, Optional, List, Text, Dict
+from typing import Callable, Union, Optional, List, Text, Dict
 from urllib.parse import urljoin
 
 
@@ -36,10 +35,7 @@ class UtilityModelInput:
     description: Text
     type: DataType = DataType.TEXT
 
-    def __post_init__(self):
-        self.validate_type()
-
-    def validate_type(self):
+    def validate(self):
         if self.type not in [DataType.TEXT, DataType.BOOLEAN, DataType.NUMBER]:
             raise ValueError("Utility Model Input type must be TEXT, BOOLEAN or NUMBER")
 
@@ -53,15 +49,16 @@ class UtilityModel(Model):
     Attributes:
         id (Text): ID of the Model
         name (Text): Name of the Model
-        description (Text, optional): description of the model. Defaults to "".
+        code (Union[Text, Callable]): code of the model.
+        description (Text): description of the model. Defaults to "".
+        inputs (List[UtilityModelInput]): inputs of the model. Defaults to [].
+        output_examples (Text): output examples. Defaults to "".
         api_key (Text, optional): API key of the Model. Defaults to None.
-        url (Text, optional): endpoint of the model. Defaults to config.MODELS_RUN_URL.
         supplier (Union[Dict, Text, Supplier, int], optional): supplier of the asset. Defaults to "aiXplain".
         version (Text, optional): version of the model. Defaults to "1.0".
-        function (Text, optional): model AI function. Defaults to None.
-        url (str): URL to run the model.
-        backend_url (str): URL of the backend.
-        pricing (Dict, optional): model price. Defaults to None.
+        function (Function, optional): model AI function. Defaults to None.
+        is_subscribed (bool, optional): Is the user subscribed. Defaults to False.
+        cost (Dict, optional): model price. Defaults to None.
         **additional_info: Any additional Model info to be saved
     """
 
@@ -69,10 +66,10 @@ class UtilityModel(Model):
         self,
         id: Text,
         name: Text,
-        description: Text,
-        code: Text,
-        inputs: List[UtilityModelInput],
-        output_description: Text,
+        code: Union[Text, Callable],
+        description: Optional[Text] = None,
+        inputs: List[UtilityModelInput] = [],
+        output_examples: Text = "",
         api_key: Optional[Text] = None,
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
         version: Optional[Text] = None,
@@ -86,10 +83,10 @@ class UtilityModel(Model):
         Args:
             id (Text): ID of the Model
             name (Text): Name of the Model
-            description (Text): description of the model.
-            code (Text): code of the model.
-            inputs (List[UtilityModelInput]): inputs of the model.
-            output_description (Text): description of the output
+            code (Union[Text, Callable]): code of the model.
+            description (Text): description of the model. Defaults to "".
+            inputs (List[UtilityModelInput]): inputs of the model. Defaults to [].
+            output_examples (Text): output examples. Defaults to "".
             api_key (Text, optional): API key of the Model. Defaults to None.
             supplier (Union[Dict, Text, Supplier, int], optional): supplier of the asset. Defaults to "aiXplain".
             version (Text, optional): version of the model. Defaults to "1.0".
@@ -115,27 +112,20 @@ class UtilityModel(Model):
         self.backend_url = config.BACKEND_URL
         self.code = code
         self.inputs = inputs
-        self.output_description = output_description
-        self.validate()
+        self.output_examples = output_examples
 
     def validate(self):
-        from aixplain.factories.file_factory import FileFactory
-        from uuid import uuid4
-
+        self.code, inputs, description = parse_code(self.code)
+        assert description is not None or self.description is not None, "Utility Model Error: Model description is required"
+        if self.description is None:
+            self.description = description
+        if len(self.inputs) == 0:
+            self.inputs = inputs
+        for input in self.inputs:
+            input.validate()
         assert self.name and self.name.strip() != "", "Name is required"
         assert self.description and self.description.strip() != "", "Description is required"
         assert self.code and self.code.strip() != "", "Code is required"
-        assert self.inputs and len(self.inputs) > 0, "At least one input is required"
-        assert self.output_description and self.output_description.strip() != "", "Output description is required"
-
-        self.code = FileFactory.to_link(self.code)
-        # store code in a temporary local path if it is not a valid URL or S3 path
-        if not validators.url(self.code) and not self.code.startswith("s3:"):
-            local_path = str(uuid4())
-            with open(local_path, "w") as f:
-                f.write(self.code)
-            self.code = FileFactory.upload(local_path=local_path, is_temp=True)
-            os.remove(local_path)
 
     def to_dict(self):
         return {
@@ -144,7 +134,7 @@ class UtilityModel(Model):
             "inputs": [input.to_dict() for input in self.inputs],
             "code": self.code,
             "function": self.function.value,
-            "outputDescription": self.output_description,
+            "outputDescription": self.output_examples,
         }
 
     def update(self):
