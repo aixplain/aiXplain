@@ -138,6 +138,7 @@ class UtilityModel(Model):
         }
 
     def update(self):
+        """Update the Utility Model."""
         self.validate()
         url = urljoin(self.backend_url, f"sdk/utilities/{self.id}")
         headers = {"x-api-key": f"{self.api_key}", "Content-Type": "application/json"}
@@ -156,7 +157,12 @@ class UtilityModel(Model):
             logging.error(message)
             raise Exception(f"{message}")
 
+    def save(self):
+        """Save the Utility Model."""
+        self.update()
+
     def delete(self):
+        """Delete the Utility Model."""
         url = urljoin(self.backend_url, f"sdk/utilities/{self.id}")
         headers = {"x-api-key": f"{self.api_key}", "Content-Type": "application/json"}
         try:

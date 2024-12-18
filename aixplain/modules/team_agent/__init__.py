@@ -332,6 +332,10 @@ class TeamAgent(Model):
             error_msg = f"Team Agent Update Error (HTTP {r.status_code}): {resp}"
             raise Exception(error_msg)
 
+    def save(self) -> None:
+        """Save the Team Agent."""
+        self.update()
+
     def deploy(self) -> None:
         """Deploy the Team Agent."""
         assert self.status == AssetStatus.DRAFT, "Team Agent Deployment Error: Team Agent must be in draft status."

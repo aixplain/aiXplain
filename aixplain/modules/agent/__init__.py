@@ -305,7 +305,7 @@ class Agent(Model):
                 message = f"Agent Deletion Error (HTTP {r.status_code}): There was an error in deleting the agent."
             logging.error(message)
             raise Exception(f"{message}")
-
+        
     def update(self) -> None:
         """Update agent."""
         from aixplain.factories.agent_factory.utils import build_agent
@@ -329,6 +329,11 @@ class Agent(Model):
         else:
             error_msg = f"Agent Update Error (HTTP {r.status_code}): {resp}"
             raise Exception(error_msg)
+
+    
+    def save(self) -> None:
+        """Save the Agent."""
+        self.update() 
 
     def deploy(self) -> None:
         assert self.status == AssetStatus.DRAFT, "Agent must be in draft status to be deployed."
