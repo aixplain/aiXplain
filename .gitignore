@@ -4,6 +4,7 @@ __pycache__/
 *$py.class
 .aixplain_cache/
 
+setup_env_ahmet.sh
 # C extensions
 *.so
 

@@ -384,6 +384,17 @@ class Pipeline(Asset):
         Raises:
             Exception: Make sure the pipeline to be save is in a JSON file.
         """
+        import warnings
+        import inspect
+        # Get the current call stack
+        stack = inspect.stack()
+        if len(stack) > 2 and stack[1].function != 'save':
+            warnings.warn(
+                "update() is deprecated and will be removed in a future version. "
+                "Please use save() instead.",
+                DeprecationWarning,
+                stacklevel=2
+            )
         try:
             if isinstance(pipeline, str) is True:
                 _, ext = os.path.splitext(pipeline)
