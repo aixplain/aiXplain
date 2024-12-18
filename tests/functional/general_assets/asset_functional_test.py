@@ -19,7 +19,7 @@ def inputs():
 
 
 def __get_asset_factory(asset_name):
-    if asset_name == "model":
+    if "model" in asset_name:
         AssetFactory = ModelFactory
     elif asset_name == "dataset":
         AssetFactory = DatasetFactory
@@ -40,7 +40,7 @@ def test_list(asset_name):
     assert asset_list["page_total"] == len(asset_list["results"])
 
 
-@pytest.mark.parametrize("asset_name", ["model", "pipeline", "metric"])
+@pytest.mark.parametrize("asset_name", ["model", "model2", "model3", "pipeline", "metric"])
 def test_run(inputs, asset_name):
     asset_details = inputs[asset_name]
     AssetFactory = __get_asset_factory(asset_name)

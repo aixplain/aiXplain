@@ -30,26 +30,30 @@ def create_model_from_response(response: Dict) -> Model:
             if "language" in param["name"]:
                 parameters[param["name"]] = [w["value"] for w in param["values"]]
 
-    function = Function(response["function"]["id"])
-    inputs = []
+    function_id = response["function"]["id"]
+    function = Function(function_id)
+    function_io = FunctionInputOutput.get(function_id, None)
+    input_params = {param["code"]: param for param in function_io["spec"]["params"]}
+    output_params = {param["code"]: param for param in function_io["spec"]["output"]}
+
+    inputs, temperature = [], None
     ModelClass = Model
     if function == Function.TEXT_GENERATION:
         ModelClass = LLM
+        f = [p for p in response.get("params", []) if p["name"] == "temperature"]
+        if len(f) > 0 and len(f[0].get("defaultValues", [])) > 0:
+            temperature = float(f[0]["defaultValues"][0]["value"])
     elif function == Function.UTILITIES:
         ModelClass = UtilityModel
         inputs = [
             UtilityModelInput(name=param["name"], description=param.get("description", ""), type=DataType(param["dataType"]))
             for param in response["params"]
         ]
+        input_params = {param["name"]: param for param in response["params"]}
 
     created_at = None
     if "createdAt" in response and response["createdAt"]:
         created_at = datetime.fromisoformat(response["createdAt"].replace("Z", "+00:00"))
-    function_id = response["function"]["id"]
-    function = Function(function_id)
-    function_io = FunctionInputOutput.get(function_id, None)
-    input_params = {param["code"]: param for param in function_io["spec"]["params"]}
-    output_params = {param["code"]: param for param in function_io["spec"]["output"]}
 
     return ModelClass(
         response["id"],
@@ -67,6 +71,7 @@ def create_model_from_response(response: Dict) -> Model:
         is_subscribed=True if "subscription" in response else False,
         version=response["version"]["id"],
         inputs=inputs,
+        temperature=temperature,
     )
 
 
