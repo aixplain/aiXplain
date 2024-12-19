@@ -6,6 +6,10 @@ from typing import Text, Optional, Union, Dict
 from aixplain.modules.document_index import DocumentIndex
 from typing import List
 import logging
+import os
+import json
+import requests
+from aixplain.enums.response_status import ResponseStatus
 class IndexModel(Model):
     def __init__(
         self,
@@ -67,3 +71,24 @@ class IndexModel(Model):
     def count(self) -> ModelResponse:
         data = {"action": "count", "data": ""}
         return self.run(data=data)
+
+    def delete(self) -> ModelResponse:
+        model_id=self.id
+        url= os.environ['BACKEND_URL'] + "/sdk/models/" + model_id
+        payload=json.dumps({})
+        headers = {
+            'x-api-key': os.environ["TEAM_API_KEY"],
+            'Content-Type': 'application/json'
+        }
+        response = requests.request("DELETE", url, headers=headers, data=payload)
+        if response.status_code == 200:
+            return ModelResponse(
+                status=ResponseStatus.SUCCESS,
+                completed=True,
+            )
+        else:
+            return ModelResponse(
+                status=ResponseStatus.FAILED,
+                completed=False,
+                error_message=f"Delete failed with status code {response.status_code}: {response.text}",
+            )

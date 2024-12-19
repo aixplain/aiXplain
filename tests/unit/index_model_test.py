@@ -5,6 +5,7 @@ from aixplain.modules.model.response import ModelResponse
 from aixplain.modules.model.index_model import IndexModel
 from aixplain.utils import config
 import logging
+import os
 
 
 data = {"data": "Model Index", "description": "This is a dummy collection for testing."}
@@ -88,3 +89,23 @@ def test_count_success():
     assert isinstance(response, ModelResponse)
     assert response.status == ResponseStatus.SUCCESS
     assert response["count"] == 4
+
+def test_delete_success():
+    delete_url = f"{config.BACKEND_URL}/sdk/models/{index_id}"
+    mock_response = {"status": "SUCCESS"}
+
+    with requests_mock.Mocker() as mock:
+        mock.delete(delete_url, json=mock_response, status_code=200)
+
+        index_model = IndexModel(
+            id=index_id,
+            data=data,
+            name="name",
+            function=Function.SEARCH
+        )
+
+        response = index_model.delete()
+
+    assert isinstance(response, ModelResponse)
+    assert response.status == ResponseStatus.SUCCESS
+    assert response.completed is True
