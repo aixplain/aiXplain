@@ -97,7 +97,9 @@ class AssetNode(Node[TI, TO], LinkableMixin, OutputableMixin):
     def _auto_populate_params(self):
         from aixplain.enums.function import FunctionInputOutput
 
-        # When the node is a utility, we need to create it's parameters
+        spec = FunctionInputOutput[self.function]["spec"]
+
+        # When the node is a utility, we need to create it's input parameters
         # dynamically by referring the node data.
         if self.function == Function.UTILITIES:
             for param in self.asset.input_params.values():
@@ -106,12 +108,7 @@ class AssetNode(Node[TI, TO], LinkableMixin, OutputableMixin):
                     data_type=param["dataType"],
                     is_required=param["required"],
                 )
-            for param in self.asset.output_params.values():
-                self.outputs.create_param(
-                    code=param["code"], data_type=param["dataType"]
-                )
         else:
-            spec = FunctionInputOutput[self.function]["spec"]
             for item in spec["params"]:
                 self.inputs.create_param(
                     code=item["code"],
@@ -119,11 +116,11 @@ class AssetNode(Node[TI, TO], LinkableMixin, OutputableMixin):
                     is_required=item["required"],
                 )
 
-            for item in spec["output"]:
-                self.outputs.create_param(
-                    code=item["code"],
-                    data_type=item["dataType"],
-                )
+        for item in spec["output"]:
+            self.outputs.create_param(
+                code=item["code"],
+                data_type=item["dataType"],
+            )
 
     def _auto_set_params(self):
         for k, v in self.asset.additional_info["parameters"].items():
