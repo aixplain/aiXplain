@@ -3,8 +3,9 @@ from aixplain.modules.model import Model
 from aixplain.utils import config
 from aixplain.modules.model.response import ModelResponse
 from typing import Text, Optional, Union, Dict
-
-
+from aixplain.modules.document_index import DocumentIndex
+from typing import List
+import logging
 class IndexModel(Model):
     def __init__(
         self,
@@ -53,13 +54,13 @@ class IndexModel(Model):
         data = {"action": "search", "data": query, "payload": {"filters": {}, "top_k": top_k}}
         return self.run(data=data)
 
-    def add(self, documents: list) -> ModelResponse:
-        payloads = [{"value": doc, "value_type": "text", "id": str(i), "uri": "","attributes": {}} for i, doc in enumerate(documents)]
+    def add(self, documents: List[DocumentIndex]) -> ModelResponse:
+        payloads = [{"value": doc.value, "value_type": doc.value_type, "id": str(doc.id), "uri": doc.uri, "attributes": doc.attributes} for doc in documents]
         data = {"action": "ingest", "data": "", "payload": {"payloads": payloads}}
         return self.run(data=data)
 
-    def update(self, documents: list) -> ModelResponse:
-        payloads = [{"value": doc, "value_type": "text", "id": str(i)} for i, doc in enumerate(documents)]
+    def update(self, documents: List[DocumentIndex]) -> ModelResponse:
+        payloads = [{"value": doc.value, "value_type": doc.value_type, "id": str(doc.id), "uri": doc.uri, "attributes": doc.attributes} for doc in documents]
         data = {"action": "update", "data": "", "payload": {"payloads": payloads}}
         return self.run(data=data)
 
