@@ -82,6 +82,12 @@ class AssetNode(Node[TI, TO], LinkableMixin, OutputableMixin):
                 raise ValueError(
                     f"Function {self.function} is not supported by asset {self.asset_id}"
                 )
+
+            # Despite function field has been set, we should still dynamically
+            # populate parameters for Utility functions
+            if self.function == Function.UTILITIES:
+                self._auto_populate_params()
+
         else:
             self.function = self.asset.function.value
             self._auto_populate_params()
@@ -91,6 +97,8 @@ class AssetNode(Node[TI, TO], LinkableMixin, OutputableMixin):
     def _auto_populate_params(self):
         from aixplain.enums.function import FunctionInputOutput
 
+        # When the node is a utility, we need to create it's parameters
+        # dynamically by referring the node data.
         if self.function == Function.UTILITIES:
             for param in self.asset.input_params.values():
                 self.inputs.create_param(
@@ -100,7 +108,7 @@ class AssetNode(Node[TI, TO], LinkableMixin, OutputableMixin):
                 )
             for param in self.asset.output_params.values():
                 self.outputs.create_param(
-                    code=param["name"], data_type=param["dataType"]
+                    code=param["code"], data_type=param["dataType"]
                 )
         else:
             spec = FunctionInputOutput[self.function]["spec"]
@@ -119,6 +127,9 @@ class AssetNode(Node[TI, TO], LinkableMixin, OutputableMixin):
 
     def _auto_set_params(self):
         for k, v in self.asset.additional_info["parameters"].items():
+            if k not in self.inputs:
+                continue
+
             if isinstance(v, list):
                 self.inputs[k] = v[0]
             else:
@@ -146,6 +157,11 @@ class BareAssetOutputs(Outputs):
 
 class BareAsset(AssetNode[BareAssetInputs, BareAssetOutputs]):
     pass
+
+
+class Utility(AssetNode[BareAssetInputs, BareAssetOutputs]):
+
+    function = "utilities"
 
 
 class InputInputs(Inputs):
