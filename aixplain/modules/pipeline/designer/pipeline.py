@@ -262,7 +262,7 @@ class DesignerPipeline(Serializable):
         self, asset_id: str, *args, asset_class: Type[T] = Utility, **kwargs
     ) -> T:
         """
-        Shortcut to create an asset node for the current pipeline.
+        Shortcut to create an utility nodes for the current pipeline.
         All params will be passed as keyword arguments to the node
         constructor.
 
