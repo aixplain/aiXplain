@@ -310,6 +310,17 @@ class TeamAgent(Model):
 
     def update(self) -> None:
         """Update the Team Agent."""
+        import warnings
+        import inspect
+        # Get the current call stack
+        stack = inspect.stack()
+        if len(stack) > 2 and stack[1].function != 'save':
+            warnings.warn(
+                "update() is deprecated and will be removed in a future version. "
+                "Please use save() instead.",
+                DeprecationWarning,
+                stacklevel=2
+            )
         from aixplain.factories.team_agent_factory.utils import build_team_agent
 
         self.validate()
@@ -331,6 +342,10 @@ class TeamAgent(Model):
         else:
             error_msg = f"Team Agent Update Error (HTTP {r.status_code}): {resp}"
             raise Exception(error_msg)
+
+    def save(self) -> None:
+        """Save the Team Agent."""
+        self.update()
 
     def deploy(self) -> None:
         """Deploy the Team Agent."""

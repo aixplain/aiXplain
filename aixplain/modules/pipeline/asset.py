@@ -384,6 +384,17 @@ class Pipeline(Asset):
         Raises:
             Exception: Make sure the pipeline to be save is in a JSON file.
         """
+        import warnings
+        import inspect
+        # Get the current call stack
+        stack = inspect.stack()
+        if len(stack) > 2 and stack[1].function != 'save':
+            warnings.warn(
+                "update() is deprecated and will be removed in a future version. "
+                "Please use save() instead.",
+                DeprecationWarning,
+                stacklevel=2
+            )
         try:
             if isinstance(pipeline, str) is True:
                 _, ext = os.path.splitext(pipeline)
@@ -437,10 +448,11 @@ class Pipeline(Asset):
             logging.error(message)
             raise Exception(f"{message}")
 
-    def save(self, save_as_asset: bool = False, api_key: Optional[Text] = None):
-        """Save Pipeline
+    def save(self, pipeline: Optional[Union[Text, Dict]] = None, save_as_asset: bool = False, api_key: Optional[Text] = None):
+        """Update and Save Pipeline
 
         Args:
+            pipeline (Optional[Union[Text, Dict]]): Pipeline as a Python dictionary or in a JSON file
             save_as_asset (bool, optional): Save as asset (True) or draft (False). Defaults to False.
             api_key (Optional[Text], optional): Team API Key to create the Pipeline. Defaults to None.
 
@@ -448,7 +460,17 @@ class Pipeline(Asset):
             Exception: Make sure the pipeline to be save is in a JSON file.
         """
         try:
-            pipeline = self.to_dict()
+            if pipeline is None:
+                pipeline = self.to_dict()
+            else:
+                if isinstance(pipeline, str) is True:
+                    _, ext = os.path.splitext(pipeline)
+                    assert (
+                        os.path.exists(pipeline) and ext == ".json"
+                    ), "Pipeline Update Error: Make sure the pipeline to be saved is in a JSON file."
+                    with open(pipeline) as f:
+                        pipeline = json.load(f)
+                self.update(pipeline=pipeline, save_as_asset=save_as_asset, api_key=api_key)
 
             for i, node in enumerate(pipeline["nodes"]):
                 if "functionType" in node:
@@ -463,19 +485,14 @@ class Pipeline(Asset):
                 "architecture": pipeline,
             }
 
-            if self.id != "":
-                method = "put"
-                url = urljoin(config.BACKEND_URL, f"sdk/pipelines/{self.id}")
-            else:
-                method = "post"
-                url = urljoin(config.BACKEND_URL, "sdk/pipelines")
+            url = urljoin(config.BACKEND_URL, "sdk/pipelines")
             api_key = api_key if api_key is not None else config.TEAM_API_KEY
             headers = {
                 "Authorization": f"Token {api_key}",
                 "Content-Type": "application/json",
             }
             logging.info(f"Start service for Save Pipeline - {url} - {headers} - {json.dumps(payload)}")
-            r = _request_with_retry(method, url, headers=headers, json=payload)
+            r = _request_with_retry("post", url, headers=headers, json=payload)
             response = r.json()
             self.id = response["id"]
             logging.info(f"Pipeline {response['id']} Saved.")
