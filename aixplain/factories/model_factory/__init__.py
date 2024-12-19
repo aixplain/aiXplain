@@ -48,6 +48,7 @@ class ModelFactory:
         inputs: List[UtilityModelInput] = [],
         description: Optional[Text] = None,
         output_examples: Text = "",
+        api_key: Optional[Text] = None,
     ) -> UtilityModel:
         """Create a utility model
 
@@ -57,10 +58,11 @@ class ModelFactory:
             description (Text, optional): description of the model
             inputs (List[UtilityModelInput], optional): inputs of the model
             output_examples (Text, optional): output examples
-
+            api_key (Text, optional): Team API key. Defaults to None.
         Returns:
             UtilityModel: created utility model
         """
+        api_key = config.TEAM_API_KEY if api_key is None else api_key
         utility_model = UtilityModel(
             id="",
             name=name,
@@ -68,13 +70,13 @@ class ModelFactory:
             inputs=inputs,
             code=code,
             function=Function.UTILITIES,
-            api_key=config.TEAM_API_KEY,
+            api_key=api_key,
             output_examples=output_examples,
         )
         utility_model.validate()
         payload = utility_model.to_dict()
         url = urljoin(cls.backend_url, "sdk/utilities")
-        headers = {"x-api-key": f"{config.TEAM_API_KEY}", "Content-Type": "application/json"}
+        headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
         try:
             logging.info(f"Start service for POST Utility Model - {url} - {headers} - {payload}")
             r = _request_with_retry("post", url, headers=headers, json=payload)

@@ -29,10 +29,12 @@ from aixplain.enums.supplier import Supplier
 from aixplain.modules.agent import Agent, Tool
 from aixplain.modules.agent.tool.model_tool import ModelTool
 from aixplain.modules.agent.tool.pipeline_tool import PipelineTool
+from aixplain.modules.agent.tool.python_interpreter_tool import PythonInterpreterTool
+from aixplain.modules.agent.tool.custom_python_code_tool import CustomPythonCodeTool
 from aixplain.modules.model import Model
 from aixplain.modules.pipeline import Pipeline
 from aixplain.utils import config
-from typing import Dict, List, Optional, Text, Union
+from typing import Callable, Dict, List, Optional, Text, Union
 
 from aixplain.utils.file_utils import _request_with_retry
 from urllib.parse import urljoin
@@ -88,8 +90,8 @@ class AgentFactory:
         agent.validate()
         response = "Unspecified error"
         try:
-            logging.debug(f"Start service for POST Create Agent  - {url} - {headers} - {json.dumps(payload)}")
-            r = _request_with_retry("post", url, headers=headers, json=payload)
+            logging.debug(f"Start service for POST Create Agent  - {url} - {headers} - {json.dumps(agent.to_dict())}")
+            r = _request_with_retry("post", url, headers=headers, json=agent.to_dict())
             response = r.json()
         except Exception:
             raise Exception("Agent Onboarding Error: Please contact the administrators.")
@@ -135,6 +137,16 @@ class AgentFactory:
     def create_pipeline_tool(cls, description: Text, pipeline: Union[Pipeline, Text]) -> PipelineTool:
         """Create a new pipeline tool."""
         return PipelineTool(description=description, pipeline=pipeline)
+
+    @classmethod
+    def create_python_interpreter_tool(cls) -> PythonInterpreterTool:
+        """Create a new python interpreter tool."""
+        return PythonInterpreterTool()
+
+    @classmethod
+    def create_custom_python_code_tool(cls, code: Union[Text, Callable], description: Text = "") -> CustomPythonCodeTool:
+        """Create a new custom python code tool."""
+        return CustomPythonCodeTool(description=description, code=code)
 
     @classmethod
     def list(cls) -> Dict:
