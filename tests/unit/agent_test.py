@@ -8,6 +8,7 @@ from aixplain.factories import AgentFactory
 from aixplain.modules.agent import PipelineTool, ModelTool
 from aixplain.modules.agent.utils import process_variables
 from urllib.parse import urljoin
+from aixplain.enums.function import Function
 
 
 def test_fail_no_data_query():
@@ -265,3 +266,9 @@ def test_process_variables():
         "input": "Hello, how are you?",
         "target_language": "English",
     }
+
+
+def test_fail_utilities_without_model():
+    with pytest.raises(Exception) as exc_info:
+        AgentFactory.create(name="Test", tools=[ModelTool(function=Function.UTILITIES)], llm_id="6646261c6eb563165658bbb1")
+    assert str(exc_info.value) == "Agent Creation Error: Utility function must be used with an associated model."
