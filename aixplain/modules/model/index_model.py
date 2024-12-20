@@ -3,13 +3,10 @@ from aixplain.modules.model import Model
 from aixplain.utils import config
 from aixplain.modules.model.response import ModelResponse
 from typing import Text, Optional, Union, Dict
-from aixplain.modules.document_index import DocumentIndex
+from aixplain.modules.model.document_index import DocumentIndex
 from typing import List
-import logging
-import os
-import json
-import requests
-from aixplain.enums.response_status import ResponseStatus
+
+
 class IndexModel(Model):
     def __init__(
         self,
@@ -59,36 +56,21 @@ class IndexModel(Model):
         return self.run(data=data)
 
     def add(self, documents: List[DocumentIndex]) -> ModelResponse:
-        payloads = [{"value": doc.value, "value_type": doc.value_type, "id": str(doc.id), "uri": doc.uri, "attributes": doc.attributes} for doc in documents]
+        payloads = [doc.to_dict() for doc in documents]
         data = {"action": "ingest", "data": "", "payload": {"payloads": payloads}}
         return self.run(data=data)
 
     def update(self, documents: List[DocumentIndex]) -> ModelResponse:
-        payloads = [{"value": doc.value, "value_type": doc.value_type, "id": str(doc.id), "uri": doc.uri, "attributes": doc.attributes} for doc in documents]
+        payloads = [
+            {"value": doc.value, "value_type": doc.value_type, "id": str(doc.id), "uri": doc.uri, "attributes": doc.attributes}
+            for doc in documents
+        ]
         data = {"action": "update", "data": "", "payload": {"payloads": payloads}}
         return self.run(data=data)
 
-    def count(self) -> ModelResponse:
+    def count(self) -> float:
         data = {"action": "count", "data": ""}
-        return self.run(data=data)
-
-    def delete(self) -> ModelResponse:
-        model_id=self.id
-        url= os.environ['BACKEND_URL'] + "/sdk/models/" + model_id
-        payload=json.dumps({})
-        headers = {
-            'x-api-key': os.environ["TEAM_API_KEY"],
-            'Content-Type': 'application/json'
-        }
-        response = requests.request("DELETE", url, headers=headers, data=payload)
-        if response.status_code == 200:
-            return ModelResponse(
-                status=ResponseStatus.SUCCESS,
-                completed=True,
-            )
-        else:
-            return ModelResponse(
-                status=ResponseStatus.FAILED,
-                completed=False,
-                error_message=f"Delete failed with status code {response.status_code}: {response.text}",
-            )
+        response = self.run(data=data)
+        if response.status == "SUCCESS":
+            return int(response.data)
+        raise Exception(f"Failed to count documents: {response.error_message}")
