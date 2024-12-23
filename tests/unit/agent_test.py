@@ -9,6 +9,8 @@ from aixplain.modules.agent import PipelineTool, ModelTool, PythonInterpreterToo
 from aixplain.modules.agent.utils import process_variables
 from urllib.parse import urljoin
 from unittest.mock import patch
+import warnings
+from aixplain.enums.function import Function
 
 
 def test_fail_no_data_query():
@@ -253,7 +255,9 @@ def test_update_success():
         }
         mock.get(url, headers=headers, json=model_ref_response)
 
-        agent.update()
+        # Capture warnings
+        with pytest.warns(DeprecationWarning, match="update\(\) is deprecated and will be removed in a future version. Please use save\(\) instead."):
+            agent.update()
 
     assert agent.id == ref_response["id"]
     assert agent.name == ref_response["name"]
@@ -261,6 +265,68 @@ def test_update_success():
     assert agent.llm_id == ref_response["llmId"]
     assert agent.tools[0].function.value == ref_response["assets"][0]["function"]
 
+def test_save_success():
+    agent = Agent(
+        id="123",
+        name="Test Agent",
+        description="Test Agent Description",
+        llm_id="6646261c6eb563165658bbb1",
+        tools=[AgentFactory.create_model_tool(function="text-generation")],
+    )
+
+    with requests_mock.Mocker() as mock:
+        url = urljoin(config.BACKEND_URL, f"sdk/agents/{agent.id}")
+        headers = {"x-api-key": config.TEAM_API_KEY, "Content-Type": "application/json"}
+        ref_response = {
+            "id": "123",
+            "name": "Test Agent",
+            "description": "Test Agent Description",
+            "teamId": "123",
+            "version": "1.0",
+            "status": "onboarded",
+            "llmId": "6646261c6eb563165658bbb1",
+            "pricing": {"currency": "USD", "value": 0.0},
+            "assets": [
+                {
+                    "type": "model",
+                    "supplier": "openai",
+                    "version": "1.0",
+                    "assetId": "6646261c6eb563165658bbb1",
+                    "function": "text-generation",
+                }
+            ],
+        }
+        mock.put(url, headers=headers, json=ref_response)
+
+        url = urljoin(config.BACKEND_URL, "sdk/models/6646261c6eb563165658bbb1")
+        model_ref_response = {
+            "id": "6646261c6eb563165658bbb1",
+            "name": "Test LLM",
+            "description": "Test LLM Description",
+            "function": {"id": "text-generation"},
+            "supplier": "openai",
+            "version": {"id": "1.0"},
+            "status": "onboarded",
+            "pricing": {"currency": "USD", "value": 0.0},
+        }
+        mock.get(url, headers=headers, json=model_ref_response)
+        
+        import warnings
+        # Capture warnings
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")  # Trigger all warnings
+
+            # Call the save method
+            agent.save()
+
+            # Assert no warnings were triggered
+            assert len(w) == 0, f"Warnings were raised: {[str(warning.message) for warning in w]}"
+
+    assert agent.id == ref_response["id"]
+    assert agent.name == ref_response["name"]
+    assert agent.description == ref_response["description"]
+    assert agent.llm_id == ref_response["llmId"]
+    assert agent.tools[0].function.value == ref_response["assets"][0]["function"]
 
 def test_run_success():
     agent = Agent("123", "Test Agent", "Sample Description")
@@ -297,3 +363,9 @@ def test_process_variables():
         "input": "Hello, how are you?",
         "target_language": "English",
     }
+
+
+def test_fail_utilities_without_model():
+    with pytest.raises(Exception) as exc_info:
+        AgentFactory.create(name="Test", tools=[ModelTool(function=Function.UTILITIES)], llm_id="6646261c6eb563165658bbb1")
+    assert str(exc_info.value) == "Agent Creation Error: Utility function must be used with an associated model."

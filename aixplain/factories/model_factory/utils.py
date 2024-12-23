@@ -29,6 +29,10 @@ def create_model_from_response(response: Dict) -> Model:
         for param in response["params"]:
             if "language" in param["name"]:
                 parameters[param["name"]] = [w["value"] for w in param["values"]]
+            else:
+                values = [w["value"] for w in param["defaultValues"]]
+                if len(values) > 0:
+                    parameters[param["name"]] = values
 
     function_id = response["function"]["id"]
     function = Function(function_id)
