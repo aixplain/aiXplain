@@ -96,13 +96,3 @@ def test_get_pipeline_error_response():
             PipelineFactory.get(pipeline_id=pipeline_id)
 
         assert "Pipeline GET Error: Failed to retrieve pipeline test-pipeline-id. Status Code: 404" in str(excinfo.value)
-
-
-# def test_save_pipeline():
-
-#     ref_response = {"id": "123", "name": "Pipeline Test", "nodes": [], "api_key": config.TEAM_API_KEY}
-
-#     pipeline = Pipeline(**ref_response)
-#     pipeline.name = "Updated Pipeline"
-#     pipeline.save()
-#     assert pipeline.name == "Updated Pipeline"
