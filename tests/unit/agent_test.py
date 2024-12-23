@@ -10,6 +10,7 @@ from aixplain.modules.agent.utils import process_variables
 from urllib.parse import urljoin
 import warnings
 from aixplain.enums.function import Function
+from aixplain.modules.agent.agent_response import AgentResponse
 
 
 
@@ -34,6 +35,7 @@ def test_fail_query_as_text_when_content_not_empty():
             data={"query": "https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.wav"},
             content=["https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.wav"],
         )
+    
     assert str(exc_info.value) == "When providing 'content', query must be text."
 
 
@@ -68,6 +70,7 @@ def test_success_query_content():
         mock.post(url, headers=headers, json=ref_response)
 
         response = agent.run_async(data={"query": "Translate the text: {{input1}}"}, content={"input1": "Hello, how are you?"})
+    assert isinstance(response, AgentResponse)
     assert response["status"] == ref_response["status"]
     assert response["url"] == ref_response["data"]
 
@@ -310,6 +313,7 @@ def test_run_success():
         response = agent.run_async(
             data={"query": "Hello, how are you?"}, max_iterations=10, output_format=OutputFormat.MARKDOWN
         )
+    assert isinstance(response, AgentResponse)
     assert response["status"] == "IN_PROGRESS"
     assert response["url"] == ref_response["data"]
 
