@@ -37,6 +37,7 @@ from aixplain.modules.agent.tool import Tool
 from aixplain.modules.agent.tool.model_tool import ModelTool
 from aixplain.modules.agent.tool.pipeline_tool import PipelineTool
 from aixplain.modules.agent.agent_response import AgentResponse
+from aixplain.modules.agent.agent_response_data import AgentResponseData
 from aixplain.enums import ResponseStatus
 from aixplain.modules.agent.utils import process_variables
 from typing import Dict, List, Text, Optional, Union
@@ -165,31 +166,37 @@ class Agent(Model):
                 max_iterations=max_iterations,
                 output_format=output_format,
             )
-            if response["status"] == "FAILED":
+            if response["status"] == ResponseStatus.FAILED:
                 end = time.time()
                 response["elapsed_time"] = end - start
                 return response
             poll_url = response["url"]
             end = time.time()
-            response = self.sync_poll(poll_url, name=name, timeout=timeout, wait_time=wait_time).to_dict()
+            result = self.sync_poll(poll_url, name=name, timeout=timeout, wait_time=wait_time)
             return AgentResponse(
-                status=ResponseStatus(response["status"]), 
-                data=response["data"],
-                output=response["data"]["output"],
-                used_credits=response["data"]["usedCredits"],
-                input=response["data"]["input"],
-                session_id=response["data"]["session_id"],
-                run_time= response["data"]["runTime"]
+                status=ResponseStatus.SUCCESS,
+                data=AgentResponseData(
+                    input=result.get("input"),
+                    output=result.get("output"),
+                    execution_stats=result.get("executionStats"),
+                    run_time=result.get("runTime", end - start),
+                    used_credits=result.get("usedCredits", 0.0),
+                    session_id=session_id,
+                ),
             )
         except Exception as e:
             msg = f"Error in request for {name} - {traceback.format_exc()}"
             logging.error(f"Agent Run: Error in running for {name}: {e}")
             end = time.time()
             return AgentResponse(
-                status=ResponseStatus.FAILED, 
-                data=response["data"],
-                run_time= end-start,
-                error=msg
+                status=ResponseStatus.FAILED,
+                data=AgentResponseData(
+                    input=data,
+                    output=None,
+                    run_time=end - start,
+                    session_id=session_id,
+                ),
+                error=msg,
             )
 
     def run_async(
@@ -272,34 +279,25 @@ class Agent(Model):
         payload.update(parameters)
         payload = json.dumps(payload)
 
-        r = _request_with_retry("post", self.url, headers=headers, data=payload)
-        logging.info(f"Agent Run Async: Start service for {name} - {self.url} - {payload} - {headers}")
-
-        resp = None
         try:
+            r = _request_with_retry("post", self.url, headers=headers, data=payload)
             resp = r.json()
-            logging.info(f"Result of request for {name} - {r.status_code} - {resp}")
-
             poll_url = resp.get("data")
-            execution_stats = resp.get("executionStats")
-            used_credits = resp.get("usedCredits", 0.0)
-            run_time = resp.get("runTime", 0.0)
-
             return AgentResponse(
                 status=ResponseStatus.IN_PROGRESS,
                 url=poll_url,
-                input=input_data,
-                session_id=session_id or "",
-                execution_stats=execution_stats,
-                used_credits=used_credits,
-                run_time=run_time,
+                data=AgentResponseData(
+                    input=input_data,
+                    run_time=0.0,
+                    used_credits=0.0,
+                ),
             )
-        except Exception:
+        except Exception as e:
             msg = f"Error in request for {name} - {traceback.format_exc()}"
-            logging.error(f"Agent Run Async: Error in running for {name}: {resp}")
+            logging.error(f"Agent Run Async: Error in running for {name}: {e}")
             return AgentResponse(
                 status=ResponseStatus.FAILED,
-                error=msg
+                error=msg,
             )
 
 

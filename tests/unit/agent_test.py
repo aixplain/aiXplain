@@ -11,6 +11,8 @@ from urllib.parse import urljoin
 import warnings
 from aixplain.enums.function import Function
 from aixplain.modules.agent.agent_response import AgentResponse
+from aixplain.modules.agent.agent_response_data import AgentResponseData
+
 
 
 
@@ -72,6 +74,7 @@ def test_success_query_content():
         response = agent.run_async(data={"query": "Translate the text: {{input1}}"}, content={"input1": "Hello, how are you?"})
     assert isinstance(response, AgentResponse)
     assert response["status"] == ref_response["status"]
+    assert isinstance(response.data, AgentResponseData)
     assert response["url"] == ref_response["data"]
 
 
