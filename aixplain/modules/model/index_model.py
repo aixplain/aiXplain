@@ -1,4 +1,4 @@
-from aixplain.enums import Function, Supplier
+from aixplain.enums import Function, Supplier, ResponseStatus
 from aixplain.modules.model import Model
 from aixplain.utils import config
 from aixplain.modules.model.response import ModelResponse
@@ -58,7 +58,11 @@ class IndexModel(Model):
     def add(self, documents: List[DocumentIndex]) -> ModelResponse:
         payloads = [doc.to_dict() for doc in documents]
         data = {"action": "ingest", "data": "", "payload": {"payloads": payloads}}
-        return self.run(data=data)
+        response = self.run(data=data)
+        if response.status == ResponseStatus.SUCCESS:
+            response.data = payloads
+            return response
+        raise Exception(f"Failed to add documents: {response.error_message}")
 
     def update(self, documents: List[DocumentIndex]) -> ModelResponse:
         payloads = [
@@ -66,7 +70,11 @@ class IndexModel(Model):
             for doc in documents
         ]
         data = {"action": "update", "data": "", "payload": {"payloads": payloads}}
-        return self.run(data=data)
+        response = self.run(data=data)
+        if response.status == ResponseStatus.SUCCESS:
+            response.data = payloads
+            return response
+        raise Exception(f"Failed to update documents: {response.error_message}")
 
     def count(self) -> float:
         data = {"action": "count", "data": ""}
