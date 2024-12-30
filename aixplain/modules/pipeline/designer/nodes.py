@@ -474,19 +474,11 @@ class BaseReconstructor(AssetNode[TI, TO]):
 
 
 class ReconstructorInputs(Inputs):
-    data: InputParam = None
-
-    def __init__(self, node: Node):
-        super().__init__(node)
-        self.data = self.create_param("data")
+    pass
 
 
 class ReconstructorOutputs(Outputs):
-    data: OutputParam = None
-
-    def __init__(self, node: Node):
-        super().__init__(node)
-        self.data = self.create_param("data")
+    pass
 
 
 class BareReconstructor(BaseReconstructor[ReconstructorInputs, ReconstructorOutputs]):
