@@ -10,7 +10,7 @@ namespaces = true
 
 [project]
 name = "aiXplain"
-version = "0.2.14rc2"
+version = "0.2.14rc4"
 description = "aiXplain SDK adds AI functions to software."
 readme = "README.md"
 requires-python = ">=3.5, <4"

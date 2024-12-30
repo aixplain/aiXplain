@@ -28,6 +28,8 @@ from typing import Any, Optional, Text, Union, Dict, List
 from uuid import uuid4
 from urllib.parse import urljoin, urlparse
 from pandas import DataFrame
+import tempfile
+import json
 
 
 def save_file(download_url: Text, download_file_path: Optional[Any] = None) -> Any:
@@ -241,3 +243,11 @@ def s3_to_csv(s3_url: Text, aws_credentials: Dict) -> Text:
         return output_path
     except (Exception, ValueError) as e:
         raise Exception(e)
+
+
+def convert_list_to_s3_link(input_list):
+    with tempfile.NamedTemporaryFile() as f:
+        json.dump(input_list, open(f.name, "w"))
+        json_path = str(uuid4()) + ".json"
+        s3_link = upload_data(f.name, "temp/" + json_path, is_temp=True)
+    return s3_link

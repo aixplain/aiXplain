@@ -23,7 +23,7 @@ Description:
 
 from typing import Optional, Text, List, Union
 from aixplain.modules.asset import Asset
-
+from aixplain.utils.file_utils import convert_list_to_s3_link
 
 class Metric(Asset):
     """Represents a metric to be computed on one or more peices of data. It is usually linked to a machine learning task.
@@ -68,6 +68,7 @@ class Metric(Asset):
         self.normalization_options = normalization_options
         self.function = function
         self.additional_info = additional_info
+        self.override_api_key = None
 
     def __repr__(self) -> str:
         return f"<Metric {self.name}>"
@@ -85,6 +86,9 @@ class Metric(Asset):
         hypothesis: Optional[Union[str, List[str]]] = None,
         source: Optional[Union[str, List[str]]] = None,
         reference: Optional[Union[str, List[str]]] = None,
+        timeout: float = 300,
+        wait_time: float = 0.5,
+        send_payload_as_files: bool = False
     ):
         """Run the metric to calculate the scores.
 
@@ -92,6 +96,9 @@ class Metric(Asset):
             hypothesis (Optional[Union[str, List[str]]], optional): Can give a single hypothesis or a list of hypothesis for metric calculation. Defaults to None.
             source (Optional[Union[str, List[str]]], optional): Can give a single source or a list of sources for metric calculation. Defaults to None.
             reference (Optional[Union[str, List[str]]], optional): Can give a single reference or a list of references for metric calculation. Defaults to None.
+            timeout (float, optional): total polling time. Defaults to 300.
+            wait_time (float, optional): wait time in seconds between polling calls. Defaults to 0.5.
+            send_payload_as_files (bool, optional): send large payloads as files. Defaults to False
         """
         from aixplain.factories.model_factory import ModelFactory
 
@@ -104,15 +111,24 @@ class Metric(Asset):
         if hypothesis is not None:
             if type(hypothesis) is str:
                 hypothesis = [hypothesis]
+            if send_payload_as_files:
+                hypothesis = convert_list_to_s3_link(hypothesis)
             payload["hypotheses"] = hypothesis
         if self.is_source_required and source is not None:
             if type(source) is str:
                 source = [source]
+            if send_payload_as_files:
+                source = convert_list_to_s3_link(source)
             payload["sources"] = source
         if self.is_reference_required and reference is not None:
             if type(reference) is str:
                 reference = [[reference]]
             elif type(reference[0]) is str:
                 reference = [[ref] for ref in reference]
+            if send_payload_as_files:
+                reference = convert_list_to_s3_link(reference)
             payload["references"] = reference
-        return model.run(payload)
+        
+        if self.override_api_key is not None:
+            model.api_key = self.override_api_key
+        return model.run(payload, timeout=timeout, wait_time=wait_time)
