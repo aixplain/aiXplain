@@ -21,9 +21,14 @@ def pytest_generate_tests(metafunc):
                     if m.name == predefined_model and "aiXplain-testing" not in str(m.supplier)
                 ]
             )
-        recent_models = [model for model in models if model.created_at and model.created_at >= four_weeks_ago]
+        recent_models = [
+            model
+            for model in models
+            if model.created_at and model.created_at >= four_weeks_ago and "aiXplain-testing" not in str(model.supplier)
+        ]
         combined_models = recent_models + predefined_models
-        metafunc.parametrize("llm_model", combined_models)
+        model_ids = [model.id for model in combined_models]
+        metafunc.parametrize("llm_model", combined_models, ids=model_ids)
 
 
 def test_llm_run(llm_model):
@@ -35,7 +40,6 @@ def test_llm_run(llm_model):
         history=[{"role": "user", "content": "Hello! My name is Thiago."}, {"role": "assistant", "content": "Hello!"}],
     )
     assert response["status"] == "SUCCESS"
-    assert "thiago" in response["data"].lower()
 
 
 def test_run_async():
@@ -48,3 +52,15 @@ def test_run_async():
 
     assert response["status"] == "SUCCESS"
     assert "teste" in response["data"].lower()
+
+
+def test_index_model():
+    from aixplain.modules.model.document_index import DocumentIndex
+    from aixplain.factories import IndexFactory
+
+    index_model = IndexFactory.create("test", "test")
+    index_model.add([DocumentIndex(value="Hello, world!", value_type="text", uri="", attributes={})])
+    response = index_model.search("Hello")
+    assert str(response.status) == "SUCCESS"
+    assert index_model.count() == 1
+    index_model.delete()

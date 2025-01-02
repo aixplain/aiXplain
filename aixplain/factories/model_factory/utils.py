@@ -2,6 +2,7 @@ import json
 import logging
 from aixplain.modules.model import Model
 from aixplain.modules.model.llm_model import LLM
+from aixplain.modules.model.index_model import IndexModel
 from aixplain.modules.model.utility_model import UtilityModel, UtilityModelInput
 from aixplain.enums import DataType, Function, Language, OwnershipType, Supplier, SortBy, SortOrder
 from aixplain.utils import config
@@ -29,27 +30,37 @@ def create_model_from_response(response: Dict) -> Model:
         for param in response["params"]:
             if "language" in param["name"]:
                 parameters[param["name"]] = [w["value"] for w in param["values"]]
+            else:
+                values = [w["value"] for w in param["defaultValues"]]
+                if len(values) > 0:
+                    parameters[param["name"]] = values
 
-    function = Function(response["function"]["id"])
-    inputs = []
+    function_id = response["function"]["id"]
+    function = Function(function_id)
+    function_io = FunctionInputOutput.get(function_id, None)
+    input_params = {param["code"]: param for param in function_io["spec"]["params"]}
+    output_params = {param["code"]: param for param in function_io["spec"]["output"]}
+
+    inputs, temperature = [], None
     ModelClass = Model
     if function == Function.TEXT_GENERATION:
         ModelClass = LLM
+        f = [p for p in response.get("params", []) if p["name"] == "temperature"]
+        if len(f) > 0 and len(f[0].get("defaultValues", [])) > 0:
+            temperature = float(f[0]["defaultValues"][0]["value"])
+    elif function == Function.SEARCH:
+        ModelClass = IndexModel
     elif function == Function.UTILITIES:
         ModelClass = UtilityModel
         inputs = [
             UtilityModelInput(name=param["name"], description=param.get("description", ""), type=DataType(param["dataType"]))
             for param in response["params"]
         ]
+        input_params = {param["name"]: param for param in response["params"]}
 
     created_at = None
     if "createdAt" in response and response["createdAt"]:
         created_at = datetime.fromisoformat(response["createdAt"].replace("Z", "+00:00"))
-    function_id = response["function"]["id"]
-    function = Function(function_id)
-    function_io = FunctionInputOutput.get(function_id, None)
-    input_params = {param["code"]: param for param in function_io["spec"]["params"]}
-    output_params = {param["code"]: param for param in function_io["spec"]["output"]}
 
     return ModelClass(
         response["id"],
@@ -67,6 +78,7 @@ def create_model_from_response(response: Dict) -> Model:
         is_subscribed=True if "subscription" in response else False,
         version=response["version"]["id"],
         inputs=inputs,
+        temperature=temperature,
     )
 
 

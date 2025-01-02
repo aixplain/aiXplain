@@ -24,7 +24,9 @@ def test_utility_model():
                 assert utility_model.name == "utility_model_test"
                 assert utility_model.description == "utility_model_test"
                 assert utility_model.code == "utility_model_test"
-                assert utility_model.inputs == [UtilityModelInput(name="originCode", description="", type=DataType.TEXT)]
+                assert utility_model.inputs == [
+                    UtilityModelInput(name="originCode", description="The originCode input is a text", type=DataType.TEXT)
+                ]
                 assert utility_model.output_examples == "output_description"
 
 
@@ -104,9 +106,46 @@ def test_update_utility_model():
                         function=Function.UTILITIES,
                         api_key=config.TEAM_API_KEY,
                     )
-                    utility_model.description = "updated_description"
-                    utility_model.update()
+                    
+                    with pytest.warns(DeprecationWarning, match="update\(\) is deprecated and will be removed in a future version. Please use save\(\) instead."):
+                        utility_model.description = "updated_description"
+                        utility_model.update()
 
+                    assert utility_model.id == "123"
+                    assert utility_model.description == "updated_description"
+
+def test_save_utility_model():
+    with requests_mock.Mocker() as mock:
+        with patch("aixplain.factories.file_factory.FileFactory.to_link", return_value="def main(originCode: str)"):
+            with patch("aixplain.factories.file_factory.FileFactory.upload", return_value="def main(originCode: str)"):
+                with patch(
+                    "aixplain.modules.model.utils.parse_code",
+                    return_value=(
+                        "def main(originCode: str)",
+                        [UtilityModelInput(name="originCode", description="originCode", type=DataType.TEXT)],
+                        "utility_model_test",
+                    ),
+                ):
+                    mock.put(urljoin(config.BACKEND_URL, "sdk/utilities/123"), json={"id": "123"})
+                    utility_model = UtilityModel(
+                        id="123",
+                        name="utility_model_test",
+                        description="utility_model_test",
+                        code="def main(originCode: str)",
+                        output_examples="output_description",
+                        inputs=[UtilityModelInput(name="originCode", description="originCode", type=DataType.TEXT)],
+                        function=Function.UTILITIES,
+                        api_key=config.TEAM_API_KEY,
+                    )
+                    import warnings
+                    # it should not trigger any warning
+                    with warnings.catch_warnings(record=True) as w:
+                        warnings.simplefilter("always")  # Trigger all warnings
+                        utility_model.description = "updated_description"
+                        utility_model.save()
+                        
+                        assert len(w) == 0
+                        
                     assert utility_model.id == "123"
                     assert utility_model.description == "updated_description"
 
@@ -136,7 +175,9 @@ def test_parse_code():
         with patch("aixplain.factories.file_factory.FileFactory.upload", return_value="code_link"):
             code = "def main(originCode: str) -> str:\n    return originCode"
             code_link, inputs, description = parse_code(code)
-            assert inputs == [UtilityModelInput(name="originCode", description="", type=DataType.TEXT)]
+            assert inputs == [
+                UtilityModelInput(name="originCode", description="The originCode input is a text", type=DataType.TEXT)
+            ]
             assert description == ""
             assert code_link == "code_link"
 
@@ -152,8 +193,8 @@ def test_parse_code():
             code = main
             code_link, inputs, description = parse_code(code)
             assert inputs == [
-                UtilityModelInput(name="a", description="", type=DataType.NUMBER),
-                UtilityModelInput(name="b", description="", type=DataType.NUMBER),
+                UtilityModelInput(name="a", description="The a input is a number", type=DataType.NUMBER),
+                UtilityModelInput(name="b", description="The b input is a number", type=DataType.NUMBER),
             ]
             assert description == "This function adds two numbers"
             assert code_link == "code_link"
