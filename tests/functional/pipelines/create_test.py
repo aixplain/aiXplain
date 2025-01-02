@@ -43,6 +43,11 @@ def test_create_pipeline_from_string():
 
     assert isinstance(pipeline, Pipeline)
     assert pipeline.id != ""
+    assert pipeline.status.value == "draft"
+
+    pipeline.deploy()
+    pipeline = PipelineFactory.get(pipeline.id)
+    assert pipeline.status.value == "onboarded"
     pipeline.delete()
 
 

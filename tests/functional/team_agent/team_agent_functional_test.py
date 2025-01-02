@@ -33,6 +33,7 @@ RUN_FILE = "tests/functional/team_agent/data/team_agent_test_end2end.json"
 def read_data(data_path):
     return json.load(open(data_path, "r"))
 
+
 @pytest.fixture(scope="function")
 def delete_agents_and_team_agents():
     for team_agent in TeamAgentFactory.list()["results"]:
@@ -94,6 +95,7 @@ def test_end2end(run_input_map, delete_agents_and_team_agents):
     team_agent.deploy()
     team_agent = TeamAgentFactory.get(team_agent.id)
     assert team_agent is not None
+    assert team_agent.status == AssetStatus.ONBOARDED
     response = team_agent.run(data=run_input_map["query"])
 
     assert response is not None
@@ -161,6 +163,7 @@ def test_fail_non_existent_llm():
         )
     assert str(exc_info.value) == "Large Language Model with ID 'non_existent_llm' not found."
 
+
 def test_add_remove_agents_from_team_agent(run_input_map, delete_agents_and_team_agents):
     assert delete_agents_and_team_agents
 
@@ -210,12 +213,12 @@ def test_add_remove_agents_from_team_agent(run_input_map, delete_agents_and_team
     assert new_agent.id in [agent.id for agent in team_agent.agents]
     assert len(team_agent.agents) == len(agents) + 1
 
-    removed_agent = team_agent.agents.pop(0)  
+    removed_agent = team_agent.agents.pop(0)
     team_agent.update()
 
     team_agent = TeamAgentFactory.get(team_agent.id)
     assert removed_agent.id not in [agent.id for agent in team_agent.agents]
-    assert len(team_agent.agents) == len(agents) 
+    assert len(team_agent.agents) == len(agents)
 
     team_agent.delete()
     new_agent.delete()

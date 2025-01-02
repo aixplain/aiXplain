@@ -25,6 +25,7 @@ import time
 import json
 import os
 import logging
+from aixplain.enums.asset_status import AssetStatus
 from aixplain.modules.asset import Asset
 from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
@@ -56,6 +57,7 @@ class Pipeline(Asset):
         url: Text = config.BACKEND_URL,
         supplier: Text = "aiXplain",
         version: Text = "1.0",
+        status: AssetStatus = AssetStatus.DRAFT,
         **additional_info,
     ) -> None:
         """Create a Pipeline with the necessary information
@@ -67,6 +69,7 @@ class Pipeline(Asset):
             url (Text, optional): running URL of platform. Defaults to config.BACKEND_URL.
             supplier (Text, optional): Pipeline supplier. Defaults to "aiXplain".
             version (Text, optional): version of the pipeline. Defaults to "1.0".
+            status (AssetStatus, optional): Pipeline status. Defaults to AssetStatus.DRAFT.
             **additional_info: Any additional Pipeline info to be saved
         """
         if not name:
@@ -75,6 +78,12 @@ class Pipeline(Asset):
         super().__init__(id, name, "", supplier, version)
         self.api_key = api_key
         self.url = f"{url}/assets/pipeline/execution/run"
+        if isinstance(status, str):
+            try:
+                status = AssetStatus(status)
+            except Exception:
+                status = AssetStatus.DRAFT
+        self.status = status
         self.additional_info = additional_info
 
     def __polling(
@@ -572,3 +581,12 @@ class Pipeline(Asset):
             logging.info(f"Pipeline {response['id']} Saved.")
         except Exception as e:
             raise Exception(e)
+
+    def deploy(self, api_key: Optional[Text] = None) -> None:
+        """Deploy the Pipeline."""
+        assert self.status == "draft", "Pipeline Deployment Error: Pipeline must be in draft status."
+        assert self.status != "onboarded", "Pipeline Deployment Error: Pipeline must be onboarded."
+
+        pipeline = self.to_dict()
+        self.update(pipeline=pipeline, save_as_asset=True, api_key=api_key, name=self.name)
+        self.status = AssetStatus.ONBOARDED
