@@ -36,6 +36,8 @@ from aixplain.modules.agent.output_format import OutputFormat
 from aixplain.modules.agent.tool import Tool
 from aixplain.modules.agent.tool.model_tool import ModelTool
 from aixplain.modules.agent.tool.pipeline_tool import PipelineTool
+from aixplain.modules.agent.tool.python_interpreter_tool import PythonInterpreterTool
+from aixplain.modules.agent.tool.custom_python_code_tool import CustomPythonCodeTool
 from aixplain.modules.agent.utils import process_variables
 from typing import Dict, List, Text, Optional, Union
 from urllib.parse import urljoin
@@ -305,9 +307,20 @@ class Agent(Model):
                 message = f"Agent Deletion Error (HTTP {r.status_code}): There was an error in deleting the agent."
             logging.error(message)
             raise Exception(f"{message}")
-
+        
     def update(self) -> None:
         """Update agent."""
+        import warnings
+        import inspect
+        # Get the current call stack
+        stack = inspect.stack()
+        if len(stack) > 2 and stack[1].function != 'save':
+            warnings.warn(
+                "update() is deprecated and will be removed in a future version. "
+                "Please use save() instead.",
+                DeprecationWarning,
+                stacklevel=2
+            )
         from aixplain.factories.agent_factory.utils import build_agent
 
         self.validate()
@@ -329,6 +342,11 @@ class Agent(Model):
         else:
             error_msg = f"Agent Update Error (HTTP {r.status_code}): {resp}"
             raise Exception(error_msg)
+
+    
+    def save(self) -> None:
+        """Save the Agent."""
+        self.update() 
 
     def deploy(self) -> None:
         assert self.status == AssetStatus.DRAFT, "Agent must be in draft status to be deployed."

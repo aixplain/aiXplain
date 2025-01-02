@@ -60,6 +60,9 @@ class ModelTool(Tool):
         if function is not None:
             if isinstance(function, str):
                 function = Function(function)
+        assert (
+            function is None or function is not Function.UTILITIES or model is not None
+        ), "Agent Creation Error: Utility function must be used with an associated model."
 
         try:
             if isinstance(supplier, dict):
