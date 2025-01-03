@@ -11,6 +11,8 @@ from .nodes import (
     BaseMetric,
     BareAsset,
     BareMetric,
+    BareSegmentor,
+    BareReconstructor,
 )
 from .pipeline import DesignerPipeline
 from .base import (

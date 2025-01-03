@@ -29,3 +29,6 @@ class ResponseStatus(Text, Enum):
     IN_PROGRESS = "IN_PROGRESS"
     SUCCESS = "SUCCESS"
     FAILED = "FAILED"
+
+    def __str__(self):
+        return self.value
