@@ -161,35 +161,6 @@ class Pipeline(Asset):
             resp = {"status": "FAILED"}
         return resp
 
-    def _should_fallback_to_v2(self, response: Dict, version: str) -> bool:
-        """Determine if the pipeline should fallback to version 2.0 based on the response.
-
-        Args:
-            response (Dict): The response from the pipeline call.
-            version (str): The version of the pipeline being used.
-
-        Returns:
-            bool: True if fallback is needed, False otherwise.
-        """
-        # If the version is not 3.0, no fallback is needed
-        if version != self.VERSION_3_0:
-            return False
-
-        should_fallback = False
-        if "status" not in response or response["status"] == "FAILED":
-            should_fallback = True
-        elif response["status"] == "SUCCESS" and ("data" not in response or not response["data"]):
-            should_fallback = True
-        # Check for conditions that require a fallback
-
-        if should_fallback:
-            logging.warning(
-                f"Pipeline Run Error: Failed to run pipeline {self.id} with version {version}. "
-                f"Trying with version {self.VERSION_2_0}."
-            )
-
-        return should_fallback
-
     def run(
         self,
         data: Union[Text, Dict],
@@ -198,7 +169,6 @@ class Pipeline(Asset):
         timeout: float = 20000.0,
         wait_time: float = 1.0,
         batch_mode: bool = True,
-        version: str = None,
         **kwargs,
     ) -> Dict:
         """Runs a pipeline call.
@@ -215,7 +185,6 @@ class Pipeline(Asset):
         Returns:
             Dict: parsed output from pipeline
         """
-        version = version or self.VERSION_3_0
         start = time.time()
         try:
             response = self.run_async(
@@ -223,7 +192,6 @@ class Pipeline(Asset):
                 data_asset=data_asset,
                 name=name,
                 batch_mode=batch_mode,
-                version=version,
                 **kwargs,
             )
 
@@ -236,16 +204,6 @@ class Pipeline(Asset):
             end = time.time()
             response = self.__polling(poll_url, name=name, timeout=timeout, wait_time=wait_time)
 
-            if self._should_fallback_to_v2(response, version):
-                return self.run(
-                    data,
-                    data_asset=data_asset,
-                    name=name,
-                    batch_mode=batch_mode,
-                    version=self.VERSION_2_0,
-                    **kwargs,
-                )
-            response["version"] = version
             return response
         except Exception as e:
             error_message = f"Error in request for {name}: {str(e)}"
@@ -256,7 +214,6 @@ class Pipeline(Asset):
                 "status": "FAILED",
                 "error": error_message,
                 "elapsed_time": end - start,
-                "version": version,
             }
 
     def __prepare_payload(
@@ -373,7 +330,6 @@ class Pipeline(Asset):
         data_asset: Optional[Union[Text, Dict]] = None,
         name: Text = "pipeline_process",
         batch_mode: bool = True,
-        version: str = None,
         **kwargs,
     ) -> Dict:
         """Runs asynchronously a pipeline call.
@@ -388,7 +344,6 @@ class Pipeline(Asset):
         Returns:
             Dict: polling URL in response
         """
-        version = version or self.VERSION_3_0
         headers = {
             "x-api-key": self.api_key,
             "Content-Type": "application/json",
@@ -396,7 +351,6 @@ class Pipeline(Asset):
 
         payload = self.__prepare_payload(data=data, data_asset=data_asset)
         payload["batchmode"] = batch_mode
-        payload["version"] = version
         payload.update(kwargs)
         payload = json.dumps(payload)
         call_url = f"{self.url}/{self.id}"
@@ -433,16 +387,6 @@ class Pipeline(Asset):
             if resp is not None:
                 response["error"] = resp
 
-        if self._should_fallback_to_v2(response, version):
-            return self.run_async(
-                data,
-                data_asset=data_asset,
-                name=name,
-                batch_mode=batch_mode,
-                version=self.VERSION_2_0,
-                **kwargs,
-            )
-        response["version"] = version
         return response
 
     def update(

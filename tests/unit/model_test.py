@@ -368,7 +368,7 @@ def test_model_to_dict():
 def test_model_repr():
     # Test with supplier as dict
     model1 = Model(id="test-id", name="Test Model", supplier={"name": "Test Supplier"})
-    assert repr(model1) == "<Model: Test Model by aiXplain>"
+    assert repr(model1) == "<Model: Test Model by aixplain>"
 
     # Test with supplier as string
     model2 = Model(id="test-id", name="Test Model", supplier="Test Supplier")
