@@ -34,8 +34,6 @@ from aixplain.enums.storage_type import StorageType
 from aixplain.modules.model import Model
 from aixplain.modules.agent.output_format import OutputFormat
 from aixplain.modules.agent.tool import Tool
-from aixplain.modules.agent.tool.model_tool import ModelTool
-from aixplain.modules.agent.tool.pipeline_tool import PipelineTool
 from aixplain.modules.agent.agent_response import AgentResponse
 from aixplain.modules.agent.agent_response_data import AgentResponseData
 from aixplain.enums import ResponseStatus
@@ -173,17 +171,19 @@ class Agent(Model):
             poll_url = response["url"]
             end = time.time()
             result = self.sync_poll(poll_url, name=name, timeout=timeout, wait_time=wait_time)
-            result_data= result.data
+            result_data = result.data
             return AgentResponse(
                 status=ResponseStatus.SUCCESS,
                 completed=True,
                 data=AgentResponseData(
                     input=result_data.get("input"),
                     output=result_data.get("output"),
-                    session_id=session_id,
+                    session_id=result_data.get("session_id"),
+                    intermediate_steps=result_data.get("intermediateSteps"),
+                    execution_stats=result_data.get("executionStats"),
                 ),
                 used_credits=result_data.get("usedCredits", 0.0),
-                run_time=result_data.get("runTime", end - start), 
+                run_time=result_data.get("runTime", end - start),
             )
         except Exception as e:
             msg = f"Error in request for {name} - {traceback.format_exc()}"
@@ -194,8 +194,10 @@ class Agent(Model):
                 data=AgentResponseData(
                     input=data,
                     output=None,
-                    run_time=end - start,
+                    session_id=result_data.get("session_id"),
                     session_id=session_id,
+                    intermediate_steps=result_data.get("intermediateSteps"),
+                    execution_stats=result_data.get("executionStats"),
                 ),
                 error=msg,
             )
@@ -287,9 +289,7 @@ class Agent(Model):
             return AgentResponse(
                 status=ResponseStatus.IN_PROGRESS,
                 url=poll_url,
-                data=AgentResponseData(
-                    input=input_data
-                ),
+                data=AgentResponseData(input=input_data),
                 run_time=0.0,
                 used_credits=0.0,
             )
@@ -300,8 +300,6 @@ class Agent(Model):
                 status=ResponseStatus.FAILED,
                 error=msg,
             )
-
-
 
     def to_dict(self) -> Dict:
         return {
@@ -333,19 +331,19 @@ class Agent(Model):
                 message = f"Agent Deletion Error (HTTP {r.status_code}): There was an error in deleting the agent."
             logging.error(message)
             raise Exception(f"{message}")
-        
+
     def update(self) -> None:
         """Update agent."""
         import warnings
         import inspect
+
         # Get the current call stack
         stack = inspect.stack()
-        if len(stack) > 2 and stack[1].function != 'save':
+        if len(stack) > 2 and stack[1].function != "save":
             warnings.warn(
-                "update() is deprecated and will be removed in a future version. "
-                "Please use save() instead.",
+                "update() is deprecated and will be removed in a future version. " "Please use save() instead.",
                 DeprecationWarning,
-                stacklevel=2
+                stacklevel=2,
             )
         from aixplain.factories.agent_factory.utils import build_agent
 
@@ -369,10 +367,9 @@ class Agent(Model):
             error_msg = f"Agent Update Error (HTTP {r.status_code}): {resp}"
             raise Exception(error_msg)
 
-    
     def save(self) -> None:
         """Save the Agent."""
-        self.update() 
+        self.update()
 
     def deploy(self) -> None:
         assert self.status == AssetStatus.DRAFT, "Agent must be in draft status to be deployed."

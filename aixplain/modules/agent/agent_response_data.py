@@ -1,5 +1,6 @@
 from typing import List, Dict, Any, Optional
 
+
 class AgentResponseData:
     def __init__(
         self,
@@ -33,6 +34,22 @@ class AgentResponseData:
             "intermediate_steps": self.intermediate_steps,
             "executionStats": self.execution_stats,
         }
-    
+
     def __getitem__(self, key):
         return getattr(self, key, None)
+
+    def __setitem__(self, key, value):
+        if hasattr(self, key):
+            setattr(self, key, value)
+        else:
+            raise KeyError(f"{key} is not a valid attribute of {self.__class__.__name__}")
+
+    def __repr__(self) -> str:
+        return (
+            f"{self.__class__.__name__}("
+            f"input={self.input}, "
+            f"output={self.output}, "
+            f"session_id='{self.session_id}', "
+            f"intermediate_steps={self.intermediate_steps}, "
+            f"execution_stats={self.execution_stats})"
+        )
