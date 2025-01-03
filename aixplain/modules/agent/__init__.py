@@ -173,16 +173,17 @@ class Agent(Model):
             poll_url = response["url"]
             end = time.time()
             result = self.sync_poll(poll_url, name=name, timeout=timeout, wait_time=wait_time)
+            result_data= result.data
             return AgentResponse(
                 status=ResponseStatus.SUCCESS,
+                completed=True,
                 data=AgentResponseData(
-                    input=result.get("input"),
-                    output=result.get("output"),
-                    execution_stats=result.get("executionStats"),
-                    run_time=result.get("runTime", end - start),
-                    used_credits=result.get("usedCredits", 0.0),
+                    input=result_data.get("input"),
+                    output=result_data.get("output"),
                     session_id=session_id,
                 ),
+                used_credits=result_data.get("usedCredits", 0.0),
+                run_time=result_data.get("runTime", end - start), 
             )
         except Exception as e:
             msg = f"Error in request for {name} - {traceback.format_exc()}"
@@ -287,10 +288,10 @@ class Agent(Model):
                 status=ResponseStatus.IN_PROGRESS,
                 url=poll_url,
                 data=AgentResponseData(
-                    input=input_data,
-                    run_time=0.0,
-                    used_credits=0.0,
+                    input=input_data
                 ),
+                run_time=0.0,
+                used_credits=0.0,
             )
         except Exception as e:
             msg = f"Error in request for {name} - {traceback.format_exc()}"
