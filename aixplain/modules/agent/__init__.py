@@ -36,6 +36,8 @@ from aixplain.modules.agent.output_format import OutputFormat
 from aixplain.modules.agent.tool import Tool
 from aixplain.modules.agent.tool.model_tool import ModelTool
 from aixplain.modules.agent.tool.pipeline_tool import PipelineTool
+from aixplain.modules.agent.tool.python_interpreter_tool import PythonInterpreterTool
+from aixplain.modules.agent.tool.custom_python_code_tool import CustomPythonCodeTool
 from aixplain.modules.agent.agent_response import AgentResponse
 from aixplain.modules.agent.agent_response_data import AgentResponseData
 from aixplain.enums import ResponseStatus
