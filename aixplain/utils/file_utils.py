@@ -84,6 +84,37 @@ def download_data(url_link, local_filename=None):
     return local_filename
 
 
+def download_s3_file(s3_url: Text,aws_credentials: Dict) -> Text:
+    try:
+        import boto3
+        from botocore.exceptions import NoCredentialsError
+    except ModuleNotFoundError:
+        raise Exception(
+            "boto3 is not currently installed in your project environment. Please try installing it using pip:\n\npip install boto3"
+        )
+    url = urlparse(s3_url)
+    if url.scheme != "s3":
+        raise Exception("the url is not an s3 url")
+    bucket_name = url.netloc
+    prefix = url.path[1:]
+    try:
+        aws_access_key_id = aws_credentials.get("AWS_ACCESS_KEY_ID") or os.getenv("AWS_ACCESS_KEY_ID")
+        aws_secret_access_key = aws_credentials.get("AWS_SECRET_ACCESS_KEY") or os.getenv("AWS_SECRET_ACCESS_KEY")
+        s3 = boto3.client("s3", aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
+        # name the file with the uuid
+        filename = Path(s3_url).name
+        file_extension = Path(s3_url).suffix.split("?")[0]
+        local_filename = f"{filename}.{file_extension}"
+        s3.download_file(bucket_name, prefix, local_filename)
+    except NoCredentialsError as e:
+        raise Exception(
+            "to use the s3 bucket option you need to set the right AWS credentials [AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY]"
+        )
+    except Exception as e:
+        raise Exception("the bucket you are trying to use does not exist")
+    return local_filename
+        
+
 def upload_data(
     file_name: Union[Text, Path],
     tags: Optional[List[Text]] = None,
@@ -153,7 +184,7 @@ def upload_data(
             raise Exception("File Uploading Error: Failure on Uploading to S3.")
 
 
-def s3_to_csv(s3_url: Text, aws_credentials: Dict) -> Text:
+def s3_to_csv(s3_url: Text, aws_credentials: Optional[Dict[Text, Text]] = {"AWS_ACCESS_KEY_ID": None, "AWS_SECRET_ACCESS_KEY": None}) -> Text:
     """Convert s3 url to a csv file and download the file in `download_path`
 
     Args:
