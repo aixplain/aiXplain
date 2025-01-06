@@ -84,7 +84,7 @@ def download_data(url_link, local_filename=None):
     return local_filename
 
 
-def download_s3_file(s3_url: Text,aws_credentials: Dict={}) -> Text:
+def download_s3_file(s3_url: Text,aws_credentials: Dict= {"AWS_ACCESS_KEY_ID": None, "AWS_SECRET_ACCESS_KEY": None}) -> Text:
     try:
         import boto3
         from botocore.exceptions import NoCredentialsError
