@@ -16,13 +16,14 @@ def create_retry_session(
     """
     Creates a requests.Session with a specified retry strategy.
 
-    :param total: Total number of retries allowed (default is 5).
-    :param backoff_factor: Backoff factor to apply between retry attempts
-                           (default is 0.1).
-    :param status_forcelist: List of HTTP status codes to force a retry on
-                             (default is [500, 502, 503, 504]).
-    :param kwargs: Additional keyword arguments for internal Retry object
-    :return: A requests.Session object with the specified retry strategy.
+    Args:
+        total (int, optional): Total number of retries allowed. Defaults to 5.
+        backoff_factor (float, optional): Backoff factor to apply between retry attempts. Defaults to 0.1.
+        status_forcelist (list, optional): List of HTTP status codes to force a retry on. Defaults to [500, 502, 503, 504].
+        kwargs (dict, optional): Additional keyword arguments for internal Retry object.
+
+    Returns:
+        requests.Session: A requests.Session object with the specified retry strategy.
     """
     total = total or DEFAULT_RETRY_TOTAL
     backoff_factor = backoff_factor or DEFAULT_RETRY_BACKOFF_FACTOR
@@ -53,19 +54,15 @@ class AixplainClient:
         retry_status_forcelist=DEFAULT_RETRY_STATUS_FORCELIST,
     ):
         """
-        Initialize AixplainClient with authentication and retry configuration.
+        Initializes AixplainClient with authentication and retry configuration.
 
-        :param base_url: The base URL for the API.
-        :param aixplain_api_key: The individual API key.
-        :param team_api_key: The team API key.
-        :param retry_total: Total number of retries allowed
-                            (default is None, uses DEFAULT_RETRY_TOTAL).
-        :param retry_backoff_factor: Backoff factor to apply between retry
-                                     attempts (default is None,
-                                     uses DEFAULT_RETRY_BACKOFF_FACTOR).
-        :param retry_status_forcelist: List of HTTP status codes to force a
-                                       retry on (default is None,
-                                       uses DEFAULT_RETRY_STATUS_FORCELIST).
+        Args:
+            base_url (str): The base URL for the API.
+            aixplain_api_key (str, optional): The individual API key.
+            team_api_key (str, optional): The team API key.
+            retry_total (int, optional): Total number of retries allowed. Defaults to None, uses DEFAULT_RETRY_TOTAL.
+            retry_backoff_factor (float, optional): Backoff factor to apply between retry attempts. Defaults to None, uses DEFAULT_RETRY_BACKOFF_FACTOR.
+            retry_status_forcelist (list, optional): List of HTTP status codes to force a retry on. Defaults to None, uses DEFAULT_RETRY_STATUS_FORCELIST.
         """
         self.base_url = base_url
         self.team_api_key = team_api_key
@@ -96,12 +93,15 @@ class AixplainClient:
 
     def request(self, method: str, path: str, **kwargs: Any) -> requests.Response:
         """
-        Send an HTTP request.
+        Sends an HTTP request.
 
-        :param method: HTTP method (e.g. 'GET', 'POST')
-        :param path: URL path
-        :param kwargs: Additional keyword arguments for the request
-        :return: requests.Response
+        Args:
+            method (str): HTTP method (e.g. 'GET', 'POST')
+            path (str): URL path
+            kwargs (dict, optional): Additional keyword arguments for the request
+
+        Returns:
+            requests.Response: The response from the request
         """
         url = urljoin(self.base_url, path)
         response = self.session.request(method=method, url=url, **kwargs)
@@ -110,17 +110,20 @@ class AixplainClient:
 
     def get(self, path: str, **kwargs: Any) -> requests.Response:
         """
-        Send an HTTP GET request.
+        Sends an HTTP GET request.
 
-        :param path: URL path
-        :param kwargs: Additional keyword arguments for the request
-        :return: requests.Response
+        Args:
+            path (str): URL path
+            kwargs (dict, optional): Additional keyword arguments for the request
+
+        Returns:
+            requests.Response: The response from the request
         """
         return self.request("GET", path, **kwargs)
 
     def get_obj(self, path: str, **kwargs: Any) -> dict:
         """
-        Send an HTTP GET request and return the object.
+        Sends an HTTP GET request and returns the object.
         """
         response = self.get(path, **kwargs)
         return response.json()

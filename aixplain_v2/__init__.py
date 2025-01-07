@@ -1,15 +1,31 @@
-from .base import BaseResource, BaseListParams, ModelListParams, Aixplain
-from .enums import Function, Supplier, OwnershipType, SortBy, SortOrder, Language
+from .resource import BaseResource, BaseListParams, Aixplain
+from .enums import (
+    Function,
+    Supplier,
+    OwnershipType,
+    SortBy,
+    SortOrder,
+    Language,
+    DataType,
+)
+from .agent import Agent
+from .model import Model, ModelListParams
+from .pipeline import Pipeline, PipelineListParams
 
 __all__ = [
+    "Aixplain",
     "BaseResource",
     "BaseListParams",
     "ModelListParams",
-    "Aixplain",
+    "PipelineListParams",
     "Function",
     "Supplier",
     "OwnershipType",
     "SortBy",
     "SortOrder",
     "Language",
+    "DataType",
+    "Agent",
+    "Model",
+    "Pipeline",
 ]
