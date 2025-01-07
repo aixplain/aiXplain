@@ -353,3 +353,6 @@ class Agent(Model):
         assert self.status != AssetStatus.ONBOARDED, "Agent is already deployed."
         self.status = AssetStatus.ONBOARDED
         self.update()
+
+    def __repr__(self):
+        return f"Agent(id={self.id}, name={self.name})"

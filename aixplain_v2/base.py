@@ -43,9 +43,9 @@ class Aixplain:
     def __init__(
         self,
         api_key: str,
-        backend_url: str = "https://dev-platform-api.aixplain.com",
-        pipeline_url: str = "https://dev-platform-api.aixplain.com/assets/pipeline/execution/run",
-        model_url: str = "https://dev-models.aixplain.com/api/v1/execute",
+        backend_url: str = "https://platform-api.aixplain.com",
+        pipeline_url: str = "https://platform-api.aixplain.com/assets/pipeline/execution/run",
+        model_url: str = "https://models.aixplain.com/api/v1/execute",
     ):
         """Initialize the Aixplain class.
 
@@ -72,9 +72,9 @@ class Aixplain:
 
         # We're dynamically creating the classes here to avoid potential race
         # conditions when using class level attributes
-        self.Model = type("BareModel", (Model,), {"context": self})
-        self.Pipeline = type("BarePipeline", (Pipeline,), {"context": self})
-        self.Agent = type("BareAgent", (Agent,), {"context": self})
+        self.Model = type("Model", (Model,), {"context": self})
+        self.Pipeline = type("Pipeline", (Pipeline,), {"context": self})
+        self.Agent = type("Agent", (Agent,), {"context": self})
 
     def init_env(self):
         """Initialize the environment variables."""
@@ -322,7 +322,7 @@ class Model(
     def list(cls, **kwargs):
         from aixplain.factories import ModelFactory
 
-        return ModelFactory.list(**kwargs)
+        return ModelFactory.list(**kwargs)["results"]
 
     @classmethod
     def get(cls, **kwargs):
@@ -356,7 +356,7 @@ class Pipeline(
     def list(cls, **kwargs):
         from aixplain.factories import PipelineFactory
 
-        return PipelineFactory.list(**kwargs)
+        return PipelineFactory.list(**kwargs)["results"]
 
     @classmethod
     def get(cls, **kwargs):
@@ -385,7 +385,7 @@ class Agent(
     def list(cls, **kwargs):
         from aixplain.factories import AgentFactory
 
-        return AgentFactory.list(**kwargs)
+        return AgentFactory.list(**kwargs)["results"]
 
     @classmethod
     def get(cls, **kwargs):
