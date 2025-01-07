@@ -266,12 +266,6 @@ class ListResourceMixin(Generic[L]):
             items = response.json()[cls.PAGINATE_RESPONSE_KEY]
         return [cls(item) for item in items]
 
-    def list_legacy(cls, **kwargs):
-        """
-        List resources across the first n pages with optional filtering.
-        """
-        raise NotImplementedError("This method is deprecated")
-
 
 class GetResourceMixin(Generic[G]):
     """Mixin for getting a resource."""
@@ -294,12 +288,6 @@ class GetResourceMixin(Generic[G]):
         obj = cls.context.client.get_obj(path, **kwargs)
         return cls(obj)
 
-    def get_legacy(cls, **kwargs):
-        """
-        Get a single resource by its ID (or other get parameters).
-        """
-        raise NotImplementedError("This method is deprecated")
-
 
 class CreateResourceMixin(Generic[C]):
     """Mixin for creating a resource."""
@@ -311,12 +299,6 @@ class CreateResourceMixin(Generic[C]):
         ), "Subclasses of 'BaseResource' must specify 'RESOURCE_PATH'"
 
         return cls.context.client.request("post", cls.RESOURCE_PATH, **kwargs)
-
-    def create_legacy(cls, **kwargs):
-        """
-        Create a resource.
-        """
-        raise NotImplementedError("This method is deprecated")
 
 
 class ModelListParams(BaseListParams):
@@ -337,13 +319,13 @@ class Model(
     RESOURCE_PATH = "sdk/models"
 
     @classmethod
-    def list_legacy(cls, **kwargs):
+    def list(cls, **kwargs):
         from aixplain.factories import ModelFactory
 
         return ModelFactory.list(**kwargs)
 
     @classmethod
-    def get_legacy(cls, **kwargs):
+    def get(cls, **kwargs):
         from aixplain.factories import ModelFactory
 
         return ModelFactory.get(model_id=kwargs["id"])
@@ -371,19 +353,19 @@ class Pipeline(
     RESOURCE_PATH = "sdk/pipelines"
 
     @classmethod
-    def list_legacy(cls, **kwargs):
+    def list(cls, **kwargs):
         from aixplain.factories import PipelineFactory
 
         return PipelineFactory.list(**kwargs)
 
     @classmethod
-    def get_legacy(cls, **kwargs):
+    def get(cls, **kwargs):
         from aixplain.factories import PipelineFactory
 
         return PipelineFactory.get(pipeline_id=kwargs["id"])
 
     @classmethod
-    def create_legacy(cls, **kwargs):
+    def create(cls, **kwargs):
         from aixplain.factories import PipelineFactory
 
         return PipelineFactory.init(**kwargs)
@@ -400,13 +382,13 @@ class Agent(
     PAGINATE_RESPONSE_KEY = None
 
     @classmethod
-    def list_legacy(cls, **kwargs):
+    def list(cls, **kwargs):
         from aixplain.factories import AgentFactory
 
         return AgentFactory.list(**kwargs)
 
     @classmethod
-    def get_legacy(cls, **kwargs):
+    def get(cls, **kwargs):
         from aixplain.factories import AgentFactory
 
         return AgentFactory.get(agent_id=kwargs["id"])
