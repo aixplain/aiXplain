@@ -2,7 +2,7 @@ __author__ = "thiagocastroferreira"
 
 import json
 import logging
-from aixplain.utils.file_utils import _request_with_retry, download_s3_file
+from aixplain.utils.file_utils import _request_with_retry
 from typing import Callable, Dict, List, Text, Tuple, Union, Optional
 
 
@@ -100,10 +100,6 @@ def parse_code(code: Union[Text, Callable]) -> Tuple[Text, List, Text]:
             str_code = f.read()
     elif validators.url(code):
         str_code = requests.get(code).text
-    elif code.startswith("s3://"):
-        local_path = download_s3_file(code)
-        with open(local_path, "r") as f:
-            str_code = f.read()
     else:
         str_code = code
 
