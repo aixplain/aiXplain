@@ -43,7 +43,9 @@ class Function(str, Enum):
     AUTO_MASK_GENERATION = "auto-mask-generation"
     DOCUMENT_IMAGE_PARSING = "document-image-parsing"
     ENTITY_LINKING = "entity-linking"
-    REFERENCELESS_TEXT_GENERATION_METRIC_DEFAULT = "referenceless-text-generation-metric-default"
+    REFERENCELESS_TEXT_GENERATION_METRIC_DEFAULT = (
+        "referenceless-text-generation-metric-default"
+    )
     FILL_TEXT_MASK = "fill-text-mask"
     SUBTITLING_TRANSLATION = "subtitling-translation"
     INSTANCE_SEGMENTATION = "instance-segmentation"
@@ -110,13 +112,22 @@ class Function(str, Enum):
     SPEAKER_DIARIZATION_VIDEO = "speaker-diarization-video"
     TEXT_TO_VIDEO_GENERATION = "text-to-video-generation"
 
+
 class Supplier(Enum):
     APLICATA = {"id": "1409", "name": "Aplicata", "code": "aplicata"}
     AZURE = {"id": "1766", "name": "Microsoft", "code": "azure"}
     SDAIA = {"id": "210", "name": "SDAIA", "code": "sdaia"}
-    BRITISHTELECOM = {"id": "1767", "name": "British Telecommunications", "code": "britishtelecom"}
+    BRITISHTELECOM = {
+        "id": "1767",
+        "name": "British Telecommunications",
+        "code": "britishtelecom",
+    }
     META = {"id": "1768", "name": "Meta", "code": "meta"}
-    APPTEK_SPACETOON = {"id": "1796", "name": "AppTek-SpaceToon", "code": "apptek-spacetoon"}
+    APPTEK_SPACETOON = {
+        "id": "1796",
+        "name": "AppTek-SpaceToon",
+        "code": "apptek-spacetoon",
+    }
     GOOGLE = {"id": "1769", "name": "Google", "code": "google"}
     APPTEK = {"id": "1797", "name": "AppTek2", "code": "apptek"}
     HOUNDIFY = {"id": "1770", "name": "Houndify", "code": "houndify"}
@@ -143,7 +154,11 @@ class Supplier(Enum):
     SACREBLEU = {"id": "1782", "name": "Sacrebleu", "code": "sacrebleu"}
     SAUTECH = {"id": "1783", "name": "SauTech", "code": "sautech"}
     STREAMN = {"id": "1785", "name": "StreamN", "code": "streamn"}
-    UNIVERSITYOFHELSINKI = {"id": "1786", "name": "University of Helsinki", "code": "universityofhelsinki"}
+    UNIVERSITYOFHELSINKI = {
+        "id": "1786",
+        "name": "University of Helsinki",
+        "code": "universityofhelsinki",
+    }
     VUMICHIEN = {"id": "1787", "name": "Vumichien", "code": "vumichien"}
     YDSHIEH = {"id": "1788", "name": "Ydshieh", "code": "ydshieh"}
     YOURTTS = {"id": "1789", "name": "YourTTS", "code": "yourtts"}
@@ -153,7 +168,6 @@ class Supplier(Enum):
     SPEECHMATICS = {"id": "10930", "name": "Speechmatics", "code": "speechmatics"}
     IBM = {"id": "10931", "name": "IBM", "code": "ibm"}
     ELEVENLABS = {"id": "10482", "name": "ElevenLabs", "code": "elevenlabs"}
-    73 = {"id": "73", "name": "Miqdad Dali", "code": "73"}
     TIMECHAT = {"id": "11688", "name": "TimeChat", "code": "timechat"}
     PLAYHT = {"id": "14573", "name": "PlayHT", "code": "playht"}
     WIKIPEDIA = {"id": "11150", "name": "Wikipedia", "code": "wikipedia"}
@@ -175,6 +189,7 @@ class Supplier(Enum):
     MISTRALAI = {"id": "14770", "name": "Mistral AI", "code": "mistralai"}
     QCRI = {"id": "1803", "name": "QCRI", "code": "qcri"}
     MYSHELL = {"id": "11238", "name": "MyShell AI", "code": "myshell"}
+
 
 class Language(Enum):
     AFRIKAANS = {"language": "af", "dialect": ""}
@@ -252,7 +267,10 @@ class Language(Enum):
     ARABIC_EGYPT = {"language": "ar", "dialect": "Egypt"}
     ARABIC_MOROCCO = {"language": "ar", "dialect": "Morocco"}
     ARABIC_SAUDI_ARABIA = {"language": "ar", "dialect": "Saudi Arabia"}
-    ARABIC_MODERN_STANDARD_ARABIC = {"language": "ar", "dialect": "Modern Standard Arabic"}
+    ARABIC_MODERN_STANDARD_ARABIC = {
+        "language": "ar",
+        "dialect": "Modern Standard Arabic",
+    }
     ARABIC_QATAR = {"language": "ar", "dialect": "Qatar"}
     ARABIC_IRAQ = {"language": "ar", "dialect": "Iraq"}
     ARABIC_OMAN = {"language": "ar", "dialect": "Oman"}
@@ -461,6 +479,7 @@ class Language(Enum):
     URDU = {"language": "ur", "dialect": ""}
     URDU_PAKISTAN = {"language": "ur", "dialect": "Pakistan"}
     URDU_INDIA = {"language": "ur", "dialect": "India"}
+
 
 class License(str, Enum):
     CC_BY = "620ba3983e2fa95c500b4297"
