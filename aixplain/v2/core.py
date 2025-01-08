@@ -34,14 +34,6 @@ class Aixplain:
         if not cls._instance:
             cls._instance = super(Aixplain, cls).__new__(cls)
 
-        for name, obj in inspect.getmembers(enums, inspect.isclass):
-            if issubclass(obj, Enum):
-                setattr(cls, name, obj)
-
-        for name, obj in inspect.getmembers(enums_include, inspect.isclass):
-            if issubclass(obj, Enum):
-                setattr(cls, name, obj)
-
         return cls._instance
 
     def __init__(
@@ -97,3 +89,12 @@ class Aixplain:
         self.Model = type("Model", (Model,), {"context": self})
         self.Pipeline = type("Pipeline", (Pipeline,), {"context": self})
         self.Agent = type("Agent", (Agent,), {"context": self})
+
+
+for name, obj in inspect.getmembers(enums, inspect.isclass):
+    if issubclass(obj, Enum):
+        setattr(Aixplain, name, obj)
+
+for name, obj in inspect.getmembers(enums_include, inspect.isclass):
+    if issubclass(obj, Enum):
+        setattr(Aixplain, name, obj)
