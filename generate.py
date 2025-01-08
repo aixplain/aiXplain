@@ -1,5 +1,3 @@
-import pathlib
-
 import requests
 from urllib.parse import urljoin
 from jinja2 import Environment, BaseLoader
@@ -15,8 +13,27 @@ SEGMENTOR_FUNCTIONS = [
 
 RECONSTRUCTOR_FUNCTIONS = ["text-reconstruction", "audio-reconstruction"]
 
-MODULE_NAME = "pipeline"
-TEMPLATE = """# This is an auto generated module. PLEASE DO NOT EDIT
+ENUMS_MODULE_PATH = "aixplain_v2/enums.py"
+ENUMS_MODULE_TEMPLATE = """# This is an auto generated module. PLEASE DO NOT EDIT
+
+
+from enum import Enum
+from .enums_include import *
+
+
+class Function(str, Enum):
+    {% for spec in specs %}
+    {{ spec.class_name }} = "{{ spec.id }}"
+    {% endfor %}
+
+class Supplier(str, Enum):
+    {% for supplier in suppliers %}
+    {{ supplier.code|upper|replace("-", "_") }} = "{{ supplier.code }}"
+    {% endfor %}
+"""
+
+PIPELINE_MODULE_PATH = "aixplain/modules/pipeline/pipeline.py"
+PIPELINE_MODULE_TEMPLATE = """# This is an auto generated module. PLEASE DO NOT EDIT
 
 
 from typing import Union, Type
@@ -99,7 +116,7 @@ class Pipeline(DefaultPipeline):
 """
 
 
-def fetch_functions():
+def api_request(path: str):
     """
     Fetch functions from the backend
     """
@@ -107,7 +124,7 @@ def fetch_functions():
 
     backend_url = config.BACKEND_URL
 
-    url = urljoin(backend_url, "sdk/functions")
+    url = urljoin(backend_url, f"sdk/{path}")
     headers = {
         "Content-Type": "application/json",
     }
@@ -118,11 +135,23 @@ def fetch_functions():
     try:
         r.raise_for_status()
     except requests.exceptions.HTTPError as e:
-        print("Functions could not be loaded, see error below")
+        print(f"{path} could not be loaded, see error below")
         raise e
+    return r.json()
 
-    resp = r.json()
-    return resp["items"]
+
+def fetch_functions():
+    """
+    Fetch functions from the backend
+    """
+    return api_request("functions")["items"]
+
+
+def fetch_suppliers():
+    """
+    Fetch suppliers from the backend
+    """
+    return api_request("suppliers")
 
 
 def populate_data_types(functions: list):
@@ -206,6 +235,7 @@ if __name__ == "__main__":
     print("Fetching function specs")
 
     functions = fetch_functions()
+    suppliers = fetch_suppliers()
     data_types = populate_data_types(functions)
     specs = populate_specs(functions)
 
@@ -215,14 +245,17 @@ if __name__ == "__main__":
         trim_blocks=True,
         lstrip_blocks=True,
     )
-    template = env.from_string(TEMPLATE)
-    output = template.render(data_types=data_types, specs=specs)
+    pipeline_template = env.from_string(PIPELINE_MODULE_TEMPLATE)
+    pipeline_output = pipeline_template.render(data_types=data_types, specs=specs)
 
-    current_dir = pathlib.Path(__file__).parent
-    file_path = current_dir / f"{MODULE_NAME}.py"
+    print(f"Writing module to file: {PIPELINE_MODULE_PATH}")
+    with open(PIPELINE_MODULE_PATH, "w") as f:
+        f.write(pipeline_output)
 
-    print(f"Writing module to file: {file_path}")
-    with open(file_path, "w") as f:
-        f.write(output)
+    enums_template = env.from_string(ENUMS_MODULE_TEMPLATE)
+    enums_output = enums_template.render(specs=specs, suppliers=suppliers)
+    print(f"Writing module to file: {ENUMS_MODULE_PATH}")
+    with open(ENUMS_MODULE_PATH, "w") as f:
+        f.write(enums_output)
 
-    print("Module generated successfully")
+    print("Modules generated successfully")
