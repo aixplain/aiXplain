@@ -110,7 +110,7 @@ class Function(str, Enum):
     SUBTITLING = "subtitling"
     TEXT_DENORMALIZATION = "text-denormalization"
 
-class Supplier(str, Enum):
+class Supplier(Enum):
     IBM = {"id": "708", "name": "IBM", "code": "ibm"}
     SPEECHMATICS = {"id": "705", "name": "Speechmatics", "code": "speechmatics"}
     VECTARA = {"id": "691", "name": "Vectara", "code": "vectara"}
@@ -177,7 +177,7 @@ class Supplier(str, Enum):
     SACREBLEU = {"id": "620", "name": "Sacrebleu", "code": "sacrebleu"}
     YOURTTS = {"id": "663", "name": "YourTTS", "code": "yourtts"}
 
-class Language(str, Enum):
+class Language(Enum):
     AFRIKAANS = {"language": "af", "dialect": ""}
     AFRIKAANS_SOUTH_AFRICA = {"language": "af", "dialect": "South Africa"}
     ALBANIAN = {"language": "sq", "dialect": ""}

@@ -36,12 +36,12 @@ class Function(str, Enum):
     {{ function.id|enumify }} = "{{ function.id }}"
     {% endfor %}
 
-class Supplier(str, Enum):
+class Supplier(Enum):
     {% for supplier in suppliers %}
     {{ supplier.code|enumify }} = {"id": "{{ supplier.id }}", "name": "{{ supplier.name }}", "code": "{{ supplier.code }}"}
     {% endfor %}
 
-class Language(str, Enum):
+class Language(Enum):
     {% for language in languages %}
     {{ language.label|enumify }} = {"language": "{{ language.value }}", "dialect": ""}
     {% for dialect in language.dialects %}
