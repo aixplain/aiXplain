@@ -2,7 +2,7 @@
 
 
 from enum import Enum
-from .enums_include import *
+from .enums_include import *  # noqa
 
 
 class Function(str, Enum):

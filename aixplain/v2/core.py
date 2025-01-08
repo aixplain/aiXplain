@@ -1,5 +1,10 @@
 import os
+import inspect
+from enum import Enum
+
 from .client import AixplainClient
+from . import enums
+from . import enums_include
 
 
 class Aixplain:
@@ -28,6 +33,15 @@ class Aixplain:
         """
         if not cls._instance:
             cls._instance = super(Aixplain, cls).__new__(cls)
+
+        for name, obj in inspect.getmembers(enums, inspect.isclass):
+            if issubclass(obj, Enum):
+                setattr(cls, name, obj)
+
+        for name, obj in inspect.getmembers(enums_include, inspect.isclass):
+            if issubclass(obj, Enum):
+                setattr(cls, name, obj)
+
         return cls._instance
 
     def __init__(
@@ -76,9 +90,9 @@ class Aixplain:
         We're dynamically creating the classes here to avoid potential race
         conditions when using class level attributes
         """
-        from aixplain_v2.model import Model
-        from aixplain_v2.pipeline import Pipeline
-        from aixplain_v2.agent import Agent
+        from .model import Model
+        from .pipeline import Pipeline
+        from .agent import Agent
 
         self.Model = type("Model", (Model,), {"context": self})
         self.Pipeline = type("Pipeline", (Pipeline,), {"context": self})

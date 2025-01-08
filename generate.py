@@ -23,12 +23,12 @@ SEGMENTOR_FUNCTIONS = [
 
 RECONSTRUCTOR_FUNCTIONS = ["text-reconstruction", "audio-reconstruction"]
 
-ENUMS_MODULE_PATH = "aixplain_v2/enums.py"
+ENUMS_MODULE_PATH = "aixplain/v2/enums.py"
 ENUMS_MODULE_TEMPLATE = """# This is an auto generated module. PLEASE DO NOT EDIT
 
 
 from enum import Enum
-from .enums_include import *
+from .enums_include import *  # noqa
 
 
 class Function(str, Enum):
