@@ -1,9 +1,19 @@
+import re
 import requests
 from urllib.parse import urljoin
 from jinja2 import Environment, BaseLoader
 
 from aixplain.utils import config
 from aixplain.enums import Function
+
+
+def enumify(s):
+    """Slugify a string and convert to uppercase"""
+    s = re.sub(r"\s+", "_", s)
+    s = re.sub(r"[-.]+", "_", s)
+    s = re.sub(r"[^a-zA-Z0-9-_.]+", "", s)
+    return s.upper()
+
 
 SEGMENTOR_FUNCTIONS = [
     "split-on-linebreak",
@@ -22,14 +32,28 @@ from .enums_include import *
 
 
 class Function(str, Enum):
-    {% for spec in specs %}
-    {{ spec.class_name }} = "{{ spec.id }}"
+    {% for function in functions %}
+    {{ function.id|enumify }} = "{{ function.id }}"
     {% endfor %}
 
 class Supplier(str, Enum):
     {% for supplier in suppliers %}
-    {{ supplier.code|upper|replace("-", "_") }} = "{{ supplier.code }}"
+    {{ supplier.code|enumify }} = {"id": "{{ supplier.id }}", "name": "{{ supplier.name }}", "code": "{{ supplier.code }}"}
     {% endfor %}
+
+class Language(str, Enum):
+    {% for language in languages %}
+    {{ language.label|enumify }} = {"language": "{{ language.value }}", "dialect": ""}
+    {% for dialect in language.dialects %}
+    {{ language.label|enumify }}_{{ dialect.label|enumify }} = {"language": "{{ language.value }}", "dialect": "{{ dialect.value }}"}
+    {% endfor %}
+    {% endfor %}
+
+class License(str, Enum):
+    {% for license in licenses %}
+    {{ license.name|enumify }} = "{{ license.id }}"
+    {% endfor %}
+
 """
 
 PIPELINE_MODULE_PATH = "aixplain/modules/pipeline/pipeline.py"
@@ -154,6 +178,20 @@ def fetch_suppliers():
     return api_request("suppliers")
 
 
+def fetch_languages():
+    """
+    Fetch languages from the backend
+    """
+    return api_request("languages")
+
+
+def fetch_licenses():
+    """
+    Fetch licenses from the backend
+    """
+    return api_request("licenses")
+
+
 def populate_data_types(functions: list):
     """
     Populate the data types
@@ -236,6 +274,8 @@ if __name__ == "__main__":
 
     functions = fetch_functions()
     suppliers = fetch_suppliers()
+    languages = fetch_languages()
+    licenses = fetch_licenses()
     data_types = populate_data_types(functions)
     specs = populate_specs(functions)
 
@@ -245,6 +285,7 @@ if __name__ == "__main__":
         trim_blocks=True,
         lstrip_blocks=True,
     )
+    env.filters["enumify"] = enumify
     pipeline_template = env.from_string(PIPELINE_MODULE_TEMPLATE)
     pipeline_output = pipeline_template.render(data_types=data_types, specs=specs)
 
@@ -253,7 +294,9 @@ if __name__ == "__main__":
         f.write(pipeline_output)
 
     enums_template = env.from_string(ENUMS_MODULE_TEMPLATE)
-    enums_output = enums_template.render(specs=specs, suppliers=suppliers)
+    enums_output = enums_template.render(
+        functions=functions, suppliers=suppliers, languages=languages, licenses=licenses
+    )
     print(f"Writing module to file: {ENUMS_MODULE_PATH}")
     with open(ENUMS_MODULE_PATH, "w") as f:
         f.write(enums_output)
