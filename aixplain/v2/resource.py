@@ -1,8 +1,21 @@
 import requests
-from typing import Optional, List, Tuple, TypedDict, TypeVar, Generic, Type, Any
+from typing import (
+    Optional,
+    List,
+    Tuple,
+    TypedDict,
+    TypeVar,
+    Generic,
+    Type,
+    Any,
+    TYPE_CHECKING,
+)
 
-from .core import Aixplain
+
 from .enums import OwnershipType, SortBy, SortOrder
+
+if TYPE_CHECKING:
+    from .core import Aixplain
 
 
 class BaseResource:
@@ -14,7 +27,7 @@ class BaseResource:
         _obj: dict: The resource's attributes.
     """
 
-    context: Aixplain
+    context: "Aixplain"
     RESOURCE_PATH: str
 
     def __init__(self, obj: dict):

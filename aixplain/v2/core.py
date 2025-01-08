@@ -1,10 +1,11 @@
 import os
-import inspect
-from enum import Enum
-
+from typing import Type
 from .client import AixplainClient
+from .model import Model
+from .pipeline import Pipeline
+from .agent import Agent
+
 from . import enums
-from . import enums_include
 
 
 class Aixplain:
@@ -21,6 +22,34 @@ class Aixplain:
         Pipeline: type: The pipeline class.
         Agent: type: The agent class.
     """
+
+    # Here below we're defining both resources and enums as class level attributes manually instead of populating them dynamically
+    # This has two benefits:
+    # 1. We can benefit from the type checking and autocompletion of the IDE.
+    # 2. We can access enums and resources without having to import them.
+
+    Model: Type[Model] = None
+    Pipeline: Type[Pipeline] = None
+    Agent: Type[Agent] = None
+
+    Function = enums.Function
+    Supplier = enums.Supplier
+    Language = enums.Language
+    License = enums.License
+
+    AssetStatus = enums.AssetStatus
+    DataSplit = enums.DataSplit
+    DataSubtype = enums.DataSubtype
+    DataType = enums.DataType
+    ErrorHandler = enums.ErrorHandler
+    FileType = enums.FileType
+    OnboardStatus = enums.OnboardStatus
+    OwnershipType = enums.OwnershipType
+    Privacy = enums.Privacy
+    ResponseStatus = enums.ResponseStatus
+    SortBy = enums.SortBy
+    SortOrder = enums.SortOrder
+    StorageType = enums.StorageType
 
     _instance = None
 
@@ -82,19 +111,6 @@ class Aixplain:
         We're dynamically creating the classes here to avoid potential race
         conditions when using class level attributes
         """
-        from .model import Model
-        from .pipeline import Pipeline
-        from .agent import Agent
-
         self.Model = type("Model", (Model,), {"context": self})
         self.Pipeline = type("Pipeline", (Pipeline,), {"context": self})
         self.Agent = type("Agent", (Agent,), {"context": self})
-
-
-for name, obj in inspect.getmembers(enums, inspect.isclass):
-    if issubclass(obj, Enum):
-        setattr(Aixplain, name, obj)
-
-for name, obj in inspect.getmembers(enums_include, inspect.isclass):
-    if issubclass(obj, Enum):
-        setattr(Aixplain, name, obj)
