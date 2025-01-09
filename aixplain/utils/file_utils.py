@@ -153,7 +153,7 @@ def upload_data(
             raise Exception("File Uploading Error: Failure on Uploading to S3.")
 
 
-def s3_to_csv(s3_url: Text, aws_credentials: Dict) -> Text:
+def s3_to_csv(s3_url: Text, aws_credentials: Optional[Dict[Text, Text]] = {"AWS_ACCESS_KEY_ID": None, "AWS_SECRET_ACCESS_KEY": None}) -> Text:
     """Convert s3 url to a csv file and download the file in `download_path`
 
     Args:
