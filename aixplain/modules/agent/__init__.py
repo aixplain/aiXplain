@@ -92,6 +92,8 @@ class Agent(Model):
         super().__init__(id, name, description, api_key, supplier, version, cost=cost)
         self.additional_info = additional_info
         self.tools = tools
+        for i, _ in enumerate(tools):
+            self.tools[i].additional_info["api_key"] = api_key
         self.llm_id = llm_id
         if isinstance(status, str):
             try:
@@ -110,7 +112,7 @@ class Agent(Model):
         ), "Agent Creation Error: Agent name must not contain special characters."
 
         try:
-            llm = ModelFactory.get(self.llm_id)
+            llm = ModelFactory.get(self.llm_id, api_key=self.api_key)
             assert llm.function == Function.TEXT_GENERATION, "Large Language Model must be a text generation model."
         except Exception:
             raise Exception(f"Large Language Model with ID '{self.llm_id}' not found.")
