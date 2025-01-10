@@ -2,7 +2,7 @@ from typing import Optional
 from uuid import uuid4
 
 
-class DocumentIndex:
+class Record:
     def __init__(self, value: str, value_type: str = "text", id: Optional[str] = None, uri: str = "", attributes: dict = {}):
         self.value = value
         self.value_type = value_type
