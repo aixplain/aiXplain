@@ -63,10 +63,10 @@ class BaseResource:
 
         If the resource has an ID, it will be updated, otherwise it will be created.
         """
-        if not self.id:
-            self._action("post", **self._obj)
-        else:
+        if hasattr(self, "id") and self.id:
             self._action("put", [self.id], **self._obj)
+        else:
+            self._action("post", **self._obj)
 
     def _action(
         self, method: Optional[str] = None, action_paths: List[str] = None, **kwargs

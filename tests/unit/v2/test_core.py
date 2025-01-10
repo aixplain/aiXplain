@@ -1,5 +1,8 @@
 import os
 from aixplain.v2.core import Aixplain
+from aixplain.v2.model import Model
+from aixplain.v2.pipeline import Pipeline
+from aixplain.v2.agent import Agent
 from unittest.mock import patch
 
 
@@ -58,3 +61,12 @@ def test_aixplain_init_resources():
         assert aixplain.Model.context == aixplain
         assert aixplain.Pipeline.context == aixplain
         assert aixplain.Agent.context == aixplain
+
+        assert issubclass(aixplain.Model, Model)
+        assert issubclass(aixplain.Pipeline, Pipeline)
+        assert issubclass(aixplain.Agent, Agent)
+
+        # check if the resources are NOT the same class type
+        assert aixplain.Pipeline != Pipeline
+        assert aixplain.Model != Model
+        assert aixplain.Agent != Agent
