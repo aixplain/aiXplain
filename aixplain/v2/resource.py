@@ -239,12 +239,12 @@ class ListResourceMixin(Generic[L]):
 
     @classmethod
     def _populate_filters(cls, params: BaseListParams) -> dict:
-        filters = {
-            "pageNumber": params.get("page_number", 0),
-            "pageSize": params.get("page_size", 20),
-        }
-        if params.get("query"):
-            filters["q"] = params["query"]
+        filters = {}
+        if params.get("page_number"):
+            filters["pageNumber"] = params["page_number"]
+
+        if params.get("page_size"):
+            filters["pageSize"] = params["page_size"]
 
         if params.get("query"):
             filters["q"] = params["query"]
