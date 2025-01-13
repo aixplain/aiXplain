@@ -3,7 +3,7 @@ from aixplain.modules.model import Model
 from aixplain.utils import config
 from aixplain.modules.model.response import ModelResponse
 from typing import Text, Optional, Union, Dict
-from aixplain.modules.model.document_index import DocumentIndex
+from aixplain.modules.model.record import Record
 from typing import List
 
 
@@ -55,26 +55,14 @@ class IndexModel(Model):
         data = {"action": "search", "data": query, "payload": {"filters": {}, "top_k": top_k}}
         return self.run(data=data)
 
-    def add(self, documents: List[DocumentIndex]) -> ModelResponse:
+    def upsert(self, documents: List[Record]) -> ModelResponse:
         payloads = [doc.to_dict() for doc in documents]
         data = {"action": "ingest", "data": "", "payload": {"payloads": payloads}}
         response = self.run(data=data)
         if response.status == ResponseStatus.SUCCESS:
             response.data = payloads
             return response
-        raise Exception(f"Failed to add documents: {response.error_message}")
-
-    def update(self, documents: List[DocumentIndex]) -> ModelResponse:
-        payloads = [
-            {"value": doc.value, "value_type": doc.value_type, "id": str(doc.id), "uri": doc.uri, "attributes": doc.attributes}
-            for doc in documents
-        ]
-        data = {"action": "update", "data": "", "payload": {"payloads": payloads}}
-        response = self.run(data=data)
-        if response.status == ResponseStatus.SUCCESS:
-            response.data = payloads
-            return response
-        raise Exception(f"Failed to update documents: {response.error_message}")
+        raise Exception(f"Failed to upsert documents: {response.error_message}")
 
     def count(self) -> float:
         data = {"action": "count", "data": ""}

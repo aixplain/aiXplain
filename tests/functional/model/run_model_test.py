@@ -55,11 +55,11 @@ def test_run_async():
 
 
 def test_index_model():
-    from aixplain.modules.model.document_index import DocumentIndex
+    from aixplain.modules.model.record import Record
     from aixplain.factories import IndexFactory
 
     index_model = IndexFactory.create("test", "test")
-    index_model.add([DocumentIndex(value="Hello, world!", value_type="text", uri="", attributes={})])
+    index_model.upsert([Record(value="Hello, world!", value_type="text", uri="", attributes={})])
     response = index_model.search("Hello")
     assert str(response.status) == "SUCCESS"
     assert index_model.count() == 1
