@@ -37,7 +37,7 @@ def test_add_success():
 
         index_model = IndexModel(id=index_id, data=data, name="name", function=Function.SEARCH)
 
-        response = index_model.add(mock_documents)
+        response = index_model.upsert(mock_documents)
 
     assert isinstance(response, ModelResponse)
     assert response.status == ResponseStatus.SUCCESS
@@ -57,7 +57,7 @@ def test_update_success():
 
         index_model = IndexModel(id=index_id, data=data, name="name", function=Function.SEARCH)
 
-        response = index_model.update(mock_documents)
+        response = index_model.upsert(mock_documents)
 
     assert isinstance(response, ModelResponse)
     assert response.status == ResponseStatus.SUCCESS
