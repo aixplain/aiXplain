@@ -60,7 +60,7 @@ def test_fail_key_not_found():
 
 
 def test_success_query_content():
-    agent = Agent("123", "Test Agent", "Sample Description")
+    agent = Agent("123", "Test Agent(-)", "Sample Description")
     with requests_mock.Mocker() as mock:
         url = agent.url
         headers = {"x-api-key": config.TEAM_API_KEY, "Content-Type": "application/json"}
@@ -98,7 +98,7 @@ def test_invalid_llm_id():
 def test_invalid_agent_name():
     with pytest.raises(Exception) as exc_info:
         AgentFactory.create(name="[Test]", description="", tools=[], llm_id="6646261c6eb563165658bbb1")
-    assert str(exc_info.value) == "Agent Creation Error: Agent name must not contain special characters."
+    assert str(exc_info.value) == "Agent Creation Error: Agent name contains invalid characters. Only alphanumeric characters, spaces, hyphens, and brackets are allowed."
 
 
 def test_create_agent():
@@ -118,7 +118,7 @@ def test_create_agent():
 
             ref_response = {
                 "id": "123",
-                "name": "Test Agent",
+                "name": "Test Agent(-)",
                 "description": "Test Agent Description",
                 "teamId": "123",
                 "version": "1.0",
@@ -163,7 +163,7 @@ def test_create_agent():
             mock.get(url, headers=headers, json=model_ref_response)
 
             agent = AgentFactory.create(
-                name="Test Agent",
+                name="Test Agent(-)",
                 description="Test Agent Description",
                 llm_id="6646261c6eb563165658bbb1",
                 tools=[
@@ -194,7 +194,7 @@ def test_create_agent():
 def test_to_dict():
     agent = Agent(
         id="",
-        name="Test Agent",
+        name="Test Agent(-)",
         description="Test Agent Description",
         llm_id="6646261c6eb563165658bbb1",
         tools=[AgentFactory.create_model_tool(function="text-generation")],
@@ -202,7 +202,7 @@ def test_to_dict():
 
     agent_json = agent.to_dict()
     assert agent_json["id"] == ""
-    assert agent_json["name"] == "Test Agent"
+    assert agent_json["name"] == "Test Agent(-)"
     assert agent_json["description"] == "Test Agent Description"
     assert agent_json["llmId"] == "6646261c6eb563165658bbb1"
     assert agent_json["assets"][0]["function"] == "text-generation"
@@ -212,7 +212,7 @@ def test_to_dict():
 def test_update_success():
     agent = Agent(
         id="123",
-        name="Test Agent",
+        name="Test Agent(-)",
         description="Test Agent Description",
         llm_id="6646261c6eb563165658bbb1",
         tools=[AgentFactory.create_model_tool(function="text-generation")],
@@ -223,7 +223,7 @@ def test_update_success():
         headers = {"x-api-key": config.TEAM_API_KEY, "Content-Type": "application/json"}
         ref_response = {
             "id": "123",
-            "name": "Test Agent",
+            "name": "Test Agent(-)",
             "description": "Test Agent Description",
             "teamId": "123",
             "version": "1.0",
@@ -268,7 +268,7 @@ def test_update_success():
 def test_save_success():
     agent = Agent(
         id="123",
-        name="Test Agent",
+        name="Test Agent(-)",
         description="Test Agent Description",
         llm_id="6646261c6eb563165658bbb1",
         tools=[AgentFactory.create_model_tool(function="text-generation")],
@@ -279,7 +279,7 @@ def test_save_success():
         headers = {"x-api-key": config.TEAM_API_KEY, "Content-Type": "application/json"}
         ref_response = {
             "id": "123",
-            "name": "Test Agent",
+            "name": "Test Agent(-)",
             "description": "Test Agent Description",
             "teamId": "123",
             "version": "1.0",
@@ -329,7 +329,7 @@ def test_save_success():
     assert agent.tools[0].function.value == ref_response["assets"][0]["function"]
 
 def test_run_success():
-    agent = Agent("123", "Test Agent", "Sample Description")
+    agent = Agent("123", "Test Agent(-)", "Sample Description")
     url = urljoin(config.BACKEND_URL, f"sdk/agents/{agent.id}/run")
     agent.url = url
     with requests_mock.Mocker() as mock:
