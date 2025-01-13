@@ -108,7 +108,7 @@ class ModelTool(Tool):
         try:
             model = None
             if self.model is not None:
-                model = ModelFactory.get(self.model, api_key=self.additional_info["api_key"])
+                model = ModelFactory.get(self.model, api_key=self.api_key)
             return model
         except Exception:
             raise Exception(f"Model Tool Unavailable. Make sure Model '{self.model}' exists or you have access to it.")
