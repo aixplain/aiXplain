@@ -14,7 +14,7 @@ from aixplain.enums.function import Function
 
 
 def test_fail_no_data_query():
-    agent = Agent("123", "Test Agent", "Sample Description")
+    agent = Agent("123", "Test Agent(-)", "Sample Description")
     with pytest.raises(Exception) as exc_info:
         agent.run_async()
     assert str(exc_info.value) == "Either 'data' or 'query' must be provided."

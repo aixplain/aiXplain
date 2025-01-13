@@ -10,7 +10,7 @@ from urllib.parse import urljoin
 
 
 def test_fail_no_data_query():
-    team_agent = TeamAgent("123", "Test Team Agent")
+    team_agent = TeamAgent("123", "Test Team Agent(-)")
     with pytest.raises(Exception) as exc_info:
         team_agent.run_async()
     assert str(exc_info.value) == "Either 'data' or 'query' must be provided."
