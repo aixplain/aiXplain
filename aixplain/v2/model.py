@@ -34,11 +34,7 @@ class Model(
     ListResourceMixin[ModelListParams, "Model"],
     GetResourceMixin[BareGetParams, "Model"],
 ):
-    """Resource for models.
-
-    Attributes:
-        RESOURCE_PATH: str: The resource path.
-    """
+    """Resource for models."""
 
     RESOURCE_PATH = "sdk/models"
 

@@ -5,6 +5,9 @@ from .model import Model
 from .pipeline import Pipeline
 from .agent import Agent
 from .benchmark import Benchmark, BenchmarkJob
+from .metric import Metric
+from .finetune import Finetune
+from .script import Script
 from . import enums
 
 
@@ -13,6 +16,9 @@ PipelineType = TypeVar("PipelineType", bound=Pipeline)
 AgentType = TypeVar("AgentType", bound=Agent)
 BenchmarkType = TypeVar("BenchmarkType", bound=Benchmark)
 BenchmarkJobType = TypeVar("BenchmarkJobType", bound=BenchmarkJob)
+MetricType = TypeVar("MetricType", bound=Metric)
+FinetuneType = TypeVar("FinetuneType", bound=Finetune)
+ScriptType = TypeVar("ScriptType", bound=Script)
 
 
 class Aixplain:
@@ -42,6 +48,9 @@ class Aixplain:
     Agent: AgentType = None
     Benchmark: BenchmarkType = None
     BenchmarkJob: BenchmarkJobType = None
+    Metric: MetricType = None
+    Finetune: FinetuneType = None
+    Script: ScriptType = None
 
     Function = enums.Function
     Supplier = enums.Supplier
@@ -127,3 +136,6 @@ class Aixplain:
         self.Agent = type("Agent", (Agent,), {"context": self})
         self.Benchmark = type("Benchmark", (Benchmark,), {"context": self})
         self.BenchmarkJob = type("BenchmarkJob", (BenchmarkJob,), {"context": self})
+        self.Metric = type("Metric", (Metric,), {"context": self})
+        self.Finetune = type("Finetune", (Finetune,), {"context": self})
+        self.Script = type("Script", (Script,), {"context": self})

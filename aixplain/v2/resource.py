@@ -150,15 +150,20 @@ class BaseCreateParams(TypedDict, total=False):
 
 
 class BareCreateParams(BaseCreateParams):
-    pass
+    """Default implementation of create parameters."""
+
+    name: str
 
 
 class BareListParams(BaseListParams):
+    """Default implementation of list parameters."""
 
     pass
 
 
 class BareGetParams(BaseGetParams):
+    """Default implementation of get parameters."""
+
     pass
 
 
@@ -210,12 +215,30 @@ class ListResourceMixin(Generic[L, R]):
 
     @classmethod
     def _populate_path(cls, path: str) -> str:
+        """
+        Populate the path for pagination.
+
+        Args:
+            path: str: The path to populate.
+
+        Returns:
+            str: The populated path.
+        """
         if cls.PAGINATE_PATH:
             return f"{path}/{cls.PAGINATE_PATH}"
         return path
 
     @classmethod
     def _populate_filters(cls, params: BaseListParams) -> dict:
+        """
+        Populate the filters for pagination.
+
+        Args:
+            params: BaseListParams: The parameters to populate.
+
+        Returns:
+            dict: The populated filters.
+        """
         filters = {}
         if params.get("page_number"):
             filters["pageNumber"] = params["page_number"]
@@ -241,6 +264,12 @@ class ListResourceMixin(Generic[L, R]):
     def _populate_objects(cls, response: requests.Response) -> List[R]:
         """
         Populate the objects from the response.
+
+        Args:
+            response: requests.Response: The response to populate.
+
+        Returns:
+            List[R]: The populated objects.
         """
         items = response.json()
         if cls.PAGINATE_RESPONSE_KEY:
@@ -249,11 +278,7 @@ class ListResourceMixin(Generic[L, R]):
 
 
 class GetResourceMixin(Generic[G, R]):
-    """Mixin for getting a resource.
-
-    Attributes:
-        None
-    """
+    """Mixin for getting a resource."""
 
     @classmethod
     def get(cls: Type[R], **kwargs: Unpack[G]) -> R:
