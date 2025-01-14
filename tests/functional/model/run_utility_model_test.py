@@ -1,7 +1,6 @@
 from aixplain.factories import ModelFactory
 from aixplain.modules.model.utility_model import UtilityModelInput
 from aixplain.enums import DataType
-from aixplain.enums.asset_status import AssetStatus
 
 def test_run_utility_model():
     inputs = [
@@ -32,27 +31,4 @@ def test_run_utility_model():
     assert response.status == "SUCCESS"
     assert str(response.data) == "5"
 
-    utility_model.delete()
-
-
-def test_utility_model_status():
-    inputs = [
-        UtilityModelInput(name="inputA", description="input A is the only input", type=DataType.TEXT),
-    ]
-
-    utility_model = ModelFactory.create_utility_model(
-        name="test_status_script_draft",
-        description="This is a test script for status check",
-        inputs=inputs,
-        code="def main(inputA: str):\n\treturn inputA",
-        output_examples="An example is 'test'",
-    )
-
-    assert utility_model.id is not None
-    assert utility_model.status == AssetStatus.DRAFT
-    
-    # Deploy the model
-    utility_model.deploy()
-    assert utility_model.status == AssetStatus.ONBOARDED
-    
     utility_model.delete()

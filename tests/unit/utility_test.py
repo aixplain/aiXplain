@@ -4,6 +4,7 @@ from aixplain.factories.model_factory import ModelFactory
 from urllib.parse import urljoin
 from aixplain.utils import config
 from aixplain.enums import DataType, Function
+from aixplain.enums.asset_status import AssetStatus
 from aixplain.modules.model.utility_model import UtilityModel, UtilityModelInput
 from aixplain.modules.model.utils import parse_code
 from unittest.mock import patch
@@ -333,3 +334,26 @@ def test_model_exists_empty_id():
         api_key=config.TEAM_API_KEY,
     )
     assert utility_model._model_exists() is False
+
+
+def test_utility_model_status():
+    inputs = [
+        UtilityModelInput(name="inputA", description="input A is the only input", type=DataType.TEXT),
+    ]
+
+    utility_model = ModelFactory.create_utility_model(
+        name="test_status_script_draft",
+        description="This is a test script for status check",
+        inputs=inputs,
+        code="def main(inputA: str):\n\treturn inputA",
+        output_examples="An example is 'test'",
+    )
+
+    assert utility_model.id is not None
+    assert utility_model.status == AssetStatus.DRAFT
+    
+    # Deploy the model
+    utility_model.deploy()
+    assert utility_model.status == AssetStatus.ONBOARDED
+    
+    utility_model.delete()
