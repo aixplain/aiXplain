@@ -92,6 +92,8 @@ class Agent(Model):
         super().__init__(id, name, description, api_key, supplier, version, cost=cost)
         self.additional_info = additional_info
         self.tools = tools
+        for i, _ in enumerate(tools):
+            self.tools[i].api_key = api_key
         self.llm_id = llm_id
         if isinstance(status, str):
             try:
@@ -110,7 +112,7 @@ class Agent(Model):
         ), "Agent Creation Error: Agent name must not contain special characters."
 
         try:
-            llm = ModelFactory.get(self.llm_id)
+            llm = ModelFactory.get(self.llm_id, api_key=self.api_key)
             assert llm.function == Function.TEXT_GENERATION, "Large Language Model must be a text generation model."
         except Exception:
             raise Exception(f"Large Language Model with ID '{self.llm_id}' not found.")
@@ -307,19 +309,19 @@ class Agent(Model):
                 message = f"Agent Deletion Error (HTTP {r.status_code}): There was an error in deleting the agent."
             logging.error(message)
             raise Exception(f"{message}")
-        
+
     def update(self) -> None:
         """Update agent."""
         import warnings
         import inspect
+
         # Get the current call stack
         stack = inspect.stack()
-        if len(stack) > 2 and stack[1].function != 'save':
+        if len(stack) > 2 and stack[1].function != "save":
             warnings.warn(
-                "update() is deprecated and will be removed in a future version. "
-                "Please use save() instead.",
+                "update() is deprecated and will be removed in a future version. " "Please use save() instead.",
                 DeprecationWarning,
-                stacklevel=2
+                stacklevel=2,
             )
         from aixplain.factories.agent_factory.utils import build_agent
 
@@ -343,10 +345,9 @@ class Agent(Model):
             error_msg = f"Agent Update Error (HTTP {r.status_code}): {resp}"
             raise Exception(error_msg)
 
-    
     def save(self) -> None:
         """Save the Agent."""
-        self.update() 
+        self.update()
 
     def deploy(self) -> None:
         assert self.status == AssetStatus.DRAFT, "Agent must be in draft status to be deployed."
