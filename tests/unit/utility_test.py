@@ -81,6 +81,7 @@ def test_utility_model_to_dict():
                     "code": "utility_model_test",
                     "function": "utilities",
                     "outputDescription": "output_description",
+                    "status": AssetStatus.DRAFT.value,
                 }
 
 
