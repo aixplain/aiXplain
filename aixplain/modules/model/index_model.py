@@ -51,8 +51,8 @@ class IndexModel(Model):
         self.url = config.MODELS_RUN_URL
         self.backend_url = config.BACKEND_URL
 
-    def search(self, query: str, top_k: int = 10) -> ModelResponse:
-        data = {"action": "search", "data": query, "payload": {"filters": {}, "top_k": top_k}}
+    def search(self, query: str, top_k: int = 10, filters: Dict = {}) -> ModelResponse:
+        data = {"action": "search", "data": query, "payload": {"filters": filters, "top_k": top_k}}
         return self.run(data=data)
 
     def upsert(self, documents: List[Record]) -> ModelResponse:
