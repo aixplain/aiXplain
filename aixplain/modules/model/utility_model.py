@@ -123,17 +123,38 @@ class UtilityModel(Model):
         self.status = status
 
     def validate(self):
-        self.code, inputs, description = parse_code(self.code)
+        """Validate the Utility Model."""
+        description = None
+        inputs = []
+        # check if the model exists and if the code is strring with s3:// 
+        # if not, parse the code and update the description and inputs and do the validation
+        # if yes, just do the validation on the description and inputs
+        if not (self._model_exists() and str(self.code).startswith("s3://")):
+            self.code, inputs, description = parse_code(self.code)
+            if self.description is None:
+                self.description = description
+            if len(self.inputs) == 0:
+                self.inputs = inputs
+            for input in self.inputs:
+                input.validate()
+        else:
+            logging.info("Utility Model Already Exists, skipping code validation")
+        
         assert description is not None or self.description is not None, "Utility Model Error: Model description is required"
-        if self.description is None:
-            self.description = description
-        if len(self.inputs) == 0:
-            self.inputs = inputs
-        for input in self.inputs:
-            input.validate()
         assert self.name and self.name.strip() != "", "Name is required"
         assert self.description and self.description.strip() != "", "Description is required"
         assert self.code and self.code.strip() != "", "Code is required"
+
+    def _model_exists(self):
+        if self.id is None or self.id == "":
+            return False
+        url = urljoin(self.backend_url, f"sdk/models/{self.id}")
+        headers = {"Authorization": f"Token {self.api_key}", "Content-Type": "application/json"}
+        logging.info(f"Start service for GET Model  - {url} - {headers}")
+        r = _request_with_retry("get", url, headers=headers)
+        if r.status_code != 200:
+            raise Exception()
+        return True
 
     def to_dict(self):
         return {

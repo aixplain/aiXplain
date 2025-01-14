@@ -186,11 +186,32 @@ def test_create_team_agent():
             llm_id="6646261c6eb563165658bbb1",
             agents=[agent],
         )
-    assert team_agent.id is not None
-    assert team_agent.name == team_ref_response["name"]
-    assert team_agent.description == team_ref_response["description"]
-    assert team_agent.llm_id == team_ref_response["llmId"]
-    assert team_agent.use_mentalist_and_inspector is True
-    assert team_agent.status == AssetStatus.DRAFT
-    assert len(team_agent.agents) == 1
-    assert team_agent.agents[0].id == team_ref_response["agents"][0]["assetId"]
+        assert team_agent.id is not None
+        assert team_agent.name == team_ref_response["name"]
+        assert team_agent.description == team_ref_response["description"]
+        assert team_agent.llm_id == team_ref_response["llmId"]
+        assert team_agent.use_mentalist_and_inspector is True
+        assert team_agent.status == AssetStatus.DRAFT
+        assert len(team_agent.agents) == 1
+        assert team_agent.agents[0].id == team_ref_response["agents"][0]["assetId"]
+
+        url = urljoin(config.BACKEND_URL, f"sdk/agent-communities/{team_agent.id}")
+        team_ref_response = {
+            "id": "team_agent_123",
+            "name": "TEST Multi agent",
+            "status": "onboarded",
+            "teamId": 645,
+            "description": "TEST Multi agent",
+            "llmId": "6646261c6eb563165658bbb1",
+            "assets": [],
+            "agents": [{"assetId": "123", "type": "AGENT", "number": 0, "label": "AGENT"}],
+            "links": [],
+            "plannerId": "6646261c6eb563165658bbb1",
+            "supervisorId": "6646261c6eb563165658bbb1",
+            "createdAt": "2024-10-28T19:30:25.344Z",
+            "updatedAt": "2024-10-28T19:30:25.344Z",
+        }
+        mock.put(url, headers=headers, json=team_ref_response)
+
+        team_agent.deploy()
+        assert team_agent.status.value == "onboarded"
