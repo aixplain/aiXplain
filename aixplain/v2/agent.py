@@ -1,5 +1,4 @@
-from typing import List
-from typing_extensions import Unpack
+from typing_extensions import Unpack, List
 
 from .resource import (
     BaseResource,
@@ -33,10 +32,10 @@ class Agent(
     def list(cls, **kwargs: Unpack[BareListParams]) -> List["Agent"]:
         from aixplain.factories import AgentFactory
 
-        return AgentFactory.list(**kwargs)["results"]
+        return [Agent(obj) for obj in AgentFactory.list(**kwargs)["results"]]
 
     @classmethod
     def get(cls, **kwargs: Unpack[BareGetParams]) -> "Agent":
         from aixplain.factories import AgentFactory
 
-        return AgentFactory.get(agent_id=kwargs["id"])
+        return Agent(AgentFactory.get(agent_id=kwargs["id"]))

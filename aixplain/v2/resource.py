@@ -7,6 +7,7 @@ from typing import (
     Generic,
     Type,
     Any,
+    Union,
     TYPE_CHECKING,
 )
 from typing_extensions import Unpack
@@ -26,10 +27,11 @@ class BaseResource:
         RESOURCE_PATH: str: The resource path.
     """
 
+    _obj: Union[dict, Any]
     context: "Aixplain"
     RESOURCE_PATH: str
 
-    def __init__(self, obj: dict):
+    def __init__(self, obj: Union[dict, Any]):
         """
         Initialize a BaseResource instance.
 
@@ -53,9 +55,11 @@ class BaseResource:
             AttributeError: If the key is not found in the wrapped
                                 dictionary.
         """
-        if key in self._obj:
-            return self._obj[key]
-        raise AttributeError(f"Object has no attribute '{key}'")
+        if isinstance(self._obj, dict):
+            if key in self._obj:
+                return self._obj[key]
+            raise AttributeError(f"Object has no attribute '{key}'")
+        return getattr(self._obj, key)
 
     def save(self):
         """Save the resource.
@@ -100,6 +104,9 @@ class BaseResource:
             path += "/".join(["", *action_paths])
 
         return self.context.client.request(method, path, **kwargs)
+
+    def __repr__(self) -> str:
+        return repr(self._obj)
 
 
 class BaseListParams(TypedDict, total=False):

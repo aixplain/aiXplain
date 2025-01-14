@@ -3,9 +3,7 @@ from typing_extensions import Unpack
 
 from aixplain.v2.resource import (
     BaseResource,
-    ListResourceMixin,
     GetResourceMixin,
-    BaseListParams,
     BareGetParams,
     CreateResourceMixin,
     BareCreateParams,
@@ -35,13 +33,19 @@ class Benchmark(
     def get(cls, **kwargs: Unpack[BareGetParams]) -> "Benchmark":
         from aixplain.factories import BenchmarkFactory
 
-        return BenchmarkFactory.get(benchmark_id=kwargs["id"])
+        return Benchmark(BenchmarkFactory.get(benchmark_id=kwargs["id"]))
 
     @classmethod
     def create(cls, **kwargs: Unpack[BenchmarkCreateParams]) -> "Benchmark":
         from aixplain.factories import BenchmarkFactory
 
-        return BenchmarkFactory.create(**kwargs)
+        return Benchmark(BenchmarkFactory.create(**kwargs))
+
+    @classmethod
+    def list_normalization_options(cls, metric: "Metric", model: "Model") -> list[str]:
+        from aixplain.factories import BenchmarkFactory
+
+        return BenchmarkFactory.list_normalization_options(metric, model)
 
 
 class BenchmarkJob(
@@ -54,32 +58,9 @@ class BenchmarkJob(
     def get(cls, **kwargs: Unpack[BareGetParams]) -> "BenchmarkJob":
         from aixplain.factories import BenchmarkFactory
 
-        return BenchmarkFactory.get_job(job_id=kwargs["id"])
+        return BenchmarkJob(BenchmarkFactory.get_job(job_id=kwargs["id"]))
 
-    @classmethod
-    def get_scores(cls, **kwargs: Unpack[BareGetParams]) -> "BenchmarkJob":
+    def get_scores(self) -> dict:
         from aixplain.factories import BenchmarkFactory
 
-        return BenchmarkFactory.get_benchmark_job_scores(job_id=kwargs["id"])
-
-
-class NormalizationOptionListParams(BaseListParams):
-    metric: "Metric"
-    model: "Model"
-
-
-class NormalizationOption(
-    BaseResource,
-    ListResourceMixin[NormalizationOptionListParams, "NormalizationOption"],
-):
-    RESOURCE_PATH = "sdk/benchmarks/normalization-options"
-
-    @classmethod
-    def list(
-        cls, **kwargs: Unpack[NormalizationOptionListParams]
-    ) -> List["NormalizationOption"]:
-        from aixplain.factories import BenchmarkFactory
-
-        return BenchmarkFactory.list_normalization_options(
-            metric=kwargs["metric"], model=kwargs["model"]
-        )
+        return BenchmarkFactory.get_benchmark_job_scores(self.id)

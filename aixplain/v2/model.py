@@ -15,11 +15,11 @@ class ModelListParams(BaseListParams):
     """Parameters for listing models.
 
     Attributes:
-        function: Optional[Function]: The function of the model.
-        suppliers: Optional[Union[Supplier, List[Supplier]]]: The suppliers of the model.
-        source_languages: Optional[Union[Language, List[Language]]]: The source languages of the model.
-        target_languages: Optional[Union[Language, List[Language]]]: The target languages of the model.
-        is_finetunable: Optional[bool]: Whether the model is finetunable.
+        function: Function: The function of the model.
+        suppliers: Union[Supplier, List[Supplier]: The suppliers of the model.
+        source_languages: Union[Language, List[Language]: The source languages of the model.
+        target_languages: Union[Language, List[Language]: The target languages of the model.
+        is_finetunable: bool: Whether the model is finetunable.
     """
 
     function: Function
@@ -46,10 +46,10 @@ class Model(
     def list(cls, **kwargs: Unpack[ModelListParams]) -> List["Model"]:
         from aixplain.factories import ModelFactory
 
-        return ModelFactory.list(**kwargs)["results"]
+        return [Model(obj) for obj in ModelFactory.list(**kwargs)["results"]]
 
     @classmethod
     def get(cls, **kwargs: Unpack[BareGetParams]) -> "Model":
         from aixplain.factories import ModelFactory
 
-        return ModelFactory.get(model_id=kwargs["id"])
+        return Model(ModelFactory.get(model_id=kwargs["id"]))

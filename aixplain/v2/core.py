@@ -4,7 +4,7 @@ from .client import AixplainClient
 from .model import Model
 from .pipeline import Pipeline
 from .agent import Agent
-from .benchmark import Benchmark, BenchmarkJob, NormalizationOption
+from .benchmark import Benchmark, BenchmarkJob
 from . import enums
 
 
@@ -13,7 +13,6 @@ PipelineType = TypeVar("PipelineType", bound=Pipeline)
 AgentType = TypeVar("AgentType", bound=Agent)
 BenchmarkType = TypeVar("BenchmarkType", bound=Benchmark)
 BenchmarkJobType = TypeVar("BenchmarkJobType", bound=BenchmarkJob)
-NormalizationOptionType = TypeVar("NormalizationOptionType", bound=NormalizationOption)
 
 
 class Aixplain:
@@ -31,7 +30,6 @@ class Aixplain:
         Agent: type: The agent class.
         Benchmark: type: The benchmark class.
         BenchmarkJob: type: The benchmark job class.
-        NormalizationOption: type: The normalization option class.
     """
 
     # Here below we're defining both resources and enums as class level attributes manually instead of populating them dynamically
@@ -44,7 +42,6 @@ class Aixplain:
     Agent: AgentType = None
     Benchmark: BenchmarkType = None
     BenchmarkJob: BenchmarkJobType = None
-    NormalizationOption: NormalizationOptionType = None
 
     Function = enums.Function
     Supplier = enums.Supplier
@@ -130,6 +127,3 @@ class Aixplain:
         self.Agent = type("Agent", (Agent,), {"context": self})
         self.Benchmark = type("Benchmark", (Benchmark,), {"context": self})
         self.BenchmarkJob = type("BenchmarkJob", (BenchmarkJob,), {"context": self})
-        self.NormalizationOption = type(
-            "NormalizationOption", (NormalizationOption,), {"context": self}
-        )
