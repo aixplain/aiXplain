@@ -1,11 +1,19 @@
 import os
-from typing import Type
+from typing import TypeVar
 from .client import AixplainClient
 from .model import Model
 from .pipeline import Pipeline
 from .agent import Agent
-
+from .benchmark import Benchmark, BenchmarkJob, NormalizationOption
 from . import enums
+
+
+ModelType = TypeVar("ModelType", bound=Model)
+PipelineType = TypeVar("PipelineType", bound=Pipeline)
+AgentType = TypeVar("AgentType", bound=Agent)
+BenchmarkType = TypeVar("BenchmarkType", bound=Benchmark)
+BenchmarkJobType = TypeVar("BenchmarkJobType", bound=BenchmarkJob)
+NormalizationOptionType = TypeVar("NormalizationOptionType", bound=NormalizationOption)
 
 
 class Aixplain:
@@ -21,6 +29,9 @@ class Aixplain:
         Model: type: The model class.
         Pipeline: type: The pipeline class.
         Agent: type: The agent class.
+        Benchmark: type: The benchmark class.
+        BenchmarkJob: type: The benchmark job class.
+        NormalizationOption: type: The normalization option class.
     """
 
     # Here below we're defining both resources and enums as class level attributes manually instead of populating them dynamically
@@ -28,9 +39,12 @@ class Aixplain:
     # 1. We can benefit from the type checking and autocompletion of the IDE.
     # 2. We can access enums and resources without having to import them.
 
-    Model: Type[Model] = None
-    Pipeline: Type[Pipeline] = None
-    Agent: Type[Agent] = None
+    Model: ModelType = None
+    Pipeline: PipelineType = None
+    Agent: AgentType = None
+    Benchmark: BenchmarkType = None
+    BenchmarkJob: BenchmarkJobType = None
+    NormalizationOption: NormalizationOptionType = None
 
     Function = enums.Function
     Supplier = enums.Supplier
@@ -114,3 +128,8 @@ class Aixplain:
         self.Model = type("Model", (Model,), {"context": self})
         self.Pipeline = type("Pipeline", (Pipeline,), {"context": self})
         self.Agent = type("Agent", (Agent,), {"context": self})
+        self.Benchmark = type("Benchmark", (Benchmark,), {"context": self})
+        self.BenchmarkJob = type("BenchmarkJob", (BenchmarkJob,), {"context": self})
+        self.NormalizationOption = type(
+            "NormalizationOption", (NormalizationOption,), {"context": self}
+        )

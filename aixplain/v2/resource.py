@@ -1,6 +1,5 @@
 import requests
 from typing import (
-    Optional,
     List,
     Tuple,
     TypedDict,
@@ -10,6 +9,7 @@ from typing import (
     Any,
     TYPE_CHECKING,
 )
+from typing_extensions import Unpack
 
 
 from .enums import OwnershipType, SortBy, SortOrder
@@ -24,7 +24,6 @@ class BaseResource:
     Attributes:
         context: Aixplain: The Aixplain instance.
         RESOURCE_PATH: str: The resource path.
-        _obj: dict: The resource's attributes.
     """
 
     context: "Aixplain"
@@ -69,7 +68,7 @@ class BaseResource:
             self._action("post", **self._obj)
 
     def _action(
-        self, method: Optional[str] = None, action_paths: List[str] = None, **kwargs
+        self, method: str = None, action_paths: List[str] = None, **kwargs
     ) -> requests.Response:
         """
         Internal method to perform actions on the resource.
@@ -103,30 +102,27 @@ class BaseResource:
         return self.context.client.request(method, path, **kwargs)
 
 
-class BaseListParams(TypedDict):
+class BaseListParams(TypedDict, total=False):
     """Base class for all list parameters.
 
     Attributes:
-        query: Optional[str]: The query string.
-        ownership: Optional[Tuple[OwnershipType, List[OwnershipType]]]: The ownership type.
-        sort_by: Optional[SortBy]: The attribute to sort by.
-        sort_order: Optional[SortOrder]: The order to sort by.
-        page_number: Optional[int]: The page number.
-        page_size: Optional[int]: The page size.
+        query: str: The query string.
+        ownership: Tuple[OwnershipType, List[OwnershipType]]: The ownership type.
+        sort_by: SortBy: The attribute to sort by.
+        sort_order: SortOrder: The order to sort by.
+        page_number: int: The page number.
+        page_size: int: The page size.
     """
 
-    query: Optional[str] = ""
-    ownership: Optional[Tuple[OwnershipType, List[OwnershipType]]] = (
-        OwnershipType.SUBSCRIBED,
-        OwnershipType.OWNED,
-    )
-    sort_by: Optional[SortBy] = SortBy.CREATION_DATE
-    sort_order: Optional[SortOrder] = SortOrder.DESCENDING
-    page_number: Optional[int] = 0
-    page_size: Optional[int] = 20
+    query: str
+    ownership: Tuple[OwnershipType, List[OwnershipType]]
+    sort_by: SortBy
+    sort_order: SortOrder
+    page_number: int
+    page_size: int
 
 
-class BaseGetParams(TypedDict):
+class BaseGetParams(TypedDict, total=False):
     """Base class for all get parameters.
 
     Attributes:
@@ -136,57 +132,36 @@ class BaseGetParams(TypedDict):
     id: str
 
 
-class BaseCreateParams(TypedDict):
+class BaseCreateParams(TypedDict, total=False):
     """Base class for all create parameters.
 
     Attributes:
-        name: Optional[str]: The name of the resource.
+        name: str: The name of the resource.
     """
 
-    name: Optional[str] = None
+    name: str
 
 
 class BareCreateParams(BaseCreateParams):
-    """Parameters for creating resources.
-
-    Attributes:
-        name: Optional[str]: The name of the resource.
-    """
-
     pass
 
 
 class BareListParams(BaseListParams):
-    """Parameters for listing resources.
-
-    Attributes:
-        query: Optional[str]: The query string.
-        ownership: Optional[Tuple[OwnershipType, List[OwnershipType]]]: The ownership type.
-        sort_by: Optional[SortBy]: The attribute to sort by.
-        sort_order: Optional[SortOrder]: The order to sort by.
-        page_number: Optional[int]: The page number.
-        page_size: Optional[int]: The page size.
-    """
 
     pass
 
 
 class BareGetParams(BaseGetParams):
-    """Parameters for getting resources.
-
-    Attributes:
-        id: str: The resource ID.
-    """
-
     pass
 
 
+R = TypeVar("R", bound=BaseResource)
 L = TypeVar("L", bound=BaseListParams)
 C = TypeVar("C", bound=BaseCreateParams)
 G = TypeVar("G", bound=BaseGetParams)
 
 
-class ListResourceMixin(Generic[L]):
+class ListResourceMixin(Generic[L, R]):
     """Mixin for listing resources.
 
     Attributes:
@@ -200,17 +175,12 @@ class ListResourceMixin(Generic[L]):
     PAGINATE_RESPONSE_KEY = "items"
 
     @classmethod
-    def list(cls: Type["BaseResource"], **kwargs: L) -> List["BaseResource"]:
+    def list(cls: Type[R], **kwargs: Unpack[L]) -> List[R]:
         """
         List resources across the first n pages with optional filtering.
 
         Args:
-            n: int, optional: Optional number of pages to fetch (default is 1).
-            filters: dict, optional: Optional dictionary containing filters to apply to the
-                        results.
-            page_fn: function, optional: Optional custom function to replace the default page
-                        method.
-            kwargs: dict: Additional filter parameters.
+            kwargs: Unpack[L]: The keyword arguments.
 
         Returns:
             List[BaseResource]: List of BaseResource instances across n pages
@@ -261,7 +231,7 @@ class ListResourceMixin(Generic[L]):
         return filters
 
     @classmethod
-    def _populate_objects(cls, response: requests.Response) -> List[BaseResource]:
+    def _populate_objects(cls, response: requests.Response) -> List[R]:
         """
         Populate the objects from the response.
         """
@@ -271,7 +241,7 @@ class ListResourceMixin(Generic[L]):
         return [cls(item) for item in items]
 
 
-class GetResourceMixin(Generic[G]):
+class GetResourceMixin(Generic[G, R]):
     """Mixin for getting a resource.
 
     Attributes:
@@ -279,12 +249,12 @@ class GetResourceMixin(Generic[G]):
     """
 
     @classmethod
-    def get(cls: Type["BaseResource"], **kwargs) -> "BaseResource":
+    def get(cls: Type[R], **kwargs: Unpack[G]) -> R:
         """
         Retrieve a single resource by its ID (or other get parameters).
 
         Args:
-            kwargs: dict: Get parameters to pass to the request.
+            kwargs: Unpack[G]: Get parameters to pass to the request.
 
         Returns:
             BaseResource: Instance of the BaseResource class.
@@ -302,17 +272,23 @@ class GetResourceMixin(Generic[G]):
         return cls(obj)
 
 
-class CreateResourceMixin(Generic[C]):
-    """Mixin for creating a resource.
-
-    Attributes:
-        None
-    """
+class CreateResourceMixin(Generic[C, R]):
+    """Mixin for creating a resource."""
 
     @classmethod
-    def create(cls, **kwargs: C):
+    def create(cls, **kwargs: Unpack[C]) -> R:
+        """
+        Create a resource.
+
+        Args:
+            kwargs: Unpack[C]: The keyword arguments.
+
+        Returns:
+            BaseResource: The created resource.
+        """
         assert getattr(
             cls, "RESOURCE_PATH"
         ), "Subclasses of 'BaseResource' must specify 'RESOURCE_PATH'"
 
-        return cls.context.client.request("post", cls.RESOURCE_PATH, **kwargs)
+        obj = cls.context.client.request("post", cls.RESOURCE_PATH, **kwargs)
+        return cls(obj)

@@ -1,3 +1,6 @@
+from typing import List
+from typing_extensions import Unpack
+
 from .resource import (
     BaseResource,
     ListResourceMixin,
@@ -8,7 +11,9 @@ from .resource import (
 
 
 class Agent(
-    BaseResource, ListResourceMixin[BareListParams], GetResourceMixin[BareGetParams]
+    BaseResource,
+    ListResourceMixin[BareListParams, "Agent"],
+    GetResourceMixin[BareGetParams, "Agent"],
 ):
     """Resource for agents.
 
@@ -25,13 +30,13 @@ class Agent(
     PAGINATE_RESPONSE_KEY = None
 
     @classmethod
-    def list(cls, **kwargs):
+    def list(cls, **kwargs: Unpack[BareListParams]) -> List["Agent"]:
         from aixplain.factories import AgentFactory
 
         return AgentFactory.list(**kwargs)["results"]
 
     @classmethod
-    def get(cls, **kwargs):
+    def get(cls, **kwargs: Unpack[BareGetParams]) -> "Agent":
         from aixplain.factories import AgentFactory
 
         return AgentFactory.get(agent_id=kwargs["id"])

@@ -1,4 +1,5 @@
 from typing import Optional, Union, List
+from typing_extensions import Unpack
 
 from .resource import (
     BaseResource,
@@ -35,9 +36,9 @@ class PipelineListParams(BareListParams):
 
 class Pipeline(
     BaseResource,
-    ListResourceMixin[PipelineListParams],
-    GetResourceMixin[BareGetParams],
-    CreateResourceMixin[BareCreateParams],
+    ListResourceMixin[PipelineListParams, "Pipeline"],
+    GetResourceMixin[BareGetParams, "Pipeline"],
+    CreateResourceMixin[BareCreateParams, "Pipeline"],
 ):
     """Resource for pipelines.
 
@@ -48,19 +49,19 @@ class Pipeline(
     RESOURCE_PATH = "sdk/pipelines"
 
     @classmethod
-    def list(cls, **kwargs):
+    def list(cls, **kwargs: Unpack[PipelineListParams]) -> List["Pipeline"]:
         from aixplain.factories import PipelineFactory
 
         return PipelineFactory.list(**kwargs)["results"]
 
     @classmethod
-    def get(cls, **kwargs):
+    def get(cls, **kwargs: Unpack[BareGetParams]) -> "Pipeline":
         from aixplain.factories import PipelineFactory
 
         return PipelineFactory.get(pipeline_id=kwargs["id"])
 
     @classmethod
-    def create(cls, **kwargs):
+    def create(cls, **kwargs: Unpack[BareCreateParams]) -> "Pipeline":
         from aixplain.factories import PipelineFactory
 
         return PipelineFactory.init(**kwargs)

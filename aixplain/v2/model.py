@@ -1,4 +1,5 @@
-from typing import Optional, Union, List
+from typing import Union, List
+from typing_extensions import Unpack
 
 from .resource import (
     BaseListParams,
@@ -21,15 +22,17 @@ class ModelListParams(BaseListParams):
         is_finetunable: Optional[bool]: Whether the model is finetunable.
     """
 
-    function: Optional[Function] = None
-    suppliers: Optional[Union[Supplier, List[Supplier]]] = None
-    source_languages: Optional[Union[Language, List[Language]]] = None
-    target_languages: Optional[Union[Language, List[Language]]] = None
-    is_finetunable: Optional[bool] = None
+    function: Function
+    suppliers: Union[Supplier, List[Supplier]]
+    source_languages: Union[Language, List[Language]]
+    target_languages: Union[Language, List[Language]]
+    is_finetunable: bool
 
 
 class Model(
-    BaseResource, ListResourceMixin[ModelListParams], GetResourceMixin[BareGetParams]
+    BaseResource,
+    ListResourceMixin[ModelListParams, "Model"],
+    GetResourceMixin[BareGetParams, "Model"],
 ):
     """Resource for models.
 
@@ -40,13 +43,13 @@ class Model(
     RESOURCE_PATH = "sdk/models"
 
     @classmethod
-    def list(cls, **kwargs):
+    def list(cls, **kwargs: Unpack[ModelListParams]) -> List["Model"]:
         from aixplain.factories import ModelFactory
 
         return ModelFactory.list(**kwargs)["results"]
 
     @classmethod
-    def get(cls, **kwargs):
+    def get(cls, **kwargs: Unpack[BareGetParams]) -> "Model":
         from aixplain.factories import ModelFactory
 
         return ModelFactory.get(model_id=kwargs["id"])
