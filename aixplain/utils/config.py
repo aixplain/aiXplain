@@ -13,22 +13,31 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
+
 import os
 import logging
 
 logger = logging.getLogger(__name__)
 
 BACKEND_URL = os.getenv("BACKEND_URL", "https://platform-api.aixplain.com")
-MODELS_RUN_URL = os.getenv("MODELS_RUN_URL", "https://models.aixplain.com/api/v1/execute")
+MODELS_RUN_URL = os.getenv(
+    "MODELS_RUN_URL", "https://models.aixplain.com/api/v1/execute"
+)
 # GET THE API KEY FROM CMD
 TEAM_API_KEY = os.getenv("TEAM_API_KEY", "")
 AIXPLAIN_API_KEY = os.getenv("AIXPLAIN_API_KEY", "")
 
-if AIXPLAIN_API_KEY and TEAM_API_KEY:
-    if AIXPLAIN_API_KEY != TEAM_API_KEY:
-        raise Exception(
-            "Conflicting API keys: 'AIXPLAIN_API_KEY' and 'TEAM_API_KEY' are both provided but do not match. Please provide only one API key."
-        )
+
+if not TEAM_API_KEY and not AIXPLAIN_API_KEY:
+    raise Exception(
+        "'TEAM_API_KEY' has not been set properly and is empty. For help, please refer to the documentation (https://github.com/aixplain/aixplain#api-key-setup)"
+    )
+
+
+if AIXPLAIN_API_KEY and TEAM_API_KEY and AIXPLAIN_API_KEY != TEAM_API_KEY:
+    raise Exception(
+        "Conflicting API keys: 'AIXPLAIN_API_KEY' and 'TEAM_API_KEY' are both provided but do not match. Please provide only one API key."
+    )
 
 
 if AIXPLAIN_API_KEY and not TEAM_API_KEY:

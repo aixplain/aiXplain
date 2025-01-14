@@ -589,3 +589,6 @@ class Pipeline(Asset):
         pipeline = self.to_dict()
         self.update(pipeline=pipeline, save_as_asset=True, api_key=api_key, name=self.name)
         self.status = AssetStatus.ONBOARDED
+
+    def __repr__(self):
+        return f"Pipeline(id={self.id}, name={self.name})"

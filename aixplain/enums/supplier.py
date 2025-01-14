@@ -54,6 +54,7 @@ def load_suppliers():
     suppliers = Enum(
         "Supplier", {clean_name(w["name"]): {"id": w["id"], "name": w["name"], "code": w["code"]} for w in resp}, type=dict
     )
+    suppliers.__str__ = lambda self: self.value["name"]
 
     return suppliers
 
