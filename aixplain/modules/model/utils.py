@@ -141,3 +141,125 @@ def parse_code(code: Union[Text, Callable]) -> Tuple[Text, List, Text]:
     code = FileFactory.upload(local_path=local_path, is_temp=True)
     os.remove(local_path)
     return code, inputs, description
+
+
+
+
+def parse_code_decorated(code: Union[Text, Callable]) -> Tuple[Text, List, Text]:
+    import inspect
+    import os
+    import re
+    import requests
+    import validators
+    from uuid import uuid4
+    from aixplain.enums import DataType
+    from aixplain.modules.model.utility_model import UtilityModelInput
+    
+    from typing import Callable
+    from aixplain.factories.file_factory import FileFactory
+
+
+    inputs, description = [], ""
+    str_code = ""
+
+    if isinstance(code, Callable) and hasattr(code, '_is_utility_tool'):
+        # Use the information directly from the decorated callable
+         description = getattr(code,'_tool_description',None) if hasattr(code,'_tool_description') else code.__doc__.strip() if code.__doc__ else ""
+         inputs = getattr(code,'_tool_inputs',None) if hasattr(code,'_tool_inputs') else []
+         str_code = inspect.getsource(code)
+    elif isinstance(code, Callable):
+        # Handle case of non-decorated callable
+        str_code = inspect.getsource(code)
+        description = code.__doc__.strip() if code.__doc__ else ""
+        #Try to infer parameters
+        params_match = re.search(r"def\s+\w+\s*\((.*?)\):",str_code)
+        parameters = params_match.group(1).split(",") if params_match else []
+
+        for input in parameters:
+            if not input:
+                continue
+            assert (
+                len(input.split(":")) > 1
+            ), "Utility Model Error: Input type is required. For instance def main(a: int, b: int) -> int:"
+            input_name, input_type = input.split(":")
+            input_name = input_name.strip()
+            input_type = input_type.split("=")[0].strip()
+
+            if input_type in ["int", "float"]:
+                input_type = "number"
+                inputs.append(
+                    UtilityModelInput(name=input_name, type=DataType.NUMBER, description=f"The {input_name} input is a number")
+                )
+            elif input_type == "bool":
+                input_type = "boolean"
+                inputs.append(
+                    UtilityModelInput(name=input_name, type=DataType.BOOLEAN, description=f"The {input_name} input is a boolean")
+                )
+            elif input_type == "str":
+                input_type = "text"
+                inputs.append(
+                    UtilityModelInput(name=input_name, type=DataType.TEXT, description=f"The {input_name} input is a text")
+                )
+            else:
+                raise Exception(f"Utility Model Error: Unsupported input type: {input_type}")
+    else:
+        # if code is string do the parsing and parameter extraction as before
+        if os.path.exists(code):
+            with open(code, "r") as f:
+                str_code = f.read()
+        elif validators.url(code):
+            str_code = requests.get(code).text
+        else:
+            str_code = code
+
+        # Look for @utility_tool decorator to gather inputs
+        tool_match = re.search(r"@utility_tool\((.*?)\)\s*def\s+(\w+)\s*\((.*?)\):",str_code)
+        if not tool_match:
+            raise Exception("Utility Model Error: Code must be decorated with @utility_tool and have a function defined.")
+        
+        # Extract Parameters from the function def
+        params_match = re.search(r"def\s+\w+\s*\((.*?)\):",str_code)
+        parameters = params_match.group(1).split(",") if params_match else []
+        
+        # Extract name description from decorator
+        decorator_params = tool_match.group(1)
+        name = re.search(r"name\s*=\s*[\"'](.*?)[\"']", decorator_params).group(1) if re.search(r"name\s*=\s*[\"'](.*?)[\"']", decorator_params) else ""
+        description = re.search(r"description\s*=\s*[\"'](.*?)[\"']", decorator_params).group(1) if re.search(r"description\s*=\s*[\"'](.*?)[\"']", decorator_params) else ""
+
+        # Process parameters for inputs if the decorator did not define it.
+        if 'inputs' not in decorator_params:
+            for input in parameters:
+                if not input:
+                    continue
+                assert (
+                    len(input.split(":")) > 1
+                ), "Utility Model Error: Input type is required. For instance def main(a: int, b: int) -> int:"
+                input_name, input_type = input.split(":")
+                input_name = input_name.strip()
+                input_type = input_type.split("=")[0].strip()
+
+                if input_type in ["int", "float"]:
+                    input_type = "number"
+                    inputs.append(
+                        UtilityModelInput(name=input_name, type=DataType.NUMBER, description=f"The {input_name} input is a number")
+                    )
+                elif input_type == "bool":
+                    input_type = "boolean"
+                    inputs.append(
+                        UtilityModelInput(name=input_name, type=DataType.BOOLEAN, description=f"The {input_name} input is a boolean")
+                    )
+                elif input_type == "str":
+                    input_type = "text"
+                    inputs.append(
+                        UtilityModelInput(name=input_name, type=DataType.TEXT, description=f"The {input_name} input is a text")
+                    )
+                else:
+                    raise Exception(f"Utility Model Error: Unsupported input type: {input_type}")
+   
+    local_path = str(uuid4())
+    with open(local_path, "w") as f:
+        f.write(str_code)
+    code = FileFactory.upload(local_path=local_path, is_temp=True)
+    os.remove(local_path)
+
+    return code, inputs, description
