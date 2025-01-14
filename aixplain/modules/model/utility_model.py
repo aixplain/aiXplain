@@ -20,6 +20,7 @@ Description:
 """
 import logging
 from aixplain.enums import Function, Supplier, DataType
+from aixplain.enums.asset_status import AssetStatus
 from aixplain.modules.model import Model
 from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
@@ -76,6 +77,7 @@ class UtilityModel(Model):
         function: Optional[Function] = None,
         is_subscribed: bool = False,
         cost: Optional[Dict] = None,
+        status: AssetStatus = AssetStatus.DRAFT,
         **additional_info,
     ) -> None:
         """Utility Model Init
@@ -113,6 +115,12 @@ class UtilityModel(Model):
         self.code = code
         self.inputs = inputs
         self.output_examples = output_examples
+        if isinstance(status, str):
+            try:
+                status = AssetStatus(status)
+            except Exception:
+                status = AssetStatus.DRAFT
+        self.status = status
 
     def validate(self):
         self.code, inputs, description = parse_code(self.code)
@@ -135,6 +143,7 @@ class UtilityModel(Model):
             "code": self.code,
             "function": self.function.value,
             "outputDescription": self.output_examples,
+            "status": self.status.value,
         }
 
     def update(self):
@@ -189,3 +198,9 @@ class UtilityModel(Model):
             message = f"Utility Model Deletion Error: {response}"
             logging.error(message)
             raise Exception(f"{message}")
+
+    def deploy(self) -> None:
+        assert self.status == AssetStatus.DRAFT, "Utility Model must be in draft status to be deployed."
+        assert self.status != AssetStatus.ONBOARDED, "Utility Model is already deployed."
+        self.status = AssetStatus.ONBOARDED
+        self.update()
