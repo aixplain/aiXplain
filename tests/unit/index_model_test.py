@@ -1,6 +1,6 @@
 import requests_mock
 from aixplain.enums import Function, ResponseStatus
-from aixplain.modules.model.document_index import DocumentIndex
+from aixplain.modules.model.record import Record
 from aixplain.modules.model.response import ModelResponse
 from aixplain.modules.model.index_model import IndexModel
 from aixplain.utils import config
@@ -28,8 +28,8 @@ def test_add_success():
     mock_response = {"status": "SUCCESS"}
 
     mock_documents = [
-        DocumentIndex(value="Sample document content 1", value_type="text", id=0, uri="", attributes={}),
-        DocumentIndex(value="Sample document content 2", value_type="text", id=1, uri="", attributes={}),
+        Record(value="Sample document content 1", value_type="text", id=0, uri="", attributes={}),
+        Record(value="Sample document content 2", value_type="text", id=1, uri="", attributes={}),
     ]
 
     with requests_mock.Mocker() as mock:
@@ -37,7 +37,7 @@ def test_add_success():
 
         index_model = IndexModel(id=index_id, data=data, name="name", function=Function.SEARCH)
 
-        response = index_model.add(mock_documents)
+        response = index_model.upsert(mock_documents)
 
     assert isinstance(response, ModelResponse)
     assert response.status == ResponseStatus.SUCCESS
@@ -47,8 +47,8 @@ def test_update_success():
     mock_response = {"status": "SUCCESS"}
 
     mock_documents = [
-        DocumentIndex(value="Updated document content 1", value_type="text", id=0, uri="", attributes={}),
-        DocumentIndex(value="Updated document content 2", value_type="text", id=1, uri="", attributes={}),
+        Record(value="Updated document content 1", value_type="text", id=0, uri="", attributes={}),
+        Record(value="Updated document content 2", value_type="text", id=1, uri="", attributes={}),
     ]
 
     with requests_mock.Mocker() as mock:
@@ -57,7 +57,7 @@ def test_update_success():
 
         index_model = IndexModel(id=index_id, data=data, name="name", function=Function.SEARCH)
 
-        response = index_model.update(mock_documents)
+        response = index_model.upsert(mock_documents)
 
     assert isinstance(response, ModelResponse)
     assert response.status == ResponseStatus.SUCCESS
