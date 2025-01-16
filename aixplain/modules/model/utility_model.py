@@ -24,7 +24,7 @@ from aixplain.enums.asset_status import AssetStatus
 from aixplain.modules.model import Model
 from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
-from aixplain.modules.model.utils import parse_code
+from aixplain.modules.model.utils import parse_code_decorated
 from dataclasses import dataclass
 from typing import Callable, Union, Optional, List, Text, Dict
 from urllib.parse import urljoin
@@ -42,6 +42,18 @@ class UtilityModelInput:
 
     def to_dict(self):
         return {"name": self.name, "description": self.description, "type": self.type.value}
+
+# Tool decorator
+def utility_tool(name: Text, description: Text, inputs: List[UtilityModelInput] = None, output_examples: Text = "", status = AssetStatus.DRAFT):
+    def decorator(func):
+        func._is_utility_tool = True # Mark function as utility tool
+        func._tool_name = name
+        func._tool_description = description
+        func._tool_inputs = inputs if inputs else []
+        func._tool_output_examples = output_examples
+        func._tool_status = status
+        return func
+    return decorator
 
 
 class UtilityModel(Model):
@@ -130,7 +142,7 @@ class UtilityModel(Model):
         # if not, parse the code and update the description and inputs and do the validation
         # if yes, just do the validation on the description and inputs
         if not (self._model_exists() and str(self.code).startswith("s3://")):
-            self.code, inputs, description = parse_code(self.code)
+            self.code, inputs, description = parse_code_decorated(self.code)
             if self.description is None:
                 self.description = description
             if len(self.inputs) == 0:
