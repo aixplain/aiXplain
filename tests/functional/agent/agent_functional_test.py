@@ -121,12 +121,10 @@ def test_python_interpreter_tool(delete_agents_and_team_agents):
 def test_custom_code_tool(delete_agents_and_team_agents):
     assert delete_agents_and_team_agents
     tool = AgentFactory.create_custom_python_code_tool(
-        name="Add Numbers",
         description="Add two numbers",
-        code='def main(aaa: int, bbb: int)  > int:\n    """Add two numbers"""\n    return aaa + bbb',
+        code='def main(aaa: int, bbb: int) -> int:\n    """Add two numbers"""\n    return aaa + bbb',
     )
     assert tool is not None
-    assert tool.name == "Add Numbers"
     assert tool.description == "Add two numbers"
     assert tool.code == 'def main(aaa: int, bbb: int) -> int:\n    """Add two numbers"""\n    return aaa + bbb'
     agent = AgentFactory.create(
