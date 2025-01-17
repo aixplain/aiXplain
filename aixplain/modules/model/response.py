@@ -88,6 +88,7 @@ class ModelResponse:
             return True
         except KeyError:
             return False
+
     def to_dict(self) -> Dict[Text, Any]:
         base_dict = {
             "status": self.status,
@@ -103,4 +104,3 @@ class ModelResponse:
         if self.additional_fields:
             base_dict.update(self.additional_fields)
         return base_dict
-

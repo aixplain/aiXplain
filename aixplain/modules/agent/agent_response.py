@@ -3,8 +3,8 @@ from typing import Any, Dict, Optional, Text, Union, List
 from aixplain.modules.agent.agent_response_data import AgentResponseData
 from aixplain.modules.model.response import ModelResponse
 
-class AgentResponse(ModelResponse):
 
+class AgentResponse(ModelResponse):
     def __init__(
         self,
         status: ResponseStatus = ResponseStatus.FAILED,
@@ -21,7 +21,7 @@ class AgentResponse(ModelResponse):
 
         super().__init__(
             status=status,
-            data="", 
+            data="",
             details=details,
             completed=completed,
             error_message=error_message,
@@ -35,12 +35,12 @@ class AgentResponse(ModelResponse):
 
     def __getitem__(self, key: Text) -> Any:
         if key == "data":
-            return self.data.to_dict() 
+            return self.data.to_dict()
         return super().__getitem__(key)
 
     def __setitem__(self, key: Text, value: Any) -> None:
         if key == "data" and isinstance(value, Dict):
-            self.data = AgentResponseData.from_dict(value)  
+            self.data = AgentResponseData.from_dict(value)
         elif key == "data" and isinstance(value, AgentResponseData):
             self.data = value
         else:
@@ -48,7 +48,7 @@ class AgentResponse(ModelResponse):
 
     def to_dict(self) -> Dict[Text, Any]:
         base_dict = super().to_dict()
-        base_dict["data"] = self.data.to_dict() 
+        base_dict["data"] = self.data.to_dict()
         return base_dict
 
     def __repr__(self) -> str:

@@ -5,7 +5,10 @@ from aixplain.modules import Agent
 from aixplain.modules.agent import OutputFormat
 from aixplain.utils import config
 from aixplain.factories import AgentFactory
-from aixplain.modules.agent import PipelineTool, ModelTool, PythonInterpreterTool, CustomPythonCodeTool
+from aixplain.modules.agent.tool.pipeline_tool import PipelineTool
+from aixplain.modules.agent.tool.model_tool import ModelTool
+from aixplain.modules.agent.tool.python_interpreter_tool import PythonInterpreterTool
+from aixplain.modules.agent.tool.custom_python_code_tool import CustomPythonCodeTool
 from aixplain.modules.agent.utils import process_variables
 from urllib.parse import urljoin
 from unittest.mock import patch
@@ -13,7 +16,6 @@ import warnings
 from aixplain.enums.function import Function
 from aixplain.modules.agent.agent_response import AgentResponse
 from aixplain.modules.agent.agent_response_data import AgentResponseData
-
 
 
 def test_fail_no_data_query():
@@ -37,7 +39,7 @@ def test_fail_query_as_text_when_content_not_empty():
             data={"query": "https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.wav"},
             content=["https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.wav"],
         )
-    
+
     assert str(exc_info.value) == "When providing 'content', query must be text."
 
 
@@ -262,7 +264,10 @@ def test_update_success():
         mock.get(url, headers=headers, json=model_ref_response)
 
         # Capture warnings
-        with pytest.warns(DeprecationWarning, match="update\(\) is deprecated and will be removed in a future version. Please use save\(\) instead."):
+        with pytest.warns(
+            DeprecationWarning,
+            match="update\(\) is deprecated and will be removed in a future version. Please use save\(\) instead.",
+        ):
             agent.update()
 
     assert agent.id == ref_response["id"]
@@ -270,6 +275,7 @@ def test_update_success():
     assert agent.description == ref_response["description"]
     assert agent.llm_id == ref_response["llmId"]
     assert agent.tools[0].function.value == ref_response["assets"][0]["function"]
+
 
 def test_save_success():
     agent = Agent(
@@ -316,8 +322,9 @@ def test_save_success():
             "pricing": {"currency": "USD", "value": 0.0},
         }
         mock.get(url, headers=headers, json=model_ref_response)
-        
+
         import warnings
+
         # Capture warnings
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")  # Trigger all warnings
@@ -333,6 +340,7 @@ def test_save_success():
     assert agent.description == ref_response["description"]
     assert agent.llm_id == ref_response["llmId"]
     assert agent.tools[0].function.value == ref_response["assets"][0]["function"]
+
 
 def test_run_success():
     agent = Agent("123", "Test Agent", "Sample Description")

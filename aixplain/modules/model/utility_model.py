@@ -141,14 +141,14 @@ class UtilityModel(Model):
         """Update the Utility Model."""
         import warnings
         import inspect
+
         # Get the current call stack
         stack = inspect.stack()
-        if len(stack) > 2 and stack[1].function != 'save':
+        if len(stack) > 2 and stack[1].function != "save":
             warnings.warn(
-                "update() is deprecated and will be removed in a future version. "
-                "Please use save() instead.",
+                "update() is deprecated and will be removed in a future version. " "Please use save() instead.",
                 DeprecationWarning,
-                stacklevel=2
+                stacklevel=2,
             )
         self.validate()
         url = urljoin(self.backend_url, f"sdk/utilities/{self.id}")

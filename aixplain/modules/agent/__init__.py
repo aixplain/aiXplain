@@ -195,7 +195,6 @@ class Agent(Model):
                     input=data,
                     output=None,
                     session_id=result_data.get("session_id"),
-                    session_id=session_id,
                     intermediate_steps=result_data.get("intermediateSteps"),
                     execution_stats=result_data.get("executionStats"),
                 ),

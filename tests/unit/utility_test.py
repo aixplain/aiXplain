@@ -106,13 +106,17 @@ def test_update_utility_model():
                         function=Function.UTILITIES,
                         api_key=config.TEAM_API_KEY,
                     )
-                    
-                    with pytest.warns(DeprecationWarning, match="update\(\) is deprecated and will be removed in a future version. Please use save\(\) instead."):
+
+                    with pytest.warns(
+                        DeprecationWarning,
+                        match="update\(\) is deprecated and will be removed in a future version. Please use save\(\) instead.",
+                    ):
                         utility_model.description = "updated_description"
                         utility_model.update()
 
                     assert utility_model.id == "123"
                     assert utility_model.description == "updated_description"
+
 
 def test_save_utility_model():
     with requests_mock.Mocker() as mock:
@@ -138,14 +142,15 @@ def test_save_utility_model():
                         api_key=config.TEAM_API_KEY,
                     )
                     import warnings
+
                     # it should not trigger any warning
                     with warnings.catch_warnings(record=True) as w:
                         warnings.simplefilter("always")  # Trigger all warnings
                         utility_model.description = "updated_description"
                         utility_model.save()
-                        
+
                         assert len(w) == 0
-                        
+
                     assert utility_model.id == "123"
                     assert utility_model.description == "updated_description"
 

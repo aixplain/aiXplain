@@ -4,18 +4,7 @@
 from typing import Union, Type
 from aixplain.enums import DataType
 
-from .designer import (
-    InputParam,
-    OutputParam,
-    Inputs,
-    Outputs,
-    TI,
-    TO,
-    AssetNode,
-    BaseReconstructor,
-    BaseSegmentor,
-    BaseMetric
-)
+from .designer import InputParam, OutputParam, Inputs, Outputs, TI, TO, AssetNode, BaseReconstructor, BaseSegmentor, BaseMetric
 from .default import DefaultPipeline
 from aixplain.modules import asset
 
@@ -38,13 +27,14 @@ class ObjectDetectionOutputs(Outputs):
 
 class ObjectDetection(AssetNode[ObjectDetectionInputs, ObjectDetectionOutputs]):
     """
-    Object Detection is a computer vision technology that identifies and locates
-objects within an image, typically by drawing bounding boxes around the
-detected objects and classifying them into predefined categories.
+        Object Detection is a computer vision technology that identifies and locates
+    objects within an image, typically by drawing bounding boxes around the
+    detected objects and classifying them into predefined categories.
 
-    InputType: video
-    OutputType: text
+        InputType: video
+        OutputType: text
     """
+
     function: str = "object-detection"
     input_type: str = DataType.VIDEO
     output_type: str = DataType.TEXT
@@ -71,12 +61,13 @@ class LanguageIdentificationOutputs(Outputs):
 
 class LanguageIdentification(AssetNode[LanguageIdentificationInputs, LanguageIdentificationOutputs]):
     """
-    Detects the language in which a given text is written, aiding in multilingual
-platforms or content localization.
+        Detects the language in which a given text is written, aiding in multilingual
+    platforms or content localization.
 
-    InputType: text
-    OutputType: text
+        InputType: text
+        OutputType: text
     """
+
     function: str = "language-identification"
     input_type: str = DataType.TEXT
     output_type: str = DataType.TEXT
@@ -105,13 +96,14 @@ class DepthEstimationOutputs(Outputs):
 
 class DepthEstimation(AssetNode[DepthEstimationInputs, DepthEstimationOutputs]):
     """
-    Depth estimation is a computational process that determines the distance of
-objects from a viewpoint, typically using visual data from cameras or sensors
-to create a three-dimensional understanding of a scene.
+        Depth estimation is a computational process that determines the distance of
+    objects from a viewpoint, typically using visual data from cameras or sensors
+    to create a three-dimensional understanding of a scene.
 
-    InputType: image
-    OutputType: text
+        InputType: image
+        OutputType: text
     """
+
     function: str = "depth-estimation"
     input_type: str = DataType.IMAGE
     output_type: str = DataType.TEXT
@@ -138,13 +130,14 @@ class ScriptExecutionOutputs(Outputs):
 
 class ScriptExecution(AssetNode[ScriptExecutionInputs, ScriptExecutionOutputs]):
     """
-    Script Execution refers to the process of running a set of programmed
-instructions or code within a computing environment, enabling the automated
-performance of tasks, calculations, or operations as defined by the script.
+        Script Execution refers to the process of running a set of programmed
+    instructions or code within a computing environment, enabling the automated
+    performance of tasks, calculations, or operations as defined by the script.
 
-    InputType: text
-    OutputType: text
+        InputType: text
+        OutputType: text
     """
+
     function: str = "script-execution"
     input_type: str = DataType.TEXT
     output_type: str = DataType.TEXT
@@ -173,14 +166,15 @@ class ImageEmbeddingOutputs(Outputs):
 
 class ImageEmbedding(AssetNode[ImageEmbeddingInputs, ImageEmbeddingOutputs]):
     """
-    Image Embedding is a process that transforms an image into a fixed-dimensional
-vector representation, capturing its essential features and enabling efficient
-comparison, retrieval, and analysis in various machine learning and computer
-vision tasks.
+        Image Embedding is a process that transforms an image into a fixed-dimensional
+    vector representation, capturing its essential features and enabling efficient
+    comparison, retrieval, and analysis in various machine learning and computer
+    vision tasks.
 
-    InputType: image
-    OutputType: text
+        InputType: image
+        OutputType: text
     """
+
     function: str = "image-embedding"
     input_type: str = DataType.IMAGE
     output_type: str = DataType.TEXT
@@ -209,14 +203,15 @@ class ImageToVideoGenerationOutputs(Outputs):
 
 class ImageToVideoGeneration(AssetNode[ImageToVideoGenerationInputs, ImageToVideoGenerationOutputs]):
     """
-    The Image To Video Generation function transforms a series of static images
-into a cohesive, dynamic video sequence, often incorporating transitions,
-effects, and synchronization with audio to create a visually engaging
-narrative.
+        The Image To Video Generation function transforms a series of static images
+    into a cohesive, dynamic video sequence, often incorporating transitions,
+    effects, and synchronization with audio to create a visually engaging
+    narrative.
 
-    InputType: image
-    OutputType: video
+        InputType: image
+        OutputType: video
     """
+
     function: str = "image-to-video-generation"
     input_type: str = DataType.IMAGE
     output_type: str = DataType.VIDEO
@@ -243,14 +238,15 @@ class ImageImpaintingOutputs(Outputs):
 
 class ImageImpainting(AssetNode[ImageImpaintingInputs, ImageImpaintingOutputs]):
     """
-    Image inpainting is a process that involves filling in missing or damaged parts
-of an image in a way that is visually coherent and seamlessly blends with the
-surrounding areas, often using advanced algorithms and techniques to restore
-the image to its original or intended appearance.
+        Image inpainting is a process that involves filling in missing or damaged parts
+    of an image in a way that is visually coherent and seamlessly blends with the
+    surrounding areas, often using advanced algorithms and techniques to restore
+    the image to its original or intended appearance.
 
-    InputType: image
-    OutputType: image
+        InputType: image
+        OutputType: image
     """
+
     function: str = "image-impainting"
     input_type: str = DataType.IMAGE
     output_type: str = DataType.IMAGE
@@ -277,14 +273,15 @@ class StyleTransferOutputs(Outputs):
 
 class StyleTransfer(AssetNode[StyleTransferInputs, StyleTransferOutputs]):
     """
-    Style Transfer is a technique in artificial intelligence that applies the
-visual style of one image (such as the brushstrokes of a famous painting) to
-the content of another image, effectively blending the artistic elements of the
-first image with the subject matter of the second.
+        Style Transfer is a technique in artificial intelligence that applies the
+    visual style of one image (such as the brushstrokes of a famous painting) to
+    the content of another image, effectively blending the artistic elements of the
+    first image with the subject matter of the second.
 
-    InputType: image
-    OutputType: image
+        InputType: image
+        OutputType: image
     """
+
     function: str = "style-transfer"
     input_type: str = DataType.IMAGE
     output_type: str = DataType.IMAGE
@@ -313,13 +310,14 @@ class MultiClassTextClassificationOutputs(Outputs):
 
 class MultiClassTextClassification(AssetNode[MultiClassTextClassificationInputs, MultiClassTextClassificationOutputs]):
     """
-    Multi Class Text Classification is a natural language processing task that
-involves categorizing a given text into one of several predefined classes or
-categories based on its content.
+        Multi Class Text Classification is a natural language processing task that
+    involves categorizing a given text into one of several predefined classes or
+    categories based on its content.
 
-    InputType: text
-    OutputType: label
+        InputType: text
+        OutputType: label
     """
+
     function: str = "multi-class-text-classification"
     input_type: str = DataType.TEXT
     output_type: str = DataType.LABEL
@@ -348,14 +346,15 @@ class PartOfSpeechTaggingOutputs(Outputs):
 
 class PartOfSpeechTagging(AssetNode[PartOfSpeechTaggingInputs, PartOfSpeechTaggingOutputs]):
     """
-    Part of Speech Tagging is a natural language processing task that involves
-assigning each word in a sentence its corresponding part of speech, such as
-noun, verb, adjective, or adverb, based on its role and context within the
-sentence.
+        Part of Speech Tagging is a natural language processing task that involves
+    assigning each word in a sentence its corresponding part of speech, such as
+    noun, verb, adjective, or adverb, based on its role and context within the
+    sentence.
 
-    InputType: text
-    OutputType: label
+        InputType: text
+        OutputType: label
     """
+
     function: str = "part-of-speech-tagging"
     input_type: str = DataType.TEXT
     output_type: str = DataType.LABEL
@@ -382,14 +381,15 @@ class MetricAggregationOutputs(Outputs):
 
 class MetricAggregation(BaseMetric[MetricAggregationInputs, MetricAggregationOutputs]):
     """
-    Metric Aggregation is a function that computes and summarizes numerical data by
-applying statistical operations, such as averaging, summing, or finding the
-minimum and maximum values, to provide insights and facilitate analysis of
-large datasets.
+        Metric Aggregation is a function that computes and summarizes numerical data by
+    applying statistical operations, such as averaging, summing, or finding the
+    minimum and maximum values, to provide insights and facilitate analysis of
+    large datasets.
 
-    InputType: text
-    OutputType: text
+        InputType: text
+        OutputType: text
     """
+
     function: str = "metric-aggregation"
     input_type: str = DataType.TEXT
     output_type: str = DataType.TEXT
@@ -416,14 +416,15 @@ class ImageColorizationOutputs(Outputs):
 
 class ImageColorization(AssetNode[ImageColorizationInputs, ImageColorizationOutputs]):
     """
-    Image colorization is a process that involves adding color to grayscale images,
-transforming them from black-and-white to full-color representations, often
-using advanced algorithms and machine learning techniques to predict and apply
-the appropriate hues and shades.
+        Image colorization is a process that involves adding color to grayscale images,
+    transforming them from black-and-white to full-color representations, often
+    using advanced algorithms and machine learning techniques to predict and apply
+    the appropriate hues and shades.
 
-    InputType: image
-    OutputType: image
+        InputType: image
+        OutputType: image
     """
+
     function: str = "image-colorization"
     input_type: str = DataType.IMAGE
     output_type: str = DataType.IMAGE
@@ -452,14 +453,15 @@ class IntentClassificationOutputs(Outputs):
 
 class IntentClassification(AssetNode[IntentClassificationInputs, IntentClassificationOutputs]):
     """
-    Intent Classification is a natural language processing task that involves
-analyzing and categorizing user text input to determine the underlying purpose
-or goal behind the communication, such as booking a flight, asking for weather
-information, or setting a reminder.
+        Intent Classification is a natural language processing task that involves
+    analyzing and categorizing user text input to determine the underlying purpose
+    or goal behind the communication, such as booking a flight, asking for weather
+    information, or setting a reminder.
 
-    InputType: text
-    OutputType: label
+        InputType: text
+        OutputType: label
     """
+
     function: str = "intent-classification"
     input_type: str = DataType.TEXT
     output_type: str = DataType.LABEL
@@ -486,14 +488,15 @@ class AudioIntentDetectionOutputs(Outputs):
 
 class AudioIntentDetection(AssetNode[AudioIntentDetectionInputs, AudioIntentDetectionOutputs]):
     """
-    Audio Intent Detection is a process that involves analyzing audio signals to
-identify and interpret the underlying intentions or purposes behind spoken
-words, enabling systems to understand and respond appropriately to human
-speech.
+        Audio Intent Detection is a process that involves analyzing audio signals to
+    identify and interpret the underlying intentions or purposes behind spoken
+    words, enabling systems to understand and respond appropriately to human
+    speech.
 
-    InputType: audio
-    OutputType: label
+        InputType: audio
+        OutputType: label
     """
+
     function: str = "audio-intent-detection"
     input_type: str = DataType.AUDIO
     output_type: str = DataType.LABEL
@@ -522,13 +525,14 @@ class AsrQualityEstimationOutputs(Outputs):
 
 class AsrQualityEstimation(AssetNode[AsrQualityEstimationInputs, AsrQualityEstimationOutputs]):
     """
-    ASR Quality Estimation is a process that evaluates the accuracy and reliability
-of automatic speech recognition systems by analyzing their performance in
-transcribing spoken language into text.
+        ASR Quality Estimation is a process that evaluates the accuracy and reliability
+    of automatic speech recognition systems by analyzing their performance in
+    transcribing spoken language into text.
 
-    InputType: text
-    OutputType: label
+        InputType: text
+        OutputType: label
     """
+
     function: str = "asr-quality-estimation"
     input_type: str = DataType.TEXT
     output_type: str = DataType.LABEL
@@ -555,13 +559,14 @@ class SearchOutputs(Outputs):
 
 class Search(AssetNode[SearchInputs, SearchOutputs]):
     """
-    An algorithm that identifies and returns data or items that match particular
-keywords or conditions from a dataset. A fundamental tool for databases and
-websites.
+        An algorithm that identifies and returns data or items that match particular
+    keywords or conditions from a dataset. A fundamental tool for databases and
+    websites.
 
-    InputType: text
-    OutputType: text
+        InputType: text
+        OutputType: text
     """
+
     function: str = "search"
     input_type: str = DataType.TEXT
     output_type: str = DataType.TEXT
@@ -594,13 +599,14 @@ class VisemeGenerationOutputs(Outputs):
 
 class VisemeGeneration(AssetNode[VisemeGenerationInputs, VisemeGenerationOutputs]):
     """
-    Viseme Generation is the process of creating visual representations of
-phonemes, which are the distinct units of sound in speech, to synchronize lip
-movements with spoken words in animations or virtual avatars.
+        Viseme Generation is the process of creating visual representations of
+    phonemes, which are the distinct units of sound in speech, to synchronize lip
+    movements with spoken words in animations or virtual avatars.
 
-    InputType: text
-    OutputType: label
+        InputType: text
+        OutputType: label
     """
+
     function: str = "viseme-generation"
     input_type: str = DataType.TEXT
     output_type: str = DataType.LABEL
@@ -629,12 +635,13 @@ class OcrOutputs(Outputs):
 
 class Ocr(AssetNode[OcrInputs, OcrOutputs]):
     """
-    Converts images of typed, handwritten, or printed text into machine-encoded
-text. Used in digitizing printed texts for data retrieval.
+        Converts images of typed, handwritten, or printed text into machine-encoded
+    text. Used in digitizing printed texts for data retrieval.
 
-    InputType: image
-    OutputType: text
+        InputType: image
+        OutputType: text
     """
+
     function: str = "ocr"
     input_type: str = DataType.IMAGE
     output_type: str = DataType.TEXT
@@ -661,14 +668,15 @@ class LoglikelihoodOutputs(Outputs):
 
 class Loglikelihood(AssetNode[LoglikelihoodInputs, LoglikelihoodOutputs]):
     """
-    The Log Likelihood function measures the probability of observing the given
-data under a specific statistical model by taking the natural logarithm of the
-likelihood function, thereby transforming the product of probabilities into a
-sum, which simplifies the process of optimization and parameter estimation.
+        The Log Likelihood function measures the probability of observing the given
+    data under a specific statistical model by taking the natural logarithm of the
+    likelihood function, thereby transforming the product of probabilities into a
+    sum, which simplifies the process of optimization and parameter estimation.
 
-    InputType: text
-    OutputType: number
+        InputType: text
+        OutputType: number
     """
+
     function: str = "loglikelihood"
     input_type: str = DataType.TEXT
     output_type: str = DataType.NUMBER
@@ -697,13 +705,14 @@ class VideoEmbeddingOutputs(Outputs):
 
 class VideoEmbedding(AssetNode[VideoEmbeddingInputs, VideoEmbeddingOutputs]):
     """
-    Video Embedding is a process that transforms video content into a fixed-
-dimensional vector representation, capturing essential features and patterns to
-facilitate tasks such as retrieval, classification, and recommendation.
+        Video Embedding is a process that transforms video content into a fixed-
+    dimensional vector representation, capturing essential features and patterns to
+    facilitate tasks such as retrieval, classification, and recommendation.
 
-    InputType: video
-    OutputType: embedding
+        InputType: video
+        OutputType: embedding
     """
+
     function: str = "video-embedding"
     input_type: str = DataType.VIDEO
     output_type: str = DataType.EMBEDDING
@@ -732,13 +741,14 @@ class TextSegmenationOutputs(Outputs):
 
 class TextSegmenation(AssetNode[TextSegmenationInputs, TextSegmenationOutputs]):
     """
-    Text Segmentation is the process of dividing a continuous text into meaningful
-units, such as words, sentences, or topics, to facilitate easier analysis and
-understanding.
+        Text Segmentation is the process of dividing a continuous text into meaningful
+    units, such as words, sentences, or topics, to facilitate easier analysis and
+    understanding.
 
-    InputType: text
-    OutputType: text
+        InputType: text
+        OutputType: text
     """
+
     function: str = "text-segmenation"
     input_type: str = DataType.TEXT
     output_type: str = DataType.TEXT
@@ -765,13 +775,14 @@ class ExpressionDetectionOutputs(Outputs):
 
 class ExpressionDetection(AssetNode[ExpressionDetectionInputs, ExpressionDetectionOutputs]):
     """
-    Expression Detection is the process of identifying and analyzing facial
-expressions to interpret emotions or intentions using AI and computer vision
-techniques.
+        Expression Detection is the process of identifying and analyzing facial
+    expressions to interpret emotions or intentions using AI and computer vision
+    techniques.
 
-    InputType: text
-    OutputType: label
+        InputType: text
+        OutputType: label
     """
+
     function: str = "expression-detection"
     input_type: str = DataType.TEXT
     output_type: str = DataType.LABEL
@@ -804,12 +815,13 @@ class SpeechClassificationOutputs(Outputs):
 
 class SpeechClassification(AssetNode[SpeechClassificationInputs, SpeechClassificationOutputs]):
     """
-    Categorizes audio clips based on their content, aiding in content organization
-and targeted actions.
+        Categorizes audio clips based on their content, aiding in content organization
+    and targeted actions.
 
-    InputType: audio
-    OutputType: label
+        InputType: audio
+        OutputType: label
     """
+
     function: str = "speech-classification"
     input_type: str = DataType.AUDIO
     output_type: str = DataType.LABEL
@@ -836,13 +848,14 @@ class InverseTextNormalizationOutputs(Outputs):
 
 class InverseTextNormalization(AssetNode[InverseTextNormalizationInputs, InverseTextNormalizationOutputs]):
     """
-    Inverse Text Normalization is the process of converting spoken or written
-language in its normalized form, such as numbers, dates, and abbreviations,
-back into their original, more complex or detailed textual representations.
+        Inverse Text Normalization is the process of converting spoken or written
+    language in its normalized form, such as numbers, dates, and abbreviations,
+    back into their original, more complex or detailed textual representations.
 
-    InputType: text
-    OutputType: label
+        InputType: text
+        OutputType: label
     """
+
     function: str = "inverse-text-normalization"
     input_type: str = DataType.TEXT
     output_type: str = DataType.LABEL
@@ -869,12 +882,13 @@ class ExtractAudioFromVideoOutputs(Outputs):
 
 class ExtractAudioFromVideo(AssetNode[ExtractAudioFromVideoInputs, ExtractAudioFromVideoOutputs]):
     """
-    Isolates and extracts audio tracks from video files, aiding in audio analysis
-or transcription tasks.
+        Isolates and extracts audio tracks from video files, aiding in audio analysis
+    or transcription tasks.
 
-    InputType: video
-    OutputType: audio
+        InputType: video
+        OutputType: audio
     """
+
     function: str = "extract-audio-from-video"
     input_type: str = DataType.VIDEO
     output_type: str = DataType.AUDIO
@@ -903,12 +917,13 @@ class ImageCompressionOutputs(Outputs):
 
 class ImageCompression(AssetNode[ImageCompressionInputs, ImageCompressionOutputs]):
     """
-    Reduces the size of image files without significantly compromising their visual
-quality. Useful for optimizing storage and improving webpage load times.
+        Reduces the size of image files without significantly compromising their visual
+    quality. Useful for optimizing storage and improving webpage load times.
 
-    InputType: image
-    OutputType: image
+        InputType: image
+        OutputType: image
     """
+
     function: str = "image-compression"
     input_type: str = DataType.IMAGE
     output_type: str = DataType.IMAGE
@@ -935,13 +950,14 @@ class NoiseRemovalOutputs(Outputs):
 
 class NoiseRemoval(AssetNode[NoiseRemovalInputs, NoiseRemovalOutputs]):
     """
-    Noise Removal is a process that involves identifying and eliminating unwanted
-random variations or disturbances from an audio signal to enhance the clarity
-and quality of the underlying information.
+        Noise Removal is a process that involves identifying and eliminating unwanted
+    random variations or disturbances from an audio signal to enhance the clarity
+    and quality of the underlying information.
 
-    InputType: audio
-    OutputType: audio
+        InputType: audio
+        OutputType: audio
     """
+
     function: str = "noise-removal"
     input_type: str = DataType.AUDIO
     output_type: str = DataType.AUDIO
@@ -974,12 +990,13 @@ class TextSummarizationOutputs(Outputs):
 
 class TextSummarization(AssetNode[TextSummarizationInputs, TextSummarizationOutputs]):
     """
-    Extracts the main points from a larger body of text, producing a concise
-summary without losing the primary message.
+        Extracts the main points from a larger body of text, producing a concise
+    summary without losing the primary message.
 
-    InputType: text
-    OutputType: text
+        InputType: text
+        OutputType: text
     """
+
     function: str = "text-summarization"
     input_type: str = DataType.TEXT
     output_type: str = DataType.TEXT
@@ -1012,14 +1029,15 @@ class TextGenerationMetricOutputs(Outputs):
 
 class TextGenerationMetric(BaseMetric[TextGenerationMetricInputs, TextGenerationMetricOutputs]):
     """
-    A Text Generation Metric is a quantitative measure used to evaluate the quality
-and effectiveness of text produced by natural language processing models, often
-assessing aspects such as coherence, relevance, fluency, and adherence to given
-prompts or instructions.
+        A Text Generation Metric is a quantitative measure used to evaluate the quality
+    and effectiveness of text produced by natural language processing models, often
+    assessing aspects such as coherence, relevance, fluency, and adherence to given
+    prompts or instructions.
 
-    InputType: text
-    OutputType: text
+        InputType: text
+        OutputType: text
     """
+
     function: str = "text-generation-metric"
     input_type: str = DataType.TEXT
     output_type: str = DataType.TEXT
@@ -1046,14 +1064,15 @@ class ImageCaptioningOutputs(Outputs):
 
 class ImageCaptioning(AssetNode[ImageCaptioningInputs, ImageCaptioningOutputs]):
     """
-    Image Captioning is a process that involves generating a textual description of
-an image, typically using machine learning models to analyze the visual content
-and produce coherent and contextually relevant sentences that describe the
-objects, actions, and scenes depicted in the image.
+        Image Captioning is a process that involves generating a textual description of
+    an image, typically using machine learning models to analyze the visual content
+    and produce coherent and contextually relevant sentences that describe the
+    objects, actions, and scenes depicted in the image.
 
-    InputType: image
-    OutputType: text
+        InputType: image
+        OutputType: text
     """
+
     function: str = "image-captioning"
     input_type: str = DataType.IMAGE
     output_type: str = DataType.TEXT
@@ -1084,13 +1103,14 @@ class BenchmarkScoringMtOutputs(Outputs):
 
 class BenchmarkScoringMt(AssetNode[BenchmarkScoringMtInputs, BenchmarkScoringMtOutputs]):
     """
-    Benchmark Scoring MT is a function designed to evaluate and score machine
-translation systems by comparing their output against a set of predefined
-benchmarks, thereby assessing their accuracy and performance.
+        Benchmark Scoring MT is a function designed to evaluate and score machine
+    translation systems by comparing their output against a set of predefined
+    benchmarks, thereby assessing their accuracy and performance.
 
-    InputType: text
-    OutputType: label
+        InputType: text
+        OutputType: label
     """
+
     function: str = "benchmark-scoring-mt"
     input_type: str = DataType.TEXT
     output_type: str = DataType.LABEL
@@ -1125,12 +1145,13 @@ class SpeakerDiarizationAudioOutputs(Outputs):
 
 class SpeakerDiarizationAudio(BaseSegmentor[SpeakerDiarizationAudioInputs, SpeakerDiarizationAudioOutputs]):
     """
-    Identifies individual speakers and their respective speech segments within an
-audio clip. Ideal for multi-speaker recordings or conference calls.
+        Identifies individual speakers and their respective speech segments within an
+    audio clip. Ideal for multi-speaker recordings or conference calls.
 
-    InputType: audio
-    OutputType: label
+        InputType: audio
+        OutputType: label
     """
+
     function: str = "speaker-diarization-audio"
     input_type: str = DataType.AUDIO
     output_type: str = DataType.LABEL
@@ -1161,13 +1182,14 @@ class BenchmarkScoringAsrOutputs(Outputs):
 
 class BenchmarkScoringAsr(AssetNode[BenchmarkScoringAsrInputs, BenchmarkScoringAsrOutputs]):
     """
-    Benchmark Scoring ASR is a function that evaluates and compares the performance
-of automatic speech recognition systems by analyzing their accuracy, speed, and
-other relevant metrics against a standardized set of benchmarks.
+        Benchmark Scoring ASR is a function that evaluates and compares the performance
+    of automatic speech recognition systems by analyzing their accuracy, speed, and
+    other relevant metrics against a standardized set of benchmarks.
 
-    InputType: audio
-    OutputType: label
+        InputType: audio
+        OutputType: label
     """
+
     function: str = "benchmark-scoring-asr"
     input_type: str = DataType.AUDIO
     output_type: str = DataType.LABEL
@@ -1198,13 +1220,14 @@ class VisualQuestionAnsweringOutputs(Outputs):
 
 class VisualQuestionAnswering(AssetNode[VisualQuestionAnsweringInputs, VisualQuestionAnsweringOutputs]):
     """
-    Visual Question Answering (VQA) is a task in artificial intelligence that
-involves analyzing an image and providing accurate, contextually relevant
-answers to questions posed about the visual content of that image.
+        Visual Question Answering (VQA) is a task in artificial intelligence that
+    involves analyzing an image and providing accurate, contextually relevant
+    answers to questions posed about the visual content of that image.
 
-    InputType: image
-    OutputType: video
+        InputType: image
+        OutputType: video
     """
+
     function: str = "visual-question-answering"
     input_type: str = DataType.IMAGE
     output_type: str = DataType.VIDEO
@@ -1231,13 +1254,14 @@ class DocumentImageParsingOutputs(Outputs):
 
 class DocumentImageParsing(AssetNode[DocumentImageParsingInputs, DocumentImageParsingOutputs]):
     """
-    Document Image Parsing is the process of analyzing and converting scanned or
-photographed images of documents into structured, machine-readable formats by
-identifying and extracting text, layout, and other relevant information.
+        Document Image Parsing is the process of analyzing and converting scanned or
+    photographed images of documents into structured, machine-readable formats by
+    identifying and extracting text, layout, and other relevant information.
 
-    InputType: image
-    OutputType: text
+        InputType: image
+        OutputType: text
     """
+
     function: str = "document-image-parsing"
     input_type: str = DataType.IMAGE
     output_type: str = DataType.TEXT
@@ -1266,14 +1290,15 @@ class MultiLabelTextClassificationOutputs(Outputs):
 
 class MultiLabelTextClassification(AssetNode[MultiLabelTextClassificationInputs, MultiLabelTextClassificationOutputs]):
     """
-    Multi Label Text Classification is a natural language processing task where a
-given text is analyzed and assigned multiple relevant labels or categories from
-a predefined set, allowing for the text to belong to more than one category
-simultaneously.
+        Multi Label Text Classification is a natural language processing task where a
+    given text is analyzed and assigned multiple relevant labels or categories from
+    a predefined set, allowing for the text to belong to more than one category
+    simultaneously.
 
-    InputType: text
-    OutputType: label
+        InputType: text
+        OutputType: label
     """
+
     function: str = "multi-label-text-classification"
     input_type: str = DataType.TEXT
     output_type: str = DataType.LABEL
@@ -1300,12 +1325,13 @@ class TextReconstructionOutputs(Outputs):
 
 class TextReconstruction(BaseReconstructor[TextReconstructionInputs, TextReconstructionOutputs]):
     """
-    Text Reconstruction is a process that involves piecing together fragmented or
-incomplete text data to restore it to its original, coherent form.
+        Text Reconstruction is a process that involves piecing together fragmented or
+    incomplete text data to restore it to its original, coherent form.
 
-    InputType: text
-    OutputType: text
+        InputType: text
+        OutputType: text
     """
+
     function: str = "text-reconstruction"
     input_type: str = DataType.TEXT
     output_type: str = DataType.TEXT
@@ -1334,12 +1360,13 @@ class VideoContentModerationOutputs(Outputs):
 
 class VideoContentModeration(AssetNode[VideoContentModerationInputs, VideoContentModerationOutputs]):
     """
-    Automatically reviews video content to detect and possibly remove inappropriate
-or harmful material. Essential for user-generated content platforms.
+        Automatically reviews video content to detect and possibly remove inappropriate
+    or harmful material. Essential for user-generated content platforms.
 
-    InputType: video
-    OutputType: label
+        InputType: video
+        OutputType: label
     """
+
     function: str = "video-content-moderation"
     input_type: str = DataType.VIDEO
     output_type: str = DataType.LABEL
@@ -1368,13 +1395,14 @@ class MultilingualSpeechRecognitionOutputs(Outputs):
 
 class MultilingualSpeechRecognition(AssetNode[MultilingualSpeechRecognitionInputs, MultilingualSpeechRecognitionOutputs]):
     """
-    Multilingual Speech Recognition is a technology that enables the automatic
-transcription of spoken language into text across multiple languages, allowing
-for seamless communication and understanding in diverse linguistic contexts.
+        Multilingual Speech Recognition is a technology that enables the automatic
+    transcription of spoken language into text across multiple languages, allowing
+    for seamless communication and understanding in diverse linguistic contexts.
 
-    InputType: audio
-    OutputType: text
+        InputType: audio
+        OutputType: text
     """
+
     function: str = "multilingual-speech-recognition"
     input_type: str = DataType.AUDIO
     output_type: str = DataType.TEXT
@@ -1405,12 +1433,13 @@ class EntityLinkingOutputs(Outputs):
 
 class EntityLinking(AssetNode[EntityLinkingInputs, EntityLinkingOutputs]):
     """
-    Associates identified entities in the text with specific entries in a knowledge
-base or database.
+        Associates identified entities in the text with specific entries in a knowledge
+    base or database.
 
-    InputType: text
-    OutputType: label
+        InputType: text
+        OutputType: label
     """
+
     function: str = "entity-linking"
     input_type: str = DataType.TEXT
     output_type: str = DataType.LABEL
@@ -1437,13 +1466,14 @@ class AudioReconstructionOutputs(Outputs):
 
 class AudioReconstruction(BaseReconstructor[AudioReconstructionInputs, AudioReconstructionOutputs]):
     """
-    Audio Reconstruction is the process of restoring or recreating audio signals
-from incomplete, damaged, or degraded recordings to achieve a high-quality,
-accurate representation of the original sound.
+        Audio Reconstruction is the process of restoring or recreating audio signals
+    from incomplete, damaged, or degraded recordings to achieve a high-quality,
+    accurate representation of the original sound.
 
-    InputType: audio
-    OutputType: audio
+        InputType: audio
+        OutputType: audio
     """
+
     function: str = "audio-reconstruction"
     input_type: str = DataType.AUDIO
     output_type: str = DataType.AUDIO
@@ -1470,13 +1500,14 @@ class AudioEmotionDetectionOutputs(Outputs):
 
 class AudioEmotionDetection(AssetNode[AudioEmotionDetectionInputs, AudioEmotionDetectionOutputs]):
     """
-    Audio Emotion Detection is a technology that analyzes vocal characteristics and
-patterns in audio recordings to identify and classify the emotional state of
-the speaker.
+        Audio Emotion Detection is a technology that analyzes vocal characteristics and
+    patterns in audio recordings to identify and classify the emotional state of
+    the speaker.
 
-    InputType: audio
-    OutputType: label
+        InputType: audio
+        OutputType: label
     """
+
     function: str = "audio-emotion-detection"
     input_type: str = DataType.AUDIO
     output_type: str = DataType.LABEL
@@ -1505,12 +1536,13 @@ class SplitOnLinebreakOutputs(Outputs):
 
 class SplitOnLinebreak(BaseSegmentor[SplitOnLinebreakInputs, SplitOnLinebreakOutputs]):
     """
-    The "Split On Linebreak" function divides a given string into a list of
-substrings, using linebreaks (newline characters) as the points of separation.
+        The "Split On Linebreak" function divides a given string into a list of
+    substrings, using linebreaks (newline characters) as the points of separation.
 
-    InputType: text
-    OutputType: text
+        InputType: text
+        OutputType: text
     """
+
     function: str = "split-on-linebreak"
     input_type: str = DataType.TEXT
     output_type: str = DataType.TEXT
@@ -1537,13 +1569,14 @@ class KeywordSpottingOutputs(Outputs):
 
 class KeywordSpotting(AssetNode[KeywordSpottingInputs, KeywordSpottingOutputs]):
     """
-    Keyword Spotting is a function that enables the detection and identification of
-specific words or phrases within a stream of audio, often used in voice-
-activated systems to trigger actions or commands based on recognized keywords.
+        Keyword Spotting is a function that enables the detection and identification of
+    specific words or phrases within a stream of audio, often used in voice-
+    activated systems to trigger actions or commands based on recognized keywords.
 
-    InputType: audio
-    OutputType: label
+        InputType: audio
+        OutputType: label
     """
+
     function: str = "keyword-spotting"
     input_type: str = DataType.AUDIO
     output_type: str = DataType.LABEL
@@ -1576,12 +1609,13 @@ class TextClassificationOutputs(Outputs):
 
 class TextClassification(AssetNode[TextClassificationInputs, TextClassificationOutputs]):
     """
-    Categorizes text into predefined groups or topics, facilitating content
-organization and targeted actions.
+        Categorizes text into predefined groups or topics, facilitating content
+    organization and targeted actions.
 
-    InputType: text
-    OutputType: label
+        InputType: text
+        OutputType: label
     """
+
     function: str = "text-classification"
     input_type: str = DataType.TEXT
     output_type: str = DataType.LABEL
@@ -1614,12 +1648,13 @@ class OffensiveLanguageIdentificationOutputs(Outputs):
 
 class OffensiveLanguageIdentification(AssetNode[OffensiveLanguageIdentificationInputs, OffensiveLanguageIdentificationOutputs]):
     """
-    Detects language or phrases that might be considered offensive, aiding in
-content moderation and creating respectful user interactions.
+        Detects language or phrases that might be considered offensive, aiding in
+    content moderation and creating respectful user interactions.
 
-    InputType: text
-    OutputType: label
+        InputType: text
+        OutputType: label
     """
+
     function: str = "offensive-language-identification"
     input_type: str = DataType.TEXT
     output_type: str = DataType.LABEL
@@ -1652,12 +1687,13 @@ class SpeechNonSpeechClassificationOutputs(Outputs):
 
 class SpeechNonSpeechClassification(AssetNode[SpeechNonSpeechClassificationInputs, SpeechNonSpeechClassificationOutputs]):
     """
-    Differentiates between speech and non-speech audio segments. Great for editing
-software and transcription services to exclude irrelevant audio.
+        Differentiates between speech and non-speech audio segments. Great for editing
+    software and transcription services to exclude irrelevant audio.
 
-    InputType: audio
-    OutputType: label
+        InputType: audio
+        OutputType: label
     """
+
     function: str = "speech-non-speech-classification"
     input_type: str = DataType.AUDIO
     output_type: str = DataType.LABEL
@@ -1692,13 +1728,14 @@ class NamedEntityRecognitionOutputs(Outputs):
 
 class NamedEntityRecognition(AssetNode[NamedEntityRecognitionInputs, NamedEntityRecognitionOutputs]):
     """
-    Identifies and classifies named entities (e.g., persons, organizations,
-locations) within text. Useful for information extraction, content tagging, and
-search enhancements.
+        Identifies and classifies named entities (e.g., persons, organizations,
+    locations) within text. Useful for information extraction, content tagging, and
+    search enhancements.
 
-    InputType: text
-    OutputType: label
+        InputType: text
+        OutputType: label
     """
+
     function: str = "named-entity-recognition"
     input_type: str = DataType.TEXT
     output_type: str = DataType.LABEL
@@ -1727,13 +1764,14 @@ class ImageManipulationOutputs(Outputs):
 
 class ImageManipulation(AssetNode[ImageManipulationInputs, ImageManipulationOutputs]):
     """
-    Image Manipulation refers to the process of altering or enhancing digital
-images using various techniques and tools to achieve desired visual effects,
-correct imperfections, or transform the image's appearance.
+        Image Manipulation refers to the process of altering or enhancing digital
+    images using various techniques and tools to achieve desired visual effects,
+    correct imperfections, or transform the image's appearance.
 
-    InputType: image
-    OutputType: image
+        InputType: image
+        OutputType: image
     """
+
     function: str = "image-manipulation"
     input_type: str = DataType.IMAGE
     output_type: str = DataType.IMAGE
@@ -1760,13 +1798,14 @@ class SplitOnSilenceOutputs(Outputs):
 
 class SplitOnSilence(AssetNode[SplitOnSilenceInputs, SplitOnSilenceOutputs]):
     """
-    The "Split On Silence" function divides an audio recording into separate
-segments based on periods of silence, allowing for easier editing and analysis
-of individual sections.
+        The "Split On Silence" function divides an audio recording into separate
+    segments based on periods of silence, allowing for easier editing and analysis
+    of individual sections.
 
-    InputType: audio
-    OutputType: audio
+        InputType: audio
+        OutputType: audio
     """
+
     function: str = "split-on-silence"
     input_type: str = DataType.AUDIO
     output_type: str = DataType.AUDIO
@@ -1795,13 +1834,14 @@ class TextToVideoGenerationOutputs(Outputs):
 
 class TextToVideoGeneration(AssetNode[TextToVideoGenerationInputs, TextToVideoGenerationOutputs]):
     """
-    Text To Video Generation is a process that converts written descriptions or
-scripts into dynamic, visual video content using advanced algorithms and
-artificial intelligence.
+        Text To Video Generation is a process that converts written descriptions or
+    scripts into dynamic, visual video content using advanced algorithms and
+    artificial intelligence.
 
-    InputType: text
-    OutputType: video
+        InputType: text
+        OutputType: video
     """
+
     function: str = "text-to-video-generation"
     input_type: str = DataType.TEXT
     output_type: str = DataType.VIDEO
@@ -1828,14 +1868,15 @@ class DocumentInformationExtractionOutputs(Outputs):
 
 class DocumentInformationExtraction(AssetNode[DocumentInformationExtractionInputs, DocumentInformationExtractionOutputs]):
     """
-    Document Information Extraction is the process of automatically identifying,
-extracting, and structuring relevant data from unstructured or semi-structured
-documents, such as invoices, receipts, contracts, and forms, to facilitate
-easier data management and analysis.
+        Document Information Extraction is the process of automatically identifying,
+    extracting, and structuring relevant data from unstructured or semi-structured
+    documents, such as invoices, receipts, contracts, and forms, to facilitate
+    easier data management and analysis.
 
-    InputType: image
-    OutputType: text
+        InputType: image
+        OutputType: text
     """
+
     function: str = "document-information-extraction"
     input_type: str = DataType.IMAGE
     output_type: str = DataType.TEXT
@@ -1862,12 +1903,13 @@ class VideoGenerationOutputs(Outputs):
 
 class VideoGeneration(AssetNode[VideoGenerationInputs, VideoGenerationOutputs]):
     """
-    Produces video content based on specific inputs or datasets. Can be used for
-simulations, animations, or even deepfake detection.
+        Produces video content based on specific inputs or datasets. Can be used for
+    simulations, animations, or even deepfake detection.
 
-    InputType: text
-    OutputType: video
+        InputType: text
+        OutputType: video
     """
+
     function: str = "video-generation"
     input_type: str = DataType.TEXT
     output_type: str = DataType.VIDEO
@@ -1894,12 +1936,13 @@ class TextToImageGenerationOutputs(Outputs):
 
 class TextToImageGeneration(AssetNode[TextToImageGenerationInputs, TextToImageGenerationOutputs]):
     """
-    Creates a visual representation based on textual input, turning descriptions
-into pictorial forms. Used in creative processes and content generation.
+        Creates a visual representation based on textual input, turning descriptions
+    into pictorial forms. Used in creative processes and content generation.
 
-    InputType: text
-    OutputType: image
+        InputType: text
+        OutputType: image
     """
+
     function: str = "text-to-image-generation"
     input_type: str = DataType.TEXT
     output_type: str = DataType.IMAGE
@@ -1928,16 +1971,19 @@ class ReferencelessTextGenerationMetricOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.TEXT)
 
 
-class ReferencelessTextGenerationMetric(BaseMetric[ReferencelessTextGenerationMetricInputs, ReferencelessTextGenerationMetricOutputs]):
+class ReferencelessTextGenerationMetric(
+    BaseMetric[ReferencelessTextGenerationMetricInputs, ReferencelessTextGenerationMetricOutputs]
+):
     """
-    The Referenceless Text Generation Metric is a method for evaluating the quality
-of generated text without requiring a reference text for comparison, often
-leveraging models or algorithms to assess coherence, relevance, and fluency
-based on intrinsic properties of the text itself.
+        The Referenceless Text Generation Metric is a method for evaluating the quality
+    of generated text without requiring a reference text for comparison, often
+    leveraging models or algorithms to assess coherence, relevance, and fluency
+    based on intrinsic properties of the text itself.
 
-    InputType: text
-    OutputType: text
+        InputType: text
+        OutputType: text
     """
+
     function: str = "referenceless-text-generation-metric"
     input_type: str = DataType.TEXT
     output_type: str = DataType.TEXT
@@ -1966,14 +2012,15 @@ class OtherMultipurposeOutputs(Outputs):
 
 class OtherMultipurpose(AssetNode[OtherMultipurposeInputs, OtherMultipurposeOutputs]):
     """
-    The "Other (Multipurpose)" function serves as a versatile category designed to
-accommodate a wide range of tasks and activities that do not fit neatly into
-predefined classifications, offering flexibility and adaptability for various
-needs.
+        The "Other (Multipurpose)" function serves as a versatile category designed to
+    accommodate a wide range of tasks and activities that do not fit neatly into
+    predefined classifications, offering flexibility and adaptability for various
+    needs.
 
-    InputType: text
-    OutputType: text
+        InputType: text
+        OutputType: text
     """
+
     function: str = "other-(multipurpose)"
     input_type: str = DataType.TEXT
     output_type: str = DataType.TEXT
@@ -2002,12 +2049,13 @@ class ImageLabelDetectionOutputs(Outputs):
 
 class ImageLabelDetection(AssetNode[ImageLabelDetectionInputs, ImageLabelDetectionOutputs]):
     """
-    Identifies objects, themes, or topics within images, useful for image
-categorization, search, and recommendation systems.
+        Identifies objects, themes, or topics within images, useful for image
+    categorization, search, and recommendation systems.
 
-    InputType: image
-    OutputType: label
+        InputType: image
+        OutputType: label
     """
+
     function: str = "image-label-detection"
     input_type: str = DataType.IMAGE
     output_type: str = DataType.LABEL
@@ -2040,12 +2088,13 @@ class SpeakerDiarizationVideoOutputs(Outputs):
 
 class SpeakerDiarizationVideo(AssetNode[SpeakerDiarizationVideoInputs, SpeakerDiarizationVideoOutputs]):
     """
-    Segments a video based on different speakers, identifying when each individual
-speaks. Useful for transcriptions and understanding multi-person conversations.
+        Segments a video based on different speakers, identifying when each individual
+    speaks. Useful for transcriptions and understanding multi-person conversations.
 
-    InputType: video
-    OutputType: label
+        InputType: video
+        OutputType: label
     """
+
     function: str = "speaker-diarization-video"
     input_type: str = DataType.VIDEO
     output_type: str = DataType.LABEL
@@ -2082,12 +2131,13 @@ class AudioTranscriptImprovementOutputs(Outputs):
 
 class AudioTranscriptImprovement(AssetNode[AudioTranscriptImprovementInputs, AudioTranscriptImprovementOutputs]):
     """
-    Refines and corrects transcriptions generated from audio data, improving
-readability and accuracy.
+        Refines and corrects transcriptions generated from audio data, improving
+    readability and accuracy.
 
-    InputType: audio
-    OutputType: text
+        InputType: audio
+        OutputType: text
     """
+
     function: str = "audio-transcript-improvement"
     input_type: str = DataType.AUDIO
     output_type: str = DataType.TEXT
@@ -2116,12 +2166,13 @@ class DialectDetectionOutputs(Outputs):
 
 class DialectDetection(AssetNode[DialectDetectionInputs, DialectDetectionOutputs]):
     """
-    Identifies specific dialects within a language, aiding in localized content
-creation or user experience personalization.
+        Identifies specific dialects within a language, aiding in localized content
+    creation or user experience personalization.
 
-    InputType: audio
-    OutputType: text
+        InputType: audio
+        OutputType: text
     """
+
     function: str = "dialect-detection"
     input_type: str = DataType.AUDIO
     output_type: str = DataType.TEXT
@@ -2154,12 +2205,13 @@ class SentimentAnalysisOutputs(Outputs):
 
 class SentimentAnalysis(AssetNode[SentimentAnalysisInputs, SentimentAnalysisOutputs]):
     """
-    Determines the sentiment or emotion (e.g., positive, negative, neutral) of a
-piece of text, aiding in understanding user feedback or market sentiment.
+        Determines the sentiment or emotion (e.g., positive, negative, neutral) of a
+    piece of text, aiding in understanding user feedback or market sentiment.
 
-    InputType: text
-    OutputType: label
+        InputType: text
+        OutputType: label
     """
+
     function: str = "sentiment-analysis"
     input_type: str = DataType.TEXT
     output_type: str = DataType.LABEL
@@ -2192,13 +2244,14 @@ class SpeechEmbeddingOutputs(Outputs):
 
 class SpeechEmbedding(AssetNode[SpeechEmbeddingInputs, SpeechEmbeddingOutputs]):
     """
-    Transforms spoken content into a fixed-size vector in a high-dimensional space
-that captures the content's essence. Facilitates tasks like speech recognition
-and speaker verification.
+        Transforms spoken content into a fixed-size vector in a high-dimensional space
+    that captures the content's essence. Facilitates tasks like speech recognition
+    and speaker verification.
 
-    InputType: audio
-    OutputType: text
+        InputType: audio
+        OutputType: text
     """
+
     function: str = "speech-embedding"
     input_type: str = DataType.AUDIO
     output_type: str = DataType.TEXT
@@ -2231,13 +2284,14 @@ class TextGenerationMetricDefaultOutputs(Outputs):
 
 class TextGenerationMetricDefault(BaseMetric[TextGenerationMetricDefaultInputs, TextGenerationMetricDefaultOutputs]):
     """
-    The "Text Generation Metric Default" function provides a standard set of
-evaluation metrics for assessing the quality and performance of text generation
-models.
+        The "Text Generation Metric Default" function provides a standard set of
+    evaluation metrics for assessing the quality and performance of text generation
+    models.
 
-    InputType: text
-    OutputType: text
+        InputType: text
+        OutputType: text
     """
+
     function: str = "text-generation-metric-default"
     input_type: str = DataType.TEXT
     output_type: str = DataType.TEXT
@@ -2270,14 +2324,15 @@ class AudioGenerationMetricOutputs(Outputs):
 
 class AudioGenerationMetric(BaseMetric[AudioGenerationMetricInputs, AudioGenerationMetricOutputs]):
     """
-    The Audio Generation Metric is a quantitative measure used to evaluate the
-quality, accuracy, and overall performance of audio generated by artificial
-intelligence systems, often considering factors such as fidelity,
-intelligibility, and similarity to human-produced audio.
+        The Audio Generation Metric is a quantitative measure used to evaluate the
+    quality, accuracy, and overall performance of audio generated by artificial
+    intelligence systems, often considering factors such as fidelity,
+    intelligibility, and similarity to human-produced audio.
 
-    InputType: text
-    OutputType: text
+        InputType: text
+        OutputType: text
     """
+
     function: str = "audio-generation-metric"
     input_type: str = DataType.TEXT
     output_type: str = DataType.TEXT
@@ -2304,12 +2359,13 @@ class AudioLanguageIdentificationOutputs(Outputs):
 
 class AudioLanguageIdentification(AssetNode[AudioLanguageIdentificationInputs, AudioLanguageIdentificationOutputs]):
     """
-    Audio Language Identification is a process that involves analyzing an audio
-recording to determine the language being spoken.
+        Audio Language Identification is a process that involves analyzing an audio
+    recording to determine the language being spoken.
 
-    InputType: audio
-    OutputType: label
+        InputType: audio
+        OutputType: label
     """
+
     function: str = "audio-language-identification"
     input_type: str = DataType.AUDIO
     output_type: str = DataType.LABEL
@@ -2338,12 +2394,13 @@ class VideoLabelDetectionOutputs(Outputs):
 
 class VideoLabelDetection(AssetNode[VideoLabelDetectionInputs, VideoLabelDetectionOutputs]):
     """
-    Identifies and tags objects, scenes, or activities within a video. Useful for
-content indexing and recommendation systems.
+        Identifies and tags objects, scenes, or activities within a video. Useful for
+    content indexing and recommendation systems.
 
-    InputType: video
-    OutputType: label
+        InputType: video
+        OutputType: label
     """
+
     function: str = "video-label-detection"
     input_type: str = DataType.VIDEO
     output_type: str = DataType.LABEL
@@ -2376,12 +2433,13 @@ class TopicClassificationOutputs(Outputs):
 
 class TopicClassification(AssetNode[TopicClassificationInputs, TopicClassificationOutputs]):
     """
-    Assigns categories or topics to a piece of text based on its content,
-facilitating content organization and retrieval.
+        Assigns categories or topics to a piece of text based on its content,
+    facilitating content organization and retrieval.
 
-    InputType: text
-    OutputType: label
+        InputType: text
+        OutputType: label
     """
+
     function: str = "topic-classification"
     input_type: str = DataType.TEXT
     output_type: str = DataType.LABEL
@@ -2410,15 +2468,18 @@ class ReferencelessTextGenerationMetricDefaultOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.TEXT)
 
 
-class ReferencelessTextGenerationMetricDefault(BaseMetric[ReferencelessTextGenerationMetricDefaultInputs, ReferencelessTextGenerationMetricDefaultOutputs]):
+class ReferencelessTextGenerationMetricDefault(
+    BaseMetric[ReferencelessTextGenerationMetricDefaultInputs, ReferencelessTextGenerationMetricDefaultOutputs]
+):
     """
-    The Referenceless Text Generation Metric Default is a function designed to
-evaluate the quality of generated text without relying on reference texts for
-comparison.
+        The Referenceless Text Generation Metric Default is a function designed to
+    evaluate the quality of generated text without relying on reference texts for
+    comparison.
 
-    InputType: text
-    OutputType: text
+        InputType: text
+        OutputType: text
     """
+
     function: str = "referenceless-text-generation-metric-default"
     input_type: str = DataType.TEXT
     output_type: str = DataType.TEXT
@@ -2447,12 +2508,13 @@ class ImageContentModerationOutputs(Outputs):
 
 class ImageContentModeration(AssetNode[ImageContentModerationInputs, ImageContentModerationOutputs]):
     """
-    Detects and filters out inappropriate or harmful images, essential for
-platforms with user-generated visual content.
+        Detects and filters out inappropriate or harmful images, essential for
+    platforms with user-generated visual content.
 
-    InputType: image
-    OutputType: label
+        InputType: image
+        OutputType: label
     """
+
     function: str = "image-content-moderation"
     input_type: str = DataType.IMAGE
     output_type: str = DataType.LABEL
@@ -2479,13 +2541,14 @@ class AsrAgeClassificationOutputs(Outputs):
 
 class AsrAgeClassification(AssetNode[AsrAgeClassificationInputs, AsrAgeClassificationOutputs]):
     """
-    The ASR Age Classification function is designed to analyze audio recordings of
-speech to determine the speaker's age group by leveraging automatic speech
-recognition (ASR) technology and machine learning algorithms.
+        The ASR Age Classification function is designed to analyze audio recordings of
+    speech to determine the speaker's age group by leveraging automatic speech
+    recognition (ASR) technology and machine learning algorithms.
 
-    InputType: audio
-    OutputType: label
+        InputType: audio
+        OutputType: label
     """
+
     function: str = "asr-age-classification"
     input_type: str = DataType.AUDIO
     output_type: str = DataType.LABEL
@@ -2512,12 +2575,13 @@ class AsrGenderClassificationOutputs(Outputs):
 
 class AsrGenderClassification(AssetNode[AsrGenderClassificationInputs, AsrGenderClassificationOutputs]):
     """
-    The ASR Gender Classification function analyzes audio recordings to determine
-and classify the speaker's gender based on their voice characteristics.
+        The ASR Gender Classification function analyzes audio recordings to determine
+    and classify the speaker's gender based on their voice characteristics.
 
-    InputType: audio
-    OutputType: label
+        InputType: audio
+        OutputType: label
     """
+
     function: str = "asr-gender-classification"
     input_type: str = DataType.AUDIO
     output_type: str = DataType.LABEL
@@ -2546,13 +2610,14 @@ class BaseModelOutputs(Outputs):
 
 class BaseModel(AssetNode[BaseModelInputs, BaseModelOutputs]):
     """
-    The Base-Model function serves as a foundational framework designed to provide
-essential features and capabilities upon which more specialized or advanced
-models can be built and customized.
+        The Base-Model function serves as a foundational framework designed to provide
+    essential features and capabilities upon which more specialized or advanced
+    models can be built and customized.
 
-    InputType: text
-    OutputType: text
+        InputType: text
+        OutputType: text
     """
+
     function: str = "base-model"
     input_type: str = DataType.TEXT
     output_type: str = DataType.TEXT
@@ -2579,12 +2644,13 @@ class LanguageIdentificationAudioOutputs(Outputs):
 
 class LanguageIdentificationAudio(AssetNode[LanguageIdentificationAudioInputs, LanguageIdentificationAudioOutputs]):
     """
-    The Language Identification Audio function analyzes audio input to determine
-and identify the language being spoken.
+        The Language Identification Audio function analyzes audio input to determine
+    and identify the language being spoken.
 
-    InputType: audio
-    OutputType: label
+        InputType: audio
+        OutputType: label
     """
+
     function: str = "language-identification-audio"
     input_type: str = DataType.AUDIO
     output_type: str = DataType.LABEL
@@ -2611,13 +2677,14 @@ class MultiClassImageClassificationOutputs(Outputs):
 
 class MultiClassImageClassification(AssetNode[MultiClassImageClassificationInputs, MultiClassImageClassificationOutputs]):
     """
-    Multi Class Image Classification is a machine learning task where an algorithm
-is trained to categorize images into one of several predefined classes or
-categories based on their visual content.
+        Multi Class Image Classification is a machine learning task where an algorithm
+    is trained to categorize images into one of several predefined classes or
+    categories based on their visual content.
 
-    InputType: image
-    OutputType: label
+        InputType: image
+        OutputType: label
     """
+
     function: str = "multi-class-image-classification"
     input_type: str = DataType.IMAGE
     output_type: str = DataType.LABEL
@@ -2644,13 +2711,14 @@ class SemanticSegmentationOutputs(Outputs):
 
 class SemanticSegmentation(AssetNode[SemanticSegmentationInputs, SemanticSegmentationOutputs]):
     """
-    Semantic segmentation is a computer vision process that involves classifying
-each pixel in an image into a predefined category, effectively partitioning the
-image into meaningful segments based on the objects or regions they represent.
+        Semantic segmentation is a computer vision process that involves classifying
+    each pixel in an image into a predefined category, effectively partitioning the
+    image into meaningful segments based on the objects or regions they represent.
 
-    InputType: image
-    OutputType: label
+        InputType: image
+        OutputType: label
     """
+
     function: str = "semantic-segmentation"
     input_type: str = DataType.IMAGE
     output_type: str = DataType.LABEL
@@ -2677,14 +2745,15 @@ class InstanceSegmentationOutputs(Outputs):
 
 class InstanceSegmentation(AssetNode[InstanceSegmentationInputs, InstanceSegmentationOutputs]):
     """
-    Instance segmentation is a computer vision task that involves detecting and
-delineating each distinct object within an image, assigning a unique label and
-precise boundary to every individual instance of objects, even if they belong
-to the same category.
+        Instance segmentation is a computer vision task that involves detecting and
+    delineating each distinct object within an image, assigning a unique label and
+    precise boundary to every individual instance of objects, even if they belong
+    to the same category.
 
-    InputType: image
-    OutputType: label
+        InputType: image
+        OutputType: label
     """
+
     function: str = "instance-segmentation"
     input_type: str = DataType.IMAGE
     output_type: str = DataType.LABEL
@@ -2717,12 +2786,13 @@ class EmotionDetectionOutputs(Outputs):
 
 class EmotionDetection(AssetNode[EmotionDetectionInputs, EmotionDetectionOutputs]):
     """
-    Identifies human emotions from text or audio, enhancing user experience in
-chatbots or customer feedback analysis.
+        Identifies human emotions from text or audio, enhancing user experience in
+    chatbots or customer feedback analysis.
 
-    InputType: text
-    OutputType: label
+        InputType: text
+        OutputType: label
     """
+
     function: str = "emotion-detection"
     input_type: str = DataType.TEXT
     output_type: str = DataType.LABEL
@@ -2755,13 +2825,14 @@ class TextSpamDetectionOutputs(Outputs):
 
 class TextSpamDetection(AssetNode[TextSpamDetectionInputs, TextSpamDetectionOutputs]):
     """
-    Identifies and filters out unwanted or irrelevant text content, ideal for
-moderating user-generated content or ensuring quality in communication
-platforms.
+        Identifies and filters out unwanted or irrelevant text content, ideal for
+    moderating user-generated content or ensuring quality in communication
+    platforms.
 
-    InputType: text
-    OutputType: label
+        InputType: text
+        OutputType: label
     """
+
     function: str = "text-spam-detection"
     input_type: str = DataType.TEXT
     output_type: str = DataType.LABEL
@@ -2796,12 +2867,13 @@ class TextDenormalizationOutputs(Outputs):
 
 class TextDenormalization(AssetNode[TextDenormalizationInputs, TextDenormalizationOutputs]):
     """
-    Converts standardized or normalized text into its original, often more
-readable, form. Useful in natural language generation tasks.
+        Converts standardized or normalized text into its original, often more
+    readable, form. Useful in natural language generation tasks.
 
-    InputType: text
-    OutputType: label
+        InputType: text
+        OutputType: label
     """
+
     function: str = "text-denormalization"
     input_type: str = DataType.TEXT
     output_type: str = DataType.LABEL
@@ -2830,15 +2902,18 @@ class ReferencelessAudioGenerationMetricOutputs(Outputs):
         self.data = self.create_param(code="data", data_type=DataType.TEXT)
 
 
-class ReferencelessAudioGenerationMetric(BaseMetric[ReferencelessAudioGenerationMetricInputs, ReferencelessAudioGenerationMetricOutputs]):
+class ReferencelessAudioGenerationMetric(
+    BaseMetric[ReferencelessAudioGenerationMetricInputs, ReferencelessAudioGenerationMetricOutputs]
+):
     """
-    The Referenceless Audio Generation Metric is a tool designed to evaluate the
-quality of generated audio content without the need for a reference or original
-audio sample for comparison.
+        The Referenceless Audio Generation Metric is a tool designed to evaluate the
+    quality of generated audio content without the need for a reference or original
+    audio sample for comparison.
 
-    InputType: text
-    OutputType: text
+        InputType: text
+        OutputType: text
     """
+
     function: str = "referenceless-audio-generation-metric"
     input_type: str = DataType.TEXT
     output_type: str = DataType.TEXT
@@ -2875,12 +2950,13 @@ class AudioForcedAlignmentOutputs(Outputs):
 
 class AudioForcedAlignment(AssetNode[AudioForcedAlignmentInputs, AudioForcedAlignmentOutputs]):
     """
-    Synchronizes phonetic and phonological text with the corresponding segments in
-an audio file. Useful in linguistic research and detailed transcription tasks.
+        Synchronizes phonetic and phonological text with the corresponding segments in
+    an audio file. Useful in linguistic research and detailed transcription tasks.
 
-    InputType: audio
-    OutputType: audio
+        InputType: audio
+        OutputType: audio
     """
+
     function: str = "audio-forced-alignment"
     input_type: str = DataType.AUDIO
     output_type: str = DataType.AUDIO
@@ -2917,12 +2993,13 @@ class VideoForcedAlignmentOutputs(Outputs):
 
 class VideoForcedAlignment(AssetNode[VideoForcedAlignmentInputs, VideoForcedAlignmentOutputs]):
     """
-    Aligns the transcription of spoken content in a video with its corresponding
-timecodes, facilitating subtitle creation.
+        Aligns the transcription of spoken content in a video with its corresponding
+    timecodes, facilitating subtitle creation.
 
-    InputType: video
-    OutputType: video
+        InputType: video
+        OutputType: video
     """
+
     function: str = "video-forced-alignment"
     input_type: str = DataType.VIDEO
     output_type: str = DataType.VIDEO
@@ -2957,12 +3034,13 @@ class ClassificationMetricOutputs(Outputs):
 
 class ClassificationMetric(BaseMetric[ClassificationMetricInputs, ClassificationMetricOutputs]):
     """
-    A Classification Metric is a quantitative measure used to evaluate the quality
-and effectiveness of classification models.
+        A Classification Metric is a quantitative measure used to evaluate the quality
+    and effectiveness of classification models.
 
-    InputType: text
-    OutputType: text
+        InputType: text
+        OutputType: text
     """
+
     function: str = "classification-metric"
     input_type: str = DataType.TEXT
     output_type: str = DataType.TEXT
@@ -2989,15 +3067,16 @@ class AutoMaskGenerationOutputs(Outputs):
 
 class AutoMaskGeneration(AssetNode[AutoMaskGenerationInputs, AutoMaskGenerationOutputs]):
     """
-    Auto-mask generation refers to the automated process of creating masks in image
-processing or computer vision, typically for segmentation tasks. A mask is a
-binary or multi-class image that labels different parts of an image, usually
-separating the foreground (objects of interest) from the background, or
-identifying specific object classes in an image.
+        Auto-mask generation refers to the automated process of creating masks in image
+    processing or computer vision, typically for segmentation tasks. A mask is a
+    binary or multi-class image that labels different parts of an image, usually
+    separating the foreground (objects of interest) from the background, or
+    identifying specific object classes in an image.
 
-    InputType: image
-    OutputType: label
+        InputType: image
+        OutputType: label
     """
+
     function: str = "auto-mask-generation"
     input_type: str = DataType.IMAGE
     output_type: str = DataType.LABEL
@@ -3030,14 +3109,15 @@ class TextEmbeddingOutputs(Outputs):
 
 class TextEmbedding(AssetNode[TextEmbeddingInputs, TextEmbeddingOutputs]):
     """
-    Text embedding is a process that converts text into numerical vectors,
-capturing the semantic meaning and contextual relationships of words or
-phrases, enabling machines to understand and analyze natural language more
-effectively.
+        Text embedding is a process that converts text into numerical vectors,
+    capturing the semantic meaning and contextual relationships of words or
+    phrases, enabling machines to understand and analyze natural language more
+    effectively.
 
-    InputType: text
-    OutputType: text
+        InputType: text
+        OutputType: text
     """
+
     function: str = "text-embedding"
     input_type: str = DataType.TEXT
     output_type: str = DataType.TEXT
@@ -3066,13 +3146,14 @@ class FactCheckingOutputs(Outputs):
 
 class FactChecking(AssetNode[FactCheckingInputs, FactCheckingOutputs]):
     """
-    Fact Checking is the process of verifying the accuracy and truthfulness of
-information, statements, or claims by cross-referencing with reliable sources
-and evidence.
+        Fact Checking is the process of verifying the accuracy and truthfulness of
+    information, statements, or claims by cross-referencing with reliable sources
+    and evidence.
 
-    InputType: text
-    OutputType: label
+        InputType: text
+        OutputType: label
     """
+
     function: str = "fact-checking"
     input_type: str = DataType.TEXT
     output_type: str = DataType.LABEL
@@ -3101,12 +3182,13 @@ class TextToAudioOutputs(Outputs):
 
 class TextToAudio(AssetNode[TextToAudioInputs, TextToAudioOutputs]):
     """
-    The Text to Audio function converts written text into spoken words, allowing
-users to listen to the content instead of reading it.
+        The Text to Audio function converts written text into spoken words, allowing
+    users to listen to the content instead of reading it.
 
-    InputType: text
-    OutputType: audio
+        InputType: text
+        OutputType: audio
     """
+
     function: str = "text-to-audio"
     input_type: str = DataType.TEXT
     output_type: str = DataType.AUDIO
@@ -3139,12 +3221,13 @@ class FillTextMaskOutputs(Outputs):
 
 class FillTextMask(AssetNode[FillTextMaskInputs, FillTextMaskOutputs]):
     """
-    Completes missing parts of a text based on the context, ideal for content
-generation or data augmentation tasks.
+        Completes missing parts of a text based on the context, ideal for content
+    generation or data augmentation tasks.
 
-    InputType: text
-    OutputType: text
+        InputType: text
+        OutputType: text
     """
+
     function: str = "fill-text-mask"
     input_type: str = DataType.TEXT
     output_type: str = DataType.TEXT
@@ -3183,13 +3266,14 @@ class VoiceCloningOutputs(Outputs):
 
 class VoiceCloning(AssetNode[VoiceCloningInputs, VoiceCloningOutputs]):
     """
-    Replicates a person's voice based on a sample, allowing for the generation of
-speech in that person's tone and style. Used cautiously due to ethical
-considerations.
+        Replicates a person's voice based on a sample, allowing for the generation of
+    speech in that person's tone and style. Used cautiously due to ethical
+    considerations.
 
-    InputType: text
-    OutputType: audio
+        InputType: text
+        OutputType: audio
     """
+
     function: str = "voice-cloning"
     input_type: str = DataType.TEXT
     output_type: str = DataType.AUDIO
@@ -3222,12 +3306,13 @@ class DiacritizationOutputs(Outputs):
 
 class Diacritization(AssetNode[DiacritizationInputs, DiacritizationOutputs]):
     """
-    Adds diacritical marks to text, essential for languages where meaning can
-change based on diacritics.
+        Adds diacritical marks to text, essential for languages where meaning can
+    change based on diacritics.
 
-    InputType: text
-    OutputType: text
+        InputType: text
+        OutputType: text
     """
+
     function: str = "diacritization"
     input_type: str = DataType.TEXT
     output_type: str = DataType.TEXT
@@ -3264,13 +3349,14 @@ class SpeechTranslationOutputs(Outputs):
 
 class SpeechTranslation(AssetNode[SpeechTranslationInputs, SpeechTranslationOutputs]):
     """
-    Speech Translation is a technology that converts spoken language in real-time
-from one language to another, enabling seamless communication between speakers
-of different languages.
+        Speech Translation is a technology that converts spoken language in real-time
+    from one language to another, enabling seamless communication between speakers
+    of different languages.
 
-    InputType: audio
-    OutputType: text
+        InputType: audio
+        OutputType: text
     """
+
     function: str = "speech-translation"
     input_type: str = DataType.AUDIO
     output_type: str = DataType.TEXT
@@ -3309,12 +3395,13 @@ class SpeechSynthesisOutputs(Outputs):
 
 class SpeechSynthesis(AssetNode[SpeechSynthesisInputs, SpeechSynthesisOutputs]):
     """
-    Generates human-like speech from written text. Ideal for text-to-speech
-applications, audiobooks, and voice assistants.
+        Generates human-like speech from written text. Ideal for text-to-speech
+    applications, audiobooks, and voice assistants.
 
-    InputType: text
-    OutputType: audio
+        InputType: text
+        OutputType: audio
     """
+
     function: str = "speech-synthesis"
     input_type: str = DataType.TEXT
     output_type: str = DataType.AUDIO
@@ -3347,12 +3434,13 @@ class TextContentModerationOutputs(Outputs):
 
 class TextContentModeration(AssetNode[TextContentModerationInputs, TextContentModerationOutputs]):
     """
-    Scans and identifies potentially harmful, offensive, or inappropriate textual
-content, ensuring safer user environments.
+        Scans and identifies potentially harmful, offensive, or inappropriate textual
+    content, ensuring safer user environments.
 
-    InputType: text
-    OutputType: label
+        InputType: text
+        OutputType: label
     """
+
     function: str = "text-content-moderation"
     input_type: str = DataType.TEXT
     output_type: str = DataType.LABEL
@@ -3387,12 +3475,13 @@ class SubtitlingTranslationOutputs(Outputs):
 
 class SubtitlingTranslation(AssetNode[SubtitlingTranslationInputs, SubtitlingTranslationOutputs]):
     """
-    Converts the text of subtitles from one language to another, ensuring context
-and cultural nuances are maintained. Essential for global content distribution.
+        Converts the text of subtitles from one language to another, ensuring context
+    and cultural nuances are maintained. Essential for global content distribution.
 
-    InputType: text
-    OutputType: text
+        InputType: text
+        OutputType: text
     """
+
     function: str = "subtitling-translation"
     input_type: str = DataType.TEXT
     output_type: str = DataType.TEXT
@@ -3427,12 +3516,13 @@ class AudioTranscriptAnalysisOutputs(Outputs):
 
 class AudioTranscriptAnalysis(AssetNode[AudioTranscriptAnalysisInputs, AudioTranscriptAnalysisOutputs]):
     """
-    Analyzes transcribed audio data for insights, patterns, or specific information
-extraction.
+        Analyzes transcribed audio data for insights, patterns, or specific information
+    extraction.
 
-    InputType: audio
-    OutputType: text
+        InputType: audio
+        OutputType: text
     """
+
     function: str = "audio-transcript-analysis"
     input_type: str = DataType.AUDIO
     output_type: str = DataType.TEXT
@@ -3467,13 +3557,14 @@ class TextGenerationOutputs(Outputs):
 
 class TextGeneration(AssetNode[TextGenerationInputs, TextGenerationOutputs]):
     """
-    Creates coherent and contextually relevant textual content based on prompts or
-certain parameters. Useful for chatbots, content creation, and data
-augmentation.
+        Creates coherent and contextually relevant textual content based on prompts or
+    certain parameters. Useful for chatbots, content creation, and data
+    augmentation.
 
-    InputType: text
-    OutputType: text
+        InputType: text
+        OutputType: text
     """
+
     function: str = "text-generation"
     input_type: str = DataType.TEXT
     output_type: str = DataType.TEXT
@@ -3504,13 +3595,14 @@ class TextNormalizationOutputs(Outputs):
 
 class TextNormalization(AssetNode[TextNormalizationInputs, TextNormalizationOutputs]):
     """
-    Converts unstructured or non-standard textual data into a more readable and
-uniform format, dealing with abbreviations, numerals, and other non-standard
-words.
+        Converts unstructured or non-standard textual data into a more readable and
+    uniform format, dealing with abbreviations, numerals, and other non-standard
+    words.
 
-    InputType: text
-    OutputType: label
+        InputType: text
+        OutputType: label
     """
+
     function: str = "text-normalization"
     input_type: str = DataType.TEXT
     output_type: str = DataType.LABEL
@@ -3547,12 +3639,13 @@ class VoiceActivityDetectionOutputs(Outputs):
 
 class VoiceActivityDetection(BaseSegmentor[VoiceActivityDetectionInputs, VoiceActivityDetectionOutputs]):
     """
-    Determines when a person is speaking in an audio clip. It's an essential
-preprocessing step for other audio-related tasks.
+        Determines when a person is speaking in an audio clip. It's an essential
+    preprocessing step for other audio-related tasks.
 
-    InputType: audio
-    OutputType: audio
+        InputType: audio
+        OutputType: audio
     """
+
     function: str = "voice-activity-detection"
     input_type: str = DataType.AUDIO
     output_type: str = DataType.AUDIO
@@ -3587,13 +3680,14 @@ class VideoUnderstandingOutputs(Outputs):
 
 class VideoUnderstanding(AssetNode[VideoUnderstandingInputs, VideoUnderstandingOutputs]):
     """
-    Video Understanding is the process of analyzing and interpreting video content
-to extract meaningful information, such as identifying objects, actions,
-events, and contextual relationships within the footage.
+        Video Understanding is the process of analyzing and interpreting video content
+    to extract meaningful information, such as identifying objects, actions,
+    events, and contextual relationships within the footage.
 
-    InputType: video
-    OutputType: text
+        InputType: video
+        OutputType: text
     """
+
     function: str = "video-understanding"
     input_type: str = DataType.VIDEO
     output_type: str = DataType.TEXT
@@ -3634,12 +3728,13 @@ class TranslationOutputs(Outputs):
 
 class Translation(AssetNode[TranslationInputs, TranslationOutputs]):
     """
-    Converts text from one language to another while maintaining the original
-message's essence and context. Crucial for global communication.
+        Converts text from one language to another while maintaining the original
+    message's essence and context. Crucial for global communication.
 
-    InputType: text
-    OutputType: text
+        InputType: text
+        OutputType: text
     """
+
     function: str = "translation"
     input_type: str = DataType.TEXT
     output_type: str = DataType.TEXT
@@ -3674,12 +3769,13 @@ class SpeechRecognitionOutputs(Outputs):
 
 class SpeechRecognition(AssetNode[SpeechRecognitionInputs, SpeechRecognitionOutputs]):
     """
-    Converts spoken language into written text. Useful for transcription services,
-voice assistants, and applications requiring voice-to-text capabilities.
+        Converts spoken language into written text. Useful for transcription services,
+    voice assistants, and applications requiring voice-to-text capabilities.
 
-    InputType: audio
-    OutputType: text
+        InputType: audio
+        OutputType: text
     """
+
     function: str = "speech-recognition"
     input_type: str = DataType.AUDIO
     output_type: str = DataType.TEXT
@@ -3716,12 +3812,13 @@ class SubtitlingOutputs(Outputs):
 
 class Subtitling(AssetNode[SubtitlingInputs, SubtitlingOutputs]):
     """
-    Generates accurate subtitles for videos, enhancing accessibility for diverse
-audiences.
+        Generates accurate subtitles for videos, enhancing accessibility for diverse
+    audiences.
 
-    InputType: audio
-    OutputType: text
+        InputType: audio
+        OutputType: text
     """
+
     function: str = "subtitling"
     input_type: str = DataType.AUDIO
     output_type: str = DataType.TEXT
@@ -3730,800 +3827,817 @@ audiences.
     outputs_class: Type[TO] = SubtitlingOutputs
 
 
-
 class Pipeline(DefaultPipeline):
-
     def object_detection(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> ObjectDetection:
         """
-        Object Detection is a computer vision technology that identifies and locates
-objects within an image, typically by drawing bounding boxes around the
-detected objects and classifying them into predefined categories.
+                Object Detection is a computer vision technology that identifies and locates
+        objects within an image, typically by drawing bounding boxes around the
+        detected objects and classifying them into predefined categories.
         """
         return ObjectDetection(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def language_identification(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> LanguageIdentification:
         """
-        Detects the language in which a given text is written, aiding in multilingual
-platforms or content localization.
+                Detects the language in which a given text is written, aiding in multilingual
+        platforms or content localization.
         """
         return LanguageIdentification(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def depth_estimation(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> DepthEstimation:
         """
-        Depth estimation is a computational process that determines the distance of
-objects from a viewpoint, typically using visual data from cameras or sensors
-to create a three-dimensional understanding of a scene.
+                Depth estimation is a computational process that determines the distance of
+        objects from a viewpoint, typically using visual data from cameras or sensors
+        to create a three-dimensional understanding of a scene.
         """
         return DepthEstimation(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def script_execution(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> ScriptExecution:
         """
-        Script Execution refers to the process of running a set of programmed
-instructions or code within a computing environment, enabling the automated
-performance of tasks, calculations, or operations as defined by the script.
+                Script Execution refers to the process of running a set of programmed
+        instructions or code within a computing environment, enabling the automated
+        performance of tasks, calculations, or operations as defined by the script.
         """
         return ScriptExecution(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def image_embedding(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> ImageEmbedding:
         """
-        Image Embedding is a process that transforms an image into a fixed-dimensional
-vector representation, capturing its essential features and enabling efficient
-comparison, retrieval, and analysis in various machine learning and computer
-vision tasks.
+                Image Embedding is a process that transforms an image into a fixed-dimensional
+        vector representation, capturing its essential features and enabling efficient
+        comparison, retrieval, and analysis in various machine learning and computer
+        vision tasks.
         """
         return ImageEmbedding(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def image_to_video_generation(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> ImageToVideoGeneration:
         """
-        The Image To Video Generation function transforms a series of static images
-into a cohesive, dynamic video sequence, often incorporating transitions,
-effects, and synchronization with audio to create a visually engaging
-narrative.
+                The Image To Video Generation function transforms a series of static images
+        into a cohesive, dynamic video sequence, often incorporating transitions,
+        effects, and synchronization with audio to create a visually engaging
+        narrative.
         """
         return ImageToVideoGeneration(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def image_impainting(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> ImageImpainting:
         """
-        Image inpainting is a process that involves filling in missing or damaged parts
-of an image in a way that is visually coherent and seamlessly blends with the
-surrounding areas, often using advanced algorithms and techniques to restore
-the image to its original or intended appearance.
+                Image inpainting is a process that involves filling in missing or damaged parts
+        of an image in a way that is visually coherent and seamlessly blends with the
+        surrounding areas, often using advanced algorithms and techniques to restore
+        the image to its original or intended appearance.
         """
         return ImageImpainting(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def style_transfer(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> StyleTransfer:
         """
-        Style Transfer is a technique in artificial intelligence that applies the
-visual style of one image (such as the brushstrokes of a famous painting) to
-the content of another image, effectively blending the artistic elements of the
-first image with the subject matter of the second.
+                Style Transfer is a technique in artificial intelligence that applies the
+        visual style of one image (such as the brushstrokes of a famous painting) to
+        the content of another image, effectively blending the artistic elements of the
+        first image with the subject matter of the second.
         """
         return StyleTransfer(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
-    def multi_class_text_classification(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> MultiClassTextClassification:
+    def multi_class_text_classification(
+        self, asset_id: Union[str, asset.Asset], *args, **kwargs
+    ) -> MultiClassTextClassification:
         """
-        Multi Class Text Classification is a natural language processing task that
-involves categorizing a given text into one of several predefined classes or
-categories based on its content.
+                Multi Class Text Classification is a natural language processing task that
+        involves categorizing a given text into one of several predefined classes or
+        categories based on its content.
         """
         return MultiClassTextClassification(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def part_of_speech_tagging(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> PartOfSpeechTagging:
         """
-        Part of Speech Tagging is a natural language processing task that involves
-assigning each word in a sentence its corresponding part of speech, such as
-noun, verb, adjective, or adverb, based on its role and context within the
-sentence.
+                Part of Speech Tagging is a natural language processing task that involves
+        assigning each word in a sentence its corresponding part of speech, such as
+        noun, verb, adjective, or adverb, based on its role and context within the
+        sentence.
         """
         return PartOfSpeechTagging(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def metric_aggregation(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> MetricAggregation:
         """
-        Metric Aggregation is a function that computes and summarizes numerical data by
-applying statistical operations, such as averaging, summing, or finding the
-minimum and maximum values, to provide insights and facilitate analysis of
-large datasets.
+                Metric Aggregation is a function that computes and summarizes numerical data by
+        applying statistical operations, such as averaging, summing, or finding the
+        minimum and maximum values, to provide insights and facilitate analysis of
+        large datasets.
         """
         return MetricAggregation(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def image_colorization(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> ImageColorization:
         """
-        Image colorization is a process that involves adding color to grayscale images,
-transforming them from black-and-white to full-color representations, often
-using advanced algorithms and machine learning techniques to predict and apply
-the appropriate hues and shades.
+                Image colorization is a process that involves adding color to grayscale images,
+        transforming them from black-and-white to full-color representations, often
+        using advanced algorithms and machine learning techniques to predict and apply
+        the appropriate hues and shades.
         """
         return ImageColorization(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def intent_classification(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> IntentClassification:
         """
-        Intent Classification is a natural language processing task that involves
-analyzing and categorizing user text input to determine the underlying purpose
-or goal behind the communication, such as booking a flight, asking for weather
-information, or setting a reminder.
+                Intent Classification is a natural language processing task that involves
+        analyzing and categorizing user text input to determine the underlying purpose
+        or goal behind the communication, such as booking a flight, asking for weather
+        information, or setting a reminder.
         """
         return IntentClassification(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def audio_intent_detection(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> AudioIntentDetection:
         """
-        Audio Intent Detection is a process that involves analyzing audio signals to
-identify and interpret the underlying intentions or purposes behind spoken
-words, enabling systems to understand and respond appropriately to human
-speech.
+                Audio Intent Detection is a process that involves analyzing audio signals to
+        identify and interpret the underlying intentions or purposes behind spoken
+        words, enabling systems to understand and respond appropriately to human
+        speech.
         """
         return AudioIntentDetection(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def asr_quality_estimation(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> AsrQualityEstimation:
         """
-        ASR Quality Estimation is a process that evaluates the accuracy and reliability
-of automatic speech recognition systems by analyzing their performance in
-transcribing spoken language into text.
+                ASR Quality Estimation is a process that evaluates the accuracy and reliability
+        of automatic speech recognition systems by analyzing their performance in
+        transcribing spoken language into text.
         """
         return AsrQualityEstimation(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def search(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> Search:
         """
-        An algorithm that identifies and returns data or items that match particular
-keywords or conditions from a dataset. A fundamental tool for databases and
-websites.
+                An algorithm that identifies and returns data or items that match particular
+        keywords or conditions from a dataset. A fundamental tool for databases and
+        websites.
         """
         return Search(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def viseme_generation(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> VisemeGeneration:
         """
-        Viseme Generation is the process of creating visual representations of
-phonemes, which are the distinct units of sound in speech, to synchronize lip
-movements with spoken words in animations or virtual avatars.
+                Viseme Generation is the process of creating visual representations of
+        phonemes, which are the distinct units of sound in speech, to synchronize lip
+        movements with spoken words in animations or virtual avatars.
         """
         return VisemeGeneration(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def ocr(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> Ocr:
         """
-        Converts images of typed, handwritten, or printed text into machine-encoded
-text. Used in digitizing printed texts for data retrieval.
+                Converts images of typed, handwritten, or printed text into machine-encoded
+        text. Used in digitizing printed texts for data retrieval.
         """
         return Ocr(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def loglikelihood(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> Loglikelihood:
         """
-        The Log Likelihood function measures the probability of observing the given
-data under a specific statistical model by taking the natural logarithm of the
-likelihood function, thereby transforming the product of probabilities into a
-sum, which simplifies the process of optimization and parameter estimation.
+                The Log Likelihood function measures the probability of observing the given
+        data under a specific statistical model by taking the natural logarithm of the
+        likelihood function, thereby transforming the product of probabilities into a
+        sum, which simplifies the process of optimization and parameter estimation.
         """
         return Loglikelihood(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def video_embedding(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> VideoEmbedding:
         """
-        Video Embedding is a process that transforms video content into a fixed-
-dimensional vector representation, capturing essential features and patterns to
-facilitate tasks such as retrieval, classification, and recommendation.
+                Video Embedding is a process that transforms video content into a fixed-
+        dimensional vector representation, capturing essential features and patterns to
+        facilitate tasks such as retrieval, classification, and recommendation.
         """
         return VideoEmbedding(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def text_segmenation(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> TextSegmenation:
         """
-        Text Segmentation is the process of dividing a continuous text into meaningful
-units, such as words, sentences, or topics, to facilitate easier analysis and
-understanding.
+                Text Segmentation is the process of dividing a continuous text into meaningful
+        units, such as words, sentences, or topics, to facilitate easier analysis and
+        understanding.
         """
         return TextSegmenation(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def expression_detection(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> ExpressionDetection:
         """
-        Expression Detection is the process of identifying and analyzing facial
-expressions to interpret emotions or intentions using AI and computer vision
-techniques.
+                Expression Detection is the process of identifying and analyzing facial
+        expressions to interpret emotions or intentions using AI and computer vision
+        techniques.
         """
         return ExpressionDetection(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def speech_classification(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> SpeechClassification:
         """
-        Categorizes audio clips based on their content, aiding in content organization
-and targeted actions.
+                Categorizes audio clips based on their content, aiding in content organization
+        and targeted actions.
         """
         return SpeechClassification(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def inverse_text_normalization(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> InverseTextNormalization:
         """
-        Inverse Text Normalization is the process of converting spoken or written
-language in its normalized form, such as numbers, dates, and abbreviations,
-back into their original, more complex or detailed textual representations.
+                Inverse Text Normalization is the process of converting spoken or written
+        language in its normalized form, such as numbers, dates, and abbreviations,
+        back into their original, more complex or detailed textual representations.
         """
         return InverseTextNormalization(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def extract_audio_from_video(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> ExtractAudioFromVideo:
         """
-        Isolates and extracts audio tracks from video files, aiding in audio analysis
-or transcription tasks.
+                Isolates and extracts audio tracks from video files, aiding in audio analysis
+        or transcription tasks.
         """
         return ExtractAudioFromVideo(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def image_compression(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> ImageCompression:
         """
-        Reduces the size of image files without significantly compromising their visual
-quality. Useful for optimizing storage and improving webpage load times.
+                Reduces the size of image files without significantly compromising their visual
+        quality. Useful for optimizing storage and improving webpage load times.
         """
         return ImageCompression(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def noise_removal(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> NoiseRemoval:
         """
-        Noise Removal is a process that involves identifying and eliminating unwanted
-random variations or disturbances from an audio signal to enhance the clarity
-and quality of the underlying information.
+                Noise Removal is a process that involves identifying and eliminating unwanted
+        random variations or disturbances from an audio signal to enhance the clarity
+        and quality of the underlying information.
         """
         return NoiseRemoval(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def text_summarization(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> TextSummarization:
         """
-        Extracts the main points from a larger body of text, producing a concise
-summary without losing the primary message.
+                Extracts the main points from a larger body of text, producing a concise
+        summary without losing the primary message.
         """
         return TextSummarization(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def text_generation_metric(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> TextGenerationMetric:
         """
-        A Text Generation Metric is a quantitative measure used to evaluate the quality
-and effectiveness of text produced by natural language processing models, often
-assessing aspects such as coherence, relevance, fluency, and adherence to given
-prompts or instructions.
+                A Text Generation Metric is a quantitative measure used to evaluate the quality
+        and effectiveness of text produced by natural language processing models, often
+        assessing aspects such as coherence, relevance, fluency, and adherence to given
+        prompts or instructions.
         """
         return TextGenerationMetric(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def image_captioning(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> ImageCaptioning:
         """
-        Image Captioning is a process that involves generating a textual description of
-an image, typically using machine learning models to analyze the visual content
-and produce coherent and contextually relevant sentences that describe the
-objects, actions, and scenes depicted in the image.
+                Image Captioning is a process that involves generating a textual description of
+        an image, typically using machine learning models to analyze the visual content
+        and produce coherent and contextually relevant sentences that describe the
+        objects, actions, and scenes depicted in the image.
         """
         return ImageCaptioning(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def benchmark_scoring_mt(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> BenchmarkScoringMt:
         """
-        Benchmark Scoring MT is a function designed to evaluate and score machine
-translation systems by comparing their output against a set of predefined
-benchmarks, thereby assessing their accuracy and performance.
+                Benchmark Scoring MT is a function designed to evaluate and score machine
+        translation systems by comparing their output against a set of predefined
+        benchmarks, thereby assessing their accuracy and performance.
         """
         return BenchmarkScoringMt(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def speaker_diarization_audio(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> SpeakerDiarizationAudio:
         """
-        Identifies individual speakers and their respective speech segments within an
-audio clip. Ideal for multi-speaker recordings or conference calls.
+                Identifies individual speakers and their respective speech segments within an
+        audio clip. Ideal for multi-speaker recordings or conference calls.
         """
         return SpeakerDiarizationAudio(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def benchmark_scoring_asr(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> BenchmarkScoringAsr:
         """
-        Benchmark Scoring ASR is a function that evaluates and compares the performance
-of automatic speech recognition systems by analyzing their accuracy, speed, and
-other relevant metrics against a standardized set of benchmarks.
+                Benchmark Scoring ASR is a function that evaluates and compares the performance
+        of automatic speech recognition systems by analyzing their accuracy, speed, and
+        other relevant metrics against a standardized set of benchmarks.
         """
         return BenchmarkScoringAsr(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def visual_question_answering(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> VisualQuestionAnswering:
         """
-        Visual Question Answering (VQA) is a task in artificial intelligence that
-involves analyzing an image and providing accurate, contextually relevant
-answers to questions posed about the visual content of that image.
+                Visual Question Answering (VQA) is a task in artificial intelligence that
+        involves analyzing an image and providing accurate, contextually relevant
+        answers to questions posed about the visual content of that image.
         """
         return VisualQuestionAnswering(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def document_image_parsing(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> DocumentImageParsing:
         """
-        Document Image Parsing is the process of analyzing and converting scanned or
-photographed images of documents into structured, machine-readable formats by
-identifying and extracting text, layout, and other relevant information.
+                Document Image Parsing is the process of analyzing and converting scanned or
+        photographed images of documents into structured, machine-readable formats by
+        identifying and extracting text, layout, and other relevant information.
         """
         return DocumentImageParsing(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
-    def multi_label_text_classification(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> MultiLabelTextClassification:
+    def multi_label_text_classification(
+        self, asset_id: Union[str, asset.Asset], *args, **kwargs
+    ) -> MultiLabelTextClassification:
         """
-        Multi Label Text Classification is a natural language processing task where a
-given text is analyzed and assigned multiple relevant labels or categories from
-a predefined set, allowing for the text to belong to more than one category
-simultaneously.
+                Multi Label Text Classification is a natural language processing task where a
+        given text is analyzed and assigned multiple relevant labels or categories from
+        a predefined set, allowing for the text to belong to more than one category
+        simultaneously.
         """
         return MultiLabelTextClassification(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def text_reconstruction(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> TextReconstruction:
         """
-        Text Reconstruction is a process that involves piecing together fragmented or
-incomplete text data to restore it to its original, coherent form.
+                Text Reconstruction is a process that involves piecing together fragmented or
+        incomplete text data to restore it to its original, coherent form.
         """
         return TextReconstruction(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def video_content_moderation(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> VideoContentModeration:
         """
-        Automatically reviews video content to detect and possibly remove inappropriate
-or harmful material. Essential for user-generated content platforms.
+                Automatically reviews video content to detect and possibly remove inappropriate
+        or harmful material. Essential for user-generated content platforms.
         """
         return VideoContentModeration(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
-    def multilingual_speech_recognition(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> MultilingualSpeechRecognition:
+    def multilingual_speech_recognition(
+        self, asset_id: Union[str, asset.Asset], *args, **kwargs
+    ) -> MultilingualSpeechRecognition:
         """
-        Multilingual Speech Recognition is a technology that enables the automatic
-transcription of spoken language into text across multiple languages, allowing
-for seamless communication and understanding in diverse linguistic contexts.
+                Multilingual Speech Recognition is a technology that enables the automatic
+        transcription of spoken language into text across multiple languages, allowing
+        for seamless communication and understanding in diverse linguistic contexts.
         """
         return MultilingualSpeechRecognition(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def entity_linking(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> EntityLinking:
         """
-        Associates identified entities in the text with specific entries in a knowledge
-base or database.
+                Associates identified entities in the text with specific entries in a knowledge
+        base or database.
         """
         return EntityLinking(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def audio_reconstruction(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> AudioReconstruction:
         """
-        Audio Reconstruction is the process of restoring or recreating audio signals
-from incomplete, damaged, or degraded recordings to achieve a high-quality,
-accurate representation of the original sound.
+                Audio Reconstruction is the process of restoring or recreating audio signals
+        from incomplete, damaged, or degraded recordings to achieve a high-quality,
+        accurate representation of the original sound.
         """
         return AudioReconstruction(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def audio_emotion_detection(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> AudioEmotionDetection:
         """
-        Audio Emotion Detection is a technology that analyzes vocal characteristics and
-patterns in audio recordings to identify and classify the emotional state of
-the speaker.
+                Audio Emotion Detection is a technology that analyzes vocal characteristics and
+        patterns in audio recordings to identify and classify the emotional state of
+        the speaker.
         """
         return AudioEmotionDetection(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def split_on_linebreak(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> SplitOnLinebreak:
         """
-        The "Split On Linebreak" function divides a given string into a list of
-substrings, using linebreaks (newline characters) as the points of separation.
+                The "Split On Linebreak" function divides a given string into a list of
+        substrings, using linebreaks (newline characters) as the points of separation.
         """
         return SplitOnLinebreak(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def keyword_spotting(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> KeywordSpotting:
         """
-        Keyword Spotting is a function that enables the detection and identification of
-specific words or phrases within a stream of audio, often used in voice-
-activated systems to trigger actions or commands based on recognized keywords.
+                Keyword Spotting is a function that enables the detection and identification of
+        specific words or phrases within a stream of audio, often used in voice-
+        activated systems to trigger actions or commands based on recognized keywords.
         """
         return KeywordSpotting(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def text_classification(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> TextClassification:
         """
-        Categorizes text into predefined groups or topics, facilitating content
-organization and targeted actions.
+                Categorizes text into predefined groups or topics, facilitating content
+        organization and targeted actions.
         """
         return TextClassification(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
-    def offensive_language_identification(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> OffensiveLanguageIdentification:
+    def offensive_language_identification(
+        self, asset_id: Union[str, asset.Asset], *args, **kwargs
+    ) -> OffensiveLanguageIdentification:
         """
-        Detects language or phrases that might be considered offensive, aiding in
-content moderation and creating respectful user interactions.
+                Detects language or phrases that might be considered offensive, aiding in
+        content moderation and creating respectful user interactions.
         """
         return OffensiveLanguageIdentification(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
-    def speech_non_speech_classification(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> SpeechNonSpeechClassification:
+    def speech_non_speech_classification(
+        self, asset_id: Union[str, asset.Asset], *args, **kwargs
+    ) -> SpeechNonSpeechClassification:
         """
-        Differentiates between speech and non-speech audio segments. Great for editing
-software and transcription services to exclude irrelevant audio.
+                Differentiates between speech and non-speech audio segments. Great for editing
+        software and transcription services to exclude irrelevant audio.
         """
         return SpeechNonSpeechClassification(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def named_entity_recognition(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> NamedEntityRecognition:
         """
-        Identifies and classifies named entities (e.g., persons, organizations,
-locations) within text. Useful for information extraction, content tagging, and
-search enhancements.
+                Identifies and classifies named entities (e.g., persons, organizations,
+        locations) within text. Useful for information extraction, content tagging, and
+        search enhancements.
         """
         return NamedEntityRecognition(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def image_manipulation(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> ImageManipulation:
         """
-        Image Manipulation refers to the process of altering or enhancing digital
-images using various techniques and tools to achieve desired visual effects,
-correct imperfections, or transform the image's appearance.
+                Image Manipulation refers to the process of altering or enhancing digital
+        images using various techniques and tools to achieve desired visual effects,
+        correct imperfections, or transform the image's appearance.
         """
         return ImageManipulation(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def split_on_silence(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> SplitOnSilence:
         """
-        The "Split On Silence" function divides an audio recording into separate
-segments based on periods of silence, allowing for easier editing and analysis
-of individual sections.
+                The "Split On Silence" function divides an audio recording into separate
+        segments based on periods of silence, allowing for easier editing and analysis
+        of individual sections.
         """
         return SplitOnSilence(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def text_to_video_generation(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> TextToVideoGeneration:
         """
-        Text To Video Generation is a process that converts written descriptions or
-scripts into dynamic, visual video content using advanced algorithms and
-artificial intelligence.
+                Text To Video Generation is a process that converts written descriptions or
+        scripts into dynamic, visual video content using advanced algorithms and
+        artificial intelligence.
         """
         return TextToVideoGeneration(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
-    def document_information_extraction(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> DocumentInformationExtraction:
+    def document_information_extraction(
+        self, asset_id: Union[str, asset.Asset], *args, **kwargs
+    ) -> DocumentInformationExtraction:
         """
-        Document Information Extraction is the process of automatically identifying,
-extracting, and structuring relevant data from unstructured or semi-structured
-documents, such as invoices, receipts, contracts, and forms, to facilitate
-easier data management and analysis.
+                Document Information Extraction is the process of automatically identifying,
+        extracting, and structuring relevant data from unstructured or semi-structured
+        documents, such as invoices, receipts, contracts, and forms, to facilitate
+        easier data management and analysis.
         """
         return DocumentInformationExtraction(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def video_generation(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> VideoGeneration:
         """
-        Produces video content based on specific inputs or datasets. Can be used for
-simulations, animations, or even deepfake detection.
+                Produces video content based on specific inputs or datasets. Can be used for
+        simulations, animations, or even deepfake detection.
         """
         return VideoGeneration(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def text_to_image_generation(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> TextToImageGeneration:
         """
-        Creates a visual representation based on textual input, turning descriptions
-into pictorial forms. Used in creative processes and content generation.
+                Creates a visual representation based on textual input, turning descriptions
+        into pictorial forms. Used in creative processes and content generation.
         """
         return TextToImageGeneration(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
-    def referenceless_text_generation_metric(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> ReferencelessTextGenerationMetric:
+    def referenceless_text_generation_metric(
+        self, asset_id: Union[str, asset.Asset], *args, **kwargs
+    ) -> ReferencelessTextGenerationMetric:
         """
-        The Referenceless Text Generation Metric is a method for evaluating the quality
-of generated text without requiring a reference text for comparison, often
-leveraging models or algorithms to assess coherence, relevance, and fluency
-based on intrinsic properties of the text itself.
+                The Referenceless Text Generation Metric is a method for evaluating the quality
+        of generated text without requiring a reference text for comparison, often
+        leveraging models or algorithms to assess coherence, relevance, and fluency
+        based on intrinsic properties of the text itself.
         """
         return ReferencelessTextGenerationMetric(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def other__multipurpose_(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> OtherMultipurpose:
         """
-        The "Other (Multipurpose)" function serves as a versatile category designed to
-accommodate a wide range of tasks and activities that do not fit neatly into
-predefined classifications, offering flexibility and adaptability for various
-needs.
+                The "Other (Multipurpose)" function serves as a versatile category designed to
+        accommodate a wide range of tasks and activities that do not fit neatly into
+        predefined classifications, offering flexibility and adaptability for various
+        needs.
         """
         return OtherMultipurpose(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def image_label_detection(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> ImageLabelDetection:
         """
-        Identifies objects, themes, or topics within images, useful for image
-categorization, search, and recommendation systems.
+                Identifies objects, themes, or topics within images, useful for image
+        categorization, search, and recommendation systems.
         """
         return ImageLabelDetection(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def speaker_diarization_video(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> SpeakerDiarizationVideo:
         """
-        Segments a video based on different speakers, identifying when each individual
-speaks. Useful for transcriptions and understanding multi-person conversations.
+                Segments a video based on different speakers, identifying when each individual
+        speaks. Useful for transcriptions and understanding multi-person conversations.
         """
         return SpeakerDiarizationVideo(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def audio_transcript_improvement(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> AudioTranscriptImprovement:
         """
-        Refines and corrects transcriptions generated from audio data, improving
-readability and accuracy.
+                Refines and corrects transcriptions generated from audio data, improving
+        readability and accuracy.
         """
         return AudioTranscriptImprovement(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def dialect_detection(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> DialectDetection:
         """
-        Identifies specific dialects within a language, aiding in localized content
-creation or user experience personalization.
+                Identifies specific dialects within a language, aiding in localized content
+        creation or user experience personalization.
         """
         return DialectDetection(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def sentiment_analysis(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> SentimentAnalysis:
         """
-        Determines the sentiment or emotion (e.g., positive, negative, neutral) of a
-piece of text, aiding in understanding user feedback or market sentiment.
+                Determines the sentiment or emotion (e.g., positive, negative, neutral) of a
+        piece of text, aiding in understanding user feedback or market sentiment.
         """
         return SentimentAnalysis(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def speech_embedding(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> SpeechEmbedding:
         """
-        Transforms spoken content into a fixed-size vector in a high-dimensional space
-that captures the content's essence. Facilitates tasks like speech recognition
-and speaker verification.
+                Transforms spoken content into a fixed-size vector in a high-dimensional space
+        that captures the content's essence. Facilitates tasks like speech recognition
+        and speaker verification.
         """
         return SpeechEmbedding(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def text_generation_metric_default(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> TextGenerationMetricDefault:
         """
-        The "Text Generation Metric Default" function provides a standard set of
-evaluation metrics for assessing the quality and performance of text generation
-models.
+                The "Text Generation Metric Default" function provides a standard set of
+        evaluation metrics for assessing the quality and performance of text generation
+        models.
         """
         return TextGenerationMetricDefault(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def audio_generation_metric(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> AudioGenerationMetric:
         """
-        The Audio Generation Metric is a quantitative measure used to evaluate the
-quality, accuracy, and overall performance of audio generated by artificial
-intelligence systems, often considering factors such as fidelity,
-intelligibility, and similarity to human-produced audio.
+                The Audio Generation Metric is a quantitative measure used to evaluate the
+        quality, accuracy, and overall performance of audio generated by artificial
+        intelligence systems, often considering factors such as fidelity,
+        intelligibility, and similarity to human-produced audio.
         """
         return AudioGenerationMetric(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def audio_language_identification(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> AudioLanguageIdentification:
         """
-        Audio Language Identification is a process that involves analyzing an audio
-recording to determine the language being spoken.
+                Audio Language Identification is a process that involves analyzing an audio
+        recording to determine the language being spoken.
         """
         return AudioLanguageIdentification(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def video_label_detection(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> VideoLabelDetection:
         """
-        Identifies and tags objects, scenes, or activities within a video. Useful for
-content indexing and recommendation systems.
+                Identifies and tags objects, scenes, or activities within a video. Useful for
+        content indexing and recommendation systems.
         """
         return VideoLabelDetection(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def topic_classification(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> TopicClassification:
         """
-        Assigns categories or topics to a piece of text based on its content,
-facilitating content organization and retrieval.
+                Assigns categories or topics to a piece of text based on its content,
+        facilitating content organization and retrieval.
         """
         return TopicClassification(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
-    def referenceless_text_generation_metric_default(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> ReferencelessTextGenerationMetricDefault:
+    def referenceless_text_generation_metric_default(
+        self, asset_id: Union[str, asset.Asset], *args, **kwargs
+    ) -> ReferencelessTextGenerationMetricDefault:
         """
-        The Referenceless Text Generation Metric Default is a function designed to
-evaluate the quality of generated text without relying on reference texts for
-comparison.
+                The Referenceless Text Generation Metric Default is a function designed to
+        evaluate the quality of generated text without relying on reference texts for
+        comparison.
         """
         return ReferencelessTextGenerationMetricDefault(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def image_content_moderation(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> ImageContentModeration:
         """
-        Detects and filters out inappropriate or harmful images, essential for
-platforms with user-generated visual content.
+                Detects and filters out inappropriate or harmful images, essential for
+        platforms with user-generated visual content.
         """
         return ImageContentModeration(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def asr_age_classification(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> AsrAgeClassification:
         """
-        The ASR Age Classification function is designed to analyze audio recordings of
-speech to determine the speaker's age group by leveraging automatic speech
-recognition (ASR) technology and machine learning algorithms.
+                The ASR Age Classification function is designed to analyze audio recordings of
+        speech to determine the speaker's age group by leveraging automatic speech
+        recognition (ASR) technology and machine learning algorithms.
         """
         return AsrAgeClassification(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def asr_gender_classification(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> AsrGenderClassification:
         """
-        The ASR Gender Classification function analyzes audio recordings to determine
-and classify the speaker's gender based on their voice characteristics.
+                The ASR Gender Classification function analyzes audio recordings to determine
+        and classify the speaker's gender based on their voice characteristics.
         """
         return AsrGenderClassification(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def base_model(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> BaseModel:
         """
-        The Base-Model function serves as a foundational framework designed to provide
-essential features and capabilities upon which more specialized or advanced
-models can be built and customized.
+                The Base-Model function serves as a foundational framework designed to provide
+        essential features and capabilities upon which more specialized or advanced
+        models can be built and customized.
         """
         return BaseModel(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def language_identification_audio(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> LanguageIdentificationAudio:
         """
-        The Language Identification Audio function analyzes audio input to determine
-and identify the language being spoken.
+                The Language Identification Audio function analyzes audio input to determine
+        and identify the language being spoken.
         """
         return LanguageIdentificationAudio(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
-    def multi_class_image_classification(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> MultiClassImageClassification:
+    def multi_class_image_classification(
+        self, asset_id: Union[str, asset.Asset], *args, **kwargs
+    ) -> MultiClassImageClassification:
         """
-        Multi Class Image Classification is a machine learning task where an algorithm
-is trained to categorize images into one of several predefined classes or
-categories based on their visual content.
+                Multi Class Image Classification is a machine learning task where an algorithm
+        is trained to categorize images into one of several predefined classes or
+        categories based on their visual content.
         """
         return MultiClassImageClassification(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def semantic_segmentation(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> SemanticSegmentation:
         """
-        Semantic segmentation is a computer vision process that involves classifying
-each pixel in an image into a predefined category, effectively partitioning the
-image into meaningful segments based on the objects or regions they represent.
+                Semantic segmentation is a computer vision process that involves classifying
+        each pixel in an image into a predefined category, effectively partitioning the
+        image into meaningful segments based on the objects or regions they represent.
         """
         return SemanticSegmentation(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def instance_segmentation(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> InstanceSegmentation:
         """
-        Instance segmentation is a computer vision task that involves detecting and
-delineating each distinct object within an image, assigning a unique label and
-precise boundary to every individual instance of objects, even if they belong
-to the same category.
+                Instance segmentation is a computer vision task that involves detecting and
+        delineating each distinct object within an image, assigning a unique label and
+        precise boundary to every individual instance of objects, even if they belong
+        to the same category.
         """
         return InstanceSegmentation(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def emotion_detection(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> EmotionDetection:
         """
-        Identifies human emotions from text or audio, enhancing user experience in
-chatbots or customer feedback analysis.
+                Identifies human emotions from text or audio, enhancing user experience in
+        chatbots or customer feedback analysis.
         """
         return EmotionDetection(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def text_spam_detection(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> TextSpamDetection:
         """
-        Identifies and filters out unwanted or irrelevant text content, ideal for
-moderating user-generated content or ensuring quality in communication
-platforms.
+                Identifies and filters out unwanted or irrelevant text content, ideal for
+        moderating user-generated content or ensuring quality in communication
+        platforms.
         """
         return TextSpamDetection(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def text_denormalization(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> TextDenormalization:
         """
-        Converts standardized or normalized text into its original, often more
-readable, form. Useful in natural language generation tasks.
+                Converts standardized or normalized text into its original, often more
+        readable, form. Useful in natural language generation tasks.
         """
         return TextDenormalization(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
-    def referenceless_audio_generation_metric(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> ReferencelessAudioGenerationMetric:
+    def referenceless_audio_generation_metric(
+        self, asset_id: Union[str, asset.Asset], *args, **kwargs
+    ) -> ReferencelessAudioGenerationMetric:
         """
-        The Referenceless Audio Generation Metric is a tool designed to evaluate the
-quality of generated audio content without the need for a reference or original
-audio sample for comparison.
+                The Referenceless Audio Generation Metric is a tool designed to evaluate the
+        quality of generated audio content without the need for a reference or original
+        audio sample for comparison.
         """
         return ReferencelessAudioGenerationMetric(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def audio_forced_alignment(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> AudioForcedAlignment:
         """
-        Synchronizes phonetic and phonological text with the corresponding segments in
-an audio file. Useful in linguistic research and detailed transcription tasks.
+                Synchronizes phonetic and phonological text with the corresponding segments in
+        an audio file. Useful in linguistic research and detailed transcription tasks.
         """
         return AudioForcedAlignment(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def video_forced_alignment(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> VideoForcedAlignment:
         """
-        Aligns the transcription of spoken content in a video with its corresponding
-timecodes, facilitating subtitle creation.
+                Aligns the transcription of spoken content in a video with its corresponding
+        timecodes, facilitating subtitle creation.
         """
         return VideoForcedAlignment(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def classification_metric(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> ClassificationMetric:
         """
-        A Classification Metric is a quantitative measure used to evaluate the quality
-and effectiveness of classification models.
+                A Classification Metric is a quantitative measure used to evaluate the quality
+        and effectiveness of classification models.
         """
         return ClassificationMetric(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def auto_mask_generation(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> AutoMaskGeneration:
         """
-        Auto-mask generation refers to the automated process of creating masks in image
-processing or computer vision, typically for segmentation tasks. A mask is a
-binary or multi-class image that labels different parts of an image, usually
-separating the foreground (objects of interest) from the background, or
-identifying specific object classes in an image.
+                Auto-mask generation refers to the automated process of creating masks in image
+        processing or computer vision, typically for segmentation tasks. A mask is a
+        binary or multi-class image that labels different parts of an image, usually
+        separating the foreground (objects of interest) from the background, or
+        identifying specific object classes in an image.
         """
         return AutoMaskGeneration(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def text_embedding(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> TextEmbedding:
         """
-        Text embedding is a process that converts text into numerical vectors,
-capturing the semantic meaning and contextual relationships of words or
-phrases, enabling machines to understand and analyze natural language more
-effectively.
+                Text embedding is a process that converts text into numerical vectors,
+        capturing the semantic meaning and contextual relationships of words or
+        phrases, enabling machines to understand and analyze natural language more
+        effectively.
         """
         return TextEmbedding(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def fact_checking(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> FactChecking:
         """
-        Fact Checking is the process of verifying the accuracy and truthfulness of
-information, statements, or claims by cross-referencing with reliable sources
-and evidence.
+                Fact Checking is the process of verifying the accuracy and truthfulness of
+        information, statements, or claims by cross-referencing with reliable sources
+        and evidence.
         """
         return FactChecking(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def text_to_audio(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> TextToAudio:
         """
-        The Text to Audio function converts written text into spoken words, allowing
-users to listen to the content instead of reading it.
+                The Text to Audio function converts written text into spoken words, allowing
+        users to listen to the content instead of reading it.
         """
         return TextToAudio(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def fill_text_mask(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> FillTextMask:
         """
-        Completes missing parts of a text based on the context, ideal for content
-generation or data augmentation tasks.
+                Completes missing parts of a text based on the context, ideal for content
+        generation or data augmentation tasks.
         """
         return FillTextMask(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def voice_cloning(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> VoiceCloning:
         """
-        Replicates a person's voice based on a sample, allowing for the generation of
-speech in that person's tone and style. Used cautiously due to ethical
-considerations.
+                Replicates a person's voice based on a sample, allowing for the generation of
+        speech in that person's tone and style. Used cautiously due to ethical
+        considerations.
         """
         return VoiceCloning(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def diacritization(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> Diacritization:
         """
-        Adds diacritical marks to text, essential for languages where meaning can
-change based on diacritics.
+                Adds diacritical marks to text, essential for languages where meaning can
+        change based on diacritics.
         """
         return Diacritization(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def speech_translation(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> SpeechTranslation:
         """
-        Speech Translation is a technology that converts spoken language in real-time
-from one language to another, enabling seamless communication between speakers
-of different languages.
+                Speech Translation is a technology that converts spoken language in real-time
+        from one language to another, enabling seamless communication between speakers
+        of different languages.
         """
         return SpeechTranslation(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def speech_synthesis(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> SpeechSynthesis:
         """
-        Generates human-like speech from written text. Ideal for text-to-speech
-applications, audiobooks, and voice assistants.
+                Generates human-like speech from written text. Ideal for text-to-speech
+        applications, audiobooks, and voice assistants.
         """
         return SpeechSynthesis(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def text_content_moderation(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> TextContentModeration:
         """
-        Scans and identifies potentially harmful, offensive, or inappropriate textual
-content, ensuring safer user environments.
+                Scans and identifies potentially harmful, offensive, or inappropriate textual
+        content, ensuring safer user environments.
         """
         return TextContentModeration(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def subtitling_translation(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> SubtitlingTranslation:
         """
-        Converts the text of subtitles from one language to another, ensuring context
-and cultural nuances are maintained. Essential for global content distribution.
+                Converts the text of subtitles from one language to another, ensuring context
+        and cultural nuances are maintained. Essential for global content distribution.
         """
         return SubtitlingTranslation(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def audio_transcript_analysis(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> AudioTranscriptAnalysis:
         """
-        Analyzes transcribed audio data for insights, patterns, or specific information
-extraction.
+                Analyzes transcribed audio data for insights, patterns, or specific information
+        extraction.
         """
         return AudioTranscriptAnalysis(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def text_generation(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> TextGeneration:
         """
-        Creates coherent and contextually relevant textual content based on prompts or
-certain parameters. Useful for chatbots, content creation, and data
-augmentation.
+                Creates coherent and contextually relevant textual content based on prompts or
+        certain parameters. Useful for chatbots, content creation, and data
+        augmentation.
         """
         return TextGeneration(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def text_normalization(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> TextNormalization:
         """
-        Converts unstructured or non-standard textual data into a more readable and
-uniform format, dealing with abbreviations, numerals, and other non-standard
-words.
+                Converts unstructured or non-standard textual data into a more readable and
+        uniform format, dealing with abbreviations, numerals, and other non-standard
+        words.
         """
         return TextNormalization(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def voice_activity_detection(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> VoiceActivityDetection:
         """
-        Determines when a person is speaking in an audio clip. It's an essential
-preprocessing step for other audio-related tasks.
+                Determines when a person is speaking in an audio clip. It's an essential
+        preprocessing step for other audio-related tasks.
         """
         return VoiceActivityDetection(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def video_understanding(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> VideoUnderstanding:
         """
-        Video Understanding is the process of analyzing and interpreting video content
-to extract meaningful information, such as identifying objects, actions,
-events, and contextual relationships within the footage.
+                Video Understanding is the process of analyzing and interpreting video content
+        to extract meaningful information, such as identifying objects, actions,
+        events, and contextual relationships within the footage.
         """
         return VideoUnderstanding(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def translation(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> Translation:
         """
-        Converts text from one language to another while maintaining the original
-message's essence and context. Crucial for global communication.
+                Converts text from one language to another while maintaining the original
+        message's essence and context. Crucial for global communication.
         """
         return Translation(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def speech_recognition(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> SpeechRecognition:
         """
-        Converts spoken language into written text. Useful for transcription services,
-voice assistants, and applications requiring voice-to-text capabilities.
+                Converts spoken language into written text. Useful for transcription services,
+        voice assistants, and applications requiring voice-to-text capabilities.
         """
         return SpeechRecognition(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def subtitling(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> Subtitling:
         """
-        Generates accurate subtitles for videos, enhancing accessibility for diverse
-audiences.
+                Generates accurate subtitles for videos, enhancing accessibility for diverse
+        audiences.
         """
         return Subtitling(*args, asset_id=asset_id, pipeline=self, **kwargs)
-
