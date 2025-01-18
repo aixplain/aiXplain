@@ -96,3 +96,18 @@ def test_get_pipeline_error_response():
             PipelineFactory.get(pipeline_id=pipeline_id)
 
         assert "Pipeline GET Error: Failed to retrieve pipeline test-pipeline-id. Status Code: 404" in str(excinfo.value)
+
+
+def test_deploy_pipeline():
+    with requests_mock.Mocker() as mock:
+        pipeline_id = "test-pipeline-id"
+        url = urljoin(config.BACKEND_URL, f"sdk/pipelines/{pipeline_id}")
+        headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+
+        mock.put(url, headers=headers, json={"status": "SUCCESS", "id": pipeline_id})
+
+        pipeline = Pipeline(id=pipeline_id, api_key=config.TEAM_API_KEY, name="Test Pipeline", url=config.BACKEND_URL)
+        pipeline.deploy()
+
+        assert pipeline.id == pipeline_id
+        assert pipeline.status.value == "onboarded"

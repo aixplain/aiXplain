@@ -32,7 +32,7 @@ class Asset:
         id: Text,
         name: Text,
         description: Text,
-        supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
+        supplier: Union[Dict, Text, Supplier, int] = Supplier.AIXPLAIN,
         version: Text = "1.0",
         license: Optional[License] = None,
         privacy: Privacy = Privacy.PRIVATE,
@@ -65,7 +65,7 @@ class Asset:
                 if self.supplier is None:
                     self.supplier = supplier
         except Exception:
-            self.supplier = str(supplier)
+            self.supplier = Supplier.AIXPLAIN
         self.version = version
         self.license = license
         self.privacy = privacy

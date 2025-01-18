@@ -2,9 +2,12 @@
 __pycache__/
 *.py[cod]
 *$py.class
+.aixplain_cache/
 
+setup_env_ahmet.sh
 # C extensions
 *.so
+*.ipynb
 
 # Distribution / packaging
 .Python

@@ -94,6 +94,53 @@ def test_end2end(run_input_map, delete_agents_and_team_agents):
     agent.delete()
 
 
+def test_python_interpreter_tool(delete_agents_and_team_agents):
+    assert delete_agents_and_team_agents
+    tool = AgentFactory.create_python_interpreter_tool()
+    assert tool is not None
+    assert tool.name == "Python Interpreter"
+    assert tool.description == ""
+
+    agent = AgentFactory.create(
+        name="Python Developer",
+        description="A Python developer agent. If you get an error from a tool, try to fix it.",
+        tools=[tool],
+    )
+    assert agent is not None
+    response = agent.run("Solve the equation $\\frac{v^2}{2} + 7v - 16 = 0$ to find the value of $v$.")
+    assert response is not None
+    assert response["completed"] is True
+    assert response["status"].lower() == "success"
+    assert len(response["data"]["intermediate_steps"]) > 0
+    intermediate_step = response["data"]["intermediate_steps"][0]
+    assert len(intermediate_step["tool_steps"]) > 0
+    assert intermediate_step["tool_steps"][0]["tool"] == "Custom Code Tool"
+    agent.delete()
+
+
+def test_custom_code_tool(delete_agents_and_team_agents):
+    assert delete_agents_and_team_agents
+    tool = AgentFactory.create_custom_python_code_tool(
+        description="Add two numbers",
+        code='def main(aaa: int, bbb: int) -> int:\n    """Add two numbers"""\n    return aaa + bbb',
+    )
+    assert tool is not None
+    assert tool.description == "Add two numbers"
+    assert tool.code == 'def main(aaa: int, bbb: int) -> int:\n    """Add two numbers"""\n    return aaa + bbb'
+    agent = AgentFactory.create(
+        name="Add Numbers Agent",
+        description="Add two numbers. Do not directly answer. Use the tool to add the numbers.",
+        tools=[tool],
+    )
+    assert agent is not None
+    response = agent.run("How much is 12342 + 112312? Do not directly answer the question, call the tool.")
+    assert response is not None
+    assert response["completed"] is True
+    assert response["status"].lower() == "success"
+    assert "124654" in response["data"]["output"]
+    agent.delete()
+
+
 def test_list_agents():
     agents = AgentFactory.list()
     assert "results" in agents
@@ -173,7 +220,7 @@ def test_update_tools_of_agent(run_input_map, delete_agents_and_team_agents):
     )
     assert agent is not None
     assert agent.status == AssetStatus.DRAFT
-    assert len(agent.tools) == 0 
+    assert len(agent.tools) == 0
 
     tools = []
     if "model_tools" in run_input_map:
@@ -196,13 +243,13 @@ def test_update_tools_of_agent(run_input_map, delete_agents_and_team_agents):
     agent.update()
 
     agent = AgentFactory.get(agent.id)
-    assert len(agent.tools) == len(tools)  
+    assert len(agent.tools) == len(tools)
 
     removed_tool = agent.tools.pop()
     agent.update()
 
     agent = AgentFactory.get(agent.id)
-    assert len(agent.tools) == len(tools) - 1 
-    assert removed_tool not in agent.tools 
+    assert len(agent.tools) == len(tools) - 1
+    assert removed_tool not in agent.tools
 
     agent.delete()

@@ -70,7 +70,7 @@ class TeamAgent(Model):
         version: Optional[Text] = None,
         cost: Optional[Dict] = None,
         use_mentalist_and_inspector: bool = True,
-        status: AssetStatus = AssetStatus.ONBOARDING,
+        status: AssetStatus = AssetStatus.DRAFT,
         **additional_info,
     ) -> None:
         """Create a FineTune with the necessary information.
@@ -97,7 +97,7 @@ class TeamAgent(Model):
             try:
                 status = AssetStatus(status)
             except Exception:
-                status = AssetStatus.ONBOARDING
+                status = AssetStatus.DRAFT
         self.status = status
 
     def run(
@@ -286,8 +286,9 @@ class TeamAgent(Model):
             "llmId": self.llm_id,
             "supervisorId": self.llm_id,
             "plannerId": self.llm_id if self.use_mentalist_and_inspector else None,
-            "supplier": self.supplier,
+            "supplier": self.supplier.value["code"] if isinstance(self.supplier, Supplier) else self.supplier,
             "version": self.version,
+            "status": self.status.value,
         }
 
     def validate(self) -> None:
@@ -310,6 +311,17 @@ class TeamAgent(Model):
 
     def update(self) -> None:
         """Update the Team Agent."""
+        import warnings
+        import inspect
+        # Get the current call stack
+        stack = inspect.stack()
+        if len(stack) > 2 and stack[1].function != 'save':
+            warnings.warn(
+                "update() is deprecated and will be removed in a future version. "
+                "Please use save() instead.",
+                DeprecationWarning,
+                stacklevel=2
+            )
         from aixplain.factories.team_agent_factory.utils import build_team_agent
 
         self.validate()
@@ -331,6 +343,10 @@ class TeamAgent(Model):
         else:
             error_msg = f"Team Agent Update Error (HTTP {r.status_code}): {resp}"
             raise Exception(error_msg)
+
+    def save(self) -> None:
+        """Save the Team Agent."""
+        self.update()
 
     def deploy(self) -> None:
         """Deploy the Team Agent."""

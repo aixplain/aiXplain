@@ -2,6 +2,7 @@ import json
 import logging
 from aixplain.modules.model import Model
 from aixplain.modules.model.llm_model import LLM
+from aixplain.modules.model.index_model import IndexModel
 from aixplain.modules.model.utility_model import UtilityModel, UtilityModelInput
 from aixplain.enums import DataType, Function, Language, OwnershipType, Supplier, SortBy, SortOrder
 from aixplain.utils import config
@@ -29,6 +30,10 @@ def create_model_from_response(response: Dict) -> Model:
         for param in response["params"]:
             if "language" in param["name"]:
                 parameters[param["name"]] = [w["value"] for w in param["values"]]
+            else:
+                values = [w["value"] for w in param["defaultValues"]]
+                if len(values) > 0:
+                    parameters[param["name"]] = values
 
     function_id = response["function"]["id"]
     function = Function(function_id)
@@ -43,6 +48,8 @@ def create_model_from_response(response: Dict) -> Model:
         f = [p for p in response.get("params", []) if p["name"] == "temperature"]
         if len(f) > 0 and len(f[0].get("defaultValues", [])) > 0:
             temperature = float(f[0]["defaultValues"][0]["value"])
+    elif function == Function.SEARCH:
+        ModelClass = IndexModel
     elif function == Function.UTILITIES:
         ModelClass = UtilityModel
         inputs = [

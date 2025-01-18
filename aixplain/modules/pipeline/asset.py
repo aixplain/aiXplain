@@ -25,6 +25,7 @@ import time
 import json
 import os
 import logging
+from aixplain.enums.asset_status import AssetStatus
 from aixplain.modules.asset import Asset
 from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
@@ -45,6 +46,9 @@ class Pipeline(Asset):
         **additional_info: Any additional Pipeline info to be saved
     """
 
+    VERSION_3_0 = "3.0"
+    VERSION_2_0 = "2.0"
+
     def __init__(
         self,
         id: Text,
@@ -53,6 +57,7 @@ class Pipeline(Asset):
         url: Text = config.BACKEND_URL,
         supplier: Text = "aiXplain",
         version: Text = "1.0",
+        status: AssetStatus = AssetStatus.DRAFT,
         **additional_info,
     ) -> None:
         """Create a Pipeline with the necessary information
@@ -64,6 +69,7 @@ class Pipeline(Asset):
             url (Text, optional): running URL of platform. Defaults to config.BACKEND_URL.
             supplier (Text, optional): Pipeline supplier. Defaults to "aiXplain".
             version (Text, optional): version of the pipeline. Defaults to "1.0".
+            status (AssetStatus, optional): Pipeline status. Defaults to AssetStatus.DRAFT.
             **additional_info: Any additional Pipeline info to be saved
         """
         if not name:
@@ -72,6 +78,12 @@ class Pipeline(Asset):
         super().__init__(id, name, "", supplier, version)
         self.api_key = api_key
         self.url = f"{url}/assets/pipeline/execution/run"
+        if isinstance(status, str):
+            try:
+                status = AssetStatus(status)
+            except Exception:
+                status = AssetStatus.DRAFT
+        self.status = status
         self.additional_info = additional_info
 
     def __polling(
@@ -100,7 +112,9 @@ class Pipeline(Asset):
         while not completed and (end - start) < timeout:
             try:
                 response_body = self.poll(poll_url, name=name)
-                logging.debug(f"Polling for Pipeline: Status of polling for {name} : {response_body}")
+                logging.debug(
+                    f"Polling for Pipeline: Status of polling for {name} : {response_body}"
+                )
                 completed = response_body["completed"]
 
                 end = time.time()
@@ -112,9 +126,13 @@ class Pipeline(Asset):
                 logging.error(f"Polling for Pipeline: polling for {name} : Continue")
         if response_body and response_body["status"] == "SUCCESS":
             try:
-                logging.debug(f"Polling for Pipeline: Final status of polling for {name} : SUCCESS - {response_body}")
+                logging.debug(
+                    f"Polling for Pipeline: Final status of polling for {name} : SUCCESS - {response_body}"
+                )
             except Exception:
-                logging.error(f"Polling for Pipeline: Final status of polling for {name} : ERROR - {response_body}")
+                logging.error(
+                    f"Polling for Pipeline: Final status of polling for {name} : ERROR - {response_body}"
+                )
         else:
             logging.error(
                 f"Polling for Pipeline: Final status of polling for {name} : No response in {timeout} seconds - {response_body}"
@@ -144,10 +162,43 @@ class Pipeline(Asset):
                     resp["data"] = json.loads(resp["data"])["response"]
                 except Exception:
                     resp = r.json()
-            logging.info(f"Single Poll for Pipeline: Status of polling for {name} : {resp}")
+            logging.info(
+                f"Single Poll for Pipeline: Status of polling for {name} : {resp}"
+            )
         except Exception:
             resp = {"status": "FAILED"}
         return resp
+
+    def _should_fallback_to_v2(self, response: Dict, version: str) -> bool:
+        """Determine if the pipeline should fallback to version 2.0 based on the response.
+
+        Args:
+            response (Dict): The response from the pipeline call.
+            version (str): The version of the pipeline being used.
+
+        Returns:
+            bool: True if fallback is needed, False otherwise.
+        """
+        # If the version is not 3.0, no fallback is needed
+        if version != self.VERSION_3_0:
+            return False
+
+        should_fallback = False
+        if "status" not in response or response["status"] == "FAILED":
+            should_fallback = True
+        elif response["status"] == "SUCCESS" and (
+            "data" not in response or not response["data"]
+        ):
+            should_fallback = True
+        # Check for conditions that require a fallback
+
+        if should_fallback:
+            logging.warning(
+                f"Pipeline Run Error: Failed to run pipeline {self.id} with version {version}. "
+                f"Trying with version {self.VERSION_2_0}."
+            )
+
+        return should_fallback
 
     def run(
         self,
@@ -157,6 +208,7 @@ class Pipeline(Asset):
         timeout: float = 20000.0,
         wait_time: float = 1.0,
         batch_mode: bool = True,
+        version: str = None,
         **kwargs,
     ) -> Dict:
         """Runs a pipeline call.
@@ -173,13 +225,22 @@ class Pipeline(Asset):
         Returns:
             Dict: parsed output from pipeline
         """
+        version = version or self.VERSION_3_0
         start = time.time()
         try:
-            response = self.run_async(data, data_asset=data_asset, name=name, batch_mode=batch_mode, **kwargs)
+            response = self.run_async(
+                data,
+                data_asset=data_asset,
+                name=name,
+                batch_mode=batch_mode,
+                **kwargs,
+            )
+
             if response["status"] == "FAILED":
                 end = time.time()
                 response["elapsed_time"] = end - start
                 return response
+
             poll_url = response["url"]
             end = time.time()
             response = self.__polling(poll_url, name=name, timeout=timeout, wait_time=wait_time)
@@ -193,6 +254,7 @@ class Pipeline(Asset):
                 "status": "FAILED",
                 "error": error_message,
                 "elapsed_time": end - start,
+                "version": version,
             }
 
     def __prepare_payload(
@@ -232,7 +294,10 @@ class Pipeline(Asset):
                 try:
                     payload = json.loads(data)
                     if isinstance(payload, dict) is False:
-                        if isinstance(payload, int) is True or isinstance(payload, float) is True:
+                        if (
+                            isinstance(payload, int) is True
+                            or isinstance(payload, float) is True
+                        ):
                             payload = str(payload)
                         payload = {"data": payload}
                 except Exception:
@@ -270,7 +335,9 @@ class Pipeline(Asset):
                         asset_payload["dataAsset"]["dataset_id"] = dasset.id
 
                         source_data_list = [
-                            dfield for dfield in dasset.source_data if dasset.source_data[dfield].id == data[node_label]
+                            dfield
+                            for dfield in dasset.source_data
+                            if dasset.source_data[dfield].id == data[node_label]
                         ]
 
                         if len(source_data_list) > 0:
@@ -309,6 +376,7 @@ class Pipeline(Asset):
         data_asset: Optional[Union[Text, Dict]] = None,
         name: Text = "pipeline_process",
         batch_mode: bool = True,
+        version: str = None,
         **kwargs,
     ) -> Dict:
         """Runs asynchronously a pipeline call.
@@ -323,6 +391,7 @@ class Pipeline(Asset):
         Returns:
             Dict: polling URL in response
         """
+        version = version or self.VERSION_3_0
         headers = {
             "x-api-key": self.api_key,
             "Content-Type": "application/json",
@@ -330,6 +399,7 @@ class Pipeline(Asset):
 
         payload = self.__prepare_payload(data=data, data_asset=data_asset)
         payload["batchmode"] = batch_mode
+        payload["version"] = version
         payload.update(kwargs)
         payload = json.dumps(payload)
         call_url = f"{self.url}/{self.id}"
@@ -340,7 +410,9 @@ class Pipeline(Asset):
         try:
             if 200 <= r.status_code < 300:
                 resp = r.json()
-                logging.info(f"Result of request for {name}  - {r.status_code} - {resp}")
+                logging.info(
+                    f"Result of request for {name}  - {r.status_code} - {resp}"
+                )
                 poll_url = resp["url"]
                 response = {"status": "IN_PROGRESS", "url": poll_url}
             else:
@@ -356,15 +428,14 @@ class Pipeline(Asset):
                     error = "Validation-related error: Please ensure all required fields are provided and correctly formatted."
                 else:
                     status_code = str(r.status_code)
-                    error = (
-                        f"Status {status_code}: Unspecified error: An unspecified error occurred while processing your request."
-                    )
+                    error = f"Status {status_code}: Unspecified error: An unspecified error occurred while processing your request."
                 response = {"status": "FAILED", "error_message": error}
                 logging.error(f"Error in request for {name} - {r.status_code}: {error}")
         except Exception:
             response = {"status": "FAILED"}
             if resp is not None:
                 response["error"] = resp
+
         return response
 
     def update(
@@ -384,6 +455,17 @@ class Pipeline(Asset):
         Raises:
             Exception: Make sure the pipeline to be save is in a JSON file.
         """
+        import warnings
+        import inspect
+
+        # Get the current call stack
+        stack = inspect.stack()
+        if len(stack) > 2 and stack[1].function != "save":
+            warnings.warn(
+                "update() is deprecated and will be removed in a future version. " "Please use save() instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
         try:
             if isinstance(pipeline, str) is True:
                 _, ext = os.path.splitext(pipeline)
@@ -395,7 +477,9 @@ class Pipeline(Asset):
 
             for i, node in enumerate(pipeline["nodes"]):
                 if "functionType" in node:
-                    pipeline["nodes"][i]["functionType"] = pipeline["nodes"][i]["functionType"].lower()
+                    pipeline["nodes"][i]["functionType"] = pipeline["nodes"][i][
+                        "functionType"
+                    ].lower()
             # prepare payload
             status = "draft"
             if save_as_asset is True:
@@ -413,7 +497,9 @@ class Pipeline(Asset):
                 "Authorization": f"Token {api_key}",
                 "Content-Type": "application/json",
             }
-            logging.info(f"Start service for PUT Update Pipeline - {url} - {headers} - {json.dumps(payload)}")
+            logging.info(
+                f"Start service for PUT Update Pipeline - {url} - {headers} - {json.dumps(payload)}"
+            )
             r = _request_with_retry("put", url, headers=headers, json=payload)
             response = r.json()
             logging.info(f"Pipeline {response['id']} Updated.")
@@ -437,10 +523,16 @@ class Pipeline(Asset):
             logging.error(message)
             raise Exception(f"{message}")
 
-    def save(self, save_as_asset: bool = False, api_key: Optional[Text] = None):
-        """Save Pipeline
+    def save(
+        self,
+        pipeline: Optional[Union[Text, Dict]] = None,
+        save_as_asset: bool = False,
+        api_key: Optional[Text] = None,
+    ):
+        """Update and Save Pipeline
 
         Args:
+            pipeline (Optional[Union[Text, Dict]]): Pipeline as a Python dictionary or in a JSON file
             save_as_asset (bool, optional): Save as asset (True) or draft (False). Defaults to False.
             api_key (Optional[Text], optional): Team API Key to create the Pipeline. Defaults to None.
 
@@ -448,11 +540,23 @@ class Pipeline(Asset):
             Exception: Make sure the pipeline to be save is in a JSON file.
         """
         try:
-            pipeline = self.to_dict()
+            if pipeline is None:
+                pipeline = self.to_dict()
+            else:
+                if isinstance(pipeline, str) is True:
+                    _, ext = os.path.splitext(pipeline)
+                    assert (
+                        os.path.exists(pipeline) and ext == ".json"
+                    ), "Pipeline Update Error: Make sure the pipeline to be saved is in a JSON file."
+                    with open(pipeline) as f:
+                        pipeline = json.load(f)
+                self.update(pipeline=pipeline, save_as_asset=save_as_asset, api_key=api_key)
 
             for i, node in enumerate(pipeline["nodes"]):
                 if "functionType" in node:
-                    pipeline["nodes"][i]["functionType"] = pipeline["nodes"][i]["functionType"].lower()
+                    pipeline["nodes"][i]["functionType"] = pipeline["nodes"][i][
+                        "functionType"
+                    ].lower()
             # prepare payload
             status = "draft"
             if save_as_asset is True:
@@ -463,21 +567,25 @@ class Pipeline(Asset):
                 "architecture": pipeline,
             }
 
-            if self.id != "":
-                method = "put"
-                url = urljoin(config.BACKEND_URL, f"sdk/pipelines/{self.id}")
-            else:
-                method = "post"
-                url = urljoin(config.BACKEND_URL, "sdk/pipelines")
+            url = urljoin(config.BACKEND_URL, "sdk/pipelines")
             api_key = api_key if api_key is not None else config.TEAM_API_KEY
             headers = {
                 "Authorization": f"Token {api_key}",
                 "Content-Type": "application/json",
             }
             logging.info(f"Start service for Save Pipeline - {url} - {headers} - {json.dumps(payload)}")
-            r = _request_with_retry(method, url, headers=headers, json=payload)
+            r = _request_with_retry("post", url, headers=headers, json=payload)
             response = r.json()
             self.id = response["id"]
             logging.info(f"Pipeline {response['id']} Saved.")
         except Exception as e:
             raise Exception(e)
+
+    def deploy(self, api_key: Optional[Text] = None) -> None:
+        """Deploy the Pipeline."""
+        assert self.status == "draft", "Pipeline Deployment Error: Pipeline must be in draft status."
+        assert self.status != "onboarded", "Pipeline Deployment Error: Pipeline must be onboarded."
+
+        pipeline = self.to_dict()
+        self.update(pipeline=pipeline, save_as_asset=True, api_key=api_key, name=self.name)
+        self.status = AssetStatus.ONBOARDED

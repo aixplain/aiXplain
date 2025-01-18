@@ -36,6 +36,8 @@ from aixplain.modules.agent.output_format import OutputFormat
 from aixplain.modules.agent.tool import Tool
 from aixplain.modules.agent.tool.model_tool import ModelTool
 from aixplain.modules.agent.tool.pipeline_tool import PipelineTool
+from aixplain.modules.agent.tool.python_interpreter_tool import PythonInterpreterTool
+from aixplain.modules.agent.tool.custom_python_code_tool import CustomPythonCodeTool
 from aixplain.modules.agent.utils import process_variables
 from typing import Dict, List, Text, Optional, Union
 from urllib.parse import urljoin
@@ -90,6 +92,8 @@ class Agent(Model):
         super().__init__(id, name, description, api_key, supplier, version, cost=cost)
         self.additional_info = additional_info
         self.tools = tools
+        for i, _ in enumerate(tools):
+            self.tools[i].api_key = api_key
         self.llm_id = llm_id
         if isinstance(status, str):
             try:
@@ -108,7 +112,7 @@ class Agent(Model):
         ), "Agent Creation Error: Agent name must not contain special characters."
 
         try:
-            llm = ModelFactory.get(self.llm_id)
+            llm = ModelFactory.get(self.llm_id, api_key=self.api_key)
             assert llm.function == Function.TEXT_GENERATION, "Large Language Model must be a text generation model."
         except Exception:
             raise Exception(f"Large Language Model with ID '{self.llm_id}' not found.")
@@ -308,6 +312,17 @@ class Agent(Model):
 
     def update(self) -> None:
         """Update agent."""
+        import warnings
+        import inspect
+
+        # Get the current call stack
+        stack = inspect.stack()
+        if len(stack) > 2 and stack[1].function != "save":
+            warnings.warn(
+                "update() is deprecated and will be removed in a future version. " "Please use save() instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
         from aixplain.factories.agent_factory.utils import build_agent
 
         self.validate()
@@ -329,6 +344,10 @@ class Agent(Model):
         else:
             error_msg = f"Agent Update Error (HTTP {r.status_code}): {resp}"
             raise Exception(error_msg)
+
+    def save(self) -> None:
+        """Save the Agent."""
+        self.update()
 
     def deploy(self) -> None:
         assert self.status == AssetStatus.DRAFT, "Agent must be in draft status to be deployed."
