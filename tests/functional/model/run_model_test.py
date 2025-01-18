@@ -59,6 +59,9 @@ def test_index_model():
     from aixplain.modules.model.record import Record
     from aixplain.factories import IndexFactory
 
+    for index in IndexFactory.list()["results"]:
+        index.delete()
+
     index_model = IndexFactory.create(name=str(uuid4()), description=str(uuid4()))
     index_model.upsert([Record(value="Hello, world!", value_type="text", uri="", id="1", attributes={})])
     response = index_model.search("Hello")
