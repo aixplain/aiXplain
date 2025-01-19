@@ -2,6 +2,9 @@ import os
 from typing import TypeVar
 from .client import AixplainClient
 from .api_key import APIKey
+from .data import Data
+from .dataset import Dataset
+from .corpus import Corpus
 from .model import Model
 from .pipeline import Pipeline
 from .agent import Agent
@@ -13,6 +16,9 @@ from .wallet import Wallet
 from . import enums
 
 APIKeyType = TypeVar("APIKeyType", bound=APIKey)
+DataType = TypeVar("DataType", bound=Data)
+DatasetType = TypeVar("DatasetType", bound=Dataset)
+CorpusType = TypeVar("CorpusType", bound=Corpus)
 ModelType = TypeVar("ModelType", bound=Model)
 PipelineType = TypeVar("PipelineType", bound=Pipeline)
 AgentType = TypeVar("AgentType", bound=Agent)
@@ -47,6 +53,9 @@ class Aixplain:
     # 2. We can access enums and resources without having to import them.
 
     APIKey: APIKeyType = None
+    Data: DataType = None
+    Dataset: DatasetType = None
+    Corpus: CorpusType = None
     Model: ModelType = None
     Pipeline: PipelineType = None
     Agent: AgentType = None
@@ -137,6 +146,9 @@ class Aixplain:
         conditions when using class level attributes
         """
         self.APIKey = type("APIKey", (APIKey,), {"context": self})
+        self.Data = type("Data", (Data,), {"context": self})
+        self.Dataset = type("Dataset", (Dataset,), {"context": self})
+        self.Corpus = type("Corpus", (Corpus,), {"context": self})
         self.Model = type("Model", (Model,), {"context": self})
         self.Pipeline = type("Pipeline", (Pipeline,), {"context": self})
         self.Agent = type("Agent", (Agent,), {"context": self})
