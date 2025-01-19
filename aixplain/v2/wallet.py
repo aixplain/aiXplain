@@ -1,0 +1,19 @@
+from .resource import (
+    BaseResource,
+    GetResourceMixin,
+    BareGetParams,
+)
+from typing_extensions import Unpack
+
+
+class Wallet(
+    BaseResource,
+    GetResourceMixin[BareGetParams, "Wallet"],
+):
+    @classmethod
+    def get(cls, **kwargs: Unpack[BareGetParams]) -> "Wallet":
+        from aixplain.factories import WalletFactory
+        import aixplain.utils.config as config
+
+        api_key = kwargs.get("api_key", config.TEAM_API_KEY)
+        return WalletFactory.get(api_key=api_key)

@@ -1,4 +1,4 @@
-from typing import List, Union, TYPE_CHECKING
+from typing import List, Union
 from typing_extensions import Unpack
 
 from aixplain.v2.resource import (
@@ -7,10 +7,9 @@ from aixplain.v2.resource import (
     BareCreateParams,
 )
 
-if TYPE_CHECKING:
-    from aixplain.modules.dataset import Dataset
-    from aixplain.modules.model import Model
-    from aixplain.modules.finetune import Hyperparameters
+from aixplain.modules.dataset import Dataset
+from aixplain.modules.model import Model
+from aixplain.modules.finetune import Hyperparameters
 
 
 class FinetuneCreateParams(BareCreateParams):
