@@ -1,6 +1,7 @@
 import os
 from typing import TypeVar
 from .client import AixplainClient
+from .api_key import APIKey
 from .model import Model
 from .pipeline import Pipeline
 from .agent import Agent
@@ -11,7 +12,7 @@ from .script import Script
 from .wallet import Wallet
 from . import enums
 
-
+APIKeyType = TypeVar("APIKeyType", bound=APIKey)
 ModelType = TypeVar("ModelType", bound=Model)
 PipelineType = TypeVar("PipelineType", bound=Pipeline)
 AgentType = TypeVar("AgentType", bound=Agent)
@@ -45,6 +46,7 @@ class Aixplain:
     # 1. We can benefit from the type checking and autocompletion of the IDE.
     # 2. We can access enums and resources without having to import them.
 
+    APIKey: APIKeyType = None
     Model: ModelType = None
     Pipeline: PipelineType = None
     Agent: AgentType = None
@@ -134,6 +136,7 @@ class Aixplain:
         We're dynamically creating the classes here to avoid potential race
         conditions when using class level attributes
         """
+        self.APIKey = type("APIKey", (APIKey,), {"context": self})
         self.Model = type("Model", (Model,), {"context": self})
         self.Pipeline = type("Pipeline", (Pipeline,), {"context": self})
         self.Agent = type("Agent", (Agent,), {"context": self})
