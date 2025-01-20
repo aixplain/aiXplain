@@ -159,13 +159,14 @@ def parse_code_decorated(code: Union[Text, Callable]) -> Tuple[Text, List, Text]
     from aixplain.factories.file_factory import FileFactory
 
 
-    inputs, description = [], ""
+    inputs, description, name = [], "", ""
     str_code = ""
 
     if isinstance(code, Callable) and hasattr(code, '_is_utility_tool'):
         str_code = inspect.getsource(code)
         # Use the information directly from the decorated callable
         description = getattr(code, '_tool_description', None) if hasattr(code, '_tool_description') else code.__doc__.strip() if code.__doc__ else ""
+        name = getattr(code, '_tool_name', None) if hasattr(code, '_tool_name') else ""
         if hasattr(code, '_tool_inputs') and code._tool_inputs != []:
             inputs = getattr(code, '_tool_inputs', [])
         else:
@@ -185,6 +186,7 @@ def parse_code_decorated(code: Union[Text, Callable]) -> Tuple[Text, List, Text]
         # Handle case of non-decorated callable
         str_code = inspect.getsource(code)
         description = code.__doc__.strip() if code.__doc__ else ""
+        name = code.__name__
         #Try to infer parameters
         params_match = re.search(r"def\s+\w+\s*\((.*?)\):",str_code)
         parameters = params_match.group(1).split(",") if params_match else []
@@ -245,7 +247,7 @@ def parse_code_decorated(code: Union[Text, Callable]) -> Tuple[Text, List, Text]
         
         description_match = re.search(r"description\s*=\s*[\"'](.*?)[\"']", decorator_params)
         description = description_match.group(1) if description_match else ""
-
+        
 
         # Extract parameters
         parameters = [param.strip() for param in parameters_str.split(",")] if parameters_str else []
@@ -305,4 +307,4 @@ def parse_code_decorated(code: Union[Text, Callable]) -> Tuple[Text, List, Text]
     code = FileFactory.upload(local_path=local_path, is_temp=True)
     os.remove(local_path)
 
-    return code, inputs, description
+    return code, inputs, description, name
