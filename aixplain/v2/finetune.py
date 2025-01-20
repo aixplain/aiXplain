@@ -27,10 +27,10 @@ class FinetuneCreateParams(BareCreateParams):
     """
 
     name: str
-    dataset_list: List[Dataset]
-    model: Union[Model, str]
+    dataset_list: List["Dataset"]
+    model: Union["Model", str]
     prompt_template: str
-    hyperparameters: Hyperparameters
+    hyperparameters: "Hyperparameters"
     train_percentage: float
     dev_percentage: float
 

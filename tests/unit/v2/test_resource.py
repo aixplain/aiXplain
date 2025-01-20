@@ -58,7 +58,9 @@ def test_base_resource_action():
 
 def test_base_resource_list():
 
-    class FixtureResource(BaseResource, ListResourceMixin[BareListParams]):
+    class FixtureResource(
+        BaseResource, ListResourceMixin[BareListParams, "FixtureResource"]
+    ):
         RESOURCE_PATH = "demo"
         context = Mock(
             client=Mock(
@@ -116,7 +118,9 @@ def test_base_resource_list():
 
 
 def test_base_resource_get():
-    class FixtureResource(BaseResource, GetResourceMixin[BareGetParams]):
+    class FixtureResource(
+        BaseResource, GetResourceMixin[BareGetParams, "FixtureResource"]
+    ):
         RESOURCE_PATH = "demo"
         context = Mock(
             client=Mock(get_obj=Mock(return_value={"id": "123", "name": "test"}))
