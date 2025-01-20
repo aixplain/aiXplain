@@ -90,11 +90,12 @@ def parse_code(code: Union[Text, Callable]) -> Tuple[Text, List, Text]:
     from aixplain.factories.file_factory import FileFactory
     from uuid import uuid4
 
-    inputs, description = [], ""
+    inputs, description, name = [], "", ""
 
     if isinstance(code, Callable):
         str_code = inspect.getsource(code)
         description = code.__doc__.strip() if code.__doc__ else ""
+        name = code.__name__
     elif os.path.exists(code):
         with open(code, "r") as f:
             str_code = f.read()
@@ -102,10 +103,27 @@ def parse_code(code: Union[Text, Callable]) -> Tuple[Text, List, Text]:
         str_code = requests.get(code).text
     else:
         str_code = code
+        
     # assert str_code has a main function
     if "def main(" not in str_code:
         raise Exception("Utility Model Error: Code must have a main function")
-
+    # get name of the function
+    name = re.search(r"def\s+([a-zA-Z_][a-zA-Z0-9_]*)\(", str_code).group(1)
+    
+    if not description:
+        # if the description is not provided, get the docstring of the function from string code after defining the function
+        # the docstring is the first line after the function definition
+        regex = r'def\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\((.*?)\).*?(?:"""(.*?)"""|\'\'\'(.*?)\'\'\'|\#\s*(.*?)(?:\n|$)|$)'
+        match = re.search(regex, str_code, re.DOTALL)
+        if match:
+            function_name, params, triple_double_quote_doc, triple_single_quote_doc, single_line_comment = match.groups()
+            # Use the first non-None docstring found
+            description = (triple_double_quote_doc or 
+                        triple_single_quote_doc or 
+                        single_line_comment or "").strip()
+        else:
+            raise Exception("Utility Model Error:If the function is not decorated with @utility_tool, the description must be provided in the docstring")
+    # get parameters of the function
     f = re.findall(r"main\((.*?(?:\s*=\s*[^,)]+)?(?:\s*,\s*.*?(?:\s*=\s*[^,)]+)?)*)\)", str_code)
     parameters = f[0].split(",") if len(f) > 0 else []
 
@@ -140,9 +158,7 @@ def parse_code(code: Union[Text, Callable]) -> Tuple[Text, List, Text]:
         f.write(str_code)
     code = FileFactory.upload(local_path=local_path, is_temp=True)
     os.remove(local_path)
-    return code, inputs, description
-
-
+    return code, inputs, description, name
 
 
 def parse_code_decorated(code: Union[Text, Callable]) -> Tuple[Text, List, Text]:
@@ -218,7 +234,7 @@ def parse_code_decorated(code: Union[Text, Callable]) -> Tuple[Text, List, Text]
                 )
             else:
                 raise Exception(f"Utility Model Error: Unsupported input type: {input_type}")
-    else:
+    elif isinstance(code, str):
         # if code is string do the parsing and parameter extraction as before
         if os.path.exists(code):
             with open(code, "r") as f:
@@ -229,13 +245,13 @@ def parse_code_decorated(code: Union[Text, Callable]) -> Tuple[Text, List, Text]
             str_code = code
 
         # New regex with capture groups
-        regex = r"@utility_tool\s*\((.*?)\)\s*def\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\((.*?)\)\s*->\s*[a-zA-Z_][a-zA-Z0-9_]*\s*:"
-
+        # regex = r"@utility_tool\s*\((.*?)\)\s*def\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\((.*?)\)\s*->\s*[a-zA-Z_][a-zA-Z0-9_]*\s*:"
+        regex = r"@utility_tool\s*\((.*?)\)\s*def\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\((.*?)\)"
         matches = re.findall(regex, str_code, re.DOTALL)
 
         if not matches:
-            raise Exception("Utility Model Error: Code must be decorated with @utility_tool and have a function defined.")
-
+            return parse_code(code)
+        
         tool_match = matches[0] #we expect only 1 match
         decorator_params = tool_match[0]
         function_name = tool_match[1]
@@ -247,8 +263,6 @@ def parse_code_decorated(code: Union[Text, Callable]) -> Tuple[Text, List, Text]
         
         description_match = re.search(r"description\s*=\s*[\"'](.*?)[\"']", decorator_params)
         description = description_match.group(1) if description_match else ""
-        
-
         # Extract parameters
         parameters = [param.strip() for param in parameters_str.split(",")] if parameters_str else []
 

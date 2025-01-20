@@ -45,10 +45,37 @@ class UtilityModelInput:
 
 # Tool decorator
 def utility_tool(name: Text, description: Text, inputs: List[UtilityModelInput] = None, output_examples: Text = "", status = AssetStatus.DRAFT):
+    """Decorator for utility tool functions
+    
+    Args:
+        name: Name of the utility tool
+        description: Description of what the utility tool does
+        inputs: List of input parameters, must be UtilityModelInput objects
+        output_examples: Examples of expected outputs
+        status: Asset status
+        
+    Raises:
+        ValueError: If name or description is empty
+        TypeError: If inputs contains non-UtilityModelInput objects
+    """
+    # Validate name and description
+    if not name or not name.strip():
+        raise ValueError("Utility tool name cannot be empty")
+    if not description or not description.strip():
+        raise ValueError("Utility tool description cannot be empty")
+    
+    # Validate inputs
+    if inputs is not None:
+        if not isinstance(inputs, list):
+            raise TypeError("Inputs must be a list of UtilityModelInput objects")
+        for input_param in inputs:
+            if not isinstance(input_param, UtilityModelInput):
+                raise TypeError(f"Invalid input parameter: {input_param}. All inputs must be UtilityModelInput objects")
+        
     def decorator(func):
-        func._is_utility_tool = True # Mark function as utility tool
-        func._tool_name = name
-        func._tool_description = description
+        func._is_utility_tool = True  # Mark function as utility tool
+        func._tool_name = name.strip()
+        func._tool_description = description.strip()
         func._tool_inputs = inputs if inputs else []
         func._tool_output_examples = output_examples
         func._tool_status = status
