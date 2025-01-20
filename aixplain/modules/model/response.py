@@ -22,6 +22,10 @@ class ModelResponse:
         self.data = data
         self.details = details
         self.completed = completed
+        if error_message == "":
+            error_message = kwargs.get("error", "")
+            if "supplierError" in kwargs:
+                error_message = f"{error_message} - {kwargs.get('supplierError', '')}"
         self.error_message = error_message
         self.used_credits = used_credits
         self.run_time = run_time

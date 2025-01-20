@@ -95,9 +95,13 @@ def test_update_utility_model():
                         "utility_model_test",
                     ),
                 ):
-                    mock.put(urljoin(config.BACKEND_URL, "sdk/utilities/123"), json={"id": "123"})
+                    # Mock both the model existence check and update endpoints
+                    model_id = "123"
+                    mock.get(urljoin(config.BACKEND_URL, f"sdk/models/{model_id}"), status_code=200)
+                    mock.put(urljoin(config.BACKEND_URL, f"sdk/utilities/{model_id}"), json={"id": model_id})
+
                     utility_model = UtilityModel(
-                        id="123",
+                        id=model_id,
                         name="utility_model_test",
                         description="utility_model_test",
                         code="def main(originCode: str)",
@@ -114,7 +118,7 @@ def test_update_utility_model():
                         utility_model.description = "updated_description"
                         utility_model.update()
 
-                    assert utility_model.id == "123"
+                    assert utility_model.id == model_id
                     assert utility_model.description == "updated_description"
 
 
@@ -130,9 +134,13 @@ def test_save_utility_model():
                         "utility_model_test",
                     ),
                 ):
-                    mock.put(urljoin(config.BACKEND_URL, "sdk/utilities/123"), json={"id": "123"})
+                    # Mock both the model existence check and the update endpoint
+                    model_id = "123"
+                    mock.get(urljoin(config.BACKEND_URL, f"sdk/models/{model_id}"), status_code=200)
+                    mock.put(urljoin(config.BACKEND_URL, f"sdk/utilities/{model_id}"), json={"id": model_id})
+
                     utility_model = UtilityModel(
-                        id="123",
+                        id=model_id,
                         name="utility_model_test",
                         description="utility_model_test",
                         code="def main(originCode: str)",
@@ -141,6 +149,7 @@ def test_save_utility_model():
                         function=Function.UTILITIES,
                         api_key=config.TEAM_API_KEY,
                     )
+
                     import warnings
 
                     # it should not trigger any warning
@@ -151,7 +160,7 @@ def test_save_utility_model():
 
                         assert len(w) == 0
 
-                    assert utility_model.id == "123"
+                    assert utility_model.id == model_id
                     assert utility_model.description == "updated_description"
 
 
@@ -223,3 +232,114 @@ def test_parse_code():
     with pytest.raises(Exception) as exc_info:
         parse_code(code)
     assert str(exc_info.value) == "Utility Model Error: Unsupported input type: list"
+
+
+def test_validate_new_model():
+    """Test validation for a new model"""
+    with patch("aixplain.factories.file_factory.FileFactory.to_link", return_value="def main(originCode: str)"):
+        with patch("aixplain.factories.file_factory.FileFactory.upload", return_value="def main(originCode: str)"):
+            # Test with valid inputs
+            utility_model = UtilityModel(
+                id="",  # Empty ID for new model
+                name="utility_model_test",
+                description="utility_model_test",
+                code="def main(originCode: str):\n    return originCode",
+                output_examples="output_description",
+                function=Function.UTILITIES,
+                api_key=config.TEAM_API_KEY,
+            )
+            utility_model.validate()  # Should not raise any exception
+
+            # Test with empty name
+            utility_model.name = ""
+            with pytest.raises(Exception) as exc_info:
+                utility_model.validate()
+            assert str(exc_info.value) == "Name is required"
+
+            # Test with empty description
+            utility_model.name = "utility_model_test"
+            utility_model.description = ""
+            with pytest.raises(Exception) as exc_info:
+                utility_model.validate()
+            assert str(exc_info.value) == "Description is required"
+
+            # Test with empty code
+            utility_model.description = "utility_model_test"
+            utility_model.code = ""
+            with pytest.raises(Exception) as exc_info:
+                utility_model.validate()
+
+            assert str(exc_info.value) == "Utility Model Error: Code must have a main function"
+
+
+def test_validate_existing_model():
+    """Test validation for an existing model with S3 code"""
+    with requests_mock.Mocker() as mock:
+        model_id = "123"
+        # Mock the model existence check
+        url = urljoin(config.BACKEND_URL, f"sdk/models/{model_id}")
+        mock.get(url, status_code=200)
+
+        utility_model = UtilityModel(
+            id=model_id,
+            name="utility_model_test",
+            description="utility_model_test",
+            code="s3://bucket/path/to/code",
+            output_examples="output_description",
+            function=Function.UTILITIES,
+            api_key=config.TEAM_API_KEY,
+        )
+        utility_model.validate()  # Should not raise any exception
+
+
+def test_model_exists_success():
+    """Test _model_exists when model exists"""
+    with requests_mock.Mocker() as mock:
+        model_id = "123"
+        url = urljoin(config.BACKEND_URL, f"sdk/models/{model_id}")
+        mock.get(url, status_code=200)
+
+        utility_model = UtilityModel(
+            id=model_id,
+            name="utility_model_test",
+            description="utility_model_test",
+            code="def main(originCode: str)",
+            output_examples="output_description",
+            function=Function.UTILITIES,
+            api_key=config.TEAM_API_KEY,
+        )
+        assert utility_model._model_exists() is True
+
+
+def test_model_exists_failure():
+    """Test _model_exists when model doesn't exist"""
+    with requests_mock.Mocker() as mock:
+        model_id = "123"
+        url = urljoin(config.BACKEND_URL, f"sdk/models/{model_id}")
+        mock.get(url, status_code=404)
+
+        utility_model = UtilityModel(
+            id=model_id,
+            name="utility_model_test",
+            description="utility_model_test",
+            code="def main(originCode: str)",
+            output_examples="output_description",
+            function=Function.UTILITIES,
+            api_key=config.TEAM_API_KEY,
+        )
+        with pytest.raises(Exception):
+            utility_model._model_exists()
+
+
+def test_model_exists_empty_id():
+    """Test _model_exists with empty ID"""
+    utility_model = UtilityModel(
+        id="",  # Empty ID
+        name="utility_model_test",
+        description="utility_model_test",
+        code="def main(originCode: str)",
+        output_examples="output_description",
+        function=Function.UTILITIES,
+        api_key=config.TEAM_API_KEY,
+    )
+    assert utility_model._model_exists() is False
