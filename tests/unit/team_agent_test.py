@@ -2,7 +2,7 @@ import pytest
 import requests_mock
 from aixplain.enums.asset_status import AssetStatus
 from aixplain.modules import Agent, TeamAgent
-from aixplain.modules.agent import ModelTool
+from aixplain.modules.agent.tool.model_tool import ModelTool
 from aixplain.factories import TeamAgentFactory
 from aixplain.factories import AgentFactory
 from aixplain.utils import config

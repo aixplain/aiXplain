@@ -79,9 +79,7 @@ class AssetNode(Node[TI, TO], LinkableMixin, OutputableMixin):
 
         if self.function:
             if self.asset.function.value != self.function:
-                raise ValueError(
-                    f"Function {self.function} is not supported by asset {self.asset_id}"
-                )
+                raise ValueError(f"Function {self.function} is not supported by asset {self.asset_id}")
 
             # Despite function field has been set, we should still dynamically
             # populate parameters for Utility functions
@@ -238,12 +236,7 @@ class Output(Node[OutputInputs, OutputOutputs]):
     inputs_class: Type[TI] = OutputInputs
     outputs_class: Type[TO] = OutputOutputs
 
-    def __init__(
-        self,
-        data_types: Optional[List[DataType]] = None,
-        pipeline: "DesignerPipeline" = None,
-        **kwargs
-    ):
+    def __init__(self, data_types: Optional[List[DataType]] = None, pipeline: "DesignerPipeline" = None, **kwargs):
         super().__init__(pipeline=pipeline, **kwargs)
         self.data_types = data_types or []
 
@@ -304,14 +297,7 @@ class Route(Serializable):
     operation: Operation
     type: RouteType
 
-    def __init__(
-        self,
-        value: DataType,
-        path: List[Union[Node, int]],
-        operation: Operation,
-        type: RouteType,
-        **kwargs
-    ):
+    def __init__(self, value: DataType, path: List[Union[Node, int]], operation: Operation, type: RouteType, **kwargs):
         """
         Post init method to convert the nodes to node numbers if they are
         nodes.
@@ -326,9 +312,7 @@ class Route(Serializable):
         #     raise ValueError("Path is not valid, should be a list of nodes")
 
         # convert nodes to node numbers if they are nodes
-        self.path = [
-            node.number if isinstance(node, Node) else node for node in self.path
-        ]
+        self.path = [node.number if isinstance(node, Node) else node for node in self.path]
 
     def serialize(self) -> dict:
         return {
@@ -366,9 +350,7 @@ class Router(Node[RouterInputs, RouterOutputs], LinkableMixin):
     inputs_class: Type[TI] = RouterInputs
     outputs_class: Type[TO] = RouterOutputs
 
-    def __init__(
-        self, routes: List[Route], pipeline: "DesignerPipeline" = None, **kwargs
-    ):
+    def __init__(self, routes: List[Route], pipeline: "DesignerPipeline" = None, **kwargs):
         super().__init__(pipeline=pipeline, **kwargs)
         self.routes = routes
 
@@ -407,9 +389,7 @@ class Decision(Node[DecisionInputs, DecisionOutputs], LinkableMixin):
     inputs_class: Type[TI] = DecisionInputs
     outputs_class: Type[TO] = DecisionOutputs
 
-    def __init__(
-        self, routes: List[Route], pipeline: "DesignerPipeline" = None, **kwargs
-    ):
+    def __init__(self, routes: List[Route], pipeline: "DesignerPipeline" = None, **kwargs):
         super().__init__(pipeline=pipeline, **kwargs)
         self.routes = routes
 

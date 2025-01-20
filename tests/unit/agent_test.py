@@ -5,11 +5,16 @@ from aixplain.modules import Agent
 from aixplain.modules.agent import OutputFormat
 from aixplain.utils import config
 from aixplain.factories import AgentFactory
-from aixplain.modules.agent import PipelineTool, ModelTool, PythonInterpreterTool, CustomPythonCodeTool
+from aixplain.modules.agent.tool.pipeline_tool import PipelineTool
+from aixplain.modules.agent.tool.model_tool import ModelTool
+from aixplain.modules.agent.tool.python_interpreter_tool import PythonInterpreterTool
+from aixplain.modules.agent.tool.custom_python_code_tool import CustomPythonCodeTool
 from aixplain.modules.agent.utils import process_variables
 from urllib.parse import urljoin
 from unittest.mock import patch
 from aixplain.enums.function import Function
+from aixplain.modules.agent.agent_response import AgentResponse
+from aixplain.modules.agent.agent_response_data import AgentResponseData
 
 
 def test_fail_no_data_query():
@@ -33,6 +38,7 @@ def test_fail_query_as_text_when_content_not_empty():
             data={"query": "https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.wav"},
             content=["https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.wav"],
         )
+
     assert str(exc_info.value) == "When providing 'content', query must be text."
 
 
@@ -67,7 +73,9 @@ def test_success_query_content():
         mock.post(url, headers=headers, json=ref_response)
 
         response = agent.run_async(data={"query": "Translate the text: {{input1}}"}, content={"input1": "Hello, how are you?"})
+    assert isinstance(response, AgentResponse)
     assert response["status"] == ref_response["status"]
+    assert isinstance(response.data, AgentResponseData)
     assert response["url"] == ref_response["data"]
 
 
@@ -97,7 +105,10 @@ def test_invalid_llm_id():
 def test_invalid_agent_name():
     with pytest.raises(Exception) as exc_info:
         AgentFactory.create(name="[Test]", description="", tools=[], llm_id="6646261c6eb563165658bbb1")
-    assert str(exc_info.value) == "Agent Creation Error: Agent name contains invalid characters. Only alphanumeric characters, spaces, hyphens, and brackets are allowed."
+    assert (
+        str(exc_info.value)
+        == "Agent Creation Error: Agent name contains invalid characters. Only alphanumeric characters, spaces, hyphens, and brackets are allowed."
+    )
 
 
 def test_create_agent():
@@ -349,6 +360,7 @@ def test_run_success():
         response = agent.run_async(
             data={"query": "Hello, how are you?"}, max_iterations=10, output_format=OutputFormat.MARKDOWN
         )
+    assert isinstance(response, AgentResponse)
     assert response["status"] == "IN_PROGRESS"
     assert response["url"] == ref_response["data"]
 

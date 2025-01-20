@@ -34,10 +34,9 @@ from aixplain.enums.storage_type import StorageType
 from aixplain.modules.model import Model
 from aixplain.modules.agent.output_format import OutputFormat
 from aixplain.modules.agent.tool import Tool
-from aixplain.modules.agent.tool.model_tool import ModelTool
-from aixplain.modules.agent.tool.pipeline_tool import PipelineTool
-from aixplain.modules.agent.tool.python_interpreter_tool import PythonInterpreterTool
-from aixplain.modules.agent.tool.custom_python_code_tool import CustomPythonCodeTool
+from aixplain.modules.agent.agent_response import AgentResponse
+from aixplain.modules.agent.agent_response_data import AgentResponseData
+from aixplain.enums import ResponseStatus
 from aixplain.modules.agent.utils import process_variables
 from typing import Dict, List, Text, Optional, Union
 from urllib.parse import urljoin
@@ -134,7 +133,7 @@ class Agent(Model):
         max_tokens: int = 2048,
         max_iterations: int = 10,
         output_format: OutputFormat = OutputFormat.TEXT,
-    ) -> Dict:
+    ) -> AgentResponse:
         """Runs an agent call.
 
         Args:
@@ -167,19 +166,42 @@ class Agent(Model):
                 max_iterations=max_iterations,
                 output_format=output_format,
             )
-            if response["status"] == "FAILED":
+            if response["status"] == ResponseStatus.FAILED:
                 end = time.time()
                 response["elapsed_time"] = end - start
                 return response
             poll_url = response["url"]
             end = time.time()
-            response = self.sync_poll(poll_url, name=name, timeout=timeout, wait_time=wait_time)
-            return response
+            result = self.sync_poll(poll_url, name=name, timeout=timeout, wait_time=wait_time)
+            result_data = result.data
+            return AgentResponse(
+                status=ResponseStatus.SUCCESS,
+                completed=True,
+                data=AgentResponseData(
+                    input=result_data.get("input"),
+                    output=result_data.get("output"),
+                    session_id=result_data.get("session_id"),
+                    intermediate_steps=result_data.get("intermediateSteps"),
+                    execution_stats=result_data.get("executionStats"),
+                ),
+                used_credits=result_data.get("usedCredits", 0.0),
+                run_time=result_data.get("runTime", end - start),
+            )
         except Exception as e:
             msg = f"Error in request for {name} - {traceback.format_exc()}"
             logging.error(f"Agent Run: Error in running for {name}: {e}")
             end = time.time()
-            return {"status": "FAILED", "error": msg, "elapsed_time": end - start}
+            return AgentResponse(
+                status=ResponseStatus.FAILED,
+                data=AgentResponseData(
+                    input=data,
+                    output=None,
+                    session_id=result_data.get("session_id"),
+                    intermediate_steps=result_data.get("intermediateSteps"),
+                    execution_stats=result_data.get("executionStats"),
+                ),
+                error=msg,
+            )
 
     def run_async(
         self,
@@ -193,7 +215,7 @@ class Agent(Model):
         max_tokens: int = 2048,
         max_iterations: int = 10,
         output_format: OutputFormat = OutputFormat.TEXT,
-    ) -> Dict:
+    ) -> AgentResponse:
         """Runs asynchronously an agent call.
 
         Args:
@@ -261,23 +283,24 @@ class Agent(Model):
         payload.update(parameters)
         payload = json.dumps(payload)
 
-        r = _request_with_retry("post", self.url, headers=headers, data=payload)
-        logging.info(f"Agent Run Async: Start service for {name} - {self.url} - {payload} - {headers}")
-
-        resp = None
         try:
+            r = _request_with_retry("post", self.url, headers=headers, data=payload)
             resp = r.json()
-            logging.info(f"Result of request for {name} - {r.status_code} - {resp}")
-
-            poll_url = resp["data"]
-            response = {"status": "IN_PROGRESS", "url": poll_url}
-        except Exception:
-            response = {"status": "FAILED"}
+            poll_url = resp.get("data")
+            return AgentResponse(
+                status=ResponseStatus.IN_PROGRESS,
+                url=poll_url,
+                data=AgentResponseData(input=input_data),
+                run_time=0.0,
+                used_credits=0.0,
+            )
+        except Exception as e:
             msg = f"Error in request for {name} - {traceback.format_exc()}"
-            logging.error(f"Agent Run Async: Error in running for {name}: {resp}")
-            if resp is not None:
-                response["error"] = msg
-        return response
+            logging.error(f"Agent Run Async: Error in running for {name}: {e}")
+            return AgentResponse(
+                status=ResponseStatus.FAILED,
+                error=msg,
+            )
 
     def to_dict(self) -> Dict:
         return {

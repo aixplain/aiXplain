@@ -118,7 +118,7 @@ class UtilityModel(Model):
         """Validate the Utility Model."""
         description = None
         inputs = []
-        # check if the model exists and if the code is strring with s3:// 
+        # check if the model exists and if the code is strring with s3://
         # if not, parse the code and update the description and inputs and do the validation
         # if yes, just do the validation on the description and inputs
         if not (self._model_exists() and str(self.code).startswith("s3://")):
@@ -131,7 +131,7 @@ class UtilityModel(Model):
                 input.validate()
         else:
             logging.info("Utility Model Already Exists, skipping code validation")
-        
+
         assert description is not None or self.description is not None, "Utility Model Error: Model description is required"
         assert self.name and self.name.strip() != "", "Name is required"
         assert self.description and self.description.strip() != "", "Description is required"
@@ -162,14 +162,14 @@ class UtilityModel(Model):
         """Update the Utility Model."""
         import warnings
         import inspect
+
         # Get the current call stack
         stack = inspect.stack()
-        if len(stack) > 2 and stack[1].function != 'save':
+        if len(stack) > 2 and stack[1].function != "save":
             warnings.warn(
-                "update() is deprecated and will be removed in a future version. "
-                "Please use save() instead.",
+                "update() is deprecated and will be removed in a future version. " "Please use save() instead.",
                 DeprecationWarning,
-                stacklevel=2
+                stacklevel=2,
             )
         self.validate()
         url = urljoin(self.backend_url, f"sdk/utilities/{self.id}")

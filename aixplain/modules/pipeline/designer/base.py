@@ -149,17 +149,13 @@ class Link(Serializable):
             to_param = to_param.code
 
         assert from_param in from_node.outputs, (
-            "Invalid from param. "
-            "Make sure all input params are already linked accordingly"
+            "Invalid from param. " "Make sure all input params are already linked accordingly"
         )
 
         fp_instance = from_node.outputs[from_param]
         from .nodes import Decision
 
-        if (
-            isinstance(to_node, Decision)
-            and to_param == to_node.inputs.passthrough.code
-        ):
+        if isinstance(to_node, Decision) and to_param == to_node.inputs.passthrough.code:
             if from_param not in to_node.outputs:
                 to_node.outputs.create_param(
                     from_param,
