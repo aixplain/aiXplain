@@ -31,7 +31,9 @@ def test_fail_query_as_text_when_content_not_empty():
     with pytest.raises(Exception) as exc_info:
         agent.run_async(
             data={"query": "https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.wav"},
-            content=["https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.wav"],
+            content=[
+                "https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.wav",
+            ],
         )
     assert str(exc_info.value) == "When providing 'content', query must be text."
 
@@ -100,8 +102,16 @@ def test_invalid_agent_name():
     assert str(exc_info.value) == "Agent Creation Error: Agent name must not contain special characters."
 
 
-def test_create_agent():
-    from aixplain.enums import Supplier
+@patch("aixplain.factories.model_factory.ModelFactory.get")
+def test_create_agent(mock_model_factory_get):
+    from aixplain.enums import Supplier, Function
+    from aixplain.modules import Model
+
+    # Mock the model factory response
+    mock_model = Model(
+        id="6646261c6eb563165658bbb1", name="Test LLM", description="Test LLM Description", function=Function.TEXT_GENERATION
+    )
+    mock_model_factory_get.return_value = mock_model
 
     with requests_mock.Mocker() as mock:
         with patch(
@@ -211,7 +221,17 @@ def test_to_dict():
     assert agent_json["status"] == "draft"
 
 
-def test_update_success():
+@patch("aixplain.factories.model_factory.ModelFactory.get")
+def test_update_success(mock_model_factory_get):
+    from aixplain.modules import Model
+    from aixplain.enums import Function
+
+    # Mock the model factory response
+    mock_model = Model(
+        id="6646261c6eb563165658bbb1", name="Test LLM", description="Test LLM Description", function=Function.TEXT_GENERATION
+    )
+    mock_model_factory_get.return_value = mock_model
+
     agent = Agent(
         id="123",
         name="Test Agent",
@@ -271,7 +291,17 @@ def test_update_success():
     assert agent.tools[0].function.value == ref_response["assets"][0]["function"]
 
 
-def test_save_success():
+@patch("aixplain.factories.model_factory.ModelFactory.get")
+def test_save_success(mock_model_factory_get):
+    from aixplain.modules import Model
+    from aixplain.enums import Function
+
+    # Mock the model factory response
+    mock_model = Model(
+        id="6646261c6eb563165658bbb1", name="Test LLM", description="Test LLM Description", function=Function.TEXT_GENERATION
+    )
+    mock_model_factory_get.return_value = mock_model
+
     agent = Agent(
         id="123",
         name="Test Agent",
@@ -438,3 +468,206 @@ def test_agent_api_key_in_requests():
         assert mock.last_request.headers["x-api-key"] == custom_api_key
         assert response["status"] == "IN_PROGRESS"
         assert response["url"] == "test_url"
+
+
+@patch("aixplain.modules.agent.tool.model_tool.ModelTool.validate", autospec=True)
+@patch("aixplain.factories.model_factory.ModelFactory.get")
+def test_create_agent_with_model_instance(mock_model_factory_get, mock_validate):
+    from aixplain.enums import Supplier, Function
+    from aixplain.modules import Model
+
+    # Create a Model instance to pass as a tool
+    model_tool = Model(
+        id="model123",
+        name="Test Model",
+        description="Test Model Description",
+        supplier=Supplier.AIXPLAIN,
+        function=Function.TEXT_GENERATION,
+        version="1.0",
+        parameters={"param1": "value1"},
+    )
+
+    # Mock the validate method to return the model instance
+    mock_validate.return_value = model_tool
+
+    # Mock the LLM model factory response
+    llm_model = Model(
+        id="6646261c6eb563165658bbb1", name="Test LLM", description="Test LLM Description", function=Function.TEXT_GENERATION
+    )
+    mock_model_factory_get.return_value = llm_model
+
+    with requests_mock.Mocker() as mock:
+        url = urljoin(config.BACKEND_URL, "sdk/agents")
+        headers = {"x-api-key": config.TEAM_API_KEY, "Content-Type": "application/json"}
+
+        ref_response = {
+            "id": "123",
+            "name": "Test Agent",
+            "description": "Test Agent Description",
+            "teamId": "123",
+            "version": "1.0",
+            "status": "draft",
+            "llmId": "6646261c6eb563165658bbb1",
+            "pricing": {"currency": "USD", "value": 0.0},
+            "assets": [
+                {
+                    "type": "model",
+                    "supplier": "aixplain",
+                    "version": "1.0",
+                    "assetId": "model123",
+                    "function": "text-generation",
+                    "description": "Test Model Description",
+                }
+            ],
+        }
+        mock.post(url, headers=headers, json=ref_response)
+
+        url = urljoin(config.BACKEND_URL, "sdk/models/6646261c6eb563165658bbb1")
+        model_ref_response = {
+            "id": "6646261c6eb563165658bbb1",
+            "name": "Test LLM",
+            "description": "Test LLM Description",
+            "function": {"id": "text-generation"},
+            "supplier": "aixplain",
+            "version": {"id": "1.0"},
+            "status": "onboarded",
+            "pricing": {"currency": "USD", "value": 0.0},
+        }
+        mock.get(url, headers=headers, json=model_ref_response)
+
+        agent = AgentFactory.create(
+            name="Test Agent", description="Test Agent Description", llm_id="6646261c6eb563165658bbb1", tools=[model_tool]
+        )
+
+    # Verify the agent was created correctly
+    assert agent.name == ref_response["name"]
+    assert agent.description == ref_response["description"]
+    assert len(agent.tools) == 1
+
+    # Verify the tool was converted correctly
+    tool = agent.tools[0]
+    assert isinstance(tool, ModelTool)
+    assert tool.model == "model123"
+    assert tool.function == Function.TEXT_GENERATION
+    assert tool.supplier == Supplier.AIXPLAIN
+
+
+@patch("aixplain.modules.agent.tool.model_tool.ModelTool.validate", autospec=True)
+@patch("aixplain.factories.model_factory.ModelFactory.get")
+def test_create_agent_with_mixed_tools(mock_model_factory_get, mock_validate):
+    from aixplain.enums import Supplier, Function
+    from aixplain.modules import Model
+
+    # Create a Model instance for the first tool
+    model_tool = Model(
+        id="model123",
+        name="Test Model",
+        description="Test Model Description",
+        supplier=Supplier.AIXPLAIN,
+        function=Function.TEXT_GENERATION,
+        version="1.0",
+    )
+
+    # Create a Model instance for the second tool
+    openai_model = Model(
+        id="openai-model",
+        name="OpenAI Model",
+        description="Regular Tool",
+        supplier=Supplier.OPENAI,
+        function=Function.TEXT_CLASSIFICATION,
+        version="1.0",
+    )
+
+    # Mock the validate method to return different models based on the model ID
+    def validate_side_effect(self, *args, **kwargs):
+        if self.model == "model123":
+            return model_tool
+        elif self.model == "openai-model":
+            return openai_model
+        return None
+
+    mock_validate.side_effect = validate_side_effect
+
+    # Create a regular ModelTool instance
+    regular_tool = AgentFactory.create_model_tool(
+        function=Function.TEXT_CLASSIFICATION, supplier=Supplier.OPENAI, model="openai-model", description="Regular Tool"
+    )
+
+    # Mock the LLM model factory response
+    llm_model = Model(
+        id="6646261c6eb563165658bbb1", name="Test LLM", description="Test LLM Description", function=Function.TEXT_GENERATION
+    )
+    mock_model_factory_get.return_value = llm_model
+
+    with requests_mock.Mocker() as mock:
+        url = urljoin(config.BACKEND_URL, "sdk/agents")
+        headers = {"x-api-key": config.TEAM_API_KEY, "Content-Type": "application/json"}
+
+        ref_response = {
+            "id": "123",
+            "name": "Test Agent",
+            "description": "Test Agent Description",
+            "teamId": "123",
+            "version": "1.0",
+            "status": "draft",
+            "llmId": "6646261c6eb563165658bbb1",
+            "pricing": {"currency": "USD", "value": 0.0},
+            "assets": [
+                {
+                    "type": "model",
+                    "supplier": "aixplain",
+                    "version": "1.0",
+                    "assetId": "model123",
+                    "function": "text-generation",
+                    "description": "Test Model Description",
+                },
+                {
+                    "type": "model",
+                    "supplier": "openai",
+                    "version": "1.0",
+                    "assetId": "openai-model",
+                    "function": "text-classification",
+                    "description": "Regular Tool",
+                },
+            ],
+        }
+        mock.post(url, headers=headers, json=ref_response)
+
+        url = urljoin(config.BACKEND_URL, "sdk/models/6646261c6eb563165658bbb1")
+        model_ref_response = {
+            "id": "6646261c6eb563165658bbb1",
+            "name": "Test LLM",
+            "description": "Test LLM Description",
+            "function": {"id": "text-generation"},
+            "supplier": "aixplain",
+            "version": {"id": "1.0"},
+            "status": "onboarded",
+            "pricing": {"currency": "USD", "value": 0.0},
+        }
+        mock.get(url, headers=headers, json=model_ref_response)
+
+        agent = AgentFactory.create(
+            name="Test Agent",
+            description="Test Agent Description",
+            llm_id="6646261c6eb563165658bbb1",
+            tools=[model_tool, regular_tool],
+        )
+
+    # Verify the agent was created correctly
+    assert agent.name == ref_response["name"]
+    assert agent.description == ref_response["description"]
+    assert len(agent.tools) == 2
+
+    # Verify the first tool (Model instance converted to ModelTool)
+    tool1 = agent.tools[0]
+    assert isinstance(tool1, ModelTool)
+    assert tool1.model == "model123"
+    assert tool1.function == Function.TEXT_GENERATION
+    assert tool1.supplier == Supplier.AIXPLAIN
+
+    # Verify the second tool (regular ModelTool)
+    tool2 = agent.tools[1]
+    assert isinstance(tool2, ModelTool)
+    assert tool2.model == "openai-model"
+    assert tool2.function == Function.TEXT_CLASSIFICATION
+    assert tool2.supplier == Supplier.OPENAI

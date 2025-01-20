@@ -47,7 +47,7 @@ class AgentFactory:
         name: Text,
         description: Text,
         llm_id: Text = "669a63646eb56306647e1091",
-        tools: List[Tool] = [],
+        tools: List[Union[Tool, Model]] = [],
         api_key: Text = config.TEAM_API_KEY,
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
         version: Optional[Text] = None,
@@ -58,7 +58,7 @@ class AgentFactory:
             name (Text): name of the agent
             description (Text): description of the agent role.
             llm_id (Text, optional): aiXplain ID of the large language model to be used as agent. Defaults to "669a63646eb56306647e1091" (GPT-4o mini).
-            tools (List[Tool], optional): list of tool for the agent. Defaults to [].
+            tools (List[Union[Tool, Model]], optional): list of tool for the agent. Defaults to [].
             api_key (Text, optional): team/user API key. Defaults to config.TEAM_API_KEY.
             supplier (Union[Dict, Text, Supplier, int], optional): owner of the agent. Defaults to "aiXplain".
             version (Optional[Text], optional): version of the agent. Defaults to None.
@@ -79,7 +79,22 @@ class AgentFactory:
 
         payload = {
             "name": name,
-            "assets": [tool.to_dict() for tool in tools],
+            "assets": [
+                tool.to_dict()
+                if isinstance(tool, Tool)
+                else {
+                    "id": tool.id,
+                    "name": tool.name,
+                    "description": tool.description,
+                    "supplier": tool.supplier.value["code"] if isinstance(tool.supplier, Supplier) else tool.supplier,
+                    "parameters": tool.get_parameters() if hasattr(tool, "get_parameters") else None,
+                    "function": tool.function.value if hasattr(tool, "function") and tool.function is not None else None,
+                    "type": "model",
+                    "version": tool.version if hasattr(tool, "version") else None,
+                    "assetId": tool.id,
+                }
+                for tool in tools
+            ],
             "description": description,
             "supplier": supplier,
             "version": version,

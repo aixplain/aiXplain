@@ -48,6 +48,7 @@ def create_model_from_response(response: Dict) -> Model:
         f = [p for p in response.get("params", []) if p["name"] == "temperature"]
         if len(f) > 0 and len(f[0].get("defaultValues", [])) > 0:
             temperature = float(f[0]["defaultValues"][0]["value"])
+        input_params = {param["name"]: param for param in response["params"]}
     elif function == Function.SEARCH:
         ModelClass = IndexModel
     elif function == Function.UTILITIES:

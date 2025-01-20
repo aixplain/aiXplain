@@ -31,6 +31,7 @@ from aixplain.enums.function import Function
 from aixplain.enums.supplier import Supplier
 from aixplain.enums.asset_status import AssetStatus
 from aixplain.enums.storage_type import StorageType
+from aixplain.modules import Asset
 from aixplain.modules.model import Model
 from aixplain.modules.agent.output_format import OutputFormat
 from aixplain.modules.agent.tool import Tool
@@ -51,7 +52,7 @@ class Agent(Model):
     Attributes:
         id (Text): ID of the Agent
         name (Text): Name of the Agent
-        tools (List[Tool]): List of tools that the Agent uses.
+        tools (List[Union[Tool, Model]]): List of tools that the Agent uses.
         description (Text, optional): description of the Agent. Defaults to "".
         llm_id (Text): large language model. Defaults to GPT-4o (6646261c6eb563165658bbb1).
         supplier (Text): Supplier of the Agent.
@@ -66,7 +67,7 @@ class Agent(Model):
         id: Text,
         name: Text,
         description: Text,
-        tools: List[Tool] = [],
+        tools: List[Union[Tool, Model]] = [],
         llm_id: Text = "6646261c6eb563165658bbb1",
         api_key: Optional[Text] = config.TEAM_API_KEY,
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
@@ -81,7 +82,7 @@ class Agent(Model):
             id (Text): ID of the Agent
             name (Text): Name of the Agent
             description (Text): description of the Agent.
-            tools (List[Tool]): List of tools that the Agent uses.
+            tools (List[Union[Tool, Model]]): List of tools that the Agent uses.
             llm_id (Text, optional): large language model. Defaults to GPT-4o (6646261c6eb563165658bbb1).
             supplier (Text): Supplier of the Agent.
             version (Text): Version of the Agent.
@@ -118,7 +119,10 @@ class Agent(Model):
             raise Exception(f"Large Language Model with ID '{self.llm_id}' not found.")
 
         for tool in self.tools:
-            tool.validate()
+            if isinstance(tool, Tool):
+                tool.validate()
+            elif isinstance(tool, Model):
+                assert not isinstance(tool, Agent), "Agent cannot contain another Agent."
 
     def run(
         self,

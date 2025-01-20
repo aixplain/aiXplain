@@ -30,6 +30,7 @@ from aixplain.modules.model.response import ModelResponse
 import pytest
 from unittest.mock import patch
 from aixplain.enums.asset_status import AssetStatus
+from aixplain.modules.model.model_parameters import ModelParameters
 
 
 def test_build_payload():
@@ -499,3 +500,75 @@ def test_model_response():
     assert value == "thiago"
     value = response.get("not_found", "default_value")
     assert value == "default_value"
+
+
+def test_model_parameters_initialization():
+    """Test ModelParameters class initialization and parameter access."""
+    input_params = {"temperature": {"name": "temperature", "required": True}}
+
+    params = ModelParameters(input_params)
+
+    # Test parameter creation
+    assert "temperature" in params.parameters
+    assert params.parameters["temperature"].required
+
+    # Test parameter access via attribute for defined parameter
+    assert params.temperature is None  # Value starts as None
+
+    # Test parameter access via attribute for undefined parameter
+    with pytest.raises(AttributeError) as exc:
+        params.undefined_param
+    assert "Parameter 'undefined_param' is not defined" in str(exc.value)
+
+    # Test setting parameter value
+    params.temperature = 0.7
+    assert params.temperature == 0.7
+
+    # Test setting undefined parameter
+    with pytest.raises(AttributeError) as exc:
+        params.undefined_param = 0.5
+    assert "Parameter 'undefined_param' is not defined" in str(exc.value)
+
+
+def test_model_parameters_to_dict():
+    """Test converting ModelParameters to dictionary format."""
+    input_params = {"temperature": {"name": "temperature", "required": True}}
+
+    params = ModelParameters(input_params)
+    params.temperature = 0.7
+
+    dict_output = params.to_dict()
+    assert dict_output == {"temperature": {"required": True, "value": 0.7}}
+
+
+def test_model_parameters_invalid_parameter():
+    """Test handling of invalid parameter access."""
+    params = ModelParameters({})
+
+    with pytest.raises(AttributeError):
+        params.invalid_param = 123
+
+    with pytest.raises(AttributeError):
+        params.invalid_param
+
+
+def test_model_parameters_string_representation():
+    """Test string representation of ModelParameters."""
+    input_params = {
+        "temperature": {"name": "temperature", "required": True},
+        "max_tokens": {"name": "max_tokens", "required": False},
+    }
+
+    params = ModelParameters(input_params)
+    params.temperature = 0.7
+
+    str_output = str(params)
+    assert "Model Parameters:" in str_output
+    assert "temperature: 0.7 (Required)" in str_output
+    assert "max_tokens: Not set (Optional)" in str_output
+
+
+def test_empty_model_parameters_string():
+    """Test string representation of empty ModelParameters."""
+    params = ModelParameters({})
+    assert str(params) == "No parameters defined"

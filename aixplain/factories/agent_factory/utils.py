@@ -26,7 +26,6 @@ def build_agent(payload: Dict, api_key: Text = config.TEAM_API_KEY) -> Agent:
                     ]:
                         supplier = supplier_
                         break
-
             tool = ModelTool(
                 function=Function(tool.get("function", None)),
                 supplier=supplier,
