@@ -108,8 +108,8 @@ class Agent(Model):
 
         # validate name
         assert (
-            re.match("^[a-zA-Z0-9 ]*$", self.name) is not None
-        ), "Agent Creation Error: Agent name must not contain special characters."
+            re.match(r"^[a-zA-Z0-9 \-\(\)]*$", self.name) is not None
+        ), "Agent Creation Error: Agent name contains invalid characters. Only alphanumeric characters, spaces, hyphens, and brackets are allowed."
 
         try:
             llm = ModelFactory.get(self.llm_id, api_key=self.api_key)
