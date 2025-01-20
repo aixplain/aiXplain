@@ -151,9 +151,7 @@ def populate_specs(functions: list):
 
         # slugify function name by trimming some special chars and
         # transforming it to snake case
-        function_name = (
-            function["id"].replace("-", "_").replace("(", "_").replace(")", "_")
-        )
+        function_name = function["id"].replace("-", "_").replace("(", "_").replace(")", "_")
         base_class = "AssetNode"
         is_segmentor = function["id"] in SEGMENTOR_FUNCTIONS
         is_reconstructor = function["id"] in RECONSTRUCTOR_FUNCTIONS
@@ -161,9 +159,7 @@ def populate_specs(functions: list):
             base_class = "BaseSegmentor"
         elif is_reconstructor:
             base_class = "BaseReconstructor"
-        elif "metric" in function_name.split(
-            "_"
-        ):  # noqa: Advise a better distinguisher please
+        elif "metric" in function_name.split("_"):  # noqa: Advise a better distinguisher please
             base_class = "BaseMetric"
 
         spec = {

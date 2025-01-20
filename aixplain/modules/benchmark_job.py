@@ -1,7 +1,6 @@
 import logging
-from typing import List, Text, Dict, Optional
+from typing import Text, Dict, Optional
 from aixplain.utils import config
-from aixplain.modules import Asset, Dataset, Metric, Model
 from urllib.parse import urljoin
 import pandas as pd
 from pathlib import Path

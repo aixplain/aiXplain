@@ -2,7 +2,7 @@ import pytest
 import requests_mock
 from aixplain.enums.asset_status import AssetStatus
 from aixplain.modules import Agent, TeamAgent
-from aixplain.modules.agent import ModelTool
+from aixplain.modules.agent.tool.model_tool import ModelTool
 from aixplain.factories import TeamAgentFactory
 from aixplain.factories import AgentFactory
 from aixplain.utils import config
@@ -11,7 +11,7 @@ from unittest.mock import patch
 
 
 def test_fail_no_data_query():
-    team_agent = TeamAgent("123", "Test Team Agent")
+    team_agent = TeamAgent("123", "Test Team Agent(-)")
     with pytest.raises(Exception) as exc_info:
         team_agent.run_async()
     assert str(exc_info.value) == "Either 'data' or 'query' must be provided."
@@ -73,7 +73,7 @@ def test_sucess_query_content():
 
 def test_fail_number_agents():
     with pytest.raises(Exception) as exc_info:
-        TeamAgentFactory.create(name="Test Team Agent", agents=[])
+        TeamAgentFactory.create(name="Test Team Agent(-)", agents=[])
 
     assert str(exc_info.value) == "TeamAgent Onboarding Error: At least one agent must be provided."
 
@@ -81,11 +81,11 @@ def test_fail_number_agents():
 def test_to_dict():
     team_agent = TeamAgent(
         id="123",
-        name="Test Team Agent",
+        name="Test Team Agent(-)",
         agents=[
             Agent(
                 id="",
-                name="Test Agent",
+                name="Test Agent(-)",
                 description="Test Agent Description",
                 llm_id="6646261c6eb563165658bbb1",
                 tools=[ModelTool(function="text-generation")],
@@ -98,7 +98,7 @@ def test_to_dict():
 
     team_agent_dict = team_agent.to_dict()
     assert team_agent_dict["id"] == "123"
-    assert team_agent_dict["name"] == "Test Team Agent"
+    assert team_agent_dict["name"] == "Test Team Agent(-)"
     assert team_agent_dict["description"] == "Test Team Agent Description"
     assert team_agent_dict["llmId"] == "6646261c6eb563165658bbb1"
     assert team_agent_dict["supervisorId"] == "6646261c6eb563165658bbb1"
@@ -141,7 +141,7 @@ def test_create_team_agent(mock_model_factory_get):
         url = urljoin(config.BACKEND_URL, "sdk/agents")
         ref_response = {
             "id": "123",
-            "name": "Test Agent",
+            "name": "Test Agent(-)",
             "description": "Test Agent Description",
             "teamId": "123",
             "version": "1.0",
@@ -161,7 +161,7 @@ def test_create_team_agent(mock_model_factory_get):
         mock.post(url, headers=headers, json=ref_response)
 
         agent = AgentFactory.create(
-            name="Test Agent",
+            name="Test Agent(-)",
             description="Test Agent Description",
             llm_id="6646261c6eb563165658bbb1",
             tools=[ModelTool(model="6646261c6eb563165658bbb1")],
@@ -175,7 +175,7 @@ def test_create_team_agent(mock_model_factory_get):
         url = urljoin(config.BACKEND_URL, "sdk/agent-communities")
         team_ref_response = {
             "id": "team_agent_123",
-            "name": "TEST Multi agent",
+            "name": "TEST Multi agent(-)",
             "status": "draft",
             "teamId": 645,
             "description": "TEST Multi agent",
@@ -191,7 +191,7 @@ def test_create_team_agent(mock_model_factory_get):
         mock.post(url, headers=headers, json=team_ref_response)
 
         team_agent = TeamAgentFactory.create(
-            name="TEST Multi agent",
+            name="TEST Multi agent(-)",
             description="TEST Multi agent",
             use_mentalist_and_inspector=True,
             llm_id="6646261c6eb563165658bbb1",
@@ -209,7 +209,7 @@ def test_create_team_agent(mock_model_factory_get):
         url = urljoin(config.BACKEND_URL, f"sdk/agent-communities/{team_agent.id}")
         team_ref_response = {
             "id": "team_agent_123",
-            "name": "TEST Multi agent",
+            "name": "TEST Multi agent(-)",
             "status": "onboarded",
             "teamId": 645,
             "description": "TEST Multi agent",

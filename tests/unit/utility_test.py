@@ -99,7 +99,7 @@ def test_update_utility_model():
                     model_id = "123"
                     mock.get(urljoin(config.BACKEND_URL, f"sdk/models/{model_id}"), status_code=200)
                     mock.put(urljoin(config.BACKEND_URL, f"sdk/utilities/{model_id}"), json={"id": model_id})
-                    
+
                     utility_model = UtilityModel(
                         id=model_id,
                         name="utility_model_test",
@@ -110,13 +110,17 @@ def test_update_utility_model():
                         function=Function.UTILITIES,
                         api_key=config.TEAM_API_KEY,
                     )
-                    
-                    with pytest.warns(DeprecationWarning, match="update\(\) is deprecated and will be removed in a future version. Please use save\(\) instead."):
+
+                    with pytest.warns(
+                        DeprecationWarning,
+                        match="update\(\) is deprecated and will be removed in a future version. Please use save\(\) instead.",
+                    ):
                         utility_model.description = "updated_description"
                         utility_model.update()
 
                     assert utility_model.id == model_id
                     assert utility_model.description == "updated_description"
+
 
 def test_save_utility_model():
     with requests_mock.Mocker() as mock:
@@ -134,7 +138,7 @@ def test_save_utility_model():
                     model_id = "123"
                     mock.get(urljoin(config.BACKEND_URL, f"sdk/models/{model_id}"), status_code=200)
                     mock.put(urljoin(config.BACKEND_URL, f"sdk/utilities/{model_id}"), json={"id": model_id})
-                    
+
                     utility_model = UtilityModel(
                         id=model_id,
                         name="utility_model_test",
@@ -145,16 +149,17 @@ def test_save_utility_model():
                         function=Function.UTILITIES,
                         api_key=config.TEAM_API_KEY,
                     )
-                    
+
                     import warnings
+
                     # it should not trigger any warning
                     with warnings.catch_warnings(record=True) as w:
                         warnings.simplefilter("always")  # Trigger all warnings
                         utility_model.description = "updated_description"
                         utility_model.save()
-                        
+
                         assert len(w) == 0
-                        
+
                     assert utility_model.id == model_id
                     assert utility_model.description == "updated_description"
 
@@ -228,6 +233,7 @@ def test_parse_code():
         parse_code(code)
     assert str(exc_info.value) == "Utility Model Error: Unsupported input type: list"
 
+
 def test_validate_new_model():
     """Test validation for a new model"""
     with patch("aixplain.factories.file_factory.FileFactory.to_link", return_value="def main(originCode: str)"):
@@ -243,7 +249,7 @@ def test_validate_new_model():
                 api_key=config.TEAM_API_KEY,
             )
             utility_model.validate()  # Should not raise any exception
-            
+
             # Test with empty name
             utility_model.name = ""
             with pytest.raises(Exception) as exc_info:
@@ -265,6 +271,7 @@ def test_validate_new_model():
 
             assert str(exc_info.value) == "Utility Model Error: Code must have a main function"
 
+
 def test_validate_existing_model():
     """Test validation for an existing model with S3 code"""
     with requests_mock.Mocker() as mock:
@@ -284,6 +291,7 @@ def test_validate_existing_model():
         )
         utility_model.validate()  # Should not raise any exception
 
+
 def test_model_exists_success():
     """Test _model_exists when model exists"""
     with requests_mock.Mocker() as mock:
@@ -301,6 +309,7 @@ def test_model_exists_success():
             api_key=config.TEAM_API_KEY,
         )
         assert utility_model._model_exists() is True
+
 
 def test_model_exists_failure():
     """Test _model_exists when model doesn't exist"""
@@ -320,6 +329,7 @@ def test_model_exists_failure():
         )
         with pytest.raises(Exception):
             utility_model._model_exists()
+
 
 def test_model_exists_empty_id():
     """Test _model_exists with empty ID"""

@@ -121,9 +121,9 @@ class PipelineFactory:
             url = urljoin(cls.backend_url, f"sdk/pipelines/?pageNumber={page_number}")
 
             headers = {
-                    "Authorization": f"Token {config.TEAM_API_KEY}",
-                    "Content-Type": "application/json",
-                }
+                "Authorization": f"Token {config.TEAM_API_KEY}",
+                "Content-Type": "application/json",
+            }
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()
             logging.info(f"Listing Pipelines: Status of getting Pipelines on Page {page_number}: {resp}")
@@ -172,9 +172,9 @@ class PipelineFactory:
         url = urljoin(cls.backend_url, "sdk/pipelines/paginate")
 
         headers = {
-                "Authorization": f"Token {config.TEAM_API_KEY}",
-                "Content-Type": "application/json",
-            }
+            "Authorization": f"Token {config.TEAM_API_KEY}",
+            "Content-Type": "application/json",
+        }
 
         assert 0 < page_size <= 100, "Pipeline List Error: Page size must be greater than 0 and not exceed 100."
         payload = {

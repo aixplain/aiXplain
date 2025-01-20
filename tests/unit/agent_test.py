@@ -5,15 +5,20 @@ from aixplain.modules import Agent
 from aixplain.modules.agent import OutputFormat
 from aixplain.utils import config
 from aixplain.factories import AgentFactory
-from aixplain.modules.agent import PipelineTool, ModelTool, PythonInterpreterTool, CustomPythonCodeTool
+from aixplain.modules.agent.tool.pipeline_tool import PipelineTool
+from aixplain.modules.agent.tool.model_tool import ModelTool
+from aixplain.modules.agent.tool.python_interpreter_tool import PythonInterpreterTool
+from aixplain.modules.agent.tool.custom_python_code_tool import CustomPythonCodeTool
 from aixplain.modules.agent.utils import process_variables
 from urllib.parse import urljoin
 from unittest.mock import patch
 from aixplain.enums.function import Function
+from aixplain.modules.agent.agent_response import AgentResponse
+from aixplain.modules.agent.agent_response_data import AgentResponseData
 
 
 def test_fail_no_data_query():
-    agent = Agent("123", "Test Agent", "Sample Description")
+    agent = Agent("123", "Test Agent(-)", "Sample Description")
     with pytest.raises(Exception) as exc_info:
         agent.run_async()
     assert str(exc_info.value) == "Either 'data' or 'query' must be provided."
@@ -35,6 +40,7 @@ def test_fail_query_as_text_when_content_not_empty():
                 "https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.wav",
             ],
         )
+
     assert str(exc_info.value) == "When providing 'content', query must be text."
 
 
@@ -61,7 +67,7 @@ def test_fail_key_not_found():
 
 
 def test_success_query_content():
-    agent = Agent("123", "Test Agent", "Sample Description")
+    agent = Agent("123", "Test Agent(-)", "Sample Description")
     with requests_mock.Mocker() as mock:
         url = agent.url
         headers = {"x-api-key": config.TEAM_API_KEY, "Content-Type": "application/json"}
@@ -69,7 +75,9 @@ def test_success_query_content():
         mock.post(url, headers=headers, json=ref_response)
 
         response = agent.run_async(data={"query": "Translate the text: {{input1}}"}, content={"input1": "Hello, how are you?"})
+    assert isinstance(response, AgentResponse)
     assert response["status"] == ref_response["status"]
+    assert isinstance(response.data, AgentResponseData)
     assert response["url"] == ref_response["data"]
 
 
@@ -99,7 +107,10 @@ def test_invalid_llm_id():
 def test_invalid_agent_name():
     with pytest.raises(Exception) as exc_info:
         AgentFactory.create(name="[Test]", description="", tools=[], llm_id="6646261c6eb563165658bbb1")
-    assert str(exc_info.value) == "Agent Creation Error: Agent name must not contain special characters."
+    assert (
+        str(exc_info.value)
+        == "Agent Creation Error: Agent name contains invalid characters. Only alphanumeric characters, spaces, hyphens, and brackets are allowed."
+    )
 
 
 @patch("aixplain.factories.model_factory.ModelFactory.get")
@@ -127,7 +138,7 @@ def test_create_agent(mock_model_factory_get):
 
             ref_response = {
                 "id": "123",
-                "name": "Test Agent",
+                "name": "Test Agent(-)",
                 "description": "Test Agent Description",
                 "teamId": "123",
                 "version": "1.0",
@@ -172,7 +183,7 @@ def test_create_agent(mock_model_factory_get):
             mock.get(url, headers=headers, json=model_ref_response)
 
             agent = AgentFactory.create(
-                name="Test Agent",
+                name="Test Agent(-)",
                 description="Test Agent Description",
                 llm_id="6646261c6eb563165658bbb1",
                 tools=[
@@ -203,7 +214,7 @@ def test_create_agent(mock_model_factory_get):
 def test_to_dict():
     agent = Agent(
         id="",
-        name="Test Agent",
+        name="Test Agent(-)",
         description="Test Agent Description",
         llm_id="6646261c6eb563165658bbb1",
         tools=[AgentFactory.create_model_tool(function="text-generation")],
@@ -213,7 +224,7 @@ def test_to_dict():
 
     agent_json = agent.to_dict()
     assert agent_json["id"] == ""
-    assert agent_json["name"] == "Test Agent"
+    assert agent_json["name"] == "Test Agent(-)"
     assert agent_json["description"] == "Test Agent Description"
     assert agent_json["llmId"] == "6646261c6eb563165658bbb1"
     assert agent_json["assets"][0]["function"] == "text-generation"
@@ -234,7 +245,7 @@ def test_update_success(mock_model_factory_get):
 
     agent = Agent(
         id="123",
-        name="Test Agent",
+        name="Test Agent(-)",
         description="Test Agent Description",
         llm_id="6646261c6eb563165658bbb1",
         tools=[AgentFactory.create_model_tool(function="text-generation")],
@@ -245,7 +256,7 @@ def test_update_success(mock_model_factory_get):
         headers = {"x-api-key": config.TEAM_API_KEY, "Content-Type": "application/json"}
         ref_response = {
             "id": "123",
-            "name": "Test Agent",
+            "name": "Test Agent(-)",
             "description": "Test Agent Description",
             "teamId": "123",
             "version": "1.0",
@@ -304,7 +315,7 @@ def test_save_success(mock_model_factory_get):
 
     agent = Agent(
         id="123",
-        name="Test Agent",
+        name="Test Agent(-)",
         description="Test Agent Description",
         llm_id="6646261c6eb563165658bbb1",
         tools=[AgentFactory.create_model_tool(function="text-generation")],
@@ -315,7 +326,7 @@ def test_save_success(mock_model_factory_get):
         headers = {"x-api-key": config.TEAM_API_KEY, "Content-Type": "application/json"}
         ref_response = {
             "id": "123",
-            "name": "Test Agent",
+            "name": "Test Agent(-)",
             "description": "Test Agent Description",
             "teamId": "123",
             "version": "1.0",
@@ -367,7 +378,7 @@ def test_save_success(mock_model_factory_get):
 
 
 def test_run_success():
-    agent = Agent("123", "Test Agent", "Sample Description")
+    agent = Agent("123", "Test Agent(-)", "Sample Description")
     url = urljoin(config.BACKEND_URL, f"sdk/agents/{agent.id}/run")
     agent.url = url
     with requests_mock.Mocker() as mock:
@@ -379,6 +390,7 @@ def test_run_success():
         response = agent.run_async(
             data={"query": "Hello, how are you?"}, max_iterations=10, output_format=OutputFormat.MARKDOWN
         )
+    assert isinstance(response, AgentResponse)
     assert response["status"] == "IN_PROGRESS"
     assert response["url"] == ref_response["data"]
 
