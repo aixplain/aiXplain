@@ -51,6 +51,7 @@ class AgentFactory:
         api_key: Text = config.TEAM_API_KEY,
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
         version: Optional[Text] = None,
+        tasks: List[AgentTask] = [],
     ) -> Agent:
         """Create a new agent in the platform.
 
@@ -62,7 +63,7 @@ class AgentFactory:
             api_key (Text, optional): team/user API key. Defaults to config.TEAM_API_KEY.
             supplier (Union[Dict, Text, Supplier, int], optional): owner of the agent. Defaults to "aiXplain".
             version (Optional[Text], optional): version of the agent. Defaults to None.
-
+            tasks (List[AgentTask], optional): list of tasks for the agent. Defaults to [].
         Returns:
             Agent: created Agent
         """
@@ -85,6 +86,7 @@ class AgentFactory:
             "version": version,
             "llmId": llm_id,
             "status": "draft",
+            "tasks": [task.to_dict() for task in tasks],
         }
         agent = build_agent(payload=payload, api_key=api_key)
         agent.validate()
