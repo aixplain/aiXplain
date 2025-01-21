@@ -4,6 +4,8 @@ from .resource import (
     ListResourceMixin,
     GetResourceMixin,
     BareGetParams,
+    CreateResourceMixin,
+    BareCreateParams,
 )
 from aixplain.factories import DatasetFactory
 from aixplain.modules.metadata import MetaData
@@ -38,6 +40,7 @@ class Dataset(
     BaseResource,
     ListResourceMixin[DatasetListParams, "Dataset"],
     GetResourceMixin[BareGetParams, "Dataset"],
+    CreateResourceMixin[Dict, "Dataset"],
 ):
     @classmethod
     def get(cls, **kwargs: Unpack[BareGetParams]) -> "Dataset":
@@ -48,50 +51,6 @@ class Dataset(
         return DatasetFactory.list(**kwargs)["results"]
 
     @classmethod
-    def create(
-        cls,
-        name: Text,
-        description: Text,
-        license: License,
-        function: Function,
-        input_schema: List[Union[Dict, MetaData]],
-        output_schema: List[Union[Dict, MetaData]] = [],
-        hypotheses_schema: List[Union[Dict, MetaData]] = [],
-        metadata_schema: List[Union[Dict, MetaData]] = [],
-        content_path: Union[Union[Text, Path], List[Union[Text, Path]]] = [],
-        input_ref_data: Dict[Text, Any] = {},
-        output_ref_data: Dict[Text, List[Any]] = {},
-        hypotheses_ref_data: Dict[Text, Any] = {},
-        meta_ref_data: Dict[Text, Any] = {},
-        tags: List[Text] = [],
-        privacy: Privacy = Privacy.PRIVATE,
-        split_labels: Optional[List[Text]] = None,
-        split_rate: Optional[List[float]] = None,
-        error_handler: ErrorHandler = ErrorHandler.SKIP,
-        s3_link: Optional[Text] = None,
-        aws_credentials: Optional[Dict[Text, Text]] = {"AWS_ACCESS_KEY_ID": None, "AWS_SECRET_ACCESS_KEY": None},
-        api_key: Optional[Text] = None,
-    ) -> Dict:
-        return DatasetFactory.create(
-            name=name,
-            description=description,
-            license=license,
-            function=function,
-            input_schema=input_schema,
-            output_schema=output_schema,
-            hypotheses_schema=hypotheses_schema,
-            metadata_schema=metadata_schema,
-            content_path=content_path,
-            input_ref_data=input_ref_data,
-            output_ref_data=output_ref_data,
-            hypotheses_ref_data=hypotheses_ref_data,
-            meta_ref_data=meta_ref_data,
-            tags=tags,
-            privacy=privacy,
-            split_labels=split_labels,
-            split_rate=split_rate,
-            error_handler=error_handler,
-            s3_link=s3_link,
-            aws_credentials=aws_credentials,
-            api_key=api_key,
-        )
+    def create(cls, **kwargs: Unpack[BareCreateParams]) -> "Dataset":
+
+        return Dataset(DatasetFactory.init(**kwargs))
