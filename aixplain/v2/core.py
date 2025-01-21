@@ -73,6 +73,13 @@ class Aixplain:
 
     _instance = None
 
+    BACKEND_URL = "https://platform-api.aixplain.com"
+    BENCHMARKS_BACKEND_URL = "https://platform-api.aixplain.com"
+    MODELS_RUN_URL = "https://models.aixplain.com/api/v1/execute"
+    PIPELINES_RUN_URL = (
+        "https://platform-api.aixplain.com/assets/pipeline/execution/run"
+    )
+
     def __new__(cls, *args, **kwargs):
         """
         Singleton pattern for the Aixplain class.
@@ -87,10 +94,10 @@ class Aixplain:
 
     def __init__(
         self,
-        api_key: str,
-        backend_url: str = "https://platform-api.aixplain.com",
-        pipeline_url: str = "https://platform-api.aixplain.com/assets/pipeline/execution/run",
-        model_url: str = "https://models.aixplain.com/api/v1/execute",
+        api_key: str = None,
+        backend_url: str = None,
+        pipeline_url: str = None,
+        model_url: str = None,
     ):
         """Initialize the Aixplain class.
 
@@ -100,10 +107,14 @@ class Aixplain:
             pipeline_url: str: The URL for the pipeline.
             model_url: str: The URL for the model.
         """
-        self.api_key = api_key
-        self.base_url = backend_url
-        self.pipeline_url = pipeline_url
-        self.model_url = model_url
+        self.api_key = api_key or os.getenv("TEAM_API_KEY")
+
+        self.base_url = backend_url or os.getenv("BACKEND_URL") or self.BACKEND_URL
+        self.pipeline_url = (
+            pipeline_url or os.getenv("PIPELINES_RUN_URL") or self.PIPELINES_RUN_URL
+        )
+        self.model_url = model_url or os.getenv("MODELS_RUN_URL") or self.MODELS_RUN_URL
+
         self.init_env()
         self.init_client()
         self.init_resources()
