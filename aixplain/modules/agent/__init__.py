@@ -355,4 +355,4 @@ class Agent(Model):
         self.update()
 
     def __repr__(self):
-        return f"Agent(id={self.id}, name={self.name})"
+        return f"Agent(id={self.id}, name={self.name}, function={self.function})"

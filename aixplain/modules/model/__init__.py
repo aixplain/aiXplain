@@ -114,7 +114,7 @@ class Model(Asset):
         }
 
     def __repr__(self):
-        return f"Model(id={self.id}, name={self.name}, supplier={self.supplier})"
+        return f"Model(id={self.id}, name={self.name}, supplier={self.supplier}, function={self.function})"
 
     def sync_poll(
         self, poll_url: Text, name: Text = "model_process", wait_time: float = 0.5, timeout: float = 300

@@ -1,4 +1,11 @@
-from typing_extensions import Unpack, List
+from typing_extensions import (
+    Unpack,
+    List,
+    Union,
+    TYPE_CHECKING,
+    Callable,
+    NotRequired,
+)
 
 from .resource import (
     BaseResource,
@@ -6,7 +13,31 @@ from .resource import (
     GetResourceMixin,
     BareListParams,
     BareGetParams,
+    BaseCreateParams,
 )
+
+if TYPE_CHECKING:
+    from aixplain.modules.agent.tool import Tool
+    from aixplain.modules.agent.utils import Supplier
+    from aixplain.modules.model import Model
+    from aixplain.modules.pipeline import Pipeline
+    from aixplain.modules.agent.tool.pipeline_tool import PipelineTool
+    from aixplain.modules.agent.tool.python_interpreter_tool import (
+        PythonInterpreterTool,
+    )
+    from aixplain.modules.agent.tool.custom_python_code_tool import CustomPythonCodeTool
+
+from .enums import Function
+
+
+class AgentCreateParams(BaseCreateParams):
+    name: str
+    description: str
+    llm_id: NotRequired[str]
+    tools: NotRequired[List["Tool"]]
+    api_key: NotRequired[str]
+    supplier: NotRequired[Union[dict, str, "Supplier", int]]
+    version: NotRequired[str]
 
 
 class Agent(
@@ -28,6 +59,9 @@ class Agent(
     PAGINATE_METHOD = "get"
     PAGINATE_RESPONSE_KEY = None
 
+    LLM_ID = "669a63646eb56306647e1091"
+    SUPPLIER = "aiXplain"
+
     @classmethod
     def list(cls, **kwargs: Unpack[BareListParams]) -> List["Agent"]:
         from aixplain.factories import AgentFactory
@@ -39,3 +73,58 @@ class Agent(
         from aixplain.factories import AgentFactory
 
         return Agent(AgentFactory.get(agent_id=kwargs["id"]))
+
+    @classmethod
+    def create(cls, **kwargs: Unpack[AgentCreateParams]) -> "Agent":
+        from aixplain.factories import AgentFactory
+        from aixplain.utils import config
+
+        kwargs.setdefault("llm_id", cls.LLM_ID)
+        kwargs.setdefault("api_key", config.TEAM_API_KEY)
+        kwargs.setdefault("supplier", cls.SUPPLIER)
+        kwargs.setdefault("tools", [])
+
+        return Agent(AgentFactory.create(**kwargs))
+
+    @classmethod
+    def create_model_tool(
+        cls,
+        model: Union["Model", str] = None,
+        function: Union[Function, str] = None,
+        supplier: Union["Supplier", str] = None,
+        description: str = "",
+    ):
+        from aixplain.factories import AgentFactory
+
+        return AgentFactory.create_model_tool(
+            model=model, function=function, supplier=supplier, description=description
+        )
+
+    @classmethod
+    def create_pipeline_tool(
+        cls, description: str, pipeline: Union["Pipeline", str]
+    ) -> "PipelineTool":
+        """Create a new pipeline tool."""
+        from aixplain.factories import AgentFactory
+
+        return AgentFactory.create_pipeline_tool(
+            description=description, pipeline=pipeline
+        )
+
+    @classmethod
+    def create_python_interpreter_tool(cls) -> "PythonInterpreterTool":
+        """Create a new python interpreter tool."""
+        from aixplain.factories import AgentFactory
+
+        return AgentFactory.create_python_interpreter_tool()
+
+    @classmethod
+    def create_custom_python_code_tool(
+        cls, code: Union[str, Callable], description: str = ""
+    ) -> "CustomPythonCodeTool":
+        """Create a new custom python code tool."""
+        from aixplain.factories import AgentFactory
+
+        return AgentFactory.create_custom_python_code_tool(
+            code=code, description=description
+        )

@@ -10,7 +10,7 @@ from typing import (
     Union,
     TYPE_CHECKING,
 )
-from typing_extensions import Unpack
+from typing_extensions import Unpack, NotRequired
 
 
 from .enums import OwnershipType, SortBy, SortOrder
@@ -109,7 +109,7 @@ class BaseResource:
         return repr(self._obj)
 
 
-class BaseListParams(TypedDict, total=False):
+class BaseListParams(TypedDict):
     """Base class for all list parameters.
 
     Attributes:
@@ -121,15 +121,15 @@ class BaseListParams(TypedDict, total=False):
         page_size: int: The page size.
     """
 
-    query: str
-    ownership: Tuple[OwnershipType, List[OwnershipType]]
-    sort_by: SortBy
-    sort_order: SortOrder
-    page_number: int
-    page_size: int
+    query: NotRequired[str]
+    ownership: NotRequired[Tuple[OwnershipType, List[OwnershipType]]]
+    sort_by: NotRequired[SortBy]
+    sort_order: NotRequired[SortOrder]
+    page_number: NotRequired[int]
+    page_size: NotRequired[int]
 
 
-class BaseGetParams(TypedDict, total=False):
+class BaseGetParams(TypedDict):
     """Base class for all get parameters.
 
     Attributes:
@@ -139,7 +139,7 @@ class BaseGetParams(TypedDict, total=False):
     id: str
 
 
-class BaseCreateParams(TypedDict, total=False):
+class BaseCreateParams(TypedDict):
     """Base class for all create parameters.
 
     Attributes:
@@ -152,7 +152,7 @@ class BaseCreateParams(TypedDict, total=False):
 class BareCreateParams(BaseCreateParams):
     """Default implementation of create parameters."""
 
-    name: str
+    pass
 
 
 class BareListParams(BaseListParams):
