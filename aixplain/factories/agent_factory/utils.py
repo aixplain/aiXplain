@@ -53,6 +53,7 @@ def build_agent(payload: Dict, api_key: Text = config.TEAM_API_KEY) -> Agent:
         name=payload.get("name", ""),
         tools=tools,
         description=payload.get("description", ""),
+        role=payload.get("role", ""),
         supplier=payload.get("teamId", None),
         version=payload.get("version", None),
         cost=payload.get("cost", None),

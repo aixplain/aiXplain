@@ -23,6 +23,7 @@ Description:
 
 import json
 import logging
+import warnings
 
 from aixplain.enums.function import Function
 from aixplain.enums.supplier import Supplier
@@ -46,6 +47,7 @@ class AgentFactory:
         cls,
         name: Text,
         description: Text,
+        role: Text,
         llm_id: Text = "669a63646eb56306647e1091",
         tools: List[Tool] = [],
         api_key: Text = config.TEAM_API_KEY,
@@ -54,9 +56,14 @@ class AgentFactory:
     ) -> Agent:
         """Create a new agent in the platform.
 
+        Warning:
+            The 'role' parameter was recently added and serves the same purpose as 'description' did previously: set the role of the agent as a system prompt.
+            The 'description' parameter is still required and should be used to set a short summary of the agent's purpose.
+
         Args:
             name (Text): name of the agent
             description (Text): description of the agent role.
+            role (Text): role of the agent.
             llm_id (Text, optional): aiXplain ID of the large language model to be used as agent. Defaults to "669a63646eb56306647e1091" (GPT-4o mini).
             tools (List[Tool], optional): list of tool for the agent. Defaults to [].
             api_key (Text, optional): team/user API key. Defaults to config.TEAM_API_KEY.
@@ -66,6 +73,11 @@ class AgentFactory:
         Returns:
             Agent: created Agent
         """
+        warnings.warn(
+            "The 'role' parameter was recently added and serves the same purpose as 'description' did previously: set the role of the agent as a system prompt."
+            "The 'description' parameter is still required and should be used to set a short summary of the agent's purpose.",
+            UserWarning,
+        )
         from aixplain.factories.agent_factory.utils import build_agent
 
         agent = None
@@ -81,6 +93,7 @@ class AgentFactory:
             "name": name,
             "assets": [tool.to_dict() for tool in tools],
             "description": description,
+            "role": role,
             "supplier": supplier,
             "version": version,
             "llmId": llm_id,

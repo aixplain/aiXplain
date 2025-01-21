@@ -86,6 +86,7 @@ def test_to_dict():
                 id="",
                 name="Test Agent(-)",
                 description="Test Agent Description",
+                role="Test Agent Role",
                 llm_id="6646261c6eb563165658bbb1",
                 tools=[ModelTool(function="text-generation")],
             )
@@ -132,6 +133,7 @@ def test_create_team_agent():
             "id": "123",
             "name": "Test Agent(-)",
             "description": "Test Agent Description",
+            "role": "Test Agent Role",
             "teamId": "123",
             "version": "1.0",
             "status": "draft",
@@ -152,6 +154,7 @@ def test_create_team_agent():
         agent = AgentFactory.create(
             name="Test Agent(-)",
             description="Test Agent Description",
+            role="Test Agent Role",
             llm_id="6646261c6eb563165658bbb1",
             tools=[ModelTool(model="6646261c6eb563165658bbb1")],
         )
