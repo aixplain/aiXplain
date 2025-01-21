@@ -26,7 +26,7 @@ import logging
 
 from aixplain.enums.function import Function
 from aixplain.enums.supplier import Supplier
-from aixplain.modules.agent import Agent, Tool
+from aixplain.modules.agent import Agent, AgentTask, Tool
 from aixplain.modules.agent.tool.model_tool import ModelTool
 from aixplain.modules.agent.tool.pipeline_tool import PipelineTool
 from aixplain.modules.agent.tool.python_interpreter_tool import PythonInterpreterTool
@@ -110,6 +110,12 @@ class AgentFactory:
             logging.exception(error_msg)
             raise Exception(error_msg)
         return agent
+
+    @classmethod
+    def create_task(
+        cls, name: Text, description: Text, expected_output: Optional[Text] = None, dependencies: Optional[List[Text]] = None
+    ) -> AgentTask:
+        return AgentTask(name=name, description=description, expected_output=expected_output, dependencies=dependencies)
 
     @classmethod
     def create_model_tool(

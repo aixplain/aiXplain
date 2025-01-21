@@ -450,3 +450,17 @@ def test_agent_api_key_in_requests():
         assert mock.last_request.headers["x-api-key"] == custom_api_key
         assert response["status"] == "IN_PROGRESS"
         assert response["url"] == "test_url"
+
+
+def test_create_agent_task():
+    task = AgentFactory.create_task(name="Test Task", description="Test Description", expected_output="Test Output")
+    assert task.name == "Test Task"
+    assert task.description == "Test Description"
+    assert task.expected_output == "Test Output"
+    assert task.dependencies is None
+
+    task_dict = task.to_dict()
+    assert task_dict["name"] == "Test Task"
+    assert task_dict["description"] == "Test Description"
+    assert task_dict["expected_output"] == "Test Output"
+    assert task_dict["dependencies"] is None
