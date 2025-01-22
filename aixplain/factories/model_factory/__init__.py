@@ -43,8 +43,8 @@ class ModelFactory:
     @classmethod
     def create_utility_model(
         cls,
-        name: Text,
-        code: Union[Text, Callable],
+        name: Optional[Text] = None,
+        code: Union[Text, Callable] = None,
         inputs: List[UtilityModelInput] = [],
         description: Optional[Text] = None,
         output_examples: Text = "",
