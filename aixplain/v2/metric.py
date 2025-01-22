@@ -1,4 +1,3 @@
-from typing import List
 from typing_extensions import Unpack, NotRequired
 
 from aixplain.v2.resource import (
@@ -7,6 +6,7 @@ from aixplain.v2.resource import (
     GetResourceMixin,
     BareGetParams,
     BaseListParams,
+    Page,
 )
 
 
@@ -33,14 +33,19 @@ class Metric(
 
     RESOURCE_PATH = "sdk/metrics"
 
-    def get(self, **kwargs: Unpack[BareGetParams]) -> "Metric":
+    @classmethod
+    def get(cls, **kwargs: Unpack[BareGetParams]) -> "Metric":
         from aixplain.factories.metric_factory import MetricFactory
 
-        return Metric(MetricFactory.get(metric_id=kwargs["metric_id"]))
+        return MetricFactory.get(metric_id=kwargs["metric_id"])
 
-    def list(self, **kwargs: Unpack[MetricListParams]) -> List["Metric"]:
+    @classmethod
+    def list(cls, **kwargs: Unpack[MetricListParams]) -> Page["Metric"]:
         from aixplain.factories.metric_factory import MetricFactory
 
         kwargs.setdefault("is_source_required", None)
         kwargs.setdefault("is_reference_required", None)
-        return [Metric(metric) for metric in MetricFactory.list(**kwargs)]
+        kwargs.setdefault("page_number", cls.PAGINATE_DEFAULT_PAGE_NUMBER)
+        kwargs.setdefault("page_size", cls.PAGINATE_DEFAULT_PAGE_SIZE)
+
+        return MetricFactory.list(**kwargs)

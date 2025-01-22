@@ -30,8 +30,7 @@ class File(BaseResource, CreateResourceMixin[FileCreateParams]):
         kwargs.setdefault("license", None)
         kwargs.setdefault("tags", None)
 
-        upload_url = FileFactory.create(**kwargs)
-        return File({"upload_url": upload_url, **kwargs})
+        return FileFactory.create(**kwargs)
 
     @classmethod
     def to_link(cls, local_path: str) -> str:
@@ -65,15 +64,7 @@ class File(BaseResource, CreateResourceMixin[FileCreateParams]):
         """
         from aixplain.factories import FileFactory
 
-        upload_url = FileFactory.upload(local_path, tags, license, is_temp)
-        return File(
-            {
-                "upload_url": upload_url,
-                "tags": tags,
-                "license": license,
-                "is_temp": is_temp,
-            }
-        )
+        return FileFactory.upload(local_path, tags, license, is_temp)
 
     @classmethod
     def check_storage_type(cls, upload_url: str) -> StorageType:

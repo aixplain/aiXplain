@@ -43,23 +43,19 @@ class Model(
     RESOURCE_PATH = "sdk/models"
 
     @classmethod
-    def list(cls, **kwargs: Unpack[ModelListParams]) -> List["Model"]:
+    def list(cls, **kwargs: Unpack[ModelListParams]) -> Page["Model"]:
         from aixplain.factories import ModelFactory
 
-        payload = ModelFactory.list(**kwargs)
+        kwargs.setdefault("page_number", cls.PAGINATE_DEFAULT_PAGE_NUMBER)
+        kwargs.setdefault("page_size", cls.PAGINATE_DEFAULT_PAGE_SIZE)
 
-        return Page(
-            results=[Model(obj) for obj in payload["results"]],
-            total=payload["total"],
-            page_number=payload["page_number"],
-            page_total=payload["page_total"],
-        )
+        return ModelFactory.list(**kwargs)
 
     @classmethod
     def get(cls, **kwargs: Unpack[BareGetParams]) -> "Model":
         from aixplain.factories import ModelFactory
 
-        return Model(ModelFactory.get(model_id=kwargs["id"]))
+        return ModelFactory.get(model_id=kwargs["id"])
 
     @classmethod
     def create_utility_model(

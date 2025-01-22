@@ -44,13 +44,13 @@ class Benchmark(
     def get(cls, **kwargs: Unpack[BareGetParams]) -> "Benchmark":
         from aixplain.factories import BenchmarkFactory
 
-        return Benchmark(BenchmarkFactory.get(benchmark_id=kwargs["id"]))
+        return BenchmarkFactory.get(benchmark_id=kwargs["id"])
 
     @classmethod
     def create(cls, **kwargs: Unpack[BenchmarkCreateParams]) -> "Benchmark":
         from aixplain.factories import BenchmarkFactory
 
-        return Benchmark(BenchmarkFactory.create(**kwargs))
+        return BenchmarkFactory.create(**kwargs)
 
     @classmethod
     def list_normalization_options(cls, metric: "Metric", model: "Model") -> list[str]:
@@ -81,7 +81,7 @@ class BenchmarkJob(
     def get(cls, **kwargs: Unpack[BareGetParams]) -> "BenchmarkJob":
         from aixplain.factories import BenchmarkFactory
 
-        return BenchmarkJob(BenchmarkFactory.get_job(job_id=kwargs["id"]))
+        return BenchmarkFactory.get_job(job_id=kwargs["id"])
 
     def get_scores(self) -> dict:
         """

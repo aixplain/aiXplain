@@ -64,25 +64,16 @@ class Agent(
     SUPPLIER = "aiXplain"
 
     @classmethod
-    def list(cls, **kwargs: Unpack[BareListParams]) -> List["Agent"]:
+    def list(cls, **kwargs: Unpack[BareListParams]) -> Page["Agent"]:
         from aixplain.factories import AgentFactory
 
-        kwargs.setdefault("page_number", cls.PAGINATE_DEFAULT_PAGE_NUMBER)
-        kwargs.setdefault("page_size", cls.PAGINATE_DEFAULT_PAGE_SIZE)
-
-        payload = AgentFactory.list(**kwargs)
-        return Page[Agent](
-            results=[Agent(obj) for obj in payload["results"]],
-            total=payload["total"],
-            page_number=payload["page_number"],
-            page_total=payload["page_total"],
-        )
+        return AgentFactory.list(**kwargs)
 
     @classmethod
     def get(cls, **kwargs: Unpack[BareGetParams]) -> "Agent":
         from aixplain.factories import AgentFactory
 
-        return Agent(AgentFactory.get(agent_id=kwargs["id"]))
+        return AgentFactory.get(agent_id=kwargs["id"])
 
     @classmethod
     def create(cls, **kwargs: Unpack[AgentCreateParams]) -> "Agent":
@@ -94,7 +85,7 @@ class Agent(
         kwargs.setdefault("supplier", cls.SUPPLIER)
         kwargs.setdefault("tools", [])
 
-        return Agent(AgentFactory.create(**kwargs))
+        return AgentFactory.create(**kwargs)
 
     @classmethod
     def create_model_tool(

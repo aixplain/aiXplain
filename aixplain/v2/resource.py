@@ -107,7 +107,9 @@ class BaseResource:
         return self.context.client.request(method, path, **kwargs)
 
     def __repr__(self) -> str:
-        return repr(self._obj)
+        if hasattr(self, "name"):
+            return f"{self.__class__.__name__}(id={self.id}, name={self.name})"
+        return f"{self.__class__.__name__}(id={self.id})"
 
 
 class BaseListParams(TypedDict):
@@ -194,7 +196,7 @@ class Page(Generic[R]):
         self.total = total
 
     def __repr__(self) -> str:
-        return pprint.pformat(self.__dict__)
+        return pprint.pformat(self.__dict__, depth=2, indent=2)
 
     def __getitem__(self, key: str):
         return getattr(self, key)
@@ -218,7 +220,8 @@ class ListResourceMixin(Generic[L, R]):
     PAGINATE_ITEMS_KEY = "items"
     PAGINATE_TOTAL_KEY = "total"
     PAGINATE_PAGE_TOTAL_KEY = "pageTotal"
-    PAGINATE_DEFAULT_PAGE_NUMBER = 1
+    PAGINATE_PAGE_NUMBER_KEY = "pageNumber"
+    PAGINATE_DEFAULT_PAGE_NUMBER = 0
     PAGINATE_DEFAULT_PAGE_SIZE = 20
 
     @classmethod
@@ -240,11 +243,14 @@ class ListResourceMixin(Generic[L, R]):
         # TypedDict does not support default values, so we need to manually set them
         # Dataclasses might be a better fit, but we're using the TypedDict to ensure
         # the correct types are used and to get IDE support
-        params = BareListParams(**kwargs)
+
         kwargs.setdefault("page_number", cls.PAGINATE_DEFAULT_PAGE_NUMBER)
         kwargs.setdefault("page_size", cls.PAGINATE_DEFAULT_PAGE_SIZE)
+
+        params = BareListParams(**kwargs)
         filters = cls._populate_filters(params)
         paginate_path = cls._populate_path(cls.RESOURCE_PATH)
+        print(paginate_path, filters)
         response = cls.context.client.request(
             cls.PAGINATE_METHOD, paginate_path, json=filters
         )
@@ -271,7 +277,7 @@ class ListResourceMixin(Generic[L, R]):
         if cls.PAGINATE_TOTAL_KEY:
             total = json[cls.PAGINATE_TOTAL_KEY]
 
-        page_total = min(kwargs["page_size"], len(items))
+        page_total = len(items)
         if cls.PAGINATE_PAGE_TOTAL_KEY:
             page_total = json[cls.PAGINATE_PAGE_TOTAL_KEY]
 
@@ -309,23 +315,26 @@ class ListResourceMixin(Generic[L, R]):
             dict: The populated filters.
         """
         filters = {}
-        if params.get("page_number"):
+
+        if params.get("page_number") is not None:
             filters["pageNumber"] = params["page_number"]
 
-        if params.get("page_size"):
+        if params.get("page_size") is not None:
             filters["pageSize"] = params["page_size"]
 
-        if params.get("query"):
+        if params.get("query") is not None:
             filters["q"] = params["query"]
 
-        if params.get("ownership"):
+        if params.get("ownership") is not None:
             filters["ownership"] = params["ownership"]
 
-        if params.get("sort_by"):
+        if params.get("sort_by") is not None:
             filters["sortBy"] = params["sort_by"]
 
-        if params.get("sort_order"):
+        if params.get("sort_order") is not None:
             filters["sortOrder"] = params["sort_order"]
+
+        print("filters", filters)
 
         return filters
 

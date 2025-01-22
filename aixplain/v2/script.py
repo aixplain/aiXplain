@@ -17,7 +17,4 @@ class Script(BaseResource):
 
         file_id, metadata = ScriptFactory.upload_script(script_path)
 
-        # should we create an arbitrary object here?
-        return Script(
-            ScriptFactory.upload_script({"fileId": file_id, "metadata": metadata})
-        )
+        return ScriptFactory.upload_script({"fileId": file_id, "metadata": metadata})

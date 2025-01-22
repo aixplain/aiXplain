@@ -6,6 +6,7 @@ from .resource import (
     GetResourceMixin,
     BareGetParams,
     CreateResourceMixin,
+    Page,
 )
 from aixplain.factories import DatasetFactory
 from aixplain.modules.metadata import MetaData
@@ -35,7 +36,10 @@ class DatasetCreateParams(BaseCreateParams):
     split_rate: NotRequired[List[float]]
     error_handler: ErrorHandler = ErrorHandler.SKIP
     s3_link: NotRequired[Text] = None
-    aws_credentials: Dict[Text, Text] = {"AWS_ACCESS_KEY_ID": None, "AWS_SECRET_ACCESS_KEY": None}
+    aws_credentials: Dict[Text, Text] = {
+        "AWS_ACCESS_KEY_ID": None,
+        "AWS_SECRET_ACCESS_KEY": None,
+    }
     api_key: NotRequired[Text]
 
 
@@ -68,13 +72,13 @@ class Dataset(
 ):
     @classmethod
     def get(cls, **kwargs: Unpack[BareGetParams]) -> "Dataset":
-        return DatasetFactory.get(dataset_id=kwargs["id"])
+        return Dataset(DatasetFactory.get(dataset_id=kwargs["id"]))
 
     @classmethod
-    def list(cls, **kwargs: Unpack[DatasetListParams]) -> List["Dataset"]:
-        kwargs.setdefault("page_number", 0)
-        kwargs.setdefault("page_size", 20)
-        return DatasetFactory.list(**kwargs)["results"]
+    def list(cls, **kwargs: Unpack[DatasetListParams]) -> Page["Dataset"]:
+        kwargs.setdefault("page_number", cls.PAGINATE_DEFAULT_PAGE_NUMBER)
+        kwargs.setdefault("page_size", cls.PAGINATE_DEFAULT_PAGE_SIZE)
+        return DatasetFactory.list(**kwargs)
 
     @classmethod
     def create(cls, **kwargs: Unpack[DatasetCreateParams]) -> Dict:
@@ -88,5 +92,8 @@ class Dataset(
         kwargs.setdefault("tags", [])
         kwargs.setdefault("privacy", Privacy.PRIVATE)
         kwargs.setdefault("error_handler", ErrorHandler.SKIP)
-        kwargs.setdefault("aws_credentials", {"AWS_ACCESS_KEY_ID": None, "AWS_SECRET_ACCESS_KEY": None})
+        kwargs.setdefault(
+            "aws_credentials",
+            {"AWS_ACCESS_KEY_ID": None, "AWS_SECRET_ACCESS_KEY": None},
+        )
         return DatasetFactory.create(**kwargs)

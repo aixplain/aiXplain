@@ -9,6 +9,7 @@ from .resource import (
     BareGetParams,
     CreateResourceMixin,
     BaseCreateParams,
+    Page,
 )
 from .enums import Function, Supplier, DataType
 from .model import Model
@@ -54,16 +55,19 @@ class Pipeline(
     RESOURCE_PATH = "sdk/pipelines"
 
     @classmethod
-    def list(cls, **kwargs: Unpack[PipelineListParams]) -> List["Pipeline"]:
+    def list(cls, **kwargs: Unpack[PipelineListParams]) -> Page["Pipeline"]:
         from aixplain.factories import PipelineFactory
 
-        return [Pipeline(obj) for obj in PipelineFactory.list(**kwargs)["results"]]
+        kwargs.setdefault("page_number", cls.PAGINATE_DEFAULT_PAGE_NUMBER)
+        kwargs.setdefault("page_size", cls.PAGINATE_DEFAULT_PAGE_SIZE)
+
+        return PipelineFactory.list(**kwargs)
 
     @classmethod
     def get(cls, **kwargs: Unpack[BareGetParams]) -> "Pipeline":
         from aixplain.factories import PipelineFactory
 
-        return Pipeline(PipelineFactory.get(pipeline_id=kwargs["id"]))
+        return PipelineFactory.get(pipeline_id=kwargs["id"])
 
     @classmethod
     def create(cls, **kwargs: Unpack[PipelineCreateParams]) -> "Pipeline":
@@ -71,4 +75,4 @@ class Pipeline(
         from aixplain.utils.config import config
 
         kwargs.setdefault("api_key", config.TEAM_API_KEY)
-        return Pipeline(PipelineFactory.init(**kwargs))
+        return PipelineFactory.init(**kwargs)

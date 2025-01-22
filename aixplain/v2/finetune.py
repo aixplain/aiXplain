@@ -51,4 +51,4 @@ class Finetune(
         kwargs.setdefault("train_percentage", 100)
         kwargs.setdefault("dev_percentage", 0)
 
-        return Finetune(FinetuneFactory.create(**kwargs))
+        return FinetuneFactory.create(**kwargs)

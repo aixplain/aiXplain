@@ -60,18 +60,11 @@ class Corpus(
         return CorpusFactory.get(corpus_id=kwargs["id"])
 
     @classmethod
-    def list(cls, **kwargs: Unpack[CorpusListParams]) -> List["Corpus"]:
+    def list(cls, **kwargs: Unpack[CorpusListParams]) -> Page["Corpus"]:
         kwargs.setdefault("page_number", cls.PAGINATE_DEFAULT_PAGE_NUMBER)
         kwargs.setdefault("page_size", cls.PAGINATE_DEFAULT_PAGE_SIZE)
 
-        payload = CorpusFactory.list(**kwargs)
-        print(payload)
-        return Page[Corpus](
-            results=[Corpus(obj) for obj in payload["results"]],
-            total=payload["total"],
-            page_number=payload["page_number"],
-            page_total=payload["page_total"],
-        )
+        return CorpusFactory.list(**kwargs)
 
     @classmethod
     def create(cls, **kwargs: Unpack[CorpusCreateParams]) -> Dict:

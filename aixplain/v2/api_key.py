@@ -39,28 +39,19 @@ class APIKey(
         import aixplain.utils.config as config
 
         api_key = kwargs.get("api_key", config.TEAM_API_KEY)
-        return APIKeyFactory.get(api_key=api_key)
+        return cls(APIKeyFactory.get(api_key=api_key))
 
     @classmethod
-    def list(cls, **kwargs: Unpack[BareListParams]) -> List["APIKey"]:
+    def list(cls, **kwargs: Unpack[BareListParams]) -> Page["APIKey"]:
         from aixplain.factories import APIKeyFactory
 
-        kwargs.setdefault("page_number", cls.PAGINATE_DEFAULT_PAGE_NUMBER)
-        kwargs.setdefault("page_size", cls.PAGINATE_DEFAULT_PAGE_SIZE)
-
-        results = APIKeyFactory.list(**kwargs)
-        return Page[APIKey](
-            results=[APIKey(obj) for obj in results],
-            total=len(results),
-            page_number=1,
-            page_total=len(results),
-        )
+        return APIKeyFactory.list(**kwargs)
 
     @classmethod
     def create(cls, **kwargs: Unpack[APIKeyCreateParams]) -> "APIKey":
         from aixplain.factories import APIKeyFactory
 
-        return APIKey(APIKeyFactory.create(**kwargs))
+        return APIKeyFactory.create(**kwargs)
 
     @classmethod
     def update(cls, api_key: "APIKey") -> "APIKey":
