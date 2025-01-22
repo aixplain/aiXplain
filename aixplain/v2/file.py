@@ -1,5 +1,5 @@
 from typing import List, TYPE_CHECKING
-from typing_extensions import Unpack
+from typing_extensions import Unpack, NotRequired
 
 from aixplain.v2.resource import BaseResource, CreateResourceMixin, BaseCreateParams
 
@@ -11,9 +11,9 @@ class FileCreateParams(BaseCreateParams):
     """Parameters for creating a file."""
 
     local_path: str
-    tags: List[str] = None
-    license: License = None
-    is_temp: bool = False
+    tags: NotRequired[List[str]]
+    license: NotRequired[License]
+    is_temp: NotRequired[bool]
 
 
 class File(BaseResource, CreateResourceMixin[FileCreateParams]):
@@ -25,6 +25,10 @@ class File(BaseResource, CreateResourceMixin[FileCreateParams]):
     def create(cls, **kwargs: Unpack[FileCreateParams]) -> "File":
         """Create a file."""
         from aixplain.factories import FileFactory
+
+        kwargs.setdefault("is_temp", True)
+        kwargs.setdefault("license", None)
+        kwargs.setdefault("tags", None)
 
         upload_url = FileFactory.create(**kwargs)
         return File({"upload_url": upload_url, **kwargs})
@@ -44,7 +48,13 @@ class File(BaseResource, CreateResourceMixin[FileCreateParams]):
         return FileFactory.to_link(local_path)
 
     @classmethod
-    def upload(cls, local_path: str, **kwargs: Unpack[FileCreateParams]) -> str:
+    def upload(
+        cls,
+        local_path: str,
+        tags: List[str] = None,
+        license: License = None,
+        is_temp: bool = True,
+    ) -> str:
         """Upload a file.
 
         Args:
@@ -55,8 +65,15 @@ class File(BaseResource, CreateResourceMixin[FileCreateParams]):
         """
         from aixplain.factories import FileFactory
 
-        upload_url = FileFactory.upload(local_path, **kwargs)
-        return File({"upload_url": upload_url, **kwargs})
+        upload_url = FileFactory.upload(local_path, tags, license, is_temp)
+        return File(
+            {
+                "upload_url": upload_url,
+                "tags": tags,
+                "license": license,
+                "is_temp": is_temp,
+            }
+        )
 
     @classmethod
     def check_storage_type(cls, upload_url: str) -> StorageType:

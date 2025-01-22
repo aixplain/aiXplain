@@ -1,5 +1,5 @@
-from typing import List, Union
-from typing_extensions import Unpack
+from typing import List, Union, TYPE_CHECKING
+from typing_extensions import Unpack, NotRequired
 
 from aixplain.v2.resource import (
     BaseResource,
@@ -26,12 +26,12 @@ class FinetuneCreateParams(BareCreateParams):
     """
 
     name: str
-    dataset_list: List[Dataset]
-    model: Union[Model, str]
-    prompt_template: str
-    hyperparameters: Hyperparameters
-    train_percentage: float
-    dev_percentage: float
+    dataset_list: List["Dataset"]
+    model: Union["Model", str]
+    prompt_template: NotRequired[str]
+    hyperparameters: NotRequired["Hyperparameters"]
+    train_percentage: NotRequired[float]
+    dev_percentage: NotRequired[float]
 
 
 class Finetune(
@@ -45,5 +45,10 @@ class Finetune(
     @classmethod
     def create(cls, **kwargs: Unpack[FinetuneCreateParams]) -> "Finetune":
         from aixplain.factories import FinetuneFactory
+
+        kwargs.setdefault("prompt_template", None)
+        kwargs.setdefault("hyperparameters", None)
+        kwargs.setdefault("train_percentage", 100)
+        kwargs.setdefault("dev_percentage", 0)
 
         return Finetune(FinetuneFactory.create(**kwargs))

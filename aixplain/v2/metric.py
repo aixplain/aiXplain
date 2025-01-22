@@ -1,5 +1,5 @@
 from typing import List
-from typing_extensions import Unpack
+from typing_extensions import Unpack, NotRequired
 
 from aixplain.v2.resource import (
     BaseResource,
@@ -20,8 +20,8 @@ class MetricListParams(BaseListParams):
     """
 
     model_id: str
-    is_source_required: bool
-    is_reference_required: bool
+    is_source_required: NotRequired[bool]
+    is_reference_required: NotRequired[bool]
 
 
 class Metric(
@@ -41,4 +41,6 @@ class Metric(
     def list(self, **kwargs: Unpack[MetricListParams]) -> List["Metric"]:
         from aixplain.factories.metric_factory import MetricFactory
 
+        kwargs.setdefault("is_source_required", None)
+        kwargs.setdefault("is_reference_required", None)
         return [Metric(metric) for metric in MetricFactory.list(**kwargs)]

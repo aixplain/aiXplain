@@ -1,5 +1,5 @@
 from typing import Union, List
-from typing_extensions import Unpack
+from typing_extensions import Unpack, NotRequired
 
 from .resource import (
     BaseResource,
@@ -8,7 +8,7 @@ from .resource import (
     BareListParams,
     BareGetParams,
     CreateResourceMixin,
-    BareCreateParams,
+    BaseCreateParams,
 )
 from .enums import Function, Supplier, DataType
 from .model import Model
@@ -26,19 +26,24 @@ class PipelineListParams(BareListParams):
         drafts_only: bool: Whether to list only drafts.
     """
 
-    functions: Union[Function, List[Function]] = None
-    suppliers: Union[Supplier, List[Supplier]] = None
-    models: Union[Model, List[Model]] = None
-    input_data_types: Union[DataType, List[DataType]] = None
-    output_data_types: Union[DataType, List[DataType]] = None
-    drafts_only: bool = False
+    functions: NotRequired[Union[Function, List[Function]]]
+    suppliers: NotRequired[Union[Supplier, List[Supplier]]]
+    models: NotRequired[Union[Model, List[Model]]]
+    input_data_types: NotRequired[Union[DataType, List[DataType]]]
+    output_data_types: NotRequired[Union[DataType, List[DataType]]]
+    drafts_only: NotRequired[bool]
+
+
+class PipelineCreateParams(BaseCreateParams):
+    name: str
+    api_key: NotRequired[str]
 
 
 class Pipeline(
     BaseResource,
     ListResourceMixin[PipelineListParams, "Pipeline"],
     GetResourceMixin[BareGetParams, "Pipeline"],
-    CreateResourceMixin[BareCreateParams, "Pipeline"],
+    CreateResourceMixin[PipelineCreateParams, "Pipeline"],
 ):
     """Resource for pipelines.
 
@@ -61,7 +66,9 @@ class Pipeline(
         return Pipeline(PipelineFactory.get(pipeline_id=kwargs["id"]))
 
     @classmethod
-    def create(cls, **kwargs: Unpack[BareCreateParams]) -> "Pipeline":
+    def create(cls, **kwargs: Unpack[PipelineCreateParams]) -> "Pipeline":
         from aixplain.factories import PipelineFactory
+        from aixplain.utils.config import config
 
+        kwargs.setdefault("api_key", config.TEAM_API_KEY)
         return Pipeline(PipelineFactory.init(**kwargs))
