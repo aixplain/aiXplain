@@ -14,6 +14,7 @@ from .resource import (
     BareListParams,
     BareGetParams,
     BaseCreateParams,
+    Page,
 )
 
 if TYPE_CHECKING:
@@ -51,13 +52,13 @@ class Agent(
         RESOURCE_PATH: str: The resource path.
         PAGINATE_PATH: None: The path for pagination.
         PAGINATE_METHOD: str: The method for pagination.
-        PAGINATE_RESPONSE_KEY: None: The key for the response.
+        PAGINATE_ITEMS_KEY: None: The key for the response.
     """
 
     RESOURCE_PATH = "sdk/agents"
     PAGINATE_PATH = None
     PAGINATE_METHOD = "get"
-    PAGINATE_RESPONSE_KEY = None
+    PAGINATE_ITEMS_KEY = None
 
     LLM_ID = "669a63646eb56306647e1091"
     SUPPLIER = "aiXplain"
@@ -66,7 +67,16 @@ class Agent(
     def list(cls, **kwargs: Unpack[BareListParams]) -> List["Agent"]:
         from aixplain.factories import AgentFactory
 
-        return [Agent(obj) for obj in AgentFactory.list(**kwargs)["results"]]
+        kwargs.setdefault("page_number", cls.PAGINATE_DEFAULT_PAGE_NUMBER)
+        kwargs.setdefault("page_size", cls.PAGINATE_DEFAULT_PAGE_SIZE)
+
+        payload = AgentFactory.list(**kwargs)
+        return Page[Agent](
+            results=[Agent(obj) for obj in payload["results"]],
+            total=payload["total"],
+            page_number=payload["page_number"],
+            page_total=payload["page_total"],
+        )
 
     @classmethod
     def get(cls, **kwargs: Unpack[BareGetParams]) -> "Agent":

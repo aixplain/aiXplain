@@ -71,7 +71,9 @@ def test_base_resource_list():
                                 "items": [
                                     {"id": "123", "name": "test"},
                                     {"id": "456", "name": "test2"},
-                                ]
+                                ],
+                                "total": 2,
+                                "pageTotal": 1,
                             }
                         )
                     )
@@ -79,13 +81,16 @@ def test_base_resource_list():
             )
         )
 
-    objects = FixtureResource.list()
+    page = FixtureResource.list()
 
-    assert len(objects) == 2
-    assert objects[0].id == "123"
-    assert objects[0].name == "test"
-    assert objects[1].id == "456"
-    assert objects[1].name == "test2"
+    assert page.total == 2
+    assert page.page_number == 1
+    assert page.page_total == 1
+    assert len(page.results) == 2
+    assert page.results[0].id == "123"
+    assert page.results[0].name == "test"
+    assert page.results[1].id == "456"
+    assert page.results[1].name == "test2"
 
     FixtureResource.context.client.request.assert_called_once_with(
         "post",
@@ -94,7 +99,7 @@ def test_base_resource_list():
     )
     FixtureResource.context.client.request.reset_mock()
 
-    objects = FixtureResource.list(
+    page = FixtureResource.list(
         page_number=1,
         page_size=20,
         query="test",

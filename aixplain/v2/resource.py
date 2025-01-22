@@ -1,4 +1,5 @@
 import requests
+import pprint
 from typing import (
     List,
     Tuple,
@@ -173,21 +174,55 @@ C = TypeVar("C", bound=BaseCreateParams)
 G = TypeVar("G", bound=BaseGetParams)
 
 
+class Page(Generic[R]):
+    """Page of resources.
+
+    Attributes:
+        items: List[R]: The list of resources.
+        total: int: The total number of resources.
+    """
+
+    results: List[R]
+    page_number: int
+    page_total: int
+    total: int
+
+    def __init__(self, results: List[R], page_number: int, page_total: int, total: int):
+        self.results = results
+        self.page_number = page_number
+        self.page_total = page_total
+        self.total = total
+
+    def __repr__(self) -> str:
+        return pprint.pformat(self.__dict__)
+
+    def __getitem__(self, key: str):
+        return getattr(self, key)
+
+
 class ListResourceMixin(Generic[L, R]):
     """Mixin for listing resources.
 
     Attributes:
         PAGINATE_PATH: str: The path for pagination.
         PAGINATE_METHOD: str: The method for pagination.
-        PAGINATE_RESPONSE_KEY: str: The key for the response.
+        PAGINATE_ITEMS_KEY: str: The key for the response.
+        PAGINATE_TOTAL_KEY: str: The key for the total number of resources.
+        PAGINATE_PAGE_TOTAL_KEY: str: The key for the total number of pages.
+        PAGINATE_DEFAULT_PAGE_NUMBER: int: The default page number.
+        PAGINATE_DEFAULT_PAGE_SIZE: int: The default page size.
     """
 
     PAGINATE_PATH = "paginate"
     PAGINATE_METHOD = "post"
-    PAGINATE_RESPONSE_KEY = "items"
+    PAGINATE_ITEMS_KEY = "items"
+    PAGINATE_TOTAL_KEY = "total"
+    PAGINATE_PAGE_TOTAL_KEY = "pageTotal"
+    PAGINATE_DEFAULT_PAGE_NUMBER = 1
+    PAGINATE_DEFAULT_PAGE_SIZE = 20
 
     @classmethod
-    def list(cls: Type[R], **kwargs: Unpack[L]) -> List[R]:
+    def list(cls: Type[R], **kwargs: Unpack[L]) -> Page[R]:
         """
         List resources across the first n pages with optional filtering.
 
@@ -195,7 +230,7 @@ class ListResourceMixin(Generic[L, R]):
             kwargs: Unpack[L]: The keyword arguments.
 
         Returns:
-            List[BaseResource]: List of BaseResource instances across n pages
+            Page[R]: Page of BaseResource instances
         """
 
         assert getattr(
@@ -206,12 +241,46 @@ class ListResourceMixin(Generic[L, R]):
         # Dataclasses might be a better fit, but we're using the TypedDict to ensure
         # the correct types are used and to get IDE support
         params = BareListParams(**kwargs)
+        kwargs.setdefault("page_number", cls.PAGINATE_DEFAULT_PAGE_NUMBER)
+        kwargs.setdefault("page_size", cls.PAGINATE_DEFAULT_PAGE_SIZE)
         filters = cls._populate_filters(params)
         paginate_path = cls._populate_path(cls.RESOURCE_PATH)
         response = cls.context.client.request(
             cls.PAGINATE_METHOD, paginate_path, json=filters
         )
-        return cls._populate_objects(response)
+        return cls._build_page(response, **kwargs)
+
+    @classmethod
+    def _build_page(cls, response: requests.Response, **kwargs: Unpack[L]) -> Page[R]:
+        """
+        Build a page of resources from the response.
+
+        Args:
+            response: requests.Response: The response to build the page from.
+
+        Returns:
+            Page[R]: The page of resources.
+        """
+        json = response.json()
+
+        items = json
+        if cls.PAGINATE_ITEMS_KEY:
+            items = json[cls.PAGINATE_ITEMS_KEY]
+
+        total = len(items)
+        if cls.PAGINATE_TOTAL_KEY:
+            total = json[cls.PAGINATE_TOTAL_KEY]
+
+        page_total = min(kwargs["page_size"], len(items))
+        if cls.PAGINATE_PAGE_TOTAL_KEY:
+            page_total = json[cls.PAGINATE_PAGE_TOTAL_KEY]
+
+        return Page(
+            results=[cls(item) for item in items],
+            total=total,
+            page_number=kwargs["page_number"],
+            page_total=page_total,
+        )
 
     @classmethod
     def _populate_path(cls, path: str) -> str:
@@ -259,22 +328,6 @@ class ListResourceMixin(Generic[L, R]):
             filters["sortOrder"] = params["sort_order"]
 
         return filters
-
-    @classmethod
-    def _populate_objects(cls, response: requests.Response) -> List[R]:
-        """
-        Populate the objects from the response.
-
-        Args:
-            response: requests.Response: The response to populate.
-
-        Returns:
-            List[R]: The populated objects.
-        """
-        items = response.json()
-        if cls.PAGINATE_RESPONSE_KEY:
-            items = response.json()[cls.PAGINATE_RESPONSE_KEY]
-        return [cls(item) for item in items]
 
 
 class GetResourceMixin(Generic[G, R]):

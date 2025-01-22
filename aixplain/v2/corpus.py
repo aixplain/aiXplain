@@ -5,6 +5,7 @@ from .resource import (
     ListResourceMixin,
     GetResourceMixin,
     BareGetParams,
+    Page,
 )
 from aixplain.factories import CorpusFactory
 from aixplain.modules.metadata import MetaData
@@ -60,9 +61,17 @@ class Corpus(
 
     @classmethod
     def list(cls, **kwargs: Unpack[CorpusListParams]) -> List["Corpus"]:
-        kwargs.setdefault("page_number", 0)
-        kwargs.setdefault("page_size", 20)
-        return CorpusFactory.list(**kwargs)["results"]
+        kwargs.setdefault("page_number", cls.PAGINATE_DEFAULT_PAGE_NUMBER)
+        kwargs.setdefault("page_size", cls.PAGINATE_DEFAULT_PAGE_SIZE)
+
+        payload = CorpusFactory.list(**kwargs)
+        print(payload)
+        return Page[Corpus](
+            results=[Corpus(obj) for obj in payload["results"]],
+            total=payload["total"],
+            page_number=payload["page_number"],
+            page_total=payload["page_total"],
+        )
 
     @classmethod
     def create(cls, **kwargs: Unpack[CorpusCreateParams]) -> Dict:

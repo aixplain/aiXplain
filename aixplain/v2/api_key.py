@@ -6,6 +6,7 @@ from .resource import (
     ListResourceMixin,
     CreateResourceMixin,
     BaseCreateParams,
+    Page,
 )
 from aixplain.factories import APIKeyFactory
 from aixplain.modules import APIKeyLimits, APIKeyUsageLimit
@@ -42,9 +43,18 @@ class APIKey(
 
     @classmethod
     def list(cls, **kwargs: Unpack[BareListParams]) -> List["APIKey"]:
-        raw_response = APIKeyFactory.list(**kwargs)
-        api_keys_data = raw_response.get("results", [])
-        return [cls(obj) for obj in api_keys_data]
+        from aixplain.factories import APIKeyFactory
+
+        kwargs.setdefault("page_number", cls.PAGINATE_DEFAULT_PAGE_NUMBER)
+        kwargs.setdefault("page_size", cls.PAGINATE_DEFAULT_PAGE_SIZE)
+
+        results = APIKeyFactory.list(**kwargs)
+        return Page[APIKey](
+            results=[APIKey(obj) for obj in results],
+            total=len(results),
+            page_number=1,
+            page_total=len(results),
+        )
 
     @classmethod
     def create(cls, **kwargs: Unpack[APIKeyCreateParams]) -> "APIKey":
@@ -57,5 +67,7 @@ class APIKey(
         return APIKeyFactory.update(api_key)
 
     @classmethod
-    def get_usage_limits(cls, api_key: Text = config.TEAM_API_KEY, asset_id: Optional[Text] = None) -> List[APIKeyUsageLimit]:
+    def get_usage_limits(
+        cls, api_key: Text = config.TEAM_API_KEY, asset_id: Optional[Text] = None
+    ) -> List[APIKeyUsageLimit]:
         return APIKeyFactory.get_usage_limits(api_key, asset_id)

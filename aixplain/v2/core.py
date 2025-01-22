@@ -122,6 +122,9 @@ class Aixplain:
             model_url: str: The URL for the model.
         """
         self.api_key = api_key or os.getenv("TEAM_API_KEY")
+        assert (
+            self.api_key
+        ), "API key is required. You should either pass it as an argument or set the TEAM_API_KEY environment variable."
 
         self.base_url = backend_url or os.getenv("BACKEND_URL") or self.BACKEND_URL
         self.pipeline_url = (

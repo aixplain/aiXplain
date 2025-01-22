@@ -7,6 +7,7 @@ from .resource import (
     ListResourceMixin,
     GetResourceMixin,
     BareGetParams,
+    Page,
 )
 from .enums import Function, Supplier, Language
 
@@ -45,7 +46,14 @@ class Model(
     def list(cls, **kwargs: Unpack[ModelListParams]) -> List["Model"]:
         from aixplain.factories import ModelFactory
 
-        return [Model(obj) for obj in ModelFactory.list(**kwargs)["results"]]
+        payload = ModelFactory.list(**kwargs)
+
+        return Page(
+            results=[Model(obj) for obj in payload["results"]],
+            total=payload["total"],
+            page_number=payload["page_number"],
+            page_total=payload["page_total"],
+        )
 
     @classmethod
     def get(cls, **kwargs: Unpack[BareGetParams]) -> "Model":
