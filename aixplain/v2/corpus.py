@@ -1,5 +1,6 @@
 from .resource import (
     BaseResource,
+    BaseCreateParams,
     BaseListParams,
     ListResourceMixin,
     GetResourceMixin,
@@ -9,8 +10,22 @@ from aixplain.factories import CorpusFactory
 from aixplain.modules.metadata import MetaData
 from .enums import DataType, Function, Language, License, Privacy, ErrorHandler
 from pathlib import Path
-from typing_extensions import Unpack
-from typing import Any, Dict, List, Optional, Text, Union
+from typing_extensions import Unpack, NotRequired
+from typing import Any, Dict, List, Text, Union
+
+
+class CorpusCreateParams(BaseCreateParams):
+    name: Text
+    description: Text
+    license: License
+    content_path: Union[Union[Text, Path], List[Union[Text, Path]]]
+    schema: List[Union[Dict, MetaData]]
+    ref_data: List[Any]
+    tags: List[Text]
+    functions: List[Function]
+    privacy: Privacy
+    error_handler: ErrorHandler
+    api_key: NotRequired[Text]
 
 
 class CorpusListParams(BaseListParams):
@@ -25,13 +40,13 @@ class CorpusListParams(BaseListParams):
         is_finetunable: bool: Whether the model is finetunable.
     """
 
-    query: Optional[Text] = None
-    function: Optional[Function] = None
-    language: Optional[Union[Language, List[Language]]] = None
-    data_type: Optional[DataType] = None
-    license: Optional[License] = None
-    page_number: int = 0
-    page_size: int = 20
+    query: NotRequired[Text]
+    function: NotRequired[Function]
+    language: NotRequired[Union[Language, List[Language]]]
+    data_type: NotRequired[DataType]
+    license: NotRequired[License]
+    page_number: int
+    page_size: int
 
 
 class Corpus(
@@ -45,33 +60,15 @@ class Corpus(
 
     @classmethod
     def list(cls, **kwargs: Unpack[CorpusListParams]) -> List["Corpus"]:
+        kwargs.setdefault("page_number", 0)
+        kwargs.setdefault("page_size", 20)
         return CorpusFactory.list(**kwargs)["results"]
 
     @classmethod
-    def create(
-        cls,
-        name: Text,
-        description: Text,
-        license: License,
-        content_path: Union[Union[Text, Path], List[Union[Text, Path]]],
-        schema: List[Union[Dict, MetaData]],
-        ref_data: List[Any] = [],
-        tags: List[Text] = [],
-        functions: List[Function] = [],
-        privacy: Privacy = Privacy.PRIVATE,
-        error_handler: ErrorHandler = ErrorHandler.SKIP,
-        api_key: Optional[Text] = None,
-    ) -> Dict:
-        return CorpusFactory.create(
-            name=name,
-            description=description,
-            license=license,
-            content_path=content_path,
-            schema=schema,
-            ref_data=ref_data,
-            tags=tags,
-            functions=functions,
-            privacy=privacy,
-            error_handler=error_handler,
-            api_key=api_key,
-        )
+    def create(cls, **kwargs: Unpack[CorpusCreateParams]) -> Dict:
+        kwargs.setdefault("ref_data", [])
+        kwargs.setdefault("tags", [])
+        kwargs.setdefault("functions", [])
+        kwargs.setdefault("privacy", Privacy.PRIVATE)
+        kwargs.setdefault("error_handler", ErrorHandler.SKIP)
+        return CorpusFactory.create(**kwargs)

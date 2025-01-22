@@ -3,7 +3,11 @@ from .resource import (
     GetResourceMixin,
     BareGetParams,
 )
-from typing_extensions import Unpack
+from typing_extensions import Unpack, NotRequired
+
+
+class WalletGetParams(BareGetParams):
+    api_key: NotRequired[str]
 
 
 class Wallet(

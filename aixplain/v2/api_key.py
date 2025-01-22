@@ -5,14 +5,26 @@ from .resource import (
     GetResourceMixin,
     ListResourceMixin,
     CreateResourceMixin,
-    BareCreateParams,
+    BaseCreateParams,
 )
 from aixplain.factories import APIKeyFactory
 from aixplain.modules import APIKeyLimits, APIKeyUsageLimit
 from aixplain.utils import config
 from datetime import datetime
-from typing_extensions import Unpack
+from typing_extensions import Unpack, NotRequired
 from typing import Dict, List, Optional, Text, Union
+
+
+class APIKeyCreateParams(BaseCreateParams):
+    name: Text
+    budget: int
+    global_limits: Union[Dict, APIKeyLimits]
+    asset_limits: List[Union[Dict, APIKeyLimits]]
+    expires_at: datetime
+
+
+class APIKeyGetParams(BareGetParams):
+    api_key: NotRequired[str]
 
 
 class APIKey(
@@ -29,15 +41,16 @@ class APIKey(
         return APIKeyFactory.get(api_key=api_key)
 
     @classmethod
-    def list(cls) -> List["APIKey"]:
-        raw_response = APIKeyFactory.list()
+    def list(cls, **kwargs: Unpack[BareListParams]) -> List["APIKey"]:
+        raw_response = APIKeyFactory.list(**kwargs)
         api_keys_data = raw_response.get("results", [])
         return [cls(obj) for obj in api_keys_data]
 
-    def create(cls, **kwargs: Unpack[BareCreateParams]) -> "APIKey":
+    @classmethod
+    def create(cls, **kwargs: Unpack[APIKeyCreateParams]) -> "APIKey":
         from aixplain.factories import APIKeyFactory
 
-        return APIKey(APIKeyFactory.init(**kwargs))
+        return APIKey(APIKeyFactory.create(**kwargs))
 
     @classmethod
     def update(cls, api_key: "APIKey") -> "APIKey":
