@@ -32,7 +32,12 @@ def test_aixplain_instance():
 
 
 def test_aixplain_init_env():
-    aixplain = Aixplain(api_key="test")
+    aixplain = Aixplain(
+        api_key="test",
+        backend_url="https://platform-api.aixplain.com",
+        pipeline_url="https://platform-api.aixplain.com/assets/pipeline/execution/run",
+        model_url="https://models.aixplain.com/api/v1/execute",
+    )
     with patch.object(os, "environ", new=dict()) as mock_environ:
         aixplain.init_env()
         assert mock_environ["TEAM_API_KEY"] == "test"
