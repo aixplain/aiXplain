@@ -87,6 +87,7 @@ class TeamAgentFactory:
             "llmId": llm_id,
             "supervisorId": llm_id,
             "plannerId": mentalist_and_inspector_llm_id,
+            "inspectorId": mentalist_and_inspector_llm_id,
             "supplier": supplier,
             "version": version,
             "status": "draft",
