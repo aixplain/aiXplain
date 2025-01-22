@@ -462,5 +462,5 @@ def test_create_agent_task():
     task_dict = task.to_dict()
     assert task_dict["name"] == "Test Task"
     assert task_dict["description"] == "Test Description"
-    assert task_dict["expected_output"] == "Test Output"
+    assert task_dict["expectedOutput"] == "Test Output"
     assert task_dict["dependencies"] is None

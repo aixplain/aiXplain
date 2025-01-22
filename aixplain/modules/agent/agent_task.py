@@ -18,6 +18,6 @@ class AgentTask:
         return {
             "name": self.name,
             "description": self.description,
-            "expected_output": self.expected_output,
+            "expectedOutput": self.expected_output,
             "dependencies": self.dependencies,
         }
