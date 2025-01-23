@@ -22,6 +22,7 @@ from aixplain.modules.pipeline.designer.mixins import LinkableMixin
 from aixplain.modules.pipeline.designer.pipeline import DesignerPipeline
 from aixplain.modules.pipeline.designer.base import find_prompt_params
 
+
 def test_create_node():
 
     pipeline = DesignerPipeline()
@@ -602,9 +603,7 @@ def test_param_proxy_special_prompt_handling():
 
     asset_node = Mock(spec=AssetNode, asset=Mock(function="text-generation"))
     param_proxy = ParamProxy(asset_node)
-    with patch(
-        "aixplain.modules.pipeline.designer.base.find_prompt_params"
-    ) as mock_find_prompt_params:
+    with patch("aixplain.modules.pipeline.designer.base.find_prompt_params") as mock_find_prompt_params:
         mock_find_prompt_params.return_value = []
         param_proxy.special_prompt_handling("prompt", "hello {{foo}}")
         mock_find_prompt_params.assert_called_once_with("hello {{foo}}")
@@ -725,17 +724,11 @@ def test_pipeline_special_prompt_validation():
         assert asset_node.inputs.text.is_required is True
         mock_is_param_set.reset_mock()
         mock_is_param_set.return_value = True
-        with patch(
-            "aixplain.modules.pipeline.designer.pipeline.find_prompt_params"
-        ) as mock_find_prompt_params:
+        with patch("aixplain.modules.pipeline.designer.pipeline.find_prompt_params") as mock_find_prompt_params:
             mock_find_prompt_params.return_value = []
             pipeline.special_prompt_validation(asset_node)
-            mock_is_param_set.assert_called_once_with(
-                asset_node, asset_node.inputs.prompt
-            )
-            mock_find_prompt_params.assert_called_once_with(
-                asset_node.inputs.prompt.value
-            )
+            mock_is_param_set.assert_called_once_with(asset_node, asset_node.inputs.prompt)
+            mock_find_prompt_params.assert_called_once_with(asset_node.inputs.prompt.value)
             assert asset_node.inputs.text.is_required is True
 
             mock_is_param_set.reset_mock()
@@ -750,12 +743,8 @@ def test_pipeline_special_prompt_validation():
             ):
                 pipeline.special_prompt_validation(asset_node)
 
-            mock_is_param_set.assert_called_once_with(
-                asset_node, asset_node.inputs.prompt
-            )
-            mock_find_prompt_params.assert_called_once_with(
-                asset_node.inputs.prompt.value
-            )
+            mock_is_param_set.assert_called_once_with(asset_node, asset_node.inputs.prompt)
+            mock_find_prompt_params.assert_called_once_with(asset_node.inputs.prompt.value)
             assert asset_node.inputs.text.is_required is False
 
             mock_is_param_set.reset_mock()
@@ -766,12 +755,8 @@ def test_pipeline_special_prompt_validation():
 
             asset_node.inputs.__contains__ = Mock(return_value=True)
             pipeline.special_prompt_validation(asset_node)
-            mock_is_param_set.assert_called_once_with(
-                asset_node, asset_node.inputs.prompt
-            )
-            mock_find_prompt_params.assert_called_once_with(
-                asset_node.inputs.prompt.value
-            )
+            mock_is_param_set.assert_called_once_with(asset_node, asset_node.inputs.prompt)
+            mock_find_prompt_params.assert_called_once_with(asset_node.inputs.prompt.value)
             assert asset_node.inputs.text.is_required is False
 
 
