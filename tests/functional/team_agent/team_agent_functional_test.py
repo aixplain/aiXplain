@@ -27,6 +27,8 @@ from copy import copy
 from uuid import uuid4
 import pytest
 
+from aixplain import aixplain_v2 as v2
+
 RUN_FILE = "tests/functional/team_agent/data/team_agent_test_end2end.json"
 
 
@@ -54,7 +56,8 @@ def run_input_map(request):
     return request.param
 
 
-def test_end2end(run_input_map, delete_agents_and_team_agents):
+@pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory, v2.TeamAgent])
+def test_end2end(run_input_map, delete_agents_and_team_agents, TeamAgentFactory):
     assert delete_agents_and_team_agents
 
     agents = []
@@ -108,7 +111,8 @@ def test_end2end(run_input_map, delete_agents_and_team_agents):
     team_agent.delete()
 
 
-def test_draft_team_agent_update(run_input_map):
+@pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory, v2.TeamAgent])
+def test_draft_team_agent_update(run_input_map, TeamAgentFactory):
     for team in TeamAgentFactory.list()["results"]:
         team.delete()
     for agent in AgentFactory.list()["results"]:
@@ -153,7 +157,8 @@ def test_draft_team_agent_update(run_input_map):
     assert team_agent.status == AssetStatus.DRAFT
 
 
-def test_fail_non_existent_llm():
+@pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory, v2.TeamAgent])
+def test_fail_non_existent_llm(TeamAgentFactory):
     with pytest.raises(Exception) as exc_info:
         AgentFactory.create(
             name="Test Agent",
@@ -164,7 +169,8 @@ def test_fail_non_existent_llm():
     assert str(exc_info.value) == "Large Language Model with ID 'non_existent_llm' not found."
 
 
-def test_add_remove_agents_from_team_agent(run_input_map, delete_agents_and_team_agents):
+@pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory, v2.TeamAgent])
+def test_add_remove_agents_from_team_agent(run_input_map, delete_agents_and_team_agents, TeamAgentFactory):
     assert delete_agents_and_team_agents
 
     agents = []

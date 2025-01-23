@@ -27,6 +27,7 @@ from aixplain.enums.supplier import Supplier
 from uuid import uuid4
 
 import pytest
+
 from aixplain import aixplain_v2 as v2
 
 RUN_FILE = "tests/functional/agent/data/agent_test_end2end.json"
@@ -57,7 +58,7 @@ def delete_agents_and_team_agents():
 
 
 @pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
-def test_end2end(run_input_map, delete_agents_and_team_agents, AgentFactory):
+def test_end2end(AgentFactory):
     assert delete_agents_and_team_agents
     tools = []
     if "model_tools" in run_input_map:
@@ -73,17 +74,10 @@ def test_end2end(run_input_map, delete_agents_and_team_agents, AgentFactory):
             tools.append(AgentFactory.create_model_tool(**tool_))
     if "pipeline_tools" in run_input_map:
         for tool in run_input_map["pipeline_tools"]:
-            tools.append(
-                AgentFactory.create_pipeline_tool(
-                    pipeline=tool["pipeline_id"], description=tool["description"]
-                )
-            )
+            tools.append(AgentFactory.create_pipeline_tool(pipeline=tool["pipeline_id"], description=tool["description"]))
 
     agent = AgentFactory.create(
-        name=run_input_map["agent_name"],
-        description=run_input_map["agent_name"],
-        llm_id=run_input_map["llm_id"],
-        tools=tools,
+        name=run_input_map["agent_name"], description=run_input_map["agent_name"], llm_id=run_input_map["llm_id"], tools=tools
     )
     assert agent is not None
     assert agent.status == AssetStatus.DRAFT
@@ -117,9 +111,7 @@ def test_python_interpreter_tool(delete_agents_and_team_agents, AgentFactory):
         tools=[tool],
     )
     assert agent is not None
-    response = agent.run(
-        "Solve the equation $\\frac{v^2}{2} + 7v - 16 = 0$ to find the value of $v$."
-    )
+    response = agent.run("Solve the equation $\\frac{v^2}{2} + 7v - 16 = 0$ to find the value of $v$.")
     assert response is not None
     assert response["completed"] is True
     assert response["status"].lower() == "success"
@@ -135,23 +127,18 @@ def test_custom_code_tool(delete_agents_and_team_agents, AgentFactory):
     assert delete_agents_and_team_agents
     tool = AgentFactory.create_custom_python_code_tool(
         description="Add two numbers",
-        code='def main(aaa: int, bbb: int) -> int:\n    """Add two numbers"""\n    return aaa + bbb',
+        code='def main(aaa: int, bbb: int)  -> int:\n    """Add two numbers"""\n    return aaa + bbb',
     )
     assert tool is not None
     assert tool.description == "Add two numbers"
-    assert (
-        tool.code
-        == 'def main(aaa: int, bbb: int) -> int:\n    """Add two numbers"""\n    return aaa + bbb'
-    )
+    assert tool.code == 'def main(aaa: int, bbb: int) -> int:\n    """Add two numbers"""\n    return aaa + bbb'
     agent = AgentFactory.create(
         name="Add Numbers Agent",
         description="Add two numbers. Do not directly answer. Use the tool to add the numbers.",
         tools=[tool],
     )
     assert agent is not None
-    response = agent.run(
-        "How much is 12342 + 112312? Do not directly answer the question, call the tool."
-    )
+    response = agent.run("How much is 12342 + 112312? Do not directly answer the question, call the tool.")
     assert response is not None
     assert response["completed"] is True
     assert response["status"].lower() == "success"
@@ -185,17 +172,10 @@ def test_update_draft_agent(run_input_map, delete_agents_and_team_agents, AgentF
             tools.append(AgentFactory.create_model_tool(**tool_))
     if "pipeline_tools" in run_input_map:
         for tool in run_input_map["pipeline_tools"]:
-            tools.append(
-                AgentFactory.create_pipeline_tool(
-                    pipeline=tool["pipeline_id"], description=tool["description"]
-                )
-            )
+            tools.append(AgentFactory.create_pipeline_tool(pipeline=tool["pipeline_id"], description=tool["description"]))
 
     agent = AgentFactory.create(
-        name=run_input_map["agent_name"],
-        description=run_input_map["agent_name"],
-        llm_id=run_input_map["llm_id"],
-        tools=tools,
+        name=run_input_map["agent_name"], description=run_input_map["agent_name"], llm_id=run_input_map["llm_id"], tools=tools
     )
 
     agent_name = str(uuid4()).replace("-", "")
@@ -218,10 +198,7 @@ def test_fail_non_existent_llm(delete_agents_and_team_agents, AgentFactory):
             llm_id="non_existent_llm",
             tools=[AgentFactory.create_model_tool(function=Function.TRANSLATION)],
         )
-    assert (
-        str(exc_info.value)
-        == "Large Language Model with ID 'non_existent_llm' not found."
-    )
+    assert str(exc_info.value) == "Large Language Model with ID 'non_existent_llm' not found."
 
 
 @pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
@@ -241,21 +218,15 @@ def test_delete_agent_in_use(delete_agents_and_team_agents, AgentFactory):
 
     with pytest.raises(Exception) as exc_info:
         agent.delete()
-    assert (
-        str(exc_info.value) == "Agent Deletion Error (HTTP 403): err.agent_is_in_use."
-    )
+    assert str(exc_info.value) == "Agent Deletion Error (HTTP 403): err.agent_is_in_use."
 
 
 @pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
-def test_update_tools_of_agent(
-    run_input_map, delete_agents_and_team_agents, AgentFactory
-):
+def test_update_tools_of_agent(run_input_map, delete_agents_and_team_agents, AgentFactory):
     assert delete_agents_and_team_agents
 
     agent = AgentFactory.create(
-        name=run_input_map["agent_name"],
-        description=run_input_map["agent_name"],
-        llm_id=run_input_map["llm_id"],
+        name=run_input_map["agent_name"], description=run_input_map["agent_name"], llm_id=run_input_map["llm_id"]
     )
     assert agent is not None
     assert agent.status == AssetStatus.DRAFT
@@ -276,11 +247,7 @@ def test_update_tools_of_agent(
 
     if "pipeline_tools" in run_input_map:
         for tool in run_input_map["pipeline_tools"]:
-            tools.append(
-                AgentFactory.create_pipeline_tool(
-                    pipeline=tool["pipeline_id"], description=tool["description"]
-                )
-            )
+            tools.append(AgentFactory.create_pipeline_tool(pipeline=tool["pipeline_id"], description=tool["description"]))
 
     agent.tools = tools
     agent.update()
