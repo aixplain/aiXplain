@@ -116,7 +116,7 @@ class UtilityModel(Model):
         function: Optional[Function] = None,
         is_subscribed: bool = False,
         cost: Optional[Dict] = None,
-        status: AssetStatus = AssetStatus.DRAFT,
+        status: AssetStatus = AssetStatus.ONBOARDED,# TODO: change to draft when we have the backend ready
         **additional_info,
     ) -> None:
         """Utility Model Init
