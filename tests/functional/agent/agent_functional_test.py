@@ -56,8 +56,8 @@ def delete_agents_and_team_agents():
         agent.delete()
 
 
-@pytest.mark.parametrize("factory", [AgentFactory, v2.Agent])
-def test_end2end(run_input_map, delete_agents_and_team_agents, factory):
+@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
+def test_end2end(run_input_map, delete_agents_and_team_agents, AgentFactory):
     assert delete_agents_and_team_agents
     tools = []
     if "model_tools" in run_input_map:
@@ -70,16 +70,16 @@ def test_end2end(run_input_map, delete_agents_and_team_agents, factory):
                 ]:
                     tool_["supplier"] = supplier
                     break
-            tools.append(factory.create_model_tool(**tool_))
+            tools.append(AgentFactory.create_model_tool(**tool_))
     if "pipeline_tools" in run_input_map:
         for tool in run_input_map["pipeline_tools"]:
             tools.append(
-                factory.create_pipeline_tool(
+                AgentFactory.create_pipeline_tool(
                     pipeline=tool["pipeline_id"], description=tool["description"]
                 )
             )
 
-    agent = factory.create(
+    agent = AgentFactory.create(
         name=run_input_map["agent_name"],
         description=run_input_map["agent_name"],
         llm_id=run_input_map["llm_id"],
@@ -91,7 +91,7 @@ def test_end2end(run_input_map, delete_agents_and_team_agents, factory):
     agent.deploy()
     assert agent.status == AssetStatus.ONBOARDED
 
-    agent = factory.get(agent.id)
+    agent = AgentFactory.get(agent.id)
     assert agent is not None
     response = agent.run(data=run_input_map["query"])
     assert response is not None
@@ -103,15 +103,15 @@ def test_end2end(run_input_map, delete_agents_and_team_agents, factory):
     agent.delete()
 
 
-@pytest.mark.parametrize("factory", [AgentFactory, v2.Agent])
-def test_python_interpreter_tool(delete_agents_and_team_agents, factory):
+@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
+def test_python_interpreter_tool(delete_agents_and_team_agents, AgentFactory):
     assert delete_agents_and_team_agents
-    tool = factory.create_python_interpreter_tool()
+    tool = AgentFactory.create_python_interpreter_tool()
     assert tool is not None
     assert tool.name == "Python Interpreter"
     assert tool.description == ""
 
-    agent = factory.create(
+    agent = AgentFactory.create(
         name="Python Developer",
         description="A Python developer agent. If you get an error from a tool, try to fix it.",
         tools=[tool],
@@ -130,10 +130,10 @@ def test_python_interpreter_tool(delete_agents_and_team_agents, factory):
     agent.delete()
 
 
-@pytest.mark.parametrize("factory", [AgentFactory, v2.Agent])
-def test_custom_code_tool(delete_agents_and_team_agents, factory):
+@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
+def test_custom_code_tool(delete_agents_and_team_agents, AgentFactory):
     assert delete_agents_and_team_agents
-    tool = factory.create_custom_python_code_tool(
+    tool = AgentFactory.create_custom_python_code_tool(
         description="Add two numbers",
         code='def main(aaa: int, bbb: int) -> int:\n    """Add two numbers"""\n    return aaa + bbb',
     )
@@ -143,7 +143,7 @@ def test_custom_code_tool(delete_agents_and_team_agents, factory):
         tool.code
         == 'def main(aaa: int, bbb: int) -> int:\n    """Add two numbers"""\n    return aaa + bbb'
     )
-    agent = factory.create(
+    agent = AgentFactory.create(
         name="Add Numbers Agent",
         description="Add two numbers. Do not directly answer. Use the tool to add the numbers.",
         tools=[tool],
@@ -159,16 +159,16 @@ def test_custom_code_tool(delete_agents_and_team_agents, factory):
     agent.delete()
 
 
-@pytest.mark.parametrize("factory", [AgentFactory, v2.Agent])
-def test_list_agents(factory):
-    agents = factory.list()
+@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
+def test_list_agents(AgentFactory):
+    agents = AgentFactory.list()
     assert "results" in agents
     agents_result = agents["results"]
     assert type(agents_result) is list
 
 
-@pytest.mark.parametrize("factory", [AgentFactory, v2.Agent])
-def test_update_draft_agent(run_input_map, delete_agents_and_team_agents, factory):
+@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
+def test_update_draft_agent(run_input_map, delete_agents_and_team_agents, AgentFactory):
     assert delete_agents_and_team_agents
 
     tools = []
@@ -182,16 +182,16 @@ def test_update_draft_agent(run_input_map, delete_agents_and_team_agents, factor
                 ]:
                     tool_["supplier"] = supplier
                     break
-            tools.append(factory.create_model_tool(**tool_))
+            tools.append(AgentFactory.create_model_tool(**tool_))
     if "pipeline_tools" in run_input_map:
         for tool in run_input_map["pipeline_tools"]:
             tools.append(
-                factory.create_pipeline_tool(
+                AgentFactory.create_pipeline_tool(
                     pipeline=tool["pipeline_id"], description=tool["description"]
                 )
             )
 
-    agent = factory.create(
+    agent = AgentFactory.create(
         name=run_input_map["agent_name"],
         description=run_input_map["agent_name"],
         llm_id=run_input_map["llm_id"],
@@ -202,21 +202,21 @@ def test_update_draft_agent(run_input_map, delete_agents_and_team_agents, factor
     agent.name = agent_name
     agent.update()
 
-    agent = factory.get(agent.id)
+    agent = AgentFactory.get(agent.id)
     assert agent.name == agent_name
     assert agent.status == AssetStatus.DRAFT
     agent.delete()
 
 
-@pytest.mark.parametrize("factory", [AgentFactory, v2.Agent])
-def test_fail_non_existent_llm(delete_agents_and_team_agents, factory):
+@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
+def test_fail_non_existent_llm(delete_agents_and_team_agents, AgentFactory):
     assert delete_agents_and_team_agents
     with pytest.raises(Exception) as exc_info:
-        factory.create(
+        AgentFactory.create(
             name="Test Agent",
             description="Test description",
             llm_id="non_existent_llm",
-            tools=[factory.create_model_tool(function=Function.TRANSLATION)],
+            tools=[AgentFactory.create_model_tool(function=Function.TRANSLATION)],
         )
     assert (
         str(exc_info.value)
@@ -224,13 +224,13 @@ def test_fail_non_existent_llm(delete_agents_and_team_agents, factory):
     )
 
 
-@pytest.mark.parametrize("factory", [AgentFactory, v2.Agent])
-def test_delete_agent_in_use(delete_agents_and_team_agents, factory):
+@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
+def test_delete_agent_in_use(delete_agents_and_team_agents, AgentFactory):
     assert delete_agents_and_team_agents
-    agent = factory.create(
+    agent = AgentFactory.create(
         name="Test Agent",
         description="Test description",
-        tools=[factory.create_model_tool(function=Function.TRANSLATION)],
+        tools=[AgentFactory.create_model_tool(function=Function.TRANSLATION)],
     )
     TeamAgentFactory.create(
         name="Test Team Agent",
@@ -246,11 +246,13 @@ def test_delete_agent_in_use(delete_agents_and_team_agents, factory):
     )
 
 
-@pytest.mark.parametrize("factory", [AgentFactory, v2.Agent])
-def test_update_tools_of_agent(run_input_map, delete_agents_and_team_agents, factory):
+@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
+def test_update_tools_of_agent(
+    run_input_map, delete_agents_and_team_agents, AgentFactory
+):
     assert delete_agents_and_team_agents
 
-    agent = factory.create(
+    agent = AgentFactory.create(
         name=run_input_map["agent_name"],
         description=run_input_map["agent_name"],
         llm_id=run_input_map["llm_id"],
@@ -270,12 +272,12 @@ def test_update_tools_of_agent(run_input_map, delete_agents_and_team_agents, fac
                 ]:
                     tool_["supplier"] = supplier
                     break
-            tools.append(factory.create_model_tool(**tool_))
+            tools.append(AgentFactory.create_model_tool(**tool_))
 
     if "pipeline_tools" in run_input_map:
         for tool in run_input_map["pipeline_tools"]:
             tools.append(
-                factory.create_pipeline_tool(
+                AgentFactory.create_pipeline_tool(
                     pipeline=tool["pipeline_id"], description=tool["description"]
                 )
             )
@@ -283,13 +285,13 @@ def test_update_tools_of_agent(run_input_map, delete_agents_and_team_agents, fac
     agent.tools = tools
     agent.update()
 
-    agent = factory.get(agent.id)
+    agent = AgentFactory.get(agent.id)
     assert len(agent.tools) == len(tools)
 
     removed_tool = agent.tools.pop()
     agent.update()
 
-    agent = factory.get(agent.id)
+    agent = AgentFactory.get(agent.id)
     assert len(agent.tools) == len(tools) - 1
     assert removed_tool not in agent.tools
 
