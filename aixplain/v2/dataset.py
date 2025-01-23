@@ -71,8 +71,8 @@ class Dataset(
     CreateResourceMixin[Dict, "Dataset"],
 ):
     @classmethod
-    def get(cls, **kwargs: Unpack[BareGetParams]) -> "Dataset":
-        return Dataset(DatasetFactory.get(dataset_id=kwargs["id"]))
+    def get(cls, id: str, **kwargs: Unpack[BareGetParams]) -> "Dataset":
+        return DatasetFactory.get(dataset_id=id)
 
     @classmethod
     def list(cls, **kwargs: Unpack[DatasetListParams]) -> Page["Dataset"]:

@@ -41,10 +41,10 @@ class Benchmark(
     RESOURCE_PATH = "sdk/benchmarks"
 
     @classmethod
-    def get(cls, **kwargs: Unpack[BareGetParams]) -> "Benchmark":
+    def get(cls, id: str, **kwargs: Unpack[BareGetParams]) -> "Benchmark":
         from aixplain.factories import BenchmarkFactory
 
-        return BenchmarkFactory.get(benchmark_id=kwargs["id"])
+        return BenchmarkFactory.get(benchmark_id=id)
 
     @classmethod
     def create(cls, **kwargs: Unpack[BenchmarkCreateParams]) -> "Benchmark":

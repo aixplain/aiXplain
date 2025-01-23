@@ -64,10 +64,10 @@ class Pipeline(
         return PipelineFactory.list(**kwargs)
 
     @classmethod
-    def get(cls, **kwargs: Unpack[BareGetParams]) -> "Pipeline":
+    def get(cls, id: str, **kwargs: Unpack[BareGetParams]) -> "Pipeline":
         from aixplain.factories import PipelineFactory
 
-        return PipelineFactory.get(pipeline_id=kwargs["id"])
+        return PipelineFactory.get(pipeline_id=id)
 
     @classmethod
     def create(cls, **kwargs: Unpack[PipelineCreateParams]) -> "Pipeline":

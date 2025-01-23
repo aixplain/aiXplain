@@ -34,10 +34,10 @@ class Metric(
     RESOURCE_PATH = "sdk/metrics"
 
     @classmethod
-    def get(cls, **kwargs: Unpack[BareGetParams]) -> "Metric":
+    def get(cls, id: str, **kwargs: Unpack[BareGetParams]) -> "Metric":
         from aixplain.factories.metric_factory import MetricFactory
 
-        return MetricFactory.get(metric_id=kwargs["metric_id"])
+        return MetricFactory.get(metric_id=id)
 
     @classmethod
     def list(cls, **kwargs: Unpack[MetricListParams]) -> Page["Metric"]:

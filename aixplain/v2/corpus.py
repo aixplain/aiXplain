@@ -56,8 +56,8 @@ class Corpus(
     GetResourceMixin[BareGetParams, "Corpus"],
 ):
     @classmethod
-    def get(cls, **kwargs: Unpack[BareGetParams]) -> "Corpus":
-        return CorpusFactory.get(corpus_id=kwargs["id"])
+    def get(cls, id: str, **kwargs: Unpack[BareGetParams]) -> "Corpus":
+        return CorpusFactory.get(corpus_id=id)
 
     @classmethod
     def list(cls, **kwargs: Unpack[CorpusListParams]) -> Page["Corpus"]:

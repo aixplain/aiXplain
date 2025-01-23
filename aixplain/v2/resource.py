@@ -139,7 +139,7 @@ class BaseGetParams(TypedDict):
         id: str: The resource ID.
     """
 
-    id: str
+    pass
 
 
 class BaseCreateParams(TypedDict):
@@ -343,11 +343,12 @@ class GetResourceMixin(Generic[G, R]):
     """Mixin for getting a resource."""
 
     @classmethod
-    def get(cls: Type[R], **kwargs: Unpack[G]) -> R:
+    def get(cls: Type[R], id: Any, **kwargs: Unpack[G]) -> R:
         """
         Retrieve a single resource by its ID (or other get parameters).
 
         Args:
+            id: Any: The ID of the resource to get.
             kwargs: Unpack[G]: Get parameters to pass to the request.
 
         Returns:
@@ -360,7 +361,6 @@ class GetResourceMixin(Generic[G, R]):
             cls, "RESOURCE_PATH"
         ), "Subclasses of 'BaseResource' must specify 'RESOURCE_PATH'"
 
-        id = kwargs.pop("id")
         path = f"{cls.RESOURCE_PATH}/{id}"
         obj = cls.context.client.get_obj(path, **kwargs)
         return cls(obj)

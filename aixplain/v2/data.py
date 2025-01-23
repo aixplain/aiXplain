@@ -12,5 +12,5 @@ class Data(
     GetResourceMixin[BareGetParams, "Data"],
 ):
     @classmethod
-    def get(cls, **kwargs: Unpack[BareGetParams]) -> "Data":
-        return DataFactory.get(data_id=kwargs["id"])
+    def get(cls, id: str, **kwargs: Unpack[BareGetParams]) -> "Data":
+        return DataFactory.get(data_id=id)

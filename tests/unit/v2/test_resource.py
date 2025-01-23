@@ -131,7 +131,7 @@ def test_base_resource_get():
             client=Mock(get_obj=Mock(return_value={"id": "123", "name": "test"}))
         )
 
-    obj = FixtureResource.get(id="123")
+    obj = FixtureResource.get("123")
     assert obj.id == "123"
     assert obj.name == "test"
 

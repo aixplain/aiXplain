@@ -52,10 +52,10 @@ class Model(
         return ModelFactory.list(**kwargs)
 
     @classmethod
-    def get(cls, **kwargs: Unpack[BareGetParams]) -> "Model":
+    def get(cls, id: str, **kwargs: Unpack[BareGetParams]) -> "Model":
         from aixplain.factories import ModelFactory
 
-        return ModelFactory.get(model_id=kwargs["id"])
+        return ModelFactory.get(model_id=id)
 
     @classmethod
     def create_utility_model(
