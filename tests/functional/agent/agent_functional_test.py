@@ -58,7 +58,7 @@ def delete_agents_and_team_agents():
 
 
 @pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
-def test_end2end(AgentFactory):
+def test_end2end(run_input_map, delete_agents_and_team_agents, AgentFactory):
     assert delete_agents_and_team_agents
     tools = []
     if "model_tools" in run_input_map:
@@ -127,7 +127,7 @@ def test_custom_code_tool(delete_agents_and_team_agents, AgentFactory):
     assert delete_agents_and_team_agents
     tool = AgentFactory.create_custom_python_code_tool(
         description="Add two numbers",
-        code='def main(aaa: int, bbb: int)  -> int:\n    """Add two numbers"""\n    return aaa + bbb',
+        code='def main(aaa: int, bbb: int) -> int:\n    """Add two numbers"""\n    return aaa + bbb',
     )
     assert tool is not None
     assert tool.description == "Add two numbers"

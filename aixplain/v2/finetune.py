@@ -43,12 +43,24 @@ class Finetune(
     RESOURCE_PATH = "sdk/finetunes"
 
     @classmethod
-    def create(cls, **kwargs: Unpack[FinetuneCreateParams]) -> "Finetune":
+    def create(
+        cls,
+        name: str,
+        dataset_list: List[Union[Dataset, str]],
+        model: Union[Model, str],
+        prompt_template: str = None,
+        hyperparameters: Hyperparameters = None,
+        train_percentage: float = 100,
+        dev_percentage: float = 0,
+    ) -> "Finetune":
         from aixplain.factories import FinetuneFactory
 
-        kwargs.setdefault("prompt_template", None)
-        kwargs.setdefault("hyperparameters", None)
-        kwargs.setdefault("train_percentage", 100)
-        kwargs.setdefault("dev_percentage", 0)
-
-        return FinetuneFactory.create(**kwargs)
+        return FinetuneFactory.create(
+            name,
+            dataset_list,
+            model,
+            prompt_template=prompt_template,
+            hyperparameters=hyperparameters,
+            train_percentage=train_percentage,
+            dev_percentage=dev_percentage,
+        )

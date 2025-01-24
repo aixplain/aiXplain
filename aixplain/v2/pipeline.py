@@ -37,7 +37,8 @@ class PipelineListParams(BareListParams):
 
 class PipelineCreateParams(BaseCreateParams):
     name: str
-    api_key: NotRequired[str]
+    pipeline: Union[str, dict]
+    api_key: NotRequired[str] = None
 
 
 class Pipeline(
@@ -72,7 +73,31 @@ class Pipeline(
     @classmethod
     def create(cls, **kwargs: Unpack[PipelineCreateParams]) -> "Pipeline":
         from aixplain.factories import PipelineFactory
-        from aixplain.utils.config import config
+        from aixplain.utils import config
 
         kwargs.setdefault("api_key", config.TEAM_API_KEY)
-        return PipelineFactory.init(**kwargs)
+        return PipelineFactory.create(**kwargs)
+
+    @classmethod
+    def init(cls, name: str, api_key: str = None) -> "Pipeline":
+        from aixplain.factories import PipelineFactory
+
+        return PipelineFactory.init(name, api_key=api_key)
+
+    @classmethod
+    def get_first_k_assets(cls, k: int) -> List["Pipeline"]:
+        from aixplain.factories import PipelineFactory
+
+        return PipelineFactory.get_first_k_assets(k)
+
+    @classmethod
+    def create_asset_from_id(cls, pipeline_id: str) -> "Pipeline":
+        from aixplain.factories import PipelineFactory
+
+        return PipelineFactory.create_asset_from_id(pipeline_id)
+
+    @classmethod
+    def get_assets_from_page(cls, page_number: int) -> List["Pipeline"]:
+        from aixplain.factories import PipelineFactory
+
+        return PipelineFactory.get_assets_from_page(page_number)

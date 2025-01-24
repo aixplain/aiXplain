@@ -13,6 +13,7 @@ from .metric import Metric
 from .finetune import Finetune
 from .script import Script
 from .wallet import Wallet
+from .file import File
 from . import enums
 
 APIKeyType = TypeVar("APIKeyType", bound=APIKey)
@@ -28,6 +29,7 @@ MetricType = TypeVar("MetricType", bound=Metric)
 FinetuneType = TypeVar("FinetuneType", bound=Finetune)
 ScriptType = TypeVar("ScriptType", bound=Script)
 WalletType = TypeVar("WalletType", bound=Wallet)
+FileType = TypeVar("FileType", bound=File)
 
 
 class Aixplain:
@@ -65,7 +67,7 @@ class Aixplain:
     Finetune: FinetuneType = None
     Script: ScriptType = None
     Wallet: WalletType = None
-
+    File: FileType = None
     Function = enums.Function
     Supplier = enums.Supplier
     Language = enums.Language
@@ -172,3 +174,4 @@ class Aixplain:
         self.Finetune = type("Finetune", (Finetune,), {"context": self})
         self.Script = type("Script", (Script,), {"context": self})
         self.Wallet = type("Wallet", (Wallet,), {"context": self})
+        self.File = type("File", (File,), {"context": self})

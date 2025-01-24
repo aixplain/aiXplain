@@ -12,11 +12,11 @@ class FileCreateParams(BaseCreateParams):
 
     local_path: str
     tags: NotRequired[List[str]]
-    license: NotRequired[License]
+    license: NotRequired["License"]
     is_temp: NotRequired[bool]
 
 
-class File(BaseResource, CreateResourceMixin[FileCreateParams]):
+class File(BaseResource, CreateResourceMixin[FileCreateParams, "File"]):
     """Resource for files."""
 
     RESOURCE_PATH = "sdk/files"
@@ -51,7 +51,7 @@ class File(BaseResource, CreateResourceMixin[FileCreateParams]):
         cls,
         local_path: str,
         tags: List[str] = None,
-        license: License = None,
+        license: "License" = None,
         is_temp: bool = True,
     ) -> str:
         """Upload a file.
@@ -67,7 +67,7 @@ class File(BaseResource, CreateResourceMixin[FileCreateParams]):
         return FileFactory.upload(local_path, tags, license, is_temp)
 
     @classmethod
-    def check_storage_type(cls, upload_url: str) -> StorageType:
+    def check_storage_type(cls, upload_url: str) -> "StorageType":
         """Check the storage type of a file.
 
         Args:

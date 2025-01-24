@@ -21,6 +21,7 @@ from aixplain.enums import License
 from aixplain.factories import FileFactory
 from aixplain import aixplain_v2 as v2
 
+
 @pytest.mark.parametrize("FileFactory", [FileFactory, v2.File])
 def test_file_create(FileFactory):
     upload_file = "tests/functional/file_asset/input/test.csv"
