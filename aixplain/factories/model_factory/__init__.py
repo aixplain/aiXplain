@@ -176,6 +176,7 @@ class ModelFactory:
         if model_ids is not None:
             from aixplain.factories.model_factory.utils import get_model_from_ids
 
+            assert len(model_ids) > 0, "Please provide at least one model id"
             assert (
                 function is None
                 and suppliers is None
