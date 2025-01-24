@@ -81,7 +81,7 @@ def test_utility_model_to_dict():
                     "code": "utility_model_test",
                     "function": "utilities",
                     "outputDescription": "output_description",
-                    "status": AssetStatus.DRAFT.value,
+                    "status": AssetStatus.ONBOARDED.value,
                 }
 
 
@@ -349,25 +349,30 @@ def test_model_exists_empty_id():
     )
     assert utility_model._model_exists() is False
 
+# TODO: Change this when backend support utility models asset status
+# def test_utility_model_status():
+#     utility_model = None
+#     try:
+#         inputs = [
+#             UtilityModelInput(name="inputA", description="input A is the only input", type=DataType.TEXT),
+#         ]
 
-def test_utility_model_status():
-    inputs = [
-        UtilityModelInput(name="inputA", description="input A is the only input", type=DataType.TEXT),
-    ]
+#         utility_model = ModelFactory.create_utility_model(
+#             name="test_status_script_v1",
+#             description="This is a test script for status check",
+#             inputs=inputs,
+#             code="def main(inputA: str):\n\treturn inputA",
+#             output_examples="An example is 'test'",
+#         )
 
-    utility_model = ModelFactory.create_utility_model(
-        name="test_status_script_draft",
-        description="This is a test script for status check",
-        inputs=inputs,
-        code="def main(inputA: str):\n\treturn inputA",
-        output_examples="An example is 'test'",
-    )
-
-    assert utility_model.id is not None
-    assert utility_model.status == AssetStatus.DRAFT
-    
-    # Deploy the model
-    utility_model.deploy()
-    assert utility_model.status == AssetStatus.ONBOARDED
-    
-    utility_model.delete()
+#         assert utility_model.id is not None
+#         assert utility_model.status == AssetStatus.DRAFT
+        
+#         # Deploy the model
+#         utility_model.deploy()
+#         assert utility_model.status == AssetStatus.ONBOARDED
+        
+#         utility_model.delete()
+#     finally:
+#         if utility_model:
+#             utility_model.delete()
