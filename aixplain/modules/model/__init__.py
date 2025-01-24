@@ -70,6 +70,7 @@ class Model(Asset):
         created_at: Optional[datetime] = None,
         input_params: Optional[Dict] = None,
         output_params: Optional[Dict] = None,
+        model_params: Optional[Dict] = None,
         **additional_info,
     ) -> None:
         """Model Init
@@ -86,6 +87,7 @@ class Model(Asset):
             cost (Dict, optional): model price. Defaults to None.
             input_params (Dict, optional): input parameters for the function.
             output_params (Dict, optional): output parameters for the function.
+            model_params (Dict, optional): parameters for the function.
             **additional_info: Any additional Model info to be saved
         """
         super().__init__(id, name, description, supplier, version, cost=cost)
@@ -96,8 +98,9 @@ class Model(Asset):
         self.function = function
         self.is_subscribed = is_subscribed
         self.created_at = created_at
-        self.input_params = ModelParameters(input_params) if input_params else None
+        self.input_params = input_params
         self.output_params = output_params
+        self.model_params = ModelParameters(model_params) if model_params else None
 
     def to_dict(self) -> Dict:
         """Get the model info as a Dictionary
@@ -114,7 +117,13 @@ class Model(Asset):
             "additional_info": clean_additional_info,
             "input_params": self.input_params,
             "output_params": self.output_params,
+            "model_params": self.model_params.to_dict(),
         }
+
+    def get_parameters(self) -> ModelParameters:
+        if self.model_params:
+            return self.model_params
+        return None
 
     def __repr__(self):
         try:
@@ -283,11 +292,6 @@ class Model(Asset):
             url=response.pop("url", None),
             **response,
         )
-
-    def get_parameters(self) -> Dict:
-        if self.input_params:
-            return self.input_params.to_dict()
-        return {}
 
     def check_finetune_status(self, after_epoch: Optional[int] = None):
         """Check the status of the FineTune model.

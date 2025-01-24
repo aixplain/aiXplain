@@ -32,9 +32,9 @@ class ModelTool(Tool):
     """Specialized software or resource designed to assist the AI in executing specific tasks or functions based on user commands.
 
     Attributes:
-        function (Optional[Union[Function, Text]]): task that the tool performs.
-        supplier (Optional[Union[Dict, Supplier]]): Preferred supplier to perform the task.
-        model (Optional[Union[Text, Model]]): Model function.
+        function (Optional[Function]): task that the tool performs.
+        supplier (Optional[Supplier]): Preferred supplier to perform the task.
+        model (Optional[Text]): Model function.
     """
 
     def __init__(
@@ -56,6 +56,7 @@ class ModelTool(Tool):
         assert (
             function is not None or model is not None
         ), "Agent Creation Error: Either function or model must be provided when instantiating a tool."
+
         super().__init__(name="", description=description, **additional_info)
         if function is not None:
             if isinstance(function, str):
@@ -70,10 +71,12 @@ class ModelTool(Tool):
         except Exception:
             supplier = None
 
+        self.model_object = None
         if model is not None:
             if isinstance(model, Text) is True:
                 self.model = model
                 model = self.validate()
+                self.model_object = model
             function = model.function
             if isinstance(model.supplier, Supplier):
                 supplier = model.supplier
@@ -81,6 +84,7 @@ class ModelTool(Tool):
         self.supplier = supplier
         self.model = model
         self.function = function
+        self.parameters = self.validate_parameters()
 
     def to_dict(self) -> Dict:
         """Converts the tool to a dictionary."""
@@ -100,6 +104,7 @@ class ModelTool(Tool):
             "supplier": supplier,
             "version": self.version if self.version else None,
             "assetId": self.model,
+            "parameters": self.parameters,
         }
 
     def validate(self) -> Model:
@@ -112,3 +117,14 @@ class ModelTool(Tool):
             return model
         except Exception:
             raise Exception(f"Model Tool Unavailable. Make sure Model '{self.model}' exists or you have access to it.")
+
+    def get_parameters(self) -> Dict:
+        return self.parameters
+
+    def validate_parameters(self) -> Optional[Dict]:
+        parameters = []
+        if self.model_object is not None:
+            parameters = self.model_object.get_parameters().to_list()
+        else:
+            parameters = self.function.get_parameters().to_list()
+        return parameters

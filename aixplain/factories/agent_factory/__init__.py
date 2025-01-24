@@ -87,8 +87,8 @@ class AgentFactory:
                     "name": tool.name,
                     "description": tool.description,
                     "supplier": tool.supplier.value["code"] if isinstance(tool.supplier, Supplier) else tool.supplier,
-                    "parameters": tool.get_parameters() if hasattr(tool, "get_parameters") else None,
-                    "function": tool.function.value if hasattr(tool, "function") and tool.function is not None else None,
+                    "parameters": tool.get_parameters().to_list() if hasattr(tool, "get_parameters") else None,
+                    "function": tool.function if hasattr(tool, "function") and tool.function is not None else None,
                     "type": "model",
                     "version": tool.version if hasattr(tool, "version") else None,
                     "assetId": tool.id,
@@ -133,6 +133,7 @@ class AgentFactory:
         function: Optional[Union[Function, Text]] = None,
         supplier: Optional[Union[Supplier, Text]] = None,
         description: Text = "",
+        parameters: Optional[Dict] = None,
     ) -> ModelTool:
         """Create a new model tool."""
         if function is not None and isinstance(function, str):
@@ -146,7 +147,7 @@ class AgentFactory:
                         break
                 if isinstance(supplier, str):
                     supplier = None
-        return ModelTool(function=function, supplier=supplier, model=model, description=description)
+        return ModelTool(function=function, supplier=supplier, model=model, description=description, parameters=parameters)
 
     @classmethod
     def create_pipeline_tool(cls, description: Text, pipeline: Union[Pipeline, Text]) -> PipelineTool:
