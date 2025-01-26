@@ -30,12 +30,12 @@ class APIKeyGetParams(BareGetParams):
 
 class APIKey(
     BaseResource,
-    GetResourceMixin[BareGetParams, "APIKey"],
+    GetResourceMixin[APIKeyGetParams, "APIKey"],
     ListResourceMixin[BareListParams, "APIKey"],
-    CreateResourceMixin[Dict, "APIKey"],
+    CreateResourceMixin[APIKeyCreateParams, "APIKey"],
 ):
     @classmethod
-    def get(cls, **kwargs: Unpack[BareGetParams]) -> "APIKey":
+    def get(cls, **kwargs: Unpack[APIKeyGetParams]) -> "APIKey":
         import aixplain.utils.config as config
 
         api_key = kwargs.get("api_key", config.TEAM_API_KEY)
@@ -58,7 +58,5 @@ class APIKey(
         return APIKeyFactory.update(api_key)
 
     @classmethod
-    def get_usage_limits(
-        cls, api_key: Text = config.TEAM_API_KEY, asset_id: Optional[Text] = None
-    ) -> List[APIKeyUsageLimit]:
+    def get_usage_limits(cls, api_key: Text = config.TEAM_API_KEY, asset_id: Optional[Text] = None) -> List[APIKeyUsageLimit]:
         return APIKeyFactory.get_usage_limits(api_key, asset_id)

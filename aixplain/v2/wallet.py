@@ -12,10 +12,10 @@ class WalletGetParams(BareGetParams):
 
 class Wallet(
     BaseResource,
-    GetResourceMixin[BareGetParams, "Wallet"],
+    GetResourceMixin[WalletGetParams, "Wallet"],
 ):
     @classmethod
-    def get(cls, **kwargs: Unpack[BareGetParams]) -> "Wallet":
+    def get(cls, **kwargs: Unpack[WalletGetParams]) -> "Wallet":
         from aixplain.factories import WalletFactory
         import aixplain.utils.config as config
 

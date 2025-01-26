@@ -41,7 +41,6 @@ def test_base_resource_save_with_id():
 
 
 def test_base_resource_action():
-
     class FixtureResource(BaseResource):
         RESOURCE_PATH = "demo"
         context = Mock()
@@ -57,10 +56,7 @@ def test_base_resource_action():
 
 
 def test_base_resource_list():
-
-    class FixtureResource(
-        BaseResource, ListResourceMixin[BareListParams, "FixtureResource"]
-    ):
+    class FixtureResource(BaseResource, ListResourceMixin[BareListParams, "FixtureResource"]):
         RESOURCE_PATH = "demo"
         context = Mock(
             client=Mock(
@@ -84,7 +80,7 @@ def test_base_resource_list():
     page = FixtureResource.list()
 
     assert page.total == 2
-    assert page.page_number == 1
+    assert page.page_number == 0
     assert page.page_total == 1
     assert len(page.results) == 2
     assert page.results[0].id == "123"
@@ -95,7 +91,10 @@ def test_base_resource_list():
     FixtureResource.context.client.request.assert_called_once_with(
         "post",
         "demo/paginate",
-        json={},
+        json={
+            "pageNumber": 0,
+            "pageSize": 20,
+        },
     )
     FixtureResource.context.client.request.reset_mock()
 
@@ -123,13 +122,9 @@ def test_base_resource_list():
 
 
 def test_base_resource_get():
-    class FixtureResource(
-        BaseResource, GetResourceMixin[BareGetParams, "FixtureResource"]
-    ):
+    class FixtureResource(BaseResource, GetResourceMixin[BareGetParams, "FixtureResource"]):
         RESOURCE_PATH = "demo"
-        context = Mock(
-            client=Mock(get_obj=Mock(return_value={"id": "123", "name": "test"}))
-        )
+        context = Mock(client=Mock(get_obj=Mock(return_value={"id": "123", "name": "test"})))
 
     obj = FixtureResource.get("123")
     assert obj.id == "123"
