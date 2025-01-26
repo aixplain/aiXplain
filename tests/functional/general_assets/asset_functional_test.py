@@ -30,29 +30,43 @@ def __get_asset_factory(asset_name):
     return AssetFactory
 
 
-@pytest.mark.parametrize("asset_name", ["model", "dataset", "metric"])
-def test_list(asset_name):
-    AssetFactory = __get_asset_factory(asset_name)
-    if asset_name == "model":
-        asset_list = AssetFactory.list(function=Function.TRANSLATION)
-    else:
-        asset_list = AssetFactory.list()
-    assert asset_list["page_total"] == len(asset_list["results"])
+def test_list_models():
+    models = ModelFactory.list(function=Function.TRANSLATION)
+    assert models["page_total"] == len(models["results"])
 
 
-@pytest.mark.parametrize("asset_name", ["model", "model2", "model3", "pipeline", "metric"])
-def test_run(inputs, asset_name):
-    asset_details = inputs[asset_name]
-    AssetFactory = __get_asset_factory(asset_name)
-    if asset_name == "pipeline":
-        asset = AssetFactory.list(query=asset_details["name"])["results"][0]
-    else:
-        asset = AssetFactory.get(asset_details["id"])
+def test_list_datasets():
+    datasets = DatasetFactory.list()
+    assert datasets["page_total"] == len(datasets["results"])
+
+
+def test_list_metrics():
+    metrics = MetricFactory.list()
+    assert metrics["page_total"] == len(metrics["results"])
+
+
+def test_run_pipeline(inputs):
+    asset_details = inputs["pipeline"]
+    pipeline = PipelineFactory.list(query=asset_details["name"])["results"][0]
     payload = asset_details["data"]
-    if type(payload) is dict:
-        output = asset.run(**payload)
-    else:
-        output = asset.run(payload)
+    output = pipeline.run(payload)
+    assert output["completed"] and output["status"] == "SUCCESS"
+
+
+def test_run_metric(inputs):
+    asset_details = inputs["metric"]
+    metric = MetricFactory.get(asset_details["id"])
+    payload = asset_details["data"]
+    output = metric.run(**payload)
+    assert output["completed"] and output["status"] == "SUCCESS"
+
+
+@pytest.mark.parametrize("asset_name", ["model", "model2", "model3"])
+def test_run_model(inputs, asset_name):
+    asset_details = inputs[asset_name]
+    model = ModelFactory.get(asset_details["id"])
+    payload = asset_details["data"]
+    output = model.run(payload)
     assert output["completed"] and output["status"] == "SUCCESS"
 
 
