@@ -33,6 +33,7 @@ class AgentResponseData:
             "session_id": self.session_id,
             "intermediate_steps": self.intermediate_steps,
             "executionStats": self.execution_stats,
+            "execution_stats": self.execution_stats,
         }
 
     def __getitem__(self, key):

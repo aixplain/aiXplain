@@ -75,8 +75,9 @@ class AgentFactory:
             Agent: created Agent
         """
         warnings.warn(
-            "The 'role' parameter was recently added and serves the same purpose as 'description' did previously: set the role of the agent as a system prompt."
-            "The 'description' parameter is still required and should be used to set a short summary of the agent's purpose.",
+            "The 'role' parameter was recently added and serves the same purpose as 'description' did previously: set the role of the agent as a system prompt. "
+            "The 'description' parameter is still required and should be used to set a short summary of the agent's purpose. "
+            "For the next releases, the 'role' parameter will be required.",
             UserWarning,
         )
         from aixplain.factories.agent_factory.utils import build_agent

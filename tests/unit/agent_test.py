@@ -471,3 +471,38 @@ def test_agent_api_key_in_requests():
         assert mock.last_request.headers["x-api-key"] == custom_api_key
         assert response["status"] == "IN_PROGRESS"
         assert response["url"] == "test_url"
+
+
+def test_agent_response():
+    from aixplain.modules.agent.agent_response import AgentResponse, AgentResponseData
+
+    response = AgentResponse(
+        data=AgentResponseData(
+            input="input", output="output", intermediate_steps=[], execution_stats={}, session_id="session_id"
+        ),
+        status="SUCCESS",
+        url="test_url",
+        details={"details": "test_details"},
+    )
+    # test getters
+    assert response["data"]["input"] == "input"
+    assert response.data.input == "input"
+    assert response["data"]["output"] == "output"
+    assert response.data.output == "output"
+    assert response["data"]["intermediate_steps"] == []
+    assert response.data.intermediate_steps == []
+    assert response["data"]["execution_stats"] == {}
+    assert response.data.execution_stats == {}
+    assert response["data"]["session_id"] == "session_id"
+    assert response.data.session_id == "session_id"
+    assert response["status"] == "SUCCESS"
+    assert response.status == "SUCCESS"
+    assert response["url"] == "test_url"
+    assert response["details"] == {"details": "test_details"}
+    # test setters
+    response["status"] = "FAILED"
+    assert response.status == "FAILED"
+    response.data["input"] = "new_input"
+    assert response.data.input == "new_input"
+    response.data.output = "new_output"
+    assert response["data"]["output"] == "new_output"
