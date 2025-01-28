@@ -1,4 +1,12 @@
-from typing_extensions import Dict, Unpack, List, Union, TYPE_CHECKING, NotRequired, Text
+from typing_extensions import (
+    Dict,
+    Unpack,
+    List,
+    Union,
+    TYPE_CHECKING,
+    NotRequired,
+    Text,
+)
 
 from .resource import (
     BaseResource,
@@ -27,7 +35,6 @@ class TeamAgentCreateParams(BaseCreateParams):
 
 
 class TeamAgentGetParams(BareGetParams):
-    agent_id: Text
     api_key: NotRequired[str]
 
 
@@ -60,10 +67,10 @@ class TeamAgent(
         return TeamAgentFactory.list(**kwargs)
 
     @classmethod
-    def get(cls, **kwargs: Unpack[TeamAgentGetParams]) -> "TeamAgent":
+    def get(cls, id: str, **kwargs: Unpack[TeamAgentGetParams]) -> "TeamAgent":
         from aixplain.factories import TeamAgentFactory
 
-        return TeamAgentFactory.get(**kwargs)
+        return TeamAgentFactory.get(id, **kwargs)
 
     @classmethod
     def create(cls, **kwargs: Unpack[TeamAgentCreateParams]) -> "TeamAgent":
