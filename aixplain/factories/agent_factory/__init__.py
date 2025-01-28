@@ -47,7 +47,7 @@ class AgentFactory:
         cls,
         name: Text,
         description: Text,
-        role: Text,
+        role: Optional[Text] = None,
         llm_id: Text = "669a63646eb56306647e1091",
         tools: List[Tool] = [],
         api_key: Text = config.TEAM_API_KEY,
@@ -59,6 +59,7 @@ class AgentFactory:
         Warning:
             The 'role' parameter was recently added and serves the same purpose as 'description' did previously: set the role of the agent as a system prompt.
             The 'description' parameter is still required and should be used to set a short summary of the agent's purpose.
+            For the next releases, the 'role' parameter will be required.
 
         Args:
             name (Text): name of the agent
@@ -93,7 +94,7 @@ class AgentFactory:
             "name": name,
             "assets": [tool.to_dict() for tool in tools],
             "description": description,
-            "role": role,
+            "role": role or description,
             "supplier": supplier,
             "version": version,
             "llmId": llm_id,
