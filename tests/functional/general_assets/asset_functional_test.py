@@ -2,12 +2,25 @@ import json
 from dotenv import load_dotenv
 
 load_dotenv()
-from aixplain.factories import ModelFactory, DatasetFactory, MetricFactory, PipelineFactory
+from aixplain.factories import (
+    ModelFactory,
+    DatasetFactory,
+    MetricFactory,
+    PipelineFactory,
+)
 from aixplain.modules import LLM
 from pathlib import Path
-from aixplain.enums import Function, Language, OwnershipType, Supplier, SortBy, SortOrder
+from aixplain.enums import (
+    Function,
+    Language,
+    OwnershipType,
+    Supplier,
+    SortBy,
+    SortOrder,
+)
 
 import pytest
+from aixplain import aixplain_v2 as v2
 
 INPUTS_PATH = Path(r"tests/functional/general_assets/data/asset_run_test_data.json")
 
@@ -18,34 +31,26 @@ def inputs():
         return json.load(f)
 
 
-def __get_asset_factory(asset_name):
-    if "model" in asset_name:
-        AssetFactory = ModelFactory
-    elif asset_name == "dataset":
-        AssetFactory = DatasetFactory
-    elif asset_name == "metric":
-        AssetFactory = MetricFactory
-    elif asset_name == "pipeline":
-        AssetFactory = PipelineFactory
-    return AssetFactory
-
-
-def test_list_models():
+@pytest.mark.parametrize("ModelFactory", [ModelFactory, v2.Model])
+def test_list_models(ModelFactory):
     models = ModelFactory.list(function=Function.TRANSLATION)
     assert models["page_total"] == len(models["results"])
 
 
-def test_list_datasets():
+@pytest.mark.parametrize("DatasetFactory", [DatasetFactory, v2.Dataset])
+def test_list_datasets(DatasetFactory):
     datasets = DatasetFactory.list()
     assert datasets["page_total"] == len(datasets["results"])
 
 
-def test_list_metrics():
+@pytest.mark.parametrize("MetricFactory", [MetricFactory, v2.Metric])
+def test_list_metrics(MetricFactory):
     metrics = MetricFactory.list()
     assert metrics["page_total"] == len(metrics["results"])
 
 
-def test_run_pipeline(inputs):
+@pytest.mark.parametrize("PipelineFactory", [PipelineFactory, v2.Pipeline])
+def test_run_pipeline(inputs, PipelineFactory):
     asset_details = inputs["pipeline"]
     pipeline = PipelineFactory.list(query=asset_details["name"])["results"][0]
     payload = asset_details["data"]
@@ -53,7 +58,8 @@ def test_run_pipeline(inputs):
     assert output["completed"] and output["status"] == "SUCCESS"
 
 
-def test_run_metric(inputs):
+@pytest.mark.parametrize("MetricFactory", [MetricFactory, v2.Metric])
+def test_run_metric(inputs, MetricFactory):
     asset_details = inputs["metric"]
     metric = MetricFactory.get(asset_details["id"])
     payload = asset_details["data"]
@@ -61,30 +67,37 @@ def test_run_metric(inputs):
     assert output["completed"] and output["status"] == "SUCCESS"
 
 
-@pytest.mark.parametrize("asset_name", ["model", "model2", "model3"])
-def test_run_model(inputs, asset_name):
-    asset_details = inputs[asset_name]
+@pytest.mark.parametrize("ModelFactory", [ModelFactory, v2.Model])
+def test_run_model(inputs, ModelFactory):
+    asset_details = inputs["model"]
     model = ModelFactory.get(asset_details["id"])
     payload = asset_details["data"]
     output = model.run(payload)
     assert output["completed"] and output["status"] == "SUCCESS"
 
 
-def test_model_function():
+@pytest.mark.parametrize("ModelFactory", [ModelFactory, v2.Model])
+def test_model_function(ModelFactory):
     desired_function = Function.TRANSLATION
     models = ModelFactory.list(function=desired_function)["results"]
     for model in models:
         assert model.function == desired_function
 
 
-def test_model_supplier():
+@pytest.mark.parametrize("ModelFactory", [ModelFactory, v2.Model])
+def test_model_supplier(ModelFactory):
     desired_suppliers = [Supplier.GOOGLE]
-    models = ModelFactory.list(suppliers=desired_suppliers, function=Function.TRANSLATION)["results"]
+    models = ModelFactory.list(
+        suppliers=desired_suppliers, function=Function.TRANSLATION
+    )["results"]
     for model in models:
-        assert model.supplier.value in [desired_supplier.value for desired_supplier in desired_suppliers]
+        assert model.supplier.value in [
+            desired_supplier.value for desired_supplier in desired_suppliers
+        ]
 
 
-def test_model_sort():
+@pytest.mark.parametrize("ModelFactory", [ModelFactory, v2.Model])
+def test_model_sort(ModelFactory):
     function = Function.TRANSLATION
     src_language = Language.Portuguese
     trg_language = Language.English
@@ -105,33 +118,40 @@ def test_model_sort():
         assert prev_model_price >= model_price
 
 
-def test_model_ownership():
-    models = ModelFactory.list(ownership=OwnershipType.SUBSCRIBED, function=Function.TRANSLATION)["results"]
+@pytest.mark.parametrize("ModelFactory", [ModelFactory, v2.Model])
+def test_model_ownership(ModelFactory):
+    models = ModelFactory.list(
+        ownership=OwnershipType.SUBSCRIBED, function=Function.TRANSLATION
+    )["results"]
     for model in models:
         assert model.is_subscribed is True
 
 
-def test_model_query():
+@pytest.mark.parametrize("ModelFactory", [ModelFactory, v2.Model])
+def test_model_query(ModelFactory):
     query = "Mongo"
     models = ModelFactory.list(query=query, function=Function.TRANSLATION)["results"]
     for model in models:
         assert query in model.name
 
 
-def test_model_deletion():
+@pytest.mark.parametrize("ModelFactory", [ModelFactory, v2.Model])
+def test_model_deletion(ModelFactory):
     """Test that a model cannot be deleted."""
     model = ModelFactory.get("640b517694bf816d35a59125")
     with pytest.raises(Exception):
         model.delete()
 
 
-def test_llm_instantiation():
+@pytest.mark.parametrize("ModelFactory", [ModelFactory, v2.Model])
+def test_llm_instantiation(ModelFactory):
     """Test that the LLM model is correctly instantiated."""
     models = ModelFactory.list(function=Function.TEXT_GENERATION)["results"]
     assert isinstance(models[0], LLM)
 
 
-def test_model_io():
+@pytest.mark.parametrize("ModelFactory", [ModelFactory, v2.Model])
+def test_model_io(ModelFactory):
     model_id = "64aee5824d34b1221e70ac07"
     model = ModelFactory.get(model_id)
 
@@ -147,7 +167,14 @@ def test_model_io():
             "defaultValues": [],
         }
     }
-    expected_output = {"data": {"name": "Generated Image", "code": "data", "defaultValue": [], "dataType": "image"}}
+    expected_output = {
+        "data": {
+            "name": "Generated Image",
+            "code": "data",
+            "defaultValue": [],
+            "dataType": "image",
+        }
+    }
 
     assert model.input_params == expected_input
     assert model.output_params == expected_output
