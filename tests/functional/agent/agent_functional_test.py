@@ -74,7 +74,11 @@ def test_end2end(run_input_map, delete_agents_and_team_agents):
             tools.append(AgentFactory.create_pipeline_tool(pipeline=tool["pipeline_id"], description=tool["description"]))
 
     agent = AgentFactory.create(
-        name=run_input_map["agent_name"], description=run_input_map["agent_name"], llm_id=run_input_map["llm_id"], tools=tools
+        name=run_input_map["agent_name"],
+        description=run_input_map["agent_name"],
+        role=run_input_map["agent_name"],
+        llm_id=run_input_map["llm_id"],
+        tools=tools,
     )
     assert agent is not None
     assert agent.status == AssetStatus.DRAFT
@@ -104,6 +108,7 @@ def test_python_interpreter_tool(delete_agents_and_team_agents):
     agent = AgentFactory.create(
         name="Python Developer",
         description="A Python developer agent. If you get an error from a tool, try to fix it.",
+        role="A Python developer agent. If you get an error from a tool, try to fix it.",
         tools=[tool],
     )
     assert agent is not None
@@ -130,6 +135,7 @@ def test_custom_code_tool(delete_agents_and_team_agents):
     agent = AgentFactory.create(
         name="Add Numbers Agent",
         description="Add two numbers. Do not directly answer. Use the tool to add the numbers.",
+        role="Add two numbers. Do not directly answer. Use the tool to add the numbers.",
         tools=[tool],
     )
     assert agent is not None
@@ -168,7 +174,11 @@ def test_update_draft_agent(run_input_map, delete_agents_and_team_agents):
             tools.append(AgentFactory.create_pipeline_tool(pipeline=tool["pipeline_id"], description=tool["description"]))
 
     agent = AgentFactory.create(
-        name=run_input_map["agent_name"], description=run_input_map["agent_name"], llm_id=run_input_map["llm_id"], tools=tools
+        name=run_input_map["agent_name"],
+        description=run_input_map["agent_name"],
+        role=run_input_map["agent_name"],
+        llm_id=run_input_map["llm_id"],
+        tools=tools,
     )
 
     agent_name = str(uuid4()).replace("-", "")
@@ -187,6 +197,7 @@ def test_fail_non_existent_llm(delete_agents_and_team_agents):
         AgentFactory.create(
             name="Test Agent",
             description="Test description",
+            role="Test Agent Role",
             llm_id="non_existent_llm",
             tools=[AgentFactory.create_model_tool(function=Function.TRANSLATION)],
         )
@@ -198,6 +209,7 @@ def test_delete_agent_in_use(delete_agents_and_team_agents):
     agent = AgentFactory.create(
         name="Test Agent",
         description="Test description",
+        role="Test Agent Role",
         tools=[AgentFactory.create_model_tool(function=Function.TRANSLATION)],
     )
     TeamAgentFactory.create(
@@ -216,7 +228,10 @@ def test_update_tools_of_agent(run_input_map, delete_agents_and_team_agents):
     assert delete_agents_and_team_agents
 
     agent = AgentFactory.create(
-        name=run_input_map["agent_name"], description=run_input_map["agent_name"], llm_id=run_input_map["llm_id"]
+        name=run_input_map["agent_name"],
+        description=run_input_map["agent_name"],
+        role=run_input_map["agent_name"],
+        llm_id=run_input_map["llm_id"],
     )
     assert agent is not None
     assert agent.status == AssetStatus.DRAFT
