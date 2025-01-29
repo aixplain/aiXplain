@@ -130,7 +130,7 @@ class AgentFactory:
 
     @classmethod
     def create_task(
-        cls, name: Text, description: Text, expected_output: Optional[Text] = None, dependencies: Optional[List[Text]] = None
+        cls, name: Text, description: Text, expected_output: Text, dependencies: Optional[List[Text]] = None
     ) -> AgentTask:
         return AgentTask(name=name, description=description, expected_output=expected_output, dependencies=dependencies)
 

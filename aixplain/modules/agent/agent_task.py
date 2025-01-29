@@ -1,4 +1,4 @@
-from typing import List, Optional, Text
+from typing import List, Optional, Text, Union
 
 
 class AgentTask:
@@ -6,8 +6,8 @@ class AgentTask:
         self,
         name: Text,
         description: Text,
-        expected_output: Optional[Text] = None,
-        dependencies: Optional[List[Text]] = None,
+        expected_output: Text,
+        dependencies: Optional[List[Union[Text, "AgentTask"]]] = None,
     ):
         self.name = name
         self.description = description
@@ -15,9 +15,15 @@ class AgentTask:
         self.dependencies = dependencies
 
     def to_dict(self):
-        return {
+        agent_task_dict = {
             "name": self.name,
             "description": self.description,
             "expectedOutput": self.expected_output,
             "dependencies": self.dependencies,
         }
+
+        if self.dependencies:
+            for i, dependency in enumerate(agent_task_dict["dependencies"]):
+                if isinstance(dependency, AgentTask):
+                    agent_task_dict["dependencies"][i] = dependency.name
+        return agent_task_dict

@@ -33,4 +33,20 @@ def build_team_agent(payload: Dict, api_key: Text = config.TEAM_API_KEY) -> Team
         status=AssetStatus(payload["status"]),
     )
     team_agent.url = urljoin(config.BACKEND_URL, f"sdk/agent-communities/{team_agent.id}/run")
+
+    # fill up dependencies
+    all_tasks = {}
+    for agent in team_agent.agents:
+        for task in agent.tasks:
+            all_tasks[task.name] = task
+
+    for idx, agent in enumerate(team_agent.agents):
+        for i, task in enumerate(agent.tasks):
+            for j, dependency in enumerate(task.dependencies or []):
+                if isinstance(dependency, Text):
+                    task_dependency = all_tasks.get(dependency, None)
+                    if task_dependency:
+                        team_agent.agents[idx].tasks[i].dependencies[j] = task_dependency
+                    else:
+                        raise Exception(f"Team Agent Creation Error: Task dependency not found - {dependency}")
     return team_agent
