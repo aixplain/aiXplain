@@ -266,5 +266,5 @@ def test_team_agent_tasks(delete_agents_and_team_agents):
         agents=[agent],
         description="Teste",
     )
-    response = team_agent.run(data="teste")
+    response = team_agent.run(data={"text": "teste"})
     assert "teste" in response.data["output"]
