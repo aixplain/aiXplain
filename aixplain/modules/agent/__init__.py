@@ -66,6 +66,7 @@ class Agent(Model):
         id: Text,
         name: Text,
         description: Text,
+        role: Text,
         tools: List[Tool] = [],
         llm_id: Text = "6646261c6eb563165658bbb1",
         api_key: Optional[Text] = config.TEAM_API_KEY,
@@ -82,6 +83,7 @@ class Agent(Model):
             id (Text): ID of the Agent
             name (Text): Name of the Agent
             description (Text): description of the Agent.
+            role (Text): role of the Agent.
             tools (List[Tool]): List of tools that the Agent uses.
             llm_id (Text, optional): large language model. Defaults to GPT-4o (6646261c6eb563165658bbb1).
             supplier (Text): Supplier of the Agent.
@@ -91,6 +93,7 @@ class Agent(Model):
             cost (Dict, optional): model price. Defaults to None.
         """
         super().__init__(id, name, description, api_key, supplier, version, cost=cost)
+        self.role = role
         self.additional_info = additional_info
         self.tools = tools
         for i, _ in enumerate(tools):
@@ -184,7 +187,7 @@ class Agent(Model):
                     input=result_data.get("input"),
                     output=result_data.get("output"),
                     session_id=result_data.get("session_id"),
-                    intermediate_steps=result_data.get("intermediateSteps"),
+                    intermediate_steps=result_data.get("intermediate_steps"),
                     execution_stats=result_data.get("executionStats"),
                 ),
                 used_credits=result_data.get("usedCredits", 0.0),
@@ -200,7 +203,7 @@ class Agent(Model):
                     input=data,
                     output=None,
                     session_id=result_data.get("session_id"),
-                    intermediate_steps=result_data.get("intermediateSteps"),
+                    intermediate_steps=result_data.get("intermediate_steps"),
                     execution_stats=result_data.get("executionStats"),
                 ),
                 error=msg,
@@ -311,6 +314,7 @@ class Agent(Model):
             "name": self.name,
             "assets": [tool.to_dict() for tool in self.tools],
             "description": self.description,
+            "role": self.role,
             "supplier": self.supplier.value["code"] if isinstance(self.supplier, Supplier) else self.supplier,
             "version": self.version,
             "llmId": self.llm_id,

@@ -190,6 +190,60 @@ def test_get_assets_from_page_error():
         assert "Listing Models Error: Failed to retrieve models" in str(excinfo.value)
 
 
+def test_get_model_from_ids():
+    from aixplain.factories.model_factory.utils import get_model_from_ids
+
+    with requests_mock.Mocker() as mock:
+        model_ids = ["test-model-id-1", "test-model-id-2"]
+        url = urljoin(config.BACKEND_URL, f"sdk/models?ids={','.join(model_ids)}")
+        headers = {"Authorization": f"Token {config.AIXPLAIN_API_KEY}", "Content-Type": "application/json"}
+
+        ref_response = {
+            "items": [
+                {
+                    "id": "test-model-id-1",
+                    "name": "Test Model 1",
+                    "description": "Test Description 1",
+                    "function": {"id": "text-generation"},
+                    "supplier": {"id": "aiXplain"},
+                    "pricing": {"id": "free"},
+                    "version": {"id": "1.0.0"},
+                },
+                {
+                    "id": "test-model-id-2",
+                    "name": "Test Model 2",
+                    "description": "Test Description 2",
+                    "function": {"id": "text-generation"},
+                    "supplier": {"id": "aiXplain"},
+                    "pricing": {"id": "free"},
+                    "version": {"id": "1.0.0"},
+                },
+            ]
+        }
+        mock.get(url, headers=headers, json=ref_response)
+        models = get_model_from_ids(model_ids)
+
+    assert len(models) == 2
+    assert models[0].id == "test-model-id-1"
+    assert models[1].id == "test-model-id-2"
+
+
+def test_list_models_error():
+    model_ids = ["test-model-id-1", "test-model-id-2"]
+
+    with pytest.raises(Exception) as excinfo:
+        ModelFactory.list(model_ids=model_ids, function=Function.TEXT_GENERATION, api_key=config.AIXPLAIN_API_KEY)
+
+    assert (
+        str(excinfo.value)
+        == "Cannot filter by function, suppliers, source languages, target languages, is finetunable, ownership, sort by when using model ids"
+    )
+
+    with pytest.raises(Exception) as excinfo:
+        ModelFactory.list(model_ids=model_ids, page_size=1, api_key=config.AIXPLAIN_API_KEY)
+    assert str(excinfo.value) == "Page size must be greater than the number of model ids"
+
+
 def test_run_sync():
     model_id = "test-model-id"
     base_url = config.MODELS_RUN_URL

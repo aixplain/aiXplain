@@ -76,7 +76,11 @@ def test_end2end(run_input_map, delete_agents_and_team_agents):
                 tools.append(AgentFactory.create_pipeline_tool(pipeline=tool["pipeline_id"], description=tool["description"]))
 
         agent = AgentFactory.create(
-            name=agent["agent_name"], description=agent["agent_name"], llm_id=agent["llm_id"], tools=tools
+            name=agent["agent_name"],
+            description=agent["agent_name"],
+            role=agent["agent_name"],
+            llm_id=agent["llm_id"],
+            tools=tools,
         )
         agent.deploy()
         agents.append(agent)
@@ -133,7 +137,11 @@ def test_draft_team_agent_update(run_input_map):
                 tools.append(AgentFactory.create_pipeline_tool(pipeline=tool["pipeline_id"], description=tool["description"]))
 
         agent = AgentFactory.create(
-            name=agent["agent_name"], description=agent["agent_name"], llm_id=agent["llm_id"], tools=tools
+            name=agent["agent_name"],
+            description=agent["agent_name"],
+            role=agent["agent_name"],
+            llm_id=agent["llm_id"],
+            tools=tools,
         )
         agents.append(agent)
 
@@ -158,6 +166,7 @@ def test_fail_non_existent_llm():
         AgentFactory.create(
             name="Test Agent",
             description="",
+            role="",
             llm_id="non_existent_llm",
             tools=[AgentFactory.create_model_tool(function=Function.TRANSLATION)],
         )
@@ -186,7 +195,11 @@ def test_add_remove_agents_from_team_agent(run_input_map, delete_agents_and_team
                 tools.append(AgentFactory.create_pipeline_tool(pipeline=tool["pipeline_id"], description=tool["description"]))
 
         agent = AgentFactory.create(
-            name=agent["agent_name"], description=agent["agent_name"], llm_id=agent["llm_id"], tools=tools
+            name=agent["agent_name"],
+            description=agent["agent_name"],
+            role=agent["agent_name"],
+            llm_id=agent["llm_id"],
+            tools=tools,
         )
         agents.append(agent)
 
@@ -204,6 +217,7 @@ def test_add_remove_agents_from_team_agent(run_input_map, delete_agents_and_team
     new_agent = AgentFactory.create(
         name="New Agent",
         description="Agent added to team",
+        role="Agent added to team",
         llm_id=run_input_map["llm_id"],
     )
     team_agent.agents.append(new_agent)
