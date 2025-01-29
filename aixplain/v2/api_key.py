@@ -39,7 +39,7 @@ class APIKey(
         import aixplain.utils.config as config
 
         api_key = kwargs.get("api_key", config.TEAM_API_KEY)
-        return cls(APIKeyFactory.get(api_key=api_key))
+        return APIKeyFactory.get(api_key=api_key)
 
     @classmethod
     def list(cls, **kwargs: Unpack[BareListParams]) -> Page["APIKey"]:
