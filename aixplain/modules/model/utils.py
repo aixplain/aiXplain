@@ -103,7 +103,7 @@ def parse_code(code: Union[Text, Callable]) -> Tuple[Text, List, Text]:
         str_code = requests.get(code).text
     else:
         str_code = code
-        
+ 
     # assert str_code has a main function
     if "def main(" not in str_code:
         raise Exception("Utility Model Error: Code must have a main function")
