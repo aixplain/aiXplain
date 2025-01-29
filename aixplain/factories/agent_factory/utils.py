@@ -3,7 +3,10 @@ __author__ = "thiagocastroferreira"
 import aixplain.utils.config as config
 from aixplain.enums import Function, Supplier
 from aixplain.enums.asset_status import AssetStatus
-from aixplain.modules.agent import Agent, ModelTool, PipelineTool, PythonInterpreterTool
+from aixplain.modules.agent import Agent
+from aixplain.modules.agent.tool.model_tool import ModelTool
+from aixplain.modules.agent.tool.pipeline_tool import PipelineTool
+from aixplain.modules.agent.tool.python_interpreter_tool import PythonInterpreterTool
 from aixplain.modules.agent.tool.custom_python_code_tool import CustomPythonCodeTool
 from typing import Dict, Text
 from urllib.parse import urljoin
@@ -50,6 +53,7 @@ def build_agent(payload: Dict, api_key: Text = config.TEAM_API_KEY) -> Agent:
         name=payload.get("name", ""),
         tools=tools,
         description=payload.get("description", ""),
+        role=payload.get("role", ""),
         supplier=payload.get("teamId", None),
         version=payload.get("version", None),
         cost=payload.get("cost", None),

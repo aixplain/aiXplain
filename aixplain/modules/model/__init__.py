@@ -58,7 +58,7 @@ class Model(Asset):
     def __init__(
         self,
         id: Text,
-        name: Text,
+        name: Text = "",
         description: Text = "",
         api_key: Text = config.TEAM_API_KEY,
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",

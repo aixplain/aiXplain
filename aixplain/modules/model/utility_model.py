@@ -20,10 +20,11 @@ Description:
 """
 import logging
 from aixplain.enums import Function, Supplier, DataType
+from aixplain.enums.asset_status import AssetStatus
 from aixplain.modules.model import Model
 from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
-from aixplain.modules.model.utils import parse_code
+from aixplain.modules.model.utils import parse_code_decorated
 from dataclasses import dataclass
 from typing import Callable, Union, Optional, List, Text, Dict
 from urllib.parse import urljoin
@@ -41,6 +42,45 @@ class UtilityModelInput:
 
     def to_dict(self):
         return {"name": self.name, "description": self.description, "type": self.type.value}
+
+# Tool decorator
+def utility_tool(name: Text, description: Text, inputs: List[UtilityModelInput] = None, output_examples: Text = "", status = AssetStatus.DRAFT):
+    """Decorator for utility tool functions
+    
+    Args:
+        name: Name of the utility tool
+        description: Description of what the utility tool does
+        inputs: List of input parameters, must be UtilityModelInput objects
+        output_examples: Examples of expected outputs
+        status: Asset status
+        
+    Raises:
+        ValueError: If name or description is empty
+        TypeError: If inputs contains non-UtilityModelInput objects
+    """
+    # Validate name and description
+    if not name or not name.strip():
+        raise ValueError("Utility tool name cannot be empty")
+    if not description or not description.strip():
+        raise ValueError("Utility tool description cannot be empty")
+    
+    # Validate inputs
+    if inputs is not None:
+        if not isinstance(inputs, list):
+            raise TypeError("Inputs must be a list of UtilityModelInput objects")
+        for input_param in inputs:
+            if not isinstance(input_param, UtilityModelInput):
+                raise TypeError(f"Invalid input parameter: {input_param}. All inputs must be UtilityModelInput objects")
+        
+    def decorator(func):
+        func._is_utility_tool = True  # Mark function as utility tool
+        func._tool_name = name.strip()
+        func._tool_description = description.strip()
+        func._tool_inputs = inputs if inputs else []
+        func._tool_output_examples = output_examples
+        func._tool_status = status
+        return func
+    return decorator
 
 
 class UtilityModel(Model):
@@ -65,8 +105,8 @@ class UtilityModel(Model):
     def __init__(
         self,
         id: Text,
-        name: Text,
-        code: Union[Text, Callable],
+        name: Optional[Text] = None,
+        code: Union[Text, Callable] = None,
         description: Optional[Text] = None,
         inputs: List[UtilityModelInput] = [],
         output_examples: Text = "",
@@ -76,6 +116,7 @@ class UtilityModel(Model):
         function: Optional[Function] = None,
         is_subscribed: bool = False,
         cost: Optional[Dict] = None,
+        status: AssetStatus = AssetStatus.ONBOARDED,# TODO: change to draft when we have the backend ready
         **additional_info,
     ) -> None:
         """Utility Model Init
@@ -113,16 +154,25 @@ class UtilityModel(Model):
         self.code = code
         self.inputs = inputs
         self.output_examples = output_examples
+        if isinstance(status, str):
+            try:
+                status = AssetStatus(status)
+            except Exception:
+                status = AssetStatus.DRAFT
+        self.status = status
 
     def validate(self):
         """Validate the Utility Model."""
         description = None
+        name = None
         inputs = []
-        # check if the model exists and if the code is strring with s3:// 
+        # check if the model exists and if the code is strring with s3://
         # if not, parse the code and update the description and inputs and do the validation
         # if yes, just do the validation on the description and inputs
         if not (self._model_exists() and str(self.code).startswith("s3://")):
-            self.code, inputs, description = parse_code(self.code)
+            self.code, inputs, description, name = parse_code_decorated(self.code)
+            if self.name is None:
+                self.name = name
             if self.description is None:
                 self.description = description
             if len(self.inputs) == 0:
@@ -131,7 +181,7 @@ class UtilityModel(Model):
                 input.validate()
         else:
             logging.info("Utility Model Already Exists, skipping code validation")
-        
+
         assert description is not None or self.description is not None, "Utility Model Error: Model description is required"
         assert self.name and self.name.strip() != "", "Name is required"
         assert self.description and self.description.strip() != "", "Description is required"
@@ -158,20 +208,21 @@ class UtilityModel(Model):
             "code": self.code,
             "function": self.function.value,
             "outputDescription": self.output_examples,
+            "status": self.status.value,
         }
 
     def update(self):
         """Update the Utility Model."""
         import warnings
         import inspect
+
         # Get the current call stack
         stack = inspect.stack()
-        if len(stack) > 2 and stack[1].function != 'save':
+        if len(stack) > 2 and stack[1].function != "save":
             warnings.warn(
-                "update() is deprecated and will be removed in a future version. "
-                "Please use save() instead.",
+                "update() is deprecated and will be removed in a future version. " "Please use save() instead.",
                 DeprecationWarning,
-                stacklevel=2
+                stacklevel=2,
             )
 
         self.validate()
@@ -213,3 +264,9 @@ class UtilityModel(Model):
             message = f"Utility Model Deletion Error: {response}"
             logging.error(message)
             raise Exception(f"{message}")
+
+    def deploy(self) -> None:
+        assert self.status == AssetStatus.DRAFT, "Utility Model must be in draft status to be deployed."
+        assert self.status != AssetStatus.ONBOARDED, "Utility Model is already deployed."
+        self.status = AssetStatus.ONBOARDED
+        self.update()

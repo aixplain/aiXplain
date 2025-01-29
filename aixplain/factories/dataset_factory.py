@@ -57,7 +57,6 @@ class DatasetFactory(AssetFactory):
         backend_url (str): The URL for the backend.
     """
 
-
     backend_url = config.BACKEND_URL
 
     @classmethod

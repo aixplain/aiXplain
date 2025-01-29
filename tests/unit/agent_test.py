@@ -5,39 +5,45 @@ from aixplain.modules import Agent
 from aixplain.modules.agent import OutputFormat
 from aixplain.utils import config
 from aixplain.factories import AgentFactory
-from aixplain.modules.agent import PipelineTool, ModelTool, PythonInterpreterTool, CustomPythonCodeTool
+from aixplain.modules.agent.tool.pipeline_tool import PipelineTool
+from aixplain.modules.agent.tool.model_tool import ModelTool
+from aixplain.modules.agent.tool.python_interpreter_tool import PythonInterpreterTool
+from aixplain.modules.agent.tool.custom_python_code_tool import CustomPythonCodeTool
 from aixplain.modules.agent.utils import process_variables
 from urllib.parse import urljoin
 from unittest.mock import patch
 from aixplain.enums.function import Function
+from aixplain.modules.agent.agent_response import AgentResponse
+from aixplain.modules.agent.agent_response_data import AgentResponseData
 
 
 def test_fail_no_data_query():
-    agent = Agent("123", "Test Agent", "Sample Description")
+    agent = Agent("123", "Test Agent(-)", "Sample Description", "Test Agent Role")
     with pytest.raises(Exception) as exc_info:
         agent.run_async()
     assert str(exc_info.value) == "Either 'data' or 'query' must be provided."
 
 
 def test_fail_query_must_be_provided():
-    agent = Agent("123", "Test Agent", "Sample Description")
+    agent = Agent("123", "Test Agent", "Sample Description", "Test Agent Role")
     with pytest.raises(Exception) as exc_info:
         agent.run_async(data={})
     assert str(exc_info.value) == "When providing a dictionary, 'query' must be provided."
 
 
 def test_fail_query_as_text_when_content_not_empty():
-    agent = Agent("123", "Test Agent", "Sample Description")
+    agent = Agent("123", "Test Agent", "Sample Description", "Test Agent Role")
     with pytest.raises(Exception) as exc_info:
         agent.run_async(
             data={"query": "https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.wav"},
             content=["https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.wav"],
         )
+
     assert str(exc_info.value) == "When providing 'content', query must be text."
 
 
 def test_fail_content_exceed_maximum():
-    agent = Agent("123", "Test Agent", "Sample Description")
+    agent = Agent("123", "Test Agent", "Sample Description", "Test Agent Role")
     with pytest.raises(Exception) as exc_info:
         agent.run_async(
             data={"query": "Transcribe the audios:"},
@@ -52,14 +58,14 @@ def test_fail_content_exceed_maximum():
 
 
 def test_fail_key_not_found():
-    agent = Agent("123", "Test Agent", "Sample Description")
+    agent = Agent("123", "Test Agent", "Sample Description", "Test Agent Role")
     with pytest.raises(Exception) as exc_info:
         agent.run_async(data={"query": "Translate the text: {{input1}}"}, content={"input2": "Hello, how are you?"})
     assert str(exc_info.value) == "Key 'input2' not found in query."
 
 
 def test_success_query_content():
-    agent = Agent("123", "Test Agent", "Sample Description")
+    agent = Agent("123", "Test Agent(-)", "Sample Description", "Test Agent Role")
     with requests_mock.Mocker() as mock:
         url = agent.url
         headers = {"x-api-key": config.TEAM_API_KEY, "Content-Type": "application/json"}
@@ -67,7 +73,9 @@ def test_success_query_content():
         mock.post(url, headers=headers, json=ref_response)
 
         response = agent.run_async(data={"query": "Translate the text: {{input1}}"}, content={"input1": "Hello, how are you?"})
+    assert isinstance(response, AgentResponse)
     assert response["status"] == ref_response["status"]
+    assert isinstance(response.data, AgentResponseData)
     assert response["url"] == ref_response["data"]
 
 
@@ -76,6 +84,7 @@ def test_invalid_pipelinetool():
         AgentFactory.create(
             name="Test",
             description="Test Description",
+            role="Test Role",
             tools=[PipelineTool(pipeline="309851793", description="Test")],
             llm_id="6646261c6eb563165658bbb1",
         )
@@ -90,14 +99,17 @@ def test_invalid_modeltool():
 
 def test_invalid_llm_id():
     with pytest.raises(Exception) as exc_info:
-        AgentFactory.create(name="Test", description="", tools=[], llm_id="123")
+        AgentFactory.create(name="Test", description="", role="", tools=[], llm_id="123")
     assert str(exc_info.value) == "Large Language Model with ID '123' not found."
 
 
 def test_invalid_agent_name():
     with pytest.raises(Exception) as exc_info:
-        AgentFactory.create(name="[Test]", description="", tools=[], llm_id="6646261c6eb563165658bbb1")
-    assert str(exc_info.value) == "Agent Creation Error: Agent name must not contain special characters."
+        AgentFactory.create(name="[Test]", description="", role="", tools=[], llm_id="6646261c6eb563165658bbb1")
+    assert (
+        str(exc_info.value)
+        == "Agent Creation Error: Agent name contains invalid characters. Only alphanumeric characters, spaces, hyphens, and brackets are allowed."
+    )
 
 
 def test_create_agent():
@@ -117,8 +129,9 @@ def test_create_agent():
 
             ref_response = {
                 "id": "123",
-                "name": "Test Agent",
+                "name": "Test Agent(-)",
                 "description": "Test Agent Description",
+                "role": "Test Agent Role",
                 "teamId": "123",
                 "version": "1.0",
                 "status": "draft",
@@ -162,8 +175,9 @@ def test_create_agent():
             mock.get(url, headers=headers, json=model_ref_response)
 
             agent = AgentFactory.create(
-                name="Test Agent",
+                name="Test Agent(-)",
                 description="Test Agent Description",
+                role="Test Agent Role",
                 llm_id="6646261c6eb563165658bbb1",
                 tools=[
                     AgentFactory.create_model_tool(
@@ -178,6 +192,7 @@ def test_create_agent():
 
     assert agent.name == ref_response["name"]
     assert agent.description == ref_response["description"]
+    assert agent.role == ref_response["role"]
     assert agent.llm_id == ref_response["llmId"]
     assert agent.tools[0].function.value == ref_response["assets"][0]["function"]
     assert agent.tools[0].description == ref_response["assets"][0]["description"]
@@ -193,8 +208,9 @@ def test_create_agent():
 def test_to_dict():
     agent = Agent(
         id="",
-        name="Test Agent",
+        name="Test Agent(-)",
         description="Test Agent Description",
+        role="Test Agent Role",
         llm_id="6646261c6eb563165658bbb1",
         tools=[AgentFactory.create_model_tool(function="text-generation")],
         api_key="test_api_key",
@@ -203,8 +219,9 @@ def test_to_dict():
 
     agent_json = agent.to_dict()
     assert agent_json["id"] == ""
-    assert agent_json["name"] == "Test Agent"
+    assert agent_json["name"] == "Test Agent(-)"
     assert agent_json["description"] == "Test Agent Description"
+    assert agent_json["role"] == "Test Agent Role"
     assert agent_json["llmId"] == "6646261c6eb563165658bbb1"
     assert agent_json["assets"][0]["function"] == "text-generation"
     assert agent_json["assets"][0]["type"] == "model"
@@ -214,8 +231,9 @@ def test_to_dict():
 def test_update_success():
     agent = Agent(
         id="123",
-        name="Test Agent",
+        name="Test Agent(-)",
         description="Test Agent Description",
+        role="Test Agent Role",
         llm_id="6646261c6eb563165658bbb1",
         tools=[AgentFactory.create_model_tool(function="text-generation")],
     )
@@ -225,8 +243,9 @@ def test_update_success():
         headers = {"x-api-key": config.TEAM_API_KEY, "Content-Type": "application/json"}
         ref_response = {
             "id": "123",
-            "name": "Test Agent",
+            "name": "Test Agent(-)",
             "description": "Test Agent Description",
+            "role": "Test Agent Role",
             "teamId": "123",
             "version": "1.0",
             "status": "onboarded",
@@ -267,6 +286,7 @@ def test_update_success():
     assert agent.id == ref_response["id"]
     assert agent.name == ref_response["name"]
     assert agent.description == ref_response["description"]
+    assert agent.role == ref_response["role"]
     assert agent.llm_id == ref_response["llmId"]
     assert agent.tools[0].function.value == ref_response["assets"][0]["function"]
 
@@ -274,8 +294,9 @@ def test_update_success():
 def test_save_success():
     agent = Agent(
         id="123",
-        name="Test Agent",
+        name="Test Agent(-)",
         description="Test Agent Description",
+        role="Test Agent Role",
         llm_id="6646261c6eb563165658bbb1",
         tools=[AgentFactory.create_model_tool(function="text-generation")],
     )
@@ -285,8 +306,9 @@ def test_save_success():
         headers = {"x-api-key": config.TEAM_API_KEY, "Content-Type": "application/json"}
         ref_response = {
             "id": "123",
-            "name": "Test Agent",
+            "name": "Test Agent(-)",
             "description": "Test Agent Description",
+            "role": "Test Agent Role",
             "teamId": "123",
             "version": "1.0",
             "status": "onboarded",
@@ -332,12 +354,13 @@ def test_save_success():
     assert agent.id == ref_response["id"]
     assert agent.name == ref_response["name"]
     assert agent.description == ref_response["description"]
+    assert agent.role == ref_response["role"]
     assert agent.llm_id == ref_response["llmId"]
     assert agent.tools[0].function.value == ref_response["assets"][0]["function"]
 
 
 def test_run_success():
-    agent = Agent("123", "Test Agent", "Sample Description")
+    agent = Agent("123", "Test Agent(-)", "Sample Description", "Test Agent Role")
     url = urljoin(config.BACKEND_URL, f"sdk/agents/{agent.id}/run")
     agent.url = url
     with requests_mock.Mocker() as mock:
@@ -349,12 +372,13 @@ def test_run_success():
         response = agent.run_async(
             data={"query": "Hello, how are you?"}, max_iterations=10, output_format=OutputFormat.MARKDOWN
         )
+    assert isinstance(response, AgentResponse)
     assert response["status"] == "IN_PROGRESS"
     assert response["url"] == ref_response["data"]
 
 
 def test_run_variable_error():
-    agent = Agent("123", "Test Agent", "Translate the input data into {target_language}")
+    agent = Agent("123", "Test Agent", "Translate the input data into {target_language}", "Test Agent Role")
     with pytest.raises(Exception) as exc_info:
         agent.run_async(data={"query": "Hello, how are you?"}, output_format=OutputFormat.MARKDOWN)
     assert (
@@ -383,7 +407,14 @@ def test_agent_api_key_propagation():
     """Test that the api_key is properly propagated to tools when creating an agent"""
     custom_api_key = "custom_test_key"
     tool = AgentFactory.create_model_tool(function="text-generation")
-    agent = Agent(id="123", name="Test Agent", description="Test Description", tools=[tool], api_key=custom_api_key)
+    agent = Agent(
+        id="123",
+        name="Test Agent",
+        description="Test Description",
+        role="Test Agent Role",
+        tools=[tool],
+        api_key=custom_api_key,
+    )
 
     # Check that the agent has the correct api_key
     assert agent.api_key == custom_api_key
@@ -394,7 +425,7 @@ def test_agent_api_key_propagation():
 def test_agent_default_api_key():
     """Test that the default api_key is used when none is provided"""
     tool = AgentFactory.create_model_tool(function="text-generation")
-    agent = Agent(id="123", name="Test Agent", description="Test Description", tools=[tool])
+    agent = Agent(id="123", name="Test Agent", description="Test Description", role="Test Agent Role", tools=[tool])
 
     # Check that the agent has the default api_key
     assert agent.api_key == config.TEAM_API_KEY
@@ -413,7 +444,9 @@ def test_agent_multiple_tools_api_key():
         ),
     ]
 
-    agent = Agent(id="123", name="Test Agent", description="Test Description", tools=tools, api_key=custom_api_key)
+    agent = Agent(
+        id="123", name="Test Agent", description="Test Description", role="Test Agent Role", tools=tools, api_key=custom_api_key
+    )
 
     # Check that all tools received the agent's api_key
     for tool in agent.tools:
@@ -423,7 +456,7 @@ def test_agent_multiple_tools_api_key():
 def test_agent_api_key_in_requests():
     """Test that the api_key is properly used in API requests"""
     custom_api_key = "custom_test_key"
-    agent = Agent(id="123", name="Test Agent", description="Test Description", api_key=custom_api_key)
+    agent = Agent(id="123", name="Test Agent", description="Test Description", role="Test Agent Role", api_key=custom_api_key)
 
     with requests_mock.Mocker() as mock:
         url = agent.url
@@ -438,3 +471,38 @@ def test_agent_api_key_in_requests():
         assert mock.last_request.headers["x-api-key"] == custom_api_key
         assert response["status"] == "IN_PROGRESS"
         assert response["url"] == "test_url"
+
+
+def test_agent_response():
+    from aixplain.modules.agent.agent_response import AgentResponse, AgentResponseData
+
+    response = AgentResponse(
+        data=AgentResponseData(
+            input="input", output="output", intermediate_steps=[], execution_stats={}, session_id="session_id"
+        ),
+        status="SUCCESS",
+        url="test_url",
+        details={"details": "test_details"},
+    )
+    # test getters
+    assert response["data"]["input"] == "input"
+    assert response.data.input == "input"
+    assert response["data"]["output"] == "output"
+    assert response.data.output == "output"
+    assert response["data"]["intermediate_steps"] == []
+    assert response.data.intermediate_steps == []
+    assert response["data"]["execution_stats"] == {}
+    assert response.data.execution_stats == {}
+    assert response["data"]["session_id"] == "session_id"
+    assert response.data.session_id == "session_id"
+    assert response["status"] == "SUCCESS"
+    assert response.status == "SUCCESS"
+    assert response["url"] == "test_url"
+    assert response["details"] == {"details": "test_details"}
+    # test setters
+    response["status"] = "FAILED"
+    assert response.status == "FAILED"
+    response.data["input"] = "new_input"
+    assert response.data.input == "new_input"
+    response.data.output = "new_output"
+    assert response["data"]["output"] == "new_output"

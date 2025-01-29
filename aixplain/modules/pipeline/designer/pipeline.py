@@ -153,9 +153,7 @@ class DesignerPipeline(Serializable):
                     node.inputs.text.is_required = False
                     for match in matches:
                         if match not in node.inputs:
-                            raise ValueError(
-                                f"Param {match} of node {node.label} should be defined and set"
-                            )
+                            raise ValueError(f"Param {match} of node {node.label} should be defined and set")
 
     def validate_params(self):
         """
@@ -167,9 +165,7 @@ class DesignerPipeline(Serializable):
             self.special_prompt_validation(node)
             for param in node.inputs:
                 if param.is_required and not self.is_param_set(node, param):
-                    raise ValueError(
-                        f"Param {param.code} of node {node.label} is required"
-                    )
+                    raise ValueError(f"Param {param.code} of node {node.label} is required")
 
     def validate(self):
         """
@@ -195,11 +191,7 @@ class DesignerPipeline(Serializable):
         :return: the link
         """
         return next(
-            (
-                link
-                for link in self.links
-                if link.from_node == from_node and link.to_node == to_node
-            ),
+            (link for link in self.links if link.from_node == from_node and link.to_node == to_node),
             None,
         )
 
@@ -245,9 +237,7 @@ class DesignerPipeline(Serializable):
             infer_data_type(self)
             infer_data_type(to_node)
 
-    def asset(
-        self, asset_id: str, *args, asset_class: Type[T] = AssetNode, **kwargs
-    ) -> T:
+    def asset(self, asset_id: str, *args, asset_class: Type[T] = AssetNode, **kwargs) -> T:
         """
         Shortcut to create an asset node for the current pipeline.
         All params will be passed as keyword arguments to the node
@@ -258,9 +248,7 @@ class DesignerPipeline(Serializable):
         """
         return asset_class(asset_id, *args, pipeline=self, **kwargs)
 
-    def utility(
-        self, asset_id: str, *args, asset_class: Type[T] = Utility, **kwargs
-    ) -> T:
+    def utility(self, asset_id: str, *args, asset_class: Type[T] = Utility, **kwargs) -> T:
         """
         Shortcut to create an utility nodes for the current pipeline.
         All params will be passed as keyword arguments to the node

@@ -297,8 +297,8 @@ class TeamAgent(Model):
 
         # validate name
         assert (
-            re.match("^[a-zA-Z0-9 ]*$", self.name) is not None
-        ), "Team Agent Creation Error: Team name must not contain special characters."
+            re.match(r"^[a-zA-Z0-9 \-\(\)]*$", self.name) is not None
+        ), "Team Agent Creation Error: Team name contains invalid characters. Only alphanumeric characters, spaces, hyphens, and brackets are allowed."
 
         try:
             llm = ModelFactory.get(self.llm_id)
@@ -313,14 +313,14 @@ class TeamAgent(Model):
         """Update the Team Agent."""
         import warnings
         import inspect
+
         # Get the current call stack
         stack = inspect.stack()
-        if len(stack) > 2 and stack[1].function != 'save':
+        if len(stack) > 2 and stack[1].function != "save":
             warnings.warn(
-                "update() is deprecated and will be removed in a future version. "
-                "Please use save() instead.",
+                "update() is deprecated and will be removed in a future version. " "Please use save() instead.",
                 DeprecationWarning,
-                stacklevel=2
+                stacklevel=2,
             )
         from aixplain.factories.team_agent_factory.utils import build_team_agent
 
