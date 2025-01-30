@@ -55,7 +55,6 @@ def delete_agents_and_team_agents():
         agent.delete()
 
 
-@pytest.mark.skip(reason="Skipping update tools of agent test")
 def test_end2end(run_input_map, delete_agents_and_team_agents):
     assert delete_agents_and_team_agents
     tools = []
@@ -99,7 +98,6 @@ def test_end2end(run_input_map, delete_agents_and_team_agents):
     agent.delete()
 
 
-@pytest.mark.skip(reason="Skipping update tools of agent test")
 def test_python_interpreter_tool(delete_agents_and_team_agents):
     assert delete_agents_and_team_agents
     tool = AgentFactory.create_python_interpreter_tool()
@@ -125,7 +123,6 @@ def test_python_interpreter_tool(delete_agents_and_team_agents):
     agent.delete()
 
 
-@pytest.mark.skip(reason="Skipping update tools of agent test")
 def test_custom_code_tool(delete_agents_and_team_agents):
     assert delete_agents_and_team_agents
     tool = AgentFactory.create_custom_python_code_tool(
@@ -157,7 +154,6 @@ def test_list_agents():
     assert type(agents_result) is list
 
 
-@pytest.mark.skip(reason="Skipping update tools of agent test")
 def test_update_draft_agent(run_input_map, delete_agents_and_team_agents):
     assert delete_agents_and_team_agents
 
@@ -195,7 +191,6 @@ def test_update_draft_agent(run_input_map, delete_agents_and_team_agents):
     agent.delete()
 
 
-@pytest.mark.skip(reason="Skipping update tools of agent test")
 def test_fail_non_existent_llm(delete_agents_and_team_agents):
     assert delete_agents_and_team_agents
     with pytest.raises(Exception) as exc_info:
@@ -209,7 +204,6 @@ def test_fail_non_existent_llm(delete_agents_and_team_agents):
     assert str(exc_info.value) == "Large Language Model with ID 'non_existent_llm' not found."
 
 
-@pytest.mark.skip(reason="Skipping update tools of agent test")
 def test_delete_agent_in_use(delete_agents_and_team_agents):
     assert delete_agents_and_team_agents
     agent = AgentFactory.create(
@@ -230,7 +224,6 @@ def test_delete_agent_in_use(delete_agents_and_team_agents):
     assert str(exc_info.value) == "Agent Deletion Error (HTTP 403): err.agent_is_in_use."
 
 
-@pytest.mark.skip(reason="Skipping update tools of agent test")
 def test_update_tools_of_agent(run_input_map, delete_agents_and_team_agents):
     assert delete_agents_and_team_agents
 
