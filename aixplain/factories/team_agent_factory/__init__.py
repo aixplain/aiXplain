@@ -45,6 +45,7 @@ class TeamAgentFactory:
         api_key: Text = config.TEAM_API_KEY,
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
         version: Optional[Text] = None,
+        use_mentalist: bool = True,
         use_mentalist_and_inspector: bool = True,
     ) -> TeamAgent:
         """Create a new team agent in the platform."""
@@ -62,9 +63,14 @@ class TeamAgentFactory:
 
                 assert isinstance(agent, Agent), "TeamAgent Onboarding Error: Agents must be instances of Agent class"
 
+        mentalist_llm_id = None
+        if use_mentalist is True:
+            mentalist_llm_id = llm_id
+
         mentalist_and_inspector_llm_id = None
         if use_mentalist_and_inspector is True:
             mentalist_and_inspector_llm_id = llm_id
+            mentalist_llm_id = llm_id
 
         team_agent = None
         url = urljoin(config.BACKEND_URL, "sdk/agent-communities")
@@ -86,7 +92,7 @@ class TeamAgentFactory:
             "description": description,
             "llmId": llm_id,
             "supervisorId": llm_id,
-            "plannerId": mentalist_and_inspector_llm_id,
+            "plannerId": mentalist_llm_id,
             "inspectorId": mentalist_and_inspector_llm_id,
             "supplier": supplier,
             "version": version,
