@@ -1,5 +1,5 @@
 from typing import Dict, Any
-from aixplain.modules.base.parameters import BaseParameters, Parameter
+from aixplain.base.parameters import BaseParameters, Parameter
 
 
 class ModelParameters(BaseParameters):

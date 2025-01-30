@@ -1,10 +1,10 @@
 import pytest
 import requests_mock
+from aixplain.factories import TeamAgentFactory
+from aixplain.factories import AgentFactory
 from aixplain.enums.asset_status import AssetStatus
 from aixplain.modules import Agent, TeamAgent
 from aixplain.modules.agent.tool.model_tool import ModelTool
-from aixplain.factories import TeamAgentFactory
-from aixplain.factories import AgentFactory
 from aixplain.utils import config
 from urllib.parse import urljoin
 from unittest.mock import patch
@@ -29,7 +29,9 @@ def test_fail_query_as_text_when_content_not_empty():
     with pytest.raises(Exception) as exc_info:
         team_agent.run_async(
             data={"query": "https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.wav"},
-            content=["https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.wav"],
+            content=[
+                "https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.wav",
+            ],
         )
     assert str(exc_info.value) == "When providing 'content', query must be text."
 
@@ -87,6 +89,7 @@ def test_to_dict():
                 id="",
                 name="Test Agent(-)",
                 description="Test Agent Description",
+                role="Test Agent Role",
                 llm_id="6646261c6eb563165658bbb1",
                 tools=[ModelTool(function="text-generation")],
             )
@@ -143,6 +146,7 @@ def test_create_team_agent(mock_model_factory_get):
             "id": "123",
             "name": "Test Agent(-)",
             "description": "Test Agent Description",
+            "role": "Test Agent Role",
             "teamId": "123",
             "version": "1.0",
             "status": "draft",
@@ -163,6 +167,7 @@ def test_create_team_agent(mock_model_factory_get):
         agent = AgentFactory.create(
             name="Test Agent(-)",
             description="Test Agent Description",
+            role="Test Agent Role",
             llm_id="6646261c6eb563165658bbb1",
             tools=[ModelTool(model="6646261c6eb563165658bbb1")],
         )

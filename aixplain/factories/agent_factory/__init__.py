@@ -23,6 +23,7 @@ Description:
 
 import json
 import logging
+import warnings
 
 from aixplain.enums.function import Function
 from aixplain.enums.supplier import Supplier
@@ -46,6 +47,7 @@ class AgentFactory:
         cls,
         name: Text,
         description: Text,
+        role: Optional[Text] = None,
         llm_id: Text = "669a63646eb56306647e1091",
         tools: List[Union[Tool, Model]] = [],
         api_key: Text = config.TEAM_API_KEY,
@@ -54,9 +56,15 @@ class AgentFactory:
     ) -> Agent:
         """Create a new agent in the platform.
 
+        Warning:
+            The 'role' parameter was recently added and serves the same purpose as 'description' did previously: set the role of the agent as a system prompt.
+            The 'description' parameter is still required and should be used to set a short summary of the agent's purpose.
+            For the next releases, the 'role' parameter will be required.
+
         Args:
             name (Text): name of the agent
             description (Text): description of the agent role.
+            role (Text): role of the agent.
             llm_id (Text, optional): aiXplain ID of the large language model to be used as agent. Defaults to "669a63646eb56306647e1091" (GPT-4o mini).
             tools (List[Union[Tool, Model]], optional): list of tool for the agent. Defaults to [].
             api_key (Text, optional): team/user API key. Defaults to config.TEAM_API_KEY.
@@ -66,6 +74,12 @@ class AgentFactory:
         Returns:
             Agent: created Agent
         """
+        warnings.warn(
+            "The 'role' parameter was recently added and serves the same purpose as 'description' did previously: set the role of the agent as a system prompt. "
+            "The 'description' parameter is still required and should be used to set a short summary of the agent's purpose. "
+            "For the next releases, the 'role' parameter will be required.",
+            UserWarning,
+        )
         from aixplain.factories.agent_factory.utils import build_agent
 
         agent = None
@@ -87,7 +101,9 @@ class AgentFactory:
                     "name": tool.name,
                     "description": tool.description,
                     "supplier": tool.supplier.value["code"] if isinstance(tool.supplier, Supplier) else tool.supplier,
-                    "parameters": tool.get_parameters().to_list() if hasattr(tool, "get_parameters") else None,
+                    "parameters": tool.get_parameters().to_list()
+                    if hasattr(tool, "get_parameters") and tool.get_parameters() is not None
+                    else None,
                     "function": tool.function if hasattr(tool, "function") and tool.function is not None else None,
                     "type": "model",
                     "version": tool.version if hasattr(tool, "version") else None,
@@ -96,6 +112,7 @@ class AgentFactory:
                 for tool in tools
             ],
             "description": description,
+            "role": role or description,
             "supplier": supplier,
             "version": version,
             "llmId": llm_id,
@@ -142,11 +159,10 @@ class AgentFactory:
         if supplier is not None:
             if isinstance(supplier, str):
                 for supplier_ in Supplier:
-                    if supplier.lower() in [supplier.value["code"].lower(), supplier.value["name"].lower()]:
+                    if supplier.lower() in [supplier_.value["code"].lower(), supplier_.value["name"].lower()]:
                         supplier = supplier_
                         break
-                if isinstance(supplier, str):
-                    supplier = None
+            assert isinstance(supplier, Supplier), f"Supplier {supplier} is not a valid supplier"
         return ModelTool(function=function, supplier=supplier, model=model, description=description, parameters=parameters)
 
     @classmethod

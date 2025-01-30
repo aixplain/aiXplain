@@ -20,7 +20,7 @@ Date: May 16th 2024
 Description:
     Agentification Class
 """
-from typing import Optional, Union, Text, Dict
+from typing import Optional, Union, Text, Dict, List
 
 from aixplain.enums.function import Function
 from aixplain.enums.supplier import Supplier
@@ -43,6 +43,7 @@ class ModelTool(Tool):
         supplier: Optional[Union[Dict, Supplier]] = None,
         model: Optional[Union[Text, Model]] = None,
         description: Text = "",
+        parameters: Optional[Dict] = None,
         **additional_info,
     ) -> None:
         """Specialized software or resource designed to assist the AI in executing specific tasks or functions based on user commands.
@@ -52,6 +53,7 @@ class ModelTool(Tool):
             supplier (Optional[Union[Dict, Supplier]]): Preferred supplier to perform the task. Defaults to None. Defaults to None.
             model (Optional[Union[Text, Model]]): Model function. Defaults to None.
             description (Text): Description of the tool. Defaults to "".
+            parameters (Optional[Dict]): Parameters of the tool. Defaults to None.
         """
         assert (
             function is not None or model is not None
@@ -77,6 +79,8 @@ class ModelTool(Tool):
                 self.model = model
                 model = self.validate()
                 self.model_object = model
+            else:
+                self.model_object = model
             function = model.function
             if isinstance(model.supplier, Supplier):
                 supplier = model.supplier
@@ -84,7 +88,7 @@ class ModelTool(Tool):
         self.supplier = supplier
         self.model = model
         self.function = function
-        self.parameters = self.validate_parameters()
+        self.parameters = self.validate_parameters(parameters)
 
     def to_dict(self) -> Dict:
         """Converts the tool to a dictionary."""
@@ -121,10 +125,48 @@ class ModelTool(Tool):
     def get_parameters(self) -> Dict:
         return self.parameters
 
-    def validate_parameters(self) -> Optional[Dict]:
-        parameters = []
-        if self.model_object is not None:
-            parameters = self.model_object.get_parameters().to_list()
-        else:
-            parameters = self.function.get_parameters().to_list()
-        return parameters
+    def validate_parameters(self, received_parameters: Optional[List[Dict]] = None) -> Optional[List[Dict]]:
+        """Validates and formats the parameters for the tool.
+
+        Args:
+            received_parameters (Optional[List[Dict]]): List of parameter dictionaries in format [{"name": "param_name", "value": param_value}]
+
+        Returns:
+            Optional[List[Dict]]: Validated parameters in the required format
+
+        Raises:
+            ValueError: If received parameters don't match the expected parameters from model or function
+        """
+        if received_parameters is None:
+            # Get default parameters if none provided
+            if self.model_object is not None and self.model_object.model_params is not None:
+                return self.model_object.model_params.to_list()
+            elif self.function is not None:
+                function_params = self.function.get_parameters()
+                if function_params is not None:
+                    return function_params.to_list()
+            return None
+
+        # Get expected parameters
+        expected_params = None
+        if self.model_object is not None and self.model_object.model_params is not None:
+            expected_params = self.model_object.model_params
+        elif self.function is not None:
+            expected_params = self.function.get_parameters()
+
+        if expected_params is None:
+            return received_parameters
+
+        # Validate received parameters
+        if not isinstance(received_parameters, list):
+            raise TypeError("Parameters must be provided as a list of dictionaries")
+
+        # Get expected parameter names from BaseParameters object
+        expected_param_names = set(expected_params.parameters.keys())
+        received_param_names = {param["name"] for param in received_parameters}
+
+        invalid_params = received_param_names - expected_param_names
+        if invalid_params:
+            raise ValueError(f"Invalid parameters provided: {invalid_params}. Expected parameters are: {expected_param_names}")
+
+        return received_parameters

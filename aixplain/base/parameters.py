@@ -39,7 +39,7 @@ class BaseParameters:
         Returns:
             List[str]: List representation of parameters
         """
-        return [{"name": param.name, "value": param.value} for param in self.parameters.values()]
+        return [{"name": param.name, "value": param.value} for param in self.parameters.values() if param.value is not None]
 
     def __str__(self) -> str:
         """Create a pretty string representation of the parameters.

@@ -54,12 +54,13 @@ class Model(Asset):
         **additional_info: Any additional Model info to be saved
         input_params (ModelParameters, optional): input parameters for the function.
         output_params (Dict, optional): output parameters for the function.
+        model_params (ModelParameters, optional): parameters for the function.
     """
 
     def __init__(
         self,
         id: Text,
-        name: Text,
+        name: Text = "",
         description: Text = "",
         api_key: Text = config.TEAM_API_KEY,
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",

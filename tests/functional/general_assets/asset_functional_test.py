@@ -70,6 +70,13 @@ def test_model_supplier():
         assert model.supplier.value in [desired_supplier.value for desired_supplier in desired_suppliers]
 
 
+def test_model_ids():
+    model_ids = ["674728f51ed8e18fd8a1383f", "674728f51ed8e18fd8a1383c"]
+    models = ModelFactory.list(model_ids=model_ids)["results"]
+    assert len(models) == 2
+    assert sorted([model.id for model in models]) == sorted(model_ids)
+
+
 def test_model_sort():
     function = Function.TRANSLATION
     src_language = Language.Portuguese

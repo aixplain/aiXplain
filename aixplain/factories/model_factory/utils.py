@@ -95,6 +95,7 @@ def get_assets_from_page(
     ownership: Optional[Tuple[OwnershipType, List[OwnershipType]]] = None,
     sort_by: Optional[SortBy] = None,
     sort_order: SortOrder = SortOrder.ASCENDING,
+    api_key: Optional[str] = None,
 ) -> List[Model]:
     try:
         url = urljoin(config.BACKEND_URL, "sdk/models/paginate")
@@ -147,9 +148,49 @@ def get_assets_from_page(
         all_models = resp["items"]
         from aixplain.factories.model_factory.utils import create_model_from_response
 
-        model_list = [create_model_from_response(model_info_json) for model_info_json in all_models]
+        model_list = []
+        for model_info_json in all_models:
+            model_info_json["api_key"] = config.TEAM_API_KEY
+            if api_key is not None:
+                model_info_json["api_key"] = api_key
+            model_list.append(create_model_from_response(model_info_json))
         return model_list, resp["total"]
     else:
         error_message = f"Listing Models Error: Failed to retrieve models. Status Code: {r.status_code}. Error: {resp}"
+        logging.error(error_message)
+        raise Exception(error_message)
+
+
+def get_model_from_ids(model_ids: List[str], api_key: Optional[str] = None) -> List[Model]:
+    from aixplain.factories.model_factory.utils import create_model_from_response
+
+    resp = None
+    try:
+        url = urljoin(config.BACKEND_URL, f"sdk/models?ids={','.join(model_ids)}")
+
+        headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+        logging.info(f"Start service for GET Model  - {url} - {headers}")
+        r = _request_with_retry("get", url, headers=headers)
+        resp = r.json()
+
+    except Exception:
+        if resp is not None and "statusCode" in resp:
+            status_code = resp["statusCode"]
+            message = resp["message"]
+            message = f"Model Creation: Status {status_code} - {message}"
+        else:
+            message = "Model Creation: Unspecified Error"
+        logging.error(message)
+        raise Exception(f"{message}")
+    if 200 <= r.status_code < 300:
+        models = []
+        for item in resp["items"]:
+            item["api_key"] = config.TEAM_API_KEY
+            if api_key is not None:
+                item["api_key"] = api_key
+            models.append(create_model_from_response(item))
+        return models
+    else:
+        error_message = f"Model GET Error: Failed to retrieve models {model_ids}. Status Code: {r.status_code}. Error: {resp}"
         logging.error(error_message)
         raise Exception(error_message)
