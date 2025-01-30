@@ -71,12 +71,12 @@ class Pipeline(
         return PipelineFactory.get(pipeline_id=id)
 
     @classmethod
-    def create(cls, **kwargs: Unpack[PipelineCreateParams]) -> "Pipeline":
+    def create(cls, *args, **kwargs: Unpack[PipelineCreateParams]) -> "Pipeline":
         from aixplain.factories import PipelineFactory
         from aixplain.utils import config
 
         kwargs.setdefault("api_key", config.TEAM_API_KEY)
-        return PipelineFactory.create(**kwargs)
+        return PipelineFactory.create(*args, **kwargs)
 
     @classmethod
     def init(cls, name: str, api_key: str = None) -> "Pipeline":

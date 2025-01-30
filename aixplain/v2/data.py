@@ -3,7 +3,7 @@ from .resource import (
     GetResourceMixin,
     BareGetParams,
 )
-from aixplain.factories import DataFactory
+
 from typing_extensions import Unpack
 
 
@@ -13,4 +13,6 @@ class Data(
 ):
     @classmethod
     def get(cls, id: str, **kwargs: Unpack[BareGetParams]) -> "Data":
+        from aixplain.factories import DataFactory
+
         return DataFactory.get(data_id=id)

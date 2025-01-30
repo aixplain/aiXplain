@@ -76,7 +76,7 @@ class Agent(
         return AgentFactory.get(agent_id=id)
 
     @classmethod
-    def create(cls, **kwargs: Unpack[AgentCreateParams]) -> "Agent":
+    def create(cls, *args, **kwargs: Unpack[AgentCreateParams]) -> "Agent":
         from aixplain.factories import AgentFactory
         from aixplain.utils import config
 
@@ -85,7 +85,7 @@ class Agent(
         kwargs.setdefault("supplier", cls.SUPPLIER)
         kwargs.setdefault("tools", [])
 
-        return AgentFactory.create(**kwargs)
+        return AgentFactory.create(*args, **kwargs)
 
     @classmethod
     def create_model_tool(

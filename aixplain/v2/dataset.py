@@ -8,12 +8,14 @@ from .resource import (
     CreateResourceMixin,
     Page,
 )
-from aixplain.factories import DatasetFactory
-from aixplain.modules.metadata import MetaData
+
 from .enums import DataType, Function, Language, License, Privacy, ErrorHandler
 from pathlib import Path
-from typing_extensions import Unpack, NotRequired
+from typing_extensions import Unpack, NotRequired, TYPE_CHECKING
 from typing import Any, Dict, List, Text, Union
+
+if TYPE_CHECKING:
+    from aixplain.modules.data import MetaData
 
 
 class DatasetCreateParams(BaseCreateParams):
@@ -21,10 +23,10 @@ class DatasetCreateParams(BaseCreateParams):
     description: Text
     license: License
     function: Function
-    input_schema: List[Union[Dict, MetaData]]
-    output_schema: List[Union[Dict, MetaData]] = []
-    hypotheses_schema: List[Union[Dict, MetaData]] = []
-    metadata_schema: List[Union[Dict, MetaData]] = []
+    input_schema: List[Union[Dict, "MetaData"]]
+    output_schema: List[Union[Dict, "MetaData"]] = []
+    hypotheses_schema: List[Union[Dict, "MetaData"]] = []
+    metadata_schema: List[Union[Dict, "MetaData"]] = []
     content_path: Union[Union[Text, Path], List[Union[Text, Path]]] = []
     input_ref_data: Dict[Text, Any] = {}
     output_ref_data: Dict[Text, List[Any]] = {}
@@ -72,16 +74,22 @@ class Dataset(
 ):
     @classmethod
     def get(cls, id: str, **kwargs: Unpack[BareGetParams]) -> "Dataset":
+        from aixplain.factories import DatasetFactory
+
         return DatasetFactory.get(dataset_id=id)
 
     @classmethod
     def list(cls, **kwargs: Unpack[DatasetListParams]) -> Page["Dataset"]:
+        from aixplain.factories import DatasetFactory
+
         kwargs.setdefault("page_number", cls.PAGINATE_DEFAULT_PAGE_NUMBER)
         kwargs.setdefault("page_size", cls.PAGINATE_DEFAULT_PAGE_SIZE)
         return DatasetFactory.list(**kwargs)
 
     @classmethod
-    def create(cls, **kwargs: Unpack[DatasetCreateParams]) -> Dict:
+    def create(cls, *args, **kwargs: Unpack[DatasetCreateParams]) -> Dict:
+        from aixplain.factories import DatasetFactory
+
         kwargs.setdefault("output_schema", [])
         kwargs.setdefault("hypotheses_schema", [])
         kwargs.setdefault("metadata_schema", [])
@@ -96,4 +104,4 @@ class Dataset(
             "aws_credentials",
             {"AWS_ACCESS_KEY_ID": None, "AWS_SECRET_ACCESS_KEY": None},
         )
-        return DatasetFactory.create(**kwargs)
+        return DatasetFactory.create(*args, **kwargs)

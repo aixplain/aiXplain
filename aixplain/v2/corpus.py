@@ -7,12 +7,14 @@ from .resource import (
     BareGetParams,
     Page,
 )
-from aixplain.factories import CorpusFactory
-from aixplain.modules.metadata import MetaData
+
 from .enums import DataType, Function, Language, License, Privacy, ErrorHandler
 from pathlib import Path
-from typing_extensions import Unpack, NotRequired
+from typing_extensions import Unpack, NotRequired, TYPE_CHECKING
 from typing import Any, Dict, List, Text, Union
+
+if TYPE_CHECKING:
+    from aixplain.modules.metadata import MetaData
 
 
 class CorpusCreateParams(BaseCreateParams):
@@ -20,7 +22,7 @@ class CorpusCreateParams(BaseCreateParams):
     description: Text
     license: License
     content_path: Union[Union[Text, Path], List[Union[Text, Path]]]
-    schema: List[Union[Dict, MetaData]]
+    schema: List[Union[Dict, "MetaData"]]
     ref_data: List[Any]
     tags: List[Text]
     functions: List[Function]
@@ -57,20 +59,26 @@ class Corpus(
 ):
     @classmethod
     def get(cls, id: str, **kwargs: Unpack[BareGetParams]) -> "Corpus":
+        from aixplain.factories import CorpusFactory
+
         return CorpusFactory.get(corpus_id=id)
 
     @classmethod
     def list(cls, **kwargs: Unpack[CorpusListParams]) -> Page["Corpus"]:
+        from aixplain.factories import CorpusFactory
+
         kwargs.setdefault("page_number", cls.PAGINATE_DEFAULT_PAGE_NUMBER)
         kwargs.setdefault("page_size", cls.PAGINATE_DEFAULT_PAGE_SIZE)
 
         return CorpusFactory.list(**kwargs)
 
     @classmethod
-    def create(cls, **kwargs: Unpack[CorpusCreateParams]) -> Dict:
+    def create(cls, *args, **kwargs: Unpack[CorpusCreateParams]) -> Dict:
+        from aixplain.factories import CorpusFactory
+
         kwargs.setdefault("ref_data", [])
         kwargs.setdefault("tags", [])
         kwargs.setdefault("functions", [])
         kwargs.setdefault("privacy", Privacy.PRIVATE)
         kwargs.setdefault("error_handler", ErrorHandler.SKIP)
-        return CorpusFactory.create(**kwargs)
+        return CorpusFactory.create(*args, **kwargs)

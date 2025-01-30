@@ -7,9 +7,10 @@ from aixplain.v2.resource import (
     BareCreateParams,
 )
 
-from aixplain.modules.dataset import Dataset
-from aixplain.modules.model import Model
-from aixplain.modules.finetune import Hyperparameters
+if TYPE_CHECKING:
+    from aixplain.modules.finetune import Hyperparameters
+    from aixplain.modules.dataset import Dataset
+    from aixplain.modules.model import Model
 
 
 class FinetuneCreateParams(BareCreateParams):
@@ -43,24 +44,7 @@ class Finetune(
     RESOURCE_PATH = "sdk/finetunes"
 
     @classmethod
-    def create(
-        cls,
-        name: str,
-        dataset_list: List[Union[Dataset, str]],
-        model: Union[Model, str],
-        prompt_template: str = None,
-        hyperparameters: Hyperparameters = None,
-        train_percentage: float = 100,
-        dev_percentage: float = 0,
-    ) -> "Finetune":
+    def create(cls, *args, **kwargs: Unpack[FinetuneCreateParams]) -> "Finetune":
         from aixplain.factories import FinetuneFactory
 
-        return FinetuneFactory.create(
-            name,
-            dataset_list,
-            model,
-            prompt_template=prompt_template,
-            hyperparameters=hyperparameters,
-            train_percentage=train_percentage,
-            dev_percentage=dev_percentage,
-        )
+        return FinetuneFactory.create(*args, **kwargs)

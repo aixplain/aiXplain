@@ -370,7 +370,7 @@ class CreateResourceMixin(Generic[C, R]):
     """Mixin for creating a resource."""
 
     @classmethod
-    def create(cls, **kwargs: Unpack[C]) -> R:
+    def create(cls, *args, **kwargs: Unpack[C]) -> R:
         """
         Create a resource.
 
@@ -384,5 +384,5 @@ class CreateResourceMixin(Generic[C, R]):
             cls, "RESOURCE_PATH"
         ), "Subclasses of 'BaseResource' must specify 'RESOURCE_PATH'"
 
-        obj = cls.context.client.request("post", cls.RESOURCE_PATH, **kwargs)
+        obj = cls.context.client.request("post", cls.RESOURCE_PATH, *args, **kwargs)
         return cls(obj)

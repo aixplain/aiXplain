@@ -31,7 +31,12 @@ from .v2.core import Aixplain  # noqa
 LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO").upper()
 logging.basicConfig(level=LOG_LEVEL)
 
-aixplain_v2 = Aixplain()
+
+aixplain_v2 = None
+try:
+    aixplain_v2 = Aixplain()
+except Exception:
+    pass
 
 
 __all__ = ["Aixplain", "aixplain_v2"]

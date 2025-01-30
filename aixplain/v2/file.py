@@ -22,7 +22,7 @@ class File(BaseResource, CreateResourceMixin[FileCreateParams, "File"]):
     RESOURCE_PATH = "sdk/files"
 
     @classmethod
-    def create(cls, **kwargs: Unpack[FileCreateParams]) -> "File":
+    def create(cls, *args, **kwargs: Unpack[FileCreateParams]) -> "File":
         """Create a file."""
         from aixplain.factories import FileFactory
 
@@ -30,7 +30,7 @@ class File(BaseResource, CreateResourceMixin[FileCreateParams, "File"]):
         kwargs.setdefault("license", None)
         kwargs.setdefault("tags", None)
 
-        return FileFactory.create(**kwargs)
+        return FileFactory.create(*args, **kwargs)
 
     @classmethod
     def to_link(cls, local_path: str) -> str:

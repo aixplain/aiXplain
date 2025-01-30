@@ -73,7 +73,7 @@ class TeamAgent(
         return TeamAgentFactory.get(id, **kwargs)
 
     @classmethod
-    def create(cls, **kwargs: Unpack[TeamAgentCreateParams]) -> "TeamAgent":
+    def create(cls, *args, **kwargs: Unpack[TeamAgentCreateParams]) -> "TeamAgent":
         from aixplain.factories import TeamAgentFactory
         from aixplain.utils import config
 
@@ -83,4 +83,4 @@ class TeamAgent(
         kwargs.setdefault("description", "")
         kwargs.setdefault("use_mentalist_and_inspector", True)
 
-        return TeamAgentFactory.create(**kwargs)
+        return TeamAgentFactory.create(*args, **kwargs)

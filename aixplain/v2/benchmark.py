@@ -47,10 +47,10 @@ class Benchmark(
         return BenchmarkFactory.get(benchmark_id=id)
 
     @classmethod
-    def create(cls, **kwargs: Unpack[BenchmarkCreateParams]) -> "Benchmark":
+    def create(cls, *args, **kwargs: Unpack[BenchmarkCreateParams]) -> "Benchmark":
         from aixplain.factories import BenchmarkFactory
 
-        return BenchmarkFactory.create(**kwargs)
+        return BenchmarkFactory.create(*args, **kwargs)
 
     @classmethod
     def list_normalization_options(cls, metric: "Metric", model: "Model") -> list[str]:
