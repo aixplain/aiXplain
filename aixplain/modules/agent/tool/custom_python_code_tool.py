@@ -44,7 +44,7 @@ class CustomPythonCodeTool(Tool):
     def validate(self):
         from aixplain.modules.model.utils import parse_code
 
-        self.code, _, description = parse_code(self.code)
+        self.code, _, description, _ = parse_code(self.code)
 
         assert (
             description is not None or self.description is not None

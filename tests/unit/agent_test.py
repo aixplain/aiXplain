@@ -122,6 +122,7 @@ def test_create_agent():
                 "utility_model_test",
                 [],
                 "utility_model_test",
+                "utility_model_test",
             ),
         ):
             url = urljoin(config.BACKEND_URL, "sdk/agents")
@@ -486,7 +487,7 @@ def test_create_agent_task():
     assert task_dict["expectedOutput"] == "Test Output"
     assert task_dict["dependencies"] is None
 
-    
+
 def test_agent_response():
     from aixplain.modules.agent.agent_response import AgentResponse, AgentResponseData
 
