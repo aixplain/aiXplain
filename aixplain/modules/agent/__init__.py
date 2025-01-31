@@ -74,7 +74,7 @@ class Agent(Model):
         version: Optional[Text] = None,
         cost: Optional[Dict] = None,
         status: AssetStatus = AssetStatus.DRAFT,
-        tasks: Optional[List[AgentTask]] = None,
+        tasks: List[AgentTask] = [],
         **additional_info,
     ) -> None:
         """Create an Agent with the necessary information.
@@ -319,7 +319,7 @@ class Agent(Model):
             "version": self.version,
             "llmId": self.llm_id,
             "status": self.status.value,
-            "tasks": [task.to_dict() for task in self.tasks] if self.tasks is not None else None,
+            "tasks": [task.to_dict() for task in self.tasks],
         }
 
     def delete(self) -> None:
