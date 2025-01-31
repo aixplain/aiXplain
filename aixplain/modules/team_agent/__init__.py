@@ -197,14 +197,15 @@ class TeamAgent(Model):
         assert data is not None or query is not None, "Either 'data' or 'query' must be provided."
         if data is not None:
             if isinstance(data, dict):
-                # assert "query" in data and data["query"] is not None, "When providing a dictionary, 'query' must be provided."
                 if session_id is None:
                     session_id = data.pop("session_id", None)
                 if history is None:
                     history = data.pop("history", None)
                 if content is None:
                     content = data.pop("content", None)
-            query = data.get("query", data)
+                query = data.get("query", data)
+            else:
+                query = data
 
         # process content inputs
         if content is not None:
