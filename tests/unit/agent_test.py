@@ -36,7 +36,9 @@ def test_fail_query_as_text_when_content_not_empty():
     with pytest.raises(Exception) as exc_info:
         agent.run_async(
             data={"query": "https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.wav"},
-            content=["https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.wav"],
+            content=[
+                "https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.wav",
+            ],
         )
 
     assert str(exc_info.value) == "When providing 'content', query must be text."
@@ -122,7 +124,7 @@ def test_create_agent():
                 "utility_model_test",
                 [],
                 "utility_model_test",
-                "utility_model_test",
+                "test_name",
             ),
         ):
             url = urljoin(config.BACKEND_URL, "sdk/agents")
@@ -521,3 +523,87 @@ def test_agent_response():
     assert response.data.input == "new_input"
     response.data.output = "new_output"
     assert response["data"]["output"] == "new_output"
+
+
+def test_custom_python_code_tool_initialization():
+    """Test basic initialization of CustomPythonCodeTool"""
+    code = "def main(query: str) -> str:\n    return 'Hello'"
+    description = "Test description"
+    tool = CustomPythonCodeTool(code=code, description=description)
+
+    assert tool.code == code
+    assert tool.description == description
+    assert tool.name == "Custom Python Code"
+
+
+def test_custom_python_code_tool_to_dict():
+    """Test the to_dict method of CustomPythonCodeTool"""
+    code = "def main(query: str) -> str:\n    return 'Hello'"
+    description = "Test description"
+    tool = CustomPythonCodeTool(code=code, description=description)
+
+    tool_dict = tool.to_dict()
+    assert tool_dict["type"] == "utility"
+    assert tool_dict["utility"] == "custom_python_code"
+    assert tool_dict["utilityCode"] == code
+    assert tool_dict["description"] == description
+
+
+def test_custom_python_code_tool_validation():
+    """Test validation of CustomPythonCodeTool"""
+    with patch(
+        "aixplain.modules.model.utils.parse_code",
+        return_value=(
+            "def main(query: str) -> str:\n    return 'Hello'",  # code
+            [],  # inputs
+            "Parsed description",  # description
+            "test_name",  # name
+        ),
+    ):
+        code = "def main(query: str) -> str:\n    return 'Hello'"
+        tool = CustomPythonCodeTool(code=code)
+        tool.validate()
+        assert tool.code == code
+        assert tool.description == "Parsed description"
+        assert tool.name == "test_name"
+
+
+def test_custom_python_code_tool_validation_missing_description():
+    """Test validation fails when description is missing"""
+    with patch(
+        "aixplain.modules.model.utils.parse_code",
+        return_value=(
+            "def main(query: str) -> str:\n    return 'Hello'",  # code
+            [],  # inputs
+            None,  # description
+            "test_name",  # name
+        ),
+    ):
+        code = "def main(query: str) -> str:\n    return 'Hello'"
+        tool = CustomPythonCodeTool(code=code)
+        with pytest.raises(AssertionError) as exc_info:
+            tool.validate()
+        assert str(exc_info.value) == "Custom Python Code Tool Error: Tool description is required"
+
+
+def test_custom_python_code_tool_validation_missing_code():
+    """Test validation fails when code is missing"""
+    with patch(
+        "aixplain.modules.model.utils.parse_code",
+        return_value=("", [], "Parsed description", "test_name"),  # code  # inputs  # description  # name
+    ):
+        with pytest.raises(AssertionError) as exc_info:
+            tool = CustomPythonCodeTool(code="", description="Test description")
+            tool.validate()
+        assert str(exc_info.value) == "Custom Python Code Tool Error: Code is required"
+
+
+def test_custom_python_code_tool_with_callable():
+    """Test CustomPythonCodeTool with a callable function"""
+
+    def test_function(query: str) -> str:
+        return "Hello"
+
+    tool = CustomPythonCodeTool(code=test_function, description="Test description")
+    assert callable(tool.code)
+    assert tool.description == "Test description"
