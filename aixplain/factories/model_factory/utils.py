@@ -7,7 +7,6 @@ from aixplain.modules.model.utility_model import UtilityModel, UtilityModelInput
 from aixplain.enums import DataType, Function, Language, OwnershipType, Supplier, SortBy, SortOrder
 from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
-from aixplain.enums.function import FunctionInputOutput
 from datetime import datetime
 from typing import Dict, Union, List, Optional, Tuple
 from urllib.parse import urljoin
@@ -37,11 +36,12 @@ def create_model_from_response(response: Dict) -> Model:
 
     function_id = response["function"]["id"]
     function = Function(function_id)
-    function_io = FunctionInputOutput.get(function_id, None)
-    input_params = {param["code"]: param for param in function_io["spec"]["params"]}
-    output_params = {param["code"]: param for param in function_io["spec"]["output"]}
+    function_input_params, function_output_params = function.get_input_output_params()
+    model_params = {param["name"]: param for param in response["params"]}
 
     inputs, temperature = [], None
+    input_params, output_params = function_input_params, function_output_params
+
     ModelClass = Model
     if function == Function.TEXT_GENERATION:
         ModelClass = LLM
@@ -56,7 +56,7 @@ def create_model_from_response(response: Dict) -> Model:
             UtilityModelInput(name=param["name"], description=param.get("description", ""), type=DataType(param["dataType"]))
             for param in response["params"]
         ]
-        input_params = {param["name"]: param for param in response["params"]}
+        input_params = model_params
 
     created_at = None
     if "createdAt" in response and response["createdAt"]:
@@ -75,6 +75,7 @@ def create_model_from_response(response: Dict) -> Model:
         parameters=parameters,
         input_params=input_params,
         output_params=output_params,
+        model_params=model_params,
         is_subscribed=True if "subscription" in response else False,
         version=response["version"]["id"],
         inputs=inputs,
