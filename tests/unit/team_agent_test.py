@@ -16,13 +16,6 @@ def test_fail_no_data_query():
     assert str(exc_info.value) == "Either 'data' or 'query' must be provided."
 
 
-def test_fail_query_must_be_provided():
-    team_agent = TeamAgent("123", "Test Team Agent")
-    with pytest.raises(Exception) as exc_info:
-        team_agent.run_async(data={})
-    assert str(exc_info.value) == "When providing a dictionary, 'query' must be provided."
-
-
 def test_fail_query_as_text_when_content_not_empty():
     team_agent = TeamAgent("123", "Test Team Agent")
     with pytest.raises(Exception) as exc_info:

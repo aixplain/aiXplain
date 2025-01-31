@@ -200,11 +200,11 @@ class Agent(Model):
             return AgentResponse(
                 status=ResponseStatus.FAILED,
                 data=AgentResponseData(
-                    input=data,
+                    input="",
                     output=None,
-                    session_id=result_data.get("session_id"),
-                    intermediate_steps=result_data.get("intermediate_steps"),
-                    execution_stats=result_data.get("executionStats"),
+                    session_id=session_id,
+                    intermediate_steps=None,
+                    execution_stats=None,
                 ),
                 error=msg,
             )
