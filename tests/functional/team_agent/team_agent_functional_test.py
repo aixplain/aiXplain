@@ -236,3 +236,36 @@ def test_add_remove_agents_from_team_agent(run_input_map, delete_agents_and_team
 
     team_agent.delete()
     new_agent.delete()
+
+
+def test_team_agent_tasks(delete_agents_and_team_agents):
+    assert delete_agents_and_team_agents
+    agent = AgentFactory.create(
+        name="Teste",
+        description="You are a test agent that always returns the same answer",
+        tools=[
+            AgentFactory.create_model_tool(function=Function.TRANSLATION, supplier=Supplier.MICROSOFT),
+        ],
+        tasks=[
+            AgentFactory.create_task(
+                name="en_pt",
+                description="Translate the text '{text}' from English to Portuguese",
+                expected_output="The translated text",
+                dependencies=["pt_en"],
+            ),
+            AgentFactory.create_task(
+                name="pt_en",
+                description="Translate the text '{text}' from Portuguese to English",
+                expected_output="The translated text",
+            ),
+        ],
+    )
+
+    team_agent = TeamAgentFactory.create(
+        name="Teste",
+        agents=[agent],
+        description="Teste",
+    )
+    response = team_agent.run(data={"text": "teste"})
+    assert response.status == "SUCCESS"
+    assert "teste" in response.data["output"]
