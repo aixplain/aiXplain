@@ -4,6 +4,7 @@ import aixplain.utils.config as config
 from aixplain.enums import Function, Supplier
 from aixplain.enums.asset_status import AssetStatus
 from aixplain.modules.agent import Agent
+from aixplain.modules.agent.agent_task import AgentTask
 from aixplain.modules.agent.tool.model_tool import ModelTool
 from aixplain.modules.agent.tool.pipeline_tool import PipelineTool
 from aixplain.modules.agent.tool.python_interpreter_tool import PythonInterpreterTool
@@ -60,6 +61,15 @@ def build_agent(payload: Dict, api_key: Text = config.TEAM_API_KEY) -> Agent:
         llm_id=payload.get("llmId", GPT_4o_ID),
         api_key=api_key,
         status=AssetStatus(payload["status"]),
+        tasks=[
+            AgentTask(
+                name=task["name"],
+                description=task["description"],
+                expected_output=task.get("expectedOutput", None),
+                dependencies=task.get("dependencies", []),
+            )
+            for task in payload.get("tasks", [])
+        ],
     )
     agent.url = urljoin(config.BACKEND_URL, f"sdk/agents/{agent.id}/run")
     return agent

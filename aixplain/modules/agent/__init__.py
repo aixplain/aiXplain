@@ -32,6 +32,7 @@ from aixplain.enums.supplier import Supplier
 from aixplain.enums.asset_status import AssetStatus
 from aixplain.enums.storage_type import StorageType
 from aixplain.modules.model import Model
+from aixplain.modules.agent.agent_task import AgentTask
 from aixplain.modules.agent.output_format import OutputFormat
 from aixplain.modules.agent.tool import Tool
 from aixplain.modules.agent.agent_response import AgentResponse
@@ -73,6 +74,7 @@ class Agent(Model):
         version: Optional[Text] = None,
         cost: Optional[Dict] = None,
         status: AssetStatus = AssetStatus.DRAFT,
+        tasks: List[AgentTask] = [],
         **additional_info,
     ) -> None:
         """Create an Agent with the necessary information.
@@ -103,6 +105,7 @@ class Agent(Model):
             except Exception:
                 status = AssetStatus.DRAFT
         self.status = status
+        self.tasks = tasks
 
     def validate(self) -> None:
         """Validate the Agent."""
@@ -201,11 +204,11 @@ class Agent(Model):
             return AgentResponse(
                 status=ResponseStatus.FAILED,
                 data=AgentResponseData(
-                    input=data,
+                    input="",
                     output=None,
-                    session_id=result_data.get("session_id"),
-                    intermediate_steps=result_data.get("intermediate_steps"),
-                    execution_stats=result_data.get("executionStats"),
+                    session_id=session_id,
+                    intermediate_steps=None,
+                    execution_stats=None,
                 ),
                 error=msg,
             )
@@ -320,6 +323,7 @@ class Agent(Model):
             "version": self.version,
             "llmId": self.llm_id,
             "status": self.status.value,
+            "tasks": [task.to_dict() for task in self.tasks],
         }
 
     def delete(self) -> None:

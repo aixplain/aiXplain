@@ -265,7 +265,6 @@ def parse_code_decorated(code: Union[Text, Callable]) -> Tuple[Text, List, Text]
 
         tool_match = matches[0]  # we expect only 1 match
         decorator_params = tool_match[0]
-        function_name = tool_match[1]
         parameters_str = tool_match[2]
 
         # Extract name and description

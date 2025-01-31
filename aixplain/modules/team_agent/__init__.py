@@ -34,9 +34,12 @@ from aixplain.enums.asset_status import AssetStatus
 from aixplain.enums.storage_type import StorageType
 from aixplain.modules.model import Model
 from aixplain.modules.agent import Agent, OutputFormat
+from aixplain.modules.agent.agent_response import AgentResponse
+from aixplain.enums import ResponseStatus
 from aixplain.modules.agent.utils import process_variables
 from typing import Dict, List, Text, Optional, Union
 from urllib.parse import urljoin
+
 
 from aixplain.utils import config
 
@@ -156,10 +159,9 @@ class TeamAgent(Model):
             response = self.sync_poll(poll_url, name=name, timeout=timeout, wait_time=wait_time)
             return response
         except Exception as e:
-            msg = f"Error in request for {name} - {traceback.format_exc()}"
             logging.error(f"Team Agent Run: Error in running for {name}: {e}")
             end = time.time()
-            return {"status": "FAILED", "error": msg, "elapsed_time": end - start}
+            return AgentResponse(status=ResponseStatus.FAILED, completed=False, error_message="No response from the service.")
 
     def run_async(
         self,
@@ -195,20 +197,21 @@ class TeamAgent(Model):
         assert data is not None or query is not None, "Either 'data' or 'query' must be provided."
         if data is not None:
             if isinstance(data, dict):
-                assert "query" in data and data["query"] is not None, "When providing a dictionary, 'query' must be provided."
-                query = data.get("query")
                 if session_id is None:
-                    session_id = data.get("session_id")
+                    session_id = data.pop("session_id", None)
                 if history is None:
-                    history = data.get("history")
+                    history = data.pop("history", None)
                 if content is None:
-                    content = data.get("content")
+                    content = data.pop("content", None)
+                query = data.get("query", data)
             else:
                 query = data
 
         # process content inputs
         if content is not None:
-            assert FileFactory.check_storage_type(query) == StorageType.TEXT, "When providing 'content', query must be text."
+            assert (
+                isinstance(query, str) and FileFactory.check_storage_type(query) == StorageType.TEXT
+            ), "When providing 'content', query must be text."
 
             if isinstance(content, list):
                 assert len(content) <= 3, "The maximum number of content inputs is 3."
