@@ -284,8 +284,8 @@ def test_team_agent_with_parameterized_agents(delete_agents_and_team_agents):
     search_agent = AgentFactory.create(
         name="Search Agent",
         description="Agent that performs searches",
-        role="Searcher",
-        llm_id="6626a3a8c8f1d089790cf5a2",
+        role="Agent that performs searches",
+        llm_id="669a63646eb56306647e1091",
         tools=[search_tool],
     )
 
@@ -300,8 +300,8 @@ def test_team_agent_with_parameterized_agents(delete_agents_and_team_agents):
     translation_agent = AgentFactory.create(
         name="Translation Agent",
         description="Agent that performs translations",
-        role="Translator",
-        llm_id="6626a3a8c8f1d089790cf5a2",
+        role="Agent that performs translations",
+        llm_id="669a63646eb56306647e1091",
         tools=[translation_tool],
     )
 
@@ -310,7 +310,7 @@ def test_team_agent_with_parameterized_agents(delete_agents_and_team_agents):
         name="Parameterized Team Agent",
         agents=[search_agent, translation_agent],
         description="Team agent with parameterized tools",
-        llm_id="6626a3a8c8f1d089790cf5a2",
+        llm_id="669a63646eb56306647e1091",
         use_mentalist_and_inspector=True,
     )
 
