@@ -249,13 +249,13 @@ def test_team_agent_tasks(delete_agents_and_team_agents):
         tasks=[
             AgentFactory.create_task(
                 name="en_pt",
-                description="Translate the text '{text}' from English to Portuguese",
+                description="Translate the given text from English to Portuguese",
                 expected_output="The translated text",
                 dependencies=["pt_en"],
             ),
             AgentFactory.create_task(
                 name="pt_en",
-                description="Translate the text '{text}' from Portuguese to English",
+                description="Translate the given text from Portuguese to English",
                 expected_output="The translated text",
             ),
         ],
@@ -266,7 +266,7 @@ def test_team_agent_tasks(delete_agents_and_team_agents):
         agents=[agent],
         description="Teste",
     )
-    response = team_agent.run(data={"text": "teste"})
+    response = team_agent.run(data="Translate 'teste'")
     assert response.status == "SUCCESS"
     assert "teste" in response.data["output"]
 
