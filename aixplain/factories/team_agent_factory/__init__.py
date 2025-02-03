@@ -45,6 +45,7 @@ class TeamAgentFactory:
         api_key: Text = config.TEAM_API_KEY,
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
         version: Optional[Text] = None,
+        use_inspector: bool = True,
         use_mentalist_and_inspector: bool = True,
     ) -> TeamAgent:
         """Create a new team agent in the platform."""
@@ -61,9 +62,9 @@ class TeamAgentFactory:
                 from aixplain.modules.agent import Agent
 
                 assert isinstance(agent, Agent), "TeamAgent Onboarding Error: Agents must be instances of Agent class"
-
+        
         mentalist_and_inspector_llm_id = None
-        if use_mentalist_and_inspector is True:
+        if use_inspector or use_mentalist_and_inspector:
             mentalist_and_inspector_llm_id = llm_id
 
         team_agent = None
@@ -87,6 +88,7 @@ class TeamAgentFactory:
             "llmId": llm_id,
             "supervisorId": llm_id,
             "plannerId": mentalist_and_inspector_llm_id,
+            "inspectorId": mentalist_and_inspector_llm_id,
             "supplier": supplier,
             "version": version,
             "status": "draft",
