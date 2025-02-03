@@ -20,7 +20,7 @@ import json
 from dotenv import load_dotenv
 
 load_dotenv()
-from aixplain.factories import AgentFactory, TeamAgentFactory
+from aixplain.factories import AgentFactory, TeamAgentFactory, ModelFactory
 from aixplain.enums.asset_status import AssetStatus
 from aixplain.enums.function import Function
 from aixplain.enums.supplier import Supplier
@@ -268,3 +268,70 @@ def test_update_tools_of_agent(run_input_map, delete_agents_and_team_agents):
     assert removed_tool not in agent.tools
 
     agent.delete()
+
+
+@pytest.mark.parametrize(
+    "tool_config",
+    [
+        {
+            "type": "search",
+            "model": "65c51c556eb563350f6e1bb1",
+            "query": "What is the weather in New York?",
+            "description": "Search tool with custom number of results",
+            "expected_tool_input": "'numResults': 5",
+        },
+        {
+            "type": "translation",
+            "supplier": "Microsoft",
+            "function": "translation",
+            "query": "Translate: Olá, como vai você?",
+            "description": "Translation tool with target language",
+            "expected_tool_input": "targetlanguage",
+        },
+    ],
+)
+def test_specific_model_parameters_e2e(tool_config):
+    """Test end-to-end agent execution with specific model parameters"""
+    # Create tool based on config
+    if tool_config["type"] == "search":
+        search_model = ModelFactory.get(tool_config["model"])
+        model_params = search_model.get_parameters()
+        model_params.numResults = 5
+        tool = AgentFactory.create_model_tool(model=search_model, description=tool_config["description"])
+    else:
+        function = Function(tool_config["function"])
+        function_params = function.get_parameters()
+        function_params.sourcelanguage = "pt"
+        tool = AgentFactory.create_model_tool(function=function, description=tool_config["description"], supplier="microsoft")
+
+    # Verify tool parameters
+    params = tool.get_parameters()
+    assert len(params) == 1
+    assert params[0]["name"] == ("numResults" if tool_config["type"] == "search" else "sourcelanguage")
+    assert params[0]["value"] == (5 if tool_config["type"] == "search" else "pt")
+
+    # Create and run agent
+    agent = AgentFactory.create(
+        name="Test Parameter Agent",
+        description="Test agent with parameterized tools",
+        tools=[tool],
+        llm_id="6626a3a8c8f1d089790cf5a2",  # Using LLM ID from test data
+    )
+
+    # Run agent
+    response = agent.run(data=tool_config["query"])
+
+    # Verify response
+    assert response["completed"] is True
+    assert response["status"].lower() == "success"
+    assert "data" in response
+    assert response["data"]["output"] is not None
+
+    # Verify tool was used in execution
+    assert len(response["data"]["intermediate_steps"]) > 0
+    tool_used = False
+    for step in response["data"]["intermediate_steps"]:
+        if tool_config["expected_tool_input"] in step["tool_steps"][0]["input"]:
+            tool_used = True
+            break
+    assert tool_used, "Tool was not used in execution"

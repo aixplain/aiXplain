@@ -44,13 +44,17 @@ class CustomPythonCodeTool(Tool):
     def validate(self):
         from aixplain.modules.model.utils import parse_code
 
-        self.code, _, description, _ = parse_code(self.code)
+        self.code, _, description, name = parse_code(self.code)
+
+        # Set description from parsed code if not already set
+        if not self.description or self.description.strip() == "":
+            self.description = description
+        # Set name from parsed code if could find it
+        if name and name.strip() != "":
+            self.name = name
 
         assert (
-            description is not None or self.description is not None
+            self.description and self.description.strip() != ""
         ), "Custom Python Code Tool Error: Tool description is required"
-        if self.description is None or self.description.strip() == "":
-            self.description = description
-        assert self.name and self.name.strip() != "", "Name is required"
-        assert self.description and self.description.strip() != "", "Description is required"
-        assert self.code and self.code.strip() != "", "Code is required"
+        assert self.code and self.code.strip() != "", "Custom Python Code Tool Error: Code is required"
+        assert self.name and self.name.strip() != "", "Custom Python Code Tool Error: Name is required"
