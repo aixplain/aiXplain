@@ -62,6 +62,6 @@ class PipelineTool(Tool):
         from aixplain.factories.pipeline_factory import PipelineFactory
 
         try:
-            PipelineFactory.get(self.pipeline)
+            PipelineFactory.get(self.pipeline, api_key=self.api_key)
         except Exception:
             raise Exception(f"Pipeline Tool Unavailable. Make sure Pipeline '{self.pipeline}' exists or you have access to it.")

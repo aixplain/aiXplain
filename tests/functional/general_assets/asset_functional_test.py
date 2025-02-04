@@ -87,13 +87,16 @@ def test_model_function(ModelFactory):
 @pytest.mark.parametrize("ModelFactory", [ModelFactory, v2.Model])
 def test_model_supplier(ModelFactory):
     desired_suppliers = [Supplier.GOOGLE]
-    models = ModelFactory.list(
-        suppliers=desired_suppliers, function=Function.TRANSLATION
-    )["results"]
+    models = ModelFactory.list(suppliers=desired_suppliers, function=Function.TRANSLATION)["results"]
     for model in models:
-        assert model.supplier.value in [
-            desired_supplier.value for desired_supplier in desired_suppliers
-        ]
+        assert model.supplier.value in [desired_supplier.value for desired_supplier in desired_suppliers]
+
+
+def test_model_ids():
+    model_ids = ["674728f51ed8e18fd8a1383f", "674728f51ed8e18fd8a1383c"]
+    models = ModelFactory.list(model_ids=model_ids)["results"]
+    assert len(models) == 2
+    assert sorted([model.id for model in models]) == sorted(model_ids)
 
 
 @pytest.mark.parametrize("ModelFactory", [ModelFactory, v2.Model])
@@ -120,9 +123,7 @@ def test_model_sort(ModelFactory):
 
 @pytest.mark.parametrize("ModelFactory", [ModelFactory, v2.Model])
 def test_model_ownership(ModelFactory):
-    models = ModelFactory.list(
-        ownership=OwnershipType.SUBSCRIBED, function=Function.TRANSLATION
-    )["results"]
+    models = ModelFactory.list(ownership=OwnershipType.SUBSCRIBED, function=Function.TRANSLATION)["results"]
     for model in models:
         assert model.is_subscribed is True
 

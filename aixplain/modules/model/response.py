@@ -22,6 +22,10 @@ class ModelResponse:
         self.data = data
         self.details = details
         self.completed = completed
+        if error_message == "":
+            error_message = kwargs.get("error", "")
+            if "supplierError" in kwargs:
+                error_message = f"{error_message} - {kwargs.get('supplierError', '')}"
         self.error_message = error_message
         self.used_credits = used_credits
         self.run_time = run_time
@@ -88,3 +92,19 @@ class ModelResponse:
             return True
         except KeyError:
             return False
+
+    def to_dict(self) -> Dict[Text, Any]:
+        base_dict = {
+            "status": self.status,
+            "data": self.data,
+            "details": self.details,
+            "completed": self.completed,
+            "error_message": self.error_message,
+            "used_credits": self.used_credits,
+            "run_time": self.run_time,
+            "usage": self.usage,
+            "url": self.url,
+        }
+        if self.additional_fields:
+            base_dict.update(self.additional_fields)
+        return base_dict

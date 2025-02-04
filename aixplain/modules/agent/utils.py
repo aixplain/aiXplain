@@ -2,11 +2,18 @@ from typing import Dict, Text, Union
 import re
 
 
-def process_variables(query: Text, data: Union[Dict, Text], parameters: Dict, agent_description: Text) -> Text:
+def process_variables(query: Union[Text, Dict], data: Union[Dict, Text], parameters: Dict, agent_description: Text) -> Text:
     from aixplain.factories.file_factory import FileFactory
 
+    if isinstance(query, dict):
+        for key, value in query.items():
+            assert isinstance(value, str), "When providing a dictionary, all values must be strings."
+            query[key] = FileFactory.to_link(value)
+        input_data = query
+    else:
+        input_data = {"input": FileFactory.to_link(query)}
+
     variables = re.findall(r"(?<!{){([^}]+)}(?!})", agent_description)
-    input_data = {"input": FileFactory.to_link(query)}
     for variable in variables:
         if isinstance(data, dict):
             assert (

@@ -22,6 +22,7 @@ import requests
 from aixplain.factories import DatasetFactory, PipelineFactory
 from aixplain import aixplain_v2 as v2
 
+
 @pytest.mark.parametrize("PipelineFactory", [PipelineFactory, v2.Pipeline])
 def test_list_pipelines(PipelineFactory):
     search_result = PipelineFactory.list()
@@ -53,9 +54,7 @@ def test_get_pipeline(PipelineFactory):
 def test_run_single_str(batchmode: bool, version: str):
     pipeline = PipelineFactory.list(query="SingleNodePipeline")["results"][0]
 
-    response = pipeline.run(
-        data="Translate this thing", batch_mode=batchmode, **{"version": version}
-    )
+    response = pipeline.run(data="Translate this thing", batch_mode=batchmode, **{"version": version})
     assert response["status"] == "SUCCESS"
 
 
@@ -179,9 +178,7 @@ def test_run_multipipe_with_datasets(batchmode: bool, version: str, PipelineFact
 @pytest.mark.parametrize("version", ["2.0", "3.0"])
 @pytest.mark.parametrize("PipelineFactory", [PipelineFactory, v2.Pipeline])
 def test_run_segment_reconstruct(version: str, PipelineFactory):
-    pipeline = PipelineFactory.list(
-        query="Segmentation/Reconstruction Functional Test - DO NOT DELETE"
-    )["results"][0]
+    pipeline = PipelineFactory.list(query="Segmentation/Reconstruction Functional Test - DO NOT DELETE")["results"][0]
     response = pipeline.run(
         "https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.wav",
         **{"version": version},
@@ -200,9 +197,7 @@ def test_run_translation_metric(version: str, PipelineFactory):
 
     reference_id = dataset.target_data["pt"][0].id
 
-    pipeline = PipelineFactory.list(
-        query="Translation Metric Functional Test - DO NOT DELETE"
-    )["results"][0]
+    pipeline = PipelineFactory.list(query="Translation Metric Functional Test - DO NOT DELETE")["results"][0]
     response = pipeline.run(
         data={"TextInput": reference_id, "ReferenceInput": reference_id},
         data_asset={"TextInput": data_asset_id, "ReferenceInput": data_asset_id},
@@ -218,9 +213,7 @@ def test_run_translation_metric(version: str, PipelineFactory):
 @pytest.mark.parametrize("version", ["2.0", "3.0"])
 @pytest.mark.parametrize("PipelineFactory", [PipelineFactory, v2.Pipeline])
 def test_run_metric(version: str, PipelineFactory):
-    pipeline = PipelineFactory.list(query="ASR Metric Functional Test - DO NOT DELETE")[
-        "results"
-    ][0]
+    pipeline = PipelineFactory.list(query="ASR Metric Functional Test - DO NOT DELETE")["results"][0]
     response = pipeline.run(
         {
             "AudioInput": "https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.wav",
@@ -290,9 +283,7 @@ def test_run_decision(input_data: str, output_data: str, version: str, PipelineF
 @pytest.mark.parametrize("version", ["3.0"])
 @pytest.mark.parametrize("PipelineFactory", [PipelineFactory, v2.Pipeline])
 def test_run_script(version: str, PipelineFactory):
-    pipeline = PipelineFactory.list(query="Script Functional Test - DO NOT DELETE")[
-        "results"
-    ][0]
+    pipeline = PipelineFactory.list(query="Script Functional Test - DO NOT DELETE")["results"][0]
     response = pipeline.run(
         "https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.wav",
         **{"version": version},
@@ -306,9 +297,7 @@ def test_run_script(version: str, PipelineFactory):
 @pytest.mark.parametrize("version", ["2.0", "3.0"])
 @pytest.mark.parametrize("PipelineFactory", [PipelineFactory, v2.Pipeline])
 def test_run_text_reconstruction(version: str, PipelineFactory):
-    pipeline = PipelineFactory.list(query="Text Reconstruction - DO NOT DELETE")[
-        "results"
-    ][0]
+    pipeline = PipelineFactory.list(query="Text Reconstruction - DO NOT DELETE")["results"][0]
     response = pipeline.run("Segment A\nSegment B\nSegment C", **{"version": version})
 
     assert response["status"] == "SUCCESS"
@@ -326,9 +315,7 @@ def test_run_text_reconstruction(version: str, PipelineFactory):
 @pytest.mark.parametrize("version", ["3.0"])
 @pytest.mark.parametrize("PipelineFactory", [PipelineFactory, v2.Pipeline])
 def test_run_diarization(version: str, PipelineFactory):
-    pipeline = PipelineFactory.list(
-        query="Diarization ASR Functional Test - DO NOT DELETE"
-    )["results"][0]
+    pipeline = PipelineFactory.list(query="Diarization ASR Functional Test - DO NOT DELETE")["results"][0]
     response = pipeline.run(
         "https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.wav",
         **{"version": version},
