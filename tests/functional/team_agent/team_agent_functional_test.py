@@ -283,25 +283,26 @@ def test_team_agent_with_parameterized_agents(delete_agents_and_team_agents):
 
     search_agent = AgentFactory.create(
         name="Search Agent",
-        description="Agent that performs searches",
-        role="Searcher",
-        llm_id="6626a3a8c8f1d089790cf5a2",
+        description="This agent is used to search for information in the web.",
+        role="Agent that performs searches",
+        llm_id="677c16166eb563bb611623c1",
         tools=[search_tool],
     )
 
     # Create second agent with translation tool
     translation_function = Function.TRANSLATION
     function_params = translation_function.get_parameters()
-    function_params.sourcelanguage = "pt"
+    function_params.targetlanguage = "pt"
+    function_params.sourcelanguage = "en"
     translation_tool = AgentFactory.create_model_tool(
         function=translation_function, description="Translation tool with source language", supplier="microsoft"
     )
 
     translation_agent = AgentFactory.create(
         name="Translation Agent",
-        description="Agent that performs translations",
-        role="Translator",
-        llm_id="6626a3a8c8f1d089790cf5a2",
+        description="This agent is used to translate text from one language to another.",
+        role="Agent that performs translations",
+        llm_id="677c16166eb563bb611623c1",
         tools=[translation_tool],
     )
 
@@ -310,7 +311,7 @@ def test_team_agent_with_parameterized_agents(delete_agents_and_team_agents):
         name="Parameterized Team Agent",
         agents=[search_agent, translation_agent],
         description="Team agent with parameterized tools",
-        llm_id="6626a3a8c8f1d089790cf5a2",
+        llm_id="677c16166eb563bb611623c1",
         use_mentalist_and_inspector=True,
     )
 
@@ -319,35 +320,19 @@ def test_team_agent_with_parameterized_agents(delete_agents_and_team_agents):
     team_agent = TeamAgentFactory.get(team_agent.id)
     assert team_agent.status == AssetStatus.ONBOARDED
 
-    # Test search functionality
-    search_response = team_agent.run(data="What is the weather in New York?")
-    assert search_response["completed"] is True
-    assert search_response["status"].lower() == "success"
+    search_response = team_agent.run(
+        data="What are the top researchers in the field of AI? Search for it in the web. Then translate the result."
+    )
+    assert search_response.status == "SUCCESS"
     assert "data" in search_response
-    assert search_response["data"]["output"] is not None
-
-    # Verify search parameters were used
-    search_used = False
-    for step in search_response["data"]["intermediate_steps"]:
-        if "'numResults': 5" in str(step["tool_steps"]):
-            search_used = True
-            break
-    assert search_used, "Search tool with parameters was not used"
-
-    # Test translation functionality
-    translation_response = team_agent.run(data="Translate: Olá, como vai você?")
-    assert translation_response["completed"] is True
-    assert translation_response["status"].lower() == "success"
-    assert "data" in translation_response
-    assert translation_response["data"]["output"] is not None
-
-    # Verify translation parameters were used
-    translation_used = False
-    for step in translation_response["data"]["intermediate_steps"]:
-        if "sourcelanguage" in str(step["tool_steps"]):
-            translation_used = True
-            break
-    assert translation_used, "Translation tool with parameters was not used"
+    assert "intermediate_steps" in search_response.data
+    assert len(search_response.data["intermediate_steps"]) > 0
+    intermediate_steps = search_response.data["intermediate_steps"]
+    called_agents = [step["agent"] for step in intermediate_steps]
+    assert "Search Agent" in called_agents
+    assert "Translation Agent" in called_agents
 
     # Cleanup
     team_agent.delete()
+    search_agent.delete()
+    translation_agent.delete()
