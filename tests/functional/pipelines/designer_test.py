@@ -131,7 +131,6 @@ def test_routing_pipeline(pipeline):
 def test_scripting_pipeline(pipeline):
 
     SPEAKER_DIARIZATION_AUDIO_ASSET = "62fab6ecb39cca09ca5bc365"
-    SPEECH_RECOGNITION_ASSET = "621cf3fa6442ef511d2830af"
 
     input = pipeline.input()
 
@@ -139,17 +138,13 @@ def test_scripting_pipeline(pipeline):
         asset_id=SPEAKER_DIARIZATION_AUDIO_ASSET
     )
 
-    speech_recognition = pipeline.speech_recognition(asset_id=SPEECH_RECOGNITION_ASSET)
-
     script = pipeline.script(script_path="tests/functional/pipelines/data/script.py")
     script.inputs.create_param(code="transcripts", data_type=DataType.TEXT)
     script.inputs.create_param(code="speakers", data_type=DataType.LABEL)
     script.outputs.create_param(code="data", data_type=DataType.TEXT)
 
     input.outputs.input.link(segmentor.inputs.audio)
-    segmentor.outputs.audio.link(speech_recognition.inputs.source_audio)
     segmentor.outputs.data.link(script.inputs.speakers)
-    speech_recognition.outputs.data.link(script.inputs.transcripts)
 
     script.use_output("data")
 
