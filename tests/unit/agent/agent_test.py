@@ -1,10 +1,10 @@
 import pytest
 import requests_mock
+from aixplain.factories import AgentFactory
 from aixplain.enums.asset_status import AssetStatus
 from aixplain.modules import Agent
 from aixplain.modules.agent import OutputFormat
 from aixplain.utils import config
-from aixplain.factories import AgentFactory
 from aixplain.modules.agent.tool.pipeline_tool import PipelineTool
 from aixplain.modules.agent.tool.model_tool import ModelTool
 from aixplain.modules.agent.tool.python_interpreter_tool import PythonInterpreterTool
@@ -36,7 +36,9 @@ def test_fail_query_as_text_when_content_not_empty():
     with pytest.raises(Exception) as exc_info:
         agent.run_async(
             data={"query": "https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.wav"},
-            content=["https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.wav"],
+            content=[
+                "https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.wav",
+            ],
         )
 
     assert str(exc_info.value) == "When providing 'content', query must be text."
@@ -112,8 +114,16 @@ def test_invalid_agent_name():
     )
 
 
-def test_create_agent():
-    from aixplain.enums import Supplier
+@patch("aixplain.factories.model_factory.ModelFactory.get")
+def test_create_agent(mock_model_factory_get):
+    from aixplain.enums import Supplier, Function
+    from aixplain.modules import Model
+
+    # Mock the model factory response
+    mock_model = Model(
+        id="6646261c6eb563165658bbb1", name="Test LLM", description="Test LLM Description", function=Function.TEXT_GENERATION
+    )
+    mock_model_factory_get.return_value = mock_model
 
     with requests_mock.Mocker() as mock:
         with patch(
@@ -122,6 +132,7 @@ def test_create_agent():
                 "utility_model_test",
                 [],
                 "utility_model_test",
+                "test_name",
             ),
         ):
             url = urljoin(config.BACKEND_URL, "sdk/agents")
@@ -228,7 +239,17 @@ def test_to_dict():
     assert agent_json["status"] == "draft"
 
 
-def test_update_success():
+@patch("aixplain.factories.model_factory.ModelFactory.get")
+def test_update_success(mock_model_factory_get):
+    from aixplain.modules import Model
+    from aixplain.enums import Function
+
+    # Mock the model factory response
+    mock_model = Model(
+        id="6646261c6eb563165658bbb1", name="Test LLM", description="Test LLM Description", function=Function.TEXT_GENERATION
+    )
+    mock_model_factory_get.return_value = mock_model
+
     agent = Agent(
         id="123",
         name="Test Agent(-)",
@@ -291,7 +312,17 @@ def test_update_success():
     assert agent.tools[0].function.value == ref_response["assets"][0]["function"]
 
 
-def test_save_success():
+@patch("aixplain.factories.model_factory.ModelFactory.get")
+def test_save_success(mock_model_factory_get):
+    from aixplain.modules import Model
+    from aixplain.enums import Function
+
+    # Mock the model factory response
+    mock_model = Model(
+        id="6646261c6eb563165658bbb1", name="Test LLM", description="Test LLM Description", function=Function.TEXT_GENERATION
+    )
+    mock_model_factory_get.return_value = mock_model
+
     agent = Agent(
         id="123",
         name="Test Agent(-)",
@@ -473,6 +504,20 @@ def test_agent_api_key_in_requests():
         assert response["url"] == "test_url"
 
 
+def test_create_agent_task():
+    task = AgentFactory.create_task(name="Test Task", description="Test Description", expected_output="Test Output")
+    assert task.name == "Test Task"
+    assert task.description == "Test Description"
+    assert task.expected_output == "Test Output"
+    assert task.dependencies is None
+
+    task_dict = task.to_dict()
+    assert task_dict["name"] == "Test Task"
+    assert task_dict["description"] == "Test Description"
+    assert task_dict["expectedOutput"] == "Test Output"
+    assert task_dict["dependencies"] is None
+
+
 def test_agent_response():
     from aixplain.modules.agent.agent_response import AgentResponse, AgentResponseData
 
@@ -506,3 +551,358 @@ def test_agent_response():
     assert response.data.input == "new_input"
     response.data.output = "new_output"
     assert response["data"]["output"] == "new_output"
+
+
+def test_custom_python_code_tool_initialization():
+    """Test basic initialization of CustomPythonCodeTool"""
+    code = "def main(query: str) -> str:\n    return 'Hello'"
+    description = "Test description"
+    tool = CustomPythonCodeTool(code=code, description=description)
+
+    assert tool.code == code
+    assert tool.description == description
+    assert tool.name == "Custom Python Code"
+
+
+def test_custom_python_code_tool_to_dict():
+    """Test the to_dict method of CustomPythonCodeTool"""
+    code = "def main(query: str) -> str:\n    return 'Hello'"
+    description = "Test description"
+    tool = CustomPythonCodeTool(code=code, description=description)
+
+    tool_dict = tool.to_dict()
+    assert tool_dict["type"] == "utility"
+    assert tool_dict["utility"] == "custom_python_code"
+    assert tool_dict["utilityCode"] == code
+    assert tool_dict["description"] == description
+
+
+def test_custom_python_code_tool_validation():
+    """Test validation of CustomPythonCodeTool"""
+    with patch(
+        "aixplain.modules.model.utils.parse_code",
+        return_value=(
+            "def main(query: str) -> str:\n    return 'Hello'",  # code
+            [],  # inputs
+            "Parsed description",  # description
+            "test_name",  # name
+        ),
+    ):
+        code = "def main(query: str) -> str:\n    return 'Hello'"
+        tool = CustomPythonCodeTool(code=code)
+        tool.validate()
+        assert tool.code == code
+        assert tool.description == "Parsed description"
+        assert tool.name == "test_name"
+
+
+def test_custom_python_code_tool_validation_missing_description():
+    """Test validation fails when description is missing"""
+    with patch(
+        "aixplain.modules.model.utils.parse_code",
+        return_value=(
+            "def main(query: str) -> str:\n    return 'Hello'",  # code
+            [],  # inputs
+            None,  # description
+            "test_name",  # name
+        ),
+    ):
+        code = "def main(query: str) -> str:\n    return 'Hello'"
+        tool = CustomPythonCodeTool(code=code)
+        with pytest.raises(AssertionError) as exc_info:
+            tool.validate()
+        assert str(exc_info.value) == "Custom Python Code Tool Error: Tool description is required"
+
+
+def test_custom_python_code_tool_validation_missing_code():
+    """Test validation fails when code is missing"""
+    with patch(
+        "aixplain.modules.model.utils.parse_code",
+        return_value=("", [], "Parsed description", "test_name"),  # code  # inputs  # description  # name
+    ):
+        with pytest.raises(AssertionError) as exc_info:
+            tool = CustomPythonCodeTool(code="", description="Test description")
+            tool.validate()
+        assert str(exc_info.value) == "Custom Python Code Tool Error: Code is required"
+
+
+def test_custom_python_code_tool_with_callable():
+    """Test CustomPythonCodeTool with a callable function"""
+
+    def test_function(query: str) -> str:
+        return "Hello"
+
+    tool = CustomPythonCodeTool(code=test_function, description="Test description")
+    assert callable(tool.code)
+    assert tool.description == "Test description"
+
+
+@patch("aixplain.modules.agent.tool.model_tool.ModelTool.validate", autospec=True)
+@patch("aixplain.factories.model_factory.ModelFactory.get")
+def test_create_agent_with_model_instance(mock_model_factory_get, mock_validate):
+    from aixplain.enums import Supplier, Function
+    from aixplain.modules import Model
+    from aixplain.modules.model.model_parameters import ModelParameters
+
+    # Create model parameters
+    model_params = {"temperature": {"required": True}, "max_tokens": {"required": False}}
+
+    # Create a Model instance to pass as a tool
+    model_tool = Model(
+        id="model123",
+        name="Test Model",
+        description="Test Model Description",
+        supplier=Supplier.AIXPLAIN,
+        function=Function.TEXT_GENERATION,
+        version="1.0",
+        model_params=model_params,
+    )
+
+    # Mock the validate method to return the model instance
+    mock_validate.return_value = model_tool
+
+    # Mock the LLM model factory response
+    llm_model = Model(
+        id="6646261c6eb563165658bbb1",
+        name="Test LLM",
+        description="Test LLM Description",
+        function=Function.TEXT_GENERATION,
+        model_params=model_params,
+    )
+    mock_model_factory_get.return_value = llm_model
+
+    with requests_mock.Mocker() as mock:
+        url = urljoin(config.BACKEND_URL, "sdk/agents")
+        headers = {"x-api-key": config.TEAM_API_KEY, "Content-Type": "application/json"}
+
+        ref_response = {
+            "id": "123",
+            "name": "Test Agent",
+            "description": "Test Agent Description",
+            "teamId": "123",
+            "version": "1.0",
+            "status": "draft",
+            "llmId": "6646261c6eb563165658bbb1",
+            "pricing": {"currency": "USD", "value": 0.0},
+            "assets": [
+                {
+                    "type": "model",
+                    "supplier": "aixplain",
+                    "version": "1.0",
+                    "assetId": "model123",
+                    "function": "text-generation",
+                    "description": "Test Model Description",
+                }
+            ],
+        }
+        mock.post(url, headers=headers, json=ref_response)
+
+        url = urljoin(config.BACKEND_URL, "sdk/models/6646261c6eb563165658bbb1")
+        model_ref_response = {
+            "id": "6646261c6eb563165658bbb1",
+            "name": "Test LLM",
+            "description": "Test LLM Description",
+            "function": {"id": "text-generation"},
+            "supplier": "aixplain",
+            "version": {"id": "1.0"},
+            "status": "onboarded",
+            "pricing": {"currency": "USD", "value": 0.0},
+        }
+        mock.get(url, headers=headers, json=model_ref_response)
+
+        agent = AgentFactory.create(
+            name="Test Agent",
+            description="Test Agent Description",
+            llm_id="6646261c6eb563165658bbb1",
+            tools=[model_tool],
+        )
+
+    # Verify the agent was created correctly
+    assert agent.name == ref_response["name"]
+    assert agent.description == ref_response["description"]
+    assert len(agent.tools) == 1
+
+    # Verify the tool was converted correctly
+    tool = agent.tools[0]
+    assert isinstance(tool, ModelTool)
+    assert tool.model == "model123"
+    assert tool.function == Function.TEXT_GENERATION
+    assert tool.supplier == Supplier.AIXPLAIN
+    assert isinstance(tool.model_object, Model)
+    assert isinstance(tool.model_object.model_params, ModelParameters)
+    assert tool.model_object.model_params.parameters["temperature"].required
+    assert not tool.model_object.model_params.parameters["max_tokens"].required
+
+
+@patch("aixplain.modules.agent.tool.model_tool.ModelTool.validate", autospec=True)
+@patch("aixplain.factories.model_factory.ModelFactory.get")
+def test_create_agent_with_mixed_tools(mock_model_factory_get, mock_validate):
+    from aixplain.enums import Supplier, Function
+    from aixplain.modules import Model
+    from aixplain.modules.model.model_parameters import ModelParameters
+
+    # Create model parameters for different models
+    text_gen_params = {"temperature": {"required": True}, "max_tokens": {"required": False}}
+
+    classification_params = {"threshold": {"required": True}, "labels": {"required": True}}
+
+    # Create a Model instance for the first tool
+    model_tool = Model(
+        id="model123",
+        name="Test Model",
+        description="Test Model Description",
+        supplier=Supplier.AIXPLAIN,
+        function=Function.TEXT_GENERATION,
+        version="1.0",
+        model_params=text_gen_params,
+    )
+
+    # Create a Model instance for the second tool
+    openai_model = Model(
+        id="openai-model",
+        name="OpenAI Model",
+        description="Regular Tool",
+        supplier=Supplier.OPENAI,
+        function=Function.TEXT_CLASSIFICATION,
+        version="1.0",
+        model_params=classification_params,
+    )
+
+    # Mock the validate method to return different models based on the model ID
+    def validate_side_effect(self, *args, **kwargs):
+        if self.model == "model123":
+            return model_tool
+        elif self.model == "openai-model":
+            return openai_model
+        return None
+
+    mock_validate.side_effect = validate_side_effect
+
+    # Create a regular ModelTool instance
+    regular_tool = AgentFactory.create_model_tool(
+        function=Function.TEXT_CLASSIFICATION,
+        supplier=Supplier.OPENAI,
+        model="openai-model",
+        description="Regular Tool",
+    )
+
+    # Mock the LLM model factory response
+    llm_model = Model(
+        id="6646261c6eb563165658bbb1",
+        name="Test LLM",
+        description="Test LLM Description",
+        function=Function.TEXT_GENERATION,
+        model_params=text_gen_params,
+    )
+    mock_model_factory_get.return_value = llm_model
+
+    with requests_mock.Mocker() as mock:
+        url = urljoin(config.BACKEND_URL, "sdk/agents")
+        headers = {"x-api-key": config.TEAM_API_KEY, "Content-Type": "application/json"}
+
+        ref_response = {
+            "id": "123",
+            "name": "Test Agent",
+            "description": "Test Agent Description",
+            "teamId": "123",
+            "version": "1.0",
+            "status": "draft",
+            "llmId": "6646261c6eb563165658bbb1",
+            "pricing": {"currency": "USD", "value": 0.0},
+            "assets": [
+                {
+                    "type": "model",
+                    "supplier": "aixplain",
+                    "version": "1.0",
+                    "assetId": "model123",
+                    "function": "text-generation",
+                    "description": "Test Model Description",
+                },
+                {
+                    "type": "model",
+                    "supplier": "openai",
+                    "version": "1.0",
+                    "assetId": "openai-model",
+                    "function": "text-classification",
+                    "description": "Regular Tool",
+                },
+            ],
+        }
+        mock.post(url, headers=headers, json=ref_response)
+
+        url = urljoin(config.BACKEND_URL, "sdk/models/6646261c6eb563165658bbb1")
+        model_ref_response = {
+            "id": "6646261c6eb563165658bbb1",
+            "name": "Test LLM",
+            "description": "Test LLM Description",
+            "function": {"id": "text-generation"},
+            "supplier": "aixplain",
+            "version": {"id": "1.0"},
+            "status": "onboarded",
+            "pricing": {"currency": "USD", "value": 0.0},
+        }
+        mock.get(url, headers=headers, json=model_ref_response)
+
+        agent = AgentFactory.create(
+            name="Test Agent",
+            description="Test Agent Description",
+            llm_id="6646261c6eb563165658bbb1",
+            tools=[model_tool, regular_tool],
+        )
+
+    # Verify the agent was created correctly
+    assert agent.name == ref_response["name"]
+    assert agent.description == ref_response["description"]
+    assert len(agent.tools) == 2
+
+    # Verify the first tool (Model instance converted to ModelTool)
+    tool1 = agent.tools[0]
+    assert isinstance(tool1, ModelTool)
+    assert tool1.model == "model123"
+    assert tool1.function == Function.TEXT_GENERATION
+    assert tool1.supplier == Supplier.AIXPLAIN
+    assert isinstance(tool1.model_object, Model)
+    assert isinstance(tool1.model_object.model_params, ModelParameters)
+    assert tool1.model_object.model_params.parameters["temperature"].required
+    assert not tool1.model_object.model_params.parameters["max_tokens"].required
+
+    # Verify the second tool (regular ModelTool)
+    tool2 = agent.tools[1]
+    assert isinstance(tool2, ModelTool)
+    assert tool2.model == "openai-model"
+    assert tool2.function == Function.TEXT_CLASSIFICATION
+    assert tool2.supplier == Supplier.OPENAI
+    assert isinstance(tool2.model_object, Model)
+    assert isinstance(tool2.model_object.model_params, ModelParameters)
+    assert tool2.model_object.model_params.parameters["threshold"].required
+    assert tool2.model_object.model_params.parameters["labels"].required
+
+
+@pytest.mark.parametrize(
+    "supplier_input,expected_supplier,should_fail",
+    [
+        ("aixplain", "AIXPLAIN", False),  # Basic case
+        ("OpenAI", "OPENAI", False),  # Mixed case
+        ("invalid-supplier", None, True),  # Invalid supplier case
+    ],
+)
+def test_create_model_tool_with_text_supplier(supplier_input, expected_supplier, should_fail):
+    from aixplain.enums import Function, Supplier
+
+    if should_fail:
+        with pytest.raises(Exception) as exc_info:
+            tool = AgentFactory.create_model_tool(
+                function=Function.TEXT_GENERATION, supplier=supplier_input, description="Test Tool"
+            )
+        assert supplier_input in str(exc_info.value)
+    else:
+        # Create ModelTool with supplier as text
+        tool = AgentFactory.create_model_tool(
+            function=Function.TEXT_GENERATION, supplier=supplier_input, description="Test Tool"
+        )
+
+        # Verify the tool was created correctly
+        assert isinstance(tool.supplier, Supplier)
+        assert tool.supplier.name == expected_supplier
+        assert tool.function == Function.TEXT_GENERATION
+        assert tool.description == "Test Tool"

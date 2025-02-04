@@ -4,8 +4,11 @@ from datetime import datetime, timedelta, timezone
 import json
 import pytest
 
+from aixplain import aixplain_v2 as v2
 
-def test_create_api_key_from_json():
+
+@pytest.mark.parametrize("APIKeyFactory", [APIKeyFactory, v2.APIKey])
+def test_create_api_key_from_json(APIKeyFactory):
     api_key_json = "tests/functional/apikey/apikey.json"
 
     with open(api_key_json, "r") as file:
@@ -41,7 +44,8 @@ def test_create_api_key_from_json():
     api_key.delete()
 
 
-def test_create_api_key_from_dict():
+@pytest.mark.parametrize("APIKeyFactory", [APIKeyFactory, v2.APIKey])
+def test_create_api_key_from_dict(APIKeyFactory):
     api_key_dict = {
         "asset_limits": [
             {
@@ -73,7 +77,8 @@ def test_create_api_key_from_dict():
     api_key.delete()
 
 
-def test_create_update_api_key_from_dict():
+@pytest.mark.parametrize("APIKeyFactory", [APIKeyFactory, v2.APIKey])
+def test_create_update_api_key_from_dict(APIKeyFactory):
     api_key_dict = {
         "asset_limits": [
             {
@@ -129,7 +134,8 @@ def test_create_update_api_key_from_dict():
     api_key.delete()
 
 
-def test_list_api_keys():
+@pytest.mark.parametrize("APIKeyFactory", [APIKeyFactory, v2.APIKey])
+def test_list_api_keys(APIKeyFactory):
     api_keys = APIKeyFactory.list()
     assert isinstance(api_keys, list)
 
@@ -144,7 +150,8 @@ def test_list_api_keys():
                 assert isinstance(usage[0], APIKeyUsageLimit)
 
 
-def test_list_update_api_keys():
+@pytest.mark.parametrize("APIKeyFactory", [APIKeyFactory, v2.APIKey])
+def test_list_update_api_keys(APIKeyFactory):
     api_keys = APIKeyFactory.list()
     assert isinstance(api_keys, list)
 
@@ -199,7 +206,8 @@ def test_list_update_api_keys():
         break
 
 
-def test_create_api_key_wrong_input():
+@pytest.mark.parametrize("APIKeyFactory", [APIKeyFactory, v2.APIKey])
+def test_create_api_key_wrong_input(APIKeyFactory):
     api_key_name = "Test API Key"
 
     with pytest.raises(Exception):

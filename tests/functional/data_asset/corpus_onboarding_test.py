@@ -21,9 +21,11 @@ import time
 from aixplain.enums import Language, License, OnboardStatus
 from aixplain.factories.corpus_factory import CorpusFactory
 from uuid import uuid4
+from aixplain import aixplain_v2 as v2
 
 
-def test_corpus_onboard_get_delete():
+@pytest.mark.parametrize("CorpusFactory", [CorpusFactory, v2.Corpus])
+def test_corpus_onboard_get_delete(CorpusFactory):
     upload_file = "tests/functional/data_asset/input/audio-en_url.csv"
     schema = [
         {
@@ -58,11 +60,13 @@ def test_corpus_onboard_get_delete():
         corpus = CorpusFactory.get(asset_id)
 
 
-def test_corpus_listing():
+@pytest.mark.parametrize("CorpusFactory", [CorpusFactory, v2.Corpus])
+def test_corpus_listing(CorpusFactory):
     response = CorpusFactory.list()
     assert "results" in response
 
 
-def test_corpus_get_error():
+@pytest.mark.parametrize("CorpusFactory", [CorpusFactory, v2.Corpus])
+def test_corpus_get_error(CorpusFactory):
     with pytest.raises(Exception):
         response = CorpusFactory.get("131312")

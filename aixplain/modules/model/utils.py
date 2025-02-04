@@ -79,7 +79,7 @@ def call_run_endpoint(url: Text, api_key: Text, payload: Dict) -> Dict:
     return response
 
 
-def parse_code(code: Union[Text, Callable]) -> Tuple[Text, List, Text]:
+def parse_code(code: Union[Text, Callable]) -> Tuple[Text, List, Text, Text]:
     import inspect
     import os
     import re
@@ -103,13 +103,11 @@ def parse_code(code: Union[Text, Callable]) -> Tuple[Text, List, Text]:
         str_code = requests.get(code).text
     else:
         str_code = code
- 
     # assert str_code has a main function
     if "def main(" not in str_code:
         raise Exception("Utility Model Error: Code must have a main function")
     # get name of the function
     name = re.search(r"def\s+([a-zA-Z_][a-zA-Z0-9_]*)\(", str_code).group(1)
-    
     if not description:
         # if the description is not provided, get the docstring of the function from string code after defining the function
         # the docstring is the first line after the function definition
@@ -118,11 +116,11 @@ def parse_code(code: Union[Text, Callable]) -> Tuple[Text, List, Text]:
         if match:
             function_name, params, triple_double_quote_doc, triple_single_quote_doc, single_line_comment = match.groups()
             # Use the first non-None docstring found
-            description = (triple_double_quote_doc or 
-                        triple_single_quote_doc or 
-                        single_line_comment or "").strip()
+            description = (triple_double_quote_doc or triple_single_quote_doc or single_line_comment or "").strip()
         else:
-            raise Exception("Utility Model Error:If the function is not decorated with @utility_tool, the description must be provided in the docstring")
+            raise Exception(
+                "Utility Model Error:If the function is not decorated with @utility_tool, the description must be provided in the docstring"
+            )
     # get parameters of the function
     f = re.findall(r"main\((.*?(?:\s*=\s*[^,)]+)?(?:\s*,\s*.*?(?:\s*=\s*[^,)]+)?)*)\)", str_code)
     parameters = f[0].split(",") if len(f) > 0 else []
@@ -170,21 +168,26 @@ def parse_code_decorated(code: Union[Text, Callable]) -> Tuple[Text, List, Text]
     from uuid import uuid4
     from aixplain.enums import DataType
     from aixplain.modules.model.utility_model import UtilityModelInput
-    
+
     from typing import Callable
     from aixplain.factories.file_factory import FileFactory
-
 
     inputs, description, name = [], "", ""
     str_code = ""
 
-    if isinstance(code, Callable) and hasattr(code, '_is_utility_tool'):
+    if isinstance(code, Callable) and hasattr(code, "_is_utility_tool"):
         str_code = inspect.getsource(code)
         # Use the information directly from the decorated callable
-        description = getattr(code, '_tool_description', None) if hasattr(code, '_tool_description') else code.__doc__.strip() if code.__doc__ else ""
-        name = getattr(code, '_tool_name', None) if hasattr(code, '_tool_name') else ""
-        if hasattr(code, '_tool_inputs') and code._tool_inputs != []:
-            inputs = getattr(code, '_tool_inputs', [])
+        description = (
+            getattr(code, "_tool_description", None)
+            if hasattr(code, "_tool_description")
+            else code.__doc__.strip()
+            if code.__doc__
+            else ""
+        )
+        name = getattr(code, "_tool_name", None) if hasattr(code, "_tool_name") else ""
+        if hasattr(code, "_tool_inputs") and code._tool_inputs != []:
+            inputs = getattr(code, "_tool_inputs", [])
         else:
             inputs_sig = inspect.signature(code).parameters
             inputs = []
@@ -197,14 +200,18 @@ def parse_code_decorated(code: Union[Text, Callable]) -> Tuple[Text, List, Text]
                         input_type = DataType.BOOLEAN
                     elif input_type == "str":
                         input_type = DataType.TEXT
-                    inputs.append(UtilityModelInput(name=input_name, type=input_type, description=f"The '{input_name}' input is a {input_type}"))
+                    inputs.append(
+                        UtilityModelInput(
+                            name=input_name, type=input_type, description=f"The '{input_name}' input is a {input_type}"
+                        )
+                    )
     elif isinstance(code, Callable):
         # Handle case of non-decorated callable
         str_code = inspect.getsource(code)
         description = code.__doc__.strip() if code.__doc__ else ""
         name = code.__name__
-        #Try to infer parameters
-        params_match = re.search(r"def\s+\w+\s*\((.*?)\):",str_code)
+        # Try to infer parameters
+        params_match = re.search(r"def\s+\w+\s*\((.*?)\):", str_code)
         parameters = params_match.group(1).split(",") if params_match else []
 
         for input in parameters:
@@ -225,7 +232,9 @@ def parse_code_decorated(code: Union[Text, Callable]) -> Tuple[Text, List, Text]
             elif input_type == "bool":
                 input_type = "boolean"
                 inputs.append(
-                    UtilityModelInput(name=input_name, type=DataType.BOOLEAN, description=f"The {input_name} input is a boolean")
+                    UtilityModelInput(
+                        name=input_name, type=DataType.BOOLEAN, description=f"The {input_name} input is a boolean"
+                    )
                 )
             elif input_type == "str":
                 input_type = "text"
@@ -251,16 +260,15 @@ def parse_code_decorated(code: Union[Text, Callable]) -> Tuple[Text, List, Text]
 
         if not matches:
             return parse_code(code)
-        
-        tool_match = matches[0] #we expect only 1 match
+
+        tool_match = matches[0]  # we expect only 1 match
         decorator_params = tool_match[0]
-        function_name = tool_match[1]
         parameters_str = tool_match[2]
-        
+
         # Extract name and description
         name_match = re.search(r"name\s*=\s*[\"'](.*?)[\"']", decorator_params)
         name = name_match.group(1) if name_match else ""
-        
+
         description_match = re.search(r"description\s*=\s*[\"'](.*?)[\"']", decorator_params)
         description = description_match.group(1) if description_match else ""
         # Extract parameters
@@ -268,7 +276,7 @@ def parse_code_decorated(code: Union[Text, Callable]) -> Tuple[Text, List, Text]
 
         # Process parameters if 'inputs' are not explicitly defined in decorator.
         # Process parameters for inputs
-        if 'inputs' not in decorator_params: #<-- Check here
+        if "inputs" not in decorator_params:  # <-- Check here
             parameters = [param.strip() for param in parameters_str.split(",")] if parameters_str else []
             for input_str in parameters:
                 if not input_str:
@@ -282,11 +290,15 @@ def parse_code_decorated(code: Union[Text, Callable]) -> Tuple[Text, List, Text]
 
                 if input_type in ["int", "float"]:
                     inputs.append(
-                        UtilityModelInput(name=input_name, type=DataType.NUMBER, description=f"The {input_name} input is a number")
+                        UtilityModelInput(
+                            name=input_name, type=DataType.NUMBER, description=f"The {input_name} input is a number"
+                        )
                     )
                 elif input_type == "bool":
                     inputs.append(
-                        UtilityModelInput(name=input_name, type=DataType.BOOLEAN, description=f"The {input_name} input is a boolean")
+                        UtilityModelInput(
+                            name=input_name, type=DataType.BOOLEAN, description=f"The {input_name} input is a boolean"
+                        )
                     )
                 elif input_type == "str":
                     inputs.append(
@@ -296,21 +308,24 @@ def parse_code_decorated(code: Union[Text, Callable]) -> Tuple[Text, List, Text]
                     raise Exception(f"Utility Model Error: Unsupported input type: {input_type}")
         else:
             # try to parse from the decorator inputs
-            input_matches = re.finditer(r"UtilityModelInput\s*\(\s*name\s*=\s*[\"'](.*?)[\"']\s*,\s*type\s*=\s*DataType\.([A-Z]+)\s*,\s*description\s*=\s*[\"'](.*?)[\"']\s*\)", decorator_params)
+            input_matches = re.finditer(
+                r"UtilityModelInput\s*\(\s*name\s*=\s*[\"'](.*?)[\"']\s*,\s*type\s*=\s*DataType\.([A-Z]+)\s*,\s*description\s*=\s*[\"'](.*?)[\"']\s*\)",
+                decorator_params,
+            )
             for match in input_matches:
                 input_name = match.group(1)
                 input_type = match.group(2)
                 input_description = match.group(3)
                 input_type = DataType(input_type.lower())
                 try:
-                    inputs.append(
-                        UtilityModelInput(name=input_name, type=input_type, description=input_description)
-                    )
+                    inputs.append(UtilityModelInput(name=input_name, type=input_type, description=input_description))
                 except ValueError:
                     raise Exception(f"Utility Model Error: Unsupported input type: {input_type}")
 
     # ! rempves the decorator from the code for the backend to be able to run the code and rename the function as main
-    str_code = re.sub(r"(@utility_tool\(.*?\)\s*)?def\s+\w+", "def main", str_code, flags=re.DOTALL)# TODO: this should be corrected on the backend side and updated in later versions
+    str_code = re.sub(
+        r"(@utility_tool\(.*?\)\s*)?def\s+\w+", "def main", str_code, flags=re.DOTALL
+    )  # TODO: this should be corrected on the backend side and updated in later versions
     if "utility_tool" in str_code:
         raise Exception("Utility Model Error: Code must be decorated with @utility_tool and have a function defined.")
     if "def main" not in str_code:
