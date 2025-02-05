@@ -34,7 +34,7 @@ from datetime import datetime
 from aixplain.modules.model.response import ModelResponse
 from aixplain.enums.response_status import ResponseStatus
 from aixplain.modules.model.model_parameters import ModelParameters
-
+from aixplain.modules.model.cache_models import load_models
 
 class Model(Asset):
     """This is ready-to-use AI model. This model can be run in both synchronous and asynchronous manner.
@@ -91,6 +91,21 @@ class Model(Asset):
             model_params (Dict, optional): parameters for the function.
             **additional_info: Any additional Model info to be saved
         """
+        ModelCache, ModelDetails = load_models(cache_expiry=86400)
+
+        if id in ModelDetails:
+
+            cached_model = ModelDetails[id]
+            input_params = cached_model["input"]
+            api_key = cached_model["spec"].get("api_key", api_key)
+            additional_info = cached_model["spec"].get("additional_info", {})
+            function = cached_model["spec"].get("function", function)
+            is_subscribed = cached_model["spec"].get("is_subscribed", is_subscribed)
+            created_at = cached_model["spec"].get("created_at", created_at)
+            model_params = cached_model["spec"].get("model_params", model_params)
+            output_params = cached_model["output"]
+            description = cached_model["spec"].get("description", description)
+
         super().__init__(id, name, description, supplier, version, cost=cost)
         self.api_key = api_key
         self.additional_info = additional_info

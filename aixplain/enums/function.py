@@ -28,15 +28,18 @@ from urllib.parse import urljoin
 from aixplain.utils.cache_utils import save_to_cache, load_from_cache, CACHE_FOLDER
 from typing import Tuple, Dict
 from aixplain.base.parameters import BaseParameters, Parameter
+import os
 
 CACHE_FILE = f"{CACHE_FOLDER}/functions.json"
-
+LOCK_FILE = f"{CACHE_FILE}.lock" 
 
 def load_functions():
     api_key = config.TEAM_API_KEY
     backend_url = config.BACKEND_URL
 
-    resp = load_from_cache(CACHE_FILE)
+    os.makedirs(CACHE_FOLDER, exist_ok=True)
+
+    resp = load_from_cache(CACHE_FILE, LOCK_FILE)
     if resp is None:
         url = urljoin(backend_url, "sdk/functions")
 
@@ -47,7 +50,7 @@ def load_functions():
                 f'Functions could not be loaded, probably due to the set API key (e.g. "{api_key}") is not valid. For help, please refer to the documentation (https://github.com/aixplain/aixplain#api-key-setup)'
             )
         resp = r.json()
-        save_to_cache(CACHE_FILE, resp)
+        save_to_cache(CACHE_FILE, resp, LOCK_FILE)
 
     class Function(str, Enum):
         def __new__(cls, value):
@@ -63,6 +66,8 @@ def load_functions():
                 Tuple[Dict, Dict]: A tuple containing (input_params, output_params)
             """
             function_io = FunctionInputOutput.get(self.value, None)
+            if function_io is None:
+                return {}, {}
             input_params = {param["code"]: param for param in function_io["spec"]["params"]}
             output_params = {param["code"]: param for param in function_io["spec"]["output"]}
             return input_params, output_params

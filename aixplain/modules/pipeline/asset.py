@@ -31,6 +31,7 @@ from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
 from typing import Dict, Optional, Text, Union
 from urllib.parse import urljoin
+from aixplain.modules.pipeline.pipeline_cache import PipelineDetails
 
 
 class Pipeline(Asset):
@@ -72,6 +73,15 @@ class Pipeline(Asset):
             status (AssetStatus, optional): Pipeline status. Defaults to AssetStatus.DRAFT.
             **additional_info: Any additional Pipeline info to be saved
         """
+        if id in PipelineDetails:
+            cached_pipeline = PipelineDetails[id]
+            name = cached_pipeline["name"]
+            api_key = cached_pipeline["api_key"]
+            supplier = cached_pipeline["supplier"]
+            version = cached_pipeline["version"]
+            status = cached_pipeline["status"]
+            additional_info = cached_pipeline["architecture"]
+        
         if not name:
             raise ValueError("Pipeline name is required")
 
