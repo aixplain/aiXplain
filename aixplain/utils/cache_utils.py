@@ -9,6 +9,7 @@ CACHE_FILE = f"{CACHE_FOLDER}/cache.json"
 LOCK_FILE = f"{CACHE_FILE}.lock"
 DEFAULT_CACHE_EXPIRY = 86400
 
+
 def get_cache_expiry():
     return int(os.getenv("CACHE_EXPIRY_TIME", DEFAULT_CACHE_EXPIRY))
 
@@ -21,6 +22,7 @@ def save_to_cache(cache_file, data, lock_file):
                 json.dump({"timestamp": time.time(), "data": data}, f)
     except Exception as e:
         logging.error(f"Failed to save cache to {cache_file}: {e}")
+
 
 def load_from_cache(cache_file, lock_file):
     if os.path.exists(cache_file):

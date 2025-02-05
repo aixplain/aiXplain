@@ -62,7 +62,7 @@ class TeamAgentFactory:
                 from aixplain.modules.agent import Agent
 
                 assert isinstance(agent, Agent), "TeamAgent Onboarding Error: Agents must be instances of Agent class"
-        
+
         mentalist_and_inspector_llm_id = None
         if use_inspector or use_mentalist_and_inspector:
             mentalist_and_inspector_llm_id = llm_id

@@ -36,6 +36,7 @@ from aixplain.enums.response_status import ResponseStatus
 from aixplain.modules.model.model_parameters import ModelParameters
 from aixplain.modules.model.cache_models import load_models
 
+
 class Model(Asset):
     """This is ready-to-use AI model. This model can be run in both synchronous and asynchronous manner.
 

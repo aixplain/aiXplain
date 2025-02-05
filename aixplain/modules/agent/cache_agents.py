@@ -9,10 +9,11 @@ from aixplain.utils import config
 from aixplain.utils.request_utils import _request_with_retry
 from aixplain.utils.cache_utils import save_to_cache, load_from_cache, CACHE_FOLDER
 from aixplain.enums import Supplier
-from aixplain.modules.agent.tool import Tool  
+from aixplain.modules.agent.tool import Tool
 
 AGENT_CACHE_FILE = f"{CACHE_FOLDER}/agents.json"
-LOCK_FILE = f"{AGENT_CACHE_FILE}.lock"  
+LOCK_FILE = f"{AGENT_CACHE_FILE}.lock"
+
 
 def load_agents(cache_expiry: Optional[int] = None) -> Tuple[Enum, Dict]:
     """
@@ -26,7 +27,7 @@ def load_agents(cache_expiry: Optional[int] = None) -> Tuple[Enum, Dict]:
         Tuple[Enum, Dict]: (Enum of agent IDs, Dictionary with agent details)
     """
     if cache_expiry is None:
-        cache_expiry = 86400 
+        cache_expiry = 86400
 
     os.makedirs(CACHE_FOLDER, exist_ok=True)
 
@@ -42,12 +43,11 @@ def load_agents(cache_expiry: Optional[int] = None) -> Tuple[Enum, Dict]:
 
     try:
         response = _request_with_retry("get", url, headers=headers)
-        response.raise_for_status() 
+        response.raise_for_status()
         agents_data = response.json()
     except Exception as e:
         logging.error(f"Failed to fetch agents from API: {e}")
-        return Enum("Agent", {}), {}  
-
+        return Enum("Agent", {}), {}
 
     onboarded_agents = [agent for agent in agents_data if agent.get("status", "").lower() == "onboarded"]
 
@@ -67,7 +67,7 @@ def parse_agents(agents_data: Dict) -> Tuple[Enum, Dict]:
         - agents_enum: Enum with agent IDs.
         - agents_details: Dictionary containing all agent parameters.
     """
-    if not agents_data["items"]: 
+    if not agents_data["items"]:
         logging.warning("No onboarded agents found.")
         return Enum("Agent", {}), {}
 
@@ -90,7 +90,7 @@ def parse_agents(agents_data: Dict) -> Tuple[Enum, Dict]:
             "status": agent.get("status", "onboarded"),
             "created_at": agent.get("created_at", ""),
             "tasks": agent.get("tasks", []),
-            **agent, 
+            **agent,
         }
         for agent in agents_data["items"]
     }

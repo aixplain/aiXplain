@@ -81,18 +81,18 @@ class Agent(Model):
         AgentCache, AgentDetails = load_agents(cache_expiry=86400)
 
         if id in AgentDetails:
-            cached_agent= AgentDetails[id]
-            name=cached_agent["name"]
-            description=cached_agent["description"]
-            tools=cached_agent["tools"]
-            llm_id=cached_agent["llm_id"]
-            api_key=cached_agent["api_key"]
-            supplier=cached_agent["supplier"]
-            version=cached_agent["version"]
-            cost=cached_agent["cost"]
-            status=cached_agent["status"]
-            tasks=cached_agent["tasks"]
-            additional_info=cached_agent["additional_info"]
+            cached_agent = AgentDetails[id]
+            name = cached_agent["name"]
+            description = cached_agent["description"]
+            tools = cached_agent["tools"]
+            llm_id = cached_agent["llm_id"]
+            api_key = cached_agent["api_key"]
+            supplier = cached_agent["supplier"]
+            version = cached_agent["version"]
+            cost = cached_agent["cost"]
+            status = cached_agent["status"]
+            tasks = cached_agent["tasks"]
+            additional_info = cached_agent["additional_info"]
 
         """Create an Agent with the necessary information.
 

@@ -13,6 +13,8 @@ from aixplain.enums import Supplier
 
 PIPELINE_CACHE_FILE = f"{CACHE_FOLDER}/pipelines.json"
 LOCK_FILE = f"{PIPELINE_CACHE_FILE}.lock"
+
+
 def load_pipelines(cache_expiry: Optional[int] = None):
     """
     Load pipelines from cache or fetch from backend if not cached.
@@ -22,7 +24,7 @@ def load_pipelines(cache_expiry: Optional[int] = None):
         cache_expiry (int, optional): Expiry time in seconds. Default is user-configurable.
     """
     if cache_expiry is None:
-        cache_expiry = 86400  
+        cache_expiry = 86400
 
     api_key = config.TEAM_API_KEY
     backend_url = config.BACKEND_URL
@@ -46,6 +48,7 @@ def load_pipelines(cache_expiry: Optional[int] = None):
 
     return parse_pipelines({"items": onboarded_pipelines})
 
+
 def parse_pipelines(pipelines_data):
     """
     Convert pipeline data into an Enum and dictionary format for easy use.
@@ -54,10 +57,10 @@ def parse_pipelines(pipelines_data):
         - pipelines_enum: Enum with pipeline IDs.
         - pipelines_details: Dictionary containing all pipeline parameters.
     """
-    if not pipelines_data["items"]:  
+    if not pipelines_data["items"]:
         logging.warning("No onboarded pipelines found.")
         return Enum("Pipeline", {}), {}
-    
+
     pipelines_enum = Enum("Pipeline", {p["id"].upper().replace("-", "_"): p["id"] for p in pipelines_data["items"]}, type=str)
 
     pipelines_details = {
@@ -71,11 +74,12 @@ def parse_pipelines(pipelines_data):
             "status": pipeline.get("status", "onboarded"),
             "created_at": pipeline.get("created_at"),
             "architecture": pipeline.get("architecture", {}),
-            **pipeline,  
+            **pipeline,
         }
         for pipeline in pipelines_data["items"]
     }
 
     return pipelines_enum, pipelines_details
+
 
 Pipeline, PipelineDetails = load_pipelines()

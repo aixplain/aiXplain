@@ -31,7 +31,8 @@ from aixplain.base.parameters import BaseParameters, Parameter
 import os
 
 CACHE_FILE = f"{CACHE_FOLDER}/functions.json"
-LOCK_FILE = f"{CACHE_FILE}.lock" 
+LOCK_FILE = f"{CACHE_FILE}.lock"
+
 
 def load_functions():
     api_key = config.TEAM_API_KEY

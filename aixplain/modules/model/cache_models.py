@@ -12,7 +12,8 @@ from aixplain.utils.cache_utils import save_to_cache, load_from_cache, CACHE_FOL
 from aixplain.enums import Supplier, Function
 
 CACHE_FILE = f"{CACHE_FOLDER}/models.json"
-LOCK_FILE = f"{CACHE_FILE}.lock" 
+LOCK_FILE = f"{CACHE_FILE}.lock"
+
 
 def load_models(cache_expiry: Optional[int] = None):
     """
@@ -46,6 +47,7 @@ def load_models(cache_expiry: Optional[int] = None):
 
     return parse_models({"items": onboarded_models})
 
+
 def parse_models(models_data):
     """
     Convert model data into an Enum and dictionary format for easy use.
@@ -55,7 +57,7 @@ def parse_models(models_data):
         - models_details: Dictionary containing all model parameters.
     """
 
-    if not models_data["items"]: 
+    if not models_data["items"]:
         logging.warning("No onboarded models found.")
         return Enum("Model", {}), {}
     models_enum = Enum("Model", {m["id"].upper().replace("-", "_"): m["id"] for m in models_data["items"]}, type=str)
@@ -75,7 +77,7 @@ def parse_models(models_data):
             "input_params": model.get("input_params"),
             "output_params": model.get("output_params"),
             "model_params": model.get("model_params"),
-            **model,  
+            **model,
         }
         for model in models_data["items"]
     }

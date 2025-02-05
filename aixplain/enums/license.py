@@ -29,7 +29,7 @@ from aixplain.utils.request_utils import _request_with_retry
 from aixplain.utils.cache_utils import save_to_cache, load_from_cache, CACHE_FOLDER
 
 CACHE_FILE = f"{CACHE_FOLDER}/licenses.json"
-LOCK_FILE = f"{CACHE_FILE}.lock" 
+LOCK_FILE = f"{CACHE_FILE}.lock"
 
 
 def load_licenses():
