@@ -31,7 +31,7 @@ from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
 from typing import Dict, Optional, Text, Union
 from urllib.parse import urljoin
-from aixplain.modules.pipeline.pipeline_cache import PipelineDetails
+from aixplain.enums import AixplainCache
 
 
 class Pipeline(Asset):
@@ -61,6 +61,8 @@ class Pipeline(Asset):
         status: AssetStatus = AssetStatus.DRAFT,
         **additional_info,
     ) -> None:
+        PipelineCache = AixplainCache("pipelines", "pipelines")
+        PipelineEnum, PipelineDetails = PipelineCache.load_assets()
         """Create a Pipeline with the necessary information
 
         Args:

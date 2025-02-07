@@ -23,7 +23,7 @@ Description:
 import time
 import logging
 import traceback
-from aixplain.enums import Supplier, Function
+from aixplain.enums import Supplier, Function, AixplainCache
 from aixplain.modules.asset import Asset
 from aixplain.modules.model.utils import build_payload, call_run_endpoint
 from aixplain.utils import config
@@ -34,7 +34,6 @@ from datetime import datetime
 from aixplain.modules.model.response import ModelResponse
 from aixplain.enums.response_status import ResponseStatus
 from aixplain.modules.model.model_parameters import ModelParameters
-from aixplain.modules.model.cache_models import load_models
 
 
 class Model(Asset):
@@ -92,7 +91,8 @@ class Model(Asset):
             model_params (Dict, optional): parameters for the function.
             **additional_info: Any additional Model info to be saved
         """
-        ModelCache, ModelDetails = load_models(cache_expiry=86400)
+        ModelCache = AixplainCache("models", "models")
+        ModelEnum, ModelDetails = ModelCache.load_assets()
 
         if id in ModelDetails:
 

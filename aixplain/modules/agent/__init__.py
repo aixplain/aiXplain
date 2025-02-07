@@ -37,9 +37,8 @@ from aixplain.modules.agent.output_format import OutputFormat
 from aixplain.modules.agent.tool import Tool
 from aixplain.modules.agent.agent_response import AgentResponse
 from aixplain.modules.agent.agent_response_data import AgentResponseData
-from aixplain.enums import ResponseStatus
+from aixplain.enums import ResponseStatus, AixplainCache
 from aixplain.modules.agent.utils import process_variables
-from aixplain.modules.agent.cache_agents import load_agents
 from typing import Dict, List, Text, Optional, Union
 from urllib.parse import urljoin
 
@@ -78,7 +77,8 @@ class Agent(Model):
         tasks: List[AgentTask] = [],
         **additional_info,
     ) -> None:
-        AgentCache, AgentDetails = load_agents(cache_expiry=86400)
+        AgentCache = AixplainCache("agents", "agents")
+        AgentEnum, AgentDetails = AgentCache.load_assets()
 
         if id in AgentDetails:
             cached_agent = AgentDetails[id]
