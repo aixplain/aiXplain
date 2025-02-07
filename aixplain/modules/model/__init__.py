@@ -33,6 +33,7 @@ from typing import Union, Optional, Text, Dict
 from datetime import datetime
 from aixplain.modules.model.response import ModelResponse
 from aixplain.enums.response_status import ResponseStatus
+from aixplain.modules.model.model_parameters import ModelParameters
 
 
 class Model(Asset):
@@ -51,14 +52,15 @@ class Model(Asset):
         backend_url (str): URL of the backend.
         pricing (Dict, optional): model price. Defaults to None.
         **additional_info: Any additional Model info to be saved
-        input_params (Dict, optional): input parameters for the function.
+        input_params (ModelParameters, optional): input parameters for the function.
         output_params (Dict, optional): output parameters for the function.
+        model_params (ModelParameters, optional): parameters for the function.
     """
 
     def __init__(
         self,
         id: Text,
-        name: Text,
+        name: Text = "",
         description: Text = "",
         api_key: Text = config.TEAM_API_KEY,
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
@@ -69,6 +71,7 @@ class Model(Asset):
         created_at: Optional[datetime] = None,
         input_params: Optional[Dict] = None,
         output_params: Optional[Dict] = None,
+        model_params: Optional[Dict] = None,
         **additional_info,
     ) -> None:
         """Model Init
@@ -83,6 +86,9 @@ class Model(Asset):
             function (Text, optional): model AI function. Defaults to None.
             is_subscribed (bool, optional): Is the user subscribed. Defaults to False.
             cost (Dict, optional): model price. Defaults to None.
+            input_params (Dict, optional): input parameters for the function.
+            output_params (Dict, optional): output parameters for the function.
+            model_params (Dict, optional): parameters for the function.
             **additional_info: Any additional Model info to be saved
         """
         super().__init__(id, name, description, supplier, version, cost=cost)
@@ -95,6 +101,7 @@ class Model(Asset):
         self.created_at = created_at
         self.input_params = input_params
         self.output_params = output_params
+        self.model_params = ModelParameters(model_params) if model_params else None
 
     def to_dict(self) -> Dict:
         """Get the model info as a Dictionary
@@ -111,7 +118,13 @@ class Model(Asset):
             "additional_info": clean_additional_info,
             "input_params": self.input_params,
             "output_params": self.output_params,
+            "model_params": self.model_params.to_dict(),
         }
+
+    def get_parameters(self) -> ModelParameters:
+        if self.model_params:
+            return self.model_params
+        return None
 
     def __repr__(self):
         try:

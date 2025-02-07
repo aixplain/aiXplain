@@ -21,14 +21,12 @@ Description:
     Benchmark Class
 """
 import logging
-from typing import List, Text, Dict, Optional
+from typing import List, Text
 from aixplain.utils import config
 from aixplain.modules import Asset, Dataset, Metric, Model
 from aixplain.modules.benchmark_job import BenchmarkJob
 from urllib.parse import urljoin
-import pandas as pd
-from pathlib import Path
-from aixplain.utils.file_utils import _request_with_retry, save_file
+from aixplain.utils.file_utils import _request_with_retry
 
 
 class Benchmark(Asset):

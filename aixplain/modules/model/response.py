@@ -92,3 +92,19 @@ class ModelResponse:
             return True
         except KeyError:
             return False
+
+    def to_dict(self) -> Dict[Text, Any]:
+        base_dict = {
+            "status": self.status,
+            "data": self.data,
+            "details": self.details,
+            "completed": self.completed,
+            "error_message": self.error_message,
+            "used_credits": self.used_credits,
+            "run_time": self.run_time,
+            "usage": self.usage,
+            "url": self.url,
+        }
+        if self.additional_fields:
+            base_dict.update(self.additional_fields)
+        return base_dict

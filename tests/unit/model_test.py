@@ -30,6 +30,7 @@ from aixplain.modules.model.response import ModelResponse
 import pytest
 from unittest.mock import patch
 from aixplain.enums.asset_status import AssetStatus
+from aixplain.modules.model.model_parameters import ModelParameters
 
 
 def test_build_payload():
@@ -188,6 +189,62 @@ def test_get_assets_from_page_error():
             )
 
         assert "Listing Models Error: Failed to retrieve models" in str(excinfo.value)
+
+
+def test_get_model_from_ids():
+    from aixplain.factories.model_factory.utils import get_model_from_ids
+
+    with requests_mock.Mocker() as mock:
+        model_ids = ["test-model-id-1", "test-model-id-2"]
+        url = urljoin(config.BACKEND_URL, f"sdk/models?ids={','.join(model_ids)}")
+        headers = {"Authorization": f"Token {config.AIXPLAIN_API_KEY}", "Content-Type": "application/json"}
+
+        ref_response = {
+            "items": [
+                {
+                    "id": "test-model-id-1",
+                    "name": "Test Model 1",
+                    "description": "Test Description 1",
+                    "function": {"id": "text-generation"},
+                    "supplier": {"id": "aiXplain"},
+                    "pricing": {"id": "free"},
+                    "version": {"id": "1.0.0"},
+                    "params": [],
+                },
+                {
+                    "id": "test-model-id-2",
+                    "name": "Test Model 2",
+                    "description": "Test Description 2",
+                    "function": {"id": "text-generation"},
+                    "supplier": {"id": "aiXplain"},
+                    "pricing": {"id": "free"},
+                    "version": {"id": "1.0.0"},
+                    "params": [],
+                },
+            ]
+        }
+        mock.get(url, headers=headers, json=ref_response)
+        models = get_model_from_ids(model_ids)
+
+    assert len(models) == 2
+    assert models[0].id == "test-model-id-1"
+    assert models[1].id == "test-model-id-2"
+
+
+def test_list_models_error():
+    model_ids = ["test-model-id-1", "test-model-id-2"]
+
+    with pytest.raises(Exception) as excinfo:
+        ModelFactory.list(model_ids=model_ids, function=Function.TEXT_GENERATION, api_key=config.AIXPLAIN_API_KEY)
+
+    assert (
+        str(excinfo.value)
+        == "Cannot filter by function, suppliers, source languages, target languages, is finetunable, ownership, sort by when using model ids"
+    )
+
+    with pytest.raises(Exception) as excinfo:
+        ModelFactory.list(model_ids=model_ids, page_size=1, api_key=config.AIXPLAIN_API_KEY)
+    assert str(excinfo.value) == "Page size must be greater than the number of model ids"
 
 
 def test_run_sync():
@@ -353,26 +410,34 @@ def test_failed_delete():
 
 def test_model_to_dict():
     # Test with regular additional info
-    model = Model(id="test-id", name="Test Model", description="", additional_info={"key1": "value1", "key2": None})
+    model = Model(
+        id="test-id",
+        name="Test Model",
+        description="",
+        additional_info={"key1": "value1", "key2": None},
+        model_params={"param1": {"required": True}},
+    )
     result = model.to_dict()
 
-    # Basic assertions
+    # Verify the result
     assert result["id"] == "test-id"
     assert result["name"] == "Test Model"
     assert result["description"] == ""
-
-    # The additional_info is directly in the result
     assert result["additional_info"] == {"additional_info": {"key1": "value1", "key2": None}}
+    assert isinstance(result["model_params"], dict)
+    assert "param1" in result["model_params"]
+    assert result["model_params"]["param1"]["required"]
+    assert result["model_params"]["param1"]["value"] is None
 
 
 def test_model_repr():
     # Test with supplier as dict
-    model1 = Model(id="test-id", name="Test Model", supplier={"name": "Test Supplier"})
+    model1 = Model(id="test-id", name="Test Model", supplier={"name": "aiXplain"})
     assert repr(model1) == "<Model: Test Model by aiXplain>"
 
     # Test with supplier as string
-    model2 = Model(id="test-id", name="Test Model", supplier="Test Supplier")
-    assert str(model2) == "<Model: Test Model by Test Supplier>"
+    model2 = Model(id="test-id", name="Test Model", supplier="aiXplain")
+    assert str(model2) == "<Model: Test Model by aiXplain>"
 
 
 def test_poll_with_error():
@@ -499,3 +564,75 @@ def test_model_response():
     assert value == "thiago"
     value = response.get("not_found", "default_value")
     assert value == "default_value"
+
+
+def test_model_parameters_initialization():
+    """Test ModelParameters class initialization and parameter access."""
+    input_params = {"temperature": {"name": "temperature", "required": True}}
+
+    params = ModelParameters(input_params)
+
+    # Test parameter creation
+    assert "temperature" in params.parameters
+    assert params.parameters["temperature"].required
+
+    # Test parameter access via attribute for defined parameter
+    assert params.temperature is None  # Value starts as None
+
+    # Test parameter access via attribute for undefined parameter
+    with pytest.raises(AttributeError) as exc:
+        params.undefined_param
+    assert "Parameter 'undefined_param' is not defined" in str(exc.value)
+
+    # Test setting parameter value
+    params.temperature = 0.7
+    assert params.temperature == 0.7
+
+    # Test setting undefined parameter
+    with pytest.raises(AttributeError) as exc:
+        params.undefined_param = 0.5
+    assert "Parameter 'undefined_param' is not defined" in str(exc.value)
+
+
+def test_model_parameters_to_dict():
+    """Test converting ModelParameters to dictionary format."""
+    input_params = {"temperature": {"name": "temperature", "required": True}}
+
+    params = ModelParameters(input_params)
+    params.temperature = 0.7
+
+    dict_output = params.to_dict()
+    assert dict_output == {"temperature": {"required": True, "value": 0.7}}
+
+
+def test_model_parameters_invalid_parameter():
+    """Test handling of invalid parameter access."""
+    params = ModelParameters({})
+
+    with pytest.raises(AttributeError):
+        params.invalid_param = 123
+
+    with pytest.raises(AttributeError):
+        params.invalid_param
+
+
+def test_model_parameters_string_representation():
+    """Test string representation of ModelParameters."""
+    input_params = {
+        "temperature": {"name": "temperature", "required": True},
+        "max_tokens": {"name": "max_tokens", "required": False},
+    }
+
+    params = ModelParameters(input_params)
+    params.temperature = 0.7
+
+    str_output = str(params)
+    assert "Parameters:" in str_output
+    assert "temperature: 0.7 (Required)" in str_output
+    assert "max_tokens: Not set (Optional)" in str_output
+
+
+def test_empty_model_parameters_string():
+    """Test string representation of empty ModelParameters."""
+    params = ModelParameters({})
+    assert str(params) == "No parameters defined"

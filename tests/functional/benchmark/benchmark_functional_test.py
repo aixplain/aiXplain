@@ -14,6 +14,8 @@ import pytest
 
 import logging
 
+from aixplain import aixplain_v2 as v2
+
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
 
@@ -64,7 +66,8 @@ def assert_correct_results(benchmark_job):
     assert mean_score != 0, f"Zero Mean Score - Please check metric ({metric_name})"
 
 
-def test_create_and_run(run_input_map):
+@pytest.mark.parametrize("BenchmarkFactory", [BenchmarkFactory, v2.Benchmark])
+def test_create_and_run(run_input_map, BenchmarkFactory):
     model_list = [ModelFactory.get(model_id) for model_id in run_input_map["model_ids"]]
     dataset_list = [DatasetFactory.list(query=dataset_name)["results"][0] for dataset_name in run_input_map["dataset_names"]]
     metric_list = [MetricFactory.get(metric_id) for metric_id in run_input_map["metric_ids"]]

@@ -22,7 +22,7 @@ Description:
 """
 
 from abc import abstractmethod
-from typing import List, Text
+from typing import Text
 from aixplain.modules.asset import Asset
 from aixplain.utils import config
 

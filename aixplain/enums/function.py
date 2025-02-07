@@ -26,6 +26,8 @@ from aixplain.utils.request_utils import _request_with_retry
 from enum import Enum
 from urllib.parse import urljoin
 from aixplain.utils.cache_utils import save_to_cache, load_from_cache, CACHE_FOLDER
+from typing import Tuple, Dict
+from aixplain.base.parameters import BaseParameters, Parameter
 
 CACHE_FILE = f"{CACHE_FOLDER}/functions.json"
 
@@ -47,7 +49,36 @@ def load_functions():
         resp = r.json()
         save_to_cache(CACHE_FILE, resp)
 
-    functions = Enum("Function", {w["id"].upper().replace("-", "_"): w["id"] for w in resp["items"]}, type=str)
+    class Function(str, Enum):
+        def __new__(cls, value):
+            obj = str.__new__(cls, value)
+            obj._value_ = value
+            obj._parameters = None  # Initialize _parameters as None
+            return obj
+
+        def get_input_output_params(self) -> Tuple[Dict, Dict]:
+            """Gets the input and output parameters for this function
+
+            Returns:
+                Tuple[Dict, Dict]: A tuple containing (input_params, output_params)
+            """
+            function_io = FunctionInputOutput.get(self.value, None)
+            input_params = {param["code"]: param for param in function_io["spec"]["params"]}
+            output_params = {param["code"]: param for param in function_io["spec"]["output"]}
+            return input_params, output_params
+
+        def get_parameters(self) -> "FunctionParameters":
+            """Gets a FunctionParameters object for this function
+
+            Returns:
+                FunctionParameters: Object containing the function's parameters
+            """
+            if self._parameters is None:
+                input_params, _ = self.get_input_output_params()
+                self._parameters = FunctionParameters(input_params)
+            return self._parameters
+
+    functions = Function("Function", {w["id"].upper().replace("-", "_"): w["id"] for w in resp["items"]})
     functions_input_output = {
         function["id"]: {
             "input": {
@@ -61,6 +92,20 @@ def load_functions():
         for function in resp["items"]
     }
     return functions, functions_input_output
+
+
+class FunctionParameters(BaseParameters):
+    """Class to store and manage function parameters"""
+
+    def __init__(self, input_params: Dict):
+        """Initialize FunctionParameters with input parameters
+
+        Args:
+            input_params (Dict): Dictionary of input parameters
+        """
+        super().__init__()
+        for param_code, param_config in input_params.items():
+            self.parameters[param_code] = Parameter(name=param_code, required=param_config.get("required", False), value=None)
 
 
 Function, FunctionInputOutput = load_functions()

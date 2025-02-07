@@ -20,13 +20,15 @@ import json
 from dotenv import load_dotenv
 
 load_dotenv()
-from aixplain.factories import AgentFactory, TeamAgentFactory
+from aixplain.factories import AgentFactory, TeamAgentFactory, ModelFactory
 from aixplain.enums.asset_status import AssetStatus
 from aixplain.enums.function import Function
 from aixplain.enums.supplier import Supplier
 from uuid import uuid4
 
 import pytest
+
+from aixplain import aixplain_v2 as v2
 
 RUN_FILE = "tests/functional/agent/data/agent_test_end2end.json"
 
@@ -55,7 +57,8 @@ def delete_agents_and_team_agents():
         agent.delete()
 
 
-def test_end2end(run_input_map, delete_agents_and_team_agents):
+@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
+def test_end2end(run_input_map, delete_agents_and_team_agents, AgentFactory):
     assert delete_agents_and_team_agents
     tools = []
     if "model_tools" in run_input_map:
@@ -74,7 +77,11 @@ def test_end2end(run_input_map, delete_agents_and_team_agents):
             tools.append(AgentFactory.create_pipeline_tool(pipeline=tool["pipeline_id"], description=tool["description"]))
 
     agent = AgentFactory.create(
-        name=run_input_map["agent_name"], description=run_input_map["agent_name"], llm_id=run_input_map["llm_id"], tools=tools
+        name=run_input_map["agent_name"],
+        description=run_input_map["agent_name"],
+        role=run_input_map["agent_name"],
+        llm_id=run_input_map["llm_id"],
+        tools=tools,
     )
     assert agent is not None
     assert agent.status == AssetStatus.DRAFT
@@ -94,7 +101,8 @@ def test_end2end(run_input_map, delete_agents_and_team_agents):
     agent.delete()
 
 
-def test_python_interpreter_tool(delete_agents_and_team_agents):
+@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
+def test_python_interpreter_tool(delete_agents_and_team_agents, AgentFactory):
     assert delete_agents_and_team_agents
     tool = AgentFactory.create_python_interpreter_tool()
     assert tool is not None
@@ -104,6 +112,7 @@ def test_python_interpreter_tool(delete_agents_and_team_agents):
     agent = AgentFactory.create(
         name="Python Developer",
         description="A Python developer agent. If you get an error from a tool, try to fix it.",
+        role="A Python developer agent. If you get an error from a tool, try to fix it.",
         tools=[tool],
     )
     assert agent is not None
@@ -118,7 +127,8 @@ def test_python_interpreter_tool(delete_agents_and_team_agents):
     agent.delete()
 
 
-def test_custom_code_tool(delete_agents_and_team_agents):
+@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
+def test_custom_code_tool(delete_agents_and_team_agents, AgentFactory):
     assert delete_agents_and_team_agents
     tool = AgentFactory.create_custom_python_code_tool(
         description="Add two numbers",
@@ -130,6 +140,7 @@ def test_custom_code_tool(delete_agents_and_team_agents):
     agent = AgentFactory.create(
         name="Add Numbers Agent",
         description="Add two numbers. Do not directly answer. Use the tool to add the numbers.",
+        role="Add two numbers. Do not directly answer. Use the tool to add the numbers.",
         tools=[tool],
     )
     assert agent is not None
@@ -141,14 +152,16 @@ def test_custom_code_tool(delete_agents_and_team_agents):
     agent.delete()
 
 
-def test_list_agents():
+@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
+def test_list_agents(AgentFactory):
     agents = AgentFactory.list()
     assert "results" in agents
     agents_result = agents["results"]
     assert type(agents_result) is list
 
 
-def test_update_draft_agent(run_input_map, delete_agents_and_team_agents):
+@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
+def test_update_draft_agent(run_input_map, delete_agents_and_team_agents, AgentFactory):
     assert delete_agents_and_team_agents
 
     tools = []
@@ -168,7 +181,11 @@ def test_update_draft_agent(run_input_map, delete_agents_and_team_agents):
             tools.append(AgentFactory.create_pipeline_tool(pipeline=tool["pipeline_id"], description=tool["description"]))
 
     agent = AgentFactory.create(
-        name=run_input_map["agent_name"], description=run_input_map["agent_name"], llm_id=run_input_map["llm_id"], tools=tools
+        name=run_input_map["agent_name"],
+        description=run_input_map["agent_name"],
+        role=run_input_map["agent_name"],
+        llm_id=run_input_map["llm_id"],
+        tools=tools,
     )
 
     agent_name = str(uuid4()).replace("-", "")
@@ -181,23 +198,27 @@ def test_update_draft_agent(run_input_map, delete_agents_and_team_agents):
     agent.delete()
 
 
-def test_fail_non_existent_llm(delete_agents_and_team_agents):
+@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
+def test_fail_non_existent_llm(delete_agents_and_team_agents, AgentFactory):
     assert delete_agents_and_team_agents
     with pytest.raises(Exception) as exc_info:
         AgentFactory.create(
             name="Test Agent",
             description="Test description",
+            role="Test Agent Role",
             llm_id="non_existent_llm",
             tools=[AgentFactory.create_model_tool(function=Function.TRANSLATION)],
         )
     assert str(exc_info.value) == "Large Language Model with ID 'non_existent_llm' not found."
 
 
-def test_delete_agent_in_use(delete_agents_and_team_agents):
+@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
+def test_delete_agent_in_use(delete_agents_and_team_agents, AgentFactory):
     assert delete_agents_and_team_agents
     agent = AgentFactory.create(
         name="Test Agent",
         description="Test description",
+        role="Test Agent Role",
         tools=[AgentFactory.create_model_tool(function=Function.TRANSLATION)],
     )
     TeamAgentFactory.create(
@@ -212,11 +233,15 @@ def test_delete_agent_in_use(delete_agents_and_team_agents):
     assert str(exc_info.value) == "Agent Deletion Error (HTTP 403): err.agent_is_in_use."
 
 
-def test_update_tools_of_agent(run_input_map, delete_agents_and_team_agents):
+@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
+def test_update_tools_of_agent(run_input_map, delete_agents_and_team_agents, AgentFactory):
     assert delete_agents_and_team_agents
 
     agent = AgentFactory.create(
-        name=run_input_map["agent_name"], description=run_input_map["agent_name"], llm_id=run_input_map["llm_id"]
+        name=run_input_map["agent_name"],
+        description=run_input_map["agent_name"],
+        role=run_input_map["agent_name"],
+        llm_id=run_input_map["llm_id"],
     )
     assert agent is not None
     assert agent.status == AssetStatus.DRAFT
@@ -253,3 +278,70 @@ def test_update_tools_of_agent(run_input_map, delete_agents_and_team_agents):
     assert removed_tool not in agent.tools
 
     agent.delete()
+
+
+@pytest.mark.parametrize(
+    "tool_config",
+    [
+        {
+            "type": "search",
+            "model": "65c51c556eb563350f6e1bb1",
+            "query": "What is the weather in New York?",
+            "description": "Search tool with custom number of results",
+            "expected_tool_input": "'numResults': 5",
+        },
+        {
+            "type": "translation",
+            "supplier": "Microsoft",
+            "function": "translation",
+            "query": "Translate: Olá, como vai você?",
+            "description": "Translation tool with target language",
+            "expected_tool_input": "targetlanguage",
+        },
+    ],
+)
+def test_specific_model_parameters_e2e(tool_config):
+    """Test end-to-end agent execution with specific model parameters"""
+    # Create tool based on config
+    if tool_config["type"] == "search":
+        search_model = ModelFactory.get(tool_config["model"])
+        model_params = search_model.get_parameters()
+        model_params.numResults = 5
+        tool = AgentFactory.create_model_tool(model=search_model, description=tool_config["description"])
+    else:
+        function = Function(tool_config["function"])
+        function_params = function.get_parameters()
+        function_params.sourcelanguage = "pt"
+        tool = AgentFactory.create_model_tool(function=function, description=tool_config["description"], supplier="microsoft")
+
+    # Verify tool parameters
+    params = tool.get_parameters()
+    assert len(params) == 1
+    assert params[0]["name"] == ("numResults" if tool_config["type"] == "search" else "sourcelanguage")
+    assert params[0]["value"] == (5 if tool_config["type"] == "search" else "pt")
+
+    # Create and run agent
+    agent = AgentFactory.create(
+        name="Test Parameter Agent",
+        description="Test agent with parameterized tools",
+        tools=[tool],
+        llm_id="6626a3a8c8f1d089790cf5a2",  # Using LLM ID from test data
+    )
+
+    # Run agent
+    response = agent.run(data=tool_config["query"])
+
+    # Verify response
+    assert response["completed"] is True
+    assert response["status"].lower() == "success"
+    assert "data" in response
+    assert response["data"]["output"] is not None
+
+    # Verify tool was used in execution
+    assert len(response["data"]["intermediate_steps"]) > 0
+    tool_used = False
+    for step in response["data"]["intermediate_steps"]:
+        if tool_config["expected_tool_input"] in step["tool_steps"][0]["input"]:
+            tool_used = True
+            break
+    assert tool_used, "Tool was not used in execution"

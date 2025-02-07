@@ -32,12 +32,12 @@ from aixplain.enums.supplier import Supplier
 from aixplain.enums.asset_status import AssetStatus
 from aixplain.enums.storage_type import StorageType
 from aixplain.modules.model import Model
+from aixplain.modules.agent.agent_task import AgentTask
 from aixplain.modules.agent.output_format import OutputFormat
 from aixplain.modules.agent.tool import Tool
-from aixplain.modules.agent.tool.model_tool import ModelTool
-from aixplain.modules.agent.tool.pipeline_tool import PipelineTool
-from aixplain.modules.agent.tool.python_interpreter_tool import PythonInterpreterTool
-from aixplain.modules.agent.tool.custom_python_code_tool import CustomPythonCodeTool
+from aixplain.modules.agent.agent_response import AgentResponse
+from aixplain.modules.agent.agent_response_data import AgentResponseData
+from aixplain.enums import ResponseStatus
 from aixplain.modules.agent.utils import process_variables
 from typing import Dict, List, Text, Optional, Union
 from urllib.parse import urljoin
@@ -51,7 +51,7 @@ class Agent(Model):
     Attributes:
         id (Text): ID of the Agent
         name (Text): Name of the Agent
-        tools (List[Tool]): List of tools that the Agent uses.
+        tools (List[Union[Tool, Model]]): List of tools that the Agent uses.
         description (Text, optional): description of the Agent. Defaults to "".
         llm_id (Text): large language model. Defaults to GPT-4o (6646261c6eb563165658bbb1).
         supplier (Text): Supplier of the Agent.
@@ -66,13 +66,15 @@ class Agent(Model):
         id: Text,
         name: Text,
         description: Text,
-        tools: List[Tool] = [],
+        role: Text,
+        tools: List[Union[Tool, Model]] = [],
         llm_id: Text = "6646261c6eb563165658bbb1",
         api_key: Optional[Text] = config.TEAM_API_KEY,
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
         version: Optional[Text] = None,
         cost: Optional[Dict] = None,
         status: AssetStatus = AssetStatus.DRAFT,
+        tasks: List[AgentTask] = [],
         **additional_info,
     ) -> None:
         """Create an Agent with the necessary information.
@@ -81,7 +83,8 @@ class Agent(Model):
             id (Text): ID of the Agent
             name (Text): Name of the Agent
             description (Text): description of the Agent.
-            tools (List[Tool]): List of tools that the Agent uses.
+            role (Text): role of the Agent.
+            tools (List[Union[Tool, Model]]): List of tools that the Agent uses.
             llm_id (Text, optional): large language model. Defaults to GPT-4o (6646261c6eb563165658bbb1).
             supplier (Text): Supplier of the Agent.
             version (Text): Version of the Agent.
@@ -90,6 +93,7 @@ class Agent(Model):
             cost (Dict, optional): model price. Defaults to None.
         """
         super().__init__(id, name, description, api_key, supplier, version, cost=cost)
+        self.role = role
         self.additional_info = additional_info
         self.tools = tools
         for i, _ in enumerate(tools):
@@ -101,6 +105,7 @@ class Agent(Model):
             except Exception:
                 status = AssetStatus.DRAFT
         self.status = status
+        self.tasks = tasks
 
     def validate(self) -> None:
         """Validate the Agent."""
@@ -108,8 +113,8 @@ class Agent(Model):
 
         # validate name
         assert (
-            re.match("^[a-zA-Z0-9 ]*$", self.name) is not None
-        ), "Agent Creation Error: Agent name must not contain special characters."
+            re.match(r"^[a-zA-Z0-9 \-\(\)]*$", self.name) is not None
+        ), "Agent Creation Error: Agent name contains invalid characters. Only alphanumeric characters, spaces, hyphens, and brackets are allowed."
 
         try:
             llm = ModelFactory.get(self.llm_id, api_key=self.api_key)
@@ -118,7 +123,10 @@ class Agent(Model):
             raise Exception(f"Large Language Model with ID '{self.llm_id}' not found.")
 
         for tool in self.tools:
-            tool.validate()
+            if isinstance(tool, Tool):
+                tool.validate()
+            elif isinstance(tool, Model):
+                assert not isinstance(tool, Agent), "Agent cannot contain another Agent."
 
     def run(
         self,
@@ -134,7 +142,7 @@ class Agent(Model):
         max_tokens: int = 2048,
         max_iterations: int = 10,
         output_format: OutputFormat = OutputFormat.TEXT,
-    ) -> Dict:
+    ) -> AgentResponse:
         """Runs an agent call.
 
         Args:
@@ -154,6 +162,7 @@ class Agent(Model):
             Dict: parsed output from model
         """
         start = time.time()
+        result_data = {}
         try:
             response = self.run_async(
                 data=data,
@@ -167,19 +176,42 @@ class Agent(Model):
                 max_iterations=max_iterations,
                 output_format=output_format,
             )
-            if response["status"] == "FAILED":
+            if response["status"] == ResponseStatus.FAILED:
                 end = time.time()
                 response["elapsed_time"] = end - start
                 return response
             poll_url = response["url"]
             end = time.time()
-            response = self.sync_poll(poll_url, name=name, timeout=timeout, wait_time=wait_time)
-            return response
+            result = self.sync_poll(poll_url, name=name, timeout=timeout, wait_time=wait_time)
+            result_data = result.data
+            return AgentResponse(
+                status=ResponseStatus.SUCCESS,
+                completed=True,
+                data=AgentResponseData(
+                    input=result_data.get("input"),
+                    output=result_data.get("output"),
+                    session_id=result_data.get("session_id"),
+                    intermediate_steps=result_data.get("intermediate_steps"),
+                    execution_stats=result_data.get("executionStats"),
+                ),
+                used_credits=result_data.get("usedCredits", 0.0),
+                run_time=result_data.get("runTime", end - start),
+            )
         except Exception as e:
             msg = f"Error in request for {name} - {traceback.format_exc()}"
             logging.error(f"Agent Run: Error in running for {name}: {e}")
             end = time.time()
-            return {"status": "FAILED", "error": msg, "elapsed_time": end - start}
+            return AgentResponse(
+                status=ResponseStatus.FAILED,
+                data=AgentResponseData(
+                    input="",
+                    output=None,
+                    session_id=session_id,
+                    intermediate_steps=None,
+                    execution_stats=None,
+                ),
+                error=msg,
+            )
 
     def run_async(
         self,
@@ -193,7 +225,7 @@ class Agent(Model):
         max_tokens: int = 2048,
         max_iterations: int = 10,
         output_format: OutputFormat = OutputFormat.TEXT,
-    ) -> Dict:
+    ) -> AgentResponse:
         """Runs asynchronously an agent call.
 
         Args:
@@ -261,23 +293,24 @@ class Agent(Model):
         payload.update(parameters)
         payload = json.dumps(payload)
 
-        r = _request_with_retry("post", self.url, headers=headers, data=payload)
-        logging.info(f"Agent Run Async: Start service for {name} - {self.url} - {payload} - {headers}")
-
-        resp = None
         try:
+            r = _request_with_retry("post", self.url, headers=headers, data=payload)
             resp = r.json()
-            logging.info(f"Result of request for {name} - {r.status_code} - {resp}")
-
-            poll_url = resp["data"]
-            response = {"status": "IN_PROGRESS", "url": poll_url}
-        except Exception:
-            response = {"status": "FAILED"}
+            poll_url = resp.get("data")
+            return AgentResponse(
+                status=ResponseStatus.IN_PROGRESS,
+                url=poll_url,
+                data=AgentResponseData(input=input_data),
+                run_time=0.0,
+                used_credits=0.0,
+            )
+        except Exception as e:
             msg = f"Error in request for {name} - {traceback.format_exc()}"
-            logging.error(f"Agent Run Async: Error in running for {name}: {resp}")
-            if resp is not None:
-                response["error"] = msg
-        return response
+            logging.error(f"Agent Run Async: Error in running for {name}: {e}")
+            return AgentResponse(
+                status=ResponseStatus.FAILED,
+                error=msg,
+            )
 
     def to_dict(self) -> Dict:
         return {
@@ -285,10 +318,12 @@ class Agent(Model):
             "name": self.name,
             "assets": [tool.to_dict() for tool in self.tools],
             "description": self.description,
+            "role": self.role,
             "supplier": self.supplier.value["code"] if isinstance(self.supplier, Supplier) else self.supplier,
             "version": self.version,
             "llmId": self.llm_id,
             "status": self.status.value,
+            "tasks": [task.to_dict() for task in self.tasks],
         }
 
     def delete(self) -> None:
@@ -354,3 +389,6 @@ class Agent(Model):
         assert self.status != AssetStatus.ONBOARDED, "Agent is already deployed."
         self.status = AssetStatus.ONBOARDED
         self.update()
+
+    def __repr__(self):
+        return f"Agent(id={self.id}, name={self.name}, function={self.function})"

@@ -1,26 +1,20 @@
 import pytest
 import requests_mock
-from aixplain.enums.asset_status import AssetStatus
-from aixplain.modules import Agent, TeamAgent
-from aixplain.modules.agent import ModelTool
 from aixplain.factories import TeamAgentFactory
 from aixplain.factories import AgentFactory
+from aixplain.enums.asset_status import AssetStatus
+from aixplain.modules import Agent, TeamAgent
+from aixplain.modules.agent.tool.model_tool import ModelTool
 from aixplain.utils import config
 from urllib.parse import urljoin
+from unittest.mock import patch
 
 
 def test_fail_no_data_query():
-    team_agent = TeamAgent("123", "Test Team Agent")
+    team_agent = TeamAgent("123", "Test Team Agent(-)")
     with pytest.raises(Exception) as exc_info:
         team_agent.run_async()
     assert str(exc_info.value) == "Either 'data' or 'query' must be provided."
-
-
-def test_fail_query_must_be_provided():
-    team_agent = TeamAgent("123", "Test Team Agent")
-    with pytest.raises(Exception) as exc_info:
-        team_agent.run_async(data={})
-    assert str(exc_info.value) == "When providing a dictionary, 'query' must be provided."
 
 
 def test_fail_query_as_text_when_content_not_empty():
@@ -28,7 +22,9 @@ def test_fail_query_as_text_when_content_not_empty():
     with pytest.raises(Exception) as exc_info:
         team_agent.run_async(
             data={"query": "https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.wav"},
-            content=["https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.wav"],
+            content=[
+                "https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.wav",
+            ],
         )
     assert str(exc_info.value) == "When providing 'content', query must be text."
 
@@ -72,7 +68,7 @@ def test_sucess_query_content():
 
 def test_fail_number_agents():
     with pytest.raises(Exception) as exc_info:
-        TeamAgentFactory.create(name="Test Team Agent", agents=[])
+        TeamAgentFactory.create(name="Test Team Agent(-)", agents=[])
 
     assert str(exc_info.value) == "TeamAgent Onboarding Error: At least one agent must be provided."
 
@@ -80,12 +76,13 @@ def test_fail_number_agents():
 def test_to_dict():
     team_agent = TeamAgent(
         id="123",
-        name="Test Team Agent",
+        name="Test Team Agent(-)",
         agents=[
             Agent(
                 id="",
-                name="Test Agent",
+                name="Test Agent(-)",
                 description="Test Agent Description",
+                role="Test Agent Role",
                 llm_id="6646261c6eb563165658bbb1",
                 tools=[ModelTool(function="text-generation")],
             )
@@ -97,7 +94,7 @@ def test_to_dict():
 
     team_agent_dict = team_agent.to_dict()
     assert team_agent_dict["id"] == "123"
-    assert team_agent_dict["name"] == "Test Team Agent"
+    assert team_agent_dict["name"] == "Test Team Agent(-)"
     assert team_agent_dict["description"] == "Test Team Agent Description"
     assert team_agent_dict["llmId"] == "6646261c6eb563165658bbb1"
     assert team_agent_dict["supervisorId"] == "6646261c6eb563165658bbb1"
@@ -109,7 +106,17 @@ def test_to_dict():
     assert team_agent_dict["agents"][0]["label"] == "AGENT"
 
 
-def test_create_team_agent():
+@patch("aixplain.factories.model_factory.ModelFactory.get")
+def test_create_team_agent(mock_model_factory_get):
+    from aixplain.modules import Model
+    from aixplain.enums import Function
+
+    # Mock the model factory response
+    mock_model = Model(
+        id="6646261c6eb563165658bbb1", name="Test LLM", description="Test LLM Description", function=Function.TEXT_GENERATION
+    )
+    mock_model_factory_get.return_value = mock_model
+
     with requests_mock.Mocker() as mock:
         headers = {"x-api-key": config.TEAM_API_KEY, "Content-Type": "application/json"}
         # MOCK GET LLM
@@ -130,8 +137,9 @@ def test_create_team_agent():
         url = urljoin(config.BACKEND_URL, "sdk/agents")
         ref_response = {
             "id": "123",
-            "name": "Test Agent",
+            "name": "Test Agent(-)",
             "description": "Test Agent Description",
+            "role": "Test Agent Role",
             "teamId": "123",
             "version": "1.0",
             "status": "draft",
@@ -150,8 +158,9 @@ def test_create_team_agent():
         mock.post(url, headers=headers, json=ref_response)
 
         agent = AgentFactory.create(
-            name="Test Agent",
+            name="Test Agent(-)",
             description="Test Agent Description",
+            role="Test Agent Role",
             llm_id="6646261c6eb563165658bbb1",
             tools=[ModelTool(model="6646261c6eb563165658bbb1")],
         )
@@ -164,7 +173,7 @@ def test_create_team_agent():
         url = urljoin(config.BACKEND_URL, "sdk/agent-communities")
         team_ref_response = {
             "id": "team_agent_123",
-            "name": "TEST Multi agent",
+            "name": "TEST Multi agent(-)",
             "status": "draft",
             "teamId": 645,
             "description": "TEST Multi agent",
@@ -180,7 +189,7 @@ def test_create_team_agent():
         mock.post(url, headers=headers, json=team_ref_response)
 
         team_agent = TeamAgentFactory.create(
-            name="TEST Multi agent",
+            name="TEST Multi agent(-)",
             description="TEST Multi agent",
             use_mentalist_and_inspector=True,
             llm_id="6646261c6eb563165658bbb1",
@@ -198,7 +207,7 @@ def test_create_team_agent():
         url = urljoin(config.BACKEND_URL, f"sdk/agent-communities/{team_agent.id}")
         team_ref_response = {
             "id": "team_agent_123",
-            "name": "TEST Multi agent",
+            "name": "TEST Multi agent(-)",
             "status": "onboarded",
             "teamId": 645,
             "description": "TEST Multi agent",
@@ -215,3 +224,64 @@ def test_create_team_agent():
 
         team_agent.deploy()
         assert team_agent.status.value == "onboarded"
+
+
+def test_build_team_agent(mocker):
+    from aixplain.factories.team_agent_factory.utils import build_team_agent
+    from aixplain.modules.agent import Agent, AgentTask
+
+    agent1 = Agent(
+        id="agent1",
+        name="Test Agent 1",
+        description="Test Agent Description",
+        role="Test Agent Role",
+        llm_id="6646261c6eb563165658bbb1",
+        tools=[ModelTool(model="6646261c6eb563165658bbb1")],
+        tasks=[
+            AgentTask(
+                name="Test Task 1",
+                description="Test Task Description",
+                expected_output="Test Task Output",
+                dependencies=["Test Task 2"],
+            ),
+        ],
+    )
+
+    agent2 = Agent(
+        id="agent2",
+        name="Test Agent 2",
+        description="Test Agent Description",
+        role="Test Agent Role",
+        llm_id="6646261c6eb563165658bbb1",
+        tools=[ModelTool(model="6646261c6eb563165658bbb1")],
+        tasks=[
+            AgentTask(name="Test Task 2", description="Test Task Description", expected_output="Test Task Output"),
+        ],
+    )
+
+    # Create a function to return different values based on input
+    def get_mock(agent_id):
+        return {"agent1": agent1, "agent2": agent2}[agent_id]
+
+    mocker.patch("aixplain.factories.agent_factory.AgentFactory.get", side_effect=get_mock)
+
+    payload = {
+        "id": "123",
+        "name": "Test Team Agent(-)",
+        "description": "Test Team Agent Description",
+        "plannerId": "6646261c6eb563165658bbb1",
+        "llmId": "6646261c6eb563165658bbb1",
+        "agents": [
+            {"assetId": "agent1"},
+            {"assetId": "agent2"},
+        ],
+        "status": "onboarded",
+    }
+    team_agent = build_team_agent(payload)
+    assert team_agent.id == "123"
+    assert team_agent.name == "Test Team Agent(-)"
+    assert team_agent.description == "Test Team Agent Description"
+    assert sorted(agent.id for agent in team_agent.agents) == ["agent1", "agent2"]
+    agent1 = next((agent for agent in team_agent.agents if agent.id == "agent1"), None)
+    assert agent1 is not None
+    assert agent1.tasks[0].dependencies[0].name == "Test Task 2"

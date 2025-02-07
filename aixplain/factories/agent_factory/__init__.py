@@ -23,10 +23,11 @@ Description:
 
 import json
 import logging
+import warnings
 
 from aixplain.enums.function import Function
 from aixplain.enums.supplier import Supplier
-from aixplain.modules.agent import Agent, Tool
+from aixplain.modules.agent import Agent, AgentTask, Tool
 from aixplain.modules.agent.tool.model_tool import ModelTool
 from aixplain.modules.agent.tool.pipeline_tool import PipelineTool
 from aixplain.modules.agent.tool.python_interpreter_tool import PythonInterpreterTool
@@ -46,26 +47,40 @@ class AgentFactory:
         cls,
         name: Text,
         description: Text,
+        role: Optional[Text] = None,
         llm_id: Text = "669a63646eb56306647e1091",
-        tools: List[Tool] = [],
+        tools: List[Union[Tool, Model]] = [],
         api_key: Text = config.TEAM_API_KEY,
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
         version: Optional[Text] = None,
+        tasks: List[AgentTask] = [],
     ) -> Agent:
         """Create a new agent in the platform.
+
+        Warning:
+            The 'role' parameter was recently added and serves the same purpose as 'description' did previously: set the role of the agent as a system prompt.
+            The 'description' parameter is still required and should be used to set a short summary of the agent's purpose.
+            For the next releases, the 'role' parameter will be required.
 
         Args:
             name (Text): name of the agent
             description (Text): description of the agent role.
+            role (Text): role of the agent.
             llm_id (Text, optional): aiXplain ID of the large language model to be used as agent. Defaults to "669a63646eb56306647e1091" (GPT-4o mini).
-            tools (List[Tool], optional): list of tool for the agent. Defaults to [].
+            tools (List[Union[Tool, Model]], optional): list of tool for the agent. Defaults to [].
             api_key (Text, optional): team/user API key. Defaults to config.TEAM_API_KEY.
             supplier (Union[Dict, Text, Supplier, int], optional): owner of the agent. Defaults to "aiXplain".
             version (Optional[Text], optional): version of the agent. Defaults to None.
-
+            tasks (List[AgentTask], optional): list of tasks for the agent. Defaults to [].
         Returns:
             Agent: created Agent
         """
+        warnings.warn(
+            "The 'role' parameter was recently added and serves the same purpose as 'description' did previously: set the role of the agent as a system prompt. "
+            "The 'description' parameter is still required and should be used to set a short summary of the agent's purpose. "
+            "For the next releases, the 'role' parameter will be required.",
+            UserWarning,
+        )
         from aixplain.factories.agent_factory.utils import build_agent
 
         agent = None
@@ -79,12 +94,31 @@ class AgentFactory:
 
         payload = {
             "name": name,
-            "assets": [tool.to_dict() for tool in tools],
+            "assets": [
+                tool.to_dict()
+                if isinstance(tool, Tool)
+                else {
+                    "id": tool.id,
+                    "name": tool.name,
+                    "description": tool.description,
+                    "supplier": tool.supplier.value["code"] if isinstance(tool.supplier, Supplier) else tool.supplier,
+                    "parameters": tool.get_parameters().to_list()
+                    if hasattr(tool, "get_parameters") and tool.get_parameters() is not None
+                    else None,
+                    "function": tool.function if hasattr(tool, "function") and tool.function is not None else None,
+                    "type": "model",
+                    "version": tool.version if hasattr(tool, "version") else None,
+                    "assetId": tool.id,
+                }
+                for tool in tools
+            ],
             "description": description,
+            "role": role or description,
             "supplier": supplier,
             "version": version,
             "llmId": llm_id,
             "status": "draft",
+            "tasks": [task.to_dict() for task in tasks],
         }
         agent = build_agent(payload=payload, api_key=api_key)
         agent.validate()
@@ -112,12 +146,19 @@ class AgentFactory:
         return agent
 
     @classmethod
+    def create_task(
+        cls, name: Text, description: Text, expected_output: Text, dependencies: Optional[List[Text]] = None
+    ) -> AgentTask:
+        return AgentTask(name=name, description=description, expected_output=expected_output, dependencies=dependencies)
+
+    @classmethod
     def create_model_tool(
         cls,
         model: Optional[Union[Model, Text]] = None,
         function: Optional[Union[Function, Text]] = None,
         supplier: Optional[Union[Supplier, Text]] = None,
         description: Text = "",
+        parameters: Optional[Dict] = None,
     ) -> ModelTool:
         """Create a new model tool."""
         if function is not None and isinstance(function, str):
@@ -126,12 +167,11 @@ class AgentFactory:
         if supplier is not None:
             if isinstance(supplier, str):
                 for supplier_ in Supplier:
-                    if supplier.lower() in [supplier.value["code"].lower(), supplier.value["name"].lower()]:
+                    if supplier.lower() in [supplier_.value["code"].lower(), supplier_.value["name"].lower()]:
                         supplier = supplier_
                         break
-                if isinstance(supplier, str):
-                    supplier = None
-        return ModelTool(function=function, supplier=supplier, model=model, description=description)
+            assert isinstance(supplier, Supplier), f"Supplier {supplier} is not a valid supplier"
+        return ModelTool(function=function, supplier=supplier, model=model, description=description, parameters=parameters)
 
     @classmethod
     def create_pipeline_tool(cls, description: Text, pipeline: Union[Pipeline, Text]) -> PipelineTool:
