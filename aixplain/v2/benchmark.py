@@ -53,7 +53,7 @@ class Benchmark(
         return BenchmarkFactory.create(*args, **kwargs)
 
     @classmethod
-    def list_normalization_options(cls, metric: "Metric", model: "Model") -> list[str]:
+    def list_normalization_options(cls, metric: "Metric", model: "Model") -> List[str]:
         """
         List the normalization options for a metric and a model.
 
@@ -62,7 +62,7 @@ class Benchmark(
             model: "Model": The model.
 
         Returns:
-            list[str]: The list of normalization options.
+            List[str]: The list of normalization options.
         """
         from aixplain.factories import BenchmarkFactory
 
