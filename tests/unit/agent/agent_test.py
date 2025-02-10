@@ -86,7 +86,7 @@ def test_invalid_pipelinetool():
         AgentFactory.create(
             name="Test",
             description="Test Description",
-            role="Test Role",
+            instructions="Test Role",
             tools=[PipelineTool(pipeline="309851793", description="Test")],
             llm_id="6646261c6eb563165658bbb1",
         )
@@ -101,13 +101,13 @@ def test_invalid_modeltool():
 
 def test_invalid_llm_id():
     with pytest.raises(Exception) as exc_info:
-        AgentFactory.create(name="Test", description="", role="", tools=[], llm_id="123")
+        AgentFactory.create(name="Test", description="", instructions="", tools=[], llm_id="123")
     assert str(exc_info.value) == "Large Language Model with ID '123' not found."
 
 
 def test_invalid_agent_name():
     with pytest.raises(Exception) as exc_info:
-        AgentFactory.create(name="[Test]", description="", role="", tools=[], llm_id="6646261c6eb563165658bbb1")
+        AgentFactory.create(name="[Test]", description="", instructions="", tools=[], llm_id="6646261c6eb563165658bbb1")
     assert (
         str(exc_info.value)
         == "Agent Creation Error: Agent name contains invalid characters. Only alphanumeric characters, spaces, hyphens, and brackets are allowed."
@@ -188,7 +188,7 @@ def test_create_agent(mock_model_factory_get):
             agent = AgentFactory.create(
                 name="Test Agent(-)",
                 description="Test Agent Description",
-                role="Test Agent Role",
+                instructions="Test Agent Role",
                 llm_id="6646261c6eb563165658bbb1",
                 tools=[
                     AgentFactory.create_model_tool(
@@ -203,7 +203,7 @@ def test_create_agent(mock_model_factory_get):
 
     assert agent.name == ref_response["name"]
     assert agent.description == ref_response["description"]
-    assert agent.role == ref_response["role"]
+    assert agent.instructions == ref_response["role"]
     assert agent.llm_id == ref_response["llmId"]
     assert agent.tools[0].function.value == ref_response["assets"][0]["function"]
     assert agent.tools[0].description == ref_response["assets"][0]["description"]
@@ -221,7 +221,7 @@ def test_to_dict():
         id="",
         name="Test Agent(-)",
         description="Test Agent Description",
-        role="Test Agent Role",
+        instructions="Test Agent Role",
         llm_id="6646261c6eb563165658bbb1",
         tools=[AgentFactory.create_model_tool(function="text-generation")],
         api_key="test_api_key",
@@ -254,7 +254,7 @@ def test_update_success(mock_model_factory_get):
         id="123",
         name="Test Agent(-)",
         description="Test Agent Description",
-        role="Test Agent Role",
+        instructions="Test Agent Role",
         llm_id="6646261c6eb563165658bbb1",
         tools=[AgentFactory.create_model_tool(function="text-generation")],
     )
@@ -307,7 +307,7 @@ def test_update_success(mock_model_factory_get):
     assert agent.id == ref_response["id"]
     assert agent.name == ref_response["name"]
     assert agent.description == ref_response["description"]
-    assert agent.role == ref_response["role"]
+    assert agent.instructions == ref_response["role"]
     assert agent.llm_id == ref_response["llmId"]
     assert agent.tools[0].function.value == ref_response["assets"][0]["function"]
 
@@ -327,7 +327,7 @@ def test_save_success(mock_model_factory_get):
         id="123",
         name="Test Agent(-)",
         description="Test Agent Description",
-        role="Test Agent Role",
+        instructions="Test Agent Role",
         llm_id="6646261c6eb563165658bbb1",
         tools=[AgentFactory.create_model_tool(function="text-generation")],
     )
@@ -385,7 +385,7 @@ def test_save_success(mock_model_factory_get):
     assert agent.id == ref_response["id"]
     assert agent.name == ref_response["name"]
     assert agent.description == ref_response["description"]
-    assert agent.role == ref_response["role"]
+    assert agent.instructions == ref_response["role"]
     assert agent.llm_id == ref_response["llmId"]
     assert agent.tools[0].function.value == ref_response["assets"][0]["function"]
 
@@ -442,7 +442,7 @@ def test_agent_api_key_propagation():
         id="123",
         name="Test Agent",
         description="Test Description",
-        role="Test Agent Role",
+        instructions="Test Agent Role",
         tools=[tool],
         api_key=custom_api_key,
     )
@@ -456,7 +456,7 @@ def test_agent_api_key_propagation():
 def test_agent_default_api_key():
     """Test that the default api_key is used when none is provided"""
     tool = AgentFactory.create_model_tool(function="text-generation")
-    agent = Agent(id="123", name="Test Agent", description="Test Description", role="Test Agent Role", tools=[tool])
+    agent = Agent(id="123", name="Test Agent", description="Test Description", instructions="Test Agent Role", tools=[tool])
 
     # Check that the agent has the default api_key
     assert agent.api_key == config.TEAM_API_KEY
@@ -476,7 +476,12 @@ def test_agent_multiple_tools_api_key():
     ]
 
     agent = Agent(
-        id="123", name="Test Agent", description="Test Description", role="Test Agent Role", tools=tools, api_key=custom_api_key
+        id="123",
+        name="Test Agent",
+        description="Test Description",
+        instructions="Test Agent Role",
+        tools=tools,
+        api_key=custom_api_key,
     )
 
     # Check that all tools received the agent's api_key
@@ -487,7 +492,9 @@ def test_agent_multiple_tools_api_key():
 def test_agent_api_key_in_requests():
     """Test that the api_key is properly used in API requests"""
     custom_api_key = "custom_test_key"
-    agent = Agent(id="123", name="Test Agent", description="Test Description", role="Test Agent Role", api_key=custom_api_key)
+    agent = Agent(
+        id="123", name="Test Agent", description="Test Description", instructions="Test Agent Role", api_key=custom_api_key
+    )
 
     with requests_mock.Mocker() as mock:
         url = agent.url
