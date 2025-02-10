@@ -53,6 +53,7 @@ class Agent(Model):
         name (Text): Name of the Agent
         tools (List[Union[Tool, Model]]): List of tools that the Agent uses.
         description (Text, optional): description of the Agent. Defaults to "".
+        instructions (Text, optional): instructions of the Agent. Defaults to "".
         llm_id (Text): large language model. Defaults to GPT-4o (6646261c6eb563165658bbb1).
         supplier (Text): Supplier of the Agent.
         version (Text): Version of the Agent.
@@ -66,7 +67,7 @@ class Agent(Model):
         id: Text,
         name: Text,
         description: Text,
-        role: Text,
+        instructions: Text,
         tools: List[Union[Tool, Model]] = [],
         llm_id: Text = "6646261c6eb563165658bbb1",
         api_key: Optional[Text] = config.TEAM_API_KEY,
@@ -83,7 +84,7 @@ class Agent(Model):
             id (Text): ID of the Agent
             name (Text): Name of the Agent
             description (Text): description of the Agent.
-            role (Text): role of the Agent.
+            instructions (Text): instructions of the Agent.
             tools (List[Union[Tool, Model]]): List of tools that the Agent uses.
             llm_id (Text, optional): large language model. Defaults to GPT-4o (6646261c6eb563165658bbb1).
             supplier (Text): Supplier of the Agent.
@@ -93,7 +94,7 @@ class Agent(Model):
             cost (Dict, optional): model price. Defaults to None.
         """
         super().__init__(id, name, description, api_key, supplier, version, cost=cost)
-        self.role = role
+        self.instructions = instructions
         self.additional_info = additional_info
         self.tools = tools
         for i, _ in enumerate(tools):
@@ -318,7 +319,7 @@ class Agent(Model):
             "name": self.name,
             "assets": [tool.to_dict() for tool in self.tools],
             "description": self.description,
-            "role": self.role,
+            "role": self.instructions,
             "supplier": self.supplier.value["code"] if isinstance(self.supplier, Supplier) else self.supplier,
             "version": self.version,
             "llmId": self.llm_id,

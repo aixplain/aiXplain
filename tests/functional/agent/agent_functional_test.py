@@ -79,7 +79,7 @@ def test_end2end(run_input_map, delete_agents_and_team_agents, AgentFactory):
     agent = AgentFactory.create(
         name=run_input_map["agent_name"],
         description=run_input_map["agent_name"],
-        role=run_input_map["agent_name"],
+        instructions=run_input_map["agent_name"],
         llm_id=run_input_map["llm_id"],
         tools=tools,
     )
@@ -112,7 +112,7 @@ def test_python_interpreter_tool(delete_agents_and_team_agents, AgentFactory):
     agent = AgentFactory.create(
         name="Python Developer",
         description="A Python developer agent. If you get an error from a tool, try to fix it.",
-        role="A Python developer agent. If you get an error from a tool, try to fix it.",
+        instructions="A Python developer agent. If you get an error from a tool, try to fix it.",
         tools=[tool],
     )
     assert agent is not None
@@ -140,7 +140,7 @@ def test_custom_code_tool(delete_agents_and_team_agents, AgentFactory):
     agent = AgentFactory.create(
         name="Add Numbers Agent",
         description="Add two numbers. Do not directly answer. Use the tool to add the numbers.",
-        role="Add two numbers. Do not directly answer. Use the tool to add the numbers.",
+        instructions="Add two numbers. Do not directly answer. Use the tool to add the numbers.",
         tools=[tool],
     )
     assert agent is not None
@@ -183,7 +183,7 @@ def test_update_draft_agent(run_input_map, delete_agents_and_team_agents, AgentF
     agent = AgentFactory.create(
         name=run_input_map["agent_name"],
         description=run_input_map["agent_name"],
-        role=run_input_map["agent_name"],
+        instructions=run_input_map["agent_name"],
         llm_id=run_input_map["llm_id"],
         tools=tools,
     )
@@ -205,7 +205,7 @@ def test_fail_non_existent_llm(delete_agents_and_team_agents, AgentFactory):
         AgentFactory.create(
             name="Test Agent",
             description="Test description",
-            role="Test Agent Role",
+            instructions="Test Agent Role",
             llm_id="non_existent_llm",
             tools=[AgentFactory.create_model_tool(function=Function.TRANSLATION)],
         )
@@ -218,7 +218,7 @@ def test_delete_agent_in_use(delete_agents_and_team_agents, AgentFactory):
     agent = AgentFactory.create(
         name="Test Agent",
         description="Test description",
-        role="Test Agent Role",
+        instructions="Test Agent Role",
         tools=[AgentFactory.create_model_tool(function=Function.TRANSLATION)],
     )
     TeamAgentFactory.create(
@@ -240,7 +240,7 @@ def test_update_tools_of_agent(run_input_map, delete_agents_and_team_agents, Age
     agent = AgentFactory.create(
         name=run_input_map["agent_name"],
         description=run_input_map["agent_name"],
-        role=run_input_map["agent_name"],
+        instructions=run_input_map["agent_name"],
         llm_id=run_input_map["llm_id"],
     )
     assert agent is not None
