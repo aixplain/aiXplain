@@ -1,10 +1,8 @@
 import os
-import json
 import logging
-from datetime import datetime
 from enum import Enum
 from urllib.parse import urljoin
-from typing import Dict, Optional, Tuple, List
+from typing import Dict, Optional, Tuple
 from aixplain.utils import config
 from aixplain.utils.request_utils import _request_with_retry
 from aixplain.utils.cache_utils import save_to_cache, load_from_cache, CACHE_FOLDER
@@ -54,7 +52,7 @@ class AixplainCache:
             assets_data = response.json()
         except Exception as e:
             logging.error(f"Failed to fetch {self.asset_type} from API: {e}")
-            return Enum(self.asset_type.capitalize(), {}), {} 
+            return Enum(self.asset_type.capitalize(), {}), {}
 
         if "items" not in assets_data:
             return Enum(self.asset_type.capitalize(), {}), {}
@@ -104,11 +102,16 @@ class AixplainCache:
         return assets_enum, assets_details
 
 
-ModelCache = AixplainCache("models", "models")
-Model, ModelDetails = ModelCache.load_assets()
+if __name__ == "__main__":
+    ModelCache = AixplainCache("models", "models")
+    Model, ModelDetails = ModelCache.load_assets()
 
-PipelineCache = AixplainCache("pipelines", "pipelines")
-Pipeline, PipelineDetails = PipelineCache.load_assets()
+    PipelineCache = AixplainCache("pipelines", "pipelines")
+    Pipeline, PipelineDetails = PipelineCache.load_assets()
 
-AgentCache = AixplainCache("agents", "agents")
-Agent, AgentDetails = AgentCache.load_assets()
+    AgentCache = AixplainCache("agents", "agents")
+    Agent, AgentDetails = AgentCache.load_assets()
+
+    print(ModelDetails)
+    print(PipelineDetails)
+    print(AgentDetails)
