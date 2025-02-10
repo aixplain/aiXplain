@@ -82,7 +82,7 @@ def test_to_dict():
                 id="",
                 name="Test Agent(-)",
                 description="Test Agent Description",
-                role="Test Agent Role",
+                instructions="Test Agent Role",
                 llm_id="6646261c6eb563165658bbb1",
                 tools=[ModelTool(function="text-generation")],
             )
@@ -160,7 +160,7 @@ def test_create_team_agent(mock_model_factory_get):
         agent = AgentFactory.create(
             name="Test Agent(-)",
             description="Test Agent Description",
-            role="Test Agent Role",
+            instructions="Test Agent Role",
             llm_id="6646261c6eb563165658bbb1",
             tools=[ModelTool(model="6646261c6eb563165658bbb1")],
         )
@@ -234,7 +234,7 @@ def test_build_team_agent(mocker):
         id="agent1",
         name="Test Agent 1",
         description="Test Agent Description",
-        role="Test Agent Role",
+        instructions="Test Agent Role",
         llm_id="6646261c6eb563165658bbb1",
         tools=[ModelTool(model="6646261c6eb563165658bbb1")],
         tasks=[
@@ -251,7 +251,7 @@ def test_build_team_agent(mocker):
         id="agent2",
         name="Test Agent 2",
         description="Test Agent Description",
-        role="Test Agent Role",
+        instructions="Test Agent Role",
         llm_id="6646261c6eb563165658bbb1",
         tools=[ModelTool(model="6646261c6eb563165658bbb1")],
         tasks=[
