@@ -32,4 +32,4 @@ class Wallet:
         """
         self.total_balance = total_balance
         self.reserved_balance = reserved_balance
-        self.available_balance =  total_balance-reserved_balance
+        self.available_balance = total_balance - reserved_balance

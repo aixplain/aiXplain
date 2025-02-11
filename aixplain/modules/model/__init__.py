@@ -31,6 +31,9 @@ from urllib.parse import urljoin
 from aixplain.utils.file_utils import _request_with_retry
 from typing import Union, Optional, Text, Dict
 from datetime import datetime
+from aixplain.modules.model.response import ModelResponse
+from aixplain.enums.response_status import ResponseStatus
+from aixplain.modules.model.model_parameters import ModelParameters
 
 
 class Model(Asset):
@@ -49,14 +52,15 @@ class Model(Asset):
         backend_url (str): URL of the backend.
         pricing (Dict, optional): model price. Defaults to None.
         **additional_info: Any additional Model info to be saved
-        input_params (Dict, optional): input parameters for the function.
+        input_params (ModelParameters, optional): input parameters for the function.
         output_params (Dict, optional): output parameters for the function.
+        model_params (ModelParameters, optional): parameters for the function.
     """
 
     def __init__(
         self,
         id: Text,
-        name: Text,
+        name: Text = "",
         description: Text = "",
         api_key: Text = config.TEAM_API_KEY,
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
@@ -67,6 +71,7 @@ class Model(Asset):
         created_at: Optional[datetime] = None,
         input_params: Optional[Dict] = None,
         output_params: Optional[Dict] = None,
+        model_params: Optional[Dict] = None,
         **additional_info,
     ) -> None:
         """Model Init
@@ -81,6 +86,9 @@ class Model(Asset):
             function (Text, optional): model AI function. Defaults to None.
             is_subscribed (bool, optional): Is the user subscribed. Defaults to False.
             cost (Dict, optional): model price. Defaults to None.
+            input_params (Dict, optional): input parameters for the function.
+            output_params (Dict, optional): output parameters for the function.
+            model_params (Dict, optional): parameters for the function.
             **additional_info: Any additional Model info to be saved
         """
         super().__init__(id, name, description, supplier, version, cost=cost)
@@ -93,6 +101,7 @@ class Model(Asset):
         self.created_at = created_at
         self.input_params = input_params
         self.output_params = output_params
+        self.model_params = ModelParameters(model_params) if model_params else None
 
     def to_dict(self) -> Dict:
         """Get the model info as a Dictionary
@@ -104,11 +113,18 @@ class Model(Asset):
         return {
             "id": self.id,
             "name": self.name,
+            "description": self.description,
             "supplier": self.supplier,
             "additional_info": clean_additional_info,
             "input_params": self.input_params,
             "output_params": self.output_params,
+            "model_params": self.model_params.to_dict(),
         }
+
+    def get_parameters(self) -> ModelParameters:
+        if self.model_params:
+            return self.model_params
+        return None
 
     def __repr__(self):
         try:
@@ -116,7 +132,9 @@ class Model(Asset):
         except Exception:
             return f"<Model: {self.name} by {self.supplier}>"
 
-    def sync_poll(self, poll_url: Text, name: Text = "model_process", wait_time: float = 0.5, timeout: float = 300) -> Dict:
+    def sync_poll(
+        self, poll_url: Text, name: Text = "model_process", wait_time: float = 0.5, timeout: float = 300
+    ) -> ModelResponse:
         """Keeps polling the platform to check whether an asynchronous call is done.
 
         Args:
@@ -133,7 +151,7 @@ class Model(Asset):
         # keep wait time as 0.2 seconds the minimum
         wait_time = max(wait_time, 0.2)
         completed = False
-        response_body = {"status": "FAILED", "completed": False}
+        response_body = ModelResponse(status=ResponseStatus.FAILED, completed=False)
         while not completed and (end - start) < timeout:
             try:
                 response_body = self.poll(poll_url, name=name)
@@ -145,19 +163,23 @@ class Model(Asset):
                     if wait_time < 60:
                         wait_time *= 1.1
             except Exception as e:
-                response_body = {"status": "FAILED", "completed": False, "error": "No response from the service."}
+                response_body = ModelResponse(
+                    status=ResponseStatus.FAILED, completed=False, error_message="No response from the service."
+                )
                 logging.error(f"Polling for Model: polling for {name}: {e}")
                 break
         if response_body["completed"] is True:
             logging.debug(f"Polling for Model: Final status of polling for {name}: {response_body}")
         else:
-            response_body["status"] = "FAILED"
+            response_body = ModelResponse(
+                status=ResponseStatus.FAILED, completed=False, error_message="No response from the service."
+            )
             logging.error(
                 f"Polling for Model: Final status of polling for {name}: No response in {timeout} seconds - {response_body}"
             )
         return response_body
 
-    def poll(self, poll_url: Text, name: Text = "model_process") -> Dict:
+    def poll(self, poll_url: Text, name: Text = "model_process") -> ModelResponse:
         """Poll the platform to check whether an asynchronous call is done.
 
         Args:
@@ -172,32 +194,47 @@ class Model(Asset):
         try:
             resp = r.json()
             if resp["completed"] is True:
-                resp["status"] = "SUCCESS"
-                if "error" in resp or "supplierError" in resp:
-                    resp["status"] = "FAILED"
+                status = ResponseStatus.SUCCESS
+                if "error_message" in resp or "supplierError" in resp:
+                    status = ResponseStatus.FAILED
             else:
-                resp["status"] = "IN_PROGRESS"
+                status = ResponseStatus.IN_PROGRESS
             logging.debug(f"Single Poll for Model: Status of polling for {name}: {resp}")
+            return ModelResponse(
+                status=resp.pop("status", status),
+                data=resp.pop("data", ""),
+                details=resp.pop("details", {}),
+                completed=resp.pop("completed", False),
+                error_message=resp.pop("error_message", ""),
+                used_credits=resp.pop("usedCredits", 0),
+                run_time=resp.pop("runTime", 0),
+                usage=resp.pop("usage", None),
+                **resp,
+            )
         except Exception as e:
             resp = {"status": "FAILED"}
             logging.error(f"Single Poll for Model: Error of polling for {name}: {e}")
-        return resp
+            return ModelResponse(
+                status=ResponseStatus.FAILED,
+                error_message=str(e),
+                completed=False,
+            )
 
     def run(
         self,
         data: Union[Text, Dict],
         name: Text = "model_process",
         timeout: float = 300,
-        parameters: Dict = {},
+        parameters: Optional[Dict] = None,
         wait_time: float = 0.5,
-    ) -> Dict:
+    ) -> ModelResponse:
         """Runs a model call.
 
         Args:
             data (Union[Text, Dict]): link to the input data
             name (Text, optional): ID given to a call. Defaults to "model_process".
             timeout (float, optional): total polling time. Defaults to 300.
-            parameters (Dict, optional): optional parameters to the model. Defaults to "{}".
+            parameters (Dict, optional): optional parameters to the model. Defaults to None.
             wait_time (float, optional): wait time in seconds between polling calls. Defaults to 0.5.
 
         Returns:
@@ -212,21 +249,33 @@ class Model(Asset):
             try:
                 poll_url = response["url"]
                 end = time.time()
-                response = self.sync_poll(poll_url, name=name, timeout=timeout, wait_time=wait_time)
+                return self.sync_poll(poll_url, name=name, timeout=timeout, wait_time=wait_time)
             except Exception as e:
                 msg = f"Error in request for {name} - {traceback.format_exc()}"
                 logging.error(f"Model Run: Error in running for {name}: {e}")
                 end = time.time()
-                response = {"status": "FAILED", "error": msg, "elapsed_time": end - start}
-        return response
+                response = {"status": "FAILED", "error_message": msg, "runTime": end - start}
+        return ModelResponse(
+            status=response.pop("status", ResponseStatus.FAILED),
+            data=response.pop("data", ""),
+            details=response.pop("details", {}),
+            completed=response.pop("completed", False),
+            error_message=response.pop("error_message", ""),
+            used_credits=response.pop("usedCredits", 0),
+            run_time=response.pop("runTime", 0),
+            usage=response.pop("usage", None),
+            **response,
+        )
 
-    def run_async(self, data: Union[Text, Dict], name: Text = "model_process", parameters: Dict = {}) -> Dict:
+    def run_async(
+        self, data: Union[Text, Dict], name: Text = "model_process", parameters: Optional[Dict] = None
+    ) -> ModelResponse:
         """Runs asynchronously a model call.
 
         Args:
             data (Union[Text, Dict]): link to the input data
             name (Text, optional): ID given to a call. Defaults to "model_process".
-            parameters (Dict, optional): optional parameters to the model. Defaults to "{}".
+            parameters (Dict, optional): optional parameters to the model. Defaults to None.
 
         Returns:
             dict: polling URL in response
@@ -235,7 +284,15 @@ class Model(Asset):
         logging.debug(f"Model Run Async: Start service for {name} - {url}")
         payload = build_payload(data=data, parameters=parameters)
         response = call_run_endpoint(payload=payload, url=url, api_key=self.api_key)
-        return response
+        return ModelResponse(
+            status=response.pop("status", ResponseStatus.FAILED),
+            data=response.pop("data", ""),
+            details=response.pop("details", {}),
+            completed=response.pop("completed", False),
+            error_message=response.pop("error_message", ""),
+            url=response.pop("url", None),
+            **response,
+        )
 
     def check_finetune_status(self, after_epoch: Optional[int] = None):
         """Check the status of the FineTune model.

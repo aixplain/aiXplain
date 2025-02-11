@@ -122,12 +122,8 @@ def upload_data(
                 tags = []
             payload = {"contentType": content_type, "originalName": file_name, "tags": ",".join(tags), "license": license.value}
 
-        if config.AIXPLAIN_API_KEY != "":
-            team_key = config.AIXPLAIN_API_KEY
-            headers = {"x-aixplain-key": team_key}
-        else:
-            team_key = config.TEAM_API_KEY
-            headers = {"Authorization": "token " + team_key}
+        team_key = config.TEAM_API_KEY
+        headers = {"Authorization": "token " + team_key}
 
         r = _request_with_retry("post", url, headers=headers, data=payload)
         response = r.json()
@@ -157,7 +153,7 @@ def upload_data(
             raise Exception("File Uploading Error: Failure on Uploading to S3.")
 
 
-def s3_to_csv(s3_url: Text, aws_credentials: Dict) -> Text:
+def s3_to_csv(s3_url: Text, aws_credentials: Optional[Dict[Text, Text]] = {"AWS_ACCESS_KEY_ID": None, "AWS_SECRET_ACCESS_KEY": None}) -> Text:
     """Convert s3 url to a csv file and download the file in `download_path`
 
     Args:

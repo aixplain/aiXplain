@@ -1,25 +1,26 @@
 from dataclasses import dataclass
-from typing import Any, Optional, Dict, List, Union, Text
-from aixplain.enums import Status 
+from typing import Any, Optional, Dict, Text
+from aixplain.enums import ResponseStatus
+
 
 @dataclass
 class PipelineResponse:
-    
     def __init__(
         self,
-        status: Status, 
+        status: ResponseStatus,
         error: Optional[Dict[str, Any]] = None,
         elapsed_time: Optional[float] = 0.0,
         data: Optional[Text] = None,
-        url: Optional[Text]="",
-        **kwargs,  
+        url: Optional[Text] = "",
+        **kwargs,
     ):
         self.status = status
         self.error = error
         self.elapsed_time = elapsed_time
-        self.data = data 
+        self.data = data
         self.additional_fields = kwargs
-        self.url=url
+        self.url = url
+
     def __getitem__(self, key: str) -> Any:
         if key in self.__dict__:
             return self.__dict__[key]
@@ -28,7 +29,7 @@ class PipelineResponse:
             return self.additional_fields[key]
 
         raise KeyError(f"Key '{key}' not found in PipelineResponse.")
-    
+
     def get(self, key: str) -> Any:
         return self[key]
 

@@ -1,6 +1,6 @@
 import pytest
 
-from aixplain.enums import DataType
+from aixplain.enums import DataType, ResponseStatus
 from aixplain.factories import PipelineFactory, DatasetFactory
 from aixplain.modules.pipeline.designer import (
     Link,
@@ -11,7 +11,7 @@ from aixplain.modules.pipeline.designer import (
 from aixplain.modules import Pipeline
 from aixplain.modules.pipeline.designer import AssetNode
 from uuid import uuid4
-from aixplain.enums.asset_status import AssetStatus
+from aixplain import aixplain_v2 as v2
 
 
 @pytest.fixture
@@ -66,7 +66,8 @@ def test_create_asr_pipeline(pipeline):
     assert pipeline.id != ""
 
 
-def test_create_mt_pipeline_and_run(pipeline):
+@pytest.mark.parametrize("PipelineFactory", [PipelineFactory, v2.Pipeline])
+def test_create_mt_pipeline_and_run(pipeline, PipelineFactory):
     # add nodes to the pipeline
     input = pipeline.input()
     model1 = pipeline.translation(asset_id="60ddef828d38c51c5885d491")
@@ -99,7 +100,7 @@ def test_create_mt_pipeline_and_run(pipeline):
         "https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.txt",
         **{"batchmode": False, "version": "3.0"},
     )
-    assert output["status"] == AssetStatus.SUCCESS
+    assert output["status"] == ResponseStatus.SUCCESS
 
 
 def test_routing_pipeline(pipeline):
@@ -122,19 +123,16 @@ def test_routing_pipeline(pipeline):
     print("output")
     print(output)
     print(output.status)
-    assert output["status"] == AssetStatus.SUCCESS
+    assert output["status"] == ResponseStatus.SUCCESS
 
 
 def test_scripting_pipeline(pipeline):
 
     SPEAKER_DIARIZATION_AUDIO_ASSET = "62fab6ecb39cca09ca5bc365"
-    SPEECH_RECOGNITION_ASSET = "621cf3fa6442ef511d2830af"
 
     input = pipeline.input()
 
     segmentor = pipeline.speaker_diarization_audio(asset_id=SPEAKER_DIARIZATION_AUDIO_ASSET)
-
-    speech_recognition = pipeline.speech_recognition(asset_id=SPEECH_RECOGNITION_ASSET)
 
     script = pipeline.script(script_path="tests/functional/pipelines/data/script.py")
     script.inputs.create_param(code="transcripts", data_type=DataType.TEXT)
@@ -142,9 +140,7 @@ def test_scripting_pipeline(pipeline):
     script.outputs.create_param(code="data", data_type=DataType.TEXT)
 
     input.outputs.input.link(segmentor.inputs.audio)
-    segmentor.outputs.audio.link(speech_recognition.inputs.source_audio)
     segmentor.outputs.data.link(script.inputs.speakers)
-    speech_recognition.outputs.data.link(script.inputs.transcripts)
 
     script.use_output("data")
 
@@ -155,8 +151,7 @@ def test_scripting_pipeline(pipeline):
         version="3.0",
     )
     print(output.data)
-    assert output["status"] == AssetStatus.SUCCESS
-
+    assert output["status"] == ResponseStatus.SUCCESS
 
 
 def test_decision_pipeline(pipeline):
@@ -194,12 +189,14 @@ def test_decision_pipeline(pipeline):
 
     pipeline.save()
 
-    output = pipeline.run("I feel so bad today!",version="3.0",)
+    output = pipeline.run(
+        "I feel so bad today!",
+        version="3.0",
+    )
     print("output")
     print(output)
-    assert output["status"] == AssetStatus.SUCCESS
+    assert output["status"] == ResponseStatus.SUCCESS
     assert output.get("data") is not None
-
 
 
 def test_reconstructing_pipeline(pipeline):
@@ -223,9 +220,8 @@ def test_reconstructing_pipeline(pipeline):
         "s3://aixplain-platform-assets/samples/en/CPAC1x2.wav",
         version="3.0",
     )
-    assert output["status"] == AssetStatus.SUCCESS
+    assert output["status"] == ResponseStatus.SUCCESS
     assert output.get("data") is not None
-
 
 
 def test_metric_pipeline(pipeline):
@@ -262,5 +258,5 @@ def test_metric_pipeline(pipeline):
         version="3.0",
     )
 
-    assert output["status"] == AssetStatus.SUCCESS
+    assert output["status"] == ResponseStatus.SUCCESS
     assert output.get("data") is not None

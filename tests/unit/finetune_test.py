@@ -68,6 +68,7 @@ def test_create():
     assert finetune.model.id == test_model
     assert finetune.cost.to_dict() == cost_estimation_map
 
+
 def test_create_exception():
     model_map = read_data(MODEL_FILE)
     with requests_mock.Mocker() as mock:
@@ -109,14 +110,15 @@ def test_start():
     assert fine_tuned_model is not None
     assert fine_tuned_model.id == model_map["id"]
 
+
 @pytest.mark.parametrize(
-    "input_path,after_epoch,training_loss,validation_loss", 
+    "input_path,after_epoch,training_loss,validation_loss",
     [
-        (FINETUNE_STATUS_FILE, None, 0.4, 0.0217), 
+        (FINETUNE_STATUS_FILE, None, 0.4, 0.0217),
         (FINETUNE_STATUS_FILE, 1, 0.2, 0.0482),
-        (FINETUNE_STATUS_FILE_2, None, 2.657801408034, 2.596168756485), 
-        (FINETUNE_STATUS_FILE_2, 0, None, 2.684150457382)
-    ]
+        (FINETUNE_STATUS_FILE_2, None, 2.657801408034, 2.596168756485),
+        (FINETUNE_STATUS_FILE_2, 0, None, 2.684150457382),
+    ],
 )
 def test_check_finetuner_status(input_path, after_epoch, training_loss, validation_loss):
     model_map = read_data(input_path)

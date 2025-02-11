@@ -1,15 +1,9 @@
 from typing import List, Union, Type, TYPE_CHECKING, Optional
 
 from aixplain.modules import Model
-from aixplain.enums import DataType
+from aixplain.enums import DataType, Function
 
-from .enums import (
-    NodeType,
-    FunctionType,
-    RouteType,
-    Operation,
-    AssetType,
-)
+from .enums import NodeType, FunctionType, RouteType, Operation, AssetType
 from .base import (
     Node,
     Link,
@@ -85,32 +79,59 @@ class AssetNode(Node[TI, TO], LinkableMixin, OutputableMixin):
 
         if self.function:
             if self.asset.function.value != self.function:
-                raise ValueError(f"Function {self.function} is not supported by asset {self.asset_id}")  # noqa
+                raise ValueError(
+                    f"Function {self.function} is not supported by asset {self.asset_id}"
+                )
         else:
             self.function = self.asset.function.value
-            self._auto_populate_params()
 
+        self._auto_populate_params()
         self._auto_set_params()
 
     def _auto_populate_params(self):
         from aixplain.enums.function import FunctionInputOutput
 
-        spec = FunctionInputOutput[self.asset.function.value]["spec"]
-        for item in spec["params"]:
-            self.inputs.create_param(
-                code=item["code"],
-                data_type=item["dataType"],
-                is_required=item["required"],
-            )
+        spec = FunctionInputOutput[self.function]["spec"]
+
+        # When the node is a utility, we need to create it's input parameters
+        # dynamically by referring the node data.
+        if self.function == Function.UTILITIES:
+            for param in self.asset.input_params.values():
+                self.inputs.create_param(
+                    code=param["name"],
+                    data_type=param["dataType"],
+                    is_required=param["required"],
+                )
+        else:
+            for item in spec["params"]:
+                if item["code"] not in self.inputs:
+                    self.inputs.create_param(
+                        code=item["code"],
+                        data_type=item["dataType"],
+                        is_required=item["required"],
+                    )
+
+            if self.asset.model_params:
+                for code, param in self.asset.model_params.parameters.items():
+                    if code not in self.inputs:
+                        self.inputs.create_param(
+                            code=code,
+                            is_required=param.required,
+                            value=param.value,
+                        )
 
         for item in spec["output"]:
-            self.outputs.create_param(
-                code=item["code"],
-                data_type=item["dataType"],
-            )
+            if item["code"] not in self.outputs:
+                self.outputs.create_param(
+                    code=item["code"],
+                    data_type=item["dataType"],
+                )
 
     def _auto_set_params(self):
         for k, v in self.asset.additional_info["parameters"].items():
+            if k not in self.inputs:
+                continue
+
             if isinstance(v, list):
                 self.inputs[k] = v[0]
             else:
@@ -138,6 +159,11 @@ class BareAssetOutputs(Outputs):
 
 class BareAsset(AssetNode[BareAssetInputs, BareAssetOutputs]):
     pass
+
+
+class Utility(AssetNode[BareAssetInputs, BareAssetOutputs]):
+
+    function = "utilities"
 
 
 class InputInputs(Inputs):
@@ -217,7 +243,12 @@ class Output(Node[OutputInputs, OutputOutputs]):
     inputs_class: Type[TI] = OutputInputs
     outputs_class: Type[TO] = OutputOutputs
 
-    def __init__(self, data_types: Optional[List[DataType]] = None, pipeline: "DesignerPipeline" = None, **kwargs):
+    def __init__(
+        self,
+        data_types: Optional[List[DataType]] = None,
+        pipeline: "DesignerPipeline" = None,
+        **kwargs
+    ):
         super().__init__(pipeline=pipeline, **kwargs)
         self.data_types = data_types or []
 
@@ -278,7 +309,14 @@ class Route(Serializable):
     operation: Operation
     type: RouteType
 
-    def __init__(self, value: DataType, path: List[Union[Node, int]], operation: Operation, type: RouteType, **kwargs):
+    def __init__(
+        self,
+        value: DataType,
+        path: List[Union[Node, int]],
+        operation: Operation,
+        type: RouteType,
+        **kwargs
+    ):
         """
         Post init method to convert the nodes to node numbers if they are
         nodes.
@@ -288,11 +326,14 @@ class Route(Serializable):
         self.operation = operation
         self.type = type
 
-        if not self.path:
-            raise ValueError("Path is not valid, should be a list of nodes")
+        # Path can be an empty list in case the user has a valid case
+        # if not self.path:
+        #     raise ValueError("Path is not valid, should be a list of nodes")
 
         # convert nodes to node numbers if they are nodes
-        self.path = [node.number if isinstance(node, Node) else node for node in self.path]
+        self.path = [
+            node.number if isinstance(node, Node) else node for node in self.path
+        ]
 
     def serialize(self) -> dict:
         return {
@@ -330,7 +371,9 @@ class Router(Node[RouterInputs, RouterOutputs], LinkableMixin):
     inputs_class: Type[TI] = RouterInputs
     outputs_class: Type[TO] = RouterOutputs
 
-    def __init__(self, routes: List[Route], pipeline: "DesignerPipeline" = None, **kwargs):
+    def __init__(
+        self, routes: List[Route], pipeline: "DesignerPipeline" = None, **kwargs
+    ):
         super().__init__(pipeline=pipeline, **kwargs)
         self.routes = routes
 
@@ -369,7 +412,9 @@ class Decision(Node[DecisionInputs, DecisionOutputs], LinkableMixin):
     inputs_class: Type[TI] = DecisionInputs
     outputs_class: Type[TO] = DecisionOutputs
 
-    def __init__(self, routes: List[Route], pipeline: "DesignerPipeline" = None, **kwargs):
+    def __init__(
+        self, routes: List[Route], pipeline: "DesignerPipeline" = None, **kwargs
+    ):
         super().__init__(pipeline=pipeline, **kwargs)
         self.routes = routes
 
@@ -434,19 +479,11 @@ class BaseReconstructor(AssetNode[TI, TO]):
 
 
 class ReconstructorInputs(Inputs):
-    data: InputParam = None
-
-    def __init__(self, node: Node):
-        super().__init__(node)
-        self.data = self.create_param("data")
+    pass
 
 
 class ReconstructorOutputs(Outputs):
-    data: OutputParam = None
-
-    def __init__(self, node: Node):
-        super().__init__(node)
-        self.data = self.create_param("data")
+    pass
 
 
 class BareReconstructor(BaseReconstructor[ReconstructorInputs, ReconstructorOutputs]):

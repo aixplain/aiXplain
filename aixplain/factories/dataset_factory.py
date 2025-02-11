@@ -57,7 +57,6 @@ class DatasetFactory(AssetFactory):
         backend_url (str): The URL for the backend.
     """
 
-    aixplain_key = config.AIXPLAIN_API_KEY
     backend_url = config.BACKEND_URL
 
     @classmethod
@@ -164,10 +163,8 @@ class DatasetFactory(AssetFactory):
         """
         try:
             url = urljoin(cls.backend_url, f"sdk/datasets/{dataset_id}/overview")
-            if cls.aixplain_key != "":
-                headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
-            else:
-                headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+
+            headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
             logging.info(f"Start service for GET Dataset  - {url} - {headers}")
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()
@@ -214,10 +211,8 @@ class DatasetFactory(AssetFactory):
             Dict: list of datasets in agreement with the filters, page number, page total and total elements
         """
         url = urljoin(cls.backend_url, "sdk/datasets/paginate")
-        if cls.aixplain_key != "":
-            headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
-        else:
-            headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+
+        headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
 
         assert 0 < page_size <= 100, "Dataset List Error: Page size must be greater than 0 and not exceed 100."
         payload = {

@@ -20,24 +20,23 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-# Set default logging handler to avoid "No handler found" warnings.
 import os
 import logging
-from logging import NullHandler
-
-LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO").upper()
-logging.basicConfig(level=LOG_LEVEL)
-logging.getLogger(__name__).addHandler(NullHandler())
-
-# Load Environment Variables
 from dotenv import load_dotenv
 
 load_dotenv()
 
-# Validate API keys
-from aixplain.utils import config
+from .v2.core import Aixplain  # noqa
 
-if config.TEAM_API_KEY == "" and config.AIXPLAIN_API_KEY == "":
-    raise Exception(
-        "'TEAM_API_KEY' has not been set properly and is empty. For help, please refer to the documentation (https://github.com/aixplain/aixplain#api-key-setup)"
-    )
+LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO").upper()
+logging.basicConfig(level=LOG_LEVEL)
+
+
+aixplain_v2 = None
+try:
+    aixplain_v2 = Aixplain()
+except Exception:
+    pass
+
+
+__all__ = ["Aixplain", "aixplain_v2"]

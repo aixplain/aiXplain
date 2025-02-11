@@ -1,10 +1,19 @@
-import pathlib
-
+import re
 import requests
 from urllib.parse import urljoin
 from jinja2 import Environment, BaseLoader
 
 from aixplain.utils import config
+from aixplain.enums import Function
+
+
+def enumify(s):
+    """Slugify a string and convert to uppercase"""
+    s = re.sub(r"\s+", "_", s)
+    s = re.sub(r"[-.]+", "_", s)
+    s = re.sub(r"[^a-zA-Z0-9-_.]+", "", s)
+    return s.upper()
+
 
 SEGMENTOR_FUNCTIONS = [
     "split-on-linebreak",
@@ -14,8 +23,41 @@ SEGMENTOR_FUNCTIONS = [
 
 RECONSTRUCTOR_FUNCTIONS = ["text-reconstruction", "audio-reconstruction"]
 
-MODULE_NAME = "pipeline"
-TEMPLATE = """# This is an auto generated module. PLEASE DO NOT EDIT
+ENUMS_MODULE_PATH = "aixplain/v2/enums.py"
+ENUMS_MODULE_TEMPLATE = """# This is an auto generated module. PLEASE DO NOT EDIT
+
+
+from enum import Enum
+from .enums_include import *  # noqa
+
+
+class Function(str, Enum):
+    {% for function in functions %}
+    {{ function.id|enumify }} = "{{ function.id }}"
+    {% endfor %}
+
+class Supplier(Enum):
+    {% for supplier in suppliers %}
+    {{ supplier.code|enumify }} = {"id": "{{ supplier.id }}", "name": "{{ supplier.name }}", "code": "{{ supplier.code }}"}
+    {% endfor %}
+
+class Language(Enum):
+    {% for language in languages %}
+    {{ language.label|enumify }} = {"language": "{{ language.value }}", "dialect": ""}
+    {% for dialect in language.dialects %}
+    {{ language.label|enumify }}_{{ dialect.label|enumify }} = {"language": "{{ language.value }}", "dialect": "{{ dialect.value }}"}
+    {% endfor %}
+    {% endfor %}
+
+class License(str, Enum):
+    {% for license in licenses %}
+    {{ license.name|enumify }} = "{{ license.id }}"
+    {% endfor %}
+
+"""
+
+PIPELINE_MODULE_PATH = "aixplain/modules/pipeline/pipeline.py"
+PIPELINE_MODULE_TEMPLATE = """# This is an auto generated module. PLEASE DO NOT EDIT
 
 
 from typing import Union, Type
@@ -98,33 +140,56 @@ class Pipeline(DefaultPipeline):
 """
 
 
-def fetch_functions():
+def api_request(path: str):
     """
     Fetch functions from the backend
     """
     api_key = config.TEAM_API_KEY
-    aixplain_key = config.AIXPLAIN_API_KEY
+
     backend_url = config.BACKEND_URL
 
-    url = urljoin(backend_url, "sdk/functions")
+    url = urljoin(backend_url, f"sdk/{path}")
     headers = {
         "Content-Type": "application/json",
     }
 
-    if aixplain_key:
-        headers["x-aixplain-key"] = aixplain_key
-    else:
-        headers["x-api-key"] = api_key
+    headers["x-api-key"] = api_key
 
     r = requests.get(url, headers=headers)
     try:
         r.raise_for_status()
     except requests.exceptions.HTTPError as e:
-        print("Functions could not be loaded, see error below")
+        print(f"{path} could not be loaded, see error below")
         raise e
+    return r.json()
 
-    resp = r.json()
-    return resp["items"]
+
+def fetch_functions():
+    """
+    Fetch functions from the backend
+    """
+    return api_request("functions")["items"]
+
+
+def fetch_suppliers():
+    """
+    Fetch suppliers from the backend
+    """
+    return api_request("suppliers")
+
+
+def fetch_languages():
+    """
+    Fetch languages from the backend
+    """
+    return api_request("languages")
+
+
+def fetch_licenses():
+    """
+    Fetch licenses from the backend
+    """
+    return api_request("licenses")
 
 
 def populate_data_types(functions: list):
@@ -146,14 +211,14 @@ def populate_specs(functions: list):
     """
     function_class_specs = []
     for function in functions:
+        # Utility functions has dynamic input parameters so they are not
+        # subject to static class generation
+        if function["id"] == Function.UTILITIES:
+            continue
+
         # slugify function name by trimming some special chars and
         # transforming it to snake case
-        function_name = (
-            function["id"]
-            .replace("-", "_")
-            .replace("(", "_")
-            .replace(")", "_")
-        )
+        function_name = function["id"].replace("-", "_").replace("(", "_").replace(")", "_")
         base_class = "AssetNode"
         is_segmentor = function["id"] in SEGMENTOR_FUNCTIONS
         is_reconstructor = function["id"] in RECONSTRUCTOR_FUNCTIONS
@@ -170,9 +235,7 @@ def populate_specs(functions: list):
             "is_reconstructor": function["id"] in RECONSTRUCTOR_FUNCTIONS,
             "function_name": function_name,
             "base_class": base_class,
-            "class_name": "".join(
-                [w.title() for w in function_name.split("_")]
-            ),
+            "class_name": "".join([w.title() for w in function_name.split("_")]),
             "description": function["metaData"]["description"],
             "input_type": function["metaData"]["InputType"],
             "output_type": function["metaData"]["OutputType"],
@@ -206,25 +269,30 @@ if __name__ == "__main__":
     print("Fetching function specs")
 
     functions = fetch_functions()
+    suppliers = fetch_suppliers()
+    languages = fetch_languages()
+    licenses = fetch_licenses()
     data_types = populate_data_types(functions)
     specs = populate_specs(functions)
 
-    print(
-        f"Populating module with {len(data_types)} data types and {len(specs)} specs"
-    )
+    print(f"Populating module with {len(data_types)} data types and {len(specs)} specs")
     env = Environment(
         loader=BaseLoader(),
         trim_blocks=True,
         lstrip_blocks=True,
     )
-    template = env.from_string(TEMPLATE)
-    output = template.render(data_types=data_types, specs=specs)
+    env.filters["enumify"] = enumify
+    pipeline_template = env.from_string(PIPELINE_MODULE_TEMPLATE)
+    pipeline_output = pipeline_template.render(data_types=data_types, specs=specs)
 
-    current_dir = pathlib.Path(__file__).parent
-    file_path = current_dir / f"{MODULE_NAME}.py"
+    print(f"Writing module to file: {PIPELINE_MODULE_PATH}")
+    with open(PIPELINE_MODULE_PATH, "w") as f:
+        f.write(pipeline_output)
 
-    print(f"Writing module to file: {file_path}")
-    with open(file_path, "w") as f:
-        f.write(output)
+    enums_template = env.from_string(ENUMS_MODULE_TEMPLATE)
+    enums_output = enums_template.render(functions=functions, suppliers=suppliers, languages=languages, licenses=licenses)
+    print(f"Writing module to file: {ENUMS_MODULE_PATH}")
+    with open(ENUMS_MODULE_PATH, "w") as f:
+        f.write(enums_output)
 
-    print("Module generated successfully")
+    print("Modules generated successfully")

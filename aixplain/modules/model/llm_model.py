@@ -28,6 +28,8 @@ from aixplain.modules.model import Model
 from aixplain.modules.model.utils import build_payload, call_run_endpoint
 from aixplain.utils import config
 from typing import Union, Optional, List, Text, Dict
+from aixplain.modules.model.response import ModelResponse
+from aixplain.enums.response_status import ResponseStatus
 
 
 class LLM(Model):
@@ -59,6 +61,7 @@ class LLM(Model):
         function: Optional[Function] = None,
         is_subscribed: bool = False,
         cost: Optional[Dict] = None,
+        temperature: float = 0.001,
         **additional_info,
     ) -> None:
         """LLM Init
@@ -90,6 +93,7 @@ class LLM(Model):
         )
         self.url = config.MODELS_RUN_URL
         self.backend_url = config.BACKEND_URL
+        self.temperature = temperature
 
     def run(
         self,
@@ -97,14 +101,14 @@ class LLM(Model):
         context: Optional[Text] = None,
         prompt: Optional[Text] = None,
         history: Optional[List[Dict]] = None,
-        temperature: float = 0.001,
+        temperature: Optional[float] = None,
         max_tokens: int = 128,
         top_p: float = 1.0,
         name: Text = "model_process",
         timeout: float = 300,
-        parameters: Dict = {},
+        parameters: Optional[Dict] = None,
         wait_time: float = 0.5,
-    ) -> Dict:
+    ) -> ModelResponse:
         """Synchronously running a Large Language Model (LLM) model.
 
         Args:
@@ -112,29 +116,33 @@ class LLM(Model):
             context (Optional[Text], optional): System message. Defaults to None.
             prompt (Optional[Text], optional): Prompt Message which comes on the left side of the last utterance. Defaults to None.
             history (Optional[List[Dict]], optional): Conversation history in OpenAI format ([{ "role": "assistant", "content": "Hello, world!"}]). Defaults to None.
-            temperature (float, optional): LLM temperature. Defaults to 0.001.
+            temperature (Optional[float], optional): LLM temperature. Defaults to None.
             max_tokens (int, optional): Maximum Generation Tokens. Defaults to 128.
             top_p (float, optional): Top P. Defaults to 1.0.
             name (Text, optional): ID given to a call. Defaults to "model_process".
             timeout (float, optional): total polling time. Defaults to 300.
-            parameters (Dict, optional): optional parameters to the model. Defaults to "{}".
+            parameters (Dict, optional): optional parameters to the model. Defaults to None.
             wait_time (float, optional): wait time in seconds between polling calls. Defaults to 0.5.
 
         Returns:
             Dict: parsed output from model
         """
         start = time.time()
-        parameters.update(
-            {
-                "context": parameters["context"] if "context" in parameters else context,
-                "prompt": parameters["prompt"] if "prompt" in parameters else prompt,
-                "history": parameters["history"] if "history" in parameters else history,
-                "temperature": parameters["temperature"] if "temperature" in parameters else temperature,
-                "max_tokens": parameters["max_tokens"] if "max_tokens" in parameters else max_tokens,
-                "top_p": parameters["top_p"] if "top_p" in parameters else top_p,
-            }
-        )
+        parameters = parameters or {}
+
+        if isinstance(data, dict):
+            parameters = {**data, **parameters}
+            data = data.get("data", "")
+
+        parameters.setdefault("context", context)
+        parameters.setdefault("prompt", prompt)
+        parameters.setdefault("history", history)
+        parameters.setdefault("temperature", temperature if temperature is not None else self.temperature)
+        parameters.setdefault("max_tokens", max_tokens)
+        parameters.setdefault("top_p", top_p)
+
         payload = build_payload(data=data, parameters=parameters)
+        logging.info(payload)
         url = f"{self.url}/{self.id}".replace("/api/v1/execute", "/api/v2/execute")
         logging.debug(f"Model Run Sync: Start service for {name} - {url}")
         response = call_run_endpoint(payload=payload, url=url, api_key=self.api_key)
@@ -142,13 +150,24 @@ class LLM(Model):
             try:
                 poll_url = response["url"]
                 end = time.time()
-                response = self.sync_poll(poll_url, name=name, timeout=timeout, wait_time=wait_time)
+                return self.sync_poll(poll_url, name=name, timeout=timeout, wait_time=wait_time)
+
             except Exception as e:
                 msg = f"Error in request for {name} - {traceback.format_exc()}"
                 logging.error(f"Model Run: Error in running for {name}: {e}")
                 end = time.time()
                 response = {"status": "FAILED", "error": msg, "elapsed_time": end - start}
-        return response
+        return ModelResponse(
+            status=response.pop("status", ResponseStatus.FAILED),
+            data=response.pop("data", ""),
+            details=response.pop("details", {}),
+            completed=response.pop("completed", False),
+            error_message=response.pop("error_message", ""),
+            used_credits=response.pop("usedCredits", 0),
+            run_time=response.pop("runTime", 0),
+            usage=response.pop("usage", None),
+            **response,
+        )
 
     def run_async(
         self,
@@ -156,12 +175,12 @@ class LLM(Model):
         context: Optional[Text] = None,
         prompt: Optional[Text] = None,
         history: Optional[List[Dict]] = None,
-        temperature: float = 0.001,
+        temperature: Optional[float] = None,
         max_tokens: int = 128,
         top_p: float = 1.0,
         name: Text = "model_process",
-        parameters: Dict = {},
-    ) -> Dict:
+        parameters: Optional[Dict] = None,
+    ) -> ModelResponse:
         """Runs asynchronously a model call.
 
         Args:
@@ -169,27 +188,37 @@ class LLM(Model):
             context (Optional[Text], optional): System message. Defaults to None.
             prompt (Optional[Text], optional): Prompt Message which comes on the left side of the last utterance. Defaults to None.
             history (Optional[List[Dict]], optional): Conversation history in OpenAI format ([{ "role": "assistant", "content": "Hello, world!"}]). Defaults to None.
-            temperature (float, optional): LLM temperature. Defaults to 0.001.
+            temperature (Optional[float], optional): LLM temperature. Defaults to None.
             max_tokens (int, optional): Maximum Generation Tokens. Defaults to 128.
             top_p (float, optional): Top P. Defaults to 1.0.
             name (Text, optional): ID given to a call. Defaults to "model_process".
-            parameters (Dict, optional): optional parameters to the model. Defaults to "{}".
+            parameters (Dict, optional): optional parameters to the model. Defaults to None.
 
         Returns:
             dict: polling URL in response
         """
         url = f"{self.url}/{self.id}"
         logging.debug(f"Model Run Async: Start service for {name} - {url}")
-        parameters.update(
-            {
-                "context": parameters["context"] if "context" in parameters else context,
-                "prompt": parameters["prompt"] if "prompt" in parameters else prompt,
-                "history": parameters["history"] if "history" in parameters else history,
-                "temperature": parameters["temperature"] if "temperature" in parameters else temperature,
-                "max_tokens": parameters["max_tokens"] if "max_tokens" in parameters else max_tokens,
-                "top_p": parameters["top_p"] if "top_p" in parameters else top_p,
-            }
-        )
+        parameters = parameters or {}
+
+        if isinstance(data, dict):
+            parameters = {**data, **parameters}
+            data = data.get("data", "")
+
+        parameters.setdefault("context", context)
+        parameters.setdefault("prompt", prompt)
+        parameters.setdefault("history", history)
+        parameters.setdefault("temperature", temperature if temperature is not None else self.temperature)
+        parameters.setdefault("max_tokens", max_tokens)
+        parameters.setdefault("top_p", top_p)
         payload = build_payload(data=data, parameters=parameters)
         response = call_run_endpoint(payload=payload, url=url, api_key=self.api_key)
-        return response
+        return ModelResponse(
+            status=response.pop("status", ResponseStatus.FAILED),
+            data=response.pop("data", ""),
+            details=response.pop("details", {}),
+            completed=response.pop("completed", False),
+            error_message=response.pop("error_message", ""),
+            url=response.pop("url", None),
+            **response,
+        )

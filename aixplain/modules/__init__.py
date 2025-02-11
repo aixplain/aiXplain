@@ -36,4 +36,5 @@ from .benchmark_job import BenchmarkJob
 from .agent import Agent
 from .agent.tool import Tool
 from .team_agent import TeamAgent
-from .api_key import APIKey, APIKeyGlobalLimits, APIKeyUsageLimit
+from .api_key import APIKey, APIKeyLimits, APIKeyUsageLimit
+from .model.index_model import IndexModel

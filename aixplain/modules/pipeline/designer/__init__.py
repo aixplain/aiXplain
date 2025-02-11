@@ -10,7 +10,9 @@ from .nodes import (
     BaseSegmentor,
     BaseMetric,
     BareAsset,
-    BareMetric
+    BareMetric,
+    BareSegmentor,
+    BareReconstructor,
 )
 from .pipeline import DesignerPipeline
 from .base import (
@@ -68,5 +70,5 @@ __all__ = [
     "TI",
     "TO",
     "BaseMetric",
-    "BareMetric"
+    "BareMetric",
 ]

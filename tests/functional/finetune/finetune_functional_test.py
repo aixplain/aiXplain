@@ -28,6 +28,7 @@ from aixplain.enums import Function, Language
 from datetime import datetime, timedelta, timezone
 
 import pytest
+from aixplain import aixplain_v2 as v2
 
 TIMEOUT = 20000.0
 RUN_FILE = "tests/functional/finetune/data/finetune_test_end2end.json"
@@ -59,7 +60,6 @@ def pytest_generate_tests(metafunc):
     if "input_map" in metafunc.fixturenames:
         four_weeks_ago = datetime.now(timezone.utc) - timedelta(weeks=4)
         models = ModelFactory.list(function=Function.TEXT_GENERATION, is_finetunable=True)["results"]
-
         recent_models = [
             {
                 "model_name": model.name,
@@ -70,13 +70,21 @@ def pytest_generate_tests(metafunc):
                 "search_metadata": False,
             }
             for model in models
-            if model.created_at is not None and model.created_at >= four_weeks_ago
+            if model.created_at is not None
+            and model.created_at >= four_weeks_ago
+            and "aiXplain-testing" not in str(model.supplier)
         ]
-        recent_models += read_data(RUN_FILE)
-        metafunc.parametrize("input_map", recent_models)
+
+        run_file_models = read_data(RUN_FILE)
+        for model_data in run_file_models:
+            if not any(rm["model_id"] == model_data["model_id"] for rm in recent_models):
+                recent_models.append(model_data)
+        model_ids = [model["model_id"] for model in recent_models]
+        metafunc.parametrize("input_map", recent_models, ids=model_ids)
 
 
-def test_end2end(input_map):
+@pytest.mark.parametrize("FinetuneFactory", [FinetuneFactory, v2.Finetune])
+def test_end2end(input_map, FinetuneFactory):
     model = input_map["model_id"]
     dataset_list = [DatasetFactory.list(query=input_map["dataset_name"])["results"][0]]
     train_percentage, dev_percentage = 100, 0
@@ -112,7 +120,8 @@ def test_end2end(input_map):
     finetune_model.delete()
 
 
-def test_cost_estimation_text_generation(estimate_cost_input_map):
+@pytest.mark.parametrize("FinetuneFactory", [FinetuneFactory, v2.Finetune])
+def test_cost_estimation_text_generation(estimate_cost_input_map, FinetuneFactory):
     model = ModelFactory.get(estimate_cost_input_map["model_id"])
     dataset_list = [DatasetFactory.list(query=estimate_cost_input_map["dataset_name"])["results"][0]]
     finetune = FinetuneFactory.create(str(uuid.uuid4()), dataset_list, model)
@@ -123,7 +132,8 @@ def test_cost_estimation_text_generation(estimate_cost_input_map):
     assert "inferenceCost" in cost_map
 
 
-def test_list_finetunable_models(list_input_map):
+@pytest.mark.parametrize("ModelFactory", [ModelFactory, v2.Model])
+def test_list_finetunable_models(list_input_map, ModelFactory):
     model_list = ModelFactory.list(
         function=Function(list_input_map["function"]),
         source_languages=Language(list_input_map["source_language"]) if "source_language" in list_input_map else None,
@@ -133,7 +143,8 @@ def test_list_finetunable_models(list_input_map):
     assert len(model_list) > 0
 
 
-def test_prompt_validator(validate_prompt_input_map):
+@pytest.mark.parametrize("ModelFactory", [ModelFactory, v2.Model])
+def test_prompt_validator(validate_prompt_input_map, ModelFactory):
     model = ModelFactory.get(validate_prompt_input_map["model_id"])
     dataset_list = [DatasetFactory.list(query=validate_prompt_input_map["dataset_name"])["results"][0]]
     if validate_prompt_input_map["is_valid"]:

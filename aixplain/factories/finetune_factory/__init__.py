@@ -44,7 +44,6 @@ class FinetuneFactory:
         backend_url (str): The URL for the backend.
     """
 
-    aixplain_key = config.AIXPLAIN_API_KEY
     backend_url = config.BACKEND_URL
 
     @classmethod
@@ -88,11 +87,11 @@ class FinetuneFactory:
         assert (
             train_percentage + dev_percentage <= 100
         ), f"Create FineTune: Train percentage + dev percentage ({train_percentage + dev_percentage}) must be less than or equal to one"
-        
+
         for i, dataset in enumerate(dataset_list):
             if isinstance(dataset, str) is True:
                 dataset_list[i] = DatasetFactory.get(dataset_id=dataset)
-        
+
         if isinstance(model, str) is True:
             model = ModelFactory.get(model_id=model)
 
