@@ -146,7 +146,7 @@ def upload_data(
         bucket_name = re.findall(r"https://(.*?).s3.amazonaws.com", presigned_url)[0]
         s3_link = f"s3://{bucket_name}/{path}"
         return s3_link
-    except Exception as e:  # ignore F841 # noqa
+    except Exception:
         if nattempts > 0:
             return upload_data(file_name, content_type, content_encoding, nattempts - 1)
         else:
@@ -181,11 +181,11 @@ def s3_to_csv(
         aws_secret_access_key = aws_credentials.get("AWS_SECRET_ACCESS_KEY") or os.getenv("AWS_SECRET_ACCESS_KEY")
         s3 = boto3.client("s3", aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
         response = s3.list_objects_v2(Bucket=bucket_name, Prefix=prefix)
-    except NoCredentialsError as e:  # ignore F841 # noqa
+    except NoCredentialsError:
         raise Exception(
             "to use the s3 bucket option you need to set the right AWS credentials [AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY]"
         )
-    except Exception as e:  # ignore F841 # noqa
+    except Exception:
         raise Exception("the bucket you are trying to use does not exist")
 
     try:
@@ -237,42 +237,5 @@ def s3_to_csv(
         df.to_csv(output_path, index=False)
 
         return output_path
-    except (Exception, ValueError) as e:  # ignore F841 # noqa
+    except (Exception, ValueError) as e:
         raise Exception(e)
-
-
-def download_data_from_s3(
-    s3_path: Text,
-    local_filename: Text,
-    aws_credentials: Optional[Dict[Text, Text]] = {"AWS_ACCESS_KEY_ID": None, "AWS_SECRET_ACCESS_KEY": None},
-) -> Text:
-    """
-    Downloads a file from an S3 bucket.
-    """
-    try:
-        import boto3
-        from botocore.exceptions import NoCredentialsError
-    except ModuleNotFoundError:
-        raise Exception(
-            "boto3 is not currently installed in your project environment. Please try installing it using pip:\n\npip install boto3"
-        )
-    url = urlparse(s3_path)
-    if url.scheme != "s3":
-        raise Exception("the url is not an s3 url")
-    bucket_name = url.netloc
-    prefix = url.path[1:]
-    try:
-        aws_access_key_id = aws_credentials.get("AWS_ACCESS_KEY_ID") or os.getenv("AWS_ACCESS_KEY_ID")
-        aws_secret_access_key = aws_credentials.get("AWS_SECRET_ACCESS_KEY") or os.getenv("AWS_SECRET_ACCESS_KEY")
-        s3 = boto3.client("s3", aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
-    except NoCredentialsError as e:  # ignore F841 # noqa
-        raise Exception(
-            "to use the s3 bucket option you need to set the right AWS credentials [AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY]"
-        )
-    except Exception as e:  # ignore F841 # noqa
-        raise Exception("the bucket you are trying to use does not exist")
-    try:
-        s3.download_file(Bucket=bucket_name, Key=prefix, Filename=local_filename)
-    except Exception as e:  # ignore F841 # noqa
-        raise Exception(f"Error downloading file from S3: {e}")
-    return local_filename

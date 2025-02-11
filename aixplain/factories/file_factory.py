@@ -26,9 +26,9 @@ import validators
 import filetype
 from aixplain.enums.storage_type import StorageType
 from aixplain.enums.license import License
-from aixplain.utils.file_utils import upload_data, download_data_from_s3
+from aixplain.utils.file_utils import upload_data
 from typing import Any, Dict, Text, Union, Optional, List
-from uuid import uuid4
+
 
 MB_1 = 1048576
 MB_25 = 26214400
@@ -148,15 +148,3 @@ class FileFactory:
             license is not None if is_temp is False else True
         ), "File Asset Creation Error: To upload a non-temporary file, you need to specify the `license`."
         return cls.upload(local_path=local_path, tags=tags, license=license, is_temp=is_temp)
-
-    @classmethod
-    def download(cls, s3_path: Text, local_filename: Text = None) -> Text:
-        """
-        Downloads a file from an S3 bucket.
-        """
-        # get extension of the file
-        extension = os.path.splitext(s3_path)[1]
-        # download the file
-        local_filename = f"{uuid4()}{extension}" if local_filename is None else local_filename
-        download_data_from_s3(s3_path, local_filename)
-        return local_filename
