@@ -43,17 +43,20 @@ class UtilityModelInput:
     def to_dict(self):
         return {"name": self.name, "description": self.description, "type": self.type.value}
 
+
 # Tool decorator
-def utility_tool(name: Text, description: Text, inputs: List[UtilityModelInput] = None, output_examples: Text = "", status = AssetStatus.DRAFT):
+def utility_tool(
+    name: Text, description: Text, inputs: List[UtilityModelInput] = None, output_examples: Text = "", status=AssetStatus.DRAFT
+):
     """Decorator for utility tool functions
-    
+
     Args:
         name: Name of the utility tool
         description: Description of what the utility tool does
         inputs: List of input parameters, must be UtilityModelInput objects
         output_examples: Examples of expected outputs
         status: Asset status
-        
+
     Raises:
         ValueError: If name or description is empty
         TypeError: If inputs contains non-UtilityModelInput objects
@@ -63,7 +66,7 @@ def utility_tool(name: Text, description: Text, inputs: List[UtilityModelInput] 
         raise ValueError("Utility tool name cannot be empty")
     if not description or not description.strip():
         raise ValueError("Utility tool description cannot be empty")
-    
+
     # Validate inputs
     if inputs is not None:
         if not isinstance(inputs, list):
@@ -71,7 +74,7 @@ def utility_tool(name: Text, description: Text, inputs: List[UtilityModelInput] 
         for input_param in inputs:
             if not isinstance(input_param, UtilityModelInput):
                 raise TypeError(f"Invalid input parameter: {input_param}. All inputs must be UtilityModelInput objects")
-        
+
     def decorator(func):
         func._is_utility_tool = True  # Mark function as utility tool
         func._tool_name = name.strip()
@@ -80,6 +83,7 @@ def utility_tool(name: Text, description: Text, inputs: List[UtilityModelInput] 
         func._tool_output_examples = output_examples
         func._tool_status = status
         return func
+
     return decorator
 
 
@@ -116,7 +120,7 @@ class UtilityModel(Model):
         function: Optional[Function] = None,
         is_subscribed: bool = False,
         cost: Optional[Dict] = None,
-        status: AssetStatus = AssetStatus.ONBOARDED,# TODO: change to draft when we have the backend ready
+        status: AssetStatus = AssetStatus.ONBOARDED,  # TODO: change to draft when we have the backend ready
         **additional_info,
     ) -> None:
         """Utility Model Init
