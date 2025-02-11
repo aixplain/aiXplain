@@ -32,6 +32,7 @@ from aixplain.enums.supplier import Supplier
 from aixplain.enums.asset_status import AssetStatus
 from aixplain.enums.storage_type import StorageType
 from aixplain.modules.model import Model
+from aixplain.modules.agent.monitoring_tools import MonitoringTools
 from aixplain.modules.agent.agent_task import AgentTask
 from aixplain.modules.agent.output_format import OutputFormat
 from aixplain.modules.agent.tool import Tool
@@ -59,6 +60,8 @@ class Agent(Model):
         backend_url (str): URL of the backend.
         api_key (str): The TEAM API key used for authentication.
         cost (Dict, optional): model price. Defaults to None.
+        tasks (List[AgentTask]): List of tasks that the Agent performs.
+        monitoring_tools (MonitoringTools, optional): list of monitoring tools for the agent. Defaults to None.
     """
 
     def __init__(
@@ -75,6 +78,7 @@ class Agent(Model):
         cost: Optional[Dict] = None,
         status: AssetStatus = AssetStatus.DRAFT,
         tasks: List[AgentTask] = [],
+        monitoring_tools: MonitoringTools = None,
         **additional_info,
     ) -> None:
         """Create an Agent with the necessary information.
@@ -91,6 +95,8 @@ class Agent(Model):
             backend_url (str): URL of the backend.
             api_key (str): The TEAM API key used for authentication.
             cost (Dict, optional): model price. Defaults to None.
+            tasks (List[AgentTask]): List of tasks that the Agent performs.
+            monitoring_tools (MonitoringTools, optional): list of monitoring tools for the agent. Defaults to None.
         """
         super().__init__(id, name, description, api_key, supplier, version, cost=cost)
         self.role = role
@@ -106,6 +112,7 @@ class Agent(Model):
                 status = AssetStatus.DRAFT
         self.status = status
         self.tasks = tasks
+        self.monitoring_tools = monitoring_tools
 
     def validate(self) -> None:
         """Validate the Agent."""
@@ -274,7 +281,6 @@ class Agent(Model):
                     query = query.replace("{{" + key + "}}", f"'{value}'")
 
         headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}
-
         # build query
         input_data = process_variables(query, data, parameters, self.description)
 
@@ -324,6 +330,7 @@ class Agent(Model):
             "llmId": self.llm_id,
             "status": self.status.value,
             "tasks": [task.to_dict() for task in self.tasks],
+            "monitoringTools": self.monitoring_tools.to_dict() if self.monitoring_tools else None,
         }
 
     def delete(self) -> None:
@@ -366,7 +373,7 @@ class Agent(Model):
 
         payload = self.to_dict()
 
-        logging.debug(f"Start service for PUT Update Agent  - {url} - {headers} - {json.dumps(payload)}")
+        logging.info(f"Start service for PUT Update Agent  - {url} - {headers} - {json.dumps(payload)}")
         resp = "No specified error."
         try:
             r = _request_with_retry("put", url, headers=headers, json=payload)

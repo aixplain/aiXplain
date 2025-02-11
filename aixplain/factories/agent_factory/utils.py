@@ -3,7 +3,7 @@ __author__ = "thiagocastroferreira"
 import aixplain.utils.config as config
 from aixplain.enums import Function, Supplier
 from aixplain.enums.asset_status import AssetStatus
-from aixplain.modules.agent import Agent
+from aixplain.modules.agent import Agent, MonitoringTools
 from aixplain.modules.agent.agent_task import AgentTask
 from aixplain.modules.agent.tool.model_tool import ModelTool
 from aixplain.modules.agent.tool.pipeline_tool import PipelineTool
@@ -70,6 +70,7 @@ def build_agent(payload: Dict, api_key: Text = config.TEAM_API_KEY) -> Agent:
             )
             for task in payload.get("tasks", [])
         ],
+        monitoring_tools=MonitoringTools(config=payload["monitoringTools"]) if "monitoringTools" in payload else None,
     )
     agent.url = urljoin(config.BACKEND_URL, f"sdk/agents/{agent.id}/run")
     return agent

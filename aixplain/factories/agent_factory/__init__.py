@@ -27,7 +27,7 @@ import warnings
 
 from aixplain.enums.function import Function
 from aixplain.enums.supplier import Supplier
-from aixplain.modules.agent import Agent, AgentTask, Tool
+from aixplain.modules.agent import Agent, AgentTask, Tool, MonitoringTools
 from aixplain.modules.agent.tool.model_tool import ModelTool
 from aixplain.modules.agent.tool.pipeline_tool import PipelineTool
 from aixplain.modules.agent.tool.python_interpreter_tool import PythonInterpreterTool
@@ -54,6 +54,7 @@ class AgentFactory:
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
         version: Optional[Text] = None,
         tasks: List[AgentTask] = [],
+        monitoring_tools: MonitoringTools = None,
     ) -> Agent:
         """Create a new agent in the platform.
 
@@ -72,6 +73,7 @@ class AgentFactory:
             supplier (Union[Dict, Text, Supplier, int], optional): owner of the agent. Defaults to "aiXplain".
             version (Optional[Text], optional): version of the agent. Defaults to None.
             tasks (List[AgentTask], optional): list of tasks for the agent. Defaults to [].
+            monitoring_tools (MonitoringTools, optional): list of monitoring tools for the agent. Defaults to None.
         Returns:
             Agent: created Agent
         """
@@ -119,12 +121,13 @@ class AgentFactory:
             "llmId": llm_id,
             "status": "draft",
             "tasks": [task.to_dict() for task in tasks],
+            "monitoringTools": monitoring_tools.to_dict() if monitoring_tools is not None else None,
         }
         agent = build_agent(payload=payload, api_key=api_key)
         agent.validate()
         response = "Unspecified error"
         try:
-            logging.debug(f"Start service for POST Create Agent  - {url} - {headers} - {json.dumps(agent.to_dict())}")
+            logging.info(f"Start service for POST Create Agent  - {url} - {headers} - {json.dumps(agent.to_dict())}")
             r = _request_with_retry("post", url, headers=headers, json=agent.to_dict())
             response = r.json()
         except Exception:
