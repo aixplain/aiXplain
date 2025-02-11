@@ -112,11 +112,13 @@ def parse_code(code: Union[Text, Callable]) -> Tuple[Text, List, Text, Text]:
             raise Exception(f"Utility Model Error: Error downloading code from S3: {e}")
     else:
         str_code = code
+
     # assert str_code has a main function
     if "def main(" not in str_code:
         raise Exception("Utility Model Error: Code must have a main function")
     # get name of the function
     name = re.search(r"def\s+([a-zA-Z_][a-zA-Z0-9_]*)\(", str_code).group(1)
+
     if not description:
         # if the description is not provided, get the docstring of the function from string code after defining the function
         # the docstring is the first line after the function definition

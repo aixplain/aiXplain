@@ -65,7 +65,7 @@ class AgentFactory:
         Args:
             name (Text): name of the agent
             description (Text): description of the agent role.
-            instructions (Text): instructions for the agent.
+            instructions (Text): role of the agent.
             llm_id (Text, optional): aiXplain ID of the large language model to be used as agent. Defaults to "669a63646eb56306647e1091" (GPT-4o mini).
             tools (List[Union[Tool, Model]], optional): list of tool for the agent. Defaults to [].
             api_key (Text, optional): team/user API key. Defaults to config.TEAM_API_KEY.

@@ -53,7 +53,7 @@ class Agent(Model):
         name (Text): Name of the Agent
         tools (List[Union[Tool, Model]]): List of tools that the Agent uses.
         description (Text, optional): description of the Agent. Defaults to "".
-        instructions (Text, optional): instructions of the Agent. Defaults to "".
+        instructions (Text): instructions of the Agent.
         llm_id (Text): large language model. Defaults to GPT-4o (6646261c6eb563165658bbb1).
         supplier (Text): Supplier of the Agent.
         version (Text): Version of the Agent.
@@ -84,7 +84,7 @@ class Agent(Model):
             id (Text): ID of the Agent
             name (Text): Name of the Agent
             description (Text): description of the Agent.
-            instructions (Text): instructions of the Agent.
+            instructions (Text): role of the Agent.
             tools (List[Union[Tool, Model]]): List of tools that the Agent uses.
             llm_id (Text, optional): large language model. Defaults to GPT-4o (6646261c6eb563165658bbb1).
             supplier (Text): Supplier of the Agent.
