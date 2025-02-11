@@ -2,7 +2,6 @@ __author__ = "thiagocastroferreira"
 
 import json
 import logging
-import tempfile
 from aixplain.utils.file_utils import _request_with_retry
 from typing import Callable, Dict, List, Text, Tuple, Union, Optional
 
@@ -102,14 +101,6 @@ def parse_code(code: Union[Text, Callable]) -> Tuple[Text, List, Text, Text]:
             str_code = f.read()
     elif validators.url(code):
         str_code = requests.get(code).text
-    elif code.startswith("s3://"):
-        try:
-            with tempfile.NamedTemporaryFile(delete=True) as temp_file:
-                filepath = FileFactory.download(code, local_filename=temp_file.name)
-                with open(filepath, "r") as f:
-                    str_code = f.read()
-        except Exception as e:
-            raise Exception(f"Utility Model Error: Error downloading code from S3: {e}")
     else:
         str_code = code
     # assert str_code has a main function
