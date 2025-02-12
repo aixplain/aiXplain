@@ -433,11 +433,11 @@ def test_model_to_dict():
 def test_model_repr():
     # Test with supplier as dict
     model1 = Model(id="test-id", name="Test Model", supplier={"name": "aiXplain"})
-    assert repr(model1) == "<Model: Test Model by aiXplain>"
+    assert repr(model1) == "<Model: Test Model by aixplain>"
 
     # Test with supplier as string
     model2 = Model(id="test-id", name="Test Model", supplier="aiXplain")
-    assert str(model2) == "<Model: Test Model by aiXplain>"
+    assert str(model2) == "<Model: Test Model by aixplain>"
 
 
 def test_poll_with_error():
