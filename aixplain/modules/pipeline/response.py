@@ -21,17 +21,17 @@ class PipelineResponse:
         self.additional_fields = kwargs
         self.url = url
 
-    def __getitem__(self, key: str) -> Any:
-        if key in self.__dict__:
-            return self.__dict__[key]
-
+    def __getattr__(self, key: str) -> Any:
         if self.additional_fields and key in self.additional_fields:
             return self.additional_fields[key]
 
-        raise KeyError(f"Key '{key}' not found in PipelineResponse.")
+        raise AttributeError()
 
-    def get(self, key: str) -> Any:
-        return self[key]
+    def get(self, key: str, default: Any = None) -> Any:
+        return getattr(self, key, default)
+
+    def __getitem__(self, key: str) -> Any:
+        return getattr(self, key)
 
     def __repr__(self) -> str:
         fields = []
@@ -48,8 +48,4 @@ class PipelineResponse:
         return f"PipelineResponse({', '.join(fields)})"
 
     def __contains__(self, key: str) -> bool:
-        try:
-            self[key]
-            return True
-        except KeyError:
-            return False
+        return hasattr(self, key)
