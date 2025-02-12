@@ -345,3 +345,26 @@ def test_specific_model_parameters_e2e(tool_config):
             tool_used = True
             break
     assert tool_used, "Tool was not used in execution"
+
+
+@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
+def test_sql_tool(delete_agents_and_team_agents, AgentFactory):
+    assert delete_agents_and_team_agents
+    tool = AgentFactory.create_sql_tool(
+        description="Execute an SQL query and return the result",
+        database="https://aixplain-platform-assets.s3.us-east-1.amazonaws.com/samples/tests/test.db",
+        schema="employees (id INT PRIMARY KEY, name VARCHAR(100), age INT, salary DECIMAL(10, 2), department VARCHAR(100))",
+    )
+    assert tool is not None
+    assert tool.description == "Execute an SQL query and return the result"
+    agent = AgentFactory.create(
+        name="Teste",
+        description="You are a test agent that search for employee information in a database",
+        tools=[tool],
+    )
+    assert agent is not None
+    response = agent.run("What is the name of the employee with the highest salary?")
+    assert response is not None
+    assert response["completed"] is True
+    assert response["status"].lower() == "success"
+    assert "eve" in str(response["data"]["output"]).lower()
