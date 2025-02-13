@@ -29,6 +29,7 @@ from aixplain.enums.license import License
 from aixplain.utils.file_utils import upload_data
 from typing import Any, Dict, Text, Union, Optional, List
 
+
 MB_1 = 1048576
 MB_25 = 26214400
 MB_50 = 52428800
@@ -94,10 +95,10 @@ class FileFactory:
         if os.path.exists(input_link) is True and os.path.isfile(input_link) is True:
             return StorageType.FILE
         elif (
-            input_link.startswith("s3://")
-            or input_link.startswith("http://")
-            or input_link.startswith("https://")
-            or validators.url(input_link)
+            input_link.startswith("s3://")  # noqa
+            or input_link.startswith("http://")  # noqa
+            or input_link.startswith("https://")  # noqa
+            or validators.url(input_link)  # noqa
         ):
             return StorageType.URL
         else:
