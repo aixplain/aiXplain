@@ -146,14 +146,16 @@ def upload_data(
         bucket_name = re.findall(r"https://(.*?).s3.amazonaws.com", presigned_url)[0]
         s3_link = f"s3://{bucket_name}/{path}"
         return s3_link
-    except Exception as e:
+    except Exception:
         if nattempts > 0:
             return upload_data(file_name, content_type, content_encoding, nattempts - 1)
         else:
             raise Exception("File Uploading Error: Failure on Uploading to S3.")
 
 
-def s3_to_csv(s3_url: Text, aws_credentials: Optional[Dict[Text, Text]] = {"AWS_ACCESS_KEY_ID": None, "AWS_SECRET_ACCESS_KEY": None}) -> Text:
+def s3_to_csv(
+    s3_url: Text, aws_credentials: Optional[Dict[Text, Text]] = {"AWS_ACCESS_KEY_ID": None, "AWS_SECRET_ACCESS_KEY": None}
+) -> Text:
     """Convert s3 url to a csv file and download the file in `download_path`
 
     Args:
@@ -179,11 +181,11 @@ def s3_to_csv(s3_url: Text, aws_credentials: Optional[Dict[Text, Text]] = {"AWS_
         aws_secret_access_key = aws_credentials.get("AWS_SECRET_ACCESS_KEY") or os.getenv("AWS_SECRET_ACCESS_KEY")
         s3 = boto3.client("s3", aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
         response = s3.list_objects_v2(Bucket=bucket_name, Prefix=prefix)
-    except NoCredentialsError as e:
+    except NoCredentialsError:
         raise Exception(
             "to use the s3 bucket option you need to set the right AWS credentials [AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY]"
         )
-    except Exception as e:
+    except Exception:
         raise Exception("the bucket you are trying to use does not exist")
 
     try:
@@ -222,10 +224,10 @@ def s3_to_csv(s3_url: Text, aws_credentials: Optional[Dict[Text, Text]] = {"AWS_
                     main_file_name = Path(data[first_key][i]).stem
                     for val in data.values():
                         if Path(val[i]).stem != main_file_name:
-                            raise Exception(f"all the files in different directories should have the same prefix")
+                            raise Exception("all the files in different directories should have the same prefix")
 
         elif prefix == "":
-            raise Exception(f"ERROR the files can't be at the root of the bucket ")
+            raise Exception("ERROR the files can't be at the root of the bucket ")
         else:
             data = {prefix: [f"s3://{bucket_name}/{file}" for file in files]}
 
