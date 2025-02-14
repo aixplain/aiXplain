@@ -22,7 +22,7 @@ Description:
 """
 import os
 import validators
-from typing import Text, Optional, Dict, List
+from typing import Text, Optional, Dict, List, Union
 
 from aixplain.modules.agent.tool import Tool
 
@@ -34,7 +34,7 @@ class SQLTool(Tool):
         description (Text): description of the tool
         database (Text): database name
         schema (Text): database schema description
-        tables (Optional[List[Text]]): table names to work with (optional)
+        tables (Optional[Union[List[Text], Text]]): table names to work with (optional)
     """
 
     def __init__(
@@ -42,7 +42,7 @@ class SQLTool(Tool):
         description: Text,
         database: Text,
         schema: Text,
-        tables: Optional[List[Text]] = None,
+        tables: Optional[Union[List[Text], Text]] = None,
         **additional_info,
     ) -> None:
         """Tool to execute SQL query commands in an SQLite database.
@@ -51,12 +51,12 @@ class SQLTool(Tool):
             description (Text): description of the tool
             database (Text): database name
             schema (Text): database schema description
-            tables (Optional[List[Text]]): table names to work with (optional)
+            tables (Optional[Union[List[Text], Text]]): table names to work with (optional)
         """
         super().__init__("", description, **additional_info)
         self.database = database
         self.schema = schema
-        self.tables = tables
+        self.tables = tables if isinstance(tables, list) else [tables] if tables else None
 
     def to_dict(self) -> Dict[str, Text]:
         return {
@@ -64,7 +64,7 @@ class SQLTool(Tool):
             "parameters": [
                 {"name": "database", "value": self.database},
                 {"name": "schema", "value": self.schema},
-                {"name": "tables", "value": ",".join(self.tables) if self.tables else None},
+                {"name": "tables", "value": ",".join(self.tables) if self.tables is not None else None},
             ],
             "type": "sql",
         }

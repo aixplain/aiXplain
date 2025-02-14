@@ -50,8 +50,9 @@ def build_agent(payload: Dict, api_key: Text = config.TEAM_API_KEY) -> Agent:
             parameters = {parameter["name"]: parameter["value"] for parameter in tool.get("parameters", [])}
             database = parameters.get("database")
             schema = parameters.get("schema")
-            table = parameters.get("table", None)
-            tool = SQLTool(description=tool["description"], database=database, schema=schema, tables=table)
+            tables = parameters.get("tables", None)
+            tables = tables.split(",") if tables is not None else None
+            tool = SQLTool(description=tool["description"], database=database, schema=schema, tables=tables)
         else:
             raise Exception("Agent Creation Error: Tool type not supported.")
         tools.append(tool)
