@@ -190,9 +190,21 @@ class AgentFactory:
         return CustomPythonCodeTool(description=description, code=code)
 
     @classmethod
-    def create_sql_tool(cls, description: Text, database: Text, schema: Text, table: Optional[Text] = None) -> SQLTool:
-        """Create a new SQL tool."""
-        return SQLTool(description=description, database=database, schema=schema, table=table)
+    def create_sql_tool(
+        cls, description: Text, database: Text, schema: Optional[Text] = None, tables: Optional[List[Text]] = None
+    ) -> SQLTool:
+        """Create a new SQL tool
+
+        Args:
+            description (Text): description of the database tool
+            database (Text): URL/local path of the SQLite database file
+            schema (Optional[Text], optional): database schema description (optional)
+            tables (Optional[List[Text]], optional): table names to work with (optional)
+
+        Returns:
+            SQLTool: created SQLTool
+        """
+        return SQLTool(description=description, database=database, schema=schema, tables=tables)
 
     @classmethod
     def list(cls) -> Dict:

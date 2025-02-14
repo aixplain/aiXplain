@@ -126,4 +126,4 @@ class Agent(
         """Create a new SQL tool."""
         from aixplain.factories import AgentFactory
 
-        return AgentFactory.create_sql_tool(description=description, database=database, schema=schema, table=table)
+        return AgentFactory.create_sql_tool(description=description, database=database, schema=schema, tables=table)

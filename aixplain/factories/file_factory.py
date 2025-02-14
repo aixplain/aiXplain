@@ -33,6 +33,7 @@ MB_1 = 1048576
 MB_25 = 26214400
 MB_50 = 52428800
 MB_300 = 314572800
+MB_500 = 524288000
 
 
 class FileFactory:
@@ -65,8 +66,17 @@ class FileFactory:
         else:
             content_type = mime_type
 
-        type_to_max_size = {"audio": MB_50, "application": MB_25, "video": MB_300, "image": MB_25, "other": MB_50}
-        if mime_type is None or mime_type.split("/")[0] not in type_to_max_size:
+        type_to_max_size = {
+            "audio": MB_50,
+            "application": MB_25,
+            "video": MB_300,
+            "image": MB_25,
+            "other": MB_50,
+            "database": MB_500,
+        }
+        if local_path.endswith(".db"):
+            ftype = "database"
+        elif mime_type is None or mime_type.split("/")[0] not in type_to_max_size:
             ftype = "other"
         else:
             ftype = mime_type.split("/")[0]

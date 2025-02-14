@@ -22,7 +22,7 @@ Description:
 """
 import os
 import validators
-from typing import Text, Optional, Dict
+from typing import Text, Optional, Dict, List
 
 from aixplain.modules.agent.tool import Tool
 
@@ -34,7 +34,7 @@ class SQLTool(Tool):
         description (Text): description of the tool
         database (Text): database name
         schema (Text): database schema description
-        table (Optional[Text]): table name (optional)
+        tables (Optional[List[Text]]): table names to work with (optional)
     """
 
     def __init__(
@@ -42,7 +42,7 @@ class SQLTool(Tool):
         description: Text,
         database: Text,
         schema: Text,
-        table: Optional[Text] = None,
+        tables: Optional[List[Text]] = None,
         **additional_info,
     ) -> None:
         """Tool to execute SQL query commands in an SQLite database.
@@ -51,12 +51,12 @@ class SQLTool(Tool):
             description (Text): description of the tool
             database (Text): database name
             schema (Text): database schema description
-            table (Optional[Text]): table name (optional)
+            tables (Optional[List[Text]]): table names to work with (optional)
         """
         super().__init__("", description, **additional_info)
         self.database = database
         self.schema = schema
-        self.table = table
+        self.tables = tables
 
     def to_dict(self) -> Dict[str, Text]:
         return {
@@ -64,7 +64,7 @@ class SQLTool(Tool):
             "parameters": [
                 {"name": "database", "value": self.database},
                 {"name": "schema", "value": self.schema},
-                {"name": "table", "value": self.table},
+                {"name": "tables", "value": ",".join(self.tables) if self.tables else None},
             ],
             "type": "sql",
         }
@@ -82,5 +82,6 @@ class SQLTool(Tool):
         ):
             if not os.path.exists(self.database):
                 raise Exception(f"SQL Tool Error: Database '{self.database}' does not exist")
+            if not self.database.endswith(".db"):
+                raise Exception(f"SQL Tool Error: Database '{self.database}' must have .db extension")
             self.database = FileFactory.upload(local_path=self.database, is_temp=True)
-        assert self.schema and self.schema.strip() != "", "SQL Tool Error: Schema is required"
