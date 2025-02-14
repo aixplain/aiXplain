@@ -122,8 +122,8 @@ class Agent(
         return AgentFactory.create_custom_python_code_tool(code=code, description=description)
 
     @classmethod
-    def create_sql_tool(cls, description: str, database: str, schema: str, table: Optional[str] = None) -> "SQLTool":
+    def create_sql_tool(cls, description: str, database: str, schema: str, tables: Optional[List[str]] = None) -> "SQLTool":
         """Create a new SQL tool."""
         from aixplain.factories import AgentFactory
 
-        return AgentFactory.create_sql_tool(description=description, database=database, schema=schema, tables=table)
+        return AgentFactory.create_sql_tool(description=description, database=database, schema=schema, tables=tables)

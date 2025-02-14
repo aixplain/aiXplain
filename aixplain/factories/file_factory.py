@@ -33,7 +33,6 @@ MB_1 = 1048576
 MB_25 = 26214400
 MB_50 = 52428800
 MB_300 = 314572800
-MB_500 = 524288000
 
 
 class FileFactory:
@@ -72,7 +71,7 @@ class FileFactory:
             "video": MB_300,
             "image": MB_25,
             "other": MB_50,
-            "database": MB_500,
+            "database": MB_300,
         }
         if local_path.endswith(".db"):
             ftype = "database"
