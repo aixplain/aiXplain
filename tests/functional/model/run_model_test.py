@@ -1,7 +1,8 @@
 __author__ = "thiagocastroferreira"
 
+import pytest
 
-from aixplain.enums import Function
+from aixplain.enums import Function, EmbeddingModel
 from aixplain.factories import ModelFactory
 from aixplain.modules import LLM
 from datetime import datetime, timedelta, timezone
@@ -54,7 +55,11 @@ def test_run_async():
     assert "teste" in response["data"].lower()
 
 
-def test_index_model():
+@pytest.mark.parametrize(
+    "embedding_model",
+    [EmbeddingModel.OPENAI_ADA002, EmbeddingModel.SNOWFLAKE_ARCTIC_EMBED_M_LONG, EmbeddingModel.SNOWFLAKE_ARCTIC_EMBED_L_V2_0],
+)
+def test_index_model(embedding_model):
     from uuid import uuid4
     from aixplain.modules.model.record import Record
     from aixplain.factories import IndexFactory
@@ -62,7 +67,7 @@ def test_index_model():
     for index in IndexFactory.list()["results"]:
         index.delete()
 
-    index_model = IndexFactory.create(name=str(uuid4()), description=str(uuid4()))
+    index_model = IndexFactory.create(name=str(uuid4()), description=str(uuid4()), embedding_model=embedding_model)
     index_model.upsert([Record(value="Hello, world!", value_type="text", uri="", id="1", attributes={})])
     response = index_model.search("Hello")
     assert str(response.status) == "SUCCESS"

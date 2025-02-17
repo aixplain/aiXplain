@@ -1,16 +1,18 @@
 from aixplain.modules.model.index_model import IndexModel
 from aixplain.factories import ModelFactory
-from aixplain.enums import Function, ResponseStatus, SortBy, SortOrder, OwnershipType, Supplier
+from aixplain.enums import EmbeddingModel, Function, ResponseStatus, SortBy, SortOrder, OwnershipType, Supplier
 from typing import Optional, Text, Union, List, Tuple
 
 
 class IndexFactory(ModelFactory):
     @classmethod
-    def create(cls, name: Text, description: Text) -> IndexModel:
+    def create(
+        cls, name: Text, description: Text, embedding_model: EmbeddingModel = EmbeddingModel.OPENAI_ADA002
+    ) -> IndexModel:
         """Create a new index collection"""
         model = cls.get("66eae6656eb56311f2595011")
 
-        data = {"data": name, "description": description}
+        data = {"data": name, "description": description, "model": embedding_model.value}
         response = model.run(data=data)
         if response.status == ResponseStatus.SUCCESS:
             model_id = response.data
