@@ -16,6 +16,7 @@ def test_create_sql_tool(mocker):
         {"name": "database", "value": "test.db"},
         {"name": "schema", "value": "test"},
         {"name": "tables", "value": "test,test2"},
+        {"name": "enable_commit", "value": False},
     ]
 
     mocker.patch("aixplain.factories.file_factory.FileFactory.upload", return_value="s3://test.db")

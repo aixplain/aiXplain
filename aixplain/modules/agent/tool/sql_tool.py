@@ -35,6 +35,7 @@ class SQLTool(Tool):
         database (Text): database name
         schema (Text): database schema description
         tables (Optional[Union[List[Text], Text]]): table names to work with (optional)
+        enable_commit (bool): enable to modify the database (optional)
     """
 
     def __init__(
@@ -43,6 +44,7 @@ class SQLTool(Tool):
         database: Text,
         schema: Text,
         tables: Optional[Union[List[Text], Text]] = None,
+        enable_commit: bool = False,
         **additional_info,
     ) -> None:
         """Tool to execute SQL query commands in an SQLite database.
@@ -52,11 +54,13 @@ class SQLTool(Tool):
             database (Text): database name
             schema (Text): database schema description
             tables (Optional[Union[List[Text], Text]]): table names to work with (optional)
+            enable_commit (bool): enable to modify the database (optional)
         """
         super().__init__("", description, **additional_info)
         self.database = database
         self.schema = schema
         self.tables = tables if isinstance(tables, list) else [tables] if tables else None
+        self.enable_commit = enable_commit
 
     def to_dict(self) -> Dict[str, Text]:
         return {
@@ -65,6 +69,7 @@ class SQLTool(Tool):
                 {"name": "database", "value": self.database},
                 {"name": "schema", "value": self.schema},
                 {"name": "tables", "value": ",".join(self.tables) if self.tables is not None else None},
+                {"name": "enable_commit", "value": self.enable_commit},
             ],
             "type": "sql",
         }
