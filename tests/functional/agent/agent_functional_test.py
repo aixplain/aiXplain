@@ -350,10 +350,13 @@ def test_specific_model_parameters_e2e(tool_config):
 @pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
 def test_sql_tool(delete_agents_and_team_agents, AgentFactory):
     assert delete_agents_and_team_agents
+    import os
+
+    with open("ftest.db", "w") as f:
+        f.write("")
+
     tool = AgentFactory.create_sql_tool(
-        description="Execute an SQL query and return the result",
-        database="https://aixplain-platform-assets.s3.us-east-1.amazonaws.com/samples/tests/test.db",
-        schema="employees (id INT PRIMARY KEY, name VARCHAR(100), age INT, salary DECIMAL(10, 2), department VARCHAR(100))",
+        description="Execute an SQL query and return the result", database="ftest.db", enable_commit=True
     )
     assert tool is not None
     assert tool.description == "Execute an SQL query and return the result"
@@ -363,8 +366,20 @@ def test_sql_tool(delete_agents_and_team_agents, AgentFactory):
         tools=[tool],
     )
     assert agent is not None
+    response = agent.run("Create a table called Person with the following columns: id, name, age, salary, department")
+    assert response is not None
+    assert response["completed"] is True
+    assert response["status"].lower() == "success"
+
+    response = agent.run("Insert the following data into the Person table: 1, Eve, 30, 50000, Sales")
+    assert response is not None
+    assert response["completed"] is True
+    assert response["status"].lower() == "success"
+
     response = agent.run("What is the name of the employee with the highest salary?")
     assert response is not None
     assert response["completed"] is True
     assert response["status"].lower() == "success"
     assert "eve" in str(response["data"]["output"]).lower()
+
+    os.remove("ftest.db")

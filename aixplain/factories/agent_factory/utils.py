@@ -52,7 +52,10 @@ def build_agent(payload: Dict, api_key: Text = config.TEAM_API_KEY) -> Agent:
             schema = parameters.get("schema")
             tables = parameters.get("tables", None)
             tables = tables.split(",") if tables is not None else None
-            tool = SQLTool(description=tool["description"], database=database, schema=schema, tables=tables)
+            enable_commit = parameters.get("enable_commit", False)
+            tool = SQLTool(
+                description=tool["description"], database=database, schema=schema, tables=tables, enable_commit=enable_commit
+            )
         else:
             raise Exception("Agent Creation Error: Tool type not supported.")
         tools.append(tool)

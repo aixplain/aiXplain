@@ -123,7 +123,12 @@ class Agent(
 
     @classmethod
     def create_sql_tool(
-        cls, description: str, database: str, schema: str, tables: Optional[List[str]] = None, enable_commit: bool = False
+        cls,
+        description: str,
+        database: str,
+        schema: Optional[str] = None,
+        tables: Optional[List[str]] = None,
+        enable_commit: bool = False,
     ) -> "SQLTool":
         """Create a new SQL tool."""
         from aixplain.factories import AgentFactory
