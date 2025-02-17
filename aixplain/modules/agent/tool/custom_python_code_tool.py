@@ -23,6 +23,7 @@ Description:
 
 from typing import Text, Union, Callable
 from aixplain.modules.agent.tool import Tool
+import logging
 
 
 class CustomPythonCodeTool(Tool):
@@ -42,9 +43,13 @@ class CustomPythonCodeTool(Tool):
         }
 
     def validate(self):
-        from aixplain.modules.model.utils import parse_code
+        from aixplain.modules.model.utils import parse_code_decorated
 
-        self.code, _, description, name = parse_code(self.code)
+        if not str(self.code).startswith("s3://"):
+            self.code, _, description, name = parse_code_decorated(self.code)
+        else:
+            logging.info("Utility Model Already Exists, skipping code validation")
+            return
 
         # Set description from parsed code if not already set
         if not self.description or self.description.strip() == "":

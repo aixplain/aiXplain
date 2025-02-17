@@ -187,6 +187,7 @@ class UtilityModel(Model):
         assert self.description and self.description.strip() != "", "Description is required"
         assert self.code and self.code.strip() != "", "Code is required"
 
+
     def _model_exists(self):
         if self.id is None or self.id == "":
             return False
@@ -198,6 +199,7 @@ class UtilityModel(Model):
             raise Exception()
         return True
 
+      
     def to_dict(self):
         return {
             "name": self.name,
@@ -222,6 +224,8 @@ class UtilityModel(Model):
                 DeprecationWarning,
                 stacklevel=2,
             )
+
+            
         self.validate()
         url = urljoin(self.backend_url, f"sdk/utilities/{self.id}")
         headers = {"x-api-key": f"{self.api_key}", "Content-Type": "application/json"}
