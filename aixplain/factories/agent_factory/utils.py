@@ -9,6 +9,7 @@ from aixplain.modules.agent.tool.model_tool import ModelTool
 from aixplain.modules.agent.tool.pipeline_tool import PipelineTool
 from aixplain.modules.agent.tool.python_interpreter_tool import PythonInterpreterTool
 from aixplain.modules.agent.tool.custom_python_code_tool import CustomPythonCodeTool
+from aixplain.modules.agent.tool.sql_tool import SQLTool
 from typing import Dict, Text
 from urllib.parse import urljoin
 
@@ -45,6 +46,16 @@ def build_agent(payload: Dict, api_key: Text = config.TEAM_API_KEY) -> Agent:
                 tool = CustomPythonCodeTool(description=tool["description"], code=tool["utilityCode"])
             else:
                 tool = PythonInterpreterTool()
+        elif tool["type"] == "sql":
+            parameters = {parameter["name"]: parameter["value"] for parameter in tool.get("parameters", [])}
+            database = parameters.get("database")
+            schema = parameters.get("schema")
+            tables = parameters.get("tables", None)
+            tables = tables.split(",") if tables is not None else None
+            enable_commit = parameters.get("enable_commit", False)
+            tool = SQLTool(
+                description=tool["description"], database=database, schema=schema, tables=tables, enable_commit=enable_commit
+            )
         else:
             raise Exception("Agent Creation Error: Tool type not supported.")
         tools.append(tool)

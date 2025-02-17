@@ -5,6 +5,7 @@ from typing_extensions import (
     TYPE_CHECKING,
     Callable,
     NotRequired,
+    Optional,
 )
 
 from .resource import (
@@ -27,7 +28,7 @@ if TYPE_CHECKING:
         PythonInterpreterTool,
     )
     from aixplain.modules.agent.tool.custom_python_code_tool import CustomPythonCodeTool
-
+    from aixplain.modules.agent.tool.sql_tool import SQLTool
 from .enums import Function
 
 
@@ -97,20 +98,14 @@ class Agent(
     ):
         from aixplain.factories import AgentFactory
 
-        return AgentFactory.create_model_tool(
-            model=model, function=function, supplier=supplier, description=description
-        )
+        return AgentFactory.create_model_tool(model=model, function=function, supplier=supplier, description=description)
 
     @classmethod
-    def create_pipeline_tool(
-        cls, description: str, pipeline: Union["Pipeline", str]
-    ) -> "PipelineTool":
+    def create_pipeline_tool(cls, description: str, pipeline: Union["Pipeline", str]) -> "PipelineTool":
         """Create a new pipeline tool."""
         from aixplain.factories import AgentFactory
 
-        return AgentFactory.create_pipeline_tool(
-            description=description, pipeline=pipeline
-        )
+        return AgentFactory.create_pipeline_tool(description=description, pipeline=pipeline)
 
     @classmethod
     def create_python_interpreter_tool(cls) -> "PythonInterpreterTool":
@@ -120,12 +115,24 @@ class Agent(
         return AgentFactory.create_python_interpreter_tool()
 
     @classmethod
-    def create_custom_python_code_tool(
-        cls, code: Union[str, Callable], description: str = ""
-    ) -> "CustomPythonCodeTool":
+    def create_custom_python_code_tool(cls, code: Union[str, Callable], description: str = "") -> "CustomPythonCodeTool":
         """Create a new custom python code tool."""
         from aixplain.factories import AgentFactory
 
-        return AgentFactory.create_custom_python_code_tool(
-            code=code, description=description
+        return AgentFactory.create_custom_python_code_tool(code=code, description=description)
+
+    @classmethod
+    def create_sql_tool(
+        cls,
+        description: str,
+        database: str,
+        schema: Optional[str] = None,
+        tables: Optional[List[str]] = None,
+        enable_commit: bool = False,
+    ) -> "SQLTool":
+        """Create a new SQL tool."""
+        from aixplain.factories import AgentFactory
+
+        return AgentFactory.create_sql_tool(
+            description=description, database=database, schema=schema, tables=tables, enable_commit=enable_commit
         )
