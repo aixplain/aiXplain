@@ -23,6 +23,7 @@ def build_payload(data: Union[Text, Dict], parameters: Optional[Dict] = None):
                     payload = str(payload)
                 payload = {"data": payload}
         except Exception:
+            parameters["data"] = data
             payload = {"data": data}
     payload.update(parameters)
     payload = json.dumps(payload)
