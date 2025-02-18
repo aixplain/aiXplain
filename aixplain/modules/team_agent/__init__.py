@@ -311,7 +311,7 @@ class TeamAgent(Model):
             raise Exception(f"Large Language Model with ID '{self.llm_id}' not found.")
 
         for agent in self.agents:
-            agent.validate()
+            agent.validate(raise_exception=True)
 
     def update(self) -> None:
         """Update the Team Agent."""

@@ -108,7 +108,7 @@ class Agent(Model):
         self.status = status
         self.tasks = tasks
 
-    def validate(self) -> None:
+    def _validate(self) -> None:
         """Validate the Agent."""
         from aixplain.factories.model_factory import ModelFactory
 
@@ -119,15 +119,31 @@ class Agent(Model):
 
         try:
             llm = ModelFactory.get(self.llm_id, api_key=self.api_key)
-            assert llm.function == Function.TEXT_GENERATION, "Large Language Model must be a text generation model."
         except Exception:
             raise Exception(f"Large Language Model with ID '{self.llm_id}' not found.")
+
+        assert llm.function == Function.TEXT_GENERATION, "Large Language Model must be a text generation model."
 
         for tool in self.tools:
             if isinstance(tool, Tool):
                 tool.validate()
             elif isinstance(tool, Model):
                 assert not isinstance(tool, Agent), "Agent cannot contain another Agent."
+
+    def validate(self, raise_exception: bool = False) -> bool:
+        """Validate the Agent."""
+        try:
+            self._validate()
+        except Exception as e:
+            if raise_exception:
+                raise e
+            else:
+                logging.warning(f"Agent Validation Error: {e}")
+                logging.warning(
+                    "You won't be able to run the Agent until the issues are handled manually."
+                )
+                return False
+        return True
 
     def run(
         self,
@@ -245,6 +261,8 @@ class Agent(Model):
         """
         from aixplain.factories.file_factory import FileFactory
 
+        self.validate(raise_exception=True)
+
         assert data is not None or query is not None, "Either 'data' or 'query' must be provided."
         if data is not None:
             if isinstance(data, dict):
@@ -361,7 +379,7 @@ class Agent(Model):
             )
         from aixplain.factories.agent_factory.utils import build_agent
 
-        self.validate()
+        self.validate(raise_exception=True)
         url = urljoin(config.BACKEND_URL, f"sdk/agents/{self.id}")
         headers = {"x-api-key": config.TEAM_API_KEY, "Content-Type": "application/json"}
 
