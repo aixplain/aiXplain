@@ -72,6 +72,8 @@ class TeamAgent(Model):
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
         version: Optional[Text] = None,
         cost: Optional[Dict] = None,
+        use_mentalist: bool = True,
+        use_inspector: bool = True,
         use_mentalist_and_inspector: bool = True,
         status: AssetStatus = AssetStatus.DRAFT,
         **additional_info,
@@ -95,6 +97,8 @@ class TeamAgent(Model):
         self.additional_info = additional_info
         self.agents = agents
         self.llm_id = llm_id
+        self.use_mentalist = use_mentalist
+        self.use_inspector = use_inspector
         self.use_mentalist_and_inspector = use_mentalist_and_inspector
         if isinstance(status, str):
             try:
@@ -279,6 +283,17 @@ class TeamAgent(Model):
             raise Exception(f"{message}")
 
     def to_dict(self) -> Dict:
+        if not (self.use_mentalist or self.use_inspector):
+            planner_id = None
+            inspector_id = None
+        else:
+            if self.use_mentalist_and_inspector:
+                planner_id = self.llm_id
+                inspector_id = self.llm_id
+            else:
+                planner_id = self.llm_id if self.use_mentalist else None
+                inspector_id = self.llm_id if self.use_inspector else None
+
         return {
             "id": self.id,
             "name": self.name,
@@ -289,7 +304,8 @@ class TeamAgent(Model):
             "description": self.description,
             "llmId": self.llm_id,
             "supervisorId": self.llm_id,
-            "plannerId": self.llm_id if self.use_mentalist_and_inspector else None,
+            "plannerId": planner_id,
+            "inspectorId": inspector_id,
             "supplier": self.supplier.value["code"] if isinstance(self.supplier, Supplier) else self.supplier,
             "version": self.version,
             "status": self.status.value,

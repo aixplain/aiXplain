@@ -64,20 +64,17 @@ class TeamAgentFactory:
 
                 assert isinstance(agent, Agent), "TeamAgent Onboarding Error: Agents must be instances of Agent class"
         
-        mentalist_llm_id = None
-        if use_mentalist is True:
-            mentalist_llm_id = llm_id
-
-        inspector_llm_id = None
-        if use_inspector is True: 
-            inspector_llm_id = llm_id
-
         if use_inspector and not use_mentalist:
             raise Exception("TeamAgent Onboarding Error: To use the Inspector agent, you must enable Mentalist.")
 
-        if use_mentalist_and_inspector is True:
-            inspector_llm_id = llm_id
+        if use_mentalist_and_inspector:
             mentalist_llm_id = llm_id
+            inspector_llm_id = llm_id
+        else:
+            mentalist_llm_id = llm_id if use_mentalist else None
+            inspector_llm_id = llm_id if use_inspector else None
+
+        
 
         team_agent = None
         url = urljoin(config.BACKEND_URL, "sdk/agent-communities")
