@@ -194,6 +194,8 @@ class TeamAgent(Model):
         """
         from aixplain.factories.file_factory import FileFactory
 
+        self.validate(raise_exception=True)
+
         assert data is not None or query is not None, "Either 'data' or 'query' must be provided."
         if data is not None:
             if isinstance(data, dict):
@@ -295,7 +297,7 @@ class TeamAgent(Model):
             "status": self.status.value,
         }
 
-    def validate(self) -> None:
+    def _validate(self) -> None:
         """Validate the Team."""
         from aixplain.factories.model_factory import ModelFactory
 
@@ -312,6 +314,20 @@ class TeamAgent(Model):
 
         for agent in self.agents:
             agent.validate(raise_exception=True)
+
+    def validate(self, raise_exception: bool = False) -> bool:
+        try:
+            self._validate()
+            return True
+        except Exception as e:
+            if raise_exception:
+                raise e
+            else:
+                logging.warning(f"Team Agent Validation Error: {e}")
+                logging.warning(
+                    "You won't be able to run the Team Agent until the issues are handled manually."
+                )
+                return False
 
     def update(self) -> None:
         """Update the Team Agent."""

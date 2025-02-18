@@ -379,7 +379,7 @@ class Agent(Model):
             )
         from aixplain.factories.agent_factory.utils import build_agent
 
-        self.validate(raise_exception=True)
+        self.validate()
         url = urljoin(config.BACKEND_URL, f"sdk/agents/{self.id}")
         headers = {"x-api-key": config.TEAM_API_KEY, "Content-Type": "application/json"}
 
