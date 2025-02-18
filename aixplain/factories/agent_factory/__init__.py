@@ -32,6 +32,7 @@ from aixplain.modules.agent.tool.model_tool import ModelTool
 from aixplain.modules.agent.tool.pipeline_tool import PipelineTool
 from aixplain.modules.agent.tool.python_interpreter_tool import PythonInterpreterTool
 from aixplain.modules.agent.tool.custom_python_code_tool import CustomPythonCodeTool
+from aixplain.modules.agent.tool.sql_tool import SQLTool
 from aixplain.modules.model import Model
 from aixplain.modules.pipeline import Pipeline
 from aixplain.utils import config
@@ -187,6 +188,29 @@ class AgentFactory:
     def create_custom_python_code_tool(cls, code: Union[Text, Callable], description: Text = "") -> CustomPythonCodeTool:
         """Create a new custom python code tool."""
         return CustomPythonCodeTool(description=description, code=code)
+
+    @classmethod
+    def create_sql_tool(
+        cls,
+        description: Text,
+        database: Text,
+        schema: Optional[Text] = None,
+        tables: Optional[List[Text]] = None,
+        enable_commit: bool = False,
+    ) -> SQLTool:
+        """Create a new SQL tool
+
+        Args:
+            description (Text): description of the database tool
+            database (Text): URL/local path of the SQLite database file
+            schema (Optional[Text], optional): database schema description (optional)
+            tables (Optional[List[Text]], optional): table names to work with (optional)
+            enable_commit (bool, optional): enable to modify the database (optional)
+
+        Returns:
+            SQLTool: created SQLTool
+        """
+        return SQLTool(description=description, database=database, schema=schema, tables=tables, enable_commit=enable_commit)
 
     @classmethod
     def list(cls) -> Dict:

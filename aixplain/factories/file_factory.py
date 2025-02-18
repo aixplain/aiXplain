@@ -66,8 +66,17 @@ class FileFactory:
         else:
             content_type = mime_type
 
-        type_to_max_size = {"audio": MB_50, "application": MB_25, "video": MB_300, "image": MB_25, "other": MB_50}
-        if mime_type is None or mime_type.split("/")[0] not in type_to_max_size:
+        type_to_max_size = {
+            "audio": MB_50,
+            "application": MB_25,
+            "video": MB_300,
+            "image": MB_25,
+            "other": MB_50,
+            "database": MB_300,
+        }
+        if local_path.endswith(".db"):
+            ftype = "database"
+        elif mime_type is None or mime_type.split("/")[0] not in type_to_max_size:
             ftype = "other"
         else:
             ftype = mime_type.split("/")[0]
