@@ -62,6 +62,8 @@ class Agent(Model):
         cost (Dict, optional): model price. Defaults to None.
     """
 
+    is_valid: bool
+
     def __init__(
         self,
         id: Text,
@@ -107,6 +109,7 @@ class Agent(Model):
                 status = AssetStatus.DRAFT
         self.status = status
         self.tasks = tasks
+        self.is_valid = False
 
     def _validate(self) -> None:
         """Validate the Agent."""
@@ -134,7 +137,9 @@ class Agent(Model):
         """Validate the Agent."""
         try:
             self._validate()
+            self.is_valid = True
         except Exception as e:
+            self.is_valid = False
             if raise_exception:
                 raise e
             else:
@@ -142,8 +147,7 @@ class Agent(Model):
                 logging.warning(
                     "You won't be able to run the Agent until the issues are handled manually."
                 )
-                return False
-        return True
+        return self.is_valid
 
     def run(
         self,
@@ -261,7 +265,8 @@ class Agent(Model):
         """
         from aixplain.factories.file_factory import FileFactory
 
-        self.validate(raise_exception=True)
+        if not self.is_valid:
+            raise Exception("Agent is not valid. Please validate the agent before running.")
 
         assert data is not None or query is not None, "Either 'data' or 'query' must be provided."
         if data is not None:

@@ -61,6 +61,8 @@ class TeamAgent(Model):
         use_mentalist_and_inspector (bool): Use Mentalist and Inspector tools. Defaults to True.
     """
 
+    is_valid: bool
+
     def __init__(
         self,
         id: Text,
@@ -102,6 +104,7 @@ class TeamAgent(Model):
             except Exception:
                 status = AssetStatus.DRAFT
         self.status = status
+        self.is_valid = False
 
     def run(
         self,
@@ -194,7 +197,8 @@ class TeamAgent(Model):
         """
         from aixplain.factories.file_factory import FileFactory
 
-        self.validate(raise_exception=True)
+        if not self.is_valid:
+            raise Exception("Team Agent is not valid. Please validate the team agent before running.")
 
         assert data is not None or query is not None, "Either 'data' or 'query' must be provided."
         if data is not None:
@@ -318,7 +322,7 @@ class TeamAgent(Model):
     def validate(self, raise_exception: bool = False) -> bool:
         try:
             self._validate()
-            return True
+            self.is_valid = True
         except Exception as e:
             if raise_exception:
                 raise e
@@ -327,7 +331,9 @@ class TeamAgent(Model):
                 logging.warning(
                     "You won't be able to run the Team Agent until the issues are handled manually."
                 )
-                return False
+                self.is_valid = False
+
+        return self.is_valid
 
     def update(self) -> None:
         """Update the Team Agent."""
