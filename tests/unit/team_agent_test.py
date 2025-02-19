@@ -146,7 +146,6 @@ def test_create_team_agent(mock_model_factory_get):
             "version": "1.0",
             "status": "draft",
             "llmId": "6646261c6eb563165658bbb1",
-            "llmId": "6646261c6eb563165658bbb1",
             "pricing": {"currency": "USD", "value": 0.0},
             "assets": [
                 {

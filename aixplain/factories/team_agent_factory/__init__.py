@@ -47,7 +47,7 @@ class TeamAgentFactory:
         version: Optional[Text] = None,
         use_mentalist: bool = True,
         use_inspector: bool = True,
-        use_mentalist_and_inspector: bool = False,
+        use_mentalist_and_inspector: bool = False,  # TODO: remove this
     ) -> TeamAgent:
         """Create a new team agent in the platform."""
         assert len(agents) > 0, "TeamAgent Onboarding Error: At least one agent must be provided."
