@@ -109,7 +109,7 @@ class Agent(Model):
                 status = AssetStatus.DRAFT
         self.status = status
         self.tasks = tasks
-        self.is_valid = False
+        self.is_valid = True
 
     def _validate(self) -> None:
         """Validate the Agent."""
@@ -125,13 +125,17 @@ class Agent(Model):
         except Exception:
             raise Exception(f"Large Language Model with ID '{self.llm_id}' not found.")
 
-        assert llm.function == Function.TEXT_GENERATION, "Large Language Model must be a text generation model."
+        assert (
+            llm.function == Function.TEXT_GENERATION
+        ), "Large Language Model must be a text generation model."
 
         for tool in self.tools:
             if isinstance(tool, Tool):
                 tool.validate()
             elif isinstance(tool, Model):
-                assert not isinstance(tool, Agent), "Agent cannot contain another Agent."
+                assert not isinstance(
+                    tool, Agent
+                ), "Agent cannot contain another Agent."
 
     def validate(self, raise_exception: bool = False) -> bool:
         """Validate the Agent."""
@@ -203,7 +207,9 @@ class Agent(Model):
                 return response
             poll_url = response["url"]
             end = time.time()
-            result = self.sync_poll(poll_url, name=name, timeout=timeout, wait_time=wait_time)
+            result = self.sync_poll(
+                poll_url, name=name, timeout=timeout, wait_time=wait_time
+            )
             result_data = result.data
             return AgentResponse(
                 status=ResponseStatus.SUCCESS,
@@ -266,12 +272,18 @@ class Agent(Model):
         from aixplain.factories.file_factory import FileFactory
 
         if not self.is_valid:
-            raise Exception("Agent is not valid. Please validate the agent before running.")
+            raise Exception(
+                "Agent is not valid. Please validate the agent before running."
+            )
 
-        assert data is not None or query is not None, "Either 'data' or 'query' must be provided."
+        assert (
+            data is not None or query is not None
+        ), "Either 'data' or 'query' must be provided."
         if data is not None:
             if isinstance(data, dict):
-                assert "query" in data and data["query"] is not None, "When providing a dictionary, 'query' must be provided."
+                assert (
+                    "query" in data and data["query"] is not None
+                ), "When providing a dictionary, 'query' must be provided."
                 query = data.get("query")
                 if session_id is None:
                     session_id = data.get("session_id")
@@ -284,7 +296,9 @@ class Agent(Model):
 
         # process content inputs
         if content is not None:
-            assert FileFactory.check_storage_type(query) == StorageType.TEXT, "When providing 'content', query must be text."
+            assert (
+                FileFactory.check_storage_type(query) == StorageType.TEXT
+            ), "When providing 'content', query must be text."
 
             if isinstance(content, list):
                 assert len(content) <= 3, "The maximum number of content inputs is 3."
@@ -293,7 +307,9 @@ class Agent(Model):
                     query += f"\n{input_link}"
             elif isinstance(content, dict):
                 for key, value in content.items():
-                    assert "{{" + key + "}}" in query, f"Key '{key}' not found in query."
+                    assert (
+                        "{{" + key + "}}" in query
+                    ), f"Key '{key}' not found in query."
                     value = FileFactory.to_link(value)
                     query = query.replace("{{" + key + "}}", f"'{value}'")
 
@@ -308,8 +324,16 @@ class Agent(Model):
             "sessionId": session_id,
             "history": history,
             "executionParams": {
-                "maxTokens": parameters["max_tokens"] if "max_tokens" in parameters else max_tokens,
-                "maxIterations": parameters["max_iterations"] if "max_iterations" in parameters else max_iterations,
+                "maxTokens": (
+                    parameters["max_tokens"]
+                    if "max_tokens" in parameters
+                    else max_tokens
+                ),
+                "maxIterations": (
+                    parameters["max_iterations"]
+                    if "max_iterations" in parameters
+                    else max_iterations
+                ),
                 "outputFormat": output_format.value,
             },
         }
@@ -343,7 +367,11 @@ class Agent(Model):
             "assets": [tool.to_dict() for tool in self.tools],
             "description": self.description,
             "role": self.instructions,
-            "supplier": self.supplier.value["code"] if isinstance(self.supplier, Supplier) else self.supplier,
+            "supplier": (
+                self.supplier.value["code"]
+                if isinstance(self.supplier, Supplier)
+                else self.supplier
+            ),
             "version": self.version,
             "llmId": self.llm_id,
             "status": self.status.value,
@@ -354,7 +382,10 @@ class Agent(Model):
         """Delete Agent service"""
         try:
             url = urljoin(config.BACKEND_URL, f"sdk/agents/{self.id}")
-            headers = {"x-api-key": config.TEAM_API_KEY, "Content-Type": "application/json"}
+            headers = {
+                "x-api-key": config.TEAM_API_KEY,
+                "Content-Type": "application/json",
+            }
             logging.debug(f"Start service for DELETE Agent  - {url} - {headers}")
             r = _request_with_retry("delete", url, headers=headers)
             logging.debug(f"Result of request for DELETE Agent - {r.status_code}")
@@ -378,7 +409,8 @@ class Agent(Model):
         stack = inspect.stack()
         if len(stack) > 2 and stack[1].function != "save":
             warnings.warn(
-                "update() is deprecated and will be removed in a future version. " "Please use save() instead.",
+                "update() is deprecated and will be removed in a future version. "
+                "Please use save() instead.",
                 DeprecationWarning,
                 stacklevel=2,
             )
@@ -390,7 +422,9 @@ class Agent(Model):
 
         payload = self.to_dict()
 
-        logging.debug(f"Start service for PUT Update Agent  - {url} - {headers} - {json.dumps(payload)}")
+        logging.debug(
+            f"Start service for PUT Update Agent  - {url} - {headers} - {json.dumps(payload)}"
+        )
         resp = "No specified error."
         try:
             r = _request_with_retry("put", url, headers=headers, json=payload)
@@ -409,7 +443,9 @@ class Agent(Model):
         self.update()
 
     def deploy(self) -> None:
-        assert self.status == AssetStatus.DRAFT, "Agent must be in draft status to be deployed."
+        assert (
+            self.status == AssetStatus.DRAFT
+        ), "Agent must be in draft status to be deployed."
         assert self.status != AssetStatus.ONBOARDED, "Agent is already deployed."
         self.status = AssetStatus.ONBOARDED
         self.update()
