@@ -331,7 +331,6 @@ def test_run_diarization(version: str, PipelineFactory):
         assert len(d["segments"]) > 0
         assert d["segments"][0]["success"] is True
 
-
 @pytest.mark.parametrize("version", ["3.0"])
 @pytest.mark.parametrize("PipelineFactory", [PipelineFactory, v2.Pipeline])
 def test_run_failure(version: str, PipelineFactory):
