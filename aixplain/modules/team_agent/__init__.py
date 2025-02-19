@@ -357,6 +357,7 @@ class TeamAgent(Model):
             self._validate()
             self.is_valid = True
         except Exception as e:
+            self.is_valid = False
             if raise_exception:
                 raise e
             else:
@@ -364,7 +365,6 @@ class TeamAgent(Model):
                 logging.warning(
                     "You won't be able to run the Team Agent until the issues are handled manually."
                 )
-                self.is_valid = False
 
         return self.is_valid
 
