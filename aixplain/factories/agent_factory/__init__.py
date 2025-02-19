@@ -122,7 +122,7 @@ class AgentFactory:
             "tasks": [task.to_dict() for task in tasks],
         }
         agent = build_agent(payload=payload, api_key=api_key)
-        agent.validate(raise_exception=True)
+        agent.validate()
         response = "Unspecified error"
         try:
             logging.debug(f"Start service for POST Create Agent  - {url} - {headers} - {json.dumps(agent.to_dict())}")
