@@ -30,7 +30,6 @@ def build_team_agent(payload: Dict, api_key: Text = config.TEAM_API_KEY) -> Team
         llm_id=payload.get("llmId", GPT_4o_ID),
         use_mentalist=True if payload["plannerId"] is not None else False,
         use_inspector=True if payload["inspectorId"] is not None else False,
-        use_mentalist_and_inspector=True if payload["plannerId"] is not None else False,
         api_key=api_key,
         status=AssetStatus(payload["status"]),
     )

@@ -47,7 +47,7 @@ class TeamAgentFactory:
         version: Optional[Text] = None,
         use_mentalist: bool = True,
         use_inspector: bool = True,
-        use_mentalist_and_inspector: bool = True,
+        use_mentalist_and_inspector: bool = False,
     ) -> TeamAgent:
         """Create a new team agent in the platform."""
         assert len(agents) > 0, "TeamAgent Onboarding Error: At least one agent must be provided."
@@ -73,8 +73,6 @@ class TeamAgentFactory:
         else:
             mentalist_llm_id = llm_id if use_mentalist else None
             inspector_llm_id = llm_id if use_inspector else None
-
-        
 
         team_agent = None
         url = urljoin(config.BACKEND_URL, "sdk/agent-communities")
