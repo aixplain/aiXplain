@@ -330,7 +330,7 @@ class Agent(Model):
             "llmId": self.llm_id,
             "status": self.status.value,
             "tasks": [task.to_dict() for task in self.tasks],
-            "monitoringTools": self.monitoring_tools.to_dict() if self.monitoring_tools else None,
+            "tools": self.monitoring_tools.to_list() if self.monitoring_tools else None,
         }
 
     def delete(self) -> None:

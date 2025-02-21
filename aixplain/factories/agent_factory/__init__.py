@@ -121,7 +121,7 @@ class AgentFactory:
             "llmId": llm_id,
             "status": "draft",
             "tasks": [task.to_dict() for task in tasks],
-            "monitoringTools": monitoring_tools.to_dict() if monitoring_tools is not None else None,
+            "tools": monitoring_tools.to_list() if monitoring_tools is not None else None,
         }
         agent = build_agent(payload=payload, api_key=api_key)
         agent.validate()
@@ -132,7 +132,6 @@ class AgentFactory:
             response = r.json()
         except Exception:
             raise Exception("Agent Onboarding Error: Please contact the administrators.")
-
         if 200 <= r.status_code < 300:
             agent = build_agent(payload=response, api_key=api_key)
         else:

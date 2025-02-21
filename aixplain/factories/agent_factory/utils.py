@@ -70,7 +70,7 @@ def build_agent(payload: Dict, api_key: Text = config.TEAM_API_KEY) -> Agent:
             )
             for task in payload.get("tasks", [])
         ],
-        monitoring_tools=MonitoringTools(config=payload["monitoringTools"]) if "monitoringTools" in payload else None,
+        monitoring_tools=MonitoringTools(tools=payload["tools"]) if "tools" in payload else None,
     )
     agent.url = urljoin(config.BACKEND_URL, f"sdk/agents/{agent.id}/run")
     return agent
