@@ -1,5 +1,6 @@
 __author__ = "lucaspavanelli"
 
+import logging
 import aixplain.utils.config as config
 from aixplain.enums.asset_status import AssetStatus
 from aixplain.modules.team_agent import TeamAgent
@@ -16,8 +17,14 @@ def build_team_agent(payload: Dict, api_key: Text = config.TEAM_API_KEY) -> Team
     agents_dict = payload["agents"]
     agents = []
     for i, agent in enumerate(agents_dict):
-        agent = AgentFactory.get(agent["assetId"])
-        agents.append(agent)
+        try:
+            agents.append(AgentFactory.get(agent["assetId"]))
+        except Exception:
+            logging.warning(
+                f"Agent {agent['assetId']} not found. Make sure it exists or you have access to it. "
+                "If you think this is an error, please contact the administrators."
+            )
+            continue
 
     team_agent = TeamAgent(
         id=payload.get("id", ""),
