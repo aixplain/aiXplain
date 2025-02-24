@@ -384,7 +384,7 @@ class TeamAgent(Model):
             )
         from aixplain.factories.team_agent_factory.utils import build_team_agent
 
-        self.validate()
+        self.validate(raise_exception=True)
         url = urljoin(config.BACKEND_URL, f"sdk/agent-communities/{self.id}")
         headers = {"x-api-key": config.TEAM_API_KEY, "Content-Type": "application/json"}
 

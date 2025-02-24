@@ -95,7 +95,7 @@ class TeamAgentFactory:
         }
 
         team_agent = build_team_agent(payload=payload, api_key=api_key)
-        team_agent.validate()
+        team_agent.validate(raise_exception=True)
         response = "Unspecified error"
         try:
             logging.debug(f"Start service for POST Create TeamAgent  - {url} - {headers} - {json.dumps(payload)}")
