@@ -74,7 +74,8 @@ class TeamAgent(Model):
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
         version: Optional[Text] = None,
         cost: Optional[Dict] = None,
-        use_mentalist_and_inspector: bool = True,
+        use_mentalist: bool = True,
+        use_inspector: bool = True,
         status: AssetStatus = AssetStatus.DRAFT,
         **additional_info,
     ) -> None:
@@ -97,7 +98,9 @@ class TeamAgent(Model):
         self.additional_info = additional_info
         self.agents = agents
         self.llm_id = llm_id
-        self.use_mentalist_and_inspector = use_mentalist_and_inspector
+        self.use_mentalist = use_mentalist
+        self.use_inspector = use_inspector
+
         if isinstance(status, str):
             try:
                 status = AssetStatus(status)
@@ -322,12 +325,9 @@ class TeamAgent(Model):
             "description": self.description,
             "llmId": self.llm_id,
             "supervisorId": self.llm_id,
-            "plannerId": self.llm_id if self.use_mentalist_and_inspector else None,
-            "supplier": (
-                self.supplier.value["code"]
-                if isinstance(self.supplier, Supplier)
-                else self.supplier
-            ),
+            "plannerId": self.llm_id if self.use_mentalist else None,
+            "inspectorId": self.llm_id if self.use_inspector else None,
+            "supplier": self.supplier.value["code"] if isinstance(self.supplier, Supplier) else self.supplier,
             "version": self.version,
             "status": self.status.value,
         }
