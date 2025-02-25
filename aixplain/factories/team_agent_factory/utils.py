@@ -1,28 +1,31 @@
 __author__ = "lucaspavanelli"
 
+from aixplain.modules.agent import Agent
 import aixplain.utils.config as config
 from aixplain.enums.asset_status import AssetStatus
 from aixplain.modules.team_agent import TeamAgent
-from typing import Dict, Text
+from typing import Dict, Text, List
 from urllib.parse import urljoin
 
 GPT_4o_ID = "6646261c6eb563165658bbb1"
 
 
-def build_team_agent(payload: Dict, api_key: Text = config.TEAM_API_KEY) -> TeamAgent:
+def build_team_agent(payload: Dict, agents: List[Agent] = None, api_key: Text = config.TEAM_API_KEY) -> TeamAgent:
     """Instantiate a new team agent in the platform."""
     from aixplain.factories.agent_factory import AgentFactory
 
-    agents_dict = payload["agents"]
-    agents = []
-    for i, agent in enumerate(agents_dict):
-        agent = AgentFactory.get(agent["assetId"])
-        agents.append(agent)
+    payload_agent_list = agents
+    if payload_agent_list is None:
+        agents_dict = payload["agents"]
+        payload_agent_list = []
+        for i, agent in enumerate(agents_dict):
+            agent = AgentFactory.get(agent["assetId"])
+            payload_agent_list.append(agent)
 
     team_agent = TeamAgent(
         id=payload.get("id", ""),
         name=payload.get("name", ""),
-        agents=agents,
+        agents=payload_agent_list,
         description=payload.get("description", ""),
         supplier=payload.get("teamId", None),
         version=payload.get("version", None),
