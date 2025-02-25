@@ -1,5 +1,6 @@
 __author__ = "thiagocastroferreira"
 
+import logging
 import aixplain.utils.config as config
 from aixplain.enums import Function, Supplier
 from aixplain.enums.asset_status import AssetStatus
@@ -17,55 +18,71 @@ from urllib.parse import urljoin
 GPT_4o_ID = "6646261c6eb563165658bbb1"
 
 
+def build_tool(tool: Dict):
+    """Build a tool from a dictionary.
+
+    Args:
+        tool (Dict): Tool dictionary.
+
+    Returns:
+        Tool: Tool object.
+    """
+    if tool["type"] == "model":
+        supplier = "aixplain"
+        for supplier_ in Supplier:
+            if isinstance(tool["supplier"], str):
+                if tool["supplier"] is not None and tool["supplier"].lower() in [
+                    supplier_.value["code"].lower(),
+                    supplier_.value["name"].lower(),
+                ]:
+                    supplier = supplier_
+                    break
+        tool = ModelTool(
+            function=Function(tool.get("function", None)),
+            supplier=supplier,
+            version=tool["version"],
+            model=tool["assetId"],
+            description=tool.get("description", ""),
+            parameters=tool.get("parameters", None),
+        )
+    elif tool["type"] == "pipeline":
+        tool = PipelineTool(description=tool["description"], pipeline=tool["assetId"])
+    elif tool["type"] == "utility":
+        if tool.get("utilityCode", None) is not None:
+            tool = CustomPythonCodeTool(description=tool["description"], code=tool["utilityCode"])
+        else:
+            tool = PythonInterpreterTool()
+    elif tool["type"] == "sql":
+        parameters = {parameter["name"]: parameter["value"] for parameter in tool.get("parameters", [])}
+        database = parameters.get("database")
+        schema = parameters.get("schema")
+        tables = parameters.get("tables", None)
+        tables = tables.split(",") if tables is not None else None
+        enable_commit = parameters.get("enable_commit", False)
+        tool = SQLTool(
+            description=tool["description"], database=database, schema=schema, tables=tables, enable_commit=enable_commit
+        )
+    else:
+        raise Exception("Agent Creation Error: Tool type not supported.")
+
+    return tool
+
+
 def build_agent(payload: Dict, tools: List[Tool] = None, api_key: Text = config.TEAM_API_KEY) -> Agent:
     """Instantiate a new agent in the platform."""
+    tools_dict = payload["assets"]
     payload_tools = tools
     if payload_tools is None:
-        tools_dict = payload["assets"]
         payload_tools = []
         for tool in tools_dict:
-            if tool["type"] == "model":
-                supplier = "aixplain"
-                for supplier_ in Supplier:
-                    if isinstance(tool["supplier"], str):
-                        if tool["supplier"] is not None and tool["supplier"].lower() in [
-                            supplier_.value["code"].lower(),
-                            supplier_.value["name"].lower(),
-                        ]:
-                            supplier = supplier_
-                            break
-                tool = ModelTool(
-                    function=Function(tool.get("function", None)),
-                    supplier=supplier,
-                    version=tool["version"],
-                    model=tool["assetId"],
-                    description=tool.get("description", ""),
-                    parameters=tool.get("parameters", None),
+            try:
+                payload_tools.append(build_tool(tool))
+            except Exception:
+                logging.warning(
+                    f"Tool {tool['assetId']} is not available. Make sure it exists or you have access to it. "
+                    "If you think this is an error, please contact the administrators."
                 )
-            elif tool["type"] == "pipeline":
-                tool = PipelineTool(description=tool["description"], pipeline=tool["assetId"])
-            elif tool["type"] == "utility":
-                if tool.get("utilityCode", None) is not None:
-                    tool = CustomPythonCodeTool(description=tool["description"], code=tool["utilityCode"])
-                else:
-                    tool = PythonInterpreterTool()
-            elif tool["type"] == "sql":
-                parameters = {parameter["name"]: parameter["value"] for parameter in tool.get("parameters", [])}
-                database = parameters.get("database")
-                schema = parameters.get("schema")
-                tables = parameters.get("tables", None)
-                tables = tables.split(",") if tables is not None else None
-                enable_commit = parameters.get("enable_commit", False)
-                tool = SQLTool(
-                    description=tool["description"],
-                    database=database,
-                    schema=schema,
-                    tables=tables,
-                    enable_commit=enable_commit,
-                )
-            else:
-                raise Exception("Agent Creation Error: Tool type not supported.")
-            payload_tools.append(tool)
+                continue
 
     agent = Agent(
         id=payload["id"] if "id" in payload else "",

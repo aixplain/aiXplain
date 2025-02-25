@@ -151,7 +151,7 @@ def test_run_async_success(mock_pipeline):
         success_response = PipelineResponse(
             status=ResponseStatus.SUCCESS, url=execute_url
         )
-        mock.post(execute_url, json=success_response, status_code=200)
+        mock.post(execute_url, json=success_response.__dict__, status_code=200)
 
         response = mock_pipeline.run_async(data="input_data")
 
@@ -171,8 +171,8 @@ def test_run_sync_success(mock_pipeline):
         poll_response = PipelineResponse(
             status=ResponseStatus.SUCCESS, data={"output": "poll_result"}
         )
-        mock.post(execute_url, json=success_response, status_code=200)
-        mock.get(poll_url, json=poll_response, status_code=200)
+        mock.post(execute_url, json=success_response.__dict__, status_code=200)
+        mock.get(poll_url, json=poll_response.__dict__, status_code=200)
         response = mock_pipeline.run(data="input_data")
 
     assert isinstance(response, PipelineResponse)
@@ -187,7 +187,7 @@ def test_poll_success(mock_pipeline):
         poll_response = PipelineResponse(
             status=ResponseStatus.SUCCESS, data={"output": "poll_result"}
         )
-        mock.get(poll_url, json=poll_response, status_code=200)
+        mock.get(poll_url, json=poll_response.__dict__, status_code=200)
 
         response = mock_pipeline.poll(poll_url=poll_url)
 
