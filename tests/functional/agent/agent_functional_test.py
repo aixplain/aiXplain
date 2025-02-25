@@ -25,7 +25,6 @@ from aixplain.enums.asset_status import AssetStatus
 from aixplain.enums.function import Function
 from aixplain.enums.supplier import Supplier
 from uuid import uuid4
-from unittest.mock import patch
 
 import pytest
 
@@ -202,10 +201,7 @@ def test_update_draft_agent(run_input_map, delete_agents_and_team_agents, AgentF
 @pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
 def test_fail_non_existent_llm(delete_agents_and_team_agents, AgentFactory):
     assert delete_agents_and_team_agents
-
-    # Despite giving a non-existent LLM ID, the agent is created successfully
-    # but with given warning
-    with patch("logging.warning") as mock_warning:
+    with pytest.raises(Exception) as exc_info:
         AgentFactory.create(
             name="Test Agent",
             description="Test description",
@@ -213,7 +209,7 @@ def test_fail_non_existent_llm(delete_agents_and_team_agents, AgentFactory):
             llm_id="non_existent_llm",
             tools=[AgentFactory.create_model_tool(function=Function.TRANSLATION)],
         )
-        assert mock_warning.call_count == 2
+    assert str(exc_info.value) == "Large Language Model with ID 'non_existent_llm' not found."
 
 
 @pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
