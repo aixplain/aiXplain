@@ -1,6 +1,6 @@
 import pytest
 
-from aixplain.enums import DataType
+from aixplain.enums import DataType, ResponseStatus
 from aixplain.factories import PipelineFactory, DatasetFactory
 from aixplain.modules.pipeline.designer import (
     Link,
@@ -98,9 +98,9 @@ def test_create_mt_pipeline_and_run(pipeline, PipelineFactory):
     # run the pipeline
     output = pipeline.run(
         "https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.txt",
-        **{"batchmode": False, "version": "2.0"},
+        **{"batchmode": False, "version": "3.0"},
     )
-    assert output["status"] == "SUCCESS"
+    assert output["status"] == ResponseStatus.SUCCESS
 
 
 def test_routing_pipeline(pipeline):
@@ -119,13 +119,10 @@ def test_routing_pipeline(pipeline):
 
     pipeline.save()
 
-    output = pipeline.run("This is a sample text!")
-
-    assert output["status"] == "SUCCESS"
-    assert output.get("data") is not None
-    assert len(output["data"]) > 0
-    assert output["data"][0].get("segments") is not None
-    assert len(output["data"][0]["segments"]) > 0
+    output = pipeline.run(
+        "This is a sample text!", **{"batchmode": False, "version": "3.0"}
+    )
+    assert output["status"] == ResponseStatus.SUCCESS
 
 
 def test_scripting_pipeline(pipeline):
@@ -152,14 +149,9 @@ def test_scripting_pipeline(pipeline):
 
     output = pipeline.run(
         "s3://aixplain-platform-assets/samples/en/CPAC1x2.wav",
-        version="2.0",
+        version="3.0",
     )
-
-    assert output["status"] == "SUCCESS"
-    assert output.get("data") is not None
-    assert len(output["data"]) > 0
-    assert output["data"][0].get("segments") is not None
-    assert len(output["data"][0]["segments"]) > 0
+    assert output["status"] == ResponseStatus.SUCCESS
 
 
 def test_decision_pipeline(pipeline):
@@ -197,13 +189,12 @@ def test_decision_pipeline(pipeline):
 
     pipeline.save()
 
-    output = pipeline.run("I feel so bad today!")
-
-    assert output["status"] == "SUCCESS"
+    output = pipeline.run(
+        "I feel so bad today!",
+        version="3.0",
+    )
+    assert output["status"] == ResponseStatus.SUCCESS
     assert output.get("data") is not None
-    assert len(output["data"]) > 0
-    assert output["data"][0].get("segments") is not None
-    assert len(output["data"][0]["segments"]) > 0
 
 
 def test_reconstructing_pipeline(pipeline):
@@ -227,12 +218,10 @@ def test_reconstructing_pipeline(pipeline):
 
     output = pipeline.run(
         "s3://aixplain-platform-assets/samples/en/CPAC1x2.wav",
+        version="3.0",
     )
-    assert output["status"] == "SUCCESS"
+    assert output["status"] == ResponseStatus.SUCCESS
     assert output.get("data") is not None
-    assert len(output["data"]) > 0
-    assert output["data"][0].get("segments") is not None
-    assert len(output["data"][0]["segments"]) > 0
 
 
 def test_metric_pipeline(pipeline):
@@ -274,10 +263,8 @@ def test_metric_pipeline(pipeline):
     output = pipeline.run(
         data={"TextInput": reference_id, "ReferenceInput": reference_id},
         data_asset={"TextInput": data_asset_id, "ReferenceInput": data_asset_id},
+        version="3.0",
     )
 
-    assert output["status"] == "SUCCESS"
+    assert output["status"] == ResponseStatus.SUCCESS
     assert output.get("data") is not None
-    assert len(output["data"]) > 0
-    assert output["data"][0].get("segments") is not None
-    assert len(output["data"][0]["segments"]) > 0

@@ -114,6 +114,9 @@ class ModelTool(Tool):
     def validate(self) -> Model:
         from aixplain.factories.model_factory import ModelFactory
 
+        if self.model_object is not None:
+            return self.model_object
+
         try:
             model = None
             if self.model is not None:
