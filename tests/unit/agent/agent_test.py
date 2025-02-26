@@ -108,9 +108,9 @@ def test_invalid_llm_id():
 def test_invalid_agent_name():
     with pytest.raises(Exception) as exc_info:
         AgentFactory.create(name="[Test]", description="", instructions="", tools=[], llm_id="6646261c6eb563165658bbb1")
-    assert (
-        str(exc_info.value)
-        == "Agent Creation Error: Agent name contains invalid characters. Only alphanumeric characters, spaces, hyphens, and brackets are allowed."  # noqa: W503
+    assert str(exc_info.value) == (
+        "Agent Creation Error: Agent name contains invalid characters. "
+        "Only alphanumeric characters, spaces, hyphens, and brackets are allowed."
     )
 
 
@@ -412,9 +412,10 @@ def test_run_variable_error():
     agent = Agent("123", "Test Agent", "Translate the input data into {target_language}", "Test Agent Role")
     with pytest.raises(Exception) as exc_info:
         agent.run_async(data={"query": "Hello, how are you?"}, output_format=OutputFormat.MARKDOWN)
-    assert (
-        str(exc_info.value)
-        == "Variable 'target_language' not found in data or parameters. This variable is required by the agent according to its description ('Translate the input data into {target_language}')."  # noqa: W503
+    assert str(exc_info.value) == (
+        "Variable 'target_language' not found in data or parameters. "
+        "This variable is required by the agent according to its description "
+        "('Translate the input data into {target_language}')."
     )
 
 
