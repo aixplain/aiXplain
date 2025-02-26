@@ -26,7 +26,6 @@ from aixplain.enums.supplier import Supplier
 from copy import copy
 from uuid import uuid4
 import pytest
-from unittest.mock import patch
 
 from aixplain import aixplain_v2 as v2
 
@@ -168,7 +167,7 @@ def test_draft_team_agent_update(run_input_map, TeamAgentFactory):
 
 @pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory, v2.TeamAgent])
 def test_fail_non_existent_llm(TeamAgentFactory):
-    with patch("logging.warning") as mock_warning:
+    with pytest.raises(Exception) as exc_info:
         AgentFactory.create(
             name="Test Agent",
             description="",
@@ -176,7 +175,7 @@ def test_fail_non_existent_llm(TeamAgentFactory):
             llm_id="non_existent_llm",
             tools=[AgentFactory.create_model_tool(function=Function.TRANSLATION)],
         )
-        assert mock_warning.call_count == 2
+    assert str(exc_info.value) == "Large Language Model with ID 'non_existent_llm' not found."
 
 
 @pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory, v2.TeamAgent])
