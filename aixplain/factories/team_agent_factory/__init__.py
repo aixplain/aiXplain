@@ -51,19 +51,23 @@ class TeamAgentFactory:
     ) -> TeamAgent:
         """Create a new team agent in the platform."""
         assert len(agents) > 0, "TeamAgent Onboarding Error: At least one agent must be provided."
+        agent_list = []
         for agent in agents:
             if isinstance(agent, Text) is True:
                 try:
                     from aixplain.factories.agent_factory import AgentFactory
 
-                    agent = AgentFactory.get(agent)
+                    agent_obj = AgentFactory.get(agent)
                 except Exception:
                     raise Exception(f"TeamAgent Onboarding Error: Agent {agent} does not exist.")
             else:
                 from aixplain.modules.agent import Agent
 
+                agent_obj = agent
+
                 assert isinstance(agent, Agent), "TeamAgent Onboarding Error: Agents must be instances of Agent class"
-        
+            agent_list.append(agent_obj)
+
         if use_inspector and not use_mentalist:
             raise Exception("TeamAgent Onboarding Error: To use the Inspector agent, you must enable Mentalist.")
 
@@ -83,13 +87,13 @@ class TeamAgentFactory:
         elif isinstance(supplier, Supplier):
             supplier = supplier.value["code"]
 
-        agent_list = []
+        agent_payload_list = []
         for idx, agent in enumerate(agents):
-            agent_list.append({"assetId": agent.id, "number": idx, "type": "AGENT", "label": "AGENT"})
+            agent_payload_list.append({"assetId": agent.id, "number": idx, "type": "AGENT", "label": "AGENT"})
 
         payload = {
             "name": name,
-            "agents": agent_list,
+            "agents": agent_payload_list,
             "links": [],
             "description": description,
             "llmId": llm_id,
@@ -101,7 +105,7 @@ class TeamAgentFactory:
             "status": "draft",
         }
 
-        team_agent = build_team_agent(payload=payload, api_key=api_key)
+        team_agent = build_team_agent(payload=payload, agents=agent_list, api_key=api_key)
         team_agent.validate(raise_exception=True)
         response = "Unspecified error"
         try:
@@ -112,7 +116,7 @@ class TeamAgentFactory:
             raise Exception(e)
 
         if 200 <= r.status_code < 300:
-            team_agent = build_team_agent(payload=response, api_key=api_key)
+            team_agent = build_team_agent(payload=response, agents=agent_list, api_key=api_key)
         else:
             error_msg = f"{response}"
             if "message" in response:

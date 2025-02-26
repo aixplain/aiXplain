@@ -115,6 +115,7 @@ def test_validate(mock_model, mock_model_factory, model_exists):
             tool = ModelTool()
             tool.model = "test_model_id"
             tool.api_key = None
+            tool.model_object = None
             validated_model = tool.validate()
             assert validated_model == mock_model
     else:
@@ -123,6 +124,7 @@ def test_validate(mock_model, mock_model_factory, model_exists):
             tool = ModelTool()
             tool.model = "nonexistent_model"
             tool.api_key = None
+            tool.model_object = None
             with pytest.raises(Exception, match="Model Tool Unavailable"):
                 tool.validate()
 

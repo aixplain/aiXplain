@@ -3,33 +3,36 @@ __author__ = "lucaspavanelli"
 import logging
 import aixplain.utils.config as config
 from aixplain.enums.asset_status import AssetStatus
+from aixplain.modules.agent import Agent
 from aixplain.modules.team_agent import TeamAgent
-from typing import Dict, Text
+from typing import Dict, Text, List
 from urllib.parse import urljoin
 
 GPT_4o_ID = "6646261c6eb563165658bbb1"
 
 
-def build_team_agent(payload: Dict, api_key: Text = config.TEAM_API_KEY) -> TeamAgent:
+def build_team_agent(payload: Dict, agents: List[Agent] = None, api_key: Text = config.TEAM_API_KEY) -> TeamAgent:
     """Instantiate a new team agent in the platform."""
     from aixplain.factories.agent_factory import AgentFactory
 
     agents_dict = payload["agents"]
-    agents = []
-    for i, agent in enumerate(agents_dict):
-        try:
-            agents.append(AgentFactory.get(agent["assetId"]))
-        except Exception:
-            logging.warning(
-                f"Agent {agent['assetId']} not found. Make sure it exists or you have access to it. "
-                "If you think this is an error, please contact the administrators."
-            )
-            continue
+    payload_agents = agents
+    if payload_agents is None:
+        payload_agents = []
+        for i, agent in enumerate(agents_dict):
+            try:
+                payload_agents.append(AgentFactory.get(agent["assetId"]))
+            except Exception:
+                logging.warning(
+                    f"Agent {agent['assetId']} not found. Make sure it exists or you have access to it. "
+                    "If you think this is an error, please contact the administrators."
+                )
+                continue
 
     team_agent = TeamAgent(
         id=payload.get("id", ""),
         name=payload.get("name", ""),
-        agents=agents,
+        agents=payload_agents,
         description=payload.get("description", ""),
         supplier=payload.get("teamId", None),
         version=payload.get("version", None),

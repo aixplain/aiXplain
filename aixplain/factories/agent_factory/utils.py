@@ -5,13 +5,14 @@ import aixplain.utils.config as config
 from aixplain.enums import Function, Supplier
 from aixplain.enums.asset_status import AssetStatus
 from aixplain.modules.agent import Agent
+from aixplain.modules.agent.tool import Tool
 from aixplain.modules.agent.agent_task import AgentTask
 from aixplain.modules.agent.tool.model_tool import ModelTool
 from aixplain.modules.agent.tool.pipeline_tool import PipelineTool
 from aixplain.modules.agent.tool.python_interpreter_tool import PythonInterpreterTool
 from aixplain.modules.agent.tool.custom_python_code_tool import CustomPythonCodeTool
 from aixplain.modules.agent.tool.sql_tool import SQLTool
-from typing import Dict, Text
+from typing import Dict, Text, List
 from urllib.parse import urljoin
 
 GPT_4o_ID = "6646261c6eb563165658bbb1"
@@ -67,24 +68,26 @@ def build_tool(tool: Dict):
     return tool
 
 
-def build_agent(payload: Dict, api_key: Text = config.TEAM_API_KEY) -> Agent:
+def build_agent(payload: Dict, tools: List[Tool] = None, api_key: Text = config.TEAM_API_KEY) -> Agent:
     """Instantiate a new agent in the platform."""
     tools_dict = payload["assets"]
-    tools = []
-    for tool in tools_dict:
-        try:
-            tools.append(build_tool(tool))
-        except Exception as e:
-            logging.warning(
-                f"Tool {tool['assetId']} is not available. Make sure it exists or you have access to it. "
-                "If you think this is an error, please contact the administrators."
-            )
-            continue
+    payload_tools = tools
+    if payload_tools is None:
+        payload_tools = []
+        for tool in tools_dict:
+            try:
+                payload_tools.append(build_tool(tool))
+            except Exception:
+                logging.warning(
+                    f"Tool {tool['assetId']} is not available. Make sure it exists or you have access to it. "
+                    "If you think this is an error, please contact the administrators."
+                )
+                continue
 
     agent = Agent(
         id=payload["id"] if "id" in payload else "",
         name=payload.get("name", ""),
-        tools=tools,
+        tools=payload_tools,
         description=payload.get("description", ""),
         instructions=payload.get("role", ""),
         supplier=payload.get("teamId", None),
