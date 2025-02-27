@@ -121,8 +121,8 @@ class AgentFactory:
             "status": "draft",
             "tasks": [task.to_dict() for task in tasks],
         }
-        agent = build_agent(payload=payload, api_key=api_key)
-        agent.validate()
+        agent = build_agent(payload=payload, tools=tools, api_key=api_key)
+        agent.validate(raise_exception=True)
         response = "Unspecified error"
         try:
             logging.debug(f"Start service for POST Create Agent  - {url} - {headers} - {json.dumps(agent.to_dict())}")
@@ -132,7 +132,7 @@ class AgentFactory:
             raise Exception("Agent Onboarding Error: Please contact the administrators.")
 
         if 200 <= r.status_code < 300:
-            agent = build_agent(payload=response, api_key=api_key)
+            agent = build_agent(payload=response, tools=tools, api_key=api_key)
         else:
             error_msg = f"Agent Onboarding Error: {response}"
             if "message" in response:

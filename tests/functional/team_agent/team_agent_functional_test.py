@@ -166,14 +166,44 @@ def test_draft_team_agent_update(run_input_map, TeamAgentFactory):
 
 
 @pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory, v2.TeamAgent])
-def test_fail_non_existent_llm(TeamAgentFactory):
+def test_fail_non_existent_llm(run_input_map, TeamAgentFactory):
+    for team in TeamAgentFactory.list()["results"]:
+        team.delete()
+    for agent in AgentFactory.list()["results"]:
+        agent.delete()
+
+    agents = []
+    for agent in run_input_map["agents"]:
+        tools = []
+        if "model_tools" in agent:
+            for tool in agent["model_tools"]:
+                tool_ = copy(tool)
+                for supplier in Supplier:
+                    if tool["supplier"] is not None and tool["supplier"].lower() in [
+                        supplier.value["code"].lower(),
+                        supplier.value["name"].lower(),
+                    ]:
+                        tool_["supplier"] = supplier
+                        break
+                tools.append(AgentFactory.create_model_tool(**tool_))
+        if "pipeline_tools" in agent:
+            for tool in agent["pipeline_tools"]:
+                tools.append(AgentFactory.create_pipeline_tool(pipeline=tool["pipeline_id"], description=tool["description"]))
+
+        agent = AgentFactory.create(
+            name=agent["agent_name"],
+            description=agent["agent_name"],
+            instructions=agent["agent_name"],
+            llm_id=agent["llm_id"],
+            tools=tools,
+        )
+        agents.append(agent)
     with pytest.raises(Exception) as exc_info:
-        AgentFactory.create(
-            name="Test Agent",
+        TeamAgentFactory.create(
+            name="Non Existent LLM",
             description="",
-            instructions="",
             llm_id="non_existent_llm",
-            tools=[AgentFactory.create_model_tool(function=Function.TRANSLATION)],
+            agents=agents,
         )
     assert str(exc_info.value) == "Large Language Model with ID 'non_existent_llm' not found."
 
