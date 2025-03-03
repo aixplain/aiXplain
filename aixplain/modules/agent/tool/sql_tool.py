@@ -45,6 +45,7 @@ class SQLTool(Tool):
         schema: Text,
         tables: Optional[Union[List[Text], Text]] = None,
         enable_commit: bool = False,
+        name: Optional[Text] = None,
         **additional_info,
     ) -> None:
         """Tool to execute SQL query commands in an SQLite database.
@@ -56,7 +57,7 @@ class SQLTool(Tool):
             tables (Optional[Union[List[Text], Text]]): table names to work with (optional)
             enable_commit (bool): enable to modify the database (optional)
         """
-        super().__init__("", description, **additional_info)
+        super().__init__(name=name if name is not None else "", description=description, **additional_info)
         self.database = database
         self.schema = schema
         self.tables = tables if isinstance(tables, list) else [tables] if tables else None
@@ -64,6 +65,7 @@ class SQLTool(Tool):
 
     def to_dict(self) -> Dict[str, Text]:
         return {
+            "name": self.name,
             "description": self.description,
             "parameters": [
                 {"name": "database", "value": self.database},
@@ -80,10 +82,10 @@ class SQLTool(Tool):
         assert self.description and self.description.strip() != "", "SQL Tool Error: Description is required"
         assert self.database and self.database.strip() != "", "SQL Tool Error: Database is required"
         if not (
-            str(self.database).startswith("s3://")
-            or str(self.database).startswith("http://")
-            or str(self.database).startswith("https://")
-            or validators.url(self.database)
+            str(self.database).startswith("s3://")  # noqa: W503
+            or str(self.database).startswith("http://")  # noqa: W503
+            or str(self.database).startswith("https://")  # noqa: W503
+            or validators.url(self.database)  # noqa: W503
         ):
             if not os.path.exists(self.database):
                 raise Exception(f"SQL Tool Error: Database '{self.database}' does not exist")
