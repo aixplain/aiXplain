@@ -193,24 +193,32 @@ class AgentFactory:
     def create_sql_tool(
         cls,
         description: Text,
-        database: Text,
+        database: Optional[Text] = None,
         schema: Optional[Text] = None,
         tables: Optional[List[Text]] = None,
         enable_commit: bool = False,
+        csv_path: Optional[Text] = None,
     ) -> SQLTool:
         """Create a new SQL tool
 
         Args:
             description (Text): description of the database tool
-            database (Text): URL/local path of the SQLite database file
-            schema (Optional[Text], optional): database schema description (optional)
+            database (Optional[Text], optional): URL/local path of the SQLite database file (optional if csv_path is provided)
+            schema (Optional[Text], optional): database schema description (optional if csv_path is provided)
             tables (Optional[List[Text]], optional): table names to work with (optional)
             enable_commit (bool, optional): enable to modify the database (optional)
-
+            csv_path (Optional[Text], optional): path to CSV file to create database from (optional)
         Returns:
             SQLTool: created SQLTool
         """
-        return SQLTool(description=description, database=database, schema=schema, tables=tables, enable_commit=enable_commit)
+        return SQLTool(
+            description=description,
+            database=database,
+            schema=schema,
+            tables=tables,
+            enable_commit=enable_commit,
+            csv_path=csv_path,
+        )
 
     @classmethod
     def list(cls) -> Dict:
