@@ -24,7 +24,7 @@ Description:
 from enum import Enum
 
 
-class DataType(Enum):
+class DataType(str, Enum):
     AUDIO = "audio"
     FLOAT = "float"
     IMAGE = "image"
@@ -33,6 +33,9 @@ class DataType(Enum):
     TENSOR = "tensor"
     TEXT = "text"
     VIDEO = "video"
+    EMBEDDING = "embedding"
+    NUMBER = "number"
+    BOOLEAN = "boolean"
 
     def __str__(self):
         return self._value_

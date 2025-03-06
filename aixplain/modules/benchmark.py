@@ -21,14 +21,12 @@ Description:
     Benchmark Class
 """
 import logging
-from typing import List, Text, Dict, Optional
+from typing import List, Text
 from aixplain.utils import config
 from aixplain.modules import Asset, Dataset, Metric, Model
 from aixplain.modules.benchmark_job import BenchmarkJob
 from urllib.parse import urljoin
-import pandas as pd
-from pathlib import Path
-from aixplain.utils.file_utils import _request_with_retry, save_file
+from aixplain.utils.file_utils import _request_with_retry
 
 
 class Benchmark(Asset):
@@ -56,7 +54,7 @@ class Benchmark(Asset):
         description: Text = "",
         supplier: Text = "aiXplain",
         version: Text = "1.0",
-        **additional_info
+        **additional_info,
     ) -> None:
         """Create a Benchmark with the necessary information.
 
@@ -84,7 +82,6 @@ class Benchmark(Asset):
     def __repr__(self) -> str:
         return f"<Benchmark {self.name}>"
 
-    
     def start(self) -> BenchmarkJob:
         """Starts a new benchmark job(run)  for the current benchmark
 

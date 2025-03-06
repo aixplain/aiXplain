@@ -22,13 +22,13 @@ Description:
 """
 
 from abc import abstractmethod
-from typing import List, Text
+from typing import Text
 from aixplain.modules.asset import Asset
 from aixplain.utils import config
 
 
 class AssetFactory:
-    aixplain_key = config.AIXPLAIN_API_KEY
+
     backend_url = config.BACKEND_URL
 
     @abstractmethod

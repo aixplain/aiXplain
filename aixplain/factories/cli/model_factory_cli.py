@@ -26,11 +26,11 @@ from typing import Dict, List, Optional, Text
 import click
 import yaml
 
+
 @click.command("hosts")
-@click.option("--api-key", default=None, 
-              help="TEAM_API_KEY if not already set in environment")
+@click.option("--api-key", default=None, help="TEAM_API_KEY if not already set in environment")
 def list_host_machines(api_key: Optional[Text] = None) -> None:
-    """CLI wrapper function for the LIST_HOST_MACHINES function in 
+    """CLI wrapper function for the LIST_HOST_MACHINES function in
     ModelFactory.
 
     Args:
@@ -43,16 +43,15 @@ def list_host_machines(api_key: Optional[Text] = None) -> None:
     ret_val_yaml = yaml.dump(ret_val)
     click.echo(ret_val_yaml)
 
+
 @click.command("functions")
-@click.option("--verbose", default=False, 
-              help="List all function details, False by default.")
-@click.option("--api-key", default=None, 
-              help="TEAM_API_KEY if not already set in environment.")
+@click.option("--verbose", is_flag=True, help="List all function details, False by default.")
+@click.option("--api-key", default=None, help="TEAM_API_KEY if not already set in environment.")
 def list_functions(verbose: bool, api_key: Optional[Text] = None) -> None:
     """CLI wrapper function for the LIST_FUNCTIONS function in ModelFactory.
 
     Args:
-        verbose (Boolean, optional): Set to True if a detailed response 
+        verbose (Boolean, optional): Set to True if a detailed response
             is desired; is otherwise False by default.
         api_key (Text, optional): Team API key. Defaults to None.
     Returns:
@@ -62,21 +61,43 @@ def list_functions(verbose: bool, api_key: Optional[Text] = None) -> None:
     ret_val_yaml = yaml.dump(ret_val)
     click.echo(ret_val_yaml)
 
+
+@click.command("gpus")
+@click.option("--api-key", default=None, help="TEAM_API_KEY if not already set in environment.")
+def list_gpus(api_key: Optional[Text] = None) -> None:
+    """CLI wrapper function for the LIST_GPUS function in ModelFactory.
+
+    Args:
+        api_key (Text, optional): Team API key. Defaults to None.
+    Returns:
+        None
+    """
+    ret_val = ModelFactory.list_gpus(api_key)
+    ret_val_yaml = yaml.dump(ret_val)
+    click.echo(ret_val_yaml)
+
+
 @click.command("image-repo")
 @click.option("--name", help="Model name.")
-@click.option("--hosting-machine", 
-              help="Hosting machine code obtained from LIST_HOSTS.")
-@click.option("--version", help="Model version.")
 @click.option("--description", help="Description of model.")
 @click.option("--function", help="Function name obtained from LIST_FUNCTIONS.")
-@click.option("--source-language", default="en", 
-              help="Model source language in 2-character 639-1 code or 3-character 639-3 code.")
-@click.option("--api-key", default=None, 
-              help="TEAM_API_KEY if not already set in environment.")
-def create_asset_repo(name: Text, hosting_machine: Text, version: Text, 
-                          description: Text, function: Text, 
-                          source_language: Text, 
-                          api_key: Optional[Text] = None) -> None:
+@click.option(
+    "--source-language", default="en", help="Model source language in 2-character 639-1 code or 3-character 639-3 code."
+)
+@click.option("--input-modality", help="Input type (text, video, image, etc.)")
+@click.option("--output-modality", help="Output type (text, video, image, etc.)")
+@click.option("--documentation-url", default="", help="Link to model documentation.")
+@click.option("--api-key", default=None, help="TEAM_API_KEY if not already set in environment.")
+def create_asset_repo(
+    name: Text,
+    description: Text,
+    function: Text,
+    source_language: Text,
+    input_modality: Text,
+    output_modality: Text,
+    documentation_url: Optional[Text] = "",
+    api_key: Optional[Text] = None,
+) -> None:
     """CLI wrapper function for the CREATE_ASSET_REPO function in ModelFactory.
 
     Args:
@@ -93,15 +114,15 @@ def create_asset_repo(name: Text, hosting_machine: Text, version: Text,
     Returns:
         None
     """
-    ret_val = ModelFactory.create_asset_repo(name, hosting_machine, version, 
-                                             description, function, 
-                                             source_language, api_key)
+    ret_val = ModelFactory.create_asset_repo(
+        name, description, function, source_language, input_modality, output_modality, documentation_url, api_key
+    )
     ret_val_yaml = yaml.dump(ret_val)
     click.echo(ret_val_yaml)
 
+
 @click.command("image-repo-login")
-@click.option("--api-key", default=None, 
-              help="TEAM_API_KEY if not already set in environment.")
+@click.option("--api-key", default=None, help="TEAM_API_KEY if not already set in environment.")
 def asset_repo_login(api_key: Optional[Text] = None) -> None:
     """CLI wrapper function for the ASSET_REPO_LOGIN function in ModelFactory.
 
@@ -115,13 +136,16 @@ def asset_repo_login(api_key: Optional[Text] = None) -> None:
     ret_val_yaml = yaml.dump(ret_val)
     click.echo(ret_val_yaml)
 
+
 @click.command("model")
 @click.option("--model-id", help="Model ID from CREATE_IMAGE_REPO.")
 @click.option("--image-tag", help="The tag of the image that you would like hosted.")
 @click.option("--image-hash", help="The hash of the image you would like onboarded.")
+@click.option("--host-machine", default="", help="The machine on which to host the model.")
 @click.option("--api-key", default=None, help="TEAM_API_KEY if not already set in environment.")
-def onboard_model(model_id: Text, image_tag: Text, image_hash: Text, 
-                  api_key: Optional[Text] = None) -> None:
+def onboard_model(
+    model_id: Text, image_tag: Text, image_hash: Text, host_machine: Optional[Text] = "", api_key: Optional[Text] = None
+) -> None:
     """CLI wrapper function for the ONBOARD_MODEL function in ModelFactory.
 
     Args:
@@ -131,19 +155,25 @@ def onboard_model(model_id: Text, image_tag: Text, image_hash: Text,
 
     Returns:
         None
-    """   
-    ret_val = ModelFactory.onboard_model(model_id, image_tag, image_hash, api_key)
+    """
+    ret_val = ModelFactory.onboard_model(model_id, image_tag, image_hash, host_machine, api_key)
     ret_val_yaml = yaml.dump(ret_val)
     click.echo(ret_val_yaml)
+
 
 @click.command("hf-model")
 @click.option("--name", help="User-defined name for Hugging Face model.")
 @click.option("--hf-repo-id", help="Repository ID from Hugging Face in {supplier}/{model name} form.")
-@click.option("--hf-token", help="Hugging Face token used to authenticate to this model.")
+@click.option("--revision", default="", help="Commit hash of repository.")
+@click.option("--hf-token", default=None, help="Hugging Face token used to authenticate to this model.")
 @click.option("--api-key", default=None, help="TEAM_API_KEY if not already set in environment.")
-def deploy_huggingface_model(name: Text, hf_repo_id: Text, 
-                             hf_token: Optional[Text] = None, 
-                             api_key: Optional[Text] = None) -> None:
+def deploy_huggingface_model(
+    name: Text,
+    hf_repo_id: Text,
+    hf_token: Optional[Text] = None,
+    revision: Optional[Text] = None,
+    api_key: Optional[Text] = None,
+) -> None:
     """CLI wrapper function for the DEPLOY_HUGGINGFACE_MODEL function in ModelFactory.
 
     Args:
@@ -153,9 +183,10 @@ def deploy_huggingface_model(name: Text, hf_repo_id: Text,
     Returns:
         None
     """
-    ret_val = ModelFactory.deploy_huggingface_model(name, hf_repo_id, hf_token, api_key)
+    ret_val = ModelFactory.deploy_huggingface_model(name, hf_repo_id, revision, hf_token, api_key)
     ret_val_yaml = yaml.dump(ret_val)
     click.echo(ret_val_yaml)
+
 
 @click.command("hf-model-status")
 @click.option("--model-id", help="Model ID from DEPLOY_HUGGINGFACE_MODEL.")

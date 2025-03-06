@@ -1,0 +1,21 @@
+{
+    "name": "Test API Key",
+    "asset_limits": [
+      {
+        "model": "640b517694bf816d35a59125",
+        "token_per_minute": 100,
+        "token_per_day": 1000,
+        "request_per_day": 1000,
+        "request_per_minute": 100
+      }
+    ],
+    "global_limits": {
+      "token_per_minute": 100,
+      "token_per_day": 1000,
+      "request_per_day": 1000,
+      "request_per_minute": 100
+    },
+    "budget": 1000,
+    "expires_at": "2024-12-12T00:00:00Z"
+  }
+  

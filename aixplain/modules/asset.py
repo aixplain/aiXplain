@@ -32,11 +32,11 @@ class Asset:
         id: Text,
         name: Text,
         description: Text,
-        supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
+        supplier: Union[Dict, Text, Supplier, int] = Supplier.AIXPLAIN,
         version: Text = "1.0",
         license: Optional[License] = None,
         privacy: Privacy = Privacy.PRIVATE,
-        cost: float = 0,
+        cost: Optional[Union[Dict, float]] = None,
     ) -> None:
         """Create an Asset with the necessary information
 
@@ -46,6 +46,7 @@ class Asset:
             description (Text): Description of the Asset
             supplier (Union[Dict, Text, Supplier, int], optional): supplier of the asset. Defaults to "aiXplain".
             version (Optional[Text], optional): asset version. Defaults to "1.0".
+            cost (Optional[Union[Dict, float]], optional): asset price. Defaults to None.
         """
         self.id = id
         self.name = name
@@ -56,9 +57,15 @@ class Asset:
             elif isinstance(supplier, Dict) is True:
                 self.supplier = Supplier(supplier)
             else:
-                self.supplier = supplier
+                self.supplier = None
+                for supplier_ in Supplier:
+                    if supplier.lower() in [supplier_.value["code"].lower(), supplier_.value["name"].lower()]:
+                        self.supplier = supplier_
+                        break
+                if self.supplier is None:
+                    self.supplier = supplier
         except Exception:
-            self.supplier = str(supplier)
+            self.supplier = Supplier.AIXPLAIN
         self.version = version
         self.license = license
         self.privacy = privacy

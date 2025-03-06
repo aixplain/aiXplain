@@ -1,0 +1,32 @@
+[
+    {
+        "team_agent_name": "TEST Multi agent", 
+        "llm_id": "6626a3a8c8f1d089790cf5a2",
+        "llm_name": "Groq Llama 3 70B",
+        "query": "Who is the president of Brazil right now? Translate to pt and synthesize in audio",
+        "agents": [
+            {
+                "agent_name": "TEST Translation agent", 
+                "llm_id": "6626a3a8c8f1d089790cf5a2",
+                "llm_name": "Groq Llama 3 70B",
+                "model_tools": [
+                    {
+                        "function": "translation",
+                        "supplier": "AWS"
+                    }
+                ]
+            },
+            {
+                "agent_name": "TEST Speech Synthesis agent", 
+                "llm_id": "6626a3a8c8f1d089790cf5a2",
+                "llm_name": "Groq Llama 3 70B",
+                "model_tools": [
+                    {
+                        "function": "speech-synthesis",
+                        "supplier": "Google"
+                    }
+                ]
+            }
+        ]
+    }
+]

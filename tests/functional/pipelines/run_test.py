@@ -18,10 +18,13 @@ limitations under the License.
 
 import pytest
 import os
+import requests
 from aixplain.factories import DatasetFactory, PipelineFactory
+from aixplain import aixplain_v2 as v2
 
 
-def test_list_pipelines():
+@pytest.mark.parametrize("PipelineFactory", [PipelineFactory, v2.Pipeline])
+def test_list_pipelines(PipelineFactory):
     search_result = PipelineFactory.list()
 
     assert "results" in search_result
@@ -31,68 +34,130 @@ def test_list_pipelines():
     assert len(search_result["results"]) > 0
 
 
-def test_get_pipeline():
+@pytest.mark.parametrize("PipelineFactory", [PipelineFactory, v2.Pipeline])
+def test_get_pipeline(PipelineFactory):
     reference_pipeline = PipelineFactory.list()["results"][0]
 
     hypothesis_pipeline = PipelineFactory.get(reference_pipeline.id)
     assert hypothesis_pipeline.id == reference_pipeline.id
 
 
-@pytest.mark.parametrize("batchmode", [True, False])
-def test_run_single_str(batchmode: bool):
+@pytest.mark.parametrize(
+    "batchmode,version",
+    [
+        (True, "2.0"),
+        (True, "3.0"),
+        (False, "2.0"),
+        (False, "3.0"),
+    ],
+)
+def test_run_single_str(batchmode: bool, version: str):
     pipeline = PipelineFactory.list(query="SingleNodePipeline")["results"][0]
 
-    response = pipeline.run(data="Translate this thing", **{"batchmode": batchmode})
+    response = pipeline.run(data="Translate this thing", batch_mode=batchmode, **{"version": version})
     assert response["status"] == "SUCCESS"
 
 
-@pytest.mark.parametrize("batchmode", [True, False])
-def test_run_single_local_file(batchmode: bool):
+@pytest.mark.parametrize(
+    "batchmode,version",
+    [
+        (True, "2.0"),
+        (True, "3.0"),
+        (False, "2.0"),
+        (False, "3.0"),
+    ],
+)
+@pytest.mark.parametrize("PipelineFactory", [PipelineFactory, v2.Pipeline])
+def test_run_single_local_file(batchmode: bool, version: str, PipelineFactory):
     pipeline = PipelineFactory.list(query="SingleNodePipeline")["results"][0]
 
     fname = "translate_this.txt"
     with open(fname, "w") as f:
         f.write("Translate this thing")
 
-    response = pipeline.run(data=fname, **{"batchmode": batchmode})
+    response = pipeline.run(data=fname, batch_mode=batchmode, **{"version": version})
     os.remove(fname)
     assert response["status"] == "SUCCESS"
 
 
-@pytest.mark.parametrize("batchmode", [True, False])
-def test_run_with_url(batchmode: bool):
+@pytest.mark.parametrize(
+    "batchmode,version",
+    [
+        (True, "2.0"),
+        (True, "3.0"),
+        (False, "2.0"),
+        (False, "3.0"),
+    ],
+)
+@pytest.mark.parametrize("PipelineFactory", [PipelineFactory, v2.Pipeline])
+def test_run_with_url(batchmode: bool, version: str, PipelineFactory):
     pipeline = PipelineFactory.list(query="SingleNodePipeline")["results"][0]
 
     response = pipeline.run(
         data="https://aixplain-platform-assets.s3.amazonaws.com/data/dev/64c81163f8bdcac7443c2dad/data/f8.txt",
-        **{"batchmode": batchmode}
+        batch_mode=batchmode,
+        **{"version": version},
     )
     assert response["status"] == "SUCCESS"
 
 
-@pytest.mark.parametrize("batchmode", [True, False])
-def test_run_with_dataset(batchmode: bool):
+@pytest.mark.parametrize(
+    "batchmode,version",
+    [
+        (True, "2.0"),
+        (True, "3.0"),
+        (False, "2.0"),
+        (False, "3.0"),
+    ],
+)
+@pytest.mark.parametrize("PipelineFactory", [PipelineFactory, v2.Pipeline])
+def test_run_with_dataset(batchmode: bool, version: str, PipelineFactory):
     dataset = DatasetFactory.list(query="for_functional_tests")["results"][0]
     data_asset_id = dataset.id
     data_id = dataset.source_data["en"].id
     pipeline = PipelineFactory.list(query="SingleNodePipeline")["results"][0]
 
-    response = pipeline.run(data=data_id, data_asset=data_asset_id, **{"batchmode": batchmode})
-    assert response["status"] == "SUCCESS"
-
-
-@pytest.mark.parametrize("batchmode", [True, False])
-def test_run_multipipe_with_strings(batchmode: bool):
-    pipeline = PipelineFactory.list(query="MultiInputPipeline")["results"][0]
-
     response = pipeline.run(
-        data={"Input": "Translate this thing.", "Reference": "Traduza esta coisa."}, **{"batchmode": batchmode}
+        data=data_id,
+        data_asset=data_asset_id,
+        batch_mode=batchmode,
+        **{"version": version},
     )
     assert response["status"] == "SUCCESS"
 
 
-@pytest.mark.parametrize("batchmode", [True, False])
-def test_run_multipipe_with_datasets(batchmode: bool):
+@pytest.mark.parametrize(
+    "batchmode,version",
+    [
+        (True, "2.0"),
+        (True, "3.0"),
+        (False, "2.0"),
+        (False, "3.0"),
+    ],
+)
+@pytest.mark.parametrize("PipelineFactory", [PipelineFactory, v2.Pipeline])
+def test_run_multipipe_with_strings(batchmode: bool, version: str, PipelineFactory):
+    pipeline = PipelineFactory.list(query="MultiInputPipeline")["results"][0]
+
+    response = pipeline.run(
+        data={"Input": "Translate this thing.", "Reference": "Traduza esta coisa."},
+        batch_mode=batchmode,
+        **{"version": version},
+    )
+    assert response["status"] == "SUCCESS"
+
+
+@pytest.mark.parametrize(
+    "batchmode,version",
+    [
+        (True, "2.0"),
+        (True, "3.0"),
+        (False, "2.0"),
+        (False, "3.0"),
+    ],
+)
+@pytest.mark.parametrize("PipelineFactory", [PipelineFactory, v2.Pipeline])
+def test_run_multipipe_with_datasets(batchmode: bool, version: str, PipelineFactory):
     pipeline = PipelineFactory.list(query="MultiInputPipeline")["results"][0]
 
     dataset = DatasetFactory.list(query="for_functional_tests")["results"][0]
@@ -104,27 +169,57 @@ def test_run_multipipe_with_datasets(batchmode: bool):
     response = pipeline.run(
         data={"Input": input_id, "Reference": reference_id},
         data_asset={"Input": data_asset_id, "Reference": data_asset_id},
-        **{"batchmode": batchmode}
+        batch_mode=batchmode,
+        **{"version": version},
     )
     assert response["status"] == "SUCCESS"
 
 
-def test_run_segment_reconstruct():
+@pytest.mark.parametrize("version", ["2.0", "3.0"])
+@pytest.mark.parametrize("PipelineFactory", [PipelineFactory, v2.Pipeline])
+def test_run_segment_reconstruct(version: str, PipelineFactory):
     pipeline = PipelineFactory.list(query="Segmentation/Reconstruction Functional Test - DO NOT DELETE")["results"][0]
-    response = pipeline.run("https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.wav")
+    response = pipeline.run(
+        "https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.wav",
+        **{"version": version},
+    )
 
     assert response["status"] == "SUCCESS"
     output = response["data"][0]
     assert output["label"] == "Output 1"
 
 
-def test_run_metric():
+@pytest.mark.parametrize("version", ["2.0", "3.0"])
+@pytest.mark.parametrize("PipelineFactory", [PipelineFactory, v2.Pipeline])
+def test_run_translation_metric(version: str, PipelineFactory):
+    dataset = DatasetFactory.list(query="for_functional_tests")["results"][0]
+    data_asset_id = dataset.id
+
+    reference_id = dataset.target_data["pt"][0].id
+
+    pipeline = PipelineFactory.list(query="Translation Metric Functional Test - DO NOT DELETE")["results"][0]
+    response = pipeline.run(
+        data={"TextInput": reference_id, "ReferenceInput": reference_id},
+        data_asset={"TextInput": data_asset_id, "ReferenceInput": data_asset_id},
+        **{"version": version},
+    )
+
+    assert response["status"] == "SUCCESS"
+    data = response["data"][0]["segments"][0]["response"]
+    data = requests.get(data).text
+    assert float(data) == 100.0
+
+
+@pytest.mark.parametrize("version", ["2.0", "3.0"])
+@pytest.mark.parametrize("PipelineFactory", [PipelineFactory, v2.Pipeline])
+def test_run_metric(version: str, PipelineFactory):
     pipeline = PipelineFactory.list(query="ASR Metric Functional Test - DO NOT DELETE")["results"][0]
     response = pipeline.run(
         {
             "AudioInput": "https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.wav",
             "ReferenceInput": "https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.txt",
-        }
+        },
+        **{"version": version},
     )
 
     assert response["status"] == "SUCCESS"
@@ -134,30 +229,99 @@ def test_run_metric():
 
 
 @pytest.mark.parametrize(
-    "input_data,output_data",
+    "input_data,output_data,version",
     [
-        ("https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.wav", "AudioOutput"),
-        ("https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.txt", "TextOutput"),
+        (
+            "https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.wav",
+            "AudioOutput",
+            "2.0",
+        ),
+        (
+            "https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.txt",
+            "TextOutput",
+            "2.0",
+        ),
+        (
+            "https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.wav",
+            "AudioOutput",
+            "3.0",
+        ),
+        (
+            "https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.txt",
+            "TextOutput",
+            "3.0",
+        ),
     ],
 )
-def test_run_router(input_data: str, output_data: str):
+@pytest.mark.parametrize("PipelineFactory", [PipelineFactory, v2.Pipeline])
+def test_run_router(input_data: str, output_data: str, version: str, PipelineFactory):
     pipeline = PipelineFactory.list(query="Router Test - DO NOT DELETE")["results"][0]
-    response = pipeline.run(input_data)
+    response = pipeline.run(input_data, **{"version": version})
 
     assert response["status"] == "SUCCESS"
     assert response["data"][0]["label"] == output_data
 
 
 @pytest.mark.parametrize(
-    "input_data,output_data",
+    "input_data,output_data,version",
     [
-        ("I love it.", "PositiveOutput"),
-        ("I hate it.", "NegativeOutput"),
+        ("I love it.", "PositiveOutput", "2.0"),
+        ("I hate it.", "NegativeOutput", "2.0"),
+        ("I love it.", "PositiveOutput", "3.0"),
+        ("I hate it.", "NegativeOutput", "3.0"),
     ],
 )
-def test_run_decision(input_data: str, output_data: str):
+@pytest.mark.parametrize("PipelineFactory", [PipelineFactory, v2.Pipeline])
+def test_run_decision(input_data: str, output_data: str, version: str, PipelineFactory):
     pipeline = PipelineFactory.list(query="Decision Test - DO NOT DELETE")["results"][0]
-    response = pipeline.run(input_data)
+    response = pipeline.run(input_data, **{"version": version})
 
     assert response["status"] == "SUCCESS"
     assert response["data"][0]["label"] == output_data
+
+
+@pytest.mark.parametrize("version", ["3.0"])
+@pytest.mark.parametrize("PipelineFactory", [PipelineFactory, v2.Pipeline])
+def test_run_script(version: str, PipelineFactory):
+    pipeline = PipelineFactory.list(query="Script Functional Test - DO NOT DELETE")["results"][0]
+    response = pipeline.run(
+        "https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.wav",
+        **{"version": version},
+    )
+
+    assert response["status"] == "SUCCESS"
+    data = response["data"][0]["segments"][0]["response"]
+    assert data.startswith("SCRIPT MODIFIED:")
+
+
+@pytest.mark.parametrize("version", ["2.0", "3.0"])
+@pytest.mark.parametrize("PipelineFactory", [PipelineFactory, v2.Pipeline])
+def test_run_text_reconstruction(version: str, PipelineFactory):
+    pipeline = PipelineFactory.list(query="Text Reconstruction - DO NOT DELETE")["results"][0]
+    response = pipeline.run("Segment A\nSegment B\nSegment C", **{"version": version})
+
+    assert response["status"] == "SUCCESS"
+    labels = [d["label"] for d in response["data"]]
+    assert "Audio (Direct)" in labels
+    assert "Audio (Text Reconstruction)" in labels
+    assert "Audio (Audio Reconstruction)" in labels
+    assert "Text Reconstruction" in labels
+
+    for d in response["data"]:
+        assert len(d["segments"]) > 0
+        assert d["segments"][0]["success"] is True
+
+
+@pytest.mark.parametrize("version", ["3.0"])
+@pytest.mark.parametrize("PipelineFactory", [PipelineFactory, v2.Pipeline])
+def test_run_diarization(version: str, PipelineFactory):
+    pipeline = PipelineFactory.list(query="Diarization ASR Functional Test - DO NOT DELETE")["results"][0]
+    response = pipeline.run(
+        "https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.wav",
+        **{"version": version},
+    )
+
+    assert response["status"] == "SUCCESS"
+    for d in response["data"]:
+        assert len(d["segments"]) > 0
+        assert d["segments"][0]["success"] is True

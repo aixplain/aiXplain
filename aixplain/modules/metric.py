@@ -24,9 +24,6 @@ Description:
 from typing import Optional, Text, List, Union
 from aixplain.modules.asset import Asset
 
-from aixplain.utils.file_utils import _request_with_retry
-from aixplain.factories.model_factory import ModelFactory
-
 
 class Metric(Asset):
     """Represents a metric to be computed on one or more peices of data. It is usually linked to a machine learning task.
@@ -61,12 +58,10 @@ class Metric(Asset):
             supplier (Text): author of the Metric
             is_reference_required (bool): does the metric use reference
             is_source_required (bool): does the metric use source
-            cost (float): cost of the metric
+            cost (float): price of the metric
             normalization_options(list, [])
             **additional_info: Any additional Metric info to be saved
         """
-        
-        
         super().__init__(id, name, description="", supplier=supplier, version="1.0", cost=cost)
         self.is_source_required = is_source_required
         self.is_reference_required = is_reference_required
@@ -76,7 +71,7 @@ class Metric(Asset):
 
     def __repr__(self) -> str:
         return f"<Metric {self.name}>"
-    
+
     def add_normalization_options(self, normalization_options: List[str]):
         """Add a given set of normalization options to be used while benchmarking
 
@@ -85,7 +80,12 @@ class Metric(Asset):
         """
         self.normalization_options.append(normalization_options)
 
-    def run(self, hypothesis: Optional[Union[str, List[str]]]=None, source: Optional[Union[str, List[str]]]=None, reference: Optional[Union[str, List[str]]]=None):
+    def run(
+        self,
+        hypothesis: Optional[Union[str, List[str]]] = None,
+        source: Optional[Union[str, List[str]]] = None,
+        reference: Optional[Union[str, List[str]]] = None,
+    ):
         """Run the metric to calculate the scores.
 
         Args:
@@ -94,6 +94,7 @@ class Metric(Asset):
             reference (Optional[Union[str, List[str]]], optional): Can give a single reference or a list of references for metric calculation. Defaults to None.
         """
         from aixplain.factories.model_factory import ModelFactory
+
         model = ModelFactory.get(self.id)
         payload = {
             "function": self.function,
@@ -115,4 +116,3 @@ class Metric(Asset):
                 reference = [[ref] for ref in reference]
             payload["references"] = reference
         return model.run(payload)
-

@@ -20,15 +20,15 @@ Date: September 1st 2022
 Description:
     Model Factory Class
 """
-from typing import Dict, List, Optional, Text, Tuple, Union
+from typing import Callable, Dict, List, Optional, Text, Tuple, Union
 import json
 import logging
 from aixplain.modules.model import Model
+from aixplain.modules.model.utility_model import UtilityModel, UtilityModelInput
 from aixplain.enums import Function, Language, OwnershipType, Supplier, SortBy, SortOrder
 from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
 from urllib.parse import urljoin
-from warnings import warn
 
 
 class ModelFactory:
@@ -38,39 +38,63 @@ class ModelFactory:
         backend_url (str): The URL for the backend.
     """
 
-    aixplain_key = config.AIXPLAIN_API_KEY
     backend_url = config.BACKEND_URL
 
     @classmethod
-    def _create_model_from_response(cls, response: Dict) -> Model:
-        """Converts response Json to 'Model' object
+    def create_utility_model(
+        cls,
+        name: Optional[Text] = None,
+        code: Union[Text, Callable] = None,
+        inputs: List[UtilityModelInput] = [],
+        description: Optional[Text] = None,
+        output_examples: Text = "",
+        api_key: Optional[Text] = None,
+    ) -> UtilityModel:
+        """Create a utility model
 
         Args:
-            response (Dict): Json from API
-
+            name (Text): name of the model
+            code (Union[Text, Callable]): code of the model
+            description (Text, optional): description of the model
+            inputs (List[UtilityModelInput], optional): inputs of the model
+            output_examples (Text, optional): output examples
+            api_key (Text, optional): Team API key. Defaults to None.
         Returns:
-            Model: Coverted 'Model' object
+            UtilityModel: created utility model
         """
-        if "api_key" not in response:
-            response["api_key"] = config.TEAM_API_KEY
-
-        parameters = {}
-        if "params" in response:
-            for param in response["params"]:
-                if "language" in param["name"]:
-                    parameters[param["name"]] = [w["value"] for w in param["values"]]
-
-        return Model(
-            response["id"],
-            response["name"],
-            supplier=response["supplier"],
-            api_key=response["api_key"],
-            pricing=response["pricing"],
-            function=Function(response["function"]["id"]),
-            parameters=parameters,
-            is_subscribed=True if "subscription" in response else False,
-            version=response["version"]["id"],
+        api_key = config.TEAM_API_KEY if api_key is None else api_key
+        utility_model = UtilityModel(
+            id="",
+            name=name,
+            description=description,
+            inputs=inputs,
+            code=code,
+            function=Function.UTILITIES,
+            api_key=api_key,
+            output_examples=output_examples,
         )
+        utility_model.validate()
+        payload = utility_model.to_dict()
+        url = urljoin(cls.backend_url, "sdk/utilities")
+        headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
+        try:
+            logging.info(f"Start service for POST Utility Model - {url} - {headers} - {payload}")
+            r = _request_with_retry("post", url, headers=headers, json=payload)
+            resp = r.json()
+        except Exception as e:
+            logging.error(f"Error creating utility model: {e}")
+            raise e
+
+        if 200 <= r.status_code < 300:
+            utility_model.id = resp["id"]
+            logging.info(f"Utility Model Creation: Model {utility_model.id} instantiated.")
+            return utility_model
+        else:
+            error_message = (
+                f"Utility Model Creation: Failed to create utility model. Status Code: {r.status_code}. Error: {resp}"
+            )
+            logging.error(error_message)
+            raise Exception(error_message)
 
     @classmethod
     def get(cls, model_id: Text, api_key: Optional[Text] = None) -> Model:
@@ -86,21 +110,13 @@ class ModelFactory:
         resp = None
         try:
             url = urljoin(cls.backend_url, f"sdk/models/{model_id}")
-            if cls.aixplain_key != "":
-                headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
-            else:
-                headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+
+            headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
             logging.info(f"Start service for GET Model  - {url} - {headers}")
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()
-            # set api key
-            resp["api_key"] = config.TEAM_API_KEY
-            if api_key is not None:
-                resp["api_key"] = api_key
-            model = cls._create_model_from_response(resp)
-            logging.info(f"Model Creation: Model {model_id} instantiated.")
-            return model
-        except Exception as e:
+
+        except Exception:
             if resp is not None and "statusCode" in resp:
                 status_code = resp["statusCode"]
                 message = resp["message"]
@@ -109,89 +125,25 @@ class ModelFactory:
                 message = "Model Creation: Unspecified Error"
             logging.error(message)
             raise Exception(f"{message}")
+        if 200 <= r.status_code < 300:
+            resp["api_key"] = config.TEAM_API_KEY
+            if api_key is not None:
+                resp["api_key"] = api_key
+            from aixplain.factories.model_factory.utils import create_model_from_response
 
-    @classmethod
-    def create_asset_from_id(cls, model_id: Text) -> Model:
-        warn(
-            'This method will be deprecated in the next versions of the SDK. Use "get" instead.',
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return cls.get(model_id)
-
-    @classmethod
-    def _get_assets_from_page(
-        cls,
-        query,
-        page_number: int,
-        page_size: int,
-        function: Function,
-        suppliers: Union[Supplier, List[Supplier]],
-        source_languages: Union[Language, List[Language]],
-        target_languages: Union[Language, List[Language]],
-        is_finetunable: bool = None,
-        ownership: Optional[Tuple[OwnershipType, List[OwnershipType]]] = None,
-        sort_by: Optional[SortBy] = None,
-        sort_order: SortOrder = SortOrder.ASCENDING,
-    ) -> List[Model]:
-        try:
-            url = urljoin(cls.backend_url, f"sdk/models/paginate")
-            filter_params = {"q": query, "pageNumber": page_number, "pageSize": page_size}
-            if is_finetunable is not None:
-                filter_params["isFineTunable"] = is_finetunable
-            if function is not None:
-                filter_params["functions"] = [function.value]
-            if suppliers is not None:
-                if isinstance(suppliers, Supplier) is True:
-                    suppliers = [suppliers]
-                filter_params["suppliers"] = [supplier.value["id"] for supplier in suppliers]
-            if ownership is not None:
-                if isinstance(ownership, OwnershipType) is True:
-                    ownership = [ownership]
-                filter_params["ownership"] = [ownership_.value for ownership_ in ownership]
-
-            lang_filter_params = []
-            if source_languages is not None:
-                if isinstance(source_languages, Language):
-                    source_languages = [source_languages]
-                if function == Function.TRANSLATION:
-                    lang_filter_params.append({"code": "sourcelanguage", "value": source_languages[0].value["language"]})
-                else:
-                    lang_filter_params.append({"code": "language", "value": source_languages[0].value["language"]})
-                    if source_languages[0].value["dialect"] != "":
-                        lang_filter_params.append({"code": "dialect", "value": source_languages[0].value["dialect"]})
-            if target_languages is not None:
-                if isinstance(target_languages, Language):
-                    target_languages = [target_languages]
-                if function == Function.TRANSLATION:
-                    code = "targetlanguage"
-                    lang_filter_params.append({"code": code, "value": target_languages[0].value["language"]})
-            if sort_by is not None:
-                filter_params["sort"] = [{"dir": sort_order.value, "field": sort_by.value}]
-            if len(lang_filter_params) != 0:
-                filter_params["ioFilter"] = lang_filter_params
-            if cls.aixplain_key != "":
-                headers = {"x-aixplain-key": f"{cls.aixplain_key}", "Content-Type": "application/json"}
-            else:
-                headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
-
-            logging.info(f"Start service for POST Models Paginate - {url} - {headers} - {json.dumps(filter_params)}")
-            r = _request_with_retry("post", url, headers=headers, json=filter_params)
-            resp = r.json()
-            logging.info(f"Listing Models: Status of getting Models on Page {page_number}: {r.status_code}")
-            all_models = resp["items"]
-            model_list = [cls._create_model_from_response(model_info_json) for model_info_json in all_models]
-            return model_list, resp["total"]
-        except Exception as e:
-            error_message = f"Listing Models: Error in getting Models on Page {page_number}: {e}"
-            logging.error(error_message, exc_info=True)
-            return []
+            model = create_model_from_response(resp)
+            logging.info(f"Model Creation: Model {model_id} instantiated.")
+            return model
+        else:
+            error_message = f"Model GET Error: Failed to retrieve model {model_id}. Status Code: {r.status_code}. Error: {resp}"
+            logging.error(error_message)
+            raise Exception(error_message)
 
     @classmethod
     def list(
         cls,
-        query: Optional[Text] = "",
         function: Optional[Function] = None,
+        query: Optional[Text] = "",
         suppliers: Optional[Union[Supplier, List[Supplier]]] = None,
         source_languages: Optional[Union[Language, List[Language]]] = None,
         target_languages: Optional[Union[Language, List[Language]]] = None,
@@ -201,11 +153,13 @@ class ModelFactory:
         sort_order: SortOrder = SortOrder.ASCENDING,
         page_number: int = 0,
         page_size: int = 20,
+        model_ids: Optional[List[Text]] = None,
+        api_key: Optional[Text] = None,
     ) -> List[Model]:
         """Gets the first k given models based on the provided task and language filters
 
         Args:
-            function (Optional[Function], optional): function filter. Defaults to None.
+            function (Function): function filter.
             source_languages (Optional[Union[Language, List[Language]]], optional): language filter of input data. Defaults to None.
             target_languages (Optional[Union[Language, List[Language]]], optional): language filter of output data. Defaults to None.
             is_finetunable (Optional[bool], optional): can be finetuned or not. Defaults to None.
@@ -213,12 +167,31 @@ class ModelFactory:
             sort_by (Optional[SortBy], optional): sort the retrived models by a specific attribute,
             page_number (int, optional): page number. Defaults to 0.
             page_size (int, optional): page size. Defaults to 20.
+            model_ids (Optional[List[Text]], optional): model ids to filter. Defaults to None.
+            api_key (Optional[Text], optional): Team API key. Defaults to None.
 
         Returns:
             List[Model]: List of models based on given filters
         """
-        try:
-            models, total = cls._get_assets_from_page(
+        if model_ids is not None:
+            from aixplain.factories.model_factory.utils import get_model_from_ids
+
+            assert len(model_ids) > 0, "Please provide at least one model id"
+            assert (
+                function is None
+                and suppliers is None
+                and source_languages is None
+                and target_languages is None
+                and is_finetunable is None
+                and ownership is None
+                and sort_by is None
+            ), "Cannot filter by function, suppliers, source languages, target languages, is finetunable, ownership, sort by when using model ids"
+            assert len(model_ids) <= page_size, "Page size must be greater than the number of model ids"
+            models, total = get_model_from_ids(model_ids, api_key), len(model_ids)
+        else:
+            from aixplain.factories.model_factory.utils import get_assets_from_page
+
+            models, total = get_assets_from_page(
                 query,
                 page_number,
                 page_size,
@@ -230,17 +203,14 @@ class ModelFactory:
                 ownership,
                 sort_by,
                 sort_order,
+                api_key,
             )
-            return {
-                "results": models,
-                "page_total": min(page_size, len(models)),
-                "page_number": page_number,
-                "total": total,
-            }
-        except Exception as e:
-            error_message = f"Listing Models: Error in Listing Models : {e}"
-            logging.error(error_message, exc_info=True)
-            raise Exception(error_message)
+        return {
+            "results": models,
+            "page_total": min(page_size, len(models)),
+            "page_number": page_number,
+            "total": total,
+        }
 
     @classmethod
     def list_host_machines(cls, api_key: Optional[Text] = None) -> List[Dict]:
@@ -253,7 +223,7 @@ class ModelFactory:
             List[Dict]: List of dictionaries containing information about
             each hosting machine.
         """
-        machines_url = urljoin(config.BACKEND_URL, f"sdk/hosting-machines")
+        machines_url = urljoin(config.BACKEND_URL, "sdk/hosting-machines")
         logging.debug(f"URL: {machines_url}")
         if api_key:
             headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
@@ -264,6 +234,25 @@ class ModelFactory:
         for dictionary in response_dicts:
             del dictionary["id"]
         return response_dicts
+
+    @classmethod
+    def list_gpus(cls, api_key: Optional[Text] = None) -> List[List[Text]]:
+        """List GPU names on which you can host your language model.
+
+        Args:
+            api_key (Text, optional): Team API key. Defaults to None.
+
+        Returns:
+            List[List[Text]]: List of all available GPUs and their prices.
+        """
+        gpu_url = urljoin(config.BACKEND_URL, "sdk/model-onboarding/gpus")
+        if api_key:
+            headers = {"Authorization": f"Token {api_key}", "Content-Type": "application/json"}
+        else:
+            headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+        response = _request_with_retry("get", gpu_url, headers=headers)
+        response_list = json.loads(response.text)
+        return response_list
 
     @classmethod
     def list_functions(cls, verbose: Optional[bool] = False, api_key: Optional[Text] = None) -> List[Dict]:
@@ -278,7 +267,7 @@ class ModelFactory:
             List[Dict]: List of dictionaries containing information about
             each supported function.
         """
-        functions_url = urljoin(config.BACKEND_URL, f"sdk/functions")
+        functions_url = urljoin(config.BACKEND_URL, "sdk/functions")
         logging.debug(f"URL: {functions_url}")
         if api_key:
             headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
@@ -304,11 +293,12 @@ class ModelFactory:
     def create_asset_repo(
         cls,
         name: Text,
-        hosting_machine: Text,
-        version: Text,
         description: Text,
         function: Text,
         source_language: Text,
+        input_modality: Text,
+        output_modality: Text,
+        documentation_url: Optional[Text] = "",
         api_key: Optional[Text] = None,
     ) -> Dict:
         """Creates an image repository for this model and registers it in the
@@ -335,28 +325,32 @@ class ModelFactory:
             if function_dict["name"] == function:
                 function_id = function_dict["id"]
         if function_id is None:
-            raise Exception("Invalid function name")
-        create_url = urljoin(config.BACKEND_URL, f"sdk/models/register")
+            raise Exception(f"Invalid function name {function}")
+        create_url = urljoin(config.BACKEND_URL, "sdk/models/onboard")
         logging.debug(f"URL: {create_url}")
         if api_key:
             headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
         else:
             headers = {"x-api-key": f"{config.TEAM_API_KEY}", "Content-Type": "application/json"}
-        always_on = False
-        is_async = False  # Hard-coded to False for first release
+
         payload = {
-            "name": name,
-            "hostingMachine": hosting_machine,
-            "alwaysOn": always_on,
-            "version": version,
-            "description": description,
-            "function": function_id,
-            "isAsync": is_async,
-            "sourceLanguage": source_language,
+            "model": {
+                "name": name,
+                "description": description,
+                "connectionType": ["synchronous"],
+                "function": function_id,
+                "modalities": [f"{input_modality}-{output_modality}"],
+                "documentationUrl": documentation_url,
+                "sourceLanguage": source_language,
+            },
+            "source": "aixplain-ecr",
+            "onboardingParams": {},
         }
-        payload = json.dumps(payload)
         logging.debug(f"Body: {str(payload)}")
-        response = _request_with_retry("post", create_url, headers=headers, data=payload)
+        response = _request_with_retry("post", create_url, headers=headers, json=payload)
+
+        assert response.status_code == 201
+
         return response.json()
 
     @classmethod
@@ -370,23 +364,32 @@ class ModelFactory:
         Returns:
             Dict: Backend response
         """
-        login_url = urljoin(config.BACKEND_URL, f"sdk/ecr/login")
+        login_url = urljoin(config.BACKEND_URL, "sdk/ecr/login")
         logging.debug(f"URL: {login_url}")
         if api_key:
-            headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
+            headers = {"Authorization": f"Token {api_key}", "Content-Type": "application/json"}
         else:
-            headers = {"x-api-key": f"{config.TEAM_API_KEY}", "Content-Type": "application/json"}
+            headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
         response = _request_with_retry("post", login_url, headers=headers)
         response_dict = json.loads(response.text)
         return response_dict
 
     @classmethod
-    def onboard_model(cls, model_id: Text, image_tag: Text, image_hash: Text, api_key: Optional[Text] = None) -> Dict:
+    def onboard_model(
+        cls,
+        model_id: Text,
+        image_tag: Text,
+        image_hash: Text,
+        host_machine: Optional[Text] = "",
+        api_key: Optional[Text] = None,
+    ) -> Dict:
         """Onboard a model after its image has been pushed to ECR.
 
         Args:
             model_id (Text): Model ID obtained from CREATE_ASSET_REPO.
             image_tag (Text): Image tag to be onboarded.
+            image_hash (Text): Image digest.
+            host_machine (Text, optional): Machine on which to host model.
             api_key (Text, optional): Team API key. Defaults to None.
         Returns:
             Dict: Backend response
@@ -397,16 +400,25 @@ class ModelFactory:
             headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
         else:
             headers = {"x-api-key": f"{config.TEAM_API_KEY}", "Content-Type": "application/json"}
-        payload = {"image": image_tag, "sha": image_hash}
-        payload = json.dumps(payload)
+        payload = {"image": image_tag, "sha": image_hash, "hostMachine": host_machine}
         logging.debug(f"Body: {str(payload)}")
-        response = _request_with_retry("post", onboard_url, headers=headers, data=payload)
-        message = "Your onboarding request has been submitted to an aiXplain specialist for finalization. We will notify you when the process is completed."
-        logging.info(message)
+        response = _request_with_retry("post", onboard_url, headers=headers, json=payload)
+        if response.status_code == 201:
+            message = "Your onboarding request has been submitted to an aiXplain specialist for finalization. We will notify you when the process is completed."
+            logging.info(message)
+        else:
+            message = "An error has occurred. Please make sure your model_id is valid and your host_machine, if set, is a valid option from the LIST_GPUS function."
         return response
-    
+
     @classmethod
-    def deploy_huggingface_model(cls, name: Text, hf_repo_id: Text, hf_token: Optional[Text] = "", api_key: Optional[Text] = None) -> Dict:
+    def deploy_huggingface_model(
+        cls,
+        name: Text,
+        hf_repo_id: Text,
+        revision: Optional[Text] = "",
+        hf_token: Optional[Text] = "",
+        api_key: Optional[Text] = None,
+    ) -> Dict:
         """Onboards and deploys a Hugging Face large language model.
 
         Args:
@@ -418,7 +430,7 @@ class ModelFactory:
             Dict: Backend response
         """
         supplier, model_name = hf_repo_id.split("/")
-        deploy_url = urljoin(config.BACKEND_URL, f"sdk/model-onboarding/onboard")
+        deploy_url = urljoin(config.BACKEND_URL, "sdk/model-onboarding/onboard")
         if api_key:
             headers = {"Authorization": f"Token {api_key}", "Content-Type": "application/json"}
         else:
@@ -434,19 +446,20 @@ class ModelFactory:
             },
             "source": "huggingface",
             "onboardingParams": {
-                "hf_model_name": model_name,
                 "hf_supplier": supplier,
-                "hf_token": hf_token
-            }
+                "hf_model_name": model_name,
+                "hf_token": hf_token,
+                "revision": revision,
+            },
         }
         response = _request_with_retry("post", deploy_url, headers=headers, json=body)
         logging.debug(response.text)
         response_dicts = json.loads(response.text)
         return response_dicts
-    
+
     @classmethod
     def get_huggingface_model_status(cls, model_id: Text, api_key: Optional[Text] = None):
-        """Gets the on-boarding status of a Hugging Face model with ID MODEL_ID. 
+        """Gets the on-boarding status of a Hugging Face model with ID MODEL_ID.
 
         Args:
             model_id (Text): The model's ID as returned by DEPLOY_HUGGINGFACE_MODEL
@@ -466,6 +479,6 @@ class ModelFactory:
             "status": response_dicts["status"],
             "name": response_dicts["name"],
             "id": response_dicts["id"],
-            "pricing": response_dicts["pricing"]
+            "pricing": response_dicts["pricing"],
         }
         return ret_dict

@@ -14,6 +14,8 @@ import pytest
 
 import logging
 
+from aixplain import aixplain_v2 as v2
+
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
 
@@ -35,10 +37,11 @@ def run_input_map(request):
 def module_input_map(request):
     return request.param
 
+
 def is_job_finshed(benchmark_job):
     time_taken = 0
     sleep_time = 15
-    timeout = 10 * 60
+    timeout = 15 * 60
     while True:
         if time_taken > timeout:
             break
@@ -52,18 +55,19 @@ def is_job_finshed(benchmark_job):
             break
     return False
 
+
 def assert_correct_results(benchmark_job):
     df = benchmark_job.download_results_as_csv(return_dataframe=True)
     assert type(df) is pd.DataFrame, "Couldn't download CSV"
-    model_success_rate = (sum(df["Model_success"])*100)/len(df.index)
-    assert model_success_rate >  80 , f"Low model success rate ({model_success_rate})"
+    model_success_rate = (sum(df["Model_success"]) * 100) / len(df.index)
+    assert model_success_rate > 80, f"Low model success rate ({model_success_rate})"
     metric_name = "BLEU by sacrebleu"
     mean_score = df[metric_name].mean()
-    assert mean_score != 0 , f"Zero Mean Score - Please check metric ({metric_name})"
+    assert mean_score != 0, f"Zero Mean Score - Please check metric ({metric_name})"
 
 
-
-def test_create_and_run(run_input_map):
+@pytest.mark.parametrize("BenchmarkFactory", [BenchmarkFactory, v2.Benchmark])
+def test_create_and_run(run_input_map, BenchmarkFactory):
     model_list = [ModelFactory.get(model_id) for model_id in run_input_map["model_ids"]]
     dataset_list = [DatasetFactory.list(query=dataset_name)["results"][0] for dataset_name in run_input_map["dataset_names"]]
     metric_list = [MetricFactory.get(metric_id) for metric_id in run_input_map["metric_ids"]]
@@ -73,9 +77,6 @@ def test_create_and_run(run_input_map):
     assert type(benchmark_job) is BenchmarkJob, "Couldn't start job"
     assert is_job_finshed(benchmark_job), "Job did not finish in time"
     assert_correct_results(benchmark_job)
-
-
-
 
 
 # def test_module(module_input_map):

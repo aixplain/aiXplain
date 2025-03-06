@@ -20,6 +20,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 from .asset_factory import AssetFactory
+from .agent_factory import AgentFactory
+from .team_agent_factory import TeamAgentFactory
 from .benchmark_factory import BenchmarkFactory
 from .corpus_factory import CorpusFactory
 from .data_factory import DataFactory
@@ -29,3 +31,6 @@ from .metric_factory import MetricFactory
 from .model_factory import ModelFactory
 from .pipeline_factory import PipelineFactory
 from .finetune_factory import FinetuneFactory
+from .wallet_factory import WalletFactory
+from .api_key_factory import APIKeyFactory
+from .index_factory import IndexFactory
