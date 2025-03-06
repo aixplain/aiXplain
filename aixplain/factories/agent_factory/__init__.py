@@ -24,6 +24,7 @@ Description:
 import json
 import logging
 import warnings
+import os
 
 from aixplain.enums.function import Function
 from aixplain.enums.supplier import Supplier
@@ -32,7 +33,12 @@ from aixplain.modules.agent.tool.model_tool import ModelTool
 from aixplain.modules.agent.tool.pipeline_tool import PipelineTool
 from aixplain.modules.agent.tool.python_interpreter_tool import PythonInterpreterTool
 from aixplain.modules.agent.tool.custom_python_code_tool import CustomPythonCodeTool
-from aixplain.modules.agent.tool.sql_tool import SQLTool
+from aixplain.modules.agent.tool.sql_tool import (
+    SQLTool,
+    SQLToolError,
+    create_database_from_csv,
+    get_table_names_from_schema,
+)
 from aixplain.modules.model import Model
 from aixplain.modules.pipeline import Pipeline
 from aixplain.utils import config
@@ -193,21 +199,19 @@ class AgentFactory:
     def create_sql_tool(
         cls,
         description: Text,
-        database: Optional[Text] = None,
+        database: Text,
         schema: Optional[Text] = None,
         tables: Optional[List[Text]] = None,
         enable_commit: bool = False,
-        csv_path: Optional[Text] = None,
     ) -> SQLTool:
         """Create a new SQL tool
 
         Args:
             description (Text): description of the database tool
-            database (Optional[Text], optional): URL/local path of the SQLite database file (optional if csv_path is provided)
-            schema (Optional[Text], optional): database schema description (optional if csv_path is provided)
+            database (Text): URL/local path of the SQLite database file
+            schema (Optional[Text], optional): database schema description
             tables (Optional[List[Text]], optional): table names to work with (optional)
             enable_commit (bool, optional): enable to modify the database (optional)
-            csv_path (Optional[Text], optional): path to CSV file to create database from (optional)
         Returns:
             SQLTool: created SQLTool
         """
@@ -217,8 +221,62 @@ class AgentFactory:
             schema=schema,
             tables=tables,
             enable_commit=enable_commit,
-            csv_path=csv_path,
         )
+
+    @classmethod
+    def create_sql_tool_from_csv(
+        cls,
+        description: Text,
+        csv_path: Text,
+        enable_commit: bool = False,
+    ) -> SQLTool:
+        """Create a new SQL tool from a CSV file
+
+        Args:
+            description (Text): description of the database tool
+            csv_path (Text): path to CSV file to create database from
+            enable_commit (bool, optional): enable to modify the database (optional)
+        Returns:
+            SQLTool: created SQLTool
+
+        Raises:
+            SQLToolError: If CSV file is invalid or database creation fails
+        """
+        if not os.path.exists(csv_path):
+            raise SQLToolError(f"CSV file '{csv_path}' does not exist")
+        if not csv_path.endswith(".csv"):
+            raise SQLToolError(f"File '{csv_path}' is not a CSV file")
+
+        # Create database name from CSV filename
+        db_name = os.path.splitext(os.path.basename(csv_path))[0] + ".db"
+        db_path = os.path.join(os.path.dirname(csv_path), db_name)
+
+        try:
+            # Create database from CSV
+            schema = create_database_from_csv(csv_path, db_path)
+
+            # Verify file was created
+            if not os.path.exists(db_path):
+                raise SQLToolError(f"Failed to create database at '{db_path}'")
+
+            # Get table names from schema
+            tables = get_table_names_from_schema(schema)
+
+            # Create SQL Tool with the generated database
+            return SQLTool(
+                description=description,
+                database=db_path,
+                schema=schema,
+                tables=tables,
+                enable_commit=enable_commit,
+            )
+        except Exception as e:
+            if os.path.exists(db_path):
+                try:
+                    os.remove(db_path)
+                except Exception as cleanup_error:
+                    warnings.warn(f"Failed to remove temporary database file '{db_path}': {str(cleanup_error)}")
+            raise SQLToolError(f"Failed to create SQL tool from CSV: {str(e)}")
 
     @classmethod
     def list(cls) -> Dict:

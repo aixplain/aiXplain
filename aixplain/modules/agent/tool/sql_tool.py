@@ -119,7 +119,7 @@ def get_table_schema(database_path: str) -> str:
             )
             schemas = cursor.fetchall()
             if not schemas:
-                raise DatabaseError(f"No tables found in database '{database_path}'")
+                warnings.warn(f"No tables found in database '{database_path}'")
             return "\n".join(schema[0] for schema in schemas if schema[0])
     except sqlite3.Error as e:
         raise DatabaseError(f"Failed to get table schema: {str(e)}")
@@ -253,35 +253,31 @@ class SQLTool(Tool):
         schema (Text): database schema description
         tables (Optional[Union[List[Text], Text]]): table names to work with (optional)
         enable_commit (bool): enable to modify the database (optional)
-        csv_path (Optional[Text]): path to CSV file to create database from (optional)
     """
 
     def __init__(
         self,
         description: Text,
-        database: Optional[Text] = None,
+        database: Text,
         schema: Optional[Text] = None,
         tables: Optional[Union[List[Text], Text]] = None,
         enable_commit: bool = False,
-        csv_path: Optional[Text] = None,
         **additional_info,
     ) -> None:
         """Tool to execute SQL query commands in an SQLite database.
 
         Args:
             description (Text): description of the tool
-            database (Optional[Text]): database name (optional if csv_path is provided)
-            schema (Optional[Text]): database schema description (optional if csv_path is provided)
+            database (Text): database uri
+            schema (Optional[Text]): database schema description
             tables (Optional[Union[List[Text], Text]]): table names to work with (optional)
             enable_commit (bool): enable to modify the database (optional)
-            csv_path (Optional[Text]): path to CSV file to create database from (optional)
         """
         super().__init__("", description, **additional_info)
         self.database = database
         self.schema = schema
         self.tables = tables if isinstance(tables, list) else [tables] if tables else None
         self.enable_commit = enable_commit
-        self.csv_path = csv_path
 
     def to_dict(self) -> Dict[str, Text]:
         return {
@@ -291,7 +287,6 @@ class SQLTool(Tool):
                 {"name": "schema", "value": self.schema},
                 {"name": "tables", "value": ",".join(self.tables) if self.tables is not None else None},
                 {"name": "enable_commit", "value": self.enable_commit},
-                {"name": "csv_path", "value": self.csv_path},
             ],
             "type": "sql",
         }
@@ -301,69 +296,37 @@ class SQLTool(Tool):
 
         if not self.description or self.description.strip() == "":
             raise SQLToolError("Description is required")
-        if not self.database and not self.csv_path:
-            raise SQLToolError("Either database or csv_path must be provided")
+        if not self.database:
+            raise SQLToolError("Database must be provided")
 
-        # Handle CSV file if provided
-        if self.csv_path:
-            try:
-                # Create database name from CSV filename
-                db_name = os.path.splitext(os.path.basename(self.csv_path))[0] + ".db"
-                db_path = os.path.join(os.path.dirname(self.csv_path), db_name)
+        # Handle database validation
+        if not (
+            str(self.database).startswith("s3://")
+            or str(self.database).startswith("http://")  # noqa: W503
+            or str(self.database).startswith("https://")  # noqa: W503
+            or validators.url(self.database)  # noqa: W503
+        ):
+            if not os.path.exists(self.database):
+                raise SQLToolError(f"Database '{self.database}' does not exist")
+            if not self.database.endswith(".db"):
+                raise SQLToolError(f"Database '{self.database}' must have .db extension")
 
-                # Create database from CSV and get schema
-                try:
-                    self.schema = create_database_from_csv(self.csv_path, db_path)
-                    # Extract table names from schema
-                    self.tables = get_table_names_from_schema(self.schema)
-                except (CSVError, DatabaseError) as e:
-                    raise SQLToolError(f"Failed to create database from CSV: {str(e)}")
-
-                # Upload the created database
-                try:
-                    self.database = FileFactory.upload(local_path=db_path, is_temp=True)
-                except Exception as e:
-                    raise SQLToolError(f"Failed to upload database: {str(e)}")
-
-                # Clean up temporary database file
-                if os.path.exists(db_path):
-                    try:
-                        os.remove(db_path)
-                    except Exception as e:
-                        warnings.warn(f"Failed to remove temporary database file '{db_path}': {str(e)}")
-
-            except Exception as e:
-                raise SQLToolError(f"Failed to process CSV file: {str(e)}")
-        elif self.database:
-            # Handle database validation if CSV wasn't provided or after CSV processing
-            if not (
-                str(self.database).startswith("s3://")
-                or str(self.database).startswith("http://")  # noqa: W503
-                or str(self.database).startswith("https://")  # noqa: W503
-                or validators.url(self.database)  # noqa: W503
-            ):
-                if not os.path.exists(self.database):
-                    raise SQLToolError(f"Database '{self.database}' does not exist")
-                if not self.database.endswith(".db"):
-                    raise SQLToolError(f"Database '{self.database}' must have .db extension")
-
-                # Infer schema from database
+            # Infer schema from database if not provided
+            if not self.schema:
                 try:
                     self.schema = get_table_schema(self.database)
                 except DatabaseError as e:
                     raise SQLToolError(f"Failed to get database schema: {str(e)}")
 
-                # Set tables if not already set
-                if not self.tables:
-                    try:
-                        self.tables = get_table_names_from_schema(self.schema)
-                    except Exception as e:
-                        raise SQLToolError(f"Failed to set tables: {str(e)}")
-
-                # Upload database
+            # Set tables if not already set
+            if not self.tables:
                 try:
-                    self.database = FileFactory.upload(local_path=self.database, is_temp=True)
+                    self.tables = get_table_names_from_schema(self.schema)
                 except Exception as e:
-                    raise SQLToolError(f"Failed to upload database: {str(e)}")
-        else:
-            raise SQLToolError("Either database or csv_path must be provided")
+                    raise SQLToolError(f"Failed to set tables: {str(e)}")
+
+            # Upload database
+            try:
+                self.database = FileFactory.upload(local_path=self.database, is_temp=True)
+            except Exception as e:
+                raise SQLToolError(f"Failed to upload database: {str(e)}")

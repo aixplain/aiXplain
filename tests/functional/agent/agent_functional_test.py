@@ -354,7 +354,6 @@ def test_sql_tool(delete_agents_and_team_agents, AgentFactory):
 
     with open("ftest.db", "w") as f:
         f.write("")
-
     tool = AgentFactory.create_sql_tool(
         description="Execute an SQL query and return the result", database="ftest.db", enable_commit=True
     )
@@ -383,3 +382,27 @@ def test_sql_tool(delete_agents_and_team_agents, AgentFactory):
     assert "eve" in str(response["data"]["output"]).lower()
 
     os.remove("ftest.db")
+
+
+@pytest.mark.parametrize("AgentFactory", [AgentFactory])
+def test_sql_tool_from_csv(delete_agents_and_team_agents, AgentFactory):
+    assert delete_agents_and_team_agents
+
+    import pandas as pd
+
+    df = pd.DataFrame({"id": [1, 2, 3], "name": ["test1", "test2", "test3"], "value": [1.1, 2.2, 3.3]})
+    df.to_csv("test.csv", index=False)
+
+    tool = AgentFactory.create_sql_tool_from_csv(description="Test", csv_path="test.csv")
+    assert tool is not None
+    assert tool.description == "Test"
+    assert tool.database == "test.db"
+    assert tool.tables == ["test"]
+    assert tool.schema == 'CREATE TABLE test (\n                    "id" INTEGER, "name" TEXT, "value" REAL\n                )'
+    assert not tool.enable_commit  # must be False by default
+    assert tool.database == "test.db"
+
+    import os
+
+    os.remove("test.csv")
+    os.remove("test.db")
