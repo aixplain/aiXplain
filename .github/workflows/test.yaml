@@ -3,18 +3,16 @@ name: Run Tests
 on:
   push:
     branches:
-      - test
+      - main
+      - develop
   pull_request:
     branches:
-      - test
+      - main
+      - develop
 
 jobs:
   test:
     runs-on: ubuntu-latest
-
-    strategy:
-      matrix:
-        python-version: ["3.7", "3.8", "3.9", "3.10"]
 
     steps:
       - name: Checkout repository
@@ -23,7 +21,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: "3.8"
 
       - name: Install dependencies
         run: |
