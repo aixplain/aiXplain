@@ -29,6 +29,7 @@ jobs:
       - name: Set environment variables
         run: |
           echo "TEAM_API_KEY=${{ secrets.TEAM_API_KEY }}" >> $GITHUB_ENV
+          echo "BACKEND_URL=https://test-platform-api.aixplain.com/" >> $GITHUB_ENV
 
       - name: Run Tests
         run: python -m pytest tests/functional/general_assets
