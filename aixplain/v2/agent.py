@@ -5,7 +5,6 @@ from typing_extensions import (
     TYPE_CHECKING,
     Callable,
     NotRequired,
-    Optional,
 )
 
 from .resource import (
@@ -28,7 +27,6 @@ if TYPE_CHECKING:
         PythonInterpreterTool,
     )
     from aixplain.modules.agent.tool.custom_python_code_tool import CustomPythonCodeTool
-    from aixplain.modules.agent.tool.sql_tool import SQLTool
 from .enums import Function
 
 
@@ -120,19 +118,3 @@ class Agent(
         from aixplain.factories import AgentFactory
 
         return AgentFactory.create_custom_python_code_tool(code=code, description=description)
-
-    @classmethod
-    def create_sql_tool(
-        cls,
-        description: str,
-        database: str,
-        schema: Optional[str] = None,
-        tables: Optional[List[str]] = None,
-        enable_commit: bool = False,
-    ) -> "SQLTool":
-        """Create a new SQL tool."""
-        from aixplain.factories import AgentFactory
-
-        return AgentFactory.create_sql_tool(
-            description=description, database=database, schema=schema, tables=tables, enable_commit=enable_commit
-        )

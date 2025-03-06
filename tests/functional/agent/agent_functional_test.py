@@ -347,7 +347,7 @@ def test_specific_model_parameters_e2e(tool_config):
     assert tool_used, "Tool was not used in execution"
 
 
-@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
+@pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_sql_tool(delete_agents_and_team_agents, AgentFactory):
     assert delete_agents_and_team_agents
     import os
@@ -390,19 +390,63 @@ def test_sql_tool_from_csv(delete_agents_and_team_agents, AgentFactory):
 
     import pandas as pd
 
-    df = pd.DataFrame({"id": [1, 2, 3], "name": ["test1", "test2", "test3"], "value": [1.1, 2.2, 3.3]})
+    # Create a more comprehensive test dataset
+    df = pd.DataFrame(
+        {
+            "id": [1, 2, 3, 4, 5],
+            "name": ["Alice", "Bob", "Charlie", "David", "Eve"],
+            "department": ["Sales", "IT", "Sales", "Marketing", "IT"],
+            "salary": [75000, 85000, 72000, 68000, 90000],
+        }
+    )
     df.to_csv("test.csv", index=False)
 
-    tool = AgentFactory.create_sql_tool_from_csv(description="Test", csv_path="test.csv")
+    # Create SQL tool from CSV
+    tool = AgentFactory.create_sql_tool_from_csv(description="Execute SQL queries on employee data", csv_path="test.csv")
+
+    # Verify tool setup
     assert tool is not None
-    assert tool.description == "Test"
+    assert tool.description == "Execute SQL queries on employee data"
     assert tool.database == "test.db"
     assert tool.tables == ["test"]
-    assert tool.schema == 'CREATE TABLE test (\n                    "id" INTEGER, "name" TEXT, "value" REAL\n                )'
+    assert (
+        tool.schema
+        == 'CREATE TABLE test (\n                    "id" INTEGER, "name" TEXT, "department" TEXT, "salary" INTEGER\n                )'  # noqa: W503
+    )
     assert not tool.enable_commit  # must be False by default
-    assert tool.database == "test.db"
+
+    # Create an agent with the SQL tool
+    agent = AgentFactory.create(
+        name="SQL Query Agent",
+        description="I am an agent that helps query employee information from a database.",
+        instructions="Help users query employee information from the database. Use SQL queries to get the requested information.",
+        tools=[tool],
+    )
+    assert agent is not None
+
+    # Test 1: Basic SELECT query
+    response = agent.run("Who are all the employees in the Sales department?")
+    assert response["completed"] is True
+    assert response["status"].lower() == "success"
+    assert "alice" in response["data"]["output"].lower()
+    assert "charlie" in response["data"]["output"].lower()
+
+    # Test 2: Aggregation query
+    response = agent.run("What is the average salary in each department?")
+    assert response["completed"] is True
+    assert response["status"].lower() == "success"
+    assert "sales" in response["data"]["output"].lower()
+    assert "it" in response["data"]["output"].lower()
+    assert "marketing" in response["data"]["output"].lower()
+
+    # Test 3: Complex query with conditions
+    response = agent.run("Who is the highest paid employee in the IT department?")
+    assert response["completed"] is True
+    assert response["status"].lower() == "success"
+    assert "eve" in response["data"]["output"].lower()
 
     import os
 
+    # Cleanup
     os.remove("test.csv")
     os.remove("test.db")
