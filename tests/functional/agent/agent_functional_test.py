@@ -347,7 +347,7 @@ def test_specific_model_parameters_e2e(tool_config):
     assert tool_used, "Tool was not used in execution"
 
 
-@pytest.mark.parametrize("AgentFactory", [AgentFactory])
+@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
 def test_sql_tool(delete_agents_and_team_agents, AgentFactory):
     assert delete_agents_and_team_agents
     import os
@@ -384,7 +384,7 @@ def test_sql_tool(delete_agents_and_team_agents, AgentFactory):
     os.remove("ftest.db")
 
 
-@pytest.mark.parametrize("AgentFactory", [AgentFactory])
+@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
 def test_sql_tool_from_csv(delete_agents_and_team_agents, AgentFactory):
     assert delete_agents_and_team_agents
 
