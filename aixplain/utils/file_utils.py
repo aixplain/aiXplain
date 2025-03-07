@@ -92,7 +92,7 @@ def upload_data(
     content_type: Text = "text/csv",
     content_encoding: Optional[Text] = None,
     nattempts: int = 2,
-    return_s3_link: bool = False,
+    return_s3_link: bool = True,
 ):
     """Upload files to S3 with pre-signed URLs
 
