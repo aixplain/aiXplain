@@ -166,6 +166,11 @@ def test_sql_tool_validation_errors(tmp_path):
         tool = AgentFactory.create_sql_tool(description="Test", source="", source_type="sqlite")
         tool.validate()
 
+    # Test missing source_type
+    with pytest.raises(TypeError, match="missing 1 required positional argument: 'source_type'"):
+        tool = AgentFactory.create_sql_tool(description="Test", source=db_path)
+        tool.validate()
+
     # Test invalid source type
     with pytest.raises(SQLToolError, match="Invalid source type"):
         AgentFactory.create_sql_tool(description="Test", source=db_path, source_type="invalid")
