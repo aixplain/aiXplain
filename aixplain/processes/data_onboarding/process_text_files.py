@@ -12,7 +12,7 @@ from aixplain.modules.metadata import MetaData
 from aixplain.utils.file_utils import upload_data
 from pathlib import Path
 from tqdm import tqdm
-from typing import List, Optional, Text, Tuple
+from typing import List, Text, Tuple
 
 
 def process_text(content: str, storage_type: StorageType) -> Text:
@@ -69,7 +69,7 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 1000) -
         path = paths[i]
         try:
             dataframe = pd.read_csv(path)
-        except Exception as e:
+        except Exception:
             message = f'Data Asset Onboarding Error: Local file "{path}" not found.'
             logging.exception(message)
             raise Exception(message)
@@ -79,7 +79,7 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 1000) -
             row = dataframe.iloc[j]
             try:
                 text_path = row[metadata.name]
-            except Exception as e:
+            except Exception:
                 message = f'Data Asset Onboarding Error: Column "{metadata.name}" not found in the local file {path}.'
                 logging.exception(message)
                 raise Exception(message)
@@ -100,7 +100,7 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 1000) -
                 start, end = idx - len(batch), idx
                 df["@INDEX"] = range(start, end)
                 df.to_csv(file_name, compression="gzip", index=False)
-                s3_link = upload_data(file_name, content_type="text/csv", content_encoding="gzip")
+                s3_link = upload_data(file_name, content_type="text/csv", content_encoding="gzip", return_s3_link=True)
                 files.append(File(path=s3_link, extension=FileType.CSV, compression="gzip"))
                 # get data column index
                 data_column_idx = df.columns.to_list().index(metadata.name)
@@ -114,7 +114,7 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 1000) -
         start, end = idx - len(batch), idx
         df["@INDEX"] = range(start, end)
         df.to_csv(file_name, compression="gzip", index=False)
-        s3_link = upload_data(file_name, content_type="text/csv", content_encoding="gzip")
+        s3_link = upload_data(file_name, content_type="text/csv", content_encoding="gzip", return_s3_link=True)
         files.append(File(path=s3_link, extension=FileType.CSV, compression="gzip"))
         # get data column index
         data_column_idx = df.columns.to_list().index(metadata.name)
