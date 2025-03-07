@@ -352,19 +352,23 @@ def test_sql_tool(delete_agents_and_team_agents, AgentFactory):
     assert delete_agents_and_team_agents
     import os
 
+    # Create test SQLite database
     with open("ftest.db", "w") as f:
         f.write("")
+
     tool = AgentFactory.create_sql_tool(
-        description="Execute an SQL query and return the result", database="ftest.db", enable_commit=True
+        description="Execute an SQL query and return the result", source="ftest.db", source_type="sqlite", enable_commit=True
     )
     assert tool is not None
     assert tool.description == "Execute an SQL query and return the result"
+
     agent = AgentFactory.create(
         name="Teste",
         description="You are a test agent that search for employee information in a database",
         tools=[tool],
     )
     assert agent is not None
+
     response = agent.run("Create a table called Person with the following columns: id, name, age, salary, department")
     assert response is not None
     assert response["completed"] is True
@@ -385,7 +389,7 @@ def test_sql_tool(delete_agents_and_team_agents, AgentFactory):
 
 
 @pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
-def test_sql_tool_from_csv(delete_agents_and_team_agents, AgentFactory):
+def test_sql_tool_with_csv(delete_agents_and_team_agents, AgentFactory):
     assert delete_agents_and_team_agents
 
     import pandas as pd
@@ -402,13 +406,15 @@ def test_sql_tool_from_csv(delete_agents_and_team_agents, AgentFactory):
     df.to_csv("test.csv", index=False)
 
     # Create SQL tool from CSV
-    tool = AgentFactory.create_sql_tool_from_csv(description="Execute SQL queries on employee data", csv_path="test.csv")
+    tool = AgentFactory.create_sql_tool(
+        description="Execute SQL queries on employee data", source="test.csv", source_type="csv", tables=["employees"]
+    )
 
     # Verify tool setup
     assert tool is not None
     assert tool.description == "Execute SQL queries on employee data"
-    assert tool.database == "test.db"
-    assert tool.tables == ["test"]
+    assert tool.database.endswith(".db")
+    assert tool.tables == ["employees"]
     assert (
         tool.schema
         == 'CREATE TABLE test (\n                    "id" INTEGER, "name" TEXT, "department" TEXT, "salary" INTEGER\n                )'  # noqa: W503

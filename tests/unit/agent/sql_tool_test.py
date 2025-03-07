@@ -41,23 +41,46 @@ def test_clean_column_name():
     assert clean_column_name("___test___name___") == "test_name"
 
 
-def test_create_sql_tool(mocker):
-    tool = AgentFactory.create_sql_tool(description="Test", database="test.db", schema="test", tables=["test", "test2"])
+def test_create_sql_tool(mocker, tmp_path):
+    # Create a test database file
+    # Create a test database file
+    db_path = os.path.join(tmp_path, "test.db")
+    import sqlite3
+
+    conn = sqlite3.connect(db_path)
+    conn.execute("CREATE TABLE test (id INTEGER, name TEXT)")
+    conn.close()
+
+    # Test SQLite source type
+    tool = AgentFactory.create_sql_tool(
+        description="Test", source=db_path, source_type="sqlite", schema="test", tables=["test", "test2"]
+    )
     assert isinstance(tool, SQLTool)
     assert tool.description == "Test"
-    assert tool.database == "test.db"
+    assert tool.database == db_path
     assert tool.schema == "test"
     assert tool.tables == ["test", "test2"]
 
+    csv_path = os.path.join(tmp_path, "test.csv")
+    df = pd.DataFrame({"id": [1, 2, 3], "name": ["test1", "test2", "test3"]})
+    df.to_csv(csv_path, index=False)
+    # Test CSV source type
+    csv_tool = AgentFactory.create_sql_tool(description="Test CSV", source=csv_path, source_type="csv", tables=["data"])
+    assert isinstance(csv_tool, SQLTool)
+    assert csv_tool.description == "Test CSV"
+    assert csv_tool.database.endswith(".db")
+
+    # Test to_dict() method
     tool_dict = tool.to_dict()
     assert tool_dict["description"] == "Test"
     assert tool_dict["parameters"] == [
-        {"name": "database", "value": "test.db"},
+        {"name": "database", "value": db_path},
         {"name": "schema", "value": "test"},
         {"name": "tables", "value": "test,test2"},
         {"name": "enable_commit", "value": False},
     ]
 
+    # Test validation and file upload
     mocker.patch("aixplain.factories.file_factory.FileFactory.upload", return_value="s3://test.db")
     mocker.patch("os.path.exists", return_value=True)
     mocker.patch("aixplain.modules.agent.tool.sql_tool.get_table_schema", return_value="CREATE TABLE test (id INTEGER)")
@@ -123,33 +146,64 @@ def test_get_table_schema_errors(tmp_path):
         get_table_schema("nonexistent.db")
 
 
-def test_sql_tool_validation_errors():
+def test_sql_tool_validation_errors(tmp_path):
+    # Create a test database file
+    db_path = os.path.join(tmp_path, "test.db")
+    # creat a proper sqlite database
+    import sqlite3
+
+    conn = sqlite3.connect(db_path)
+    conn.execute("CREATE TABLE test (id INTEGER, name TEXT)")
+    conn.close()
+
     # Test missing description
     with pytest.raises(SQLToolError, match="Description is required"):
-        tool = AgentFactory.create_sql_tool(description="", database="test.db")
+        tool = AgentFactory.create_sql_tool(description="", source=db_path, source_type="sqlite")
         tool.validate()
 
-    # Test missing database
-    with pytest.raises(SQLToolError, match="Database must be provided"):
-        tool = AgentFactory.create_sql_tool(description="Test", database="")
+    # Test missing source
+    with pytest.raises(SQLToolError, match="Source must be provided"):
+        tool = AgentFactory.create_sql_tool(description="Test", source="", source_type="sqlite")
         tool.validate()
 
-    # Test non-existent database
+    # Test invalid source type
+    with pytest.raises(SQLToolError, match="Invalid source type"):
+        AgentFactory.create_sql_tool(description="Test", source=db_path, source_type="invalid")
+
+    # Test non-existent SQLite database
     with pytest.raises(SQLToolError, match="Database .* does not exist"):
-        tool = AgentFactory.create_sql_tool(description="Test", database="nonexistent.db")
+        tool = AgentFactory.create_sql_tool(description="Test", source="nonexistent.db", source_type="sqlite")
+        tool.validate()
+
+    # Test non-existent CSV file
+    with pytest.raises(SQLToolError, match="CSV file .* does not exist"):
+        tool = AgentFactory.create_sql_tool(description="Test", source="nonexistent.csv", source_type="csv")
+        tool.validate()
+
+    # Test PostgreSQL (not supported)
+    with pytest.raises(SQLToolError, match="PostgreSQL is not supported yet"):
+        tool = AgentFactory.create_sql_tool(
+            description="Test",
+            source="postgresql://user:pass@localhost/mydb",
+            source_type="postgresql",
+            schema="public",
+            tables=["users"],
+        )
         tool.validate()
 
 
 def test_create_sql_tool_with_schema_inference(tmp_path, mocker):
     # Create a test database file
     db_path = os.path.join(tmp_path, "test.db")
-    with open(db_path, "w") as f:
-        f.write("dummy db")  # Just to create the file
+    # creat a proper sqlite database
+    import sqlite3
+
+    conn = sqlite3.connect(db_path)
+    conn.execute("CREATE TABLE test (id INTEGER, name TEXT)")
+    conn.close()
 
     # Create tool without schema and tables
-    tool = AgentFactory.create_sql_tool(description="Test", database=db_path)
-    assert tool.schema is None
-    assert tool.tables is None
+    tool = AgentFactory.create_sql_tool(description="Test", source=db_path, source_type="sqlite")
 
     # Mock schema inference
     schema = "CREATE TABLE test (id INTEGER, name TEXT)"
@@ -178,7 +232,7 @@ def test_create_sql_tool_from_csv_with_warnings(tmp_path, mocker):
 
     # Create tool and check for warnings
     with pytest.warns(UserWarning) as record:
-        tool = AgentFactory.create_sql_tool_from_csv(description="Test", csv_path=csv_path)
+        tool = AgentFactory.create_sql_tool(description="Test", source=csv_path, source_type="csv")
 
     # Verify warnings about column name changes
     warning_messages = [str(w.message) for w in record]
@@ -212,22 +266,11 @@ def test_create_sql_tool_from_csv(tmp_path):
     df = pd.DataFrame({"id": [1, 2, 3], "name": ["test1", "test2", "test3"], "value": [1.1, 2.2, 3.3]})
     df.to_csv(csv_path, index=False)
 
-    # Test non-existent CSV file
-    with pytest.raises(SQLToolError, match="CSV file .* does not exist"):
-        AgentFactory.create_sql_tool_from_csv(description="Test", csv_path="nonexistent.csv")
-
-    # Test invalid file extension
-    invalid_path = os.path.join(tmp_path, "test.txt")
-    with open(invalid_path, "w") as f:
-        f.write("test")
-    with pytest.raises(SQLToolError, match="File .* is not a CSV file"):
-        AgentFactory.create_sql_tool_from_csv(description="Test", csv_path=invalid_path)
-
     # Test successful creation
-    tool = AgentFactory.create_sql_tool_from_csv(description="Test", csv_path=csv_path)
+    tool = AgentFactory.create_sql_tool(description="Test", source=csv_path, source_type="csv", tables=["test"])
     assert isinstance(tool, SQLTool)
     assert tool.description == "Test"
-    assert tool.database.endswith("test.db")
+    assert tool.database.endswith(".db")
     assert os.path.exists(tool.database)
 
     # Test schema and table inference during validation
@@ -251,9 +294,10 @@ def test_sql_tool_schema_inference(tmp_path):
     df.to_csv(csv_path, index=False)
 
     # Create tool without schema and tables
-    tool = AgentFactory.create_sql_tool_from_csv(description="Test", csv_path=csv_path)
+    tool = AgentFactory.create_sql_tool(description="Test", source=csv_path, source_type="csv")
 
     try:
+        tool.validate()
         assert tool.schema is not None
         assert "CREATE TABLE test" in tool.schema
         assert tool.tables == ["test"]

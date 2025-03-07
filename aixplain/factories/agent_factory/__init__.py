@@ -35,9 +35,6 @@ from aixplain.modules.agent.tool.python_interpreter_tool import PythonInterprete
 from aixplain.modules.agent.tool.custom_python_code_tool import CustomPythonCodeTool
 from aixplain.modules.agent.tool.sql_tool import (
     SQLTool,
-    SQLToolError,
-    create_database_from_csv,
-    get_table_names_from_schema,
 )
 from aixplain.modules.model import Model
 from aixplain.modules.pipeline import Pipeline
@@ -199,7 +196,8 @@ class AgentFactory:
     def create_sql_tool(
         cls,
         description: Text,
-        database: Text,
+        source: str,
+        source_type: str,
         schema: Optional[Text] = None,
         tables: Optional[List[Text]] = None,
         enable_commit: bool = False,
@@ -208,75 +206,114 @@ class AgentFactory:
 
         Args:
             description (Text): description of the database tool
-            database (Text): URL/local path of the SQLite database file
+            source (Union[Text, Dict]): database source - can be a connection string or dictionary with connection details
+            source_type (Text): type of source (postgresql, sqlite, csv)
             schema (Optional[Text], optional): database schema description
             tables (Optional[List[Text]], optional): table names to work with (optional)
             enable_commit (bool, optional): enable to modify the database (optional)
         Returns:
             SQLTool: created SQLTool
+
+        Examples:
+            # CSV - Simple
+            sql_tool = AgentFactory.create_sql_tool(
+                description="My CSV Tool",
+                source="/path/to/data.csv",
+                source_type="csv",
+                tables=["data"]
+            )
+
+            # SQLite - Simple
+            sql_tool = AgentFactory.create_sql_tool(
+                description="My SQLite Tool",
+                source="/path/to/database.sqlite",
+                source_type="sqlite",
+                tables=["users", "products"]
+            )
         """
+        from aixplain.modules.agent.tool.sql_tool import (
+            SQLToolError,
+            create_database_from_csv,
+            get_table_schema,
+            get_table_names_from_schema,
+        )
+        from aixplain.enums import DatabaseSourceType
+
+        if not source:
+            raise SQLToolError("Source must be provided")
+        if not source_type:
+            raise SQLToolError("Source type must be provided")
+
+        # Validate source type
+        try:
+            source_type = DatabaseSourceType.from_string(source_type)
+        except ValueError as e:
+            raise SQLToolError(str(e))
+
+        database_path = None  # Final database path to pass to SQLTool
+
+        # Handle CSV source type
+        if source_type == DatabaseSourceType.CSV:
+            if not os.path.exists(source):
+                raise SQLToolError(f"CSV file '{source}' does not exist")
+            if not source.endswith(".csv"):
+                raise SQLToolError(f"File '{source}' is not a CSV file")
+
+            # Create database name from CSV filename or use custom table name
+            base_name = os.path.splitext(os.path.basename(source))[0]
+            db_path = os.path.join(os.path.dirname(source), f"{base_name}.db")
+
+            try:
+                # Create database from CSV
+                schema = create_database_from_csv(source, db_path)
+                database_path = db_path
+
+                # Get table names if not provided
+                if not tables:
+                    tables = get_table_names_from_schema(schema)
+
+            except Exception as e:
+                if os.path.exists(db_path):
+                    try:
+                        os.remove(db_path)
+                    except Exception as cleanup_error:
+                        warnings.warn(f"Failed to remove temporary database file '{db_path}': {str(cleanup_error)}")
+                raise SQLToolError(f"Failed to create database from CSV: {str(e)}")
+
+        # Handle SQLite source type
+        elif source_type == DatabaseSourceType.SQLITE:
+            if not os.path.exists(source):
+                raise SQLToolError(f"Database '{source}' does not exist")
+            if not source.endswith(".db") and not source.endswith(".sqlite"):
+                raise SQLToolError(f"Database '{source}' must have .db or .sqlite extension")
+
+            database_path = source
+
+            # Infer schema from database if not provided
+            if not schema:
+                try:
+                    schema = get_table_schema(database_path)
+                except Exception as e:
+                    raise SQLToolError(f"Failed to get database schema: {str(e)}")
+
+            # Get table names if not provided
+            if not tables:
+                try:
+                    tables = get_table_names_from_schema(schema)
+                except Exception as e:
+                    raise SQLToolError(f"Failed to get table names: {str(e)}")
+
+        elif source_type == DatabaseSourceType.POSTGRESQL:
+            raise SQLToolError("PostgreSQL is not supported yet")
+
+        # Create and return SQLTool
         return SQLTool(
             description=description,
-            database=database,
+            database=database_path,
             schema=schema,
             tables=tables,
             enable_commit=enable_commit,
         )
-
-    @classmethod
-    def create_sql_tool_from_csv(
-        cls,
-        description: Text,
-        csv_path: Text,
-        enable_commit: bool = False,
-    ) -> SQLTool:
-        """Create a new SQL tool from a CSV file
-
-        Args:
-            description (Text): description of the database tool
-            csv_path (Text): path to CSV file to create database from
-            enable_commit (bool, optional): enable to modify the database (optional)
-        Returns:
-            SQLTool: created SQLTool
-
-        Raises:
-            SQLToolError: If CSV file is invalid or database creation fails
-        """
-        if not os.path.exists(csv_path):
-            raise SQLToolError(f"CSV file '{csv_path}' does not exist")
-        if not csv_path.endswith(".csv"):
-            raise SQLToolError(f"File '{csv_path}' is not a CSV file")
-
-        # Create database name from CSV filename
-        db_name = os.path.splitext(os.path.basename(csv_path))[0] + ".db"
-        db_path = os.path.join(os.path.dirname(csv_path), db_name)
-
-        try:
-            # Create database from CSV
-            schema = create_database_from_csv(csv_path, db_path)
-
-            # Verify file was created
-            if not os.path.exists(db_path):
-                raise SQLToolError(f"Failed to create database at '{db_path}'")
-
-            # Get table names from schema
-            tables = get_table_names_from_schema(schema)
-
-            # Create SQL Tool with the generated database
-            return SQLTool(
-                description=description,
-                database=db_path,
-                schema=schema,
-                tables=tables,
-                enable_commit=enable_commit,
-            )
-        except Exception as e:
-            if os.path.exists(db_path):
-                try:
-                    os.remove(db_path)
-                except Exception as cleanup_error:
-                    warnings.warn(f"Failed to remove temporary database file '{db_path}': {str(cleanup_error)}")
-            raise SQLToolError(f"Failed to create SQL tool from CSV: {str(e)}")
 
     @classmethod
     def list(cls) -> Dict:
