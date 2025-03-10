@@ -73,7 +73,7 @@ class IndexModel(Model):
             "action": "search",
             "data": query,
             "datatype": value_type,
-            "payload": {"query": query, "uri": uri, "datatype": value_type, "filters": filters, "top_k": top_k},
+            "payload": {"query": query, "uri": uri, "value_type": value_type, "filters": filters, "top_k": top_k},
         }
         return self.run(data=data)
 

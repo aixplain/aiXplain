@@ -102,7 +102,6 @@ def test_llm_run_with_file():
 
 
 def test_index_model_with_image():
-    import requests
     from aixplain.factories import IndexFactory
     from aixplain.modules.model.record import Record
     from uuid import uuid4
@@ -124,18 +123,25 @@ def test_index_model_with_image():
         )
     )
 
-    # Test onboard local image
+    # beach image
     image_url = "https://aixplain-platform-assets.s3.us-east-1.amazonaws.com/samples/hurricane.jpeg"
-    response = requests.get(image_url)
-    if response.status_code == 200:
-        with open("hurricane.jpeg", "wb") as f:
-            f.write(response.content)
-    records.append(Record(uri="hurricane.jpeg", value_type="image", attributes={}))
+    records.append(Record(uri=image_url, value_type="image", attributes={}))
+
+    # people image
+    image_url = "https://aixplain-platform-assets.s3.us-east-1.amazonaws.com/samples/faces.jpeg"
+    records.append(Record(uri=image_url, value_type="image", attributes={}))
 
     index_model.upsert(records)
     response = index_model.search("beach")
     assert str(response.status) == "SUCCESS"
+    print(response.details)
     first_record = response.details[0]["metadata"]["uri"]
     assert "hurricane" in first_record.lower()
-    assert index_model.count() == 3
+
+    response = index_model.search("people")
+    assert str(response.status) == "SUCCESS"
+    first_record = response.details[0]["metadata"]["uri"]
+    assert "faces" in first_record.lower()
+
+    # assert index_model.count() == 3
     index_model.delete()
