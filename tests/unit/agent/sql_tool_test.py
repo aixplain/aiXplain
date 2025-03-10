@@ -2,6 +2,7 @@ import os
 import pytest
 import pandas as pd
 from aixplain.factories import AgentFactory
+from aixplain.enums import DatabaseSourceType
 from aixplain.modules.agent.tool.sql_tool import (
     SQLTool,
     create_database_from_csv,
@@ -310,3 +311,27 @@ def test_sql_tool_schema_inference(tmp_path):
         # Clean up the database file
         if os.path.exists(tool.database):
             os.remove(tool.database)
+
+
+def test_create_sql_tool_source_type_handling(tmp_path):
+    # Create a test database file
+    db_path = os.path.join(tmp_path, "test.db")
+    import sqlite3
+
+    conn = sqlite3.connect(db_path)
+    conn.execute("CREATE TABLE test (id INTEGER, name TEXT)")
+    conn.close()
+
+    # Test with string input
+    tool_str = AgentFactory.create_sql_tool(description="Test", source=db_path, source_type="sqlite", schema="test")
+    assert isinstance(tool_str, SQLTool)
+
+    # Test with enum input
+    tool_enum = AgentFactory.create_sql_tool(
+        description="Test", source=db_path, source_type=DatabaseSourceType.SQLITE, schema="test"
+    )
+    assert isinstance(tool_enum, SQLTool)
+
+    # Test invalid type
+    with pytest.raises(SQLToolError, match="Source type must be either a string or DatabaseSourceType enum"):
+        AgentFactory.create_sql_tool(description="Test", source=db_path, source_type=123, schema="test")  # Invalid type
