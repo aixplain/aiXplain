@@ -3,6 +3,7 @@ import pytest
 import pandas as pd
 from aixplain.factories import AgentFactory
 from aixplain.enums import DatabaseSourceType
+
 from aixplain.modules.agent.tool.sql_tool import (
     SQLTool,
     create_database_from_csv,
@@ -311,7 +312,6 @@ def test_sql_tool_schema_inference(tmp_path):
         # Clean up the database file
         if os.path.exists(tool.database):
             os.remove(tool.database)
-
 
 def test_create_sql_tool_source_type_handling(tmp_path):
     # Create a test database file

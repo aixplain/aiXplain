@@ -245,14 +245,12 @@ class AgentFactory:
             raise SQLToolError("Source type must be provided")
 
         # Validate source type
-        if not isinstance(source_type, (str, DatabaseSourceType)):
-            raise SQLToolError("Source type must be either a string or DatabaseSourceType enum")
-
         if isinstance(source_type, str):
             try:
                 source_type = DatabaseSourceType.from_string(source_type)
             except ValueError as e:
                 raise SQLToolError(str(e))
+
 
         database_path = None  # Final database path to pass to SQLTool
 
