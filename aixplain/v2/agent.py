@@ -125,14 +125,50 @@ class Agent(
     def create_sql_tool(
         cls,
         description: str,
-        database: str,
+        source: str,
+        source_type: str,
         schema: Optional[str] = None,
         tables: Optional[List[str]] = None,
         enable_commit: bool = False,
     ) -> "SQLTool":
-        """Create a new SQL tool."""
+        """Create a new SQL tool.
+
+        Args:
+            description (str): description of the database tool
+            source (Union[str, Dict]): database source - can be a connection string or dictionary with connection details
+            source_type (str): type of source (sqlite, csv)
+            schema (Optional[str], optional): database schema description
+            tables (Optional[List[str]], optional): table names to work with (optional)
+            enable_commit (bool, optional): enable to modify the database (optional)
+
+        Returns:
+            SQLTool: created SQLTool
+
+        Examples:
+            # SQLite - Simple
+            sql_tool = Agent.create_sql_tool(
+                description="My SQLite Tool",
+                source="/path/to/database.sqlite",
+                source_type="sqlite",
+                tables=["users", "products"]
+            )
+
+            # CSV - Simple
+            sql_tool = Agent.create_sql_tool(
+                description="My CSV Tool",
+                source="/path/to/data.csv",
+                source_type="csv",
+                tables=["data"]
+            )
+
+        """
         from aixplain.factories import AgentFactory
 
         return AgentFactory.create_sql_tool(
-            description=description, database=database, schema=schema, tables=tables, enable_commit=enable_commit
+            description=description,
+            source=source,
+            source_type=source_type,
+            schema=schema,
+            tables=tables,
+            enable_commit=enable_commit,
         )
