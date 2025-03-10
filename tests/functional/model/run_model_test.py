@@ -2,7 +2,7 @@ __author__ = "thiagocastroferreira"
 
 import pytest
 
-from aixplain.enums import Function, EmbeddingModel
+from aixplain.enums import Function
 from aixplain.factories import ModelFactory
 from aixplain.modules import LLM
 from datetime import datetime, timedelta, timezone
@@ -58,7 +58,7 @@ def test_run_async():
 
 @pytest.mark.parametrize(
     "embedding_model",
-    [EmbeddingModel.OPENAI_ADA002, EmbeddingModel.SNOWFLAKE_ARCTIC_EMBED_M_LONG, EmbeddingModel.SNOWFLAKE_ARCTIC_EMBED_L_V2_0],
+    ["6658d40729985c2cf72f42ec", "6734c55df127847059324d9e", "678a4f8547f687504744960a"],
 )
 def test_index_model(embedding_model):
     from uuid import uuid4

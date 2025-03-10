@@ -1,18 +1,29 @@
+from aixplain.modules import Model
 from aixplain.modules.model.index_model import IndexModel
 from aixplain.factories import ModelFactory
-from aixplain.enums import EmbeddingModel, Function, ResponseStatus, SortBy, SortOrder, OwnershipType, Supplier
+from aixplain.enums import Function, ResponseStatus, SortBy, SortOrder, OwnershipType, Supplier
 from typing import Optional, Text, Union, List, Tuple
 
 
 class IndexFactory(ModelFactory):
     @classmethod
     def create(
-        cls, name: Text, description: Text, embedding_model: EmbeddingModel = EmbeddingModel.OPENAI_ADA002
+        cls, name: Text, description: Text, embedding_model: Union[Model, Text] = "6734c55df127847059324d9e"
     ) -> IndexModel:
         """Create a new index collection"""
+        if isinstance(embedding_model, Model):
+            embedding_model = embedding_model.id
+
+        assert embedding_model in [
+            "6658d40729985c2cf72f42ec",
+            "6734c55df127847059324d9e",
+            "678a4f8547f687504744960a",
+            "67c5f705d8f6a65d6f74d732",
+        ], "Index Creation Collection Error: Invalid embedding model. Current supported models are: Snowflake Arctic-embed M-long (6658d40729985c2cf72f42ec), OpenAI Ada-002 (6734c55df127847059324d9e), Snowflake Arctic-embed L-v2.0 (678a4f8547f687504744960a), Jina Clip-v2 Multimodal (67c5f705d8f6a65d6f74d732)"
+
         model = cls.get("66eae6656eb56311f2595011")
 
-        data = {"data": name, "description": description, "model": embedding_model.value}
+        data = {"data": name, "description": description, "model": embedding_model}
         response = model.run(data=data)
         if response.status == ResponseStatus.SUCCESS:
             model_id = response.data
