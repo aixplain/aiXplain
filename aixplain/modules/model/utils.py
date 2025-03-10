@@ -338,3 +338,7 @@ def parse_code_decorated(code: Union[Text, Callable]) -> Tuple[Text, List, Text]
     os.remove(local_path)
 
     return code, inputs, description, name
+
+
+def is_supported_image_type(value: str) -> bool:
+    return any(value.lower().endswith(ext) for ext in [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp"])
