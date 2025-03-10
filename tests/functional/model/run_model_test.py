@@ -43,6 +43,12 @@ def test_llm_run(llm_model):
     assert response["status"] == "SUCCESS"
 
 
+def test_llm_run_with_fallback(llm_model):
+    assert isinstance(llm_model, LLM)
+    response = llm_model.run(data="What is my name?", fallback=True)
+    assert response["status"] == "SUCCESS"
+
+
 def test_run_async():
     """Testing Model Async"""
     model = ModelFactory.get("60ddef828d38c51c5885d491")

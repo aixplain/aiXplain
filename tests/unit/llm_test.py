@@ -82,7 +82,14 @@ def test_run_sync():
         )
 
         input_data = {"data": "input_data"}
-        response = test_model.run(data=input_data, temperature=0.001, max_tokens=128, top_p=1.0)
+        response = test_model.run(
+            data=input_data,
+            temperature=0.001,
+            max_tokens=128,
+            top_p=1.0,
+            fallback=True,
+            fallback_models=["674a17f6098e7d5b18453da7"],
+        )
 
     assert isinstance(response, ModelResponse)
     assert response.status == ResponseStatus.SUCCESS
