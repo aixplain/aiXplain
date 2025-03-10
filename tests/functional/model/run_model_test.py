@@ -99,3 +99,43 @@ def test_llm_run_with_file():
     # Verify response
     assert response["status"] == "SUCCESS"
     assert "🤖" in response["data"], "Robot emoji should be present in the response"
+
+
+def test_index_model_with_image():
+    import requests
+    from aixplain.factories import IndexFactory
+    from aixplain.modules.model.record import Record
+    from uuid import uuid4
+
+    for index in IndexFactory.list()["results"]:
+        index.delete()
+
+    index_model = IndexFactory.create(
+        name=f"Image Index {uuid4()}", description="Index for images", embedding_model="67c5f705d8f6a65d6f74d732"
+    )
+
+    records = []
+    # Building image
+    records.append(
+        Record(
+            uri="https://aixplain-platform-assets.s3.us-east-1.amazonaws.com/samples/building.png",
+            value_type="image",
+            attributes={},
+        )
+    )
+
+    # Test onboard local image
+    image_url = "https://aixplain-platform-assets.s3.us-east-1.amazonaws.com/samples/hurricane.jpeg"
+    response = requests.get(image_url)
+    if response.status_code == 200:
+        with open("hurricane.jpeg", "wb") as f:
+            f.write(response.content)
+    records.append(Record(uri="hurricane.jpeg", value_type="image", attributes={}))
+
+    index_model.upsert(records)
+    response = index_model.search("beach")
+    assert str(response.status) == "SUCCESS"
+    first_record = response.details[0]["metadata"]["uri"]
+    assert "hurricane" in first_record.lower()
+    assert index_model.count() == 3
+    index_model.delete()
