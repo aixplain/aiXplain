@@ -123,8 +123,8 @@ def parse_code(code: Union[Text, Callable]) -> Tuple[Text, List, Text, Text]:
                 "Utility Model Error:If the function is not decorated with @utility_tool, the description must be provided in the docstring"
             )
     # get parameters of the function
-    f = re.findall(r"main\((.*?(?:\s*=\s*[^,)]+)?(?:\s*,\s*.*?(?:\s*=\s*[^,)]+)?)*)\)", str_code)
-    parameters = f[0].split(",") if len(f) > 0 else []
+    params_match = re.search(r"def\s+\w+\s*\((.*?)\)\s*(?:->.*?)?:", str_code)
+    parameters = params_match.group(1).split(",") if params_match else []
 
     for input in parameters:
         assert (
@@ -212,7 +212,7 @@ def parse_code_decorated(code: Union[Text, Callable]) -> Tuple[Text, List, Text]
         description = code.__doc__.strip() if code.__doc__ else ""
         name = code.__name__
         # Try to infer parameters
-        params_match = re.search(r"def\s+\w+\s*\((.*?)\):", str_code)
+        params_match = re.search(r"def\s+\w+\s*\((.*?)\)\s*(?:->.*?)?:", str_code)
         parameters = params_match.group(1).split(",") if params_match else []
 
         for input in parameters:

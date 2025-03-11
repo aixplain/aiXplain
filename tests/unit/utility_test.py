@@ -6,7 +6,7 @@ from aixplain.utils import config
 from aixplain.enums import DataType, Function
 from aixplain.enums.asset_status import AssetStatus
 from aixplain.modules.model.utility_model import UtilityModel, UtilityModelInput
-from aixplain.modules.model.utils import parse_code
+from aixplain.modules.model.utils import parse_code, parse_code_decorated
 from unittest.mock import patch
 
 
@@ -25,7 +25,9 @@ def test_utility_model():
                 assert utility_model.name == "utility_model_test"
                 assert utility_model.description == "utility_model_test"
                 assert utility_model.code == "utility_model_test"
-                assert utility_model.inputs == [UtilityModelInput(name="input_string", description="The input_string input is a text", type=DataType.TEXT)]
+                assert utility_model.inputs == [
+                    UtilityModelInput(name="input_string", description="The input_string input is a text", type=DataType.TEXT)
+                ]
                 assert utility_model.output_examples == "output_description"
 
 
@@ -87,8 +89,14 @@ def test_utility_model_to_dict():
 
 def test_update_utility_model():
     with requests_mock.Mocker() as mock:
-        with patch("aixplain.factories.file_factory.FileFactory.to_link", return_value='def main(input_string:str):\n    """\n    Get driving directions from start_location to end_location\n    """\n    return f"This is the output for input: {input_string}"\n'):
-            with patch("aixplain.factories.file_factory.FileFactory.upload", return_value='def main(input_string:str):\n    """\n    Get driving directions from start_location to end_location\n    """\n    return f"This is the output for input: {input_string}"\n'):
+        with patch(
+            "aixplain.factories.file_factory.FileFactory.to_link",
+            return_value='def main(input_string:str):\n    """\n    Get driving directions from start_location to end_location\n    """\n    return f"This is the output for input: {input_string}"\n',
+        ):
+            with patch(
+                "aixplain.factories.file_factory.FileFactory.upload",
+                return_value='def main(input_string:str):\n    """\n    Get driving directions from start_location to end_location\n    """\n    return f"This is the output for input: {input_string}"\n',
+            ):
                 with patch(
                     "aixplain.modules.model.utils.parse_code",
                     return_value=(
@@ -116,7 +124,7 @@ def test_update_utility_model():
 
                     with pytest.warns(
                         DeprecationWarning,
-                        match="update\(\) is deprecated and will be removed in a future version. Please use save\(\) instead.",
+                        match=r"update\(\) is deprecated and will be removed in a future version. Please use save\(\) instead.",
                     ):
                         utility_model.description = "updated_description"
                         utility_model.update()
@@ -127,8 +135,14 @@ def test_update_utility_model():
 
 def test_save_utility_model():
     with requests_mock.Mocker() as mock:
-        with patch("aixplain.factories.file_factory.FileFactory.to_link", return_value='def main(input_string:str):\n    """\n    Get driving directions from start_location to end_location\n    """\n    return f"This is the output for input: {input_string}"\n'):
-            with patch("aixplain.factories.file_factory.FileFactory.upload", return_value='def main(input_string:str):\n    """\n    Get driving directions from start_location to end_location\n    """\n    return f"This is the output for input: {input_string}"\n'):
+        with patch(
+            "aixplain.factories.file_factory.FileFactory.to_link",
+            return_value='def main(input_string:str):\n    """\n    Get driving directions from start_location to end_location\n    """\n    return f"This is the output for input: {input_string}"\n',
+        ):
+            with patch(
+                "aixplain.factories.file_factory.FileFactory.upload",
+                return_value='def main(input_string:str):\n    """\n    Get driving directions from start_location to end_location\n    """\n    return f"This is the output for input: {input_string}"\n',
+            ):
                 with patch(
                     "aixplain.modules.model.utils.parse_code",
                     return_value=(
@@ -170,8 +184,14 @@ def test_save_utility_model():
 
 def test_delete_utility_model():
     with requests_mock.Mocker() as mock:
-        with patch("aixplain.factories.file_factory.FileFactory.to_link", return_value='def main(input_string:str):\n    """\n    Get driving directions from start_location to end_location\n    """\n    return f"This is the output for input: {input_string}"\n'):
-            with patch("aixplain.factories.file_factory.FileFactory.upload", return_value='def main(input_string:str):\n    """\n    Get driving directions from start_location to end_location\n    """\n    return f"This is the output for input: {input_string}"\n'):
+        with patch(
+            "aixplain.factories.file_factory.FileFactory.to_link",
+            return_value='def main(input_string:str):\n    """\n    Get driving directions from start_location to end_location\n    """\n    return f"This is the output for input: {input_string}"\n',
+        ):
+            with patch(
+                "aixplain.factories.file_factory.FileFactory.upload",
+                return_value='def main(input_string:str):\n    """\n    Get driving directions from start_location to end_location\n    """\n    return f"This is the output for input: {input_string}"\n',
+            ):
                 mock.delete(urljoin(config.BACKEND_URL, "sdk/utilities/123"), status_code=200, json={"id": "123"})
                 utility_model = UtilityModel(
                     id="123",
@@ -199,6 +219,7 @@ def test_parse_code():
             assert description == ""
             assert code_link == "code_link"
             assert name == "main"
+
     # Code is a function
     def main(a: int, b: int):
         """
@@ -241,8 +262,14 @@ def test_parse_code():
 
 def test_validate_new_model():
     """Test validation for a new model"""
-    with patch("aixplain.factories.file_factory.FileFactory.to_link", return_value='def main(input_string:str):\n    """\n    Get driving directions from start_location to end_location\n    """\n    return f"This is the output for input: {input_string}"\n'):
-        with patch("aixplain.factories.file_factory.FileFactory.upload", return_value='def main(input_string:str):\n    """\n    Get driving directions from start_location to end_location\n    """\n    return f"This is the output for input: {input_string}"\n'):
+    with patch(
+        "aixplain.factories.file_factory.FileFactory.to_link",
+        return_value='def main(input_string:str):\n    """\n    Get driving directions from start_location to end_location\n    """\n    return f"This is the output for input: {input_string}"\n',
+    ):
+        with patch(
+            "aixplain.factories.file_factory.FileFactory.upload",
+            return_value='def main(input_string:str):\n    """\n    Get driving directions from start_location to end_location\n    """\n    return f"This is the output for input: {input_string}"\n',
+        ):
             # Test with valid inputs
             utility_model = UtilityModel(
                 id="",  # Empty ID for new model
@@ -348,3 +375,47 @@ def test_model_exists_empty_id():
         api_key=config.TEAM_API_KEY,
     )
     assert utility_model._model_exists() is False
+
+
+def test_utility_model_with_return_annotation():
+    with patch("aixplain.factories.file_factory.FileFactory.to_link", return_value="utility_model_test"):
+        with patch("aixplain.factories.file_factory.FileFactory.upload", return_value="utility_model_test"):
+
+            def get_location(input_str: str) -> str:
+                """
+                Get location information
+
+                Args:
+                    input_str (str): Input string parameter
+                Returns:
+                    str: Location information
+                """
+                return input_str
+
+            utility_model = UtilityModel(
+                id="123",
+                name="location_test",
+                description="Get location information",
+                code=get_location,
+                output_examples="Location data example",
+                inputs=[UtilityModelInput(name="input_str", description="Input string parameter", type=DataType.TEXT)],
+                function=Function.UTILITIES,
+                api_key=config.TEAM_API_KEY,
+            )
+
+            # Verify the model is created correctly with the return type annotation
+            assert utility_model.id == "123"
+            assert utility_model.name == "location_test"
+            assert utility_model.description == "Get location information"
+            assert len(utility_model.inputs) == 1
+            assert utility_model.inputs[0].name == "input_str"
+            assert utility_model.inputs[0].type == DataType.TEXT
+            assert utility_model.inputs[0].description == "Input string parameter"
+
+            # Verify the function parameters are parsed correctly
+            code, inputs, description, name = parse_code_decorated(get_location)
+            assert len(inputs) == 1
+            assert inputs[0].name == "input_str"
+            assert inputs[0].type == DataType.TEXT
+            assert "Get location information" in description
+            assert name == "get_location"
