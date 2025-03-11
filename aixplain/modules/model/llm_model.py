@@ -40,13 +40,14 @@ class LLM(Model):
         name (Text): Name of the Model
         description (Text, optional): description of the model. Defaults to "".
         api_key (Text, optional): API key of the Model. Defaults to None.
-        url (Text, optional): endpoint of the model. Defaults to config.MODELS_RUN_URL.
         supplier (Union[Dict, Text, Supplier, int], optional): supplier of the asset. Defaults to "aiXplain".
         version (Text, optional): version of the model. Defaults to "1.0".
-        function (Text, optional): model AI function. Defaults to None.
-        url (str): URL to run the model.
-        backend_url (str): URL of the backend.
-        pricing (Dict, optional): model price. Defaults to None.
+        function (Function, optional): model AI function. Defaults to None.
+        is_subscribed (bool, optional): Is the user subscribed. Defaults to False.
+        cost (Dict, optional): model price. Defaults to None.
+        temperature (float, optional): model temperature. Defaults to 0.001.
+        fallback (bool, optional): If True, the model will use fallback models if the main model fails. If no fallback models are provided, the backup model will be chosen by aiXplain. Defaults to False.
+        fallback_models (Optional[List[Text]], optional): List of fallback models to be used if the main model fails. Defaults to None.
         **additional_info: Any additional Model info to be saved
     """
 
@@ -62,6 +63,8 @@ class LLM(Model):
         is_subscribed: bool = False,
         cost: Optional[Dict] = None,
         temperature: float = 0.001,
+        fallback: bool = False,
+        fallback_models: Optional[List[Union[Text, "LLM"]]] = None,
         **additional_info,
     ) -> None:
         """LLM Init
@@ -76,6 +79,9 @@ class LLM(Model):
             function (Function, optional): model AI function. Defaults to None.
             is_subscribed (bool, optional): Is the user subscribed. Defaults to False.
             cost (Dict, optional): model price. Defaults to None.
+            temperature (float, optional): model temperature. Defaults to 0.001.
+            fallback (bool, optional): If True, the model will use fallback models if the main model fails. If no fallback models are provided, the backup model will be chosen by aiXplain. Defaults to False.
+            fallback_models (Optional[List[Text]], optional): List of fallback models to be used if the main model fails. Defaults to None.
             **additional_info: Any additional Model info to be saved
         """
         assert function == Function.TEXT_GENERATION, "LLM only supports large language models (i.e. text generation function)"
@@ -94,6 +100,12 @@ class LLM(Model):
         self.url = config.MODELS_RUN_URL
         self.backend_url = config.BACKEND_URL
         self.temperature = temperature
+        self.fallback = fallback
+        self.fallback_models = fallback_models
+        if self.fallback_models is not None:
+            for i, model in enumerate(self.fallback_models):
+                if isinstance(model, LLM):
+                    self.fallback_models[i] = model.id
 
     def run(
         self,
@@ -108,8 +120,6 @@ class LLM(Model):
         timeout: float = 300,
         parameters: Optional[Dict] = None,
         wait_time: float = 0.5,
-        fallback: bool = False,
-        fallback_models: Optional[List[Text]] = None,
     ) -> ModelResponse:
         """Synchronously running a Large Language Model (LLM) model.
 
@@ -125,8 +135,6 @@ class LLM(Model):
             timeout (float, optional): total polling time. Defaults to 300.
             parameters (Dict, optional): optional parameters to the model. Defaults to None.
             wait_time (float, optional): wait time in seconds between polling calls. Defaults to 0.5.
-            fallback (bool, optional): If True, the model will use fallback models if the main model fails. If no fallback models are provided, the backup model will be chosen by aiXplain. Defaults to False.
-            fallback_models (Optional[List[Text]], optional): List of fallback models to be used if the main model fails. Defaults to None.
 
         Returns:
             Dict: parsed output from model
@@ -144,11 +152,11 @@ class LLM(Model):
         parameters.setdefault("temperature", temperature if temperature is not None else self.temperature)
         parameters.setdefault("max_tokens", max_tokens)
         parameters.setdefault("top_p", top_p)
-        if fallback is True:
+        if self.fallback is True:
             if "options" not in parameters:
                 parameters["options"] = {}
-            parameters["options"]["failover"] = fallback
-            parameters["options"]["failoverList"] = fallback_models
+            parameters["options"]["failover"] = self.fallback
+            parameters["options"]["failoverList"] = self.fallback_models
 
         payload = build_payload(data=data, parameters=parameters)
         logging.info(payload)
@@ -189,8 +197,6 @@ class LLM(Model):
         top_p: float = 1.0,
         name: Text = "model_process",
         parameters: Optional[Dict] = None,
-        fallback: bool = False,
-        fallback_models: Optional[List[Text]] = None,
     ) -> ModelResponse:
         """Runs asynchronously a model call.
 
@@ -204,8 +210,6 @@ class LLM(Model):
             top_p (float, optional): Top P. Defaults to 1.0.
             name (Text, optional): ID given to a call. Defaults to "model_process".
             parameters (Dict, optional): optional parameters to the model. Defaults to None.
-            fallback (bool, optional): If True, the model will use fallback models if the main model fails. If no fallback models are provided, the backup model will be chosen by aiXplain. Defaults to False.
-            fallback_models (Optional[List[Text]], optional): List of fallback models to be used if the main model fails. Defaults to None.
         Returns:
             dict: polling URL in response
         """
@@ -223,11 +227,11 @@ class LLM(Model):
         parameters.setdefault("temperature", temperature if temperature is not None else self.temperature)
         parameters.setdefault("max_tokens", max_tokens)
         parameters.setdefault("top_p", top_p)
-        if fallback is True:
+        if self.fallback is True:
             if "options" not in parameters:
                 parameters["options"] = {}
-            parameters["options"]["failover"] = fallback
-            parameters["options"]["failoverList"] = fallback_models
+            parameters["options"]["failover"] = self.fallback
+            parameters["options"]["failoverList"] = self.fallback_models
 
         payload = build_payload(data=data, parameters=parameters)
         response = call_run_endpoint(payload=payload, url=url, api_key=self.api_key)

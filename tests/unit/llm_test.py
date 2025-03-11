@@ -78,7 +78,13 @@ def test_run_sync():
         mock.get(poll_url, json=poll_response)
 
         test_model = LLM(
-            id=model_id, name="Test Model", function=Function.TEXT_GENERATION, url=base_url, api_key=config.TEAM_API_KEY
+            id=model_id,
+            name="Test Model",
+            function=Function.TEXT_GENERATION,
+            url=base_url,
+            api_key=config.TEAM_API_KEY,
+            fallback=True,
+            fallback_models=["674a17f6098e7d5b18453da7"],
         )
 
         input_data = {"data": "input_data"}
@@ -87,8 +93,6 @@ def test_run_sync():
             temperature=0.001,
             max_tokens=128,
             top_p=1.0,
-            fallback=True,
-            fallback_models=["674a17f6098e7d5b18453da7"],
         )
 
     assert isinstance(response, ModelResponse)
