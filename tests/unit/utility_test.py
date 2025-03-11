@@ -419,3 +419,25 @@ def test_utility_model_with_return_annotation():
             assert inputs[0].type == DataType.TEXT
             assert "Get location information" in description
             assert name == "get_location"
+
+
+def test_parse_code_with_class():
+    """Test that parsing code with a class raises proper error"""
+
+    class DummyModel:
+        def __init__(self):
+            pass
+
+    # Test with class
+    with pytest.raises(
+        TypeError,
+        match=r"Code must be either a string or a callable function, not a class or class instance\. You tried to pass a class or class instance: <.*\.DummyModel object at 0x[0-9a-f]+>",
+    ):
+        parse_code_decorated(DummyModel())
+
+    # Test with class instance
+    with pytest.raises(
+        TypeError,
+        match=r"Code must be either a string or a callable function, not a class or class instance\. You tried to pass a class or class instance: <.*\.DummyModel object at 0x[0-9a-f]+>",
+    ):
+        parse_code_decorated(DummyModel())

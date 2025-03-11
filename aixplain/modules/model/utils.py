@@ -176,6 +176,12 @@ def parse_code_decorated(code: Union[Text, Callable]) -> Tuple[Text, List, Text]
     inputs, description, name = [], "", ""
     str_code = ""
 
+    # Add explicit type checking for class instances
+    if inspect.isclass(code) or (not isinstance(code, (str, Callable)) and hasattr(code, "__class__")):
+        raise TypeError(
+            f"Code must be either a string or a callable function, not a class or class instance. You tried to pass a class or class instance: {code}"
+        )
+
     if isinstance(code, Callable) and hasattr(code, "_is_utility_tool"):
         str_code = inspect.getsource(code)
         # Use the information directly from the decorated callable
