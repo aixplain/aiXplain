@@ -597,6 +597,14 @@ def test_param_proxy_set_param_value():
         mock_special_prompt_handling.assert_called_once_with("prompt", "hello {{foo}}")
         assert prompt_param.value == "hello {{foo}}"
 
+        # Use a non string value
+        param_proxy.set_param_value("prompt", 123)
+        assert prompt_param.value == 123
+
+        # Now change it to another non string value
+        param_proxy.set_param_value("prompt", 456)
+        assert prompt_param.value == 456
+
 
 def test_param_proxy_special_prompt_handling():
     from aixplain.modules.pipeline.designer.nodes import AssetNode

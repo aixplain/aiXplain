@@ -247,13 +247,12 @@ class ParamProxy(Serializable):
 
     def add_param(self, param: Param) -> None:
         # check if param already registered
-        if param in self:
+        if hasattr(self, param.code) or param in self:
             raise ValueError(f"Parameter with code '{param.code}' already exists.")
         self._params.append(param)
         # also set attribute on the node dynamically if there's no
         # any attribute with the same name
-        if not hasattr(self, param.code):
-            setattr(self, param.code, param)
+        setattr(self, param.code, param)
 
     def _create_param(self, code: str, data_type: DataType = None, value: any = None) -> Param:
         raise NotImplementedError()
@@ -300,7 +299,7 @@ class ParamProxy(Serializable):
 
     def __setattr__(self, name: str, value: any) -> None:
         # set param value on attribute assignment to avoid setting it manually
-        if hasattr(self, name) and not isinstance(value, Param):
+        if hasattr(self, "_params") and name in self._params:
             self.set_param_value(name, value)
         else:
             super().__setattr__(name, value)
