@@ -21,7 +21,10 @@ class MonitoringTools:
                 if tool.get("type") == "monitoring" and tool.get("description", "").lower() == "agentops":
                     parameters = tool.get("parameters", [])
                     if parameters and isinstance(parameters, list):
-                        self.agentops_api_key = parameters[0].get("api_key")
+                        parameter_name = parameters[0].get("name")
+                        parameter_value = parameters[0].get("value")
+                        if parameter_name == "api_key":
+                            self.agentops_api_key = parameter_value
 
         # Process config if provided and agentops_api_key not set from tools
         if self.agentops_api_key is None and config is not None:
@@ -57,7 +60,7 @@ class MonitoringTools:
                 {
                     "type": "monitoring",
                     "description": "agentops",
-                    "parameters": [{"api_key": self.agentops_api_key}],
+                    "parameters": [{"name": "api_key", "value": self.agentops_api_key}],
                 }
             )
         return result
