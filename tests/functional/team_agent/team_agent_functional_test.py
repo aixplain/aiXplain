@@ -348,7 +348,8 @@ def test_team_agent_with_parameterized_agents(delete_agents_and_team_agents):
         agents=[search_agent, translation_agent],
         description="Team agent with parameterized tools",
         llm_id="677c16166eb563bb611623c1",
-        use_mentalist_and_inspector=True,
+        use_mentalist=True,
+        use_inspector=True,
     )
 
     # Deploy team agent

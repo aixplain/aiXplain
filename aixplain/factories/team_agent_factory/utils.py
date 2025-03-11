@@ -40,6 +40,7 @@ def build_team_agent(payload: Dict, agents: List[Agent] = None, api_key: Text = 
         llm_id=payload.get("llmId", GPT_4o_ID),
         use_mentalist=True if payload.get("plannerId", None) is not None else False,
         use_inspector=True if payload.get("inspectorId", None) is not None else False,
+        num_inspectors=payload.get("numInspectors", 0),
         api_key=api_key,
         status=AssetStatus(payload["status"]),
     )

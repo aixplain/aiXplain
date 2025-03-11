@@ -47,6 +47,7 @@ class TeamAgentFactory:
         version: Optional[Text] = None,
         use_mentalist: bool = True,
         use_inspector: bool = True,
+        num_inspectors: int = 1,
         use_mentalist_and_inspector: bool = False,  # TODO: remove this
     ) -> TeamAgent:
         """Create a new team agent in the platform."""
@@ -68,8 +69,13 @@ class TeamAgentFactory:
                 assert isinstance(agent, Agent), "TeamAgent Onboarding Error: Agents must be instances of Agent class"
             agent_list.append(agent_obj)
 
-        if use_inspector and not use_mentalist:
-            raise Exception("TeamAgent Onboarding Error: To use the Inspector agent, you must enable Mentalist.")
+        if use_inspector:
+            if not use_mentalist:
+                raise Exception("TeamAgent Onboarding Error: To use the Inspector agent, you must enable Mentalist.")
+            if num_inspectors < 1:
+                raise Exception(
+                    "TeamAgent Onboarding Error: The number of inspectors must be greater than 0 when using the Inspector agent."
+                )
 
         if use_mentalist_and_inspector:
             mentalist_llm_id = llm_id
@@ -100,6 +106,7 @@ class TeamAgentFactory:
             "supervisorId": llm_id,
             "plannerId": mentalist_llm_id,
             "inspectorId": inspector_llm_id,
+            "numInspectors": num_inspectors,
             "supplier": supplier,
             "version": version,
             "status": "draft",

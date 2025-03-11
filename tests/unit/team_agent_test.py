@@ -193,11 +193,11 @@ def test_create_team_agent(mock_model_factory_get):
 
         team_agent = TeamAgentFactory.create(
             name="TEST Multi agent(-)",
+            agents=[agent],
+            llm_id="6646261c6eb563165658bbb1",
             description="TEST Multi agent",
             use_mentalist=True,
             use_inspector=True,
-            llm_id="6646261c6eb563165658bbb1",
-            agents=[agent],
         )
         assert team_agent.id is not None
         assert team_agent.name == team_ref_response["name"]
