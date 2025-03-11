@@ -300,7 +300,7 @@ class ParamProxy(Serializable):
 
     def __setattr__(self, name: str, value: any) -> None:
         # set param value on attribute assignment to avoid setting it manually
-        if isinstance(value, str) and hasattr(self, name):
+        if hasattr(self, name) and not isinstance(value, Param):
             self.set_param_value(name, value)
         else:
             super().__setattr__(name, value)
