@@ -247,12 +247,13 @@ class ParamProxy(Serializable):
 
     def add_param(self, param: Param) -> None:
         # check if param already registered
-        if hasattr(self, param.code) or param in self:
+        if param in self:
             raise ValueError(f"Parameter with code '{param.code}' already exists.")
         self._params.append(param)
         # also set attribute on the node dynamically if there's no
         # any attribute with the same name
-        setattr(self, param.code, param)
+        if not hasattr(self, param.code):
+            setattr(self, param.code, param)
 
     def _create_param(self, code: str, data_type: DataType = None, value: any = None) -> Param:
         raise NotImplementedError()
@@ -287,7 +288,8 @@ class ParamProxy(Serializable):
             if code == "prompt":
                 matches = find_prompt_params(value)
                 for match in matches:
-                    self.node.inputs.create_param(match, DataType.TEXT, is_required=True)
+                    if match not in self:
+                        self.node.inputs.create_param(match, DataType.TEXT, is_required=True)
 
     def set_param_value(self, code: str, value: str) -> None:
         self.special_prompt_handling(code, value)
