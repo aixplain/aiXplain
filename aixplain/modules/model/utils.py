@@ -3,7 +3,7 @@ __author__ = "thiagocastroferreira"
 import json
 import logging
 from aixplain.utils.file_utils import _request_with_retry
-from typing import Callable, Dict, List, Text, Tuple, Union, Optional
+from typing import Any, Callable, Dict, List, Text, Tuple, Union, Optional
 
 
 def build_payload(data: Union[Text, Dict], parameters: Optional[Dict] = None):
@@ -338,3 +338,15 @@ def parse_code_decorated(code: Union[Text, Callable]) -> Tuple[Text, List, Text]
     os.remove(local_path)
 
     return code, inputs, description, name
+
+
+def build_fallback_order(fallback_order: Optional[Any] = None):
+    from aixplain.modules.model import Model
+    from aixplain.modules.asset_router import AssetRouter
+    from aixplain.factories import ModelFactory
+
+    if fallback_order is None:
+        return None
+    fallback_order = [model.id if isinstance(model, Model) else model for model in fallback_order]
+    models = ModelFactory.list(model_ids=fallback_order)["results"]
+    return AssetRouter(assets=models)

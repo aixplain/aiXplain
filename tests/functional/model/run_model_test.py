@@ -45,7 +45,11 @@ def test_llm_run(llm_model):
 
 def test_llm_run_with_fallback(llm_model):
     assert isinstance(llm_model, LLM)
-    response = llm_model.run(data="What is my name?", fallback=True)
+    llm_model.allow_fallback = True
+    llm_model.fallback_order = ["6646261c6eb563165658bbb1"]
+
+    assert llm_model.fallback_order.assets[0].id == "6646261c6eb563165658bbb1"
+    response = llm_model.run(data="What is my name?")
     assert response["status"] == "SUCCESS"
 
 

@@ -1,11 +1,14 @@
 from dotenv import load_dotenv
 import requests_mock
 from aixplain.enums import Function
+from aixplain.modules.model import Model
 
 load_dotenv()
 from aixplain.utils import config
 from aixplain.enums import ResponseStatus
+from aixplain.modules.asset_router import AssetRouter
 from aixplain.modules.model.response import ModelResponse
+from aixplain.modules.model.utils import build_fallback_order
 from aixplain.modules import LLM
 
 import pytest
@@ -169,3 +172,20 @@ def test_run_with_custom_parameters():
     assert response.used_credits == 10
     assert response.run_time == 1.5
     assert response.usage == {"prompt_tokens": 10, "completion_tokens": 20}
+
+
+def test_fallback_order(mocker):
+    mocker.patch(
+        "aixplain.factories.ModelFactory.list", return_value={"results": [Model(id="model-id-1"), Model(id="model-id-2")]}
+    )
+    fallback_order = build_fallback_order(["model-id-1", Model(id="model-id-2")])
+    assert isinstance(fallback_order, AssetRouter)
+    assert len(fallback_order.assets) == 2
+    assert all(isinstance(asset, Model) for asset in fallback_order.assets)
+    assert fallback_order.assets[0].id == "model-id-1"
+    assert fallback_order.assets[1].id == "model-id-2"
+
+
+def test_fallback_order_none():
+    fallback_order = build_fallback_order(None)
+    assert fallback_order is None
