@@ -26,6 +26,7 @@ import logging
 import time
 import traceback
 import re
+from enum import Enum
 from typing import Dict, List, Text, Optional, Union
 from urllib.parse import urljoin
 
@@ -34,13 +35,21 @@ from aixplain.enums.function import Function
 from aixplain.enums.supplier import Supplier
 from aixplain.enums.asset_status import AssetStatus
 from aixplain.enums.storage_type import StorageType
-from aixplain.factories.team_agent_factory import InspectorTarget
 from aixplain.modules.model import Model
 from aixplain.modules.agent import Agent, OutputFormat
 from aixplain.modules.agent.agent_response import AgentResponse
 from aixplain.modules.agent.utils import process_variables
 from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
+
+
+class InspectorTarget(str, Enum):
+    # TODO: INPUT
+    STEPS = "steps"
+    OUTPUT = "output"
+
+    def __str__(self):
+        return self._value_
 
 
 class TeamAgent(Model):

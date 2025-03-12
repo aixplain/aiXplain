@@ -6,9 +6,8 @@ from urllib.parse import urljoin
 
 import aixplain.utils.config as config
 from aixplain.enums.asset_status import AssetStatus
-from aixplain.factories.team_agent_factory import InspectorTarget
 from aixplain.modules.agent import Agent
-from aixplain.modules.team_agent import TeamAgent
+from aixplain.modules.team_agent import TeamAgent, InspectorTarget
 
 
 GPT_4o_ID = "6646261c6eb563165658bbb1"
