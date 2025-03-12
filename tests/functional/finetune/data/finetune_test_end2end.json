@@ -6,21 +6,5 @@
         "inference_data": "Hello!",
         "required_dev": true,
         "search_metadata": false
-    },
-    {
-        "model_name": "aiR v2",
-        "model_id": "66eae6656eb56311f2595011",
-        "dataset_name": "Test search dataset",
-        "inference_data": "Hello!",
-        "required_dev": false,
-        "search_metadata": false
-    },
-    {
-        "model_name": "vectara",
-        "model_id": "655e20f46eb563062a1aa301",
-        "dataset_name": "Test search dataset",
-        "inference_data": "Hello!",
-        "required_dev": false,
-        "search_metadata": false
     }
 ]

@@ -271,37 +271,54 @@ class ParamProxy(Serializable):
         param.node = self.node
         return param
 
-    def __getitem__(self, code: str) -> Param:
+    def __getattr__(self, code: str) -> Param:
+        if code == "_params":
+            raise AttributeError("Attribute '_params' is not accessible")
         for param in self._params:
             if param.code == code:
                 return param
-        raise KeyError(f"Parameter with code '{code}' not found.")
+        raise AttributeError(f"Attribute with code '{code}' not found.")
+
+    def __getitem__(self, code: str) -> Param:
+        try:
+            return getattr(self, code)
+        except AttributeError:
+            raise KeyError(f"Parameter with code '{code}' not found.")
 
     def special_prompt_handling(self, code: str, value: str) -> None:
         """
         This method will handle the special prompt handling for asset nodes
         having `text-generation` function type.
         """
+        prompt_param = getattr(self, "prompt", None)
+        if prompt_param:
+            raise ValueError("Prompt param already exists")
+
         from .nodes import AssetNode
 
-        if isinstance(self.node, AssetNode) and self.node.asset.function == "text-generation":
-            if code == "prompt":
-                matches = find_prompt_params(value)
-                for match in matches:
-                    self.node.inputs.create_param(match, DataType.TEXT, is_required=True)
+        if not isinstance(self.node, AssetNode):
+            return
 
-    def set_param_value(self, code: str, value: str) -> None:
-        self.special_prompt_handling(code, value)
-        self[code].value = value
+        if not hasattr(self.node, "asset") or self.node.asset.function != "text-generation":
+            return
+
+        matches = find_prompt_params(value)
+        for match in matches:
+            if match in self:
+                raise ValueError(f"Prompt param with code '{match}' already exists")
+
+            self.node.inputs.create_param(match, DataType.TEXT, is_required=True)
 
     def __setitem__(self, code: str, value: str) -> None:
-        # set param value on set item to avoid setting it manually
-        self.set_param_value(code, value)
+        setattr(self, code, value)
 
     def __setattr__(self, name: str, value: any) -> None:
-        # set param value on attribute assignment to avoid setting it manually
-        if isinstance(value, str) and hasattr(self, name):
-            self.set_param_value(name, value)
+        if name == "prompt":
+            self.special_prompt_handling(name, value)
+
+        param = getattr(self, name, None)
+        if param and isinstance(param, Param):
+            param.value = value
         else:
             super().__setattr__(name, value)
 
