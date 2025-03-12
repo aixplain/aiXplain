@@ -26,22 +26,21 @@ import logging
 import time
 import traceback
 import re
+from typing import Dict, List, Text, Optional, Union
+from urllib.parse import urljoin
 
-from aixplain.utils.file_utils import _request_with_retry
+from aixplain.enums import ResponseStatus
 from aixplain.enums.function import Function
 from aixplain.enums.supplier import Supplier
 from aixplain.enums.asset_status import AssetStatus
 from aixplain.enums.storage_type import StorageType
+from aixplain.factories.team_agent_factory import InspectorTarget
 from aixplain.modules.model import Model
 from aixplain.modules.agent import Agent, OutputFormat
 from aixplain.modules.agent.agent_response import AgentResponse
-from aixplain.enums import ResponseStatus
 from aixplain.modules.agent.utils import process_variables
-from typing import Dict, List, Text, Optional, Union
-from urllib.parse import urljoin
-
-
 from aixplain.utils import config
+from aixplain.utils.file_utils import _request_with_retry
 
 
 class TeamAgent(Model):
@@ -77,6 +76,7 @@ class TeamAgent(Model):
         use_mentalist: bool = True,
         use_inspector: bool = True,
         max_inspectors: int = 1,
+        inspector_targets: List[InspectorTarget] = [InspectorTarget.STEPS],
         status: AssetStatus = AssetStatus.DRAFT,
         **additional_info,
     ) -> None:
@@ -102,6 +102,7 @@ class TeamAgent(Model):
         self.use_mentalist = use_mentalist
         self.use_inspector = use_inspector
         self.max_inspectors = max_inspectors
+        self.inspector_targets = inspector_targets
 
         if isinstance(status, str):
             try:
@@ -310,6 +311,7 @@ class TeamAgent(Model):
             "plannerId": self.llm_id if self.use_mentalist else None,
             "inspectorId": self.llm_id if self.use_inspector else None,
             "maxInspectors": self.max_inspectors,
+            "inspectorTargets": [target.value for target in self.inspector_targets],
             "supplier": self.supplier.value["code"] if isinstance(self.supplier, Supplier) else self.supplier,
             "version": self.version,
             "status": self.status.value,

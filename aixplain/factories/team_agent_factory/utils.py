@@ -1,12 +1,15 @@
 __author__ = "lucaspavanelli"
 
 import logging
-import aixplain.utils.config as config
-from aixplain.enums.asset_status import AssetStatus
-from aixplain.modules.agent import Agent
-from aixplain.modules.team_agent import TeamAgent
 from typing import Dict, Text, List
 from urllib.parse import urljoin
+
+import aixplain.utils.config as config
+from aixplain.enums.asset_status import AssetStatus
+from aixplain.factories.team_agent_factory import InspectorTarget
+from aixplain.modules.agent import Agent
+from aixplain.modules.team_agent import TeamAgent
+
 
 GPT_4o_ID = "6646261c6eb563165658bbb1"
 
@@ -41,6 +44,7 @@ def build_team_agent(payload: Dict, agents: List[Agent] = None, api_key: Text = 
         use_mentalist=True if payload.get("plannerId", None) is not None else False,
         use_inspector=True if payload.get("inspectorId", None) is not None else False,
         max_inspectors=payload.get("maxInspectors", 0),
+        inspector_targets=payload.get("inspectorTargets", [InspectorTarget.STEPS]),
         api_key=api_key,
         status=AssetStatus(payload["status"]),
     )
