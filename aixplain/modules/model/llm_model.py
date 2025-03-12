@@ -25,9 +25,10 @@ import logging
 import traceback
 from aixplain.enums import Function, Supplier
 from aixplain.modules.model import Model
-from aixplain.modules.model.utils import build_payload, call_run_endpoint
+from aixplain.modules.model.utils import build_payload, call_run_endpoint, build_fallback_order
 from aixplain.utils import config
 from typing import Union, Optional, List, Text, Dict
+from aixplain.modules.asset_router import AssetRouter
 from aixplain.modules.model.response import ModelResponse
 from aixplain.enums.response_status import ResponseStatus
 
@@ -40,15 +41,18 @@ class LLM(Model):
         name (Text): Name of the Model
         description (Text, optional): description of the model. Defaults to "".
         api_key (Text, optional): API key of the Model. Defaults to None.
-        url (Text, optional): endpoint of the model. Defaults to config.MODELS_RUN_URL.
         supplier (Union[Dict, Text, Supplier, int], optional): supplier of the asset. Defaults to "aiXplain".
         version (Text, optional): version of the model. Defaults to "1.0".
-        function (Text, optional): model AI function. Defaults to None.
-        url (str): URL to run the model.
-        backend_url (str): URL of the backend.
-        pricing (Dict, optional): model price. Defaults to None.
+        function (Function, optional): model AI function. Defaults to None.
+        is_subscribed (bool, optional): Is the user subscribed. Defaults to False.
+        cost (Dict, optional): model price. Defaults to None.
+        temperature (float, optional): model temperature. Defaults to 0.001.
+        fallback (bool, optional): If True, the model will use fallback models if the main model fails. If no fallback models are provided, the backup model will be chosen by aiXplain. Defaults to False.
+        fallback_models (Optional[List[Text]], optional): List of fallback models to be used if the main model fails. Defaults to None.
         **additional_info: Any additional Model info to be saved
     """
+
+    _fallback_order: Optional[AssetRouter] = None
 
     def __init__(
         self,
@@ -62,6 +66,8 @@ class LLM(Model):
         is_subscribed: bool = False,
         cost: Optional[Dict] = None,
         temperature: float = 0.001,
+        allow_fallback: bool = False,
+        fallback_order: Optional[Union[AssetRouter, List[Union[Model, Text]]]] = None,
         **additional_info,
     ) -> None:
         """LLM Init
@@ -76,6 +82,9 @@ class LLM(Model):
             function (Function, optional): model AI function. Defaults to None.
             is_subscribed (bool, optional): Is the user subscribed. Defaults to False.
             cost (Dict, optional): model price. Defaults to None.
+            temperature (float, optional): model temperature. Defaults to 0.001.
+            allow_fallback (bool, optional): If True, the model will use fallback models if the main model fails. If no fallback models are provided, the backup model will be chosen by aiXplain. Defaults to False.
+            fallback_order (Optional[List[Text]], optional): List of fallback models to be used if the main model fails. Defaults to None.
             **additional_info: Any additional Model info to be saved
         """
         assert function == Function.TEXT_GENERATION, "LLM only supports large language models (i.e. text generation function)"
@@ -94,6 +103,8 @@ class LLM(Model):
         self.url = config.MODELS_RUN_URL
         self.backend_url = config.BACKEND_URL
         self.temperature = temperature
+        self.allow_fallback = allow_fallback
+        self._fallback_order = build_fallback_order(fallback_order)
 
     def run(
         self,
@@ -140,6 +151,11 @@ class LLM(Model):
         parameters.setdefault("temperature", temperature if temperature is not None else self.temperature)
         parameters.setdefault("max_tokens", max_tokens)
         parameters.setdefault("top_p", top_p)
+        if self.allow_fallback is True:
+            if "options" not in parameters:
+                parameters["options"] = {}
+            parameters["options"]["failover"] = self.allow_fallback
+            parameters["options"]["failoverList"] = [asset.id for asset in self.fallback_order.assets]
 
         payload = build_payload(data=data, parameters=parameters)
         logging.info(payload)
@@ -193,7 +209,6 @@ class LLM(Model):
             top_p (float, optional): Top P. Defaults to 1.0.
             name (Text, optional): ID given to a call. Defaults to "model_process".
             parameters (Dict, optional): optional parameters to the model. Defaults to None.
-
         Returns:
             dict: polling URL in response
         """
@@ -211,6 +226,12 @@ class LLM(Model):
         parameters.setdefault("temperature", temperature if temperature is not None else self.temperature)
         parameters.setdefault("max_tokens", max_tokens)
         parameters.setdefault("top_p", top_p)
+        if self.allow_fallback is True:
+            if "options" not in parameters:
+                parameters["options"] = {}
+            parameters["options"]["failover"] = self.allow_fallback
+            parameters["options"]["failoverList"] = [asset.id for asset in self.fallback_order.assets]
+
         payload = build_payload(data=data, parameters=parameters)
         response = call_run_endpoint(payload=payload, url=url, api_key=self.api_key)
         return ModelResponse(
@@ -222,3 +243,11 @@ class LLM(Model):
             url=response.pop("url", None),
             **response,
         )
+
+    @property
+    def fallback_order(self) -> Optional[AssetRouter]:
+        return self._fallback_order
+
+    @fallback_order.setter
+    def fallback_order(self, value: Optional[Union[AssetRouter, List[Union[Model, Text]]]]) -> None:
+        self._fallback_order = build_fallback_order(value)
