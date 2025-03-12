@@ -76,7 +76,7 @@ class TeamAgent(Model):
         cost: Optional[Dict] = None,
         use_mentalist: bool = True,
         use_inspector: bool = True,
-        num_inspectors: int = 1,
+        max_inspectors: int = 1,
         status: AssetStatus = AssetStatus.DRAFT,
         **additional_info,
     ) -> None:
@@ -101,7 +101,7 @@ class TeamAgent(Model):
         self.llm_id = llm_id
         self.use_mentalist = use_mentalist
         self.use_inspector = use_inspector
-        self.num_inspectors = num_inspectors
+        self.max_inspectors = max_inspectors
 
         if isinstance(status, str):
             try:
@@ -309,7 +309,7 @@ class TeamAgent(Model):
             "supervisorId": self.llm_id,
             "plannerId": self.llm_id if self.use_mentalist else None,
             "inspectorId": self.llm_id if self.use_inspector else None,
-            "numInspectors": self.num_inspectors,
+            "maxInspectors": self.max_inspectors,
             "supplier": self.supplier.value["code"] if isinstance(self.supplier, Supplier) else self.supplier,
             "version": self.version,
             "status": self.status.value,
@@ -368,7 +368,7 @@ class TeamAgent(Model):
 
         payload = self.to_dict()
 
-        logging.debug(f"Start service for PUT Update Team Agent  - {url} - {headers} - {json.dumps(payload)}")
+        logging.debug(f"Start service for PUT Update Team Agent - {url} - {headers} - {json.dumps(payload)}")
         resp = "No specified error."
         try:
             r = _request_with_retry("put", url, headers=headers, json=payload)

@@ -51,6 +51,7 @@ class TeamAgentFactory:
         use_mentalist_and_inspector: bool = False,  # TODO: remove this
     ) -> TeamAgent:
         """Create a new team agent in the platform."""
+
         assert len(agents) > 0, "TeamAgent Onboarding Error: At least one agent must be provided."
         agent_list = []
         for agent in agents:
@@ -70,9 +71,11 @@ class TeamAgentFactory:
             agent_list.append(agent_obj)
 
         if use_inspector:
+            # NOTE: backend expects max_inspectors (for "generated" inspectors)
+            max_inspectors = num_inspectors
             if not use_mentalist:
                 raise Exception("TeamAgent Onboarding Error: To use the Inspector agent, you must enable Mentalist.")
-            if num_inspectors < 1:
+            if max_inspectors < 1:
                 raise Exception(
                     "TeamAgent Onboarding Error: The number of inspectors must be greater than 0 when using the Inspector agent."
                 )
@@ -106,7 +109,7 @@ class TeamAgentFactory:
             "supervisorId": llm_id,
             "plannerId": mentalist_llm_id,
             "inspectorId": inspector_llm_id,
-            "numInspectors": num_inspectors,
+            "maxInspectors": max_inspectors,
             "supplier": supplier,
             "version": version,
             "status": "draft",
