@@ -27,6 +27,13 @@ jobs:
           pip install .
           pip install pytest
 
+      - name: Set environment variables
+        run: |
+          echo "TEAM_API_KEY=${{ secrets.TEAM_API_KEY }}" >> $GITHUB_ENV
+          echo "BACKEND_URL=https://test-platform-api.aixplain.com/" >> $GITHUB_ENV
+          echo "MODELS_RUN_URL=https://test-models.aixplain.com/api/v1/execute" >> $GITHUB_ENV
+          echo "PIPELINES_RUN_URL=https://test-platform-api.aixplain.com/assets/pipeline/execution/run" >> $GITHUB_ENV
+
       - name: Run general_assets
         run: python -m pytest tests/functional/general_assets
 
@@ -46,6 +53,13 @@ jobs:
           python -m pip install --upgrade pip
           pip install .
           pip install pytest
+
+      - name: Set environment variables
+        run: |
+          echo "TEAM_API_KEY=${{ secrets.TEAM_API_KEY }}" >> $GITHUB_ENV
+          echo "BACKEND_URL=https://test-platform-api.aixplain.com/" >> $GITHUB_ENV
+          echo "MODELS_RUN_URL=https://test-models.aixplain.com/api/v1/execute" >> $GITHUB_ENV
+          echo "PIPELINES_RUN_URL=https://test-platform-api.aixplain.com/assets/pipeline/execution/run" >> $GITHUB_ENV
 
       - name: Run File Asset
         run: python -m pytest tests/functional/file_asset
@@ -67,6 +81,13 @@ jobs:
           pip install .
           pip install pytest
 
+      - name: Set environment variables
+        run: |
+          echo "TEAM_API_KEY=${{ secrets.TEAM_API_KEY }}" >> $GITHUB_ENV
+          echo "BACKEND_URL=https://test-platform-api.aixplain.com/" >> $GITHUB_ENV
+          echo "MODELS_RUN_URL=https://test-models.aixplain.com/api/v1/execute" >> $GITHUB_ENV
+          echo "PIPELINES_RUN_URL=https://test-platform-api.aixplain.com/assets/pipeline/execution/run" >> $GITHUB_ENV
+
       - name: Run Agent
         run: python -m pytest tests/functional/agent
 
@@ -86,6 +107,13 @@ jobs:
           python -m pip install --upgrade pip
           pip install .
           pip install pytest
+      
+      - name: Set environment variables
+        run: |
+          echo "TEAM_API_KEY=${{ secrets.TEAM_API_KEY }}" >> $GITHUB_ENV
+          echo "BACKEND_URL=https://test-platform-api.aixplain.com/" >> $GITHUB_ENV
+          echo "MODELS_RUN_URL=https://test-models.aixplain.com/api/v1/execute" >> $GITHUB_ENV
+          echo "PIPELINES_RUN_URL=https://test-platform-api.aixplain.com/assets/pipeline/execution/run" >> $GITHUB_ENV
 
       - name: Run Team Agent
         run: python -m pytest tests/functional/team_agent
@@ -107,6 +135,13 @@ jobs:
           pip install .
           pip install pytest
 
+      - name: Set environment variables
+        run: |
+          echo "TEAM_API_KEY=${{ secrets.TEAM_API_KEY }}" >> $GITHUB_ENV
+          echo "BACKEND_URL=https://test-platform-api.aixplain.com/" >> $GITHUB_ENV
+          echo "MODELS_RUN_URL=https://test-models.aixplain.com/api/v1/execute" >> $GITHUB_ENV
+          echo "PIPELINES_RUN_URL=https://test-platform-api.aixplain.com/assets/pipeline/execution/run" >> $GITHUB_ENV
+
       - name: Run Data
         run: python -m pytest tests/functional/data_asset
 
@@ -126,6 +161,13 @@ jobs:
           python -m pip install --upgrade pip
           pip install .
           pip install pytest
+
+      - name: Set environment variables
+        run: |
+          echo "TEAM_API_KEY=${{ secrets.TEAM_API_KEY }}" >> $GITHUB_ENV
+          echo "BACKEND_URL=https://test-platform-api.aixplain.com/" >> $GITHUB_ENV
+          echo "MODELS_RUN_URL=https://test-models.aixplain.com/api/v1/execute" >> $GITHUB_ENV
+          echo "PIPELINES_RUN_URL=https://test-platform-api.aixplain.com/assets/pipeline/execution/run" >> $GITHUB_ENV
 
       - name: Run Benchmark
         run: python -m pytest tests/functional/benchmark
@@ -147,6 +189,13 @@ jobs:
           pip install .
           pip install pytest
 
+      - name: Set environment variables
+        run: |
+          echo "TEAM_API_KEY=${{ secrets.TEAM_API_KEY }}" >> $GITHUB_ENV
+          echo "BACKEND_URL=https://test-platform-api.aixplain.com/" >> $GITHUB_ENV
+          echo "MODELS_RUN_URL=https://test-models.aixplain.com/api/v1/execute" >> $GITHUB_ENV
+          echo "PIPELINES_RUN_URL=https://test-platform-api.aixplain.com/assets/pipeline/execution/run" >> $GITHUB_ENV
+
       - name: Run Pipelines
         run: python -m pytest tests/functional/pipelines
 
@@ -166,6 +215,13 @@ jobs:
           python -m pip install --upgrade pip
           pip install .
           pip install pytest
+   
+      - name: Set environment variables
+        run: |
+          echo "TEAM_API_KEY=${{ secrets.TEAM_API_KEY }}" >> $GITHUB_ENV
+          echo "BACKEND_URL=https://test-platform-api.aixplain.com/" >> $GITHUB_ENV
+          echo "MODELS_RUN_URL=https://test-models.aixplain.com/api/v1/execute" >> $GITHUB_ENV
+          echo "PIPELINES_RUN_URL=https://test-platform-api.aixplain.com/assets/pipeline/execution/run" >> $GITHUB_ENV
 
       - name: Run Api Key
         run: python -m pytest tests/functional/apikey
@@ -186,6 +242,13 @@ jobs:
           python -m pip install --upgrade pip
           pip install .
           pip install pytest
+
+      - name: Set environment variables
+        run: |
+          echo "TEAM_API_KEY=${{ secrets.TEAM_API_KEY }}" >> $GITHUB_ENV
+          echo "BACKEND_URL=https://test-platform-api.aixplain.com/" >> $GITHUB_ENV
+          echo "MODELS_RUN_URL=https://test-models.aixplain.com/api/v1/execute" >> $GITHUB_ENV
+          echo "PIPELINES_RUN_URL=https://test-platform-api.aixplain.com/assets/pipeline/execution/run" >> $GITHUB_ENV
 
       - name: Run Finetuner
         run: python -m pytest tests/functional/finetune
