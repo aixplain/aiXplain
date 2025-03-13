@@ -71,10 +71,10 @@ class TeamAgentFactory:
                 assert isinstance(agent, Agent), "TeamAgent Onboarding Error: Agents must be instances of Agent class"
             agent_list.append(agent_obj)
 
-        if use_inspector:
-            # NOTE: backend expects max_inspectors (for "generated" inspectors)
-            max_inspectors = num_inspectors
+        # NOTE: backend expects max_inspectors (for "generated" inspectors)
+        max_inspectors = num_inspectors
 
+        if use_inspector:
             try:
                 inspector_targets = [InspectorTarget(target) for target in inspector_targets]
             except ValueError:
