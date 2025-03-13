@@ -1,5 +1,6 @@
 __author__ = "thiagocastroferreira"
 
+import pytest
 
 from aixplain.enums import Function
 from aixplain.factories import ModelFactory
@@ -55,7 +56,11 @@ def test_run_async():
     assert "teste" in response["data"].lower()
 
 
-def test_index_model():
+@pytest.mark.parametrize(
+    "embedding_model",
+    ["6658d40729985c2cf72f42ec", "6734c55df127847059324d9e", "678a4f8547f687504744960a"],
+)
+def test_index_model(embedding_model):
     from uuid import uuid4
     from aixplain.modules.model.record import Record
     from aixplain.factories import IndexFactory
@@ -63,7 +68,7 @@ def test_index_model():
     for index in IndexFactory.list()["results"]:
         index.delete()
 
-    index_model = IndexFactory.create(name=str(uuid4()), description=str(uuid4()))
+    index_model = IndexFactory.create(name=str(uuid4()), description=str(uuid4()), embedding_model=embedding_model)
     index_model.upsert([Record(value="Hello, world!", value_type="text", uri="", id="1", attributes={})])
     response = index_model.search("Hello")
     assert str(response.status) == "SUCCESS"
@@ -94,3 +99,49 @@ def test_llm_run_with_file():
     # Verify response
     assert response["status"] == "SUCCESS"
     assert "🤖" in response["data"], "Robot emoji should be present in the response"
+
+
+def test_index_model_with_image():
+    from aixplain.factories import IndexFactory
+    from aixplain.modules.model.record import Record
+    from uuid import uuid4
+
+    for index in IndexFactory.list()["results"]:
+        index.delete()
+
+    index_model = IndexFactory.create(
+        name=f"Image Index {uuid4()}", description="Index for images", embedding_model="67c5f705d8f6a65d6f74d732"
+    )
+
+    records = []
+    # Building image
+    records.append(
+        Record(
+            uri="https://aixplain-platform-assets.s3.us-east-1.amazonaws.com/samples/building.png",
+            value_type="image",
+            attributes={},
+        )
+    )
+
+    # beach image
+    image_url = "https://aixplain-platform-assets.s3.us-east-1.amazonaws.com/samples/hurricane.jpeg"
+    records.append(Record(uri=image_url, value_type="image", attributes={}))
+
+    # people image
+    image_url = "https://aixplain-platform-assets.s3.us-east-1.amazonaws.com/samples/faces.jpeg"
+    records.append(Record(uri=image_url, value_type="image", attributes={}))
+
+    index_model.upsert(records)
+    response = index_model.search("beach")
+    assert str(response.status) == "SUCCESS"
+    print(response.details)
+    first_record = response.details[0]["metadata"]["uri"]
+    assert "hurricane" in first_record.lower()
+
+    response = index_model.search("people")
+    assert str(response.status) == "SUCCESS"
+    first_record = response.details[0]["metadata"]["uri"]
+    assert "faces" in first_record.lower()
+
+    # assert index_model.count() == 3
+    index_model.delete()
