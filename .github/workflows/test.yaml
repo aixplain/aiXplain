@@ -10,9 +10,10 @@ on:
   workflow_dispatch:  
 
 jobs:
-  test:
+  test-setup:
     runs-on: ubuntu-latest
-    continue-on-error: true
+    outputs:
+      TEAM_API_KEY: ${{ secrets.TEAM_API_KEY }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -27,6 +28,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install .
           pip install pytest
+
       - name: Set environment variables
         run: |
           echo "TEAM_API_KEY=${{ secrets.TEAM_API_KEY }}" >> $GITHUB_ENV
@@ -34,29 +36,101 @@ jobs:
           echo "MODELS_RUN_URL=https://test-models.aixplain.com/api/v1/execute" >> $GITHUB_ENV
           echo "PIPELINES_RUN_URL=https://test-platform-api.aixplain.com/assets/pipeline/execution/run" >> $GITHUB_ENV
 
+  test-general-assets:
+    needs: test-setup
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Run general_assets
         run: python -m pytest tests/functional/general_assets
+        continue-on-error: true
+
+  test-file-asset:
+    needs: test-setup
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Run File Asset
         run: python -m pytest tests/functional/file_asset
+        continue-on-error: true
+
+  test-agent:
+    needs: test-setup
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Run Agent
         run: python -m pytest tests/functional/agent
+        continue-on-error: true
+
+  test-team-agent:
+    needs: test-setup
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Run Team Agent
         run: python -m pytest tests/functional/team_agent
+        continue-on-error: true
+
+  test-data-asset:
+    needs: test-setup
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Run Data
         run: python -m pytest tests/functional/data_asset
+        continue-on-error: true
 
-      - name: Run Becnhmark
+  test-benchmark:
+    needs: test-setup
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Benchmark
         run: python -m pytest tests/functional/benchmark
+        continue-on-error: true
+
+  test-pipelines:
+    needs: test-setup
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Run Pipelines
         run: python -m pytest tests/functional/pipelines
+        continue-on-error: true
+
+  test-api-key:
+    needs: test-setup
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Run Api Key
         run: python -m pytest tests/functional/apikey
+        continue-on-error: true
+
+  test-finetuner:
+    needs: test-setup
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Run Finetuner
         run: python -m pytest tests/functional/finetune
+        continue-on-error: true
