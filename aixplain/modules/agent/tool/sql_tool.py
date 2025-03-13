@@ -262,6 +262,7 @@ class SQLTool(Tool):
         schema: Optional[Text] = None,
         tables: Optional[Union[List[Text], Text]] = None,
         enable_commit: bool = False,
+        name: Optional[Text] = None,
         **additional_info,
     ) -> None:
         """Tool to execute SQL query commands in an SQLite database.
@@ -273,7 +274,7 @@ class SQLTool(Tool):
             tables (Optional[Union[List[Text], Text]]): table names to work with (optional)
             enable_commit (bool): enable to modify the database (optional)
         """
-        super().__init__("", description, **additional_info)
+        super().__init__(name=name if name is not None else "", description=description, **additional_info)
         self.database = database
         self.schema = schema
         self.tables = tables if isinstance(tables, list) else [tables] if tables else None
@@ -281,6 +282,7 @@ class SQLTool(Tool):
 
     def to_dict(self) -> Dict[str, Text]:
         return {
+            "name": self.name,
             "description": self.description,
             "parameters": [
                 {"name": "database", "value": self.database},
