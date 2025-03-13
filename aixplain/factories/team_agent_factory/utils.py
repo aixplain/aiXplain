@@ -31,6 +31,8 @@ def build_team_agent(payload: Dict, agents: List[Agent] = None, api_key: Text = 
                 )
                 continue
 
+    inspector_targets = [InspectorTarget(target) for target in payload.get("inspectorTargets", ["steps"])]
+
     team_agent = TeamAgent(
         id=payload.get("id", ""),
         name=payload.get("name", ""),
@@ -43,7 +45,7 @@ def build_team_agent(payload: Dict, agents: List[Agent] = None, api_key: Text = 
         use_mentalist=True if payload.get("plannerId", None) is not None else False,
         use_inspector=True if payload.get("inspectorId", None) is not None else False,
         max_inspectors=payload.get("maxInspectors", 0),
-        inspector_targets=payload.get("inspectorTargets", [InspectorTarget.STEPS]),
+        inspector_targets=inspector_targets,
         api_key=api_key,
         status=AssetStatus(payload["status"]),
     )

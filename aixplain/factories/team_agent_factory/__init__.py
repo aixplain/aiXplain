@@ -48,7 +48,7 @@ class TeamAgentFactory:
         use_mentalist: bool = True,
         use_inspector: bool = True,
         num_inspectors: int = 1,
-        inspector_targets: List[InspectorTarget] = [InspectorTarget.STEPS],
+        inspector_targets: List[Text] = [InspectorTarget.STEPS.value],
         use_mentalist_and_inspector: bool = False,  # TODO: remove this
     ) -> TeamAgent:
         """Create a new team agent in the platform."""
@@ -76,7 +76,7 @@ class TeamAgentFactory:
 
         if use_inspector:
             try:
-                inspector_targets = [InspectorTarget(target) for target in inspector_targets]
+                [InspectorTarget(target) for target in inspector_targets]
             except ValueError:
                 raise ValueError("TeamAgent Onboarding Error: Invalid inspector target. Valid targets are: steps, output")
 
