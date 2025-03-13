@@ -250,7 +250,11 @@ class AgentFactory:
                 source_type = DatabaseSourceType.from_string(source_type)
             except ValueError as e:
                 raise SQLToolError(str(e))
-
+        elif isinstance(source_type, DatabaseSourceType):
+            # Already the correct type, no conversion needed
+            pass
+        else:
+            raise SQLToolError(f"Source type must be either a string or DatabaseSourceType enum, got {type(source_type)}")
 
         database_path = None  # Final database path to pass to SQLTool
 

@@ -313,6 +313,7 @@ def test_sql_tool_schema_inference(tmp_path):
         if os.path.exists(tool.database):
             os.remove(tool.database)
 
+
 def test_create_sql_tool_source_type_handling(tmp_path):
     # Create a test database file
     db_path = os.path.join(tmp_path, "test.db")
@@ -333,5 +334,5 @@ def test_create_sql_tool_source_type_handling(tmp_path):
     assert isinstance(tool_enum, SQLTool)
 
     # Test invalid type
-    with pytest.raises(SQLToolError, match="Source type must be either a string or DatabaseSourceType enum"):
+    with pytest.raises(SQLToolError, match="Source type must be either a string or DatabaseSourceType enum, got <class 'int'>"):
         AgentFactory.create_sql_tool(description="Test", source=db_path, source_type=123, schema="test")  # Invalid type

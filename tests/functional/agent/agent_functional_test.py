@@ -386,6 +386,7 @@ def test_sql_tool(delete_agents_and_team_agents, AgentFactory):
     assert "eve" in str(response["data"]["output"]).lower()
 
     os.remove("ftest.db")
+    agent.delete()
 
 
 @pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
@@ -456,3 +457,4 @@ def test_sql_tool_with_csv(delete_agents_and_team_agents, AgentFactory):
     # Cleanup
     os.remove("test.csv")
     os.remove("test.db")
+    agent.delete()
