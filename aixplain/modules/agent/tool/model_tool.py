@@ -60,7 +60,8 @@ class ModelTool(Tool):
             function is not None or model is not None
         ), "Agent Creation Error: Either function or model must be provided when instantiating a tool."
 
-        super().__init__(name=name if name is not None else "", description=description, **additional_info)
+        name = name or ""
+        super().__init__(name=name, description=description, **additional_info)
         if function is not None:
             if isinstance(function, str):
                 function = Function(function)
