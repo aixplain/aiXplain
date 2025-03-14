@@ -39,6 +39,7 @@ jobs:
 
   test-file-asset:
     runs-on: ubuntu-latest
+    needs: test-general-assets  
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -66,6 +67,7 @@ jobs:
 
   test-agent:
     runs-on: ubuntu-latest
+    needs: test-file-asset  
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -93,6 +95,7 @@ jobs:
 
   test-team-agent:
     runs-on: ubuntu-latest
+    needs: test-agent  
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -120,6 +123,7 @@ jobs:
 
   test-data-asset:
     runs-on: ubuntu-latest
+    needs: test-team-agent  
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -147,6 +151,7 @@ jobs:
 
   test-benchmark:
     runs-on: ubuntu-latest
+    needs: test-data-asset  
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -174,6 +179,7 @@ jobs:
 
   test-pipelines:
     runs-on: ubuntu-latest
+    needs: test-benchmark  
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -201,6 +207,7 @@ jobs:
 
   test-api-key:
     runs-on: ubuntu-latest
+    needs: test-pipelines  
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -228,6 +235,7 @@ jobs:
 
   test-finetuner:
     runs-on: ubuntu-latest
+    needs: test-api-key  
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
