@@ -47,7 +47,9 @@ class PipelineTool(Tool):
             description (Text): description of the tool
             pipeline (Union[Text, Pipeline]): pipeline
         """
-        super().__init__(name=name if name is not None else "", description=description, **additional_info)
+        name = name or ""
+        super().__init__(name=name, description=description, **additional_info)
+
         if isinstance(pipeline, Pipeline):
             pipeline = pipeline.id
         self.pipeline = pipeline
