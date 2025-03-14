@@ -274,8 +274,10 @@ class SQLTool(Tool):
             tables (Optional[Union[List[Text], Text]]): table names to work with (optional)
             enable_commit (bool): enable to modify the database (optional)
         """
+
         name = name or ""
         super().__init__(name=name, description=description, **additional_info)
+
         self.database = database
         self.schema = schema
         self.tables = tables if isinstance(tables, list) else [tables] if tables else None

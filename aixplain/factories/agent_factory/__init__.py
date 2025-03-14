@@ -43,6 +43,7 @@ from typing import Callable, Dict, List, Optional, Text, Union
 
 from aixplain.utils.file_utils import _request_with_retry
 from urllib.parse import urljoin
+from aixplain.enums import DatabaseSourceType
 
 
 class AgentFactory:
@@ -197,7 +198,7 @@ class AgentFactory:
         cls,
         description: Text,
         source: str,
-        source_type: str,
+        source_type: Union[str, DatabaseSourceType],
         schema: Optional[Text] = None,
         tables: Optional[List[Text]] = None,
         enable_commit: bool = False,
@@ -207,7 +208,7 @@ class AgentFactory:
         Args:
             description (Text): description of the database tool
             source (Union[Text, Dict]): database source - can be a connection string or dictionary with connection details
-            source_type (Text): type of source (postgresql, sqlite, csv)
+            source_type (Union[str, DatabaseSourceType]): type of source (postgresql, sqlite, csv) or DatabaseSourceType enum
             schema (Optional[Text], optional): database schema description
             tables (Optional[List[Text]], optional): table names to work with (optional)
             enable_commit (bool, optional): enable to modify the database (optional)
@@ -237,7 +238,6 @@ class AgentFactory:
             get_table_schema,
             get_table_names_from_schema,
         )
-        from aixplain.enums import DatabaseSourceType
 
         if not source:
             raise SQLToolError("Source must be provided")
@@ -245,10 +245,16 @@ class AgentFactory:
             raise SQLToolError("Source type must be provided")
 
         # Validate source type
-        try:
-            source_type = DatabaseSourceType.from_string(source_type)
-        except ValueError as e:
-            raise SQLToolError(str(e))
+        if isinstance(source_type, str):
+            try:
+                source_type = DatabaseSourceType.from_string(source_type)
+            except ValueError as e:
+                raise SQLToolError(str(e))
+        elif isinstance(source_type, DatabaseSourceType):
+            # Already the correct type, no conversion needed
+            pass
+        else:
+            raise SQLToolError(f"Source type must be either a string or DatabaseSourceType enum, got {type(source_type)}")
 
         database_path = None  # Final database path to pass to SQLTool
 

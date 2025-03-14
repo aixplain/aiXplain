@@ -49,6 +49,7 @@ class PipelineTool(Tool):
         """
         name = name or ""
         super().__init__(name=name, description=description, **additional_info)
+
         if isinstance(pipeline, Pipeline):
             pipeline = pipeline.id
         self.pipeline = pipeline
