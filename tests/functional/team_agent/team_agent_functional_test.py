@@ -368,7 +368,7 @@ def test_team_agent_with_inspector_params(run_input_map, delete_agents_and_team_
         use_mentalist=True,
         use_inspector=True,
         num_inspectors=num_inspectors,
-        inspector_targets=[InspectorTarget.STEPS, InspectorTarget.OUTPUT],
+        inspector_targets=["steps", "output"],
     )
 
     assert team_agent is not None
@@ -426,7 +426,7 @@ def test_team_agent_update_inspector_params(run_input_map, delete_agents_and_tea
         use_mentalist=True,
         use_inspector=True,
         num_inspectors=1,
-        inspector_targets=[InspectorTarget.STEPS],
+        inspector_targets=["steps"],
     )
 
     assert team_agent is not None
@@ -466,7 +466,7 @@ def test_team_agent_with_steps_only_inspector(run_input_map, delete_agents_and_t
         use_mentalist=True,
         use_inspector=True,
         num_inspectors=num_inspectors,
-        inspector_targets=[InspectorTarget.STEPS],
+        inspector_targets=["steps"],
     )
 
     assert team_agent is not None
@@ -518,7 +518,7 @@ def test_team_agent_with_output_only_inspector(run_input_map, delete_agents_and_
         use_mentalist=True,
         use_inspector=True,
         num_inspectors=num_inspectors,
-        inspector_targets=[InspectorTarget.OUTPUT],
+        inspector_targets=["output"],
     )
 
     assert team_agent is not None
@@ -566,7 +566,7 @@ def test_team_agent_with_multiple_inspectors(run_input_map, delete_agents_and_te
         use_mentalist=True,
         use_inspector=True,
         num_inspectors=num_inspectors,
-        inspector_targets=[InspectorTarget.STEPS],
+        inspector_targets=["steps"],
     )
 
     assert team_agent is not None
