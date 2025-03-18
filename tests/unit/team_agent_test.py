@@ -82,14 +82,15 @@ def test_to_dict():
                 id="",
                 name="Test Agent(-)",
                 description="Test Agent Description",
-                role="Test Agent Role",
+                instructions="Test Agent Role",
                 llm_id="6646261c6eb563165658bbb1",
                 tools=[ModelTool(function="text-generation")],
             )
         ],
         description="Test Team Agent Description",
         llm_id="6646261c6eb563165658bbb1",
-        use_mentalist_and_inspector=False,
+        use_mentalist=False,
+        use_inspector=False,
     )
 
     team_agent_dict = team_agent.to_dict()
@@ -99,6 +100,7 @@ def test_to_dict():
     assert team_agent_dict["llmId"] == "6646261c6eb563165658bbb1"
     assert team_agent_dict["supervisorId"] == "6646261c6eb563165658bbb1"
     assert team_agent_dict["plannerId"] is None
+    assert team_agent_dict["inspectorId"] is None
     assert len(team_agent_dict["agents"]) == 1
     assert team_agent_dict["agents"][0]["assetId"] == ""
     assert team_agent_dict["agents"][0]["number"] == 0
@@ -160,7 +162,7 @@ def test_create_team_agent(mock_model_factory_get):
         agent = AgentFactory.create(
             name="Test Agent(-)",
             description="Test Agent Description",
-            role="Test Agent Role",
+            instructions="Test Agent Role",
             llm_id="6646261c6eb563165658bbb1",
             tools=[ModelTool(model="6646261c6eb563165658bbb1")],
         )
@@ -182,6 +184,7 @@ def test_create_team_agent(mock_model_factory_get):
             "agents": [{"assetId": "123", "type": "AGENT", "number": 0, "label": "AGENT"}],
             "links": [],
             "plannerId": "6646261c6eb563165658bbb1",
+            "inspectorId": "6646261c6eb563165658bbb1",
             "supervisorId": "6646261c6eb563165658bbb1",
             "createdAt": "2024-10-28T19:30:25.344Z",
             "updatedAt": "2024-10-28T19:30:25.344Z",
@@ -191,7 +194,8 @@ def test_create_team_agent(mock_model_factory_get):
         team_agent = TeamAgentFactory.create(
             name="TEST Multi agent(-)",
             description="TEST Multi agent",
-            use_mentalist_and_inspector=True,
+            use_mentalist=True,
+            use_inspector=True,
             llm_id="6646261c6eb563165658bbb1",
             agents=[agent],
         )
@@ -199,7 +203,8 @@ def test_create_team_agent(mock_model_factory_get):
         assert team_agent.name == team_ref_response["name"]
         assert team_agent.description == team_ref_response["description"]
         assert team_agent.llm_id == team_ref_response["llmId"]
-        assert team_agent.use_mentalist_and_inspector is True
+        assert team_agent.use_mentalist is True
+        assert team_agent.use_inspector is True
         assert team_agent.status == AssetStatus.DRAFT
         assert len(team_agent.agents) == 1
         assert team_agent.agents[0].id == team_ref_response["agents"][0]["assetId"]
@@ -216,6 +221,7 @@ def test_create_team_agent(mock_model_factory_get):
             "agents": [{"assetId": "123", "type": "AGENT", "number": 0, "label": "AGENT"}],
             "links": [],
             "plannerId": "6646261c6eb563165658bbb1",
+            "inspectorId": "6646261c6eb563165658bbb1",
             "supervisorId": "6646261c6eb563165658bbb1",
             "createdAt": "2024-10-28T19:30:25.344Z",
             "updatedAt": "2024-10-28T19:30:25.344Z",
@@ -234,7 +240,7 @@ def test_build_team_agent(mocker):
         id="agent1",
         name="Test Agent 1",
         description="Test Agent Description",
-        role="Test Agent Role",
+        instructions="Test Agent Role",
         llm_id="6646261c6eb563165658bbb1",
         tools=[ModelTool(model="6646261c6eb563165658bbb1")],
         tasks=[
@@ -251,7 +257,7 @@ def test_build_team_agent(mocker):
         id="agent2",
         name="Test Agent 2",
         description="Test Agent Description",
-        role="Test Agent Role",
+        instructions="Test Agent Role",
         llm_id="6646261c6eb563165658bbb1",
         tools=[ModelTool(model="6646261c6eb563165658bbb1")],
         tasks=[
@@ -270,6 +276,7 @@ def test_build_team_agent(mocker):
         "name": "Test Team Agent(-)",
         "description": "Test Team Agent Description",
         "plannerId": "6646261c6eb563165658bbb1",
+        "inspectorId": "6646261c6eb563165658bbb1",
         "llmId": "6646261c6eb563165658bbb1",
         "agents": [
             {"assetId": "agent1"},

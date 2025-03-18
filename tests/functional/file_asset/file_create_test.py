@@ -19,15 +19,18 @@ limitations under the License.
 import pytest
 from aixplain.enums import License
 from aixplain.factories import FileFactory
+from aixplain import aixplain_v2 as v2
 
 
-def test_file_create():
+@pytest.mark.parametrize("FileFactory", [FileFactory, v2.File])
+def test_file_create(FileFactory):
     upload_file = "tests/functional/file_asset/input/test.csv"
     s3_link = FileFactory.create(local_path=upload_file, tags=["test1", "test2"], license=License.MIT, is_temp=False)
     assert s3_link.startswith("s3")
 
 
-def test_file_create_temp():
+@pytest.mark.parametrize("FileFactory", [FileFactory, v2.File])
+def test_file_create_temp(FileFactory):
     upload_file = "tests/functional/file_asset/input/test.csv"
     s3_link = FileFactory.create(local_path=upload_file, tags=["test1", "test2"], license=License.MIT, is_temp=True)
     assert s3_link.startswith("s3")

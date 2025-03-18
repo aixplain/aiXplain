@@ -167,8 +167,8 @@ def get_model_from_ids(model_ids: List[str], api_key: Optional[str] = None) -> L
     resp = None
     try:
         url = urljoin(config.BACKEND_URL, f"sdk/models?ids={','.join(model_ids)}")
-
-        headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+        api_key = config.TEAM_API_KEY if api_key is None else api_key
+        headers = {"Authorization": f"Token {api_key}", "Content-Type": "application/json"}
         logging.info(f"Start service for GET Model  - {url} - {headers}")
         r = _request_with_retry("get", url, headers=headers)
         resp = r.json()

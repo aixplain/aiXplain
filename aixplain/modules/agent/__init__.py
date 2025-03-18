@@ -53,6 +53,7 @@ class Agent(Model):
         name (Text): Name of the Agent
         tools (List[Union[Tool, Model]]): List of tools that the Agent uses.
         description (Text, optional): description of the Agent. Defaults to "".
+        instructions (Text): instructions of the Agent.
         llm_id (Text): large language model. Defaults to GPT-4o (6646261c6eb563165658bbb1).
         supplier (Text): Supplier of the Agent.
         version (Text): Version of the Agent.
@@ -61,12 +62,14 @@ class Agent(Model):
         cost (Dict, optional): model price. Defaults to None.
     """
 
+    is_valid: bool
+
     def __init__(
         self,
         id: Text,
         name: Text,
         description: Text,
-        role: Text,
+        instructions: Text,
         tools: List[Union[Tool, Model]] = [],
         llm_id: Text = "6646261c6eb563165658bbb1",
         api_key: Optional[Text] = config.TEAM_API_KEY,
@@ -100,7 +103,7 @@ class Agent(Model):
             id (Text): ID of the Agent
             name (Text): Name of the Agent
             description (Text): description of the Agent.
-            role (Text): role of the Agent.
+            instructions (Text): role of the Agent.
             tools (List[Union[Tool, Model]]): List of tools that the Agent uses.
             llm_id (Text, optional): large language model. Defaults to GPT-4o (6646261c6eb563165658bbb1).
             supplier (Text): Supplier of the Agent.
@@ -110,7 +113,7 @@ class Agent(Model):
             cost (Dict, optional): model price. Defaults to None.
         """
         super().__init__(id, name, description, api_key, supplier, version, cost=cost)
-        self.role = role
+        self.instructions = instructions
         self.additional_info = additional_info
         self.tools = tools
         for i, _ in enumerate(tools):
@@ -123,8 +126,9 @@ class Agent(Model):
                 status = AssetStatus.DRAFT
         self.status = status
         self.tasks = tasks
+        self.is_valid = True
 
-    def validate(self) -> None:
+    def _validate(self) -> None:
         """Validate the Agent."""
         from aixplain.factories.model_factory import ModelFactory
 
@@ -135,15 +139,30 @@ class Agent(Model):
 
         try:
             llm = ModelFactory.get(self.llm_id, api_key=self.api_key)
-            assert llm.function == Function.TEXT_GENERATION, "Large Language Model must be a text generation model."
         except Exception:
             raise Exception(f"Large Language Model with ID '{self.llm_id}' not found.")
+
+        assert llm.function == Function.TEXT_GENERATION, "Large Language Model must be a text generation model."
 
         for tool in self.tools:
             if isinstance(tool, Tool):
                 tool.validate()
             elif isinstance(tool, Model):
                 assert not isinstance(tool, Agent), "Agent cannot contain another Agent."
+
+    def validate(self, raise_exception: bool = False) -> bool:
+        """Validate the Agent."""
+        try:
+            self._validate()
+            self.is_valid = True
+        except Exception as e:
+            self.is_valid = False
+            if raise_exception:
+                raise e
+            else:
+                logging.warning(f"Agent Validation Error: {e}")
+                logging.warning("You won't be able to run the Agent until the issues are handled manually.")
+        return self.is_valid
 
     def run(
         self,
@@ -261,6 +280,9 @@ class Agent(Model):
         """
         from aixplain.factories.file_factory import FileFactory
 
+        if not self.is_valid:
+            raise Exception("Agent is not valid. Please validate the agent before running.")
+
         assert data is not None or query is not None, "Either 'data' or 'query' must be provided."
         if data is not None:
             if isinstance(data, dict):
@@ -301,8 +323,8 @@ class Agent(Model):
             "sessionId": session_id,
             "history": history,
             "executionParams": {
-                "maxTokens": parameters["max_tokens"] if "max_tokens" in parameters else max_tokens,
-                "maxIterations": parameters["max_iterations"] if "max_iterations" in parameters else max_iterations,
+                "maxTokens": (parameters["max_tokens"] if "max_tokens" in parameters else max_tokens),
+                "maxIterations": (parameters["max_iterations"] if "max_iterations" in parameters else max_iterations),
                 "outputFormat": output_format.value,
             },
         }
@@ -335,8 +357,8 @@ class Agent(Model):
             "name": self.name,
             "assets": [tool.to_dict() for tool in self.tools],
             "description": self.description,
-            "role": self.role,
-            "supplier": self.supplier.value["code"] if isinstance(self.supplier, Supplier) else self.supplier,
+            "role": self.instructions,
+            "supplier": (self.supplier.value["code"] if isinstance(self.supplier, Supplier) else self.supplier),
             "version": self.version,
             "llmId": self.llm_id,
             "status": self.status.value,
@@ -347,7 +369,10 @@ class Agent(Model):
         """Delete Agent service"""
         try:
             url = urljoin(config.BACKEND_URL, f"sdk/agents/{self.id}")
-            headers = {"x-api-key": config.TEAM_API_KEY, "Content-Type": "application/json"}
+            headers = {
+                "x-api-key": config.TEAM_API_KEY,
+                "Content-Type": "application/json",
+            }
             logging.debug(f"Start service for DELETE Agent  - {url} - {headers}")
             r = _request_with_retry("delete", url, headers=headers)
             logging.debug(f"Result of request for DELETE Agent - {r.status_code}")
@@ -377,7 +402,7 @@ class Agent(Model):
             )
         from aixplain.factories.agent_factory.utils import build_agent
 
-        self.validate()
+        self.validate(raise_exception=True)
         url = urljoin(config.BACKEND_URL, f"sdk/agents/{self.id}")
         headers = {"x-api-key": config.TEAM_API_KEY, "Content-Type": "application/json"}
 
@@ -406,3 +431,6 @@ class Agent(Model):
         assert self.status != AssetStatus.ONBOARDED, "Agent is already deployed."
         self.status = AssetStatus.ONBOARDED
         self.update()
+
+    def __repr__(self):
+        return f"Agent(id={self.id}, name={self.name}, function={self.function})"

@@ -23,6 +23,7 @@ from uuid import uuid4
 from aixplain.enums import Function, Language, License, Privacy, DataSubtype, DataType, StorageType, OnboardStatus
 from aixplain.factories import DatasetFactory
 from aixplain.modules import MetaData
+from aixplain import aixplain_v2 as v2
 
 
 @pytest.fixture
@@ -54,7 +55,8 @@ def split():
     )
 
 
-def test_dataset_onboard_get_delete(meta1, meta2):
+@pytest.mark.parametrize("DatasetFactory", [DatasetFactory, v2.Dataset])
+def test_dataset_onboard_get_delete(meta1, meta2, DatasetFactory):
     upload_file = "tests/functional/data_asset/input/audio-en_url.csv"
 
     response = DatasetFactory.create(
@@ -82,7 +84,8 @@ def test_dataset_onboard_get_delete(meta1, meta2):
         dataset = DatasetFactory.get(asset_id)
 
 
-def test_invalid_dataset_onboard(meta1, meta2):
+@pytest.mark.parametrize("DatasetFactory", [DatasetFactory, v2.Dataset])
+def test_invalid_dataset_onboard(meta1, meta2, DatasetFactory):
     upload_file = "tests/functional/data_asset/input/audio-en_url.csv"
 
     with pytest.raises(Exception):
@@ -99,17 +102,20 @@ def test_invalid_dataset_onboard(meta1, meta2):
         )
 
 
-def test_dataset_listing():
+@pytest.mark.parametrize("DatasetFactory", [DatasetFactory, v2.Dataset])
+def test_dataset_listing(DatasetFactory):
     response = DatasetFactory.list()
     assert "results" in response
 
 
-def test_dataset_get_error():
+@pytest.mark.parametrize("DatasetFactory", [DatasetFactory, v2.Dataset])
+def test_dataset_get_error(DatasetFactory):
     with pytest.raises(Exception):
         response = DatasetFactory.get("131312")
 
 
-def test_invalid_dataset_splitting(meta1, meta2, split):
+@pytest.mark.parametrize("DatasetFactory", [DatasetFactory, v2.Dataset])
+def test_invalid_dataset_splitting(meta1, meta2, split, DatasetFactory):
     upload_file = "tests/functional/data_asset/input/audio-en_with_invalid_split_url.csv"
 
     split2 = MetaData(
@@ -134,7 +140,8 @@ def test_invalid_dataset_splitting(meta1, meta2, split):
         )
 
 
-def test_valid_dataset_splitting(meta1, meta2, split):
+@pytest.mark.parametrize("DatasetFactory", [DatasetFactory, v2.Dataset])
+def test_valid_dataset_splitting(meta1, meta2, split, DatasetFactory):
     upload_file = "tests/functional/data_asset/input/audio-en_with_split_url.csv"
 
     response = DatasetFactory.create(

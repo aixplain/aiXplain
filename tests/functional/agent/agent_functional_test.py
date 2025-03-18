@@ -28,6 +28,8 @@ from uuid import uuid4
 
 import pytest
 
+from aixplain import aixplain_v2 as v2
+
 RUN_FILE = "tests/functional/agent/data/agent_test_end2end.json"
 
 
@@ -55,7 +57,8 @@ def delete_agents_and_team_agents():
         agent.delete()
 
 
-def test_end2end(run_input_map, delete_agents_and_team_agents):
+@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
+def test_end2end(run_input_map, delete_agents_and_team_agents, AgentFactory):
     assert delete_agents_and_team_agents
     tools = []
     if "model_tools" in run_input_map:
@@ -76,7 +79,7 @@ def test_end2end(run_input_map, delete_agents_and_team_agents):
     agent = AgentFactory.create(
         name=run_input_map["agent_name"],
         description=run_input_map["agent_name"],
-        role=run_input_map["agent_name"],
+        instructions=run_input_map["agent_name"],
         llm_id=run_input_map["llm_id"],
         tools=tools,
     )
@@ -98,7 +101,8 @@ def test_end2end(run_input_map, delete_agents_and_team_agents):
     agent.delete()
 
 
-def test_python_interpreter_tool(delete_agents_and_team_agents):
+@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
+def test_python_interpreter_tool(delete_agents_and_team_agents, AgentFactory):
     assert delete_agents_and_team_agents
     tool = AgentFactory.create_python_interpreter_tool()
     assert tool is not None
@@ -108,7 +112,7 @@ def test_python_interpreter_tool(delete_agents_and_team_agents):
     agent = AgentFactory.create(
         name="Python Developer",
         description="A Python developer agent. If you get an error from a tool, try to fix it.",
-        role="A Python developer agent. If you get an error from a tool, try to fix it.",
+        instructions="A Python developer agent. If you get an error from a tool, try to fix it.",
         tools=[tool],
     )
     assert agent is not None
@@ -123,7 +127,8 @@ def test_python_interpreter_tool(delete_agents_and_team_agents):
     agent.delete()
 
 
-def test_custom_code_tool(delete_agents_and_team_agents):
+@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
+def test_custom_code_tool(delete_agents_and_team_agents, AgentFactory):
     assert delete_agents_and_team_agents
     tool = AgentFactory.create_custom_python_code_tool(
         description="Add two numbers",
@@ -135,7 +140,7 @@ def test_custom_code_tool(delete_agents_and_team_agents):
     agent = AgentFactory.create(
         name="Add Numbers Agent",
         description="Add two numbers. Do not directly answer. Use the tool to add the numbers.",
-        role="Add two numbers. Do not directly answer. Use the tool to add the numbers.",
+        instructions="Add two numbers. Do not directly answer. Use the tool to add the numbers.",
         tools=[tool],
     )
     assert agent is not None
@@ -147,14 +152,16 @@ def test_custom_code_tool(delete_agents_and_team_agents):
     agent.delete()
 
 
-def test_list_agents():
+@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
+def test_list_agents(AgentFactory):
     agents = AgentFactory.list()
     assert "results" in agents
     agents_result = agents["results"]
     assert type(agents_result) is list
 
 
-def test_update_draft_agent(run_input_map, delete_agents_and_team_agents):
+@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
+def test_update_draft_agent(run_input_map, delete_agents_and_team_agents, AgentFactory):
     assert delete_agents_and_team_agents
 
     tools = []
@@ -176,7 +183,7 @@ def test_update_draft_agent(run_input_map, delete_agents_and_team_agents):
     agent = AgentFactory.create(
         name=run_input_map["agent_name"],
         description=run_input_map["agent_name"],
-        role=run_input_map["agent_name"],
+        instructions=run_input_map["agent_name"],
         llm_id=run_input_map["llm_id"],
         tools=tools,
     )
@@ -191,25 +198,27 @@ def test_update_draft_agent(run_input_map, delete_agents_and_team_agents):
     agent.delete()
 
 
-def test_fail_non_existent_llm(delete_agents_and_team_agents):
+@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
+def test_fail_non_existent_llm(delete_agents_and_team_agents, AgentFactory):
     assert delete_agents_and_team_agents
     with pytest.raises(Exception) as exc_info:
         AgentFactory.create(
             name="Test Agent",
             description="Test description",
-            role="Test Agent Role",
+            instructions="Test Agent Role",
             llm_id="non_existent_llm",
             tools=[AgentFactory.create_model_tool(function=Function.TRANSLATION)],
         )
     assert str(exc_info.value) == "Large Language Model with ID 'non_existent_llm' not found."
 
 
-def test_delete_agent_in_use(delete_agents_and_team_agents):
+@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
+def test_delete_agent_in_use(delete_agents_and_team_agents, AgentFactory):
     assert delete_agents_and_team_agents
     agent = AgentFactory.create(
         name="Test Agent",
         description="Test description",
-        role="Test Agent Role",
+        instructions="Test Agent Role",
         tools=[AgentFactory.create_model_tool(function=Function.TRANSLATION)],
     )
     TeamAgentFactory.create(
@@ -224,13 +233,14 @@ def test_delete_agent_in_use(delete_agents_and_team_agents):
     assert str(exc_info.value) == "Agent Deletion Error (HTTP 403): err.agent_is_in_use."
 
 
-def test_update_tools_of_agent(run_input_map, delete_agents_and_team_agents):
+@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
+def test_update_tools_of_agent(run_input_map, delete_agents_and_team_agents, AgentFactory):
     assert delete_agents_and_team_agents
 
     agent = AgentFactory.create(
         name=run_input_map["agent_name"],
         description=run_input_map["agent_name"],
-        role=run_input_map["agent_name"],
+        instructions=run_input_map["agent_name"],
         llm_id=run_input_map["llm_id"],
     )
     assert agent is not None
@@ -335,3 +345,116 @@ def test_specific_model_parameters_e2e(tool_config):
             tool_used = True
             break
     assert tool_used, "Tool was not used in execution"
+
+
+@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
+def test_sql_tool(delete_agents_and_team_agents, AgentFactory):
+    assert delete_agents_and_team_agents
+    import os
+
+    # Create test SQLite database
+    with open("ftest.db", "w") as f:
+        f.write("")
+
+    tool = AgentFactory.create_sql_tool(
+        description="Execute an SQL query and return the result", source="ftest.db", source_type="sqlite", enable_commit=True
+    )
+    assert tool is not None
+    assert tool.description == "Execute an SQL query and return the result"
+
+    agent = AgentFactory.create(
+        name="Teste",
+        description="You are a test agent that search for employee information in a database",
+        tools=[tool],
+    )
+    assert agent is not None
+
+    response = agent.run("Create a table called Person with the following columns: id, name, age, salary, department")
+    assert response is not None
+    assert response["completed"] is True
+    assert response["status"].lower() == "success"
+
+    response = agent.run("Insert the following data into the Person table: 1, Eve, 30, 50000, Sales")
+    assert response is not None
+    assert response["completed"] is True
+    assert response["status"].lower() == "success"
+
+    response = agent.run("What is the name of the employee with the highest salary?")
+    assert response is not None
+    assert response["completed"] is True
+    assert response["status"].lower() == "success"
+    assert "eve" in str(response["data"]["output"]).lower()
+
+    os.remove("ftest.db")
+    agent.delete()
+
+
+@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
+def test_sql_tool_with_csv(delete_agents_and_team_agents, AgentFactory):
+    assert delete_agents_and_team_agents
+
+    import pandas as pd
+
+    # Create a more comprehensive test dataset
+    df = pd.DataFrame(
+        {
+            "id": [1, 2, 3, 4, 5],
+            "name": ["Alice", "Bob", "Charlie", "David", "Eve"],
+            "department": ["Sales", "IT", "Sales", "Marketing", "IT"],
+            "salary": [75000, 85000, 72000, 68000, 90000],
+        }
+    )
+    df.to_csv("test.csv", index=False)
+
+    # Create SQL tool from CSV
+    tool = AgentFactory.create_sql_tool(
+        description="Execute SQL queries on employee data", source="test.csv", source_type="csv", tables=["employees"]
+    )
+
+    # Verify tool setup
+    assert tool is not None
+    assert tool.description == "Execute SQL queries on employee data"
+    assert tool.database.endswith(".db")
+    assert tool.tables == ["employees"]
+    assert (
+        tool.schema
+        == 'CREATE TABLE test (\n                    "id" INTEGER, "name" TEXT, "department" TEXT, "salary" INTEGER\n                )'  # noqa: W503
+    )
+    assert not tool.enable_commit  # must be False by default
+
+    # Create an agent with the SQL tool
+    agent = AgentFactory.create(
+        name="SQL Query Agent",
+        description="I am an agent that helps query employee information from a database.",
+        instructions="Help users query employee information from the database. Use SQL queries to get the requested information.",
+        tools=[tool],
+    )
+    assert agent is not None
+
+    # Test 1: Basic SELECT query
+    response = agent.run("Who are all the employees in the Sales department?")
+    assert response["completed"] is True
+    assert response["status"].lower() == "success"
+    assert "alice" in response["data"]["output"].lower()
+    assert "charlie" in response["data"]["output"].lower()
+
+    # Test 2: Aggregation query
+    response = agent.run("What is the average salary in each department?")
+    assert response["completed"] is True
+    assert response["status"].lower() == "success"
+    assert "sales" in response["data"]["output"].lower()
+    assert "it" in response["data"]["output"].lower()
+    assert "marketing" in response["data"]["output"].lower()
+
+    # Test 3: Complex query with conditions
+    response = agent.run("Who is the highest paid employee in the IT department?")
+    assert response["completed"] is True
+    assert response["status"].lower() == "success"
+    assert "eve" in response["data"]["output"].lower()
+
+    import os
+
+    # Cleanup
+    os.remove("test.csv")
+    os.remove("test.db")
+    agent.delete()

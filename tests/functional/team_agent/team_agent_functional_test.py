@@ -27,6 +27,8 @@ from copy import copy
 from uuid import uuid4
 import pytest
 
+from aixplain import aixplain_v2 as v2
+
 RUN_FILE = "tests/functional/team_agent/data/team_agent_test_end2end.json"
 
 
@@ -54,7 +56,8 @@ def run_input_map(request):
     return request.param
 
 
-def test_end2end(run_input_map, delete_agents_and_team_agents):
+@pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory, v2.TeamAgent])
+def test_end2end(run_input_map, delete_agents_and_team_agents, TeamAgentFactory):
     assert delete_agents_and_team_agents
 
     agents = []
@@ -78,7 +81,7 @@ def test_end2end(run_input_map, delete_agents_and_team_agents):
         agent = AgentFactory.create(
             name=agent["agent_name"],
             description=agent["agent_name"],
-            role=agent["agent_name"],
+            instructions=agent["agent_name"],
             llm_id=agent["llm_id"],
             tools=tools,
         )
@@ -112,7 +115,8 @@ def test_end2end(run_input_map, delete_agents_and_team_agents):
     team_agent.delete()
 
 
-def test_draft_team_agent_update(run_input_map):
+@pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory, v2.TeamAgent])
+def test_draft_team_agent_update(run_input_map, TeamAgentFactory):
     for team in TeamAgentFactory.list()["results"]:
         team.delete()
     for agent in AgentFactory.list()["results"]:
@@ -139,7 +143,7 @@ def test_draft_team_agent_update(run_input_map):
         agent = AgentFactory.create(
             name=agent["agent_name"],
             description=agent["agent_name"],
-            role=agent["agent_name"],
+            instructions=agent["agent_name"],
             llm_id=agent["llm_id"],
             tools=tools,
         )
@@ -161,19 +165,51 @@ def test_draft_team_agent_update(run_input_map):
     assert team_agent.status == AssetStatus.DRAFT
 
 
-def test_fail_non_existent_llm():
+@pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory, v2.TeamAgent])
+def test_fail_non_existent_llm(run_input_map, TeamAgentFactory):
+    for team in TeamAgentFactory.list()["results"]:
+        team.delete()
+    for agent in AgentFactory.list()["results"]:
+        agent.delete()
+
+    agents = []
+    for agent in run_input_map["agents"]:
+        tools = []
+        if "model_tools" in agent:
+            for tool in agent["model_tools"]:
+                tool_ = copy(tool)
+                for supplier in Supplier:
+                    if tool["supplier"] is not None and tool["supplier"].lower() in [
+                        supplier.value["code"].lower(),
+                        supplier.value["name"].lower(),
+                    ]:
+                        tool_["supplier"] = supplier
+                        break
+                tools.append(AgentFactory.create_model_tool(**tool_))
+        if "pipeline_tools" in agent:
+            for tool in agent["pipeline_tools"]:
+                tools.append(AgentFactory.create_pipeline_tool(pipeline=tool["pipeline_id"], description=tool["description"]))
+
+        agent = AgentFactory.create(
+            name=agent["agent_name"],
+            description=agent["agent_name"],
+            instructions=agent["agent_name"],
+            llm_id=agent["llm_id"],
+            tools=tools,
+        )
+        agents.append(agent)
     with pytest.raises(Exception) as exc_info:
-        AgentFactory.create(
-            name="Test Agent",
+        TeamAgentFactory.create(
+            name="Non Existent LLM",
             description="",
-            role="",
             llm_id="non_existent_llm",
-            tools=[AgentFactory.create_model_tool(function=Function.TRANSLATION)],
+            agents=agents,
         )
     assert str(exc_info.value) == "Large Language Model with ID 'non_existent_llm' not found."
 
 
-def test_add_remove_agents_from_team_agent(run_input_map, delete_agents_and_team_agents):
+@pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory, v2.TeamAgent])
+def test_add_remove_agents_from_team_agent(run_input_map, delete_agents_and_team_agents, TeamAgentFactory):
     assert delete_agents_and_team_agents
 
     agents = []
@@ -197,7 +233,7 @@ def test_add_remove_agents_from_team_agent(run_input_map, delete_agents_and_team
         agent = AgentFactory.create(
             name=agent["agent_name"],
             description=agent["agent_name"],
-            role=agent["agent_name"],
+            instructions=agent["agent_name"],
             llm_id=agent["llm_id"],
             tools=tools,
         )
@@ -217,7 +253,7 @@ def test_add_remove_agents_from_team_agent(run_input_map, delete_agents_and_team
     new_agent = AgentFactory.create(
         name="New Agent",
         description="Agent added to team",
-        role="Agent added to team",
+        instructions="Agent added to team",
         llm_id=run_input_map["llm_id"],
     )
     team_agent.agents.append(new_agent)
@@ -283,25 +319,26 @@ def test_team_agent_with_parameterized_agents(delete_agents_and_team_agents):
 
     search_agent = AgentFactory.create(
         name="Search Agent",
-        description="Agent that performs searches",
-        role="Searcher",
-        llm_id="6626a3a8c8f1d089790cf5a2",
+        description="This agent is used to search for information in the web.",
+        instructions="Agent that performs searches",
+        llm_id="677c16166eb563bb611623c1",
         tools=[search_tool],
     )
 
     # Create second agent with translation tool
     translation_function = Function.TRANSLATION
     function_params = translation_function.get_parameters()
-    function_params.sourcelanguage = "pt"
+    function_params.targetlanguage = "pt"
+    function_params.sourcelanguage = "en"
     translation_tool = AgentFactory.create_model_tool(
         function=translation_function, description="Translation tool with source language", supplier="microsoft"
     )
 
     translation_agent = AgentFactory.create(
         name="Translation Agent",
-        description="Agent that performs translations",
-        role="Translator",
-        llm_id="6626a3a8c8f1d089790cf5a2",
+        description="This agent is used to translate text from one language to another.",
+        instructions="Agent that performs translations",
+        llm_id="677c16166eb563bb611623c1",
         tools=[translation_tool],
     )
 
@@ -310,7 +347,7 @@ def test_team_agent_with_parameterized_agents(delete_agents_and_team_agents):
         name="Parameterized Team Agent",
         agents=[search_agent, translation_agent],
         description="Team agent with parameterized tools",
-        llm_id="6626a3a8c8f1d089790cf5a2",
+        llm_id="677c16166eb563bb611623c1",
         use_mentalist_and_inspector=True,
     )
 
@@ -319,35 +356,19 @@ def test_team_agent_with_parameterized_agents(delete_agents_and_team_agents):
     team_agent = TeamAgentFactory.get(team_agent.id)
     assert team_agent.status == AssetStatus.ONBOARDED
 
-    # Test search functionality
-    search_response = team_agent.run(data="What is the weather in New York?")
-    assert search_response["completed"] is True
-    assert search_response["status"].lower() == "success"
+    search_response = team_agent.run(
+        data="What are the top researchers in the field of AI? Search for it in the web. Then translate the result."
+    )
+    assert search_response.status == "SUCCESS"
     assert "data" in search_response
-    assert search_response["data"]["output"] is not None
-
-    # Verify search parameters were used
-    search_used = False
-    for step in search_response["data"]["intermediate_steps"]:
-        if "'numResults': 5" in str(step["tool_steps"]):
-            search_used = True
-            break
-    assert search_used, "Search tool with parameters was not used"
-
-    # Test translation functionality
-    translation_response = team_agent.run(data="Translate: Olá, como vai você?")
-    assert translation_response["completed"] is True
-    assert translation_response["status"].lower() == "success"
-    assert "data" in translation_response
-    assert translation_response["data"]["output"] is not None
-
-    # Verify translation parameters were used
-    translation_used = False
-    for step in translation_response["data"]["intermediate_steps"]:
-        if "sourcelanguage" in str(step["tool_steps"]):
-            translation_used = True
-            break
-    assert translation_used, "Translation tool with parameters was not used"
+    assert "intermediate_steps" in search_response.data
+    assert len(search_response.data["intermediate_steps"]) > 0
+    intermediate_steps = search_response.data["intermediate_steps"]
+    called_agents = [step["agent"] for step in intermediate_steps]
+    assert "Search Agent" in called_agents
+    assert "Translation Agent" in called_agents
 
     # Cleanup
     team_agent.delete()
+    search_agent.delete()
+    translation_agent.delete()

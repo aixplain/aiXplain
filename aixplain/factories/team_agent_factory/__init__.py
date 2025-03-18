@@ -45,27 +45,38 @@ class TeamAgentFactory:
         api_key: Text = config.TEAM_API_KEY,
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
         version: Optional[Text] = None,
+        use_mentalist: bool = True,
         use_inspector: bool = True,
-        use_mentalist_and_inspector: bool = True,
+        use_mentalist_and_inspector: bool = False,  # TODO: remove this
     ) -> TeamAgent:
         """Create a new team agent in the platform."""
         assert len(agents) > 0, "TeamAgent Onboarding Error: At least one agent must be provided."
+        agent_list = []
         for agent in agents:
             if isinstance(agent, Text) is True:
                 try:
                     from aixplain.factories.agent_factory import AgentFactory
 
-                    agent = AgentFactory.get(agent)
+                    agent_obj = AgentFactory.get(agent)
                 except Exception:
                     raise Exception(f"TeamAgent Onboarding Error: Agent {agent} does not exist.")
             else:
                 from aixplain.modules.agent import Agent
 
-                assert isinstance(agent, Agent), "TeamAgent Onboarding Error: Agents must be instances of Agent class"
+                agent_obj = agent
 
-        mentalist_and_inspector_llm_id = None
-        if use_inspector or use_mentalist_and_inspector:
-            mentalist_and_inspector_llm_id = llm_id
+                assert isinstance(agent, Agent), "TeamAgent Onboarding Error: Agents must be instances of Agent class"
+            agent_list.append(agent_obj)
+
+        if use_inspector and not use_mentalist:
+            raise Exception("TeamAgent Onboarding Error: To use the Inspector agent, you must enable Mentalist.")
+
+        if use_mentalist_and_inspector:
+            mentalist_llm_id = llm_id
+            inspector_llm_id = llm_id
+        else:
+            mentalist_llm_id = llm_id if use_mentalist else None
+            inspector_llm_id = llm_id if use_inspector else None
 
         team_agent = None
         url = urljoin(config.BACKEND_URL, "sdk/agent-communities")
@@ -76,26 +87,26 @@ class TeamAgentFactory:
         elif isinstance(supplier, Supplier):
             supplier = supplier.value["code"]
 
-        agent_list = []
+        agent_payload_list = []
         for idx, agent in enumerate(agents):
-            agent_list.append({"assetId": agent.id, "number": idx, "type": "AGENT", "label": "AGENT"})
+            agent_payload_list.append({"assetId": agent.id, "number": idx, "type": "AGENT", "label": "AGENT"})
 
         payload = {
             "name": name,
-            "agents": agent_list,
+            "agents": agent_payload_list,
             "links": [],
             "description": description,
             "llmId": llm_id,
             "supervisorId": llm_id,
-            "plannerId": mentalist_and_inspector_llm_id,
-            "inspectorId": mentalist_and_inspector_llm_id,
+            "plannerId": mentalist_llm_id,
+            "inspectorId": inspector_llm_id,
             "supplier": supplier,
             "version": version,
             "status": "draft",
         }
 
-        team_agent = build_team_agent(payload=payload, api_key=api_key)
-        team_agent.validate()
+        team_agent = build_team_agent(payload=payload, agents=agent_list, api_key=api_key)
+        team_agent.validate(raise_exception=True)
         response = "Unspecified error"
         try:
             logging.debug(f"Start service for POST Create TeamAgent  - {url} - {headers} - {json.dumps(payload)}")
@@ -105,7 +116,7 @@ class TeamAgentFactory:
             raise Exception(e)
 
         if 200 <= r.status_code < 300:
-            team_agent = build_team_agent(payload=response, api_key=api_key)
+            team_agent = build_team_agent(payload=response, agents=agent_list, api_key=api_key)
         else:
             error_msg = f"{response}"
             if "message" in response:

@@ -6,7 +6,7 @@ from aixplain.utils import config
 from aixplain.enums import DataType, Function
 from aixplain.enums.asset_status import AssetStatus
 from aixplain.modules.model.utility_model import UtilityModel, UtilityModelInput
-from aixplain.modules.model.utils import parse_code
+from aixplain.modules.model.utils import parse_code, parse_code_decorated
 from unittest.mock import patch
 
 
@@ -124,7 +124,7 @@ def test_update_utility_model():
 
                     with pytest.warns(
                         DeprecationWarning,
-                        match="update\(\) is deprecated and will be removed in a future version. Please use save\(\) instead.",
+                        match=r"update\(\) is deprecated and will be removed in a future version. Please use save\(\) instead.",
                     ):
                         utility_model.description = "updated_description"
                         utility_model.update()
@@ -219,6 +219,7 @@ def test_parse_code():
             assert description == ""
             assert code_link == "code_link"
             assert name == "main"
+
     # Code is a function
     def main(a: int, b: int):
         """
@@ -374,3 +375,69 @@ def test_model_exists_empty_id():
         api_key=config.TEAM_API_KEY,
     )
     assert utility_model._model_exists() is False
+
+
+def test_utility_model_with_return_annotation():
+    with patch("aixplain.factories.file_factory.FileFactory.to_link", return_value="utility_model_test"):
+        with patch("aixplain.factories.file_factory.FileFactory.upload", return_value="utility_model_test"):
+
+            def get_location(input_str: str) -> str:
+                """
+                Get location information
+
+                Args:
+                    input_str (str): Input string parameter
+                Returns:
+                    str: Location information
+                """
+                return input_str
+
+            utility_model = UtilityModel(
+                id="123",
+                name="location_test",
+                description="Get location information",
+                code=get_location,
+                output_examples="Location data example",
+                inputs=[UtilityModelInput(name="input_str", description="Input string parameter", type=DataType.TEXT)],
+                function=Function.UTILITIES,
+                api_key=config.TEAM_API_KEY,
+            )
+
+            # Verify the model is created correctly with the return type annotation
+            assert utility_model.id == "123"
+            assert utility_model.name == "location_test"
+            assert utility_model.description == "Get location information"
+            assert len(utility_model.inputs) == 1
+            assert utility_model.inputs[0].name == "input_str"
+            assert utility_model.inputs[0].type == DataType.TEXT
+            assert utility_model.inputs[0].description == "Input string parameter"
+
+            # Verify the function parameters are parsed correctly
+            code, inputs, description, name = parse_code_decorated(get_location)
+            assert len(inputs) == 1
+            assert inputs[0].name == "input_str"
+            assert inputs[0].type == DataType.TEXT
+            assert "Get location information" in description
+            assert name == "get_location"
+
+
+def test_parse_code_with_class():
+    """Test that parsing code with a class raises proper error"""
+
+    class DummyModel:
+        def __init__(self):
+            pass
+
+    # Test with class
+    with pytest.raises(
+        TypeError,
+        match=r"Code must be either a string or a callable function, not a class or class instance\. You tried to pass a class or class instance: <.*\.DummyModel object at 0x[0-9a-f]+>",
+    ):
+        parse_code_decorated(DummyModel())
+
+    # Test with class instance
+    with pytest.raises(
+        TypeError,
+        match=r"Code must be either a string or a callable function, not a class or class instance\. You tried to pass a class or class instance: <.*\.DummyModel object at 0x[0-9a-f]+>",
+    ):
+        parse_code_decorated(DummyModel())
