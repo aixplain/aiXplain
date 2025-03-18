@@ -162,7 +162,7 @@ class BenchmarkJob:
         
     def get_all_explanations(self):
         try:
-            resp = self._fetch_current_response(self)
+            resp = self._fetch_current_response(self.id)
             raw_explanations = resp.get("explanation", {})
             if "metricInDependent" not in raw_explanations:
                 raw_explanations["metricInDependent"] = []
@@ -186,7 +186,7 @@ class BenchmarkJob:
                     task_list = []
                     first_explanation = localized_explanations[0]
                     for task in first_explanation:
-                        if task not in ["scoreId", "datasetId"]:
+                        if task not in ["scoreId", "datasetId", "longName", "normalizationOptions"]:
                             task_list.append(task)
 
                     if group_by_task:
@@ -194,12 +194,12 @@ class BenchmarkJob:
                             task_explanation = {}
                             for explanation_item in localized_explanations:
                                 item_task_explanation = explanation_item[task]
-                                identifier = explanation_item["scoreId"]
+                                identifier = explanation_item["longName"]
                                 task_explanation[identifier] = item_task_explanation
                             grouped_explanations[task] = task_explanation
                     else:
                         for explanation_item in localized_explanations:
-                            identifier = explanation_item["scoreId"]
+                            identifier = explanation_item["longName"]
                             grouped_explanations[identifier] = explanation_item
                     localized_explanations = grouped_explanations
             else:
