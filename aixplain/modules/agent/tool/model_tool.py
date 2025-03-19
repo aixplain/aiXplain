@@ -53,44 +53,17 @@ class ModelTool(Tool):
             function (Optional[Union[Function, Text]]): task that the tool performs. Defaults to None.
             supplier (Optional[Union[Dict, Supplier]]): Preferred supplier to perform the task. Defaults to None. Defaults to None.
             model (Optional[Union[Text, Model]]): Model function. Defaults to None.
+            name (Optional[Text]): Name of the tool. Defaults to None.
             description (Text): Description of the tool. Defaults to "".
             parameters (Optional[Dict]): Parameters of the tool. Defaults to None.
         """
-        assert (
-            function is not None or model is not None
-        ), "Agent Creation Error: Either function or model must be provided when instantiating a tool."
-
         name = name or ""
         super().__init__(name=name, description=description, **additional_info)
-        if function is not None:
-            if isinstance(function, str):
-                function = Function(function)
-        assert (
-            function is None or function is not Function.UTILITIES or model is not None
-        ), "Agent Creation Error: Utility function must be used with an associated model."
-
-        try:
-            if isinstance(supplier, dict):
-                supplier = Supplier(supplier)
-        except Exception:
-            supplier = None
-
-        self.model_object = None
-        if model is not None:
-            if isinstance(model, Text) is True:
-                self.model = model
-                model = self.validate()
-                self.model_object = model
-            else:
-                self.model_object = model
-            function = model.function
-            if isinstance(model.supplier, Supplier):
-                supplier = model.supplier
-            model = model.id
         self.supplier = supplier
         self.model = model
         self.function = function
-        self.parameters = self.validate_parameters(parameters)
+        self.parameters = parameters
+        self.validate()
 
     def to_dict(self) -> Dict:
         """Converts the tool to a dictionary."""
@@ -110,23 +83,61 @@ class ModelTool(Tool):
             "description": self.description,
             "supplier": supplier,
             "version": self.version if self.version else None,
-            "assetId": self.model,
+            "assetId": self.model.id if self.model is not None and isinstance(self.model, Model) else self.model,
             "parameters": self.parameters,
         }
 
-    def validate(self) -> Model:
+    def validate(self) -> None:
+        """
+        Validates the tool.
+        Notes:
+            - Checks if the tool has a function or model.
+            - If the function is a string, it converts it to a Function enum.
+            - Checks if the function is a utility function and if it has an associated model.
+            - Validates the supplier.
+            - Validates the model.
+            - If the description is empty, it sets the description to the function description or the model description.
+        """
+        from aixplain.enums import FunctionInputOutput
         from aixplain.factories.model_factory import ModelFactory
 
-        if self.model_object is not None:
-            return self.model_object
+        assert (
+            self.function is not None or self.model is not None
+        ), "Agent Creation Error: Either function or model must be provided when instantiating a tool."
+
+        if self.function is not None:
+            if isinstance(self.function, str):
+                self.function = Function(self.function)
+        assert (
+            self.function is None or self.function is not Function.UTILITIES or self.model is not None
+        ), "Agent Creation Error: Utility function must be used with an associated model."
 
         try:
-            model = None
-            if self.model is not None:
-                model = ModelFactory.get(self.model, api_key=self.api_key)
-            return model
+            if isinstance(self.supplier, dict):
+                self.supplier = Supplier(self.supplier)
         except Exception:
-            raise Exception(f"Model Tool Unavailable. Make sure Model '{self.model}' exists or you have access to it.")
+            self.supplier = None
+
+        if self.model is not None:
+            if isinstance(self.model, Text) is True:
+                try:
+                    self.model = ModelFactory.get(self.model, api_key=self.api_key)
+                except Exception:
+                    raise Exception(f"Model Tool Unavailable. Make sure Model '{self.model}' exists or you have access to it.")
+            self.function = self.model.function
+            if isinstance(self.model.supplier, Supplier):
+                self.supplier = self.model.supplier
+
+        if self.description == "":
+            if self.model is not None:
+                self.description = self.model.description
+            elif self.function is not None:
+                try:
+                    self.description = FunctionInputOutput[self.function.value]["spec"]["metaData"]["description"]
+                except Exception:
+                    self.description = ""
+
+        self.parameters = self.validate_parameters(self.parameters)
 
     def get_parameters(self) -> Dict:
         return self.parameters
@@ -145,8 +156,8 @@ class ModelTool(Tool):
         """
         if received_parameters is None:
             # Get default parameters if none provided
-            if self.model_object is not None and self.model_object.model_params is not None:
-                return self.model_object.model_params.to_list()
+            if self.model is not None and self.model.model_params is not None:
+                return self.model.model_params.to_list()
             elif self.function is not None:
                 function_params = self.function.get_parameters()
                 if function_params is not None:
@@ -155,8 +166,8 @@ class ModelTool(Tool):
 
         # Get expected parameters
         expected_params = None
-        if self.model_object is not None and self.model_object.model_params is not None:
-            expected_params = self.model_object.model_params
+        if self.model is not None and self.model.model_params is not None:
+            expected_params = self.model.model_params
         elif self.function is not None:
             expected_params = self.function.get_parameters()
 

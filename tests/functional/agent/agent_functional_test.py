@@ -107,7 +107,7 @@ def test_python_interpreter_tool(delete_agents_and_team_agents, AgentFactory):
     tool = AgentFactory.create_python_interpreter_tool()
     assert tool is not None
     assert tool.name == "Python Interpreter"
-    assert tool.description == ""
+    assert tool.description == "A Python shell. Use this to execute python commands. Input should be a valid python command."
 
     agent = AgentFactory.create(
         name="Python Developer",
