@@ -14,7 +14,7 @@ class AixplainCache:
     This class reduces code repetition and allows easier maintenance.
     """
 
-    def __init__(self, asset_type: str, cache_filename: str):
+    def __init__(self, asset_type: str, cache_filename: Optional[str] = None):
         """
         Initialize the cache for a given asset type.
 
@@ -23,7 +23,8 @@ class AixplainCache:
             cache_filename (str): Filename for storing cached data.
         """
         self.asset_type = asset_type
-        self.cache_file = f"{CACHE_FOLDER}/{cache_filename}.json"
+        filename = cache_filename if cache_filename else asset_type
+        self.cache_file = f"{CACHE_FOLDER}/{filename}.json"
         self.lock_file = f"{self.cache_file}.lock"
         os.makedirs(CACHE_FOLDER, exist_ok=True)  # Ensure cache folder exists
 
@@ -100,18 +101,3 @@ class AixplainCache:
         }
 
         return assets_enum, assets_details
-
-
-if __name__ == "__main__":
-    ModelCache = AixplainCache("models", "models")
-    Model, ModelDetails = ModelCache.load_assets()
-
-    PipelineCache = AixplainCache("pipelines", "pipelines")
-    Pipeline, PipelineDetails = PipelineCache.load_assets()
-
-    AgentCache = AixplainCache("agents", "agents")
-    Agent, AgentDetails = AgentCache.load_assets()
-
-    print(ModelDetails)
-    print(PipelineDetails)
-    print(AgentDetails)

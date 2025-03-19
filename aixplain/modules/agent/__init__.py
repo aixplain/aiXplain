@@ -61,6 +61,8 @@ class Agent(Model):
         api_key (str): The TEAM API key used for authentication.
         cost (Dict, optional): model price. Defaults to None.
     """
+    AgentCache = AixplainCache("agents", "agents")
+    AgentEnum, AgentDetails = AgentCache.load_assets()
 
     is_valid: bool
 
@@ -80,22 +82,20 @@ class Agent(Model):
         tasks: List[AgentTask] = [],
         **additional_info,
     ) -> None:
-        AgentCache = AixplainCache("agents", "agents")
-        AgentEnum, AgentDetails = AgentCache.load_assets()
-
-        if id in AgentDetails:
-            cached_agent = AgentDetails[id]
-            name = cached_agent["name"]
-            description = cached_agent["description"]
-            tools = cached_agent["tools"]
-            llm_id = cached_agent["llm_id"]
-            api_key = cached_agent["api_key"]
-            supplier = cached_agent["supplier"]
-            version = cached_agent["version"]
-            cost = cached_agent["cost"]
-            status = cached_agent["status"]
-            tasks = cached_agent["tasks"]
-            additional_info = cached_agent["additional_info"]
+        
+        if id in self.__class__.AgentDetails:
+            cached_agent = self.__class__.AgentDetails[id]
+            name = cached_agent.get("name", name)
+            description = cached_agent.get("description", description)
+            tools = cached_agent.get("tools", tools)
+            llm_id = cached_agent.get("llm_id", llm_id)
+            api_key = cached_agent.get("api_key", api_key)
+            supplier = cached_agent.get("supplier", supplier)
+            version = cached_agent.get("version", version)
+            cost = cached_agent.get("cost", cost)
+            status = cached_agent.get("status", status)
+            tasks = cached_agent.get("tasks", tasks)
+            additional_info = cached_agent.get("additional_info", additional_info)
 
         """Create an Agent with the necessary information.
 
