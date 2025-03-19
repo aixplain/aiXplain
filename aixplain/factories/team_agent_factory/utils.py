@@ -86,6 +86,8 @@ def parse_tool_from_yaml(tool: str) -> ModelTool:
         return ModelTool(model="6736411cf127849667606689")
     elif tool.strip() == "website_scrape":
         return ModelTool(model="6748e4746eb5633559668a15")
+    elif tool.strip() == "website_crawl":
+        return ModelTool(model="6748d4cff12784b6014324e2")
     else:
         raise Exception(f"Tool {tool} in yaml not found.")
 
@@ -112,7 +114,7 @@ def build_team_agent_from_yaml(yaml_code: str, llm_id: str, api_key: str, team_i
             agent_goal = agent_info["goal"]
             agent_backstory = agent_info["backstory"]
 
-            description = f"## ROLE\n{agent_role}\n\n## GOAL\n{agent_goal}\n\n## BACKSTORY\n{agent_backstory}"
+            description = f"You are an expert {agent_role}. {agent_backstory} Your primary goal is to {agent_goal}. Use your expertise to ensure the success of your tasks."
             agent_obj = Agent(
                 id="",
                 name=agent_name.replace("_", " "),
