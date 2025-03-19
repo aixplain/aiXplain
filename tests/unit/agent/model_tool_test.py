@@ -17,6 +17,7 @@ def mock_model():
     model.id = "test_model_id"
     model.function = Function.TRANSLATION
     model.supplier = Supplier.AIXPLAIN
+    model.description = "Test Model Description"
     model.name = "Test Model"
     model.model_params = ModelParameters(
         {
@@ -51,9 +52,10 @@ def test_init_with_model(mock_model, mock_model_factory):
     mock_model_factory.get.return_value = mock_model
     tool = ModelTool(model="test_model_id")
     assert tool.function == Function.TRANSLATION
-    assert tool.model == "test_model_id"
+    assert tool.model.id == "test_model_id"
     assert tool.supplier == Supplier.AIXPLAIN
-    assert tool.model_object == mock_model
+    assert tool.model == mock_model
+    assert tool.description == "Test Model Description"
 
 
 def test_init_with_supplier_dict():
@@ -111,20 +113,12 @@ def test_to_dict(mock_model, mock_model_factory):
 def test_validate(mock_model, mock_model_factory, model_exists):
     if model_exists:
         mock_model_factory.get.return_value = mock_model
-        with patch.object(ModelTool, "__init__", return_value=None):
-            tool = ModelTool()
-            tool.model = "test_model_id"
-            tool.api_key = None
-            validated_model = tool.validate()
-            assert validated_model == mock_model
+        tool = ModelTool(model="test_model_id", api_key=None)
+        assert tool.model == mock_model
     else:
         mock_model_factory.get.side_effect = Exception("Model not found")
-        with patch.object(ModelTool, "__init__", return_value=None):
-            tool = ModelTool()
-            tool.model = "nonexistent_model"
-            tool.api_key = None
-            with pytest.raises(Exception, match="Model Tool Unavailable"):
-                tool.validate()
+        with pytest.raises(Exception, match="Model Tool Unavailable"):
+            tool = ModelTool(model="nonexistent_model", api_key=None)
 
 
 def test_get_parameters():
@@ -151,25 +145,56 @@ def test_get_parameters():
         (None, None, False, None),
     ],
 )
-def test_validate_parameters(mock_model, params, expected_result, error_expected, error_message):
-    with patch.object(ModelTool, "__init__", return_value=None):
-        tool = ModelTool()
-        tool.model_object = mock_model
-        tool.function = Function.TRANSLATION
+def test_validate_parameters(mocker, mock_model, params, expected_result, error_expected, error_message):
+    mocker.patch("aixplain.factories.model_factory.ModelFactory.get", return_value=mock_model)
+    tool = ModelTool(model=mock_model.id, function=Function.TRANSLATION)
 
-        # Mock the model parameters
-        mock_params = MagicMock()
-        mock_params.parameters = {
-            "sourcelanguage": Parameter(name="sourcelanguage", required=True),
-            "targetlanguage": Parameter(name="targetlanguage", required=True),
-        }
-        # Mock the to_list method to return None when no parameters are set
-        mock_params.to_list.return_value = None
-        mock_model.model_params = mock_params
+    # Mock the model parameters
+    mock_params = MagicMock()
+    mock_params.parameters = {
+        "sourcelanguage": Parameter(name="sourcelanguage", required=True),
+        "targetlanguage": Parameter(name="targetlanguage", required=True),
+    }
+    # Mock the to_list method to return None when no parameters are set
+    mock_params.to_list.return_value = None
+    mock_model.model_params = mock_params
 
-        if error_expected:
-            with pytest.raises(ValueError, match=re.escape(error_message)):
-                tool.validate_parameters(params)
-        else:
-            result = tool.validate_parameters(params)
-            assert result == expected_result
+    if error_expected:
+        with pytest.raises(ValueError, match=re.escape(error_message)):
+            tool.validate_parameters(params)
+    else:
+        result = tool.validate_parameters(params)
+        assert result == expected_result
+
+
+def test_invalid_modeltool(mocker):
+    mocker.patch("aixplain.factories.model_factory.ModelFactory.get", side_effect=Exception())
+    with pytest.raises(Exception) as exc_info:
+        model_tool = ModelTool(model="309851793")
+        model_tool.validate()
+    assert str(exc_info.value) == "Model Tool Unavailable. Make sure Model '309851793' exists or you have access to it."
+
+
+def test_validate_model_tool_with_function():
+    model_tool = ModelTool(function="text-generation")
+    assert model_tool.function == Function.TEXT_GENERATION
+    assert model_tool.description != ""
+
+
+def test_validate_model_tool_with_model(mocker):
+    mocker.patch(
+        "aixplain.factories.model_factory.ModelFactory.get",
+        return_value=Model(
+            id="309851793", name="Test Model", description="Test Model Description", function=Function.TEXT_GENERATION
+        ),
+    )
+    model_tool = ModelTool(model="309851793", function=Function.TRANSLATION)
+    assert model_tool.model.id == "309851793"
+    assert model_tool.function == Function.TEXT_GENERATION
+    assert model_tool.description != ""
+
+
+def test_validate_model_tool_without_function_or_model():
+    with pytest.raises(Exception) as exc_info:
+        ModelTool()
+    assert str(exc_info.value) == "Agent Creation Error: Either function or model must be provided when instantiating a tool."

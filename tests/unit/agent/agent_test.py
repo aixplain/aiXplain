@@ -2,7 +2,7 @@ import pytest
 import requests_mock
 from aixplain.factories import AgentFactory
 from aixplain.enums.asset_status import AssetStatus
-from aixplain.modules import Agent
+from aixplain.modules import Agent, Model
 from aixplain.modules.agent import OutputFormat
 from aixplain.utils import config
 from aixplain.modules.agent.tool.pipeline_tool import PipelineTool
@@ -93,12 +93,6 @@ def test_invalid_pipelinetool():
     assert str(exc_info.value) == "Pipeline Tool Unavailable. Make sure Pipeline '309851793' exists or you have access to it."
 
 
-def test_invalid_modeltool():
-    with pytest.raises(Exception) as exc_info:
-        AgentFactory.create(name="Test", tools=[ModelTool(model="309851793")], llm_id="6646261c6eb563165658bbb1")
-    assert str(exc_info.value) == "Model Tool Unavailable. Make sure Model '309851793' exists or you have access to it."
-
-
 def test_invalid_llm_id():
     with pytest.raises(Exception) as exc_info:
         AgentFactory.create(name="Test", description="", instructions="", tools=[], llm_id="123")
@@ -117,7 +111,6 @@ def test_invalid_agent_name():
 @patch("aixplain.factories.model_factory.ModelFactory.get")
 def test_create_agent(mock_model_factory_get):
     from aixplain.enums import Supplier, Function
-    from aixplain.modules import Model
 
     # Mock the model factory response
     mock_model = Model(
@@ -241,7 +234,6 @@ def test_to_dict():
 
 @patch("aixplain.factories.model_factory.ModelFactory.get")
 def test_update_success(mock_model_factory_get):
-    from aixplain.modules import Model
     from aixplain.enums import Function
 
     # Mock the model factory response
@@ -314,7 +306,6 @@ def test_update_success(mock_model_factory_get):
 
 @patch("aixplain.factories.model_factory.ModelFactory.get")
 def test_save_success(mock_model_factory_get):
-    from aixplain.modules import Model
     from aixplain.enums import Function
 
     # Mock the model factory response
@@ -644,11 +635,9 @@ def test_custom_python_code_tool_with_callable():
     assert tool.description == "Test description"
 
 
-@patch("aixplain.modules.agent.tool.model_tool.ModelTool.validate", autospec=True)
 @patch("aixplain.factories.model_factory.ModelFactory.get")
-def test_create_agent_with_model_instance(mock_model_factory_get, mock_validate):
+def test_create_agent_with_model_instance(mock_model_factory_get):
     from aixplain.enums import Supplier, Function
-    from aixplain.modules import Model
     from aixplain.modules.model.model_parameters import ModelParameters
 
     # Create model parameters
@@ -665,9 +654,6 @@ def test_create_agent_with_model_instance(mock_model_factory_get, mock_validate)
         model_params=model_params,
     )
 
-    # Mock the validate method to return the model instance
-    mock_validate.return_value = model_tool
-
     # Mock the LLM model factory response
     llm_model = Model(
         id="6646261c6eb563165658bbb1",
@@ -676,8 +662,15 @@ def test_create_agent_with_model_instance(mock_model_factory_get, mock_validate)
         function=Function.TEXT_GENERATION,
         model_params=model_params,
     )
-    mock_model_factory_get.return_value = llm_model
 
+    def validate_side_effect(model_id, *args, **kwargs):
+        if model_id == "model123":
+            return model_tool
+        elif model_id == "6646261c6eb563165658bbb1":
+            return llm_model
+        return None
+
+    mock_model_factory_get.side_effect = validate_side_effect
     with requests_mock.Mocker() as mock:
         url = urljoin(config.BACKEND_URL, "sdk/agents")
         headers = {"x-api-key": config.TEAM_API_KEY, "Content-Type": "application/json"}
@@ -732,20 +725,18 @@ def test_create_agent_with_model_instance(mock_model_factory_get, mock_validate)
     # Verify the tool was converted correctly
     tool = agent.tools[0]
     assert isinstance(tool, ModelTool)
-    assert tool.model == "model123"
+    assert tool.model.id == "model123"
     assert tool.function == Function.TEXT_GENERATION
     assert tool.supplier == Supplier.AIXPLAIN
-    assert isinstance(tool.model_object, Model)
-    assert isinstance(tool.model_object.model_params, ModelParameters)
-    assert tool.model_object.model_params.parameters["temperature"].required
-    assert not tool.model_object.model_params.parameters["max_tokens"].required
+    assert isinstance(tool.model, Model)
+    assert isinstance(tool.model.model_params, ModelParameters)
+    assert tool.model.model_params.parameters["temperature"].required
+    assert not tool.model.model_params.parameters["max_tokens"].required
 
 
-@patch("aixplain.modules.agent.tool.model_tool.ModelTool.validate", autospec=True)
 @patch("aixplain.factories.model_factory.ModelFactory.get")
-def test_create_agent_with_mixed_tools(mock_model_factory_get, mock_validate):
+def test_create_agent_with_mixed_tools(mock_model_factory_get):
     from aixplain.enums import Supplier, Function
-    from aixplain.modules import Model
     from aixplain.modules.model.model_parameters import ModelParameters
 
     # Create model parameters for different models
@@ -775,24 +766,6 @@ def test_create_agent_with_mixed_tools(mock_model_factory_get, mock_validate):
         model_params=classification_params,
     )
 
-    # Mock the validate method to return different models based on the model ID
-    def validate_side_effect(self, *args, **kwargs):
-        if self.model == "model123":
-            return model_tool
-        elif self.model == "openai-model":
-            return openai_model
-        return None
-
-    mock_validate.side_effect = validate_side_effect
-
-    # Create a regular ModelTool instance
-    regular_tool = AgentFactory.create_model_tool(
-        function=Function.TEXT_CLASSIFICATION,
-        supplier=Supplier.OPENAI,
-        model="openai-model",
-        description="Regular Tool",
-    )
-
     # Mock the LLM model factory response
     llm_model = Model(
         id="6646261c6eb563165658bbb1",
@@ -801,7 +774,26 @@ def test_create_agent_with_mixed_tools(mock_model_factory_get, mock_validate):
         function=Function.TEXT_GENERATION,
         model_params=text_gen_params,
     )
-    mock_model_factory_get.return_value = llm_model
+
+    # Mock the validate method to return different models based on the model ID
+    def validate_side_effect(model_id, *args, **kwargs):
+        if model_id == "model123":
+            return model_tool
+        elif model_id == "openai-model":
+            return openai_model
+        elif model_id == "6646261c6eb563165658bbb1":
+            return llm_model
+        return None
+
+    mock_model_factory_get.side_effect = validate_side_effect
+
+    # Create a regular ModelTool instance
+    regular_tool = AgentFactory.create_model_tool(
+        function=Function.TEXT_CLASSIFICATION,
+        supplier=Supplier.OPENAI,
+        model="openai-model",
+        description="Regular Tool",
+    )
 
     with requests_mock.Mocker() as mock:
         url = urljoin(config.BACKEND_URL, "sdk/agents")
@@ -865,24 +857,24 @@ def test_create_agent_with_mixed_tools(mock_model_factory_get, mock_validate):
     # Verify the first tool (Model instance converted to ModelTool)
     tool1 = agent.tools[0]
     assert isinstance(tool1, ModelTool)
-    assert tool1.model == "model123"
+    assert tool1.model.id == "model123"
     assert tool1.function == Function.TEXT_GENERATION
     assert tool1.supplier == Supplier.AIXPLAIN
-    assert isinstance(tool1.model_object, Model)
-    assert isinstance(tool1.model_object.model_params, ModelParameters)
-    assert tool1.model_object.model_params.parameters["temperature"].required
-    assert not tool1.model_object.model_params.parameters["max_tokens"].required
+    assert isinstance(tool1.model, Model)
+    assert isinstance(tool1.model.model_params, ModelParameters)
+    assert tool1.model.model_params.parameters["temperature"].required
+    assert not tool1.model.model_params.parameters["max_tokens"].required
 
     # Verify the second tool (regular ModelTool)
     tool2 = agent.tools[1]
     assert isinstance(tool2, ModelTool)
-    assert tool2.model == "openai-model"
+    assert tool2.model.id == "openai-model"
     assert tool2.function == Function.TEXT_CLASSIFICATION
     assert tool2.supplier == Supplier.OPENAI
-    assert isinstance(tool2.model_object, Model)
-    assert isinstance(tool2.model_object.model_params, ModelParameters)
-    assert tool2.model_object.model_params.parameters["threshold"].required
-    assert tool2.model_object.model_params.parameters["labels"].required
+    assert isinstance(tool2.model, Model)
+    assert isinstance(tool2.model.model_params, ModelParameters)
+    assert tool2.model.model_params.parameters["threshold"].required
+    assert tool2.model.model_params.parameters["labels"].required
 
 
 @pytest.mark.parametrize(
