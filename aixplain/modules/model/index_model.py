@@ -1,10 +1,9 @@
-from aixplain.enums import Function, Supplier, ResponseStatus, StorageType
+from aixplain.enums import EmbeddingModel, Function, Supplier, ResponseStatus, StorageType
 from aixplain.modules.model import Model
 from aixplain.utils import config
 from aixplain.modules.model.response import ModelResponse
 from typing import Text, Optional, Union, Dict
 from aixplain.modules.model.record import Record
-from aixplain.modules.model.utils import is_supported_image_type
 from typing import List
 
 
@@ -20,7 +19,7 @@ class IndexModel(Model):
         function: Optional[Function] = None,
         is_subscribed: bool = False,
         cost: Optional[Dict] = None,
-        embedding_model: Optional[Model] = None,
+        embedding_model: Optional[EmbeddingModel] = None,
         **additional_info,
     ) -> None:
         """Index Init
@@ -35,6 +34,7 @@ class IndexModel(Model):
             function (Function, optional): model AI function. Defaults to None.
             is_subscribed (bool, optional): Is the user subscribed. Defaults to False.
             cost (Dict, optional): model price. Defaults to None.
+            embedding_model (EmbeddingModel, optional): embedding model. Defaults to None.
             **additional_info: Any additional Model info to be saved
         """
         assert function == Function.SEARCH, "Index only supports search function"
@@ -60,14 +60,9 @@ class IndexModel(Model):
         uri, value_type = "", "text"
         storage_type = FileFactory.check_storage_type(query)
         if storage_type in [StorageType.FILE, StorageType.URL]:
-            if is_supported_image_type(query):
-                uri = FileFactory.to_link(query)
-                query = ""
-                value_type = "image"
-            else:
-                return ModelResponse(
-                    status=ResponseStatus.FAILED, error_message="Unsupported file type for the used embedding model."
-                )
+            uri = FileFactory.to_link(query)
+            query = ""
+            value_type = "image"
 
         data = {
             "action": "search",

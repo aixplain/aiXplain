@@ -1,6 +1,5 @@
 import requests_mock
-from aixplain.enums import DataType, Function, ResponseStatus, StorageType
-from aixplain.factories import IndexFactory
+from aixplain.enums import DataType, Function, ResponseStatus, StorageType, EmbeddingModel
 from aixplain.modules.model.record import Record
 from aixplain.modules.model.response import ModelResponse
 from aixplain.modules.model.index_model import IndexModel
@@ -40,36 +39,12 @@ def test_image_search_success(mocker):
             data=data,
             name="name",
             function=Function.SEARCH,
-            embedding_model="67c5f705d8f6a65d6f74d732",
+            embedding_model=EmbeddingModel.JINA_CLIP_V2_MULTIMODAL,
         )
         response = index_model.search("test.jpg")
 
     assert isinstance(response, ModelResponse)
     assert response.status == ResponseStatus.SUCCESS
-
-
-def test_invalid_embedding_model():
-    with pytest.raises(Exception) as e:
-        IndexFactory.create("test", "test", "invalid_model")
-    assert (
-        str(e.value)
-        == "Index Creation Collection Error: Invalid embedding model. Current supported models are: Snowflake Arctic-embed M-long (6658d40729985c2cf72f42ec), OpenAI Ada-002 (6734c55df127847059324d9e), Snowflake Arctic-embed L-v2.0 (678a4f8547f687504744960a), Jina Clip-v2 Multimodal (67c5f705d8f6a65d6f74d732)"
-    )
-
-
-def test_image_search_failure_wrong_embedding_model(mocker):
-    mocker.patch("aixplain.factories.FileFactory.check_storage_type", return_value=StorageType.FILE)
-    mocker.patch("aixplain.modules.model.utils.is_supported_image_type", return_value=False)
-    mock_response = {"status": "FAILED", "error_message": "Unsupported file type"}
-
-    with requests_mock.Mocker() as mock:
-        mock.post(execute_url, json=mock_response, status_code=200)
-        index_model = IndexModel(id=index_id, data=data, name="name", function=Function.SEARCH)
-        response = index_model.search("test.mov")
-
-    assert isinstance(response, ModelResponse)
-    assert response.status == ResponseStatus.FAILED
-    assert response.error_message == "Unsupported file type for the used embedding model."
 
 
 def test_text_add_success(mocker):

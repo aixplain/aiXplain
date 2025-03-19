@@ -1,8 +1,10 @@
 __author__ = "thiagocastroferreira"
 
 import pytest
+import os
+import requests
 
-from aixplain.enums import Function
+from aixplain.enums import Function, EmbeddingModel
 from aixplain.factories import ModelFactory
 from aixplain.modules import LLM
 from datetime import datetime, timedelta, timezone
@@ -58,7 +60,7 @@ def test_run_async():
 
 @pytest.mark.parametrize(
     "embedding_model",
-    ["6658d40729985c2cf72f42ec", "6734c55df127847059324d9e", "678a4f8547f687504744960a"],
+    [EmbeddingModel.SNOWFLAKE_ARCTIC_EMBED_M_LONG, EmbeddingModel.OPENAI_ADA002, EmbeddingModel.SNOWFLAKE_ARCTIC_EMBED_L_V2_0],
 )
 def test_index_model(embedding_model):
     from uuid import uuid4
@@ -110,7 +112,7 @@ def test_index_model_with_image():
         index.delete()
 
     index_model = IndexFactory.create(
-        name=f"Image Index {uuid4()}", description="Index for images", embedding_model="67c5f705d8f6a65d6f74d732"
+        name=f"Image Index {uuid4()}", description="Index for images", embedding_model=EmbeddingModel.JINA_CLIP_V2_MULTIMODAL
     )
 
     records = []
@@ -125,13 +127,21 @@ def test_index_model_with_image():
 
     # beach image
     image_url = "https://aixplain-platform-assets.s3.us-east-1.amazonaws.com/samples/hurricane.jpeg"
-    records.append(Record(uri=image_url, value_type="image", attributes={}))
+    response = requests.get(image_url)
+    if response.status_code == 200:
+        with open("hurricane.jpeg", "wb") as f:
+            f.write(response.content)
+    os.remove("hurricane.jpeg")
+    records.append(Record(uri="hurricane.jpeg", value_type="image", attributes={}))
 
     # people image
     image_url = "https://aixplain-platform-assets.s3.us-east-1.amazonaws.com/samples/faces.jpeg"
     records.append(Record(uri=image_url, value_type="image", attributes={}))
 
+    records.append(Record(value="Hello, world!", value_type="text", uri="", attributes={}))
+
     index_model.upsert(records)
+
     response = index_model.search("beach")
     assert str(response.status) == "SUCCESS"
     print(response.details)
@@ -143,5 +153,5 @@ def test_index_model_with_image():
     first_record = response.details[0]["metadata"]["uri"]
     assert "faces" in first_record.lower()
 
-    # assert index_model.count() == 3
+    assert index_model.count() == 4
     index_model.delete()
