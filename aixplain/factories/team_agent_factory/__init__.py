@@ -48,7 +48,7 @@ class TeamAgentFactory:
         use_mentalist: bool = True,
         use_inspector: bool = True,
         num_inspectors: int = 1,
-        inspector_targets: List[Text] = [InspectorTarget.STEPS.value],
+        inspector_targets: List[Union[InspectorTarget, Text]] = [InspectorTarget.STEPS],
         use_mentalist_and_inspector: bool = False,  # TODO: remove this
     ) -> TeamAgent:
         """Create a new team agent in the platform."""
@@ -76,7 +76,8 @@ class TeamAgentFactory:
 
         if use_inspector:
             try:
-                [InspectorTarget(target) for target in inspector_targets]
+                # convert to enum if string and check its validity
+                inspector_targets = [InspectorTarget(target) for target in inspector_targets]
             except ValueError:
                 raise ValueError("TeamAgent Onboarding Error: Invalid inspector target. Valid targets are: steps, output")
 
@@ -117,7 +118,7 @@ class TeamAgentFactory:
             "plannerId": mentalist_llm_id,
             "inspectorId": inspector_llm_id,
             "maxInspectors": max_inspectors,
-            "inspectorTargets": inspector_targets,
+            "inspectorTargets": inspector_targets if use_inspector else [],
             "supplier": supplier,
             "version": version,
             "status": "draft",

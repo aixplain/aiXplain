@@ -31,7 +31,7 @@ def build_team_agent(payload: Dict, agents: List[Agent] = None, api_key: Text = 
                 )
                 continue
 
-    inspector_targets = [InspectorTarget(target) for target in payload.get("inspectorTargets", ["steps"])]
+    inspector_targets = [InspectorTarget(target.lower()) for target in payload.get("inspectorTargets", [])]
 
     team_agent = TeamAgent(
         id=payload.get("id", ""),
