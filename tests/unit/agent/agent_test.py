@@ -153,7 +153,7 @@ def test_create_agent(mock_model_factory_get):
                     {
                         "type": "utility",
                         "utility": "custom_python_code",
-                        "description": "",
+                        "description": "A Python shell. Use this to execute python commands. Input should be a valid python command.",
                     },
                     {
                         "type": "utility",
