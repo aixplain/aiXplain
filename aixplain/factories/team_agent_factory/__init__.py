@@ -51,8 +51,25 @@ class TeamAgentFactory:
         inspector_targets: List[Union[InspectorTarget, Text]] = [InspectorTarget.STEPS],
         use_mentalist_and_inspector: bool = False,  # TODO: remove this
     ) -> TeamAgent:
-        """Create a new team agent in the platform."""
+        """Create a new team agent in the platform.
 
+        Args:
+            name: The name of the team agent.
+            agents: A list of agents to be added to the team.
+            llm_id: The ID of the LLM to be used for the team agent.
+            description: The description of the team agent.
+            api_key: The API key to be used for the team agent.
+            supplier: The supplier of the team agent.
+            version: The version of the team agent.
+            use_mentalist: Whether to use the mentalist agent.
+            use_inspector: Whether to use the inspector agent.
+            num_inspectors: The number of inspectors to be used for each inspection.
+            inspector_targets: Which stages to be inspected during an execution of the team agent. (steps, output)
+            use_mentalist_and_inspector: Whether to use the mentalist and inspector agents. (legacy)
+
+        Returns:
+            A new team agent instance.
+        """
         assert len(agents) > 0, "TeamAgent Onboarding Error: At least one agent must be provided."
         agent_list = []
         for agent in agents:
