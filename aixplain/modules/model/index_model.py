@@ -1,4 +1,4 @@
-from aixplain.enums import Function, Supplier, ResponseStatus
+from aixplain.enums import Function, Supplier, ResponseStatus, IndexStores
 from aixplain.modules.model import Model
 from aixplain.utils import config
 from aixplain.modules.model.response import ModelResponse
@@ -19,6 +19,7 @@ class IndexModel(Model):
         function: Optional[Function] = None,
         is_subscribed: bool = False,
         cost: Optional[Dict] = None,
+        host: Optional[IndexStores] = None,
         **additional_info,
     ) -> None:
         """Index Init
@@ -50,6 +51,7 @@ class IndexModel(Model):
         )
         self.url = config.MODELS_RUN_URL
         self.backend_url = config.BACKEND_URL
+        self.host = host
 
     def search(self, query: str, top_k: int = 10, filters: Dict = {}) -> ModelResponse:
         data = {"action": "search", "data": query, "payload": {"filters": filters, "top_k": top_k}}

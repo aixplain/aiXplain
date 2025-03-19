@@ -1,14 +1,17 @@
 from aixplain.modules.model.index_model import IndexModel
 from aixplain.factories import ModelFactory
-from aixplain.enums import Function, ResponseStatus, SortBy, SortOrder, OwnershipType, Supplier
+from aixplain.enums import Function, ResponseStatus, SortBy, SortOrder, OwnershipType, Supplier, IndexStores
 from typing import Optional, Text, Union, List, Tuple
 
 
 class IndexFactory(ModelFactory):
     @classmethod
-    def create(cls, name: Text, description: Text) -> IndexModel:
+    def create(cls, name: Text, description: Text, host: IndexStores = IndexStores.AIR) -> IndexModel:
         """Create a new index collection"""
-        model = cls.get("66eae6656eb56311f2595011")
+        if isinstance(host, str):
+            host = IndexStores[host.upper()]
+        model_id = host.get_model_id()
+        model = cls.get(model_id)
 
         data = {"data": name, "description": description}
         response = model.run(data=data)
