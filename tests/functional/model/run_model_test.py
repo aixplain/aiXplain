@@ -6,53 +6,82 @@ from aixplain.factories import ModelFactory
 from aixplain.modules import LLM
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+import pytest
+import random
+import json
+
+MULTI_ASSET_DATA_INPUT = Path(__file__).parent / "data" / "multi_asset_data.json"
+
+def get_llm_models(number_of_models: int = 5):
+    """Helper function to get list of LLM models for testing"""
+    four_weeks_ago = datetime.now(timezone.utc) - timedelta(weeks=4)
+    models = ModelFactory.list(function=Function.TEXT_GENERATION)["results"]
+    
+    # Get predefined models
+    predefined_models = []
+    for predefined_model in ["Groq Llama 3 70B", "Chat GPT 3.5", "GPT-4"]:
+        predefined_models.extend([
+            m for m in ModelFactory.list(query=predefined_model, function=Function.TEXT_GENERATION)["results"]
+            if m.name == predefined_model and "aiXplain-testing" not in str(m.supplier)
+        ])
+    
+    # Get recent models
+    recent_models = [
+        model for model in models 
+        if model.created_at and model.created_at >= four_weeks_ago and "aiXplain-testing" not in str(model.supplier)
+    ]
+    
+    return random.sample(recent_models + predefined_models, number_of_models)
 
 
-def pytest_generate_tests(metafunc):
-    if "llm_model" in metafunc.fixturenames:
-        four_weeks_ago = datetime.now(timezone.utc) - timedelta(weeks=4)
-        models = ModelFactory.list(function=Function.TEXT_GENERATION)["results"]
+def fetch_multi_asset_parameters(return_in_order: bool = True):
+    """Helper function to fetch multi asset parameters"""
+    with open(MULTI_ASSET_DATA_INPUT, "r") as f:
+        data = json.load(f)
+    
+    items = list(data.items())
+    if not return_in_order:
+        random.shuffle(items)
 
-        predefined_models = []
-        for predefined_model in ["Groq Llama 3 70B", "Chat GPT 3.5", "GPT-4o"]:
-            predefined_models.extend(
-                [
-                    m
-                    for m in ModelFactory.list(query=predefined_model, function=Function.TEXT_GENERATION)["results"]
-                    if m.name == predefined_model and "aiXplain-testing" not in str(m.supplier)
-                ]
-            )
-        recent_models = [
-            model
-            for model in models
-            if model.created_at and model.created_at >= four_weeks_ago and "aiXplain-testing" not in str(model.supplier)
-        ]
-        combined_models = recent_models + predefined_models
-        model_ids = [model.id for model in combined_models]
-        metafunc.parametrize("llm_model", combined_models, ids=model_ids)
+    for function, function_data in items:
+        selected_model = random.choice(function_data["model_ids"])
+        input_data = function_data["input"]
+        output_keyword = function_data["output_keyword"]
+
+        yield function, selected_model, input_data, output_keyword
 
 
-def test_llm_run(llm_model):
+
+@pytest.mark.parametrize("llm_model", get_llm_models())
+def test_llm_name_response(llm_model):
     """Testing LLMs with history context"""
+
+    name = "Richard Feynman"
+    history = [
+        {"role": "user", "content": f"Hello! My name is {name}."},
+        {"role": "assistant", "content": "Hello!"},
+    ]
+    question = f"What is my name?"
 
     assert isinstance(llm_model, LLM)
     response = llm_model.run(
-        data="What is my name?",
-        history=[{"role": "user", "content": "Hello! My name is Thiago."}, {"role": "assistant", "content": "Hello!"}],
+        data=question,
+        history=history,
     )
     assert response["status"] == "SUCCESS"
+    assert name.lower() in response["data"].lower() 
 
 
 def test_run_async():
     """Testing Model Async"""
-    model = ModelFactory.get("60ddef828d38c51c5885d491")
-
-    response = model.run_async("Test")
+    function, selected_model, input_data, output_keyword = next(fetch_multi_asset_parameters(return_in_order=False))
+    print(f"Testing {function} with {selected_model} and {input_data} and {output_keyword}")
+    model = ModelFactory.get(selected_model)
+    response = model.run_async(input_data)
     poll_url = response["url"]
     response = model.sync_poll(poll_url)
-
     assert response["status"] == "SUCCESS"
-    assert "teste" in response["data"].lower()
+    assert output_keyword.lower() in response["data"].lower()
 
 
 def test_index_model():
@@ -94,3 +123,15 @@ def test_llm_run_with_file():
     # Verify response
     assert response["status"] == "SUCCESS"
     assert "🤖" in response["data"], "Robot emoji should be present in the response"
+
+
+
+
+@pytest.mark.parametrize("function, selected_model, input_data, output_keyword", fetch_multi_asset_parameters())
+def test_multi_asset_run(function, selected_model, input_data, output_keyword):
+    """Testing Multi Asset Run"""
+    print(f"Testing {function} with {selected_model} and {input_data} and {output_keyword}")
+    model = ModelFactory.get(selected_model)
+    response = model.run(input_data)
+    assert response["status"] == "SUCCESS"
+    assert output_keyword.lower() in response["data"].lower()
