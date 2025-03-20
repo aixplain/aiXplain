@@ -1,4 +1,4 @@
-from aixplain.enums import Function, Supplier, ResponseStatus
+from aixplain.enums import EmbeddingModel, Function, Supplier, ResponseStatus, StorageType
 from aixplain.modules.model import Model
 from aixplain.utils import config
 from aixplain.modules.model.response import ModelResponse
@@ -19,6 +19,7 @@ class IndexModel(Model):
         function: Optional[Function] = None,
         is_subscribed: bool = False,
         cost: Optional[Dict] = None,
+        embedding_model: Optional[EmbeddingModel] = None,
         **additional_info,
     ) -> None:
         """Index Init
@@ -33,6 +34,7 @@ class IndexModel(Model):
             function (Function, optional): model AI function. Defaults to None.
             is_subscribed (bool, optional): Is the user subscribed. Defaults to False.
             cost (Dict, optional): model price. Defaults to None.
+            embedding_model (EmbeddingModel, optional): embedding model. Defaults to None.
             **additional_info: Any additional Model info to be saved
         """
         assert function == Function.SEARCH, "Index only supports search function"
@@ -50,14 +52,35 @@ class IndexModel(Model):
         )
         self.url = config.MODELS_RUN_URL
         self.backend_url = config.BACKEND_URL
+        self.embedding_model = embedding_model
 
     def search(self, query: str, top_k: int = 10, filters: Dict = {}) -> ModelResponse:
-        data = {"action": "search", "data": query, "payload": {"filters": filters, "top_k": top_k}}
+        from aixplain.factories import FileFactory
+
+        uri, value_type = "", "text"
+        storage_type = FileFactory.check_storage_type(query)
+        if storage_type in [StorageType.FILE, StorageType.URL]:
+            uri = FileFactory.to_link(query)
+            query = ""
+            value_type = "image"
+
+        data = {
+            "action": "search",
+            "data": query,
+            "datatype": value_type,
+            "payload": {"query": query, "uri": uri, "value_type": value_type, "filters": filters, "top_k": top_k},
+        }
         return self.run(data=data)
 
     def upsert(self, documents: List[Record]) -> ModelResponse:
+        # Validate documents
+        for doc in documents:
+            doc.validate()
+        # Convert documents to payloads
         payloads = [doc.to_dict() for doc in documents]
+        # Build payload
         data = {"action": "ingest", "data": "", "payload": {"payloads": payloads}}
+        # Run the indexing service
         response = self.run(data=data)
         if response.status == ResponseStatus.SUCCESS:
             response.data = payloads
