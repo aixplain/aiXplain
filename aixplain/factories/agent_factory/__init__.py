@@ -260,18 +260,22 @@ class AgentFactory:
 
         # Handle CSV source type
         if source_type == DatabaseSourceType.CSV:
+
             if not os.path.exists(source):
                 raise SQLToolError(f"CSV file '{source}' does not exist")
             if not source.endswith(".csv"):
                 raise SQLToolError(f"File '{source}' is not a CSV file")
+            if tables and len(tables) > 1:
+                raise SQLToolError("CSV source type only supports one table")
 
             # Create database name from CSV filename or use custom table name
             base_name = os.path.splitext(os.path.basename(source))[0]
             db_path = os.path.join(os.path.dirname(source), f"{base_name}.db")
+            table_name = tables[0] if tables else None
 
             try:
                 # Create database from CSV
-                schema = create_database_from_csv(source, db_path)
+                schema = create_database_from_csv(source, db_path, table_name)
                 database_path = db_path
 
                 # Get table names if not provided
