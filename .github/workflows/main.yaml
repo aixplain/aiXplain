@@ -50,4 +50,4 @@ jobs:
           echo "PIPELINES_RUN_URL=https://test-platform-api.aixplain.com/assets/pipeline/execution/run" >> $GITHUB_ENV
           
       - name: Run Tests
-        run: python -m pytest --rootdir=tests/functional ${matrix.test-suite}
+        run: python -m pytest --rootdir=tests/functional ${{ matrix.test-suite}}
