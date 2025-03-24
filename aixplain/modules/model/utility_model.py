@@ -21,7 +21,7 @@ Description:
 import logging
 import warnings
 from aixplain.enums import Function, Supplier, DataType
-from aixplain.enums.asset_status import AssetStatus
+from aixplain.enums import AssetStatus
 from aixplain.modules.model import Model
 from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
@@ -107,6 +107,7 @@ class UtilityModel(Model):
         function (Function, optional): model AI function. Defaults to None.
         is_subscribed (bool, optional): Is the user subscribed. Defaults to False.
         cost (Dict, optional): model price. Defaults to None.
+        status (AssetStatus, optional): status of the model. Defaults to AssetStatus.DRAFT.
         **additional_info: Any additional Model info to be saved
     """
 
@@ -155,6 +156,7 @@ class UtilityModel(Model):
             function=function,
             is_subscribed=is_subscribed,
             api_key=api_key,
+            status=status,
             **additional_info,
         )
         self.url = config.MODELS_RUN_URL

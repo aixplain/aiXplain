@@ -27,17 +27,13 @@ import time
 import traceback
 
 from aixplain.utils.file_utils import _request_with_retry
-from aixplain.enums.function import Function
-from aixplain.enums.supplier import Supplier
-from aixplain.enums.asset_status import AssetStatus
-from aixplain.enums.storage_type import StorageType
+from aixplain.enums import Function, Supplier, AssetStatus, StorageType, ResponseStatus
 from aixplain.modules.model import Model
 from aixplain.modules.agent.agent_task import AgentTask
 from aixplain.modules.agent.output_format import OutputFormat
 from aixplain.modules.agent.tool import Tool
 from aixplain.modules.agent.agent_response import AgentResponse
 from aixplain.modules.agent.agent_response_data import AgentResponseData
-from aixplain.enums import ResponseStatus
 from aixplain.modules.agent.utils import process_variables
 from typing import Dict, List, Text, Optional, Union
 from urllib.parse import urljoin
@@ -125,17 +121,13 @@ class Agent(Model):
         except Exception:
             raise Exception(f"Large Language Model with ID '{self.llm_id}' not found.")
 
-        assert (
-            llm.function == Function.TEXT_GENERATION
-        ), "Large Language Model must be a text generation model."
+        assert llm.function == Function.TEXT_GENERATION, "Large Language Model must be a text generation model."
 
         for tool in self.tools:
             if isinstance(tool, Tool):
                 tool.validate()
             elif isinstance(tool, Model):
-                assert not isinstance(
-                    tool, Agent
-                ), "Agent cannot contain another Agent."
+                assert not isinstance(tool, Agent), "Agent cannot contain another Agent."
 
     def validate(self, raise_exception: bool = False) -> bool:
         """Validate the Agent."""
@@ -148,9 +140,7 @@ class Agent(Model):
                 raise e
             else:
                 logging.warning(f"Agent Validation Error: {e}")
-                logging.warning(
-                    "You won't be able to run the Agent until the issues are handled manually."
-                )
+                logging.warning("You won't be able to run the Agent until the issues are handled manually.")
         return self.is_valid
 
     def run(
@@ -207,9 +197,7 @@ class Agent(Model):
                 return response
             poll_url = response["url"]
             end = time.time()
-            result = self.sync_poll(
-                poll_url, name=name, timeout=timeout, wait_time=wait_time
-            )
+            result = self.sync_poll(poll_url, name=name, timeout=timeout, wait_time=wait_time)
             result_data = result.data
             return AgentResponse(
                 status=ResponseStatus.SUCCESS,
@@ -272,18 +260,12 @@ class Agent(Model):
         from aixplain.factories.file_factory import FileFactory
 
         if not self.is_valid:
-            raise Exception(
-                "Agent is not valid. Please validate the agent before running."
-            )
+            raise Exception("Agent is not valid. Please validate the agent before running.")
 
-        assert (
-            data is not None or query is not None
-        ), "Either 'data' or 'query' must be provided."
+        assert data is not None or query is not None, "Either 'data' or 'query' must be provided."
         if data is not None:
             if isinstance(data, dict):
-                assert (
-                    "query" in data and data["query"] is not None
-                ), "When providing a dictionary, 'query' must be provided."
+                assert "query" in data and data["query"] is not None, "When providing a dictionary, 'query' must be provided."
                 query = data.get("query")
                 if session_id is None:
                     session_id = data.get("session_id")
@@ -296,9 +278,7 @@ class Agent(Model):
 
         # process content inputs
         if content is not None:
-            assert (
-                FileFactory.check_storage_type(query) == StorageType.TEXT
-            ), "When providing 'content', query must be text."
+            assert FileFactory.check_storage_type(query) == StorageType.TEXT, "When providing 'content', query must be text."
 
             if isinstance(content, list):
                 assert len(content) <= 3, "The maximum number of content inputs is 3."
@@ -307,9 +287,7 @@ class Agent(Model):
                     query += f"\n{input_link}"
             elif isinstance(content, dict):
                 for key, value in content.items():
-                    assert (
-                        "{{" + key + "}}" in query
-                    ), f"Key '{key}' not found in query."
+                    assert "{{" + key + "}}" in query, f"Key '{key}' not found in query."
                     value = FileFactory.to_link(value)
                     query = query.replace("{{" + key + "}}", f"'{value}'")
 
@@ -324,16 +302,8 @@ class Agent(Model):
             "sessionId": session_id,
             "history": history,
             "executionParams": {
-                "maxTokens": (
-                    parameters["max_tokens"]
-                    if "max_tokens" in parameters
-                    else max_tokens
-                ),
-                "maxIterations": (
-                    parameters["max_iterations"]
-                    if "max_iterations" in parameters
-                    else max_iterations
-                ),
+                "maxTokens": (parameters["max_tokens"] if "max_tokens" in parameters else max_tokens),
+                "maxIterations": (parameters["max_iterations"] if "max_iterations" in parameters else max_iterations),
                 "outputFormat": output_format.value,
             },
         }
@@ -367,11 +337,7 @@ class Agent(Model):
             "assets": [tool.to_dict() for tool in self.tools],
             "description": self.description,
             "role": self.instructions,
-            "supplier": (
-                self.supplier.value["code"]
-                if isinstance(self.supplier, Supplier)
-                else self.supplier
-            ),
+            "supplier": (self.supplier.value["code"] if isinstance(self.supplier, Supplier) else self.supplier),
             "version": self.version,
             "llmId": self.llm_id,
             "status": self.status.value,
@@ -409,8 +375,7 @@ class Agent(Model):
         stack = inspect.stack()
         if len(stack) > 2 and stack[1].function != "save":
             warnings.warn(
-                "update() is deprecated and will be removed in a future version. "
-                "Please use save() instead.",
+                "update() is deprecated and will be removed in a future version. " "Please use save() instead.",
                 DeprecationWarning,
                 stacklevel=2,
             )
@@ -422,9 +387,7 @@ class Agent(Model):
 
         payload = self.to_dict()
 
-        logging.debug(
-            f"Start service for PUT Update Agent  - {url} - {headers} - {json.dumps(payload)}"
-        )
+        logging.debug(f"Start service for PUT Update Agent  - {url} - {headers} - {json.dumps(payload)}")
         resp = "No specified error."
         try:
             r = _request_with_retry("put", url, headers=headers, json=payload)
@@ -443,9 +406,11 @@ class Agent(Model):
         self.update()
 
     def deploy(self) -> None:
-        assert (
-            self.status == AssetStatus.DRAFT
-        ), "Agent must be in draft status to be deployed."
+        # check all tools are deployed
+        for tool in self.tools:
+            if tool.status != AssetStatus.ONBOARDED:
+                raise Exception("All tools must be deployed to deploy the agent.")
+        assert self.status == AssetStatus.DRAFT, "Agent must be in draft status to be deployed."
         assert self.status != AssetStatus.ONBOARDED, "Agent is already deployed."
         self.status = AssetStatus.ONBOARDED
         self.update()

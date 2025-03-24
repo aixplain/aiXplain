@@ -25,8 +25,7 @@ import time
 import json
 import os
 import logging
-from aixplain.enums.asset_status import AssetStatus
-from aixplain.enums.response_status import ResponseStatus
+from aixplain.enums import AssetStatus, ResponseStatus
 from aixplain.modules.asset import Asset
 from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
@@ -45,6 +44,7 @@ class Pipeline(Asset):
         url (Text, optional): running URL of platform. Defaults to config.BACKEND_URL.
         supplier (Text, optional): Pipeline supplier. Defaults to "aiXplain".
         version (Text, optional): version of the pipeline. Defaults to "1.0".
+        status (AssetStatus, optional): Pipeline status. Defaults to AssetStatus.DRAFT.
         **additional_info: Any additional Pipeline info to be saved
     """
 
