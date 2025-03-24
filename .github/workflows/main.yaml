@@ -17,14 +17,14 @@ jobs:
     strategy:
       matrix:
         test-suite: [
-          'general_assets',
-          'file_asset',
-          'data_asset',
-          'benchmark',
-          'pipelines',
-          'apikey',
-          'finetune',
-          'agent team_agent',
+          'tests/functional/general_assets',
+          'tests/functional/file_asset',
+          'tests/functional/data_asset',
+          'tests/functional/benchmark',
+          'tests/functional/pipelines',
+          'tests/functional/apikey',
+          'tests/functional/finetune',
+          'tests/functional/agent test/functional/team_agent',
         ]
     steps:
       - name: Checkout repository
@@ -50,4 +50,4 @@ jobs:
           echo "PIPELINES_RUN_URL=https://test-platform-api.aixplain.com/assets/pipeline/execution/run" >> $GITHUB_ENV
           
       - name: Run Tests
-        run: python -m pytest --rootdir=tests/functional ${{ matrix.test-suite}}
+        run: python -m pytest ${{ matrix.test-suite}}
