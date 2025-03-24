@@ -178,14 +178,6 @@ class UtilityModel(Model):
 
     def validate(self):
         """Validate the Utility Model."""
-        if self.status == AssetStatus.DRAFT:
-
-            warnings.warn(
-                "WARNING: This utility model is in DRAFT status and will expire after 24 hours after creation. "
-                "Call .deploy() to make it permanent.",
-                UserWarning,
-            )
-
         description = None
         name = None
         inputs = []

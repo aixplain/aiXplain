@@ -175,7 +175,7 @@ def test_save_utility_model():
                         utility_model.description = "updated_description"
                         utility_model.save()
 
-                        assert len(w) == 1  # only the DRAFT status warning should be triggered
+                        assert len(w) == 0
 
                     assert utility_model.id == model_id
                     assert utility_model.description == "updated_description"
@@ -466,12 +466,6 @@ def test_utility_model_creation_warning():
                 # Verify initial status is DRAFT
                 assert utility_model.status == AssetStatus.DRAFT
 
-                # Check warning is shown again during validation
-                with pytest.warns(
-                    UserWarning, match="WARNING: This utility model is in DRAFT status and will expire after 24 hours.*"
-                ):
-                    utility_model.validate()
-
 
 def test_utility_model_status_after_deployment():
     """Test that model status is updated correctly after deployment"""
@@ -495,12 +489,6 @@ def test_utility_model_status_after_deployment():
 
                 # Verify initial status is DRAFT
                 assert utility_model.status == AssetStatus.DRAFT
-
-                # Check that warning is logged for DRAFT status
-                with pytest.warns(
-                    UserWarning, match="WARNING: This utility model is in DRAFT status and will expire after 24 hours.*"
-                ):
-                    utility_model.validate()
 
                 # Mock the model existence check and update endpoints
                 mock.put(
