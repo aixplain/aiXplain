@@ -23,7 +23,7 @@ Description:
 import time
 import logging
 import traceback
-from aixplain.enums import Supplier, Function
+from aixplain.enums import Supplier, Function, AixplainCache
 from aixplain.modules.asset import Asset
 from aixplain.modules.model.utils import build_payload, call_run_endpoint
 from aixplain.utils import config
@@ -91,9 +91,28 @@ class Model(Asset):
             model_params (Dict, optional): parameters for the function.
             **additional_info: Any additional Model info to be saved
         """
+        ModelCache = AixplainCache("models", "models")
+        ModelEnum, ModelDetails = ModelCache.load_assets()
+
+        if id in ModelDetails:
+            cached_model = ModelDetails[id]
+
+            input_params = cached_model.get("params", input_params)
+            function = cached_model.get("function", {}).get("name", function)
+            name = cached_model.get("name", name)
+            supplier = cached_model.get("supplier", supplier)
+
+            created_at_str = cached_model.get("createdAt")
+            if created_at_str:
+                created_at = datetime.fromisoformat(created_at_str.replace("Z", "+00:00"))
+
+            cost = cached_model.get("pricing", cost)
+
+
         super().__init__(id, name, description, supplier, version, cost=cost)
         self.api_key = api_key
         self.additional_info = additional_info
+        self.name = name
         self.url = config.MODELS_RUN_URL
         self.backend_url = config.BACKEND_URL
         self.function = function
