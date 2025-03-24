@@ -8,6 +8,7 @@ from aixplain.enums.asset_status import AssetStatus
 from aixplain.modules.model.utility_model import UtilityModel, UtilityModelInput
 from aixplain.modules.model.utils import parse_code, parse_code_decorated
 from unittest.mock import patch
+import warnings
 
 
 def test_utility_model():
@@ -168,15 +169,13 @@ def test_save_utility_model():
                         api_key=config.TEAM_API_KEY,
                     )
 
-                    import warnings
-
                     # it should not trigger any warning
                     with warnings.catch_warnings(record=True) as w:
                         warnings.simplefilter("always")  # Trigger all warnings
                         utility_model.description = "updated_description"
                         utility_model.save()
 
-                        assert len(w) == 0
+                        assert len(w) == 1  # only the DRAFT status warning should be triggered
 
                     assert utility_model.id == model_id
                     assert utility_model.description == "updated_description"
@@ -443,6 +442,37 @@ def test_parse_code_with_class():
         parse_code_decorated(DummyModel())
 
 
+def test_utility_model_creation_warning():
+    """Test that appropriate warnings are shown during utility model creation and validation"""
+    with requests_mock.Mocker() as mock:
+        with patch("aixplain.factories.file_factory.FileFactory.to_link", return_value="s3://bucket/path/to/code"):
+            with patch("aixplain.factories.file_factory.FileFactory.upload", return_value="s3://bucket/path/to/code"):
+                # Mock the model creation
+                model_id = "123"
+                mock.post(urljoin(config.BACKEND_URL, "sdk/utilities"), json={"id": model_id})
+
+                # Mock the model existence check
+                mock.get(urljoin(config.BACKEND_URL, f"sdk/models/{model_id}"), status_code=200)
+
+                # Create the utility model and check for warning during creation
+                with pytest.warns(UserWarning, match="WARNING: Non-deployed utility models .* will expire after 24 hours.*"):
+                    utility_model = ModelFactory.create_utility_model(
+                        name="utility_model_test",
+                        description="utility_model_test",
+                        code='def main(input_string:str):\n    return f"Test output: {input_string}"\n',
+                        output_examples="output_description",
+                    )
+
+                # Verify initial status is DRAFT
+                assert utility_model.status == AssetStatus.DRAFT
+
+                # Check warning is shown again during validation
+                with pytest.warns(
+                    UserWarning, match="WARNING: This utility model is in DRAFT status and will expire after 24 hours.*"
+                ):
+                    utility_model.validate()
+
+
 def test_utility_model_status_after_deployment():
     """Test that model status is updated correctly after deployment"""
     with requests_mock.Mocker() as mock:
@@ -451,6 +481,9 @@ def test_utility_model_status_after_deployment():
                 # Mock the model creation
                 model_id = "123"
                 mock.post(urljoin(config.BACKEND_URL, "sdk/utilities"), json={"id": model_id})
+
+                # Mock the model existence check
+                mock.get(urljoin(config.BACKEND_URL, f"sdk/models/{model_id}"), status_code=200)
 
                 # Create the utility model
                 utility_model = ModelFactory.create_utility_model(
@@ -463,8 +496,13 @@ def test_utility_model_status_after_deployment():
                 # Verify initial status is DRAFT
                 assert utility_model.status == AssetStatus.DRAFT
 
+                # Check that warning is logged for DRAFT status
+                with pytest.warns(
+                    UserWarning, match="WARNING: This utility model is in DRAFT status and will expire after 24 hours.*"
+                ):
+                    utility_model.validate()
+
                 # Mock the model existence check and update endpoints
-                mock.get(urljoin(config.BACKEND_URL, f"sdk/models/{model_id}"), status_code=200)
                 mock.put(
                     urljoin(config.BACKEND_URL, f"sdk/utilities/{model_id}"),
                     json={"id": model_id, "status": AssetStatus.ONBOARDED.value},
@@ -475,3 +513,9 @@ def test_utility_model_status_after_deployment():
 
                 # Verify the status is updated to ONBOARDED
                 assert utility_model.status == AssetStatus.ONBOARDED
+
+                # Verify no warning is shown after deployment
+                with warnings.catch_warnings(record=True) as w:
+                    warnings.simplefilter("always")
+                    utility_model.validate()
+                    assert len(w) == 0

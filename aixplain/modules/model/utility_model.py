@@ -19,6 +19,7 @@ Description:
     Utility Model Class
 """
 import logging
+import warnings
 from aixplain.enums import Function, Supplier, DataType
 from aixplain.enums.asset_status import AssetStatus
 from aixplain.modules.model import Model
@@ -89,6 +90,9 @@ def utility_tool(
 
 class UtilityModel(Model):
     """Ready-to-use Utility Model.
+
+    Note: Non-deployed utility models (status=DRAFT) will expire after 24 hours after creation.
+    Use the .deploy() method to make the model permanent.
 
     Attributes:
         id (Text): ID of the Model
@@ -165,8 +169,23 @@ class UtilityModel(Model):
                 status = AssetStatus.DRAFT
         self.status = status
 
+        if status == AssetStatus.DRAFT:
+            warnings.warn(
+                "WARNING: Non-deployed utility models (status=DRAFT) will expire after 24 hours after creation. "
+                "Use .deploy() method to make the model permanent.",
+                UserWarning,
+            )
+
     def validate(self):
         """Validate the Utility Model."""
+        if self.status == AssetStatus.DRAFT:
+
+            warnings.warn(
+                "WARNING: This utility model is in DRAFT status and will expire after 24 hours after creation. "
+                "Call .deploy() to make it permanent.",
+                UserWarning,
+            )
+
         description = None
         name = None
         inputs = []

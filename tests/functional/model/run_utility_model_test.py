@@ -1,6 +1,6 @@
 from aixplain.factories import ModelFactory
 from aixplain.modules.model.utility_model import UtilityModelInput, utility_tool
-from aixplain.enums import DataType
+from aixplain.enums import DataType, AssetStatus
 import pytest
 
 
@@ -183,14 +183,14 @@ def test_utility_model_status():
         assert utility_model.inputs[0].type == DataType.TEXT
         assert utility_model.inputs[1].type == DataType.TEXT
 
-        # try to reinitialize the model
-        utility_model = ModelFactory.create_utility_model(
-            name="Location Utility Test",
-            code=get_user_location,
-        )
+        # Check initial status is DRAFT
+        assert utility_model.status == AssetStatus.DRAFT
 
         # deploy the model
         utility_model.deploy()
+
+        # Check status is now ONBOARDED
+        assert utility_model.status == AssetStatus.ONBOARDED
 
         # try  reinitialize the model this should fail
         # Second deployment attempt - should fail
