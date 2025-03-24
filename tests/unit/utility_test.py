@@ -83,7 +83,7 @@ def test_utility_model_to_dict():
                     "code": "utility_model_test",
                     "function": "utilities",
                     "outputDescription": "output_description",
-                    "status": AssetStatus.ONBOARDED.value,
+                    "status": AssetStatus.DRAFT.value,
                 }
 
 
@@ -441,3 +441,37 @@ def test_parse_code_with_class():
         match=r"Code must be either a string or a callable function, not a class or class instance\. You tried to pass a class or class instance: <.*\.DummyModel object at 0x[0-9a-f]+>",
     ):
         parse_code_decorated(DummyModel())
+
+
+def test_utility_model_status_after_deployment():
+    """Test that model status is updated correctly after deployment"""
+    with requests_mock.Mocker() as mock:
+        with patch("aixplain.factories.file_factory.FileFactory.to_link", return_value="s3://bucket/path/to/code"):
+            with patch("aixplain.factories.file_factory.FileFactory.upload", return_value="s3://bucket/path/to/code"):
+                # Mock the model creation
+                model_id = "123"
+                mock.post(urljoin(config.BACKEND_URL, "sdk/utilities"), json={"id": model_id})
+
+                # Create the utility model
+                utility_model = ModelFactory.create_utility_model(
+                    name="utility_model_test",
+                    description="utility_model_test",
+                    code='def main(input_string:str):\n    return f"Test output: {input_string}"\n',
+                    output_examples="output_description",
+                )
+
+                # Verify initial status is DRAFT
+                assert utility_model.status == AssetStatus.DRAFT
+
+                # Mock the model existence check and update endpoints
+                mock.get(urljoin(config.BACKEND_URL, f"sdk/models/{model_id}"), status_code=200)
+                mock.put(
+                    urljoin(config.BACKEND_URL, f"sdk/utilities/{model_id}"),
+                    json={"id": model_id, "status": AssetStatus.ONBOARDED.value},
+                )
+
+                # Deploy the model
+                utility_model.deploy()
+
+                # Verify the status is updated to ONBOARDED
+                assert utility_model.status == AssetStatus.ONBOARDED
