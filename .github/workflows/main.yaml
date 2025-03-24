@@ -24,7 +24,7 @@ jobs:
           'tests/functional/pipelines',
           'tests/functional/apikey',
           'tests/functional/finetune',
-          'tests/functional/agent test/functional/team_agent',
+          'tests/functional/agent tests/functional/team_agent',
         ]
     steps:
       - name: Checkout repository
