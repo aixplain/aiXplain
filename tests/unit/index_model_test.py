@@ -130,7 +130,8 @@ def test_validate_record_success(mocker):
     record = Record(uri="test.jpg", value_type="image", id=0, attributes={})
     record.validate()
     assert record.value_type == DataType.IMAGE
-    assert record.value == "https://example.com/test.jpg"
+    assert record.uri == "https://example.com/test.jpg"
+    assert record.value == ""
 
 
 def test_validate_record_failure(mocker):
@@ -160,16 +161,16 @@ def test_validate_record_failure_no_value(mocker):
 def test_record_to_dict():
     record = Record(value="test", value_type=DataType.TEXT, id=0, uri="", attributes={})
     record_dict = record.to_dict()
-    assert record_dict["value_type"] == "text"
+    assert record_dict["dataType"] == "text"
     assert record_dict["uri"] == ""
-    assert record_dict["value"] == "test"
-    assert record_dict["id"] == 0
+    assert record_dict["data"] == "test"
+    assert record_dict["document_id"] == 0
     assert record_dict["attributes"] == {}
 
     record = Record(value="test", value_type=DataType.IMAGE, id=0, uri="https://example.com/test.jpg", attributes={})
     record_dict = record.to_dict()
-    assert record_dict["value_type"] == "image"
+    assert record_dict["dataType"] == "image"
     assert record_dict["uri"] == "https://example.com/test.jpg"
-    assert record_dict["value"] == "test"
-    assert record_dict["id"] == 0
+    assert record_dict["data"] == "test"
+    assert record_dict["document_id"] == 0
     assert record_dict["attributes"] == {}

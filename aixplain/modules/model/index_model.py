@@ -54,7 +54,20 @@ class IndexModel(Model):
         self.backend_url = config.BACKEND_URL
         self.embedding_model = embedding_model
 
-    def search(self, query: str, top_k: int = 10, filters: Dict = {}) -> ModelResponse:
+    def search(self, query: str, top_k: int = 10, filters: List[Dict] = []) -> ModelResponse:
+        """Search for documents in the index
+
+        Args:
+            query (str): Query to be searched
+            top_k (int, optional): Number of results to be returned. Defaults to 10.
+            filters (List[Dict], optional): Filters to be applied. Defaults to [].
+
+        Returns:
+            ModelResponse: Response from the indexing service
+
+        Example:
+            index_model.search("Hello")
+        """
         from aixplain.factories import FileFactory
 
         uri, value_type = "", "text"
@@ -66,20 +79,32 @@ class IndexModel(Model):
 
         data = {
             "action": "search",
-            "data": query,
-            "datatype": value_type,
-            "payload": {"query": query, "uri": uri, "value_type": value_type, "filters": filters, "top_k": top_k},
+            "data": query or uri,
+            "dataType": value_type,
+            "filters": filters,
+            "payload": {"uri": uri, "value_type": value_type, "top_k": top_k},
         }
         return self.run(data=data)
 
     def upsert(self, documents: List[Record]) -> ModelResponse:
+        """Upsert documents into the index
+
+        Args:
+            documents (List[Record]): List of documents to be upserted
+
+        Returns:
+            ModelResponse: Response from the indexing service
+
+        Example:
+            index_model.upsert([Record(value="Hello, world!", value_type="text", uri="", id="1", attributes={})])
+        """
         # Validate documents
         for doc in documents:
             doc.validate()
         # Convert documents to payloads
         payloads = [doc.to_dict() for doc in documents]
         # Build payload
-        data = {"action": "ingest", "data": "", "payload": {"payloads": payloads}}
+        data = {"action": "ingest", "data": payloads}
         # Run the indexing service
         response = self.run(data=data)
         if response.status == ResponseStatus.SUCCESS:

@@ -20,14 +20,15 @@ class Record:
 
     def to_dict(self):
         return {
-            "value": self.value,
-            "value_type": str(self.value_type),
-            "id": self.id,
+            "data": self.value,
+            "dataType": str(self.value_type),
+            "document_id": self.id,
             "uri": self.uri,
             "attributes": self.attributes,
         }
 
     def validate(self):
+        """Validate the record"""
         from aixplain.factories import FileFactory
         from aixplain.modules.model.utils import is_supported_image_type
 
@@ -43,6 +44,6 @@ class Record:
         if storage_type in [StorageType.FILE, StorageType.URL]:
             if is_supported_image_type(self.uri):
                 self.value_type = DataType.IMAGE
-                self.value = FileFactory.to_link(self.uri) if storage_type == StorageType.FILE else self.uri
+                self.uri = FileFactory.to_link(self.uri) if storage_type == StorageType.FILE else self.uri
             else:
                 raise Exception(f"Index Upsert Error: Unsupported file type ({self.uri})")
