@@ -1,0 +1,17 @@
+{
+    "translation": {
+        "input": "This is a test sentence.",
+        "model_ids": ["61b097551efecf30109d32da", "60ddefbe8d38c51c5885f98a", "617048f63a3ab842ec080429"],
+        "output_keyword": "वाक्य"
+    },
+    "sentiment-analysis": {
+        "input": "This is a happy sentence about kittens.",
+        "model_ids": ["615f4c626eb56373643b09d3"],
+        "output_keyword": "POSITIVE"
+    },
+    "speech-recognition": {
+        "input": "data/test_audio.mp3",
+        "model_ids": ["60ddefab8d38c51c5885ee38", "60ddefab8d38c51c5885ee38"],
+        "output_keyword": "scored."
+    }
+}
