@@ -34,6 +34,7 @@ from datetime import datetime
 from aixplain.modules.model.response import ModelResponse
 from aixplain.enums.response_status import ResponseStatus
 from aixplain.modules.model.model_parameters import ModelParameters
+from aixplain.enums.aixplain_cache import AssetType
 
 
 class Model(Asset):
@@ -91,36 +92,69 @@ class Model(Asset):
             model_params (Dict, optional): parameters for the function.
             **additional_info: Any additional Model info to be saved
         """
-        ModelCache = AixplainCache("models", "models")
-        ModelEnum, ModelDetails = ModelCache.load_assets()
+        model_details = self._get_model_details_from_cache(id)
 
-        if id in ModelDetails:
-            cached_model = ModelDetails[id]
-
-            input_params = cached_model.get("params", input_params)
-            function = cached_model.get("function", {}).get("name", function)
-            name = cached_model.get("name", name)
-            supplier = cached_model.get("supplier", supplier)
-
-            created_at_str = cached_model.get("createdAt")
+        if model_details:
+            name = model_details.get("name", name)
+            description = model_details.get("description", description)
+            supplier = model_details.get("supplier", supplier)
+            version = model_details.get("version", version)
+            function = model_details.get("function", {}).get("name", function)
+            cost = model_details.get("pricing", cost)
+            input_params = model_details.get("params", input_params)
+            output_params = model_details.get("output_params", output_params)
+            model_params = model_details.get("model_params", model_params)
+            created_at_str = model_details.get("createdAt")
             if created_at_str:
                 created_at = datetime.fromisoformat(created_at_str.replace("Z", "+00:00"))
-
-            cost = cached_model.get("pricing", cost)
-
+            is_subscribed = model_details.get("is_subscribed", is_subscribed)
 
         super().__init__(id, name, description, supplier, version, cost=cost)
+
         self.api_key = api_key
-        self.additional_info = additional_info
-        self.name = name
-        self.url = config.MODELS_RUN_URL
-        self.backend_url = config.BACKEND_URL
         self.function = function
         self.is_subscribed = is_subscribed
         self.created_at = created_at
         self.input_params = input_params
         self.output_params = output_params
         self.model_params = ModelParameters(model_params) if model_params else None
+        self.url = config.MODELS_RUN_URL
+        self.backend_url = config.BACKEND_URL
+        self.additional_info = additional_info
+
+        if not model_details:
+            self._add_model_to_cache()
+
+    @staticmethod
+    def _get_model_details_from_cache(model_id: str) -> Optional[Dict]:
+        """
+        Private helper to load model details from the cache.
+        """
+        try:
+            model_cache = AixplainCache(AssetType.MODELS)
+            _, models_data = model_cache.load_assets()
+            model_asset = models_data.get(model_id)
+            return model_asset.__dict__ if model_asset else None
+        except Exception as e:
+            logging.error(f"Error loading model from cache: {e}")
+            traceback.print_exc()
+            return None
+
+    def _add_model_to_cache(self):
+        try:
+
+            model_cache = AixplainCache(AssetType.MODELS)
+            _, models_data = model_cache.load_assets()
+
+            models_data[self.id] = self
+
+            serializable_data = {mid: vars(m) for mid, m in models_data.items()}
+
+            model_cache.save_to_cache(model_cache.cache_file, {"items": list(serializable_data.values())}, model_cache.lock_file)
+
+            logging.info(f"Model {self.id} added to cache.")
+        except Exception as e:
+            logging.error(f"Failed to add model {self.id} to cache: {e}")
 
     def to_dict(self) -> Dict:
         """Get the model info as a Dictionary
