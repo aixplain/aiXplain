@@ -174,3 +174,12 @@ def test_record_to_dict():
     assert record_dict["data"] == "test"
     assert record_dict["document_id"] == 0
     assert record_dict["attributes"] == {}
+
+
+def test_index_filter():
+    from aixplain.modules.model.index_model import IndexFilter, IndexFilterOperator
+
+    filter = IndexFilter(field="category", value="world", operator=IndexFilterOperator.EQUALS)
+    assert filter.field == "category"
+    assert filter.value == "world"
+    assert filter.operator == IndexFilterOperator.EQUALS
