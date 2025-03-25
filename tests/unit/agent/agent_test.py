@@ -725,14 +725,14 @@ def test_create_agent_with_model_instance(mock_model_factory_get):
 
     # Verify the tool was converted correctly
     tool = agent.tools[0]
-    assert isinstance(tool, ModelTool)
-    assert tool.model.id == "model123"
-    assert tool.function == Function.TEXT_GENERATION
-    assert tool.supplier == Supplier.AIXPLAIN
-    assert isinstance(tool.model, Model)
-    assert isinstance(tool.model.model_params, ModelParameters)
-    assert tool.model.model_params.parameters["temperature"].required
-    assert not tool.model.model_params.parameters["max_tokens"].required
+    assert isinstance(tool, Model)
+    assert tool.id == "model123"
+    assert tool.name == model_tool.name
+    assert tool.function == model_tool.function
+    assert tool.supplier == model_tool.supplier
+    assert isinstance(tool.model_params, ModelParameters)
+    assert tool.model_params.parameters["temperature"].required
+    assert not tool.model_params.parameters["max_tokens"].required
 
 
 @patch("aixplain.factories.model_factory.ModelFactory.get")
@@ -858,14 +858,14 @@ def test_create_agent_with_mixed_tools(mock_model_factory_get):
 
     # Verify the first tool (Model instance converted to ModelTool)
     tool1 = agent.tools[0]
-    assert isinstance(tool1, ModelTool)
-    assert tool1.model.id == "model123"
-    assert tool1.function == Function.TEXT_GENERATION
-    assert tool1.supplier == Supplier.AIXPLAIN
-    assert isinstance(tool1.model, Model)
-    assert isinstance(tool1.model.model_params, ModelParameters)
-    assert tool1.model.model_params.parameters["temperature"].required
-    assert not tool1.model.model_params.parameters["max_tokens"].required
+    assert isinstance(tool1, Model)
+    assert tool1.id == "model123"
+    assert tool1.name == model_tool.name
+    assert tool1.function == model_tool.function
+    assert tool1.supplier == model_tool.supplier
+    assert isinstance(tool1.model_params, ModelParameters)
+    assert tool1.model_params.parameters["temperature"].required
+    assert not tool1.model_params.parameters["max_tokens"].required
 
     # Verify the second tool (regular ModelTool)
     tool2 = agent.tools[1]

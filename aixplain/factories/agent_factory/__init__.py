@@ -136,7 +136,7 @@ class AgentFactory:
             raise Exception("Agent Onboarding Error: Please contact the administrators.")
 
         if 200 <= r.status_code < 300:
-            agent = build_agent(payload=response, api_key=api_key)
+            agent = build_agent(payload=response, tools=tools, api_key=api_key)
         else:
             error_msg = f"Agent Onboarding Error: {response}"
             if "message" in response:
