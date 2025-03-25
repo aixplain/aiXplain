@@ -16,15 +16,17 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        test-suite: [
-          # 'tests/functional/general_assets',
+        test-suite: [          
           'tests/functional/file_asset',
           'tests/functional/data_asset',
           'tests/functional/benchmark',
-          'tests/functional/pipelines',
-          # 'tests/functional/apikey',
+          'tests/functional/pipelines/run_test.py',
+          'tests/functional/pipelines/designer_test.py',
+          'tests/functional/pipelines/create_test.py',
           'tests/functional/finetune',
-          # 'tests/functional/agent tests/functional/team_agent',
+          'tests/functional/general_assets',
+          'tests/functional/apikey',
+          'tests/functional/agent tests/functional/team_agent',
         ]
     steps:
       - name: Checkout repository
