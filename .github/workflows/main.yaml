@@ -25,8 +25,7 @@ jobs:
           'tests/functional/pipelines/create_test.py',
           'tests/functional/finetune',
           'tests/functional/general_assets',
-          'tests/functional/apikey',
-          'tests/functional/agent tests/functional/team_agent',
+          'tests/functional/agent tests/functional/team_agent tests/functional/apikey',
         ]
     steps:
       - name: Checkout repository
