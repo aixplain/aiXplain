@@ -43,6 +43,7 @@ from typing import Callable, Dict, List, Optional, Text, Union
 
 from aixplain.utils.file_utils import _request_with_retry
 from urllib.parse import urljoin
+from aixplain.enums import DatabaseSourceType
 
 
 class AgentFactory:
@@ -197,7 +198,7 @@ class AgentFactory:
         cls,
         description: Text,
         source: str,
-        source_type: str,
+        source_type: Union[str, DatabaseSourceType],
         schema: Optional[Text] = None,
         tables: Optional[List[Text]] = None,
         enable_commit: bool = False,
@@ -207,7 +208,7 @@ class AgentFactory:
         Args:
             description (Text): description of the database tool
             source (Union[Text, Dict]): database source - can be a connection string or dictionary with connection details
-            source_type (Text): type of source (postgresql, sqlite, csv)
+            source_type (Union[str, DatabaseSourceType]): type of source (postgresql, sqlite, csv) or DatabaseSourceType enum
             schema (Optional[Text], optional): database schema description
             tables (Optional[List[Text]], optional): table names to work with (optional)
             enable_commit (bool, optional): enable to modify the database (optional)
@@ -237,7 +238,6 @@ class AgentFactory:
             get_table_schema,
             get_table_names_from_schema,
         )
-        from aixplain.enums import DatabaseSourceType
 
         if not source:
             raise SQLToolError("Source must be provided")
@@ -245,27 +245,37 @@ class AgentFactory:
             raise SQLToolError("Source type must be provided")
 
         # Validate source type
-        try:
-            source_type = DatabaseSourceType.from_string(source_type)
-        except ValueError as e:
-            raise SQLToolError(str(e))
+        if isinstance(source_type, str):
+            try:
+                source_type = DatabaseSourceType.from_string(source_type)
+            except ValueError as e:
+                raise SQLToolError(str(e))
+        elif isinstance(source_type, DatabaseSourceType):
+            # Already the correct type, no conversion needed
+            pass
+        else:
+            raise SQLToolError(f"Source type must be either a string or DatabaseSourceType enum, got {type(source_type)}")
 
         database_path = None  # Final database path to pass to SQLTool
 
         # Handle CSV source type
         if source_type == DatabaseSourceType.CSV:
+
             if not os.path.exists(source):
                 raise SQLToolError(f"CSV file '{source}' does not exist")
             if not source.endswith(".csv"):
                 raise SQLToolError(f"File '{source}' is not a CSV file")
+            if tables and len(tables) > 1:
+                raise SQLToolError("CSV source type only supports one table")
 
             # Create database name from CSV filename or use custom table name
             base_name = os.path.splitext(os.path.basename(source))[0]
             db_path = os.path.join(os.path.dirname(source), f"{base_name}.db")
+            table_name = tables[0] if tables else None
 
             try:
                 # Create database from CSV
-                schema = create_database_from_csv(source, db_path)
+                schema = create_database_from_csv(source, db_path, table_name)
                 database_path = db_path
 
                 # Get table names if not provided
