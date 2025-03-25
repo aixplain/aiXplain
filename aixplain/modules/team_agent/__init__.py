@@ -174,7 +174,9 @@ class TeamAgent(Model):
                 return response
             poll_url = response["url"]
             end = time.time()
-            response = self.sync_poll(poll_url, name=name, timeout=timeout, wait_time=wait_time)
+            response = self.sync_poll(
+                poll_url, name=name, timeout=timeout, wait_time=wait_time
+            )
             return response
         except Exception as e:
             logging.error(f"Team Agent Run: Error in running for {name}: {e}")
@@ -222,7 +224,9 @@ class TeamAgent(Model):
         assert data is not None or query is not None, "Either 'data' or 'query' must be provided."
         if data is not None:
             if isinstance(data, dict):
-                assert "query" in data and data["query"] is not None, "When providing a dictionary, 'query' must be provided."
+                assert (
+                    "query" in data and data["query"] is not None
+                ), "When providing a dictionary, 'query' must be provided."
                 if session_id is None:
                     session_id = data.pop("session_id", None)
                 if history is None:
@@ -236,7 +240,8 @@ class TeamAgent(Model):
         # process content inputs
         if content is not None:
             assert (
-                isinstance(query, str) and FileFactory.check_storage_type(query) == StorageType.TEXT
+                isinstance(query, str)
+                and FileFactory.check_storage_type(query) == StorageType.TEXT
             ), "When providing 'content', query must be text."
 
             if isinstance(content, list):
@@ -246,7 +251,9 @@ class TeamAgent(Model):
                     query += f"\n{input_link}"
             elif isinstance(content, dict):
                 for key, value in content.items():
-                    assert "{{" + key + "}}" in query, f"Key '{key}' not found in query."
+                    assert (
+                        "{{" + key + "}}" in query
+                    ), f"Key '{key}' not found in query."
                     value = FileFactory.to_link(value)
                     query = query.replace("{{" + key + "}}", f"'{value}'")
 
@@ -270,7 +277,9 @@ class TeamAgent(Model):
         payload = json.dumps(payload)
 
         r = _request_with_retry("post", self.url, headers=headers, data=payload)
-        logging.info(f"Team Agent Run Async: Start service for {name} - {self.url} - {payload} - {headers}")
+        logging.info(
+            f"Team Agent Run Async: Start service for {name} - {self.url} - {payload} - {headers}"
+        )
 
         resp = None
         try:
@@ -300,9 +309,7 @@ class TeamAgent(Model):
             if r.status_code != 200:
                 raise Exception()
         except Exception:
-            message = (
-                f"Team Agent Deletion Error (HTTP {r.status_code}): Make sure the Team Agent exists and you are the owner."
-            )
+            message = f"Team Agent Deletion Error (HTTP {r.status_code}): Make sure the Team Agent exists and you are the owner."
             logging.error(message)
             raise Exception(f"{message}")
 
@@ -311,7 +318,8 @@ class TeamAgent(Model):
             "id": self.id,
             "name": self.name,
             "agents": [
-                {"assetId": agent.id, "number": idx, "type": "AGENT", "label": "AGENT"} for idx, agent in enumerate(self.agents)
+                {"assetId": agent.id, "number": idx, "type": "AGENT", "label": "AGENT"}
+                for idx, agent in enumerate(self.agents)
             ],
             "links": [],
             "description": self.description,
@@ -337,7 +345,9 @@ class TeamAgent(Model):
 
         try:
             llm = ModelFactory.get(self.llm_id)
-            assert llm.function == Function.TEXT_GENERATION, "Large Language Model must be a text generation model."
+            assert (
+                llm.function == Function.TEXT_GENERATION
+            ), "Large Language Model must be a text generation model."
         except Exception:
             raise Exception(f"Large Language Model with ID '{self.llm_id}' not found.")
 
@@ -367,7 +377,8 @@ class TeamAgent(Model):
         stack = inspect.stack()
         if len(stack) > 2 and stack[1].function != "save":
             warnings.warn(
-                "update() is deprecated and will be removed in a future version. " "Please use save() instead.",
+                "update() is deprecated and will be removed in a future version. "
+                "Please use save() instead.",
                 DeprecationWarning,
                 stacklevel=2,
             )
@@ -385,7 +396,9 @@ class TeamAgent(Model):
             r = _request_with_retry("put", url, headers=headers, json=payload)
             resp = r.json()
         except Exception:
-            raise Exception("Team Agent Update Error: Please contact the administrators.")
+            raise Exception(
+                "Team Agent Update Error: Please contact the administrators."
+            )
 
         if 200 <= r.status_code < 300:
             return build_team_agent(resp)

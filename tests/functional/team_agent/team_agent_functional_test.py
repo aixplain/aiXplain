@@ -125,10 +125,13 @@ def verify_inspector_steps(steps, num_inspectors):
     assert len(inspector_counts) == num_inspectors, f"Expected {num_inspectors} inspectors, found {len(inspector_counts)}"
 
     if len(inspector_counts) > 0:
+        first_inspector = next(iter(inspector_counts))
         first_count = next(iter(inspector_counts.values()))
         for inspector, count in inspector_counts.items():
             assert count > 0, f"Inspector {inspector} has no steps"
-            assert count == first_count, f"Inspector {inspector} has {count} steps, expected {first_count}"
+            assert (
+                count == first_count
+            ), f"Inspector {inspector} has {count} steps, different from {first_inspector} with {first_count} steps"
             print(f"Inspector {inspector} has {count} steps")
 
     return inspector_counts

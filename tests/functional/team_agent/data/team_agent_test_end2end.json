@@ -12,7 +12,8 @@
                 "model_tools": [
                     {
                         "function": "translation",
-                        "supplier": "AWS"
+                        "supplier": "AWS",
+                        "description": "Translate text to Portuguese"
                     }
                 ]
             },
@@ -23,7 +24,8 @@
                 "model_tools": [
                     {
                         "function": "speech-synthesis",
-                        "supplier": "Google"
+                        "supplier": "Google",
+                        "description": "Synthesize text to audio"
                     }
                 ]
             }
