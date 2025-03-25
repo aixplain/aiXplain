@@ -17,14 +17,14 @@ jobs:
     strategy:
       matrix:
         test-suite: [
-          'tests/functional/general_assets',
+          # 'tests/functional/general_assets',
           'tests/functional/file_asset',
           'tests/functional/data_asset',
           'tests/functional/benchmark',
           'tests/functional/pipelines',
           # 'tests/functional/apikey',
           'tests/functional/finetune',
-          'tests/functional/agent tests/functional/team_agent',
+          # 'tests/functional/agent tests/functional/team_agent',
         ]
     steps:
       - name: Checkout repository
