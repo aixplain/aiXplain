@@ -32,6 +32,7 @@ from aixplain.modules.model import Model
 from aixplain.modules.agent.agent_task import AgentTask
 from aixplain.modules.agent.output_format import OutputFormat
 from aixplain.modules.agent.tool import Tool
+from aixplain.modules.agent.tool.model_tool import ModelTool
 from aixplain.modules.agent.agent_response import AgentResponse
 from aixplain.modules.agent.agent_response_data import AgentResponseData
 from aixplain.modules.agent.utils import process_variables
@@ -198,6 +199,8 @@ class Agent(Model):
             poll_url = response["url"]
             end = time.time()
             result = self.sync_poll(poll_url, name=name, timeout=timeout, wait_time=wait_time)
+            if result.status == ResponseStatus.FAILED:
+                raise Exception("Model failed to run with error: " + result.error_message)
             result_data = result.data
             return AgentResponse(
                 status=ResponseStatus.SUCCESS,
@@ -405,13 +408,49 @@ class Agent(Model):
         """Save the Agent."""
         self.update()
 
+    def _get_not_onboarded_tools(self, tools: List[Tool]) -> List[Tool]:
+        """Internal method to get tools that are not onboarded.
+
+        Args:
+            tools (List[Tool]): List of tools to check
+
+        Returns:
+            List[Tool]: List of tools that are not onboarded
+        """
+        return [tool for tool in tools if tool.status != AssetStatus.ONBOARDED]
+
+    def _is_ready_to_deploy(self) -> bool:
+        """Internal method to check if the agent is ready to be deployed.
+
+        Raises:
+            Exception: If the agent is not in draft status
+            Exception: If the agent is already deployed
+            Exception: If any tools are not deployed
+
+        Returns:
+            bool: True if the agent is ready to be deployed
+        """
+        if self.status != AssetStatus.DRAFT:
+            raise Exception("Agent Deployment Error: Agent must be in draft status to be deployed.")
+        if self.status == AssetStatus.ONBOARDED:
+            raise Exception("Agent Deployment Error: Agent is already deployed.")
+
+        not_onboarded_tools = self._get_not_onboarded_tools(self.tools)
+        if len(not_onboarded_tools) > 0:
+            # If modeltool use model as name, otherwise use name
+            tool_names = ", ".join(
+                [
+                    tool.name if tool.name else tool.model if isinstance(tool, ModelTool) else tool.name
+                    for tool in not_onboarded_tools
+                ]
+            )
+            raise Exception(f"Agent Deployment Error: All tools must be deployed first. Not deployed: {tool_names}")
+
+        return True
+
     def deploy(self) -> None:
-        # check all tools are deployed
-        for tool in self.tools:
-            if tool.status != AssetStatus.ONBOARDED:
-                raise Exception("All tools must be deployed to deploy the agent.")
-        assert self.status == AssetStatus.DRAFT, "Agent must be in draft status to be deployed."
-        assert self.status != AssetStatus.ONBOARDED, "Agent is already deployed."
+        """Deploy the Agent."""
+        self._is_ready_to_deploy()
         self.status = AssetStatus.ONBOARDED
         self.update()
 

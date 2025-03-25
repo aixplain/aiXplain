@@ -22,6 +22,7 @@ Description:
 """
 
 from aixplain.modules.agent.tool import Tool
+from aixplain.enums import AssetStatus
 
 
 class PythonInterpreterTool(Tool):
@@ -30,6 +31,7 @@ class PythonInterpreterTool(Tool):
     def __init__(self, **additional_info) -> None:
         """Python Interpreter Tool"""
         super().__init__(name="Python Interpreter", description="", **additional_info)
+        self.status = AssetStatus.ONBOARDED  # TODO: change to DRAFT when we have a way to onboard the tool
 
     def to_dict(self):
         return {

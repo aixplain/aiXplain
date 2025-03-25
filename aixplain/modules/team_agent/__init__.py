@@ -393,13 +393,28 @@ class TeamAgent(Model):
             error_msg = f"Team Agent Update Error (HTTP {r.status_code}): {resp}"
             raise Exception(error_msg)
 
+    def _get_not_onboarded_agents(self, agents: List[Agent]) -> List[Agent]:
+        return [agent for agent in agents if agent.status != AssetStatus.ONBOARDED]
+
+    def _is_ready_to_deploy(self) -> bool:
+        if self.status != AssetStatus.DRAFT:
+            raise Exception("Team Agent Deployment Error: Team Agent must be in draft status to be deployed.")
+        if self.status == AssetStatus.ONBOARDED:
+            raise Exception("Team Agent Deployment Error: Team Agent is already deployed.")
+
+        not_onboarded_agents = self._get_not_onboarded_agents(self.agents)
+        if len(not_onboarded_agents) > 0:
+            agent_names = ", ".join([agent.name for agent in not_onboarded_agents])
+            raise Exception(f"Team Agent Deployment Error: All agents must be deployed first. Not deployed: {agent_names}")
+
+        return True
+
     def save(self) -> None:
         """Save the Team Agent."""
         self.update()
 
     def deploy(self) -> None:
         """Deploy the Team Agent."""
-        assert self.status == AssetStatus.DRAFT, "Team Agent Deployment Error: Team Agent must be in draft status."
-        assert self.status != AssetStatus.ONBOARDED, "Team Agent Deployment Error: Team Agent must be onboarded."
+        self._is_ready_to_deploy()
         self.status = AssetStatus.ONBOARDED
         self.update()

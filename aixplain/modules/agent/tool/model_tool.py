@@ -22,8 +22,7 @@ Description:
 """
 from typing import Optional, Union, Text, Dict, List
 
-from aixplain.enums.function import Function
-from aixplain.enums.supplier import Supplier
+from aixplain.enums import AssetStatus, Function, Supplier
 from aixplain.modules.agent.tool import Tool
 from aixplain.modules.model import Model
 
@@ -83,12 +82,16 @@ class ModelTool(Tool):
                 self.model_object = model
             else:
                 self.model_object = model
+            status = model.status
             function = model.function
             if isinstance(model.supplier, Supplier):
                 supplier = model.supplier
             model = model.id
+        else:
+            status = AssetStatus.ONBOARDED
         self.supplier = supplier
         self.model = model
+        self.status = status
         self.function = function
         self.parameters = self.validate_parameters(parameters)
 
@@ -112,6 +115,7 @@ class ModelTool(Tool):
             "version": self.version if self.version else None,
             "assetId": self.model,
             "parameters": self.parameters,
+            "status": self.status,
         }
 
     def validate(self) -> Model:
