@@ -4,7 +4,37 @@ from aixplain.utils import config
 from aixplain.modules.model.response import ModelResponse
 from typing import Text, Optional, Union, Dict
 from aixplain.modules.model.record import Record
+from enum import Enum
 from typing import List
+
+
+class IndexFilterOperator(Enum):
+    EQUALS = "=="
+    NOT_EQUALS = "!="
+    CONTAINS = "in"
+    NOT_CONTAINS = "not in"
+    GREATER_THAN = ">"
+    LESS_THAN = "<"
+    GREATER_THAN_OR_EQUALS = ">="
+    LESS_THAN_OR_EQUALS = "<="
+
+
+class IndexFilter:
+    field: str
+    value: str
+    operator: Union[IndexFilterOperator, str]
+
+    def __init__(self, field: str, value: str, operator: Union[IndexFilterOperator, str]):
+        self.field = field
+        self.value = value
+        self.operator = operator
+
+    def to_dict(self):
+        return {
+            "field": self.field,
+            "value": self.value,
+            "operator": self.operator.value if isinstance(self.operator, IndexFilterOperator) else self.operator,
+        }
 
 
 class IndexModel(Model):
@@ -54,19 +84,20 @@ class IndexModel(Model):
         self.backend_url = config.BACKEND_URL
         self.embedding_model = embedding_model
 
-    def search(self, query: str, top_k: int = 10, filters: List[Dict] = []) -> ModelResponse:
+    def search(self, query: str, top_k: int = 10, filters: List[IndexFilter] = []) -> ModelResponse:
         """Search for documents in the index
 
         Args:
             query (str): Query to be searched
             top_k (int, optional): Number of results to be returned. Defaults to 10.
-            filters (List[Dict], optional): Filters to be applied. Defaults to [].
+            filters (List[IndexFilter], optional): Filters to be applied. Defaults to [].
 
         Returns:
             ModelResponse: Response from the indexing service
 
         Example:
-            index_model.search("Hello")
+            - index_model.search("Hello")
+            - index_model.search("", filters=[IndexFilter(field="category", value="animate", operator=IndexFilterOperator.EQUALS)])
         """
         from aixplain.factories import FileFactory
 
@@ -81,7 +112,7 @@ class IndexModel(Model):
             "action": "search",
             "data": query or uri,
             "dataType": value_type,
-            "filters": filters,
+            "filters": [filter.to_dict() for filter in filters],
             "payload": {"uri": uri, "value_type": value_type, "top_k": top_k},
         }
         return self.run(data=data)

@@ -90,6 +90,39 @@ def test_index_model(embedding_model):
     index_model.delete()
 
 
+@pytest.mark.parametrize(
+    "embedding_model",
+    [
+        pytest.param(EmbeddingModel.SNOWFLAKE_ARCTIC_EMBED_M_LONG, id="Snowflake Arctic Embed M Long"),
+        pytest.param(EmbeddingModel.OPENAI_ADA002, id="OpenAI Ada 002"),
+        pytest.param(EmbeddingModel.SNOWFLAKE_ARCTIC_EMBED_L_V2_0, id="Snowflake Arctic Embed L v2.0"),
+        pytest.param(EmbeddingModel.JINA_CLIP_V2_MULTIMODAL, id="Jina Clip v2 Multimodal"),
+    ],
+)
+def test_index_model_with_filter(embedding_model):
+    from uuid import uuid4
+    from aixplain.modules.model.record import Record
+    from aixplain.factories import IndexFactory
+    from aixplain.modules.model.index_model import IndexFilter, IndexFilterOperator
+
+    for index in IndexFactory.list()["results"]:
+        index.delete()
+
+    index_model = IndexFactory.create(name=str(uuid4()), description=str(uuid4()), embedding_model=embedding_model)
+    index_model.upsert([Record(value="Hello, aiXplain!", value_type="text", uri="", id="1", attributes={"category": "hello"})])
+    index_model.upsert(
+        [Record(value="The world is great", value_type="text", uri="", id="2", attributes={"category": "world"})]
+    )
+    assert index_model.count() == 2
+    response = index_model.search(
+        "", filters=[IndexFilter(field="category", value="world", operator=IndexFilterOperator.EQUALS)]
+    )
+    assert str(response.status) == "SUCCESS"
+    assert "world" in response.data.lower()
+    assert len(response.details) == 1
+    index_model.delete()
+
+
 def test_llm_run_with_file():
     """Testing LLM with local file input containing emoji"""
 
