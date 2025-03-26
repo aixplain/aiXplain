@@ -69,13 +69,22 @@ def test_index_model():
     assert str(response.status) == "SUCCESS"
     assert "world" in response.data.lower()
     assert index_model.count() == 1
+
     index_model.upsert([Record(value="Hello, aiXplain!", value_type="text", uri="", id="1", attributes={})])
     response = index_model.search("aiXplain")
     assert str(response.status) == "SUCCESS"
     assert "aixplain" in response.data.lower()
     assert index_model.count() == 1
-    index_model.delete()
 
+    response = index_model.get_document("1")
+    assert str(response.status) == "SUCCESS"
+    assert response.data == "Hello, aiXplain!"
+    assert index_model.count() == 1
+
+    response = index_model.delete_document("1")
+    assert str(response.status) == "SUCCESS"
+    assert index_model.count() == 0
+    index_model.delete()
 
 def test_llm_run_with_file():
     """Testing LLM with local file input containing emoji"""
