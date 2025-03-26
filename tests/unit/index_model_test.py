@@ -76,3 +76,28 @@ def test_count_success():
 
     assert isinstance(response, int)
     assert response == 4
+
+def test_get_document_success():
+    mock_response = {"status": "SUCCESS"}
+    mock_documents = [Record(value="Sample document content 1", value_type="text", id=0, uri="", attributes={})]
+    with requests_mock.Mocker() as mock:
+        mock.post(execute_url, json=mock_response, status_code=200)
+        index_model = IndexModel(id=index_id, data=data, name="name", function=Function.SEARCH)
+        index_model.upsert(mock_documents)
+        response = index_model.get_document(0)
+
+    assert isinstance(response, ModelResponse)
+    assert response.status == ResponseStatus.SUCCESS
+    assert response.data == mock_documents[0]
+
+def test_delete_document_success():
+    mock_response = {"status": "SUCCESS"}
+
+    with requests_mock.Mocker() as mock:
+        mock.post(execute_url, json=mock_response, status_code=200)
+        index_model = IndexModel(id=index_id, data=data, name="name", function=Function.SEARCH)
+        response = index_model.delete_document("123")
+
+    assert isinstance(response, ModelResponse)
+    assert response.status == ResponseStatus.SUCCESS
+

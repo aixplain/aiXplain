@@ -90,7 +90,7 @@ class IndexModel(Model):
         data = {"action": "get_document", "data": document_id}
         response = self.run(data=data)
         if response.status == "SUCCESS":
-            return response.data
+            return response
         raise Exception(f"Failed to get document: {response.error_message}")
 
     def delete_document(self, document_id: Text) -> ModelResponse:
