@@ -1,0 +1,59 @@
+name: Run Tests
+
+on:
+  push:
+    branches:
+      - test
+      - ENG-1852
+  pull_request:
+    branches:
+      - test
+      - ENG-1852
+  workflow_dispatch:  
+
+jobs:
+  setup-and-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        test-suite: [          
+          'tests/functional/file_asset',
+          'tests/functional/data_asset',
+          'tests/functional/benchmark',
+          'tests/functional/pipelines/run_test.py --pipeline_version 2.0 --sdk_version v1 --sdk_version_param PipelineFactory',
+          'tests/functional/pipelines/run_test.py --pipeline_version 2.0 --sdk_version v2 --sdk_version_param PipelineFactory',
+          'tests/functional/pipelines/run_test.py --pipeline_version 3.0 --sdk_version v1 --sdk_version_param PipelineFactory',
+          'tests/functional/pipelines/run_test.py --pipeline_version 3.0 --sdk_version v2 --sdk_version_param PipelineFactory',
+          'tests/functional/pipelines/designer_test.py',
+          'tests/functional/pipelines/create_test.py',
+          'tests/functional/finetune --sdk_version v1 --sdk_version_param FinetuneFactory',
+          'tests/functional/finetune --sdk_version v2 --sdk_version_param FinetuneFactory',
+          'tests/functional/general_assets',
+          'tests/functional/apikey',
+          'tests/functional/agent tests/functional/team_agent',
+        ]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.8"
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install .
+          pip install pytest
+
+      - name: Set environment variables
+        run: |
+          echo "TEAM_API_KEY=${{ secrets.TEAM_API_KEY }}" >> $GITHUB_ENV
+          echo "BACKEND_URL=https://test-platform-api.aixplain.com/" >> $GITHUB_ENV
+          echo "MODELS_RUN_URL=https://test-models.aixplain.com/api/v1/execute" >> $GITHUB_ENV
+          echo "PIPELINES_RUN_URL=https://test-platform-api.aixplain.com/assets/pipeline/execution/run" >> $GITHUB_ENV
+          
+      - name: Run Tests
+        run: python -m pytest ${{ matrix.test-suite}}
