@@ -1,4 +1,3 @@
-import re
 from typing import (
     List,
     Union,
@@ -131,6 +130,7 @@ class Link(Serializable):
     to_node: "Node"
     from_param: str
     to_param: str
+    data_source_id: Optional[str] = None
 
     pipeline: Optional["DesignerPipeline"] = None
 
@@ -140,6 +140,7 @@ class Link(Serializable):
         to_node: "Node",
         from_param: Union[Param, str],
         to_param: Union[Param, str],
+        data_source_id: Optional[str] = None,
         pipeline: "DesignerPipeline" = None,
     ):
 
@@ -171,6 +172,7 @@ class Link(Serializable):
         self.to_node = to_node
         self.from_param = from_param
         self.to_param = to_param
+        self.data_source_id = data_source_id
 
         if pipeline:
             self.attach_to(pipeline)
@@ -224,15 +226,17 @@ class Link(Serializable):
     def serialize(self) -> dict:
         assert self.from_node.number is not None, "From node number not set"
         assert self.to_node.number is not None, "To node number not set"
+        param_mapping = {
+            "from": self.from_param,
+            "to": self.to_param,
+        }
+        if self.data_source_id:
+            param_mapping["dataSourceId"] = self.data_source_id
+
         return {
             "from": self.from_node.number,
             "to": self.to_node.number,
-            "paramMapping": [
-                {
-                    "from": self.from_param,
-                    "to": self.to_param,
-                }
-            ],
+            "paramMapping": [param_mapping],
         }
 
 
