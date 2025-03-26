@@ -29,6 +29,7 @@ from aixplain.modules.model.utils import parse_code_decorated
 from dataclasses import dataclass
 from typing import Callable, Union, Optional, List, Text, Dict
 from urllib.parse import urljoin
+from aixplain.modules.mixins import DeployableMixin
 
 
 @dataclass
@@ -88,7 +89,7 @@ def utility_tool(
     return decorator
 
 
-class UtilityModel(Model):
+class UtilityModel(Model, DeployableMixin):
     """Ready-to-use Utility Model.
 
     Note: Non-deployed utility models (status=DRAFT) will expire after 24 hours after creation.
@@ -280,8 +281,12 @@ class UtilityModel(Model):
             logging.error(message)
             raise Exception(f"{message}")
 
+    def _validate_deployment_readiness(self) -> None:
+        """Validate if the utility model is ready to be deployed."""
+        super()._validate_deployment_readiness()
+
     def deploy(self) -> None:
-        assert self.status == AssetStatus.DRAFT, "Utility Model must be in draft status to be deployed."
-        assert self.status != AssetStatus.ONBOARDED, "Utility Model is already deployed."
+        """Deploy the Utility Model."""
+        self._validate_deployment_readiness()
         self.status = AssetStatus.ONBOARDED
         self.update()

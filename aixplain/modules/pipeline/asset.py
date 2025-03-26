@@ -1,7 +1,7 @@
 __author__ = "aiXplain"
 
 """
-Copyright 2022 The aiXplain SDK authors
+Copyright 2024 The aiXplain SDK authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -15,10 +15,10 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 
-Author: Duraikrishna Selvaraju, Thiago Castro Ferreira, Shreyas Sharma and Lucas Pavanelli
-Date: September 1st 2022
+Author: Thiago Castro Ferreira, Shreyas Sharma and Lucas Pavanelli
+Date: November 25th 2024
 Description:
-    Pipeline Class
+    Pipeline Asset Class
 """
 
 import time
@@ -26,15 +26,16 @@ import json
 import os
 import logging
 from aixplain.enums import AssetStatus, ResponseStatus
-from aixplain.modules.asset import Asset
+from aixplain.modules import Asset
 from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
 from typing import Dict, Optional, Text, Union
 from urllib.parse import urljoin
 from aixplain.modules.pipeline.response import PipelineResponse
+from aixplain.modules.mixins import DeployableMixin
 
 
-class Pipeline(Asset):
+class Pipeline(Asset, DeployableMixin):
     """Representing a custom pipeline that was created on the aiXplain Platform
 
     Attributes:
@@ -592,11 +593,13 @@ class Pipeline(Asset):
         except Exception as e:
             raise Exception(e)
 
+    def _validate_deployment_readiness(self) -> None:
+        """Validate if the pipeline is ready to be deployed."""
+        super()._validate_deployment_readiness()
+
     def deploy(self, api_key: Optional[Text] = None) -> None:
         """Deploy the Pipeline."""
-        assert self.status == "draft", "Pipeline Deployment Error: Pipeline must be in draft status."
-        assert self.status != "onboarded", "Pipeline Deployment Error: Pipeline must be onboarded."
-
+        self._validate_deployment_readiness()
         pipeline = self.to_dict()
         self.update(pipeline=pipeline, save_as_asset=True, api_key=api_key, name=self.name)
         self.status = AssetStatus.ONBOARDED
