@@ -29,7 +29,8 @@ jobs:
           'tests/functional/finetune --sdk_version v1 --sdk_version_param FinetuneFactory',
           'tests/functional/finetune --sdk_version v2 --sdk_version_param FinetuneFactory',
           'tests/functional/general_assets',
-          'tests/functional/agent tests/functional/team_agent tests/functional/apikey',
+          'tests/functional/apikey',
+          'tests/functional/agent tests/functional/team_agent',
         ]
     steps:
       - name: Checkout repository
