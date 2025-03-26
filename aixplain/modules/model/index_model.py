@@ -112,5 +112,5 @@ class IndexModel(Model):
         data = {"action": "delete", "data": document_id}
         response = self.run(data=data)
         if response.status == "SUCCESS":
-            return response.data
+            return response
         raise Exception(f"Failed to delete document: {response.error_message}")
