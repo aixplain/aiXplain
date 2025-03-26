@@ -1,3 +1,6 @@
+import pytest
+from typing import Any, Callable
+
 from dotenv import load_dotenv
 
 # Load environment variables once for all tests
@@ -16,7 +19,7 @@ PIPELINE_VERSION_3_0 = "3.0"
 PIPELINE_VERSIONS = [PIPELINE_VERSION_2_0, PIPELINE_VERSION_3_0]
 
 
-def pytest_addoption(parser):
+def pytest_addoption(parser: pytest.Parser):
     # Here we're adding the options for the pipeline version and the sdk version
     parser.addoption(f"{PIPELINE_VERSION_ARG}", action="store", help="pipeline version")
     parser.addoption(f"{SDK_VERSION_ARG}", action="store", help="sdk version")
@@ -25,7 +28,7 @@ def pytest_addoption(parser):
     )
 
 
-def filter_items(items, param_name, predicate):
+def filter_items(items: list, param_name: str, predicate: Callable):
     """Filter the items based on the parameter name and the predicate.
 
     Args:
@@ -42,7 +45,7 @@ def filter_items(items, param_name, predicate):
     ]
 
 
-def filter_pipeline_version(items, pipeline_version):
+def filter_pipeline_version(items: list, pipeline_version: str):
     """Filter the items based on the pipeline version.
 
     Args:
@@ -58,7 +61,7 @@ def filter_pipeline_version(items, pipeline_version):
     filter_items(items, "version", lambda version: version == pipeline_version)
 
 
-def filter_sdk_version(items, sdk_version, sdk_param):
+def filter_sdk_version(items: list, sdk_version: str, sdk_param: str):
     """Filter the items based on the SDK version.
 
     Args:
@@ -73,7 +76,7 @@ def filter_sdk_version(items, sdk_version, sdk_param):
 
     from aixplain.v2.resource import BaseResource
 
-    def predicate(param):
+    def predicate(param: Any):
         return (
             issubclass(param, BaseResource)
             if sdk_version == SDK_VERSION_V1
@@ -83,7 +86,9 @@ def filter_sdk_version(items, sdk_version, sdk_param):
     filter_items(items, sdk_param, predicate)
 
 
-def pytest_collection_modifyitems(session, config, items):
+def pytest_collection_modifyitems(
+    session: pytest.Session, config: pytest.Config, items: list
+):
     """Modify the items based on the pipeline version and the SDK version.
 
     Args:
