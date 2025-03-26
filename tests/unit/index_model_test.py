@@ -78,7 +78,7 @@ def test_count_success():
     assert response == 4
 
 def test_get_document_success():
-    mock_response = {"status": "SUCCESS"}
+    mock_response = {"status": "SUCCESS", "data": {"value": "Sample document content 1", "value_type": "text", "id": 0, "uri": "", "attributes": {}}}
     mock_documents = [Record(value="Sample document content 1", value_type="text", id=0, uri="", attributes={})]
     with requests_mock.Mocker() as mock:
         mock.post(execute_url, json=mock_response, status_code=200)
