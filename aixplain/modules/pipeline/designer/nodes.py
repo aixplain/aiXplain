@@ -394,11 +394,11 @@ class DecisionInputs(Inputs):
 
 
 class DecisionOutputs(Outputs):
-    input: OutputParam = None
+    data: OutputParam = None
 
     def __init__(self, node: Node):
         super().__init__(node)
-        self.input = self.create_param("input")
+        self.data = self.create_param("data")
 
 
 class Decision(Node[DecisionInputs, DecisionOutputs], LinkableMixin):
@@ -425,7 +425,16 @@ class Decision(Node[DecisionInputs, DecisionOutputs], LinkableMixin):
         to_param: Union[str, Param],
     ) -> Link:
         link = super().link(to_node, from_param, to_param)
-        self.outputs.input.data_type = self.inputs.passthrough.data_type
+        if isinstance(from_param, str):
+            from_param = self.inputs[from_param]
+
+        if from_param.code == "data":
+            self.outputs.data.data_type = from_param.data_type
+            if not self.inputs.passthrough.link_:
+                raise ValueError("To able to infer data source, "
+                                 "passthrough input param should be linked first.")
+            link.data_source_id = self.inputs.passthrough.link_.from_node.number
+
         return link
 
     def serialize(self) -> dict:
