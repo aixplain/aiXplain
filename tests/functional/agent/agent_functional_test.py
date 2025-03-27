@@ -418,7 +418,7 @@ def test_sql_tool_with_csv(delete_agents_and_team_agents, AgentFactory):
     assert tool.tables == ["employees"]
     assert (
         tool.schema
-        == 'CREATE TABLE test (\n                    "id" INTEGER, "name" TEXT, "department" TEXT, "salary" INTEGER\n                )'  # noqa: W503
+        == 'CREATE TABLE employees (\n                    "id" INTEGER, "name" TEXT, "department" TEXT, "salary" INTEGER\n                )'  # noqa: W503
     )
     assert not tool.enable_commit  # must be False by default
 
