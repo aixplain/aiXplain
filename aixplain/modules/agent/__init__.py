@@ -210,6 +210,8 @@ class Agent(Model):
             result = self.sync_poll(
                 poll_url, name=name, timeout=timeout, wait_time=wait_time
             )
+            if result.status == ResponseStatus.FAILED:
+                raise RuntimeError(f"Polling failed for {name} with status: {result.status}")
             result_data = result.data
             return AgentResponse(
                 status=ResponseStatus.SUCCESS,
