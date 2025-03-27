@@ -2,7 +2,7 @@
     {"model_name": "Llama 2 7b", "model_id": "6543cb991f695e72028e9428", "dataset_name": "Test text generation dataset"},
     {"model_name": "Llama 2 7B Chat", "model_id": "65519ee7bf42e6037ab109d8", "dataset_name": "Test text generation dataset"},
     {"model_name": "Mistral 7b", "model_id": "6551a9e7bf42e6037ab109de", "dataset_name": "Test text generation dataset"},
-    {"model_name": "Solar 10b", "model_id": "65b7baac1d5ea75105c14971", "dataset_name": "Test text generation dataset"},
+    {"model_name": "Mistral 7B Instruct v0.3", "model_id": "6551a9e7bf42e6037ab109de", "dataset_name": "Test text generation dataset"},
     {"model_name": "Falcon 7b", "model_id": "6551bff9bf42e6037ab109e1", "dataset_name": "Test text generation dataset"},
     {"model_name": "Falcon 7b Instruct", "model_id": "65519d57bf42e6037ab109d5", "dataset_name": "Test text generation dataset"},
     {"model_name": "MPT 7b", "model_id": "6551a72bbf42e6037ab109d9", "dataset_name": "Test text generation dataset"},

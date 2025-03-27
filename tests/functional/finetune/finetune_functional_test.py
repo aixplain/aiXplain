@@ -25,7 +25,6 @@ from aixplain.factories import DatasetFactory
 from aixplain.factories import FinetuneFactory
 from aixplain.modules.finetune.cost import FinetuneCost
 from aixplain.enums import Function, Language
-from datetime import datetime, timedelta, timezone
 
 import pytest
 from aixplain import aixplain_v2 as v2
@@ -56,39 +55,17 @@ def validate_prompt_input_map(request):
     return request.param
 
 
-def pytest_generate_tests(metafunc):
-    if "input_map" in metafunc.fixturenames:
-        four_weeks_ago = datetime.now(timezone.utc) - timedelta(weeks=4)
-        models = ModelFactory.list(function=Function.TEXT_GENERATION, is_finetunable=True)["results"]
-        recent_models = [
-            {
-                "model_name": model.name,
-                "model_id": model.id,
-                "dataset_name": "Test text generation dataset",
-                "inference_data": "Hello!",
-                "required_dev": True,
-                "search_metadata": False,
-            }
-            for model in models
-            if model.created_at is not None
-            and model.created_at >= four_weeks_ago
-            and "aiXplain-testing" not in str(model.supplier)
-        ]
-
-        run_file_models = read_data(RUN_FILE)
-        for model_data in run_file_models:
-            if not any(rm["model_id"] == model_data["model_id"] for rm in recent_models):
-                recent_models.append(model_data)
-        model_ids = [model["model_id"] for model in recent_models]
-        metafunc.parametrize("input_map", recent_models, ids=model_ids)
+@pytest.fixture(scope="module", params=read_data(RUN_FILE))
+def run_input_map(request):
+    return request.param
 
 
 @pytest.mark.parametrize("FinetuneFactory", [FinetuneFactory, v2.Finetune])
-def test_end2end(input_map, FinetuneFactory):
-    model = input_map["model_id"]
-    dataset_list = [DatasetFactory.list(query=input_map["dataset_name"])["results"][0]]
+def test_end2end(run_input_map, FinetuneFactory):
+    model = run_input_map["model_id"]
+    dataset_list = [DatasetFactory.list(query=run_input_map["dataset_name"])["results"][0]]
     train_percentage, dev_percentage = 100, 0
-    if input_map["required_dev"]:
+    if run_input_map["required_dev"]:
         train_percentage, dev_percentage = 80, 20
     finetune = FinetuneFactory.create(
         str(uuid.uuid4()), dataset_list, model, train_percentage=train_percentage, dev_percentage=dev_percentage
@@ -109,10 +86,10 @@ def test_end2end(input_map, FinetuneFactory):
     assert finetune_model.check_finetune_status().model_status.value == "onboarded"
     time.sleep(30)
     print(f"Model dict: {finetune_model.__dict__}")
-    result = finetune_model.run(input_map["inference_data"])
+    result = finetune_model.run(run_input_map["inference_data"])
     print(f"Result: {result}")
     assert result is not None
-    if input_map["search_metadata"]:
+    if run_input_map["search_metadata"]:
         assert "details" in result
         assert len(result["details"]) > 0
         assert "metadata" in result["details"][0]

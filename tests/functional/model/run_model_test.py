@@ -5,6 +5,7 @@ from aixplain.enums import Function
 from aixplain.factories import ModelFactory
 from aixplain.modules import LLM
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 
 def pytest_generate_tests(metafunc):
@@ -74,3 +75,22 @@ def test_index_model():
     assert "aixplain" in response.data.lower()
     assert index_model.count() == 1
     index_model.delete()
+
+
+def test_llm_run_with_file():
+    """Testing LLM with local file input containing emoji"""
+
+    # Create test file path
+    test_file_path = Path(__file__).parent / "data" / "test_input.txt"
+
+    # Get a text generation model
+    llm_model = ModelFactory.get("674a17f6098e7d5b18453da7")  # Llama 3.1 Nemotron 70B Instruct
+
+    assert isinstance(llm_model, LLM)
+
+    # Run model with file path
+    response = llm_model.run(data=str(test_file_path))
+
+    # Verify response
+    assert response["status"] == "SUCCESS"
+    assert "🤖" in response["data"], "Robot emoji should be present in the response"

@@ -593,9 +593,17 @@ def test_param_proxy_set_param_value():
     param_proxy = ParamProxy(Mock())
     param_proxy._params = [prompt_param]
     with patch.object(param_proxy, "special_prompt_handling") as mock_special_prompt_handling:
-        param_proxy.set_param_value("prompt", "hello {{foo}}")
+        param_proxy.prompt = "hello {{foo}}"
         mock_special_prompt_handling.assert_called_once_with("prompt", "hello {{foo}}")
         assert prompt_param.value == "hello {{foo}}"
+
+        # Use a non string value
+        param_proxy.prompt = 123
+        assert prompt_param.value == 123
+
+        # Now change it to another non string value
+        param_proxy.prompt = 456
+        assert prompt_param.value == 456
 
 
 def test_param_proxy_special_prompt_handling():

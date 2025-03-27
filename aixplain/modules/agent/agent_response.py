@@ -52,5 +52,5 @@ class AgentResponse(ModelResponse):
         return base_dict
 
     def __repr__(self) -> str:
-        fields = super().__repr__().strip("ModelResponse(").rstrip(")")
+        fields = super().__repr__()[len("ModelResponse(") : -1]
         return f"AgentResponse({fields})"
