@@ -24,6 +24,7 @@ from typing import Text, Union, Optional
 
 from aixplain.modules.agent.tool import Tool
 from aixplain.modules.pipeline import Pipeline
+from aixplain.enums import AssetStatus
 
 
 class PipelineTool(Tool):
@@ -50,9 +51,13 @@ class PipelineTool(Tool):
         name = name or ""
         super().__init__(name=name, description=description, **additional_info)
 
+        status = AssetStatus.DRAFT
         if isinstance(pipeline, Pipeline):
             pipeline = pipeline.id
+            status = pipeline.status
+
         self.pipeline = pipeline
+        self.status = status
 
     def to_dict(self):
         return {
@@ -60,6 +65,7 @@ class PipelineTool(Tool):
             "name": self.name,
             "description": self.description,
             "type": "pipeline",
+            "status": self.status,
         }
 
     def validate(self):

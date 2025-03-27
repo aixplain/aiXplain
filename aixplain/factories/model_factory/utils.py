@@ -10,6 +10,7 @@ from aixplain.utils.file_utils import _request_with_retry
 from datetime import datetime
 from typing import Dict, Union, List, Optional, Tuple
 from urllib.parse import urljoin
+from aixplain.enums import AssetStatus
 
 
 def create_model_from_response(response: Dict) -> Model:
@@ -57,7 +58,7 @@ def create_model_from_response(response: Dict) -> Model:
             for param in response["params"]
         ]
         input_params = model_params
-
+    status = AssetStatus(response["status"])
     created_at = None
     if "createdAt" in response and response["createdAt"]:
         created_at = datetime.fromisoformat(response["createdAt"].replace("Z", "+00:00"))
@@ -80,6 +81,7 @@ def create_model_from_response(response: Dict) -> Model:
         version=response["version"]["id"],
         inputs=inputs,
         temperature=temperature,
+        status=status,
     )
 
 

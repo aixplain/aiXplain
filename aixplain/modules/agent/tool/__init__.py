@@ -23,6 +23,7 @@ Description:
 from abc import ABC
 from typing import Optional, Text
 from aixplain.utils import config
+from aixplain.enums import AssetStatus
 
 
 class Tool(ABC):
@@ -40,6 +41,7 @@ class Tool(ABC):
         description: Text,
         version: Optional[Text] = None,
         api_key: Optional[Text] = config.TEAM_API_KEY,
+        status: Optional[AssetStatus] = AssetStatus.DRAFT,
         **additional_info,
     ) -> None:
         """Specialized software or resource designed to assist the AI in executing specific tasks or functions based on user commands.
@@ -55,6 +57,7 @@ class Tool(ABC):
         self.version = version
         self.api_key = api_key
         self.additional_info = additional_info
+        self.status = status
 
     def to_dict(self):
         """Converts the tool to a dictionary."""
