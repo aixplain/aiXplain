@@ -38,17 +38,6 @@ class DeployableMixin(ABC, Generic[T]):
     2. Optionally override deploy() if they need special deployment handling
     """
 
-    def _filter_not_onboarded_items(self, items: List[T]) -> List[T]:
-        """Filter a list of items to return only those not in ONBOARDED status.
-
-        Args:
-            items (List[T]): List of items to filter
-
-        Returns:
-            List[T]: List of items not in ONBOARDED status
-        """
-        return [item for item in items if item.status != AssetStatus.ONBOARDED]
-
     def _validate_deployment_readiness(self, items: Optional[List[T]] = None) -> None:
         """Validate if the asset is ready to be deployed.
 
@@ -65,12 +54,6 @@ class DeployableMixin(ABC, Generic[T]):
 
         if self.status != AssetStatus.DRAFT:
             raise ValueError(f"{asset_type} must be in DRAFT status to be deployed.")
-
-        if items:
-            not_onboarded = self._filter_not_onboarded_items(items)
-            if not_onboarded:
-                items_str = ", ".join(item.name for item in not_onboarded)
-                raise ValueError(f"All {asset_type.lower()} items must be deployed first. " f"Not deployed items: {items_str}")
 
     def deploy(self) -> None:
         """Deploy the asset.
