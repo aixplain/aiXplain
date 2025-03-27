@@ -122,6 +122,32 @@ def test_count_success():
     assert response == 4
 
 
+def test_get_document_success():
+    mock_response = {"status": "SUCCESS", "data": {"value": "Sample document content 1", "value_type": "text", "id": 0, "uri": "", "attributes": {}}}
+    mock_documents = [Record(value="Sample document content 1", value_type="text", id=0, uri="", attributes={})]
+    with requests_mock.Mocker() as mock:
+        mock.post(execute_url, json=mock_response, status_code=200)
+        index_model = IndexModel(id=index_id, data=data, name="name", function=Function.SEARCH)
+        index_model.upsert(mock_documents)
+        response = index_model.get_document(0)
+
+    assert isinstance(response, ModelResponse)
+    assert response.status == ResponseStatus.SUCCESS
+
+def test_delete_document_success():
+    mock_response = {"status": "SUCCESS"}
+    mock_documents = [Record(value="Sample document content 1", value_type="text", id=0, uri="", attributes={})]
+
+    with requests_mock.Mocker() as mock:
+        mock.post(execute_url, json=mock_response, status_code=200)
+        index_model = IndexModel(id=index_id, data=data, name="name", function=Function.SEARCH)
+        index_model.upsert(mock_documents)
+        response = index_model.delete_document("0")
+
+    assert isinstance(response, ModelResponse)
+    assert response.status == ResponseStatus.SUCCESS
+
+
 def test_validate_record_success(mocker):
     mocker.patch("aixplain.modules.model.utils.is_supported_image_type", return_value=True)
     mocker.patch("aixplain.factories.FileFactory.check_storage_type", return_value=StorageType.FILE)
