@@ -2,6 +2,8 @@ from pydantic import BaseModel, ConfigDict
 from typing import Text, Optional, Tuple, Dict
 from aixplain.enums import IndexStores, EmbeddingModel
 
+GPT_4O_MINI_ID = "669a63646eb56306647e1091"
+
 class BaseIndexParams(BaseModel):
     model_config = ConfigDict(use_enum_values=True)
 
@@ -17,7 +19,7 @@ class IndexParamsWithEmbeddingModel(BaseIndexParams):
 
     def to_dict(self):
         data = super().to_dict()
-        data["model"] = data.pop("embedding_model").value
+        data["model"] = data.pop("embedding_model").value if isinstance(self.embedding_model, EmbeddingModel) else data.pop("embedding_model")
         return data
 
 class VectaraParams(BaseIndexParams):
@@ -39,7 +41,7 @@ class AirParams(IndexParamsWithEmbeddingModel):
     
 
 class GraphRAGParams(IndexParamsWithEmbeddingModel):
-    llm_model: Optional[Text] = "669a63646eb56306647e1091" # Gpt-4o-mini
+    llm_model: Optional[Text] = GPT_4O_MINI_ID
 
     def get_model_id(self):
         return IndexStores.GRAPHRAG.get_model_id()
