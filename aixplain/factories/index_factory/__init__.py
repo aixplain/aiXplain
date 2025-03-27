@@ -24,15 +24,16 @@ Description:
 from aixplain.modules.model.index_model import IndexModel
 from aixplain.factories import ModelFactory
 from aixplain.enums import Function, ResponseStatus, SortBy, SortOrder, OwnershipType, Supplier
-from typing import Text, Union, List, Tuple, Optional
-from aixplain.factories.index_factory.utils import BaseIndexParams
+from typing import Text, Union, List, Tuple, Optional, TypeVar, Generic
+from aixplain.factories.index_factory.utils import BaseIndexParams 
 
+T = TypeVar('T', bound=BaseIndexParams)
 
 class IndexFactory(ModelFactory):
     @classmethod
-    def create(cls, params: BaseIndexParams) -> IndexModel:
+    def create(cls, params: T) -> IndexModel:
         """Create a new index collection"""
-        model_id = params.get_model_id()
+        model_id = params.id
         data = params.to_dict()
         
         model = cls.get(model_id)
