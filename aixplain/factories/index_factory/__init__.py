@@ -29,7 +29,7 @@ from aixplain.factories.index_factory.utils import BaseIndexParams
 
 T = TypeVar('T', bound=BaseIndexParams)
 
-class IndexFactory(ModelFactory):
+class IndexFactory(ModelFactory, Generic[T]):
     @classmethod
     def create(cls, params: T) -> IndexModel:
         """Create a new index collection"""
