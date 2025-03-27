@@ -198,10 +198,12 @@ def test_fail_non_existent_llm(run_input_map, TeamAgentFactory):
             tools=tools,
         )
         agents.append(agent)
+
     with pytest.raises(Exception) as exc_info:
         TeamAgentFactory.create(
             name="Non Existent LLM",
             description="",
+            instructions="",
             llm_id="non_existent_llm",
             agents=agents,
         )

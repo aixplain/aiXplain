@@ -115,6 +115,7 @@ class Pipeline(Asset):
             try:
                 response_body = self.poll(poll_url, name=name)
                 logging.debug(f"Polling for Pipeline: Status of polling for {name} : {response_body}")
+
                 end = time.time()
                 if not response_body["completed"]:
                     time.sleep(wait_time)
@@ -160,6 +161,7 @@ class Pipeline(Asset):
                 except Exception:
                     resp = r.json()
             logging.info(f"Single Poll for Pipeline: Status of polling for {name} : {resp}")
+            
             if response_version == "v1":
                 return resp
             status = ResponseStatus(resp.pop("status", "failed"))
@@ -395,6 +397,7 @@ class Pipeline(Asset):
             if 200 <= r.status_code < 300:
                 resp = r.json()
                 logging.info(f"Result of request for {name}  - {r.status_code} - {resp}")
+
                 if response_version == "v1":
                     return resp
                 res = PipelineResponse(
