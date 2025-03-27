@@ -43,7 +43,7 @@ class IndexFactory(ModelFactory):
 
         error_message = f"Index Factory Exception: {response.error_message}"
         if error_message == "":
-            error_message = "Index Factory Exception:An error occurred while creating the index collection."
+            error_message = "Index Factory Exception: An error occurred while creating the index collection."
         raise Exception(error_message)
 
     @classmethod
