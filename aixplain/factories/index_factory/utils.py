@@ -8,32 +8,39 @@ class BaseIndexParams(BaseModel):
     name: Text
     description: Optional[Text] = ""
 
+    def to_dict(self):
+        return self.model_dump()
+    
+class IndexParamsWithEmbeddingModel(BaseIndexParams):
+    
+    embedding_model: Optional[EmbeddingModel] = EmbeddingModel.OPENAI_ADA002
+
+    def to_dict(self):
+        data = super().to_dict()
+        data["model"] = data.pop("embedding_model").value
+        return data
+
 class VectaraParams(BaseIndexParams):
-    pass
+    
+    def get_model_id(self):
+        return IndexStores.VECTARA.get_model_id()
+    
 
 class ZeroEntropyParams(BaseIndexParams):
-    pass
+    
+    def get_model_id(self):
+        raise ValueError("ZeroEntropy is not supported yet")
+        # return IndexStores.ZERO_ENTROPY.get_model_id()
 
-class AirParams(BaseIndexParams):
-    embedding_model: Optional[EmbeddingModel] = EmbeddingModel.OPENAI_ADA002 # should allow all embedding model ids as this is not very scalable
+class AirParams(IndexParamsWithEmbeddingModel):
 
-class GraphRAGParams(BaseIndexParams):
-    embedding_model: Optional[EmbeddingModel] = EmbeddingModel.OPENAI_ADA002
+    def get_model_id(self):
+        return IndexStores.AIR.get_model_id()
+    
+
+class GraphRAGParams(IndexParamsWithEmbeddingModel):
     llm_model: Optional[Text] = "669a63646eb56306647e1091" # Gpt-4o-mini
 
-def get_model_id_and_payload(params: BaseIndexParams) -> Tuple[Text, Dict]:
-    payload = params.model_dump()
-    if isinstance(params, AirParams):
-        model_id = IndexStores.AIR.get_model_id()
-        payload["model"] = payload.pop("embedding_model")
-    elif isinstance(params, GraphRAGParams):
-        model_id = IndexStores.GRAPHRAG.get_model_id()
-        payload["model"] = payload.pop("embedding_model")
-    elif isinstance(params, VectaraParams):
-        model_id = IndexStores.VECTARA.get_model_id()
-    elif isinstance(params, ZeroEntropyParams):
-        # model_id = IndexStores.ZERO_ENTROPY.get_model_id()
-        raise ValueError("ZeroEntropy is not supported yet")
-    else:
-        raise ValueError(f"Invalid index params: {params}")
-    return model_id, payload
+    def get_model_id(self):
+        return IndexStores.GRAPHRAG.get_model_id()
+    
