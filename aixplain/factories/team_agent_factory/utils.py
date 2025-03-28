@@ -88,6 +88,8 @@ def parse_tool_from_yaml(tool: str) -> ModelTool:
         return ModelTool(
             function=Function.SPEECH_SYNTHESIS,
         )
+    elif tool.strip() == "llm":
+        return ModelTool(function=Function.TEXT_GENERATION)
     elif tool.strip() == "serper_search":
         return ModelTool(model="65c51c556eb563350f6e1bb1")
     elif tool.strip() == "website_search":
@@ -123,9 +125,11 @@ def build_team_agent_from_yaml(yaml_code: str, llm_id: str, api_key: str, team_i
             agent_backstory = agent_info["backstory"]
 
             description = f"You are an expert {agent_role}. {agent_backstory} Your primary goal is to {agent_goal}. Use your expertise to ensure the success of your tasks."
+            agent_name = agent_name.replace("_", " ")
+            agent_name = f"{agent_name} agent" if not agent_name.endswith(" agent") else agent_name
             agent_obj = Agent(
                 id="",
-                name=agent_name.replace("_", " "),
+                name=agent_name,
                 description=description,
                 instructions=description,
                 tasks=[],  # Tasks will be assigned later
@@ -142,6 +146,8 @@ def build_team_agent_from_yaml(yaml_code: str, llm_id: str, api_key: str, team_i
             expected_output = task_info["expected_output"]
             dependencies = task_info.get("dependencies", [])
             agent_name = task_info["agent"]
+            agent_name = agent_name.replace("_", " ")
+            agent_name = f"{agent_name} agent" if not agent_name.endswith(" agent") else agent_name
 
             task_obj = AgentTask(
                 name=task_name,
