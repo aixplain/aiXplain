@@ -69,7 +69,8 @@ def build_team_agent(payload: Dict, agents: List[Agent] = None, api_key: Text = 
                     if task_dependency:
                         team_agent.agents[idx].tasks[i].dependencies[j] = task_dependency
                     else:
-                        raise Exception(f"Team Agent Creation Error: Task dependency not found - {dependency}")
+                        team_agent.agents[idx].tasks[i].dependencies[j] = None
+
     return team_agent
 
 

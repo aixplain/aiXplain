@@ -338,45 +338,59 @@ class TeamAgent(Model):
         return response
     
 
-    def poll(self, poll_url: Text, name: Text = "model_process") -> EvolverResponse:
+    def poll(self, poll_url: Text, name: Text = "model_process", evolve: bool = False) -> EvolverResponse:
         headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}
         r = _request_with_retry("get", poll_url, headers=headers)
         try:
             resp = r.json()
             evolver_data = None
-
+            resp_data = resp.get("data", {})
             if resp["completed"] is True:
                 status = ResponseStatus.SUCCESS
-                resp_data = resp.get("data", {})
-                evolver_data = EvolverResponseData.from_dict(resp_data, llm_id=self.llm_id, api_key=self.api_key)
                 if "error_message" in resp or "supplierError" in resp:
                     status = ResponseStatus.FAILED
             else:
                 status = ResponseStatus.IN_PROGRESS
-                response = f"EvolverResponse(status={status}, completed={resp["completed"]})"
+                response = f"EvolverResponse(status={status}, completed={resp['completed']})"
             logging.debug(f"Single Poll for Model: Status of polling for {name}: {resp}")
 
-            response = EvolverResponse(
-                status=status,
-                data=evolver_data or EvolverResponseData(
-                                         evolved_agent="",
-                                         current_code="",
-                                         evaluation_report="",
-                                         comparison_report="",
-                                         criteria="",
-                                         archive="",),
-                details=resp.get("details", {}),
-                completed=resp.get("completed", False),
-                error_message=resp.get("error_message", ""),
-                used_credits=resp.get("usedCredits", 0),
-                run_time=resp.get("runTime", 0),
-                usage=resp.get("usage", None),
-            )
+            if evolve:
+                if status == ResponseStatus.SUCCESS:
+                    evolver_data = EvolverResponseData.from_dict(resp_data, llm_id=self.llm_id, api_key=self.api_key)
+
+                response = EvolverResponse(
+                    status=status,
+                    data=evolver_data or EvolverResponseData(
+                                            evolved_agent="",
+                                            current_code="",
+                                            evaluation_report="",
+                                            comparison_report="",
+                                            criteria="",
+                                            archive="",),
+                    details=resp.get("details", {}),
+                    completed=resp.get("completed", False),
+                    error_message=resp.get("error_message", ""),
+                    used_credits=resp.get("usedCredits", 0),
+                    run_time=resp.get("runTime", 0),
+                    usage=resp.get("usage", None),
+                )
+            response = AgentResponse(
+                                status=status,
+                                data=resp.get("data", {}),
+                                details=resp.get("details", {}),
+                                completed=resp.get("completed", False),
+                                error_message=resp.get("error_message", ""),
+                                used_credits=resp.get("usedCredits", 0),
+                                run_time=resp.get("runTime", 0),
+                                usage=resp.get("usage", None),
+                            )
 
         except Exception as e:
             logging.error(f"Single Poll for Model: Error of polling for {name}: {e}")
-            response = f"EvolverResponse(status={ResponseStatus.FAILED}, error_message={str(e)}, completed=False,)"
+            if evolve:
+                response = f"EvolverResponse(status={ResponseStatus.FAILED}, error_message={str(e)}, completed=False)"
 
+            response = f"AgentResponse(status={ResponseStatus.FAILED}, error_message={str(e)}, completed=False)"
         return response
 
 
