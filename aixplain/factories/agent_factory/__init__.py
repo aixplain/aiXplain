@@ -260,7 +260,6 @@ class AgentFactory:
 
         # Handle CSV source type
         if source_type == DatabaseSourceType.CSV:
-
             if not os.path.exists(source):
                 raise SQLToolError(f"CSV file '{source}' does not exist")
             if not source.endswith(".csv"):
