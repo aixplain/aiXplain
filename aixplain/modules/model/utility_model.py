@@ -190,7 +190,7 @@ class UtilityModel(Model):
                 self.name = name
             if self.description is None:
                 self.description = description
-            if len(self.inputs) == 0:
+            if len(inputs) > 0:
                 self.inputs = inputs
             for input in self.inputs:
                 input.validate()
