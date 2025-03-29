@@ -115,23 +115,26 @@ class Pipeline(Asset):
             try:
                 response_body = self.poll(poll_url, name=name)
                 logging.debug(f"Polling for Pipeline: Status of polling for {name} : {response_body}")
-
                 end = time.time()
                 if not response_body["completed"]:
                     time.sleep(wait_time)
                     if wait_time < 60:
                         wait_time *= 1.1
             except Exception:
-                logging.error(f"Polling for Pipeline: polling for {name} : Continue")
+                logging.error(f"Polling for Pipeline '{self.id}': polling for {name} ({poll_url}): Continue")
                 break
         if response_body["status"] == ResponseStatus.SUCCESS:
             try:
-                logging.debug(f"Polling for Pipeline: Final status of polling for {name} : SUCCESS - {response_body}")
+                logging.debug(
+                    f"Polling for Pipeline '{self.id}' - Final status of polling for {name} ({poll_url}): SUCCESS - {response_body}"
+                )
             except Exception:
-                logging.error(f"Polling for Pipeline: Final status of polling for {name} : ERROR - {response_body}")
+                logging.error(
+                    f"Polling for Pipeline '{self.id}' - Final status of polling for {name} ({poll_url}): ERROR - {response_body}"
+                )
         else:
             logging.error(
-                f"Polling for Pipeline: Final status of polling for {name} : No response in {timeout} seconds - {response_body}"
+                f"Polling for Pipeline '{self.id}' - Final status of polling for {name} ({poll_url}): No response in {timeout} seconds - {response_body}"
             )
         return response_body
 
@@ -160,8 +163,7 @@ class Pipeline(Asset):
                     resp["data"] = json.loads(resp["data"])["response"]
                 except Exception:
                     resp = r.json()
-            logging.info(f"Single Poll for Pipeline: Status of polling for {name} : {resp}")
-            
+            logging.info(f"Single Poll for Pipeline '{self.id}' - Status of polling for {name} ({poll_url}): {resp}")
             if response_version == "v1":
                 return resp
             status = ResponseStatus(resp.pop("status", "failed"))
@@ -397,7 +399,6 @@ class Pipeline(Asset):
             if 200 <= r.status_code < 300:
                 resp = r.json()
                 logging.info(f"Result of request for {name}  - {r.status_code} - {resp}")
-
                 if response_version == "v1":
                     return resp
                 res = PipelineResponse(
@@ -425,7 +426,7 @@ class Pipeline(Asset):
                         f"Status {status_code}: Unspecified error: An unspecified error occurred while processing your request."
                     )
 
-                logging.error(f"Error in request for {name} - {r.status_code}: {error}")
+                logging.error(f"Error in request for {name} (Pipeline ID '{self.id}') - {r.status_code}: {error}")
                 if response_version == "v1":
                     return {
                         "status": "failed",

@@ -20,7 +20,7 @@ Date: May 16th 2024
 Description:
     Agentification Class
 """
-from typing import Text, Union
+from typing import Text, Union, Optional
 
 from aixplain.modules.agent.tool import Tool
 from aixplain.modules.pipeline import Pipeline
@@ -38,6 +38,7 @@ class PipelineTool(Tool):
         self,
         description: Text,
         pipeline: Union[Text, Pipeline],
+        name: Optional[Text] = None,
         **additional_info,
     ) -> None:
         """Specialized software or resource designed to assist the AI in executing specific tasks or functions based on user commands.
@@ -46,7 +47,9 @@ class PipelineTool(Tool):
             description (Text): description of the tool
             pipeline (Union[Text, Pipeline]): pipeline
         """
-        super().__init__("", description, **additional_info)
+        name = name or ""
+        super().__init__(name=name, description=description, **additional_info)
+
         if isinstance(pipeline, Pipeline):
             pipeline = pipeline.id
         self.pipeline = pipeline
@@ -54,6 +57,7 @@ class PipelineTool(Tool):
     def to_dict(self):
         return {
             "assetId": self.pipeline,
+            "name": self.name,
             "description": self.description,
             "type": "pipeline",
         }

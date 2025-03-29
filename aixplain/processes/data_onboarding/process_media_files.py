@@ -17,7 +17,6 @@ from aixplain.utils.file_utils import upload_data
 from pathlib import Path
 from tqdm import tqdm
 from typing import List, Tuple
-from urllib.parse import urlparse
 
 AUDIO_MAX_SIZE = 50000000
 IMAGE_TEXT_MAX_SIZE = 25000000
@@ -76,7 +75,7 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 100) ->
             row = dataframe.iloc[j]
             try:
                 media_path = row[metadata.name]
-            except Exception as e:
+            except Exception:
                 message = f'Data Asset Onboarding Error: Column "{metadata.name}" not found in the local file "{path}".'
                 logging.exception(message)
                 raise Exception(message)
@@ -129,13 +128,13 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 100) ->
             if metadata.start_column is not None or metadata.end_column is not None:
                 assert (
                     metadata.dsubtype != DataSubtype.INTERVAL
-                ), f"Data Asset Onboarding Error: Interval data types can not be cropped. Remove start and end columns."
+                ), "Data Asset Onboarding Error: Interval data types can not be cropped. Remove start and end columns."
 
             # adding ranges to crop the media if it is the case
             if metadata.start_column is not None:
                 try:
                     start_intervals.append(row[metadata.start_column])
-                except Exception as e:
+                except Exception:
                     message = f'Data Asset Onboarding Error: Column "{metadata.start_column}" not found.'
                     logging.exception(message)
                     raise Exception(message)
@@ -143,7 +142,7 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 100) ->
             if metadata.end_column is not None:
                 try:
                     end_intervals.append(row[metadata.end_column])
-                except Exception as e:
+                except Exception:
                     message = f'Data Asset Onboarding Error: Column "{metadata.end_column}" not found.'
                     logging.exception(message)
                     raise Exception(message)
@@ -167,7 +166,7 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 100) ->
                     # compress the folder
                     compressed_folder = compress_folder(data_file_name)
                     # upload zipped medias into s3
-                    s3_compressed_folder = upload_data(compressed_folder, content_type="application/x-tar")
+                    s3_compressed_folder = upload_data(compressed_folder, content_type="application/x-tar", return_s3_link=True)
                     # update index files pointing the s3 link
                     df["@SOURCE"] = s3_compressed_folder
                     # remove media folder
@@ -200,7 +199,7 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 100) ->
                     end_column_idx = df.columns.to_list().index(end_column)
 
                 df.to_csv(index_file_name, compression="gzip", index=False)
-                s3_link = upload_data(index_file_name, content_type="text/csv", content_encoding="gzip")
+                s3_link = upload_data(index_file_name, content_type="text/csv", content_encoding="gzip", return_s3_link=True)
                 files.append(File(path=s3_link, extension=FileType.CSV, compression="gzip"))
                 # get data column index
                 data_column_idx = df.columns.to_list().index(metadata.name)
@@ -225,7 +224,7 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 100) ->
             # compress the folder
             compressed_folder = compress_folder(data_file_name)
             # upload zipped medias into s3
-            s3_compressed_folder = upload_data(compressed_folder, content_type="application/x-tar")
+            s3_compressed_folder = upload_data(compressed_folder, content_type="application/x-tar", return_s3_link=True)
             # update index files pointing the s3 link
             df["@SOURCE"] = s3_compressed_folder
             # remove media folder
@@ -258,7 +257,7 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 100) ->
             end_column_idx = df.columns.to_list().index(end_column)
 
         df.to_csv(index_file_name, compression="gzip", index=False)
-        s3_link = upload_data(index_file_name, content_type="text/csv", content_encoding="gzip")
+        s3_link = upload_data(index_file_name, content_type="text/csv", content_encoding="gzip", return_s3_link=True)
         files.append(File(path=s3_link, extension=FileType.CSV, compression="gzip"))
         # get data column index
         data_column_idx = df.columns.to_list().index(metadata.name)

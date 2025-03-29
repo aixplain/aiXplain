@@ -36,6 +36,7 @@ class CustomPythonCodeTool(Tool):
 
     def to_dict(self):
         return {
+            "name": self.name,
             "description": self.description,
             "type": "utility",
             "utility": "custom_python_code",

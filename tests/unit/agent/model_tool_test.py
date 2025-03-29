@@ -96,6 +96,7 @@ def test_to_dict(mock_model, mock_model_factory):
     expected = {
         "function": mock_model.function.value,
         "type": "model",
+        "name": "",
         "description": "Test description",
         "supplier": mock_model.supplier.value["code"],
         "version": None,
@@ -175,3 +176,21 @@ def test_validate_parameters(mock_model, params, expected_result, error_expected
         else:
             result = tool.validate_parameters(params)
             assert result == expected_result
+
+
+@pytest.mark.parametrize(
+    "tool_name,expected_name",
+    [
+        ("custom_tool", "custom_tool"),
+        ("", ""),  # Test empty name
+        ("translation_model", "translation_model"),
+        (None, ""),  # Test None value should default to empty string
+    ],
+)
+def test_tool_name(mock_model, mock_model_factory, tool_name, expected_name):
+    mock_model_factory.get.return_value = mock_model
+    tool = ModelTool(model="test_model_id", name=tool_name, function=Function.TRANSLATION)
+    assert tool.name == expected_name
+    # Verify name appears correctly in dictionary representation
+    tool_dict = tool.to_dict()
+    assert tool_dict["name"] == expected_name
