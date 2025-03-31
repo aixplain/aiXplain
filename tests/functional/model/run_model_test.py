@@ -1,7 +1,6 @@
 __author__ = "thiagocastroferreira"
 
 import pytest
-import os
 import requests
 
 from aixplain.enums import Function, EmbeddingModel
@@ -80,13 +79,24 @@ def test_index_model(embedding_model):
     assert str(response.status) == "SUCCESS"
     assert "world" in response.data.lower()
     assert index_model.count() == 1
+
     index_model.upsert([Record(value="Hello, aiXplain!", value_type="text", uri="", id="1", attributes={})])
     response = index_model.search("aiXplain")
     assert str(response.status) == "SUCCESS"
     assert "aixplain" in response.data.lower()
     assert index_model.count() == 1
+
     index_model.upsert([Record(value="The world is great", value_type="text", uri="", id="2", attributes={})])
     assert index_model.count() == 2
+
+    response = index_model.get_document("1")
+    assert str(response.status) == "SUCCESS"
+    assert response.data == "Hello, aiXplain!"
+    assert index_model.count() == 2
+
+    response = index_model.delete_document("1")
+    assert str(response.status) == "SUCCESS"
+    assert index_model.count() == 1
     index_model.delete()
 
 
@@ -161,6 +171,7 @@ def test_index_model_with_image():
             uri="https://aixplain-platform-assets.s3.us-east-1.amazonaws.com/samples/building.png",
             value_type="image",
             attributes={},
+            id="1",
         )
     )
 
@@ -170,13 +181,13 @@ def test_index_model_with_image():
     if response.status_code == 200:
         with open("hurricane.jpeg", "wb") as f:
             f.write(response.content)
-    records.append(Record(uri="hurricane.jpeg", value_type="image", attributes={}))
+    records.append(Record(uri="hurricane.jpeg", value_type="image", attributes={}, id="2"))
 
     # people image
     image_url = "https://aixplain-platform-assets.s3.us-east-1.amazonaws.com/samples/faces.jpeg"
-    records.append(Record(uri=image_url, value_type="image", attributes={}))
+    records.append(Record(uri=image_url, value_type="image", attributes={}, id="3"))
 
-    records.append(Record(value="Hello, world!", value_type="text", uri="", attributes={}))
+    records.append(Record(value="Hello, world!", value_type="text", uri="", attributes={}, id="4"))
 
     index_model.upsert(records)
 
@@ -193,5 +204,10 @@ def test_index_model_with_image():
     assert "faces" in second_record.lower()
 
     assert index_model.count() == 4
+
+    response = index_model.get_document("2")
+    assert str(response.status) == "SUCCESS"
+    second_record = response.details[0]["metadata"]["uri"]
+    assert "hurricane" in second_record.lower()
+
     index_model.delete()
-    os.remove("hurricane.jpeg")
