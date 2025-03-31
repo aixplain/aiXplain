@@ -15,9 +15,10 @@ def test_create_api_key_from_json(APIKeyFactory):
         api_key_data = json.load(file)
 
     expires_at = (datetime.now(timezone.utc) + timedelta(weeks=4)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    unique_name = f"{api_key_data['name']}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
     api_key = APIKeyFactory.create(
-        name=api_key_data["name"],
+        name=unique_name,
         asset_limits=[
             APIKeyLimits(
                 model=api_key_data["asset_limits"][0]["model"],
@@ -39,7 +40,7 @@ def test_create_api_key_from_json(APIKeyFactory):
 
     assert isinstance(api_key, APIKey)
     assert api_key.id != ""
-    assert api_key.name == api_key_data["name"]
+    assert api_key.name == unique_name
 
     api_key.delete()
 
@@ -61,9 +62,9 @@ def test_create_api_key_from_dict(APIKeyFactory):
         "expires_at": (datetime.now(timezone.utc) + timedelta(weeks=4)).strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
 
-    api_key_name = "Test API Key"
+    unique_name = f"Test_API_Key_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
     api_key = APIKeyFactory.create(
-        name=api_key_name,
+        name=unique_name,
         asset_limits=[APIKeyLimits(**limit) for limit in api_key_dict["asset_limits"]],
         global_limits=APIKeyLimits(**api_key_dict["global_limits"]),
         budget=api_key_dict["budget"],
@@ -72,7 +73,7 @@ def test_create_api_key_from_dict(APIKeyFactory):
 
     assert isinstance(api_key, APIKey)
     assert api_key.id != ""
-    assert api_key.name == api_key_name
+    assert api_key.name == unique_name
 
     api_key.delete()
 
@@ -94,9 +95,9 @@ def test_create_update_api_key_from_dict(APIKeyFactory):
         "expires_at": (datetime.now(timezone.utc) + timedelta(weeks=4)).strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
 
-    api_key_name = "Test API Key"
+    unique_name = f"Test_API_Key_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
     api_key = APIKeyFactory.create(
-        name=api_key_name,
+        name=unique_name,
         asset_limits=[APIKeyLimits(**limit) for limit in api_key_dict["asset_limits"]],
         global_limits=APIKeyLimits(**api_key_dict["global_limits"]),
         budget=api_key_dict["budget"],
@@ -105,12 +106,12 @@ def test_create_update_api_key_from_dict(APIKeyFactory):
 
     assert isinstance(api_key, APIKey)
     assert api_key.id != ""
-    assert api_key.name == api_key_name
+    assert api_key.name == unique_name
 
     api_key_ = APIKeyFactory.get(api_key=api_key.access_key)
     assert isinstance(api_key_, APIKey)
     assert api_key_.id != ""
-    assert api_key_.name == api_key_name
+    assert api_key_.name == unique_name
 
     api_key.global_limits.token_per_day = 222
     api_key.global_limits.token_per_minute = 222
