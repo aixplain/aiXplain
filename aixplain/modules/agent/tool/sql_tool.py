@@ -127,7 +127,7 @@ def get_table_schema(database_path: str) -> str:
         raise DatabaseError(f"Unexpected error while getting table schema: {str(e)}")
 
 
-def create_database_from_csv(csv_path: str, database_path: str) -> str:
+def create_database_from_csv(csv_path: str, database_path: str, table_name: str = None) -> str:
     """Create SQLite database from CSV file and return the schema"""
     if not os.path.exists(csv_path):
         raise CSVError(f"CSV file '{csv_path}' does not exist")
@@ -161,7 +161,9 @@ def create_database_from_csv(csv_path: str, database_path: str) -> str:
                 cursor = conn.cursor()
 
                 # Check if table already exists
-                table_name = clean_column_name(os.path.splitext(os.path.basename(csv_path))[0])
+
+                if table_name is None:
+                    table_name = clean_column_name(os.path.splitext(os.path.basename(csv_path))[0])
                 cursor.execute(f"SELECT name FROM sqlite_master WHERE type='table' AND name='{table_name}'")
                 if cursor.fetchone():
                     warnings.warn(f"Table '{table_name}' already exists in the database and will be replaced")
@@ -262,6 +264,7 @@ class SQLTool(Tool):
         schema: Optional[Text] = None,
         tables: Optional[Union[List[Text], Text]] = None,
         enable_commit: bool = False,
+        name: Optional[Text] = None,
         **additional_info,
     ) -> None:
         """Tool to execute SQL query commands in an SQLite database.
@@ -273,7 +276,10 @@ class SQLTool(Tool):
             tables (Optional[Union[List[Text], Text]]): table names to work with (optional)
             enable_commit (bool): enable to modify the database (optional)
         """
-        super().__init__("", description, **additional_info)
+
+        name = name or ""
+        super().__init__(name=name, description=description, **additional_info)
+
         self.database = database
         self.schema = schema
         self.tables = tables if isinstance(tables, list) else [tables] if tables else None
@@ -281,6 +287,7 @@ class SQLTool(Tool):
 
     def to_dict(self) -> Dict[str, Text]:
         return {
+            "name": self.name,
             "description": self.description,
             "parameters": [
                 {"name": "database", "value": self.database},

@@ -26,8 +26,11 @@ import logging
 import time
 import traceback
 import re
+from enum import Enum
+from typing import Dict, List, Text, Optional, Union
+from urllib.parse import urljoin
 
-from aixplain.utils.file_utils import _request_with_retry
+from aixplain.enums import ResponseStatus
 from aixplain.enums.function import Function
 from aixplain.enums.supplier import Supplier
 from aixplain.enums.asset_status import AssetStatus
@@ -35,13 +38,18 @@ from aixplain.enums.storage_type import StorageType
 from aixplain.modules.model import Model
 from aixplain.modules.agent import Agent, OutputFormat
 from aixplain.modules.agent.agent_response import AgentResponse
-from aixplain.enums import ResponseStatus
 from aixplain.modules.agent.utils import process_variables
-from typing import Dict, List, Text, Optional, Union
-from urllib.parse import urljoin
-
-
 from aixplain.utils import config
+from aixplain.utils.file_utils import _request_with_retry
+
+
+class InspectorTarget(str, Enum):
+    # TODO: INPUT
+    STEPS = "steps"
+    OUTPUT = "output"
+
+    def __str__(self):
+        return self._value_
 
 
 class TeamAgent(Model):
@@ -76,6 +84,8 @@ class TeamAgent(Model):
         cost: Optional[Dict] = None,
         use_mentalist: bool = True,
         use_inspector: bool = True,
+        max_inspectors: int = 1,
+        inspector_targets: List[InspectorTarget] = [InspectorTarget.STEPS],
         status: AssetStatus = AssetStatus.DRAFT,
         **additional_info,
     ) -> None:
@@ -100,6 +110,8 @@ class TeamAgent(Model):
         self.llm_id = llm_id
         self.use_mentalist = use_mentalist
         self.use_inspector = use_inspector
+        self.max_inspectors = max_inspectors
+        self.inspector_targets = inspector_targets
 
         if isinstance(status, str):
             try:
@@ -207,13 +219,9 @@ class TeamAgent(Model):
         from aixplain.factories.file_factory import FileFactory
 
         if not self.is_valid:
-            raise Exception(
-                "Team Agent is not valid. Please validate the team agent before running."
-            )
+            raise Exception("Team Agent is not valid. Please validate the team agent before running.")
 
-        assert (
-            data is not None or query is not None
-        ), "Either 'data' or 'query' must be provided."
+        assert data is not None or query is not None, "Either 'data' or 'query' must be provided."
         if data is not None:
             if isinstance(data, dict):
                 assert (
@@ -260,16 +268,8 @@ class TeamAgent(Model):
             "sessionId": session_id,
             "history": history,
             "executionParams": {
-                "maxTokens": (
-                    parameters["max_tokens"]
-                    if "max_tokens" in parameters
-                    else max_tokens
-                ),
-                "maxIterations": (
-                    parameters["max_iterations"]
-                    if "max_iterations" in parameters
-                    else max_iterations
-                ),
+                "maxTokens": (parameters["max_tokens"] if "max_tokens" in parameters else max_tokens),
+                "maxIterations": (parameters["max_iterations"] if "max_iterations" in parameters else max_iterations),
                 "outputFormat": output_format.value,
             },
         }
@@ -327,6 +327,8 @@ class TeamAgent(Model):
             "supervisorId": self.llm_id,
             "plannerId": self.llm_id if self.use_mentalist else None,
             "inspectorId": self.llm_id if self.use_inspector else None,
+            "maxInspectors": self.max_inspectors,
+            "inspectorTargets": [target.value for target in self.inspector_targets],
             "supplier": self.supplier.value["code"] if isinstance(self.supplier, Supplier) else self.supplier,
             "version": self.version,
             "status": self.status.value,
@@ -362,9 +364,7 @@ class TeamAgent(Model):
                 raise e
             else:
                 logging.warning(f"Team Agent Validation Error: {e}")
-                logging.warning(
-                    "You won't be able to run the Team Agent until the issues are handled manually."
-                )
+                logging.warning("You won't be able to run the Team Agent until the issues are handled manually.")
 
         return self.is_valid
 
@@ -377,7 +377,8 @@ class TeamAgent(Model):
         stack = inspect.stack()
         if len(stack) > 2 and stack[1].function != "save":
             warnings.warn(
-                "update() is deprecated and will be removed in a future version. " "Please use save() instead.",
+                "update() is deprecated and will be removed in a future version. "
+                "Please use save() instead.",
                 DeprecationWarning,
                 stacklevel=2,
             )
@@ -389,9 +390,7 @@ class TeamAgent(Model):
 
         payload = self.to_dict()
 
-        logging.debug(
-            f"Start service for PUT Update Team Agent  - {url} - {headers} - {json.dumps(payload)}"
-        )
+        logging.debug(f"Start service for PUT Update Team Agent - {url} - {headers} - {json.dumps(payload)}")
         resp = "No specified error."
         try:
             r = _request_with_retry("put", url, headers=headers, json=payload)
