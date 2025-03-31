@@ -93,7 +93,7 @@ def test_model_supplier(ModelFactory):
 
 
 def test_model_ids():
-    model_ids = ["674728f51ed8e18fd8a1383f", "674728f51ed8e18fd8a1383c"]
+    model_ids = ["674728f51ed8e18fd8a1383f", "669a63646eb56306647e1091"]
     models = ModelFactory.list(model_ids=model_ids)["results"]
     assert len(models) == 2
     assert sorted([model.id for model in models]) == sorted(model_ids)
