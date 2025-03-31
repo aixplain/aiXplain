@@ -92,11 +92,18 @@ def test_model_supplier(ModelFactory):
         assert model.supplier.value in [desired_supplier.value for desired_supplier in desired_suppliers]
 
 
-def test_model_ids():
-    model_ids = ["674728f51ed8e18fd8a1383f", "674728f51ed8e18fd8a1383c"]
+@pytest.mark.parametrize(
+    "model_ids,model_names",
+    [
+        (("674728f51ed8e18fd8a1383f", "669a63646eb56306647e1091"), ("Yi-Large", "GPT-4o Mini")),
+    ],
+)
+@pytest.mark.parametrize("ModelFactory", [ModelFactory, v2.Model])
+def test_model_ids(model_ids, model_names, ModelFactory):
     models = ModelFactory.list(model_ids=model_ids)["results"]
     assert len(models) == 2
     assert sorted([model.id for model in models]) == sorted(model_ids)
+    assert sorted([model.name for model in models]) == sorted(model_names)
 
 
 @pytest.mark.parametrize("ModelFactory", [ModelFactory, v2.Model])

@@ -149,3 +149,47 @@ class IndexModel(Model):
         if response.status == "SUCCESS":
             return int(response.data)
         raise Exception(f"Failed to count documents: {response.error_message}")
+    
+    def get_document(self, document_id: Text) -> ModelResponse:
+        """
+        Get a document from the index.
+
+        Args:
+            document_id (Text): ID of the document to retrieve.
+
+        Returns:
+            ModelResponse: Response containing the retrieved document data.
+
+        Raises:
+            Exception: If document retrieval fails.
+        
+        Example:
+            >>> index_model.get_document("123")
+        """
+        data = {"action": "get_document", "data": document_id}
+        response = self.run(data=data)
+        if response.status == "SUCCESS":
+            return response
+        raise Exception(f"Failed to get document: {response.error_message}")
+
+    def delete_document(self, document_id: Text) -> ModelResponse:
+        """
+        Delete a document from the index.
+
+        Args:
+            document_id (Text): ID of the document to delete.
+
+        Returns:
+            ModelResponse: Response containing the deleted document data.
+
+        Raises:
+            Exception: If document deletion fails.
+
+        Example:
+            >>> index_model.delete_document("123")
+        """
+        data = {"action": "delete", "data": document_id}
+        response = self.run(data=data)
+        if response.status == "SUCCESS":
+            return response
+        raise Exception(f"Failed to delete document: {response.error_message}")
