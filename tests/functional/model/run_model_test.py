@@ -97,6 +97,7 @@ def test_index_model(embedding_model):
     response = index_model.delete_document("1")
     assert str(response.status) == "SUCCESS"
     assert index_model.count() == 1
+
     index_model.delete()
 
 
@@ -181,6 +182,7 @@ def test_index_model_with_image():
     if response.status_code == 200:
         with open("hurricane.jpeg", "wb") as f:
             f.write(response.content)
+
     records.append(Record(uri="hurricane.jpeg", value_type="image", attributes={}, id="2"))
 
     # people image
