@@ -243,7 +243,7 @@ class Model(Asset):
         start = time.time()
         payload = build_payload(data=data, parameters=parameters)
         url = f"{self.url}/{self.id}".replace("api/v1/execute", "api/v2/execute")
-        logging.debug(f"Model Run Sync: Start service for {name} - {url}")
+        logging.debug(f"Model Run Sync: Start service for {name} - {url} - {payload}")
         response = call_run_endpoint(payload=payload, url=url, api_key=self.api_key)
         if response["status"] == "IN_PROGRESS":
             try:
@@ -281,8 +281,8 @@ class Model(Asset):
             dict: polling URL in response
         """
         url = f"{self.url}/{self.id}"
-        logging.debug(f"Model Run Async: Start service for {name} - {url}")
         payload = build_payload(data=data, parameters=parameters)
+        logging.debug(f"Model Run Async: Start service for {name} - {url} - {payload}")
         response = call_run_endpoint(payload=payload, url=url, api_key=self.api_key)
         return ModelResponse(
             status=response.pop("status", ResponseStatus.FAILED),

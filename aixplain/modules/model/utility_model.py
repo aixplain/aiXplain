@@ -19,6 +19,7 @@ Description:
     Utility Model Class
 """
 import logging
+import warnings
 from aixplain.enums import Function, Supplier, DataType
 from aixplain.enums.asset_status import AssetStatus
 from aixplain.modules.model import Model
@@ -43,17 +44,20 @@ class UtilityModelInput:
     def to_dict(self):
         return {"name": self.name, "description": self.description, "type": self.type.value}
 
+
 # Tool decorator
-def utility_tool(name: Text, description: Text, inputs: List[UtilityModelInput] = None, output_examples: Text = "", status = AssetStatus.DRAFT):
+def utility_tool(
+    name: Text, description: Text, inputs: List[UtilityModelInput] = None, output_examples: Text = "", status=AssetStatus.DRAFT
+):
     """Decorator for utility tool functions
-    
+
     Args:
         name: Name of the utility tool
         description: Description of what the utility tool does
         inputs: List of input parameters, must be UtilityModelInput objects
         output_examples: Examples of expected outputs
         status: Asset status
-        
+
     Raises:
         ValueError: If name or description is empty
         TypeError: If inputs contains non-UtilityModelInput objects
@@ -63,7 +67,7 @@ def utility_tool(name: Text, description: Text, inputs: List[UtilityModelInput] 
         raise ValueError("Utility tool name cannot be empty")
     if not description or not description.strip():
         raise ValueError("Utility tool description cannot be empty")
-    
+
     # Validate inputs
     if inputs is not None:
         if not isinstance(inputs, list):
@@ -71,7 +75,7 @@ def utility_tool(name: Text, description: Text, inputs: List[UtilityModelInput] 
         for input_param in inputs:
             if not isinstance(input_param, UtilityModelInput):
                 raise TypeError(f"Invalid input parameter: {input_param}. All inputs must be UtilityModelInput objects")
-        
+
     def decorator(func):
         func._is_utility_tool = True  # Mark function as utility tool
         func._tool_name = name.strip()
@@ -80,11 +84,15 @@ def utility_tool(name: Text, description: Text, inputs: List[UtilityModelInput] 
         func._tool_output_examples = output_examples
         func._tool_status = status
         return func
+
     return decorator
 
 
 class UtilityModel(Model):
     """Ready-to-use Utility Model.
+
+    Note: Non-deployed utility models (status=DRAFT) will expire after 24 hours after creation.
+    Use the .deploy() method to make the model permanent.
 
     Attributes:
         id (Text): ID of the Model
@@ -116,7 +124,7 @@ class UtilityModel(Model):
         function: Optional[Function] = None,
         is_subscribed: bool = False,
         cost: Optional[Dict] = None,
-        status: AssetStatus = AssetStatus.ONBOARDED,# TODO: change to draft when we have the backend ready
+        status: AssetStatus = AssetStatus.DRAFT,
         **additional_info,
     ) -> None:
         """Utility Model Init
@@ -161,22 +169,26 @@ class UtilityModel(Model):
                 status = AssetStatus.DRAFT
         self.status = status
 
+        if status == AssetStatus.DRAFT:
+            warnings.warn(
+                "WARNING: Non-deployed utility models (status=DRAFT) will expire after 24 hours after creation. "
+                "Use .deploy() method to make the model permanent.",
+                UserWarning,
+            )
+
     def validate(self):
         """Validate the Utility Model."""
         description = None
         name = None
-        inputs = []
         # check if the model exists and if the code is strring with s3://
         # if not, parse the code and update the description and inputs and do the validation
         # if yes, just do the validation on the description and inputs
         if not (self._model_exists() and str(self.code).startswith("s3://")):
-            self.code, inputs, description, name = parse_code_decorated(self.code)
+            self.code, self.inputs, description, name = parse_code_decorated(self.code)
             if self.name is None:
                 self.name = name
             if self.description is None:
                 self.description = description
-            if len(self.inputs) == 0:
-                self.inputs = inputs
             for input in self.inputs:
                 input.validate()
         else:
@@ -186,7 +198,6 @@ class UtilityModel(Model):
         assert self.name and self.name.strip() != "", "Name is required"
         assert self.description and self.description.strip() != "", "Description is required"
         assert self.code and self.code.strip() != "", "Code is required"
-
 
     def _model_exists(self):
         if self.id is None or self.id == "":
@@ -199,7 +210,6 @@ class UtilityModel(Model):
             raise Exception()
         return True
 
-      
     def to_dict(self):
         return {
             "name": self.name,
@@ -225,7 +235,6 @@ class UtilityModel(Model):
                 stacklevel=2,
             )
 
-            
         self.validate()
         url = urljoin(self.backend_url, f"sdk/utilities/{self.id}")
         headers = {"x-api-key": f"{self.api_key}", "Content-Type": "application/json"}
