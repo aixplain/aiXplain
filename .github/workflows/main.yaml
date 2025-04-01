@@ -34,6 +34,9 @@ jobs:
           echo "MODELS_RUN_URL=https://models.aixplain.com/api/v1/execute" >> $GITHUB_ENV
           echo "PIPELINES_RUN_URL=https://platform-api.aixplain.com/assets/pipeline/execution/run" >> $GITHUB_ENV
 
+      - name: Run unit
+        run: python -m pytest tests/unit
+
       - name: Run general_assets
         run: python -m pytest tests/functional/general_assets
 
