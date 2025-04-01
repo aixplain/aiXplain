@@ -1,4 +1,4 @@
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Text
 
 
 class AgentResponseData:
@@ -54,3 +54,10 @@ class AgentResponseData:
             f"intermediate_steps={self.intermediate_steps}, "
             f"execution_stats={self.execution_stats})"
         )
+
+    def __contains__(self, key: Text) -> bool:
+        try:
+            self[key]
+            return True
+        except KeyError:
+            return False
