@@ -180,18 +180,15 @@ class UtilityModel(Model):
         """Validate the Utility Model."""
         description = None
         name = None
-        inputs = []
         # check if the model exists and if the code is strring with s3://
         # if not, parse the code and update the description and inputs and do the validation
         # if yes, just do the validation on the description and inputs
         if not (self._model_exists() and str(self.code).startswith("s3://")):
-            self.code, inputs, description, name = parse_code_decorated(self.code)
+            self.code, self.inputs, description, name = parse_code_decorated(self.code)
             if self.name is None:
                 self.name = name
             if self.description is None:
                 self.description = description
-            if len(self.inputs) == 0:
-                self.inputs = inputs
             for input in self.inputs:
                 input.validate()
         else:
