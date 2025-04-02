@@ -81,9 +81,9 @@ class AgentFactory:
             Agent: created Agent
         """
         warnings.warn(
-            "The 'instructions' parameter was recently added and serves the same purpose as 'description' did previously: set the role of the agent as a system prompt. "
-            "The 'description' parameter is still required and should be used to set a short summary of the agent's purpose. "
-            "For the next releases, the 'instructions' parameter will be required.",
+            "Use `instructions` to define the **system prompt**. "
+            "Use `description` to provide a **short summary** of the agent for metadata and dashboard display. "
+            "Note: In upcoming releases, `instructions` will become a required parameter.",
             UserWarning,
         )
         from aixplain.factories.agent_factory.utils import build_agent
@@ -260,7 +260,6 @@ class AgentFactory:
 
         # Handle CSV source type
         if source_type == DatabaseSourceType.CSV:
-
             if not os.path.exists(source):
                 raise SQLToolError(f"CSV file '{source}' does not exist")
             if not source.endswith(".csv"):

@@ -38,6 +38,7 @@ from aixplain.enums.storage_type import StorageType
 from aixplain.modules.model import Model
 from aixplain.modules.agent import Agent, OutputFormat
 from aixplain.modules.agent.agent_response import AgentResponse
+from aixplain.modules.agent.agent_response_data import AgentResponseData
 from aixplain.modules.agent.utils import process_variables
 from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
@@ -136,7 +137,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         max_tokens: int = 2048,
         max_iterations: int = 30,
         output_format: OutputFormat = OutputFormat.TEXT,
-    ) -> Dict:
+    ) -> AgentResponse:
         """Runs a team agent call.
 
         Args:
@@ -156,6 +157,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             Dict: parsed output from model
         """
         start = time.time()
+        result_data = {}
         try:
             response = self.run_async(
                 data=data,
@@ -169,14 +171,27 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                 max_iterations=max_iterations,
                 output_format=output_format,
             )
-            if response["status"] == "FAILED":
+            if response["status"] == ResponseStatus.FAILED:
                 end = time.time()
                 response["elapsed_time"] = end - start
                 return response
             poll_url = response["url"]
             end = time.time()
-            response = self.sync_poll(poll_url, name=name, timeout=timeout, wait_time=wait_time)
-            return response
+            result = self.sync_poll(poll_url, name=name, timeout=timeout, wait_time=wait_time)
+            result_data = result.data
+            return AgentResponse(
+                status=ResponseStatus.SUCCESS,
+                completed=True,
+                data=AgentResponseData(
+                    input=result_data.get("input"),
+                    output=result_data.get("output"),
+                    session_id=result_data.get("session_id"),
+                    intermediate_steps=result_data.get("intermediate_steps"),
+                    execution_stats=result_data.get("executionStats"),
+                ),
+                used_credits=result_data.get("usedCredits", 0.0),
+                run_time=result_data.get("runTime", end - start),
+            )
         except Exception as e:
             logging.error(f"Team Agent Run: Error in running for {name}: {e}")
             end = time.time()
@@ -198,7 +213,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         max_tokens: int = 2048,
         max_iterations: int = 30,
         output_format: OutputFormat = OutputFormat.TEXT,
-    ) -> Dict:
+    ) -> AgentResponse:
         """Runs asynchronously a Team Agent call.
 
         Args:
@@ -279,14 +294,20 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             logging.info(f"Result of request for {name} - {r.status_code} - {resp}")
 
             poll_url = resp["data"]
-            response = {"status": "IN_PROGRESS", "url": poll_url}
+            return AgentResponse(
+                status=ResponseStatus.IN_PROGRESS,
+                url=poll_url,
+                data=AgentResponseData(input=input_data),
+                run_time=0.0,
+                used_credits=0.0,
+            )
         except Exception:
-            response = {"status": "FAILED"}
             msg = f"Error in request for {name} - {traceback.format_exc()}"
             logging.error(f"Team Agent Run Async: Error in running for {name}: {resp}")
-            if resp is not None:
-                response["error"] = msg
-        return response
+            return AgentResponse(
+                status=ResponseStatus.FAILED,
+                error=msg,
+            )
 
     def delete(self) -> None:
         """Delete Corpus service"""

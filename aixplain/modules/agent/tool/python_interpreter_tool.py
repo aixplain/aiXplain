@@ -30,12 +30,13 @@ class PythonInterpreterTool(Tool):
 
     def __init__(self, **additional_info) -> None:
         """Python Interpreter Tool"""
-        super().__init__(name="Python Interpreter", description="", **additional_info)
+        description = "A Python shell. Use this to execute python commands. Input should be a valid python command."
+        super().__init__(name="Python Interpreter", description=description, **additional_info)
         self.status = AssetStatus.ONBOARDED  # TODO: change to DRAFT when we have a way to onboard the tool
 
     def to_dict(self):
         return {
-            "description": "",
+            "description": self.description,
             "type": "utility",
             "utility": "custom_python_code",
         }
