@@ -61,5 +61,4 @@ jobs:
           fi
           
       - name: Run Tests
-        continue-on-error: true
         run: python -m pytest ${{ matrix.test-suite}}
