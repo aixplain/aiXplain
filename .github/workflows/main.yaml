@@ -3,11 +3,15 @@ name: Run Tests
 on:
   push:
     branches:
+      - main
       - test
+      - development
       - ENG-1852
   pull_request:
     branches:
+      - main
       - test
+      - development
       - ENG-1852
   workflow_dispatch:  
 
@@ -50,10 +54,26 @@ jobs:
 
       - name: Set environment variables
         run: |
-          echo "TEAM_API_KEY=${{ secrets.TEAM_API_KEY }}" >> $GITHUB_ENV
-          echo "BACKEND_URL=https://test-platform-api.aixplain.com/" >> $GITHUB_ENV
-          echo "MODELS_RUN_URL=https://test-models.aixplain.com/api/v1/execute" >> $GITHUB_ENV
-          echo "PIPELINES_RUN_URL=https://test-platform-api.aixplain.com/assets/pipeline/execution/run" >> $GITHUB_ENV
+          BRANCH_NAME=${{ github.head_ref || github.ref_name }}
+          BRANCH_NAME=${BRANCH_NAME#refs/heads/}
+          # Print the branch name to the console to make sure it's correct
+          echo "Branch name: $BRANCH_NAME"
+          if [ "${BRANCH_NAME}" = "main" ]; then
+            echo "TEAM_API_KEY=${{ secrets.PROD_TEAM_API_KEY }}" >> $GITHUB_ENV
+            echo "BACKEND_URL=https://platform-api.aixplain.com/" >> $GITHUB_ENV
+            echo "MODELS_RUN_URL=https://models.aixplain.com/api/v1/execute" >> $GITHUB_ENV
+            echo "PIPELINES_RUN_URL=https://platform-api.aixplain.com/assets/pipeline/execution/run" >> $GITHUB_ENV
+          elif [ "${BRANCH_NAME}" = "test" ]; then
+            echo "TEAM_API_KEY=${{ secrets.TEST_TEAM_API_KEY }}" >> $GITHUB_ENV
+            echo "BACKEND_URL=https://test-platform-api.aixplain.com/" >> $GITHUB_ENV
+            echo "MODELS_RUN_URL=https://test-models.aixplain.com/api/v1/execute" >> $GITHUB_ENV
+            echo "PIPELINES_RUN_URL=https://test-platform-api.aixplain.com/assets/pipeline/execution/run" >> $GITHUB_ENV
+          else
+            echo "TEAM_API_KEY=${{ secrets.DEV_TEAM_API_KEY }}" >> $GITHUB_ENV
+            echo "BACKEND_URL=https://dev-platform-api.aixplain.com/" >> $GITHUB_ENV
+            echo "MODELS_RUN_URL=https://dev-models.aixplain.com/api/v1/execute" >> $GITHUB_ENV
+            echo "PIPELINES_RUN_URL=https://dev-platform-api.aixplain.com/assets/pipeline/execution/run" >> $GITHUB_ENV
+          fi
           
       - name: Run Tests
         run: python -m pytest ${{ matrix.test-suite}}
