@@ -4,8 +4,8 @@ on:
   push:
     branches:
       - main
+      # any branch other than main, will use the test key
       - test
-      - development
       - ENG-1852
   workflow_dispatch:  
 
@@ -53,16 +53,11 @@ jobs:
             echo "BACKEND_URL=https://platform-api.aixplain.com/" >> $GITHUB_ENV
             echo "MODELS_RUN_URL=https://models.aixplain.com/api/v1/execute" >> $GITHUB_ENV
             echo "PIPELINES_RUN_URL=https://platform-api.aixplain.com/assets/pipeline/execution/run" >> $GITHUB_ENV
-          elif [ "${{ github.ref_name }}" = "refs/heads/test" ]; then
-            echo "TEAM_API_KEY=${{ secrets.TEAM_API_KEY_TEST }}" >> $GITHUB_ENV
+          else
+            echo "TEAM_API_KEY=${{ secrets.TEAM_API_KEY }}" >> $GITHUB_ENV
             echo "BACKEND_URL=https://test-platform-api.aixplain.com/" >> $GITHUB_ENV
             echo "MODELS_RUN_URL=https://test-models.aixplain.com/api/v1/execute" >> $GITHUB_ENV
             echo "PIPELINES_RUN_URL=https://test-platform-api.aixplain.com/assets/pipeline/execution/run" >> $GITHUB_ENV
-          else
-            echo "TEAM_API_KEY=${{ secrets.TEAM_API_KEY }}" >> $GITHUB_ENV
-            echo "BACKEND_URL=https://dev-platform-api.aixplain.com/" >> $GITHUB_ENV
-            echo "MODELS_RUN_URL=https://dev-models.aixplain.com/api/v1/execute" >> $GITHUB_ENV
-            echo "PIPELINES_RUN_URL=https://dev-platform-api.aixplain.com/assets/pipeline/execution/run" >> $GITHUB_ENV
           fi
           
       - name: Run Tests
