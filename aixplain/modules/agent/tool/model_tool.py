@@ -58,37 +58,22 @@ class ModelTool(Tool):
         """
         name = name or ""
         super().__init__(name=name, description=description, **additional_info)
-        
-        if function is not None:
-            if isinstance(function, str):
-                function = Function(function)
-        assert (
-            function is None or function is not Function.UTILITIES or model is not None
-        ), "Agent Creation Error: Utility function must be used with an associated model."
-
-        try:
-            if isinstance(supplier, dict):
-                supplier = Supplier(supplier)
-        except Exception:
-            supplier = None
-
-        self.model_object = None
-        if model is not None:
-            if isinstance(model, Text) is True:
-                self.model = model
-                model = self.validate()
-                self.model_object = model
-            else:
-                self.model_object = model
+        status = AssetStatus.ONBOARDED if model is None else AssetStatus.DRAFT
+        model_id = model  # if None,  Set id to None as default
+        if isinstance(model, Model):
+            model_id = model.id
             status = model.status
-            function = model.function
-            if isinstance(model.supplier, Supplier):
-                supplier = model.supplier
-            model = model.id
-        else:
-            status = AssetStatus.ONBOARDED
+        elif isinstance(model, Text):
+            # get model from id
+            try:
+                model_obj = self._get_model(model)
+                model_id = model_obj.id
+                status = model_obj.status
+            except Exception:
+                raise Exception(f"Model Tool Unavailable. Make sure Model '{model}' exists or you have access to it.")
+
         self.supplier = supplier
-        self.model = model
+        self.model = model_id
         self.status = status
         self.function = function
         self.parameters = parameters
@@ -129,7 +114,6 @@ class ModelTool(Tool):
             - If the description is empty, it sets the description to the function description or the model description.
         """
         from aixplain.enums import FunctionInputOutput
-        from aixplain.factories.model_factory import ModelFactory
 
         assert (
             self.function is not None or self.model is not None
@@ -151,7 +135,7 @@ class ModelTool(Tool):
         if self.model is not None:
             if isinstance(self.model, Text) is True:
                 try:
-                    self.model = ModelFactory.get(self.model, api_key=self.api_key)
+                    self.model = self._get_model()
                 except Exception:
                     raise Exception(f"Model Tool Unavailable. Make sure Model '{self.model}' exists or you have access to it.")
             self.function = self.model.function
@@ -171,6 +155,12 @@ class ModelTool(Tool):
 
     def get_parameters(self) -> Dict:
         return self.parameters
+
+    def _get_model(self, model_id: Text = None):
+        from aixplain.factories.model_factory import ModelFactory
+
+        model_id = model_id or self.model
+        return ModelFactory.get(model_id, api_key=self.api_key)
 
     def validate_parameters(self, received_parameters: Optional[List[Dict]] = None) -> Optional[List[Dict]]:
         """Validates and formats the parameters for the tool.

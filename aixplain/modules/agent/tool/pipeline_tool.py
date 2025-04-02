@@ -53,10 +53,18 @@ class PipelineTool(Tool):
 
         status = AssetStatus.DRAFT
         if isinstance(pipeline, Pipeline):
-            pipeline = pipeline.id
+            pipeline_id = pipeline.id
             status = pipeline.status
+        else:
+            # get pipeline from id
+            try:
+                pipeline_obj = self._get_pipeline(pipeline)
+                pipeline_id = pipeline_obj.id
+                status = pipeline_obj.status
+            except Exception:
+                raise Exception(f"Pipeline Tool Unavailable. Make sure Pipeline '{pipeline}' exists or you have access to it.")
 
-        self.pipeline = pipeline
+        self.pipeline = pipeline_id
         self.status = status
 
     def to_dict(self):
@@ -68,10 +76,14 @@ class PipelineTool(Tool):
             "status": self.status,
         }
 
-    def validate(self):
+    def _get_pipeline(self, pipeline_id: Text = None):
         from aixplain.factories.pipeline_factory import PipelineFactory
 
+        pipeline_id = pipeline_id or self.pipeline
+        return PipelineFactory.get(pipeline_id, api_key=self.api_key)
+
+    def validate(self):
         try:
-            PipelineFactory.get(self.pipeline, api_key=self.api_key)
+            self._get_pipeline()
         except Exception:
             raise Exception(f"Pipeline Tool Unavailable. Make sure Pipeline '{self.pipeline}' exists or you have access to it.")
