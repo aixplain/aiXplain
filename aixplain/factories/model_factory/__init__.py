@@ -140,7 +140,7 @@ class ModelFactory:
 
         resp = None
         try:
-            logging.info(f"ModelFactory: Model {model_id} not in cache. Fetching from backend...")
+            logging.info(f"Fetching Model from backend...")
             url = urljoin(cls.backend_url, f"sdk/models/{model_id}")
 
             headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
