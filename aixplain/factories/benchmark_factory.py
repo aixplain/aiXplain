@@ -182,7 +182,7 @@ class BenchmarkFactory:
         model_list_without_parms, model_list_with_parms = [], []
         for model in model_list:
             if "displayName" in model.additional_info:
-                model_list_with_parms.append({"id": model.id, "displayName": model.additional_info["displayName"], "configuration": json.dumps(model.additional_info["configuration"])})
+                model_list_with_parms.append({"id": model.id, "displayName": model.additional_info["displayName"], "configurations": json.dumps(model.additional_info["configuration"])})
             else:
                 model_list_without_parms.append(model.id)
         if len(model_list_with_parms) > 0:
