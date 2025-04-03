@@ -184,11 +184,10 @@ def test_decision_pipeline(pipeline):
     input.outputs.input.link(sentiment_analysis.inputs.text)
     sentiment_analysis.outputs.data.link(decision_node.inputs.comparison)
     input.outputs.input.link(decision_node.inputs.passthrough)
-    decision_node.outputs.input.link(positive_output.inputs.output)
-    decision_node.outputs.input.link(negative_output.inputs.output)
+    decision_node.outputs.data.link(positive_output.inputs.output)
+    decision_node.outputs.data.link(negative_output.inputs.output)
 
     pipeline.save()
-
     output = pipeline.run(
         "I feel so bad today!",
         version="3.0",
