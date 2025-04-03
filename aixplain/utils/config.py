@@ -50,12 +50,8 @@ LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 HF_TOKEN = os.getenv("HF_TOKEN", "")
 SENTRY_DSN = os.getenv("SENTRY_DSN")
 
-if SENTRY_DSN:
-    sentry_sdk.init(
-        dsn=SENTRY_DSN,
-        environment=os.getenv("ENV","prod"),
-        send_default_pii=True,
-    )
-    logger.info("Sentry initialized.")
-else:
-    logger.info("Sentry DSN not provided; skipping Sentry initialization.")
+sentry_sdk.init(
+    dsn=SENTRY_DSN,
+    environment=os.getenv("ENV","prod"),
+    send_default_pii=True,
+)
