@@ -5,6 +5,7 @@ from typing_extensions import (
     TYPE_CHECKING,
     Callable,
     NotRequired,
+    Optional,
 )
 
 from .resource import (
@@ -27,7 +28,7 @@ if TYPE_CHECKING:
         PythonInterpreterTool,
     )
     from aixplain.modules.agent.tool.custom_python_code_tool import CustomPythonCodeTool
-
+    from aixplain.modules.agent.tool.sql_tool import SQLTool
 from .enums import Function
 
 
@@ -97,20 +98,14 @@ class Agent(
     ):
         from aixplain.factories import AgentFactory
 
-        return AgentFactory.create_model_tool(
-            model=model, function=function, supplier=supplier, description=description
-        )
+        return AgentFactory.create_model_tool(model=model, function=function, supplier=supplier, description=description)
 
     @classmethod
-    def create_pipeline_tool(
-        cls, description: str, pipeline: Union["Pipeline", str]
-    ) -> "PipelineTool":
+    def create_pipeline_tool(cls, description: str, pipeline: Union["Pipeline", str]) -> "PipelineTool":
         """Create a new pipeline tool."""
         from aixplain.factories import AgentFactory
 
-        return AgentFactory.create_pipeline_tool(
-            description=description, pipeline=pipeline
-        )
+        return AgentFactory.create_pipeline_tool(description=description, pipeline=pipeline)
 
     @classmethod
     def create_python_interpreter_tool(cls) -> "PythonInterpreterTool":
@@ -120,12 +115,60 @@ class Agent(
         return AgentFactory.create_python_interpreter_tool()
 
     @classmethod
-    def create_custom_python_code_tool(
-        cls, code: Union[str, Callable], description: str = ""
-    ) -> "CustomPythonCodeTool":
+    def create_custom_python_code_tool(cls, code: Union[str, Callable], description: str = "") -> "CustomPythonCodeTool":
         """Create a new custom python code tool."""
         from aixplain.factories import AgentFactory
 
-        return AgentFactory.create_custom_python_code_tool(
-            code=code, description=description
+        return AgentFactory.create_custom_python_code_tool(code=code, description=description)
+
+    @classmethod
+    def create_sql_tool(
+        cls,
+        description: str,
+        source: str,
+        source_type: str,
+        schema: Optional[str] = None,
+        tables: Optional[List[str]] = None,
+        enable_commit: bool = False,
+    ) -> "SQLTool":
+        """Create a new SQL tool.
+
+        Args:
+            description (str): description of the database tool
+            source (Union[str, Dict]): database source - can be a connection string or dictionary with connection details
+            source_type (str): type of source (sqlite, csv)
+            schema (Optional[str], optional): database schema description
+            tables (Optional[List[str]], optional): table names to work with (optional)
+            enable_commit (bool, optional): enable to modify the database (optional)
+
+        Returns:
+            SQLTool: created SQLTool
+
+        Examples:
+            # SQLite - Simple
+            sql_tool = Agent.create_sql_tool(
+                description="My SQLite Tool",
+                source="/path/to/database.sqlite",
+                source_type="sqlite",
+                tables=["users", "products"]
+            )
+
+            # CSV - Simple
+            sql_tool = Agent.create_sql_tool(
+                description="My CSV Tool",
+                source="/path/to/data.csv",
+                source_type="csv",
+                tables=["data"]
+            )
+
+        """
+        from aixplain.factories import AgentFactory
+
+        return AgentFactory.create_sql_tool(
+            description=description,
+            source=source,
+            source_type=source_type,
+            schema=schema,
+            tables=tables,
+            enable_commit=enable_commit,
         )

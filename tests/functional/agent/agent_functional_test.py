@@ -345,3 +345,116 @@ def test_specific_model_parameters_e2e(tool_config):
             tool_used = True
             break
     assert tool_used, "Tool was not used in execution"
+
+
+@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
+def test_sql_tool(delete_agents_and_team_agents, AgentFactory):
+    assert delete_agents_and_team_agents
+    import os
+
+    # Create test SQLite database
+    with open("ftest.db", "w") as f:
+        f.write("")
+
+    tool = AgentFactory.create_sql_tool(
+        description="Execute an SQL query and return the result", source="ftest.db", source_type="sqlite", enable_commit=True
+    )
+    assert tool is not None
+    assert tool.description == "Execute an SQL query and return the result"
+
+    agent = AgentFactory.create(
+        name="Teste",
+        description="You are a test agent that search for employee information in a database",
+        tools=[tool],
+    )
+    assert agent is not None
+
+    response = agent.run("Create a table called Person with the following columns: id, name, age, salary, department")
+    assert response is not None
+    assert response["completed"] is True
+    assert response["status"].lower() == "success"
+
+    response = agent.run("Insert the following data into the Person table: 1, Eve, 30, 50000, Sales")
+    assert response is not None
+    assert response["completed"] is True
+    assert response["status"].lower() == "success"
+
+    response = agent.run("What is the name of the employee with the highest salary?")
+    assert response is not None
+    assert response["completed"] is True
+    assert response["status"].lower() == "success"
+    assert "eve" in str(response["data"]["output"]).lower()
+
+    os.remove("ftest.db")
+    agent.delete()
+
+
+@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
+def test_sql_tool_with_csv(delete_agents_and_team_agents, AgentFactory):
+    assert delete_agents_and_team_agents
+
+    import pandas as pd
+
+    # Create a more comprehensive test dataset
+    df = pd.DataFrame(
+        {
+            "id": [1, 2, 3, 4, 5],
+            "name": ["Alice", "Bob", "Charlie", "David", "Eve"],
+            "department": ["Sales", "IT", "Sales", "Marketing", "IT"],
+            "salary": [75000, 85000, 72000, 68000, 90000],
+        }
+    )
+    df.to_csv("test.csv", index=False)
+
+    # Create SQL tool from CSV
+    tool = AgentFactory.create_sql_tool(
+        description="Execute SQL queries on employee data", source="test.csv", source_type="csv", tables=["employees"]
+    )
+
+    # Verify tool setup
+    assert tool is not None
+    assert tool.description == "Execute SQL queries on employee data"
+    assert tool.database.endswith(".db")
+    assert tool.tables == ["employees"]
+    assert (
+        tool.schema
+        == 'CREATE TABLE employees (\n                    "id" INTEGER, "name" TEXT, "department" TEXT, "salary" INTEGER\n                )'  # noqa: W503
+    )
+    assert not tool.enable_commit  # must be False by default
+
+    # Create an agent with the SQL tool
+    agent = AgentFactory.create(
+        name="SQL Query Agent",
+        description="I am an agent that helps query employee information from a database.",
+        instructions="Help users query employee information from the database. Use SQL queries to get the requested information.",
+        tools=[tool],
+    )
+    assert agent is not None
+
+    # Test 1: Basic SELECT query
+    response = agent.run("Who are all the employees in the Sales department?")
+    assert response["completed"] is True
+    assert response["status"].lower() == "success"
+    assert "alice" in response["data"]["output"].lower()
+    assert "charlie" in response["data"]["output"].lower()
+
+    # Test 2: Aggregation query
+    response = agent.run("What is the average salary in each department?")
+    assert response["completed"] is True
+    assert response["status"].lower() == "success"
+    assert "sales" in response["data"]["output"].lower()
+    assert "it" in response["data"]["output"].lower()
+    assert "marketing" in response["data"]["output"].lower()
+
+    # Test 3: Complex query with conditions
+    response = agent.run("Who is the highest paid employee in the IT department?")
+    assert response["completed"] is True
+    assert response["status"].lower() == "success"
+    assert "eve" in response["data"]["output"].lower()
+
+    import os
+
+    # Cleanup
+    os.remove("test.csv")
+    os.remove("test.db")
+    agent.delete()

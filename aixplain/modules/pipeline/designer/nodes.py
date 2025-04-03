@@ -79,17 +79,13 @@ class AssetNode(Node[TI, TO], LinkableMixin, OutputableMixin):
 
         if self.function:
             if self.asset.function.value != self.function:
-                raise ValueError(f"Function {self.function} is not supported by asset {self.asset_id}")
-
-            # Despite function field has been set, we should still dynamically
-            # populate parameters for Utility functions
-            if self.function == Function.UTILITIES:
-                self._auto_populate_params()
-
+                raise ValueError(
+                    f"Function {self.function} is not supported by asset {self.asset_id}"
+                )
         else:
             self.function = self.asset.function.value
-            self._auto_populate_params()
 
+        self._auto_populate_params()
         self._auto_set_params()
 
     def _auto_populate_params(self):
@@ -108,17 +104,28 @@ class AssetNode(Node[TI, TO], LinkableMixin, OutputableMixin):
                 )
         else:
             for item in spec["params"]:
-                self.inputs.create_param(
-                    code=item["code"],
-                    data_type=item["dataType"],
-                    is_required=item["required"],
-                )
+                if item["code"] not in self.inputs:
+                    self.inputs.create_param(
+                        code=item["code"],
+                        data_type=item["dataType"],
+                        is_required=item["required"],
+                    )
+
+            if self.asset.model_params:
+                for code, param in self.asset.model_params.parameters.items():
+                    if code not in self.inputs:
+                        self.inputs.create_param(
+                            code=code,
+                            is_required=param.required,
+                            value=param.value,
+                        )
 
         for item in spec["output"]:
-            self.outputs.create_param(
-                code=item["code"],
-                data_type=item["dataType"],
-            )
+            if item["code"] not in self.outputs:
+                self.outputs.create_param(
+                    code=item["code"],
+                    data_type=item["dataType"],
+                )
 
     def _auto_set_params(self):
         for k, v in self.asset.additional_info["parameters"].items():

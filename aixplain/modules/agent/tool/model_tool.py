@@ -42,6 +42,7 @@ class ModelTool(Tool):
         function: Optional[Union[Function, Text]] = None,
         supplier: Optional[Union[Dict, Supplier]] = None,
         model: Optional[Union[Text, Model]] = None,
+        name: Optional[Text] = None,
         description: Text = "",
         parameters: Optional[Dict] = None,
         **additional_info,
@@ -59,7 +60,8 @@ class ModelTool(Tool):
             function is not None or model is not None
         ), "Agent Creation Error: Either function or model must be provided when instantiating a tool."
 
-        super().__init__(name="", description=description, **additional_info)
+        name = name or ""
+        super().__init__(name=name, description=description, **additional_info)
         if function is not None:
             if isinstance(function, str):
                 function = Function(function)
@@ -104,6 +106,7 @@ class ModelTool(Tool):
         return {
             "function": self.function.value if self.function is not None else None,
             "type": "model",
+            "name": self.name,
             "description": self.description,
             "supplier": supplier,
             "version": self.version if self.version else None,
@@ -113,6 +116,9 @@ class ModelTool(Tool):
 
     def validate(self) -> Model:
         from aixplain.factories.model_factory import ModelFactory
+
+        if self.model_object is not None:
+            return self.model_object
 
         try:
             model = None

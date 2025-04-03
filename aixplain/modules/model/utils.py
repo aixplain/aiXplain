@@ -23,6 +23,7 @@ def build_payload(data: Union[Text, Dict], parameters: Optional[Dict] = None):
                     payload = str(payload)
                 payload = {"data": payload}
         except Exception:
+            parameters["data"] = data
             payload = {"data": data}
     payload.update(parameters)
     payload = json.dumps(payload)
@@ -122,8 +123,8 @@ def parse_code(code: Union[Text, Callable]) -> Tuple[Text, List, Text, Text]:
                 "Utility Model Error:If the function is not decorated with @utility_tool, the description must be provided in the docstring"
             )
     # get parameters of the function
-    f = re.findall(r"main\((.*?(?:\s*=\s*[^,)]+)?(?:\s*,\s*.*?(?:\s*=\s*[^,)]+)?)*)\)", str_code)
-    parameters = f[0].split(",") if len(f) > 0 else []
+    params_match = re.search(r"def\s+\w+\s*\((.*?)\)\s*(?:->.*?)?:", str_code)
+    parameters = params_match.group(1).split(",") if params_match else []
 
     for input in parameters:
         assert (
@@ -175,6 +176,12 @@ def parse_code_decorated(code: Union[Text, Callable]) -> Tuple[Text, List, Text]
     inputs, description, name = [], "", ""
     str_code = ""
 
+    # Add explicit type checking for class instances
+    if inspect.isclass(code) or (not isinstance(code, (str, Callable)) and hasattr(code, "__class__")):
+        raise TypeError(
+            f"Code must be either a string or a callable function, not a class or class instance. You tried to pass a class or class instance: {code}"
+        )
+
     if isinstance(code, Callable) and hasattr(code, "_is_utility_tool"):
         str_code = inspect.getsource(code)
         # Use the information directly from the decorated callable
@@ -211,7 +218,7 @@ def parse_code_decorated(code: Union[Text, Callable]) -> Tuple[Text, List, Text]
         description = code.__doc__.strip() if code.__doc__ else ""
         name = code.__name__
         # Try to infer parameters
-        params_match = re.search(r"def\s+\w+\s*\((.*?)\):", str_code)
+        params_match = re.search(r"def\s+\w+\s*\((.*?)\)\s*(?:->.*?)?:", str_code)
         parameters = params_match.group(1).split(",") if params_match else []
 
         for input in parameters:
@@ -337,3 +344,7 @@ def parse_code_decorated(code: Union[Text, Callable]) -> Tuple[Text, List, Text]
     os.remove(local_path)
 
     return code, inputs, description, name
+
+
+def is_supported_image_type(value: str) -> bool:
+    return any(value.lower().endswith(ext) for ext in [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp"])

@@ -1,13 +1,15 @@
 import pytest
 import requests_mock
-from aixplain.factories import TeamAgentFactory
-from aixplain.factories import AgentFactory
-from aixplain.enums.asset_status import AssetStatus
-from aixplain.modules import Agent, TeamAgent
-from aixplain.modules.agent.tool.model_tool import ModelTool
-from aixplain.utils import config
 from urllib.parse import urljoin
 from unittest.mock import patch
+
+from aixplain.enums.asset_status import AssetStatus
+from aixplain.factories import TeamAgentFactory
+from aixplain.factories import AgentFactory
+from aixplain.modules.agent import Agent
+from aixplain.modules.team_agent import TeamAgent, InspectorTarget
+from aixplain.modules.agent.tool.model_tool import ModelTool
+from aixplain.utils import config
 
 
 def test_fail_no_data_query():
@@ -89,7 +91,8 @@ def test_to_dict():
         ],
         description="Test Team Agent Description",
         llm_id="6646261c6eb563165658bbb1",
-        use_mentalist_and_inspector=False,
+        use_mentalist=False,
+        use_inspector=False,
     )
 
     team_agent_dict = team_agent.to_dict()
@@ -99,11 +102,47 @@ def test_to_dict():
     assert team_agent_dict["llmId"] == "6646261c6eb563165658bbb1"
     assert team_agent_dict["supervisorId"] == "6646261c6eb563165658bbb1"
     assert team_agent_dict["plannerId"] is None
+    assert team_agent_dict["inspectorId"] is None
     assert len(team_agent_dict["agents"]) == 1
     assert team_agent_dict["agents"][0]["assetId"] == ""
     assert team_agent_dict["agents"][0]["number"] == 0
     assert team_agent_dict["agents"][0]["type"] == "AGENT"
     assert team_agent_dict["agents"][0]["label"] == "AGENT"
+
+
+def test_to_dict_with_inspector_params():
+    team_agent = TeamAgent(
+        id="123",
+        name="Test Team Agent(-)",
+        agents=[
+            Agent(
+                id="",
+                name="Test Agent(-)",
+                description="Test Agent Description",
+                instructions="Test Agent Role",
+                llm_id="6646261c6eb563165658bbb1",
+                tools=[ModelTool(function="text-generation")],
+            )
+        ],
+        description="Test Team Agent Description",
+        llm_id="6646261c6eb563165658bbb1",
+        use_mentalist=True,
+        use_inspector=True,
+        max_inspectors=2,
+        inspector_targets=[InspectorTarget.STEPS, InspectorTarget.OUTPUT],
+    )
+
+    team_agent_dict = team_agent.to_dict()
+    assert team_agent_dict["id"] == "123"
+    assert team_agent_dict["name"] == "Test Team Agent(-)"
+    assert team_agent_dict["description"] == "Test Team Agent Description"
+    assert team_agent_dict["llmId"] == "6646261c6eb563165658bbb1"
+    assert team_agent_dict["supervisorId"] == "6646261c6eb563165658bbb1"
+    assert team_agent_dict["plannerId"] == "6646261c6eb563165658bbb1"
+    assert team_agent_dict["inspectorId"] == "6646261c6eb563165658bbb1"
+    assert team_agent_dict["maxInspectors"] == 2
+    assert team_agent_dict["inspectorTargets"] == ["steps", "output"]
+    assert len(team_agent_dict["agents"]) == 1
 
 
 @patch("aixplain.factories.model_factory.ModelFactory.get")
@@ -182,6 +221,7 @@ def test_create_team_agent(mock_model_factory_get):
             "agents": [{"assetId": "123", "type": "AGENT", "number": 0, "label": "AGENT"}],
             "links": [],
             "plannerId": "6646261c6eb563165658bbb1",
+            "inspectorId": "6646261c6eb563165658bbb1",
             "supervisorId": "6646261c6eb563165658bbb1",
             "createdAt": "2024-10-28T19:30:25.344Z",
             "updatedAt": "2024-10-28T19:30:25.344Z",
@@ -190,16 +230,18 @@ def test_create_team_agent(mock_model_factory_get):
 
         team_agent = TeamAgentFactory.create(
             name="TEST Multi agent(-)",
-            description="TEST Multi agent",
-            use_mentalist_and_inspector=True,
-            llm_id="6646261c6eb563165658bbb1",
             agents=[agent],
+            llm_id="6646261c6eb563165658bbb1",
+            description="TEST Multi agent",
+            use_mentalist=True,
+            use_inspector=True,
         )
         assert team_agent.id is not None
         assert team_agent.name == team_ref_response["name"]
         assert team_agent.description == team_ref_response["description"]
         assert team_agent.llm_id == team_ref_response["llmId"]
-        assert team_agent.use_mentalist_and_inspector is True
+        assert team_agent.use_mentalist is True
+        assert team_agent.use_inspector is True
         assert team_agent.status == AssetStatus.DRAFT
         assert len(team_agent.agents) == 1
         assert team_agent.agents[0].id == team_ref_response["agents"][0]["assetId"]
@@ -216,6 +258,7 @@ def test_create_team_agent(mock_model_factory_get):
             "agents": [{"assetId": "123", "type": "AGENT", "number": 0, "label": "AGENT"}],
             "links": [],
             "plannerId": "6646261c6eb563165658bbb1",
+            "inspectorId": "6646261c6eb563165658bbb1",
             "supervisorId": "6646261c6eb563165658bbb1",
             "createdAt": "2024-10-28T19:30:25.344Z",
             "updatedAt": "2024-10-28T19:30:25.344Z",
@@ -224,6 +267,179 @@ def test_create_team_agent(mock_model_factory_get):
 
         team_agent.deploy()
         assert team_agent.status.value == "onboarded"
+
+
+@patch("aixplain.factories.model_factory.ModelFactory.get")
+def test_create_team_agent_with_inspector_params(mock_model_factory_get):
+    from aixplain.modules import Model
+    from aixplain.enums import Function
+
+    # Mock the model factory response
+    mock_model = Model(
+        id="6646261c6eb563165658bbb1", name="Test LLM", description="Test LLM Description", function=Function.TEXT_GENERATION
+    )
+    mock_model_factory_get.return_value = mock_model
+
+    with requests_mock.Mocker() as mock:
+        headers = {"x-api-key": config.TEAM_API_KEY, "Content-Type": "application/json"}
+        # MOCK GET LLM
+        url = urljoin(config.BACKEND_URL, "sdk/models/6646261c6eb563165658bbb1")
+        model_ref_response = {
+            "id": "6646261c6eb563165658bbb1",
+            "name": "Test LLM",
+            "description": "Test LLM Description",
+            "function": {"id": "text-generation"},
+            "supplier": "openai",
+            "version": {"id": "1.0"},
+            "status": "onboarded",
+            "pricing": {"currency": "USD", "value": 0.0},
+        }
+        mock.get(url, headers=headers, json=model_ref_response)
+
+        # AGENT MOCK CREATION
+        url = urljoin(config.BACKEND_URL, "sdk/agents")
+        ref_response = {
+            "id": "123",
+            "name": "Test Agent(-)",
+            "description": "Test Agent Description",
+            "role": "Test Agent Role",
+            "teamId": "123",
+            "version": "1.0",
+            "status": "draft",
+            "llmId": "6646261c6eb563165658bbb1",
+            "pricing": {"currency": "USD", "value": 0.0},
+            "assets": [
+                {
+                    "type": "model",
+                    "supplier": "openai",
+                    "version": "1.0",
+                    "assetId": "6646261c6eb563165658bbb1",
+                    "function": "text-generation",
+                }
+            ],
+        }
+        mock.post(url, headers=headers, json=ref_response)
+
+        agent = AgentFactory.create(
+            name="Test Agent(-)",
+            description="Test Agent Description",
+            instructions="Test Agent Role",
+            llm_id="6646261c6eb563165658bbb1",
+            tools=[ModelTool(model="6646261c6eb563165658bbb1")],
+        )
+
+        # AGENT MOCK GET
+        url = urljoin(config.BACKEND_URL, f"sdk/agents/{agent.id}")
+        mock.get(url, headers=headers, json=ref_response)
+
+        # TEAM MOCK CREATION
+        url = urljoin(config.BACKEND_URL, "sdk/agent-communities")
+        team_ref_response = {
+            "id": "team_agent_123",
+            "name": "TEST Multi agent(-)",
+            "status": "draft",
+            "teamId": 645,
+            "description": "TEST Multi agent",
+            "llmId": "6646261c6eb563165658bbb1",
+            "assets": [],
+            "agents": [{"assetId": "123", "type": "AGENT", "number": 0, "label": "AGENT"}],
+            "links": [],
+            "plannerId": "6646261c6eb563165658bbb1",
+            "inspectorId": "6646261c6eb563165658bbb1",
+            "supervisorId": "6646261c6eb563165658bbb1",
+            "maxInspectors": 3,
+            "inspectorTargets": ["steps", "output"],
+            "createdAt": "2024-10-28T19:30:25.344Z",
+            "updatedAt": "2024-10-28T19:30:25.344Z",
+        }
+        mock.post(url, headers=headers, json=team_ref_response)
+
+        team_agent = TeamAgentFactory.create(
+            name="TEST Multi agent(-)",
+            agents=[agent],
+            llm_id="6646261c6eb563165658bbb1",
+            description="TEST Multi agent",
+            use_mentalist=True,
+            use_inspector=True,
+            num_inspectors=3,
+            inspector_targets=[InspectorTarget.STEPS, InspectorTarget.OUTPUT],
+        )
+        assert team_agent.id is not None
+        assert team_agent.name == team_ref_response["name"]
+        assert team_agent.description == team_ref_response["description"]
+        assert team_agent.llm_id == team_ref_response["llmId"]
+        assert team_agent.use_mentalist is True
+        assert team_agent.use_inspector is True
+        assert team_agent.max_inspectors == 3
+        assert team_agent.inspector_targets == [InspectorTarget.STEPS, InspectorTarget.OUTPUT]
+        assert team_agent.status == AssetStatus.DRAFT
+        assert len(team_agent.agents) == 1
+        assert team_agent.agents[0].id == team_ref_response["agents"][0]["assetId"]
+
+
+def test_fail_inspector_without_mentalist():
+    with pytest.raises(Exception) as exc_info:
+        TeamAgentFactory.create(
+            name="Test Team Agent(-)",
+            agents=[
+                Agent(
+                    id="123",
+                    name="Test Agent(-)",
+                    description="Test Agent Description",
+                    instructions="Test Agent Role",
+                    llm_id="6646261c6eb563165658bbb1",
+                    tools=[ModelTool(function="text-generation")],
+                )
+            ],
+            use_mentalist=False,
+            use_inspector=True,
+        )
+
+    assert "you must enable Mentalist" in str(exc_info.value)
+
+
+def test_fail_invalid_inspector_target():
+    with pytest.raises(ValueError) as exc_info:
+        TeamAgentFactory.create(
+            name="Test Team Agent(-)",
+            agents=[
+                Agent(
+                    id="123",
+                    name="Test Agent(-)",
+                    description="Test Agent Description",
+                    instructions="Test Agent Role",
+                    llm_id="6646261c6eb563165658bbb1",
+                    tools=[ModelTool(function="text-generation")],
+                )
+            ],
+            use_mentalist=True,
+            use_inspector=True,
+            inspector_targets=["invalid_target"],
+        )
+
+    assert "Invalid inspector target" in str(exc_info.value)
+
+
+def test_fail_zero_inspectors():
+    with pytest.raises(Exception) as exc_info:
+        TeamAgentFactory.create(
+            name="Test Team Agent(-)",
+            agents=[
+                Agent(
+                    id="123",
+                    name="Test Agent(-)",
+                    description="Test Agent Description",
+                    instructions="Test Agent Role",
+                    llm_id="6646261c6eb563165658bbb1",
+                    tools=[ModelTool(function="text-generation")],
+                )
+            ],
+            use_mentalist=True,
+            use_inspector=True,
+            num_inspectors=0,
+        )
+
+    assert "The number of inspectors must be greater than 0" in str(exc_info.value)
 
 
 def test_build_team_agent(mocker):
@@ -270,6 +486,7 @@ def test_build_team_agent(mocker):
         "name": "Test Team Agent(-)",
         "description": "Test Team Agent Description",
         "plannerId": "6646261c6eb563165658bbb1",
+        "inspectorId": "6646261c6eb563165658bbb1",
         "llmId": "6646261c6eb563165658bbb1",
         "agents": [
             {"assetId": "agent1"},

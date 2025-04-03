@@ -24,6 +24,7 @@ Description:
 import json
 import logging
 import warnings
+import os
 
 from aixplain.enums.function import Function
 from aixplain.enums.supplier import Supplier
@@ -32,6 +33,9 @@ from aixplain.modules.agent.tool.model_tool import ModelTool
 from aixplain.modules.agent.tool.pipeline_tool import PipelineTool
 from aixplain.modules.agent.tool.python_interpreter_tool import PythonInterpreterTool
 from aixplain.modules.agent.tool.custom_python_code_tool import CustomPythonCodeTool
+from aixplain.modules.agent.tool.sql_tool import (
+    SQLTool,
+)
 from aixplain.modules.model import Model
 from aixplain.modules.pipeline import Pipeline
 from aixplain.utils import config
@@ -39,6 +43,7 @@ from typing import Callable, Dict, List, Optional, Text, Union
 
 from aixplain.utils.file_utils import _request_with_retry
 from urllib.parse import urljoin
+from aixplain.enums import DatabaseSourceType
 
 
 class AgentFactory:
@@ -65,7 +70,7 @@ class AgentFactory:
         Args:
             name (Text): name of the agent
             description (Text): description of the agent role.
-            instructions (Text): instructions for the agent.
+            instructions (Text): role of the agent.
             llm_id (Text, optional): aiXplain ID of the large language model to be used as agent. Defaults to "669a63646eb56306647e1091" (GPT-4o mini).
             tools (List[Union[Tool, Model]], optional): list of tool for the agent. Defaults to [].
             api_key (Text, optional): team/user API key. Defaults to config.TEAM_API_KEY.
@@ -120,8 +125,8 @@ class AgentFactory:
             "status": "draft",
             "tasks": [task.to_dict() for task in tasks],
         }
-        agent = build_agent(payload=payload, api_key=api_key)
-        agent.validate()
+        agent = build_agent(payload=payload, tools=tools, api_key=api_key)
+        agent.validate(raise_exception=True)
         response = "Unspecified error"
         try:
             logging.debug(f"Start service for POST Create Agent  - {url} - {headers} - {json.dumps(agent.to_dict())}")
@@ -131,7 +136,7 @@ class AgentFactory:
             raise Exception("Agent Onboarding Error: Please contact the administrators.")
 
         if 200 <= r.status_code < 300:
-            agent = build_agent(payload=response, api_key=api_key)
+            agent = build_agent(payload=response, tools=tools, api_key=api_key)
         else:
             error_msg = f"Agent Onboarding Error: {response}"
             if "message" in response:
@@ -187,6 +192,137 @@ class AgentFactory:
     def create_custom_python_code_tool(cls, code: Union[Text, Callable], description: Text = "") -> CustomPythonCodeTool:
         """Create a new custom python code tool."""
         return CustomPythonCodeTool(description=description, code=code)
+
+    @classmethod
+    def create_sql_tool(
+        cls,
+        description: Text,
+        source: str,
+        source_type: Union[str, DatabaseSourceType],
+        schema: Optional[Text] = None,
+        tables: Optional[List[Text]] = None,
+        enable_commit: bool = False,
+    ) -> SQLTool:
+        """Create a new SQL tool
+
+        Args:
+            description (Text): description of the database tool
+            source (Union[Text, Dict]): database source - can be a connection string or dictionary with connection details
+            source_type (Union[str, DatabaseSourceType]): type of source (postgresql, sqlite, csv) or DatabaseSourceType enum
+            schema (Optional[Text], optional): database schema description
+            tables (Optional[List[Text]], optional): table names to work with (optional)
+            enable_commit (bool, optional): enable to modify the database (optional)
+        Returns:
+            SQLTool: created SQLTool
+
+        Examples:
+            # CSV - Simple
+            sql_tool = AgentFactory.create_sql_tool(
+                description="My CSV Tool",
+                source="/path/to/data.csv",
+                source_type="csv",
+                tables=["data"]
+            )
+
+            # SQLite - Simple
+            sql_tool = AgentFactory.create_sql_tool(
+                description="My SQLite Tool",
+                source="/path/to/database.sqlite",
+                source_type="sqlite",
+                tables=["users", "products"]
+            )
+        """
+        from aixplain.modules.agent.tool.sql_tool import (
+            SQLToolError,
+            create_database_from_csv,
+            get_table_schema,
+            get_table_names_from_schema,
+        )
+
+        if not source:
+            raise SQLToolError("Source must be provided")
+        if not source_type:
+            raise SQLToolError("Source type must be provided")
+
+        # Validate source type
+        if isinstance(source_type, str):
+            try:
+                source_type = DatabaseSourceType.from_string(source_type)
+            except ValueError as e:
+                raise SQLToolError(str(e))
+        elif isinstance(source_type, DatabaseSourceType):
+            # Already the correct type, no conversion needed
+            pass
+        else:
+            raise SQLToolError(f"Source type must be either a string or DatabaseSourceType enum, got {type(source_type)}")
+
+        database_path = None  # Final database path to pass to SQLTool
+
+        # Handle CSV source type
+        if source_type == DatabaseSourceType.CSV:
+            if not os.path.exists(source):
+                raise SQLToolError(f"CSV file '{source}' does not exist")
+            if not source.endswith(".csv"):
+                raise SQLToolError(f"File '{source}' is not a CSV file")
+            if tables and len(tables) > 1:
+                raise SQLToolError("CSV source type only supports one table")
+
+            # Create database name from CSV filename or use custom table name
+            base_name = os.path.splitext(os.path.basename(source))[0]
+            db_path = os.path.join(os.path.dirname(source), f"{base_name}.db")
+            table_name = tables[0] if tables else None
+
+            try:
+                # Create database from CSV
+                schema = create_database_from_csv(source, db_path, table_name)
+                database_path = db_path
+
+                # Get table names if not provided
+                if not tables:
+                    tables = get_table_names_from_schema(schema)
+
+            except Exception as e:
+                if os.path.exists(db_path):
+                    try:
+                        os.remove(db_path)
+                    except Exception as cleanup_error:
+                        warnings.warn(f"Failed to remove temporary database file '{db_path}': {str(cleanup_error)}")
+                raise SQLToolError(f"Failed to create database from CSV: {str(e)}")
+
+        # Handle SQLite source type
+        elif source_type == DatabaseSourceType.SQLITE:
+            if not os.path.exists(source):
+                raise SQLToolError(f"Database '{source}' does not exist")
+            if not source.endswith(".db") and not source.endswith(".sqlite"):
+                raise SQLToolError(f"Database '{source}' must have .db or .sqlite extension")
+
+            database_path = source
+
+            # Infer schema from database if not provided
+            if not schema:
+                try:
+                    schema = get_table_schema(database_path)
+                except Exception as e:
+                    raise SQLToolError(f"Failed to get database schema: {str(e)}")
+
+            # Get table names if not provided
+            if not tables:
+                try:
+                    tables = get_table_names_from_schema(schema)
+                except Exception as e:
+                    raise SQLToolError(f"Failed to get table names: {str(e)}")
+
+        elif source_type == DatabaseSourceType.POSTGRESQL:
+            raise SQLToolError("PostgreSQL is not supported yet")
+
+        # Create and return SQLTool
+        return SQLTool(
+            description=description,
+            database=database_path,
+            schema=schema,
+            tables=tables,
+            enable_commit=enable_commit,
+        )
 
     @classmethod
     def list(cls) -> Dict:
