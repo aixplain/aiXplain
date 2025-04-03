@@ -27,25 +27,22 @@ import time
 import traceback
 
 from aixplain.utils.file_utils import _request_with_retry
-from aixplain.enums.function import Function
-from aixplain.enums.supplier import Supplier
-from aixplain.enums.asset_status import AssetStatus
-from aixplain.enums.storage_type import StorageType
+from aixplain.enums import Function, Supplier, AssetStatus, StorageType, ResponseStatus
 from aixplain.modules.model import Model
 from aixplain.modules.agent.agent_task import AgentTask
 from aixplain.modules.agent.output_format import OutputFormat
 from aixplain.modules.agent.tool import Tool
 from aixplain.modules.agent.agent_response import AgentResponse
 from aixplain.modules.agent.agent_response_data import AgentResponseData
-from aixplain.enums import ResponseStatus
 from aixplain.modules.agent.utils import process_variables
 from typing import Dict, List, Text, Optional, Union
 from urllib.parse import urljoin
 
 from aixplain.utils import config
+from aixplain.modules.mixins import DeployableMixin
 
 
-class Agent(Model):
+class Agent(Model, DeployableMixin[Tool]):
     """Advanced AI system capable of performing tasks by leveraging specialized software tools and resources from aiXplain marketplace.
 
     Attributes:
@@ -202,6 +199,8 @@ class Agent(Model):
             poll_url = response["url"]
             end = time.time()
             result = self.sync_poll(poll_url, name=name, timeout=timeout, wait_time=wait_time)
+            #if result.status == ResponseStatus.FAILED:
+            #    raise Exception("Model failed to run with error: " + result.error_message)
             result_data = result.get("data") or {}
             return AgentResponse(
                 status=ResponseStatus.SUCCESS,
@@ -409,11 +408,10 @@ class Agent(Model):
         """Save the Agent."""
         self.update()
 
-    def deploy(self) -> None:
-        assert self.status == AssetStatus.DRAFT, "Agent must be in draft status to be deployed."
-        assert self.status != AssetStatus.ONBOARDED, "Agent is already deployed."
-        self.status = AssetStatus.ONBOARDED
-        self.update()
+    def _validate_deployment_readiness(self) -> None:
+        """Validate if the agent is ready to be deployed."""
+        super()._validate_deployment_readiness(items=self.tools)
+
 
     def __repr__(self):
         return f"Agent(id={self.id}, name={self.name}, function={self.function})"

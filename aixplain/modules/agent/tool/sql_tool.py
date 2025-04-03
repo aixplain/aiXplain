@@ -27,7 +27,7 @@ import pandas as pd
 import numpy as np
 from typing import Text, Optional, Dict, List, Union
 import sqlite3
-
+from aixplain.enums import AssetStatus
 from aixplain.modules.agent.tool import Tool
 
 
@@ -284,6 +284,7 @@ class SQLTool(Tool):
         self.schema = schema
         self.tables = tables if isinstance(tables, list) else [tables] if tables else None
         self.enable_commit = enable_commit
+        self.status = AssetStatus.ONBOARDED  # TODO: change to DRAFT when we have a way to onboard the tool
 
     def to_dict(self) -> Dict[str, Text]:
         return {

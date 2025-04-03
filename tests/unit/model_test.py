@@ -204,6 +204,7 @@ def test_get_model_from_ids():
                 {
                     "id": "test-model-id-1",
                     "name": "Test Model 1",
+                    "status": "onboarded",
                     "description": "Test Description 1",
                     "function": {"id": "text-generation"},
                     "supplier": {"id": "aiXplain"},
@@ -214,6 +215,7 @@ def test_get_model_from_ids():
                 {
                     "id": "test-model-id-2",
                     "name": "Test Model 2",
+                    "status": "onboarded",
                     "description": "Test Description 2",
                     "function": {"id": "text-generation"},
                     "supplier": {"id": "aiXplain"},
@@ -237,9 +239,9 @@ def test_list_models_error():
     with pytest.raises(Exception) as excinfo:
         ModelFactory.list(model_ids=model_ids, function=Function.TEXT_GENERATION, api_key=config.AIXPLAIN_API_KEY)
 
-    assert (
-        str(excinfo.value)
-        == "Cannot filter by function, suppliers, source languages, target languages, is finetunable, ownership, sort by when using model ids"
+    assert str(excinfo.value) == (
+        "Cannot filter by function, suppliers, "
+        "source languages, target languages, is finetunable, ownership, sort by when using model ids"
     )
 
     with pytest.raises(Exception) as excinfo:

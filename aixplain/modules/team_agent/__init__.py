@@ -42,6 +42,7 @@ from aixplain.modules.agent.agent_response_data import AgentResponseData
 from aixplain.modules.agent.utils import process_variables
 from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
+from aixplain.modules.mixins import DeployableMixin
 
 
 class InspectorTarget(str, Enum):
@@ -53,7 +54,7 @@ class InspectorTarget(str, Enum):
         return self._value_
 
 
-class TeamAgent(Model):
+class TeamAgent(Model, DeployableMixin[Agent]):
     """Advanced AI system capable of using multiple agents to perform a variety of tasks.
 
     Attributes:
@@ -414,13 +415,19 @@ class TeamAgent(Model):
             error_msg = f"Team Agent Update Error (HTTP {r.status_code}): {resp}"
             raise Exception(error_msg)
 
-    def save(self) -> None:
-        """Save the Team Agent."""
-        self.update()
+    def _validate_deployment_readiness(self) -> None:
+        """Validate if the team agent is ready to be deployed."""
+        super()._validate_deployment_readiness(items=self.agents)
 
     def deploy(self) -> None:
-        """Deploy the Team Agent."""
-        assert self.status == AssetStatus.DRAFT, "Team Agent Deployment Error: Team Agent must be in draft status."
-        assert self.status != AssetStatus.ONBOARDED, "Team Agent Deployment Error: Team Agent must be onboarded."
+        """Deploy the team agent.
+
+        This method validates that the team agent is ready to be deployed,
+        updates its status to ONBOARDED, and persists the changes to the backend.
+
+        Raises:
+            ValueError: If the team agent is not ready to be deployed
+        """
+        self._validate_deployment_readiness()
         self.status = AssetStatus.ONBOARDED
         self.update()
