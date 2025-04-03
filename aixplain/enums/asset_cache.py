@@ -41,7 +41,7 @@ def _serialize(obj):
         return obj.value
     return obj.__dict__ if hasattr(obj, "__dict__") else str(obj)
 
-class AixplainCache:
+class AssetCache:
     """
     A modular caching system to handle different asset types (Models, Pipelines, Agents).
     """
@@ -98,6 +98,9 @@ class AixplainCache:
         self.lock_file = f"{self.cache_file}.lock"
         os.makedirs(CACHE_FOLDER, exist_ok=True)
 
+        # Load assets immediately during initialization
+        self.assets_enum, self.assets_data = self._initialize_assets()
+
 
     def load_assets(self) -> Tuple[Enum, Dict]:
         """
@@ -149,3 +152,19 @@ class AixplainCache:
         }
 
         return assets_enum, assets_details
+    
+    def _initialize_assets(self) -> Tuple[Enum, Dict]:
+        cached_data = self.load_from_cache(self.cache_file, self.lock_file)
+        if cached_data:
+            return self.parse_assets(cached_data)
+
+        assets_data = self.fetch_assets_from_backend(self.asset_type.value)
+        if not assets_data or "items" not in assets_data:
+            return Enum(self.asset_type.name, {}), {}
+
+        onboarded_assets = [
+            asset for asset in assets_data["items"] 
+            if asset.get("status", "").lower() == "onboarded"
+        ]
+        self.save_to_cache(self.cache_file, {"items": onboarded_assets}, self.lock_file)
+        return self.parse_assets({"items": onboarded_assets})

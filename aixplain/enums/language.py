@@ -25,14 +25,14 @@ from enum import Enum
 from urllib.parse import urljoin
 from aixplain.utils import config
 from aixplain.utils.request_utils import _request_with_retry
-from aixplain.enums.aixplain_cache import AixplainCache, CACHE_FOLDER
+from .asset_cache import AssetCache, CACHE_FOLDER
 
 CACHE_FILE = f"{CACHE_FOLDER}/languages.json"
 LOCK_FILE = f"{CACHE_FILE}.lock"
 
 
 def load_languages():
-    resp = AixplainCache.load_from_cache(CACHE_FILE, LOCK_FILE)
+    resp = AssetCache.load_from_cache(CACHE_FILE, LOCK_FILE)
     if resp is None:
         api_key = config.TEAM_API_KEY
         backend_url = config.BACKEND_URL
@@ -46,7 +46,7 @@ def load_languages():
                 f'Languages could not be loaded, probably due to the set API key (e.g. "{api_key}") is not valid. For help, please refer to the documentation (https://github.com/aixplain/aixplain#api-key-setup)'
             )
         resp = r.json()
-        AixplainCache.save_to_cache(CACHE_FILE, resp, LOCK_FILE)
+        AssetCache.save_to_cache(CACHE_FILE, resp, LOCK_FILE)
 
     languages = {}
     for w in resp:

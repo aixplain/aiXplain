@@ -99,7 +99,7 @@ def test_llm_run_with_file():
 
 
 def test_aixplain_model_cache_creation():
-    """Ensure AixplainCache is triggered and cache is created."""
+    """Ensure AssetCache is triggered and cache is created."""
 
     cache_file = os.path.join(CACHE_FOLDER, "models.json")
 

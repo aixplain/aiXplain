@@ -26,14 +26,14 @@ from enum import Enum
 from urllib.parse import urljoin
 from aixplain.utils import config
 from aixplain.utils.request_utils import _request_with_retry
-from aixplain.enums.aixplain_cache import AixplainCache, CACHE_FOLDER
+from .asset_cache import AssetCache, CACHE_FOLDER
 
 CACHE_FILE = f"{CACHE_FOLDER}/licenses.json"
 LOCK_FILE = f"{CACHE_FILE}.lock"
 
 
 def load_licenses():
-    resp = AixplainCache.load_from_cache(CACHE_FILE, LOCK_FILE)
+    resp = AssetCache.load_from_cache(CACHE_FILE, LOCK_FILE)
 
     try:
         if resp is None:
@@ -49,7 +49,7 @@ def load_licenses():
                     f'Licenses could not be loaded, probably due to the set API key (e.g. "{api_key}") is not valid. For help, please refer to the documentation (https://github.com/aixplain/aixplain#api-key-setup)'
                 )
             resp = r.json()
-            AixplainCache.save_to_cache(CACHE_FILE, resp, LOCK_FILE)
+            AssetCache.save_to_cache(CACHE_FILE, resp, LOCK_FILE)
 
         licenses = {"_".join(w["name"].split()): w["id"] for w in resp}
         return Enum("License", licenses, type=str)

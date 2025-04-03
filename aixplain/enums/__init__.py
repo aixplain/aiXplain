@@ -15,5 +15,5 @@ from .supplier import Supplier
 from .sort_by import SortBy
 from .sort_order import SortOrder
 from .response_status import ResponseStatus
-from .aixplain_cache import AixplainCache
+from .asset_cache import AssetCache, Asset, AssetType
 from .database_source import DatabaseSourceType

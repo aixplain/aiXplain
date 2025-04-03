@@ -29,6 +29,8 @@ from aixplain.enums import Function, Language, OwnershipType, Supplier, SortBy, 
 from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
 from urllib.parse import urljoin
+from aixplain.enums import AssetCache, AssetType, Asset
+from aixplain.factories.model_factory.utils import create_model_from_response
 
 
 class ModelFactory:
@@ -88,6 +90,17 @@ class ModelFactory:
         if 200 <= r.status_code < 300:
             utility_model.id = resp["id"]
             logging.info(f"Utility Model Creation: Model {utility_model.id} instantiated.")
+
+            new_asset = Asset(
+                id=resp["id"],
+                name=resp.get("name", ""),
+                description=resp.get("description", ""),
+                api_key=api_key or config.TEAM_API_KEY,
+                supplier=resp.get("supplier", "aiXplain"),
+                version=resp.get("version", "1.0"),
+                status=resp.get("status", "onboarded"),
+                created_at=resp.get("createdAt", "")
+            )
             return utility_model
         else:
             error_message = (
@@ -97,7 +110,7 @@ class ModelFactory:
             raise Exception(error_message)
 
     @classmethod
-    def get(cls, model_id: Text, api_key: Optional[Text] = None) -> Model:
+    def get(cls, model_id: Text, api_key: Optional[Text] = None, use_cache: bool = True) -> Model:
         """Create a 'Model' object from model id
 
         Args:
@@ -107,8 +120,27 @@ class ModelFactory:
         Returns:
             Model: Created 'Model' object
         """
+        cache = AssetCache(AssetType.MODELS)
+        asset = cache.assets_data.get(model_id) if use_cache else None
+
+        if asset:
+            logging.info(f"ModelFactory: Loaded model {model_id} from cache.")
+            return Model(
+                id=asset.id,
+                name=asset.name,
+                description=asset.description,
+                api_key=api_key or asset.api_key,
+                supplier=asset.supplier,
+                version=asset.version,
+                created_at=asset.created_at,
+            )
+        
+        url = urljoin(cls.backend_url, f"sdk/models/{model_id}")
+        headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+
         resp = None
         try:
+            logging.info(f"ModelFactory: Model {model_id} not in cache. Fetching from backend...")
             url = urljoin(cls.backend_url, f"sdk/models/{model_id}")
 
             headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
@@ -131,9 +163,24 @@ class ModelFactory:
                 resp["api_key"] = api_key
             from aixplain.factories.model_factory.utils import create_model_from_response
 
+            new_asset = Asset(
+                id=resp["id"],
+                name=resp.get("name", ""),
+                description=resp.get("description", ""),
+                api_key=api_key or config.TEAM_API_KEY,
+                supplier=resp.get("supplier", "aiXplain"),
+                version=resp.get("version", "1.0"),
+                status=resp.get("status", "onboarded"),
+                created_at=resp.get("createdAt", "")
+            )
+            cache.assets_data[new_asset.id] = new_asset
+            serializable_data = {k: vars(v) for k, v in cache.assets_data.items()}
+            cache.save_to_cache(cache.cache_file, {"items": list(serializable_data.values())}, cache.lock_file)
+
             model = create_model_from_response(resp)
-            logging.info(f"Model Creation: Model {model_id} instantiated.")
+            logging.info(f"ModelFactory: Model {model_id} fetched and cached successfully.")
             return model
+
         else:
             error_message = f"Model GET Error: Failed to retrieve model {model_id}. Status Code: {r.status_code}. Error: {resp}"
             logging.error(error_message)

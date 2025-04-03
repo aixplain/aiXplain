@@ -25,7 +25,7 @@ from aixplain.utils import config
 from aixplain.utils.request_utils import _request_with_retry
 from enum import Enum
 from urllib.parse import urljoin
-from aixplain.enums.aixplain_cache import AixplainCache, CACHE_FOLDER
+from .asset_cache import AssetCache, CACHE_FOLDER
 from typing import Tuple, Dict
 from aixplain.base.parameters import BaseParameters, Parameter
 import os
@@ -40,7 +40,7 @@ def load_functions():
 
     os.makedirs(CACHE_FOLDER, exist_ok=True)
 
-    resp = AixplainCache.load_from_cache(CACHE_FILE, LOCK_FILE)
+    resp = AssetCache.load_from_cache(CACHE_FILE, LOCK_FILE)
     if resp is None:
         url = urljoin(backend_url, "sdk/functions")
 
@@ -51,7 +51,7 @@ def load_functions():
                 f'Functions could not be loaded, probably due to the set API key (e.g. "{api_key}") is not valid. For help, please refer to the documentation (https://github.com/aixplain/aixplain#api-key-setup)'
             )
         resp = r.json()
-        AixplainCache.save_to_cache(CACHE_FILE, resp, LOCK_FILE)
+        AssetCache.save_to_cache(CACHE_FILE, resp, LOCK_FILE)
 
     class Function(str, Enum):
         def __new__(cls, value):

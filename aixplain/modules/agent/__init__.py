@@ -37,7 +37,7 @@ from aixplain.modules.agent.output_format import OutputFormat
 from aixplain.modules.agent.tool import Tool
 from aixplain.modules.agent.agent_response import AgentResponse
 from aixplain.modules.agent.agent_response_data import AgentResponseData
-from aixplain.enums import ResponseStatus, AixplainCache
+from aixplain.enums import ResponseStatus, AssetCache
 from aixplain.modules.agent.utils import process_variables
 from typing import Dict, List, Text, Optional, Union
 from urllib.parse import urljoin
@@ -61,7 +61,7 @@ class Agent(Model):
         api_key (str): The TEAM API key used for authentication.
         cost (Dict, optional): model price. Defaults to None.
     """
-    AgentCache = AixplainCache("agents", "agents")
+    AgentCache = AssetCache("agents", "agents")
     AgentEnum, AgentDetails = AgentCache.load_assets()
 
     is_valid: bool
