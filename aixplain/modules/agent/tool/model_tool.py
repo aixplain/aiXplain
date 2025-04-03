@@ -60,15 +60,18 @@ class ModelTool(Tool):
         super().__init__(name=name, description=description, **additional_info)
         status = AssetStatus.ONBOARDED if model is None else AssetStatus.DRAFT
         model_id = model  # if None,  Set id to None as default
+        self.model_object = None  # Store the actual model object for parameter access
+
         if isinstance(model, Model):
             model_id = model.id
             status = model.status
+            self.model_object = model  # Store the Model object
         elif isinstance(model, Text):
             # get model from id
             try:
-                model_obj = self._get_model(model)
-                model_id = model_obj.id
-                status = model_obj.status
+                self.model_object = self._get_model(model)  # Store the Model object
+                model_id = self.model_object.id
+                status = self.model_object.status
             except Exception:
                 raise Exception(f"Model Tool Unavailable. Make sure Model '{model}' exists or you have access to it.")
 
@@ -154,6 +157,14 @@ class ModelTool(Tool):
         self.parameters = self.validate_parameters(self.parameters)
 
     def get_parameters(self) -> Dict:
+        # If parameters were not explicitly provided, get them from the model
+        if (
+            self.parameters is None
+            and self.model_object is not None  # noqa: W503
+            and hasattr(self.model_object, "model_params")  # noqa: W503
+            and self.model_object.model_params is not None  # noqa: W503
+        ):
+            return self.model_object.model_params.to_list()
         return self.parameters
 
     def _get_model(self, model_id: Text = None):
@@ -176,8 +187,12 @@ class ModelTool(Tool):
         """
         if received_parameters is None:
             # Get default parameters if none provided
-            if self.model is not None and self.model.model_params is not None:
-                return self.model.model_params.to_list()
+            if (
+                self.model_object is not None
+                and hasattr(self.model_object, "model_params")  # noqa: W503
+                and self.model_object.model_params is not None  # noqa: W503
+            ):
+                return self.model_object.model_params.to_list()
             elif self.function is not None:
                 function_params = self.function.get_parameters()
                 if function_params is not None:
@@ -186,8 +201,12 @@ class ModelTool(Tool):
 
         # Get expected parameters
         expected_params = None
-        if self.model is not None and self.model.model_params is not None:
-            expected_params = self.model.model_params
+        if (
+            self.model_object is not None
+            and hasattr(self.model_object, "model_params")  # noqa: W503
+            and self.model_object.model_params is not None  # noqa: W503
+        ):
+            expected_params = self.model_object.model_params
         elif self.function is not None:
             expected_params = self.function.get_parameters()
 
