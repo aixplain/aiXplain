@@ -182,7 +182,7 @@ class BenchmarkFactory:
         model_list_without_parms, model_list_with_parms = [], []
         for model in model_list:
             if "displayName" in model.additional_info:
-                model_list_with_parms.append({"id": model.id, "displayName": model.additional_info["displayName"], "configuration": model.additional_info["configuration"]})
+                model_list_with_parms.append({"id": model.id, "displayName": model.additional_info["displayName"], "configuration": json.dumps(model.additional_info["configuration"])})
             else:
                 model_list_without_parms.append(model.id)
         if len(model_list_with_parms) > 0:
@@ -222,7 +222,7 @@ class BenchmarkFactory:
                 "automodeTraining": False,
             }
             if model_list_with_parms is not None:
-                payload["models"] = json.dumps(model_list_with_parms)
+                payload["models"] = model_list_with_parms
             clean_payload = cls._validate_create_benchmark_payload(payload)
             payload = json.dumps(clean_payload)
             r = _request_with_retry("post", url, headers=headers, data=payload)
