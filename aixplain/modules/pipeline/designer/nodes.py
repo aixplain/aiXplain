@@ -425,15 +425,24 @@ class Decision(Node[DecisionInputs, DecisionOutputs], LinkableMixin):
         to_param: Union[str, Param],
     ) -> Link:
         link = super().link(to_node, from_param, to_param)
+
         if isinstance(from_param, str):
-            from_param = self.inputs[from_param]
+            assert from_param in self.outputs, f"Decision node has no input param called {from_param}, node linking validation is broken, please report this issue."
+            from_param = self.outputs[from_param]
 
         if from_param.code == "data":
-            self.outputs.data.data_type = from_param.data_type
             if not self.inputs.passthrough.link_:
                 raise ValueError("To able to infer data source, "
                                  "passthrough input param should be linked first.")
+
+            # Infer data source from the passthrough node
             link.data_source_id = self.inputs.passthrough.link_.from_node.number
+
+            # Infer data type from the passthrough node
+            ref_param_code = self.inputs.passthrough.link_.from_param
+            ref_node = self.inputs.passthrough.link_.from_node
+            ref_param = ref_node.outputs[ref_param_code]
+            from_param.data_type = ref_param.data_type
 
         return link
 
