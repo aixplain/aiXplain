@@ -1,20 +1,43 @@
+__author__ = "aiXplain"
+
+"""
+Copyright 2022 The aiXplain SDK authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+Author: Abdul Basit Anees, Thiago Castro Ferreira, Zaina Abushaban
+Date: December 26th 2024
+Description:
+    Index Factory Class
+"""
+
 from aixplain.modules.model.index_model import IndexModel
 from aixplain.factories import ModelFactory
-from aixplain.enums import EmbeddingModel, Function, ResponseStatus, SortBy, SortOrder, OwnershipType, Supplier
-from typing import Optional, Text, Union, List, Tuple
+from aixplain.enums import Function, ResponseStatus, SortBy, SortOrder, OwnershipType, Supplier
+from typing import Text, Union, List, Tuple, Optional, TypeVar, Generic
+from aixplain.factories.index_factory.utils import BaseIndexParams 
 
-AIR_MODEL_ID = "66eae6656eb56311f2595011"
+T = TypeVar('T', bound=BaseIndexParams)
 
-
-class IndexFactory(ModelFactory):
+class IndexFactory(ModelFactory, Generic[T]):
     @classmethod
-    def create(
-        cls, name: Text, description: Text, embedding_model: EmbeddingModel = EmbeddingModel.OPENAI_ADA002
-    ) -> IndexModel:
+    def create(cls, params: T) -> IndexModel:
         """Create a new index collection"""
-        model = cls.get(AIR_MODEL_ID)
+        model_id = params.id
+        data = params.to_dict()
+        
+        model = cls.get(model_id)
 
-        data = {"data": name, "description": description, "model": embedding_model.value}
         response = model.run(data=data)
         if response.status == ResponseStatus.SUCCESS:
             model_id = response.data
