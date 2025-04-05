@@ -6,11 +6,13 @@ from abc import ABC, abstractmethod
 
 class BaseIndexParams(BaseModel, ABC):
     model_config = ConfigDict(use_enum_values=True)
-    data: Text
+    name: Text
     description: Optional[Text] = ""
 
     def to_dict(self):
-        return self.model_dump(exclude_none=True)
+        data = self.model_dump(exclude_none=True)
+        data["data"] = data.pop("name")
+        return data
 
     @property
     @abstractmethod

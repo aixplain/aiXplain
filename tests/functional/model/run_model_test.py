@@ -76,7 +76,7 @@ def test_index_model(embedding_model):
     for index in IndexFactory.list()["results"]:
         index.delete()
 
-    params = AirParams(data=str(uuid4()), description=str(uuid4()), embedding_model=embedding_model)
+    params = AirParams(name=str(uuid4()), description=str(uuid4()), embedding_model=embedding_model)
 
     index_model = IndexFactory.create(params)
     index_model.upsert([Record(value="Hello, world!", value_type="text", uri="", id="1", attributes={})])
@@ -127,7 +127,7 @@ def test_index_model_with_filter(embedding_model):
     for index in IndexFactory.list()["results"]:
         index.delete()
 
-    params = AirParams(data=str(uuid4()), description=str(uuid4()), embedding_model=embedding_model)
+    params = AirParams(name=str(uuid4()), description=str(uuid4()), embedding_model=embedding_model)
 
     index_model = IndexFactory.create(params)
     index_model.upsert([Record(value="Hello, aiXplain!", value_type="text", uri="", id="1", attributes={"category": "hello"})])
@@ -173,7 +173,7 @@ def test_index_model_with_image():
         index.delete()
 
     params = AirParams(
-        data=f"Image Index {uuid4()}", description="Index for images", embedding_model=EmbeddingModel.JINA_CLIP_V2_MULTIMODAL
+        name=f"Image Index {uuid4()}", description="Index for images", embedding_model=EmbeddingModel.JINA_CLIP_V2_MULTIMODAL
     )
 
     index_model = IndexFactory.create(params)
