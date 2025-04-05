@@ -71,11 +71,14 @@ def test_index_model(embedding_model):
     from uuid import uuid4
     from aixplain.modules.model.record import Record
     from aixplain.factories import IndexFactory
+    from aixplain.factories.index_factory.utils import AirParams
 
     for index in IndexFactory.list()["results"]:
         index.delete()
 
-    index_model = IndexFactory.create(name=str(uuid4()), description=str(uuid4()), embedding_model=embedding_model)
+    params = AirParams(data=str(uuid4()), description=str(uuid4()), embedding_model=embedding_model)
+
+    index_model = IndexFactory.create(params)
     index_model.upsert([Record(value="Hello, world!", value_type="text", uri="", id="1", attributes={})])
     response = index_model.search("Hello")
     assert str(response.status) == "SUCCESS"
@@ -119,11 +122,14 @@ def test_index_model_with_filter(embedding_model):
     from aixplain.modules.model.record import Record
     from aixplain.factories import IndexFactory
     from aixplain.modules.model.index_model import IndexFilter, IndexFilterOperator
+    from aixplain.factories.index_factory.utils import AirParams
 
     for index in IndexFactory.list()["results"]:
         index.delete()
 
-    index_model = IndexFactory.create(name=str(uuid4()), description=str(uuid4()), embedding_model=embedding_model)
+    params = AirParams(data=str(uuid4()), description=str(uuid4()), embedding_model=embedding_model)
+
+    index_model = IndexFactory.create(params)
     index_model.upsert([Record(value="Hello, aiXplain!", value_type="text", uri="", id="1", attributes={"category": "hello"})])
     index_model.upsert(
         [Record(value="The world is great", value_type="text", uri="", id="2", attributes={"category": "world"})]
@@ -161,13 +167,16 @@ def test_index_model_with_image():
     from aixplain.factories import IndexFactory
     from aixplain.modules.model.record import Record
     from uuid import uuid4
+    from aixplain.factories.index_factory.utils import AirParams
 
     for index in IndexFactory.list()["results"]:
         index.delete()
 
-    index_model = IndexFactory.create(
-        name=f"Image Index {uuid4()}", description="Index for images", embedding_model=EmbeddingModel.JINA_CLIP_V2_MULTIMODAL
+    params = AirParams(
+        data=f"Image Index {uuid4()}", description="Index for images", embedding_model=EmbeddingModel.JINA_CLIP_V2_MULTIMODAL
     )
+
+    index_model = IndexFactory.create(params)
 
     records = []
     # Building image
