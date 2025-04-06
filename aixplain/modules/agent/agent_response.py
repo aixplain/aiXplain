@@ -1,14 +1,17 @@
 from aixplain.enums import ResponseStatus
-from typing import Any, Dict, Optional, Text, Union, List
+from typing import Any, Dict, Optional, Text, Union, List, TYPE_CHECKING
 from aixplain.modules.agent.agent_response_data import AgentResponseData
 from aixplain.modules.model.response import ModelResponse
+
+if TYPE_CHECKING:
+    from aixplain.modules.team_agent.evolver_response_data import EvolverResponseData
 
 
 class AgentResponse(ModelResponse):
     def __init__(
         self,
         status: ResponseStatus = ResponseStatus.FAILED,
-        data: Optional[AgentResponseData] = None,
+        data: Optional[Union[AgentResponseData, "EvolverResponseData"]] = None,
         details: Optional[Union[Dict, List]] = {},
         completed: bool = False,
         error_message: Text = "",

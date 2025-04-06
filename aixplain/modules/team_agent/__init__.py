@@ -41,7 +41,6 @@ from aixplain.modules.agent.agent_response import AgentResponse
 from aixplain.modules.agent.agent_response_data import AgentResponseData
 from aixplain.modules.agent.utils import process_variables
 from aixplain.modules.team_agent.evolver_response_data import EvolverResponseData
-from aixplain.modules.team_agent.evolver_response import EvolverResponse
 from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
 
@@ -111,7 +110,7 @@ class TeamAgent(Model):
         self.additional_info = additional_info
         self.agents = agents
         self.llm_id = llm_id
-        self.api_key = api_key 
+        self.api_key = api_key
         self.use_mentalist = use_mentalist
         self.use_inspector = use_inspector
         self.max_inspectors = max_inspectors
@@ -140,7 +139,7 @@ class TeamAgent(Model):
         max_iterations: int = 30,
         output_format: OutputFormat = OutputFormat.TEXT,
         evolve: bool = False,
-    ) -> Dict:
+    ) -> AgentResponse:
         """Runs a team agent call.
 
         Args:
@@ -158,7 +157,7 @@ class TeamAgent(Model):
             output_format (ResponseFormat, optional): response format. Defaults to TEXT.
             evolve (bool, optional): evolve the team agent. Defaults to False.
         Returns:
-            Dict: parsed output from model
+            AgentResponse: parsed output from model
         """
         start = time.time()
         try:
@@ -182,20 +181,7 @@ class TeamAgent(Model):
             poll_url = response["url"]
             end = time.time()
             result = self.sync_poll(poll_url, name=name, timeout=timeout, wait_time=wait_time)
-            result_data = result.data
-            return AgentResponse(
-                        status=ResponseStatus.SUCCESS,
-                        completed=True,
-                        data=AgentResponseData(
-                            input=result_data.get("input"),
-                            output=result_data.get("output"),
-                            session_id=result_data.get("session_id"),
-                            intermediate_steps=result_data.get("intermediate_steps"),
-                            execution_stats=result_data.get("executionStats"),
-                        ),
-                        used_credits=result_data.get("usedCredits", 0.0),
-                        run_time=result_data.get("runTime", end - start),
-                    )
+            return result
         except Exception as e:
             logging.error(f"Team Agent Run: Error in running for {name}: {e}")
             end = time.time()
@@ -218,7 +204,7 @@ class TeamAgent(Model):
         max_iterations: int = 30,
         output_format: OutputFormat = OutputFormat.TEXT,
         evolve: bool = False,
-    ) -> Dict:
+    ) -> AgentResponse:
         """Runs asynchronously a Team Agent call.
 
         Args:
@@ -234,7 +220,7 @@ class TeamAgent(Model):
             output_format (ResponseFormat, optional): response format. Defaults to TEXT.
             evolve (bool, optional): evolve the team agent. Defaults to False.
         Returns:
-            dict: polling URL in response
+            AgentResponse: polling URL in response
         """
         from aixplain.factories.file_factory import FileFactory
 
@@ -308,91 +294,61 @@ class TeamAgent(Model):
                 run_time=0.0,
                 used_credits=0.0,
             )
-            if evolve:
-                response =  EvolverResponse(
-                                        status=ResponseStatus.IN_PROGRESS,
-                                        url=poll_url,
-                                        data=EvolverResponseData(
-                                                    evolved_agent="",
-                                                    current_code="",
-                                                    evaluation_report="",
-                                                    comparison_report="",
-                                                    criteria="",
-                                                    archive="",),
-                                        run_time=0.0,
-                                        used_credits=0.0,
-                                    )
         except Exception:
             msg = f"Error in request for {name} - {traceback.format_exc()}"
             logging.error(f"Team Agent Run Async: Error in running for {name}: {resp}")
             if resp is not None:
                 response = AgentResponse(
-                                        status=ResponseStatus.FAILED,
-                                        error=msg,
-                                        )
-                if evolve:
-                        response = EvolverResponse(
-                                            status=ResponseStatus.FAILED,
-                                            error=msg,
-                                        )
+                    status=ResponseStatus.FAILED,
+                    error=msg,
+                )
         return response
-    
 
-    def poll(self, poll_url: Text, name: Text = "model_process", evolve: bool = False) -> EvolverResponse:
+    def poll(self, poll_url: Text, name: Text = "model_process") -> AgentResponse:
+        used_credits, run_time = 0.0, 0.0
+        resp, error_message, status = None, None, ResponseStatus.SUCCESS
         headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}
         r = _request_with_retry("get", poll_url, headers=headers)
         try:
             resp = r.json()
-            evolver_data = None
-            resp_data = resp.get("data", {})
             if resp["completed"] is True:
-                status = ResponseStatus.SUCCESS
+                status = ResponseStatus(resp.get("status", "FAILED"))
                 if "error_message" in resp or "supplierError" in resp:
                     status = ResponseStatus.FAILED
+                    error_message = resp.get("error_message")
             else:
                 status = ResponseStatus.IN_PROGRESS
-                response = f"EvolverResponse(status={status}, completed={resp['completed']})"
-            logging.debug(f"Single Poll for Model: Status of polling for {name}: {resp}")
+            logging.debug(f"Single Poll for Team Agent: Status of polling for {name}: {resp}")
 
-            if evolve:
-                if status == ResponseStatus.SUCCESS:
-                    evolver_data = EvolverResponseData.from_dict(resp_data, llm_id=self.llm_id, api_key=self.api_key)
-
-                response = EvolverResponse(
-                    status=status,
-                    data=evolver_data or EvolverResponseData(
-                                            evolved_agent="",
-                                            current_code="",
-                                            evaluation_report="",
-                                            comparison_report="",
-                                            criteria="",
-                                            archive="",),
-                    details=resp.get("details", {}),
-                    completed=resp.get("completed", False),
-                    error_message=resp.get("error_message", ""),
-                    used_credits=resp.get("usedCredits", 0),
-                    run_time=resp.get("runTime", 0),
-                    usage=resp.get("usage", None),
+            resp_data = resp.get("data") or {}
+            used_credits = resp_data.get("usedCredits", 0.0)
+            run_time = resp_data.get("runTime", 0.0)
+            if "evolved_agent" in resp_data and status == ResponseStatus.SUCCESS:
+                resp_data = EvolverResponseData.from_dict(resp_data, llm_id=self.llm_id, api_key=self.api_key)
+            else:
+                resp_data = AgentResponseData(
+                    input=resp_data.get("input"),
+                    output=resp_data.get("output"),
+                    session_id=resp_data.get("session_id"),
+                    intermediate_steps=resp_data.get("intermediate_steps"),
+                    execution_stats=resp_data.get("executionStats"),
                 )
-            response = AgentResponse(
-                                status=status,
-                                data=resp.get("data", {}),
-                                details=resp.get("details", {}),
-                                completed=resp.get("completed", False),
-                                error_message=resp.get("error_message", ""),
-                                used_credits=resp.get("usedCredits", 0),
-                                run_time=resp.get("runTime", 0),
-                                usage=resp.get("usage", None),
-                            )
-
         except Exception as e:
-            logging.error(f"Single Poll for Model: Error of polling for {name}: {e}")
-            if evolve:
-                response = f"EvolverResponse(status={ResponseStatus.FAILED}, error_message={str(e)}, completed=False)"
-
-            response = f"AgentResponse(status={ResponseStatus.FAILED}, error_message={str(e)}, completed=False)"
+            logging.error(f"Single Poll for Team Agent: Error of polling for {name}: {e}")
+            status = ResponseStatus.FAILED
+            error_message = str(e)
+        finally:
+            response = AgentResponse(
+                status=status,
+                data=resp_data,
+                details=resp.get("details", {}),
+                completed=resp.get("completed", False),
+                used_credits=used_credits,
+                run_time=run_time,
+                usage=resp.get("usage", None),
+                error_message=error_message,
+            )
         return response
-
 
     def delete(self) -> None:
         """Delete Corpus service"""

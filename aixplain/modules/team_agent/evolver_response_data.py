@@ -3,10 +3,11 @@ from typing import Any, Dict, List, Text, TYPE_CHECKING
 if TYPE_CHECKING:
     from aixplain.modules.team_agent import TeamAgent
 
+
 class EvolverResponseData:
     def __init__(
         self,
-        evolved_agent: 'TeamAgent',
+        evolved_agent: "TeamAgent",
         current_code: Text,
         evaluation_report: Text,
         comparison_report: Text,
@@ -23,13 +24,9 @@ class EvolverResponseData:
     @classmethod
     def from_dict(cls, data: Dict[str, Any], llm_id: Text, api_key: Text) -> "EvolverResponseData":
         from aixplain.factories.team_agent_factory.utils import build_team_agent_from_yaml
-        
+
         yaml_code = data.get("current_code", "")
-        evolved_team_agent = build_team_agent_from_yaml(
-            yaml_code=yaml_code,
-            llm_id=llm_id,
-            api_key=api_key
-        )
+        evolved_team_agent = build_team_agent_from_yaml(yaml_code=yaml_code, llm_id=llm_id, api_key=api_key)
 
         return cls(
             evolved_agent=evolved_team_agent,
@@ -67,4 +64,4 @@ class EvolverResponseData:
             f"comparison_report='{self.comparison_report}', "
             f"criteria='{self.criteria}', "
             f"archive='{self.archive}')"
-            )
+        )
