@@ -161,6 +161,7 @@ def create_database_from_csv(csv_path: str, database_path: str, table_name: str 
                 cursor = conn.cursor()
 
                 # Check if table already exists
+
                 if table_name is None:
                     table_name = clean_column_name(os.path.splitext(os.path.basename(csv_path))[0])
                 cursor.execute(f"SELECT name FROM sqlite_master WHERE type='table' AND name='{table_name}'")

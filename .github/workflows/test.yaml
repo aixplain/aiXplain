@@ -1,0 +1,75 @@
+name: Run Tests on Test Environment
+
+on:
+  push:
+    branches:
+      - test
+  pull_request:
+    branches:
+      - test
+  workflow_dispatch:  
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.8"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install ".[test]"
+
+      - name: Set environment variables
+        run: |
+          echo "TEAM_API_KEY=${{ secrets.TEAM_API_KEY }}" >> $GITHUB_ENV
+          echo "BACKEND_URL=https://test-platform-api.aixplain.com" >> $GITHUB_ENV
+          echo "MODELS_RUN_URL=https://test-models.aixplain.com/api/v1/execute" >> $GITHUB_ENV
+          echo "PIPELINES_RUN_URL=https://test-platform-api.aixplain.com/assets/pipeline/execution/run" >> $GITHUB_ENV
+
+      - name: Run Unit Tests
+        continue-on-error: true
+        run: python -m pytest tests/unit
+
+      - name: Run General Assets
+        continue-on-error: true
+        run: python -m pytest tests/functional/general_assets
+
+      - name: Run File Asset
+        continue-on-error: true
+        run: python -m pytest tests/functional/file_asset
+
+      - name: Run Agent
+        continue-on-error: true
+        run: python -m pytest tests/functional/agent
+
+      - name: Run Team Agent
+        continue-on-error: true
+        run: python -m pytest tests/functional/team_agent
+
+      - name: Run Data
+        continue-on-error: true
+        run: python -m pytest tests/functional/data_asset
+
+      - name: Run Benchmark
+        continue-on-error: true
+        run: python -m pytest tests/functional/benchmark
+
+      - name: Run Pipelines
+        continue-on-error: true
+        run: python -m pytest tests/functional/pipelines
+
+      - name: Run Api Key
+        continue-on-error: true
+        run: python -m pytest tests/functional/apikey
+
+      - name: Run Finetuner
+        continue-on-error: true
+        run: python -m pytest tests/functional/finetune
