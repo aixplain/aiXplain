@@ -374,3 +374,32 @@ class Model(Asset):
             message = "Model Deletion Error: Make sure the model exists and you are the owner."
             logging.error(message)
             raise Exception(f"{message}")
+
+    def clone(self, api_key: Text = None, name: Text = None) -> "Model":
+        """Clone a model. This method is only available for BYOC models.
+
+        This method will enable to use your own API key for destination model.
+
+        Args:
+            api_key (Text, optional): API key of the Model. Defaults to None.
+            name (Text, optional): Name of the Model. Defaults to None.
+
+        Returns:
+            Model: The cloned model.
+        """
+        from aixplain.factories.model_factory import ModelFactory
+
+        url = urljoin(self.backend_url, f"sdk/models/cloneforbyoc/{self.id}")
+        headers = {
+            "Authorization": f"Token {self.api_key}",
+            "Content-Type": "application/json"
+        }
+        logging.info(f"Start service for Clone Model  - {url} - {headers}")
+        payload = {"key": api_key, "name": name}
+        r = _request_with_retry("post", url, headers=headers, json=payload)
+        if r.status_code != 200:
+            message = f"Clone Model Error: {r.status_code} - {r.text}"
+            logging.error(message)
+            raise Exception(message)
+
+        return ModelFactory.get(r.json()["id"])
