@@ -28,7 +28,7 @@ from urllib.parse import urljoin
 from aixplain.enums import ResponseStatus
 from aixplain.modules.model.response import ModelResponse
 import pytest
-from unittest.mock import patch
+from unittest.mock import patch, Mock
 from aixplain.enums.asset_status import AssetStatus
 from aixplain.modules.model.model_parameters import ModelParameters
 
@@ -636,3 +636,25 @@ def test_empty_model_parameters_string():
     """Test string representation of empty ModelParameters."""
     params = ModelParameters({})
     assert str(params) == "No parameters defined"
+
+
+def test_clone_model():
+    from aixplain.utils import file_utils
+    from aixplain.factories import ModelFactory
+    model = Model(id="test-id", api_key="1234567890")
+    model.backend_url = "dummy-url"
+    cloned_model = Mock()
+
+    # Test successful clone
+    mock_response = Mock(status_code=200)
+    mock_response.json.return_value = {"id": "test-id"}
+    with patch.object(file_utils, "_request_with_retry", return_value=mock_response):
+        with patch.object(ModelFactory, "get", return_value=cloned_model) as mock_get:
+            expected = model.clone(api_key="test-api-key", name="Cloned Model")
+            mock_get.assert_called_once_with("test-id")
+            assert expected == cloned_model
+
+    # Test failed clone
+    with patch.object(file_utils, "_request_with_retry", return_value=Mock(status_code=400)):
+        with pytest.raises(Exception):
+            model.clone(api_key="test-api-key", name="Cloned Model")

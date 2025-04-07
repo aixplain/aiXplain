@@ -217,3 +217,40 @@ def test_index_model_with_image():
     assert "hurricane" in second_record.lower()
 
     index_model.delete()
+
+
+def test_clone_model():
+    from aixplain.factories import ModelFactory
+    from aixplain.modules.model import Model
+
+    # Create a test model
+    source_model = ModelFactory.get("674a17f6098e7d5b18453da7")  # Llama 3.1 Nemotron 70B Instruct
+
+    # Clone the test model
+    cloned_model = source_model.clone("test-api-key")
+
+    try:
+        # Verify the cloned model
+        assert isinstance(cloned_model, Model)
+        assert cloned_model.name == source_model.name
+        assert cloned_model.description == source_model.description
+        assert cloned_model.function == source_model.function
+
+    finally:
+        # Clean up
+        if cloned_model:
+            cloned_model.delete()
+
+    cloned_model_2 = source_model.clone("test-api-key", name="Cloned Model")
+
+    try:
+        # Verify the cloned model
+        assert isinstance(cloned_model_2, Model)
+        assert cloned_model_2.name == "Cloned Model"
+        assert cloned_model_2.description == source_model.description
+        assert cloned_model_2.function == source_model.function
+
+    finally:
+        # Clean up
+        if cloned_model_2:
+            cloned_model_2.delete()

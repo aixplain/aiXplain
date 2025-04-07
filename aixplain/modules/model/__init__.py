@@ -28,7 +28,7 @@ from aixplain.modules.asset import Asset
 from aixplain.modules.model.utils import build_payload, call_run_endpoint
 from aixplain.utils import config
 from urllib.parse import urljoin
-from aixplain.utils.file_utils import _request_with_retry
+from aixplain.utils import file_utils
 from typing import Union, Optional, Text, Dict
 from datetime import datetime
 from aixplain.modules.model.response import ModelResponse
@@ -190,7 +190,7 @@ class Model(Asset):
             Dict: response obtained by polling call
         """
         headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}
-        r = _request_with_retry("get", poll_url, headers=headers)
+        r = file_utils._request_with_retry("get", poll_url, headers=headers)
         try:
             resp = r.json()
             if resp["completed"] is True:
@@ -314,7 +314,7 @@ class Model(Asset):
         try:
             url = urljoin(self.backend_url, f"sdk/finetune/{self.id}/ml-logs")
             logging.info(f"Start service for GET Check FineTune status Model  - {url} - {headers}")
-            r = _request_with_retry("get", url, headers=headers)
+            r = file_utils._request_with_retry("get", url, headers=headers)
             resp = r.json()
             finetune_status = AssetStatus(resp["finetuneStatus"])
             model_status = AssetStatus(resp["modelStatus"])
@@ -367,7 +367,7 @@ class Model(Asset):
             url = urljoin(self.backend_url, f"sdk/models/{self.id}")
             headers = {"Authorization": f"Token {self.api_key}", "Content-Type": "application/json"}
             logging.info(f"Start service for DELETE Model  - {url} - {headers}")
-            r = _request_with_retry("delete", url, headers=headers)
+            r = file_utils._request_with_retry("delete", url, headers=headers)
             if r.status_code != 200:
                 raise Exception()
         except Exception:
@@ -375,13 +375,13 @@ class Model(Asset):
             logging.error(message)
             raise Exception(f"{message}")
 
-    def clone(self, api_key: Text = None, name: Text = None) -> "Model":
+    def clone(self, api_key: Text, name: Text = None) -> "Model":
         """Clone a model. This method is only available for BYOC models.
 
         This method will enable to use your own API key for destination model.
 
         Args:
-            api_key (Text, optional): API key of the Model. Defaults to None.
+            api_key (Text): API key of the Model.
             name (Text, optional): Name of the Model. Defaults to None.
 
         Returns:
@@ -396,8 +396,8 @@ class Model(Asset):
         }
         logging.info(f"Start service for Clone Model  - {url} - {headers}")
         payload = {"key": api_key, "name": name}
-        r = _request_with_retry("post", url, headers=headers, json=payload)
-        if r.status_code != 200:
+        r = file_utils._request_with_retry("post", url, headers=headers, json=payload)
+        if not r.ok:
             message = f"Clone Model Error: {r.status_code} - {r.text}"
             logging.error(message)
             raise Exception(message)
