@@ -26,11 +26,7 @@ class BaseIndexParamsWithEmbeddingModel(BaseIndexParams, ABC):
 
     def to_dict(self):
         data = super().to_dict()
-        data["model"] = (
-            data.pop("embedding_model").value
-            if isinstance(self.embedding_model, EmbeddingModel)
-            else data.pop("embedding_model")
-        )
+        data["model"] = data.pop("embedding_model")
         return data
 
 
