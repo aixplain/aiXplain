@@ -13,6 +13,7 @@ class EvolverResponseData:
         comparison_report: Text,
         criteria: Text,
         archive: List[Text],
+        current_output: Text = "",
     ) -> None:
         self.evolved_agent = evolved_agent
         self.current_code = current_code
@@ -20,6 +21,7 @@ class EvolverResponseData:
         self.comparison_report = comparison_report
         self.criteria = criteria
         self.archive = archive
+        self.current_output = current_output
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any], llm_id: Text, api_key: Text) -> "EvolverResponseData":
@@ -35,6 +37,7 @@ class EvolverResponseData:
             comparison_report=data.get("comparison_report", ""),
             criteria=data.get("criteria", ""),
             archive=data.get("archive", []),
+            current_output=data.get("current_output", ""),
         )
 
     def to_dict(self) -> Dict[str, Any]:
@@ -45,6 +48,7 @@ class EvolverResponseData:
             "comparison_report": self.comparison_report,
             "criteria": self.criteria,
             "archive": self.archive,
+            "current_output": self.current_output,
         }
 
     def __getitem__(self, key: str) -> Any:
@@ -63,5 +67,5 @@ class EvolverResponseData:
             f"evaluation_report='{self.evaluation_report}', "
             f"comparison_report='{self.comparison_report}', "
             f"criteria='{self.criteria}', "
-            f"archive='{self.archive}')"
+            f"archive='{self.archive}', "
         )
