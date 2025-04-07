@@ -19,6 +19,7 @@ jobs:
           'tests/functional/file_asset',
           'tests/functional/data_asset',
           'tests/functional/benchmark',
+          'tests/functional/model',
           'tests/functional/pipelines/run_test.py --pipeline_version 2.0 --sdk_version v1 --sdk_version_param PipelineFactory',
           'tests/functional/pipelines/run_test.py --pipeline_version 2.0 --sdk_version v2 --sdk_version_param PipelineFactory',
           'tests/functional/pipelines/run_test.py --pipeline_version 3.0 --sdk_version v1 --sdk_version_param PipelineFactory',
