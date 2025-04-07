@@ -160,6 +160,7 @@ class TeamAgent(Model):
             AgentResponse: parsed output from model
         """
         start = time.time()
+        result_data = {}
         try:
             response = self.run_async(
                 data=data,

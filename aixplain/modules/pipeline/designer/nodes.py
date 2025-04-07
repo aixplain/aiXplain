@@ -243,12 +243,7 @@ class Output(Node[OutputInputs, OutputOutputs]):
     inputs_class: Type[TI] = OutputInputs
     outputs_class: Type[TO] = OutputOutputs
 
-    def __init__(
-        self,
-        data_types: Optional[List[DataType]] = None,
-        pipeline: "DesignerPipeline" = None,
-        **kwargs
-    ):
+    def __init__(self, data_types: Optional[List[DataType]] = None, pipeline: "DesignerPipeline" = None, **kwargs):
         super().__init__(pipeline=pipeline, **kwargs)
         self.data_types = data_types or []
 
@@ -309,14 +304,7 @@ class Route(Serializable):
     operation: Operation
     type: RouteType
 
-    def __init__(
-        self,
-        value: DataType,
-        path: List[Union[Node, int]],
-        operation: Operation,
-        type: RouteType,
-        **kwargs
-    ):
+    def __init__(self, value: DataType, path: List[Union[Node, int]], operation: Operation, type: RouteType, **kwargs):
         """
         Post init method to convert the nodes to node numbers if they are
         nodes.
@@ -331,9 +319,7 @@ class Route(Serializable):
         #     raise ValueError("Path is not valid, should be a list of nodes")
 
         # convert nodes to node numbers if they are nodes
-        self.path = [
-            node.number if isinstance(node, Node) else node for node in self.path
-        ]
+        self.path = [node.number if isinstance(node, Node) else node for node in self.path]
 
     def serialize(self) -> dict:
         return {
@@ -371,9 +357,7 @@ class Router(Node[RouterInputs, RouterOutputs], LinkableMixin):
     inputs_class: Type[TI] = RouterInputs
     outputs_class: Type[TO] = RouterOutputs
 
-    def __init__(
-        self, routes: List[Route], pipeline: "DesignerPipeline" = None, **kwargs
-    ):
+    def __init__(self, routes: List[Route], pipeline: "DesignerPipeline" = None, **kwargs):
         super().__init__(pipeline=pipeline, **kwargs)
         self.routes = routes
 
@@ -394,11 +378,11 @@ class DecisionInputs(Inputs):
 
 
 class DecisionOutputs(Outputs):
-    input: OutputParam = None
+    data: OutputParam = None
 
     def __init__(self, node: Node):
         super().__init__(node)
-        self.input = self.create_param("input")
+        self.data = self.create_param("data")
 
 
 class Decision(Node[DecisionInputs, DecisionOutputs], LinkableMixin):
@@ -412,9 +396,7 @@ class Decision(Node[DecisionInputs, DecisionOutputs], LinkableMixin):
     inputs_class: Type[TI] = DecisionInputs
     outputs_class: Type[TO] = DecisionOutputs
 
-    def __init__(
-        self, routes: List[Route], pipeline: "DesignerPipeline" = None, **kwargs
-    ):
+    def __init__(self, routes: List[Route], pipeline: "DesignerPipeline" = None, **kwargs):
         super().__init__(pipeline=pipeline, **kwargs)
         self.routes = routes
 
@@ -425,7 +407,25 @@ class Decision(Node[DecisionInputs, DecisionOutputs], LinkableMixin):
         to_param: Union[str, Param],
     ) -> Link:
         link = super().link(to_node, from_param, to_param)
-        self.outputs.input.data_type = self.inputs.passthrough.data_type
+
+        if isinstance(from_param, str):
+            assert from_param in self.outputs, f"Decision node has no input param called {from_param}, node linking validation is broken, please report this issue."
+            from_param = self.outputs[from_param]
+
+        if from_param.code == "data":
+            if not self.inputs.passthrough.link_:
+                raise ValueError("To able to infer data source, "
+                                 "passthrough input param should be linked first.")
+
+            # Infer data source from the passthrough node
+            link.data_source_id = self.inputs.passthrough.link_.from_node.number
+
+            # Infer data type from the passthrough node
+            ref_param_code = self.inputs.passthrough.link_.from_param
+            ref_node = self.inputs.passthrough.link_.from_node
+            ref_param = ref_node.outputs[ref_param_code]
+            from_param.data_type = ref_param.data_type
+
         return link
 
     def serialize(self) -> dict:

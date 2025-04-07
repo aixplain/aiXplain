@@ -16,4 +16,5 @@ from .sort_by import SortBy
 from .sort_order import SortOrder
 from .response_status import ResponseStatus
 from .database_source import DatabaseSourceType
+from .embedding_model import EmbeddingModel
 from .asset_status import AssetStatus

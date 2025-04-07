@@ -216,12 +216,14 @@ class Pipeline(Asset):
             polling_response = self.__polling(poll_url, name=name, timeout=timeout, wait_time=wait_time)
             end = time.time()
             status = ResponseStatus(polling_response["status"])
+            completed = polling_response["completed"]
             if response_version == "v1":
                 polling_response["elapsed_time"] = end - start
                 return polling_response
             status = ResponseStatus(polling_response.status)
             return PipelineResponse(
                 status=status,
+                completed=completed,
                 error=polling_response.error,
                 elapsed_time=end - start,
                 data=getattr(polling_response, "data", {}),
