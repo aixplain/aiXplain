@@ -1,5 +1,7 @@
 __author__ = "thiagocastroferreira"
 
+import os
+import logging
 import pytest
 import requests
 
@@ -9,6 +11,7 @@ from aixplain.modules import LLM
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+logger = logging.getLogger(__name__)
 
 def pytest_generate_tests(metafunc):
     if "llm_model" in metafunc.fixturenames:
@@ -224,10 +227,11 @@ def test_clone_model():
     from aixplain.modules.model import Model
 
     # Create a test model
-    source_model = ModelFactory.get("674a17f6098e7d5b18453da7")  # Llama 3.1 Nemotron 70B Instruct
+    source_model = ModelFactory.get("6646261c6eb563165658bbb1")  # OpenAI GPT-4o
+    test_api_key = os.getenv("OPENAI_KEY")
 
     # Clone the test model
-    cloned_model = source_model.clone("test-api-key")
+    cloned_model = source_model.clone(test_api_key or "test-api-key")
 
     try:
         # Verify the cloned model
@@ -249,6 +253,13 @@ def test_clone_model():
         assert cloned_model_2.name == "Cloned Model"
         assert cloned_model_2.description == source_model.description
         assert cloned_model_2.function == source_model.function
+
+        # run the cloned model if the api key is provided
+        if test_api_key:
+            response = cloned_model_2.run("What is the capital of the moon?")
+            assert response["status"] == "SUCCESS"
+        else:
+            logger.warning("Skipping test for running a cloned model as no API key is provided")
 
     finally:
         # Clean up
