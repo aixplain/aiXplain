@@ -12,7 +12,7 @@ from aixplain.modules.agent.tool.custom_python_code_tool import CustomPythonCode
 from aixplain.modules.agent.utils import process_variables
 from urllib.parse import urljoin
 from unittest.mock import patch
-from aixplain.enums.function import Function
+from aixplain.enums import Function, Supplier
 from aixplain.modules.agent.agent_response import AgentResponse
 from aixplain.modules.agent.agent_response_data import AgentResponseData
 
@@ -957,3 +957,24 @@ def test_agent_response_repr():
 
     # Most importantly, verify that 'status' is complete (not 'tatus')
     assert "status=" in repr_str  # Should find complete field name
+
+
+@pytest.mark.parametrize(
+    "function,supplier,model,expected_name",
+    [
+        (Function.TRANSLATION, None, None, "translation"),
+        (Function.TEXT_GENERATION, Supplier.AIXPLAIN, None, "text-generation-aixplain"),
+        (Function.TEXT_GENERATION, Supplier.OPENAI, None, "text-generation-openai"),
+        (
+            Function.TEXT_GENERATION,
+            Supplier.AIXPLAIN,
+            Model(id="123", name="Test Model"),
+            "text-generation-aixplain-test_model",
+        ),
+    ],
+)
+def test_set_tool_name(function, supplier, model, expected_name):
+    from aixplain.modules.agent.tool.model_tool import set_tool_name
+
+    name = set_tool_name(function, supplier, model)
+    assert name == expected_name
