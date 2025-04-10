@@ -4,87 +4,27 @@ Guardrail Model Class
 
 import logging
 import warnings
-from aixplain.enums import Function, Supplier, DataType
+from aixplain.enums import Function, Supplier
 from aixplain.enums.asset_status import AssetStatus
 from aixplain.modules.model import Model
 from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
-from aixplain.modules.model.utils import parse_code_decorated
-from dataclasses import dataclass
-from typing import Callable, Union, Optional, List, Text, Dict
+from typing import Optional, Text, Dict, Union
 from urllib.parse import urljoin
 
 
-@dataclass
-class UtilityModelInput:
-    name: Text
-    description: Text
-    type: DataType = DataType.TEXT
+class GuardrailModel(Model):
+    """Ready-to-use Guardrail Model.
 
-    def validate(self):
-        if self.type not in [DataType.TEXT, DataType.BOOLEAN, DataType.NUMBER]:
-            raise ValueError("Utility Model Input type must be TEXT, BOOLEAN or NUMBER")
-
-    def to_dict(self):
-        return {"name": self.name, "description": self.description, "type": self.type.value}
-
-
-# Tool decorator
-def utility_tool(
-    name: Text, description: Text, inputs: List[UtilityModelInput] = None, output_examples: Text = "", status=AssetStatus.DRAFT
-):
-    """Decorator for utility tool functions
-
-    Args:
-        name: Name of the utility tool
-        description: Description of what the utility tool does
-        inputs: List of input parameters, must be UtilityModelInput objects
-        output_examples: Examples of expected outputs
-        status: Asset status
-
-    Raises:
-        ValueError: If name or description is empty
-        TypeError: If inputs contains non-UtilityModelInput objects
-    """
-    # Validate name and description
-    if not name or not name.strip():
-        raise ValueError("Utility tool name cannot be empty")
-    if not description or not description.strip():
-        raise ValueError("Utility tool description cannot be empty")
-
-    # Validate inputs
-    if inputs is not None:
-        if not isinstance(inputs, list):
-            raise TypeError("Inputs must be a list of UtilityModelInput objects")
-        for input_param in inputs:
-            if not isinstance(input_param, UtilityModelInput):
-                raise TypeError(f"Invalid input parameter: {input_param}. All inputs must be UtilityModelInput objects")
-
-    def decorator(func):
-        func._is_utility_tool = True  # Mark function as utility tool
-        func._tool_name = name.strip()
-        func._tool_description = description.strip()
-        func._tool_inputs = inputs if inputs else []
-        func._tool_output_examples = output_examples
-        func._tool_status = status
-        return func
-
-    return decorator
-
-
-class UtilityModel(Model):
-    """Ready-to-use Utility Model.
-
-    Note: Non-deployed utility models (status=DRAFT) will expire after 24 hours after creation.
+    Note: Non-deployed guardrail models (status=DRAFT) will expire after 24 hours after creation.
     Use the .deploy() method to make the model permanent.
 
     Attributes:
         id (Text): ID of the Model
         name (Text): Name of the Model
-        code (Union[Text, Callable]): code of the model.
         description (Text): description of the model. Defaults to "".
-        inputs (List[UtilityModelInput]): inputs of the model. Defaults to [].
-        output_examples (Text): output examples. Defaults to "".
+        model_config (Dict): configuration for the guardrail model
+        policy (Enum): policy for the guardrail model
         api_key (Text, optional): API key of the Model. Defaults to None.
         supplier (Union[Dict, Text, Supplier, int], optional): supplier of the asset. Defaults to "aiXplain".
         version (Text, optional): version of the model. Defaults to "1.0".
@@ -98,10 +38,9 @@ class UtilityModel(Model):
         self,
         id: Text,
         name: Optional[Text] = None,
-        code: Union[Text, Callable] = None,
         description: Optional[Text] = None,
-        inputs: List[UtilityModelInput] = [],
-        output_examples: Text = "",
+        model_config: Optional[Dict] = None,
+        policy: Optional[Enum] = None,
         api_key: Optional[Text] = None,
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
         version: Optional[Text] = None,
@@ -111,15 +50,14 @@ class UtilityModel(Model):
         status: AssetStatus = AssetStatus.DRAFT,
         **additional_info,
     ) -> None:
-        """Utility Model Init
+        """Guardrail Model Init
 
         Args:
             id (Text): ID of the Model
             name (Text): Name of the Model
-            code (Union[Text, Callable]): code of the model.
             description (Text): description of the model. Defaults to "".
-            inputs (List[UtilityModelInput]): inputs of the model. Defaults to [].
-            output_examples (Text): output examples. Defaults to "".
+            model_config (Dict): configuration for the guardrail model
+            policy (Enum): policy for the guardrail model
             api_key (Text, optional): API key of the Model. Defaults to None.
             supplier (Union[Dict, Text, Supplier, int], optional): supplier of the asset. Defaults to "aiXplain".
             version (Text, optional): version of the model. Defaults to "1.0".
@@ -128,7 +66,6 @@ class UtilityModel(Model):
             cost (Dict, optional): model price. Defaults to None.
             **additional_info: Any additional Model info to be saved
         """
-        assert function == Function.UTILITIES, "Utility Model only supports 'utilities' function"
         super().__init__(
             id=id,
             name=name,
@@ -143,9 +80,8 @@ class UtilityModel(Model):
         )
         self.url = config.MODELS_RUN_URL
         self.backend_url = config.BACKEND_URL
-        self.code = code
-        self.inputs = inputs
-        self.output_examples = output_examples
+        self.model_config = model_config or {}
+        self.policy = policy
         if isinstance(status, str):
             try:
                 status = AssetStatus(status)
@@ -155,33 +91,17 @@ class UtilityModel(Model):
 
         if status == AssetStatus.DRAFT:
             warnings.warn(
-                "WARNING: Non-deployed utility models (status=DRAFT) will expire after 24 hours after creation. "
+                "WARNING: Non-deployed guardrail models (status=DRAFT) will expire after 24 hours after creation. "
                 "Use .deploy() method to make the model permanent.",
                 UserWarning,
             )
 
     def validate(self):
-        """Validate the Utility Model."""
-        description = None
-        name = None
-        # check if the model exists and if the code is strring with s3://
-        # if not, parse the code and update the description and inputs and do the validation
-        # if yes, just do the validation on the description and inputs
-        if not (self._model_exists() and str(self.code).startswith("s3://")):
-            self.code, self.inputs, description, name = parse_code_decorated(self.code)
-            if self.name is None:
-                self.name = name
-            if self.description is None:
-                self.description = description
-            for input in self.inputs:
-                input.validate()
-        else:
-            logging.info("Utility Model Already Exists, skipping code validation")
-
-        assert description is not None or self.description is not None, "Utility Model Error: Model description is required"
+        """Validate the Guardrail Model."""
         assert self.name and self.name.strip() != "", "Name is required"
         assert self.description and self.description.strip() != "", "Description is required"
-        assert self.code and self.code.strip() != "", "Code is required"
+        assert self.model_config is not None, "Model config is required"
+        assert self.policy is not None, "Policy is required"
 
     def _model_exists(self):
         if self.id is None or self.id == "":
@@ -198,15 +118,14 @@ class UtilityModel(Model):
         return {
             "name": self.name,
             "description": self.description,
-            "inputs": [input.to_dict() for input in self.inputs],
-            "code": self.code,
-            "function": self.function.value,
-            "outputDescription": self.output_examples,
+            "modelConfig": self.model_config,
+            "policy": self.policy.value if hasattr(self.policy, "value") else str(self.policy),
+            "function": self.function.value if self.function else None,
             "status": self.status.value,
         }
 
     def update(self):
-        """Update the Utility Model."""
+        """Update the Guardrail Model."""
         import warnings
         import inspect
 
@@ -220,47 +139,47 @@ class UtilityModel(Model):
             )
 
         self.validate()
-        url = urljoin(self.backend_url, f"sdk/utilities/{self.id}")
+        url = urljoin(self.backend_url, f"sdk/guardrails/{self.id}")
         headers = {"x-api-key": f"{self.api_key}", "Content-Type": "application/json"}
         payload = self.to_dict()
         try:
-            logging.info(f"Start service for PUT Utility Model - {url} - {headers} - {payload}")
+            logging.info(f"Start service for PUT Guardrail Model - {url} - {headers} - {payload}")
             r = _request_with_retry("put", url, headers=headers, json=payload)
             response = r.json()
         except Exception as e:
-            message = f"Utility Model Update Error: {e}"
+            message = f"Guardrail Model Update Error: {e}"
             logging.error(message)
             raise Exception(f"{message}")
 
         if not 200 <= r.status_code < 300:
-            message = f"Utility Model Update Error: {response}"
+            message = f"Guardrail Model Update Error: {response}"
             logging.error(message)
             raise Exception(f"{message}")
 
     def save(self):
-        """Save the Utility Model."""
+        """Save the Guardrail Model."""
         self.update()
 
     def delete(self):
-        """Delete the Utility Model."""
-        url = urljoin(self.backend_url, f"sdk/utilities/{self.id}")
+        """Delete the Guardrail Model."""
+        url = urljoin(self.backend_url, f"sdk/guardrails/{self.id}")
         headers = {"x-api-key": f"{self.api_key}", "Content-Type": "application/json"}
         try:
-            logging.info(f"Start service for DELETE Utility Model  - {url} - {headers}")
+            logging.info(f"Start service for DELETE Guardrail Model  - {url} - {headers}")
             r = _request_with_retry("delete", url, headers=headers)
             response = r.json()
         except Exception:
-            message = "Utility Model Deletion Error: Make sure the utility model exists and you are the owner."
+            message = "Guardrail Model Deletion Error: Make sure the guardrail model exists and you are the owner."
             logging.error(message)
             raise Exception(f"{message}")
 
         if r.status_code != 200:
-            message = f"Utility Model Deletion Error: {response}"
+            message = f"Guardrail Model Deletion Error: {response}"
             logging.error(message)
             raise Exception(f"{message}")
 
     def deploy(self) -> None:
-        assert self.status == AssetStatus.DRAFT, "Utility Model must be in draft status to be deployed."
-        assert self.status != AssetStatus.ONBOARDED, "Utility Model is already deployed."
+        assert self.status == AssetStatus.DRAFT, "Guardrail Model must be in draft status to be deployed."
+        assert self.status != AssetStatus.ONBOARDED, "Guardrail Model is already deployed."
         self.status = AssetStatus.ONBOARDED
         self.update()
