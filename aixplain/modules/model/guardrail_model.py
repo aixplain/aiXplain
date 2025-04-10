@@ -28,24 +28,10 @@ class GuardrailPolicy(str, Enum):
 
 
 class GuardrailModel(Model):
-    """Ready-to-use Guardrail Model.
+    """Guardrail model.
 
-    Note: Non-deployed guardrail models (status=DRAFT) will expire after 24 hours after creation.
-    Use the .deploy() method to make the model permanent.
-
-    Attributes:
-        id (Text): ID of the Model
-        name (Text): Name of the Model
-        description (Text): description of the model. Defaults to "".
-        model_config (Dict): configuration for the guardrail model
-        policy (Enum): policy for the guardrail model
-        api_key (Text, optional): API key of the Model. Defaults to None.
-        supplier (Union[Dict, Text, Supplier, int], optional): supplier of the asset. Defaults to "aiXplain".
-        version (Text, optional): version of the model. Defaults to "1.0".
-        function (Function, optional): model AI function. Defaults to None.
-        is_subscribed (bool, optional): Is the user subscribed. Defaults to False.
-        cost (Dict, optional): model price. Defaults to None.
-        **additional_info: Any additional Model info to be saved
+    Note: Non-deployed guardrails (status=DRAFT) will expire after 24 hours after creation.
+    Use the .deploy() method to make the guardrail permanent.
     """
 
     def __init__(
@@ -53,7 +39,8 @@ class GuardrailModel(Model):
         id: Text,
         name: Optional[Text] = None,
         description: Optional[Text] = None,
-        model_config: Optional[Dict] = None,
+        guard_id: Optional[Text] = None,
+        guard_config: Optional[Dict] = None,
         policy: Optional[GuardrailPolicy] = None,
         api_key: Optional[Text] = None,
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
@@ -64,14 +51,15 @@ class GuardrailModel(Model):
         status: AssetStatus = AssetStatus.DRAFT,
         **additional_info,
     ) -> None:
-        """Guardrail Model Init
+        """Initialize a local copy of a Guardrail model.
 
         Args:
             id (Text): ID of the Model
             name (Text): Name of the Model
             description (Text): description of the model. Defaults to "".
-            model_config (Dict): configuration for the guardrail model
-            policy (Enum): policy for the guardrail model
+            guard_id (Text, optional): ID of the underlying guardrail model. Defaults to None.
+            guard_config (Dict, optional): configuration for the underlying guardrail model. Defaults to None.
+            policy (GuardrailPolicy, optional): Action to take if the policy is violated. Defaults to None.
             api_key (Text, optional): API key of the Model. Defaults to None.
             supplier (Union[Dict, Text, Supplier, int], optional): supplier of the asset. Defaults to "aiXplain".
             version (Text, optional): version of the model. Defaults to "1.0".
@@ -92,10 +80,14 @@ class GuardrailModel(Model):
             api_key=api_key,
             **additional_info,
         )
+
         self.url = config.MODELS_RUN_URL
         self.backend_url = config.BACKEND_URL
-        self.model_config = model_config or {}
+
+        self.guard_id = guard_id
+        self.guard_config = guard_config
         self.policy = policy
+
         if isinstance(status, str):
             try:
                 status = AssetStatus(status)
@@ -114,7 +106,8 @@ class GuardrailModel(Model):
         """Validate the Guardrail Model."""
         assert self.name and self.name.strip() != "", "Name is required"
         assert self.description and self.description.strip() != "", "Description is required"
-        assert self.model_config is not None, "Model config is required"
+        assert self.guard_id is not None, "Guardrail ID is required"
+        assert self.guard_config is not None, "Guardrail config is required"
         assert self.policy is not None, "Policy is required"
 
     def _model_exists(self):
@@ -132,7 +125,8 @@ class GuardrailModel(Model):
         return {
             "name": self.name,
             "description": self.description,
-            "modelConfig": self.model_config,
+            "guardId": self.guard_id,
+            "guardConfig": self.guard_config,
             "policy": self.policy.value if hasattr(self.policy, "value") else str(self.policy),
             "function": self.function.value if self.function else None,
             "status": self.status.value,
