@@ -2,21 +2,27 @@ import os
 import logging
 import json
 import time
-from enum import Enum
-from urllib.parse import urljoin
-from typing import Dict, Optional, Tuple
-from dataclasses import dataclass
+from typing import Dict, Optional
+from dataclasses import dataclass, asdict
 from filelock import FileLock
 
 from aixplain.utils import config
-from aixplain.utils.request_utils import _request_with_retry
-from aixplain.enums.privacy import Privacy
+from aixplain.utils.file_utils import _request_with_retry
+from urllib.parse import urljoin
+from typing import TypeVar, Generic, Type
+from typing import List
+
+logger = logging.getLogger(__name__)
+
+
+T = TypeVar("T")
+
 # Constants
 CACHE_FOLDER = ".cache"
 DEFAULT_CACHE_EXPIRY = 86400
 
 @dataclass
-class Asset:
+class Model:
     id: str
     name: str = ""
     description: str = ""
@@ -26,145 +32,143 @@ class Asset:
     status: str = "onboarded"
     created_at: str = ""
 
-class AssetType(Enum):
-    MODELS = "models"
-    PIPELINES = "pipelines"
-    AGENTS = "agents"
+    @classmethod
+    def from_dict(cls, data: Dict) -> "Model":
+        return cls(**data)
 
-def get_cache_expiry():
-    return int(os.getenv("CACHE_EXPIRY_TIME", DEFAULT_CACHE_EXPIRY))
+@dataclass
+class Store(Generic[T]):
+    data: Dict[str, T]
+    expiry: int
 
-def _serialize(obj):
-    if isinstance(obj, (Privacy)):
-        return str(obj)  # or obj.to_dict() if you have it
-    if isinstance(obj, Enum):
-        return obj.value
-    return obj.__dict__ if hasattr(obj, "__dict__") else str(obj)
-
-class AssetCache:
+class AssetCache(Generic[T]):
     """
     A modular caching system to handle different asset types (Models, Pipelines, Agents).
     """
 
-    @staticmethod
-    def save_to_cache(cache_file, data, lock_file):
-        os.makedirs(os.path.dirname(cache_file), exist_ok=True)
-        with FileLock(lock_file):
-            with open(cache_file, "w") as f:
-                json.dump({"timestamp": time.time(), "data": data}, f,default=_serialize)
+    def __init__(
+        self,
+        cls: Type[T],
+        cache_filename: Optional[str] = None,
+    ):
+        self.cls = cls
+        if cache_filename is None:
+            cache_filename = self.cls.__name__.lower()
 
-    @staticmethod
-    def load_from_cache(cache_file, lock_file):
-        if os.path.exists(cache_file):
-            with FileLock(lock_file):
-                with open(cache_file, "r") as f:
-                    cache_data = json.load(f)
-                    if time.time() - cache_data["timestamp"] < get_cache_expiry():
-                        return cache_data["data"]
-                    else:
-                        try:
-                            os.remove(cache_file)
-                            if os.path.exists(lock_file):
-                                os.remove(lock_file)
-                        except Exception as e:
-                            logging.warning(f"Failed to remove expired cache or lock file: {e}")
-        return None
+        # create cache file and lock file name
+        self.cache_file = os.path.join(CACHE_FOLDER, f"{cache_filename}.json")
+        self.lock_file = os.path.join(CACHE_FOLDER, f"{cache_filename}.lock")
+        self.store = Store(data={}, expiry=self.compute_expiry())
+        self.load()
 
-    @staticmethod
-    def fetch_assets_from_backend(asset_type_str: str) -> Optional[Dict]:
-        """
-        Fetch assets data from the backend API.
-        """
-        api_key = config.TEAM_API_KEY
-        backend_url = config.BACKEND_URL
-        url = urljoin(backend_url, f"sdk/{asset_type_str}")
-        headers = {"x-api-key": api_key, "Content-Type": "application/json"}
+        if not os.path.exists(self.cache_file):
+            self.save()
 
+    def compute_expiry(self):
         try:
-            response = _request_with_retry("get", url, headers=headers)
-            response.raise_for_status()
-            return response.json()
+            expiry = int(os.getenv("CACHE_EXPIRY_TIME", DEFAULT_CACHE_EXPIRY))
         except Exception as e:
-            logging.error(f"Failed to fetch {asset_type_str} from API: {e}")
-            return None
+            logger.warning(
+                f"Failed to parse CACHE_EXPIRY_TIME: {e}, "
+                f"fallback to default value {DEFAULT_CACHE_EXPIRY}"
+            )
+            # remove the CACHE_EXPIRY_TIME from the environment variables
+            del os.environ["CACHE_EXPIRY_TIME"]
+            expiry = DEFAULT_CACHE_EXPIRY
 
-    def __init__(self, asset_type: AssetType | str, cache_filename: Optional[str] = None):
-        if isinstance(asset_type, str):
-            asset_type = AssetType(asset_type.lower())
-        self.asset_type = asset_type
+        return time.time() + int(expiry)
 
-        filename = cache_filename if cache_filename else self.asset_type.value
-        self.cache_file = f"{CACHE_FOLDER}/{filename}.json"
-        self.lock_file = f"{self.cache_file}.lock"
+    def invalidate(self):
+        self.store = Store(data={}, expiry=self.compute_expiry())
+        # delete cache file and lock file
+        if os.path.exists(self.cache_file):
+            os.remove(self.cache_file)
+        if os.path.exists(self.lock_file):
+            os.remove(self.lock_file)
+
+    def load(self):
+        if not os.path.exists(self.cache_file):
+            self.invalidate()
+            return
+
+        with FileLock(self.lock_file):
+            with open(self.cache_file, "r") as f:
+                try:
+                    cache_data = json.load(f)
+                except Exception as e:
+                    # data is corrupted, invalidate the cache
+                    self.invalidate()
+                    logging.warning(f"Failed to parse cache file: {e}")
+                    return
+
+                try:
+                    expiry = cache_data["expiry"]
+                    raw_data = cache_data["data"]
+                    parsed_data = {
+                        k: self.cls(
+                            id=v.get("id", ""),
+                            name=v.get("name", ""),
+                            description=v.get("description", ""),
+                            api_key=v.get("api_key", config.TEAM_API_KEY),
+                            supplier=v.get("supplier", "aiXplain"),
+                            version=v.get("version", "1.0"),
+                            status=v.get("status", "onboarded"),
+                            created_at=v.get("created_at", ""),
+                        ) for k, v in raw_data.items()
+                    }
+
+
+                    self.store = Store(data=parsed_data, expiry=expiry)
+                except Exception as e:
+                    self.invalidate()
+                    logging.warning(f"Failed to load cache data: {e}")
+
+
+                if self.store.expiry < time.time():
+                    logger.warning(
+                        f"Cache expired, invalidating cache for {self.cls.__name__}"
+                    )
+                    # cache expired, invalidate the cache
+                    self.invalidate()
+                    return
+
+    def save(self):
         os.makedirs(CACHE_FOLDER, exist_ok=True)
 
-        # Load assets immediately during initialization
-        self.assets_enum, self.assets_data = self._initialize_assets()
+        with FileLock(self.lock_file):
+            with open(self.cache_file, "w") as f:
+                # serialize the data manually
+                serializable_store = {
+                    "expiry": self.compute_expiry(),
+                    "data": {
+                        asset_id: {
+                            "id": model.id,
+                            "name": model.name,
+                            "description": model.description,
+                            "api_key": model.api_key,
+                            "supplier": model.supplier,
+                            "version": model.version,
+                            "created_at": model.created_at.isoformat() if hasattr(model.created_at, "isoformat") else model.created_at,
+                        }
+                        for asset_id, model in self.store.data.items()
+                    },
+                }
+                json.dump(serializable_store, f)
 
 
-    def load_assets(self) -> Tuple[Enum, Dict]:
-        """
-        Load assets from cache or fetch from backend if not cached.
-        """
-        cached_data = self.load_from_cache(self.cache_file, self.lock_file)
-        if cached_data:
-            return self.parse_assets(cached_data)
+    def get(self, asset_id: str) -> Optional[T]:
+        return self.store.data.get(asset_id)
 
-        assets_data = self.fetch_assets_from_backend(self.asset_type.value)
-        if not assets_data or "items" not in assets_data:
-            return Enum(self.asset_type.name, {}), {}
+    def add(self, asset: T):
+        self.store.data[asset.id] = asset
+        self.save()
 
-        onboarded_assets = [
-            asset for asset in assets_data["items"] 
-            if asset.get("status", "").lower() == "onboarded"
-        ]
+    def add_model_list(self, models: List[T]):
+        self.store.data = {model.id: model for model in models}
+        self.save()
 
-        self.save_to_cache(self.cache_file, {"items": onboarded_assets}, self.lock_file)
+    def get_all_models(self) -> List[T]:
+        return list(self.store.data.values())
 
-        return self.parse_assets({"items": onboarded_assets})
-
-    def parse_assets(self, assets_data: Dict) -> Tuple[Enum, Dict]:
-        """
-        Convert asset data into an Enum and dictionary format for easy use.
-        """
-        if not assets_data["items"]:
-            logging.warning(f"No onboarded {self.asset_type.value} found.")
-            return Enum(self.asset_type.name, {}), {}
-
-        assets_enum = Enum(
-            self.asset_type.name,
-            {a["id"].upper().replace("-", "_"): a["id"] for a in assets_data["items"]},
-            type=str,
-        )
-
-        assets_details = {
-            asset["id"]: Asset(
-                id=asset["id"],
-                name=asset.get("name", ""),
-                description=asset.get("description", ""),
-                api_key=asset.get("api_key", config.TEAM_API_KEY),
-                supplier=asset.get("supplier", "aiXplain"),
-                version=asset.get("version", "1.0"),
-                status=asset.get("status", "onboarded"),
-                created_at=asset.get("created_at", "")
-            )
-            for asset in assets_data["items"]
-        }
-
-        return assets_enum, assets_details
-    
-    def _initialize_assets(self) -> Tuple[Enum, Dict]:
-        cached_data = self.load_from_cache(self.cache_file, self.lock_file)
-        if cached_data:
-            return self.parse_assets(cached_data)
-
-        assets_data = self.fetch_assets_from_backend(self.asset_type.value)
-        if not assets_data or "items" not in assets_data:
-            return Enum(self.asset_type.name, {}), {}
-
-        onboarded_assets = [
-            asset for asset in assets_data["items"] 
-            if asset.get("status", "").lower() == "onboarded"
-        ]
-        self.save_to_cache(self.cache_file, {"items": onboarded_assets}, self.lock_file)
-        return self.parse_assets({"items": onboarded_assets})
+    def has_valid_cache(self) -> bool:
+        return self.store.expiry >= time.time()

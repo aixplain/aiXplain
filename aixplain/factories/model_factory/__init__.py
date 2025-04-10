@@ -29,7 +29,7 @@ from aixplain.enums import Function, Language, OwnershipType, Supplier, SortBy, 
 from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
 from urllib.parse import urljoin
-from aixplain.enums import AssetCache, AssetType, Asset
+from aixplain.enums import AssetCache
 from aixplain.factories.model_factory.utils import create_model_from_response
 
 
@@ -90,17 +90,6 @@ class ModelFactory:
         if 200 <= r.status_code < 300:
             utility_model.id = resp["id"]
             logging.info(f"Utility Model Creation: Model {utility_model.id} instantiated.")
-
-            new_asset = Asset(
-                id=resp["id"],
-                name=resp.get("name", ""),
-                description=resp.get("description", ""),
-                api_key=api_key or config.TEAM_API_KEY,
-                supplier=resp.get("supplier", "aiXplain"),
-                version=resp.get("version", "1.0"),
-                status=resp.get("status", "onboarded"),
-                created_at=resp.get("createdAt", "")
-            )
             return utility_model
         else:
             error_message = (
@@ -111,80 +100,58 @@ class ModelFactory:
 
     @classmethod
     def get(cls, model_id: Text, api_key: Optional[Text] = None, use_cache: bool = True) -> Model:
-        """Create a 'Model' object from model id
+        """Create a 'Model' object from model id"""
+        cache = AssetCache(Model)
 
-        Args:
-            model_id (Text): Model ID of required model.
-            api_key (Optional[Text], optional): Model API key. Defaults to None.
+        if use_cache:
+            if cache.has_valid_cache():
+                cached_model = cache.get(model_id)
+                if cached_model:
+                    return cached_model
+                logging.info("Model not found in valid cache, fetching individually...")
+                model = cls._fetch_model_by_id(model_id, api_key)
+                cache.add(model)
+                return model
+            else:
+                try:
+                    model_list_resp = cls.list(model_ids=None, api_key=api_key)
+                    models = model_list_resp["results"]
+                    cache.add_model_list(models)
+                    for model in models:
+                        if model.id == model_id:
+                            return model
+                except Exception as e:
+                    logging.error(f"Error fetching model list: {e}")
+                    raise e
 
-        Returns:
-            Model: Created 'Model' object
-        """
-        cache = AssetCache(AssetType.MODELS)
-        asset = cache.assets_data.get(model_id) if use_cache else None
+        logging.info("Fetching model directly without cache...")
+        return cls._fetch_model_by_id(model_id, api_key)
 
-        if asset:
-            logging.info(f"ModelFactory: Loaded model {model_id} from cache.")
-            return Model(
-                id=asset.id,
-                name=asset.name,
-                description=asset.description,
-                api_key=api_key or asset.api_key,
-                supplier=asset.supplier,
-                version=asset.version,
-                created_at=asset.created_at,
-            )
-        
-        url = urljoin(cls.backend_url, f"sdk/models/{model_id}")
-        headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
-
+    @classmethod
+    def _fetch_model_by_id(cls, model_id: Text, api_key: Optional[Text] = None) -> Model:
         resp = None
         try:
-            logging.info(f"Fetching Model from backend...")
             url = urljoin(cls.backend_url, f"sdk/models/{model_id}")
-
-            headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
-            logging.info(f"Start service for GET Model  - {url} - {headers}")
+            headers = {"Authorization": f"Token {api_key or config.TEAM_API_KEY}", "Content-Type": "application/json"}
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()
-
         except Exception:
-            if resp is not None and "statusCode" in resp:
+            if resp and "statusCode" in resp:
                 status_code = resp["statusCode"]
-                message = resp["message"]
-                message = f"Model Creation: Status {status_code} - {message}"
+                message = f"Model Creation: Status {status_code} - {resp['message']}"
             else:
                 message = "Model Creation: Unspecified Error"
             logging.error(message)
-            raise Exception(f"{message}")
+            raise Exception(message)
+
         if 200 <= r.status_code < 300:
-            resp["api_key"] = config.TEAM_API_KEY
-            if api_key is not None:
-                resp["api_key"] = api_key
-            from aixplain.factories.model_factory.utils import create_model_from_response
-
-            new_asset = Asset(
-                id=resp["id"],
-                name=resp.get("name", ""),
-                description=resp.get("description", ""),
-                api_key=api_key or config.TEAM_API_KEY,
-                supplier=resp.get("supplier", "aiXplain"),
-                version=resp.get("version", "1.0"),
-                status=resp.get("status", "onboarded"),
-                created_at=resp.get("createdAt", "")
-            )
-            cache.assets_data[new_asset.id] = new_asset
-            serializable_data = {k: vars(v) for k, v in cache.assets_data.items()}
-            cache.save_to_cache(cache.cache_file, {"items": list(serializable_data.values())}, cache.lock_file)
-
-            model = create_model_from_response(resp)
-            logging.info(f"ModelFactory: Model {model_id} fetched and cached successfully.")
-            return model
-
+            resp["api_key"] = api_key or config.TEAM_API_KEY
+            return create_model_from_response(resp)
         else:
             error_message = f"Model GET Error: Failed to retrieve model {model_id}. Status Code: {r.status_code}. Error: {resp}"
             logging.error(error_message)
             raise Exception(error_message)
+
 
     @classmethod
     def list(

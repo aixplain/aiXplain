@@ -61,8 +61,8 @@ class Agent(Model):
         api_key (str): The TEAM API key used for authentication.
         cost (Dict, optional): model price. Defaults to None.
     """
-    AgentCache = AssetCache("agents", "agents")
-    AgentEnum, AgentDetails = AgentCache.load_assets()
+    # AgentCache = AssetCache("agents", "agents")
+    # AgentEnum, AgentDetails = AgentCache.load_assets()
 
     is_valid: bool
 

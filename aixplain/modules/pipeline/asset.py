@@ -32,7 +32,7 @@ from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
 from typing import Dict, Optional, Text, Union
 from urllib.parse import urljoin
-from aixplain.enums import AixplainCache
+from aixplain.enums import AssetCache
 from aixplain.modules.pipeline.response import PipelineResponse
 
 
@@ -75,7 +75,7 @@ class Pipeline(Asset):
             status (AssetStatus, optional): Pipeline status. Defaults to AssetStatus.DRAFT.
             **additional_info: Any additional Pipeline info to be saved
         """
-        PipelineCache = AixplainCache("pipelines", "pipelines")
+        PipelineCache = AssetCache("pipelines", "pipelines")
         _, PipelineDetails = PipelineCache.load_assets()
         if id in PipelineDetails:
             cached_pipeline = PipelineDetails[id]
