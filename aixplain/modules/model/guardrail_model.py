@@ -1,16 +1,30 @@
-"""
-Guardrail Model Class
+"""GuardrailModel Class.
+
+Guardrail models are used to enforce policies on the data that is processed by the model.
 """
 
 import logging
 import warnings
+from enum import Enum
+from typing import Optional, Text, Dict, Union
+from urllib.parse import urljoin
+
 from aixplain.enums import Function, Supplier
 from aixplain.enums.asset_status import AssetStatus
 from aixplain.modules.model import Model
 from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
-from typing import Optional, Text, Dict, Union
-from urllib.parse import urljoin
+
+
+class GuardrailPolicy(str, Enum):
+    """Guardrail Policy Enum.
+
+    Defines which action to take if the policy is violated.
+    """
+
+    WARN = "warn"
+    ABORT = "abort"
+    ADAPTIVE = "adaptive"
 
 
 class GuardrailModel(Model):
@@ -40,7 +54,7 @@ class GuardrailModel(Model):
         name: Optional[Text] = None,
         description: Optional[Text] = None,
         model_config: Optional[Dict] = None,
-        policy: Optional[Enum] = None,
+        policy: Optional[GuardrailPolicy] = None,
         api_key: Optional[Text] = None,
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
         version: Optional[Text] = None,
