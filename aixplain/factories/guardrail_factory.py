@@ -70,6 +70,7 @@ class GuardrailFactory:
             "description": description,
             "guardId": guard_id,
             "guardConfig": guard_config,
+            "guardInstruction": guard_instruction,
             "policy": policy.value,
             "status": AssetStatus.DRAFT.value,
             **additional_info,
@@ -89,12 +90,16 @@ class GuardrailFactory:
             logging.error(message)
             raise Exception(f"{message}")
 
+        # if guard_instruction is provided, the service will add "prompt" to the guard_config
+        if guard_instruction is not None and "prompt" not in response["guardConfig"]:
+            raise KeyError("Guardrail model creation with guard_instruction failed: prompt not found in guard_config")
+
         return GuardrailModel(
             id=response["id"],
             name=name,
             description=description,
             guard_id=guard_id,
-            guard_config=guard_config,
+            guard_config=response["guardConfig"],
             policy=policy,
             api_key=api_key,
             **additional_info,
