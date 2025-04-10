@@ -50,6 +50,7 @@ class TeamAgentFactory:
         num_inspectors: int = 1,
         inspector_targets: List[Union[InspectorTarget, Text]] = [InspectorTarget.STEPS],
         use_mentalist_and_inspector: bool = False,  # TODO: remove this
+        instructions: Optional[Text] = None,
     ) -> TeamAgent:
         """Create a new team agent in the platform.
 
@@ -66,6 +67,7 @@ class TeamAgentFactory:
             num_inspectors: The number of inspectors to be used for each inspection.
             inspector_targets: Which stages to be inspected during an execution of the team agent. (steps, output)
             use_mentalist_and_inspector: Whether to use the mentalist and inspector agents. (legacy)
+            instructions: The instructions to be used for the team agent.
 
         Returns:
             A new team agent instance.
@@ -139,6 +141,7 @@ class TeamAgentFactory:
             "supplier": supplier,
             "version": version,
             "status": "draft",
+            "role": instructions,
         }
 
         team_agent = build_team_agent(payload=payload, agents=agent_list, api_key=api_key)

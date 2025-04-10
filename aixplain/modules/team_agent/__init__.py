@@ -88,6 +88,7 @@ class TeamAgent(Model):
         max_inspectors: int = 1,
         inspector_targets: List[InspectorTarget] = [InspectorTarget.STEPS],
         status: AssetStatus = AssetStatus.DRAFT,
+        instructions: Optional[Text] = None,
         **additional_info,
     ) -> None:
         """Create a FineTune with the necessary information.
@@ -104,6 +105,7 @@ class TeamAgent(Model):
             api_key (str): The TEAM API key used for authentication.
             cost (Dict, optional): model price. Defaults to None.
             use_mentalist_and_inspector (bool): Use Mentalist and Inspector tools. Defaults to True.
+            instructions (Text, optional): Instructions for the team agent. Defaults to None.
         """
         super().__init__(id, name, description, api_key, supplier, version, cost=cost)
         self.additional_info = additional_info
@@ -113,7 +115,7 @@ class TeamAgent(Model):
         self.use_inspector = use_inspector
         self.max_inspectors = max_inspectors
         self.inspector_targets = inspector_targets
-
+        self.instructions = instructions
         if isinstance(status, str):
             try:
                 status = AssetStatus(status)
@@ -345,6 +347,7 @@ class TeamAgent(Model):
             "supplier": self.supplier.value["code"] if isinstance(self.supplier, Supplier) else self.supplier,
             "version": self.version,
             "status": self.status.value,
+            "role": self.instructions,
         }
 
     def _validate(self) -> None:
