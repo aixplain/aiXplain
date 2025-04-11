@@ -37,6 +37,7 @@ from aixplain.modules.agent.tool.sql_tool import (
     SQLTool,
 )
 from aixplain.modules.model import Model
+from aixplain.modules.model.llm_model import LLM
 from aixplain.modules.pipeline import Pipeline
 from aixplain.utils import config
 from typing import Callable, Dict, List, Optional, Text, Union
@@ -53,7 +54,9 @@ class AgentFactory:
         name: Text,
         description: Text,
         instructions: Optional[Text] = None,
-        llm_id: Text = "669a63646eb56306647e1091",
+        llm: Optional[LLM] = None,
+        llm_id: Optional[Text] = None,
+        # will be deprecated in the next releases
         tools: List[Union[Tool, Model]] = [],
         api_key: Text = config.TEAM_API_KEY,
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",

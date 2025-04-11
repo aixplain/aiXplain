@@ -32,6 +32,7 @@ from aixplain.modules.team_agent import TeamAgent, InspectorTarget
 from aixplain.utils import config
 from aixplain.factories.team_agent_factory.utils import build_team_agent
 from aixplain.utils.file_utils import _request_with_retry
+from aixplain.modules.model.llm_model import LLM
 
 
 class TeamAgentFactory:
@@ -40,7 +41,10 @@ class TeamAgentFactory:
         cls,
         name: Text,
         agents: List[Union[Text, Agent]],
-        llm_id: Text = "669a63646eb56306647e1091",
+        llm: Optional[LLM] = None,
+        mentalist_llm: Optional[LLM] = None,
+        inspector_llm: Optional[LLM] = None,
+        llm_id: Optional[Text] = None,
         description: Text = "",
         api_key: Text = config.TEAM_API_KEY,
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
