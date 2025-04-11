@@ -6,12 +6,14 @@ on:
       - main
       # any branch other than main, will use the test key
       - test
+      - ENG-1852
   workflow_dispatch:  
 
 jobs:
   setup-and-test:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         test-suite: [
           'tests/unit',
