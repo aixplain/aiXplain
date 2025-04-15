@@ -56,7 +56,6 @@ class AgentFactory:
         instructions: Optional[Text] = None,
         llm: Optional[LLM] = None,
         llm_id: Optional[Text] = None,
-        # will be deprecated in the next releases
         tools: List[Union[Tool, Model]] = [],
         api_key: Text = config.TEAM_API_KEY,
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
@@ -87,6 +86,12 @@ class AgentFactory:
             "Use `instructions` to define the **system prompt**. "
             "Use `description` to provide a **short summary** of the agent for metadata and dashboard display. "
             "Note: In upcoming releases, `instructions` will become a required parameter.",
+            UserWarning,
+        )
+        warnings.warn(
+            "Use `llm` to define the large language model (aixplain.modules.model.llm_model.LLM) to be used as agent. "
+            "Use `llm_id` to provide the model ID of the large language model to be used as agent. "
+            "Note: In upcoming releases, `llm` will become a required parameter.",
             UserWarning,
         )
         from aixplain.factories.agent_factory.utils import build_agent
@@ -127,7 +132,12 @@ class AgentFactory:
             "llmId": llm_id,
             "status": "draft",
             "tasks": [task.to_dict() for task in tasks],
+            "tools": [],
         }
+        if llm is not None:
+            payload["tools"].append({"type": "llm", "description": "main", "parameters": llm.get_parameters().to_list()})
+            payload["llmId"] = llm.id
+        # TODO add llm to Agent
         agent = build_agent(payload=payload, tools=tools, api_key=api_key)
         agent.validate(raise_exception=True)
         response = "Unspecified error"

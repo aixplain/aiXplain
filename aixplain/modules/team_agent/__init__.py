@@ -42,6 +42,7 @@ from aixplain.modules.agent.agent_response_data import AgentResponseData
 from aixplain.modules.agent.utils import process_variables
 from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
+from aixplain.modules.model.llm_model import LLM
 
 
 class InspectorTarget(str, Enum):
@@ -79,6 +80,9 @@ class TeamAgent(Model):
         agents: List[Agent] = [],
         description: Text = "",
         llm_id: Text = "6646261c6eb563165658bbb1",
+        supervisor_llm: Optional[LLM] = None,
+        mentalist_llm: Optional[LLM] = None,
+        inspector_llm: Optional[LLM] = None,
         api_key: Optional[Text] = config.TEAM_API_KEY,
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
         version: Optional[Text] = None,
@@ -113,6 +117,9 @@ class TeamAgent(Model):
         self.use_inspector = use_inspector
         self.max_inspectors = max_inspectors
         self.inspector_targets = inspector_targets
+        self.supervisor_llm = supervisor_llm
+        self.mentalist_llm = mentalist_llm
+        self.inspector_llm = inspector_llm
 
         if isinstance(status, str):
             try:

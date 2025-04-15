@@ -41,7 +41,7 @@ class TeamAgentFactory:
         cls,
         name: Text,
         agents: List[Union[Text, Agent]],
-        llm: Optional[LLM] = None,
+        supervisor_llm: Optional[LLM] = None,
         mentalist_llm: Optional[LLM] = None,
         inspector_llm: Optional[LLM] = None,
         llm_id: Optional[Text] = None,
@@ -135,15 +135,32 @@ class TeamAgentFactory:
             "links": [],
             "description": description,
             "llmId": llm_id,
-            "supervisorId": llm_id,
-            "plannerId": mentalist_llm_id,
-            "inspectorId": inspector_llm_id,
+            "supervisorId": supervisor_llm.id if supervisor_llm else llm_id,
+            "plannerId": mentalist_llm.id if mentalist_llm else mentalist_llm_id,
+            "inspectorId": inspector_llm.id if inspector_llm else inspector_llm_id,
             "maxInspectors": max_inspectors,
             "inspectorTargets": inspector_targets if use_inspector else [],
             "supplier": supplier,
             "version": version,
             "status": "draft",
+            "tools": [],
         }
+
+        # Add LLM tools to the payload
+        if supervisor_llm is not None:
+            payload["tools"].append(
+                {"type": "llm", "description": "supervisor", "parameters": supervisor_llm.get_parameters().to_list()}
+            )
+
+        if mentalist_llm is not None:
+            payload["tools"].append(
+                {"type": "llm", "description": "mentalist", "parameters": mentalist_llm.get_parameters().to_list()}
+            )
+
+        if inspector_llm is not None:
+            payload["tools"].append(
+                {"type": "llm", "description": "inspector", "parameters": inspector_llm.get_parameters().to_list()}
+            )
 
         team_agent = build_team_agent(payload=payload, agents=agent_list, api_key=api_key)
         team_agent.validate(raise_exception=True)

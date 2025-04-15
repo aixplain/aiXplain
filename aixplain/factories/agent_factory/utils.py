@@ -94,6 +94,26 @@ def build_agent(payload: Dict, tools: List[Tool] = None, api_key: Text = config.
                 )
                 continue
 
+    # Get LLM from tools if present
+    llm = None
+    if "tools" in payload:
+        for tool in payload["tools"]:
+            if tool["type"] == "llm" and tool["description"] == "main":
+                from aixplain.factories.model_factory import ModelFactory
+
+                llm = ModelFactory.get(payload["llmId"], api_key=api_key)
+                # Set parameters from the tool
+                if "parameters" in tool:
+                    # Convert parameters list to dictionary format expected by ModelParameters
+                    params_dict = {}
+                    for param in tool["parameters"]:
+                        params_dict[param["name"]] = {"required": False, "value": param["value"]}
+                    # Create ModelParameters and set it on the LLM
+                    from aixplain.modules.model.model_parameters import ModelParameters
+
+                    llm.model_params = ModelParameters(params_dict)
+                break
+
     agent = Agent(
         id=payload["id"] if "id" in payload else "",
         name=payload.get("name", ""),
@@ -104,6 +124,7 @@ def build_agent(payload: Dict, tools: List[Tool] = None, api_key: Text = config.
         version=payload.get("version", None),
         cost=payload.get("cost", None),
         llm_id=payload.get("llmId", GPT_4o_ID),
+        llm=llm,
         api_key=api_key,
         status=AssetStatus(payload["status"]),
         tasks=[

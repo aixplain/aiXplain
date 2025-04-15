@@ -41,6 +41,7 @@ from aixplain.enums import ResponseStatus
 from aixplain.modules.agent.utils import process_variables
 from typing import Dict, List, Text, Optional, Union
 from urllib.parse import urljoin
+from aixplain.modules.model.llm_model import LLM
 
 from aixplain.utils import config
 
@@ -72,6 +73,7 @@ class Agent(Model):
         instructions: Text,
         tools: List[Union[Tool, Model]] = [],
         llm_id: Text = "6646261c6eb563165658bbb1",
+        llm: Optional[LLM] = None,
         api_key: Optional[Text] = config.TEAM_API_KEY,
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
         version: Optional[Text] = None,
@@ -88,7 +90,8 @@ class Agent(Model):
             description (Text): description of the Agent.
             instructions (Text): role of the Agent.
             tools (List[Union[Tool, Model]]): List of tools that the Agent uses.
-            llm_id (Text, optional): large language model. Defaults to GPT-4o (6646261c6eb563165658bbb1).
+            llm_id (Text, optional): large language model ID. Defaults to GPT-4o (6646261c6eb563165658bbb1).
+            llm (LLM, optional): large language model object. Defaults to None.
             supplier (Text): Supplier of the Agent.
             version (Text): Version of the Agent.
             backend_url (str): URL of the backend.
@@ -102,6 +105,7 @@ class Agent(Model):
         for i, _ in enumerate(tools):
             self.tools[i].api_key = api_key
         self.llm_id = llm_id
+        self.llm = llm
         if isinstance(status, str):
             try:
                 status = AssetStatus(status)
@@ -346,6 +350,9 @@ class Agent(Model):
             "llmId": self.llm_id,
             "status": self.status.value,
             "tasks": [task.to_dict() for task in self.tasks],
+            "tools": [{"type": "llm", "description": "main", "parameters": self.llm.get_parameters().to_list()}]
+            if self.llm is not None
+            else [],
         }
 
     def delete(self) -> None:
