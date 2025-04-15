@@ -1,10 +1,12 @@
 import logging
-from typing import Text, Dict, Optional
+from typing import Text, Dict, Optional, List
 from aixplain.utils import config
 from urllib.parse import urljoin
 import pandas as pd
 from pathlib import Path
 from aixplain.utils.file_utils import _request_with_retry, save_file
+from aixplain.modules import Asset, Dataset, Metric, Model
+
 
 
 class BenchmarkJob:
@@ -205,5 +207,71 @@ class BenchmarkJob:
 
         except Exception as e:
             error_message = f"Benchmark scores: Error in Getting benchmark explanations: {e}"
+            logging.error(error_message, exc_info=True)
+            raise Exception(error_message)
+        
+    def clean_metrics_configurations(self, metric_list: List[Metric]):
+        """Clean the metrics configurations
+
+        Args:
+            metric_list (List[Metric]): List of metrics to clean the configurations
+        """
+        clean_metrics_info = {}
+        for metric in metric_list:
+            metric_id = metric.id
+            if metric_id not in clean_metrics_info:
+                clean_metrics_info[metric_id] = metric.normalization_options
+            else:
+                clean_metrics_info[metric_id] += metric.normalization_options
+            clean_metrics_info[metric_id] = list(set(clean_metrics_info[metric_id]))
+            if len(clean_metrics_info[metric_id]) == 0:
+                clean_metrics_info[metric_id] = [[]]
+        return [
+            {"id": metric_id, "configurations": metric_config} for metric_id, metric_config in clean_metrics_info.items()
+        ]
+        
+        
+    def add_models_to_job(self, model_list: List[Model]):
+        """Add models to the benchmark job
+
+        Args:
+            model_list (List[Model]): List of models to add to the benchmark job
+
+        Raises:
+            Exception: Error in Adding models to job
+
+        Returns:
+            dict: Response from the API
+        """
+        try:
+            url = urljoin(config.BACKEND_URL, f"sdk/benchmarks/jobs/{self.id}/models")
+            headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+            r = _request_with_retry("post", url, headers=headers, json={"modelIds": [model.id for model in model_list]})
+            return r.json()
+        except Exception as e:
+            error_message = f"Benchmark Job: Error in Adding models to job: {e}"
+            logging.error(error_message, exc_info=True)
+            raise Exception(error_message)
+
+
+    def add_metrics_to_job(self, metric_list: List[Metric]):
+        """Add metrics to the benchmark job
+
+        Args:
+            metric_list (List[Metric]): List of metrics to add to the benchmark job
+
+        Raises:
+            Exception: Error in Adding metrics to job
+
+        Returns:
+            dict: Response from the API
+        """
+        try:
+            url = urljoin(config.BACKEND_URL, f"sdk/benchmarks/jobs/{self.id}/metrics")
+            headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+            r = _request_with_retry("post", url, headers=headers, json={"metrics": self.clean_metrics_configurations(metric_list)})
+            return r.json()
+        except Exception as e:
+            error_message = f"Benchmark Job: Error in Adding metrics to job: {e}"
             logging.error(error_message, exc_info=True)
             raise Exception(error_message)
