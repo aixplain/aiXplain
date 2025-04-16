@@ -10,6 +10,7 @@ from aixplain.utils.file_utils import _request_with_retry
 from datetime import datetime
 from typing import Dict, Union, List, Optional, Tuple
 from urllib.parse import urljoin
+import requests
 
 
 def create_model_from_response(response: Dict) -> Model:
@@ -39,10 +40,13 @@ def create_model_from_response(response: Dict) -> Model:
     function_input_params, function_output_params = function.get_input_output_params()
     model_params = {param["name"]: param for param in response["params"]}
 
+    code = response.get("code", "")
+
     inputs, temperature = [], None
     input_params, output_params = function_input_params, function_output_params
 
     ModelClass = Model
+
     if function == Function.TEXT_GENERATION:
         ModelClass = LLM
         f = [p for p in response.get("params", []) if p["name"] == "temperature"]
@@ -58,6 +62,15 @@ def create_model_from_response(response: Dict) -> Model:
         ]
         input_params = model_params
 
+        if not code:
+            if "version" in response and response["version"]:
+                version_link = response["version"]["id"]
+                if version_link:
+                    version_content = requests.get(version_link).text
+                    code = version_content
+            else:
+                raise Exception("Utility Model Error: Code not found")
+
     created_at = None
     if "createdAt" in response and response["createdAt"]:
         created_at = datetime.fromisoformat(response["createdAt"].replace("Z", "+00:00"))
@@ -66,7 +79,7 @@ def create_model_from_response(response: Dict) -> Model:
         response["id"],
         response["name"],
         description=response.get("description", ""),
-        code=response.get("code", ""),
+        code=code if code else "",
         supplier=response["supplier"],
         api_key=response["api_key"],
         cost=response["pricing"],
