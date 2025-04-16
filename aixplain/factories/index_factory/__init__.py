@@ -32,22 +32,38 @@ T = TypeVar("T", bound=BaseIndexParams)
 
 class IndexFactory(ModelFactory, Generic[T]):
     @classmethod
-    def create(cls, params: Optional[T] = None, **kwargs) -> IndexModel:
+    def create(
+        cls,
+        name: Optional[Text] = None,
+        description: Optional[Text] = None,
+        embedding_model: EmbeddingModel = EmbeddingModel.OPENAI_ADA002,
+        params: Optional[T] = None,
+        **kwargs,
+    ) -> IndexModel:
         """Create a new index collection"""
-        # Prioritize using params if provided
-        if params:
+        import warnings
+
+        warnings.warn(
+            "name, description, and embedding_model will be deprecated in the next release. Please use params instead.",
+            DeprecationWarning,
+        )
+
+        model_id = IndexStores.AIR.get_model_id()
+        if params is not None:
             model_id = params.id
             data = params.to_dict()
-        # Fallback to kwargs for backward compatibility
-        elif "name" in kwargs and "description" in kwargs:
-            model_id = IndexStores.AIR.get_model_id()
-            data = {
-                "data": kwargs["name"],
-                "description": kwargs["description"],
-                "model": kwargs.get("embedding_model", EmbeddingModel.OPENAI_ADA002),
-            }
+            assert (
+                name is None and description is None
+            ), "Index Factory Exception: name, description, and embedding_model must not be provided when params is provided"
         else:
-            raise ValueError("Either 'params' or 'name' and 'description' must be provided.")
+            assert (
+                name is not None and description is not None and embedding_model is not None
+            ), "Index Factory Exception: name, description, and embedding_model must be provided when params is not"
+            data = {
+                "data": name,
+                "description": description,
+                "model": embedding_model,
+            }
 
         model = cls.get(model_id)
 
@@ -58,7 +74,7 @@ class IndexFactory(ModelFactory, Generic[T]):
             return model
 
         error_message = f"Index Factory Exception: {response.error_message}"
-        if error_message == "":
+        if response.error_message.strip() == "":
             error_message = "Index Factory Exception: An error occurred while creating the index collection."
         raise Exception(error_message)
 
