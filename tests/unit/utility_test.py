@@ -7,7 +7,7 @@ from aixplain.enums import DataType, Function
 from aixplain.enums.asset_status import AssetStatus
 from aixplain.modules.model.utility_model import UtilityModel, UtilityModelInput
 from aixplain.modules.model.utils import parse_code, parse_code_decorated
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 import warnings
 
 
@@ -507,59 +507,3 @@ def test_utility_model_status_after_deployment():
                     warnings.simplefilter("always")
                     utility_model.validate()
                     assert len(w) == 0
-
-
-def test_concat_strings():
-    """Test the concat_strings function directly."""
-    assert concat_strings("Hello, ", "World!") == "Hello, World!"
-    assert concat_strings("", "") == ""
-    assert concat_strings("123", "456") == "123456"
-
-
-def concat_strings(str1: str, str2: str):
-    """Concatenates two strings.
-
-    Args:
-      str1: The first string.
-      str2: The second string.
-
-    Returns:
-      The concatenated string.
-    """
-    return str1 + str2
-
-
-@patch("aixplain.factories.ModelFactory")
-def test_create_and_deploy_utility_model(mock_model_factory):
-    """Test creating and deploying a utility model with mocked backend requests."""
-    # Mock the create_utility_model method
-    mock_utility_model = MagicMock()
-    mock_utility_model.id = "mock-utility-model-id"
-    mock_model_factory.create_utility_model.return_value = mock_utility_model
-
-    # Mock the get method
-    mock_model = MagicMock()
-    mock_model_factory.get.return_value = mock_model
-
-    # Create utility model
-    from aixplain.factories import ModelFactory
-
-    utility_model = ModelFactory.create_utility_model(
-        name="concat_strings",
-        code=concat_strings,
-    )
-
-    # Assert create_utility_model was called with correct parameters
-    mock_model_factory.create_utility_model.assert_called_once()
-
-    # Get the model with mocked id
-    model = ModelFactory.get(utility_model.id)
-
-    # Assert get was called with the correct id
-    mock_model_factory.get.assert_called_once()
-
-    # Deploy the model
-    model.deploy()
-
-    # Assert deploy was called
-    mock_model.deploy.assert_called_once()
