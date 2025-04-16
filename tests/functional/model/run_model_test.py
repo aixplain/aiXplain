@@ -63,6 +63,8 @@ def test_run_async():
         pytest.param(EmbeddingModel.SNOWFLAKE_ARCTIC_EMBED_M_LONG, id="Snowflake Arctic Embed M Long"),
         pytest.param(EmbeddingModel.OPENAI_ADA002, id="OpenAI Ada 002"),
         pytest.param(EmbeddingModel.SNOWFLAKE_ARCTIC_EMBED_L_V2_0, id="Snowflake Arctic Embed L v2.0"),
+        pytest.param(EmbeddingModel.MULTILINGUAL_E5_LARGE, id="Multilingual E5 Large"),
+        pytest.param(EmbeddingModel.BGE_M3, id="BGE M3"),
     ],
 )
 def test_index_model(embedding_model):
@@ -108,6 +110,8 @@ def test_index_model(embedding_model):
         pytest.param(EmbeddingModel.OPENAI_ADA002, id="OpenAI Ada 002"),
         pytest.param(EmbeddingModel.SNOWFLAKE_ARCTIC_EMBED_L_V2_0, id="Snowflake Arctic Embed L v2.0"),
         pytest.param(EmbeddingModel.JINA_CLIP_V2_MULTIMODAL, id="Jina Clip v2 Multimodal"),
+        pytest.param(EmbeddingModel.MULTILINGUAL_E5_LARGE, id="Multilingual E5 Large"),
+        pytest.param(EmbeddingModel.BGE_M3, id="BGE M3"),
     ],
 )
 def test_index_model_with_filter(embedding_model):

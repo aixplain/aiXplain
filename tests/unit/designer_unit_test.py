@@ -715,6 +715,33 @@ def test_pipeline_add_link():
         mock_attach_to.assert_called_once_with(pipeline)
 
 
+def test_pipeline_decision_node_passthrough_linking():
+    from aixplain.modules.pipeline.designer import Route
+    from aixplain.modules.pipeline.designer.nodes import Input, Output, Decision
+
+    input_node = Input()
+    output_node = Output()
+
+    decision_node = Decision(routes=[Mock(spec=Route)])
+
+    # Decision node "passthrough" param should be linked first to infer output param "data"
+    with pytest.raises(ValueError):
+        decision_node.link(output_node, from_param="data", to_param="output")
+
+    # Link the "passthrough" param to the asset node
+    input_node.outputs.input.link(decision_node.inputs.passthrough)
+
+    # Now we can link the "data" param to the asset node
+    decision_node.link(output_node, from_param="data", to_param="output")
+
+    assert decision_node.outputs.data.link_ is not None
+    assert decision_node.outputs.data.link_.from_node == decision_node
+    assert decision_node.outputs.data.link_.to_node == output_node
+    assert decision_node.outputs.data.link_.to_param == "output"
+    assert decision_node.outputs.data.data_type == input_node.outputs.input.data_type
+    assert decision_node.outputs.data.link_.data_source_id == input_node.number
+
+
 def test_pipeline_special_prompt_validation():
     from aixplain.modules.pipeline.designer.nodes import AssetNode
 
