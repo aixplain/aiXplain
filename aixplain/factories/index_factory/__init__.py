@@ -23,19 +23,32 @@ Description:
 
 from aixplain.modules.model.index_model import IndexModel
 from aixplain.factories import ModelFactory
-from aixplain.enums import Function, ResponseStatus, SortBy, SortOrder, OwnershipType, Supplier
+from aixplain.enums import Function, ResponseStatus, SortBy, SortOrder, OwnershipType, Supplier, IndexStores, EmbeddingModel
 from typing import Text, Union, List, Tuple, Optional, TypeVar, Generic
-from aixplain.factories.index_factory.utils import BaseIndexParams 
+from aixplain.factories.index_factory.utils import BaseIndexParams
 
-T = TypeVar('T', bound=BaseIndexParams)
+T = TypeVar("T", bound=BaseIndexParams)
+
 
 class IndexFactory(ModelFactory, Generic[T]):
     @classmethod
-    def create(cls, params: T) -> IndexModel:
+    def create(cls, params: Optional[T] = None, **kwargs) -> IndexModel:
         """Create a new index collection"""
-        model_id = params.id
-        data = params.to_dict()
-        
+        # Prioritize using params if provided
+        if params:
+            model_id = params.id
+            data = params.to_dict()
+        # Fallback to kwargs for backward compatibility
+        elif "name" in kwargs and "description" in kwargs:
+            model_id = IndexStores.AIR.get_model_id()
+            data = {
+                "data": kwargs["name"],
+                "description": kwargs["description"],
+                "model": kwargs.get("embedding_model", EmbeddingModel.OPENAI_ADA002),
+            }
+        else:
+            raise ValueError("Either 'params' or 'name' and 'description' must be provided.")
+
         model = cls.get(model_id)
 
         response = model.run(data=data)
