@@ -66,8 +66,11 @@ def create_model_from_response(response: Dict) -> Model:
             if "version" in response and response["version"]:
                 version_link = response["version"]["id"]
                 if version_link:
-                    version_content = requests.get(version_link).text
-                    code = version_content
+                    try:
+                        version_content = requests.get(version_link).text
+                        code = version_content
+                    except Exception:
+                        code = ""
             else:
                 raise Exception("Utility Model Error: Code not found")
 

@@ -399,7 +399,7 @@ def test_run_success():
 
 
 def test_run_variable_error():
-    agent = Agent("123", "Test Agent", "Translate the input data into {target_language}", "Test Agent Role")
+    agent = Agent("123", "Test Agent", "Agent description", "Translate the input data into {target_language}")
     with pytest.raises(Exception) as exc_info:
         agent.run_async(data={"query": "Hello, how are you?"}, output_format=OutputFormat.MARKDOWN)
     assert str(exc_info.value) == (

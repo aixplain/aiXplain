@@ -298,7 +298,7 @@ class Agent(Model):
         headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}
 
         # build query
-        input_data = process_variables(query, data, parameters, self.description)
+        input_data = process_variables(query, data, parameters, self.instructions)
 
         payload = {
             "id": self.id,
