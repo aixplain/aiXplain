@@ -61,24 +61,24 @@ def test_run_async():
 def run_index_model(index_model):
     from aixplain.modules.model.record import Record
 
-    index_model.upsert([Record(value="Hello, world!", value_type="text", uri="", id="1", attributes={})])
-    response = index_model.search("Hello")
+    index_model.upsert([Record(value="Berlin is the capital of Germany.", value_type="text", uri="", id="1", attributes={})])
+    response = index_model.search("Berlin")
     assert str(response.status) == "SUCCESS"
-    assert "world" in response.data.lower()
+    assert "germany" in response.data.lower()
     assert index_model.count() == 1
 
-    index_model.upsert([Record(value="Hello, aiXplain!", value_type="text", uri="", id="1", attributes={})])
-    response = index_model.search("aiXplain")
+    index_model.upsert([Record(value="Ankara is the capital of Turkey.", value_type="text", uri="", id="1", attributes={})])
+    response = index_model.search("Ankara")
     assert str(response.status) == "SUCCESS"
-    assert "aixplain" in response.data.lower()
+    assert "turkey" in response.data.lower()
     assert index_model.count() == 1
 
-    index_model.upsert([Record(value="The world is great", value_type="text", uri="", id="2", attributes={})])
+    index_model.upsert([Record(value="London is the capital of England.", value_type="text", uri="", id="2", attributes={})])
     assert index_model.count() == 2
 
     response = index_model.get_document("1")
     assert str(response.status) == "SUCCESS"
-    assert response.data == "Hello, aiXplain!"
+    assert response.data == "Berlin is the capital of Germany."
     assert index_model.count() == 2
 
     response = index_model.delete_document("1")
