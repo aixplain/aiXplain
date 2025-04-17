@@ -300,7 +300,8 @@ def test_update_tools_of_agent(run_input_map, delete_agents_and_team_agents, Age
         },
     ],
 )
-def test_specific_model_parameters_e2e(tool_config):
+def test_specific_model_parameters_e2e(tool_config, delete_agents_and_team_agents):
+    assert delete_agents_and_team_agents
     """Test end-to-end agent execution with specific model parameters"""
     # Create tool based on config
     if tool_config["type"] == "search":
