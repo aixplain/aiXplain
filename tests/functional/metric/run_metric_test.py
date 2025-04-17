@@ -1,6 +1,7 @@
 import pytest
 from dotenv import load_dotenv
 from aixplain.factories import MetricFactory
+from aixplain.enums import ResponseStatus
 import json
 import random
 load_dotenv()
@@ -42,9 +43,12 @@ def fetch_metric_parameters(metric_type: str, number_of_metrics: int, number_of_
 
 
 
-@pytest.mark.parametrize("metric_name, metric_id, expected_outputs, input_data", fetch_metric_parameters("text_generation", -1, -1))
+@pytest.mark.parametrize("metric_name, metric_id, expected_outputs, input_data", fetch_metric_parameters("text_generation", -1 , -1))
 def test_all_text_generation_metrics(metric_name, metric_id, expected_outputs, input_data):
     metric = MetricFactory.get(metric_id)
-    predicted_outputs = metric.run(**input_data)["details"]
+    response = metric.run(**input_data)
+    assert response.status == ResponseStatus.SUCCESS, f"Metric {metric_name} failed with response {response}"
+    predicted_outputs = response.details["details"][0]
+    expected_outputs = expected_outputs[0]
     for key in expected_outputs:
         assert expected_outputs[key] == predicted_outputs[key]

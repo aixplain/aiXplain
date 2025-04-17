@@ -1,4 +1,46 @@
 {
+    "METEOR":{
+        "model_id": "6408bb9faa1cfe972ebd313d",
+        "expected_outputs": {
+            "single_reference": [
+                {"sentence-level": [75.0, 75.0, 75.0], "corpus-level": 75.0, "options": {"Paramns": null}}
+            ],
+            "multi_reference": [
+                {"sentence-level": [84.41, 57.52, 99.6], "corpus-level":  80.51, "options": {"Paramns": null}}
+            ],
+            "empty_hypothesis": [
+                {"sentence-level": [0.0, 0.0, 0.0], "corpus-level": 0.0, "options": {"Paramns": null}} 
+            ]
+        }
+    },
+    "TER":{
+        "model_id": "64089aac166427039206d72f",
+        "expected_outputs": {
+            "single_reference": [
+                {"sentence-level": [25.0, 25.0, 25.0], "corpus-level": 25.0, "options": {"Paramns": null}}
+            ],
+            "multi_reference": [
+                {"sentence-level": [18.18, 20.0, 0.0], "corpus-level":  13.79, "options": {"Paramns": null}}
+            ],
+            "empty_hypothesis": [
+                {"sentence-level": [90.91, 100.0, 100.0], "corpus-level": 96.55, "options": {"Paramns": null}} 
+            ]
+        }
+    },
+    "WER":{
+        "model_id": "646d371caec2a04700e61945",
+        "expected_outputs": {
+            "single_reference": [
+                {"sentence-level": [25.0, 25.0, 25.0], "corpus-level": 25.0, "options": {"Paramns": null}}
+            ],
+            "multi_reference": [
+                {"sentence-level": [40.0, 40.0, 0.0], "corpus-level":  28.57, "options": {"Paramns": null}}
+            ],
+            "empty_hypothesis": [
+                {"sentence-level": [100.0, 100.0, 100.0], "corpus-level": 100.0, "options": {"Paramns": null}} 
+            ]
+        }
+    },
     "Overlap F1":{
         "model_id": "66df3e2d6eb56336b6628171",
         "expected_outputs": {
@@ -27,20 +69,6 @@
             ]
         }
     },
-    "CER":{
-        "model_id": "6509990b513e24517029deb6",
-        "expected_outputs": {
-            "single_reference": [
-                {"sentence-level": [25.0, 25.0, 15.79], "corpus-level": 21.57, "options": {"Paramns": null}}
-            ],
-            "multi_reference": [
-                {"sentence-level": [11.76, 37.5, 0.0], "corpus-level":  16.0, "options": {"Paramns": null}}
-            ],
-            "empty_hypothesis": [
-                {"sentence-level": [100.0, 100.0, 100.0], "corpus-level": 100.0, "options": {"Paramns": null}} 
-            ]
-        }
-    },
     "CHRF":{
         "model_id": "6408942f166427039206d71e",
         "expected_outputs": {
@@ -54,20 +82,5 @@
                 {"sentence-level": [0.0, 0.0, 0.0], "corpus-level": 0.0, "options": {"Paramns": null}} 
             ]
         }
-    },
-    "Exact Match":{
-        "model_id": "653f9e17925ee96d94d5abf8",
-        "expected_outputs": {
-            "single_reference": [
-                {"sentence-level": [0.0, 0.0, 0.0], "corpus-level": 0.0, "options": {"Paramns": null}}
-            ],
-            "multi_reference": [
-                {"sentence-level": [0,0,1], "corpus-level":  0.33, "options": {"Paramns": null}}
-            ],
-            "empty_hypothesis": [
-                {"sentence-level": [0.0, 0.0, 0.0], "corpus-level": 0.0, "options": {"Paramns": null}} 
-            ]
-        }
     }
-
 }

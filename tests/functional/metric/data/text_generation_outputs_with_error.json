@@ -1,0 +1,58 @@
+{
+    "Exact Match":{
+        "model_id": "653f9e17925ee96d94d5abf8",
+        "expected_outputs": {
+            "single_reference": [
+                {"sentence-level": [0.0, 0.0, 0.0], "corpus-level": 0.0, "options": {"Paramns": null}}
+            ],
+            "multi_reference": [
+                {"sentence-level": [0,0,1], "corpus-level":  0.33, "options": {"Paramns": null}}
+            ],
+            "empty_hypothesis": [
+                {"sentence-level": [0.0, 0.0, 0.0], "corpus-level": 0.0, "options": {"Paramns": null}} 
+            ]
+        }
+    },
+    "CER":{
+        "model_id": "6509990b513e24517029deb6",
+        "expected_outputs": {
+            "single_reference": [
+                {"sentence-level": [25.0, 25.0, 15.79], "corpus-level": 21.57, "options": {"Paramns": null}}
+            ],
+            "multi_reference": [
+                {"sentence-level": [11.76, 37.5, 0.0], "corpus-level":  16.0, "options": {"Paramns": null}}
+            ],
+            "empty_hypothesis": [
+                {"sentence-level": [100.0, 100.0, 100.0], "corpus-level": 100.0, "options": {"Paramns": null}} 
+            ]
+        }
+    },
+    "MER":{
+        "model_id": "650999c3cfd32578fcc995ae",
+        "expected_outputs": {
+            "single_reference": [
+                {"sentence-level": [25.0, 25.0, 25.0], "corpus-level": 25.0, "options": {"Paramns": null}}
+            ],
+            "multi_reference": [
+                {"sentence-level": [40.0, 40.0, 0.0], "corpus-level":  26.67, "options": {"Paramns": null}}
+            ],
+            "empty_hypothesis": [
+                {"sentence-level": [100.0, 100.0, 100.0], "corpus-level": 100.0, "options": {"Paramns": null}} 
+            ]
+        }
+    },
+    "ROUGE":{
+        "model_id": "65e1d5ac95487dea3023a0b8",
+        "expected_outputs": {
+            "single_reference": [
+                {"sentence-level": [75.0, 75.0, 75.0], "corpus-level": 75.0, "options": {"Paramns": null}}
+            ],
+            "multi_reference": [
+                {"sentence-level": [100.0, 80.0, 100.0], "corpus-level":  93.33, "options": {"Paramns": null}}
+            ],
+            "empty_hypothesis": [
+                {"sentence-level": [0.0, 0.0, 0.0], "corpus-level": 0.0, "options": {"Paramns": null}} 
+            ]
+        }
+    }
+}
