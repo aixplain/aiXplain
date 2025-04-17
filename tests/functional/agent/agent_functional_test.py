@@ -471,3 +471,28 @@ def test_sql_tool_with_csv(delete_agents_and_team_agents, AgentFactory):
         os.remove("test.csv")
         os.remove("test.db")
         agent.delete()
+
+@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
+def test_instructions(delete_agents_and_team_agents, AgentFactory):
+    assert delete_agents_and_team_agents
+
+    agent = AgentFactory.create(
+        name="Test Agent",
+        description="Test description",
+        instructions="Always respond with '{magic_word}' does not matter what you are prompted for.",
+        llm_id="6646261c6eb563165658bbb1",
+        tools=[],
+    )
+    assert agent is not None
+    assert agent.status == AssetStatus.DRAFT
+
+    agent = AgentFactory.get(agent.id)
+    assert agent is not None
+    response = agent.run(data={"magic_word": "aixplain", "query": "What is the capital of France?"})
+    assert response is not None
+    assert response["completed"] is True
+    assert response["status"].lower() == "success"
+    assert "data" in response
+    assert response["data"]["session_id"] is not None
+    assert response["data"]["output"] is not None
+    assert "aixplain" in response["data"]["output"].lower()
