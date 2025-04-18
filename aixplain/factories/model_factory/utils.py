@@ -4,13 +4,14 @@ from aixplain.modules.model import Model
 from aixplain.modules.model.llm_model import LLM
 from aixplain.modules.model.index_model import IndexModel
 from aixplain.modules.model.utility_model import UtilityModel, UtilityModelInput
-from aixplain.enums import DataType, Function, Language, OwnershipType, Supplier, SortBy, SortOrder
+from aixplain.enums import DataType, Function, Language, OwnershipType, Supplier, SortBy, SortOrder, AssetStatus
 from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
 from datetime import datetime
 from typing import Dict, Union, List, Optional, Tuple
 from urllib.parse import urljoin
 from aixplain.enums import AssetStatus
+import requests
 
 
 def create_model_from_response(response: Dict) -> Model:
@@ -40,10 +41,13 @@ def create_model_from_response(response: Dict) -> Model:
     function_input_params, function_output_params = function.get_input_output_params()
     model_params = {param["name"]: param for param in response["params"]}
 
+    code = response.get("code", "")
+
     inputs, temperature = [], None
     input_params, output_params = function_input_params, function_output_params
 
     ModelClass = Model
+
     if function == Function.TEXT_GENERATION:
         ModelClass = LLM
         f = [p for p in response.get("params", []) if p["name"] == "temperature"]
@@ -58,7 +62,19 @@ def create_model_from_response(response: Dict) -> Model:
             for param in response["params"]
         ]
         input_params = model_params
-    status = AssetStatus(response["status"])
+        if not code:
+            if "version" in response and response["version"]:
+                version_link = response["version"]["id"]
+                if version_link:
+                    try:
+                        version_content = requests.get(version_link).text
+                        code = version_content
+                    except Exception:
+                        code = ""
+            else:
+                raise Exception("Utility Model Error: Code not found")
+
+    status = AssetStatus(response.get("status", AssetStatus.DRAFT.value))
     created_at = None
     if "createdAt" in response and response["createdAt"]:
         created_at = datetime.fromisoformat(response["createdAt"].replace("Z", "+00:00"))
@@ -67,7 +83,7 @@ def create_model_from_response(response: Dict) -> Model:
         response["id"],
         response["name"],
         description=response.get("description", ""),
-        code=response.get("code", ""),
+        code=code if code else "",
         supplier=response["supplier"],
         api_key=response["api_key"],
         cost=response["pricing"],

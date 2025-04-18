@@ -321,3 +321,17 @@ def test_utility_model_update():
             updated_model.delete()
         if final_model:
             final_model.delete()
+
+
+def test_model_tool_creation():
+    from aixplain.factories import AgentFactory
+    import warnings
+
+    # Capture warnings during the create_model_tool call
+    with warnings.catch_warnings(record=True) as w:
+        # Cause all warnings to always be triggered
+        warnings.simplefilter("always")
+        # Create the model tool
+        AgentFactory.create_model_tool(model="6736411cf127849667606689")  # Tavily Search
+        # Check that no warnings were raised
+        assert len(w) == 0, f"Warning was raised when calling create_model_tool: {[warning.message for warning in w]}"

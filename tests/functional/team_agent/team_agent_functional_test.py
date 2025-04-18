@@ -284,7 +284,7 @@ def test_team_agent_tasks(delete_agents_and_team_agents):
     assert "teste" in response.data["output"]
 
 
-def test_team_agent_with_parameterized_agents(delete_agents_and_team_agents):
+def test_team_agent_with_parameterized_agents(run_input_map, delete_agents_and_team_agents):
     """Test team agent with agents that have parameterized tools"""
     assert delete_agents_and_team_agents
 
@@ -297,10 +297,11 @@ def test_team_agent_with_parameterized_agents(delete_agents_and_team_agents):
     search_agent = AgentFactory.create(
         name="Search Agent",
         description="This agent is used to search for information in the web.",
-        instructions="Agent that performs searches",
-        llm_id="677c16166eb563bb611623c1",
+        instructions="Agent that performs searches. Once you have the results, return them in a list as the output.",
+        llm_id=run_input_map["llm_id"],
         tools=[search_tool],
     )
+    search_agent.deploy()
 
     # Create second agent with translation tool
     translation_function = Function.TRANSLATION
@@ -314,19 +315,13 @@ def test_team_agent_with_parameterized_agents(delete_agents_and_team_agents):
     translation_agent = AgentFactory.create(
         name="Translation Agent",
         description="This agent is used to translate text from one language to another.",
-        instructions="Agent that performs translations",
-        llm_id="677c16166eb563bb611623c1",
+        instructions="Agent that translates text from English to Portuguese",
+        llm_id=run_input_map["llm_id"],
         tools=[translation_tool],
     )
-
-    # Create team agent with both parameterized agents
-    team_agent = TeamAgentFactory.create(
-        name="Parameterized Team Agent",
-        agents=[search_agent, translation_agent],
-        description="Team agent with parameterized tools",
-        llm_id="677c16166eb563bb611623c1",
-        use_mentalist=True,
-        use_inspector=True,
+    translation_agent.deploy()
+    team_agent = create_team_agent(
+        TeamAgentFactory, [search_agent, translation_agent], run_input_map, use_mentalist=True, use_inspector=True
     )
 
     # Deploy team agent
@@ -335,7 +330,7 @@ def test_team_agent_with_parameterized_agents(delete_agents_and_team_agents):
     assert team_agent.status == AssetStatus.ONBOARDED
 
     search_response = team_agent.run(
-        data="What are the top researchers in the field of AI? Search for it in the web. Then translate the result."
+        data="What are the top 5 fruits consumed in the world in 2024? Search for it in the web and then translate the result."
     )
     assert search_response.status == "SUCCESS"
     assert "data" in search_response
