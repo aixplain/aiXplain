@@ -65,9 +65,10 @@ class DeployableMixin(ABC, Generic[T]):
             ValueError: If the asset is not ready to be deployed
         """
         self._validate_deployment_readiness()
-
+        previous_status = self.status
         try:
             self.status = AssetStatus.ONBOARDED
             self.update()
         except Exception as e:
+            self.status = previous_status
             raise Exception(f"Error deploying because of backend error: {e}") from e

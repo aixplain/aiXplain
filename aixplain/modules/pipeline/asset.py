@@ -604,10 +604,12 @@ class Pipeline(Asset, DeployableMixin):
         """
         self._validate_deployment_readiness()
         pipeline = self.to_dict()
+        previous_status = self.status
         try:
             self.status = AssetStatus.ONBOARDED
             self.update(pipeline=pipeline, save_as_asset=True, api_key=api_key, name=self.name)
         except Exception as e:
+            self.status = previous_status
             raise Exception(f"Error deploying because of backend error: {e}") from e
 
     def __repr__(self):
