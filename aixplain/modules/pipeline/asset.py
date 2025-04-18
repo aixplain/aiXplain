@@ -593,16 +593,22 @@ class Pipeline(Asset, DeployableMixin):
         except Exception as e:
             raise Exception(e)
 
-    def _validate_deployment_readiness(self) -> None:
-        """Validate if the pipeline is ready to be deployed."""
-        super()._validate_deployment_readiness()
-
     def deploy(self, api_key: Optional[Text] = None) -> None:
-        """Deploy the Pipeline."""
+        """Deploy the Pipeline.
+
+        This method overrides the deploy method in DeployableMixin to handle
+        Pipeline-specific deployment functionality.
+
+        Args:
+            api_key (Optional[Text], optional): Team API Key to deploy the Pipeline. Defaults to None.
+        """
         self._validate_deployment_readiness()
         pipeline = self.to_dict()
-        self.update(pipeline=pipeline, save_as_asset=True, api_key=api_key, name=self.name)
-        self.status = AssetStatus.ONBOARDED
+        try:
+            self.status = AssetStatus.ONBOARDED
+            self.update(pipeline=pipeline, save_as_asset=True, api_key=api_key, name=self.name)
+        except Exception as e:
+            raise Exception(f"Error deploying because of backend error: {e}") from e
 
     def __repr__(self):
         return f"Pipeline(id={self.id}, name={self.name})"

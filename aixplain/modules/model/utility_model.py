@@ -277,13 +277,3 @@ class UtilityModel(Model, DeployableMixin):
             message = f"Utility Model Deletion Error: {response}"
             logging.error(message)
             raise Exception(f"{message}")
-
-    def _validate_deployment_readiness(self) -> None:
-        """Validate if the utility model is ready to be deployed."""
-        super()._validate_deployment_readiness()
-
-    def deploy(self) -> None:
-        """Deploy the Utility Model."""
-        self._validate_deployment_readiness()
-        self.status = AssetStatus.ONBOARDED
-        self.update()

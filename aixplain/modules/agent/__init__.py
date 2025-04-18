@@ -199,7 +199,7 @@ class Agent(Model, DeployableMixin[Tool]):
             poll_url = response["url"]
             end = time.time()
             result = self.sync_poll(poll_url, name=name, timeout=timeout, wait_time=wait_time)
-            #if result.status == ResponseStatus.FAILED:
+            # if result.status == ResponseStatus.FAILED:
             #    raise Exception("Model failed to run with error: " + result.error_message)
             result_data = result.get("data") or {}
             return AgentResponse(
@@ -407,11 +407,6 @@ class Agent(Model, DeployableMixin[Tool]):
     def save(self) -> None:
         """Save the Agent."""
         self.update()
-
-    def _validate_deployment_readiness(self) -> None:
-        """Validate if the agent is ready to be deployed."""
-        super()._validate_deployment_readiness(items=self.tools)
-
 
     def __repr__(self):
         return f"Agent(id={self.id}, name={self.name}, function={self.function})"

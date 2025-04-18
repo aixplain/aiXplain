@@ -414,20 +414,3 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         else:
             error_msg = f"Team Agent Update Error (HTTP {r.status_code}): {resp}"
             raise Exception(error_msg)
-
-    def _validate_deployment_readiness(self) -> None:
-        """Validate if the team agent is ready to be deployed."""
-        super()._validate_deployment_readiness(items=self.agents)
-
-    def deploy(self) -> None:
-        """Deploy the team agent.
-
-        This method validates that the team agent is ready to be deployed,
-        updates its status to ONBOARDED, and persists the changes to the backend.
-
-        Raises:
-            ValueError: If the team agent is not ready to be deployed
-        """
-        self._validate_deployment_readiness()
-        self.status = AssetStatus.ONBOARDED
-        self.update()

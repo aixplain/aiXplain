@@ -19,7 +19,7 @@ Description:
     Mixins for common functionality across different asset types
 """
 from abc import ABC
-from typing import List, TypeVar, Generic, Optional
+from typing import TypeVar, Generic
 from aixplain.enums import AssetStatus
 
 T = TypeVar("T")
@@ -38,7 +38,7 @@ class DeployableMixin(ABC, Generic[T]):
     2. Optionally override deploy() if they need special deployment handling
     """
 
-    def _validate_deployment_readiness(self, items: Optional[List[T]] = None) -> None:
+    def _validate_deployment_readiness(self) -> None:
         """Validate if the asset is ready to be deployed.
 
         Args:
@@ -65,5 +65,9 @@ class DeployableMixin(ABC, Generic[T]):
             ValueError: If the asset is not ready to be deployed
         """
         self._validate_deployment_readiness()
-        self.status = AssetStatus.ONBOARDED
-        self.update()
+
+        try:
+            self.status = AssetStatus.ONBOARDED
+            self.update()
+        except Exception as e:
+            raise Exception(f"Error deploying because of backend error: {e}") from e
