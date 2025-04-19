@@ -173,7 +173,7 @@ def test_index_model_air_with_filter(embedding_model):
 
     params = AirParams(name=str(uuid4()), description=str(uuid4()), embedding_model=embedding_model)
 
-    index_model = IndexFactory.create(params)
+    index_model = IndexFactory.create(params=params)
     index_model.upsert([Record(value="Hello, aiXplain!", value_type="text", uri="", id="1", attributes={"category": "hello"})])
     index_model.upsert(
         [Record(value="The world is great", value_type="text", uri="", id="2", attributes={"category": "world"})]
@@ -200,7 +200,7 @@ def test_index_model_vectara_with_filter():
 
     params = VectaraParams(name=str(uuid4()), description=str(uuid4()))
 
-    index_model = IndexFactory.create(params)
+    index_model = IndexFactory.create(params=params)
     index_model.upsert([Record(value="Hello, aiXplain!", value_type="text", uri="", id="1", attributes={"category": "hello"})])
     index_model.upsert(
         [Record(value="The world is great", value_type="text", uri="", id="2", attributes={"category": "world"})]
@@ -247,7 +247,7 @@ def test_index_model_air_with_image():
         name=f"Image Index {uuid4()}", description="Index for images", embedding_model=EmbeddingModel.JINA_CLIP_V2_MULTIMODAL
     )
 
-    index_model = IndexFactory.create(params)
+    index_model = IndexFactory.create(params=params)
 
     records = []
     # Building image
