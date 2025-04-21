@@ -26,31 +26,46 @@ from enum import Enum
 from urllib.parse import urljoin
 from aixplain.utils import config
 from aixplain.utils.request_utils import _request_with_retry
-# from aixplain.enums import AssetCache
+from aixplain.utils.asset_cache import AssetCache, CACHE_FOLDER
 
-# CACHE_FILE = f"{CACHE_FOLDER}/licenses.json"
-# LOCK_FILE = f"{CACHE_FILE}.lock"
+
+class LicenseMetadata:
+    def __init__(self, data: dict):
+        self.__dict__.update(data)
+
+    def to_dict(self):
+        return self.__dict__
+
+    @classmethod
+    def from_dict(cls, data: dict):
+        return cls(data)
 
 
 def load_licenses():
-    # resp = AssetCache._load_from_cache(CACHE_FILE, LOCK_FILE)
 
     try:
         api_key = config.TEAM_API_KEY
         backend_url = config.BACKEND_URL
 
         url = urljoin(backend_url, "sdk/licenses")
+        cache = AssetCache(LicenseMetadata, cache_filename="licenses")
 
-        headers = {"x-api-key": api_key, "Content-Type": "application/json"}
-        r = _request_with_retry("get", url, headers=headers)
-        if not 200 <= r.status_code < 300:
-            raise Exception(
-                f'Licenses could not be loaded, probably due to the set API key (e.g. "{api_key}") is not valid. For help, please refer to the documentation (https://github.com/aixplain/aixplain#api-key-setup)'
-            )
-        resp = r.json()
-        # AssetCache.save_to_cache(CACHE_FILE, resp, LOCK_FILE)
+        if cache.has_valid_cache():
+            logging.info("Loading licenses from cache...")
+            license_objects = list(cache.store.data.values())
+        else:
+            logging.info("Fetching licenses from backend...")
+            headers = {"x-api-key": api_key, "Content-Type": "application/json"}
+            r = _request_with_retry("get", url, headers=headers)
+            if not 200 <= r.status_code < 300:
+                raise Exception(
+                    f'Licenses could not be loaded, probably due to the set API key (e.g. "{api_key}") is not valid. For help, please refer to the documentation.'
+                )
+            resp = r.json()
+            license_objects = [LicenseMetadata(item) for item in resp]
+            cache.add_list(license_objects)
 
-        licenses = {"_".join(w["name"].split()): w["id"] for w in resp}
+        licenses = {"_".join(lic.name.split()): lic.id for lic in license_objects}
         return Enum("License", licenses, type=str)
     except Exception:
         logging.exception("License Loading Error")

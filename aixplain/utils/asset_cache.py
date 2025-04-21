@@ -3,12 +3,10 @@ import logging
 import json
 import time
 from typing import Dict, Optional
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from filelock import FileLock
 
 from aixplain.utils import config
-from aixplain.utils.file_utils import _request_with_retry
-from urllib.parse import urljoin
 from typing import TypeVar, Generic, Type
 from typing import List
 
@@ -21,25 +19,12 @@ T = TypeVar("T")
 CACHE_FOLDER = ".cache"
 DEFAULT_CACHE_EXPIRY = 86400
 
-@dataclass
-class Model:
-    id: str
-    name: str = ""
-    description: str = ""
-    api_key: str = config.TEAM_API_KEY
-    supplier: str = "aiXplain"
-    version: str = "1.0"
-    status: str = "onboarded"
-    created_at: str = ""
-
-    @classmethod
-    def from_dict(cls, data: Dict) -> "Model":
-        return cls(**data)
 
 @dataclass
 class Store(Generic[T]):
     data: Dict[str, T]
     expiry: int
+
 
 class AssetCache(Generic[T]):
     """
@@ -95,66 +80,47 @@ class AssetCache(Generic[T]):
             with open(self.cache_file, "r") as f:
                 try:
                     cache_data = json.load(f)
-                except Exception as e:
-                    # data is corrupted, invalidate the cache
-                    self.invalidate()
-                    logging.warning(f"Failed to parse cache file: {e}")
-                    return
-
-                try:
                     expiry = cache_data["expiry"]
                     raw_data = cache_data["data"]
                     parsed_data = {
-                        k: self.cls(
-                            id=v.get("id", ""),
-                            name=v.get("name", ""),
-                            description=v.get("description", ""),
-                            api_key=v.get("api_key", config.TEAM_API_KEY),
-                            supplier=v.get("supplier", "aiXplain"),
-                            version=v.get("version", "1.0"),
-                            status=v.get("status", "onboarded"),
-                            created_at=v.get("created_at", ""),
-                        ) for k, v in raw_data.items()
+                        k: self.cls.from_dict(v) for k, v in raw_data.items()
                     }
 
-
                     self.store = Store(data=parsed_data, expiry=expiry)
+
+                    if self.store.expiry < time.time():
+                        logger.warning(f"Cache expired for {self.cls.__name__}")
+                        self.invalidate()
+
                 except Exception as e:
                     self.invalidate()
-                    logging.warning(f"Failed to load cache data: {e}")
-
+                    logger.warning(f"Failed to load cache data: {e}")
 
                 if self.store.expiry < time.time():
                     logger.warning(
                         f"Cache expired, invalidating cache for {self.cls.__name__}"
                     )
-                    # cache expired, invalidate the cache
                     self.invalidate()
                     return
 
     def save(self):
+
         os.makedirs(CACHE_FOLDER, exist_ok=True)
 
         with FileLock(self.lock_file):
             with open(self.cache_file, "w") as f:
-                # serialize the data manually
+                data_dict = {}
+                for asset_id, asset in self.store.data.items():
+                    try:
+                        data_dict[asset_id] = asset.to_dict()
+                    except Exception as e:
+                        logger.error(f"Error serializing {asset_id}: {e}")
                 serializable_store = {
-                    "expiry": self.compute_expiry(),
-                    "data": {
-                        asset_id: {
-                            "id": model.id,
-                            "name": model.name,
-                            "description": model.description,
-                            "api_key": model.api_key,
-                            "supplier": model.supplier,
-                            "version": model.version,
-                            "created_at": model.created_at.isoformat() if hasattr(model.created_at, "isoformat") else model.created_at,
-                        }
-                        for asset_id, model in self.store.data.items()
-                    },
+                    "expiry": self.store.expiry,
+                    "data": data_dict,
                 }
-                json.dump(serializable_store, f)
 
+                json.dump(serializable_store, f, indent=4)
 
     def get(self, asset_id: str) -> Optional[T]:
         return self.store.data.get(asset_id)
@@ -163,12 +129,12 @@ class AssetCache(Generic[T]):
         self.store.data[asset.id] = asset
         self.save()
 
-    def add_model_list(self, models: List[T]):
-        self.store.data = {model.id: model for model in models}
+    def add_list(self, assets: List[T]):
+        self.store.data = {asset.id: asset for asset in assets}
         self.save()
 
-    def get_all_models(self) -> List[T]:
+    def get_all(self) -> List[T]:
         return list(self.store.data.values())
 
     def has_valid_cache(self) -> bool:
-        return self.store.expiry >= time.time()
+        return self.store.expiry >= time.time() and bool(self.store.data)

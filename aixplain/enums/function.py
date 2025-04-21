@@ -20,12 +20,12 @@ Date: March 20th 2023
 Description:
     Function Enum
 """
-
+import logging
 from aixplain.utils import config
 from aixplain.utils.request_utils import _request_with_retry
 from enum import Enum
 from urllib.parse import urljoin
-from .asset_cache import AssetCache, CACHE_FOLDER
+from ..utils.asset_cache import AssetCache, CACHE_FOLDER
 from typing import Tuple, Dict
 from aixplain.base.parameters import BaseParameters, Parameter
 import os
@@ -34,23 +34,45 @@ CACHE_FILE = f"{CACHE_FOLDER}/functions.json"
 LOCK_FILE = f"{CACHE_FILE}.lock"
 
 
+class FunctionMetadata:
+    def __init__(self, data: dict):
+        self.__dict__.update(data)
+
+    def __repr__(self):
+        return f"<FunctionMetadata id={self.id}>"
+
+    def to_dict(self) -> dict:
+        return self.__dict__
+
+    @classmethod
+    def from_dict(cls, data: dict):
+        return cls(data)
+
+
 def load_functions():
     api_key = config.TEAM_API_KEY
     backend_url = config.BACKEND_URL
 
     os.makedirs(CACHE_FOLDER, exist_ok=True)
 
-    # resp = AssetCache.load_from_cache(CACHE_FILE, LOCK_FILE)
     url = urljoin(backend_url, "sdk/functions")
-
-    headers = {"x-api-key": api_key, "Content-Type": "application/json"}
-    r = _request_with_retry("get", url, headers=headers)
-    if not 200 <= r.status_code < 300:
-        raise Exception(
-            f'Functions could not be loaded, probably due to the set API key (e.g. "{api_key}") is not valid. For help, please refer to the documentation (https://github.com/aixplain/aixplain#api-key-setup)'
-        )
-    resp = r.json()
-    # AssetCache.save_to_cache(CACHE_FILE, resp, LOCK_FILE)
+    cache = AssetCache(FunctionMetadata, cache_filename="functions")
+    if cache.has_valid_cache():
+        logging.info("Loading functions from cache...")
+        function_objects = list(cache.store.data.values())
+    else:
+        logging.info("Fetching functions from backend...")
+        url = urljoin(backend_url, "sdk/functions")
+        headers = {"x-api-key": api_key, "Content-Type": "application/json"}
+        r = _request_with_retry("get", url, headers=headers)
+        if not 200 <= r.status_code < 300:
+            raise Exception(
+                f'Functions could not be loaded, probably due to the set API key (e.g. "{api_key}") is not valid. For help, please refer to the documentation (https://github.com/aixplain/aixplain#api-key-setup)'
+            )
+        resp = r.json()
+        results = resp.get("results")
+        function_objects = [FunctionMetadata(f) for f in results]
+        cache.add_list(function_objects)
 
     class Function(str, Enum):
         def __new__(cls, value):
@@ -68,8 +90,12 @@ def load_functions():
             function_io = FunctionInputOutput.get(self.value, None)
             if function_io is None:
                 return {}, {}
-            input_params = {param["code"]: param for param in function_io["spec"]["params"]}
-            output_params = {param["code"]: param for param in function_io["spec"]["output"]}
+            input_params = {
+                param["code"]: param for param in function_io["spec"]["params"]
+            }
+            output_params = {
+                param["code"]: param for param in function_io["spec"]["output"]
+            }
             return input_params, output_params
 
         def get_parameters(self) -> "FunctionParameters":
@@ -83,19 +109,18 @@ def load_functions():
                 self._parameters = FunctionParameters(input_params)
             return self._parameters
 
-    functions = Function("Function", {w["id"].upper().replace("-", "_"): w["id"] for w in resp["items"]})
+    functions = Function(
+        "Function", {f.id.upper().replace("-", "_"): f.id for f in function_objects}
+    )
     functions_input_output = {
-        function["id"]: {
-            "input": {
-                input_data_object["dataType"]
-                for input_data_object in function["params"]
-                if input_data_object["required"] is True
-            },
-            "output": {output_data_object["dataType"] for output_data_object in function["output"]},
-            "spec": function,
+        f.id: {
+            "input": {p["dataType"] for p in f.params if p.get("required")},
+            "output": {o["dataType"] for o in f.output},
+            "spec": f.to_dict(),
         }
-        for function in resp["items"]
+        for f in function_objects
     }
+
     return functions, functions_input_output
 
 
@@ -110,7 +135,11 @@ class FunctionParameters(BaseParameters):
         """
         super().__init__()
         for param_code, param_config in input_params.items():
-            self.parameters[param_code] = Parameter(name=param_code, required=param_config.get("required", False), value=None)
+            self.parameters[param_code] = Parameter(
+                name=param_code,
+                required=param_config.get("required", False),
+                value=None,
+            )
 
 
 Function, FunctionInputOutput = load_functions()
