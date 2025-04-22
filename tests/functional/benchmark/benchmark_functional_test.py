@@ -11,9 +11,7 @@ from aixplain.modules.benchmark_job import BenchmarkJob
 from pathlib import Path
 
 import pytest
-
 import logging
-
 from aixplain import aixplain_v2 as v2
 
 logger = logging.getLogger()
@@ -22,6 +20,7 @@ logger.setLevel(logging.DEBUG)
 TIMEOUT = 60 * 30
 RUN_FILE = str(Path(r"tests/functional/benchmark/data/benchmark_test_run_data.json"))
 MODULE_FILE = str(Path(r"tests/functional/benchmark/data/benchmark_module_test_data.json"))
+RUN_WITH_PARAMETERS_FILE = str(Path(r"tests/functional/benchmark/data/benchmark_test_with_parameters.json"))
 
 
 def read_data(data_path):
@@ -30,6 +29,11 @@ def read_data(data_path):
 
 @pytest.fixture(scope="module", params=read_data(RUN_FILE))
 def run_input_map(request):
+    return request.param
+
+
+@pytest.fixture(scope="module", params=[(name, params) for name, params in read_data(RUN_WITH_PARAMETERS_FILE).items()])
+def run_with_parameters_input_map(request):
     return request.param
 
 
@@ -66,12 +70,30 @@ def assert_correct_results(benchmark_job):
     assert mean_score != 0, f"Zero Mean Score - Please check metric ({metric_name})"
 
 
+# @pytest.mark.parametrize("BenchmarkFactory", [BenchmarkFactory, v2.Benchmark])
+# def test_create_and_run(run_input_map, BenchmarkFactory):
+#     model_list = [ModelFactory.get(model_id) for model_id in run_input_map["model_ids"]]
+#     dataset_list = [DatasetFactory.list(query=dataset_name)["results"][0] for dataset_name in run_input_map["dataset_names"]]
+#     metric_list = [MetricFactory.get(metric_id) for metric_id in run_input_map["metric_ids"]]
+#     benchmark = BenchmarkFactory.create(f"SDK Benchmark Test {uuid.uuid4()}", dataset_list, model_list, metric_list)
+#     assert type(benchmark) is Benchmark, "Couldn't create benchmark"
+#     benchmark_job = benchmark.start()
+#     assert type(benchmark_job) is BenchmarkJob, "Couldn't start job"
+#     assert is_job_finshed(benchmark_job), "Job did not finish in time"
+#     assert_correct_results(benchmark_job)
+
+
 @pytest.mark.parametrize("BenchmarkFactory", [BenchmarkFactory, v2.Benchmark])
-def test_create_and_run(run_input_map, BenchmarkFactory):
-    model_list = [ModelFactory.get(model_id) for model_id in run_input_map["model_ids"]]
-    dataset_list = [DatasetFactory.list(query=dataset_name)["results"][0] for dataset_name in run_input_map["dataset_names"]]
-    metric_list = [MetricFactory.get(metric_id) for metric_id in run_input_map["metric_ids"]]
-    benchmark = BenchmarkFactory.create(f"SDK Benchmark Test {uuid.uuid4()}", dataset_list, model_list, metric_list)
+def test_create_and_run_with_parameters(run_with_parameters_input_map, BenchmarkFactory):
+    name, params = run_with_parameters_input_map
+    model_list = []
+    for model_info in params["models_with_parameters"]:
+        model = ModelFactory.get(model_info["model_id"])
+        model.add_additional_info_for_benchmark(display_name=model_info["display_name"], configuration=model_info["configuration"])
+        model_list.append(model)
+    dataset_list = [DatasetFactory.list(query=dataset_name)["results"][0] for dataset_name in params["dataset_names"]]
+    metric_list = [MetricFactory.get(metric_id) for metric_id in params["metric_ids"]]
+    benchmark = BenchmarkFactory.create(f"SDK Benchmark Test With Parameters({name}) {uuid.uuid4()}", dataset_list, model_list, metric_list)
     assert type(benchmark) is Benchmark, "Couldn't create benchmark"
     benchmark_job = benchmark.start()
     assert type(benchmark_job) is BenchmarkJob, "Couldn't start job"
@@ -79,12 +101,4 @@ def test_create_and_run(run_input_map, BenchmarkFactory):
     assert_correct_results(benchmark_job)
 
 
-# def test_module(module_input_map):
-#     benchmark = BenchmarkFactory.get(module_input_map["benchmark_id"])
-#     assert benchmark.id == module_input_map["benchmark_id"]
-#     benchmark_job = benchmark.job_list[0]
-#     assert benchmark_job.benchmark_id == module_input_map["benchmark_id"]
-#     job_status = benchmark_job.check_status()
-#     assert job_status in ["in_progress", "completed"]
-#     df = benchmark_job.download_results_as_csv(return_dataframe=True)
-#     assert type(df) is pd.DataFrame
+

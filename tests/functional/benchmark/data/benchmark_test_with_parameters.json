@@ -1,0 +1,22 @@
+{
+    "Translation With LLMs": {
+        "models_with_parameters": [
+            {
+                "model_id": "669a63646eb56306647e1091",
+                "display_name": "EnHi LLM",
+                "configuration": {
+                    "prompt": "Translate the following text into Hindi."
+                }
+            },
+            {
+                "model_id": "669a63646eb56306647e1091",
+                "display_name": "EnEs LLM",
+                "configuration": {
+                    "prompt": "Translate the following text into Spanish."
+                }
+            }
+        ],
+        "dataset_names": ["EnHi SDK Test - Benchmark Dataset"],
+        "metric_ids": ["639874ab506c987b1ae1acc6", "6408942f166427039206d71e"]
+    }
+}
