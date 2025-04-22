@@ -112,93 +112,30 @@ def test_index_model(embedding_model, supplier_params):
     run_index_model(index_model)
 
 
-# def test_index_model_vectara():
-#     from uuid import uuid4
-#     from aixplain.factories import IndexFactory
-#     from aixplain.factories.index_factory.utils import VectaraParams
-
-#     params = VectaraParams(name=str(uuid4()), description=str(uuid4()))
-
-#     index_model = IndexFactory.create(params)
-#     run_index_model(index_model)
-
-
-# def test_index_model_graphrag():
-#     from uuid import uuid4
-#     from aixplain.factories import IndexFactory
-#     from aixplain.modules.model.record import Record
-#     from aixplain.factories.index_factory.utils import GraphRAGParams
-
-#     params = GraphRAGParams(
-#         name=str(uuid4()),
-#         description=str(uuid4()),
-#         embedding_model=EmbeddingModel.OPENAI_ADA002,
-#         llm="6646261c6eb563165658bbb1",
-#     )
-
-#     index_model = IndexFactory.create(params)
-
-#     index_model.upsert([Record(value="Ankara is the capital of Turkey", value_type="text", uri="", id="1", attributes={})])
-#     response = index_model.search("Ankara")
-#     assert str(response.status) == "SUCCESS"
-#     assert "turkey" in response.data.lower()
-#     assert index_model.count() == 1
-
-#     index_model.upsert([Record(value="Berlin is the capital of Germany", value_type="text", uri="", id="2", attributes={})])
-#     assert index_model.count() == 2
-
-#     index_model.delete()
-
-
 @pytest.mark.parametrize(
-    "embedding_model",
+    "embedding_model,supplier_params",
     [
-        pytest.param(EmbeddingModel.OPENAI_ADA002, id="OpenAI Ada 002"),
-        pytest.param(EmbeddingModel.SNOWFLAKE_ARCTIC_EMBED_M_LONG, id="Snowflake Arctic Embed M Long"),
-        pytest.param(EmbeddingModel.SNOWFLAKE_ARCTIC_EMBED_L_V2_0, id="Snowflake Arctic Embed L v2.0"),
-        pytest.param(EmbeddingModel.JINA_CLIP_V2_MULTIMODAL, id="Jina Clip v2 Multimodal"),
-        pytest.param(EmbeddingModel.MULTILINGUAL_E5_LARGE, id="Multilingual E5 Large"),
-        pytest.param(EmbeddingModel.BGE_M3, id="BGE M3"),
+        pytest.param(None, VectaraParams, id="VECTARA"),
+        pytest.param(EmbeddingModel.OPENAI_ADA002, AirParams, id="OpenAI Ada 002"),
+        pytest.param(EmbeddingModel.SNOWFLAKE_ARCTIC_EMBED_M_LONG, AirParams, id="Snowflake Arctic Embed M Long"),
+        pytest.param(EmbeddingModel.SNOWFLAKE_ARCTIC_EMBED_L_V2_0, AirParams, id="Snowflake Arctic Embed L v2.0"),
+        pytest.param(EmbeddingModel.JINA_CLIP_V2_MULTIMODAL, AirParams, id="Jina Clip v2 Multimodal"),
+        pytest.param(EmbeddingModel.MULTILINGUAL_E5_LARGE, AirParams, id="Multilingual E5 Large"),
+        pytest.param(EmbeddingModel.BGE_M3, AirParams, id="BGE M3"),
     ],
 )
-def test_index_model_air_with_filter(embedding_model):
+def test_index_model_with_filter(embedding_model, supplier_params):
     from uuid import uuid4
     from aixplain.modules.model.record import Record
     from aixplain.factories import IndexFactory
     from aixplain.modules.model.index_model import IndexFilter, IndexFilterOperator
-    from aixplain.factories.index_factory.utils import AirParams
 
-    # for index in IndexFactory.list()["results"]:
-    #     index.delete()
+    for index in IndexFactory.list()["results"]:
+        index.delete()
 
-    params = AirParams(name=str(uuid4()), description=str(uuid4()), embedding_model=embedding_model)
-
-    index_model = IndexFactory.create(params=params)
-    index_model.upsert([Record(value="Hello, aiXplain!", value_type="text", uri="", id="1", attributes={"category": "hello"})])
-    index_model.upsert(
-        [Record(value="The world is great", value_type="text", uri="", id="2", attributes={"category": "world"})]
-    )
-    assert index_model.count() == 2
-    response = index_model.search(
-        "", filters=[IndexFilter(field="category", value="world", operator=IndexFilterOperator.EQUALS)]
-    )
-    assert str(response.status) == "SUCCESS"
-    assert "world" in response.data.lower()
-    assert len(response.details) == 1
-    index_model.delete()
-
-
-def test_index_model_vectara_with_filter():
-    from uuid import uuid4
-    from aixplain.modules.model.record import Record
-    from aixplain.factories import IndexFactory
-    from aixplain.modules.model.index_model import IndexFilter, IndexFilterOperator
-    from aixplain.factories.index_factory.utils import VectaraParams
-
-    # for index in IndexFactory.list()["results"]:
-    #     index.delete()
-
-    params = VectaraParams(name=str(uuid4()), description=str(uuid4()))
+    params = supplier_params(name=str(uuid4()), description=str(uuid4()))
+    if embedding_model is not None:
+        params = supplier_params(name=str(uuid4()), description=str(uuid4()), embedding_model=embedding_model)
 
     index_model = IndexFactory.create(params=params)
     index_model.upsert([Record(value="Hello, aiXplain!", value_type="text", uri="", id="1", attributes={"category": "hello"})])
@@ -240,8 +177,8 @@ def test_index_model_air_with_image():
     from uuid import uuid4
     from aixplain.factories.index_factory.utils import AirParams
 
-    # for index in IndexFactory.list()["results"]:
-    #     index.delete()
+    for index in IndexFactory.list()["results"]:
+        index.delete()
 
     params = AirParams(
         name=f"Image Index {uuid4()}", description="Index for images", embedding_model=EmbeddingModel.JINA_CLIP_V2_MULTIMODAL
