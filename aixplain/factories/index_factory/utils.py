@@ -42,10 +42,11 @@ class VectaraParams(BaseIndexParams):
 
 
 class ZeroEntropyParams(BaseIndexParams):
-    _id: ClassVar[str] = ""
+    _id: ClassVar[str] = IndexStores.ZERO_ENTROPY.get_model_id()
 
-    def __init__(self, **kwargs):
-        raise ValueError("ZeroEntropy is not supported yet")
+    @property
+    def id(self) -> str:
+        return self._id
 
 
 class AirParams(BaseIndexParamsWithEmbeddingModel):

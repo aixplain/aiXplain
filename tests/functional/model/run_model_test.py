@@ -8,7 +8,7 @@ from aixplain.factories import ModelFactory
 from aixplain.modules import LLM
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from aixplain.factories.index_factory.utils import AirParams, VectaraParams, GraphRAGParams
+from aixplain.factories.index_factory.utils import AirParams, VectaraParams, GraphRAGParams, ZeroEntropyParams
 
 
 def pytest_generate_tests(metafunc):
@@ -92,6 +92,7 @@ def run_index_model(index_model):
     "embedding_model,supplier_params",
     [
         pytest.param(None, VectaraParams, id="VECTARA"),
+        pytest.param(None, ZeroEntropyParams, id="ZERO_ENTROPY"),
         pytest.param(EmbeddingModel.OPENAI_ADA002, GraphRAGParams, id="GRAPHRAG"),
         pytest.param(EmbeddingModel.OPENAI_ADA002, AirParams, id="AIR - OpenAI Ada 002"),
         pytest.param(EmbeddingModel.SNOWFLAKE_ARCTIC_EMBED_M_LONG, AirParams, id="AIR - Snowflake Arctic Embed M Long"),
