@@ -15,6 +15,7 @@ from typing import Dict, Optional, Text
 from urllib.parse import urljoin
 
 from aixplain.enums.asset_status import AssetStatus
+from aixplain.enums.function import Function
 from aixplain.modules.agent.inspector_agent import Inspector, InspectorPolicy
 from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
@@ -60,6 +61,12 @@ class InspectorFactory:
             error_message = f"Inspector: Failed to get model with ID {model_id} (status code = {r.status_code})\nError: {resp}"
             logging.error(error_message)
             raise Exception(error_message)
+
+        # TODO: relax this constraint
+        if resp["function"]["id"] != Function.GUARDRAILS.value:
+            raise ValueError(
+                f"Inspector: Only Guardrail models are supported at the moment. Model with ID {model_id} is a {resp['function']['id']} model"
+            )
 
         return Inspector(
             name=name,
