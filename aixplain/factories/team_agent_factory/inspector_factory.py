@@ -1,147 +1,69 @@
+"""Factory for inspectors.
+
+Example usage:
+
+inspector = InspectorFactory.create_from_model(
+    name="my_inspector",
+    model_id="my_model",
+    model_config={"prompt": "Check if the data is safe to use."},
+    policy=InspectorPolicy.ADAPTIVE,
+)
+"""
+
 import logging
 from typing import Dict, Optional, Text
 from urllib.parse import urljoin
 
 from aixplain.enums.asset_status import AssetStatus
-from aixplain.modules.model.guardrail_model import GuardrailModel, GuardrailPolicy
+from aixplain.modules.agent.inspector_agent import Inspector, InspectorPolicy
 from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
 
 
-class GuardrailFactory:
-    """A static class for creating and managing Guardrail Models."""
-
-    backend_url = config.BACKEND_URL
+class InspectorFactory:
+    """A class for creating an Inspector instance."""
 
     @classmethod
-    def create(
+    def create_from_model(
         cls,
         name: Text,
-        description: Text,
-        guard_id: Text,
-        guard_config: Optional[Dict] = None,
-        guard_instruction: Optional[Text] = None,
-        policy: GuardrailPolicy = GuardrailPolicy.WARN,
-        api_key: Optional[Text] = None,
-        **additional_info,
-    ) -> GuardrailModel:
-        """Create a new Guardrail model.
+        model_id: Text,
+        model_config: Optional[Dict] = None,
+        policy: InspectorPolicy = InspectorPolicy.ADAPTIVE,  # default: doing something dynamically
+    ) -> Inspector:
+        """Create a new inspector agent from an onboarded model.
 
         Args:
-            name (Text): Name of the guardrail model
-            description (Text): Description of the guardrail model
-            guard_id (Text): ID of the underlying model to use for guardrail
-            guard_config (Dict, optional): Configuration for the guardrail. Defaults to None.
-            guard_instruction (Text, optional): Free text instruction for the guardrail. Defaults to None.
-            policy (GuardrailPolicy, optional): Action to take if policy is violated. Defaults to WARN.
-            api_key (Text, optional): API key for authentication. Defaults to None.
-            **additional_info: Any additional model info to be saved
+            name: Name of the inspector agent.
+            model_id: ID of the underlying model to use for inspector.
+            model_config: Configuration for the inspector. Defaults to None.
+            policy: Action to take upon negative feedback (WARN/ABORT/ADAPTIVE). Defaults to ADAPTIVE.
 
         Returns:
-            GuardrailModel: The created guardrail model
-
-        Raises:
-            ValueError: If neither guard_config nor guard_instruction is provided
-            ValueError: If guard_instruction is provided but guard_id is not a text generation model
+            Inspector: The created inspector
         """
-        if guard_config is None and guard_instruction is None:
-            raise ValueError("Either guard_config or guard_instruction must be provided")
-
-        if guard_instruction is not None:
-            # Verify that guard_id is a text generation model
-            url = urljoin(cls.backend_url, f"sdk/models/{guard_id}")
-            headers = {"x-api-key": api_key, "Content-Type": "application/json"}
-            try:
-                r = _request_with_retry("get", url, headers=headers)
-                if r.status_code != 200:
-                    raise ValueError(f"Model with ID {guard_id} not found")
-                model_info = r.json()
-                if model_info.get("function") != "text_generation":
-                    raise ValueError("guard_id must be a text generation model when using guard_instruction")
-
-                guard_config = {"instruction": guard_instruction, "model_id": guard_id}
-            except Exception as e:
-                raise ValueError(f"Error verifying model: {str(e)}")
-
-        url = urljoin(cls.backend_url, "sdk/guardrails")
-        headers = {"x-api-key": api_key, "Content-Type": "application/json"}
-        payload = {
-            "name": name,
-            "description": description,
-            "guardId": guard_id,
-            "guardConfig": guard_config,
-            "guardInstruction": guard_instruction,
-            "policy": policy.value,
-            "status": AssetStatus.DRAFT.value,
-            **additional_info,
-        }
-
+        # check if the model exists and is onboarded
         try:
-            logging.info(f"Start service for POST Guardrail Model - {url} - {headers} - {payload}")
-            r = _request_with_retry("post", url, headers=headers, json=payload)
-            response = r.json()
-        except Exception as e:
-            message = f"Guardrail Model Creation Error: {e}"
-            logging.error(message)
-            raise Exception(f"{message}")
+            url = urljoin(config.BACKEND_URL, f"sdk/models/{model_id}")
 
-        if not 200 <= r.status_code < 300:
-            message = f"Guardrail Model Creation Error: {response}"
-            logging.error(message)
-            raise Exception(f"{message}")
-
-        # if guard_instruction is provided, the service will add "prompt" to the guard_config
-        if guard_instruction is not None and "prompt" not in response["guardConfig"]:
-            raise KeyError("Guardrail model creation with guard_instruction failed: prompt not found in guard_config")
-
-        return GuardrailModel(
-            id=response["id"],
-            name=name,
-            description=description,
-            guard_id=guard_id,
-            guard_config=response["guardConfig"],
-            policy=policy,
-            api_key=api_key,
-            **additional_info,
-        )
-
-    @classmethod
-    def get(cls, guardrail_id: Text, api_key: Optional[Text] = None) -> GuardrailModel:
-        """Get a guardrail model by ID.
-
-        Args:
-            guardrail_id (Text): ID of the guardrail model to retrieve
-            api_key (Text, optional): API key for authentication. Defaults to None.
-
-        Returns:
-            GuardrailModel: The retrieved guardrail model
-
-        Raises:
-            Exception: If the guardrail model cannot be retrieved
-        """
-        url = urljoin(cls.backend_url, f"sdk/guardrails/{guardrail_id}")
-        headers = {"x-api-key": api_key, "Content-Type": "application/json"}
-        try:
-            logging.info(f"Start service for GET Guardrail Model - {url} - {headers}")
+            headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+            logging.info(f"Start service for GET Model  - {url} - {headers}")
             r = _request_with_retry("get", url, headers=headers)
-            response = r.json()
-        except Exception as e:
-            message = f"Guardrail Model Get Error: {e}"
-            logging.error(message)
-            raise Exception(f"{message}")
+            resp = r.json()
+        except Exception:
+            raise ValueError(f"Inspector: Failed to get model with ID {model_id}")
 
-        if not 200 <= r.status_code < 300:
-            message = f"Guardrail Model Get Error: {response}"
-            logging.error(message)
-            raise Exception(f"{message}")
+        if 200 <= r.status_code < 300:
+            if resp["status"] != AssetStatus.ONBOARDED:
+                raise ValueError(f"Inspector: Model with ID {model_id} is not onboarded")
+        else:
+            error_message = f"Inspector: Failed to get model with ID {model_id} (status code = {r.status_code})\nError: {resp}"
+            logging.error(error_message)
+            raise Exception(error_message)
 
-        return GuardrailModel(
-            id=response["id"],
-            name=response["name"],
-            description=response["description"],
-            guard_id=response["guardId"],
-            guard_config=response["guardConfig"],
-            policy=GuardrailPolicy(response["policy"]),
-            api_key=api_key,
-            status=AssetStatus(response["status"]),
+        return Inspector(
+            name=name,
+            model_id=model_id,
+            model_config=model_config,
+            policy=policy,
         )
