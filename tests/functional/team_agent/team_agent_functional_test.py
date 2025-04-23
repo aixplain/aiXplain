@@ -301,6 +301,7 @@ def test_team_agent_with_parameterized_agents(run_input_map, delete_agents_and_t
         llm_id=run_input_map["llm_id"],
         tools=[search_tool],
     )
+    search_agent.deploy()
 
     # Create second agent with translation tool
     translation_function = Function.TRANSLATION
@@ -318,7 +319,7 @@ def test_team_agent_with_parameterized_agents(run_input_map, delete_agents_and_t
         llm_id=run_input_map["llm_id"],
         tools=[translation_tool],
     )
-
+    translation_agent.deploy()
     team_agent = create_team_agent(
         TeamAgentFactory, [search_agent, translation_agent], run_input_map, use_mentalist=True, use_inspector=True
     )
