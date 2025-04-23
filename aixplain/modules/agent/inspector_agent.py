@@ -3,6 +3,7 @@
 Example usage:
 
 inspector = InspectorAgent(
+    name="my_inspector",
     model_id="my_model",
     model_config={"prompt": "Check if the data is safe to use."},
     policy=InspectorPolicy.ADAPTIVE
@@ -19,7 +20,7 @@ team = TeamAgent(
 """
 
 from enum import Enum
-from typing import Dict, Optional
+from typing import Dict, Optional, Text
 
 from pydantic import field_validator
 
@@ -45,6 +46,7 @@ class Inspector(ModelWithParams):
         policy: The policy for the inspector. Default is ADAPTIVE.
     """
 
+    name: Text
     model_config: Optional[Dict] = None
     policy: InspectorPolicy = InspectorPolicy.ADAPTIVE
 
