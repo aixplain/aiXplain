@@ -50,8 +50,8 @@ class Inspector(ModelWithParams):
     model_config: Optional[Dict] = None
     policy: InspectorPolicy = InspectorPolicy.ADAPTIVE
 
-    @field_validator("policy")
-    def validate_policy(cls, v: InspectorPolicy) -> InspectorPolicy:
-        if v not in InspectorPolicy:
-            raise ValueError(f"Invalid policy: {v}")
+    @field_validator("name")
+    def validate_name(cls, v: Text) -> Text:
+        if v == "":
+            raise ValueError("name cannot be empty")
         return v
