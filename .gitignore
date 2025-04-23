@@ -134,3 +134,8 @@ dmypy.json
 # Vscode
 .vscode
 .DS_Store
+
+# Environments
+.env.test
+.env.dev
+.env.prod
