@@ -81,6 +81,7 @@ class ModelTool(Tool):
             description (Text): Description of the tool. Defaults to "".
             parameters (Optional[Dict]): Parameters of the tool. Defaults to None.
         """
+        name = name or ""
         super().__init__(name=name, description=description, **additional_info)
         self.supplier = supplier
         self.model = model
@@ -162,7 +163,7 @@ class ModelTool(Tool):
 
         self.parameters = self.validate_parameters(self.parameters)
 
-        if self.name is None:
+        if self.name.strip() == "":
             self.name = set_tool_name(self.function, self.supplier, self.model)
 
     def get_parameters(self) -> Dict:

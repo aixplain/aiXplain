@@ -127,11 +127,18 @@ class Agent(Model):
 
         assert llm.function == Function.TEXT_GENERATION, "Large Language Model must be a text generation model."
 
+        tool_names = []
         for tool in self.tools:
+            tool_name = None
             if isinstance(tool, Tool):
-                tool.validate()
+                tool_name = tool.name
             elif isinstance(tool, Model):
                 assert not isinstance(tool, Agent), "Agent cannot contain another Agent."
+                tool_name = tool.name
+            assert (
+                tool_name not in tool_names
+            ), f"Agent Creation Error: Tool name '{tool_name}' is already used by another tool. Make sure all tool names are unique."
+            tool_names.append(tool_name)
 
     def validate(self, raise_exception: bool = False) -> bool:
         """Validate the Agent."""

@@ -131,24 +131,27 @@ def test_python_interpreter_tool(delete_agents_and_team_agents, AgentFactory):
 def test_custom_code_tool(delete_agents_and_team_agents, AgentFactory):
     assert delete_agents_and_team_agents
     tool = AgentFactory.create_custom_python_code_tool(
-        description="Add two numbers",
-        code='def main(aaa: int, bbb: int) -> int:\n    """Add two numbers"""\n    return aaa + bbb',
+        description="Add two strings",
+        code='def main(aaa: str, bbb: str) -> str:\n    """Add two strings"""\n    return aaa + bbb',
+        name="Add Strings",
     )
     assert tool is not None
-    assert tool.description == "Add two numbers"
-    assert tool.code == 'def main(aaa: int, bbb: int) -> int:\n    """Add two numbers"""\n    return aaa + bbb'
+    assert tool.description == "Add two strings"
+    assert tool.code == 'def main(aaa: str, bbb: str) -> str:\n    """Add two strings"""\n    return aaa + bbb'
     agent = AgentFactory.create(
-        name="Add Numbers Agent",
-        description="Add two numbers. Do not directly answer. Use the tool to add the numbers.",
-        instructions="Add two numbers. Do not directly answer. Use the tool to add the numbers.",
+        name="Add Strings Agent",
+        description="Add two strings. Do not directly answer. Use the tool to add the strings.",
+        instructions="Add two strings. Do not directly answer. Use the tool to add the strings.",
         tools=[tool],
     )
     assert agent is not None
-    response = agent.run("How much is 12342 + 112312? Do not directly answer the question, call the tool.")
+    response = agent.run(
+        "What is the result of concatenating 'Hello' and 'World'? Do not directly answer the question, call the tool."
+    )
     assert response is not None
     assert response["completed"] is True
     assert response["status"].lower() == "success"
-    assert "124654" in response["data"]["output"]
+    assert "HelloWorld" in response["data"]["output"]
     agent.delete()
 
 
@@ -471,6 +474,7 @@ def test_sql_tool_with_csv(delete_agents_and_team_agents, AgentFactory):
         os.remove("test.csv")
         os.remove("test.db")
         agent.delete()
+
 
 @pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
 def test_instructions(delete_agents_and_team_agents, AgentFactory):

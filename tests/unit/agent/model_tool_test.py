@@ -175,7 +175,7 @@ def test_validate_parameters(mocker, mock_model, params, expected_result, error_
     "tool_name,expected_name",
     [
         ("custom_tool", "custom_tool"),
-        ("", ""),  # Test empty name
+        ("", "translation-aixplain-test_model"),  # Test empty name
         ("translation_model", "translation_model"),
         (None, "translation-aixplain-test_model"),  # Test None value should default to empty string
     ],

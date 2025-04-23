@@ -81,7 +81,11 @@ def test_success_query_content():
     assert response["url"] == ref_response["data"]
 
 
-def test_invalid_pipelinetool():
+def test_invalid_pipelinetool(mocker):
+    mocker.patch(
+        "aixplain.factories.model_factory.ModelFactory.get",
+        return_value=Model(id="6646261c6eb563165658bbb1", name="Test Model", function=Function.TEXT_GENERATION),
+    )
     with pytest.raises(Exception) as exc_info:
         AgentFactory.create(
             name="Test",
@@ -155,6 +159,7 @@ def test_create_agent(mock_model_factory_get):
                         "utility": "custom_python_code",
                         "utilityCode": "def main(query: str) -> str:\n    return 'Hello, how are you?'",
                         "description": "Test Tool",
+                        "name": "Test Tool",
                     },
                     {
                         "type": "utility",
@@ -188,7 +193,9 @@ def test_create_agent(mock_model_factory_get):
                         supplier=Supplier.OPENAI, function="text-generation", description="Test Tool"
                     ),
                     AgentFactory.create_custom_python_code_tool(
-                        code="def main(query: str) -> str:\n    return 'Hello, how are you?'", description="Test Tool"
+                        code="def main(query: str) -> str:\n    return 'Hello, how are you?'",
+                        description="Test Tool",
+                        name="Test Tool",
                     ),
                     AgentFactory.create_python_interpreter_tool(),
                 ],
@@ -462,7 +469,7 @@ def test_agent_multiple_tools_api_key():
         AgentFactory.create_model_tool(function="text-generation"),
         AgentFactory.create_python_interpreter_tool(),
         AgentFactory.create_custom_python_code_tool(
-            code="def main(query: str) -> str:\n    return 'Hello'", description="Test Tool"
+            code="def main(query: str) -> str:\n    return 'Hello'", description="Test Tool", name="Test Tool"
         ),
     ]
 
@@ -555,11 +562,11 @@ def test_custom_python_code_tool_initialization():
     """Test basic initialization of CustomPythonCodeTool"""
     code = "def main(query: str) -> str:\n    return 'Hello'"
     description = "Test description"
-    tool = CustomPythonCodeTool(code=code, description=description)
+    tool = CustomPythonCodeTool(code=code, description=description, name="HelloWorld")
 
     assert tool.code == code
     assert tool.description == description
-    assert tool.name == "Custom Python Code"
+    assert tool.name == "HelloWorld"
 
 
 def test_custom_python_code_tool_to_dict():
@@ -978,3 +985,21 @@ def test_set_tool_name(function, supplier, model, expected_name):
 
     name = set_tool_name(function, supplier, model)
     assert name == expected_name
+
+
+def test_create_agent_with_duplicate_tool_names(mocker):
+    from aixplain.factories import AgentFactory
+    from aixplain.modules import Model
+    from aixplain.modules.agent.tool.model_tool import ModelTool
+
+    mocker.patch(
+        "aixplain.factories.model_factory.ModelFactory.get",
+        return_value=Model(id="123", name="Test Model", function=Function.TEXT_GENERATION),
+    )
+
+    # Create a ModelTool with a specific name
+    tool1 = ModelTool(model="123", name="Test Model")
+    tool2 = ModelTool(model="123", name="Test Model")
+    with pytest.raises(Exception) as exc_info:
+        AgentFactory.create(name="Test Agent", description="Test Agent Description", tools=[tool1, tool2])
+    assert "Agent Creation Error: Tool name 'Test Model" in str(exc_info.value)
