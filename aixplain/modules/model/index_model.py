@@ -36,6 +36,12 @@ class IndexFilter:
             "operator": self.operator.value if isinstance(self.operator, IndexFilterOperator) else self.operator,
         }
 
+class Splitter:
+    def __init__(self, split: bool, split_by: str, split_length: int, split_overlap: int):
+        self.split = split
+        self.split_by = split_by
+        self.split_length = split_length
+        self.split_overlap = split_overlap
 
 class IndexModel(Model):
     def __init__(
@@ -117,17 +123,19 @@ class IndexModel(Model):
         }
         return self.run(data=data)
 
-    def upsert(self, documents: List[Record]) -> ModelResponse:
+    def upsert(self, documents: List[Record], splitter: Splitter = None) -> ModelResponse:
         """Upsert documents into the index
 
         Args:
             documents (List[Record]): List of documents to be upserted
+            splitter (Splitter, optional): Splitter to be applied. Defaults to None.
 
         Returns:
             ModelResponse: Response from the indexing service
 
         Example:
             index_model.upsert([Record(value="Hello, world!", value_type="text", uri="", id="1", attributes={})])
+            index_model.upsert([Record(value="Hello, world!", value_type="text", uri="", id="1", attributes={})], splitter=Splitter(split=True, split_by="word", split_length=1, split_overlap=0))
         """
         # Validate documents
         for doc in documents:
@@ -135,6 +143,14 @@ class IndexModel(Model):
         # Convert documents to payloads
         payloads = [doc.to_dict() for doc in documents]
         # Build payload
+        if splitter and splitter.split:
+            payloads = {
+                "payloads" : payloads,
+                "split": splitter.split,
+                "split_by": splitter.split_by,
+                "split_length": splitter.split_length,
+                "split_overlap": splitter.split_overlap,
+            }
         data = {"action": "ingest", "data": payloads}
         # Run the indexing service
         response = self.run(data=data)
