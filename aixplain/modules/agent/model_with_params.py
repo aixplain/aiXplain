@@ -18,7 +18,8 @@ class MyModel(ModelWithParams):
 from abc import ABC
 from typing import Text
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic.alias_generators import to_camel
 
 
 class ModelWithParams(BaseModel, ABC):
@@ -30,6 +31,11 @@ class ModelWithParams(BaseModel, ABC):
     Attributes:
         model_id: The ID of the model to wrap.
     """
+
+    model_config = ConfigDict(
+        alias_generator=to_camel,
+        populate_by_name=True,
+    )
 
     model_id: Text
 

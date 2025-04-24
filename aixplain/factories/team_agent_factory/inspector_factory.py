@@ -71,7 +71,7 @@ class InspectorFactory:
         return Inspector(
             name=name,
             model_id=model_id,
-            model_config=model_config,
+            model_params=model_config,
             policy=policy,
         )
 

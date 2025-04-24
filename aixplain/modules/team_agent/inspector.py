@@ -41,13 +41,14 @@ class Inspector(ModelWithParams):
     The model should be onboarded before using it as an inspector.
 
     Attributes:
+        name: The name of the inspector.
         model_id: The ID of the model to wrap.
-        model_config: The configuration for the model.
+        model_params: The configuration for the model.
         policy: The policy for the inspector. Default is ADAPTIVE.
     """
 
     name: Text
-    model_config: Optional[Dict] = None
+    model_params: Optional[Dict] = None
     policy: InspectorPolicy = InspectorPolicy.ADAPTIVE
 
     @field_validator("name")
