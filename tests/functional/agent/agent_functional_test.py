@@ -472,6 +472,7 @@ def test_sql_tool_with_csv(delete_agents_and_team_agents, AgentFactory):
         os.remove("test.db")
         agent.delete()
 
+
 @pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
 def test_instructions(delete_agents_and_team_agents, AgentFactory):
     assert delete_agents_and_team_agents
@@ -496,3 +497,99 @@ def test_instructions(delete_agents_and_team_agents, AgentFactory):
     assert response["data"]["session_id"] is not None
     assert response["data"]["output"] is not None
     assert "aixplain" in response["data"]["output"].lower()
+    assert "eve" in response["data"]["output"].lower()
+
+    import os
+
+    # Cleanup
+    os.remove("test.csv")
+    os.remove("test.db")
+    agent.delete()
+
+
+@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
+def test_agent_with_utility_tool(delete_agents_and_team_agents, AgentFactory):
+    from aixplain.enums import DataType
+    from aixplain.modules.model.utility_model import utility_tool, UtilityModelInput
+
+    assert delete_agents_and_team_agents
+
+    @utility_tool(
+        name="vowel_remover",
+        description="Remove all vowels from a given string",
+        inputs=[UtilityModelInput(name="text", description="String from which to remove vowels", type=DataType.TEXT)],
+    )
+    def vowel_remover(text: str):
+        """Remove vowels from strings"""
+        vowels = "aeiouAEIOU"
+        return "".join([char for char in text if char not in vowels])
+
+    vowel_remover_ = ModelFactory.create_utility_model(name="vowel_remover", code=vowel_remover)
+
+    @utility_tool(
+        name="concat_strings",
+        description="Concatenate two strings into one",
+        inputs=[
+            UtilityModelInput(name="string1", description="First string to concatenate", type=DataType.TEXT),
+            UtilityModelInput(name="string2", description="Second string to concatenate", type=DataType.TEXT),
+        ],
+    )
+    def concat_strings(string1: str, string2: str):
+        return string1 + string2
+
+    concat_strings_ = ModelFactory.create_utility_model(name="concat_strings", code=concat_strings)
+
+    instructions = """You are a text processing agent equipped with two specialized tools: a Vowel Remover and a String Concatenator. Your task involves processing input text in two ways. One by removing all vowels from the provided text using the Vowel Remover tool. Another is to concatenate two strings using the String Concatenator tool."""
+    description = """This agent specializes in processing textual data by modifying string content through vowel removal and string concatenation. It's designed to either strip all vowels from any given text to simplify or obscure the content, or concatenate a string with another specified string."""
+
+    agent = AgentFactory.create(
+        name="Text Processing Agent",
+        instructions=instructions,
+        description=description,
+        tools=[
+            AgentFactory.create_model_tool(model=vowel_remover_.id),
+            AgentFactory.create_model_tool(model=concat_strings_.id),
+        ],
+        llm_id="6646261c6eb563165658bbb1",
+    )
+
+    result_vowel = agent.run("Remove all the vowels in this string: 'Hello'")
+    result_concat_text = agent.run("Concat these strings: String1 = 'Hello'; string2= 'World!'.")
+
+    assert "hll" in result_vowel["data"]["output"].lower()
+    assert "helloworld!" in result_concat_text["data"]["output"].lower()
+
+
+@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
+def test_agent_with_pipeline_tool(delete_agents_and_team_agents, AgentFactory):
+    from aixplain.factories.pipeline_factory import PipelineFactory
+
+    assert delete_agents_and_team_agents
+
+    pipeline = PipelineFactory.init("Hello Pipeline")
+    input_node = pipeline.input()
+    input_node.label = "TextInput"
+    middle_node = pipeline.asset(asset_id="6646261c6eb563165658bbb1")
+    middle_node.inputs.prompt.value = "Respond with 'Hello' regardless of the input text: "
+    input_node.link(middle_node, "input", "text")
+    middle_node.use_output("data")
+    pipeline.save()
+    pipeline.deploy()
+
+    pipeline_agent = AgentFactory.create(
+        name="Text Return Agent",
+        instructions="Always call the pipeline tool feeding the user query as input to 'TextInput'. Return the output of the pipeline as the final response.",
+        description="Return the text given.",
+        tools=[
+            AgentFactory.create_pipeline_tool(
+                pipeline=pipeline.id, description="You are a tool that responds users query with only 'Hello'."
+            ),
+        ],
+        llm_id="6646261c6eb563165658bbb1",
+    )
+
+    answer = pipeline_agent.run("Who is the president of USA?")
+    pipeline.delete()
+
+    assert "hello" in answer["data"]["output"].lower()
+    assert "hello pipeline" in answer["data"]["intermediate_steps"][0]["tool_steps"][0]["tool"].lower()
