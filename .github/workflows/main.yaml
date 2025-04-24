@@ -6,32 +6,83 @@ on:
       - main
       # any branch other than main, will use the test key
       - test
+      - ENG-2051
   workflow_dispatch:  
 
 jobs:
-  setup-and-test:
+  test:
     runs-on: ubuntu-latest
+    timeout-minutes: 45  # Global timeout fallback
     strategy:
       fail-fast: false
       matrix:
         test-suite: [
-          'tests/unit',
-          'tests/functional/file_asset',
-          'tests/functional/data_asset',
-          'tests/functional/benchmark',
-          'tests/functional/model',
-          'tests/functional/pipelines/run_test.py --pipeline_version 2.0 --sdk_version v1 --sdk_version_param PipelineFactory',
-          'tests/functional/pipelines/run_test.py --pipeline_version 2.0 --sdk_version v2 --sdk_version_param PipelineFactory',
-          'tests/functional/pipelines/run_test.py --pipeline_version 3.0 --sdk_version v1 --sdk_version_param PipelineFactory',
-          'tests/functional/pipelines/run_test.py --pipeline_version 3.0 --sdk_version v2 --sdk_version_param PipelineFactory',
-          'tests/functional/pipelines/designer_test.py',
-          'tests/functional/pipelines/create_test.py',
-          'tests/functional/finetune --sdk_version v1 --sdk_version_param FinetuneFactory',
-          'tests/functional/finetune --sdk_version v2 --sdk_version_param FinetuneFactory',
-          'tests/functional/general_assets',
-          'tests/functional/apikey',
-          'tests/functional/agent tests/functional/team_agent',
+          'unit',
+          'file_asset',
+          'data_asset',
+          'benchmark',
+          'model',
+          'pipeline_2.0_v1',
+          'pipeline_2.0_v2',
+          'pipeline_3.0_v1',
+          'pipeline_3.0_v2',
+          'pipeline_designer',
+          'pipeline_create',
+          'finetune_v1',
+          'finetune_v2',
+          'general_assets',
+          'apikey',
+          'agent_and_team_agent',
         ]
+        include:
+          - test-suite: 'unit'
+            path: 'tests/unit'
+            timeout: 45  # Tweaked timeout for each unit tests
+          - test-suite: 'file_asset'
+            path: 'tests/functional/file_asset'
+            timeout: 45
+          - test-suite: 'data_asset'
+            path: 'tests/functional/data_asset'
+            timeout: 45
+          - test-suite: 'benchmark'
+            path: 'tests/functional/benchmark'
+            timeout: 45
+          - test-suite: 'model'
+            path: 'tests/functional/model'
+            timeout: 45
+          - test-suite: 'pipeline_2.0_v1'
+            path: 'tests/functional/pipelines/run_test.py --pipeline_version 2.0 --sdk_version v1 --sdk_version_param PipelineFactory'
+            timeout: 45
+          - test-suite: 'pipeline_2.0_v2'
+            path: 'tests/functional/pipelines/run_test.py --pipeline_version 2.0 --sdk_version v2 --sdk_version_param PipelineFactory'
+            timeout: 45
+          - test-suite: 'pipeline_3.0_v1'
+            path: 'tests/functional/pipelines/run_test.py --pipeline_version 3.0 --sdk_version v1 --sdk_version_param PipelineFactory'
+            timeout: 45
+          - test-suite: 'pipeline_3.0_v2'
+            path: 'tests/functional/pipelines/run_test.py --pipeline_version 3.0 --sdk_version v2 --sdk_version_param PipelineFactory'
+            timeout: 45
+          - test-suite: 'pipeline_designer'
+            path: 'tests/functional/pipelines/designer_test.py'
+            timeout: 45
+          - test-suite: 'pipeline_create'
+            path: 'tests/functional/pipelines/create_test.py'
+            timeout: 45
+          - test-suite: 'finetune_v1'
+            path: 'tests/functional/finetune --sdk_version v1 --sdk_version_param FinetuneFactory'
+            timeout: 45
+          - test-suite: 'finetune_v2'
+            path: 'tests/functional/finetune --sdk_version v2 --sdk_version_param FinetuneFactory'
+            timeout: 45
+          - test-suite: 'general_assets'
+            path: 'tests/functional/general_assets'
+            timeout: 45
+          - test-suite: 'apikey'
+            path: 'tests/functional/apikey'
+            timeout: 45
+          - test-suite: 'agent_and_team_agent'
+            path: 'tests/functional/agent tests/functional/team_agent'
+            timeout: 45
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -62,4 +113,5 @@ jobs:
           fi
           
       - name: Run Tests
-        run: python -m pytest ${{ matrix.test-suite}}
+        timeout-minutes: ${{ matrix.timeout }}
+        run: python -m pytest ${{ matrix.path }}
