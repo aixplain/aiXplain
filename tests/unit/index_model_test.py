@@ -133,7 +133,7 @@ def test_get_document_success():
         mock.post(execute_url, json=mock_response, status_code=200)
         index_model = IndexModel(id=index_id, data=data, name="name", function=Function.SEARCH)
         index_model.upsert(mock_documents)
-        response = index_model.get_document(0)
+        response = index_model.get_record(0)
 
     assert isinstance(response, ModelResponse)
     assert response.status == ResponseStatus.SUCCESS
@@ -147,7 +147,7 @@ def test_delete_document_success():
         mock.post(execute_url, json=mock_response, status_code=200)
         index_model = IndexModel(id=index_id, data=data, name="name", function=Function.SEARCH)
         index_model.upsert(mock_documents)
-        response = index_model.delete_document("0")
+        response = index_model.delete_record("0")
 
     assert isinstance(response, ModelResponse)
     assert response.status == ResponseStatus.SUCCESS

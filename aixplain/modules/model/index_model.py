@@ -150,12 +150,12 @@ class IndexModel(Model):
             return int(response.data)
         raise Exception(f"Failed to count documents: {response.error_message}")
     
-    def get_document(self, document_id: Text) -> ModelResponse:
+    def get_record(self, record_id: Text) -> ModelResponse:
         """
         Get a document from the index.
 
         Args:
-            document_id (Text): ID of the document to retrieve.
+            record_id (Text): ID of the document to retrieve.
 
         Returns:
             ModelResponse: Response containing the retrieved document data.
@@ -164,20 +164,20 @@ class IndexModel(Model):
             Exception: If document retrieval fails.
         
         Example:
-            >>> index_model.get_document("123")
+            >>> index_model.get_record("123")
         """
-        data = {"action": "get_document", "data": document_id}
+        data = {"action": "get_document", "data": record_id}
         response = self.run(data=data)
         if response.status == "SUCCESS":
             return response
-        raise Exception(f"Failed to get document: {response.error_message}")
+        raise Exception(f"Failed to get record: {response.error_message}")
 
-    def delete_document(self, document_id: Text) -> ModelResponse:
+    def delete_record(self, record_id: Text) -> ModelResponse:
         """
         Delete a document from the index.
 
         Args:
-            document_id (Text): ID of the document to delete.
+            record_id (Text): ID of the document to delete.
 
         Returns:
             ModelResponse: Response containing the deleted document data.
@@ -186,10 +186,10 @@ class IndexModel(Model):
             Exception: If document deletion fails.
 
         Example:
-            >>> index_model.delete_document("123")
+            >>> index_model.delete_record("123")
         """
-        data = {"action": "delete", "data": document_id}
+        data = {"action": "delete", "data": record_id}
         response = self.run(data=data)
         if response.status == "SUCCESS":
             return response
-        raise Exception(f"Failed to delete document: {response.error_message}")
+        raise Exception(f"Failed to delete record: {response.error_message}")
