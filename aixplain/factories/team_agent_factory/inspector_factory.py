@@ -74,3 +74,5 @@ class InspectorFactory:
             model_config=model_config,
             policy=policy,
         )
+
+    # TODO: add create method for basic inspector
