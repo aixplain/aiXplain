@@ -76,12 +76,12 @@ def run_index_model(index_model):
     index_model.upsert([Record(value="London is the capital of England.", value_type="text", uri="", id="2", attributes={})])
     assert index_model.count() == 2
 
-    response = index_model.get_document("1")
+    response = index_model.get_record("1")
     assert str(response.status) == "SUCCESS"
-    assert response.data == "Berlin is the capital of Germany."
+    assert response.data == "Ankara is the capital of Turkey."
     assert index_model.count() == 2
 
-    response = index_model.delete_document("1")
+    response = index_model.delete_record("1")
     assert str(response.status) == "SUCCESS"
     assert index_model.count() == 1
 
@@ -229,7 +229,7 @@ def test_index_model_air_with_image():
 
     assert index_model.count() == 4
 
-    response = index_model.get_document("2")
+    response = index_model.get_record("2")
     assert str(response.status) == "SUCCESS"
     second_record = response.details[0]["metadata"]["uri"]
     assert "hurricane" in second_record.lower()
