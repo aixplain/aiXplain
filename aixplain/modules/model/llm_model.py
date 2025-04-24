@@ -108,6 +108,7 @@ class LLM(Model):
         timeout: float = 300,
         parameters: Optional[Dict] = None,
         wait_time: float = 0.5,
+        stream: bool = False,
     ) -> ModelResponse:
         """Synchronously running a Large Language Model (LLM) model.
 
@@ -123,7 +124,7 @@ class LLM(Model):
             timeout (float, optional): total polling time. Defaults to 300.
             parameters (Dict, optional): optional parameters to the model. Defaults to None.
             wait_time (float, optional): wait time in seconds between polling calls. Defaults to 0.5.
-
+            stream (bool, optional): whether the model supports streaming. Defaults to False.
         Returns:
             Dict: parsed output from model
         """
@@ -140,6 +141,9 @@ class LLM(Model):
         parameters.setdefault("temperature", temperature if temperature is not None else self.temperature)
         parameters.setdefault("max_tokens", max_tokens)
         parameters.setdefault("top_p", top_p)
+
+        if stream:
+            return self.run_stream(data=data, parameters=parameters)
 
         payload = build_payload(data=data, parameters=parameters)
         logging.info(payload)

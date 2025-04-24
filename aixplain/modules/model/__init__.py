@@ -55,6 +55,7 @@ class Model(Asset):
         input_params (ModelParameters, optional): input parameters for the function.
         output_params (Dict, optional): output parameters for the function.
         model_params (ModelParameters, optional): parameters for the function.
+        supports_streaming (bool, optional): whether the model supports streaming. Defaults to False.
     """
 
     def __init__(
@@ -72,6 +73,7 @@ class Model(Asset):
         input_params: Optional[Dict] = None,
         output_params: Optional[Dict] = None,
         model_params: Optional[Dict] = None,
+        supports_streaming: bool = False,
         **additional_info,
     ) -> None:
         """Model Init
@@ -89,6 +91,7 @@ class Model(Asset):
             input_params (Dict, optional): input parameters for the function.
             output_params (Dict, optional): output parameters for the function.
             model_params (Dict, optional): parameters for the function.
+            supports_streaming (bool, optional): whether the model supports streaming. Defaults to False.
             **additional_info: Any additional Model info to be saved
         """
         super().__init__(id, name, description, supplier, version, cost=cost)
@@ -102,6 +105,7 @@ class Model(Asset):
         self.input_params = input_params
         self.output_params = output_params
         self.model_params = ModelParameters(model_params) if model_params else None
+        self.supports_streaming = supports_streaming
 
     def to_dict(self) -> Dict:
         """Get the model info as a Dictionary
@@ -220,6 +224,16 @@ class Model(Asset):
                 completed=False,
             )
 
+    def run_stream(
+        self,
+        data: Union[Text, Dict],
+        parameters: Optional[Dict] = None,
+    ):
+        payload = build_payload(data=data, parameters=parameters, stream=True)
+        url = f"{self.url}/{self.id}".replace("api/v1/execute", "api/v2/execute")
+        response = call_run_endpoint(payload=payload, url=url, api_key=self.api_key)
+        return response
+
     def run(
         self,
         data: Union[Text, Dict],
@@ -227,6 +241,7 @@ class Model(Asset):
         timeout: float = 300,
         parameters: Optional[Dict] = None,
         wait_time: float = 0.5,
+        stream: bool = False,
     ) -> ModelResponse:
         """Runs a model call.
 
@@ -236,10 +251,13 @@ class Model(Asset):
             timeout (float, optional): total polling time. Defaults to 300.
             parameters (Dict, optional): optional parameters to the model. Defaults to None.
             wait_time (float, optional): wait time in seconds between polling calls. Defaults to 0.5.
-
+            stream (bool, optional): whether the model supports streaming. Defaults to False.
         Returns:
             Dict: parsed output from model
         """
+        if stream:
+            assert self.supports_streaming, "Model does not support streaming"
+            return self.run_stream(data=data, parameters=parameters)
         start = time.time()
         payload = build_payload(data=data, parameters=parameters)
         url = f"{self.url}/{self.id}".replace("api/v1/execute", "api/v2/execute")

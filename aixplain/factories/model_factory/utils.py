@@ -97,6 +97,7 @@ def create_model_from_response(response: Dict) -> Model:
         inputs=inputs,
         temperature=temperature,
         status=response.get("status", AssetStatus.DRAFT),
+        supports_streaming=response.get("supportsStreaming", False),
     )
 
 
