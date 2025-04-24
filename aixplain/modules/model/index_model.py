@@ -149,7 +149,7 @@ class IndexModel(Model):
         if response.status == "SUCCESS":
             return int(response.data)
         raise Exception(f"Failed to count documents: {response.error_message}")
-    
+
     def get_record(self, record_id: Text) -> ModelResponse:
         """
         Get a document from the index.
@@ -162,7 +162,7 @@ class IndexModel(Model):
 
         Raises:
             Exception: If document retrieval fails.
-        
+
         Example:
             >>> index_model.get_record("123")
         """
