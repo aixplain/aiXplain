@@ -2,7 +2,7 @@
 
 Example usage:
 
-inspector = InspectorAgent(
+inspector = Inspector(
     name="my_inspector",
     model_id="my_model",
     model_config={"prompt": "Check if the data is safe to use."},

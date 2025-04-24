@@ -16,7 +16,7 @@ from urllib.parse import urljoin
 
 from aixplain.enums.asset_status import AssetStatus
 from aixplain.enums.function import Function
-from aixplain.modules.agent.inspector_agent import Inspector, InspectorPolicy
+from aixplain.modules.team_agent.inspector import Inspector, InspectorPolicy
 from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
 
