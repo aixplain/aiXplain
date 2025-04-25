@@ -58,7 +58,7 @@ class TeamAgentFactory:
             name: The name of the team agent.
             agents: A list of agents to be added to the team.
             llm_id: The ID of the LLM to be used for the team agent.
-            description: The description of the team agent.
+            description: The description of the team agent to be displayed in the aiXplain platform.
             api_key: The API key to be used for the team agent.
             supplier: The supplier of the team agent.
             version: The version of the team agent.
@@ -67,7 +67,7 @@ class TeamAgentFactory:
             num_inspectors: The number of inspectors to be used for each inspection.
             inspector_targets: Which stages to be inspected during an execution of the team agent. (steps, output)
             use_mentalist_and_inspector: Whether to use the mentalist and inspector agents. (legacy)
-            instructions: The instructions to be used for the team agent.
+            instructions: The instructions to guide the team agent (i.e. appended in the prompt of the team agent).
 
         Returns:
             A new team agent instance.
