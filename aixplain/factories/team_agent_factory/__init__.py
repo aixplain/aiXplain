@@ -145,6 +145,9 @@ class TeamAgentFactory:
         team_agent.validate(raise_exception=True)
         response = "Unspecified error"
         try:
+            payload["inspectors"] = [
+                inspector.model_dump(by_alias=True) for inspector in inspectors
+            ]  # convert Inspector object to dict
             logging.debug(f"Start service for POST Create TeamAgent  - {url} - {headers} - {json.dumps(payload)}")
             r = _request_with_retry("post", url, headers=headers, json=payload)
             response = r.json()
