@@ -163,8 +163,7 @@ class ModelTool(Tool):
 
         self.parameters = self.validate_parameters(self.parameters)
 
-        if self.name.strip() == "":
-            self.name = set_tool_name(self.function, self.supplier, self.model)
+        self.name = self.name if self.name else set_tool_name(self.function, self.supplier, self.model)
 
     def get_parameters(self) -> Dict:
         return self.parameters

@@ -994,4 +994,6 @@ def test_create_agent_with_duplicate_tool_names(mocker):
     tool2 = ModelTool(model="123", name="Test Model")
     with pytest.raises(Exception) as exc_info:
         AgentFactory.create(name="Test Agent", description="Test Agent Description", tools=[tool1, tool2])
-    assert "Agent Creation Error: Tool name 'Test Model" in str(exc_info.value)
+    assert "Agent Creation Error - Duplicate tool names found: Test Model. Make sure all tool names are unique." in str(
+        exc_info.value
+    )

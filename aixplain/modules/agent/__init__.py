@@ -135,10 +135,13 @@ class Agent(Model):
             elif isinstance(tool, Model):
                 assert not isinstance(tool, Agent), "Agent cannot contain another Agent."
                 tool_name = tool.name
-            assert (
-                tool_name not in tool_names
-            ), f"Agent Creation Error: Tool name '{tool_name}' is already used by another tool. Make sure all tool names are unique."
             tool_names.append(tool_name)
+
+        if len(tool_names) != len(set(tool_names)):
+            duplicates = set([name for name in tool_names if tool_names.count(name) > 1])
+            raise Exception(
+                f"Agent Creation Error - Duplicate tool names found: {', '.join(duplicates)}. Make sure all tool names are unique."
+            )
 
     def validate(self, raise_exception: bool = False) -> bool:
         """Validate the Agent."""
