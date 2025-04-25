@@ -29,6 +29,7 @@ from urllib.parse import urljoin
 from aixplain.enums.supplier import Supplier
 from aixplain.modules.agent import Agent
 from aixplain.modules.team_agent import TeamAgent, InspectorTarget
+from aixplain.modules.team_agent.inspector import Inspector
 from aixplain.utils import config
 from aixplain.factories.team_agent_factory.utils import build_team_agent
 from aixplain.utils.file_utils import _request_with_retry
@@ -46,10 +47,9 @@ class TeamAgentFactory:
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
         version: Optional[Text] = None,
         use_mentalist: bool = True,
-        use_inspector: bool = True,
-        num_inspectors: int = 1,
+        inspectors: List[Inspector] = [],
         inspector_targets: List[Union[InspectorTarget, Text]] = [InspectorTarget.STEPS],
-        use_mentalist_and_inspector: bool = False,  # TODO: remove this
+        **kwargs,
     ) -> TeamAgent:
         """Create a new team agent in the platform.
 
@@ -62,14 +62,23 @@ class TeamAgentFactory:
             supplier: The supplier of the team agent.
             version: The version of the team agent.
             use_mentalist: Whether to use the mentalist agent.
-            use_inspector: Whether to use the inspector agent.
-            num_inspectors: The number of inspectors to be used for each inspection.
+            inspectors: A list of inspectors to be added to the team.
             inspector_targets: Which stages to be inspected during an execution of the team agent. (steps, output)
             use_mentalist_and_inspector: Whether to use the mentalist and inspector agents. (legacy)
 
         Returns:
             A new team agent instance.
         """
+        # legacy params
+        if "use_mentalist_and_inspector" in kwargs:
+            logging.warning(
+                "TeamAgent Onboarding Warning: use_mentalist_and_inspector is no longer supported. Use use_mentalist and inspectors instead."
+            )
+        if "use_inspector" in kwargs:
+            logging.warning("TeamAgent Onboarding Warning: use_inspector is no longer supported. Use inspectors instead.")
+        if "num_inspectors" in kwargs:
+            logging.warning("TeamAgent Onboarding Warning: num_inspectors is no longer supported. Use inspectors instead.")
+
         assert len(agents) > 0, "TeamAgent Onboarding Error: At least one agent must be provided."
         agent_list = []
         for agent in agents:
@@ -88,29 +97,21 @@ class TeamAgentFactory:
                 assert isinstance(agent, Agent), "TeamAgent Onboarding Error: Agents must be instances of Agent class"
             agent_list.append(agent_obj)
 
-        # NOTE: backend expects max_inspectors (for "generated" inspectors)
-        max_inspectors = num_inspectors
-
-        if use_inspector:
+        if inspectors:
             try:
                 # convert to enum if string and check its validity
                 inspector_targets = [InspectorTarget(target) for target in inspector_targets]
             except ValueError:
-                raise ValueError("TeamAgent Onboarding Error: Invalid inspector target. Valid targets are: steps, output")
+                raise ValueError(
+                    f"TeamAgent Onboarding Error: Invalid inspector target. Valid targets are: {list(InspectorTarget)}"
+                )
 
             if not use_mentalist:
                 raise Exception("TeamAgent Onboarding Error: To use the Inspector agent, you must enable Mentalist.")
-            if max_inspectors < 1:
-                raise Exception(
-                    "TeamAgent Onboarding Error: The number of inspectors must be greater than 0 when using the Inspector agent."
-                )
-
-        if use_mentalist_and_inspector:
-            mentalist_llm_id = llm_id
-            inspector_llm_id = llm_id
         else:
-            mentalist_llm_id = llm_id if use_mentalist else None
-            inspector_llm_id = llm_id if use_inspector else None
+            inspector_targets = []
+
+        mentalist_llm_id = llm_id if use_mentalist else None
 
         team_agent = None
         url = urljoin(config.BACKEND_URL, "sdk/agent-communities")
@@ -133,9 +134,8 @@ class TeamAgentFactory:
             "llmId": llm_id,
             "supervisorId": llm_id,
             "plannerId": mentalist_llm_id,
-            "inspectorId": inspector_llm_id,
-            "maxInspectors": max_inspectors,
-            "inspectorTargets": inspector_targets if use_inspector else [],
+            "inspectors": inspectors,
+            "inspectorTargets": inspector_targets,
             "supplier": supplier,
             "version": version,
             "status": "draft",

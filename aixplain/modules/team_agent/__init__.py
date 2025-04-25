@@ -40,6 +40,7 @@ from aixplain.modules.agent import Agent, OutputFormat
 from aixplain.modules.agent.agent_response import AgentResponse
 from aixplain.modules.agent.agent_response_data import AgentResponseData
 from aixplain.modules.agent.utils import process_variables
+from aixplain.modules.team_agent.inspector import Inspector
 from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
 
@@ -59,15 +60,16 @@ class TeamAgent(Model):
     Attributes:
         id (Text): ID of the Team Agent
         name (Text): Name of the Team Agent
-        agents (List[Agent]): List of Agents that the Team Agent uses.
+        agents (List[Agent]): List of agents that the Team Agent uses.
         description (Text, optional): description of the Team Agent. Defaults to "".
         llm_id (Text, optional): large language model. Defaults to GPT-4o (6646261c6eb563165658bbb1).
+        api_key (str): The TEAM API key used for authentication.
         supplier (Text): Supplier of the Team Agent.
         version (Text): Version of the Team Agent.
-        backend_url (str): URL of the backend.
-        api_key (str): The TEAM API key used for authentication.
         cost (Dict, optional): model price. Defaults to None.
-        use_mentalist_and_inspector (bool): Use Mentalist and Inspector tools. Defaults to True.
+        use_mentalist (bool): Use Mentalist agent for pre-planning. Defaults to True.
+        inspectors (List[Inspector]): List of inspectors that the team agent uses.
+        inspector_targets (List[InspectorTarget]): List of targets where the inspectors are applied. Defaults to [InspectorTarget.STEPS].
     """
 
     is_valid: bool
@@ -84,34 +86,17 @@ class TeamAgent(Model):
         version: Optional[Text] = None,
         cost: Optional[Dict] = None,
         use_mentalist: bool = True,
-        use_inspector: bool = True,
-        max_inspectors: int = 1,
+        inspectors: List[Inspector] = [],
         inspector_targets: List[InspectorTarget] = [InspectorTarget.STEPS],
         status: AssetStatus = AssetStatus.DRAFT,
         **additional_info,
     ) -> None:
-        """Create a FineTune with the necessary information.
-
-        Args:
-            id (Text): ID of the Team Agent
-            name (Text): Name of the Team Agent
-            agents (List[Agent]): List of agents that the Team Agent uses.
-            description (Text, optional): description of the Team Agent. Defaults to "".
-            llm_id (Text, optional): large language model. Defaults to GPT-4o (6646261c6eb563165658bbb1).
-            supplier (Text): Supplier of the Team Agent.
-            version (Text): Version of the Team Agent.
-            backend_url (str): URL of the backend.
-            api_key (str): The TEAM API key used for authentication.
-            cost (Dict, optional): model price. Defaults to None.
-            use_mentalist_and_inspector (bool): Use Mentalist and Inspector tools. Defaults to True.
-        """
         super().__init__(id, name, description, api_key, supplier, version, cost=cost)
         self.additional_info = additional_info
         self.agents = agents
         self.llm_id = llm_id
         self.use_mentalist = use_mentalist
-        self.use_inspector = use_inspector
-        self.max_inspectors = max_inspectors
+        self.inspectors = inspectors
         self.inspector_targets = inspector_targets
 
         if isinstance(status, str):
@@ -339,8 +324,7 @@ class TeamAgent(Model):
             "llmId": self.llm_id,
             "supervisorId": self.llm_id,
             "plannerId": self.llm_id if self.use_mentalist else None,
-            "inspectorId": self.llm_id if self.use_inspector else None,
-            "maxInspectors": self.max_inspectors,
+            "inspectors": [inspector.model_dump(by_alias=True) for inspector in self.inspectors],
             "inspectorTargets": [target.value for target in self.inspector_targets],
             "supplier": self.supplier.value["code"] if isinstance(self.supplier, Supplier) else self.supplier,
             "version": self.version,
