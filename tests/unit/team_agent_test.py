@@ -265,7 +265,14 @@ def test_fail_inspector_without_mentalist():
                 )
             ],
             use_mentalist=False,
-            use_inspector=True,
+            inspectors=[
+                Inspector(
+                    name="Test Inspector",
+                    model_id="6646261c6eb563165658bbb1",
+                    model_params={"prompt": "Test Prompt"},
+                    policy=InspectorPolicy.ADAPTIVE,
+                )
+            ],
         )
 
     assert "you must enable Mentalist" in str(exc_info.value)
@@ -286,33 +293,18 @@ def test_fail_invalid_inspector_target():
                 )
             ],
             use_mentalist=True,
-            use_inspector=True,
+            inspectors=[
+                Inspector(
+                    name="Test Inspector",
+                    model_id="6646261c6eb563165658bbb1",
+                    model_params={"prompt": "Test Prompt"},
+                    policy=InspectorPolicy.ADAPTIVE,
+                )
+            ],
             inspector_targets=["invalid_target"],
         )
 
     assert "Invalid inspector target" in str(exc_info.value)
-
-
-def test_fail_zero_inspectors():
-    with pytest.raises(Exception) as exc_info:
-        TeamAgentFactory.create(
-            name="Test Team Agent(-)",
-            agents=[
-                Agent(
-                    id="123",
-                    name="Test Agent(-)",
-                    description="Test Agent Description",
-                    instructions="Test Agent Role",
-                    llm_id="6646261c6eb563165658bbb1",
-                    tools=[ModelTool(function="text-generation")],
-                )
-            ],
-            use_mentalist=True,
-            use_inspector=True,
-            num_inspectors=0,
-        )
-
-    assert "The number of inspectors must be greater than 0" in str(exc_info.value)
 
 
 def test_build_team_agent(mocker):
