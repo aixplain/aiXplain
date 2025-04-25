@@ -140,6 +140,7 @@ def test_build_tool_error_cases(tool_dict, expected_error):
         pytest.param(
             {
                 "type": "sql",
+                "name": "Test SQL",
                 "description": "Test SQL",
                 "parameters": [
                     {"name": "database", "value": "test_db"},
@@ -150,6 +151,7 @@ def test_build_tool_error_cases(tool_dict, expected_error):
             },
             SQLTool,
             {
+                "name": "Test SQL",
                 "description": "Test SQL",
                 "database": "test_db",
                 "schema": "public",
@@ -161,6 +163,7 @@ def test_build_tool_error_cases(tool_dict, expected_error):
         pytest.param(
             {
                 "type": "sql",
+                "name": "Test SQL",
                 "description": "Test SQL with string enable_commit",
                 "parameters": [
                     {"name": "database", "value": "test_db"},
@@ -171,6 +174,7 @@ def test_build_tool_error_cases(tool_dict, expected_error):
             },
             SQLTool,
             {
+                "name": "Test SQL",
                 "description": "Test SQL with string enable_commit",
                 "database": "test_db",
                 "schema": "public",

@@ -201,6 +201,7 @@ class AgentFactory:
     @classmethod
     def create_sql_tool(
         cls,
+        name: Text,
         description: Text,
         source: str,
         source_type: Union[str, DatabaseSourceType],
@@ -211,6 +212,7 @@ class AgentFactory:
         """Create a new SQL tool
 
         Args:
+            name (Text): name of the tool
             description (Text): description of the database tool
             source (Union[Text, Dict]): database source - can be a connection string or dictionary with connection details
             source_type (Union[str, DatabaseSourceType]): type of source (postgresql, sqlite, csv) or DatabaseSourceType enum
@@ -322,6 +324,7 @@ class AgentFactory:
 
         # Create and return SQLTool
         return SQLTool(
+            name=name,
             description=description,
             database=database_path,
             schema=schema,
