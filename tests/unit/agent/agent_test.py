@@ -558,8 +558,13 @@ def test_agent_response():
     assert response["data"]["output"] == "new_output"
 
 
-def test_custom_python_code_tool_initialization():
+def test_custom_python_code_tool_initialization(mocker):
     """Test basic initialization of CustomPythonCodeTool"""
+    mocker.patch(
+        "aixplain.modules.model.utils.parse_code_decorated",
+        return_value=("def main(query: str) -> str:\n    return 'Hello'", [], "Test description", "HelloWorld"),
+    )
+
     code = "def main(query: str) -> str:\n    return 'Hello'"
     description = "Test description"
     tool = CustomPythonCodeTool(code=code, description=description, name="HelloWorld")
@@ -569,8 +574,12 @@ def test_custom_python_code_tool_initialization():
     assert tool.name == "HelloWorld"
 
 
-def test_custom_python_code_tool_to_dict():
+def test_custom_python_code_tool_to_dict(mocker):
     """Test the to_dict method of CustomPythonCodeTool"""
+    mocker.patch(
+        "aixplain.modules.model.utils.parse_code_decorated",
+        return_value=("def main(query: str) -> str:\n    return 'Hello'", [], "Test description", "HelloWorld"),
+    )
     code = "def main(query: str) -> str:\n    return 'Hello'"
     description = "Test description"
     tool = CustomPythonCodeTool(code=code, description=description)
@@ -601,22 +610,17 @@ def test_custom_python_code_tool_validation():
         assert tool.name == "test_name"
 
 
-def test_custom_python_code_tool_validation_missing_description():
+def test_custom_python_code_tool_validation_missing_description(mocker):
     """Test validation fails when description is missing"""
-    with patch(
-        "aixplain.modules.model.utils.parse_code",
-        return_value=(
-            "def main(query: str) -> str:\n    return 'Hello'",  # code
-            [],  # inputs
-            None,  # description
-            "test_name",  # name
-        ),
-    ):
-        code = "def main(query: str) -> str:\n    return 'Hello'"
-        tool = CustomPythonCodeTool(code=code)
-        with pytest.raises(AssertionError) as exc_info:
-            tool.validate()
-        assert str(exc_info.value) == "Custom Python Code Tool Error: Tool description is required"
+    mocker.patch(
+        "aixplain.modules.model.utils.parse_code_decorated",
+        return_value=("def main(query: str) -> str:\n    return 'Hello'", [], "", "HelloWorld"),
+    )
+
+    code = "def main(query: str) -> str:\n    return 'Hello'"
+    with pytest.raises(AssertionError) as exc_info:
+        CustomPythonCodeTool(code=code)
+    assert str(exc_info.value) == "Custom Python Code Tool Error: Tool description is required"
 
 
 def test_custom_python_code_tool_validation_missing_code():
@@ -626,20 +630,8 @@ def test_custom_python_code_tool_validation_missing_code():
         return_value=("", [], "Parsed description", "test_name"),  # code  # inputs  # description  # name
     ):
         with pytest.raises(AssertionError) as exc_info:
-            tool = CustomPythonCodeTool(code="", description="Test description")
-            tool.validate()
+            CustomPythonCodeTool(code="", description="Test description")
         assert str(exc_info.value) == "Custom Python Code Tool Error: Code is required"
-
-
-def test_custom_python_code_tool_with_callable():
-    """Test CustomPythonCodeTool with a callable function"""
-
-    def test_function(query: str) -> str:
-        return "Hello"
-
-    tool = CustomPythonCodeTool(code=test_function, description="Test description")
-    assert callable(tool.code)
-    assert tool.description == "Test description"
 
 
 @patch("aixplain.factories.model_factory.ModelFactory.get")

@@ -35,6 +35,7 @@ class CustomPythonCodeTool(Tool):
         """Custom Python Code Tool"""
         super().__init__(name=name or "", description=description, **additional_info)
         self.code = code
+        self.validate()
 
     def to_dict(self):
         return {

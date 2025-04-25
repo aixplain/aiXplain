@@ -184,6 +184,10 @@ def test_build_tool_error_cases(tool_dict, expected_error):
 def test_build_tool_success_cases(tool_dict, expected_type, expected_attrs, mock_model, mocker):
     """Test successful tool creation with various configurations."""
     mocker.patch.object(ModelFactory, "get", return_value=mock_model)
+    mocker.patch(
+        "aixplain.modules.model.utils.parse_code_decorated",
+        return_value=("print('Hello World')", [], "Test description", "test_name"),
+    )
     if tool_dict["type"] == "pipeline":
         mocker.patch.object(
             PipelineFactory,
