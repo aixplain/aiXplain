@@ -27,19 +27,35 @@ from aixplain.utils import config
 from aixplain.utils.request_utils import _request_with_retry
 from aixplain.utils.asset_cache import AssetCache
 import logging
+from dataclasses import dataclass, field
+from typing import List, Dict, Any, Optional
 
-
+@dataclass
 class LanguageMetadata:
-    def __init__(self, data: dict):
-        self.__dict__.update(data)
+    id: str
+    value: str
+    label: str
+    dialects: List[Dict[str, str]] = field(default_factory=list)
+    scripts: List[Any] = field(default_factory=list)
 
-    def to_dict(self):
-        return self.__dict__
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "value": self.value,
+            "label": self.label,
+            "dialects": self.dialects,
+            "scripts": self.scripts,
+        }
 
     @classmethod
     def from_dict(cls, data: dict):
-        return cls(data)
-
+        return cls(
+            id=data.get("id"),
+            value=data.get("value"),
+            label=data.get("label"),
+            dialects=data.get("dialects", []),
+            scripts=data.get("scripts", []),
+        )
 
 def load_languages():
     api_key = config.TEAM_API_KEY
@@ -60,7 +76,7 @@ def load_languages():
                 f'Languages could not be loaded, probably due to the set API key (e.g. "{api_key}") is not valid. For help, please refer to the documentation (https://github.com/aixplain/aixplain#api-key-setup)'
             )
         resp = r.json()
-        lang_entries = [LanguageMetadata(item) for item in resp]
+        lang_entries = [LanguageMetadata.from_dict(item) for item in resp]
         cache.add_list(lang_entries)
 
     languages = {}

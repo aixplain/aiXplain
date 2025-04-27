@@ -39,7 +39,6 @@ from aixplain.modules.agent.tool.sql_tool import (
 from aixplain.modules.model import Model
 from aixplain.modules.pipeline import Pipeline
 from aixplain.utils import config
-from aixplain.utils.asset_cache import AssetCache
 from typing import Callable, Dict, List, Optional, Text, Union
 
 from aixplain.utils.file_utils import _request_with_retry
@@ -82,9 +81,9 @@ class AgentFactory:
             Agent: created Agent
         """
         warnings.warn(
-            "The 'instructions' parameter was recently added and serves the same purpose as 'description' did previously: set the role of the agent as a system prompt. "
-            "The 'description' parameter is still required and should be used to set a short summary of the agent's purpose. "
-            "For the next releases, the 'instructions' parameter will be required.",
+            "Use `instructions` to define the **system prompt**. "
+            "Use `description` to provide a **short summary** of the agent for metadata and dashboard display. "
+            "Note: In upcoming releases, `instructions` will become a required parameter.",
             UserWarning,
         )
         from aixplain.factories.agent_factory.utils import build_agent
@@ -101,34 +100,21 @@ class AgentFactory:
         payload = {
             "name": name,
             "assets": [
-                (
-                    tool.to_dict()
-                    if isinstance(tool, Tool)
-                    else {
-                        "id": tool.id,
-                        "name": tool.name,
-                        "description": tool.description,
-                        "supplier": (
-                            tool.supplier.value["code"]
-                            if isinstance(tool.supplier, Supplier)
-                            else tool.supplier
-                        ),
-                        "parameters": (
-                            tool.get_parameters().to_list()
-                            if hasattr(tool, "get_parameters")
-                            and tool.get_parameters() is not None
-                            else None
-                        ),
-                        "function": (
-                            tool.function
-                            if hasattr(tool, "function") and tool.function is not None
-                            else None
-                        ),
-                        "type": "model",
-                        "version": tool.version if hasattr(tool, "version") else None,
-                        "assetId": tool.id,
-                    }
-                )
+                tool.to_dict()
+                if isinstance(tool, Tool)
+                else {
+                    "id": tool.id,
+                    "name": tool.name,
+                    "description": tool.description,
+                    "supplier": tool.supplier.value["code"] if isinstance(tool.supplier, Supplier) else tool.supplier,
+                    "parameters": tool.get_parameters().to_list()
+                    if hasattr(tool, "get_parameters") and tool.get_parameters() is not None
+                    else None,
+                    "function": tool.function if hasattr(tool, "function") and tool.function is not None else None,
+                    "type": "model",
+                    "version": tool.version if hasattr(tool, "version") else None,
+                    "assetId": tool.id,
+                }
                 for tool in tools
             ],
             "description": description,
@@ -143,15 +129,11 @@ class AgentFactory:
         agent.validate(raise_exception=True)
         response = "Unspecified error"
         try:
-            logging.debug(
-                f"Start service for POST Create Agent  - {url} - {headers} - {json.dumps(agent.to_dict())}"
-            )
+            logging.debug(f"Start service for POST Create Agent  - {url} - {headers} - {json.dumps(agent.to_dict())}")
             r = _request_with_retry("post", url, headers=headers, json=agent.to_dict())
             response = r.json()
         except Exception:
-            raise Exception(
-                "Agent Onboarding Error: Please contact the administrators."
-            )
+            raise Exception("Agent Onboarding Error: Please contact the administrators.")
 
         if 200 <= r.status_code < 300:
             agent = build_agent(payload=response, tools=tools, api_key=api_key)
@@ -170,18 +152,9 @@ class AgentFactory:
 
     @classmethod
     def create_task(
-        cls,
-        name: Text,
-        description: Text,
-        expected_output: Text,
-        dependencies: Optional[List[Text]] = None,
+        cls, name: Text, description: Text, expected_output: Text, dependencies: Optional[List[Text]] = None
     ) -> AgentTask:
-        return AgentTask(
-            name=name,
-            description=description,
-            expected_output=expected_output,
-            dependencies=dependencies,
-        )
+        return AgentTask(name=name, description=description, expected_output=expected_output, dependencies=dependencies)
 
     @classmethod
     def create_model_tool(
@@ -199,27 +172,14 @@ class AgentFactory:
         if supplier is not None:
             if isinstance(supplier, str):
                 for supplier_ in Supplier:
-                    if supplier.lower() in [
-                        supplier_.value["code"].lower(),
-                        supplier_.value["name"].lower(),
-                    ]:
+                    if supplier.lower() in [supplier_.value["code"].lower(), supplier_.value["name"].lower()]:
                         supplier = supplier_
                         break
-            assert isinstance(
-                supplier, Supplier
-            ), f"Supplier {supplier} is not a valid supplier"
-        return ModelTool(
-            function=function,
-            supplier=supplier,
-            model=model,
-            description=description,
-            parameters=parameters,
-        )
+            assert isinstance(supplier, Supplier), f"Supplier {supplier} is not a valid supplier"
+        return ModelTool(function=function, supplier=supplier, model=model, description=description, parameters=parameters)
 
     @classmethod
-    def create_pipeline_tool(
-        cls, description: Text, pipeline: Union[Pipeline, Text]
-    ) -> PipelineTool:
+    def create_pipeline_tool(cls, description: Text, pipeline: Union[Pipeline, Text]) -> PipelineTool:
         """Create a new pipeline tool."""
         return PipelineTool(description=description, pipeline=pipeline)
 
@@ -229,9 +189,7 @@ class AgentFactory:
         return PythonInterpreterTool()
 
     @classmethod
-    def create_custom_python_code_tool(
-        cls, code: Union[Text, Callable], description: Text = ""
-    ) -> CustomPythonCodeTool:
+    def create_custom_python_code_tool(cls, code: Union[Text, Callable], description: Text = "") -> CustomPythonCodeTool:
         """Create a new custom python code tool."""
         return CustomPythonCodeTool(description=description, code=code)
 
@@ -296,9 +254,7 @@ class AgentFactory:
             # Already the correct type, no conversion needed
             pass
         else:
-            raise SQLToolError(
-                f"Source type must be either a string or DatabaseSourceType enum, got {type(source_type)}"
-            )
+            raise SQLToolError(f"Source type must be either a string or DatabaseSourceType enum, got {type(source_type)}")
 
         database_path = None  # Final database path to pass to SQLTool
 
@@ -308,14 +264,17 @@ class AgentFactory:
                 raise SQLToolError(f"CSV file '{source}' does not exist")
             if not source.endswith(".csv"):
                 raise SQLToolError(f"File '{source}' is not a CSV file")
+            if tables and len(tables) > 1:
+                raise SQLToolError("CSV source type only supports one table")
 
             # Create database name from CSV filename or use custom table name
             base_name = os.path.splitext(os.path.basename(source))[0]
             db_path = os.path.join(os.path.dirname(source), f"{base_name}.db")
+            table_name = tables[0] if tables else None
 
             try:
                 # Create database from CSV
-                schema = create_database_from_csv(source, db_path)
+                schema = create_database_from_csv(source, db_path, table_name)
                 database_path = db_path
 
                 # Get table names if not provided
@@ -327,9 +286,7 @@ class AgentFactory:
                     try:
                         os.remove(db_path)
                     except Exception as cleanup_error:
-                        warnings.warn(
-                            f"Failed to remove temporary database file '{db_path}': {str(cleanup_error)}"
-                        )
+                        warnings.warn(f"Failed to remove temporary database file '{db_path}': {str(cleanup_error)}")
                 raise SQLToolError(f"Failed to create database from CSV: {str(e)}")
 
         # Handle SQLite source type
@@ -337,9 +294,7 @@ class AgentFactory:
             if not os.path.exists(source):
                 raise SQLToolError(f"Database '{source}' does not exist")
             if not source.endswith(".db") and not source.endswith(".sqlite"):
-                raise SQLToolError(
-                    f"Database '{source}' must have .db or .sqlite extension"
-                )
+                raise SQLToolError(f"Database '{source}' must have .db or .sqlite extension")
 
             database_path = source
 
@@ -379,9 +334,7 @@ class AgentFactory:
 
         resp = {}
         payload = {}
-        logging.info(
-            f"Start service for GET List Agents - {url} - {headers} - {json.dumps(payload)}"
-        )
+        logging.info(f"Start service for GET List Agents - {url} - {headers} - {json.dumps(payload)}")
         try:
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()
@@ -393,17 +346,10 @@ class AgentFactory:
             results = resp
             page_total = len(results)
             total = len(results)
-            logging.info(
-                f"Response for GET List Agents - Page Total: {page_total} / Total: {total}"
-            )
+            logging.info(f"Response for GET List Agents - Page Total: {page_total} / Total: {total}")
             for agent in results:
                 agents.append(build_agent(agent))
-            return {
-                "results": agents,
-                "page_total": page_total,
-                "page_number": 0,
-                "total": total,
-            }
+            return {"results": agents, "page_total": page_total, "page_number": 0, "total": total}
         else:
             error_msg = "Agent Listing Error: Please contact the administrators."
             if isinstance(resp, dict) and "message" in resp:
@@ -413,60 +359,22 @@ class AgentFactory:
             raise Exception(error_msg)
 
     @classmethod
-    def get(
-        cls, agent_id: Text, api_key: Optional[Text] = None, use_cache: bool = True
-    ) -> Agent:
+    def get(cls, agent_id: Text, api_key: Optional[Text] = None) -> Agent:
+        """Get agent by id."""
         from aixplain.factories.agent_factory.utils import build_agent
-        from aixplain.utils.asset_cache import AssetCache
 
-        cache = AssetCache(Agent)
-        api_key = api_key or config.TEAM_API_KEY
-
-        if use_cache:
-            if cache.has_valid_cache():
-                cached_agent = cache.store.data.get(agent_id)
-                if cached_agent:
-                    logging.info(f"Agent {agent_id} retrieved from valid cache.")
-                    return cached_agent
-            else:
-                logging.info(
-                    "No valid cache found — fetching full agent list to build cache."
-                )
-                try:
-                    agent_list_resp = cls.list()
-                    agents = agent_list_resp.get("results", [])
-                    cache.add_list(agents)
-                    logging.info(f"Cache rebuilt with {len(agents)} agents.")
-
-                    for agent in agents:
-                        if agent.id == agent_id:
-                            logging.info(
-                                f"Agent {agent_id} retrieved from newly built cache."
-                            )
-                            return agent
-                except Exception as e:
-                    logging.error(f"Error rebuilding agent cache: {e}")
-                    raise e
-
-        # Fallback: direct fetch if cache not used or agent not found
-        logging.info(f"Fetching agent {agent_id} directly from backend.")
         url = urljoin(config.BACKEND_URL, f"sdk/agents/{agent_id}")
+
+        api_key = api_key if api_key is not None else config.TEAM_API_KEY
         headers = {"x-api-key": api_key, "Content-Type": "application/json"}
-
-        try:
-            r = _request_with_retry("get", url, headers=headers)
-            resp = r.json()
-
-            if 200 <= r.status_code < 300:
-                agent = build_agent(resp)
-                cache.add(agent)  # still helpful for future use
-                logging.info(
-                    f"Agent {agent_id} fetched from backend and added to cache."
-                )
-                return agent
-            else:
-                msg = resp.get("message", "Please contact the administrators.")
-                raise Exception(f"Agent Get Error (HTTP {r.status_code}): {msg}")
-        except Exception as e:
-            logging.exception(f"Agent Get Error: {e}")
-            raise
+        logging.info(f"Start service for GET Agent  - {url} - {headers}")
+        r = _request_with_retry("get", url, headers=headers)
+        resp = r.json()
+        if 200 <= r.status_code < 300:
+            return build_agent(resp)
+        else:
+            msg = "Please contact the administrators."
+            if "message" in resp:
+                msg = resp["message"]
+            error_msg = f"Agent Get Error (HTTP {r.status_code}): {msg}"
+            raise Exception(error_msg)

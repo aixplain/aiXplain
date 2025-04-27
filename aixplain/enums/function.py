@@ -33,20 +33,38 @@ import os
 CACHE_FILE = f"{CACHE_FOLDER}/functions.json"
 LOCK_FILE = f"{CACHE_FILE}.lock"
 
+from dataclasses import dataclass, field
+from typing import List, Optional, Dict, Any
 
+@dataclass
 class FunctionMetadata:
-    def __init__(self, data: dict):
-        self.__dict__.update(data)
-
-    def __repr__(self):
-        return f"<FunctionMetadata id={self.id}>"
+    id: str
+    name: str
+    description: Optional[str] = None
+    params: List[Dict[str, Any]] = field(default_factory=list)
+    output: List[Dict[str, Any]] = field(default_factory=list)
+    metadata: Dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict:
-        return self.__dict__
+        return {
+            "id": self.id,
+            "name": self.name,
+            "description": self.description,
+            "params": self.params,
+            "output": self.output,
+            "metadata": self.metadata,
+        }
 
     @classmethod
     def from_dict(cls, data: dict):
-        return cls(data)
+        return cls(
+            id=data.get("id"),
+            name=data.get("name"),
+            description=data.get("description"),
+            params=data.get("params", []),
+            output=data.get("output", []),
+            metadata={k: v for k, v in data.items() if k not in {"id", "name", "description", "params", "output"}},
+        )
 
 
 def load_functions():
@@ -71,7 +89,7 @@ def load_functions():
             )
         resp = r.json()
         results = resp.get("results")
-        function_objects = [FunctionMetadata(f) for f in results]
+        function_objects = [FunctionMetadata.from_dict(f) for f in results]
         cache.add_list(function_objects)
 
     class Function(str, Enum):

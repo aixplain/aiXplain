@@ -29,16 +29,34 @@ from aixplain.utils.request_utils import _request_with_retry
 from aixplain.utils.asset_cache import AssetCache, CACHE_FOLDER
 
 
-class LicenseMetadata:
-    def __init__(self, data: dict):
-        self.__dict__.update(data)
+from dataclasses import dataclass
 
-    def to_dict(self):
-        return self.__dict__
+@dataclass
+class LicenseMetadata:
+    id: str
+    name: str
+    description: str
+    url: str
+    allowCustomUrl: bool
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "name": self.name,
+            "description": self.description,
+            "url": self.url,
+            "allowCustomUrl": self.allowCustomUrl,
+        }
 
     @classmethod
     def from_dict(cls, data: dict):
-        return cls(data)
+        return cls(
+            id=data.get("id"),
+            name=data.get("name"),
+            description=data.get("description"),
+            url=data.get("url"),
+            allowCustomUrl=data.get("allowCustomUrl", False),
+        )
 
 
 def load_licenses():
@@ -62,7 +80,7 @@ def load_licenses():
                     f'Licenses could not be loaded, probably due to the set API key (e.g. "{api_key}") is not valid. For help, please refer to the documentation.'
                 )
             resp = r.json()
-            license_objects = [LicenseMetadata(item) for item in resp]
+            license_objects = [LicenseMetadata.from_dict(item) for item in resp]
             cache.add_list(license_objects)
 
         licenses = {"_".join(lic.name.split()): lic.id for lic in license_objects}

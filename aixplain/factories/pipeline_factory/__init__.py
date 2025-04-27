@@ -30,7 +30,6 @@ from aixplain.enums.function import Function
 from aixplain.enums.supplier import Supplier
 from aixplain.modules.model import Model
 from aixplain.modules.pipeline import Pipeline
-from aixplain.utils.asset_cache import AssetCache
 from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
 from urllib.parse import urljoin
@@ -47,9 +46,7 @@ class PipelineFactory:
     backend_url = config.BACKEND_URL
 
     @classmethod
-    def get(
-        cls, pipeline_id: Text, api_key: Optional[Text] = None, use_cache: bool = True
-    ) -> Pipeline:
+    def get(cls, pipeline_id: Text, api_key: Optional[Text] = None) -> Pipeline:
         """Create a 'Pipeline' object from pipeline id
 
         Args:
@@ -59,36 +56,48 @@ class PipelineFactory:
         Returns:
             Pipeline: Created 'Pipeline' object
         """
-        cache = AssetCache(Pipeline)
-        if use_cache:
-            if cache.has_valid_cache():
-                cached_pipeline = cache.store.data.get(pipeline_id)
-                if cached_pipeline:
-                    return cached_pipeline
-                logging.info(
-                    "Pipeline not found in valid cache, fetching individually..."
-                )
-                pipeline = cls._fetch_pipeline_by_id(pipeline_id)
-                cache.add(pipeline)
-                return pipeline
+        resp = None
+        try:
+            url = urljoin(cls.backend_url, f"sdk/pipelines/{pipeline_id}")
+            if api_key is not None:
+                headers = {
+                    "Authorization": f"Token {api_key}",
+                    "Content-Type": "application/json",
+                }
             else:
-                try:
-                    pipeline_list_resp = cls.list()
-                    pipeline_dicts = pipeline_list_resp.get("results", [])
-                    pipelines = pipeline_dicts
-                    cache.add_list(pipelines)
+                headers = {
+                    "Authorization": f"Token {config.TEAM_API_KEY}",
+                    "Content-Type": "application/json",
+                }
+            logging.info(f"Start service for GET Pipeline  - {url} - {headers}")
+            r = _request_with_retry("get", url, headers=headers)
+            resp = r.json()
 
-                    for pipeline in pipelines:
-                        if pipeline.id == pipeline_id:
-                            return pipeline
+        except Exception as e:
+            logging.exception(e)
+            status_code = 400
+            if resp is not None and "statusCode" in resp:
+                status_code = resp["statusCode"]
+                message = resp["message"]
+                message = f"Pipeline Creation: Status {status_code} - {message}"
+            else:
+                message = f"Pipeline Creation: Unspecified Error {e}"
+            logging.error(message)
+            raise Exception(f"Status {status_code}: {message}")
+        if 200 <= r.status_code < 300:
+            resp["api_key"] = config.TEAM_API_KEY
+            if api_key is not None:
+                resp["api_key"] = api_key
+            pipeline = build_from_response(resp, load_architecture=True)
+            logging.info(f"Pipeline {pipeline_id} retrieved successfully.")
+            return pipeline
 
-                except Exception as e:
-                    logging.error(f"Error fetching pipeline list: {e}")
-                    raise e
-        logging.info("Fetching pipeline directly without cache...")
-        pipeline = cls._fetch_pipeline_by_id(pipeline_id, config.TEAM_API_KEY)
-        cache.add(pipeline)
-        return pipeline
+        else:
+            error_message = (
+                f"Pipeline GET Error: Failed to retrieve pipeline {pipeline_id}. Status Code: {r.status_code}. Error: {resp}"
+            )
+            logging.error(error_message)
+            raise Exception(error_message)
 
     @classmethod
     def create_asset_from_id(cls, pipeline_id: Text) -> Pipeline:
@@ -117,14 +126,9 @@ class PipelineFactory:
             }
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()
-            logging.info(
-                f"Listing Pipelines: Status of getting Pipelines on Page {page_number}: {resp}"
-            )
+            logging.info(f"Listing Pipelines: Status of getting Pipelines on Page {page_number}: {resp}")
             all_pipelines = resp["items"]
-            pipeline_list = [
-                build_from_response(pipeline_info_json)
-                for pipeline_info_json in all_pipelines
-            ]
+            pipeline_list = [build_from_response(pipeline_info_json) for pipeline_info_json in all_pipelines]
             return pipeline_list
         except Exception as e:
             error_message = f"Listing Pipelines: Error in getting Pipelines on Page {page_number}: {e}"
@@ -172,9 +176,7 @@ class PipelineFactory:
             "Content-Type": "application/json",
         }
 
-        assert (
-            0 < page_size <= 100
-        ), "Pipeline List Error: Page size must be greater than 0 and not exceed 100."
+        assert 0 < page_size <= 100, "Pipeline List Error: Page size must be greater than 0 and not exceed 100."
         payload = {
             "pageSize": page_size,
             "pageNumber": page_number,
@@ -189,6 +191,7 @@ class PipelineFactory:
             if isinstance(functions, Function) is True:
                 functions = [functions]
             payload["functions"] = [function.value for function in functions]
+
         if suppliers is not None:
             if isinstance(suppliers, Supplier) is True:
                 suppliers = [suppliers]
@@ -202,20 +205,14 @@ class PipelineFactory:
         if input_data_types is not None:
             if isinstance(input_data_types, DataType) is True:
                 input_data_types = [input_data_types]
-            payload["inputDataTypes"] = [
-                data_type.value for data_type in input_data_types
-            ]
+            payload["inputDataTypes"] = [data_type.value for data_type in input_data_types]
 
         if output_data_types is not None:
             if isinstance(output_data_types, DataType) is True:
                 output_data_types = [output_data_types]
-            payload["inputDataTypes"] = [
-                data_type.value for data_type in output_data_types
-            ]
+            payload["inputDataTypes"] = [data_type.value for data_type in output_data_types]
 
-        logging.info(
-            f"Start service for POST List Pipeline - {url} - {headers} - {json.dumps(payload)}"
-        )
+        logging.info(f"Start service for POST List Pipeline - {url} - {headers} - {json.dumps(payload)}")
         try:
             r = _request_with_retry("post", url, headers=headers, json=payload)
             resp = r.json()
@@ -230,9 +227,7 @@ class PipelineFactory:
                 results = resp["items"]
                 page_total = resp["pageTotal"]
                 total = resp["total"]
-                logging.info(
-                    f"Response for POST List Pipeline - Page Total: {page_total} / Total: {total}"
-                )
+                logging.info(f"Response for POST List Pipeline - Page Total: {page_total} / Total: {total}")
                 for pipeline in results:
                     pipelines.append(build_from_response(pipeline))
             return {
@@ -299,9 +294,7 @@ class PipelineFactory:
 
             for i, node in enumerate(pipeline["nodes"]):
                 if "functionType" in node:
-                    pipeline["nodes"][i]["functionType"] = pipeline["nodes"][i][
-                        "functionType"
-                    ].lower()
+                    pipeline["nodes"][i]["functionType"] = pipeline["nodes"][i]["functionType"].lower()
             # prepare payload
             payload = {
                 "name": name,
@@ -314,60 +307,10 @@ class PipelineFactory:
                 "Authorization": f"Token {api_key}",
                 "Content-Type": "application/json",
             }
-            logging.info(
-                f"Start service for POST Create Pipeline - {url} - {headers} - {json.dumps(payload)}"
-            )
+            logging.info(f"Start service for POST Create Pipeline - {url} - {headers} - {json.dumps(payload)}")
             r = _request_with_retry("post", url, headers=headers, json=payload)
             response = r.json()
 
             return Pipeline(response["id"], name, api_key)
         except Exception as e:
             raise Exception(e)
-
-    @classmethod
-    def _fetch_pipeline_by_id(
-        cls, pipeline_id: Text, api_key: Optional[Text] = None
-    ) -> Pipeline:
-        """Fetch a Pipeline by ID from the backend (no cache)"""
-
-        resp = None
-        try:
-            url = urljoin(cls.backend_url, f"sdk/pipelines/{pipeline_id}")
-            if api_key is not None:
-                headers = {
-                    "Authorization": f"Token {api_key}",
-                    "Content-Type": "application/json",
-                }
-            else:
-                headers = {
-                    "Authorization": f"Token {config.TEAM_API_KEY}",
-                    "Content-Type": "application/json",
-                }
-
-            logging.info(f"Start service for GET Pipeline  - {url} - {headers}")
-            r = _request_with_retry("get", url, headers=headers)
-            resp = r.json()
-
-        except Exception as e:
-            logging.exception(e)
-            status_code = 400
-            if resp is not None and "statusCode" in resp:
-                status_code = resp["statusCode"]
-                message = resp["message"]
-                message = f"Pipeline Creation: Status {status_code} - {message}"
-            else:
-                message = f"Pipeline Creation: Unspecified Error {e}"
-            logging.error(message)
-            raise Exception(f"Status {status_code}: {message}")
-        if 200 <= r.status_code < 300:
-            resp["api_key"] = config.TEAM_API_KEY
-            if api_key is not None:
-                resp["api_key"] = api_key
-            pipeline = build_from_response(resp, load_architecture=True)
-            logging.info(f"Pipeline {pipeline_id} retrieved successfully.")
-            return pipeline
-
-        else:
-            error_message = f"Pipeline GET Error: Failed to retrieve pipeline {pipeline_id}. Status Code: {r.status_code}. Error: {resp}"
-            logging.error(error_message)
-            raise Exception(error_message)
