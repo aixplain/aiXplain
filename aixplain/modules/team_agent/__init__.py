@@ -88,6 +88,7 @@ class TeamAgent(Model):
         max_inspectors: int = 1,
         inspector_targets: List[InspectorTarget] = [InspectorTarget.STEPS],
         status: AssetStatus = AssetStatus.DRAFT,
+        instructions: Optional[Text] = None,
         **additional_info,
     ) -> None:
         """Create a FineTune with the necessary information.
@@ -96,7 +97,7 @@ class TeamAgent(Model):
             id (Text): ID of the Team Agent
             name (Text): Name of the Team Agent
             agents (List[Agent]): List of agents that the Team Agent uses.
-            description (Text, optional): description of the Team Agent. Defaults to "".
+            description (Text, optional): The description of the team agent to be displayed in the aiXplain platform. Defaults to "".
             llm_id (Text, optional): large language model. Defaults to GPT-4o (6646261c6eb563165658bbb1).
             supplier (Text): Supplier of the Team Agent.
             version (Text): Version of the Team Agent.
@@ -104,6 +105,7 @@ class TeamAgent(Model):
             api_key (str): The TEAM API key used for authentication.
             cost (Dict, optional): model price. Defaults to None.
             use_mentalist_and_inspector (bool): Use Mentalist and Inspector tools. Defaults to True.
+            instructions (Text, optional): The instructions to guide the team agent (i.e. appended in the prompt of the team agent). Defaults to None.
         """
         super().__init__(id, name, description, api_key, supplier, version, cost=cost)
         self.additional_info = additional_info
@@ -113,7 +115,7 @@ class TeamAgent(Model):
         self.use_inspector = use_inspector
         self.max_inspectors = max_inspectors
         self.inspector_targets = inspector_targets
-
+        self.instructions = instructions
         if isinstance(status, str):
             try:
                 status = AssetStatus(status)
@@ -345,6 +347,7 @@ class TeamAgent(Model):
             "supplier": self.supplier.value["code"] if isinstance(self.supplier, Supplier) else self.supplier,
             "version": self.version,
             "status": self.status.value,
+            "role": self.instructions,
         }
 
     def _validate(self) -> None:
