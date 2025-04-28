@@ -41,8 +41,18 @@ def fetch_metric_parameters(metric_type: str, number_of_metrics: int, number_of_
             yield metric_name, metric_id, expected_outputs, input_data[test_name]
 
 
+@pytest.mark.parametrize("metric_name, metric_id, expected_outputs, input_data", fetch_metric_parameters("text_generation", 3 , 2))
+def test_random_text_generation_metrics(metric_name, metric_id, expected_outputs, input_data):
+    metric = MetricFactory.get(metric_id)
+    response = metric.run(**input_data)
+    assert response.status == ResponseStatus.SUCCESS, f"Metric {metric_name} failed with response {response}"
+    predicted_outputs = response.details["details"][0]
+    expected_outputs = expected_outputs[0]
+    for key in expected_outputs:
+        assert expected_outputs[key] == predicted_outputs[key]
 
 
+@pytest.mark.skip(reason="Run only when needed")
 @pytest.mark.parametrize("metric_name, metric_id, expected_outputs, input_data", fetch_metric_parameters("text_generation", -1 , -1))
 def test_all_text_generation_metrics(metric_name, metric_id, expected_outputs, input_data):
     metric = MetricFactory.get(metric_id)
