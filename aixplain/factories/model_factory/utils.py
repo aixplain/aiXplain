@@ -4,7 +4,7 @@ from aixplain.modules.model import Model
 from aixplain.modules.model.llm_model import LLM
 from aixplain.modules.model.index_model import IndexModel
 from aixplain.modules.model.utility_model import UtilityModel, UtilityModelInput
-from aixplain.enums import DataType, Function, Language, OwnershipType, Supplier, SortBy, SortOrder
+from aixplain.enums import DataType, Function, Language, OwnershipType, Supplier, SortBy, SortOrder, AssetStatus
 from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
 from datetime import datetime
@@ -80,6 +80,7 @@ def create_model_from_response(response: Dict) -> Model:
         version=response["version"]["id"],
         inputs=inputs,
         temperature=temperature,
+        status=response.get("status", AssetStatus.DRAFT),
     )
 
 
