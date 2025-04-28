@@ -164,6 +164,7 @@ class AgentFactory:
         supplier: Optional[Union[Supplier, Text]] = None,
         description: Text = "",
         parameters: Optional[Dict] = None,
+        name: Optional[Text] = None,
     ) -> ModelTool:
         """Create a new model tool."""
         if function is not None and isinstance(function, str):
@@ -179,9 +180,11 @@ class AgentFactory:
         return ModelTool(function=function, supplier=supplier, model=model, description=description, parameters=parameters)
 
     @classmethod
-    def create_pipeline_tool(cls, description: Text, pipeline: Union[Pipeline, Text]) -> PipelineTool:
+    def create_pipeline_tool(
+        cls, description: Text, pipeline: Union[Pipeline, Text], name: Optional[Text] = None
+    ) -> PipelineTool:
         """Create a new pipeline tool."""
-        return PipelineTool(description=description, pipeline=pipeline)
+        return PipelineTool(description=description, pipeline=pipeline, name=name)
 
     @classmethod
     def create_python_interpreter_tool(cls) -> PythonInterpreterTool:
@@ -189,13 +192,16 @@ class AgentFactory:
         return PythonInterpreterTool()
 
     @classmethod
-    def create_custom_python_code_tool(cls, code: Union[Text, Callable], description: Text = "") -> CustomPythonCodeTool:
+    def create_custom_python_code_tool(
+        cls, code: Union[Text, Callable], name: Text, description: Text = ""
+    ) -> CustomPythonCodeTool:
         """Create a new custom python code tool."""
-        return CustomPythonCodeTool(description=description, code=code)
+        return CustomPythonCodeTool(name=name, description=description, code=code)
 
     @classmethod
     def create_sql_tool(
         cls,
+        name: Text,
         description: Text,
         source: str,
         source_type: Union[str, DatabaseSourceType],
@@ -206,6 +212,7 @@ class AgentFactory:
         """Create a new SQL tool
 
         Args:
+            name (Text): name of the tool
             description (Text): description of the database tool
             source (Union[Text, Dict]): database source - can be a connection string or dictionary with connection details
             source_type (Union[str, DatabaseSourceType]): type of source (postgresql, sqlite, csv) or DatabaseSourceType enum
@@ -317,6 +324,7 @@ class AgentFactory:
 
         # Create and return SQLTool
         return SQLTool(
+            name=name,
             description=description,
             database=database_path,
             schema=schema,
