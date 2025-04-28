@@ -2,7 +2,7 @@ __author__ = "thiagocastroferreira"
 
 import json
 import logging
-from aixplain.utils.file_utils import _request_with_retry
+from aixplain.utils.request_utils import _request_with_retry
 from typing import Callable, Dict, List, Text, Tuple, Union, Optional
 
 

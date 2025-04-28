@@ -31,7 +31,7 @@ from aixplain.modules.dataset import Dataset
 from aixplain.modules.model import Model
 
 from aixplain.utils import config
-from aixplain.utils.file_utils import _request_with_retry
+from aixplain.utils.request_utils import _request_with_retry
 
 
 class Finetune(Asset):

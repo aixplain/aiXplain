@@ -28,7 +28,7 @@ from aixplain.modules.asset import Asset
 from aixplain.modules.model.utils import build_payload, call_run_endpoint
 from aixplain.utils import config
 from urllib.parse import urljoin
-from aixplain.utils.file_utils import _request_with_retry
+from aixplain.utils.request_utils import _request_with_retry
 from typing import Union, Optional, Text, Dict
 from datetime import datetime
 from aixplain.modules.model.response import ModelResponse

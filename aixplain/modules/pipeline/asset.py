@@ -29,7 +29,7 @@ from aixplain.enums.asset_status import AssetStatus
 from aixplain.enums.response_status import ResponseStatus
 from aixplain.modules.asset import Asset
 from aixplain.utils import config
-from aixplain.utils.file_utils import _request_with_retry
+from aixplain.utils.request_utils import _request_with_retry
 from typing import Dict, Optional, Text, Union
 from urllib.parse import urljoin
 from aixplain.modules.pipeline.response import PipelineResponse
