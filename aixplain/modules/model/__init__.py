@@ -25,7 +25,8 @@ import logging
 import traceback
 from aixplain.enums import Supplier, Function
 from aixplain.modules.asset import Asset
-from aixplain.modules.model.utils import build_payload, call_run_endpoint
+from aixplain.modules.model.model_streamer import ModelStreamer
+from aixplain.modules.model.utils import build_payload, call_run_endpoint, call_stream_endpoint
 from aixplain.utils import config
 from urllib.parse import urljoin
 from aixplain.utils.file_utils import _request_with_retry
@@ -228,11 +229,11 @@ class Model(Asset):
         self,
         data: Union[Text, Dict],
         parameters: Optional[Dict] = None,
-    ):
+    ) -> ModelStreamer:
+        assert self.supports_streaming, "Model does not support streaming"
         payload = build_payload(data=data, parameters=parameters, stream=True)
         url = f"{self.url}/{self.id}".replace("api/v1/execute", "api/v2/execute")
-        response = call_run_endpoint(payload=payload, url=url, api_key=self.api_key)
-        return response
+        return call_stream_endpoint(payload=payload, url=url, api_key=self.api_key)
 
     def run(
         self,
@@ -242,7 +243,7 @@ class Model(Asset):
         parameters: Optional[Dict] = None,
         wait_time: float = 0.5,
         stream: bool = False,
-    ) -> ModelResponse:
+    ) -> Union[ModelResponse, ModelStreamer]:
         """Runs a model call.
 
         Args:
@@ -256,7 +257,6 @@ class Model(Asset):
             Dict: parsed output from model
         """
         if stream:
-            assert self.supports_streaming, "Model does not support streaming"
             return self.run_stream(data=data, parameters=parameters)
         start = time.time()
         payload = build_payload(data=data, parameters=parameters)
