@@ -60,7 +60,7 @@ def build_tool(tool: Dict):
         else:
             tool = PythonInterpreterTool()
     elif tool["type"] == "sql":
-        name = tool.get("name", "")
+        name = tool.get("name", "SQLTool")
         parameters = {parameter["name"]: parameter["value"] for parameter in tool.get("parameters", [])}
         database = parameters.get("database")
         schema = parameters.get("schema")
