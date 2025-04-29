@@ -233,6 +233,7 @@ class Model(Asset):
         assert self.supports_streaming, "Model does not support streaming"
         payload = build_payload(data=data, parameters=parameters, stream=True)
         url = f"{self.url}/{self.id}".replace("api/v1/execute", "api/v2/execute")
+        logging.debug(f"Model Run Stream: Start service for {url} - {payload}")
         return call_stream_endpoint(payload=payload, url=url, api_key=self.api_key)
 
     def run(

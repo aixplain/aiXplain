@@ -149,7 +149,7 @@ class LLM(Model):
         payload = build_payload(data=data, parameters=parameters)
         logging.info(payload)
         url = f"{self.url}/{self.id}".replace("/api/v1/execute", "/api/v2/execute")
-        logging.debug(f"Model Run Sync: Start service for {name} - {url}")
+        logging.debug(f"Model Run Sync: Start service for {name} - {url} - {payload}")
         response = call_run_endpoint(payload=payload, url=url, api_key=self.api_key)
         if response["status"] == "IN_PROGRESS":
             try:
