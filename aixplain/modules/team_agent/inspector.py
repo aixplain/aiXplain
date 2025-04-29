@@ -32,6 +32,9 @@ class InspectorAuto(str, Enum):
 
     CORRECTNESS = "correctness"
 
+    def get_name(self) -> Text:
+        return "inspector_" + self.value
+
 
 class InspectorPolicy(str, Enum):
     """Which action to take if the inspector gives negative feedback."""

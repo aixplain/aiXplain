@@ -16,7 +16,7 @@ from urllib.parse import urljoin
 
 from aixplain.enums.asset_status import AssetStatus
 from aixplain.enums.function import Function
-from aixplain.modules.team_agent.inspector import Inspector, InspectorPolicy
+from aixplain.modules.team_agent.inspector import Inspector, InspectorPolicy, InspectorAuto
 from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
 
@@ -75,4 +75,24 @@ class InspectorFactory:
             policy=policy,
         )
 
-    # TODO: add create method for basic inspector
+    @classmethod
+    def create_auto(
+        cls,
+        auto: InspectorAuto,
+        name: Optional[Text] = None,
+        policy: InspectorPolicy = InspectorPolicy.ADAPTIVE,
+    ) -> Inspector:
+        """Create a new inspector agent from an automatically configured inspector.
+
+        Args:
+            auto: The automatically configured inspector.
+            policy: Action to take upon negative feedback (WARN/ABORT/ADAPTIVE). Defaults to ADAPTIVE.
+
+        Returns:
+            Inspector: The created inspector.
+        """
+        return Inspector(
+            name=name or auto.get_name(),
+            auto=auto,
+            policy=policy,
+        )
