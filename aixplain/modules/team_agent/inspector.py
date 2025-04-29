@@ -27,6 +27,9 @@ from pydantic import field_validator
 from aixplain.modules.agent.model_with_params import ModelWithParams
 
 
+AUTO_DEFAULT_MODEL_ID = "67fd9e2bef0365783d06e2f0"  # GPT-4.1 Nano
+
+
 class InspectorAuto(str, Enum):
     """A list of keywords for inspectors configured automatically in the backend."""
 
@@ -60,6 +63,11 @@ class Inspector(ModelWithParams):
     model_params: Optional[Dict] = None
     auto: Optional[InspectorAuto] = None
     policy: InspectorPolicy = InspectorPolicy.ADAPTIVE
+
+    def __init__(self, *args, **kwargs):
+        if kwargs.get("auto"):
+            kwargs["model_id"] = AUTO_DEFAULT_MODEL_ID
+        super().__init__(*args, **kwargs)
 
     @field_validator("name")
     def validate_name(cls, v: Text) -> Text:
