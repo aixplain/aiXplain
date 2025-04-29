@@ -1,5 +1,6 @@
 import requests_mock
 from aixplain.enums import DataType, Function, ResponseStatus, StorageType, EmbeddingModel
+from aixplain.factories.index_factory import IndexFactory
 from aixplain.modules.model.record import Record
 from aixplain.modules.model.response import ModelResponse
 from aixplain.modules.model.index_model import IndexModel
@@ -123,16 +124,20 @@ def test_count_success():
 
 
 def test_get_document_success():
-    mock_response = {"status": "SUCCESS", "data": {"value": "Sample document content 1", "value_type": "text", "id": 0, "uri": "", "attributes": {}}}
+    mock_response = {
+        "status": "SUCCESS",
+        "data": {"value": "Sample document content 1", "value_type": "text", "id": 0, "uri": "", "attributes": {}},
+    }
     mock_documents = [Record(value="Sample document content 1", value_type="text", id=0, uri="", attributes={})]
     with requests_mock.Mocker() as mock:
         mock.post(execute_url, json=mock_response, status_code=200)
         index_model = IndexModel(id=index_id, data=data, name="name", function=Function.SEARCH)
         index_model.upsert(mock_documents)
-        response = index_model.get_document(0)
+        response = index_model.get_record(0)
 
     assert isinstance(response, ModelResponse)
     assert response.status == ResponseStatus.SUCCESS
+
 
 def test_delete_document_success():
     mock_response = {"status": "SUCCESS"}
@@ -142,7 +147,7 @@ def test_delete_document_success():
         mock.post(execute_url, json=mock_response, status_code=200)
         index_model = IndexModel(id=index_id, data=data, name="name", function=Function.SEARCH)
         index_model.upsert(mock_documents)
-        response = index_model.delete_document("0")
+        response = index_model.delete_record("0")
 
     assert isinstance(response, ModelResponse)
     assert response.status == ResponseStatus.SUCCESS
@@ -209,3 +214,31 @@ def test_index_filter():
     assert filter.field == "category"
     assert filter.value == "world"
     assert filter.operator == IndexFilterOperator.EQUALS
+
+
+def test_index_factory_create_failure():
+    from aixplain.factories.index_factory.utils import AirParams
+
+    with pytest.raises(Exception) as e:
+        IndexFactory.create(
+            name="test",
+            description="test",
+            embedding_model=EmbeddingModel.OPENAI_ADA002,
+            params=AirParams(name="test", description="test", embedding_model=EmbeddingModel.OPENAI_ADA002),
+        )
+    assert (
+        str(e.value)
+        == "Index Factory Exception: name, description, and embedding_model must not be provided when params is provided"
+    )
+
+    with pytest.raises(Exception) as e:
+        IndexFactory.create(description="test")
+    assert str(e.value) == "Index Factory Exception: name, description, and embedding_model must be provided when params is not"
+
+    with pytest.raises(Exception) as e:
+        IndexFactory.create(name="test")
+    assert str(e.value) == "Index Factory Exception: name, description, and embedding_model must be provided when params is not"
+
+    with pytest.raises(Exception) as e:
+        IndexFactory.create(name="test", description="test", embedding_model=None)
+    assert str(e.value) == "Index Factory Exception: name, description, and embedding_model must be provided when params is not"
