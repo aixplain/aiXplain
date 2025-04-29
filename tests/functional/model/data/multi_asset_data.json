@@ -12,6 +12,6 @@
     "speech-recognition": {
         "input": "data/test_audio.mp3",
         "model_ids": ["60ddefab8d38c51c5885ee38", "60ddefab8d38c51c5885ee38"],
-        "output_keyword": "scored."
+        "output_keyword": "scored"
     }
 }

@@ -1,6 +1,5 @@
 __author__ = "thiagocastroferreira"
 
-
 from aixplain.enums import Function
 from aixplain.factories import ModelFactory
 from aixplain.modules import LLM
@@ -19,7 +18,7 @@ def get_llm_models(number_of_models: int = 5):
     
     # Get predefined models
     predefined_models = []
-    for predefined_model in ["Groq Llama 3 70B", "Chat GPT 3.5", "GPT-4"]:
+    for predefined_model in ["Llama 3.2 1B Instruct", "Chat GPT 3.5", "GPT-4", "GPT-4o Mini", "GPT-4.1 Nano"]:
         predefined_models.extend([
             m for m in ModelFactory.list(query=predefined_model, function=Function.TEXT_GENERATION)["results"]
             if m.name == predefined_model and "aiXplain-testing" not in str(m.supplier)
@@ -46,13 +45,17 @@ def fetch_multi_asset_parameters(return_in_order: bool = True):
     for function, function_data in items:
         selected_model = random.choice(function_data["model_ids"])
         input_data = function_data["input"]
+        if "speech-recognition" in function:
+            input_data = Path(__file__).parent / input_data
+            input_data = input_data.resolve()
+            input_data = str(input_data)
         output_keyword = function_data["output_keyword"]
 
         yield function, selected_model, input_data, output_keyword
 
 
 
-@pytest.mark.parametrize("llm_model", get_llm_models())
+@pytest.mark.parametrize("llm_model", get_llm_models(number_of_models=3), ids=lambda model: f"{model.name.replace(' ', '_')}({model.id})")
 def test_llm_name_response(llm_model):
     """Testing LLMs with history context"""
 
