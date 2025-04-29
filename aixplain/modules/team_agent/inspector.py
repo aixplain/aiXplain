@@ -27,6 +27,12 @@ from pydantic import field_validator
 from aixplain.modules.agent.model_with_params import ModelWithParams
 
 
+class InspectorAuto(str, Enum):
+    """A list of keywords for inspectors configured automatically in the backend."""
+
+    CORRECTNESS = "correctness"
+
+
 class InspectorPolicy(str, Enum):
     """Which action to take if the inspector gives negative feedback."""
 
@@ -49,6 +55,7 @@ class Inspector(ModelWithParams):
 
     name: Text
     model_params: Optional[Dict] = None
+    auto: Optional[InspectorAuto] = None
     policy: InspectorPolicy = InspectorPolicy.ADAPTIVE
 
     @field_validator("name")
