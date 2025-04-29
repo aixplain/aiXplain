@@ -36,6 +36,9 @@ class AgentResponseData:
             "execution_stats": self.execution_stats,
         }
 
+    def get(self, key: str, default: Optional[Any] = None) -> Any:
+        return getattr(self, key, default)
+
     def __getitem__(self, key):
         return getattr(self, key, None)
 
