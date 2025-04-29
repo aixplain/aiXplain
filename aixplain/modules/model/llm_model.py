@@ -25,7 +25,7 @@ import logging
 import traceback
 from aixplain.enums import Function, Supplier
 from aixplain.modules.model import Model
-from aixplain.modules.model.model_streamer import ModelStreamer
+from aixplain.modules.model.model_response_streamer import ModelResponseStreamer
 from aixplain.modules.model.utils import build_payload, call_run_endpoint
 from aixplain.utils import config
 from typing import Union, Optional, List, Text, Dict
@@ -110,7 +110,7 @@ class LLM(Model):
         parameters: Optional[Dict] = None,
         wait_time: float = 0.5,
         stream: bool = False,
-    ) -> Union[ModelResponse, ModelStreamer]:
+    ) -> Union[ModelResponse, ModelResponseStreamer]:
         """Synchronously running a Large Language Model (LLM) model.
 
         Args:

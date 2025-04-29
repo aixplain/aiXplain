@@ -3,7 +3,6 @@ __author__ = "thiagocastroferreira"
 import json
 import logging
 from aixplain.utils.file_utils import _request_with_retry
-from aixplain.modules.model.model_streamer import ModelStreamer
 from typing import Callable, Dict, List, Text, Tuple, Union, Optional
 
 
@@ -34,12 +33,6 @@ def build_payload(data: Union[Text, Dict], parameters: Optional[Dict] = None, st
     payload.update(parameters)
     payload = json.dumps(payload)
     return payload
-
-
-def call_stream_endpoint(url: Text, api_key: Text, payload: Dict) -> ModelStreamer:
-    headers = {"x-api-key": api_key, "Content-Type": "application/json"}
-    r = _request_with_retry("post", url, headers=headers, data=payload, stream=True)
-    return ModelStreamer(r.iter_lines(decode_unicode=True))
 
 
 def call_run_endpoint(url: Text, api_key: Text, payload: Dict) -> Dict:
