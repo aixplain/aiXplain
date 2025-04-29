@@ -88,3 +88,29 @@ def test_create_and_run(run_input_map, BenchmarkFactory):
 #     assert job_status in ["in_progress", "completed"]
 #     df = benchmark_job.download_results_as_csv(return_dataframe=True)
 #     assert type(df) is pd.DataFrame
+
+@pytest.mark.parametrize("BenchmarkFactory", [BenchmarkFactory, v2.Benchmark])
+def test_add_assets(run_input_map, BenchmarkFactory):
+    model_list = [ModelFactory.get(model_id) for model_id in run_input_map["model_ids"]]
+    dataset_list = [DatasetFactory.list(query=dataset_name)["results"][0] for dataset_name in run_input_map["dataset_names"]]
+    metric_list = [MetricFactory.get(metric_id) for metric_id in run_input_map["metric_ids"]]
+
+    model_list_init = [model_list[0]]
+    model_list_later = [model_list[1]]
+    metric_list_init = [metric_list[0]]
+    metric_list_later = [metric_list[1]]
+    
+    benchmark = BenchmarkFactory.create(f"SDK Benchmark Test {uuid.uuid4()}", dataset_list, model_list_init, metric_list_init)
+    assert type(benchmark) is Benchmark, "Couldn't create benchmark"
+    benchmark_job = benchmark.start()
+    assert type(benchmark_job) is BenchmarkJob, "Couldn't start job"
+    assert is_job_finshed(benchmark_job), "Job did not finish in time"
+    assert_correct_results(benchmark_job)
+
+    benchmark_job.add_models_to_job(model_list_later)
+    assert is_job_finshed(benchmark_job), "Job add model did not finish in time"
+    assert_correct_results(benchmark_job)
+
+    benchmark_job.add_metrics_to_job(metric_list_later)
+    assert is_job_finshed(benchmark_job), "Job add metric did not finish in time"
+    assert_correct_results(benchmark_job)
