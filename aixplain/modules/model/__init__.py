@@ -199,6 +199,7 @@ class Model(Asset):
                     status = ResponseStatus.FAILED
             else:
                 status = ResponseStatus.IN_PROGRESS
+
             logging.debug(f"Single Poll for Model: Status of polling for {name}: {resp}")
             return ModelResponse(
                 status=resp.pop("status", status),
@@ -209,6 +210,7 @@ class Model(Asset):
                 used_credits=resp.pop("usedCredits", 0),
                 run_time=resp.pop("runTime", 0),
                 usage=resp.pop("usage", None),
+                error_code=resp.get("error_code", ""),
                 **resp,
             )
         except Exception as e:
