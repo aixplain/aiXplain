@@ -28,8 +28,5 @@ class EmbeddingModel(str, Enum):
     MULTILINGUAL_E5_LARGE = "67efd0772a0a850afa045af3"
     BGE_M3 = "67f401032a0a850afa045b19"
 
-
-    
-
     def __str__(self):
         return self._value_
