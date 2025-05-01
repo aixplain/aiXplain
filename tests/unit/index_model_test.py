@@ -243,12 +243,12 @@ def test_index_factory_create_failure():
         IndexFactory.create(name="test", description="test", embedding_model=None)
     assert str(e.value) == "Index Factory Exception: name, description, and embedding_model must be provided when params is not"
 
+
 def test_index_model_splitter():
     from aixplain.modules.model.index_model import Splitter
+
     splitter = Splitter(split=True, split_by="sentence", split_length=100, split_overlap=0)
     assert splitter.split == True
     assert splitter.split_by == "sentence"
     assert splitter.split_length == 100
     assert splitter.split_overlap == 0
-
-

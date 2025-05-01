@@ -148,14 +148,10 @@ class Link(Serializable):
             to_param = to_param.code
 
         assert from_param in from_node.outputs, (
-            "Invalid from param. "
-            "Make sure all input params are already linked accordingly"
+            "Invalid from param. " "Make sure all input params are already linked accordingly"
         )
 
-        assert to_param in to_node.inputs, (
-            "Invalid to param. "
-            "Make sure all output params are already linked accordingly"
-        )
+        assert to_param in to_node.inputs, "Invalid to param. " "Make sure all output params are already linked accordingly"
 
         tp_instance = to_node.inputs[to_param]
         fp_instance = from_node.outputs[from_param]
@@ -203,9 +199,7 @@ class Link(Serializable):
         # Should we check for data type mismatch?
         if from_param.data_type and to_param.data_type:
             if from_param.data_type != to_param.data_type:
-                raise ValueError(
-                    f"Data type mismatch between {from_param.data_type} and {to_param.data_type}"
-                )  # noqa
+                raise ValueError(f"Data type mismatch between {from_param.data_type} and {to_param.data_type}")  # noqa
 
     def attach_to(self, pipeline: "DesignerPipeline"):
         """
@@ -258,9 +252,7 @@ class ParamProxy(Serializable):
         if not hasattr(self, param.code):
             setattr(self, param.code, param)
 
-    def _create_param(
-        self, code: str, data_type: DataType = None, value: any = None
-    ) -> Param:
+    def _create_param(self, code: str, data_type: DataType = None, value: any = None) -> Param:
         raise NotImplementedError()
 
     def create_param(
@@ -304,10 +296,7 @@ class ParamProxy(Serializable):
         if not isinstance(self.node, AssetNode):
             return
 
-        if (
-            not hasattr(self.node, "asset")
-            or self.node.asset.function != "text-generation"
-        ):
+        if not hasattr(self.node, "asset") or self.node.asset.function != "text-generation":
             return
 
         matches = find_prompt_params(value)
@@ -361,9 +350,7 @@ class Inputs(ParamProxy):
 
 
 class Outputs(ParamProxy):
-    def _create_param(
-        self, code: str, data_type: DataType = None, value: any = None
-    ) -> OutputParam:
+    def _create_param(self, code: str, data_type: DataType = None, value: any = None) -> OutputParam:
         return OutputParam(code=code, data_type=data_type, value=value)
 
 
