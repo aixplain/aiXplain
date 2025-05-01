@@ -61,9 +61,7 @@ class APIKey(
         return APIKeyFactory.update(api_key)
 
     @classmethod
-    def get_usage_limits(
-        cls, api_key: Text = None, asset_id: Optional[Text] = None
-    ) -> List["APIKeyUsageLimit"]:
+    def get_usage_limits(cls, api_key: Text = None, asset_id: Optional[Text] = None) -> List["APIKeyUsageLimit"]:
         from aixplain.factories import APIKeyFactory
         from aixplain.utils import config
 

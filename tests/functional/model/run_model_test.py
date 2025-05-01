@@ -291,7 +291,37 @@ def test_index_model_air_with_image():
 
     index_model.delete()
 
-    import os
 
-    if os.path.exists("hurricane.jpeg"):
-        os.remove("hurricane.jpeg")
+@pytest.mark.parametrize(
+    "embedding_model,supplier_params",
+    [
+        pytest.param(EmbeddingModel.OPENAI_ADA002, AirParams, id="OpenAI Ada 002"),
+        pytest.param(EmbeddingModel.SNOWFLAKE_ARCTIC_EMBED_M_LONG, AirParams, id="Snowflake Arctic Embed M Long"),
+        pytest.param(EmbeddingModel.SNOWFLAKE_ARCTIC_EMBED_L_V2_0, AirParams, id="Snowflake Arctic Embed L v2.0"),
+        pytest.param(EmbeddingModel.JINA_CLIP_V2_MULTIMODAL, AirParams, id="Jina Clip v2 Multimodal"),
+        pytest.param(EmbeddingModel.MULTILINGUAL_E5_LARGE, AirParams, id="Multilingual E5 Large"),
+        pytest.param(EmbeddingModel.BGE_M3, AirParams, id="BGE M3"),
+    ],
+)
+def test_index_model_air_with_splitter(embedding_model, supplier_params):
+    from aixplain.factories import IndexFactory
+    from aixplain.modules.model.record import Record
+    from uuid import uuid4
+    from aixplain.modules.model.index_model import Splitter
+
+    for index in IndexFactory.list()["results"]:
+        index.delete()
+
+    params = supplier_params(name=f"Splitter Index {uuid4()}", description="Index for splitter", embedding_model=embedding_model)
+    index_model = IndexFactory.create(params=params)
+    index_model.upsert(
+        [Record(value="Berlin is the capital of Germany.", value_type="text", uri="", id="1", attributes={})],
+        splitter=Splitter(split=True, split_by="word", split_length=1, split_overlap=0),
+    )
+    response = index_model.count()
+    assert str(response.status) == "SUCCESS"
+    assert response.data == 6
+    response = index_model.search("berlin")
+    assert str(response.status) == "SUCCESS"
+    assert "berlin" in response.data.lower()
+    index_model.delete()

@@ -41,12 +41,14 @@ class IndexFilter:
             "operator": self.operator.value if isinstance(self.operator, IndexFilterOperator) else self.operator,
         }
 
+
 class Splitter:
     def __init__(self, split: bool, split_by: str, split_length: int, split_overlap: int):
         self.split = split
         self.split_by = split_by
         self.split_length = split_length
         self.split_overlap = split_overlap
+
 
 
 
@@ -170,15 +172,19 @@ class IndexModel(Model):
         # Convert documents to payloads
         payloads = [doc.to_dict() for doc in documents]
         # Build payload
+        data = {
+            "action": "ingest",
+            "data": payloads,
+        }
         if splitter and splitter.split:
-            payloads = {
-                "payloads" : payloads,
-                "split": splitter.split,
-                "split_by": splitter.split_by,
-                "split_length": splitter.split_length,
-                "split_overlap": splitter.split_overlap,
+            data["additional_params"] = {
+                "splitter": {
+                    "split": splitter.split,
+                    "split_by": splitter.split_by,
+                    "split_length": splitter.split_length,
+                    "split_overlap": splitter.split_overlap,
+                }
             }
-        data = {"action": "ingest", "data": payloads}
         # Run the indexing service
         response = self.run(data=data)
         if response.status == ResponseStatus.SUCCESS:
