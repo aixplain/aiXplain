@@ -51,21 +51,9 @@ class PipelineTool(Tool):
         name = name or ""
         super().__init__(name=name, description=description, **additional_info)
 
-        status = AssetStatus.DRAFT
-        if isinstance(pipeline, Pipeline):
-            pipeline_id = pipeline.id
-            status = pipeline.status
-        else:
-            # get pipeline from id
-            try:
-                pipeline_obj = self._get_pipeline(pipeline)
-                pipeline_id = pipeline_obj.id
-                status = pipeline_obj.status
-            except Exception:
-                raise Exception(f"Pipeline Tool Unavailable. Make sure Pipeline '{pipeline}' exists or you have access to it.")
-
-        self.pipeline = pipeline_id
-        self.status = status
+        self.status = AssetStatus.DRAFT
+        self.pipeline = pipeline
+        self.validate()
 
     def to_dict(self):
         return {
@@ -76,14 +64,22 @@ class PipelineTool(Tool):
             "status": self.status,
         }
 
-    def _get_pipeline(self, pipeline_id: Text = None):
-        from aixplain.factories.pipeline_factory import PipelineFactory
-
-        pipeline_id = pipeline_id or self.pipeline
-        return PipelineFactory.get(pipeline_id, api_key=self.api_key)
+    def __repr__(self) -> Text:
+        return f"PipelineTool(name={self.name}, pipeline={self.pipeline})"
 
     def validate(self):
-        try:
-            self._get_pipeline()
-        except Exception:
-            raise Exception(f"Pipeline Tool Unavailable. Make sure Pipeline '{self.pipeline}' exists or you have access to it.")
+        from aixplain.factories.pipeline_factory import PipelineFactory
+
+        if isinstance(self.pipeline, Pipeline):
+            pipeline_obj = self.pipeline
+        else:
+            try:
+                pipeline_obj = PipelineFactory.get(self.pipeline, api_key=self.api_key)
+            except Exception:
+                raise Exception(
+                    f"Pipeline Tool Unavailable. Make sure Pipeline '{self.pipeline}' exists or you have access to it."
+                )
+
+        if self.name.strip() == "":
+            self.name = pipeline_obj.name
+        self.status = pipeline_obj.status

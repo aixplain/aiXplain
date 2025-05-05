@@ -23,6 +23,7 @@ Description:
 
 from aixplain.modules.agent.tool import Tool
 from aixplain.enums import AssetStatus
+from typing import Text
 
 
 class PythonInterpreterTool(Tool):
@@ -43,3 +44,6 @@ class PythonInterpreterTool(Tool):
 
     def validate(self):
         pass
+
+    def __repr__(self) -> Text:
+        return "PythonInterpreterTool()"

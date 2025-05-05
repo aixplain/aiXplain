@@ -259,17 +259,18 @@ class SQLTool(Tool):
 
     def __init__(
         self,
+        name: Text,
         description: Text,
         database: Text,
         schema: Optional[Text] = None,
         tables: Optional[Union[List[Text], Text]] = None,
         enable_commit: bool = False,
-        name: Optional[Text] = None,
         **additional_info,
     ) -> None:
         """Tool to execute SQL query commands in an SQLite database.
 
         Args:
+            name (Text): name of the tool
             description (Text): description of the tool
             database (Text): database uri
             schema (Optional[Text]): database schema description
@@ -277,7 +278,6 @@ class SQLTool(Tool):
             enable_commit (bool): enable to modify the database (optional)
         """
 
-        name = name or ""
         super().__init__(name=name, description=description, **additional_info)
 
         self.database = database

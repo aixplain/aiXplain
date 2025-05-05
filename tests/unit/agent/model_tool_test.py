@@ -64,7 +64,7 @@ def test_init_with_supplier_dict():
 
     with patch("aixplain.modules.agent.tool.model_tool.Supplier") as mock_supplier:
         # Create a mock for the Supplier enum
-        mock_supplier.AIXPLAIN = type("MockSupplier", (), {"value": mock_enum["AIXPLAIN"]})()
+        mock_supplier.AIXPLAIN = type("MockSupplier", (), {"value": mock_enum["AIXPLAIN"], "name": "aiXplain"})()
         mock_supplier.return_value = mock_supplier.AIXPLAIN
 
         tool = ModelTool(function=Function.TRANSLATION, supplier=supplier_dict)
@@ -87,8 +87,11 @@ def test_init_validation_errors(error_case, expected_error, expected_message):
         error_case()
 
 
-def test_to_dict(mock_model, mock_model_factory):
+def test_to_dict(mocker, mock_model, mock_model_factory):
     mock_model_factory.get.return_value = mock_model
+
+    mocker.patch("aixplain.modules.agent.tool.model_tool.set_tool_name", return_value="test_tool_name")
+
     tool = ModelTool(
         model="test_model_id",
         description="Test description",
@@ -98,7 +101,7 @@ def test_to_dict(mock_model, mock_model_factory):
     expected = {
         "function": mock_model.function.value,
         "type": "model",
-        "name": "",
+        "name": "test_tool_name",
         "description": "Test description",
         "supplier": mock_model.supplier.value["code"],
         "version": None,
@@ -173,9 +176,9 @@ def test_validate_parameters(mocker, mock_model, params, expected_result, error_
     "tool_name,expected_name",
     [
         ("custom_tool", "custom_tool"),
-        ("", ""),  # Test empty name
+        ("", "translation-aixplain-test_model"),  # Test empty name
         ("translation_model", "translation_model"),
-        (None, ""),  # Test None value should default to empty string
+        (None, "translation-aixplain-test_model"),  # Test None value should default to empty string
     ],
 )
 def test_tool_name(mock_model, mock_model_factory, tool_name, expected_name):

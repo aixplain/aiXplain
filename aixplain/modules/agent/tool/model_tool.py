@@ -27,6 +27,30 @@ from aixplain.modules.agent.tool import Tool
 from aixplain.modules.model import Model
 
 
+def set_tool_name(function: Function, supplier: Supplier = None, model: Model = None) -> Text:
+    """Sets the name of the tool based on the function, supplier, and model.
+
+    Args:
+        function (Function): The function to be used in the tool.
+        supplier (Supplier): The supplier to be used in the tool.
+        model (Model): The model to be used in the tool.
+
+    Returns:
+        Text: The name of the tool.
+    """
+    function_name = function.value.lower().replace(" ", "_")
+    tool_name = f"{function_name}"
+
+    if supplier is not None:
+        supplier_name = supplier.name.lower().replace(" ", "_")
+        tool_name += f"-{supplier_name}"
+
+    if model is not None and supplier is not None:
+        model_name = model.name.lower().replace(" ", "_")
+        tool_name += f"-{model_name}"
+    return tool_name
+
+
 class ModelTool(Tool):
     """Specialized software or resource designed to assist the AI in executing specific tasks or functions based on user commands.
 
@@ -156,6 +180,8 @@ class ModelTool(Tool):
 
         self.parameters = self.validate_parameters(self.parameters)
 
+        self.name = self.name if self.name else set_tool_name(self.function, self.supplier, self.model)
+
     def get_parameters(self) -> Dict:
         # If parameters were not explicitly provided, get them from the model
         if (
@@ -226,3 +252,8 @@ class ModelTool(Tool):
             raise ValueError(f"Invalid parameters provided: {invalid_params}. Expected parameters are: {expected_param_names}")
 
         return received_parameters
+
+    def __repr__(self) -> Text:
+        supplier_str = self.supplier.value if self.supplier is not None else None
+        model_str = self.model.id if self.model is not None else None
+        return f"ModelTool(name={self.name}, function={self.function}, supplier={supplier_str}, model={model_str})"

@@ -20,7 +20,7 @@ Description:
 from enum import Enum
 
 
-class EmbeddingModel(Enum):
+class EmbeddingModel(str, Enum):
     SNOWFLAKE_ARCTIC_EMBED_M_LONG = "6658d40729985c2cf72f42ec"
     OPENAI_ADA002 = "6734c55df127847059324d9e"
     SNOWFLAKE_ARCTIC_EMBED_L_V2_0 = "678a4f8547f687504744960a"

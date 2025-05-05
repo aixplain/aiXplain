@@ -815,3 +815,47 @@ def test_pipeline_special_prompt_validation():
 def test_find_prompt_params(input, expected):
     print(input, expected)
     assert find_prompt_params(input) == expected
+
+
+def test_pipeline_serialize():
+    pipeline = DesignerPipeline()
+
+    # Create nodes
+    class AssetNode(Node, LinkableMixin):
+        type: NodeType = NodeType.ASSET
+
+    node1 = AssetNode(pipeline=pipeline)
+    node2 = AssetNode(pipeline=pipeline)
+
+    # Create multiple parameters for each node
+    node1.outputs.create_param("output1", DataType.TEXT, "foo1")
+    node1.outputs.create_param("output2", DataType.TEXT, "foo2")
+    node2.inputs.create_param("input1", DataType.TEXT, "bar1")
+    node2.inputs.create_param("input2", DataType.TEXT, "bar2")
+
+    # Create multiple links between the same nodes
+    link1 = Link(
+        from_node=node1,
+        to_node=node2,
+        from_param="output1",
+        to_param="input1",
+    )
+    pipeline.add_link(link1)
+
+    link2 = Link(
+        from_node=node1,
+        to_node=node2,
+        from_param="output2",
+        to_param="input2"
+    )
+    pipeline.add_link(link2)
+
+    serialized = pipeline.serialize()
+
+    # Verify pipeline serialization
+    assert len(serialized["links"]) == 1
+    assert len(serialized["links"][0]["paramMapping"]) == 2
+    assert {"from": "output1", "to": "input1"} in serialized["links"][0]["paramMapping"]
+    assert {"from": "output2", "to": "input2"} in serialized["links"][0]["paramMapping"]
+    assert serialized["nodes"][0] == node1.serialize()
+    assert serialized["nodes"][1] == node2.serialize()
