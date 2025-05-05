@@ -1,3 +1,4 @@
+import json
 from typing import Iterator
 
 from aixplain.modules.model.response import ModelResponse, ResponseStatus
@@ -13,7 +14,12 @@ class ModelResponseStreamer:
         """
         Returns the next chunk of the response.
         """
-        content = next(self.iterator).replace("data: ", "")
+        line = next(self.iterator).replace("data: ", "")
+        try:
+            data = json.loads(line)
+        except json.JSONDecodeError:
+            data = {"data": line}
+        content = data.get("data", "")
         if content == "[DONE]":
             self.status = ResponseStatus.SUCCESS
             content = ""
