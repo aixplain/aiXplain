@@ -4,7 +4,7 @@ import json
 import logging
 from aixplain.utils.file_utils import _request_with_retry
 from typing import Callable, Dict, List, Text, Tuple, Union, Optional
-from aixplain.exceptions.registry import get_error_from_status_code
+from aixplain.exceptions import get_error_from_status_code
 
 
 def build_payload(data: Union[Text, Dict], parameters: Optional[Dict] = None):

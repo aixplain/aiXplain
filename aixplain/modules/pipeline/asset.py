@@ -33,7 +33,7 @@ from aixplain.utils.request_utils import _request_with_retry
 from typing import Dict, Optional, Text, Union
 from urllib.parse import urljoin
 from aixplain.modules.pipeline.response import PipelineResponse
-from aixplain.exceptions.registry import get_error_from_status_code
+from aixplain.exceptions import get_error_from_status_code
 
 
 class Pipeline(Asset):
