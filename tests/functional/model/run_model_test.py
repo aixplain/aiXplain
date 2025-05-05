@@ -1,5 +1,7 @@
 __author__ = "thiagocastroferreira"
 
+import os
+import logging
 import pytest
 import requests
 
@@ -10,6 +12,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from aixplain.factories.index_factory.utils import AirParams, VectaraParams, GraphRAGParams, ZeroEntropyParams
 
+logger = logging.getLogger(__name__)
 
 def pytest_generate_tests(metafunc):
     if "llm_model" in metafunc.fixturenames:
@@ -237,3 +240,48 @@ def test_index_model_air_with_image():
     assert "hurricane" in second_record.lower()
 
     index_model.delete()
+
+
+def test_clone_model():
+    from aixplain.factories import ModelFactory
+    from aixplain.modules.model import Model
+
+    # Create a test model
+    source_model = ModelFactory.get("6646261c6eb563165658bbb1")  # OpenAI GPT-4o
+    test_api_key = os.getenv("OPENAI_KEY")
+
+    # Clone the test model
+    cloned_model = source_model.clone(test_api_key or "test-api-key")
+
+    try:
+        # Verify the cloned model
+        assert isinstance(cloned_model, Model)
+        assert cloned_model.name == source_model.name
+        assert cloned_model.description == source_model.description
+        assert cloned_model.function == source_model.function
+
+    finally:
+        # Clean up
+        if cloned_model:
+            cloned_model.delete()
+
+    cloned_model_2 = source_model.clone("test-api-key", name="Cloned Model")
+
+    try:
+        # Verify the cloned model
+        assert isinstance(cloned_model_2, Model)
+        assert cloned_model_2.name == "Cloned Model"
+        assert cloned_model_2.description == source_model.description
+        assert cloned_model_2.function == source_model.function
+
+        # run the cloned model if the api key is provided
+        if test_api_key:
+            response = cloned_model_2.run("What is the capital of the moon?")
+            assert response["status"] == "SUCCESS"
+        else:
+            logger.warning("Skipping test for running a cloned model as no API key is provided")
+
+    finally:
+        # Clean up
+        if cloned_model_2:
+            cloned_model_2.delete()
