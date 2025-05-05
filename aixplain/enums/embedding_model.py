@@ -27,7 +27,7 @@ class EmbeddingModel(str, Enum):
     JINA_CLIP_V2_MULTIMODAL = "67c5f705d8f6a65d6f74d732"
     MULTILINGUAL_E5_LARGE = "67efd0772a0a850afa045af3"
     BGE_M3 = "67f401032a0a850afa045b19"
-    BGE_FINETUNED = "681254b668e47e7844c1f15a"
+    AIXPLAIN_LEGAL_EMBEDDINGS = "681254b668e47e7844c1f15a"
 
     def __str__(self):
         return self._value_
