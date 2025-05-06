@@ -121,17 +121,17 @@ def test_failed_poll():
         ),
         (
             475,
-            "Billing-related error: Please ensure you have enough credits to run this model. Details: An unspecified error occurred while processing your request.",
+            "Billing-related error: Please ensure you have enough credits to run this asset. Details: An unspecified error occurred while processing your request.",
         ),
         (
             485,
-            "Supplier-related error: Please ensure that the selected supplier provides the model you are trying to access. Details: An unspecified error occurred while processing your request.",
+            "Supplier-related error: Please ensure that the selected supplier provides the asset you are trying to access. Details: An unspecified error occurred while processing your request.",
         ),
         (
             495,
-            "An unspecified error occurred while processing your request.",
+            "Validation-related error: Please verify the request payload and ensure it is correct. Details: An unspecified error occurred while processing your request.",
         ),
-        (501, "Status 501 - Unspecified error: An unspecified error occurred while processing your request."),
+        (501, "Unspecified Server Error (Status 501) Details: An unspecified error occurred while processing your request."),
     ],
 )
 def test_run_async_errors(status_code, error_message):

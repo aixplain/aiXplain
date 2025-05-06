@@ -1,6 +1,6 @@
 import logging
 from aixplain.utils import config
-from aixplain.utils.file_utils import _request_with_retry
+from aixplain.utils.request_utils import _request_with_retry
 from aixplain.modules import Model
 from datetime import datetime
 from typing import Dict, List, Optional, Text, Union

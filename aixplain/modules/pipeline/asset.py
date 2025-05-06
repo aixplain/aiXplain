@@ -29,10 +29,11 @@ from aixplain.enums.asset_status import AssetStatus
 from aixplain.enums.response_status import ResponseStatus
 from aixplain.modules.asset import Asset
 from aixplain.utils import config
-from aixplain.utils.file_utils import _request_with_retry
+from aixplain.utils.request_utils import _request_with_retry
 from typing import Dict, Optional, Text, Union
 from urllib.parse import urljoin
 from aixplain.modules.pipeline.response import PipelineResponse
+from aixplain.exceptions import get_error_from_status_code
 
 
 class Pipeline(Asset):
@@ -410,33 +411,20 @@ class Pipeline(Asset):
                 return res
 
             else:
-                if r.status_code == 401:
-                    error = "Unauthorized API key: Please verify the spelling of the API key and its current validity."
-                elif 460 <= r.status_code < 470:
-                    error = "Subscription-related error: Please ensure that your subscription is active and has not expired."
-                elif 470 <= r.status_code < 480:
-                    error = "Billing-related error: Please ensure you have enough credits to run this pipeline. "
-                elif 480 <= r.status_code < 490:
-                    error = "Supplier-related error: Please ensure that the selected supplier provides the pipeline you are trying to access."
-                elif 490 <= r.status_code < 500:
-                    error = "Validation-related error: Please ensure all required fields are provided and correctly formatted."
-                else:
-                    status_code = str(r.status_code)
-                    error = (
-                        f"Status {status_code}: Unspecified error: An unspecified error occurred while processing your request."
-                    )
+                status_code = r.status_code
+                error = get_error_from_status_code(status_code)
 
                 logging.error(f"Error in request for {name} (Pipeline ID '{self.id}') - {r.status_code}: {error}")
                 if response_version == "v1":
                     return {
                         "status": "failed",
-                        "error": error,
+                        "error": error.message,
                         "elapsed_time": None,
                         **kwargs,
                     }
                 return PipelineResponse(
                     status=ResponseStatus.FAILED,
-                    error={"error": error, "status": "ERROR"},
+                    error={"error": error.message, "status": "ERROR"},
                     elapsed_time=None,
                     **kwargs,
                 )
