@@ -26,8 +26,11 @@ import logging
 import time
 import traceback
 import re
+from enum import Enum
+from typing import Dict, List, Text, Optional, Union
+from urllib.parse import urljoin
 
-from aixplain.utils.file_utils import _request_with_retry
+from aixplain.enums import ResponseStatus
 from aixplain.enums.function import Function
 from aixplain.enums.supplier import Supplier
 from aixplain.enums.asset_status import AssetStatus
@@ -35,13 +38,19 @@ from aixplain.enums.storage_type import StorageType
 from aixplain.modules.model import Model
 from aixplain.modules.agent import Agent, OutputFormat
 from aixplain.modules.agent.agent_response import AgentResponse
-from aixplain.enums import ResponseStatus
+from aixplain.modules.agent.agent_response_data import AgentResponseData
 from aixplain.modules.agent.utils import process_variables
-from typing import Dict, List, Text, Optional, Union
-from urllib.parse import urljoin
-
-
 from aixplain.utils import config
+from aixplain.utils.file_utils import _request_with_retry
+
+
+class InspectorTarget(str, Enum):
+    # TODO: INPUT
+    STEPS = "steps"
+    OUTPUT = "output"
+
+    def __str__(self):
+        return self._value_
 
 
 class TeamAgent(Model):
@@ -76,7 +85,10 @@ class TeamAgent(Model):
         cost: Optional[Dict] = None,
         use_mentalist: bool = True,
         use_inspector: bool = True,
+        max_inspectors: int = 1,
+        inspector_targets: List[InspectorTarget] = [InspectorTarget.STEPS],
         status: AssetStatus = AssetStatus.DRAFT,
+        instructions: Optional[Text] = None,
         **additional_info,
     ) -> None:
         """Create a FineTune with the necessary information.
@@ -85,7 +97,7 @@ class TeamAgent(Model):
             id (Text): ID of the Team Agent
             name (Text): Name of the Team Agent
             agents (List[Agent]): List of agents that the Team Agent uses.
-            description (Text, optional): description of the Team Agent. Defaults to "".
+            description (Text, optional): The description of the team agent to be displayed in the aiXplain platform. Defaults to "".
             llm_id (Text, optional): large language model. Defaults to GPT-4o (6646261c6eb563165658bbb1).
             supplier (Text): Supplier of the Team Agent.
             version (Text): Version of the Team Agent.
@@ -93,6 +105,7 @@ class TeamAgent(Model):
             api_key (str): The TEAM API key used for authentication.
             cost (Dict, optional): model price. Defaults to None.
             use_mentalist_and_inspector (bool): Use Mentalist and Inspector tools. Defaults to True.
+            instructions (Text, optional): The instructions to guide the team agent (i.e. appended in the prompt of the team agent). Defaults to None.
         """
         super().__init__(id, name, description, api_key, supplier, version, cost=cost)
         self.additional_info = additional_info
@@ -100,7 +113,9 @@ class TeamAgent(Model):
         self.llm_id = llm_id
         self.use_mentalist = use_mentalist
         self.use_inspector = use_inspector
-
+        self.max_inspectors = max_inspectors
+        self.inspector_targets = inspector_targets
+        self.instructions = instructions
         if isinstance(status, str):
             try:
                 status = AssetStatus(status)
@@ -123,7 +138,7 @@ class TeamAgent(Model):
         max_tokens: int = 2048,
         max_iterations: int = 30,
         output_format: OutputFormat = OutputFormat.TEXT,
-    ) -> Dict:
+    ) -> AgentResponse:
         """Runs a team agent call.
 
         Args:
@@ -143,6 +158,7 @@ class TeamAgent(Model):
             Dict: parsed output from model
         """
         start = time.time()
+        result_data = {}
         try:
             response = self.run_async(
                 data=data,
@@ -156,16 +172,27 @@ class TeamAgent(Model):
                 max_iterations=max_iterations,
                 output_format=output_format,
             )
-            if response["status"] == "FAILED":
+            if response["status"] == ResponseStatus.FAILED:
                 end = time.time()
                 response["elapsed_time"] = end - start
                 return response
             poll_url = response["url"]
             end = time.time()
-            response = self.sync_poll(
-                poll_url, name=name, timeout=timeout, wait_time=wait_time
+            result = self.sync_poll(poll_url, name=name, timeout=timeout, wait_time=wait_time)
+            result_data = result.data
+            return AgentResponse(
+                status=ResponseStatus.SUCCESS,
+                completed=True,
+                data=AgentResponseData(
+                    input=result_data.get("input"),
+                    output=result_data.get("output"),
+                    session_id=result_data.get("session_id"),
+                    intermediate_steps=result_data.get("intermediate_steps"),
+                    execution_stats=result_data.get("executionStats"),
+                ),
+                used_credits=result_data.get("usedCredits", 0.0),
+                run_time=result_data.get("runTime", end - start),
             )
-            return response
         except Exception as e:
             logging.error(f"Team Agent Run: Error in running for {name}: {e}")
             end = time.time()
@@ -187,7 +214,7 @@ class TeamAgent(Model):
         max_tokens: int = 2048,
         max_iterations: int = 30,
         output_format: OutputFormat = OutputFormat.TEXT,
-    ) -> Dict:
+    ) -> AgentResponse:
         """Runs asynchronously a Team Agent call.
 
         Args:
@@ -207,18 +234,12 @@ class TeamAgent(Model):
         from aixplain.factories.file_factory import FileFactory
 
         if not self.is_valid:
-            raise Exception(
-                "Team Agent is not valid. Please validate the team agent before running."
-            )
+            raise Exception("Team Agent is not valid. Please validate the team agent before running.")
 
-        assert (
-            data is not None or query is not None
-        ), "Either 'data' or 'query' must be provided."
+        assert data is not None or query is not None, "Either 'data' or 'query' must be provided."
         if data is not None:
             if isinstance(data, dict):
-                assert (
-                    "query" in data and data["query"] is not None
-                ), "When providing a dictionary, 'query' must be provided."
+                assert "query" in data and data["query"] is not None, "When providing a dictionary, 'query' must be provided."
                 if session_id is None:
                     session_id = data.pop("session_id", None)
                 if history is None:
@@ -232,8 +253,7 @@ class TeamAgent(Model):
         # process content inputs
         if content is not None:
             assert (
-                isinstance(query, str)
-                and FileFactory.check_storage_type(query) == StorageType.TEXT
+                isinstance(query, str) and FileFactory.check_storage_type(query) == StorageType.TEXT
             ), "When providing 'content', query must be text."
 
             if isinstance(content, list):
@@ -243,9 +263,7 @@ class TeamAgent(Model):
                     query += f"\n{input_link}"
             elif isinstance(content, dict):
                 for key, value in content.items():
-                    assert (
-                        "{{" + key + "}}" in query
-                    ), f"Key '{key}' not found in query."
+                    assert "{{" + key + "}}" in query, f"Key '{key}' not found in query."
                     value = FileFactory.to_link(value)
                     query = query.replace("{{" + key + "}}", f"'{value}'")
 
@@ -260,16 +278,8 @@ class TeamAgent(Model):
             "sessionId": session_id,
             "history": history,
             "executionParams": {
-                "maxTokens": (
-                    parameters["max_tokens"]
-                    if "max_tokens" in parameters
-                    else max_tokens
-                ),
-                "maxIterations": (
-                    parameters["max_iterations"]
-                    if "max_iterations" in parameters
-                    else max_iterations
-                ),
+                "maxTokens": (parameters["max_tokens"] if "max_tokens" in parameters else max_tokens),
+                "maxIterations": (parameters["max_iterations"] if "max_iterations" in parameters else max_iterations),
                 "outputFormat": output_format.value,
             },
         }
@@ -277,9 +287,7 @@ class TeamAgent(Model):
         payload = json.dumps(payload)
 
         r = _request_with_retry("post", self.url, headers=headers, data=payload)
-        logging.info(
-            f"Team Agent Run Async: Start service for {name} - {self.url} - {payload} - {headers}"
-        )
+        logging.info(f"Team Agent Run Async: Start service for {name} - {self.url} - {payload} - {headers}")
 
         resp = None
         try:
@@ -287,14 +295,20 @@ class TeamAgent(Model):
             logging.info(f"Result of request for {name} - {r.status_code} - {resp}")
 
             poll_url = resp["data"]
-            response = {"status": "IN_PROGRESS", "url": poll_url}
+            return AgentResponse(
+                status=ResponseStatus.IN_PROGRESS,
+                url=poll_url,
+                data=AgentResponseData(input=input_data),
+                run_time=0.0,
+                used_credits=0.0,
+            )
         except Exception:
-            response = {"status": "FAILED"}
             msg = f"Error in request for {name} - {traceback.format_exc()}"
             logging.error(f"Team Agent Run Async: Error in running for {name}: {resp}")
-            if resp is not None:
-                response["error"] = msg
-        return response
+            return AgentResponse(
+                status=ResponseStatus.FAILED,
+                error=msg,
+            )
 
     def delete(self) -> None:
         """Delete Corpus service"""
@@ -309,7 +323,9 @@ class TeamAgent(Model):
             if r.status_code != 200:
                 raise Exception()
         except Exception:
-            message = f"Team Agent Deletion Error (HTTP {r.status_code}): Make sure the Team Agent exists and you are the owner."
+            message = (
+                f"Team Agent Deletion Error (HTTP {r.status_code}): Make sure the Team Agent exists and you are the owner."
+            )
             logging.error(message)
             raise Exception(f"{message}")
 
@@ -318,8 +334,7 @@ class TeamAgent(Model):
             "id": self.id,
             "name": self.name,
             "agents": [
-                {"assetId": agent.id, "number": idx, "type": "AGENT", "label": "AGENT"}
-                for idx, agent in enumerate(self.agents)
+                {"assetId": agent.id, "number": idx, "type": "AGENT", "label": "AGENT"} for idx, agent in enumerate(self.agents)
             ],
             "links": [],
             "description": self.description,
@@ -327,9 +342,12 @@ class TeamAgent(Model):
             "supervisorId": self.llm_id,
             "plannerId": self.llm_id if self.use_mentalist else None,
             "inspectorId": self.llm_id if self.use_inspector else None,
+            "maxInspectors": self.max_inspectors,
+            "inspectorTargets": [target.value for target in self.inspector_targets],
             "supplier": self.supplier.value["code"] if isinstance(self.supplier, Supplier) else self.supplier,
             "version": self.version,
             "status": self.status.value,
+            "role": self.instructions,
         }
 
     def _validate(self) -> None:
@@ -343,9 +361,7 @@ class TeamAgent(Model):
 
         try:
             llm = ModelFactory.get(self.llm_id)
-            assert (
-                llm.function == Function.TEXT_GENERATION
-            ), "Large Language Model must be a text generation model."
+            assert llm.function == Function.TEXT_GENERATION, "Large Language Model must be a text generation model."
         except Exception:
             raise Exception(f"Large Language Model with ID '{self.llm_id}' not found.")
 
@@ -362,9 +378,7 @@ class TeamAgent(Model):
                 raise e
             else:
                 logging.warning(f"Team Agent Validation Error: {e}")
-                logging.warning(
-                    "You won't be able to run the Team Agent until the issues are handled manually."
-                )
+                logging.warning("You won't be able to run the Team Agent until the issues are handled manually.")
 
         return self.is_valid
 
@@ -377,8 +391,7 @@ class TeamAgent(Model):
         stack = inspect.stack()
         if len(stack) > 2 and stack[1].function != "save":
             warnings.warn(
-                "update() is deprecated and will be removed in a future version. "
-                "Please use save() instead.",
+                "update() is deprecated and will be removed in a future version. " "Please use save() instead.",
                 DeprecationWarning,
                 stacklevel=2,
             )
@@ -390,17 +403,13 @@ class TeamAgent(Model):
 
         payload = self.to_dict()
 
-        logging.debug(
-            f"Start service for PUT Update Team Agent  - {url} - {headers} - {json.dumps(payload)}"
-        )
+        logging.debug(f"Start service for PUT Update Team Agent - {url} - {headers} - {json.dumps(payload)}")
         resp = "No specified error."
         try:
             r = _request_with_retry("put", url, headers=headers, json=payload)
             resp = r.json()
         except Exception:
-            raise Exception(
-                "Team Agent Update Error: Please contact the administrators."
-            )
+            raise Exception("Team Agent Update Error: Please contact the administrators.")
 
         if 200 <= r.status_code < 300:
             return build_team_agent(resp)
@@ -414,11 +423,7 @@ class TeamAgent(Model):
 
     def deploy(self) -> None:
         """Deploy the Team Agent."""
-        assert (
-            self.status == AssetStatus.DRAFT
-        ), "Team Agent Deployment Error: Team Agent must be in draft status."
-        assert (
-            self.status != AssetStatus.ONBOARDED
-        ), "Team Agent Deployment Error: Team Agent must be onboarded."
+        assert self.status == AssetStatus.DRAFT, "Team Agent Deployment Error: Team Agent must be in draft status."
+        assert self.status != AssetStatus.ONBOARDED, "Team Agent Deployment Error: Team Agent must be onboarded."
         self.status = AssetStatus.ONBOARDED
         self.update()

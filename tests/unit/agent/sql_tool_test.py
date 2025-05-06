@@ -55,7 +55,7 @@ def test_create_sql_tool(mocker, tmp_path):
 
     # Test SQLite source type
     tool = AgentFactory.create_sql_tool(
-        description="Test", source=db_path, source_type="sqlite", schema="test", tables=["test", "test2"]
+        name="Test SQL", description="Test", source=db_path, source_type="sqlite", schema="test", tables=["test", "test2"]
     )
     assert isinstance(tool, SQLTool)
     assert tool.description == "Test"
@@ -67,7 +67,9 @@ def test_create_sql_tool(mocker, tmp_path):
     df = pd.DataFrame({"id": [1, 2, 3], "name": ["test1", "test2", "test3"]})
     df.to_csv(csv_path, index=False)
     # Test CSV source type
-    csv_tool = AgentFactory.create_sql_tool(description="Test CSV", source=csv_path, source_type="csv", tables=["data"])
+    csv_tool = AgentFactory.create_sql_tool(
+        name="Test CSV", description="Test CSV", source=csv_path, source_type="csv", tables=["data"]
+    )
     assert isinstance(csv_tool, SQLTool)
     assert csv_tool.description == "Test CSV"
     assert csv_tool.database.endswith(".db")
@@ -160,36 +162,37 @@ def test_sql_tool_validation_errors(tmp_path):
 
     # Test missing description
     with pytest.raises(SQLToolError, match="Description is required"):
-        tool = AgentFactory.create_sql_tool(description="", source=db_path, source_type="sqlite")
+        tool = AgentFactory.create_sql_tool(name="Test SQL", description="", source=db_path, source_type="sqlite")
         tool.validate()
 
     # Test missing source
     with pytest.raises(SQLToolError, match="Source must be provided"):
-        tool = AgentFactory.create_sql_tool(description="Test", source="", source_type="sqlite")
+        tool = AgentFactory.create_sql_tool(name="Test SQL", description="Test", source="", source_type="sqlite")
         tool.validate()
 
     # Test missing source_type
     with pytest.raises(TypeError, match="missing 1 required positional argument: 'source_type'"):
-        tool = AgentFactory.create_sql_tool(description="Test", source=db_path)
+        tool = AgentFactory.create_sql_tool(name="Test SQL", description="Test", source=db_path)
         tool.validate()
 
     # Test invalid source type
     with pytest.raises(SQLToolError, match="Invalid source type"):
-        AgentFactory.create_sql_tool(description="Test", source=db_path, source_type="invalid")
+        AgentFactory.create_sql_tool(name="Test SQL", description="Test", source=db_path, source_type="invalid")
 
     # Test non-existent SQLite database
     with pytest.raises(SQLToolError, match="Database .* does not exist"):
-        tool = AgentFactory.create_sql_tool(description="Test", source="nonexistent.db", source_type="sqlite")
+        tool = AgentFactory.create_sql_tool(name="Test SQL", description="Test", source="nonexistent.db", source_type="sqlite")
         tool.validate()
 
     # Test non-existent CSV file
     with pytest.raises(SQLToolError, match="CSV file .* does not exist"):
-        tool = AgentFactory.create_sql_tool(description="Test", source="nonexistent.csv", source_type="csv")
+        tool = AgentFactory.create_sql_tool(name="Test SQL", description="Test", source="nonexistent.csv", source_type="csv")
         tool.validate()
 
     # Test PostgreSQL (not supported)
     with pytest.raises(SQLToolError, match="PostgreSQL is not supported yet"):
         tool = AgentFactory.create_sql_tool(
+            name="Test SQL",
             description="Test",
             source="postgresql://user:pass@localhost/mydb",
             source_type="postgresql",
@@ -210,7 +213,7 @@ def test_create_sql_tool_with_schema_inference(tmp_path, mocker):
     conn.close()
 
     # Create tool without schema and tables
-    tool = AgentFactory.create_sql_tool(description="Test", source=db_path, source_type="sqlite")
+    tool = AgentFactory.create_sql_tool(name="Test SQL", description="Test", source=db_path, source_type="sqlite")
 
     # Mock schema inference
     schema = "CREATE TABLE test (id INTEGER, name TEXT)"
@@ -239,7 +242,7 @@ def test_create_sql_tool_from_csv_with_warnings(tmp_path, mocker):
 
     # Create tool and check for warnings
     with pytest.warns(UserWarning) as record:
-        tool = AgentFactory.create_sql_tool(description="Test", source=csv_path, source_type="csv")
+        tool = AgentFactory.create_sql_tool(name="Test SQL", description="Test", source=csv_path, source_type="csv")
 
     # Verify warnings about column name changes
     warning_messages = [str(w.message) for w in record]
@@ -274,7 +277,9 @@ def test_create_sql_tool_from_csv(tmp_path):
     df.to_csv(csv_path, index=False)
 
     # Test successful creation
-    tool = AgentFactory.create_sql_tool(description="Test", source=csv_path, source_type="csv", tables=["test"])
+    tool = AgentFactory.create_sql_tool(
+        name="Test SQL", description="Test", source=csv_path, source_type="csv", tables=["test"]
+    )
     assert isinstance(tool, SQLTool)
     assert tool.description == "Test"
     assert tool.database.endswith(".db")
@@ -301,7 +306,7 @@ def test_sql_tool_schema_inference(tmp_path):
     df.to_csv(csv_path, index=False)
 
     # Create tool without schema and tables
-    tool = AgentFactory.create_sql_tool(description="Test", source=csv_path, source_type="csv")
+    tool = AgentFactory.create_sql_tool(name="Test SQL", description="Test", source=csv_path, source_type="csv")
 
     try:
         tool.validate()
@@ -324,15 +329,19 @@ def test_create_sql_tool_source_type_handling(tmp_path):
     conn.close()
 
     # Test with string input
-    tool_str = AgentFactory.create_sql_tool(description="Test", source=db_path, source_type="sqlite", schema="test")
+    tool_str = AgentFactory.create_sql_tool(
+        name="Test SQL", description="Test", source=db_path, source_type="sqlite", schema="test"
+    )
     assert isinstance(tool_str, SQLTool)
 
     # Test with enum input
     tool_enum = AgentFactory.create_sql_tool(
-        description="Test", source=db_path, source_type=DatabaseSourceType.SQLITE, schema="test"
+        name="Test SQL", description="Test", source=db_path, source_type=DatabaseSourceType.SQLITE, schema="test"
     )
     assert isinstance(tool_enum, SQLTool)
 
     # Test invalid type
     with pytest.raises(SQLToolError, match="Source type must be either a string or DatabaseSourceType enum, got <class 'int'>"):
-        AgentFactory.create_sql_tool(description="Test", source=db_path, source_type=123, schema="test")  # Invalid type
+        AgentFactory.create_sql_tool(
+            name="Test SQL", description="Test", source=db_path, source_type=123, schema="test"
+        )  # Invalid type

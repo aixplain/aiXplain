@@ -92,6 +92,7 @@ def upload_data(
     content_type: Text = "text/csv",
     content_encoding: Optional[Text] = None,
     nattempts: int = 2,
+    return_s3_link: bool = True,
 ):
     """Upload files to S3 with pre-signed URLs
 
@@ -103,6 +104,7 @@ def upload_data(
         content_type (Text, optional): Type of content. Defaults to "text/csv".
         content_encoding (Text, optional): Content encoding. Defaults to None.
         nattempts (int, optional): Number of attempts for diminish the risk of exceptions. Defaults to 2.
+        return_s3_link (bool, optional): If True, the function will return the s3 link instead of the presigned url. Defaults to False.
 
     Reference:
         https://python.plainenglish.io/upload-files-to-aws-s3-using-pre-signed-urls-in-python-d3c2fcab1b41
@@ -143,9 +145,11 @@ def upload_data(
                 return upload_data(file_name, content_type, content_encoding, nattempts - 1)
             else:
                 raise Exception("File Uploading Error: Failure on Uploading to S3.")
-        bucket_name = re.findall(r"https://(.*?).s3.amazonaws.com", presigned_url)[0]
-        s3_link = f"s3://{bucket_name}/{path}"
-        return s3_link
+        if return_s3_link:
+            bucket_name = re.findall(r"https://(.*?).s3.amazonaws.com", presigned_url)[0]
+            s3_link = f"s3://{bucket_name}/{path}"
+            return s3_link
+        return presigned_url
     except Exception:
         if nattempts > 0:
             return upload_data(file_name, content_type, content_encoding, nattempts - 1)

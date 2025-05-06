@@ -2,7 +2,7 @@ import pytest
 import requests_mock
 from aixplain.factories import AgentFactory
 from aixplain.enums.asset_status import AssetStatus
-from aixplain.modules import Agent
+from aixplain.modules import Agent, Model
 from aixplain.modules.agent import OutputFormat
 from aixplain.utils import config
 from aixplain.modules.agent.tool.pipeline_tool import PipelineTool
@@ -12,7 +12,7 @@ from aixplain.modules.agent.tool.custom_python_code_tool import CustomPythonCode
 from aixplain.modules.agent.utils import process_variables
 from urllib.parse import urljoin
 from unittest.mock import patch
-from aixplain.enums.function import Function
+from aixplain.enums import Function, Supplier
 from aixplain.modules.agent.agent_response import AgentResponse
 from aixplain.modules.agent.agent_response_data import AgentResponseData
 
@@ -81,7 +81,11 @@ def test_success_query_content():
     assert response["url"] == ref_response["data"]
 
 
-def test_invalid_pipelinetool():
+def test_invalid_pipelinetool(mocker):
+    mocker.patch(
+        "aixplain.factories.model_factory.ModelFactory.get",
+        return_value=Model(id="6646261c6eb563165658bbb1", name="Test Model", function=Function.TEXT_GENERATION),
+    )
     with pytest.raises(Exception) as exc_info:
         AgentFactory.create(
             name="Test",
@@ -91,12 +95,6 @@ def test_invalid_pipelinetool():
             llm_id="6646261c6eb563165658bbb1",
         )
     assert str(exc_info.value) == "Pipeline Tool Unavailable. Make sure Pipeline '309851793' exists or you have access to it."
-
-
-def test_invalid_modeltool():
-    with pytest.raises(Exception) as exc_info:
-        AgentFactory.create(name="Test", tools=[ModelTool(model="309851793")], llm_id="6646261c6eb563165658bbb1")
-    assert str(exc_info.value) == "Model Tool Unavailable. Make sure Model '309851793' exists or you have access to it."
 
 
 def test_invalid_llm_id():
@@ -117,7 +115,6 @@ def test_invalid_agent_name():
 @patch("aixplain.factories.model_factory.ModelFactory.get")
 def test_create_agent(mock_model_factory_get):
     from aixplain.enums import Supplier, Function
-    from aixplain.modules import Model
 
     # Mock the model factory response
     mock_model = Model(
@@ -162,11 +159,12 @@ def test_create_agent(mock_model_factory_get):
                         "utility": "custom_python_code",
                         "utilityCode": "def main(query: str) -> str:\n    return 'Hello, how are you?'",
                         "description": "Test Tool",
+                        "name": "Test Tool",
                     },
                     {
                         "type": "utility",
                         "utility": "custom_python_code",
-                        "description": "",
+                        "description": "A Python shell. Use this to execute python commands. Input should be a valid python command.",
                     },
                 ],
             }
@@ -195,7 +193,9 @@ def test_create_agent(mock_model_factory_get):
                         supplier=Supplier.OPENAI, function="text-generation", description="Test Tool"
                     ),
                     AgentFactory.create_custom_python_code_tool(
-                        code="def main(query: str) -> str:\n    return 'Hello, how are you?'", description="Test Tool"
+                        code="def main(query: str) -> str:\n    return 'Hello, how are you?'",
+                        description="Test Tool",
+                        name="Test Tool",
                     ),
                     AgentFactory.create_python_interpreter_tool(),
                 ],
@@ -240,7 +240,6 @@ def test_to_dict():
 
 @patch("aixplain.factories.model_factory.ModelFactory.get")
 def test_update_success(mock_model_factory_get):
-    from aixplain.modules import Model
     from aixplain.enums import Function
 
     # Mock the model factory response
@@ -313,7 +312,6 @@ def test_update_success(mock_model_factory_get):
 
 @patch("aixplain.factories.model_factory.ModelFactory.get")
 def test_save_success(mock_model_factory_get):
-    from aixplain.modules import Model
     from aixplain.enums import Function
 
     # Mock the model factory response
@@ -408,7 +406,7 @@ def test_run_success():
 
 
 def test_run_variable_error():
-    agent = Agent("123", "Test Agent", "Translate the input data into {target_language}", "Test Agent Role")
+    agent = Agent("123", "Test Agent", "Agent description", "Translate the input data into {target_language}")
     with pytest.raises(Exception) as exc_info:
         agent.run_async(data={"query": "Hello, how are you?"}, output_format=OutputFormat.MARKDOWN)
     assert str(exc_info.value) == (
@@ -471,7 +469,7 @@ def test_agent_multiple_tools_api_key():
         AgentFactory.create_model_tool(function="text-generation"),
         AgentFactory.create_python_interpreter_tool(),
         AgentFactory.create_custom_python_code_tool(
-            code="def main(query: str) -> str:\n    return 'Hello'", description="Test Tool"
+            code="def main(query: str) -> str:\n    return 'Hello'", description="Test Tool", name="Test Tool"
         ),
     ]
 
@@ -560,19 +558,28 @@ def test_agent_response():
     assert response["data"]["output"] == "new_output"
 
 
-def test_custom_python_code_tool_initialization():
+def test_custom_python_code_tool_initialization(mocker):
     """Test basic initialization of CustomPythonCodeTool"""
+    mocker.patch(
+        "aixplain.modules.model.utils.parse_code_decorated",
+        return_value=("def main(query: str) -> str:\n    return 'Hello'", [], "Test description", "HelloWorld"),
+    )
+
     code = "def main(query: str) -> str:\n    return 'Hello'"
     description = "Test description"
-    tool = CustomPythonCodeTool(code=code, description=description)
+    tool = CustomPythonCodeTool(code=code, description=description, name="HelloWorld")
 
     assert tool.code == code
     assert tool.description == description
-    assert tool.name == "Custom Python Code"
+    assert tool.name == "HelloWorld"
 
 
-def test_custom_python_code_tool_to_dict():
+def test_custom_python_code_tool_to_dict(mocker):
     """Test the to_dict method of CustomPythonCodeTool"""
+    mocker.patch(
+        "aixplain.modules.model.utils.parse_code_decorated",
+        return_value=("def main(query: str) -> str:\n    return 'Hello'", [], "Test description", "HelloWorld"),
+    )
     code = "def main(query: str) -> str:\n    return 'Hello'"
     description = "Test description"
     tool = CustomPythonCodeTool(code=code, description=description)
@@ -603,22 +610,17 @@ def test_custom_python_code_tool_validation():
         assert tool.name == "test_name"
 
 
-def test_custom_python_code_tool_validation_missing_description():
+def test_custom_python_code_tool_validation_missing_description(mocker):
     """Test validation fails when description is missing"""
-    with patch(
-        "aixplain.modules.model.utils.parse_code",
-        return_value=(
-            "def main(query: str) -> str:\n    return 'Hello'",  # code
-            [],  # inputs
-            None,  # description
-            "test_name",  # name
-        ),
-    ):
-        code = "def main(query: str) -> str:\n    return 'Hello'"
-        tool = CustomPythonCodeTool(code=code)
-        with pytest.raises(AssertionError) as exc_info:
-            tool.validate()
-        assert str(exc_info.value) == "Custom Python Code Tool Error: Tool description is required"
+    mocker.patch(
+        "aixplain.modules.model.utils.parse_code_decorated",
+        return_value=("def main(query: str) -> str:\n    return 'Hello'", [], "", "HelloWorld"),
+    )
+
+    code = "def main(query: str) -> str:\n    return 'Hello'"
+    with pytest.raises(AssertionError) as exc_info:
+        CustomPythonCodeTool(code=code)
+    assert str(exc_info.value) == "Custom Python Code Tool Error: Tool description is required"
 
 
 def test_custom_python_code_tool_validation_missing_code():
@@ -628,27 +630,13 @@ def test_custom_python_code_tool_validation_missing_code():
         return_value=("", [], "Parsed description", "test_name"),  # code  # inputs  # description  # name
     ):
         with pytest.raises(AssertionError) as exc_info:
-            tool = CustomPythonCodeTool(code="", description="Test description")
-            tool.validate()
+            CustomPythonCodeTool(code="", description="Test description")
         assert str(exc_info.value) == "Custom Python Code Tool Error: Code is required"
 
 
-def test_custom_python_code_tool_with_callable():
-    """Test CustomPythonCodeTool with a callable function"""
-
-    def test_function(query: str) -> str:
-        return "Hello"
-
-    tool = CustomPythonCodeTool(code=test_function, description="Test description")
-    assert callable(tool.code)
-    assert tool.description == "Test description"
-
-
-@patch("aixplain.modules.agent.tool.model_tool.ModelTool.validate", autospec=True)
 @patch("aixplain.factories.model_factory.ModelFactory.get")
-def test_create_agent_with_model_instance(mock_model_factory_get, mock_validate):
+def test_create_agent_with_model_instance(mock_model_factory_get):
     from aixplain.enums import Supplier, Function
-    from aixplain.modules import Model
     from aixplain.modules.model.model_parameters import ModelParameters
 
     # Create model parameters
@@ -665,9 +653,6 @@ def test_create_agent_with_model_instance(mock_model_factory_get, mock_validate)
         model_params=model_params,
     )
 
-    # Mock the validate method to return the model instance
-    mock_validate.return_value = model_tool
-
     # Mock the LLM model factory response
     llm_model = Model(
         id="6646261c6eb563165658bbb1",
@@ -676,7 +661,15 @@ def test_create_agent_with_model_instance(mock_model_factory_get, mock_validate)
         function=Function.TEXT_GENERATION,
         model_params=model_params,
     )
-    mock_model_factory_get.return_value = llm_model
+
+    def validate_side_effect(model_id, *args, **kwargs):
+        if model_id == "model123":
+            return model_tool
+        elif model_id == "6646261c6eb563165658bbb1":
+            return llm_model
+        return None
+
+    mock_model_factory_get.side_effect = validate_side_effect
 
     with requests_mock.Mocker() as mock:
         url = urljoin(config.BACKEND_URL, "sdk/agents")
@@ -732,6 +725,7 @@ def test_create_agent_with_model_instance(mock_model_factory_get, mock_validate)
     # Verify the tool was converted correctly
     tool = agent.tools[0]
     assert isinstance(tool, Model)
+    assert tool.id == "model123"
     assert tool.name == model_tool.name
     assert tool.function == model_tool.function
     assert tool.supplier == model_tool.supplier
@@ -740,9 +734,8 @@ def test_create_agent_with_model_instance(mock_model_factory_get, mock_validate)
     assert not tool.model_params.parameters["max_tokens"].required
 
 
-@patch("aixplain.modules.agent.tool.model_tool.ModelTool.validate", autospec=True)
 @patch("aixplain.factories.model_factory.ModelFactory.get")
-def test_create_agent_with_mixed_tools(mock_model_factory_get, mock_validate):
+def test_create_agent_with_mixed_tools(mock_model_factory_get):
     from aixplain.enums import Supplier, Function
     from aixplain.modules import Model
     from aixplain.modules.model.model_parameters import ModelParameters
@@ -774,24 +767,6 @@ def test_create_agent_with_mixed_tools(mock_model_factory_get, mock_validate):
         model_params=classification_params,
     )
 
-    # Mock the validate method to return different models based on the model ID
-    def validate_side_effect(self, *args, **kwargs):
-        if self.model == "model123":
-            return model_tool
-        elif self.model == "openai-model":
-            return openai_model
-        return None
-
-    mock_validate.side_effect = validate_side_effect
-
-    # Create a regular ModelTool instance
-    regular_tool = AgentFactory.create_model_tool(
-        function=Function.TEXT_CLASSIFICATION,
-        supplier=Supplier.OPENAI,
-        model="openai-model",
-        description="Regular Tool",
-    )
-
     # Mock the LLM model factory response
     llm_model = Model(
         id="6646261c6eb563165658bbb1",
@@ -800,7 +775,26 @@ def test_create_agent_with_mixed_tools(mock_model_factory_get, mock_validate):
         function=Function.TEXT_GENERATION,
         model_params=text_gen_params,
     )
-    mock_model_factory_get.return_value = llm_model
+
+    # Mock the validate method to return different models based on the model ID
+    def validate_side_effect(model_id, *args, **kwargs):
+        if model_id == "model123":
+            return model_tool
+        elif model_id == "openai-model":
+            return openai_model
+        elif model_id == "6646261c6eb563165658bbb1":
+            return llm_model
+        return None
+
+    mock_model_factory_get.side_effect = validate_side_effect
+
+    # Create a regular ModelTool instance
+    regular_tool = AgentFactory.create_model_tool(
+        function=Function.TEXT_CLASSIFICATION,
+        supplier=Supplier.OPENAI,
+        model="openai-model",
+        description="Regular Tool",
+    )
 
     with requests_mock.Mocker() as mock:
         url = urljoin(config.BACKEND_URL, "sdk/agents")
@@ -861,9 +855,10 @@ def test_create_agent_with_mixed_tools(mock_model_factory_get, mock_validate):
     assert agent.description == ref_response["description"]
     assert len(agent.tools) == 2
 
-    # Verify the first tool (Model)
+    # Verify the first tool (Model instance converted to ModelTool)
     tool1 = agent.tools[0]
     assert isinstance(tool1, Model)
+    assert tool1.id == "model123"
     assert tool1.name == model_tool.name
     assert tool1.function == model_tool.function
     assert tool1.supplier == model_tool.supplier
@@ -874,13 +869,13 @@ def test_create_agent_with_mixed_tools(mock_model_factory_get, mock_validate):
     # Verify the second tool (regular ModelTool)
     tool2 = agent.tools[1]
     assert isinstance(tool2, ModelTool)
-    assert tool2.model == "openai-model"
+    assert tool2.model.id == "openai-model"
     assert tool2.function == Function.TEXT_CLASSIFICATION
     assert tool2.supplier == Supplier.OPENAI
-    assert isinstance(tool2.model_object, Model)
-    assert isinstance(tool2.model_object.model_params, ModelParameters)
-    assert tool2.model_object.model_params.parameters["threshold"].required
-    assert tool2.model_object.model_params.parameters["labels"].required
+    assert isinstance(tool2.model, Model)
+    assert isinstance(tool2.model.model_params, ModelParameters)
+    assert tool2.model.model_params.parameters["threshold"].required
+    assert tool2.model.model_params.parameters["labels"].required
 
 
 @pytest.mark.parametrize(
@@ -961,3 +956,44 @@ def test_agent_response_repr():
 
     # Most importantly, verify that 'status' is complete (not 'tatus')
     assert "status=" in repr_str  # Should find complete field name
+
+
+@pytest.mark.parametrize(
+    "function,supplier,model,expected_name",
+    [
+        (Function.TRANSLATION, None, None, "translation"),
+        (Function.TEXT_GENERATION, Supplier.AIXPLAIN, None, "text-generation-aixplain"),
+        (Function.TEXT_GENERATION, Supplier.OPENAI, None, "text-generation-openai"),
+        (
+            Function.TEXT_GENERATION,
+            Supplier.AIXPLAIN,
+            Model(id="123", name="Test Model"),
+            "text-generation-aixplain-test_model",
+        ),
+    ],
+)
+def test_set_tool_name(function, supplier, model, expected_name):
+    from aixplain.modules.agent.tool.model_tool import set_tool_name
+
+    name = set_tool_name(function, supplier, model)
+    assert name == expected_name
+
+
+def test_create_agent_with_duplicate_tool_names(mocker):
+    from aixplain.factories import AgentFactory
+    from aixplain.modules import Model
+    from aixplain.modules.agent.tool.model_tool import ModelTool
+
+    mocker.patch(
+        "aixplain.factories.model_factory.ModelFactory.get",
+        return_value=Model(id="123", name="Test Model", function=Function.TEXT_GENERATION),
+    )
+
+    # Create a ModelTool with a specific name
+    tool1 = ModelTool(model="123", name="Test Model")
+    tool2 = ModelTool(model="123", name="Test Model")
+    with pytest.raises(Exception) as exc_info:
+        AgentFactory.create(name="Test Agent", description="Test Agent Description", tools=[tool1, tool2])
+    assert "Agent Creation Error - Duplicate tool names found: Test Model. Make sure all tool names are unique." in str(
+        exc_info.value
+    )

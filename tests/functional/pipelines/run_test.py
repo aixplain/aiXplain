@@ -199,9 +199,7 @@ def test_run_translation_metric(version: str, PipelineFactory):
 
     reference_id = dataset.target_data["pt"][0].id
 
-    pipeline = PipelineFactory.list(
-        query="Translation Metric Functional Test - DO NOT DELETE"
-    )["results"][0]
+    pipeline = PipelineFactory.list(query="Translation Metric Functional Test - DO NOT DELETE")["results"][0]
     response = pipeline.run(
         data={"TextInput": reference_id, "ReferenceInput": reference_id},
         data_asset={"TextInput": data_asset_id, "ReferenceInput": data_asset_id},

@@ -37,8 +37,15 @@ def build_tool(tool: Dict):
                 ]:
                     supplier = supplier_
                     break
+        assert "function" in tool, "Function is required for model tools"
+        function_name = tool.get("function")
+        try:
+            function = Function(function_name)
+        except ValueError:
+            valid_functions = [func.value for func in Function]
+            raise ValueError(f"Function {function_name} is not a valid function. The valid functions are: {valid_functions}")
         tool = ModelTool(
-            function=Function(tool.get("function", None)),
+            function=function,
             supplier=supplier,
             version=tool["version"],
             model=tool["assetId"],
@@ -53,6 +60,7 @@ def build_tool(tool: Dict):
         else:
             tool = PythonInterpreterTool()
     elif tool["type"] == "sql":
+        name = tool.get("name", "SQLTool")
         parameters = {parameter["name"]: parameter["value"] for parameter in tool.get("parameters", [])}
         database = parameters.get("database")
         schema = parameters.get("schema")
@@ -60,10 +68,15 @@ def build_tool(tool: Dict):
         tables = tables.split(",") if tables is not None else None
         enable_commit = parameters.get("enable_commit", False)
         tool = SQLTool(
-            description=tool["description"], database=database, schema=schema, tables=tables, enable_commit=enable_commit
+            name=name,
+            description=tool["description"],
+            database=database,
+            schema=schema,
+            tables=tables,
+            enable_commit=enable_commit,
         )
     else:
-        raise Exception("Agent Creation Error: Tool type not supported.")
+        raise ValueError("Agent Creation Error: Tool type not supported.")
 
     return tool
 
@@ -77,6 +90,9 @@ def build_agent(payload: Dict, tools: List[Tool] = None, api_key: Text = config.
         for tool in tools_dict:
             try:
                 payload_tools.append(build_tool(tool))
+            except (ValueError, AssertionError) as e:
+                logging.warning(str(e))
+                continue
             except Exception:
                 logging.warning(
                     f"Tool {tool['assetId']} is not available. Make sure it exists or you have access to it. "

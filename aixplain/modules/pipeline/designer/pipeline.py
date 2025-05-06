@@ -68,9 +68,22 @@ class DesignerPipeline(Serializable):
 
         :return: the pipeline as a dictionary
         """
+        nodes = [node.serialize() for node in self.nodes]
+        links = [link.serialize() for link in self.links]
+
+        # merge the params for links using the key `from_node` and `to_node`
+        merged_links = {}
+        for link in links:
+            key = (link['from'], link['to'])
+            if key not in merged_links:
+                merged_links[key] = link
+            else:
+                existing_link = merged_links[key]
+                existing_link['paramMapping'] += link['paramMapping']
+
         return {
-            "nodes": [node.serialize() for node in self.nodes],
-            "links": [link.serialize() for link in self.links],
+            "nodes": nodes,
+            "links": list(merged_links.values()),
         }
 
     def validate_nodes(self):
@@ -213,29 +226,7 @@ class DesignerPipeline(Serializable):
         nodes based on the data types of the connected nodes.
         """
         for link in self.links:
-            from_node = self.get_node(link.from_node)
-            to_node = self.get_node(link.to_node)
-            if not from_node or not to_node:
-                continue  # will be handled by the validation
-            for param in link.param_mapping:
-                from_param = from_node.outputs[param.from_param]
-                to_param = to_node.inputs[param.to_param]
-                if not from_param or not to_param:
-                    continue  # will be handled by the validation
-                # if one of the data types is missing, infer the other one
-                dataType = from_param.data_type or to_param.data_type
-                from_param.data_type = dataType
-                to_param.data_type = dataType
-
-            def infer_data_type(node):
-                from .nodes import Input, Output
-
-                if isinstance(node, Input) or isinstance(node, Output):
-                    if dataType and dataType not in node.data_types:
-                        node.data_types.append(dataType)
-
-            infer_data_type(self)
-            infer_data_type(to_node)
+            link.auto_infer()
 
     def asset(self, asset_id: str, *args, asset_class: Type[T] = AssetNode, **kwargs) -> T:
         """

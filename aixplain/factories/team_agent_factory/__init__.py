@@ -23,15 +23,15 @@ Description:
 
 import json
 import logging
+from typing import Dict, List, Optional, Text, Union
+from urllib.parse import urljoin
 
 from aixplain.enums.supplier import Supplier
 from aixplain.modules.agent import Agent
-from aixplain.modules.team_agent import TeamAgent
+from aixplain.modules.team_agent import TeamAgent, InspectorTarget
 from aixplain.utils import config
 from aixplain.factories.team_agent_factory.utils import build_team_agent
 from aixplain.utils.file_utils import _request_with_retry
-from typing import Dict, List, Optional, Text, Union
-from urllib.parse import urljoin
 
 
 class TeamAgentFactory:
@@ -47,9 +47,31 @@ class TeamAgentFactory:
         version: Optional[Text] = None,
         use_mentalist: bool = True,
         use_inspector: bool = True,
+        num_inspectors: int = 1,
+        inspector_targets: List[Union[InspectorTarget, Text]] = [InspectorTarget.STEPS],
         use_mentalist_and_inspector: bool = False,  # TODO: remove this
+        instructions: Optional[Text] = None,
     ) -> TeamAgent:
-        """Create a new team agent in the platform."""
+        """Create a new team agent in the platform.
+
+        Args:
+            name: The name of the team agent.
+            agents: A list of agents to be added to the team.
+            llm_id: The ID of the LLM to be used for the team agent.
+            description: The description of the team agent to be displayed in the aiXplain platform.
+            api_key: The API key to be used for the team agent.
+            supplier: The supplier of the team agent.
+            version: The version of the team agent.
+            use_mentalist: Whether to use the mentalist agent.
+            use_inspector: Whether to use the inspector agent.
+            num_inspectors: The number of inspectors to be used for each inspection.
+            inspector_targets: Which stages to be inspected during an execution of the team agent. (steps, output)
+            use_mentalist_and_inspector: Whether to use the mentalist and inspector agents. (legacy)
+            instructions: The instructions to guide the team agent (i.e. appended in the prompt of the team agent).
+
+        Returns:
+            A new team agent instance.
+        """
         assert len(agents) > 0, "TeamAgent Onboarding Error: At least one agent must be provided."
         agent_list = []
         for agent in agents:
@@ -68,8 +90,22 @@ class TeamAgentFactory:
                 assert isinstance(agent, Agent), "TeamAgent Onboarding Error: Agents must be instances of Agent class"
             agent_list.append(agent_obj)
 
-        if use_inspector and not use_mentalist:
-            raise Exception("TeamAgent Onboarding Error: To use the Inspector agent, you must enable Mentalist.")
+        # NOTE: backend expects max_inspectors (for "generated" inspectors)
+        max_inspectors = num_inspectors
+
+        if use_inspector:
+            try:
+                # convert to enum if string and check its validity
+                inspector_targets = [InspectorTarget(target) for target in inspector_targets]
+            except ValueError:
+                raise ValueError("TeamAgent Onboarding Error: Invalid inspector target. Valid targets are: steps, output")
+
+            if not use_mentalist:
+                raise Exception("TeamAgent Onboarding Error: To use the Inspector agent, you must enable Mentalist.")
+            if max_inspectors < 1:
+                raise Exception(
+                    "TeamAgent Onboarding Error: The number of inspectors must be greater than 0 when using the Inspector agent."
+                )
 
         if use_mentalist_and_inspector:
             mentalist_llm_id = llm_id
@@ -100,9 +136,12 @@ class TeamAgentFactory:
             "supervisorId": llm_id,
             "plannerId": mentalist_llm_id,
             "inspectorId": inspector_llm_id,
+            "maxInspectors": max_inspectors,
+            "inspectorTargets": inspector_targets if use_inspector else [],
             "supplier": supplier,
             "version": version,
             "status": "draft",
+            "role": instructions,
         }
 
         team_agent = build_team_agent(payload=payload, agents=agent_list, api_key=api_key)

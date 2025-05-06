@@ -19,6 +19,7 @@ Description:
     Utility Model Class
 """
 import logging
+import warnings
 from aixplain.enums import Function, Supplier, DataType
 from aixplain.enums.asset_status import AssetStatus
 from aixplain.modules.model import Model
@@ -90,6 +91,9 @@ def utility_tool(
 class UtilityModel(Model):
     """Ready-to-use Utility Model.
 
+    Note: Non-deployed utility models (status=DRAFT) will expire after 24 hours after creation.
+    Use the .deploy() method to make the model permanent.
+
     Attributes:
         id (Text): ID of the Model
         name (Text): Name of the Model
@@ -120,7 +124,7 @@ class UtilityModel(Model):
         function: Optional[Function] = None,
         is_subscribed: bool = False,
         cost: Optional[Dict] = None,
-        status: AssetStatus = AssetStatus.ONBOARDED,  # TODO: change to draft when we have the backend ready
+        status: AssetStatus = AssetStatus.DRAFT,
         **additional_info,
     ) -> None:
         """Utility Model Init
@@ -165,22 +169,26 @@ class UtilityModel(Model):
                 status = AssetStatus.DRAFT
         self.status = status
 
+        if status == AssetStatus.DRAFT:
+            warnings.warn(
+                "WARNING: Non-deployed utility models (status=DRAFT) will expire after 24 hours after creation. "
+                "Use .deploy() method to make the model permanent.",
+                UserWarning,
+            )
+
     def validate(self):
         """Validate the Utility Model."""
         description = None
         name = None
-        inputs = []
         # check if the model exists and if the code is strring with s3://
         # if not, parse the code and update the description and inputs and do the validation
         # if yes, just do the validation on the description and inputs
         if not (self._model_exists() and str(self.code).startswith("s3://")):
-            self.code, inputs, description, name = parse_code_decorated(self.code)
+            self.code, self.inputs, description, name = parse_code_decorated(self.code)
             if self.name is None:
                 self.name = name
             if self.description is None:
                 self.description = description
-            if len(self.inputs) == 0:
-                self.inputs = inputs
             for input in self.inputs:
                 input.validate()
         else:
