@@ -26,7 +26,7 @@ from aixplain.utils import config
 from aixplain.modules import Asset, Dataset, Metric, Model
 from aixplain.modules.benchmark_job import BenchmarkJob
 from urllib.parse import urljoin
-from aixplain.utils.file_utils import _request_with_retry
+from aixplain.utils.request_utils import _request_with_retry
 
 
 class Benchmark(Asset):

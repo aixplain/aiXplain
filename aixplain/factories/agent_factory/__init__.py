@@ -41,7 +41,7 @@ from aixplain.modules.pipeline import Pipeline
 from aixplain.utils import config
 from typing import Callable, Dict, List, Optional, Text, Union
 
-from aixplain.utils.file_utils import _request_with_retry
+from aixplain.utils.request_utils import _request_with_retry
 from urllib.parse import urljoin
 from aixplain.enums import DatabaseSourceType
 

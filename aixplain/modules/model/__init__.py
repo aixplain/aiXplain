@@ -28,7 +28,7 @@ from aixplain.modules.asset import Asset
 from aixplain.modules.model.utils import build_payload, call_run_endpoint
 from aixplain.utils import config
 from urllib.parse import urljoin
-from aixplain.utils.file_utils import _request_with_retry
+from aixplain.utils.request_utils import _request_with_retry
 from typing import Union, Optional, Text, Dict
 from datetime import datetime
 from aixplain.modules.model.response import ModelResponse
@@ -209,6 +209,7 @@ class Model(Asset):
                     status = ResponseStatus.FAILED
             else:
                 status = ResponseStatus.IN_PROGRESS
+
             logging.debug(f"Single Poll for Model: Status of polling for {name}: {resp}")
             return ModelResponse(
                 status=resp.pop("status", status),
@@ -219,6 +220,7 @@ class Model(Asset):
                 used_credits=resp.pop("usedCredits", 0),
                 run_time=resp.pop("runTime", 0),
                 usage=resp.pop("usage", None),
+                error_code=resp.get("error_code", None),
                 **resp,
             )
         except Exception as e:
@@ -274,6 +276,7 @@ class Model(Asset):
             used_credits=response.pop("usedCredits", 0),
             run_time=response.pop("runTime", 0),
             usage=response.pop("usage", None),
+            error_code=response.get("error_code", None),
             **response,
         )
 

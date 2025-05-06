@@ -22,4 +22,4 @@ repos:
     hooks:
       - id: flake8
         args: # arguments to configure flake8
-          - --ignore=E402,E501,E203
+          - --ignore=E402,E501,E203,W503

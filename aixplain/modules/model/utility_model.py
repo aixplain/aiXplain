@@ -24,7 +24,7 @@ from aixplain.enums import Function, Supplier, DataType
 from aixplain.enums import AssetStatus
 from aixplain.modules.model import Model
 from aixplain.utils import config
-from aixplain.utils.file_utils import _request_with_retry
+from aixplain.utils.request_utils import _request_with_retry
 from aixplain.modules.model.utils import parse_code_decorated
 from dataclasses import dataclass
 from typing import Callable, Union, Optional, List, Text, Dict

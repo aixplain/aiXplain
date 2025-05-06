@@ -6,7 +6,7 @@ from aixplain.modules.model.index_model import IndexModel
 from aixplain.modules.model.utility_model import UtilityModel, UtilityModelInput
 from aixplain.enums import DataType, Function, Language, OwnershipType, Supplier, SortBy, SortOrder, AssetStatus
 from aixplain.utils import config
-from aixplain.utils.file_utils import _request_with_retry
+from aixplain.utils.request_utils import _request_with_retry
 from datetime import datetime
 from typing import Dict, Union, List, Optional, Tuple
 from urllib.parse import urljoin
