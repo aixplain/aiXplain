@@ -7,6 +7,11 @@ from aixplain.modules.model.record import Record
 from enum import Enum
 from typing import List
 
+import os
+
+from urllib.parse import urljoin
+from aixplain.utils.file_utils import _request_with_retry
+
 
 class IndexFilterOperator(Enum):
     EQUALS = "=="
@@ -36,6 +41,25 @@ class IndexFilter:
             "operator": self.operator.value if isinstance(self.operator, IndexFilterOperator) else self.operator,
         }
 
+def is_embedding_model(model_id: str) -> bool:
+    resp = None
+    try:
+        url = urljoin(os.environ.get("BACKEND_URL"), f"sdk/models/{model_id}")
+
+        headers = {"Authorization": f"Token {os.environ.get('TEAM_API_KEY')}", "Content-Type": "application/json"}
+        r = _request_with_retry("get", url, headers=headers)
+        resp = r.json()
+        return resp['function']['id'] == "text-embedding"
+
+    except Exception:
+        if resp is not None and "statusCode" in resp:
+            status_code = resp["statusCode"]
+            message = resp["message"]
+            message = f"Model Creation: Status {status_code} - {message}"
+        else:
+            message = "Model Creation: Unspecified Error. Unable to get model details"
+        raise Exception(f"{message}")
+
 
 class IndexModel(Model):
     def __init__(
@@ -49,7 +73,7 @@ class IndexModel(Model):
         function: Optional[Function] = None,
         is_subscribed: bool = False,
         cost: Optional[Dict] = None,
-        embedding_model: Optional[EmbeddingModel] = None,
+        embedding_model: Union[EmbeddingModel, str] = None,
         **additional_info,
     ) -> None:
         """Index Init
@@ -64,7 +88,7 @@ class IndexModel(Model):
             function (Function, optional): model AI function. Defaults to None.
             is_subscribed (bool, optional): Is the user subscribed. Defaults to False.
             cost (Dict, optional): model price. Defaults to None.
-            embedding_model (EmbeddingModel, optional): embedding model. Defaults to None.
+            embedding_model (Union[EmbeddingModel, str], optional): embedding model. Defaults to None.
             **additional_info: Any additional Model info to be saved
         """
         assert function == Function.SEARCH, "Index only supports search function"
@@ -102,6 +126,7 @@ class IndexModel(Model):
         data["collection_type"] = self.version.split("-", 1)[0]
         return data
 
+
     def search(self, query: str, top_k: int = 10, filters: List[IndexFilter] = []) -> ModelResponse:
         """Search for documents in the index
 
@@ -131,7 +156,7 @@ class IndexModel(Model):
             "data": query or uri,
             "dataType": value_type,
             "filters": [filter.to_dict() for filter in filters],
-            "payload": {"uri": uri, "value_type": value_type, "top_k": top_k},
+            "payload": {"uri": uri, "value_type": value_type, "top_k": top_k}
         }
         return self.run(data=data)
 
