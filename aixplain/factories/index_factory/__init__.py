@@ -36,7 +36,7 @@ class IndexFactory(ModelFactory, Generic[T]):
         cls,
         name: Optional[Text] = None,
         description: Optional[Text] = None,
-        embedding_model: EmbeddingModel = EmbeddingModel.OPENAI_ADA002,
+        embedding_model: Union[EmbeddingModel, str] = EmbeddingModel.OPENAI_ADA002,
         params: Optional[T] = None,
         **kwargs,
     ) -> IndexModel:

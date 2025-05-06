@@ -1,8 +1,7 @@
 from pydantic import BaseModel, ConfigDict
-from typing import Text, Optional, ClassVar, Dict
+from typing import Text, Optional, ClassVar, Dict, Union
 from aixplain.enums import IndexStores, EmbeddingModel
 from abc import ABC, abstractmethod
-
 
 class BaseIndexParams(BaseModel, ABC):
     model_config = ConfigDict(use_enum_values=True)
@@ -22,7 +21,7 @@ class BaseIndexParams(BaseModel, ABC):
 
 
 class BaseIndexParamsWithEmbeddingModel(BaseIndexParams, ABC):
-    embedding_model: Optional[EmbeddingModel] = EmbeddingModel.OPENAI_ADA002
+    embedding_model: Optional[Union[EmbeddingModel, str]] = EmbeddingModel.OPENAI_ADA002
     embedding_size: Optional[int] = None
 
     def to_dict(self):
