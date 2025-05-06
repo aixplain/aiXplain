@@ -237,3 +237,8 @@ def test_index_model_air_with_image():
     assert "hurricane" in second_record.lower()
 
     index_model.delete()
+
+    import os
+
+    if os.path.exists("hurricane.jpeg"):
+        os.remove("hurricane.jpeg")

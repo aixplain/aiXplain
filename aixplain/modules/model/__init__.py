@@ -34,6 +34,7 @@ from datetime import datetime
 from aixplain.modules.model.response import ModelResponse
 from aixplain.enums.response_status import ResponseStatus
 from aixplain.modules.model.model_parameters import ModelParameters
+from aixplain.enums import AssetStatus
 
 
 class Model(Asset):
@@ -72,6 +73,7 @@ class Model(Asset):
         input_params: Optional[Dict] = None,
         output_params: Optional[Dict] = None,
         model_params: Optional[Dict] = None,
+        status: Optional[AssetStatus] = AssetStatus.ONBOARDED,  # default status for models is ONBOARDED
         **additional_info,
     ) -> None:
         """Model Init
@@ -89,6 +91,7 @@ class Model(Asset):
             input_params (Dict, optional): input parameters for the function.
             output_params (Dict, optional): output parameters for the function.
             model_params (Dict, optional): parameters for the function.
+            status (AssetStatus, optional): status of the model. Defaults to None.
             **additional_info: Any additional Model info to be saved
         """
         super().__init__(id, name, description, supplier, version, cost=cost)
@@ -102,6 +105,12 @@ class Model(Asset):
         self.input_params = input_params
         self.output_params = output_params
         self.model_params = ModelParameters(model_params) if model_params else None
+        if isinstance(status, str):
+            try:
+                status = AssetStatus(status)
+            except Exception:
+                status = AssetStatus.ONBOARDED
+        self.status = status
 
     def to_dict(self) -> Dict:
         """Get the model info as a Dictionary
@@ -119,6 +128,7 @@ class Model(Asset):
             "input_params": self.input_params,
             "output_params": self.output_params,
             "model_params": self.model_params.to_dict(),
+            "status": self.status,
         }
 
     def get_parameters(self) -> ModelParameters:
@@ -309,7 +319,7 @@ class Model(Asset):
         Returns:
             FinetuneStatus: The status of the FineTune model.
         """
-        from aixplain.enums.asset_status import AssetStatus
+        from aixplain.enums import AssetStatus
         from aixplain.modules.finetune.status import FinetuneStatus
 
         headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}

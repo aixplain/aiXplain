@@ -41,7 +41,8 @@ from aixplain.modules.agent.agent_response import AgentResponse
 from aixplain.modules.agent.agent_response_data import AgentResponseData
 from aixplain.modules.agent.utils import process_variables
 from aixplain.utils import config
-from aixplain.utils.request_utils import _request_with_retry
+from aixplain.utils.file_utils import _request_with_retry
+from aixplain.modules.mixins import DeployableMixin
 
 
 class InspectorTarget(str, Enum):
@@ -53,7 +54,7 @@ class InspectorTarget(str, Enum):
         return self._value_
 
 
-class TeamAgent(Model):
+class TeamAgent(Model, DeployableMixin[Agent]):
     """Advanced AI system capable of using multiple agents to perform a variety of tasks.
 
     Attributes:
@@ -416,14 +417,3 @@ class TeamAgent(Model):
         else:
             error_msg = f"Team Agent Update Error (HTTP {r.status_code}): {resp}"
             raise Exception(error_msg)
-
-    def save(self) -> None:
-        """Save the Team Agent."""
-        self.update()
-
-    def deploy(self) -> None:
-        """Deploy the Team Agent."""
-        assert self.status == AssetStatus.DRAFT, "Team Agent Deployment Error: Team Agent must be in draft status."
-        assert self.status != AssetStatus.ONBOARDED, "Team Agent Deployment Error: Team Agent must be onboarded."
-        self.status = AssetStatus.ONBOARDED
-        self.update()

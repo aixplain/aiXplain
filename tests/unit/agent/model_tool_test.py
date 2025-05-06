@@ -4,11 +4,10 @@ import re
 from unittest.mock import MagicMock
 
 from aixplain.modules.agent.tool.model_tool import ModelTool
-from aixplain.enums.function import Function
-from aixplain.enums.supplier import Supplier
 from aixplain.modules.model import Model
 from aixplain.modules.model.model_parameters import ModelParameters
 from aixplain.base.parameters import Parameter
+from aixplain.enums import AssetStatus, Function, Supplier
 
 
 @pytest.fixture
@@ -19,6 +18,7 @@ def mock_model():
     model.supplier = Supplier.AIXPLAIN
     model.name = "Test Model"
     model.description = "Test Model Description"
+    model.status = AssetStatus.ONBOARDED
     model.model_params = ModelParameters(
         {
             "sourcelanguage": {"name": "sourcelanguage", "required": True},
@@ -107,6 +107,7 @@ def test_to_dict(mocker, mock_model, mock_model_factory):
         "version": None,
         "assetId": "test_model_id",
         "parameters": [{"name": "sourcelanguage", "value": "en"}, {"name": "targetlanguage", "value": "es"}],
+        "status": mock_model.status.value,
     }
 
     result = tool.to_dict()

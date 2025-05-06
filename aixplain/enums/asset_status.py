@@ -43,3 +43,4 @@ class AssetStatus(Text, Enum):
     COMPLETED = "completed"
     CANCELING = "canceling"
     CANCELED = "canceled"
+    DEPRECATED_DRAFT = "deprecated_draft"
