@@ -50,9 +50,8 @@ class PipelineTool(Tool):
         name = name or ""
         super().__init__(name=name, description=description, **additional_info)
 
-        if isinstance(pipeline, Pipeline):
-            pipeline = pipeline.id
         self.pipeline = pipeline
+        self.validate()
 
     def to_dict(self):
         return {
@@ -65,7 +64,18 @@ class PipelineTool(Tool):
     def validate(self):
         from aixplain.factories.pipeline_factory import PipelineFactory
 
-        try:
-            PipelineFactory.get(self.pipeline, api_key=self.api_key)
-        except Exception:
-            raise Exception(f"Pipeline Tool Unavailable. Make sure Pipeline '{self.pipeline}' exists or you have access to it.")
+        if isinstance(self.pipeline, Pipeline):
+            pipeline_obj = self.pipeline
+        else:
+            try:
+                pipeline_obj = PipelineFactory.get(self.pipeline, api_key=self.api_key)
+            except Exception:
+                raise Exception(
+                    f"Pipeline Tool Unavailable. Make sure Pipeline '{self.pipeline}' exists or you have access to it."
+                )
+
+        if self.name.strip() == "":
+            self.name = pipeline_obj.name
+
+    def __repr__(self) -> Text:
+        return f"PipelineTool(name={self.name}, pipeline={self.pipeline})"
