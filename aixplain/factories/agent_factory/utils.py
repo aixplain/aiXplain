@@ -60,6 +60,7 @@ def build_tool(tool: Dict):
         else:
             tool = PythonInterpreterTool()
     elif tool["type"] == "sql":
+        name = tool.get("name", "SQLTool")
         parameters = {parameter["name"]: parameter["value"] for parameter in tool.get("parameters", [])}
         database = parameters.get("database")
         schema = parameters.get("schema")
@@ -67,7 +68,12 @@ def build_tool(tool: Dict):
         tables = tables.split(",") if tables is not None else None
         enable_commit = parameters.get("enable_commit", False)
         tool = SQLTool(
-            description=tool["description"], database=database, schema=schema, tables=tables, enable_commit=enable_commit
+            name=name,
+            description=tool["description"],
+            database=database,
+            schema=schema,
+            tables=tables,
+            enable_commit=enable_commit,
         )
     else:
         raise ValueError("Agent Creation Error: Tool type not supported.")

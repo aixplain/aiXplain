@@ -41,8 +41,9 @@ from aixplain.modules.agent.agent_response import AgentResponse
 from aixplain.modules.agent.agent_response_data import AgentResponseData
 from aixplain.modules.agent.utils import process_variables
 from aixplain.utils import config
-from aixplain.utils.file_utils import _request_with_retry
+from aixplain.utils.request_utils import _request_with_retry
 from aixplain.modules.model.llm_model import LLM
+from aixplain.modules.mixins import DeployableMixin
 
 
 class InspectorTarget(str, Enum):
@@ -54,7 +55,7 @@ class InspectorTarget(str, Enum):
         return self._value_
 
 
-class TeamAgent(Model):
+class TeamAgent(Model, DeployableMixin[Agent]):
     """Advanced AI system capable of using multiple agents to perform a variety of tasks.
 
     Attributes:
@@ -92,6 +93,7 @@ class TeamAgent(Model):
         max_inspectors: int = 1,
         inspector_targets: List[InspectorTarget] = [InspectorTarget.STEPS],
         status: AssetStatus = AssetStatus.DRAFT,
+        instructions: Optional[Text] = None,
         **additional_info,
     ) -> None:
         """Create a FineTune with the necessary information.
@@ -100,7 +102,7 @@ class TeamAgent(Model):
             id (Text): ID of the Team Agent
             name (Text): Name of the Team Agent
             agents (List[Agent]): List of agents that the Team Agent uses.
-            description (Text, optional): description of the Team Agent. Defaults to "".
+            description (Text, optional): The description of the team agent to be displayed in the aiXplain platform. Defaults to "".
             llm_id (Text, optional): large language model. Defaults to GPT-4o (6646261c6eb563165658bbb1).
             supplier (Text): Supplier of the Team Agent.
             version (Text): Version of the Team Agent.
@@ -108,6 +110,7 @@ class TeamAgent(Model):
             api_key (str): The TEAM API key used for authentication.
             cost (Dict, optional): model price. Defaults to None.
             use_mentalist_and_inspector (bool): Use Mentalist and Inspector tools. Defaults to True.
+            instructions (Text, optional): The instructions to guide the team agent (i.e. appended in the prompt of the team agent). Defaults to None.
         """
         super().__init__(id, name, description, api_key, supplier, version, cost=cost)
         self.additional_info = additional_info
@@ -120,7 +123,7 @@ class TeamAgent(Model):
         self.supervisor_llm = supervisor_llm
         self.mentalist_llm = mentalist_llm
         self.inspector_llm = inspector_llm
-
+        self.instructions = instructions
         if isinstance(status, str):
             try:
                 status = AssetStatus(status)
@@ -352,6 +355,7 @@ class TeamAgent(Model):
             "supplier": self.supplier.value["code"] if isinstance(self.supplier, Supplier) else self.supplier,
             "version": self.version,
             "status": self.status.value,
+            "role": self.instructions,
         }
 
     def _validate(self) -> None:
@@ -420,14 +424,3 @@ class TeamAgent(Model):
         else:
             error_msg = f"Team Agent Update Error (HTTP {r.status_code}): {resp}"
             raise Exception(error_msg)
-
-    def save(self) -> None:
-        """Save the Team Agent."""
-        self.update()
-
-    def deploy(self) -> None:
-        """Deploy the Team Agent."""
-        assert self.status == AssetStatus.DRAFT, "Team Agent Deployment Error: Team Agent must be in draft status."
-        assert self.status != AssetStatus.ONBOARDED, "Team Agent Deployment Error: Team Agent must be onboarded."
-        self.status = AssetStatus.ONBOARDED
-        self.update()

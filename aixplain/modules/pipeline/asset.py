@@ -1,7 +1,7 @@
 __author__ = "aiXplain"
 
 """
-Copyright 2022 The aiXplain SDK authors
+Copyright 2024 The aiXplain SDK authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -15,27 +15,28 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 
-Author: Duraikrishna Selvaraju, Thiago Castro Ferreira, Shreyas Sharma and Lucas Pavanelli
-Date: September 1st 2022
+Author: Thiago Castro Ferreira, Shreyas Sharma and Lucas Pavanelli
+Date: November 25th 2024
 Description:
-    Pipeline Class
+    Pipeline Asset Class
 """
 
 import time
 import json
 import os
 import logging
-from aixplain.enums.asset_status import AssetStatus
-from aixplain.enums.response_status import ResponseStatus
-from aixplain.modules.asset import Asset
+from aixplain.enums import AssetStatus, ResponseStatus
+from aixplain.modules import Asset
 from aixplain.utils import config
-from aixplain.utils.file_utils import _request_with_retry
+from aixplain.utils.request_utils import _request_with_retry
 from typing import Dict, Optional, Text, Union
 from urllib.parse import urljoin
 from aixplain.modules.pipeline.response import PipelineResponse
+from aixplain.modules.mixins import DeployableMixin
+from aixplain.exceptions import get_error_from_status_code
 
 
-class Pipeline(Asset):
+class Pipeline(Asset, DeployableMixin):
     """Representing a custom pipeline that was created on the aiXplain Platform
 
     Attributes:
@@ -45,6 +46,7 @@ class Pipeline(Asset):
         url (Text, optional): running URL of platform. Defaults to config.BACKEND_URL.
         supplier (Text, optional): Pipeline supplier. Defaults to "aiXplain".
         version (Text, optional): version of the pipeline. Defaults to "1.0".
+        status (AssetStatus, optional): Pipeline status. Defaults to AssetStatus.DRAFT.
         **additional_info: Any additional Pipeline info to be saved
     """
 
@@ -410,33 +412,20 @@ class Pipeline(Asset):
                 return res
 
             else:
-                if r.status_code == 401:
-                    error = "Unauthorized API key: Please verify the spelling of the API key and its current validity."
-                elif 460 <= r.status_code < 470:
-                    error = "Subscription-related error: Please ensure that your subscription is active and has not expired."
-                elif 470 <= r.status_code < 480:
-                    error = "Billing-related error: Please ensure you have enough credits to run this pipeline. "
-                elif 480 <= r.status_code < 490:
-                    error = "Supplier-related error: Please ensure that the selected supplier provides the pipeline you are trying to access."
-                elif 490 <= r.status_code < 500:
-                    error = "Validation-related error: Please ensure all required fields are provided and correctly formatted."
-                else:
-                    status_code = str(r.status_code)
-                    error = (
-                        f"Status {status_code}: Unspecified error: An unspecified error occurred while processing your request."
-                    )
+                status_code = r.status_code
+                error = get_error_from_status_code(status_code)
 
                 logging.error(f"Error in request for {name} (Pipeline ID '{self.id}') - {r.status_code}: {error}")
                 if response_version == "v1":
                     return {
                         "status": "failed",
-                        "error": error,
+                        "error": error.message,
                         "elapsed_time": None,
                         **kwargs,
                     }
                 return PipelineResponse(
                     status=ResponseStatus.FAILED,
-                    error={"error": error, "status": "ERROR"},
+                    error={"error": error.message, "status": "ERROR"},
                     elapsed_time=None,
                     **kwargs,
                 )
@@ -593,13 +582,23 @@ class Pipeline(Asset):
             raise Exception(e)
 
     def deploy(self, api_key: Optional[Text] = None) -> None:
-        """Deploy the Pipeline."""
-        assert self.status == "draft", "Pipeline Deployment Error: Pipeline must be in draft status."
-        assert self.status != "onboarded", "Pipeline Deployment Error: Pipeline must be onboarded."
+        """Deploy the Pipeline.
 
+        This method overrides the deploy method in DeployableMixin to handle
+        Pipeline-specific deployment functionality.
+
+        Args:
+            api_key (Optional[Text], optional): Team API Key to deploy the Pipeline. Defaults to None.
+        """
+        self._validate_deployment_readiness()
         pipeline = self.to_dict()
-        self.update(pipeline=pipeline, save_as_asset=True, api_key=api_key, name=self.name)
-        self.status = AssetStatus.ONBOARDED
+        previous_status = self.status
+        try:
+            self.status = AssetStatus.ONBOARDED
+            self.update(pipeline=pipeline, save_as_asset=True, api_key=api_key, name=self.name)
+        except Exception as e:
+            self.status = previous_status
+            raise Exception(f"Error deploying because of backend error: {e}") from e
 
     def __repr__(self):
         return f"Pipeline(id={self.id}, name={self.name})"

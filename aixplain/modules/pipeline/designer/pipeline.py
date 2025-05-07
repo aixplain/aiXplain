@@ -68,9 +68,22 @@ class DesignerPipeline(Serializable):
 
         :return: the pipeline as a dictionary
         """
+        nodes = [node.serialize() for node in self.nodes]
+        links = [link.serialize() for link in self.links]
+
+        # merge the params for links using the key `from_node` and `to_node`
+        merged_links = {}
+        for link in links:
+            key = (link['from'], link['to'])
+            if key not in merged_links:
+                merged_links[key] = link
+            else:
+                existing_link = merged_links[key]
+                existing_link['paramMapping'] += link['paramMapping']
+
         return {
-            "nodes": [node.serialize() for node in self.nodes],
-            "links": [link.serialize() for link in self.links],
+            "nodes": nodes,
+            "links": list(merged_links.values()),
         }
 
     def validate_nodes(self):

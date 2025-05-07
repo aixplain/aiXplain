@@ -4,6 +4,7 @@ import json
 import logging
 from aixplain.utils.file_utils import _request_with_retry
 from typing import Callable, Dict, List, Text, Tuple, Union, Optional
+from aixplain.exceptions import get_error_from_status_code
 
 
 def build_payload(data: Union[Text, Dict], parameters: Optional[Dict] = None):
@@ -61,22 +62,12 @@ def call_run_endpoint(url: Text, api_key: Text, payload: Dict) -> Dict:
         else:
             response = resp
     else:
-        resp = resp["error"] if isinstance(resp, dict) and "error" in resp else resp
-        if r.status_code == 401:
-            error = f"Unauthorized API key: Please verify the spelling of the API key and its current validity. Details: {resp}"
-        elif 460 <= r.status_code < 470:
-            error = f"Subscription-related error: Please ensure that your subscription is active and has not expired. Details: {resp}"
-        elif 470 <= r.status_code < 480:
-            error = f"Billing-related error: Please ensure you have enough credits to run this model. Details: {resp}"
-        elif 480 <= r.status_code < 490:
-            error = f"Supplier-related error: Please ensure that the selected supplier provides the model you are trying to access. Details: {resp}"
-        elif 490 <= r.status_code < 500:
-            error = f"{resp}"
-        else:
-            status_code = str(r.status_code)
-            error = f"Status {status_code} - Unspecified error: {resp}"
-        response = {"status": "FAILED", "error_message": error, "completed": True}
+        error_details = resp["error"] if isinstance(resp, dict) and "error" in resp else resp
+        status_code = r.status_code
+        error = get_error_from_status_code(status_code, error_details)
+
         logging.error(f"Error in request: {r.status_code}: {error}")
+        response = {"status": "FAILED", "error_message": error.message, "completed": True}
     return response
 
 

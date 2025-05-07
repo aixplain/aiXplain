@@ -24,6 +24,7 @@ from typing import Text, Union, Optional
 
 from aixplain.modules.agent.tool import Tool
 from aixplain.modules.pipeline import Pipeline
+from aixplain.enums import AssetStatus
 
 
 class PipelineTool(Tool):
@@ -50,9 +51,9 @@ class PipelineTool(Tool):
         name = name or ""
         super().__init__(name=name, description=description, **additional_info)
 
-        if isinstance(pipeline, Pipeline):
-            pipeline = pipeline.id
+        self.status = AssetStatus.DRAFT
         self.pipeline = pipeline
+        self.validate()
 
     def to_dict(self):
         return {
@@ -60,12 +61,25 @@ class PipelineTool(Tool):
             "name": self.name,
             "description": self.description,
             "type": "pipeline",
+            "status": self.status,
         }
+
+    def __repr__(self) -> Text:
+        return f"PipelineTool(name={self.name}, pipeline={self.pipeline})"
 
     def validate(self):
         from aixplain.factories.pipeline_factory import PipelineFactory
 
-        try:
-            PipelineFactory.get(self.pipeline, api_key=self.api_key)
-        except Exception:
-            raise Exception(f"Pipeline Tool Unavailable. Make sure Pipeline '{self.pipeline}' exists or you have access to it.")
+        if isinstance(self.pipeline, Pipeline):
+            pipeline_obj = self.pipeline
+        else:
+            try:
+                pipeline_obj = PipelineFactory.get(self.pipeline, api_key=self.api_key)
+            except Exception:
+                raise Exception(
+                    f"Pipeline Tool Unavailable. Make sure Pipeline '{self.pipeline}' exists or you have access to it."
+                )
+
+        if self.name.strip() == "":
+            self.name = pipeline_obj.name
+        self.status = pipeline_obj.status

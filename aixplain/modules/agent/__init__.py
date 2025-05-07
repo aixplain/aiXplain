@@ -27,26 +27,23 @@ import time
 import traceback
 
 from aixplain.utils.file_utils import _request_with_retry
-from aixplain.enums.function import Function
-from aixplain.enums.supplier import Supplier
-from aixplain.enums.asset_status import AssetStatus
-from aixplain.enums.storage_type import StorageType
+from aixplain.enums import Function, Supplier, AssetStatus, StorageType, ResponseStatus
 from aixplain.modules.model import Model
 from aixplain.modules.agent.agent_task import AgentTask
 from aixplain.modules.agent.output_format import OutputFormat
 from aixplain.modules.agent.tool import Tool
 from aixplain.modules.agent.agent_response import AgentResponse
 from aixplain.modules.agent.agent_response_data import AgentResponseData
-from aixplain.enums import ResponseStatus
 from aixplain.modules.agent.utils import process_variables
 from typing import Dict, List, Text, Optional, Union
 from urllib.parse import urljoin
 from aixplain.modules.model.llm_model import LLM
 
 from aixplain.utils import config
+from aixplain.modules.mixins import DeployableMixin
 
 
-class Agent(Model):
+class Agent(Model, DeployableMixin[Tool]):
     """Advanced AI system capable of performing tasks by leveraging specialized software tools and resources from aiXplain marketplace.
 
     Attributes:
@@ -131,11 +128,21 @@ class Agent(Model):
 
         assert llm.function == Function.TEXT_GENERATION, "Large Language Model must be a text generation model."
 
+        tool_names = []
         for tool in self.tools:
+            tool_name = None
             if isinstance(tool, Tool):
-                tool.validate()
+                tool_name = tool.name
             elif isinstance(tool, Model):
                 assert not isinstance(tool, Agent), "Agent cannot contain another Agent."
+                tool_name = tool.name
+            tool_names.append(tool_name)
+
+        if len(tool_names) != len(set(tool_names)):
+            duplicates = set([name for name in tool_names if tool_names.count(name) > 1])
+            raise Exception(
+                f"Agent Creation Error - Duplicate tool names found: {', '.join(duplicates)}. Make sure all tool names are unique."
+            )
 
     def validate(self, raise_exception: bool = False) -> bool:
         """Validate the Agent."""
@@ -206,6 +213,8 @@ class Agent(Model):
             poll_url = response["url"]
             end = time.time()
             result = self.sync_poll(poll_url, name=name, timeout=timeout, wait_time=wait_time)
+            # if result.status == ResponseStatus.FAILED:
+            #    raise Exception("Model failed to run with error: " + result.error_message)
             result_data = result.get("data") or {}
             return AgentResponse(
                 status=ResponseStatus.SUCCESS,
@@ -302,7 +311,7 @@ class Agent(Model):
         headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}
 
         # build query
-        input_data = process_variables(query, data, parameters, self.description)
+        input_data = process_variables(query, data, parameters, self.instructions)
 
         payload = {
             "id": self.id,
@@ -414,12 +423,6 @@ class Agent(Model):
 
     def save(self) -> None:
         """Save the Agent."""
-        self.update()
-
-    def deploy(self) -> None:
-        assert self.status == AssetStatus.DRAFT, "Agent must be in draft status to be deployed."
-        assert self.status != AssetStatus.ONBOARDED, "Agent is already deployed."
-        self.status = AssetStatus.ONBOARDED
         self.update()
 
     def __repr__(self):

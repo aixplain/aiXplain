@@ -21,18 +21,23 @@ Description:
     Agentification Class
 """
 
-from typing import Text, Union, Callable
+from typing import Text, Union, Callable, Optional
 from aixplain.modules.agent.tool import Tool
 import logging
+from aixplain.enums import AssetStatus
 
 
 class CustomPythonCodeTool(Tool):
     """Custom Python Code Tool"""
 
-    def __init__(self, code: Union[Text, Callable], description: Text = "", **additional_info) -> None:
+    def __init__(
+        self, code: Union[Text, Callable], description: Text = "", name: Optional[Text] = None, **additional_info
+    ) -> None:
         """Custom Python Code Tool"""
-        super().__init__(name="Custom Python Code", description=description, **additional_info)
+        super().__init__(name=name or "", description=description, **additional_info)
         self.code = code
+        self.status = AssetStatus.ONBOARDED  # TODO: change to DRAFT when we have a way to onboard the tool
+        self.validate()
 
     def to_dict(self):
         return {
@@ -64,3 +69,10 @@ class CustomPythonCodeTool(Tool):
         ), "Custom Python Code Tool Error: Tool description is required"
         assert self.code and self.code.strip() != "", "Custom Python Code Tool Error: Code is required"
         assert self.name and self.name.strip() != "", "Custom Python Code Tool Error: Name is required"
+        assert self.status in [
+            AssetStatus.DRAFT,
+            AssetStatus.ONBOARDED,
+        ], "Custom Python Code Tool Error: Status must be DRAFT or ONBOARDED"
+
+    def __repr__(self) -> Text:
+        return f"CustomPythonCodeTool(name={self.name})"

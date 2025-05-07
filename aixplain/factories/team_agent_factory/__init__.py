@@ -31,7 +31,7 @@ from aixplain.modules.agent import Agent
 from aixplain.modules.team_agent import TeamAgent, InspectorTarget
 from aixplain.utils import config
 from aixplain.factories.team_agent_factory.utils import build_team_agent
-from aixplain.utils.file_utils import _request_with_retry
+from aixplain.utils.request_utils import _request_with_retry
 from aixplain.modules.model.llm_model import LLM
 
 
@@ -54,6 +54,7 @@ class TeamAgentFactory:
         num_inspectors: int = 1,
         inspector_targets: List[Union[InspectorTarget, Text]] = [InspectorTarget.STEPS],
         use_mentalist_and_inspector: bool = False,  # TODO: remove this
+        instructions: Optional[Text] = None,
     ) -> TeamAgent:
         """Create a new team agent in the platform.
 
@@ -61,7 +62,7 @@ class TeamAgentFactory:
             name: The name of the team agent.
             agents: A list of agents to be added to the team.
             llm_id: The ID of the LLM to be used for the team agent.
-            description: The description of the team agent.
+            description: The description of the team agent to be displayed in the aiXplain platform.
             api_key: The API key to be used for the team agent.
             supplier: The supplier of the team agent.
             version: The version of the team agent.
@@ -70,6 +71,7 @@ class TeamAgentFactory:
             num_inspectors: The number of inspectors to be used for each inspection.
             inspector_targets: Which stages to be inspected during an execution of the team agent. (steps, output)
             use_mentalist_and_inspector: Whether to use the mentalist and inspector agents. (legacy)
+            instructions: The instructions to guide the team agent (i.e. appended in the prompt of the team agent).
 
         Returns:
             A new team agent instance.
@@ -144,7 +146,24 @@ class TeamAgentFactory:
             "version": version,
             "status": "draft",
             "tools": [],
+            "role": instructions,
         }
+
+        # Add LLM tools to the payload
+        if supervisor_llm is not None:
+            payload["tools"].append(
+                {"type": "llm", "description": "supervisor", "parameters": supervisor_llm.get_parameters().to_list()}
+            )
+
+        if mentalist_llm is not None:
+            payload["tools"].append(
+                {"type": "llm", "description": "mentalist", "parameters": mentalist_llm.get_parameters().to_list()}
+            )
+
+        if inspector_llm is not None:
+            payload["tools"].append(
+                {"type": "llm", "description": "inspector", "parameters": inspector_llm.get_parameters().to_list()}
+            )
 
         # Add LLM tools to the payload
         if supervisor_llm is not None:
