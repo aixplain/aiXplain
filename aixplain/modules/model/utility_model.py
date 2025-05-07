@@ -257,13 +257,7 @@ class UtilityModel(Model, DeployableMixin):
 
     def save(self):
         """Save the Utility Model."""
-        temp_status = self.status
-        try:
-            self.status = AssetStatus.DRAFT
-            self.update()
-        except Exception as e:
-            self.status = temp_status
-            raise Exception(f"Utility Model Save Error: {e}")
+        self.update()
 
     def delete(self):
         """Delete the Utility Model."""
