@@ -237,7 +237,6 @@ class UtilityModel(Model, DeployableMixin):
                 DeprecationWarning,
                 stacklevel=2,
             )
-
         self.validate()
         url = urljoin(self.backend_url, f"sdk/utilities/{self.id}")
         headers = {"x-api-key": f"{self.api_key}", "Content-Type": "application/json"}
@@ -258,7 +257,13 @@ class UtilityModel(Model, DeployableMixin):
 
     def save(self):
         """Save the Utility Model."""
-        self.update()
+        temp_status = self.status
+        try:
+            self.status = AssetStatus.DRAFT
+            self.update()
+        except Exception as e:
+            self.status = temp_status
+            raise Exception(f"Utility Model Save Error: {e}")
 
     def delete(self):
         """Delete the Utility Model."""
