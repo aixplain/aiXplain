@@ -29,6 +29,23 @@ from aixplain.factories.index_factory.utils import BaseIndexParams
 
 T = TypeVar("T", bound=BaseIndexParams)
 
+import os
+from aixplain.utils.file_utils import _request_with_retry
+from urllib.parse import urljoin
+
+def validate_embedding_model(model_id) -> bool:
+        resp = None
+
+        url = urljoin(os.environ.get("BACKEND_URL"), f"sdk/models/{model_id}")
+
+        headers = {"Authorization": f"Token {os.environ.get('TEAM_API_KEY')}", "Content-Type": "application/json"}
+        r = _request_with_retry("get", url, headers=headers)
+        resp = r.json()
+        if resp['function']['id'] == "text-embedding":
+            return model_id
+        else:
+            raise ValueError("This is not an embedding model")
+
 
 class IndexFactory(ModelFactory, Generic[T]):
     @classmethod
@@ -59,14 +76,14 @@ class IndexFactory(ModelFactory, Generic[T]):
             assert (
                 name is not None and description is not None and embedding_model is not None
             ), "Index Factory Exception: name, description, and embedding_model must be provided when params is not"
-            data = {
-                "data": name,
+            if validate_embedding_model(embedding_model):
+                data = {
+                    "data": name,
                 "description": description,
                 "model": embedding_model,
-            }
+                }
 
         model = cls.get(model_id)
-
         response = model.run(data=data)
         if response.status == ResponseStatus.SUCCESS:
             model_id = response.data
