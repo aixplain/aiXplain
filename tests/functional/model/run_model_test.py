@@ -171,8 +171,8 @@ def test_index_model_with_filter(embedding_model, supplier_params):
     from aixplain.factories import IndexFactory
     from aixplain.modules.model.index_model import IndexFilter, IndexFilterOperator
 
-    # for index in IndexFactory.list()["results"]:
-    #     index.delete()
+    for index in IndexFactory.list()["results"]:
+        index.delete()
 
     params = supplier_params(name=str(uuid4()), description=str(uuid4()))
     if embedding_model is not None:
@@ -242,8 +242,8 @@ def test_index_model_air_with_image():
     from uuid import uuid4
     from aixplain.factories.index_factory.utils import AirParams
 
-    # for index in IndexFactory.list()["results"]:
-    #     index.delete()
+    for index in IndexFactory.list()["results"]:
+        index.delete()
 
     params = AirParams(
         name=f"Image Index {uuid4()}", description="Index for images", embedding_model=EmbeddingModel.JINA_CLIP_V2_MULTIMODAL

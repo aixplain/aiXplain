@@ -1,7 +1,14 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 from typing import Text, Optional, ClassVar, Dict, Union
 from aixplain.enums import IndexStores, EmbeddingModel
 from abc import ABC, abstractmethod
+
+import os
+
+from urllib.parse import urljoin
+from aixplain.utils.file_utils import _request_with_retry
+
+
 
 class BaseIndexParams(BaseModel, ABC):
     model_config = ConfigDict(use_enum_values=True)
@@ -24,12 +31,31 @@ class BaseIndexParamsWithEmbeddingModel(BaseIndexParams, ABC):
     embedding_model: Optional[Union[EmbeddingModel, str]] = EmbeddingModel.OPENAI_ADA002
     embedding_size: Optional[int] = None
 
+    @field_validator('embedding_model')
+    def validate_embedding_model(cls, model_id) -> bool:
+        resp = None
+
+        url = urljoin(os.environ.get("BACKEND_URL"), f"sdk/models/{model_id}")
+
+        headers = {"Authorization": f"Token {os.environ.get('TEAM_API_KEY')}", "Content-Type": "application/json"}
+        r = _request_with_retry("get", url, headers=headers)
+        resp = r.json()
+        if resp['function']['id'] == "text-embedding":
+            return model_id
+        else:
+            raise ValueError("This is not an embedding model")
+
+
     def to_dict(self):
         data = super().to_dict()
         data["model"] = data.pop("embedding_model")
+
         if data.get("embedding_size"):
             data["additional_params"] = {"embedding_size": data.pop("embedding_size")}
         return data
+
+    
+
 
 
 class VectaraParams(BaseIndexParams):
@@ -63,3 +89,8 @@ class GraphRAGParams(BaseIndexParamsWithEmbeddingModel):
     @property
     def id(self) -> str:
         return self._id
+
+
+
+
+

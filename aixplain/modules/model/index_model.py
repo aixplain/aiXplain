@@ -41,24 +41,7 @@ class IndexFilter:
             "operator": self.operator.value if isinstance(self.operator, IndexFilterOperator) else self.operator,
         }
 
-def is_embedding_model(model_id: str) -> bool:
-    resp = None
-    try:
-        url = urljoin(os.environ.get("BACKEND_URL"), f"sdk/models/{model_id}")
 
-        headers = {"Authorization": f"Token {os.environ.get('TEAM_API_KEY')}", "Content-Type": "application/json"}
-        r = _request_with_retry("get", url, headers=headers)
-        resp = r.json()
-        return resp['function']['id'] == "text-embedding"
-
-    except Exception:
-        if resp is not None and "statusCode" in resp:
-            status_code = resp["statusCode"]
-            message = resp["message"]
-            message = f"Model Creation: Status {status_code} - {message}"
-        else:
-            message = "Model Creation: Unspecified Error. Unable to get model details"
-        raise Exception(f"{message}")
 
 
 class IndexModel(Model):
@@ -126,6 +109,7 @@ class IndexModel(Model):
         data["collection_type"] = self.version.split("-", 1)[0]
         return data
 
+       
 
     def search(self, query: str, top_k: int = 10, filters: List[IndexFilter] = []) -> ModelResponse:
         """Search for documents in the index
