@@ -44,7 +44,7 @@ class FileFactory:
         tags: Optional[List[Text]] = None,
         license: Optional[License] = None,
         is_temp: bool = True,
-        return_s3_path: bool = True,
+        return_download_link: bool = False,
     ) -> Text:
         """
         Uploads a file to an S3 bucket.
@@ -54,7 +54,7 @@ class FileFactory:
             tags (List[Text], optional): tags of the file
             license (License, optional): the license for the file
             is_temp (bool): specify if the file that will be upload is a temporary file
-            return_s3_path (bool): specify if the function should return the S3 path of the file or an HTTP link
+            return_download_link (bool): specify if the function should return the download link of the file or the S3 path
         Returns:
             Text: The S3 path where the file was uploaded.
 
@@ -97,10 +97,10 @@ class FileFactory:
                 license=license,
                 is_temp=is_temp,
                 content_type=content_type,
-                return_s3_path=return_s3_path,
+                return_download_link=return_download_link,
             )
         else:
-            s3_path = upload_data(file_name=local_path, return_s3_path=return_s3_path)
+            s3_path = upload_data(file_name=local_path, return_download_link=return_download_link)
         return s3_path
 
     @classmethod
@@ -157,7 +157,6 @@ class FileFactory:
             tags (List[Text], optional): tags of the file
             license (License, optional): the license for the file
             is_temp (bool): specify if the file that will be upload is a temporary file
-
         Returns:
             Text: The S3 path where the file was uploaded.
 
@@ -168,4 +167,4 @@ class FileFactory:
         assert (
             license is not None if is_temp is False else True
         ), "File Asset Creation Error: To upload a non-temporary file, you need to specify the `license`."
-        return cls.upload(local_path=local_path, tags=tags, license=license, is_temp=is_temp)
+        return cls.upload(local_path=local_path, tags=tags, license=license, is_temp=is_temp, return_download_link=is_temp)
