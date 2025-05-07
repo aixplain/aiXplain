@@ -28,7 +28,6 @@ from aixplain.utils import config
 from aixplain.utils.request_utils import _request_with_retry
 from aixplain.utils.asset_cache import AssetCache, CACHE_FOLDER
 
-
 from dataclasses import dataclass
 
 @dataclass

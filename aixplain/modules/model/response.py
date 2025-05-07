@@ -1,5 +1,6 @@
 from typing import Text, Any, Optional, Dict, List, Union
 from aixplain.enums import ResponseStatus
+from aixplain.exceptions.types import ErrorCode
 
 
 class ModelResponse:
@@ -16,6 +17,7 @@ class ModelResponse:
         run_time: float = 0.0,
         usage: Optional[Dict] = None,
         url: Optional[Text] = None,
+        error_code: Optional[ErrorCode] = None,
         **kwargs,
     ):
         self.status = status
@@ -31,6 +33,7 @@ class ModelResponse:
         self.run_time = run_time
         self.usage = usage
         self.url = url
+        self.error_code = error_code
         self.additional_fields = kwargs
 
     def __getitem__(self, key: Text) -> Any:
@@ -82,6 +85,8 @@ class ModelResponse:
             fields.append(f"usage={self.usage}")
         if self.url:
             fields.append(f"url='{self.url}'")
+        if self.error_code:
+            fields.append(f"error_code='{self.error_code}'")
         if self.additional_fields:
             fields.extend([f"{k}={repr(v)}" for k, v in self.additional_fields.items()])
         return f"ModelResponse({', '.join(fields)})"
@@ -104,6 +109,7 @@ class ModelResponse:
             "run_time": self.run_time,
             "usage": self.usage,
             "url": self.url,
+            "error_code": self.error_code,
         }
         if self.additional_fields:
             base_dict.update(self.additional_fields)

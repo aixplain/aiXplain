@@ -34,7 +34,7 @@ from aixplain.enums import (
     SortOrder,
 )
 from aixplain.utils import config
-from aixplain.utils.file_utils import _request_with_retry
+from aixplain.utils.request_utils import _request_with_retry
 from urllib.parse import urljoin
 from aixplain.utils.asset_cache import AssetCache, CACHE_FOLDER
 from aixplain.factories.model_factory.utils import create_model_from_response

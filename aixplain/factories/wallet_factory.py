@@ -1,6 +1,6 @@
 import aixplain.utils.config as config
 from aixplain.modules.wallet import Wallet
-from aixplain.utils.file_utils import _request_with_retry
+from aixplain.utils.request_utils import _request_with_retry
 import logging
 from typing import Text
 
