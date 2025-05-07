@@ -39,7 +39,12 @@ MB_300 = 314572800
 class FileFactory:
     @classmethod
     def upload(
-        cls, local_path: Text, tags: Optional[List[Text]] = None, license: Optional[License] = None, is_temp: bool = True
+        cls,
+        local_path: Text,
+        tags: Optional[List[Text]] = None,
+        license: Optional[License] = None,
+        is_temp: bool = True,
+        return_s3_path: bool = True,
     ) -> Text:
         """
         Uploads a file to an S3 bucket.
@@ -49,7 +54,7 @@ class FileFactory:
             tags (List[Text], optional): tags of the file
             license (License, optional): the license for the file
             is_temp (bool): specify if the file that will be upload is a temporary file
-
+            return_s3_path (bool): specify if the function should return the S3 path of the file or an HTTP link
         Returns:
             Text: The S3 path where the file was uploaded.
 
@@ -86,9 +91,16 @@ class FileFactory:
             )
 
         if is_temp is False:
-            s3_path = upload_data(file_name=local_path, tags=tags, license=license, is_temp=is_temp, content_type=content_type)
+            s3_path = upload_data(
+                file_name=local_path,
+                tags=tags,
+                license=license,
+                is_temp=is_temp,
+                content_type=content_type,
+                return_s3_path=return_s3_path,
+            )
         else:
-            s3_path = upload_data(file_name=local_path)
+            s3_path = upload_data(file_name=local_path, return_s3_path=return_s3_path)
         return s3_path
 
     @classmethod
