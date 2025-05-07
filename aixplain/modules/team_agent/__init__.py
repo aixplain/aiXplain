@@ -424,3 +424,6 @@ class TeamAgent(Model):
         assert self.status != AssetStatus.ONBOARDED, "Team Agent Deployment Error: Team Agent must be onboarded."
         self.status = AssetStatus.ONBOARDED
         self.update()
+
+    def __repr__(self):
+        return f"TeamAgent: {self.name} (id={self.id})"

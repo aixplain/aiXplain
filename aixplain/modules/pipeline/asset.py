@@ -602,4 +602,4 @@ class Pipeline(Asset):
         self.status = AssetStatus.ONBOARDED
 
     def __repr__(self):
-        return f"Pipeline(id={self.id}, name={self.name})"
+        return f"Pipeline: {self.name} (id={self.id})"

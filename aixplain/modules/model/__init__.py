@@ -374,3 +374,6 @@ class Model(Asset):
             message = "Model Deletion Error: Make sure the model exists and you are the owner."
             logging.error(message)
             raise Exception(f"{message}")
+
+    def __repr__(self):
+        return f"Model: {self.name} by {self.supplier} (id={self.id})"
