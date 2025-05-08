@@ -37,6 +37,8 @@ def create_model_from_response(response: Dict) -> Model:
                     parameters[param["name"]] = values
 
     attributes = response.get("attributes", None)
+    embedding_model = None
+    embedding_size = None
     if attributes:
         embedding_model = next((item['code'] for item in attributes if item['name'] == 'embeddingmodel'), None)
         embedding_size = next((item['value'] for item in attributes if item['name'] == 'embeddingSize'), None)
