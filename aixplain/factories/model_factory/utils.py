@@ -98,6 +98,7 @@ def create_model_from_response(response: Dict) -> Model:
         inputs=inputs,
         temperature=temperature,
         status=status,
+        attributes=response.get("attributes", []),
     )
 
 
