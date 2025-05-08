@@ -75,6 +75,7 @@ def create_model_from_response(response: Dict) -> Model:
                 raise Exception("Utility Model Error: Code not found")
 
     status = AssetStatus(response.get("status", AssetStatus.DRAFT.value))
+
     created_at = None
     if "createdAt" in response and response["createdAt"]:
         created_at = datetime.fromisoformat(response["createdAt"].replace("Z", "+00:00"))
