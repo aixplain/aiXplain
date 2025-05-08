@@ -1,7 +1,7 @@
 import os
 import pytest
 import pandas as pd
-from aixplain.factories import AgentFactory
+from aixplain.factories import AgentFactory, FileFactory
 from aixplain.enums import DatabaseSourceType
 
 from aixplain.modules.agent.tool.sql_tool import (
@@ -52,6 +52,8 @@ def test_create_sql_tool(mocker, tmp_path):
     conn = sqlite3.connect(db_path)
     conn.execute("CREATE TABLE test (id INTEGER, name TEXT)")
     conn.close()
+
+    mocker.patch.object(FileFactory, "upload", return_value=db_path)
 
     # Test SQLite source type
     tool = AgentFactory.create_sql_tool(
@@ -212,6 +214,8 @@ def test_create_sql_tool_with_schema_inference(tmp_path, mocker):
     conn.execute("CREATE TABLE test (id INTEGER, name TEXT)")
     conn.close()
 
+    mocker.patch.object(FileFactory, "upload", return_value=db_path)
+
     # Create tool without schema and tables
     tool = AgentFactory.create_sql_tool(name="Test SQL", description="Test", source=db_path, source_type="sqlite")
 
@@ -270,11 +274,16 @@ def test_create_sql_tool_from_csv_with_warnings(tmp_path, mocker):
             os.remove(tool.database)
 
 
-def test_create_sql_tool_from_csv(tmp_path):
+def test_create_sql_tool_from_csv(tmp_path, mocker):
     # Create a temporary CSV file
     csv_path = os.path.join(tmp_path, "test.csv")
     df = pd.DataFrame({"id": [1, 2, 3], "name": ["test1", "test2", "test3"], "value": [1.1, 2.2, 3.3]})
     df.to_csv(csv_path, index=False)
+
+    with open("test.db", "w") as f:
+        f.write("")
+
+    mocker.patch.object(FileFactory, "upload", return_value="test.db")
 
     # Test successful creation
     tool = AgentFactory.create_sql_tool(

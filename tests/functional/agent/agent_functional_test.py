@@ -362,6 +362,7 @@ def test_sql_tool(delete_agents_and_team_agents, AgentFactory):
             f.write("")
 
         tool = AgentFactory.create_sql_tool(
+            name="TestDB",
             description="Execute an SQL query and return the result",
             source="ftest.db",
             source_type="sqlite",
@@ -425,7 +426,11 @@ def test_sql_tool_with_csv(delete_agents_and_team_agents, AgentFactory):
 
         # Create SQL tool from CSV
         tool = AgentFactory.create_sql_tool(
-            description="Execute SQL queries on employee data", source="test.csv", source_type="csv", tables=["employees"]
+            name="TestDB",
+            description="Execute SQL queries on employee data",
+            source="test.csv",
+            source_type="csv",
+            tables=["employees"],
         )
 
         # Verify tool setup

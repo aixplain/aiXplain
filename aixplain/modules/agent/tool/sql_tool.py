@@ -285,6 +285,7 @@ class SQLTool(Tool):
         self.tables = tables if isinstance(tables, list) else [tables] if tables else None
         self.enable_commit = enable_commit
         self.status = AssetStatus.ONBOARDED  # TODO: change to DRAFT when we have a way to onboard the tool
+        self.validate()
 
     def to_dict(self) -> Dict[str, Text]:
         return {
@@ -338,3 +339,22 @@ class SQLTool(Tool):
                 self.database = FileFactory.upload(local_path=self.database, is_temp=True)
             except Exception as e:
                 raise SQLToolError(f"Failed to upload database: {str(e)}")
+
+    def deploy(self) -> None:
+        import uuid
+        import requests
+        from pathlib import Path
+        from aixplain.factories.file_factory import FileFactory
+        from aixplain.enums import License
+
+        # Generate unique filename with uuid4
+        local_path = str(Path(f"{uuid.uuid4()}.db"))
+
+        # Download database file
+        if str(self.database).startswith(("http://", "https://")):
+            response = requests.get(self.database)
+            response.raise_for_status()
+            with open(local_path, "wb") as f:
+                f.write(response.content)
+            self.database = FileFactory.create(local_path=local_path, is_temp=False, license=License.MIT)
+            os.remove(local_path)
