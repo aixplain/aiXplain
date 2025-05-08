@@ -35,12 +35,8 @@ def test_create_pipeline():
         headers = {"x-api-key": config.TEAM_API_KEY, "Content-Type": "application/json"}
         ref_response = {"id": "12345"}
         mock.post(url, headers=headers, json=ref_response)
-        ref_pipeline = Pipeline(
-            id="12345", name="Pipeline Test", api_key=config.TEAM_API_KEY
-        )
-        hyp_pipeline = PipelineFactory.create(
-            pipeline={"nodes": []}, name="Pipeline Test"
-        )
+        ref_pipeline = Pipeline(id="12345", name="Pipeline Test", api_key=config.TEAM_API_KEY)
+        hyp_pipeline = PipelineFactory.create(pipeline={"nodes": []}, name="Pipeline Test")
     assert hyp_pipeline.id == ref_pipeline.id
     assert hyp_pipeline.name == ref_pipeline.name
 
@@ -58,19 +54,19 @@ def test_create_pipeline():
         ),
         (
             475,
-            "{'error': 'Billing-related error: Please ensure you have enough credits to run this pipeline. ', 'status': 'ERROR'}",
+            "{'error': 'Billing-related error: Please ensure you have enough credits to run this asset.', 'status': 'ERROR'}",
         ),
         (
             485,
-            "{'error': 'Supplier-related error: Please ensure that the selected supplier provides the pipeline you are trying to access.', 'status': 'ERROR'}",
+            "{'error': 'Supplier-related error: Please ensure that the selected supplier provides the asset you are trying to access.', 'status': 'ERROR'}",
         ),
         (
             495,
-            "{'error': 'Validation-related error: Please ensure all required fields are provided and correctly formatted.', 'status': 'ERROR'}",
+            "{'error': 'Validation-related error: Please verify the request payload and ensure it is correct.', 'status': 'ERROR'}",
         ),
         (
             501,
-            "{'error': 'Status 501: Unspecified error: An unspecified error occurred while processing your request.', 'status': 'ERROR'}",
+            "{'error': 'Unspecified Server Error (Status 501)', 'status': 'ERROR'}",
         ),
     ],
 )
@@ -107,14 +103,9 @@ def test_list_pipelines_error_response():
         mock.post(url, headers=headers, json=error_response, status_code=400)
 
         with pytest.raises(Exception) as excinfo:
-            PipelineFactory.list(
-                query=query, page_number=page_number, page_size=page_size
-            )
+            PipelineFactory.list(query=query, page_number=page_number, page_size=page_size)
 
-        assert (
-            "Pipeline List Error: Failed to retrieve pipelines. Status Code: 400"
-            in str(excinfo.value)
-        )
+        assert "Pipeline List Error: Failed to retrieve pipelines. Status Code: 400" in str(excinfo.value)
 
 
 def test_get_pipeline_error_response():
@@ -132,112 +123,7 @@ def test_get_pipeline_error_response():
         with pytest.raises(Exception) as excinfo:
             PipelineFactory.get(pipeline_id=pipeline_id)
 
-        assert (
-            "Pipeline GET Error: Failed to retrieve pipeline test-pipeline-id. Status Code: 404"
-            in str(excinfo.value)
-        )
-
-
-@pytest.fixture
-def mock_pipeline():
-    return Pipeline(id="12345", name="Pipeline Test", api_key=config.TEAM_API_KEY)
-
-
-def test_run_async_success(mock_pipeline):
-    with requests_mock.Mocker() as mock:
-        execute_url = urljoin(
-            config.BACKEND_URL, f"assets/pipeline/execution/run/{mock_pipeline.id}"
-        )
-        success_response = PipelineResponse(
-            status=ResponseStatus.SUCCESS, url=execute_url
-        )
-        mock.post(execute_url, json=success_response.__dict__, status_code=200)
-
-        response = mock_pipeline.run_async(data="input_data")
-
-    assert isinstance(response, PipelineResponse)
-    assert response.status == ResponseStatus.SUCCESS
-
-
-def test_run_sync_success(mock_pipeline):
-    with requests_mock.Mocker() as mock:
-        poll_url = urljoin(
-            config.BACKEND_URL, f"assets/pipeline/execution/poll/{mock_pipeline.id}"
-        )
-        execute_url = urljoin(
-            config.BACKEND_URL, f"assets/pipeline/execution/run/{mock_pipeline.id}"
-        )
-        success_response = PipelineResponse(status=ResponseStatus.SUCCESS, url=poll_url)
-        poll_response = PipelineResponse(
-            status=ResponseStatus.SUCCESS, data={"output": "poll_result"}
-        )
-        mock.post(execute_url, json=success_response.__dict__, status_code=200)
-        mock.get(poll_url, json=poll_response.__dict__, status_code=200)
-        response = mock_pipeline.run(data="input_data")
-
-    assert isinstance(response, PipelineResponse)
-    assert response.status == ResponseStatus.SUCCESS
-
-
-def test_poll_success(mock_pipeline):
-    with requests_mock.Mocker() as mock:
-        poll_url = urljoin(
-            config.BACKEND_URL, f"assets/pipeline/execution/poll/{mock_pipeline.id}"
-        )
-        poll_response = PipelineResponse(
-            status=ResponseStatus.SUCCESS, data={"output": "poll_result"}
-        )
-        mock.get(poll_url, json=poll_response.__dict__, status_code=200)
-
-        response = mock_pipeline.poll(poll_url=poll_url)
-
-    assert isinstance(response, PipelineResponse)
-    assert response.status == ResponseStatus.SUCCESS
-    assert response.data["output"] == "poll_result"
-
-
-@pytest.fixture
-def mock_pipeline():
-    return Pipeline(id="12345", name="Pipeline Test", api_key=config.TEAM_API_KEY)
-
-
-def test_run_async_success(mock_pipeline):
-    with requests_mock.Mocker() as mock:
-        execute_url = urljoin(config.BACKEND_URL, f"assets/pipeline/execution/run/{mock_pipeline.id}")
-        success_response = PipelineResponse(status=ResponseStatus.SUCCESS, url=execute_url)
-        mock.post(execute_url, json=success_response.__dict__, status_code=200)
-
-        response = mock_pipeline.run_async(data="input_data")
-
-    assert isinstance(response, PipelineResponse)
-    assert response.status == ResponseStatus.SUCCESS
-
-
-def test_run_sync_success(mock_pipeline):
-    with requests_mock.Mocker() as mock:
-        poll_url = urljoin(config.BACKEND_URL, f"assets/pipeline/execution/poll/{mock_pipeline.id}")
-        execute_url = urljoin(config.BACKEND_URL, f"assets/pipeline/execution/run/{mock_pipeline.id}")
-        success_response = {"status": "SUCCESS", "url": poll_url, "completed": True}
-        poll_response = {"status": "SUCCESS", "data": {"output": "poll_result"}, "completed": True}
-        mock.post(execute_url, json=success_response, status_code=200)
-        mock.get(poll_url, json=poll_response, status_code=200)
-        response = mock_pipeline.run(data="input_data")
-
-    assert isinstance(response, PipelineResponse)
-    assert response.status == ResponseStatus.SUCCESS
-
-
-def test_poll_success(mock_pipeline):
-    with requests_mock.Mocker() as mock:
-        poll_url = urljoin(config.BACKEND_URL, f"assets/pipeline/execution/poll/{mock_pipeline.id}")
-        poll_response = PipelineResponse(status=ResponseStatus.SUCCESS, data={"output": "poll_result"})
-        mock.get(poll_url, json=poll_response.__dict__, status_code=200)
-
-        response = mock_pipeline.poll(poll_url=poll_url)
-
-    assert isinstance(response, PipelineResponse)
-    assert response.status == ResponseStatus.SUCCESS
-    assert response.data["output"] == "poll_result"
+        assert "Pipeline GET Error: Failed to retrieve pipeline test-pipeline-id. Status Code: 404" in str(excinfo.value)
 
 
 @pytest.fixture

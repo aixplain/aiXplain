@@ -592,3 +592,45 @@ def test_team_agent_with_multiple_inspectors(run_input_map, delete_agents_and_te
         verify_response_generator(steps, has_output_target=False)
 
     team_agent.delete()
+
+
+def test_team_agent_with_instructions(delete_agents_and_team_agents):
+    assert delete_agents_and_team_agents
+
+    agent_1 = AgentFactory.create(
+        name="Agent 1",
+        description="Translation agent",
+        tools=[AgentFactory.create_model_tool(function=Function.TRANSLATION, supplier=Supplier.MICROSOFT)],
+        llm_id="6646261c6eb563165658bbb1",
+    )
+
+    agent_2 = AgentFactory.create(
+        name="Agent 2",
+        description="Translation agent",
+        tools=[AgentFactory.create_model_tool(function=Function.TRANSLATION, supplier=Supplier.GOOGLE)],
+        llm_id="6646261c6eb563165658bbb1",
+    )
+
+    team_agent = TeamAgentFactory.create(
+        name="Team Agent",
+        agents=[agent_1, agent_2],
+        description="Team agent",
+        instructions="Use only 'Agent 2' to solve the tasks.",
+        llm_id="6646261c6eb563165658bbb1",
+        use_mentalist=True,
+        use_inspector=False,
+    )
+
+    response = team_agent.run(data="Translate 'cat' to Portuguese")
+    assert response.status == "SUCCESS"
+    assert "gato" in response.data["output"]
+
+    mentalist_steps = eval(response.data["intermediate_steps"][0]["output"])
+
+    called_agents = set([step["worker"] for step in mentalist_steps])
+    assert len(called_agents) == 1
+    assert "Agent 2" in called_agents
+
+    team_agent.delete()
+    agent_1.delete()
+    agent_2.delete()

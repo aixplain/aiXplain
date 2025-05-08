@@ -1,7 +1,7 @@
 import pytest
 import requests_mock
 from urllib.parse import urljoin
-from unittest.mock import patch
+from unittest.mock import patch, Mock
 
 from aixplain.enums.asset_status import AssetStatus
 from aixplain.factories import TeamAgentFactory
@@ -181,7 +181,7 @@ def test_create_team_agent(mock_model_factory_get):
             "role": "Test Agent Role",
             "teamId": "123",
             "version": "1.0",
-            "status": "draft",
+            "status": "onboarded",
             "llmId": "6646261c6eb563165658bbb1",
             "pricing": {"currency": "USD", "value": 0.0},
             "assets": [
@@ -502,3 +502,24 @@ def test_build_team_agent(mocker):
     agent1 = next((agent for agent in team_agent.agents if agent.id == "agent1"), None)
     assert agent1 is not None
     assert agent1.tasks[0].dependencies[0].name == "Test Task 2"
+
+
+def test_deploy_team_agent():
+    # Create a mock agent with ONBOARDED status
+    mock_agent = Mock()
+    mock_agent.id = "agent-id"
+    mock_agent.name = "Test Agent"
+    mock_agent.status = AssetStatus.ONBOARDED
+
+    # Create the team agent
+    team_agent = TeamAgent(id="team-agent-id", name="Test Team Agent", agents=[mock_agent], status=AssetStatus.DRAFT)
+
+    # Mock the update method
+    team_agent.update = Mock()
+
+    # Deploy the team agent
+    team_agent.deploy()
+
+    # Verify that status was updated and update was called
+    assert team_agent.status == AssetStatus.ONBOARDED
+    team_agent.update.assert_called_once()

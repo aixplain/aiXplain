@@ -120,6 +120,8 @@ def run_index_model(index_model):
         pytest.param(EmbeddingModel.SNOWFLAKE_ARCTIC_EMBED_L_V2_0, AirParams, id="AIR - Snowflake Arctic Embed L v2.0"),
         pytest.param(EmbeddingModel.MULTILINGUAL_E5_LARGE, AirParams, id="AIR - Multilingual E5 Large"),
         pytest.param(EmbeddingModel.BGE_M3, AirParams, id="AIR - BGE M3"),
+        pytest.param(EmbeddingModel.AIXPLAIN_LEGAL_EMBEDDINGS, AirParams, id="AIR - aiXplain Legal Embeddings"),
+
     ],
 )
 def test_index_model(embedding_model, supplier_params):
@@ -144,6 +146,8 @@ def test_index_model(embedding_model, supplier_params):
         pytest.param(EmbeddingModel.JINA_CLIP_V2_MULTIMODAL, AirParams, id="Jina Clip v2 Multimodal"),
         pytest.param(EmbeddingModel.MULTILINGUAL_E5_LARGE, AirParams, id="Multilingual E5 Large"),
         pytest.param(EmbeddingModel.BGE_M3, AirParams, id="BGE M3"),
+        pytest.param(EmbeddingModel.AIXPLAIN_LEGAL_EMBEDDINGS, AirParams, id="aiXplain Legal Embeddings"),
+
     ],
 )
 def test_index_model_with_filter(embedding_model, supplier_params):
@@ -256,3 +260,8 @@ def test_index_model_air_with_image():
     assert "hurricane" in second_record.lower()
 
     index_model.delete()
+
+    import os
+
+    if os.path.exists("hurricane.jpeg"):
+        os.remove("hurricane.jpeg")
