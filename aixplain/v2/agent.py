@@ -131,6 +131,7 @@ class Agent(
     @classmethod
     def create_sql_tool(
         cls,
+        name: str,
         description: str,
         source: str,
         source_type: str,
@@ -172,6 +173,7 @@ class Agent(
         from aixplain.factories import AgentFactory
 
         return AgentFactory.create_sql_tool(
+            name=name,
             description=description,
             source=source,
             source_type=source_type,

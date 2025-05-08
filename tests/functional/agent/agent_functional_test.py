@@ -354,6 +354,7 @@ def test_specific_model_parameters_e2e(tool_config, delete_agents_and_team_agent
 @pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
 def test_sql_tool(delete_agents_and_team_agents, AgentFactory):
     assert delete_agents_and_team_agents
+    agent = None
     try:
         import os
 
@@ -362,6 +363,7 @@ def test_sql_tool(delete_agents_and_team_agents, AgentFactory):
             f.write("")
 
         tool = AgentFactory.create_sql_tool(
+            name="Teste",
             description="Execute an SQL query and return the result",
             source="ftest.db",
             source_type="sqlite",
@@ -394,12 +396,14 @@ def test_sql_tool(delete_agents_and_team_agents, AgentFactory):
         assert "eve" in str(response["data"]["output"]).lower()
     finally:
         os.remove("ftest.db")
-        agent.delete()
+        if agent:
+            agent.delete()
 
 
 @pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
 def test_sql_tool_with_csv(delete_agents_and_team_agents, AgentFactory):
     assert delete_agents_and_team_agents
+    agent = None
     try:
         import os
         import pandas as pd
@@ -425,7 +429,11 @@ def test_sql_tool_with_csv(delete_agents_and_team_agents, AgentFactory):
 
         # Create SQL tool from CSV
         tool = AgentFactory.create_sql_tool(
-            description="Execute SQL queries on employee data", source="test.csv", source_type="csv", tables=["employees"]
+            name="CSV Tool Test",
+            description="Execute SQL queries on employee data",
+            source="test.csv",
+            source_type="csv",
+            tables=["employees"],
         )
 
         # Verify tool setup
@@ -471,9 +479,12 @@ def test_sql_tool_with_csv(delete_agents_and_team_agents, AgentFactory):
 
     finally:
         # Cleanup
-        os.remove("test.csv")
-        os.remove("test.db")
-        agent.delete()
+        if agent:
+            agent.delete()
+        if os.path.exists("test.csv"):
+            os.remove("test.csv")
+        if os.path.exists("test.db"):
+            os.remove("test.db")
 
 
 @pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
