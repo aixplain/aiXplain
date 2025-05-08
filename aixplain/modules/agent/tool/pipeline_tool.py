@@ -24,6 +24,7 @@ from typing import Text, Union, Optional
 
 from aixplain.modules.agent.tool import Tool
 from aixplain.modules.pipeline import Pipeline
+from aixplain.enums import AssetStatus
 
 
 class PipelineTool(Tool):
@@ -50,6 +51,8 @@ class PipelineTool(Tool):
         name = name or ""
         super().__init__(name=name, description=description, **additional_info)
 
+        self.status = AssetStatus.DRAFT
+
         self.pipeline = pipeline
         self.validate()
 
@@ -59,7 +62,11 @@ class PipelineTool(Tool):
             "name": self.name,
             "description": self.description,
             "type": "pipeline",
+            "status": self.status,
         }
+
+    def __repr__(self) -> Text:
+        return f"PipelineTool(name={self.name}, pipeline={self.pipeline})"
 
     def validate(self):
         from aixplain.factories.pipeline_factory import PipelineFactory
@@ -76,6 +83,5 @@ class PipelineTool(Tool):
 
         if self.name.strip() == "":
             self.name = pipeline_obj.name
+        self.status = pipeline_obj.status
 
-    def __repr__(self) -> Text:
-        return f"PipelineTool(name={self.name}, pipeline={self.pipeline})"

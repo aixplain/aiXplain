@@ -369,7 +369,6 @@ def test_sql_tool(delete_agents_and_team_agents, AgentFactory):
         )
         assert tool is not None
         assert tool.description == "Execute an SQL query and return the result"
- 
 
         agent = AgentFactory.create(
             name="Teste",
@@ -396,7 +395,6 @@ def test_sql_tool(delete_agents_and_team_agents, AgentFactory):
     finally:
         os.remove("ftest.db")
         agent.delete()
-
 
 @pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
 def test_sql_tool_with_csv(delete_agents_and_team_agents, AgentFactory):
@@ -597,4 +595,4 @@ def test_agent_with_pipeline_tool(delete_agents_and_team_agents, AgentFactory):
 
     assert "hello" in answer["data"]["output"].lower()
     assert "hello pipeline" in answer["data"]["intermediate_steps"][0]["tool_steps"][0]["tool"].lower()
- 
+

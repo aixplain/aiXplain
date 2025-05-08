@@ -3,7 +3,7 @@ import logging
 import aixplain.utils.config as config
 from datetime import datetime
 from typing import Text, List, Optional, Dict, Union
-from aixplain.utils.file_utils import _request_with_retry
+from aixplain.utils.request_utils import _request_with_retry
 from aixplain.modules.api_key import APIKey, APIKeyLimits, APIKeyUsageLimit
 
 

@@ -31,7 +31,7 @@ from aixplain.modules.agent import Agent
 from aixplain.modules.team_agent import TeamAgent, InspectorTarget
 from aixplain.utils import config
 from aixplain.factories.team_agent_factory.utils import build_team_agent
-from aixplain.utils.file_utils import _request_with_retry
+from aixplain.utils.request_utils import _request_with_retry
 
 
 class TeamAgentFactory:
