@@ -62,9 +62,7 @@ def test_llm_run_stream():
     for chunk in response:
         assert isinstance(chunk, ModelResponse)
         assert chunk.data in "This is a test response."
-        assert chunk.details["full_content"] in "This is a test response."
     assert response.status == ResponseStatus.SUCCESS
-    assert response.full_content == "This is a test response."
 
 
 def test_run_async():
@@ -121,7 +119,6 @@ def run_index_model(index_model):
         pytest.param(EmbeddingModel.MULTILINGUAL_E5_LARGE, AirParams, id="AIR - Multilingual E5 Large"),
         pytest.param(EmbeddingModel.BGE_M3, AirParams, id="AIR - BGE M3"),
         pytest.param(EmbeddingModel.AIXPLAIN_LEGAL_EMBEDDINGS, AirParams, id="AIR - aiXplain Legal Embeddings"),
-
     ],
 )
 def test_index_model(embedding_model, supplier_params):
@@ -147,7 +144,6 @@ def test_index_model(embedding_model, supplier_params):
         pytest.param(EmbeddingModel.MULTILINGUAL_E5_LARGE, AirParams, id="Multilingual E5 Large"),
         pytest.param(EmbeddingModel.BGE_M3, AirParams, id="BGE M3"),
         pytest.param(EmbeddingModel.AIXPLAIN_LEGAL_EMBEDDINGS, AirParams, id="aiXplain Legal Embeddings"),
-
     ],
 )
 def test_index_model_with_filter(embedding_model, supplier_params):

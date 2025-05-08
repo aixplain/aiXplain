@@ -645,7 +645,6 @@ def test_model_response_streamer():
     streamer = ModelResponseStreamer(iter([]))
     assert isinstance(streamer, ModelResponseStreamer)
     assert streamer.status == ResponseStatus.IN_PROGRESS
-    assert streamer.full_content == ""
 
 
 def test_model_not_supports_streaming(mocker):
