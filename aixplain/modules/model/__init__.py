@@ -123,9 +123,7 @@ class Model(Asset):
         Returns:
             Dict: Model Information
         """
-        clean_additional_info = {
-            k: v for k, v in self.additional_info.items() if v is not None
-        }
+        clean_additional_info = {k: v for k, v in self.additional_info.items() if v not in [None, "", [], {}]}
         return {
             "id": self.id,
             "name": self.name,

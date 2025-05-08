@@ -36,6 +36,11 @@ def create_model_from_response(response: Dict) -> Model:
                 if len(values) > 0:
                     parameters[param["name"]] = values
 
+    attributes = response.get("attributes", None)
+    if attributes:
+        embedding_model = next((item['code'] for item in attributes if item['name'] == 'embeddingmodel'), None)
+        embedding_size = next((item['value'] for item in attributes if item['name'] == 'embeddingSize'), None)
+
     function_id = response["function"]["id"]
     function = Function(function_id)
     function_input_params, function_output_params = function.get_input_output_params()
@@ -100,7 +105,8 @@ def create_model_from_response(response: Dict) -> Model:
         temperature=temperature,
         supports_streaming=response.get("supportsStreaming", False),
         status=status,
-        attributes=response.get("attributes", []),
+        embedding_model=embedding_model,
+        embedding_size=embedding_size
     )
 
 

@@ -84,6 +84,13 @@ class IndexModel(Model):
         self.backend_url = config.BACKEND_URL
         self.embedding_model = embedding_model
 
+    
+    def to_dict(self) -> Dict:
+        data = super().to_dict()
+        data["embedding_model"] = self.embedding_model
+        data["collection_type"] = self.version.split("-", 1)[0]
+        return data
+
     def search(self, query: str, top_k: int = 10, filters: List[IndexFilter] = []) -> ModelResponse:
         """Search for documents in the index
 
