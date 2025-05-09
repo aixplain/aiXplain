@@ -7,11 +7,16 @@ from typing import Callable, Dict, List, Text, Tuple, Union, Optional
 from aixplain.exceptions import get_error_from_status_code
 
 
-def build_payload(data: Union[Text, Dict], parameters: Optional[Dict] = None):
+def build_payload(data: Union[Text, Dict], parameters: Optional[Dict] = None, stream: Optional[bool] = None):
     from aixplain.factories import FileFactory
 
     if parameters is None:
         parameters = {}
+
+    if stream is not None:
+        if "options" not in parameters:
+            parameters["options"] = {}
+        parameters["options"]["stream"] = stream
 
     data = FileFactory.to_link(data)
     if isinstance(data, dict):
@@ -36,6 +41,7 @@ def call_run_endpoint(url: Text, api_key: Text, payload: Dict) -> Dict:
 
     resp = "unspecified error"
     try:
+        logging.debug(f"Calling {url} with payload: {payload}")
         r = _request_with_retry("post", url, headers=headers, data=payload)
         resp = r.json()
     except Exception as e:
