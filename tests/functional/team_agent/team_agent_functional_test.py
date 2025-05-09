@@ -627,7 +627,7 @@ def test_team_agent_with_instructions(delete_agents_and_team_agents):
 
     mentalist_steps = eval(response.data["intermediate_steps"][0]["output"])
 
-    called_agents = set([step["worker"] for step in mentalist_steps])
+    called_agents = set([step["agent"] for step in mentalist_steps])
     assert len(called_agents) == 1
     assert "Agent 2" in called_agents
 
