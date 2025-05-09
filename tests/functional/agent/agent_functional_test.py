@@ -596,3 +596,35 @@ def test_agent_with_pipeline_tool(delete_agents_and_team_agents, AgentFactory):
 
     assert "hello" in answer["data"]["output"].lower()
     assert "hello pipeline" in answer["data"]["intermediate_steps"][0]["tool_steps"][0]["tool"].lower()
+
+
+@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
+def test_agent_llm_parameter_preservation(delete_agents_and_team_agents, AgentFactory):
+    """Test that LLM parameters like temperature are preserved when creating agents."""
+    assert delete_agents_and_team_agents
+
+    # Get an LLM instance and customize its temperature
+    llm = ModelFactory.get("671be4886eb56397e51f7541")  # Anthropic Claude 3.5 Sonnet v1
+    original_temperature = llm.temperature
+    custom_temperature = 0.1
+    llm.temperature = custom_temperature
+
+    # Create agent with the custom LLM
+    agent = AgentFactory.create(
+        name="LLM Parameter Test Agent",
+        description="An agent for testing LLM parameter preservation",
+        instructions="Testing LLM parameter preservation",
+        llm=llm,
+    )
+
+    # Verify that the temperature setting was preserved
+    assert agent.llm.temperature == custom_temperature
+
+    # Verify that the agent's LLM is the same instance as the original
+    assert id(agent.llm) == id(llm)
+
+    # Clean up
+    agent.delete()
+
+    # Reset the LLM temperature to its original value
+    llm.temperature = original_temperature

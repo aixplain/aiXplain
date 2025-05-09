@@ -102,7 +102,11 @@ def build_agent(payload: Dict, tools: List[Tool] = None, api_key: Text = config.
 
     # Get LLM from tools if present
     llm = None
-    if "tools" in payload:
+    # First check if we have the LLM object
+    if "llm" in payload:
+        llm = payload["llm"]
+    # Otherwise create from the parameters
+    elif "tools" in payload:
         for tool in payload["tools"]:
             if tool["type"] == "llm" and tool["description"] == "main":
                 from aixplain.factories.model_factory import ModelFactory
@@ -110,6 +114,15 @@ def build_agent(payload: Dict, tools: List[Tool] = None, api_key: Text = config.
                 llm = ModelFactory.get(payload["llmId"], api_key=api_key)
                 # Set parameters from the tool
                 if "parameters" in tool:
+                    # Apply all parameters directly to the LLM properties
+                    for param in tool["parameters"]:
+                        param_name = param["name"]
+                        param_value = param["value"]
+                        # Apply any parameter that exists as an attribute on the LLM
+                        if hasattr(llm, param_name):
+                            setattr(llm, param_name, param_value)
+
+                    # Also set model_params for completeness
                     # Convert parameters list to dictionary format expected by ModelParameters
                     params_dict = {}
                     for param in tool["parameters"]:

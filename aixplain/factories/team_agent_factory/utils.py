@@ -39,12 +39,29 @@ def build_team_agent(payload: Dict, agents: List[Agent] = None, api_key: Text = 
     mentalist_llm = None
     inspector_llm = None
 
-    if "tools" in payload:
+    # First check if we have direct LLM objects in the payload
+    if "supervisor_llm" in payload:
+        supervisor_llm = payload["supervisor_llm"]
+    if "mentalist_llm" in payload:
+        mentalist_llm = payload["mentalist_llm"]
+    if "inspector_llm" in payload:
+        inspector_llm = payload["inspector_llm"]
+    # Otherwise create from the parameters
+    elif "tools" in payload:
         for tool in payload["tools"]:
             if tool["type"] == "llm":
                 llm = ModelFactory.get(payload["llmId"], api_key=api_key)
                 # Set parameters from the tool
                 if "parameters" in tool:
+                    # Apply all parameters directly to the LLM properties
+                    for param in tool["parameters"]:
+                        param_name = param["name"]
+                        param_value = param["value"]
+                        # Apply any parameter that exists as an attribute on the LLM
+                        if hasattr(llm, param_name):
+                            setattr(llm, param_name, param_value)
+
+                    # Also set model_params for completeness
                     # Convert parameters list to dictionary format expected by ModelParameters
                     params_dict = {}
                     for param in tool["parameters"]:

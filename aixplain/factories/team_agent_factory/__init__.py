@@ -33,6 +33,7 @@ from aixplain.utils import config
 from aixplain.factories.team_agent_factory.utils import build_team_agent
 from aixplain.utils.request_utils import _request_with_retry
 from aixplain.modules.model.llm_model import LLM
+from aixplain.utils.llm_utils import get_llm_instance
 
 
 class TeamAgentFactory:
@@ -61,6 +62,9 @@ class TeamAgentFactory:
         Args:
             name: The name of the team agent.
             agents: A list of agents to be added to the team.
+            supervisor_llm (Optional[LLM], optional): Main supervisor LLM. Defaults to None.
+            mentalist_llm (Optional[LLM], optional): LLM for planning. Defaults to None.
+            inspector_llm (Optional[LLM], optional): LLM for inspection. Defaults to None.
             llm_id: The ID of the LLM to be used for the team agent.
             description: The description of the team agent to be displayed in the aiXplain platform.
             api_key: The API key to be used for the team agent.
@@ -118,6 +122,16 @@ class TeamAgentFactory:
             mentalist_llm_id = llm_id if use_mentalist else None
             inspector_llm_id = llm_id if use_inspector else None
 
+        # Set up LLMs
+        if supervisor_llm is None:
+            supervisor_llm = get_llm_instance(llm_id or "669a63646eb56306647e1091", api_key=api_key)
+
+        if use_mentalist and mentalist_llm is None:
+            mentalist_llm = get_llm_instance(mentalist_llm_id or "669a63646eb56306647e1091", api_key=api_key)
+
+        if use_inspector and inspector_llm is None:
+            inspector_llm = get_llm_instance(inspector_llm_id or "669a63646eb56306647e1091", api_key=api_key)
+
         team_agent = None
         url = urljoin(config.BACKEND_URL, "sdk/agent-communities")
         headers = {"x-api-key": api_key}
@@ -152,36 +166,41 @@ class TeamAgentFactory:
         # Add LLM tools to the payload
         if supervisor_llm is not None:
             payload["tools"].append(
-                {"type": "llm", "description": "supervisor", "parameters": supervisor_llm.get_parameters().to_list()}
+                {
+                    "type": "llm",
+                    "description": "supervisor",
+                    "parameters": supervisor_llm.get_parameters().to_list() if supervisor_llm.get_parameters() else {},
+                }
             )
 
         if mentalist_llm is not None:
             payload["tools"].append(
-                {"type": "llm", "description": "mentalist", "parameters": mentalist_llm.get_parameters().to_list()}
+                {
+                    "type": "llm",
+                    "description": "mentalist",
+                    "parameters": mentalist_llm.get_parameters().to_list() if mentalist_llm.get_parameters() else {},
+                }
             )
 
         if inspector_llm is not None:
             payload["tools"].append(
-                {"type": "llm", "description": "inspector", "parameters": inspector_llm.get_parameters().to_list()}
+                {
+                    "type": "llm",
+                    "description": "inspector",
+                    "parameters": inspector_llm.get_parameters().to_list() if inspector_llm.get_parameters() else {},
+                }
             )
 
-        # Add LLM tools to the payload
+        # Store the LLM objects directly in the payload for build_team_agent
+        internal_payload = payload.copy()
         if supervisor_llm is not None:
-            payload["tools"].append(
-                {"type": "llm", "description": "supervisor", "parameters": supervisor_llm.get_parameters().to_list()}
-            )
-
+            internal_payload["supervisor_llm"] = supervisor_llm
         if mentalist_llm is not None:
-            payload["tools"].append(
-                {"type": "llm", "description": "mentalist", "parameters": mentalist_llm.get_parameters().to_list()}
-            )
-
+            internal_payload["mentalist_llm"] = mentalist_llm
         if inspector_llm is not None:
-            payload["tools"].append(
-                {"type": "llm", "description": "inspector", "parameters": inspector_llm.get_parameters().to_list()}
-            )
+            internal_payload["inspector_llm"] = inspector_llm
 
-        team_agent = build_team_agent(payload=payload, agents=agent_list, api_key=api_key)
+        team_agent = build_team_agent(payload=internal_payload, agents=agent_list, api_key=api_key)
         team_agent.validate(raise_exception=True)
         response = "Unspecified error"
         try:
@@ -192,6 +211,14 @@ class TeamAgentFactory:
             raise Exception(e)
 
         if 200 <= r.status_code < 300:
+            # Preserve the LLM objects
+            if "supervisor_llm" in internal_payload:
+                response["supervisor_llm"] = internal_payload["supervisor_llm"]
+            if "mentalist_llm" in internal_payload:
+                response["mentalist_llm"] = internal_payload["mentalist_llm"]
+            if "inspector_llm" in internal_payload:
+                response["inspector_llm"] = internal_payload["inspector_llm"]
+
             team_agent = build_team_agent(payload=response, agents=agent_list, api_key=api_key)
         else:
             error_msg = f"{response}"

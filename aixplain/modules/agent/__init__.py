@@ -114,17 +114,14 @@ class Agent(Model, DeployableMixin[Tool]):
 
     def _validate(self) -> None:
         """Validate the Agent."""
-        from aixplain.factories.model_factory import ModelFactory
+        from aixplain.utils.llm_utils import get_llm_instance
 
         # validate name
         assert (
             re.match(r"^[a-zA-Z0-9 \-\(\)]*$", self.name) is not None
         ), "Agent Creation Error: Agent name contains invalid characters. Only alphanumeric characters, spaces, hyphens, and brackets are allowed."
 
-        try:
-            llm = ModelFactory.get(self.llm_id, api_key=self.api_key)
-        except Exception:
-            raise Exception(f"Large Language Model with ID '{self.llm_id}' not found.")
+        llm = get_llm_instance(self.llm_id, api_key=self.api_key)
 
         assert llm.function == Function.TEXT_GENERATION, "Large Language Model must be a text generation model."
 
@@ -359,7 +356,13 @@ class Agent(Model, DeployableMixin[Tool]):
             "llmId": self.llm_id,
             "status": self.status.value,
             "tasks": [task.to_dict() for task in self.tasks],
-            "tools": [{"type": "llm", "description": "main", "parameters": self.llm.get_parameters().to_list()}]
+            "tools": [
+                {
+                    "type": "llm",
+                    "description": "main",
+                    "parameters": self.llm.get_parameters().to_list() if self.llm.get_parameters() else {},
+                }
+            ]
             if self.llm is not None
             else [],
         }
