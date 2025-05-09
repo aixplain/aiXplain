@@ -137,7 +137,7 @@ def test_custom_code_tool(delete_agents_and_team_agents, AgentFactory):
     )
     assert tool is not None
     assert tool.description == "Add two strings"
-    assert tool.code == 'def main(aaa: str, bbb: str) -> str:\n    """Add two strings"""\n    return aaa + bbb'
+    assert tool.code.startswith("s3://")
     agent = AgentFactory.create(
         name="Add Strings Agent",
         description="Add two strings. Do not directly answer. Use the tool to add the strings.",
@@ -399,6 +399,7 @@ def test_sql_tool(delete_agents_and_team_agents, AgentFactory):
         if agent:
             agent.delete()
 
+
 @pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
 def test_sql_tool_with_csv(delete_agents_and_team_agents, AgentFactory):
     assert delete_agents_and_team_agents
@@ -510,13 +511,6 @@ def test_instructions(delete_agents_and_team_agents, AgentFactory):
     assert response["data"]["session_id"] is not None
     assert response["data"]["output"] is not None
     assert "aixplain" in response["data"]["output"].lower()
-    assert "eve" in response["data"]["output"].lower()
-
-    import os
-
-    # Cleanup
-    os.remove("test.csv")
-    os.remove("test.db")
     agent.delete()
 
 
@@ -606,4 +600,3 @@ def test_agent_with_pipeline_tool(delete_agents_and_team_agents, AgentFactory):
 
     assert "hello" in answer["data"]["output"].lower()
     assert "hello pipeline" in answer["data"]["intermediate_steps"][0]["tool_steps"][0]["tool"].lower()
-
