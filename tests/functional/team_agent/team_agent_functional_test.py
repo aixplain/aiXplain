@@ -625,7 +625,7 @@ def test_team_agent_with_instructions(delete_agents_and_team_agents):
     assert response.status == "SUCCESS"
     assert "gato" in response.data["output"]
 
-    mentalist_steps = eval(response.data["intermediate_steps"][0]["output"])
+    mentalist_steps = [json.loads(step) for step in eval(response.data["intermediate_steps"][0]["output"])]
 
     called_agents = set([step["agent"] for step in mentalist_steps])
     assert len(called_agents) == 1
