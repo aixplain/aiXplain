@@ -131,6 +131,7 @@ class Agent(Model, DeployableMixin[Tool]):
                 tool_name = tool.name
             elif isinstance(tool, Model):
                 assert not isinstance(tool, Agent), "Agent cannot contain another Agent."
+
                 tool_name = tool.name
             tool_names.append(tool_name)
 

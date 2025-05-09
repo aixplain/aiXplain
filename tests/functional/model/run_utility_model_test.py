@@ -4,6 +4,7 @@ from aixplain.enums import DataType, AssetStatus
 import pytest
 
 
+
 def test_run_utility_model():
     utility_model = None
     try:
