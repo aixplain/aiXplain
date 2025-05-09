@@ -25,6 +25,7 @@ import logging
 import traceback
 from aixplain.enums import Supplier, Function
 from aixplain.modules.asset import Asset
+from aixplain.modules.model.model_response_streamer import ModelResponseStreamer
 from aixplain.modules.model.utils import build_payload, call_run_endpoint
 from aixplain.utils import config
 from urllib.parse import urljoin
@@ -56,6 +57,7 @@ class Model(Asset):
         input_params (ModelParameters, optional): input parameters for the function.
         output_params (Dict, optional): output parameters for the function.
         model_params (ModelParameters, optional): parameters for the function.
+        supports_streaming (bool, optional): whether the model supports streaming. Defaults to False.
     """
 
     def __init__(
@@ -73,6 +75,7 @@ class Model(Asset):
         input_params: Optional[Dict] = None,
         output_params: Optional[Dict] = None,
         model_params: Optional[Dict] = None,
+        supports_streaming: bool = False,
         status: Optional[AssetStatus] = AssetStatus.ONBOARDED,  # default status for models is ONBOARDED
         **additional_info,
     ) -> None:
@@ -91,6 +94,7 @@ class Model(Asset):
             input_params (Dict, optional): input parameters for the function.
             output_params (Dict, optional): output parameters for the function.
             model_params (Dict, optional): parameters for the function.
+            supports_streaming (bool, optional): whether the model supports streaming. Defaults to False.
             status (AssetStatus, optional): status of the model. Defaults to None.
             **additional_info: Any additional Model info to be saved
         """
@@ -105,6 +109,7 @@ class Model(Asset):
         self.input_params = input_params
         self.output_params = output_params
         self.model_params = ModelParameters(model_params) if model_params else None
+        self.supports_streaming = supports_streaming
         if isinstance(status, str):
             try:
                 status = AssetStatus(status)
@@ -232,6 +237,19 @@ class Model(Asset):
                 completed=False,
             )
 
+    def run_stream(
+        self,
+        data: Union[Text, Dict],
+        parameters: Optional[Dict] = None,
+    ) -> ModelResponseStreamer:
+        assert self.supports_streaming, f"Model '{self.name} ({self.id})' does not support streaming"
+        payload = build_payload(data=data, parameters=parameters, stream=True)
+        url = f"{self.url}/{self.id}".replace("api/v1/execute", "api/v2/execute")
+        logging.debug(f"Model Run Stream: Start service for {url} - {payload}")
+        headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}
+        r = _request_with_retry("post", url, headers=headers, data=payload, stream=True)
+        return ModelResponseStreamer(r.iter_lines(decode_unicode=True))
+
     def run(
         self,
         data: Union[Text, Dict],
@@ -239,7 +257,8 @@ class Model(Asset):
         timeout: float = 300,
         parameters: Optional[Dict] = None,
         wait_time: float = 0.5,
-    ) -> ModelResponse:
+        stream: bool = False,
+    ) -> Union[ModelResponse, ModelResponseStreamer]:
         """Runs a model call.
 
         Args:
@@ -248,10 +267,12 @@ class Model(Asset):
             timeout (float, optional): total polling time. Defaults to 300.
             parameters (Dict, optional): optional parameters to the model. Defaults to None.
             wait_time (float, optional): wait time in seconds between polling calls. Defaults to 0.5.
-
+            stream (bool, optional): whether the model supports streaming. Defaults to False.
         Returns:
-            Dict: parsed output from model
+            Union[ModelResponse, ModelStreamer]: parsed output from model
         """
+        if stream:
+            return self.run_stream(data=data, parameters=parameters)
         start = time.time()
         payload = build_payload(data=data, parameters=parameters)
         url = f"{self.url}/{self.id}".replace("api/v1/execute", "api/v2/execute")

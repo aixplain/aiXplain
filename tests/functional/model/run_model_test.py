@@ -46,6 +46,25 @@ def test_llm_run(llm_model):
     assert response["status"] == "SUCCESS"
 
 
+def test_llm_run_stream():
+    """Testing LLMs with streaming"""
+    from aixplain.modules.model.response import ModelResponse, ResponseStatus
+    from aixplain.modules.model.model_response_streamer import ModelResponseStreamer
+
+    llm_model = ModelFactory.get("669a63646eb56306647e1091")
+
+    assert isinstance(llm_model, LLM)
+    response = llm_model.run(
+        data="This is a test prompt where I expect you to respond with the following phrase: 'This is a test response.'",
+        stream=True,
+    )
+    assert isinstance(response, ModelResponseStreamer)
+    for chunk in response:
+        assert isinstance(chunk, ModelResponse)
+        assert chunk.data in "This is a test response."
+    assert response.status == ResponseStatus.SUCCESS
+
+
 def test_run_async():
     """Testing Model Async"""
     model = ModelFactory.get("60ddef828d38c51c5885d491")
@@ -100,7 +119,6 @@ def run_index_model(index_model):
         pytest.param(EmbeddingModel.MULTILINGUAL_E5_LARGE, AirParams, id="AIR - Multilingual E5 Large"),
         pytest.param(EmbeddingModel.BGE_M3, AirParams, id="AIR - BGE M3"),
         pytest.param(EmbeddingModel.AIXPLAIN_LEGAL_EMBEDDINGS, AirParams, id="AIR - aiXplain Legal Embeddings"),
-
     ],
 )
 def test_index_model(embedding_model, supplier_params):
@@ -126,7 +144,6 @@ def test_index_model(embedding_model, supplier_params):
         pytest.param(EmbeddingModel.MULTILINGUAL_E5_LARGE, AirParams, id="Multilingual E5 Large"),
         pytest.param(EmbeddingModel.BGE_M3, AirParams, id="BGE M3"),
         pytest.param(EmbeddingModel.AIXPLAIN_LEGAL_EMBEDDINGS, AirParams, id="aiXplain Legal Embeddings"),
-
     ],
 )
 def test_index_model_with_filter(embedding_model, supplier_params):

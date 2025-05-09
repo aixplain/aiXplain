@@ -25,6 +25,7 @@ import logging
 import traceback
 from aixplain.enums import Function, Supplier
 from aixplain.modules.model import Model
+from aixplain.modules.model.model_response_streamer import ModelResponseStreamer
 from aixplain.modules.model.utils import build_payload, call_run_endpoint
 from aixplain.utils import config
 from typing import Union, Optional, List, Text, Dict
@@ -108,7 +109,8 @@ class LLM(Model):
         timeout: float = 300,
         parameters: Optional[Dict] = None,
         wait_time: float = 0.5,
-    ) -> ModelResponse:
+        stream: bool = False,
+    ) -> Union[ModelResponse, ModelResponseStreamer]:
         """Synchronously running a Large Language Model (LLM) model.
 
         Args:
@@ -123,9 +125,9 @@ class LLM(Model):
             timeout (float, optional): total polling time. Defaults to 300.
             parameters (Dict, optional): optional parameters to the model. Defaults to None.
             wait_time (float, optional): wait time in seconds between polling calls. Defaults to 0.5.
-
+            stream (bool, optional): whether the model supports streaming. Defaults to False.
         Returns:
-            Dict: parsed output from model
+            Union[ModelResponse, ModelStreamer]: parsed output from model
         """
         start = time.time()
         parameters = parameters or {}
@@ -141,10 +143,13 @@ class LLM(Model):
         parameters.setdefault("max_tokens", max_tokens)
         parameters.setdefault("top_p", top_p)
 
+        if stream:
+            return self.run_stream(data=data, parameters=parameters)
+
         payload = build_payload(data=data, parameters=parameters)
         logging.info(payload)
         url = f"{self.url}/{self.id}".replace("/api/v1/execute", "/api/v2/execute")
-        logging.debug(f"Model Run Sync: Start service for {name} - {url}")
+        logging.debug(f"Model Run Sync: Start service for {name} - {url} - {payload}")
         response = call_run_endpoint(payload=payload, url=url, api_key=self.api_key)
         if response["status"] == "IN_PROGRESS":
             try:
