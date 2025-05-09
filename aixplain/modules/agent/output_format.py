@@ -28,3 +28,4 @@ from typing import Text
 class OutputFormat(Text, Enum):
     MARKDOWN = "markdown"
     TEXT = "text"
+    JSON = "json"
