@@ -98,6 +98,7 @@ def create_model_from_response(response: Dict) -> Model:
         version=response["version"]["id"],
         inputs=inputs,
         temperature=temperature,
+        supports_streaming=response.get("supportsStreaming", False),
         status=status,
     )
 

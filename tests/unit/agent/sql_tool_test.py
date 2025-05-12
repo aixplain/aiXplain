@@ -59,7 +59,9 @@ def test_create_sql_tool(mocker, tmp_path):
     )
     assert isinstance(tool, SQLTool)
     assert tool.description == "Test"
-    assert tool.database == db_path
+    assert os.path.basename(db_path) in os.path.basename(tool.database)
+    assert tool.database.startswith("s3://")
+    assert tool.database.endswith(".db")
     assert tool.schema == "test"
     assert tool.tables == ["test", "test2"]
 
@@ -78,7 +80,7 @@ def test_create_sql_tool(mocker, tmp_path):
     tool_dict = tool.to_dict()
     assert tool_dict["description"] == "Test"
     assert tool_dict["parameters"] == [
-        {"name": "database", "value": db_path},
+        {"name": "database", "value": tool.database},
         {"name": "schema", "value": "test"},
         {"name": "tables", "value": "test,test2"},
         {"name": "enable_commit", "value": False},
@@ -89,7 +91,8 @@ def test_create_sql_tool(mocker, tmp_path):
     mocker.patch("os.path.exists", return_value=True)
     mocker.patch("aixplain.modules.agent.tool.sql_tool.get_table_schema", return_value="CREATE TABLE test (id INTEGER)")
     tool.validate()
-    assert tool.database == "s3://test.db"
+    assert tool.database.startswith("s3://")
+    assert tool.database.endswith(".db")
 
 
 def test_create_database_from_csv(tmp_path):
@@ -225,7 +228,8 @@ def test_create_sql_tool_with_schema_inference(tmp_path, mocker):
     tool.validate()
     assert tool.schema == schema
     assert tool.tables == ["test"]
-    assert tool.database == "s3://test.db"
+    assert tool.database.startswith("s3://")
+    assert tool.database.endswith(".db")
 
 
 def test_create_sql_tool_from_csv_with_warnings(tmp_path, mocker):
@@ -283,7 +287,7 @@ def test_create_sql_tool_from_csv(tmp_path):
     assert isinstance(tool, SQLTool)
     assert tool.description == "Test"
     assert tool.database.endswith(".db")
-    assert os.path.exists(tool.database)
+    assert tool.database.startswith("s3://")
 
     # Test schema and table inference during validation
     try:

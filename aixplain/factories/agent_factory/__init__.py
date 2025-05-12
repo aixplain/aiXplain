@@ -177,7 +177,9 @@ class AgentFactory:
                         supplier = supplier_
                         break
             assert isinstance(supplier, Supplier), f"Supplier {supplier} is not a valid supplier"
-        return ModelTool(function=function, supplier=supplier, model=model, description=description, parameters=parameters)
+        return ModelTool(
+            function=function, supplier=supplier, model=model, name=name, description=description, parameters=parameters
+        )
 
     @classmethod
     def create_pipeline_tool(
@@ -278,7 +280,6 @@ class AgentFactory:
             base_name = os.path.splitext(os.path.basename(source))[0]
             db_path = os.path.join(os.path.dirname(source), f"{base_name}.db")
             table_name = tables[0] if tables else None
-
             try:
                 # Create database from CSV
                 schema = create_database_from_csv(source, db_path, table_name)
