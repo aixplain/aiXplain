@@ -25,7 +25,7 @@ from aixplain.utils import config
 from aixplain.utils.request_utils import _request_with_retry
 from enum import Enum
 from urllib.parse import urljoin
-from ..utils.asset_cache import AssetCache, CACHE_FOLDER
+from aixplain.utils.asset_cache import AssetCache, CACHE_FOLDER
 from typing import Tuple, Dict
 from aixplain.base.parameters import BaseParameters, Parameter
 import os
