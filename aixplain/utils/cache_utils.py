@@ -2,26 +2,35 @@ import os
 import json
 import time
 import logging
+from filelock import FileLock
 
-CACHE_DURATION = 24 * 60 * 60
-CACHE_FOLDER = ".aixplain_cache"
+CACHE_FOLDER = ".cache"
+CACHE_FILE = f"{CACHE_FOLDER}/cache.json"
+LOCK_FILE = f"{CACHE_FILE}.lock"
+DEFAULT_CACHE_EXPIRY = 86400
 
 
-def save_to_cache(cache_file, data):
+def get_cache_expiry():
+    return int(os.getenv("CACHE_EXPIRY_TIME", DEFAULT_CACHE_EXPIRY))
+
+
+def save_to_cache(cache_file, data, lock_file):
     try:
         os.makedirs(os.path.dirname(cache_file), exist_ok=True)
-        with open(cache_file, "w") as f:
-            json.dump({"timestamp": time.time(), "data": data}, f)
+        with FileLock(lock_file):
+            with open(cache_file, "w") as f:
+                json.dump({"timestamp": time.time(), "data": data}, f)
     except Exception as e:
         logging.error(f"Failed to save cache to {cache_file}: {e}")
 
 
-def load_from_cache(cache_file):
-    if os.path.exists(cache_file) is True:
-        with open(cache_file, "r") as f:
-            cache_data = json.load(f)
-            if time.time() - cache_data["timestamp"] < CACHE_DURATION:
-                return cache_data["data"]
-            else:
-                return None
+def load_from_cache(cache_file, lock_file):
+    if os.path.exists(cache_file):
+        with FileLock(lock_file):
+            with open(cache_file, "r") as f:
+                cache_data = json.load(f)
+                if time.time() - cache_data["timestamp"] < int(get_cache_expiry()):
+                    return cache_data["data"]
+                else:
+                    return None
     return None

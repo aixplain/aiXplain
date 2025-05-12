@@ -25,10 +25,19 @@ import json
 import logging
 from aixplain.modules.model import Model
 from aixplain.modules.model.utility_model import UtilityModel, UtilityModelInput
-from aixplain.enums import Function, Language, OwnershipType, Supplier, SortBy, SortOrder
+from aixplain.enums import (
+    Function,
+    Language,
+    OwnershipType,
+    Supplier,
+    SortBy,
+    SortOrder,
+)
 from aixplain.utils import config
 from aixplain.utils.request_utils import _request_with_retry
 from urllib.parse import urljoin
+from aixplain.utils.asset_cache import AssetCache, CACHE_FOLDER
+from aixplain.factories.model_factory.utils import create_model_from_response
 
 
 class ModelFactory:
@@ -78,7 +87,9 @@ class ModelFactory:
         url = urljoin(cls.backend_url, "sdk/utilities")
         headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
         try:
-            logging.info(f"Start service for POST Utility Model - {url} - {headers} - {payload}")
+            logging.info(
+                f"Start service for POST Utility Model - {url} - {headers} - {payload}"
+            )
             r = _request_with_retry("post", url, headers=headers, json=payload)
             resp = r.json()
         except Exception as e:
@@ -87,49 +98,78 @@ class ModelFactory:
 
         if 200 <= r.status_code < 300:
             utility_model.id = resp["id"]
-            logging.info(f"Utility Model Creation: Model {utility_model.id} instantiated.")
+            logging.info(
+                f"Utility Model Creation: Model {utility_model.id} instantiated."
+            )
             return utility_model
         else:
-            error_message = (
-                f"Utility Model Creation: Failed to create utility model. Status Code: {r.status_code}. Error: {resp}"
-            )
+            error_message = f"Utility Model Creation: Failed to create utility model. Status Code: {r.status_code}. Error: {resp}"
             logging.error(error_message)
             raise Exception(error_message)
 
     @classmethod
-    def get(cls, model_id: Text, api_key: Optional[Text] = None) -> Model:
-        """Create a 'Model' object from model id
+    def get(
+        cls, model_id: Text, api_key: Optional[Text] = None, use_cache: bool = True
+    ) -> Model:
+        """Create a 'Model' object from model id"""
+        cache = AssetCache(Model)
 
-        Args:
-            model_id (Text): Model ID of required model.
-            api_key (Optional[Text], optional): Model API key. Defaults to None.
+        if use_cache:
+            if cache.has_valid_cache():
+                cached_model = cache.store.data.get(model_id)
+                if cached_model:
+                    return cached_model
+                logging.info("Model not found in valid cache, fetching individually...")
+                model = cls._fetch_model_by_id(model_id, api_key)
+                cache.add(model)
+                return model
+            else:
+                try:
+                    model_list_resp = cls.list(model_ids=None, api_key=api_key)
+                    models = model_list_resp["results"]
+                    cache.add_list(models)
+                    for model in models:
+                        if model.id == model_id:
+                            return model
+                except Exception as e:
+                    logging.error(f"Error fetching model list: {e}")
+                    raise e
 
-        Returns:
-            Model: Created 'Model' object
-        """
+        logging.info("Fetching model directly without cache...")
+        model = cls._fetch_model_by_id(model_id, api_key)
+        cache.add(model)
+        return model
+
+    @classmethod
+    def _fetch_model_by_id(
+        cls, model_id: Text, api_key: Optional[Text] = None
+    ) -> Model:
         resp = None
         try:
             url = urljoin(cls.backend_url, f"sdk/models/{model_id}")
-
-            headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+            headers = {
+                "Authorization": f"Token {api_key or config.TEAM_API_KEY}",
+                "Content-Type": "application/json",
+            }
             logging.info(f"Start service for GET Model  - {url} - {headers}")
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()
-
         except Exception:
-            if resp is not None and "statusCode" in resp:
+            if resp and "statusCode" in resp:
                 status_code = resp["statusCode"]
-                message = resp["message"]
-                message = f"Model Creation: Status {status_code} - {message}"
+                message = f"Model Creation: Status {status_code} - {resp['message']}"
             else:
                 message = "Model Creation: Unspecified Error"
             logging.error(message)
-            raise Exception(f"{message}")
+            raise Exception(message)
+
         if 200 <= r.status_code < 300:
             resp["api_key"] = config.TEAM_API_KEY
             if api_key is not None:
                 resp["api_key"] = api_key
-            from aixplain.factories.model_factory.utils import create_model_from_response
+            from aixplain.factories.model_factory.utils import (
+                create_model_from_response,
+            )
 
             model = create_model_from_response(resp)
             logging.info(f"Model Creation: Model {model_id} instantiated.")
@@ -186,7 +226,9 @@ class ModelFactory:
                 and ownership is None
                 and sort_by is None
             ), "Cannot filter by function, suppliers, source languages, target languages, is finetunable, ownership, sort by when using model ids"
-            assert len(model_ids) <= page_size, "Page size must be greater than the number of model ids"
+            assert (
+                len(model_ids) <= page_size
+            ), "Page size must be greater than the number of model ids"
             models, total = get_model_from_ids(model_ids, api_key), len(model_ids)
         else:
             from aixplain.factories.model_factory.utils import get_assets_from_page
@@ -228,7 +270,10 @@ class ModelFactory:
         if api_key:
             headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
         else:
-            headers = {"x-api-key": f"{config.TEAM_API_KEY}", "Content-Type": "application/json"}
+            headers = {
+                "x-api-key": f"{config.TEAM_API_KEY}",
+                "Content-Type": "application/json",
+            }
         response = _request_with_retry("get", machines_url, headers=headers)
         response_dicts = json.loads(response.text)
         for dictionary in response_dicts:
@@ -247,15 +292,23 @@ class ModelFactory:
         """
         gpu_url = urljoin(config.BACKEND_URL, "sdk/model-onboarding/gpus")
         if api_key:
-            headers = {"Authorization": f"Token {api_key}", "Content-Type": "application/json"}
+            headers = {
+                "Authorization": f"Token {api_key}",
+                "Content-Type": "application/json",
+            }
         else:
-            headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+            headers = {
+                "Authorization": f"Token {config.TEAM_API_KEY}",
+                "Content-Type": "application/json",
+            }
         response = _request_with_retry("get", gpu_url, headers=headers)
         response_list = json.loads(response.text)
         return response_list
 
     @classmethod
-    def list_functions(cls, verbose: Optional[bool] = False, api_key: Optional[Text] = None) -> List[Dict]:
+    def list_functions(
+        cls, verbose: Optional[bool] = False, api_key: Optional[Text] = None
+    ) -> List[Dict]:
         """Lists supported model functions on platform.
 
         Args:
@@ -272,7 +325,10 @@ class ModelFactory:
         if api_key:
             headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
         else:
-            headers = {"x-api-key": f"{config.TEAM_API_KEY}", "Content-Type": "application/json"}
+            headers = {
+                "x-api-key": f"{config.TEAM_API_KEY}",
+                "Content-Type": "application/json",
+            }
         response = _request_with_retry("get", functions_url, headers=headers)
         response_dict = json.loads(response.text)
         if verbose:
@@ -331,7 +387,10 @@ class ModelFactory:
         if api_key:
             headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
         else:
-            headers = {"x-api-key": f"{config.TEAM_API_KEY}", "Content-Type": "application/json"}
+            headers = {
+                "x-api-key": f"{config.TEAM_API_KEY}",
+                "Content-Type": "application/json",
+            }
 
         payload = {
             "model": {
@@ -347,7 +406,9 @@ class ModelFactory:
             "onboardingParams": {},
         }
         logging.debug(f"Body: {str(payload)}")
-        response = _request_with_retry("post", create_url, headers=headers, json=payload)
+        response = _request_with_retry(
+            "post", create_url, headers=headers, json=payload
+        )
 
         assert response.status_code == 201
 
@@ -367,9 +428,15 @@ class ModelFactory:
         login_url = urljoin(config.BACKEND_URL, "sdk/ecr/login")
         logging.debug(f"URL: {login_url}")
         if api_key:
-            headers = {"Authorization": f"Token {api_key}", "Content-Type": "application/json"}
+            headers = {
+                "Authorization": f"Token {api_key}",
+                "Content-Type": "application/json",
+            }
         else:
-            headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+            headers = {
+                "Authorization": f"Token {config.TEAM_API_KEY}",
+                "Content-Type": "application/json",
+            }
         response = _request_with_retry("post", login_url, headers=headers)
         response_dict = json.loads(response.text)
         return response_dict
@@ -399,10 +466,15 @@ class ModelFactory:
         if api_key:
             headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
         else:
-            headers = {"x-api-key": f"{config.TEAM_API_KEY}", "Content-Type": "application/json"}
+            headers = {
+                "x-api-key": f"{config.TEAM_API_KEY}",
+                "Content-Type": "application/json",
+            }
         payload = {"image": image_tag, "sha": image_hash, "hostMachine": host_machine}
         logging.debug(f"Body: {str(payload)}")
-        response = _request_with_retry("post", onboard_url, headers=headers, json=payload)
+        response = _request_with_retry(
+            "post", onboard_url, headers=headers, json=payload
+        )
         if response.status_code == 201:
             message = "Your onboarding request has been submitted to an aiXplain specialist for finalization. We will notify you when the process is completed."
             logging.info(message)
@@ -432,9 +504,15 @@ class ModelFactory:
         supplier, model_name = hf_repo_id.split("/")
         deploy_url = urljoin(config.BACKEND_URL, "sdk/model-onboarding/onboard")
         if api_key:
-            headers = {"Authorization": f"Token {api_key}", "Content-Type": "application/json"}
+            headers = {
+                "Authorization": f"Token {api_key}",
+                "Content-Type": "application/json",
+            }
         else:
-            headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+            headers = {
+                "Authorization": f"Token {config.TEAM_API_KEY}",
+                "Content-Type": "application/json",
+            }
         body = {
             "model": {
                 "name": name,
@@ -458,7 +536,9 @@ class ModelFactory:
         return response_dicts
 
     @classmethod
-    def get_huggingface_model_status(cls, model_id: Text, api_key: Optional[Text] = None):
+    def get_huggingface_model_status(
+        cls, model_id: Text, api_key: Optional[Text] = None
+    ):
         """Gets the on-boarding status of a Hugging Face model with ID MODEL_ID.
 
         Args:
@@ -469,9 +549,15 @@ class ModelFactory:
         """
         status_url = urljoin(config.BACKEND_URL, f"sdk/models/{model_id}")
         if api_key:
-            headers = {"Authorization": f"Token {api_key}", "Content-Type": "application/json"}
+            headers = {
+                "Authorization": f"Token {api_key}",
+                "Content-Type": "application/json",
+            }
         else:
-            headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+            headers = {
+                "Authorization": f"Token {config.TEAM_API_KEY}",
+                "Content-Type": "application/json",
+            }
         response = _request_with_retry("get", status_url, headers=headers)
         logging.debug(response.text)
         response_dicts = json.loads(response.text)
