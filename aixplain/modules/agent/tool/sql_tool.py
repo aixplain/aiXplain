@@ -285,6 +285,7 @@ class SQLTool(Tool):
         self.tables = tables if isinstance(tables, list) else [tables] if tables else None
         self.enable_commit = enable_commit
         self.status = AssetStatus.ONBOARDED  # TODO: change to DRAFT when we have a way to onboard the tool
+        self.validate()  # to upload the database
 
     def to_dict(self) -> Dict[str, Text]:
         return {
@@ -306,7 +307,6 @@ class SQLTool(Tool):
             raise SQLToolError("Description is required")
         if not self.database:
             raise SQLToolError("Database must be provided")
-
         # Handle database validation
         if not (
             str(self.database).startswith("s3://")
