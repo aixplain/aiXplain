@@ -151,7 +151,7 @@ class AgentFactory:
                 {
                     "type": "llm",
                     "description": "main",
-                    "parameters": llm.get_parameters().to_list() if llm.get_parameters() else {},
+                    "parameters": llm.get_parameters().to_list() if llm.get_parameters() else None,
                 }
             )
             payload["llmId"] = llm.id

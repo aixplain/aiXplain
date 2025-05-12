@@ -169,7 +169,7 @@ class TeamAgentFactory:
                 {
                     "type": "llm",
                     "description": "supervisor",
-                    "parameters": supervisor_llm.get_parameters().to_list() if supervisor_llm.get_parameters() else {},
+                    "parameters": supervisor_llm.get_parameters().to_list() if supervisor_llm.get_parameters() else None,
                 }
             )
 
@@ -178,7 +178,7 @@ class TeamAgentFactory:
                 {
                     "type": "llm",
                     "description": "mentalist",
-                    "parameters": mentalist_llm.get_parameters().to_list() if mentalist_llm.get_parameters() else {},
+                    "parameters": mentalist_llm.get_parameters().to_list() if mentalist_llm.get_parameters() else None,
                 }
             )
 
@@ -187,7 +187,7 @@ class TeamAgentFactory:
                 {
                     "type": "llm",
                     "description": "inspector",
-                    "parameters": inspector_llm.get_parameters().to_list() if inspector_llm.get_parameters() else {},
+                    "parameters": inspector_llm.get_parameters().to_list() if inspector_llm.get_parameters() else None,
                 }
             )
 

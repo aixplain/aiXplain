@@ -360,7 +360,7 @@ class Agent(Model, DeployableMixin[Tool]):
                 {
                     "type": "llm",
                     "description": "main",
-                    "parameters": self.llm.get_parameters().to_list() if self.llm.get_parameters() else {},
+                    "parameters": self.llm.get_parameters().to_list() if self.llm.get_parameters() else None,
                 }
             ]
             if self.llm is not None
