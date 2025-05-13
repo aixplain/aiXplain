@@ -50,6 +50,7 @@ class IndexModel(Model):
         is_subscribed: bool = False,
         cost: Optional[Dict] = None,
         embedding_model: Optional[EmbeddingModel] = None,
+        embedding_size: Optional[int] = None,
         **additional_info,
     ) -> None:
         """Index Init
@@ -83,11 +84,12 @@ class IndexModel(Model):
         self.url = config.MODELS_RUN_URL
         self.backend_url = config.BACKEND_URL
         self.embedding_model = embedding_model
+        self.embedding_size = embedding_size
 
-    
     def to_dict(self) -> Dict:
         data = super().to_dict()
         data["embedding_model"] = self.embedding_model
+        data["embedding_size"] = self.embedding_size
         data["collection_type"] = self.version.split("-", 1)[0]
         return data
 
