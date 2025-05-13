@@ -353,7 +353,7 @@ class Agent(Model, DeployableMixin[Tool]):
             "role": self.instructions,
             "supplier": (self.supplier.value["code"] if isinstance(self.supplier, Supplier) else self.supplier),
             "version": self.version,
-            "llmId": self.llm_id,
+            "llmId": self.llm_id if self.llm is None else self.llm.id,
             "status": self.status.value,
             "tasks": [task.to_dict() for task in self.tasks],
             "tools": [

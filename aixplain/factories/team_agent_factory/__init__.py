@@ -42,10 +42,11 @@ class TeamAgentFactory:
         cls,
         name: Text,
         agents: List[Union[Text, Agent]],
+        llm_id: Text = "669a63646eb56306647e1091",
+        llm: Optional[LLM] = None,
         supervisor_llm: Optional[LLM] = None,
         mentalist_llm: Optional[LLM] = None,
         inspector_llm: Optional[LLM] = None,
-        llm_id: Optional[Text] = None,
         description: Text = "",
         api_key: Text = config.TEAM_API_KEY,
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
@@ -62,10 +63,11 @@ class TeamAgentFactory:
         Args:
             name: The name of the team agent.
             agents: A list of agents to be added to the team.
+            llm_id: The ID of the LLM to be used for the team agent.
+            llm: The LLM to be used for the team agent.
             supervisor_llm (Optional[LLM], optional): Main supervisor LLM. Defaults to None.
             mentalist_llm (Optional[LLM], optional): LLM for planning. Defaults to None.
             inspector_llm (Optional[LLM], optional): LLM for inspection. Defaults to None.
-            llm_id: The ID of the LLM to be used for the team agent.
             description: The description of the team agent to be displayed in the aiXplain platform.
             api_key: The API key to be used for the team agent.
             supplier: The supplier of the team agent.
@@ -123,8 +125,11 @@ class TeamAgentFactory:
             inspector_llm_id = llm_id if use_inspector else None
 
         # Set up LLMs
+        if llm is None:
+            llm = get_llm_instance(llm_id, api_key=api_key)
+
         if supervisor_llm is None:
-            supervisor_llm = get_llm_instance(llm_id or "669a63646eb56306647e1091", api_key=api_key)
+            supervisor_llm = get_llm_instance(llm_id, api_key=api_key)
 
         if use_mentalist and mentalist_llm is None:
             mentalist_llm = get_llm_instance(mentalist_llm_id or "669a63646eb56306647e1091", api_key=api_key)
@@ -150,7 +155,7 @@ class TeamAgentFactory:
             "agents": agent_payload_list,
             "links": [],
             "description": description,
-            "llmId": llm_id,
+            "llmId": llm.id if llm else llm_id,
             "supervisorId": supervisor_llm.id if supervisor_llm else llm_id,
             "plannerId": mentalist_llm.id if mentalist_llm else mentalist_llm_id,
             "inspectorId": inspector_llm.id if inspector_llm else inspector_llm_id,
@@ -164,6 +169,15 @@ class TeamAgentFactory:
         }
 
         # Add LLM tools to the payload
+        if llm is not None:
+            payload["tools"].append(
+                {
+                    "type": "llm",
+                    "description": "main llm",
+                    "parameters": llm.get_parameters().to_list() if llm.get_parameters() else None,
+                }
+            )
+
         if supervisor_llm is not None:
             payload["tools"].append(
                 {
@@ -193,6 +207,8 @@ class TeamAgentFactory:
 
         # Store the LLM objects directly in the payload for build_team_agent
         internal_payload = payload.copy()
+        if llm is not None:
+            internal_payload["llm"] = llm
         if supervisor_llm is not None:
             internal_payload["supervisor_llm"] = supervisor_llm
         if mentalist_llm is not None:
@@ -212,6 +228,8 @@ class TeamAgentFactory:
 
         if 200 <= r.status_code < 300:
             # Preserve the LLM objects
+            if "llm" in internal_payload:
+                response["llm"] = internal_payload["llm"]
             if "supervisor_llm" in internal_payload:
                 response["supervisor_llm"] = internal_payload["supervisor_llm"]
             if "mentalist_llm" in internal_payload:

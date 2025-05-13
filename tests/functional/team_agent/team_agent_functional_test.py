@@ -648,14 +648,6 @@ def test_team_agent_llm_parameter_preservation(delete_agents_and_team_agents, ru
     supervisor_llm = ModelFactory.get("671be4886eb56397e51f7541")  # Anthropic Claude 3.5 Sonnet v1
     mentalist_llm = ModelFactory.get("671be4886eb56397e51f7541")  # Anthropic Claude 3.5 Sonnet v1
     inspector_llm = ModelFactory.get("671be4886eb56397e51f7541")  # Anthropic Claude 3.5 Sonnet v1
-
-    # Save original temperatures
-    original_temps = {
-        "supervisor": supervisor_llm.temperature,
-        "mentalist": mentalist_llm.temperature,
-        "inspector": inspector_llm.temperature,
-    }
-
     # Set custom temperatures
     supervisor_llm.temperature = 0.1
     mentalist_llm.temperature = 0.3
@@ -686,8 +678,3 @@ def test_team_agent_llm_parameter_preservation(delete_agents_and_team_agents, ru
 
     # Clean up
     team_agent.delete()
-
-    # Reset the LLM temperatures to their original values
-    supervisor_llm.temperature = original_temps["supervisor"]
-    mentalist_llm.temperature = original_temps["mentalist"]
-    inspector_llm.temperature = original_temps["inspector"]
