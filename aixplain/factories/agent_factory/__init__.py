@@ -55,7 +55,7 @@ class AgentFactory:
         name: Text,
         description: Text,
         instructions: Optional[Text] = None,
-        llm: Optional[LLM] = None,
+        llm: Optional[Union[LLM, Text]] = None,
         llm_id: Optional[Text] = None,
         tools: List[Union[Tool, Model]] = [],
         api_key: Text = config.TEAM_API_KEY,
@@ -74,7 +74,7 @@ class AgentFactory:
             name (Text): name of the agent
             description (Text): description of the agent role.
             instructions (Text): role of the agent.
-            llm (Optional[LLM], optional): LLM instance to use. Defaults to None.
+            llm (Optional[Union[LLM, Text]], optional): LLM instance to use as an object or as an ID.
             llm_id (Optional[Text], optional): ID of LLM to use if no LLM instance provided. Defaults to None.
             tools (List[Union[Tool, Model]], optional): list of tool for the agent. Defaults to [].
             api_key (Text, optional): team/user API key. Defaults to config.TEAM_API_KEY.
@@ -147,6 +147,7 @@ class AgentFactory:
         }
 
         if llm is not None:
+            llm = get_llm_instance(llm, api_key=api_key) if isinstance(llm, str) else llm
             payload["tools"].append(
                 {
                     "type": "llm",

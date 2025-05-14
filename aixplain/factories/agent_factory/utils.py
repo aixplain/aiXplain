@@ -2,8 +2,10 @@ __author__ = "thiagocastroferreira"
 
 import logging
 import aixplain.utils.config as config
+from aixplain.utils.llm_utils import get_llm_instance
 from aixplain.enums import Function, Supplier
 from aixplain.enums.asset_status import AssetStatus
+from aixplain.modules.model.llm_model import LLM
 from aixplain.modules.agent import Agent
 from aixplain.modules.agent.tool import Tool
 from aixplain.modules.agent.agent_task import AgentTask
@@ -81,25 +83,8 @@ def build_tool(tool: Dict):
     return tool
 
 
-def build_agent(payload: Dict, tools: List[Tool] = None, api_key: Text = config.TEAM_API_KEY) -> Agent:
-    """Instantiate a new agent in the platform."""
-    tools_dict = payload["assets"]
-    payload_tools = tools
-    if payload_tools is None:
-        payload_tools = []
-        for tool in tools_dict:
-            try:
-                payload_tools.append(build_tool(tool))
-            except (ValueError, AssertionError) as e:
-                logging.warning(str(e))
-                continue
-            except Exception:
-                logging.warning(
-                    f"Tool {tool['assetId']} is not available. Make sure it exists or you have access to it. "
-                    "If you think this is an error, please contact the administrators."
-                )
-                continue
-
+def build_llm(payload: Dict, api_key: Text = config.TEAM_API_KEY) -> LLM:
+    """Build a LLM from a dictionary."""
     # Get LLM from tools if present
     llm = None
     # First check if we have the LLM object
@@ -109,9 +94,8 @@ def build_agent(payload: Dict, tools: List[Tool] = None, api_key: Text = config.
     elif "tools" in payload:
         for tool in payload["tools"]:
             if tool["type"] == "llm" and tool["description"] == "main":
-                from aixplain.factories.model_factory import ModelFactory
 
-                llm = ModelFactory.get(payload["llmId"], api_key=api_key)
+                llm = get_llm_instance(payload["llmId"], api_key=api_key)
                 # Set parameters from the tool
                 if "parameters" in tool:
                     # Apply all parameters directly to the LLM properties
@@ -132,6 +116,29 @@ def build_agent(payload: Dict, tools: List[Tool] = None, api_key: Text = config.
 
                     llm.model_params = ModelParameters(params_dict)
                 break
+    return llm
+
+
+def build_agent(payload: Dict, tools: List[Tool] = None, api_key: Text = config.TEAM_API_KEY) -> Agent:
+    """Instantiate a new agent in the platform."""
+    tools_dict = payload["assets"]
+    payload_tools = tools
+    if payload_tools is None:
+        payload_tools = []
+        for tool in tools_dict:
+            try:
+                payload_tools.append(build_tool(tool))
+            except (ValueError, AssertionError) as e:
+                logging.warning(str(e))
+                continue
+            except Exception:
+                logging.warning(
+                    f"Tool {tool['assetId']} is not available. Make sure it exists or you have access to it. "
+                    "If you think this is an error, please contact the administrators."
+                )
+                continue
+
+    llm = build_llm(payload, api_key)
 
     agent = Agent(
         id=payload["id"] if "id" in payload else "",
