@@ -146,9 +146,9 @@ class Model(Asset):
 
     def __repr__(self):
         try:
-            return f"<Model: {self.name} by {self.supplier['name']}>"
+            return f"Model: {self.name} by {self.supplier['name']} (id={self.id})"
         except Exception:
-            return f"<Model: {self.name} by {self.supplier}>"
+            return f"Model: {self.name} by {self.supplier} (id={self.id})"
 
     def sync_poll(
         self,
@@ -473,6 +473,3 @@ class Model(Asset):
             model_params=data.get("model_params"),
             **data.get("additional_info", {}),
         )
-
-    def __repr__(self):
-        return f"Model: {self.name} by {self.supplier} (id={self.id})"
