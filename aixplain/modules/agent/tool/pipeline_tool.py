@@ -52,6 +52,7 @@ class PipelineTool(Tool):
         super().__init__(name=name, description=description, **additional_info)
 
         self.status = AssetStatus.DRAFT
+
         self.pipeline = pipeline
         self.validate()
 
@@ -83,3 +84,4 @@ class PipelineTool(Tool):
         if self.name.strip() == "":
             self.name = pipeline_obj.name
         self.status = pipeline_obj.status
+
