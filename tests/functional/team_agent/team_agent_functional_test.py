@@ -680,6 +680,13 @@ def test_run_team_agent_with_expected_output():
         name="Test Agent",
         description="Test description",
         instructions=INSTRUCTIONS,
+        tasks=[
+            AgentFactory.create_task(
+                name="Task 1",
+                description="Check table for information about people related to the query",
+                expected_output="A table with the following columns: Name, Age, City",
+            )
+        ],
         llm_id="6646261c6eb563165658bbb1",
     )
 
@@ -688,6 +695,8 @@ def test_run_team_agent_with_expected_output():
         agents=[agent],
         description="Team agent",
         llm_id="6646261c6eb563165658bbb1",
+        use_mentalist=False,
+        use_inspector=False,
     )
 
     # Run the team agent
