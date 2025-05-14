@@ -388,5 +388,28 @@ class Model(Asset):
             logging.error(message)
             raise Exception(f"{message}")
 
+    @classmethod
+    def from_dict(cls, data: Dict) -> "Model":
+        return cls(
+            id=data.get("id", ""),
+            name=data.get("name", ""),
+            description=data.get("description", ""),
+            api_key=data.get("api_key", config.TEAM_API_KEY),
+            supplier=data.get("supplier", "aiXplain"),
+            version=data.get("version", "1.0"),
+            function=Function(data.get("function")),
+            is_subscribed=data.get("is_subscribed", False),
+            cost=data.get("cost"),
+            created_at=(
+                datetime.fromisoformat(data["created_at"])
+                if data.get("created_at")
+                else None
+            ),
+            input_params=data.get("input_params"),
+            output_params=data.get("output_params"),
+            model_params=data.get("model_params"),
+            **data.get("additional_info", {}),
+        )
+
     def __repr__(self):
         return f"Model: {self.name} by {self.supplier} (id={self.id})"
