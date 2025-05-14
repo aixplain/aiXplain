@@ -420,4 +420,4 @@ class Agent(Model, DeployableMixin[Tool]):
         self.update()
 
     def __repr__(self):
-        return f"Agent(id={self.id}, name={self.name}, function={self.function})"
+        return f"Agent: {self.name} (id={self.id})"

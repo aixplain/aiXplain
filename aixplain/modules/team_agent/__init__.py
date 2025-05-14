@@ -417,3 +417,6 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         else:
             error_msg = f"Team Agent Update Error (HTTP {r.status_code}): {resp}"
             raise Exception(error_msg)
+
+    def __repr__(self):
+        return f"TeamAgent: {self.name} (id={self.id})"
