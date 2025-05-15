@@ -53,7 +53,7 @@ def test_create_sql_tool(mocker, tmp_path):
     conn.execute("CREATE TABLE test (id INTEGER, name TEXT)")
     conn.close()
 
-    mocker.patch.object(FileFactory, "upload", return_value=db_path)
+    mocker.patch.object(FileFactory, "upload", return_value="s3://test.db")
 
     # Test SQLite source type
     tool = AgentFactory.create_sql_tool(
@@ -287,7 +287,7 @@ def test_create_sql_tool_from_csv(tmp_path, mocker):
     with open("test.db", "w") as f:
         f.write("")
 
-    mocker.patch.object(FileFactory, "upload", return_value="test.db")
+    mocker.patch.object(FileFactory, "upload", return_value="s3://test.db")
 
     # Test successful creation
     tool = AgentFactory.create_sql_tool(
