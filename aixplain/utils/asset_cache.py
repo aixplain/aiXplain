@@ -126,7 +126,7 @@ class AssetCache(Generic[T]):
         return self.store.data.get(asset_id)
 
     def add(self, asset: T):
-        self.store.data[asset.id] = asset
+        self.store.data[asset.id] = asset.__dict__
         self.save()
 
     def add_list(self, assets: List[T]):

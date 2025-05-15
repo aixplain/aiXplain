@@ -167,9 +167,6 @@ class ModelFactory:
             resp["api_key"] = config.TEAM_API_KEY
             if api_key is not None:
                 resp["api_key"] = api_key
-            from aixplain.factories.model_factory.utils import (
-                create_model_from_response,
-            )
 
             model = create_model_from_response(resp)
             logging.info(f"Model Creation: Model {model_id} instantiated.")
