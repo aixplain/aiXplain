@@ -174,7 +174,7 @@ class TeamAgentFactory:
             payload["tools"].append(
                 {
                     "type": "llm",
-                    "description": "main llm",
+                    "description": "main",
                     "parameters": llm.get_parameters().to_list() if llm.get_parameters() else None,
                 }
             )
