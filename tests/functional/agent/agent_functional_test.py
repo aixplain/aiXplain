@@ -286,21 +286,27 @@ def test_update_tools_of_agent(run_input_map, delete_agents_and_team_agents, Age
 @pytest.mark.parametrize(
     "tool_config",
     [
-        {
-            "type": "search",
-            "model": "65c51c556eb563350f6e1bb1",
-            "query": "What is the weather in New York?",
-            "description": "Search tool with custom number of results",
-            "expected_tool_input": "'numResults': 5",
-        },
-        {
-            "type": "translation",
-            "supplier": "Microsoft",
-            "function": "translation",
-            "query": "Translate: Olá, como vai você?",
-            "description": "Translation tool with target language",
-            "expected_tool_input": "targetlanguage",
-        },
+        pytest.param(
+            {
+                "type": "search",
+                "model": "65c51c556eb563350f6e1bb1",
+                "query": "What is the weather in New York?",
+                "description": "Search tool with custom number of results",
+                "expected_tool_input": "'numResults': 5",
+            },
+            id="search_tool",
+        ),
+        pytest.param(
+            {
+                "type": "translation",
+                "supplier": "Microsoft",
+                "function": "translation",
+                "query": "Translate: Olá, como vai você?",
+                "description": "Translation tool with target language",
+                "expected_tool_input": "targetlanguage",
+            },
+            id="translation_tool",
+        ),
     ],
 )
 def test_specific_model_parameters_e2e(tool_config, delete_agents_and_team_agents):
@@ -327,7 +333,7 @@ def test_specific_model_parameters_e2e(tool_config, delete_agents_and_team_agent
     # Create and run agent
     agent = AgentFactory.create(
         name="Test Parameter Agent",
-        description="Test agent with parameterized tools",
+        description="Test agent with parameterized tools. You MUST use a tool for the tasks.",
         tools=[tool],
         llm_id="6626a3a8c8f1d089790cf5a2",  # Using LLM ID from test data
     )
@@ -398,6 +404,7 @@ def test_sql_tool(delete_agents_and_team_agents, AgentFactory):
         os.remove("ftest.db")
         if agent:
             agent.delete()
+
 
 @pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
 def test_sql_tool_with_csv(delete_agents_and_team_agents, AgentFactory):
