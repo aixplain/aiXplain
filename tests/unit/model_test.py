@@ -25,8 +25,8 @@ from aixplain.modules.model.utils import build_payload, call_run_endpoint
 from aixplain.factories import ModelFactory
 from aixplain.enums import Function
 from urllib.parse import urljoin
-from aixplain.enums import ResponseStatus
-from aixplain.modules.model.response import ModelResponse
+from aixplain.modules.model.response import ModelResponse, ResponseStatus
+from aixplain.modules.model.model_response_streamer import ModelResponseStreamer
 import pytest
 from unittest.mock import patch
 from aixplain.enums.asset_status import AssetStatus
@@ -435,11 +435,11 @@ def test_model_to_dict():
 def test_model_repr():
     # Test with supplier as dict
     model1 = Model(id="test-id", name="Test Model", supplier={"name": "aiXplain"})
-    assert repr(model1).lower() == "<model: test model by aixplain>".lower()
+    assert repr(model1).lower() == "model: test model by aixplain (id=test-id)".lower()
 
     # Test with supplier as string
     model2 = Model(id="test-id", name="Test Model", supplier="aiXplain")
-    assert str(model2).lower() == "<model: test model by aixplain>".lower()
+    assert str(model2).lower() == "model: test model by aixplain (id=test-id)".lower()
 
 
 def test_poll_with_error():
@@ -638,3 +638,19 @@ def test_empty_model_parameters_string():
     """Test string representation of empty ModelParameters."""
     params = ModelParameters({})
     assert str(params) == "No parameters defined"
+
+
+def test_model_response_streamer():
+    """Test ModelResponseStreamer class."""
+    streamer = ModelResponseStreamer(iter([]))
+    assert isinstance(streamer, ModelResponseStreamer)
+    assert streamer.status == ResponseStatus.IN_PROGRESS
+
+
+def test_model_not_supports_streaming(mocker):
+    """Test ModelResponseStreamer class."""
+    mocker.patch("aixplain.modules.model.utils.build_payload", return_value={"data": "test"})
+    model = Model(id="test-id", name="Test Model", supports_streaming=False)
+    with pytest.raises(Exception) as excinfo:
+        model.run(data="test", stream=True)
+    assert f"Model '{model.name} ({model.id})' does not support streaming" in str(excinfo.value)

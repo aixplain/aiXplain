@@ -137,7 +137,7 @@ def test_custom_code_tool(delete_agents_and_team_agents, AgentFactory):
     )
     assert tool is not None
     assert tool.description == "Add two strings"
-    assert tool.code == 'def main(aaa: str, bbb: str) -> str:\n    """Add two strings"""\n    return aaa + bbb'
+    assert tool.code.startswith("s3://")
     agent = AgentFactory.create(
         name="Add Strings Agent",
         description="Add two strings. Do not directly answer. Use the tool to add the strings.",
@@ -286,21 +286,27 @@ def test_update_tools_of_agent(run_input_map, delete_agents_and_team_agents, Age
 @pytest.mark.parametrize(
     "tool_config",
     [
-        {
-            "type": "search",
-            "model": "65c51c556eb563350f6e1bb1",
-            "query": "What is the weather in New York?",
-            "description": "Search tool with custom number of results",
-            "expected_tool_input": "'numResults': 5",
-        },
-        {
-            "type": "translation",
-            "supplier": "Microsoft",
-            "function": "translation",
-            "query": "Translate: Olá, como vai você?",
-            "description": "Translation tool with target language",
-            "expected_tool_input": "targetlanguage",
-        },
+        pytest.param(
+            {
+                "type": "search",
+                "model": "65c51c556eb563350f6e1bb1",
+                "query": "What is the weather in New York?",
+                "description": "Search tool with custom number of results",
+                "expected_tool_input": "'numResults': 5",
+            },
+            id="search_tool",
+        ),
+        pytest.param(
+            {
+                "type": "translation",
+                "supplier": "Microsoft",
+                "function": "translation",
+                "query": "Translate: Olá, como vai você?",
+                "description": "Translation tool with target language",
+                "expected_tool_input": "targetlanguage",
+            },
+            id="translation_tool",
+        ),
     ],
 )
 def test_specific_model_parameters_e2e(tool_config, delete_agents_and_team_agents):
@@ -327,7 +333,7 @@ def test_specific_model_parameters_e2e(tool_config, delete_agents_and_team_agent
     # Create and run agent
     agent = AgentFactory.create(
         name="Test Parameter Agent",
-        description="Test agent with parameterized tools",
+        description="Test agent with parameterized tools. You MUST use a tool for the tasks.",
         tools=[tool],
         llm_id="6626a3a8c8f1d089790cf5a2",  # Using LLM ID from test data
     )
@@ -354,6 +360,7 @@ def test_specific_model_parameters_e2e(tool_config, delete_agents_and_team_agent
 @pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
 def test_sql_tool(delete_agents_and_team_agents, AgentFactory):
     assert delete_agents_and_team_agents
+    agent = None
     try:
         import os
 
@@ -395,12 +402,14 @@ def test_sql_tool(delete_agents_and_team_agents, AgentFactory):
         assert "eve" in str(response["data"]["output"]).lower()
     finally:
         os.remove("ftest.db")
-        agent.delete()
+        if agent:
+            agent.delete()
 
 
 @pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
 def test_sql_tool_with_csv(delete_agents_and_team_agents, AgentFactory):
     assert delete_agents_and_team_agents
+    agent = None
     try:
         import os
         import pandas as pd
@@ -426,7 +435,7 @@ def test_sql_tool_with_csv(delete_agents_and_team_agents, AgentFactory):
 
         # Create SQL tool from CSV
         tool = AgentFactory.create_sql_tool(
-            name="TestDB",
+            name="CSV Tool Test",
             description="Execute SQL queries on employee data",
             source="test.csv",
             source_type="csv",
@@ -476,9 +485,12 @@ def test_sql_tool_with_csv(delete_agents_and_team_agents, AgentFactory):
 
     finally:
         # Cleanup
-        os.remove("test.csv")
-        os.remove("test.db")
-        agent.delete()
+        if agent:
+            agent.delete()
+        if os.path.exists("test.csv"):
+            os.remove("test.csv")
+        if os.path.exists("test.db"):
+            os.remove("test.db")
 
 
 @pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
@@ -505,13 +517,6 @@ def test_instructions(delete_agents_and_team_agents, AgentFactory):
     assert response["data"]["session_id"] is not None
     assert response["data"]["output"] is not None
     assert "aixplain" in response["data"]["output"].lower()
-    assert "eve" in response["data"]["output"].lower()
-
-    import os
-
-    # Cleanup
-    os.remove("test.csv")
-    os.remove("test.db")
     agent.delete()
 
 

@@ -131,6 +131,7 @@ class Agent(Model, DeployableMixin[Tool]):
                 tool_name = tool.name
             elif isinstance(tool, Model):
                 assert not isinstance(tool, Agent), "Agent cannot contain another Agent."
+
                 tool_name = tool.name
             tool_names.append(tool_name)
 
@@ -419,4 +420,4 @@ class Agent(Model, DeployableMixin[Tool]):
         self.update()
 
     def __repr__(self):
-        return f"Agent(id={self.id}, name={self.name}, function={self.function})"
+        return f"Agent: {self.name} (id={self.id})"

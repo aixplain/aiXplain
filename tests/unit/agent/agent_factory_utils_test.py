@@ -12,6 +12,7 @@ from aixplain.modules.agent.tool.sql_tool import SQLTool
 from aixplain.modules.agent import Agent
 from aixplain.modules.agent.agent_task import AgentTask
 from aixplain.factories import ModelFactory, PipelineFactory
+import os
 
 
 @pytest.fixture
@@ -192,6 +193,8 @@ def test_build_tool_success_cases(tool_dict, expected_type, expected_attrs, mock
         "aixplain.modules.model.utils.parse_code_decorated",
         return_value=("print('Hello World')", [], "Test description", "test_name"),
     )
+    mocker.patch("os.path.exists", lambda path: True if path == "test_db.db" else os.path.exists(path))
+    mocker.patch("aixplain.factories.file_factory.FileFactory.upload", return_value="s3://mocked-file-path/test_db.db")
     if tool_dict["type"] == "pipeline":
         mocker.patch.object(
             PipelineFactory,
@@ -205,6 +208,8 @@ def test_build_tool_success_cases(tool_dict, expected_type, expected_attrs, mock
     for attr, value in expected_attrs.items():
         if attr == "model":
             assert tool.model == mock_model
+        elif attr == "database" and value == "test_db.db":
+            assert getattr(tool, attr) == "s3://mocked-file-path/test_db.db"
         else:
             assert getattr(tool, attr) == value
 

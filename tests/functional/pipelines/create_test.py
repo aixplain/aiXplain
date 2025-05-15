@@ -15,7 +15,9 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
-
+import os
+from aixplain.utils.cache_utils import CACHE_FOLDER
+from aixplain.modules.pipeline import Pipeline
 import json
 import pytest
 from aixplain.factories import PipelineFactory
@@ -75,3 +77,26 @@ def test_create_pipeline_wrong_path(PipelineFactory):
 
     with pytest.raises(Exception):
         PipelineFactory.create(name=pipeline_name, pipeline="/")
+
+
+
+@pytest.mark.parametrize("PipelineFactory", [PipelineFactory])
+def test_pipeline_cache_creation(PipelineFactory):
+    cache_file = os.path.join(CACHE_FOLDER, "pipelines.json")
+    if os.path.exists(cache_file):
+        os.remove(cache_file)
+
+    pipeline_json = "tests/functional/pipelines/data/pipeline.json"
+    pipeline_name = str(uuid4())
+    pipeline = PipelineFactory.create(name=pipeline_name, pipeline=pipeline_json)
+
+    assert os.path.exists(cache_file), "Pipeline cache file was not created!"
+
+    with open(cache_file, "r") as f:
+        cache_data = json.load(f)
+
+    assert "data" in cache_data, "Cache format invalid, missing 'data'."
+
+    pipeline.delete()
+    if os.path.exists(cache_file):
+        os.remove(cache_file)

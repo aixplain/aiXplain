@@ -307,7 +307,6 @@ class SQLTool(Tool):
             raise SQLToolError("Description is required")
         if not self.database:
             raise SQLToolError("Database must be provided")
-
         # Handle database validation
         if not (
             str(self.database).startswith("s3://")
