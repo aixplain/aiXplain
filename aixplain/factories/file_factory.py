@@ -62,6 +62,10 @@ class FileFactory:
             FileNotFoundError: If the local file is not found.
             Exception: If the file size exceeds the maximum allowed size.
         """
+        if is_temp is False:
+            assert (
+                return_download_link is False
+            ), "File Upload Error: It is not allowed to return the download link for non-temporary files."
         if os.path.exists(local_path) is False:
             raise FileNotFoundError(f'File Upload Error: local file "{local_path}" not found.')
         # mime type format: {type}/{extension}
