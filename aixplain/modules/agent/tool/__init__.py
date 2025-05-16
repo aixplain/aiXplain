@@ -67,4 +67,4 @@ class Tool(ABC):
         raise NotImplementedError
 
     def deploy(self) -> None:
-        return None
+        raise NotImplementedError

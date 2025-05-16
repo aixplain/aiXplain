@@ -335,7 +335,7 @@ class SQLTool(Tool):
 
             # Upload database
             try:
-                self.database = FileFactory.upload(local_path=self.database, is_temp=True)
+                self.database = FileFactory.create(local_path=self.database, is_temp=True)
             except Exception as e:
                 raise SQLToolError(f"Failed to upload database: {str(e)}")
 
