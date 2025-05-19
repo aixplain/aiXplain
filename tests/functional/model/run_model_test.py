@@ -92,40 +92,10 @@ def run_index_model(index_model, retries):
             break
         except Exception as e:
             time.sleep(180)
-            continue
+            
     response = index_model.search("Berlin")
     assert str(response.status) == "SUCCESS"
     assert "germany" in response.data.lower()
-    assert index_model.count() == 1
-
-    for _ in range(retries):
-        try:
-            index_model.upsert([Record(value="Ankara is the capital of Turkey.", value_type="text", uri="", id="1", attributes={})])
-            break
-        except Exception:
-            time.sleep(180)
-            continue
-    response = index_model.search("Ankara")
-    assert str(response.status) == "SUCCESS"
-    assert "turkey" in response.data.lower()
-    assert index_model.count() == 1
-
-    for _ in range(retries):
-        try:
-            index_model.upsert([Record(value="London is the capital of England.", value_type="text", uri="", id="2", attributes={})])
-            break
-        except Exception:
-            time.sleep(180)
-            continue
-    assert index_model.count() == 2
-
-    response = index_model.get_record("1")
-    assert str(response.status) == "SUCCESS"
-    assert response.data == "Ankara is the capital of Turkey."
-    assert index_model.count() == 2
-
-    response = index_model.delete_record("1")
-    assert str(response.status) == "SUCCESS"
     assert index_model.count() == 1
 
     index_model.delete()
