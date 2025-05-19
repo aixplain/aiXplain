@@ -217,7 +217,7 @@ def test_aixplain_model_cache_creation():
 
     assert "data" in cache_data, "Cache file structure invalid - missing 'data' key."
     assert any(m.get("id") == model_id for m in cache_data["data"]["items"]), "Instantiated model not found in cache."
-=======
+
 def test_index_model_air_with_image():
     from aixplain.factories import IndexFactory
     from aixplain.modules.model.record import Record
