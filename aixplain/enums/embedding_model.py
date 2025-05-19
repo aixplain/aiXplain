@@ -20,7 +20,7 @@ Description:
 from enum import Enum
 
 
-class EmbeddingModel(Enum):
+class EmbeddingModel(str, Enum):
     SNOWFLAKE_ARCTIC_EMBED_M_LONG = "6658d40729985c2cf72f42ec"
     OPENAI_ADA002 = "6734c55df127847059324d9e"
     SNOWFLAKE_ARCTIC_EMBED_L_V2_0 = "678a4f8547f687504744960a"
@@ -28,8 +28,6 @@ class EmbeddingModel(Enum):
     MULTILINGUAL_E5_LARGE = "67efd0772a0a850afa045af3"
     BGE_M3 = "67efd4f92a0a850afa045af7"
     AIXPLAIN_LEGAL_EMBEDDINGS = "681254b668e47e7844c1f15a"
-
-
     
 
     def __str__(self):

@@ -29,8 +29,8 @@ from aixplain.enums.privacy import Privacy
 from aixplain.modules.asset import Asset
 from aixplain.modules.data import Data
 from aixplain.utils import config
-from aixplain.utils.file_utils import _request_with_retry
-from typing import Any, List, Optional, Text
+from aixplain.utils.request_utils import _request_with_retry
+from typing import List, Optional, Text
 from urllib.parse import urljoin
 
 

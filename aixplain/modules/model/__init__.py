@@ -25,15 +25,17 @@ import logging
 import traceback
 from aixplain.enums import Supplier, Function
 from aixplain.modules.asset import Asset
+from aixplain.modules.model.model_response_streamer import ModelResponseStreamer
 from aixplain.modules.model.utils import build_payload, call_run_endpoint
 from aixplain.utils import config
 from urllib.parse import urljoin
-from aixplain.utils.file_utils import _request_with_retry
+from aixplain.utils.request_utils import _request_with_retry
 from typing import Union, Optional, Text, Dict
 from datetime import datetime
 from aixplain.modules.model.response import ModelResponse
 from aixplain.enums.response_status import ResponseStatus
 from aixplain.modules.model.model_parameters import ModelParameters
+from aixplain.enums import AssetStatus
 
 
 class Model(Asset):
@@ -55,6 +57,7 @@ class Model(Asset):
         input_params (ModelParameters, optional): input parameters for the function.
         output_params (Dict, optional): output parameters for the function.
         model_params (ModelParameters, optional): parameters for the function.
+        supports_streaming (bool, optional): whether the model supports streaming. Defaults to False.
     """
 
     def __init__(
@@ -72,6 +75,8 @@ class Model(Asset):
         input_params: Optional[Dict] = None,
         output_params: Optional[Dict] = None,
         model_params: Optional[Dict] = None,
+        supports_streaming: bool = False,
+        status: Optional[AssetStatus] = AssetStatus.ONBOARDED,  # default status for models is ONBOARDED
         **additional_info,
     ) -> None:
         """Model Init
@@ -89,6 +94,8 @@ class Model(Asset):
             input_params (Dict, optional): input parameters for the function.
             output_params (Dict, optional): output parameters for the function.
             model_params (Dict, optional): parameters for the function.
+            supports_streaming (bool, optional): whether the model supports streaming. Defaults to False.
+            status (AssetStatus, optional): status of the model. Defaults to None.
             **additional_info: Any additional Model info to be saved
         """
         super().__init__(id, name, description, supplier, version, cost=cost)
@@ -102,6 +109,13 @@ class Model(Asset):
         self.input_params = input_params
         self.output_params = output_params
         self.model_params = ModelParameters(model_params) if model_params else None
+        self.supports_streaming = supports_streaming
+        if isinstance(status, str):
+            try:
+                status = AssetStatus(status)
+            except Exception:
+                status = AssetStatus.ONBOARDED
+        self.status = status
 
     def to_dict(self) -> Dict:
         """Get the model info as a Dictionary
@@ -119,6 +133,7 @@ class Model(Asset):
             "input_params": self.input_params,
             "output_params": self.output_params,
             "model_params": self.model_params.to_dict(),
+            "status": self.status,
         }
 
     def get_parameters(self) -> ModelParameters:
@@ -199,6 +214,7 @@ class Model(Asset):
                     status = ResponseStatus.FAILED
             else:
                 status = ResponseStatus.IN_PROGRESS
+
             logging.debug(f"Single Poll for Model: Status of polling for {name}: {resp}")
             return ModelResponse(
                 status=resp.pop("status", status),
@@ -209,6 +225,7 @@ class Model(Asset):
                 used_credits=resp.pop("usedCredits", 0),
                 run_time=resp.pop("runTime", 0),
                 usage=resp.pop("usage", None),
+                error_code=resp.get("error_code", None),
                 **resp,
             )
         except Exception as e:
@@ -220,6 +237,19 @@ class Model(Asset):
                 completed=False,
             )
 
+    def run_stream(
+        self,
+        data: Union[Text, Dict],
+        parameters: Optional[Dict] = None,
+    ) -> ModelResponseStreamer:
+        assert self.supports_streaming, f"Model '{self.name} ({self.id})' does not support streaming"
+        payload = build_payload(data=data, parameters=parameters, stream=True)
+        url = f"{self.url}/{self.id}".replace("api/v1/execute", "api/v2/execute")
+        logging.debug(f"Model Run Stream: Start service for {url} - {payload}")
+        headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}
+        r = _request_with_retry("post", url, headers=headers, data=payload, stream=True)
+        return ModelResponseStreamer(r.iter_lines(decode_unicode=True))
+
     def run(
         self,
         data: Union[Text, Dict],
@@ -227,7 +257,8 @@ class Model(Asset):
         timeout: float = 300,
         parameters: Optional[Dict] = None,
         wait_time: float = 0.5,
-    ) -> ModelResponse:
+        stream: bool = False,
+    ) -> Union[ModelResponse, ModelResponseStreamer]:
         """Runs a model call.
 
         Args:
@@ -236,10 +267,12 @@ class Model(Asset):
             timeout (float, optional): total polling time. Defaults to 300.
             parameters (Dict, optional): optional parameters to the model. Defaults to None.
             wait_time (float, optional): wait time in seconds between polling calls. Defaults to 0.5.
-
+            stream (bool, optional): whether the model supports streaming. Defaults to False.
         Returns:
-            Dict: parsed output from model
+            Union[ModelResponse, ModelStreamer]: parsed output from model
         """
+        if stream:
+            return self.run_stream(data=data, parameters=parameters)
         start = time.time()
         payload = build_payload(data=data, parameters=parameters)
         url = f"{self.url}/{self.id}".replace("api/v1/execute", "api/v2/execute")
@@ -264,6 +297,7 @@ class Model(Asset):
             used_credits=response.pop("usedCredits", 0),
             run_time=response.pop("runTime", 0),
             usage=response.pop("usage", None),
+            error_code=response.get("error_code", None),
             **response,
         )
 
@@ -306,7 +340,7 @@ class Model(Asset):
         Returns:
             FinetuneStatus: The status of the FineTune model.
         """
-        from aixplain.enums.asset_status import AssetStatus
+        from aixplain.enums import AssetStatus
         from aixplain.modules.finetune.status import FinetuneStatus
 
         headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}

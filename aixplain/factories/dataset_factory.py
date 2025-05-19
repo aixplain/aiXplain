@@ -41,7 +41,8 @@ from aixplain.enums.license import License
 from aixplain.enums.privacy import Privacy
 from aixplain.utils import config
 from aixplain.utils.convert_datatype_utils import dict_to_metadata
-from aixplain.utils.file_utils import _request_with_retry, s3_to_csv
+from aixplain.utils.request_utils import _request_with_retry
+from aixplain.utils.file_utils import s3_to_csv
 from aixplain.utils.validation_utils import dataset_onboarding_validation
 from pathlib import Path
 from tqdm import tqdm
