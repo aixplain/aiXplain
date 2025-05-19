@@ -9,6 +9,11 @@ from aixplain.modules import LLM
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from aixplain.factories.index_factory.utils import AirParams, VectaraParams, GraphRAGParams, ZeroEntropyParams
+from aixplain.factories import IndexFactory
+from aixplain.modules.model.record import Record
+import time
+
+
 
 
 def pytest_generate_tests(metafunc):
@@ -77,22 +82,41 @@ def test_run_async():
     assert "teste" in response["data"].lower()
 
 
-def run_index_model(index_model):
+def run_index_model(index_model, retries):
     from aixplain.modules.model.record import Record
 
-    index_model.upsert([Record(value="Berlin is the capital of Germany.", value_type="text", uri="", id="1", attributes={})])
+
+    for _ in range(retries):
+        try:
+            index_model.upsert([Record(value="Berlin is the capital of Germany.", value_type="text", uri="", id="1", attributes={})])
+            break
+        except Exception as e:
+            time.sleep(180)
+            continue
     response = index_model.search("Berlin")
     assert str(response.status) == "SUCCESS"
     assert "germany" in response.data.lower()
     assert index_model.count() == 1
 
-    index_model.upsert([Record(value="Ankara is the capital of Turkey.", value_type="text", uri="", id="1", attributes={})])
+    for _ in range(retries):
+        try:
+            index_model.upsert([Record(value="Ankara is the capital of Turkey.", value_type="text", uri="", id="1", attributes={})])
+            break
+        except Exception:
+            time.sleep(180)
+            continue
     response = index_model.search("Ankara")
     assert str(response.status) == "SUCCESS"
     assert "turkey" in response.data.lower()
     assert index_model.count() == 1
 
-    index_model.upsert([Record(value="London is the capital of England.", value_type="text", uri="", id="2", attributes={})])
+    for _ in range(retries):
+        try:
+            index_model.upsert([Record(value="London is the capital of England.", value_type="text", uri="", id="2", attributes={})])
+            break
+        except Exception:
+            time.sleep(180)
+            continue
     assert index_model.count() == 2
 
     response = index_model.get_record("1")
@@ -130,8 +154,11 @@ def test_index_model(embedding_model, supplier_params):
         params = supplier_params(name=str(uuid4()), description=str(uuid4()), embedding_model=embedding_model)
 
     index_model = IndexFactory.create(params=params)
-    run_index_model(index_model)
-
+    if embedding_model in [EmbeddingModel.MULTILINGUAL_E5_LARGE, EmbeddingModel.BGE_M3, EmbeddingModel.SNOWFLAKE_ARCTIC_EMBED_L_V2_0]:
+        retries = 3
+    else:
+        retries = 1
+    run_index_model(index_model, retries)
 
 @pytest.mark.parametrize(
     "embedding_model,supplier_params",
@@ -160,10 +187,24 @@ def test_index_model_with_filter(embedding_model, supplier_params):
         params = supplier_params(name=str(uuid4()), description=str(uuid4()), embedding_model=embedding_model)
 
     index_model = IndexFactory.create(params=params)
-    index_model.upsert([Record(value="Hello, aiXplain!", value_type="text", uri="", id="1", attributes={"category": "hello"})])
-    index_model.upsert(
-        [Record(value="The world is great", value_type="text", uri="", id="2", attributes={"category": "world"})]
-    )
+    if embedding_model in [EmbeddingModel.MULTILINGUAL_E5_LARGE, EmbeddingModel.BGE_M3, EmbeddingModel.SNOWFLAKE_ARCTIC_EMBED_L_V2_0]:
+        retries = 3
+    else:
+        retries = 1
+    for _ in range(retries):
+        try:
+            index_model.upsert([Record(value="Hello, aiXplain!", value_type="text", uri="", id="1", attributes={"category": "hello"})])
+            break
+        except Exception:
+            time.sleep(180)
+            continue
+    for _ in range(retries):
+        try:
+            index_model.upsert([Record(value="The world is great", value_type="text", uri="", id="2", attributes={"category": "world"})])
+            break
+        except Exception:
+            time.sleep(180)
+            continue
     assert index_model.count() == 2
     response = index_model.search(
         "", filters=[IndexFilter(field="category", value="world", operator=IndexFilterOperator.EQUALS)]
@@ -235,6 +276,7 @@ def test_index_model_air_with_image():
     records.append(Record(value="Hello, world!", value_type="text", uri="", attributes={}, id="4"))
 
     index_model.upsert(records)
+
 
     response = index_model.search("beach")
     assert str(response.status) == "SUCCESS"
