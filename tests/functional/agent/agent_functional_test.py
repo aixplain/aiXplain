@@ -411,7 +411,6 @@ def test_sql_tool(delete_agents_and_team_agents, AgentFactory):
         if agent:
             agent.delete()
 
-
 @pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
 def test_sql_tool_with_csv(delete_agents_and_team_agents, AgentFactory):
     assert delete_agents_and_team_agents
