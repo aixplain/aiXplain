@@ -75,6 +75,7 @@ class Agent(Model, DeployableMixin[Tool]):
         cost: Optional[Dict] = None,
         status: AssetStatus = AssetStatus.DRAFT,
         tasks: List[AgentTask] = [],
+        persist_session: bool = True, 
         **additional_info,
     ) -> None:
         """Create an Agent with the necessary information.
@@ -107,6 +108,7 @@ class Agent(Model, DeployableMixin[Tool]):
         self.status = status
         self.tasks = tasks
         self.is_valid = True
+        self.persist_session = persist_session
 
     def _validate(self) -> None:
         """Validate the Agent."""
@@ -169,6 +171,7 @@ class Agent(Model, DeployableMixin[Tool]):
         max_tokens: int = 2048,
         max_iterations: int = 10,
         output_format: OutputFormat = OutputFormat.TEXT,
+        persist_session: bool = None,
     ) -> AgentResponse:
         """Runs an agent call.
 
@@ -190,6 +193,11 @@ class Agent(Model, DeployableMixin[Tool]):
         """
         start = time.time()
         result_data = {}
+        user_provided_session_id = session_id is not None
+
+        if persist_session is None:
+            persist_session = self.persist_session
+
         try:
             response = self.run_async(
                 data=data,
@@ -213,19 +221,21 @@ class Agent(Model, DeployableMixin[Tool]):
             # if result.status == ResponseStatus.FAILED:
             #    raise Exception("Model failed to run with error: " + result.error_message)
             result_data = result.get("data") or {}
-            return AgentResponse(
+            response=AgentResponse(
                 status=ResponseStatus.SUCCESS,
                 completed=True,
                 data=AgentResponseData(
                     input=result_data.get("input"),
                     output=result_data.get("output"),
-                    session_id=result_data.get("session_id"),
                     intermediate_steps=result_data.get("intermediate_steps"),
                     execution_stats=result_data.get("executionStats"),
                 ),
                 used_credits=result_data.get("usedCredits", 0.0),
                 run_time=result_data.get("runTime", end - start),
             )
+            if persist_session or user_provided_session_id:
+                response.data.session_id=result_data.get("session_id")
+            return response
         except Exception as e:
             msg = f"Error in request for {name} - {traceback.format_exc()}"
             logging.error(f"Agent Run: Error in running for {name}: {e}")
@@ -254,6 +264,7 @@ class Agent(Model, DeployableMixin[Tool]):
         max_tokens: int = 2048,
         max_iterations: int = 10,
         output_format: OutputFormat = OutputFormat.TEXT,
+        persist_session: bool = None,
     ) -> AgentResponse:
         """Runs asynchronously an agent call.
 
@@ -272,6 +283,11 @@ class Agent(Model, DeployableMixin[Tool]):
             dict: polling URL in response
         """
         from aixplain.factories.file_factory import FileFactory
+        user_provided_session_id = session_id is not None
+
+        if persist_session is None:
+            persist_session = self.persist_session
+
 
         if not self.is_valid:
             raise Exception("Agent is not valid. Please validate the agent before running.")
@@ -329,13 +345,20 @@ class Agent(Model, DeployableMixin[Tool]):
             r = _request_with_retry("post", self.url, headers=headers, data=payload)
             resp = r.json()
             poll_url = resp.get("data")
-            return AgentResponse(
+            response=AgentResponse(
                 status=ResponseStatus.IN_PROGRESS,
                 url=poll_url,
                 data=AgentResponseData(input=input_data),
                 run_time=0.0,
                 used_credits=0.0,
             )
+            if persist_session or user_provided_session_id:
+                response.data.session_id=session_id
+            else:
+                response.data.session_id=None
+        
+            return(response)
+
         except Exception as e:
             msg = f"Error in request for {name} - {traceback.format_exc()}"
             logging.error(f"Agent Run Async: Error in running for {name}: {e}")
@@ -356,6 +379,7 @@ class Agent(Model, DeployableMixin[Tool]):
             "llmId": self.llm_id,
             "status": self.status.value,
             "tasks": [task.to_dict() for task in self.tasks],
+            "persist_session": self.persist_session
         }
 
     def delete(self) -> None:
