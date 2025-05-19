@@ -2,6 +2,7 @@ __author__ = "thiagocastroferreira"
 
 import pytest
 import requests
+import os
 
 from aixplain.enums import Function, EmbeddingModel
 from aixplain.factories import ModelFactory
