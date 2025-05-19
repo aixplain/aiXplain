@@ -28,6 +28,7 @@ class EmbeddingModel(str, Enum):
     MULTILINGUAL_E5_LARGE = "67efd0772a0a850afa045af3"
     BGE_M3 = "67efd4f92a0a850afa045af7"
     AIXPLAIN_LEGAL_EMBEDDINGS = "681254b668e47e7844c1f15a"
+    
 
     def __str__(self):
         return self._value_

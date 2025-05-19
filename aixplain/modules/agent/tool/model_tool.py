@@ -179,8 +179,8 @@ class ModelTool(Tool):
                     self.description = ""
 
         self.parameters = self.validate_parameters(self.parameters)
-
         self.name = self.name if self.name else set_tool_name(self.function, self.supplier, self.model)
+
 
     def get_parameters(self) -> Dict:
         # If parameters were not explicitly provided, get them from the model
@@ -219,6 +219,7 @@ class ModelTool(Tool):
                 and self.model_object.model_params is not None  # noqa: W503
             ):
                 return self.model_object.model_params.to_list()
+    
             elif self.function is not None:
                 function_params = self.function.get_parameters()
                 if function_params is not None:

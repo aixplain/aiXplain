@@ -311,6 +311,7 @@ def test_utility_model_update():
         assert final_model.name == "sum_numbers_test"
         assert final_model.description == "Updated to sum numbers utility"
         assert final_model.status == AssetStatus.ONBOARDED
+
         # Test final behavior with new function but same input field names
         response = final_model.run({"num1": 5, "num2": 7})
         assert response.status == "SUCCESS"
