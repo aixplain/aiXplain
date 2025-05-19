@@ -110,6 +110,7 @@ def run_index_model(index_model, retries):
     assert "turkey" in response.data.lower()
     assert index_model.count() == 1
 
+
     for _ in range(retries):
         try:
             index_model.upsert([Record(value="London is the capital of England.", value_type="text", uri="", id="2", attributes={})])
