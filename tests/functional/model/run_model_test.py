@@ -167,14 +167,13 @@ def test_index_model_with_filter(embedding_model, supplier_params):
             break
         except Exception:
             time.sleep(180)
-            continue
     for _ in range(retries):
         try:
             index_model.upsert([Record(value="The world is great", value_type="text", uri="", id="2", attributes={"category": "world"})])
             break
         except Exception:
             time.sleep(180)
-            continue
+            
     assert index_model.count() == 2
     response = index_model.search(
         "", filters=[IndexFilter(field="category", value="world", operator=IndexFilterOperator.EQUALS)]
