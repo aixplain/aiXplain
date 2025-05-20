@@ -50,7 +50,6 @@ class IndexModel(Model):
         is_subscribed: bool = False,
         cost: Optional[Dict] = None,
         embedding_model: Optional[EmbeddingModel] = None,
-        embedding_size: Optional[int] = None,
         **additional_info,
     ) -> None:
         """Index Init
