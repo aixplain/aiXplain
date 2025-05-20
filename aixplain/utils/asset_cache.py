@@ -112,7 +112,7 @@ class AssetCache(Generic[T]):
                 data_dict = {}
                 for asset_id, asset in self.store.data.items():
                     try:
-                        data_dict[asset_id] = asset.to_dict()
+                        data_dict[asset_id] = serialize(asset)
                     except Exception as e:
                         logger.error(f"Error serializing {asset_id}: {e}")
                 serializable_store = {
@@ -138,3 +138,18 @@ class AssetCache(Generic[T]):
 
     def has_valid_cache(self) -> bool:
         return self.store.expiry >= time.time() and bool(self.store.data)
+    
+def serialize(obj):
+    if isinstance(obj, (str, int, float, bool, type(None))):
+        return obj
+    elif isinstance(obj, (list, tuple, set)):
+        return [serialize(o) for o in obj]
+    elif isinstance(obj, dict):
+        return {str(k): serialize(v) for k, v in obj.items()}
+    elif hasattr(obj, "to_dict"):
+        return serialize(obj.to_dict())
+    elif hasattr(obj, "__dict__"):
+        return serialize(vars(obj))
+    else:
+        return str(obj)
+
