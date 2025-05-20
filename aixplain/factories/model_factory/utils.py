@@ -37,11 +37,14 @@ def create_model_from_response(response: Dict) -> Model:
                     parameters[param["name"]] = values
 
     attributes = response.get("attributes", None)
-    embedding_model = None
-    embedding_size = None
+    additional_kwargs = {}
     if attributes:
-        embedding_model = next((item['code'] for item in attributes if item['name'] == 'embeddingmodel'), None)
-        embedding_size = next((item['value'] for item in attributes if item['name'] == 'embeddingSize'), None)
+        embedding_model = next((item["code"] for item in attributes if item["name"] == "embeddingmodel"), None)
+        if embedding_model:
+            additional_kwargs["embedding_model"] = embedding_model
+        embedding_size = next((item["value"] for item in attributes if item["name"] == "embeddingSize"), None)
+        if embedding_size:
+            additional_kwargs["embedding_size"] = embedding_size
 
     function_id = response["function"]["id"]
     function = Function(function_id)
@@ -107,8 +110,7 @@ def create_model_from_response(response: Dict) -> Model:
         temperature=temperature,
         supports_streaming=response.get("supportsStreaming", False),
         status=status,
-        embedding_model=embedding_model,
-        embedding_size=embedding_size
+        **additional_kwargs,
     )
 
 

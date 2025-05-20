@@ -84,7 +84,17 @@ class IndexModel(Model):
         self.url = config.MODELS_RUN_URL
         self.backend_url = config.BACKEND_URL
         self.embedding_model = embedding_model
-        self.embedding_size = embedding_size
+        if embedding_model:
+            try:
+                from aixplain.factories import ModelFactory
+
+                model = ModelFactory.get(embedding_model)
+                self.embedding_size = model.additional_info["embedding_size"]
+            except Exception as e:
+                import warnings
+
+                warnings.warn(f"Failed to get embedding size for embedding model {embedding_model}: {e}")
+                self.embedding_size = None
 
     def to_dict(self) -> Dict:
         data = super().to_dict()
