@@ -14,6 +14,7 @@ from aixplain.utils.cache_utils import CACHE_FOLDER
 from aixplain.modules.model import Model
 from aixplain.factories.index_factory.utils import AirParams, VectaraParams, GraphRAGParams, ZeroEntropyParams
 
+
 def pytest_generate_tests(metafunc):
     if "llm_model" in metafunc.fixturenames:
         four_weeks_ago = datetime.now(timezone.utc) - timedelta(weeks=4)
@@ -78,6 +79,21 @@ def test_run_async():
 
     assert response["status"] == "SUCCESS"
     assert "teste" in response["data"].lower()
+
+
+@pytest.mark.parametrize(
+    "embedding_model,supplier_params",
+    [pytest.param(EmbeddingModel.OPENAI_ADA002, AirParams, id="AIR - OpenAI Ada 002")],
+)
+def test_index_model_with_embedding(embedding_model, supplier_params):
+    from uuid import uuid4
+    from aixplain.factories import IndexFactory
+
+    params = supplier_params(name=str(uuid4()), description=str(uuid4()), embedding_model=embedding_model)
+    index_model = IndexFactory.create(params=params)
+    assert index_model.embedding_model == embedding_model
+    assert index_model.embedding_size == 1536, f"Embedding size mismatch for {embedding_model}"
+    index_model.delete()
 
 
 def run_index_model(index_model):
@@ -206,7 +222,7 @@ def test_aixplain_model_cache_creation():
         os.remove(cache_file)
 
     # Instantiate the Model (replace this with a real model ID from your env)
-    model_id = "6239efa4822d7a13b8e20454"    # Translate from Punjabi to Portuguese (Brazil)
+    model_id = "6239efa4822d7a13b8e20454"  # Translate from Punjabi to Portuguese (Brazil)
     _ = Model(id=model_id)
 
     # Assert the cache file was created
@@ -217,6 +233,7 @@ def test_aixplain_model_cache_creation():
 
     assert "data" in cache_data, "Cache file structure invalid - missing 'data' key."
     assert any(m.get("id") == model_id for m in cache_data["data"]["items"]), "Instantiated model not found in cache."
+
 
 def test_index_model_air_with_image():
     from aixplain.factories import IndexFactory
