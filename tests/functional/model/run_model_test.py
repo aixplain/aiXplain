@@ -77,6 +77,21 @@ def test_run_async():
     assert "teste" in response["data"].lower()
 
 
+@pytest.mark.parametrize(
+    "embedding_model,supplier_params",
+    [pytest.param(EmbeddingModel.OPENAI_ADA002, AirParams, id="AIR - OpenAI Ada 002")],
+)
+def test_index_model_with_embedding(embedding_model, supplier_params):
+    from uuid import uuid4
+    from aixplain.factories import IndexFactory
+
+    params = supplier_params(name=str(uuid4()), description=str(uuid4()), embedding_model=embedding_model)
+    index_model = IndexFactory.create(params=params)
+    assert index_model.embedding_model == embedding_model
+    assert index_model.embedding_size == 1536, f"Embedding size mismatch for {embedding_model}"
+    index_model.delete()
+
+
 def run_index_model(index_model):
     from aixplain.modules.model.record import Record
 
