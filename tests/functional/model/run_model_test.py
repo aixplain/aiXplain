@@ -1,5 +1,7 @@
 __author__ = "thiagocastroferreira"
 
+import os
+import json
 import pytest
 import requests
 
@@ -8,6 +10,8 @@ from aixplain.factories import ModelFactory
 from aixplain.modules import LLM
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from aixplain.utils.cache_utils import CACHE_FOLDER
+from aixplain.modules.model import Model
 from aixplain.factories.index_factory.utils import AirParams, VectaraParams, GraphRAGParams, ZeroEntropyParams
 
 
@@ -75,6 +79,21 @@ def test_run_async():
 
     assert response["status"] == "SUCCESS"
     assert "teste" in response["data"].lower()
+
+
+@pytest.mark.parametrize(
+    "embedding_model,supplier_params",
+    [pytest.param(EmbeddingModel.OPENAI_ADA002, AirParams, id="AIR - OpenAI Ada 002")],
+)
+def test_index_model_with_embedding(embedding_model, supplier_params):
+    from uuid import uuid4
+    from aixplain.factories import IndexFactory
+
+    params = supplier_params(name=str(uuid4()), description=str(uuid4()), embedding_model=embedding_model)
+    index_model = IndexFactory.create(params=params)
+    assert index_model.embedding_model == embedding_model
+    assert index_model.embedding_size == 1536, f"Embedding size mismatch for {embedding_model}"
+    index_model.delete()
 
 
 def run_index_model(index_model):
@@ -191,6 +210,29 @@ def test_llm_run_with_file():
     # Verify response
     assert response["status"] == "SUCCESS"
     assert "🤖" in response["data"], "Robot emoji should be present in the response"
+
+
+def test_aixplain_model_cache_creation():
+    """Ensure AssetCache is triggered and cache is created."""
+
+    cache_file = os.path.join(CACHE_FOLDER, "models.json")
+
+    # Clean up cache before the test
+    if os.path.exists(cache_file):
+        os.remove(cache_file)
+
+    # Instantiate the Model (replace this with a real model ID from your env)
+    model_id = "6239efa4822d7a13b8e20454"  # Translate from Punjabi to Portuguese (Brazil)
+    _ = Model(id=model_id)
+
+    # Assert the cache file was created
+    assert os.path.exists(cache_file), "Expected cache file was not created."
+
+    with open(cache_file, "r", encoding="utf-8") as f:
+        cache_data = json.load(f)
+
+    assert "data" in cache_data, "Cache file structure invalid - missing 'data' key."
+    assert any(m.get("id") == model_id for m in cache_data["data"]["items"]), "Instantiated model not found in cache."
 
 
 def test_index_model_air_with_image():

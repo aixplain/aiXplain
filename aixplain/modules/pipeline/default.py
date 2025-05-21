@@ -1,5 +1,6 @@
 from .asset import Pipeline as PipelineAsset
 from .designer import DesignerPipeline
+from enum import Enum
 
 
 class DefaultPipeline(PipelineAsset, DesignerPipeline):
@@ -13,4 +14,18 @@ class DefaultPipeline(PipelineAsset, DesignerPipeline):
         super().save(*args, **kwargs)
 
     def to_dict(self) -> dict:
-        return self.serialize()
+        data = self.__dict__.copy()
+
+        for key, value in data.items():
+            if isinstance(value, Enum):
+                data[key] = value.value
+
+            elif isinstance(value, list):
+                data[key] = [
+                    v.to_dict() if hasattr(v, "to_dict") else str(v) for v in value
+                ]
+
+            elif hasattr(value, "to_dict"):
+                data[key] = value.to_dict()
+
+        return data

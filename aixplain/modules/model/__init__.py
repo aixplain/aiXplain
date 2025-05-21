@@ -123,7 +123,7 @@ class Model(Asset):
         Returns:
             Dict: Model Information
         """
-        clean_additional_info = {k: v for k, v in self.additional_info.items() if v is not None}
+        clean_additional_info = {k: v for k, v in self.additional_info.items() if v not in [None, [], {}]}
         return {
             "id": self.id,
             "name": self.name,
@@ -133,6 +133,7 @@ class Model(Asset):
             "input_params": self.input_params,
             "output_params": self.output_params,
             "model_params": self.model_params.to_dict(),
+            "function": self.function,
             "status": self.status,
         }
 
@@ -143,12 +144,16 @@ class Model(Asset):
 
     def __repr__(self):
         try:
-            return f"<Model: {self.name} by {self.supplier['name']}>"
+            return f"Model: {self.name} by {self.supplier['name']} (id={self.id})"
         except Exception:
-            return f"<Model: {self.name} by {self.supplier}>"
+            return f"Model: {self.name} by {self.supplier} (id={self.id})"
 
     def sync_poll(
-        self, poll_url: Text, name: Text = "model_process", wait_time: float = 0.5, timeout: float = 300
+        self,
+        poll_url: Text,
+        name: Text = "model_process",
+        wait_time: float = 0.5,
+        timeout: float = 300,
     ) -> ModelResponse:
         """Keeps polling the platform to check whether an asynchronous call is done.
 
@@ -179,7 +184,9 @@ class Model(Asset):
                         wait_time *= 1.1
             except Exception as e:
                 response_body = ModelResponse(
-                    status=ResponseStatus.FAILED, completed=False, error_message="No response from the service."
+                    status=ResponseStatus.FAILED,
+                    completed=False,
+                    error_message="No response from the service.",
                 )
                 logging.error(f"Polling for Model: polling for {name}: {e}")
                 break
@@ -187,7 +194,9 @@ class Model(Asset):
             logging.debug(f"Polling for Model: Final status of polling for {name}: {response_body}")
         else:
             response_body = ModelResponse(
-                status=ResponseStatus.FAILED, completed=False, error_message="No response from the service."
+                status=ResponseStatus.FAILED,
+                completed=False,
+                error_message="No response from the service.",
             )
             logging.error(
                 f"Polling for Model: Final status of polling for {name}: No response in {timeout} seconds - {response_body}"
@@ -216,6 +225,7 @@ class Model(Asset):
                 status = ResponseStatus.IN_PROGRESS
 
             logging.debug(f"Single Poll for Model: Status of polling for {name}: {resp}")
+
             return ModelResponse(
                 status=resp.pop("status", status),
                 data=resp.pop("data", ""),
@@ -287,7 +297,11 @@ class Model(Asset):
                 msg = f"Error in request for {name} - {traceback.format_exc()}"
                 logging.error(f"Model Run: Error in running for {name}: {e}")
                 end = time.time()
-                response = {"status": "FAILED", "error_message": msg, "runTime": end - start}
+                response = {
+                    "status": "FAILED",
+                    "error_message": msg,
+                    "runTime": end - start,
+                }
         return ModelResponse(
             status=response.pop("status", ResponseStatus.FAILED),
             data=response.pop("data", ""),
@@ -302,7 +316,10 @@ class Model(Asset):
         )
 
     def run_async(
-        self, data: Union[Text, Dict], name: Text = "model_process", parameters: Optional[Dict] = None
+        self,
+        data: Union[Text, Dict],
+        name: Text = "model_process",
+        parameters: Optional[Dict] = None,
     ) -> ModelResponse:
         """Runs asynchronously a model call.
 
@@ -374,9 +391,9 @@ class Model(Asset):
                 status = FinetuneStatus(
                     status=finetune_status,
                     model_status=model_status,
-                    epoch=float(log["epoch"]) if "epoch" in log and log["epoch"] is not None else None,
-                    training_loss=float(log["trainLoss"]) if "trainLoss" in log and log["trainLoss"] is not None else None,
-                    validation_loss=float(log["evalLoss"]) if "evalLoss" in log and log["evalLoss"] is not None else None,
+                    epoch=(float(log["epoch"]) if "epoch" in log and log["epoch"] is not None else None),
+                    training_loss=(float(log["trainLoss"]) if "trainLoss" in log and log["trainLoss"] is not None else None),
+                    validation_loss=(float(log["evalLoss"]) if "evalLoss" in log and log["evalLoss"] is not None else None),
                 )
             else:
                 status = FinetuneStatus(
@@ -399,7 +416,10 @@ class Model(Asset):
         """Delete Model service"""
         try:
             url = urljoin(self.backend_url, f"sdk/models/{self.id}")
-            headers = {"Authorization": f"Token {self.api_key}", "Content-Type": "application/json"}
+            headers = {
+                "Authorization": f"Token {self.api_key}",
+                "Content-Type": "application/json",
+            }
             logging.info(f"Start service for DELETE Model  - {url} - {headers}")
             r = _request_with_retry("delete", url, headers=headers)
             if r.status_code != 200:
@@ -408,3 +428,22 @@ class Model(Asset):
             message = "Model Deletion Error: Make sure the model exists and you are the owner."
             logging.error(message)
             raise Exception(f"{message}")
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> "Model":
+        return cls(
+            id=data.get("id", ""),
+            name=data.get("name", ""),
+            description=data.get("description", ""),
+            api_key=data.get("api_key", config.TEAM_API_KEY),
+            supplier=data.get("supplier", "aiXplain"),
+            version=data.get("version", "1.0"),
+            function=Function(data.get("function")),
+            is_subscribed=data.get("is_subscribed", False),
+            cost=data.get("cost"),
+            created_at=(datetime.fromisoformat(data["created_at"]) if data.get("created_at") else None),
+            input_params=data.get("input_params"),
+            output_params=data.get("output_params"),
+            model_params=data.get("model_params"),
+            **data.get("additional_info", {}),
+        )
