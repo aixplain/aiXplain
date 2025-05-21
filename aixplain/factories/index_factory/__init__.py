@@ -58,11 +58,8 @@ class IndexFactory(ModelFactory, Generic[T]):
 
         model_id = IndexStores.AIR.get_model_id()
         if params is not None:
-            print(f"params: {params}")
             model_id = params.id
-            print(f"model_id: {model_id}")
             data = params.to_dict()
-            print(f"data: {data}")
             assert (
                 name is None and description is None
             ), "Index Factory Exception: name, description, and embedding_model must not be provided when params is provided"
