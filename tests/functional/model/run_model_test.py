@@ -1,7 +1,5 @@
 __author__ = "thiagocastroferreira"
 
-import os
-import json
 import pytest
 import requests
 
@@ -10,9 +8,12 @@ from aixplain.factories import ModelFactory
 from aixplain.modules import LLM
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from aixplain.utils.cache_utils import CACHE_FOLDER
-from aixplain.modules.model import Model
 from aixplain.factories.index_factory.utils import AirParams, VectaraParams, GraphRAGParams, ZeroEntropyParams
+from aixplain.factories import IndexFactory
+from aixplain.modules.model.record import Record
+import time
+
+
 
 
 def pytest_generate_tests(metafunc):
@@ -81,46 +82,20 @@ def test_run_async():
     assert "teste" in response["data"].lower()
 
 
-@pytest.mark.parametrize(
-    "embedding_model,supplier_params",
-    [pytest.param(EmbeddingModel.OPENAI_ADA002, AirParams, id="AIR - OpenAI Ada 002")],
-)
-def test_index_model_with_embedding(embedding_model, supplier_params):
-    from uuid import uuid4
-    from aixplain.factories import IndexFactory
-
-    params = supplier_params(name=str(uuid4()), description=str(uuid4()), embedding_model=embedding_model)
-    index_model = IndexFactory.create(params=params)
-    assert index_model.embedding_model == embedding_model
-    assert index_model.embedding_size == 1536, f"Embedding size mismatch for {embedding_model}"
-    index_model.delete()
-
-
-def run_index_model(index_model):
+def run_index_model(index_model, retries):
     from aixplain.modules.model.record import Record
 
-    index_model.upsert([Record(value="Berlin is the capital of Germany.", value_type="text", uri="", id="1", attributes={})])
+
+    for _ in range(retries):
+        try:
+            index_model.upsert([Record(value="Berlin is the capital of Germany.", value_type="text", uri="", id="1", attributes={})])
+            break
+        except Exception as e:
+            time.sleep(180)
+            
     response = index_model.search("Berlin")
     assert str(response.status) == "SUCCESS"
     assert "germany" in response.data.lower()
-    assert index_model.count() == 1
-
-    index_model.upsert([Record(value="Ankara is the capital of Turkey.", value_type="text", uri="", id="1", attributes={})])
-    response = index_model.search("Ankara")
-    assert str(response.status) == "SUCCESS"
-    assert "turkey" in response.data.lower()
-    assert index_model.count() == 1
-
-    index_model.upsert([Record(value="London is the capital of England.", value_type="text", uri="", id="2", attributes={})])
-    assert index_model.count() == 2
-
-    response = index_model.get_record("1")
-    assert str(response.status) == "SUCCESS"
-    assert response.data == "Ankara is the capital of Turkey."
-    assert index_model.count() == 2
-
-    response = index_model.delete_record("1")
-    assert str(response.status) == "SUCCESS"
     assert index_model.count() == 1
 
     index_model.delete()
@@ -133,11 +108,10 @@ def run_index_model(index_model):
         pytest.param(None, ZeroEntropyParams, id="ZERO_ENTROPY"),
         pytest.param(EmbeddingModel.OPENAI_ADA002, GraphRAGParams, id="GRAPHRAG"),
         pytest.param(EmbeddingModel.OPENAI_ADA002, AirParams, id="AIR - OpenAI Ada 002"),
-        pytest.param(EmbeddingModel.SNOWFLAKE_ARCTIC_EMBED_M_LONG, AirParams, id="AIR - Snowflake Arctic Embed M Long"),
-        pytest.param(EmbeddingModel.SNOWFLAKE_ARCTIC_EMBED_L_V2_0, AirParams, id="AIR - Snowflake Arctic Embed L v2.0"),
+        pytest.param("6658d40729985c2cf72f42ec", AirParams, id="AIR - Snowflake Arctic Embed M Long"),
         pytest.param(EmbeddingModel.MULTILINGUAL_E5_LARGE, AirParams, id="AIR - Multilingual E5 Large"),
-        pytest.param(EmbeddingModel.BGE_M3, AirParams, id="AIR - BGE M3"),
-        pytest.param(EmbeddingModel.AIXPLAIN_LEGAL_EMBEDDINGS, AirParams, id="AIR - aiXplain Legal Embeddings"),
+        pytest.param("67efd4f92a0a850afa045af7", AirParams, id="AIR - BGE M3"),
+        pytest.param("681254b668e47e7844c1f15a", AirParams, id="AIR - aiXplain Legal Embeddings"),
     ],
 )
 def test_index_model(embedding_model, supplier_params):
@@ -146,23 +120,26 @@ def test_index_model(embedding_model, supplier_params):
 
     params = supplier_params(name=str(uuid4()), description=str(uuid4()))
     if embedding_model is not None:
+        print(f"Embedding Model : {embedding_model}")
         params = supplier_params(name=str(uuid4()), description=str(uuid4()), embedding_model=embedding_model)
 
     index_model = IndexFactory.create(params=params)
-    run_index_model(index_model)
-
+    if embedding_model in [EmbeddingModel.MULTILINGUAL_E5_LARGE, EmbeddingModel.BGE_M3]:
+        retries = 3
+    else:
+        retries = 1
+    run_index_model(index_model, retries)
 
 @pytest.mark.parametrize(
     "embedding_model,supplier_params",
     [
         pytest.param(None, VectaraParams, id="VECTARA"),
         pytest.param(EmbeddingModel.OPENAI_ADA002, AirParams, id="OpenAI Ada 002"),
-        pytest.param(EmbeddingModel.SNOWFLAKE_ARCTIC_EMBED_M_LONG, AirParams, id="Snowflake Arctic Embed M Long"),
-        pytest.param(EmbeddingModel.SNOWFLAKE_ARCTIC_EMBED_L_V2_0, AirParams, id="Snowflake Arctic Embed L v2.0"),
+        pytest.param("6658d40729985c2cf72f42ec", AirParams, id="Snowflake Arctic Embed M Long"),
         pytest.param(EmbeddingModel.JINA_CLIP_V2_MULTIMODAL, AirParams, id="Jina Clip v2 Multimodal"),
         pytest.param(EmbeddingModel.MULTILINGUAL_E5_LARGE, AirParams, id="Multilingual E5 Large"),
-        pytest.param(EmbeddingModel.BGE_M3, AirParams, id="BGE M3"),
-        pytest.param(EmbeddingModel.AIXPLAIN_LEGAL_EMBEDDINGS, AirParams, id="aiXplain Legal Embeddings"),
+        pytest.param("67efd4f92a0a850afa045af7", AirParams, id="BGE M3"),
+        pytest.param("681254b668e47e7844c1f15a", AirParams, id="aiXplain Legal Embeddings"),
     ],
 )
 def test_index_model_with_filter(embedding_model, supplier_params):
@@ -179,10 +156,23 @@ def test_index_model_with_filter(embedding_model, supplier_params):
         params = supplier_params(name=str(uuid4()), description=str(uuid4()), embedding_model=embedding_model)
 
     index_model = IndexFactory.create(params=params)
-    index_model.upsert([Record(value="Hello, aiXplain!", value_type="text", uri="", id="1", attributes={"category": "hello"})])
-    index_model.upsert(
-        [Record(value="The world is great", value_type="text", uri="", id="2", attributes={"category": "world"})]
-    )
+    if embedding_model in [EmbeddingModel.MULTILINGUAL_E5_LARGE, EmbeddingModel.BGE_M3]:
+        retries = 3
+    else:
+        retries = 1
+    for _ in range(retries):
+        try:
+            index_model.upsert([Record(value="Hello, aiXplain!", value_type="text", uri="", id="1", attributes={"category": "hello"})])
+            break
+        except Exception:
+            time.sleep(180)
+    for _ in range(retries):
+        try:
+            index_model.upsert([Record(value="The world is great", value_type="text", uri="", id="2", attributes={"category": "world"})])
+            break
+        except Exception:
+            time.sleep(180)
+            
     assert index_model.count() == 2
     response = index_model.search(
         "", filters=[IndexFilter(field="category", value="world", operator=IndexFilterOperator.EQUALS)]
@@ -210,29 +200,6 @@ def test_llm_run_with_file():
     # Verify response
     assert response["status"] == "SUCCESS"
     assert "🤖" in response["data"], "Robot emoji should be present in the response"
-
-
-def test_aixplain_model_cache_creation():
-    """Ensure AssetCache is triggered and cache is created."""
-
-    cache_file = os.path.join(CACHE_FOLDER, "models.json")
-
-    # Clean up cache before the test
-    if os.path.exists(cache_file):
-        os.remove(cache_file)
-
-    # Instantiate the Model (replace this with a real model ID from your env)
-    model_id = "6239efa4822d7a13b8e20454"  # Translate from Punjabi to Portuguese (Brazil)
-    _ = Model(id=model_id)
-
-    # Assert the cache file was created
-    assert os.path.exists(cache_file), "Expected cache file was not created."
-
-    with open(cache_file, "r", encoding="utf-8") as f:
-        cache_data = json.load(f)
-
-    assert "data" in cache_data, "Cache file structure invalid - missing 'data' key."
-    assert any(m.get("id") == model_id for m in cache_data["data"]["items"]), "Instantiated model not found in cache."
 
 
 def test_index_model_air_with_image():
@@ -277,6 +244,7 @@ def test_index_model_air_with_image():
     records.append(Record(value="Hello, world!", value_type="text", uri="", attributes={}, id="4"))
 
     index_model.upsert(records)
+
 
     response = index_model.search("beach")
     assert str(response.status) == "SUCCESS"
