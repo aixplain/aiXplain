@@ -138,3 +138,5 @@ dmypy.json
 .env.dev
 .env.prod
 .env.test
+
+aixplain-dev/
