@@ -118,11 +118,11 @@ class ModelFactory:
             if cache.has_valid_cache():
                 cached_model = cache.store.data.get(model_id)
                 if cached_model:
-                    return cached_model
+                    return create_model_from_response(cached_model.__dict__)
                 logging.info("Model not found in valid cache, fetching individually...")
                 model = cls._fetch_model_by_id(model_id, api_key)
                 cache.add(model)
-                return model
+                return create_model_from_response(model.__dict__)
             else:
                 try:
                     model_list_resp = cls.list(model_ids=None, api_key=api_key)
@@ -130,7 +130,7 @@ class ModelFactory:
                     cache.add_list(models)
                     for model in models:
                         if model.id == model_id:
-                            return model
+                            return create_model_from_response(model.__dict__)
                 except Exception as e:
                     logging.error(f"Error fetching model list: {e}")
                     raise e
@@ -138,7 +138,7 @@ class ModelFactory:
         logging.info("Fetching model directly without cache...")
         model = cls._fetch_model_by_id(model_id, api_key)
         cache.add(model)
-        return model
+        return create_model_from_response(model.__dict__)
 
     @classmethod
     def _fetch_model_by_id(

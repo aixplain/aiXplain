@@ -46,17 +46,9 @@ def create_model_from_response(response: Dict) -> Model:
         if embedding_size:
             additional_kwargs["embedding_size"] = embedding_size
 
-    function_id = response["function"]["id"]
-    function = Function(function_id)
-    function_input_params, function_output_params = function.get_input_output_params()
-    model_params = {param["name"]: param for param in response["params"]}
-
-    code = response.get("code", "")
-
-    inputs, temperature = [], None
-    input_params, output_params = function_input_params, function_output_params
-
+    function = response["function"]
     ModelClass = Model
+    temperature = None
 
     if function == Function.TEXT_GENERATION:
         ModelClass = LLM
@@ -67,49 +59,54 @@ def create_model_from_response(response: Dict) -> Model:
         ModelClass = IndexModel
     elif function == Function.UTILITIES:
         ModelClass = UtilityModel
-        inputs = [
-            UtilityModelInput(name=param["name"], description=param.get("description", ""), type=DataType(param["dataType"]))
-            for param in response["params"]
-        ]
-        input_params = model_params
-        if not code:
-            if "version" in response and response["version"]:
-                version_link = response["version"]["id"]
-                if version_link:
-                    try:
-                        version_content = requests.get(version_link).text
-                        code = version_content
-                    except Exception:
-                        code = ""
-            else:
-                raise Exception("Utility Model Error: Code not found")
-
+    
     status = AssetStatus(response.get("status", AssetStatus.DRAFT.value))
+    inputs = response.get("additional_info", {}).get("inputs", [])
 
-    created_at = None
-    if "createdAt" in response and response["createdAt"]:
-        created_at = datetime.fromisoformat(response["createdAt"].replace("Z", "+00:00"))
+    if ModelClass == UtilityModel:
+        inputs = [
+            UtilityModelInput(
+                name=inp["name"],
+                description=inp.get("description", ""),
+                type=DataType(inp["type"])
+            ) for inp in inputs
+        ]
+
+    input_params = response.get("input_params", {})
+    output_params = response.get("output_params", {})
+    model_params = getattr(response.get("model_params", {}), "params", {})
+
+    additional_kwargs = {}
+    attributes = response.get("attributes", [])
+    if attributes:
+        embedding_model = next((a["code"] for a in attributes if a["name"] == "embeddingmodel"), None)
+        embedding_size = next((a["value"] for a in attributes if a["name"] == "embeddingSize"), None)
+        if embedding_model:
+            additional_kwargs["embedding_model"] = embedding_model
+        if embedding_size:
+            additional_kwargs["embedding_size"] = embedding_size
+
 
     return ModelClass(
-        response["id"],
-        response["name"],
+        id=response["id"],
+        name=response["name"],
         description=response.get("description", ""),
-        code=code if code else "",
+        code=response.get("additional_info", {}).get("code", ""),
         supplier=response["supplier"],
         api_key=response["api_key"],
-        cost=response["pricing"],
+        cost=response["cost"],
         function=function,
-        created_at=created_at,
+        created_at=response.get("created_at"),
         parameters=parameters,
         input_params=input_params,
         output_params=output_params,
         model_params=model_params,
-        is_subscribed=True if "subscription" in response else False,
-        version=response["version"]["id"],
+        is_subscribed=response.get("is_subscribed", False),
+        version=response.get("version"),
         inputs=inputs,
         temperature=temperature,
-        supports_streaming=response.get("supportsStreaming", False),
-        status=status,
+        supports_streaming=response.get("supports_streaming", False),
+        status=response.get("status", AssetStatus.DRAFT),
         **additional_kwargs,
     )
 
