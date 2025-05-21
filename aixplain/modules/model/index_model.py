@@ -211,3 +211,18 @@ class IndexModel(Model):
         if response.status == "SUCCESS":
             return response
         raise Exception(f"Failed to delete record: {response.error_message}")
+
+    @staticmethod
+    def parse_file(file_path: Text) -> ModelResponse:
+        """
+        Parse a file using the Docling model.
+        """
+        try:
+            from aixplain.factories import ModelFactory
+
+            docling_model_id = "677bee6c6eb56331f9192a91"
+            model = ModelFactory.get(docling_model_id)
+            response = model.run(file_path)
+            return response
+        except Exception as e:
+            raise Exception(f"Failed to parse file: {e}")
