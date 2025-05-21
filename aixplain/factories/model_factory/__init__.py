@@ -109,7 +109,7 @@ class ModelFactory:
 
     @classmethod
     def get(
-        cls, model_id: Text, api_key: Optional[Text] = None, use_cache: bool = True
+        cls, model_id: Text, api_key: Optional[Text] = None, use_cache: bool = False
     ) -> Model:
         """Create a 'Model' object from model id"""
         cache = AssetCache(Model)
