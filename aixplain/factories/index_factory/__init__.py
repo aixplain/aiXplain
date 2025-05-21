@@ -34,17 +34,8 @@ from aixplain.utils.file_utils import _request_with_retry
 from urllib.parse import urljoin
 
 def validate_embedding_model(model_id) -> bool:
-        resp = None
-
-        url = urljoin(os.environ.get("BACKEND_URL"), f"sdk/models/{model_id}")
-
-        headers = {"Authorization": f"Token {os.environ.get('TEAM_API_KEY')}", "Content-Type": "application/json"}
-        r = _request_with_retry("get", url, headers=headers)
-        resp = r.json()
-        if resp['function']['id'] == "text-embedding":
-            return model_id
-        else:
-            raise ValueError("This is not an embedding model")
+        model = ModelFactory.get(model_id)
+        return model.function == Function.TEXT_EMBEDDING
 
 
 class IndexFactory(ModelFactory, Generic[T]):
@@ -67,8 +58,11 @@ class IndexFactory(ModelFactory, Generic[T]):
 
         model_id = IndexStores.AIR.get_model_id()
         if params is not None:
+            print(f"params: {params}")
             model_id = params.id
+            print(f"model_id: {model_id}")
             data = params.to_dict()
+            print(f"data: {data}")
             assert (
                 name is None and description is None
             ), "Index Factory Exception: name, description, and embedding_model must not be provided when params is provided"
@@ -79,10 +73,9 @@ class IndexFactory(ModelFactory, Generic[T]):
             if validate_embedding_model(embedding_model):
                 data = {
                     "data": name,
-                "description": description,
-                "model": embedding_model,
+                    "description": description,
+                    "model": embedding_model,
                 }
-
         model = cls.get(model_id)
         response = model.run(data=data)
         if response.status == ResponseStatus.SUCCESS:

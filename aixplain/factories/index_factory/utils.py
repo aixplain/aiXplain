@@ -2,12 +2,8 @@ from pydantic import BaseModel, ConfigDict, field_validator
 from typing import Text, Optional, ClassVar, Dict, Union
 from aixplain.enums import IndexStores, EmbeddingModel
 from abc import ABC, abstractmethod
-
-import os
-
-from urllib.parse import urljoin
-from aixplain.utils.file_utils import _request_with_retry
-
+from aixplain.factories import ModelFactory
+from aixplain.enums import Function
 
 
 class BaseIndexParams(BaseModel, ABC):
@@ -33,14 +29,8 @@ class BaseIndexParamsWithEmbeddingModel(BaseIndexParams, ABC):
 
     @field_validator('embedding_model')
     def validate_embedding_model(cls, model_id) -> bool:
-        resp = None
-
-        url = urljoin(os.environ.get("BACKEND_URL"), f"sdk/models/{model_id}")
-
-        headers = {"Authorization": f"Token {os.environ.get('TEAM_API_KEY')}", "Content-Type": "application/json"}
-        r = _request_with_retry("get", url, headers=headers)
-        resp = r.json()
-        if resp['function']['id'] == "text-embedding":
+        model = ModelFactory.get(model_id)
+        if model.function == Function.TEXT_EMBEDDING:
             return model_id
         else:
             raise ValueError("This is not an embedding model")
