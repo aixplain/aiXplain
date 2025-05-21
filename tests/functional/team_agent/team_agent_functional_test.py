@@ -635,6 +635,48 @@ def test_team_agent_with_instructions(delete_agents_and_team_agents):
     agent_1.delete()
     agent_2.delete()
 
+@pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory, v2.TeamAgent])
+def test_team_agent_llm_parameter_preservation(delete_agents_and_team_agents, run_input_map, TeamAgentFactory):
+    """Test that LLM parameters like temperature are preserved for all LLM roles in team agents."""
+    assert delete_agents_and_team_agents
+
+    # Create a regular agent first
+    agents = create_agents_from_input_map(run_input_map, deploy=True)
+
+    # Get LLM instances and customize their temperatures
+    supervisor_llm = ModelFactory.get("671be4886eb56397e51f7541")  # Anthropic Claude 3.5 Sonnet v1
+    mentalist_llm = ModelFactory.get("671be4886eb56397e51f7541")  # Anthropic Claude 3.5 Sonnet v1
+    inspector_llm = ModelFactory.get("671be4886eb56397e51f7541")  # Anthropic Claude 3.5 Sonnet v1
+    # Set custom temperatures
+    supervisor_llm.temperature = 0.1
+    mentalist_llm.temperature = 0.3
+    inspector_llm.temperature = 0.5
+
+    # Create a team agent with custom LLMs
+    team_agent = TeamAgentFactory.create(
+        name="LLM Parameter Test Team Agent",
+        agents=agents,
+        supervisor_llm=supervisor_llm,
+        mentalist_llm=mentalist_llm,
+        inspector_llm=inspector_llm,
+        llm_id="671be4886eb56397e51f7541",  # Still required even with custom LLMs
+        description="A team agent for testing LLM parameter preservation",
+        use_mentalist=True,
+        use_inspector=True,
+    )
+
+    # Verify that temperature settings were preserved
+    assert team_agent.supervisor_llm.temperature == 0.1
+    assert team_agent.mentalist_llm.temperature == 0.3
+    assert team_agent.inspector_llm.temperature == 0.5
+
+    # Verify that the team agent's LLMs are the same instances as the originals
+    assert id(team_agent.supervisor_llm) == id(supervisor_llm)
+    assert id(team_agent.mentalist_llm) == id(mentalist_llm)
+    assert id(team_agent.inspector_llm) == id(inspector_llm)
+
+    # Clean up
+    team_agent.delete()
 
 def test_run_team_agent_with_expected_output():
     from pydantic import BaseModel

@@ -37,6 +37,7 @@ from aixplain.modules.agent.tool.sql_tool import (
     SQLTool,
 )
 from aixplain.modules.model import Model
+from aixplain.modules.model.llm_model import LLM
 from aixplain.modules.pipeline import Pipeline
 from aixplain.utils import config
 from typing import Callable, Dict, List, Optional, Text, Union
@@ -44,6 +45,7 @@ from typing import Callable, Dict, List, Optional, Text, Union
 from aixplain.utils.request_utils import _request_with_retry
 from urllib.parse import urljoin
 from aixplain.enums import DatabaseSourceType
+from aixplain.utils.llm_utils import get_llm_instance
 
 
 class AgentFactory:
@@ -53,7 +55,8 @@ class AgentFactory:
         name: Text,
         description: Text,
         instructions: Optional[Text] = None,
-        llm_id: Text = "669a63646eb56306647e1091",
+        llm: Optional[Union[LLM, Text]] = None,
+        llm_id: Optional[Text] = None,
         tools: List[Union[Tool, Model]] = [],
         api_key: Text = config.TEAM_API_KEY,
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
@@ -71,21 +74,37 @@ class AgentFactory:
             name (Text): name of the agent
             description (Text): description of the agent role.
             instructions (Text): role of the agent.
-            llm_id (Text, optional): aiXplain ID of the large language model to be used as agent. Defaults to "669a63646eb56306647e1091" (GPT-4o mini).
+            llm (Optional[Union[LLM, Text]], optional): LLM instance to use as an object or as an ID.
+            llm_id (Optional[Text], optional): ID of LLM to use if no LLM instance provided. Defaults to None.
             tools (List[Union[Tool, Model]], optional): list of tool for the agent. Defaults to [].
             api_key (Text, optional): team/user API key. Defaults to config.TEAM_API_KEY.
             supplier (Union[Dict, Text, Supplier, int], optional): owner of the agent. Defaults to "aiXplain".
             version (Optional[Text], optional): version of the agent. Defaults to None.
             tasks (List[AgentTask], optional): list of tasks for the agent. Defaults to [].
+
         Returns:
             Agent: created Agent
         """
+        if llm is None and llm_id is not None:
+            llm = get_llm_instance(llm_id, api_key=api_key)
+        elif llm is None:
+            # Use default GPT-4o if no LLM specified
+            llm = get_llm_instance("669a63646eb56306647e1091", api_key=api_key)
+
+        if instructions is None:
+            warnings.warn(
+                "Use `instructions` to define the **system prompt**. "
+                "Use `description` to provide a **short summary** of the agent for metadata and dashboard display. "
+                "Note: In upcoming releases, `instructions` will become a required parameter.",
+                UserWarning,
+            )
         warnings.warn(
-            "Use `instructions` to define the **system prompt**. "
-            "Use `description` to provide a **short summary** of the agent for metadata and dashboard display. "
-            "Note: In upcoming releases, `instructions` will become a required parameter.",
+            "Use `llm` to define the large language model (aixplain.modules.model.llm_model.LLM) to be used as agent. "
+            "Use `llm_id` to provide the model ID of the large language model to be used as agent. "
+            "Note: In upcoming releases, `llm` will become a required parameter.",
             UserWarning,
         )
+
         from aixplain.factories.agent_factory.utils import build_agent
 
         agent = None
@@ -124,7 +143,22 @@ class AgentFactory:
             "llmId": llm_id,
             "status": "draft",
             "tasks": [task.to_dict() for task in tasks],
+            "tools": [],
         }
+
+        if llm is not None:
+            llm = get_llm_instance(llm, api_key=api_key) if isinstance(llm, str) else llm
+            payload["tools"].append(
+                {
+                    "type": "llm",
+                    "description": "main",
+                    "parameters": llm.get_parameters().to_list() if llm.get_parameters() else None,
+                }
+            )
+            payload["llmId"] = llm.id
+            # Store the LLM object in payload to avoid recreating it
+            payload["llm"] = llm
+
         agent = build_agent(payload=payload, tools=tools, api_key=api_key)
         agent.validate(raise_exception=True)
         response = "Unspecified error"
@@ -136,6 +170,9 @@ class AgentFactory:
             raise Exception("Agent Onboarding Error: Please contact the administrators.")
 
         if 200 <= r.status_code < 300:
+            # Preserve the LLM if it exists
+            if "llm" in payload:
+                response["llm"] = payload["llm"]
             agent = build_agent(payload=response, tools=tools, api_key=api_key)
         else:
             error_msg = f"Agent Onboarding Error: {response}"

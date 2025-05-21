@@ -41,7 +41,9 @@ from aixplain.modules.agent.agent_response import AgentResponse
 from aixplain.modules.agent.agent_response_data import AgentResponseData
 from aixplain.modules.agent.utils import process_variables
 from aixplain.utils import config
-from aixplain.utils.file_utils import _request_with_retry
+from aixplain.utils.request_utils import _request_with_retry
+from aixplain.modules.model.llm_model import LLM
+from aixplain.utils.llm_utils import get_llm_instance
 from aixplain.modules.mixins import DeployableMixin
 from pydantic import BaseModel
 
@@ -81,6 +83,10 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         agents: List[Agent] = [],
         description: Text = "",
         llm_id: Text = "6646261c6eb563165658bbb1",
+        llm: Optional[LLM] = None,
+        supervisor_llm: Optional[LLM] = None,
+        mentalist_llm: Optional[LLM] = None,
+        inspector_llm: Optional[LLM] = None,
         api_key: Optional[Text] = config.TEAM_API_KEY,
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
         version: Optional[Text] = None,
@@ -101,6 +107,10 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             agents (List[Agent]): List of agents that the Team Agent uses.
             description (Text, optional): The description of the team agent to be displayed in the aiXplain platform. Defaults to "".
             llm_id (Text, optional): large language model. Defaults to GPT-4o (6646261c6eb563165658bbb1).
+            llm (LLM, optional): large language model object. Defaults to None.
+            supervisor_llm (LLM, optional): supervisor large language model object. Defaults to None.
+            mentalist_llm (LLM, optional): mentalist large language model object. Defaults to None.
+            inspector_llm (LLM, optional): inspector large language model object. Defaults to None.
             supplier (Text): Supplier of the Team Agent.
             version (Text): Version of the Team Agent.
             backend_url (str): URL of the backend.
@@ -113,10 +123,14 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         self.additional_info = additional_info
         self.agents = agents
         self.llm_id = llm_id
+        self.llm = llm
         self.use_mentalist = use_mentalist
         self.use_inspector = use_inspector
         self.max_inspectors = max_inspectors
         self.inspector_targets = inspector_targets
+        self.supervisor_llm = supervisor_llm
+        self.mentalist_llm = mentalist_llm
+        self.inspector_llm = inspector_llm
         self.instructions = instructions
         if isinstance(status, str):
             try:
@@ -343,6 +357,14 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             raise Exception(f"{message}")
 
     def to_dict(self) -> Dict:
+        if self.use_mentalist:
+            planner_id = self.mentalist_llm.id if self.mentalist_llm else self.llm_id
+        else:
+            planner_id = None
+        if self.use_inspector:
+            inspector_id = self.inspector_llm.id if self.inspector_llm else self.llm_id
+        else:
+            inspector_id = None
         return {
             "id": self.id,
             "name": self.name,
@@ -351,10 +373,10 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             ],
             "links": [],
             "description": self.description,
-            "llmId": self.llm_id,
-            "supervisorId": self.llm_id,
-            "plannerId": self.llm_id if self.use_mentalist else None,
-            "inspectorId": self.llm_id if self.use_inspector else None,
+            "llmId": self.llm.id if self.llm else self.llm_id,
+            "supervisorId": self.supervisor_llm.id if self.supervisor_llm else self.llm_id,
+            "plannerId": planner_id,
+            "inspectorId": inspector_id,
             "maxInspectors": self.max_inspectors,
             "inspectorTargets": [target.value for target in self.inspector_targets],
             "supplier": self.supplier.value["code"] if isinstance(self.supplier, Supplier) else self.supplier,
@@ -365,7 +387,6 @@ class TeamAgent(Model, DeployableMixin[Agent]):
 
     def _validate(self) -> None:
         """Validate the Team."""
-        from aixplain.factories.model_factory import ModelFactory
 
         # validate name
         assert (
@@ -373,7 +394,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         ), "Team Agent Creation Error: Team name contains invalid characters. Only alphanumeric characters, spaces, hyphens, and brackets are allowed."
 
         try:
-            llm = ModelFactory.get(self.llm_id)
+            llm = get_llm_instance(self.llm_id)
             assert llm.function == Function.TEXT_GENERATION, "Large Language Model must be a text generation model."
         except Exception:
             raise Exception(f"Large Language Model with ID '{self.llm_id}' not found.")
