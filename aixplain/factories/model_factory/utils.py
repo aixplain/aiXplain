@@ -4,6 +4,7 @@ from aixplain.modules.model import Model
 from aixplain.modules.model.llm_model import LLM
 from aixplain.modules.model.index_model import IndexModel
 from aixplain.modules.model.utility_model import UtilityModel, UtilityModelInput
+from aixplain.modules.model.connector import ConnectorModel
 from aixplain.enums import (
     AssetStatus,
     DataType,
@@ -75,6 +76,8 @@ def create_model_from_response(response: Dict) -> Model:
             temperature = float(f[0]["defaultValues"][0]["value"])
     elif function == Function.SEARCH:
         ModelClass = IndexModel
+    elif function_type == FunctionType.CONNECTOR:
+        ModelClass = ConnectorModel
     elif function == Function.UTILITIES:
         ModelClass = UtilityModel
         inputs = [

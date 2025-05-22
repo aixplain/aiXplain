@@ -31,6 +31,10 @@ import pytest
 from unittest.mock import patch
 from aixplain.enums.asset_status import AssetStatus
 from aixplain.modules.model.model_parameters import ModelParameters
+from aixplain.modules.model.llm_model import LLM
+from aixplain.modules.model.index_model import IndexModel
+from aixplain.modules.model.utility_model import UtilityModel
+from aixplain.modules.model.connector import ConnectorModel
 
 
 def test_build_payload():
@@ -654,3 +658,77 @@ def test_model_not_supports_streaming(mocker):
     with pytest.raises(Exception) as excinfo:
         model.run(data="test", stream=True)
     assert f"Model '{model.name} ({model.id})' does not support streaming" in str(excinfo.value)
+
+
+@pytest.mark.parametrize(
+    "payload, expected_model_class",
+    [
+        (
+            {
+                "id": "connector-id",
+                "name": "connector-name",
+                "function": {"id": "utilities"},
+                "functionType": "connector",
+                "supplier": "aiXplain",
+                "api_key": "api_key",
+                "pricing": {"price": 10, "currency": "USD"},
+                "params": {},
+                "version": {"id": "1.0"},
+            },
+            ConnectorModel,
+        ),
+        (
+            {
+                "id": "llm-id",
+                "name": "llm-name",
+                "function": {"id": "text-generation"},
+                "functionType": "ai",
+                "supplier": "aiXplain",
+                "api_key": "api_key",
+                "pricing": {"price": 10, "currency": "USD"},
+                "params": {},
+                "version": {"id": "1.0"},
+            },
+            LLM,
+        ),
+        (
+            {
+                "id": "index-id",
+                "name": "index-name",
+                "function": {"id": "search"},
+                "functionType": "ai",
+                "supplier": "aiXplain",
+                "api_key": "api_key",
+                "pricing": {"price": 10, "currency": "USD"},
+                "params": {},
+                "version": {"id": "1.0"},
+            },
+            IndexModel,
+        ),
+        (
+            {
+                "id": "utility-id",
+                "name": "utility-name",
+                "function": {"id": "utilities"},
+                "functionType": "utility",
+                "supplier": "aiXplain",
+                "api_key": "api_key",
+                "pricing": {"price": 10, "currency": "USD"},
+                "params": {},
+                "version": {"id": "1.0"},
+            },
+            UtilityModel,
+        ),
+    ],
+)
+def test_create_model_from_response(payload, expected_model_class):
+    from aixplain.factories.model_factory.utils import create_model_from_response
+    from aixplain.enums import FunctionType
+
+    model = create_model_from_response(payload)
+    assert isinstance(model, expected_model_class)
+    assert model.id == payload["id"]
+    assert model.name == payload["name"]
+    assert model.function == Function(payload["function"]["id"])
+    assert model.function_type == FunctionType(payload["functionType"])
+    assert model.api_key == payload["api_key"]
