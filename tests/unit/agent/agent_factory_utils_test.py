@@ -12,6 +12,7 @@ from aixplain.modules.agent.tool.sql_tool import SQLTool
 from aixplain.modules.agent import Agent
 from aixplain.modules.agent.agent_task import AgentTask
 from aixplain.factories import ModelFactory, PipelineFactory
+import os
 
 
 @pytest.fixture

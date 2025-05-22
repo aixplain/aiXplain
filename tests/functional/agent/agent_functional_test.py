@@ -286,21 +286,27 @@ def test_update_tools_of_agent(run_input_map, delete_agents_and_team_agents, Age
 @pytest.mark.parametrize(
     "tool_config",
     [
-        {
-            "type": "search",
-            "model": "65c51c556eb563350f6e1bb1",
-            "query": "What is the weather in New York?",
-            "description": "Search tool with custom number of results",
-            "expected_tool_input": "'numResults': 5",
-        },
-        {
-            "type": "translation",
-            "supplier": "Microsoft",
-            "function": "translation",
-            "query": "Translate: Olá, como vai você?",
-            "description": "Translation tool with target language",
-            "expected_tool_input": "targetlanguage",
-        },
+        pytest.param(
+            {
+                "type": "search",
+                "model": "65c51c556eb563350f6e1bb1",
+                "query": "What is the weather in New York?",
+                "description": "Search tool with custom number of results",
+                "expected_tool_input": "'numResults': 5",
+            },
+            id="search_tool",
+        ),
+        pytest.param(
+            {
+                "type": "translation",
+                "supplier": "Microsoft",
+                "function": "translation",
+                "query": "Translate: Olá, como vai você?",
+                "description": "Translation tool with target language",
+                "expected_tool_input": "targetlanguage",
+            },
+            id="translation_tool",
+        ),
     ],
 )
 def test_specific_model_parameters_e2e(tool_config, delete_agents_and_team_agents):
@@ -327,7 +333,7 @@ def test_specific_model_parameters_e2e(tool_config, delete_agents_and_team_agent
     # Create and run agent
     agent = AgentFactory.create(
         name="Test Parameter Agent",
-        description="Test agent with parameterized tools",
+        description="Test agent with parameterized tools. You MUST use a tool for the tasks.",
         tools=[tool],
         llm_id="6626a3a8c8f1d089790cf5a2",  # Using LLM ID from test data
     )
@@ -600,3 +606,82 @@ def test_agent_with_pipeline_tool(delete_agents_and_team_agents, AgentFactory):
     assert "hello" in answer["data"]["output"].lower()
     assert "hello pipeline" in answer["data"]["intermediate_steps"][0]["tool_steps"][0]["tool"].lower()
 
+
+def test_run_agent_with_expected_output():
+    from pydantic import BaseModel
+    from typing import Optional, List
+    from aixplain.modules.agent import AgentResponse
+    from aixplain.modules.agent.output_format import OutputFormat
+
+    class Person(BaseModel):
+        name: str
+        age: int
+        city: Optional[str] = None
+
+    class Response(BaseModel):
+        result: List[Person]
+
+    INSTRUCTIONS = """Answer questions based on the following context:
+
++-----------------+-------+----------------+
+| Name            |   Age | City           |
++=================+=======+================+
+| João Silva      |    34 | São Paulo      |
++-----------------+-------+----------------+
+| Maria Santos    |    28 | Rio de Janeiro |
++-----------------+-------+----------------+
+| Pedro Oliveira  |    45 |                |
++-----------------+-------+----------------+
+| Ana Costa       |    19 | Recife         |
++-----------------+-------+----------------+
+| Carlos Pereira  |    52 | Belo Horizonte |
++-----------------+-------+----------------+
+| Beatriz Lima    |    31 |                |
++-----------------+-------+----------------+
+| Lucas Ferreira  |    25 | Curitiba       |
++-----------------+-------+----------------+
+| Julia Rodrigues |    41 | Salvador       |
++-----------------+-------+----------------+
+| Miguel Almeida  |    37 |                |
++-----------------+-------+----------------+
+| Sofia Carvalho  |    29 | Brasília       |
++-----------------+-------+----------------+"""
+
+    agent = AgentFactory.create(
+        name="Test Agent",
+        description="Test description",
+        instructions=INSTRUCTIONS,
+        llm_id="6646261c6eb563165658bbb1",
+    )
+    # Run the agent
+    response = agent.run("Who have more than 30 years old?", output_format=OutputFormat.JSON, expected_output=Response)
+
+    # Verify response basics
+    assert response is not None
+    assert isinstance(response, AgentResponse)
+
+    try:
+        response_json = json.loads(response.data.output)
+    except Exception:
+        import re
+
+        response_json = re.search(r"```json(.*?)```", response.data.output, re.DOTALL).group(1)
+        response_json = json.loads(response_json)
+    assert "result" in response_json
+    assert len(response_json["result"]) > 0
+
+    more_than_30_years_old = [
+        "João Silva",
+        "Pedro Oliveira",
+        "Carlos Pereira",
+        "Beatriz Lima",
+        "Julia Rodrigues",
+        "Miguel Almeida",
+        "Sofia Carvalho",
+    ]
+
+    for person in response_json["result"]:
+        assert "name" in person
+        assert "age" in person
+        assert "city" in person
+        assert person["name"] in more_than_30_years_old

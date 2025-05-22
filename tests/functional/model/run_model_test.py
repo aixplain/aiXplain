@@ -108,11 +108,10 @@ def run_index_model(index_model, retries):
         pytest.param(None, ZeroEntropyParams, id="ZERO_ENTROPY"),
         pytest.param(EmbeddingModel.OPENAI_ADA002, GraphRAGParams, id="GRAPHRAG"),
         pytest.param(EmbeddingModel.OPENAI_ADA002, AirParams, id="AIR - OpenAI Ada 002"),
-        pytest.param(EmbeddingModel.SNOWFLAKE_ARCTIC_EMBED_M_LONG, AirParams, id="AIR - Snowflake Arctic Embed M Long"),
-        pytest.param(EmbeddingModel.SNOWFLAKE_ARCTIC_EMBED_L_V2_0, AirParams, id="AIR - Snowflake Arctic Embed L v2.0"),
+        pytest.param("6658d40729985c2cf72f42ec", AirParams, id="AIR - Snowflake Arctic Embed M Long"),
         pytest.param(EmbeddingModel.MULTILINGUAL_E5_LARGE, AirParams, id="AIR - Multilingual E5 Large"),
-        pytest.param(EmbeddingModel.BGE_M3, AirParams, id="AIR - BGE M3"),
-        pytest.param(EmbeddingModel.AIXPLAIN_LEGAL_EMBEDDINGS, AirParams, id="AIR - aiXplain Legal Embeddings"),
+        pytest.param("67efd4f92a0a850afa045af7", AirParams, id="AIR - BGE M3"),
+        pytest.param("681254b668e47e7844c1f15a", AirParams, id="AIR - aiXplain Legal Embeddings"),
     ],
 )
 def test_index_model(embedding_model, supplier_params):
@@ -121,10 +120,11 @@ def test_index_model(embedding_model, supplier_params):
 
     params = supplier_params(name=str(uuid4()), description=str(uuid4()))
     if embedding_model is not None:
+        print(f"Embedding Model : {embedding_model}")
         params = supplier_params(name=str(uuid4()), description=str(uuid4()), embedding_model=embedding_model)
 
     index_model = IndexFactory.create(params=params)
-    if embedding_model in [EmbeddingModel.MULTILINGUAL_E5_LARGE, EmbeddingModel.BGE_M3, EmbeddingModel.SNOWFLAKE_ARCTIC_EMBED_L_V2_0]:
+    if embedding_model in [EmbeddingModel.MULTILINGUAL_E5_LARGE, EmbeddingModel.BGE_M3]:
         retries = 3
     else:
         retries = 1
@@ -135,12 +135,11 @@ def test_index_model(embedding_model, supplier_params):
     [
         pytest.param(None, VectaraParams, id="VECTARA"),
         pytest.param(EmbeddingModel.OPENAI_ADA002, AirParams, id="OpenAI Ada 002"),
-        pytest.param(EmbeddingModel.SNOWFLAKE_ARCTIC_EMBED_M_LONG, AirParams, id="Snowflake Arctic Embed M Long"),
-        pytest.param(EmbeddingModel.SNOWFLAKE_ARCTIC_EMBED_L_V2_0, AirParams, id="Snowflake Arctic Embed L v2.0"),
+        pytest.param("6658d40729985c2cf72f42ec", AirParams, id="Snowflake Arctic Embed M Long"),
         pytest.param(EmbeddingModel.JINA_CLIP_V2_MULTIMODAL, AirParams, id="Jina Clip v2 Multimodal"),
         pytest.param(EmbeddingModel.MULTILINGUAL_E5_LARGE, AirParams, id="Multilingual E5 Large"),
-        pytest.param(EmbeddingModel.BGE_M3, AirParams, id="BGE M3"),
-        pytest.param(EmbeddingModel.AIXPLAIN_LEGAL_EMBEDDINGS, AirParams, id="aiXplain Legal Embeddings"),
+        pytest.param("67efd4f92a0a850afa045af7", AirParams, id="BGE M3"),
+        pytest.param("681254b668e47e7844c1f15a", AirParams, id="aiXplain Legal Embeddings"),
     ],
 )
 def test_index_model_with_filter(embedding_model, supplier_params):
@@ -157,7 +156,7 @@ def test_index_model_with_filter(embedding_model, supplier_params):
         params = supplier_params(name=str(uuid4()), description=str(uuid4()), embedding_model=embedding_model)
 
     index_model = IndexFactory.create(params=params)
-    if embedding_model in [EmbeddingModel.MULTILINGUAL_E5_LARGE, EmbeddingModel.BGE_M3, EmbeddingModel.SNOWFLAKE_ARCTIC_EMBED_L_V2_0]:
+    if embedding_model in [EmbeddingModel.MULTILINGUAL_E5_LARGE, EmbeddingModel.BGE_M3]:
         retries = 3
     else:
         retries = 1

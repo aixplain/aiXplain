@@ -601,4 +601,4 @@ class Pipeline(Asset, DeployableMixin):
             raise Exception(f"Error deploying because of backend error: {e}") from e
 
     def __repr__(self):
-        return f"Pipeline(id={self.id}, name={self.name})"
+        return f"Pipeline: {self.name} (id={self.id})"

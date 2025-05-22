@@ -174,7 +174,7 @@ class ModelTool(Tool):
                 self.description = self.model.description
             elif self.function is not None:
                 try:
-                    self.description = FunctionInputOutput[self.function.value]["spec"]["metaData"]["description"]
+                    self.description = FunctionInputOutput[self.function.value]["spec"]["description"]
                 except Exception:
                     self.description = ""
 
