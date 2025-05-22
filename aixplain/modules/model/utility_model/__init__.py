@@ -20,7 +20,7 @@ Description:
 """
 import logging
 import warnings
-from aixplain.enums import Function, Supplier, DataType
+from aixplain.enums import Function, Supplier, DataType, FunctionType
 from aixplain.enums import AssetStatus
 from aixplain.modules.model import Model
 from aixplain.utils import config
@@ -127,6 +127,7 @@ class UtilityModel(Model, DeployableMixin):
         is_subscribed: bool = False,
         cost: Optional[Dict] = None,
         status: AssetStatus = AssetStatus.DRAFT,
+        function_type: Optional[FunctionType] = FunctionType.UTILITY,
         **additional_info,
     ) -> None:
         """Utility Model Init
@@ -144,6 +145,7 @@ class UtilityModel(Model, DeployableMixin):
             function (Function, optional): model AI function. Defaults to None.
             is_subscribed (bool, optional): Is the user subscribed. Defaults to False.
             cost (Dict, optional): model price. Defaults to None.
+            function_type (FunctionType, optional): type of the function. Defaults to FunctionType.UTILITY.
             **additional_info: Any additional Model info to be saved
         """
         assert function == Function.UTILITIES, "Utility Model only supports 'utilities' function"
@@ -158,6 +160,7 @@ class UtilityModel(Model, DeployableMixin):
             is_subscribed=is_subscribed,
             api_key=api_key,
             status=status,
+            function_type=function_type,
             **additional_info,
         )
         self.url = config.MODELS_RUN_URL

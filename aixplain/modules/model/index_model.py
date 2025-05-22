@@ -1,4 +1,4 @@
-from aixplain.enums import EmbeddingModel, Function, Supplier, ResponseStatus, StorageType
+from aixplain.enums import EmbeddingModel, Function, Supplier, ResponseStatus, StorageType, FunctionType
 from aixplain.modules.model import Model
 from aixplain.utils import config
 from aixplain.modules.model.response import ModelResponse
@@ -6,11 +6,6 @@ from typing import Text, Optional, Union, Dict
 from aixplain.modules.model.record import Record
 from enum import Enum
 from typing import List
-
-import os
-
-from urllib.parse import urljoin
-from aixplain.utils.file_utils import _request_with_retry
 
 
 class IndexFilterOperator(Enum):
@@ -42,8 +37,6 @@ class IndexFilter:
         }
 
 
-
-
 class IndexModel(Model):
     def __init__(
         self,
@@ -57,6 +50,7 @@ class IndexModel(Model):
         is_subscribed: bool = False,
         cost: Optional[Dict] = None,
         embedding_model: Union[EmbeddingModel, str] = None,
+        function_type: Optional[FunctionType] = FunctionType.SEARCH,
         **additional_info,
     ) -> None:
         """Index Init
@@ -85,6 +79,7 @@ class IndexModel(Model):
             function=function,
             is_subscribed=is_subscribed,
             api_key=api_key,
+            function_type=function_type,
             **additional_info,
         )
         self.url = config.MODELS_RUN_URL
@@ -108,8 +103,6 @@ class IndexModel(Model):
         data["embedding_size"] = self.embedding_size
         data["collection_type"] = self.version.split("-", 1)[0]
         return data
-
-       
 
     def search(self, query: str, top_k: int = 10, filters: List[IndexFilter] = []) -> ModelResponse:
         """Search for documents in the index
@@ -140,7 +133,7 @@ class IndexModel(Model):
             "data": query or uri,
             "dataType": value_type,
             "filters": [filter.to_dict() for filter in filters],
-            "payload": {"uri": uri, "value_type": value_type, "top_k": top_k}
+            "payload": {"uri": uri, "value_type": value_type, "top_k": top_k},
         }
         return self.run(data=data)
 
