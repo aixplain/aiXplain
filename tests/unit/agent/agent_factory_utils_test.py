@@ -186,6 +186,8 @@ def test_build_tool_error_cases(tool_dict, expected_error):
         ),
     ],
 )
+
+
 def test_build_tool_success_cases(tool_dict, expected_type, expected_attrs, mock_model, mocker):
     """Test successful tool creation with various configurations."""
     mocker.patch.object(ModelFactory, "get", return_value=mock_model)
@@ -284,6 +286,8 @@ def test_build_tool_success_cases(tool_dict, expected_type, expected_attrs, mock
         ),
     ],
 )
+
+
 def test_build_agent_success_cases(payload, expected_attrs, mock_tools, mocker):
     """Test successful agent creation with various configurations."""
     mocker.patch.object(
