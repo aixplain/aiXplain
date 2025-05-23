@@ -123,9 +123,7 @@ class Model(Asset):
         Returns:
             Dict: Model Information
         """
-        clean_additional_info = {
-            k: v for k, v in self.additional_info.items() if v is not None
-        }
+        clean_additional_info = {k: v for k, v in self.additional_info.items() if v not in [None, [], {}]}
         return {
             "id": self.id,
             "name": self.name,
@@ -193,9 +191,7 @@ class Model(Asset):
                 logging.error(f"Polling for Model: polling for {name}: {e}")
                 break
         if response_body["completed"] is True:
-            logging.debug(
-                f"Polling for Model: Final status of polling for {name}: {response_body}"
-            )
+            logging.debug(f"Polling for Model: Final status of polling for {name}: {response_body}")
         else:
             response_body = ModelResponse(
                 status=ResponseStatus.FAILED,
@@ -296,9 +292,7 @@ class Model(Asset):
             try:
                 poll_url = response["url"]
                 end = time.time()
-                return self.sync_poll(
-                    poll_url, name=name, timeout=timeout, wait_time=wait_time
-                )
+                return self.sync_poll(poll_url, name=name, timeout=timeout, wait_time=wait_time)
             except Exception as e:
                 msg = f"Error in request for {name} - {traceback.format_exc()}"
                 logging.error(f"Model Run: Error in running for {name}: {e}")
@@ -370,9 +364,7 @@ class Model(Asset):
         resp = None
         try:
             url = urljoin(self.backend_url, f"sdk/finetune/{self.id}/ml-logs")
-            logging.info(
-                f"Start service for GET Check FineTune status Model  - {url} - {headers}"
-            )
+            logging.info(f"Start service for GET Check FineTune status Model  - {url} - {headers}")
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()
             finetune_status = AssetStatus(resp["finetuneStatus"])
@@ -399,21 +391,9 @@ class Model(Asset):
                 status = FinetuneStatus(
                     status=finetune_status,
                     model_status=model_status,
-                    epoch=(
-                        float(log["epoch"])
-                        if "epoch" in log and log["epoch"] is not None
-                        else None
-                    ),
-                    training_loss=(
-                        float(log["trainLoss"])
-                        if "trainLoss" in log and log["trainLoss"] is not None
-                        else None
-                    ),
-                    validation_loss=(
-                        float(log["evalLoss"])
-                        if "evalLoss" in log and log["evalLoss"] is not None
-                        else None
-                    ),
+                    epoch=(float(log["epoch"]) if "epoch" in log and log["epoch"] is not None else None),
+                    training_loss=(float(log["trainLoss"]) if "trainLoss" in log and log["trainLoss"] is not None else None),
+                    validation_loss=(float(log["evalLoss"]) if "evalLoss" in log and log["evalLoss"] is not None else None),
                 )
             else:
                 status = FinetuneStatus(
@@ -421,9 +401,7 @@ class Model(Asset):
                     model_status=model_status,
                 )
 
-            logging.info(
-                f"Response for GET Check FineTune status Model - Id {self.id} / Status {status.status.value}."
-            )
+            logging.info(f"Response for GET Check FineTune status Model - Id {self.id} / Status {status.status.value}.")
             return status
         except Exception:
             message = ""
@@ -463,11 +441,7 @@ class Model(Asset):
             function=Function(data.get("function")),
             is_subscribed=data.get("is_subscribed", False),
             cost=data.get("cost"),
-            created_at=(
-                datetime.fromisoformat(data["created_at"])
-                if data.get("created_at")
-                else None
-            ),
+            created_at=(datetime.fromisoformat(data["created_at"]) if data.get("created_at") else None),
             input_params=data.get("input_params"),
             output_params=data.get("output_params"),
             model_params=data.get("model_params"),

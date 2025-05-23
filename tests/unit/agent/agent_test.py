@@ -634,6 +634,7 @@ def test_custom_python_code_tool_validation_missing_code():
         assert str(exc_info.value) == "Custom Python Code Tool Error: Code is required"
 
 
+
 @patch("aixplain.factories.model_factory.ModelFactory.get")
 def test_create_agent_with_model_instance(mock_model_factory_get):
     from aixplain.enums import Supplier, Function

@@ -7,6 +7,11 @@ from aixplain.modules.model.record import Record
 from enum import Enum
 from typing import List
 
+import os
+
+from urllib.parse import urljoin
+from aixplain.utils.file_utils import _request_with_retry
+
 
 class IndexFilterOperator(Enum):
     EQUALS = "=="
@@ -37,6 +42,8 @@ class IndexFilter:
         }
 
 
+
+
 class IndexModel(Model):
     def __init__(
         self,
@@ -49,7 +56,7 @@ class IndexModel(Model):
         function: Optional[Function] = None,
         is_subscribed: bool = False,
         cost: Optional[Dict] = None,
-        embedding_model: Optional[EmbeddingModel] = None,
+        embedding_model: Union[EmbeddingModel, str] = None,
         **additional_info,
     ) -> None:
         """Index Init
@@ -64,7 +71,7 @@ class IndexModel(Model):
             function (Function, optional): model AI function. Defaults to None.
             is_subscribed (bool, optional): Is the user subscribed. Defaults to False.
             cost (Dict, optional): model price. Defaults to None.
-            embedding_model (EmbeddingModel, optional): embedding model. Defaults to None.
+            embedding_model (Union[EmbeddingModel, str], optional): embedding model. Defaults to None.
             **additional_info: Any additional Model info to be saved
         """
         assert function == Function.SEARCH, "Index only supports search function"
@@ -83,6 +90,26 @@ class IndexModel(Model):
         self.url = config.MODELS_RUN_URL
         self.backend_url = config.BACKEND_URL
         self.embedding_model = embedding_model
+        if embedding_model:
+            try:
+                from aixplain.factories import ModelFactory
+
+                model = ModelFactory.get(embedding_model)
+                self.embedding_size = model.additional_info["embedding_size"]
+            except Exception as e:
+                import warnings
+
+                warnings.warn(f"Failed to get embedding size for embedding model {embedding_model}: {e}")
+                self.embedding_size = None
+
+    def to_dict(self) -> Dict:
+        data = super().to_dict()
+        data["embedding_model"] = self.embedding_model
+        data["embedding_size"] = self.embedding_size
+        data["collection_type"] = self.version.split("-", 1)[0]
+        return data
+
+       
 
     def search(self, query: str, top_k: int = 10, filters: List[IndexFilter] = []) -> ModelResponse:
         """Search for documents in the index
@@ -113,7 +140,7 @@ class IndexModel(Model):
             "data": query or uri,
             "dataType": value_type,
             "filters": [filter.to_dict() for filter in filters],
-            "payload": {"uri": uri, "value_type": value_type, "top_k": top_k},
+            "payload": {"uri": uri, "value_type": value_type, "top_k": top_k}
         }
         return self.run(data=data)
 
