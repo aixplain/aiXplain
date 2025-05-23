@@ -5,6 +5,7 @@ from aixplain.modules.model.llm_model import LLM
 from aixplain.modules.model.index_model import IndexModel
 from aixplain.modules.model.utility_model import UtilityModel, UtilityModelInput
 from aixplain.modules.model.connector import ConnectorModel
+from aixplain.modules.model.connection import ConnectionModel
 from aixplain.enums import (
     AssetStatus,
     DataType,
@@ -78,6 +79,8 @@ def create_model_from_response(response: Dict) -> Model:
         ModelClass = IndexModel
     elif function_type == FunctionType.CONNECTOR:
         ModelClass = ConnectorModel
+    elif function_type == FunctionType.CONNECTION:
+        ModelClass = ConnectionModel
     elif function == Function.UTILITIES:
         ModelClass = UtilityModel
         inputs = [

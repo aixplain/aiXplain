@@ -1,3 +1,4 @@
+import json
 from aixplain.enums import Function, Supplier, FunctionType, ResponseStatus
 from aixplain.modules.model import Model
 from aixplain.utils import config
@@ -68,7 +69,7 @@ class ConnectionModel(Model):
         self.actions = self._get_actions()
 
     def _get_actions(self):
-        response = self.run({"action": "LIST_ACTIONS", "data": " "})
+        response = super().run({"action": "LIST_ACTIONS", "data": " "})
         if response.status == ResponseStatus.SUCCESS:
             return [ConnectAction(**action) for action in response.data]
         raise Exception(
@@ -76,12 +77,24 @@ class ConnectionModel(Model):
         )
 
     def get_action_inputs(self, action: ConnectAction):
-        response = self.run({"action": "LIST_INPUTS", "data": action.code})
+        if action.inputs:
+            return action.inputs
+
+        response = super().run({"action": "LIST_INPUTS", "data": {"actions": [action.code]}})
         if response.status == ResponseStatus.SUCCESS:
-            return response.data
+            try:
+                action_response = json.loads(response.data)
+                inputs = {inp["code"]: inp for inp in action_response[0]["inputs"]}
+                action_idx = next((i for i, a in enumerate(self.actions) if a.code == action.code), None)
+                if action_idx is not None:
+                    self.actions[action_idx].inputs = inputs
+                return inputs
+            except Exception as e:
+                raise Exception(f"It was not possible to get the inputs for the action {action.code}. Error {e}")
+
         raise Exception(
             f"It was not possible to get the inputs for the action {action.code}. Error {response.error_code}: {response.error_message}"
         )
 
-    def run_action(self, action: ConnectAction, inputs: Dict):
-        raise NotImplementedError("This method should be implemented by the subclass")
+    def run(self, action: ConnectAction, inputs: Dict):
+        return super().run({"action": action.code, "data": inputs})
