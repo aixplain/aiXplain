@@ -6,9 +6,9 @@ from enum import Enum
 
 
 class AuthenticationSchema(Enum):
-    BEARER = "bearer"
-    OAUTH = "oauth"
-    OAUTH2 = "oauth2"
+    BEARER = "BEARER_TOKEN"
+    OAUTH = "OAUTH"
+    OAUTH2 = "OAUTH2"
 
 
 class ConnectorModel(Model):
