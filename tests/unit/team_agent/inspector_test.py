@@ -115,7 +115,7 @@ def test_inspector_factory_create_from_model_invalid_function():
     }
 
     with patch("aixplain.factories.team_agent_factory.inspector_factory._request_with_retry", return_value=mock_response):
-        with pytest.raises(ValueError, match="Only Guardrail models are supported"):
+        with pytest.raises(ValueError, match="models are supported"):
             InspectorFactory.create_from_model(
                 name=INSPECTOR_CONFIG["name"],
                 model=INSPECTOR_CONFIG["model_id"],

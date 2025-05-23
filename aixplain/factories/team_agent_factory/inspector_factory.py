@@ -23,6 +23,9 @@ from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
 
 
+INSPECTOR_SUPPORTED_FUNCTIONS = [Function.GUARDRAILS, Function.TEXT_GENERATION]
+
+
 class InspectorFactory:
     """A class for creating an Inspector instance."""
 
@@ -74,9 +77,9 @@ class InspectorFactory:
             raise ValueError(f"Inspector: Model with ID {model_id} is not onboarded")
 
         # TODO: relax this constraint
-        if model.function.value != Function.GUARDRAILS.value:
+        if model.function not in INSPECTOR_SUPPORTED_FUNCTIONS:
             raise ValueError(
-                f"Inspector: Only Guardrail models are supported at the moment. Model with ID {model_id} is a {model.function.value} model"
+                f"Inspector: Only {', '.join([f.value for f in INSPECTOR_SUPPORTED_FUNCTIONS])} models are supported at the moment. Model with ID {model_id} is a {model.function} model"
             )
 
         return Inspector(
