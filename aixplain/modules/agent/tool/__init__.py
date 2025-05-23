@@ -65,3 +65,6 @@ class Tool(ABC):
 
     def validate(self):
         raise NotImplementedError
+
+    def deploy(self) -> None:
+        raise NotImplementedError

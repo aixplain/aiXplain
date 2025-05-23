@@ -369,7 +369,7 @@ def test_sql_tool(delete_agents_and_team_agents, AgentFactory):
             f.write("")
 
         tool = AgentFactory.create_sql_tool(
-            name="Teste",
+            name="TestDB",
             description="Execute an SQL query and return the result",
             source="ftest.db",
             source_type="sqlite",
@@ -444,7 +444,7 @@ def test_sql_tool_with_csv(delete_agents_and_team_agents, AgentFactory):
         # Verify tool setup
         assert tool is not None
         assert tool.description == "Execute SQL queries on employee data"
-        assert tool.database.endswith(".db")
+        assert tool.database.split("?")[0].endswith(".db")
         assert tool.tables == ["employees"]
         assert (
             tool.schema

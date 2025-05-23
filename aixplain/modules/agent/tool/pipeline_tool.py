@@ -85,3 +85,5 @@ class PipelineTool(Tool):
             self.name = pipeline_obj.name
         self.status = pipeline_obj.status
 
+    def deploy(self):
+        pass

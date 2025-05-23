@@ -49,3 +49,6 @@ class PythonInterpreterTool(Tool):
 
     def __repr__(self) -> Text:
         return "PythonInterpreterTool()"
+
+    def deploy(self):
+        pass

@@ -22,15 +22,16 @@ from aixplain.factories import FileFactory
 from aixplain import aixplain_v2 as v2
 
 
-@pytest.mark.parametrize("FileFactory", [FileFactory, v2.File])
-def test_file_create(FileFactory):
+@pytest.mark.parametrize(
+    "FileFactory, is_temp, expected_link",
+    [
+        (FileFactory, True, "http"),
+        (v2.File, True, "http"),
+        (FileFactory, False, "s3"),
+        (v2.File, False, "s3"),
+    ],
+)
+def test_file_create(FileFactory, is_temp, expected_link):
     upload_file = "tests/functional/file_asset/input/test.csv"
-    s3_link = FileFactory.create(local_path=upload_file, tags=["test1", "test2"], license=License.MIT, is_temp=False)
-    assert s3_link.startswith("s3")
-
-
-@pytest.mark.parametrize("FileFactory", [FileFactory, v2.File])
-def test_file_create_temp(FileFactory):
-    upload_file = "tests/functional/file_asset/input/test.csv"
-    s3_link = FileFactory.create(local_path=upload_file, tags=["test1", "test2"], license=License.MIT, is_temp=True)
-    assert s3_link.startswith("s3")
+    s3_link = FileFactory.create(local_path=upload_file, tags=["test1", "test2"], license=License.MIT, is_temp=is_temp)
+    assert s3_link.startswith(expected_link)

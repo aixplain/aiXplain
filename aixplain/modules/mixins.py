@@ -67,6 +67,8 @@ class DeployableMixin(ABC, Generic[T]):
         self._validate_deployment_readiness()
         previous_status = self.status
         try:
+            if hasattr(self, "tools"):
+                [tool.deploy() for tool in self.tools]
             self.status = AssetStatus.ONBOARDED
             self.update()
         except Exception as e:

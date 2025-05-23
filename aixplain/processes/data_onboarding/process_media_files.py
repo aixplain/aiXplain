@@ -166,7 +166,9 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 100) ->
                     # compress the folder
                     compressed_folder = compress_folder(data_file_name)
                     # upload zipped medias into s3
-                    s3_compressed_folder = upload_data(compressed_folder, content_type="application/x-tar", return_s3_link=True)
+                    s3_compressed_folder = upload_data(
+                        compressed_folder, content_type="application/x-tar", return_download_link=False
+                    )
                     # update index files pointing the s3 link
                     df["@SOURCE"] = s3_compressed_folder
                     # remove media folder
@@ -199,7 +201,9 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 100) ->
                     end_column_idx = df.columns.to_list().index(end_column)
 
                 df.to_csv(index_file_name, compression="gzip", index=False)
-                s3_link = upload_data(index_file_name, content_type="text/csv", content_encoding="gzip", return_s3_link=True)
+                s3_link = upload_data(
+                    index_file_name, content_type="text/csv", content_encoding="gzip", return_download_link=False
+                )
                 files.append(File(path=s3_link, extension=FileType.CSV, compression="gzip"))
                 # get data column index
                 data_column_idx = df.columns.to_list().index(metadata.name)
@@ -224,7 +228,7 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 100) ->
             # compress the folder
             compressed_folder = compress_folder(data_file_name)
             # upload zipped medias into s3
-            s3_compressed_folder = upload_data(compressed_folder, content_type="application/x-tar", return_s3_link=True)
+            s3_compressed_folder = upload_data(compressed_folder, content_type="application/x-tar", return_download_link=False)
             # update index files pointing the s3 link
             df["@SOURCE"] = s3_compressed_folder
             # remove media folder
@@ -257,7 +261,7 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 100) ->
             end_column_idx = df.columns.to_list().index(end_column)
 
         df.to_csv(index_file_name, compression="gzip", index=False)
-        s3_link = upload_data(index_file_name, content_type="text/csv", content_encoding="gzip", return_s3_link=True)
+        s3_link = upload_data(index_file_name, content_type="text/csv", content_encoding="gzip", return_download_link=False)
         files.append(File(path=s3_link, extension=FileType.CSV, compression="gzip"))
         # get data column index
         data_column_idx = df.columns.to_list().index(metadata.name)
