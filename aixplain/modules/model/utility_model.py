@@ -21,14 +21,15 @@ Description:
 import logging
 import warnings
 from aixplain.enums import Function, Supplier, DataType
-from aixplain.enums.asset_status import AssetStatus
+from aixplain.enums import AssetStatus
 from aixplain.modules.model import Model
 from aixplain.utils import config
-from aixplain.utils.file_utils import _request_with_retry
+from aixplain.utils.request_utils import _request_with_retry
 from aixplain.modules.model.utils import parse_code_decorated
 from dataclasses import dataclass
 from typing import Callable, Union, Optional, List, Text, Dict
 from urllib.parse import urljoin
+from aixplain.modules.mixins import DeployableMixin
 
 
 @dataclass
@@ -88,7 +89,7 @@ def utility_tool(
     return decorator
 
 
-class UtilityModel(Model):
+class UtilityModel(Model, DeployableMixin):
     """Ready-to-use Utility Model.
 
     Note: Non-deployed utility models (status=DRAFT) will expire after 24 hours after creation.
@@ -107,6 +108,7 @@ class UtilityModel(Model):
         function (Function, optional): model AI function. Defaults to None.
         is_subscribed (bool, optional): Is the user subscribed. Defaults to False.
         cost (Dict, optional): model price. Defaults to None.
+        status (AssetStatus, optional): status of the model. Defaults to AssetStatus.DRAFT.
         **additional_info: Any additional Model info to be saved
     """
 
@@ -155,6 +157,7 @@ class UtilityModel(Model):
             function=function,
             is_subscribed=is_subscribed,
             api_key=api_key,
+            status=status,
             **additional_info,
         )
         self.url = config.MODELS_RUN_URL
@@ -234,7 +237,6 @@ class UtilityModel(Model):
                 DeprecationWarning,
                 stacklevel=2,
             )
-
         self.validate()
         url = urljoin(self.backend_url, f"sdk/utilities/{self.id}")
         headers = {"x-api-key": f"{self.api_key}", "Content-Type": "application/json"}
@@ -274,9 +276,3 @@ class UtilityModel(Model):
             message = f"Utility Model Deletion Error: {response}"
             logging.error(message)
             raise Exception(f"{message}")
-
-    def deploy(self) -> None:
-        assert self.status == AssetStatus.DRAFT, "Utility Model must be in draft status to be deployed."
-        assert self.status != AssetStatus.ONBOARDED, "Utility Model is already deployed."
-        self.status = AssetStatus.ONBOARDED
-        self.update()

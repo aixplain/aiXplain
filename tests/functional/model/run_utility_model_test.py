@@ -4,6 +4,7 @@ from aixplain.enums import DataType, AssetStatus
 import pytest
 
 
+
 def test_run_utility_model():
     utility_model = None
     try:
@@ -272,7 +273,7 @@ def test_utility_model_update():
 
         # Verify updated state
         updated_model = ModelFactory.get(utility_model.id)
-        assert updated_model.status == AssetStatus.DRAFT
+        assert updated_model.status == AssetStatus.ONBOARDED
         assert updated_model.name == "sum_numbers_test"
         assert updated_model.description == "Updated to sum numbers utility"
         assert len(updated_model.inputs) == 2
@@ -298,17 +299,20 @@ def test_utility_model_update():
             return num1 * num2
 
         updated_model.code = multiply_numbers
-        assert updated_model.status == AssetStatus.DRAFT
-        updated_model.deploy()
         assert updated_model.status == AssetStatus.ONBOARDED
+        # the next line should raise an exception
+        with pytest.raises(Exception, match=".*UtilityModel is already deployed*"):
+            updated_model.deploy()
 
         updated_model.save()
+        assert updated_model.status == AssetStatus.ONBOARDED
 
         # Verify partial update
         final_model = ModelFactory.get(utility_model.id)
         assert final_model.name == "sum_numbers_test"
         assert final_model.description == "Updated to sum numbers utility"
-        assert final_model.status == AssetStatus.DRAFT
+        assert final_model.status == AssetStatus.ONBOARDED
+
         # Test final behavior with new function but same input field names
         response = final_model.run({"num1": 5, "num2": 7})
         assert response.status == "SUCCESS"

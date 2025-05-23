@@ -25,8 +25,8 @@ from aixplain.modules.model.utils import build_payload, call_run_endpoint
 from aixplain.factories import ModelFactory
 from aixplain.enums import Function
 from urllib.parse import urljoin
-from aixplain.enums import ResponseStatus
-from aixplain.modules.model.response import ModelResponse
+from aixplain.modules.model.response import ModelResponse, ResponseStatus
+from aixplain.modules.model.model_response_streamer import ModelResponseStreamer
 import pytest
 from unittest.mock import patch
 from aixplain.enums.asset_status import AssetStatus
@@ -121,17 +121,17 @@ def test_failed_poll():
         ),
         (
             475,
-            "Billing-related error: Please ensure you have enough credits to run this model. Details: An unspecified error occurred while processing your request.",
+            "Billing-related error: Please ensure you have enough credits to run this asset. Details: An unspecified error occurred while processing your request.",
         ),
         (
             485,
-            "Supplier-related error: Please ensure that the selected supplier provides the model you are trying to access. Details: An unspecified error occurred while processing your request.",
+            "Supplier-related error: Please ensure that the selected supplier provides the asset you are trying to access. Details: An unspecified error occurred while processing your request.",
         ),
         (
             495,
-            "An unspecified error occurred while processing your request.",
+            "Validation-related error: Please verify the request payload and ensure it is correct. Details: An unspecified error occurred while processing your request.",
         ),
-        (501, "Status 501 - Unspecified error: An unspecified error occurred while processing your request."),
+        (501, "Unspecified Server Error (Status 501) Details: An unspecified error occurred while processing your request."),
     ],
 )
 def test_run_async_errors(status_code, error_message):
@@ -204,6 +204,7 @@ def test_get_model_from_ids():
                 {
                     "id": "test-model-id-1",
                     "name": "Test Model 1",
+                    "status": "onboarded",
                     "description": "Test Description 1",
                     "function": {"id": "text-generation"},
                     "supplier": {"id": "aiXplain"},
@@ -214,6 +215,7 @@ def test_get_model_from_ids():
                 {
                     "id": "test-model-id-2",
                     "name": "Test Model 2",
+                    "status": "onboarded",
                     "description": "Test Description 2",
                     "function": {"id": "text-generation"},
                     "supplier": {"id": "aiXplain"},
@@ -237,9 +239,9 @@ def test_list_models_error():
     with pytest.raises(Exception) as excinfo:
         ModelFactory.list(model_ids=model_ids, function=Function.TEXT_GENERATION, api_key=config.AIXPLAIN_API_KEY)
 
-    assert (
-        str(excinfo.value)
-        == "Cannot filter by function, suppliers, source languages, target languages, is finetunable, ownership, sort by when using model ids"
+    assert str(excinfo.value) == (
+        "Cannot filter by function, suppliers, "
+        "source languages, target languages, is finetunable, ownership, sort by when using model ids"
     )
 
     with pytest.raises(Exception) as excinfo:
@@ -433,11 +435,11 @@ def test_model_to_dict():
 def test_model_repr():
     # Test with supplier as dict
     model1 = Model(id="test-id", name="Test Model", supplier={"name": "aiXplain"})
-    assert repr(model1).lower() == "<model: test model by aixplain>".lower()
+    assert repr(model1).lower() == "model: test model by aixplain (id=test-id)".lower()
 
     # Test with supplier as string
     model2 = Model(id="test-id", name="Test Model", supplier="aiXplain")
-    assert str(model2).lower() == "<model: test model by aixplain>".lower()
+    assert str(model2).lower() == "model: test model by aixplain (id=test-id)".lower()
 
 
 def test_poll_with_error():
@@ -636,3 +638,19 @@ def test_empty_model_parameters_string():
     """Test string representation of empty ModelParameters."""
     params = ModelParameters({})
     assert str(params) == "No parameters defined"
+
+
+def test_model_response_streamer():
+    """Test ModelResponseStreamer class."""
+    streamer = ModelResponseStreamer(iter([]))
+    assert isinstance(streamer, ModelResponseStreamer)
+    assert streamer.status == ResponseStatus.IN_PROGRESS
+
+
+def test_model_not_supports_streaming(mocker):
+    """Test ModelResponseStreamer class."""
+    mocker.patch("aixplain.modules.model.utils.build_payload", return_value={"data": "test"})
+    model = Model(id="test-id", name="Test Model", supports_streaming=False)
+    with pytest.raises(Exception) as excinfo:
+        model.run(data="test", stream=True)
+    assert f"Model '{model.name} ({model.id})' does not support streaming" in str(excinfo.value)

@@ -6,10 +6,11 @@ from aixplain.modules.model.index_model import IndexModel
 from aixplain.modules.model.utility_model import UtilityModel, UtilityModelInput
 from aixplain.enums import DataType, Function, Language, OwnershipType, Supplier, SortBy, SortOrder, AssetStatus
 from aixplain.utils import config
-from aixplain.utils.file_utils import _request_with_retry
+from aixplain.utils.request_utils import _request_with_retry
 from datetime import datetime
 from typing import Dict, Union, List, Optional, Tuple
 from urllib.parse import urljoin
+from aixplain.enums import AssetStatus
 import requests
 
 
@@ -34,6 +35,16 @@ def create_model_from_response(response: Dict) -> Model:
                 values = [w["value"] for w in param["defaultValues"]]
                 if len(values) > 0:
                     parameters[param["name"]] = values
+
+    additional_kwargs = {}
+    attributes = response.get("attributes", None)
+    if attributes:
+        embedding_model = next((item["code"] for item in attributes if item["name"] == "embeddingmodel"), None)
+        if embedding_model:
+            additional_kwargs["embedding_model"] = embedding_model
+        embedding_size = next((item["value"] for item in attributes if item["name"] == "embeddingSize"), None)
+        if embedding_size:
+            additional_kwargs["embedding_size"] = embedding_size
 
     function_id = response["function"]["id"]
     function = Function(function_id)
@@ -61,7 +72,6 @@ def create_model_from_response(response: Dict) -> Model:
             for param in response["params"]
         ]
         input_params = model_params
-
         if not code:
             if "version" in response and response["version"]:
                 version_link = response["version"]["id"]
@@ -73,6 +83,8 @@ def create_model_from_response(response: Dict) -> Model:
                         code = ""
             else:
                 raise Exception("Utility Model Error: Code not found")
+
+    status = AssetStatus(response.get("status", AssetStatus.DRAFT.value))
 
     created_at = None
     if "createdAt" in response and response["createdAt"]:
@@ -96,7 +108,9 @@ def create_model_from_response(response: Dict) -> Model:
         version=response["version"]["id"],
         inputs=inputs,
         temperature=temperature,
-        status=response.get("status", AssetStatus.DRAFT),
+        supports_streaming=response.get("supportsStreaming", False),
+        status=status,
+        **additional_kwargs,
     )
 
 

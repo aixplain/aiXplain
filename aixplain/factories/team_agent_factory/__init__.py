@@ -32,7 +32,7 @@ from aixplain.modules.team_agent import TeamAgent, InspectorTarget
 from aixplain.modules.team_agent.inspector import Inspector
 from aixplain.utils import config
 from aixplain.factories.team_agent_factory.utils import build_team_agent
-from aixplain.utils.file_utils import _request_with_retry
+from aixplain.utils.request_utils import _request_with_retry
 
 
 class TeamAgentFactory:
@@ -49,6 +49,7 @@ class TeamAgentFactory:
         use_mentalist: bool = True,
         inspectors: List[Inspector] = [],
         inspector_targets: List[Union[InspectorTarget, Text]] = [InspectorTarget.STEPS],
+        instructions: Optional[Text] = None,
         **kwargs,
     ) -> TeamAgent:
         """Create a new team agent in the platform.
@@ -57,7 +58,7 @@ class TeamAgentFactory:
             name: The name of the team agent.
             agents: A list of agents to be added to the team.
             llm_id: The ID of the LLM to be used for the team agent.
-            description: The description of the team agent.
+            description: The description of the team agent to be displayed in the aiXplain platform.
             api_key: The API key to be used for the team agent.
             supplier: The supplier of the team agent.
             version: The version of the team agent.
@@ -65,6 +66,7 @@ class TeamAgentFactory:
             inspectors: A list of inspectors to be added to the team.
             inspector_targets: Which stages to be inspected during an execution of the team agent. (steps, output)
             use_mentalist_and_inspector: Whether to use the mentalist and inspector agents. (legacy)
+            instructions: The instructions to guide the team agent (i.e. appended in the prompt of the team agent).
 
         Returns:
             A new team agent instance.
@@ -139,6 +141,7 @@ class TeamAgentFactory:
             "supplier": supplier,
             "version": version,
             "status": "draft",
+            "role": instructions,
         }
 
         team_agent = build_team_agent(payload=payload, agents=agent_list, api_key=api_key)

@@ -33,7 +33,7 @@ from aixplain.modules.finetune.hyperparameters import Hyperparameters
 from aixplain.modules.dataset import Dataset
 from aixplain.modules.model import Model
 from aixplain.utils import config
-from aixplain.utils.file_utils import _request_with_retry
+from aixplain.utils.request_utils import _request_with_retry
 from urllib.parse import urljoin
 
 
@@ -98,7 +98,7 @@ class FinetuneFactory:
         if prompt_template is not None:
             prompt_template = validate_prompt(prompt_template, dataset_list)
         try:
-            url = urljoin(cls.backend_url, f"sdk/finetune/cost-estimation")
+            url = urljoin(cls.backend_url, "sdk/finetune/cost-estimation")
             headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
             payload = {
                 "datasets": [

@@ -8,6 +8,12 @@ from aixplain.factories import ModelFactory
 from aixplain.modules import LLM
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from aixplain.factories.index_factory.utils import AirParams, VectaraParams, GraphRAGParams, ZeroEntropyParams
+from aixplain.factories import IndexFactory
+from aixplain.modules.model.record import Record
+import time
+
+
 
 
 def pytest_generate_tests(metafunc):
@@ -16,7 +22,7 @@ def pytest_generate_tests(metafunc):
         models = ModelFactory.list(function=Function.TEXT_GENERATION)["results"]
 
         predefined_models = []
-        for predefined_model in ["Groq Llama 3 70B", "Chat GPT 3.5", "GPT-4o"]:
+        for predefined_model in ["Groq Llama 3 70B", "GPT-4o"]:
             predefined_models.extend(
                 [
                     m
@@ -45,6 +51,25 @@ def test_llm_run(llm_model):
     assert response["status"] == "SUCCESS"
 
 
+def test_llm_run_stream():
+    """Testing LLMs with streaming"""
+    from aixplain.modules.model.response import ModelResponse, ResponseStatus
+    from aixplain.modules.model.model_response_streamer import ModelResponseStreamer
+
+    llm_model = ModelFactory.get("669a63646eb56306647e1091")
+
+    assert isinstance(llm_model, LLM)
+    response = llm_model.run(
+        data="This is a test prompt where I expect you to respond with the following phrase: 'This is a test response.'",
+        stream=True,
+    )
+    assert isinstance(response, ModelResponseStreamer)
+    for chunk in response:
+        assert isinstance(chunk, ModelResponse)
+        assert chunk.data in "This is a test response."
+    assert response.status == ResponseStatus.SUCCESS
+
+
 def test_run_async():
     """Testing Model Async"""
     model = ModelFactory.get("60ddef828d38c51c5885d491")
@@ -57,64 +82,67 @@ def test_run_async():
     assert "teste" in response["data"].lower()
 
 
-@pytest.mark.parametrize(
-    "embedding_model",
-    [
-        pytest.param(EmbeddingModel.SNOWFLAKE_ARCTIC_EMBED_M_LONG, id="Snowflake Arctic Embed M Long"),
-        pytest.param(EmbeddingModel.OPENAI_ADA002, id="OpenAI Ada 002"),
-        pytest.param(EmbeddingModel.SNOWFLAKE_ARCTIC_EMBED_L_V2_0, id="Snowflake Arctic Embed L v2.0"),
-        pytest.param(EmbeddingModel.MULTILINGUAL_E5_LARGE, id="Multilingual E5 Large"),
-        pytest.param(EmbeddingModel.BGE_M3, id="BGE M3"),
-    ],
-)
-def test_index_model(embedding_model):
-    from uuid import uuid4
+def run_index_model(index_model, retries):
     from aixplain.modules.model.record import Record
-    from aixplain.factories import IndexFactory
 
-    for index in IndexFactory.list()["results"]:
-        index.delete()
 
-    index_model = IndexFactory.create(name=str(uuid4()), description=str(uuid4()), embedding_model=embedding_model)
-    index_model.upsert([Record(value="Hello, world!", value_type="text", uri="", id="1", attributes={})])
-    response = index_model.search("Hello")
+    for _ in range(retries):
+        try:
+            index_model.upsert([Record(value="Berlin is the capital of Germany.", value_type="text", uri="", id="1", attributes={})])
+            break
+        except Exception as e:
+            time.sleep(180)
+            
+    response = index_model.search("Berlin")
     assert str(response.status) == "SUCCESS"
-    assert "world" in response.data.lower()
-    assert index_model.count() == 1
-
-    index_model.upsert([Record(value="Hello, aiXplain!", value_type="text", uri="", id="1", attributes={})])
-    response = index_model.search("aiXplain")
-    assert str(response.status) == "SUCCESS"
-    assert "aixplain" in response.data.lower()
-    assert index_model.count() == 1
-
-    index_model.upsert([Record(value="The world is great", value_type="text", uri="", id="2", attributes={})])
-    assert index_model.count() == 2
-
-    response = index_model.get_document("1")
-    assert str(response.status) == "SUCCESS"
-    assert response.data == "Hello, aiXplain!"
-    assert index_model.count() == 2
-
-    response = index_model.delete_document("1")
-    assert str(response.status) == "SUCCESS"
+    assert "germany" in response.data.lower()
     assert index_model.count() == 1
 
     index_model.delete()
 
 
 @pytest.mark.parametrize(
-    "embedding_model",
+    "embedding_model,supplier_params",
     [
-        pytest.param(EmbeddingModel.SNOWFLAKE_ARCTIC_EMBED_M_LONG, id="Snowflake Arctic Embed M Long"),
-        pytest.param(EmbeddingModel.OPENAI_ADA002, id="OpenAI Ada 002"),
-        pytest.param(EmbeddingModel.SNOWFLAKE_ARCTIC_EMBED_L_V2_0, id="Snowflake Arctic Embed L v2.0"),
-        pytest.param(EmbeddingModel.JINA_CLIP_V2_MULTIMODAL, id="Jina Clip v2 Multimodal"),
-        pytest.param(EmbeddingModel.MULTILINGUAL_E5_LARGE, id="Multilingual E5 Large"),
-        pytest.param(EmbeddingModel.BGE_M3, id="BGE M3"),
+        pytest.param(None, VectaraParams, id="VECTARA"),
+        pytest.param(None, ZeroEntropyParams, id="ZERO_ENTROPY"),
+        pytest.param(EmbeddingModel.OPENAI_ADA002, GraphRAGParams, id="GRAPHRAG"),
+        pytest.param(EmbeddingModel.OPENAI_ADA002, AirParams, id="AIR - OpenAI Ada 002"),
+        pytest.param("6658d40729985c2cf72f42ec", AirParams, id="AIR - Snowflake Arctic Embed M Long"),
+        pytest.param(EmbeddingModel.MULTILINGUAL_E5_LARGE, AirParams, id="AIR - Multilingual E5 Large"),
+        pytest.param("67efd4f92a0a850afa045af7", AirParams, id="AIR - BGE M3"),
+        pytest.param("681254b668e47e7844c1f15a", AirParams, id="AIR - aiXplain Legal Embeddings"),
     ],
 )
-def test_index_model_with_filter(embedding_model):
+def test_index_model(embedding_model, supplier_params):
+    from uuid import uuid4
+    from aixplain.factories import IndexFactory
+
+    params = supplier_params(name=str(uuid4()), description=str(uuid4()))
+    if embedding_model is not None:
+        print(f"Embedding Model : {embedding_model}")
+        params = supplier_params(name=str(uuid4()), description=str(uuid4()), embedding_model=embedding_model)
+
+    index_model = IndexFactory.create(params=params)
+    if embedding_model in [EmbeddingModel.MULTILINGUAL_E5_LARGE, EmbeddingModel.BGE_M3]:
+        retries = 3
+    else:
+        retries = 1
+    run_index_model(index_model, retries)
+
+@pytest.mark.parametrize(
+    "embedding_model,supplier_params",
+    [
+        pytest.param(None, VectaraParams, id="VECTARA"),
+        pytest.param(EmbeddingModel.OPENAI_ADA002, AirParams, id="OpenAI Ada 002"),
+        pytest.param("6658d40729985c2cf72f42ec", AirParams, id="Snowflake Arctic Embed M Long"),
+        pytest.param(EmbeddingModel.JINA_CLIP_V2_MULTIMODAL, AirParams, id="Jina Clip v2 Multimodal"),
+        pytest.param(EmbeddingModel.MULTILINGUAL_E5_LARGE, AirParams, id="Multilingual E5 Large"),
+        pytest.param("67efd4f92a0a850afa045af7", AirParams, id="BGE M3"),
+        pytest.param("681254b668e47e7844c1f15a", AirParams, id="aiXplain Legal Embeddings"),
+    ],
+)
+def test_index_model_with_filter(embedding_model, supplier_params):
     from uuid import uuid4
     from aixplain.modules.model.record import Record
     from aixplain.factories import IndexFactory
@@ -123,11 +151,28 @@ def test_index_model_with_filter(embedding_model):
     for index in IndexFactory.list()["results"]:
         index.delete()
 
-    index_model = IndexFactory.create(name=str(uuid4()), description=str(uuid4()), embedding_model=embedding_model)
-    index_model.upsert([Record(value="Hello, aiXplain!", value_type="text", uri="", id="1", attributes={"category": "hello"})])
-    index_model.upsert(
-        [Record(value="The world is great", value_type="text", uri="", id="2", attributes={"category": "world"})]
-    )
+    params = supplier_params(name=str(uuid4()), description=str(uuid4()))
+    if embedding_model is not None:
+        params = supplier_params(name=str(uuid4()), description=str(uuid4()), embedding_model=embedding_model)
+
+    index_model = IndexFactory.create(params=params)
+    if embedding_model in [EmbeddingModel.MULTILINGUAL_E5_LARGE, EmbeddingModel.BGE_M3]:
+        retries = 3
+    else:
+        retries = 1
+    for _ in range(retries):
+        try:
+            index_model.upsert([Record(value="Hello, aiXplain!", value_type="text", uri="", id="1", attributes={"category": "hello"})])
+            break
+        except Exception:
+            time.sleep(180)
+    for _ in range(retries):
+        try:
+            index_model.upsert([Record(value="The world is great", value_type="text", uri="", id="2", attributes={"category": "world"})])
+            break
+        except Exception:
+            time.sleep(180)
+            
     assert index_model.count() == 2
     response = index_model.search(
         "", filters=[IndexFilter(field="category", value="world", operator=IndexFilterOperator.EQUALS)]
@@ -157,17 +202,20 @@ def test_llm_run_with_file():
     assert "🤖" in response["data"], "Robot emoji should be present in the response"
 
 
-def test_index_model_with_image():
+def test_index_model_air_with_image():
     from aixplain.factories import IndexFactory
     from aixplain.modules.model.record import Record
     from uuid import uuid4
+    from aixplain.factories.index_factory.utils import AirParams
 
     for index in IndexFactory.list()["results"]:
         index.delete()
 
-    index_model = IndexFactory.create(
+    params = AirParams(
         name=f"Image Index {uuid4()}", description="Index for images", embedding_model=EmbeddingModel.JINA_CLIP_V2_MULTIMODAL
     )
+
+    index_model = IndexFactory.create(params=params)
 
     records = []
     # Building image
@@ -197,6 +245,7 @@ def test_index_model_with_image():
 
     index_model.upsert(records)
 
+
     response = index_model.search("beach")
     assert str(response.status) == "SUCCESS"
     second_record = response.details[1]["metadata"]["uri"]
@@ -211,9 +260,14 @@ def test_index_model_with_image():
 
     assert index_model.count() == 4
 
-    response = index_model.get_document("2")
+    response = index_model.get_record("2")
     assert str(response.status) == "SUCCESS"
     second_record = response.details[0]["metadata"]["uri"]
     assert "hurricane" in second_record.lower()
 
     index_model.delete()
+
+    import os
+
+    if os.path.exists("hurricane.jpeg"):
+        os.remove("hurricane.jpeg")

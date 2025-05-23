@@ -28,15 +28,11 @@ from aixplain.factories.asset_factory import AssetFactory
 from aixplain.modules.data import Data
 from aixplain.enums.data_subtype import DataSubtype
 from aixplain.enums.data_type import DataType
-from aixplain.enums.function import Function
 from aixplain.enums.language import Language
-from aixplain.enums.license import License
 from aixplain.enums.privacy import Privacy
-from aixplain.utils.file_utils import _request_with_retry
-from aixplain.utils import config
-from typing import Any, Dict, List, Text
+from aixplain.utils.request_utils import _request_with_retry
+from typing import Dict, Text
 from urllib.parse import urljoin
-from uuid import uuid4
 
 
 class DataFactory(AssetFactory):

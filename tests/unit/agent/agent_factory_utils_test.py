@@ -3,6 +3,7 @@ from unittest.mock import Mock, patch, MagicMock
 from aixplain.factories.agent_factory.utils import build_tool, build_agent
 from aixplain.enums import Function, Supplier
 from aixplain.enums.asset_status import AssetStatus
+from aixplain.modules.pipeline import Pipeline
 from aixplain.modules.agent.tool.model_tool import ModelTool
 from aixplain.modules.agent.tool.pipeline_tool import PipelineTool
 from aixplain.modules.agent.tool.python_interpreter_tool import PythonInterpreterTool
@@ -10,7 +11,8 @@ from aixplain.modules.agent.tool.custom_python_code_tool import CustomPythonCode
 from aixplain.modules.agent.tool.sql_tool import SQLTool
 from aixplain.modules.agent import Agent
 from aixplain.modules.agent.agent_task import AgentTask
-from aixplain.factories.model_factory import ModelFactory
+from aixplain.factories import ModelFactory, PipelineFactory
+import os
 
 
 @pytest.fixture
@@ -139,9 +141,10 @@ def test_build_tool_error_cases(tool_dict, expected_error):
         pytest.param(
             {
                 "type": "sql",
+                "name": "Test SQL",
                 "description": "Test SQL",
                 "parameters": [
-                    {"name": "database", "value": "test_db"},
+                    {"name": "database", "value": "test_db.db"},
                     {"name": "schema", "value": "public"},
                     {"name": "tables", "value": "table1,table2"},
                     {"name": "enable_commit", "value": True},
@@ -149,8 +152,9 @@ def test_build_tool_error_cases(tool_dict, expected_error):
             },
             SQLTool,
             {
+                "name": "Test SQL",
                 "description": "Test SQL",
-                "database": "test_db",
+                "database": "test_db.db",
                 "schema": "public",
                 "tables": ["table1", "table2"],
                 "enable_commit": True,
@@ -160,9 +164,10 @@ def test_build_tool_error_cases(tool_dict, expected_error):
         pytest.param(
             {
                 "type": "sql",
+                "name": "Test SQL",
                 "description": "Test SQL with string enable_commit",
                 "parameters": [
-                    {"name": "database", "value": "test_db"},
+                    {"name": "database", "value": "test_db.db"},
                     {"name": "schema", "value": "public"},
                     {"name": "tables", "value": "table1"},
                     {"name": "enable_commit", "value": True},
@@ -170,8 +175,9 @@ def test_build_tool_error_cases(tool_dict, expected_error):
             },
             SQLTool,
             {
+                "name": "Test SQL",
                 "description": "Test SQL with string enable_commit",
-                "database": "test_db",
+                "database": "test_db.db",
                 "schema": "public",
                 "tables": ["table1"],
                 "enable_commit": True,
@@ -180,17 +186,34 @@ def test_build_tool_error_cases(tool_dict, expected_error):
         ),
     ],
 )
-def test_build_tool_success_cases(tool_dict, expected_type, expected_attrs, mock_model):
-    """Test successful tool creation with various configurations."""
-    with patch.object(ModelFactory, "get", return_value=mock_model):
-        tool = build_tool(tool_dict)
-        assert isinstance(tool, expected_type)
 
-        for attr, value in expected_attrs.items():
-            if attr == "model":
-                assert tool.model == mock_model
-            else:
-                assert getattr(tool, attr) == value
+
+def test_build_tool_success_cases(tool_dict, expected_type, expected_attrs, mock_model, mocker):
+    """Test successful tool creation with various configurations."""
+    mocker.patch.object(ModelFactory, "get", return_value=mock_model)
+    mocker.patch(
+        "aixplain.modules.model.utils.parse_code_decorated",
+        return_value=("print('Hello World')", [], "Test description", "test_name"),
+    )
+    mocker.patch("os.path.exists", lambda path: True if path == "test_db.db" else os.path.exists(path))
+    mocker.patch("aixplain.factories.file_factory.FileFactory.upload", return_value="s3://mocked-file-path/test_db.db")
+    if tool_dict["type"] == "pipeline":
+        mocker.patch.object(
+            PipelineFactory,
+            "get",
+            return_value=Pipeline(id=tool_dict["assetId"], description=tool_dict["description"], name="Pipeline", api_key=""),
+        )
+
+    tool = build_tool(tool_dict)
+    assert isinstance(tool, expected_type)
+
+    for attr, value in expected_attrs.items():
+        if attr == "model":
+            assert tool.model == mock_model
+        elif attr == "database" and value == "test_db.db":
+            assert getattr(tool, attr) == "s3://mocked-file-path/test_db.db"
+        else:
+            assert getattr(tool, attr) == value
 
 
 @pytest.mark.parametrize(
@@ -263,8 +286,16 @@ def test_build_tool_success_cases(tool_dict, expected_type, expected_attrs, mock
         ),
     ],
 )
-def test_build_agent_success_cases(payload, expected_attrs, mock_tools):
+
+
+def test_build_agent_success_cases(payload, expected_attrs, mock_tools, mocker):
     """Test successful agent creation with various configurations."""
+    mocker.patch.object(
+        PipelineFactory,
+        "get",
+        return_value=Pipeline(id="test_pipeline", description="Test pipeline", name="Pipeline", api_key=""),
+    )
+
     agent = build_agent(payload, tools=mock_tools if "assets" not in payload else None)
     assert isinstance(agent, Agent)
 
