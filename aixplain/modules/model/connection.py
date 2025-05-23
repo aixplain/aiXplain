@@ -1,4 +1,3 @@
-import json
 from aixplain.enums import Function, Supplier, FunctionType, ResponseStatus
 from aixplain.modules.model import Model
 from aixplain.utils import config
@@ -71,29 +70,34 @@ class ConnectionModel(Model):
     def _get_actions(self):
         response = super().run({"action": "LIST_ACTIONS", "data": " "})
         if response.status == ResponseStatus.SUCCESS:
-            return [ConnectAction(**action) for action in response.data]
+            return [
+                ConnectAction(name=action["displayName"], description=action["description"], code=action["name"])
+                for action in response.data
+            ]
         raise Exception(
             f"It was not possible to get the actions for the connection {self.id}. Error {response.error_code}: {response.error_message}"
         )
 
-    def get_action_inputs(self, action: ConnectAction):
+    def get_action_inputs(self, action: Union[ConnectAction, Text]):
         if action.inputs:
             return action.inputs
 
-        response = super().run({"action": "LIST_INPUTS", "data": {"actions": [action.code]}})
+        if isinstance(action, ConnectAction):
+            action = action.code
+
+        response = super().run({"action": "LIST_INPUTS", "data": {"actions": [action]}})
         if response.status == ResponseStatus.SUCCESS:
             try:
-                action_response = json.loads(response.data)
-                inputs = {inp["code"]: inp for inp in action_response[0]["inputs"]}
-                action_idx = next((i for i, a in enumerate(self.actions) if a.code == action.code), None)
+                inputs = {inp["code"]: inp for inp in response.data[0]["inputs"]}
+                action_idx = next((i for i, a in enumerate(self.actions) if a.code == action), None)
                 if action_idx is not None:
                     self.actions[action_idx].inputs = inputs
                 return inputs
             except Exception as e:
-                raise Exception(f"It was not possible to get the inputs for the action {action.code}. Error {e}")
+                raise Exception(f"It was not possible to get the inputs for the action {action}. Error {e}")
 
         raise Exception(
-            f"It was not possible to get the inputs for the action {action.code}. Error {response.error_code}: {response.error_message}"
+            f"It was not possible to get the inputs for the action {action}. Error {response.error_code}: {response.error_message}"
         )
 
     def run(self, action: ConnectAction, inputs: Dict):
