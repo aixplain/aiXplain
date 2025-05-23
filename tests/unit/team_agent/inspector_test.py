@@ -13,6 +13,19 @@ INSPECTOR_CONFIG = {
     "policy": InspectorPolicy.ADAPTIVE,
 }
 
+MOCK_MODEL_RESPONSE = {
+    "id": "test_model_id",
+    "name": "test_model",
+    "description": "Test model description",
+    "createdAt": "2024-03-20T10:00:00Z",
+    "supplier": "test_supplier",
+    "pricing": {"per_token": 0.001},
+    "version": {"id": "v1"},
+    "params": [],
+    "attributes": [],
+    "api_key": "test_api_key",
+}
+
 
 def test_inspector_creation():
     """Test basic inspector creation with valid parameters"""
@@ -51,10 +64,19 @@ def test_inspector_factory_create_from_model():
     """Test creating inspector from model using factory"""
     mock_response = MagicMock()
     mock_response.status_code = 200
-    mock_response.json.return_value = {"status": AssetStatus.ONBOARDED, "function": {"id": Function.GUARDRAILS.value}}
+    mock_response.json.return_value = {
+        **MOCK_MODEL_RESPONSE,
+        "status": AssetStatus.ONBOARDED.value,
+        "function": {"id": Function.GUARDRAILS.value},
+    }
 
     with patch("aixplain.factories.team_agent_factory.inspector_factory._request_with_retry", return_value=mock_response):
-        inspector = InspectorFactory.create_from_model(**INSPECTOR_CONFIG)
+        inspector = InspectorFactory.create_from_model(
+            name=INSPECTOR_CONFIG["name"],
+            model=INSPECTOR_CONFIG["model_id"],
+            model_config=INSPECTOR_CONFIG["model_config"],
+            policy=INSPECTOR_CONFIG["policy"],
+        )
 
         assert inspector.name == INSPECTOR_CONFIG["name"]
         assert inspector.model_id == INSPECTOR_CONFIG["model_id"]
@@ -66,22 +88,40 @@ def test_inspector_factory_create_from_model_invalid_status():
     """Test creating inspector from model with invalid status"""
     mock_response = MagicMock()
     mock_response.status_code = 200
-    mock_response.json.return_value = {"status": "draft", "function": {"id": Function.GUARDRAILS.value}}
+    mock_response.json.return_value = {
+        **MOCK_MODEL_RESPONSE,
+        "status": AssetStatus.DRAFT.value,
+        "function": {"id": Function.GUARDRAILS.value},
+    }
 
     with patch("aixplain.factories.team_agent_factory.inspector_factory._request_with_retry", return_value=mock_response):
         with pytest.raises(ValueError, match="is not onboarded"):
-            InspectorFactory.create_from_model(**INSPECTOR_CONFIG)
+            InspectorFactory.create_from_model(
+                name=INSPECTOR_CONFIG["name"],
+                model=INSPECTOR_CONFIG["model_id"],
+                model_config=INSPECTOR_CONFIG["model_config"],
+                policy=INSPECTOR_CONFIG["policy"],
+            )
 
 
 def test_inspector_factory_create_from_model_invalid_function():
     """Test creating inspector from model with invalid function"""
     mock_response = MagicMock()
     mock_response.status_code = 200
-    mock_response.json.return_value = {"status": AssetStatus.ONBOARDED, "function": {"id": "invalid_function"}}
+    mock_response.json.return_value = {
+        **MOCK_MODEL_RESPONSE,
+        "status": AssetStatus.ONBOARDED.value,
+        "function": {"id": Function.TRANSLATION.value},
+    }
 
     with patch("aixplain.factories.team_agent_factory.inspector_factory._request_with_retry", return_value=mock_response):
         with pytest.raises(ValueError, match="Only Guardrail models are supported"):
-            InspectorFactory.create_from_model(**INSPECTOR_CONFIG)
+            InspectorFactory.create_from_model(
+                name=INSPECTOR_CONFIG["name"],
+                model=INSPECTOR_CONFIG["model_id"],
+                model_config=INSPECTOR_CONFIG["model_config"],
+                policy=INSPECTOR_CONFIG["policy"],
+            )
 
 
 def test_inspector_factory_create_auto():

@@ -11,11 +11,13 @@ inspector = InspectorFactory.create_from_model(
 """
 
 import logging
-from typing import Dict, Optional, Text
+from typing import Dict, Optional, Text, Union
 from urllib.parse import urljoin
 
 from aixplain.enums.asset_status import AssetStatus
 from aixplain.enums.function import Function
+from aixplain.factories.model_factory.utils import create_model_from_response
+from aixplain.modules.model import Model
 from aixplain.modules.team_agent.inspector import Inspector, InspectorPolicy, InspectorAuto
 from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
@@ -28,7 +30,7 @@ class InspectorFactory:
     def create_from_model(
         cls,
         name: Text,
-        model_id: Text,
+        model: Union[Text, Model],
         model_config: Optional[Dict] = None,
         policy: InspectorPolicy = InspectorPolicy.ADAPTIVE,  # default: doing something dynamically
     ) -> Inspector:
@@ -36,36 +38,45 @@ class InspectorFactory:
 
         Args:
             name: Name of the inspector agent.
-            model_id: ID of the underlying model to use for inspector.
+            model: Model or model ID to use for inspector.
             model_config: Configuration for the inspector. Defaults to None.
             policy: Action to take upon negative feedback (WARN/ABORT/ADAPTIVE). Defaults to ADAPTIVE.
 
         Returns:
             Inspector: The created inspector
         """
-        # check if the model exists and is onboarded
-        try:
-            url = urljoin(config.BACKEND_URL, f"sdk/models/{model_id}")
+        # fetch model if model ID is provided
+        if isinstance(model, Text):
+            model_id = model
+            try:
+                url = urljoin(config.BACKEND_URL, f"sdk/models/{model_id}")
 
-            headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
-            logging.info(f"Start service for GET Model  - {url} - {headers}")
-            r = _request_with_retry("get", url, headers=headers)
-            resp = r.json()
-        except Exception:
-            raise ValueError(f"Inspector: Failed to get model with ID {model_id}")
+                headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+                logging.info(f"Start service for GET Model  - {url} - {headers}")
+                r = _request_with_retry("get", url, headers=headers)
+                resp = r.json()
+            except Exception:
+                raise ValueError(f"Inspector: Failed to get model with ID {model_id}")
 
-        if 200 <= r.status_code < 300:
-            if resp["status"] != AssetStatus.ONBOARDED:
-                raise ValueError(f"Inspector: Model with ID {model_id} is not onboarded")
+            if 200 <= r.status_code < 300:
+                model = create_model_from_response(resp)
+            else:
+                error_message = (
+                    f"Inspector: Failed to get model with ID {model_id} (status code = {r.status_code})\nError: {resp}"
+                )
+                logging.error(error_message)
+                raise Exception(error_message)
         else:
-            error_message = f"Inspector: Failed to get model with ID {model_id} (status code = {r.status_code})\nError: {resp}"
-            logging.error(error_message)
-            raise Exception(error_message)
+            model_id = model.id
+
+        # check if the model is onboarded
+        if model.status != AssetStatus.ONBOARDED:
+            raise ValueError(f"Inspector: Model with ID {model_id} is not onboarded")
 
         # TODO: relax this constraint
-        if resp["function"]["id"] != Function.GUARDRAILS.value:
+        if model.function.value != Function.GUARDRAILS.value:
             raise ValueError(
-                f"Inspector: Only Guardrail models are supported at the moment. Model with ID {model_id} is a {resp['function']['id']} model"
+                f"Inspector: Only Guardrail models are supported at the moment. Model with ID {model_id} is a {model.function.value} model"
             )
 
         return Inspector(
