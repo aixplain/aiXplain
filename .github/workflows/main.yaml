@@ -9,7 +9,7 @@ on:
   workflow_dispatch:  
 
 jobs:
-  test:
+  setup-and-test:
     runs-on: ubuntu-latest
     timeout-minutes: 45  # Global timeout fallback
     strategy:
