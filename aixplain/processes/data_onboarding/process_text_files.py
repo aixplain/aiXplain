@@ -100,7 +100,7 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 1000) -
                 start, end = idx - len(batch), idx
                 df["@INDEX"] = range(start, end)
                 df.to_csv(file_name, compression="gzip", index=False)
-                s3_link = upload_data(file_name, content_type="text/csv", content_encoding="gzip", return_s3_link=True)
+                s3_link = upload_data(file_name, content_type="text/csv", content_encoding="gzip", return_download_link=False)
                 files.append(File(path=s3_link, extension=FileType.CSV, compression="gzip"))
                 # get data column index
                 data_column_idx = df.columns.to_list().index(metadata.name)
@@ -114,7 +114,7 @@ def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 1000) -
         start, end = idx - len(batch), idx
         df["@INDEX"] = range(start, end)
         df.to_csv(file_name, compression="gzip", index=False)
-        s3_link = upload_data(file_name, content_type="text/csv", content_encoding="gzip", return_s3_link=True)
+        s3_link = upload_data(file_name, content_type="text/csv", content_encoding="gzip", return_download_link=False)
         files.append(File(path=s3_link, extension=FileType.CSV, compression="gzip"))
         # get data column index
         data_column_idx = df.columns.to_list().index(metadata.name)
