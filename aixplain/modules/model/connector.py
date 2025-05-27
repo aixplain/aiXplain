@@ -1,5 +1,5 @@
 from aixplain.enums import Function, Supplier, FunctionType
-from aixplain.modules.model import Model
+from aixplain.modules.model import Model, ModelResponse
 from aixplain.utils import config
 from typing import Text, Optional, Union, Dict
 from enum import Enum
@@ -57,7 +57,7 @@ class ConnectorModel(Model):
         self.url = config.MODELS_RUN_URL
         self.backend_url = config.BACKEND_URL
 
-    def connect(self, authentication_schema: AuthenticationSchema, name: Optional[Text] = None, **kwargs) -> None:
+    def connect(self, authentication_schema: AuthenticationSchema, name: Optional[Text] = None, **kwargs) -> ModelResponse:
         """Connect to the connector
 
         Examples:

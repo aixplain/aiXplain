@@ -23,7 +23,7 @@ from aixplain.utils import config
 from aixplain.modules import Model
 from aixplain.modules.model.utils import build_payload, call_run_endpoint
 from aixplain.factories import ModelFactory
-from aixplain.enums import Function
+from aixplain.enums import Function, FunctionType
 from urllib.parse import urljoin
 from aixplain.modules.model.response import ModelResponse, ResponseStatus
 from aixplain.modules.model.model_response_streamer import ModelResponseStreamer
@@ -34,7 +34,8 @@ from aixplain.modules.model.model_parameters import ModelParameters
 from aixplain.modules.model.llm_model import LLM
 from aixplain.modules.model.index_model import IndexModel
 from aixplain.modules.model.utility_model import UtilityModel
-from aixplain.modules.model.connector import ConnectorModel
+from aixplain.modules.model.connector import ConnectorModel, AuthenticationSchema
+from aixplain.modules.model.connection import ConnectionModel, ConnectAction
 
 
 def test_build_payload():
@@ -732,3 +733,69 @@ def test_create_model_from_response(payload, expected_model_class):
     assert model.function == Function(payload["function"]["id"])
     assert model.function_type == FunctionType(payload["functionType"])
     assert model.api_key == payload["api_key"]
+
+
+@pytest.mark.parametrize(
+    "authentication_schema, name, token, client_id, client_secret",
+    [
+        (AuthenticationSchema.BEARER, "test-name", "test-token", None, None),
+        (AuthenticationSchema.OAUTH, "test-name", None, "test-client-id", "test-client-secret"),
+    ],
+)
+def test_connector_connect(mocker, authentication_schema, name, token, client_id, client_secret):
+    mocker.patch("aixplain.modules.model.connector.ConnectorModel.run", return_value={"id": "test-id"})
+    connector = ConnectorModel(
+        id="connector-id",
+        name="connector-name",
+        function=Function.UTILITIES,
+        function_type=FunctionType.CONNECTOR,
+        supplier="aiXplain",
+        api_key="api_key",
+        version={"id": "1.0"},
+    )
+    response = connector.connect(
+        authentication_schema=authentication_schema, name=name, token=token, client_id=client_id, client_secret=client_secret
+    )
+    assert response == {"id": "test-id"}
+
+
+def test_connection_init_with_actions(mocker):
+    mocker.patch(
+        "aixplain.modules.model.Model.run",
+        side_effect=[
+            ModelResponse(
+                status=ResponseStatus.SUCCESS,
+                data=[{"displayName": "test-name", "description": "test-description", "name": "test-code"}],
+            ),
+            ModelResponse(
+                status=ResponseStatus.SUCCESS,
+                data=[{"inputs": [{"code": "test-code", "name": "test-name", "description": "test-description"}]}],
+            ),
+        ],
+    )
+    connection = ConnectionModel(
+        id="connection-id",
+        name="connection-name",
+        function=Function.UTILITIES,
+        function_type=FunctionType.CONNECTION,
+        supplier="aiXplain",
+        api_key="api_key",
+        version={"id": "1.0"},
+    )
+    assert connection.id == "connection-id"
+    assert connection.name == "connection-name"
+    assert connection.function == Function.UTILITIES
+    assert connection.function_type == FunctionType.CONNECTION
+    assert connection.api_key == "api_key"
+    assert connection.version == {"id": "1.0"}
+    assert connection.actions is not None
+    assert len(connection.actions) == 1
+    assert connection.actions[0].name == "test-name"
+    assert connection.actions[0].description == "test-description"
+    assert connection.actions[0].code == "test-code"
+
+    action = ConnectAction(code="test-code", name="test-name", description="test-description")
+    inputs = connection.get_action_inputs(action)
+    assert "test-code" in inputs
+    assert inputs["test-code"]["name"] == "test-name"
+    assert inputs["test-code"]["description"] == "test-description"

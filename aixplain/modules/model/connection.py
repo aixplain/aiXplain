@@ -17,7 +17,7 @@ class ConnectAction:
         self.inputs = inputs
 
     def __repr__(self):
-        return f"ConnectAction(code={self.code}, code={self.code})"
+        return f"ConnectAction(code={self.code}, name={self.name})"
 
 
 class ConnectionModel(Model):
@@ -100,5 +100,7 @@ class ConnectionModel(Model):
             f"It was not possible to get the inputs for the action {action}. Error {response.error_code}: {response.error_message}"
         )
 
-    def run(self, action: ConnectAction, inputs: Dict):
-        return super().run({"action": action.code, "data": inputs})
+    def run(self, action: Union[ConnectAction, Text], inputs: Dict):
+        if isinstance(action, ConnectAction):
+            action = action.code
+        return super().run({"action": action, "data": inputs})
