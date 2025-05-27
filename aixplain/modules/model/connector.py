@@ -3,12 +3,34 @@ from aixplain.modules.model import Model, ModelResponse
 from aixplain.utils import config
 from typing import Text, Optional, Union, Dict
 from enum import Enum
+from pydantic import BaseModel
 
 
 class AuthenticationSchema(Enum):
     BEARER = "BEARER_TOKEN"
     OAUTH = "OAUTH"
     OAUTH2 = "OAUTH2"
+
+
+class BaseAuthenticationParams(BaseModel):
+    name: Optional[Text] = None
+    authentication_schema: AuthenticationSchema = AuthenticationSchema.OAUTH2
+    connector_id: Optional[Text] = None
+
+
+class BearerAuthenticationParams(BaseAuthenticationParams):
+    token: Text
+    authentication_schema: AuthenticationSchema = AuthenticationSchema.BEARER
+
+
+class OAuthAuthenticationParams(BaseAuthenticationParams):
+    client_id: Text
+    client_secret: Text
+    authentication_schema: AuthenticationSchema = AuthenticationSchema.OAUTH
+
+
+class OAuth2AuthenticationParams(BaseAuthenticationParams):
+    authentication_schema: AuthenticationSchema = AuthenticationSchema.OAUTH2
 
 
 class ConnectorModel(Model):
@@ -57,61 +79,65 @@ class ConnectorModel(Model):
         self.url = config.MODELS_RUN_URL
         self.backend_url = config.BACKEND_URL
 
-    def connect(self, authentication_schema: AuthenticationSchema, name: Optional[Text] = None, **kwargs) -> ModelResponse:
+    def connect(self, args: Optional[BaseAuthenticationParams] = None, **kwargs) -> ModelResponse:
         """Connect to the connector
 
         Examples:
             - For Bearer Token Authentication:
-                >>> connector.connect(AuthenticationSchema.BEARER, name="My Connection", token="1234567890")
+                >>> connector.connect(BearerAuthenticationSchema(name="My Connection", token="1234567890"))
+                >>> connector.connect(BearerAuthenticationSchema(token="1234567890"))
+                >>> connector.connect(token="1234567890")
             - For OAuth Authentication:
-                >>> connector.connect(AuthenticationSchema.OAUTH, name="My Connection", client_id="1234567890", client_secret="1234567890")
+                >>> connector.connect(OAuthAuthenticationSchema(name="My Connection", client_id="1234567890", client_secret="1234567890"))
+                >>> connector.connect(OAuthAuthenticationSchema(client_id="1234567890", client_secret="1234567890"))
+                >>> connector.connect(client_id="1234567890", client_secret="1234567890")
             - For OAuth2 Authentication:
-                >>> connector.connect(AuthenticationSchema.OAUTH2, name="My Connection")
+                >>> connector.connect(OAuth2AuthenticationSchema(name="My Connection"))
+                >>> connector.connect()
                 Make sure to click on the redirect url to complete the connection.
-
-        Args:
-            authentication_schema (AuthenticationSchema): Authentication schema
-            name (Text, optional): Name of the connection. Defaults to None.
-            **kwargs: Additional arguments
 
         Returns:
             id: Connection ID (retrieve it with ModelFactory.get(id))
+            redirectUrl: Redirect URL to complete the connection (only for OAuth2)
         """
-
-        if authentication_schema == AuthenticationSchema.BEARER:
-            assert "token" in kwargs, "`token` is required for Bearer Token Authentication"
+        if args is None:
+            name = kwargs.get("name")
             token = kwargs.get("token")
+            client_id = kwargs.get("client_id")
+            client_secret = kwargs.get("client_secret")
+            if token:
+                args = BearerAuthenticationParams(name=name, token=token)
+            elif client_id and client_secret:
+                args = OAuthAuthenticationParams(name=name, client_id=client_id, client_secret=client_secret)
+            else:
+                args = OAuth2AuthenticationParams(name=name)
+
+        authentication_schema = args.authentication_schema
+        if authentication_schema == AuthenticationSchema.BEARER:
             return self.run(
                 {
-                    "name": name,
+                    "name": args.name,
                     "authScheme": authentication_schema.value,
                     "data": {
-                        "token": token,
+                        "token": args.token,
                     },
                 }
             )
         elif authentication_schema == AuthenticationSchema.OAUTH:
-            assert (
-                "client_id" in kwargs and "client_secret" in kwargs
-            ), "`client_id` and `client_secret` are required for OAuth Authentication"
-            client_id = kwargs.get("client_id")
-            client_secret = kwargs.get("client_secret")
             return self.run(
                 {
-                    "name": name,
+                    "name": args.name,
                     "authScheme": authentication_schema.value,
                     "data": {
-                        "client_id": client_id,
-                        "client_secret": client_secret,
+                        "client_id": args.client_id,
+                        "client_secret": args.client_secret,
                     },
                 }
             )
         elif authentication_schema == AuthenticationSchema.OAUTH2:
             return self.run(
                 {
-                    "name": name,
+                    "name": args.name,
                     "authScheme": authentication_schema.value,
                 }
             )
-        else:
-            raise ValueError(f"Invalid authentication schema: {authentication_schema}")

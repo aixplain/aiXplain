@@ -33,7 +33,7 @@ from aixplain.enums.asset_status import AssetStatus
 from aixplain.modules.model.model_parameters import ModelParameters
 from aixplain.modules.model.llm_model import LLM
 from aixplain.modules.model.index_model import IndexModel
-from aixplain.modules.model.utility_model import UtilityModel
+from aixplain.modules.model.utility_model import ScriptModel
 from aixplain.modules.model.connector import ConnectorModel, AuthenticationSchema
 from aixplain.modules.model.connection import ConnectionModel, ConnectAction
 
@@ -718,7 +718,7 @@ def test_model_not_supports_streaming(mocker):
                 "params": {},
                 "version": {"id": "1.0"},
             },
-            UtilityModel,
+            ScriptModel,
         ),
     ],
 )

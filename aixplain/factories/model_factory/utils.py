@@ -3,7 +3,7 @@ import logging
 from aixplain.modules.model import Model
 from aixplain.modules.model.llm_model import LLM
 from aixplain.modules.model.index_model import IndexModel
-from aixplain.modules.model.utility_model import UtilityModel, UtilityModelInput
+from aixplain.modules.model.utility_model import ScriptModel, UtilityModelInput
 from aixplain.modules.model.connector import ConnectorModel
 from aixplain.modules.model.connection import ConnectionModel
 from aixplain.enums import (
@@ -82,7 +82,7 @@ def create_model_from_response(response: Dict) -> Model:
     elif function_type == FunctionType.CONNECTION:
         ModelClass = ConnectionModel
     elif function == Function.UTILITIES:
-        ModelClass = UtilityModel
+        ModelClass = ScriptModel
         inputs = [
             UtilityModelInput(name=param["name"], description=param.get("description", ""), type=DataType(param["dataType"]))
             for param in response["params"]

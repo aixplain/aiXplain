@@ -34,3 +34,4 @@ from .finetune_factory import FinetuneFactory
 from .wallet_factory import WalletFactory
 from .api_key_factory import APIKeyFactory
 from .index_factory import IndexFactory
+from .tool_factory import ToolFactory

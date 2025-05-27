@@ -24,7 +24,7 @@ from typing import Callable, Dict, List, Optional, Text, Tuple, Union
 import json
 import logging
 from aixplain.modules.model import Model
-from aixplain.modules.model.utility_model import UtilityModel, UtilityModelInput
+from aixplain.modules.model.utility_model import ScriptModel, UtilityModelInput
 from aixplain.enums import (
     Function,
     Language,
@@ -58,7 +58,7 @@ class ModelFactory:
         description: Optional[Text] = None,
         output_examples: Text = "",
         api_key: Optional[Text] = None,
-    ) -> UtilityModel:
+    ) -> ScriptModel:
         """Create a utility model
 
         Args:
@@ -72,7 +72,7 @@ class ModelFactory:
             UtilityModel: created utility model
         """
         api_key = config.TEAM_API_KEY if api_key is None else api_key
-        utility_model = UtilityModel(
+        utility_model = ScriptModel(
             id="",
             name=name,
             description=description,
@@ -87,9 +87,7 @@ class ModelFactory:
         url = urljoin(cls.backend_url, "sdk/utilities")
         headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
         try:
-            logging.info(
-                f"Start service for POST Utility Model - {url} - {headers} - {payload}"
-            )
+            logging.info(f"Start service for POST Utility Model - {url} - {headers} - {payload}")
             r = _request_with_retry("post", url, headers=headers, json=payload)
             resp = r.json()
         except Exception as e:
@@ -98,19 +96,17 @@ class ModelFactory:
 
         if 200 <= r.status_code < 300:
             utility_model.id = resp["id"]
-            logging.info(
-                f"Utility Model Creation: Model {utility_model.id} instantiated."
-            )
+            logging.info(f"Utility Model Creation: Model {utility_model.id} instantiated.")
             return utility_model
         else:
-            error_message = f"Utility Model Creation: Failed to create utility model. Status Code: {r.status_code}. Error: {resp}"
+            error_message = (
+                f"Utility Model Creation: Failed to create utility model. Status Code: {r.status_code}. Error: {resp}"
+            )
             logging.error(error_message)
             raise Exception(error_message)
 
     @classmethod
-    def get(
-        cls, model_id: Text, api_key: Optional[Text] = None, use_cache: bool = False
-    ) -> Model:
+    def get(cls, model_id: Text, api_key: Optional[Text] = None, use_cache: bool = False) -> Model:
         """Create a 'Model' object from model id"""
         cache = AssetCache(Model)
 
@@ -141,9 +137,7 @@ class ModelFactory:
         return model
 
     @classmethod
-    def _fetch_model_by_id(
-        cls, model_id: Text, api_key: Optional[Text] = None
-    ) -> Model:
+    def _fetch_model_by_id(cls, model_id: Text, api_key: Optional[Text] = None) -> Model:
         resp = None
         try:
             url = urljoin(cls.backend_url, f"sdk/models/{model_id}")
@@ -223,9 +217,7 @@ class ModelFactory:
                 and ownership is None
                 and sort_by is None
             ), "Cannot filter by function, suppliers, source languages, target languages, is finetunable, ownership, sort by when using model ids"
-            assert (
-                len(model_ids) <= page_size
-            ), "Page size must be greater than the number of model ids"
+            assert len(model_ids) <= page_size, "Page size must be greater than the number of model ids"
             models, total = get_model_from_ids(model_ids, api_key), len(model_ids)
         else:
             from aixplain.factories.model_factory.utils import get_assets_from_page
@@ -303,9 +295,7 @@ class ModelFactory:
         return response_list
 
     @classmethod
-    def list_functions(
-        cls, verbose: Optional[bool] = False, api_key: Optional[Text] = None
-    ) -> List[Dict]:
+    def list_functions(cls, verbose: Optional[bool] = False, api_key: Optional[Text] = None) -> List[Dict]:
         """Lists supported model functions on platform.
 
         Args:
@@ -403,9 +393,7 @@ class ModelFactory:
             "onboardingParams": {},
         }
         logging.debug(f"Body: {str(payload)}")
-        response = _request_with_retry(
-            "post", create_url, headers=headers, json=payload
-        )
+        response = _request_with_retry("post", create_url, headers=headers, json=payload)
 
         assert response.status_code == 201
 
@@ -469,9 +457,7 @@ class ModelFactory:
             }
         payload = {"image": image_tag, "sha": image_hash, "hostMachine": host_machine}
         logging.debug(f"Body: {str(payload)}")
-        response = _request_with_retry(
-            "post", onboard_url, headers=headers, json=payload
-        )
+        response = _request_with_retry("post", onboard_url, headers=headers, json=payload)
         if response.status_code == 201:
             message = "Your onboarding request has been submitted to an aiXplain specialist for finalization. We will notify you when the process is completed."
             logging.info(message)
@@ -533,9 +519,7 @@ class ModelFactory:
         return response_dicts
 
     @classmethod
-    def get_huggingface_model_status(
-        cls, model_id: Text, api_key: Optional[Text] = None
-    ):
+    def get_huggingface_model_status(cls, model_id: Text, api_key: Optional[Text] = None):
         """Gets the on-boarding status of a Hugging Face model with ID MODEL_ID.
 
         Args:

@@ -5,7 +5,7 @@ from urllib.parse import urljoin
 from aixplain.utils import config
 from aixplain.enums import DataType, Function
 from aixplain.enums.asset_status import AssetStatus
-from aixplain.modules.model.utility_model import UtilityModel, UtilityModelInput
+from aixplain.modules.model.utility_model import ScriptModel, UtilityModelInput
 from aixplain.modules.model.utils import parse_code, parse_code_decorated
 from unittest.mock import patch, MagicMock
 import warnings
@@ -67,7 +67,7 @@ def test_utility_model_to_dict():
                     "utility_model_test",
                 ),
             ):
-                utility_model = UtilityModel(
+                utility_model = ScriptModel(
                     id="123",
                     name="utility_model_test",
                     description="utility_model_test",
@@ -112,7 +112,7 @@ def test_update_utility_model():
                     mock.get(urljoin(config.BACKEND_URL, f"sdk/models/{model_id}"), status_code=200)
                     mock.put(urljoin(config.BACKEND_URL, f"sdk/utilities/{model_id}"), json={"id": model_id})
 
-                    utility_model = UtilityModel(
+                    utility_model = ScriptModel(
                         id=model_id,
                         name="utility_model_test",
                         description="utility_model_test",
@@ -158,7 +158,7 @@ def test_save_utility_model():
                     mock.get(urljoin(config.BACKEND_URL, f"sdk/models/{model_id}"), status_code=200)
                     mock.put(urljoin(config.BACKEND_URL, f"sdk/utilities/{model_id}"), json={"id": model_id})
 
-                    utility_model = UtilityModel(
+                    utility_model = ScriptModel(
                         id=model_id,
                         name="utility_model_test",
                         description="utility_model_test",
@@ -192,7 +192,7 @@ def test_delete_utility_model():
                 return_value='def main(input_string:str):\n    """\n    Get driving directions from start_location to end_location\n    """\n    return f"This is the output for input: {input_string}"\n',
             ):
                 mock.delete(urljoin(config.BACKEND_URL, "sdk/utilities/123"), status_code=200, json={"id": "123"})
-                utility_model = UtilityModel(
+                utility_model = ScriptModel(
                     id="123",
                     name="utility_model_test",
                     description="utility_model_test",
@@ -270,7 +270,7 @@ def test_validate_new_model():
             return_value='def main(input_string:str):\n    """\n    Get driving directions from start_location to end_location\n    """\n    return f"This is the output for input: {input_string}"\n',
         ):
             # Test with valid inputs
-            utility_model = UtilityModel(
+            utility_model = ScriptModel(
                 id="",  # Empty ID for new model
                 name="utility_model_test",
                 description="utility_model_test",
@@ -311,7 +311,7 @@ def test_validate_existing_model():
         url = urljoin(config.BACKEND_URL, f"sdk/models/{model_id}")
         mock.get(url, status_code=200)
 
-        utility_model = UtilityModel(
+        utility_model = ScriptModel(
             id=model_id,
             name="utility_model_test",
             description="utility_model_test",
@@ -330,7 +330,7 @@ def test_model_exists_success():
         url = urljoin(config.BACKEND_URL, f"sdk/models/{model_id}")
         mock.get(url, status_code=200)
 
-        utility_model = UtilityModel(
+        utility_model = ScriptModel(
             id=model_id,
             name="utility_model_test",
             description="utility_model_test",
@@ -349,7 +349,7 @@ def test_model_exists_failure():
         url = urljoin(config.BACKEND_URL, f"sdk/models/{model_id}")
         mock.get(url, status_code=404)
 
-        utility_model = UtilityModel(
+        utility_model = ScriptModel(
             id=model_id,
             name="utility_model_test",
             description="utility_model_test",
@@ -364,7 +364,7 @@ def test_model_exists_failure():
 
 def test_model_exists_empty_id():
     """Test _model_exists with empty ID"""
-    utility_model = UtilityModel(
+    utility_model = ScriptModel(
         id="",  # Empty ID
         name="utility_model_test",
         description="utility_model_test",
@@ -391,7 +391,7 @@ def test_utility_model_with_return_annotation():
                 """
                 return input_str
 
-            utility_model = UtilityModel(
+            utility_model = ScriptModel(
                 id="123",
                 name="location_test",
                 description="Get location information",
