@@ -35,7 +35,7 @@ from aixplain.modules.model.llm_model import LLM
 from aixplain.modules.model.index_model import IndexModel
 from aixplain.modules.model.utility_model import ScriptModel
 from aixplain.modules.model.connector import ConnectorModel, AuthenticationSchema
-from aixplain.modules.model.connection import ConnectionModel, ConnectAction
+from aixplain.modules.model.connection import ConnectionTool, ConnectAction
 
 
 def test_build_payload():
@@ -170,7 +170,7 @@ def test_get_model_error_response():
 
 
 def test_get_assets_from_page_error():
-    from aixplain.factories.model_factory.utils import get_assets_from_page
+    from aixplain.factories.model_factory.mixins.model_list import get_assets_from_page
 
     with requests_mock.Mocker() as mock:
         query = "test-query"
@@ -197,7 +197,7 @@ def test_get_assets_from_page_error():
 
 
 def test_get_model_from_ids():
-    from aixplain.factories.model_factory.utils import get_model_from_ids
+    from aixplain.factories.model_factory.mixins.model_list import get_model_from_ids
 
     with requests_mock.Mocker() as mock:
         model_ids = ["test-model-id-1", "test-model-id-2"]
@@ -773,7 +773,7 @@ def test_connection_init_with_actions(mocker):
             ),
         ],
     )
-    connection = ConnectionModel(
+    connection = ConnectionTool(
         id="connection-id",
         name="connection-name",
         function=Function.UTILITIES,

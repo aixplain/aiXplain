@@ -1,7 +1,8 @@
 from aixplain.enums import Function, Supplier, FunctionType, ResponseStatus
 from aixplain.modules.model import Model
+from aixplain.modules.model.model_parameters import ModelParameters
 from aixplain.utils import config
-from typing import Text, Optional, Union, Dict
+from typing import Text, Optional, Union, Dict, List
 
 
 class ConnectAction:
@@ -17,10 +18,13 @@ class ConnectAction:
         self.inputs = inputs
 
     def __repr__(self):
-        return f"ConnectAction(code={self.code}, name={self.name})"
+        return f"Action(code={self.code}, name={self.name})"
 
 
-class ConnectionModel(Model):
+class ConnectionTool(Model):
+    actions: List[ConnectAction]
+    scope: Optional[List[ConnectAction]] = None
+
     def __init__(
         self,
         id: Text,
@@ -47,6 +51,7 @@ class ConnectionModel(Model):
             function (Function, optional): model AI function. Defaults to None.
             is_subscribed (bool, optional): Is the user subscribed. Defaults to False.
             cost (Dict, optional): model price. Defaults to None.
+            scope (Text, optional): action scope of the connection. Defaults to None.
             **additional_info: Any additional Model info to be saved
         """
         assert function_type == FunctionType.CONNECTION, "Connection only supports connection function"
@@ -66,6 +71,7 @@ class ConnectionModel(Model):
         self.url = config.MODELS_RUN_URL
         self.backend_url = config.BACKEND_URL
         self.actions = self._get_actions()
+        self.scope = None
 
     def _get_actions(self):
         response = super().run({"action": "LIST_ACTIONS", "data": " "})
@@ -104,3 +110,16 @@ class ConnectionModel(Model):
         if isinstance(action, ConnectAction):
             action = action.code
         return super().run({"action": action, "data": inputs})
+
+    def get_parameters(self) -> Dict:
+        assert self.scope is not None, f"Please set the scope of actions for the connection '{self.id}'."
+        response = {
+            "scope": [
+                {"name": action.name, "description": action.description, "inputs": self.get_action_inputs(action)}
+                for action in self.scope
+            ]
+        }
+        return ModelParameters(response)
+
+    def __repr__(self):
+        return f"ConnectionTool(id={self.id}, name={self.name})"

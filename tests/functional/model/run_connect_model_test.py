@@ -2,7 +2,7 @@ import os
 from aixplain.enums import ResponseStatus
 from aixplain.factories import ModelFactory
 from aixplain.modules.model.connector import ConnectorModel, AuthenticationSchema
-from aixplain.modules.model.connection import ConnectionModel
+from aixplain.modules.model.connection import ConnectionTool
 
 
 def test_run_connect_model():
@@ -19,7 +19,7 @@ def test_run_connect_model():
     connection_id = response.data["id"]
     # get slack connection
     connection = ModelFactory.get(connection_id)
-    assert isinstance(connection, ConnectionModel)
+    assert isinstance(connection, ConnectionTool)
     assert connection.id == connection_id
     assert connection.actions is not None
 

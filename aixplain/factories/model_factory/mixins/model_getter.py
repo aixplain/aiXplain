@@ -6,7 +6,7 @@ from aixplain.modules.model import Model
 from aixplain.modules.model.llm_model import LLM
 from aixplain.modules.model.index_model import IndexModel
 from aixplain.modules.model.connector import ConnectorModel
-from aixplain.modules.model.connection import ConnectionModel
+from aixplain.modules.model.connection import ConnectionTool
 from aixplain.modules.model.utility_model import ScriptModel
 from aixplain.modules.model.utility_model import UtilityModelInput
 from aixplain.utils import config
@@ -72,7 +72,7 @@ def create_model_from_response(response: Dict) -> Model:
     elif function_type == FunctionType.CONNECTOR:
         ModelClass = ConnectorModel
     elif function_type == FunctionType.CONNECTION:
-        ModelClass = ConnectionModel
+        ModelClass = ConnectionTool
     elif function == Function.UTILITIES:
         ModelClass = ScriptModel
         inputs = [

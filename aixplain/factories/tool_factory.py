@@ -1,6 +1,7 @@
+import warnings
 from aixplain.enums import FunctionType
 from aixplain.factories import ModelFactory
-from aixplain.factories.model_factory.mixins import ModelGetterMixin
+from aixplain.factories.model_factory.mixins import ModelGetterMixin, ModelListMixin
 from aixplain.modules.model import Model
 from aixplain.modules.model.index_model import IndexModel
 from aixplain.modules.model.connector import ConnectorModel
@@ -13,7 +14,7 @@ from aixplain.enums import ResponseStatus
 from aixplain.utils import config
 
 
-class ToolFactory(ModelGetterMixin):
+class ToolFactory(ModelGetterMixin, ModelListMixin):
     backend_url = config.BACKEND_URL
 
     @classmethod
@@ -145,6 +146,10 @@ class ToolFactory(ModelGetterMixin):
             response = connector.connect(params)
             assert response.status == ResponseStatus.SUCCESS, f"Failed to connect to {connector.id} - {response.error_message}"
             connection = cls.get(response.data["id"])
+            if "redirectURL" in response.data:
+                warnings.warn(
+                    f"Before using the tool, please visit the following URL to complete the connection: {response.data['redirectURL']}"
+                )
             return connection
         else:
             raise ValueError("ToolFactory Error: Invalid params")
