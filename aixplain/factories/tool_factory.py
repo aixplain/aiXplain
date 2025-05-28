@@ -1,5 +1,6 @@
 from aixplain.enums import FunctionType
 from aixplain.factories import ModelFactory
+from aixplain.factories.model_factory.mixins import ModelGetterMixin
 from aixplain.modules.model import Model
 from aixplain.modules.model.index_model import IndexModel
 from aixplain.modules.model.connector import ConnectorModel
@@ -9,9 +10,12 @@ from aixplain.enums.index_stores import IndexStores
 from aixplain.modules.model.utility_model import BaseScriptModelParams
 from typing import Optional, Text, Union
 from aixplain.enums import ResponseStatus
+from aixplain.utils import config
 
 
-class ToolFactory:
+class ToolFactory(ModelGetterMixin):
+    backend_url = config.BACKEND_URL
+
     @classmethod
     def create(
         cls,
@@ -91,7 +95,7 @@ class ToolFactory:
         if params is None:
             integration_model = None
             if isinstance(integration, Text):
-                integration_model = ModelFactory.get(integration)
+                integration_model = cls.get(integration)
             elif isinstance(integration, Model):
                 integration_model = integration
                 integration = integration_model.id
@@ -134,13 +138,13 @@ class ToolFactory:
             return IndexFactory.create(params=params)
         elif isinstance(params, BaseAuthenticationParams):
             assert params.connector_id is not None, "Please provide the ID of the service you want to connect to"
-            connector = ModelFactory.get(params.connector_id)
+            connector = cls.get(params.connector_id)
             assert (
                 connector.function_type == FunctionType.CONNECTOR
             ), f"The model you are trying to connect ({connector.id}) to is not a connector."
             response = connector.connect(params)
             assert response.status == ResponseStatus.SUCCESS, f"Failed to connect to {connector.id} - {response.error_message}"
-            connection = ModelFactory.get(response.data["id"])
+            connection = cls.get(response.data["id"])
             return connection
         else:
             raise ValueError("ToolFactory Error: Invalid params")

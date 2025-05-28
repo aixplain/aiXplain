@@ -723,7 +723,7 @@ def test_model_not_supports_streaming(mocker):
     ],
 )
 def test_create_model_from_response(payload, expected_model_class):
-    from aixplain.factories.model_factory.utils import create_model_from_response
+    from aixplain.factories.model_factory.mixins import create_model_from_response
     from aixplain.enums import FunctionType
 
     model = create_model_from_response(payload)
