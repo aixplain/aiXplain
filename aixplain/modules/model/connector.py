@@ -33,6 +33,21 @@ class OAuth2AuthenticationParams(BaseAuthenticationParams):
     authentication_schema: AuthenticationSchema = AuthenticationSchema.OAUTH2
 
 
+def build_connector_params(**kwargs) -> BaseAuthenticationParams:
+    name = kwargs.get("name")
+    token = kwargs.get("token")
+    client_id = kwargs.get("client_id")
+    client_secret = kwargs.get("client_secret")
+    connector_id = kwargs.get("connector_id")
+    if token:
+        args = BearerAuthenticationParams(name=name, token=token, connector_id=connector_id)
+    elif client_id and client_secret:
+        args = OAuthAuthenticationParams(name=name, client_id=client_id, client_secret=client_secret, connector_id=connector_id)
+    else:
+        args = OAuth2AuthenticationParams(name=name, connector_id=connector_id)
+    return args
+
+
 class ConnectorModel(Model):
     def __init__(
         self,
@@ -101,16 +116,7 @@ class ConnectorModel(Model):
             redirectUrl: Redirect URL to complete the connection (only for OAuth2)
         """
         if args is None:
-            name = kwargs.get("name")
-            token = kwargs.get("token")
-            client_id = kwargs.get("client_id")
-            client_secret = kwargs.get("client_secret")
-            if token:
-                args = BearerAuthenticationParams(name=name, token=token)
-            elif client_id and client_secret:
-                args = OAuthAuthenticationParams(name=name, client_id=client_id, client_secret=client_secret)
-            else:
-                args = OAuth2AuthenticationParams(name=name)
+            args = build_connector_params(**kwargs)
 
         authentication_schema = args.authentication_schema
         if authentication_schema == AuthenticationSchema.BEARER:

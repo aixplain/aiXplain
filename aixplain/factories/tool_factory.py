@@ -1,7 +1,11 @@
 from aixplain.enums import FunctionType
+from aixplain.factories import ModelFactory
 from aixplain.modules.model import Model
+from aixplain.modules.model.index_model import IndexModel
+from aixplain.modules.model.connector import ConnectorModel
 from aixplain.modules.model.connector import BaseAuthenticationParams
-from aixplain.factories.index_factory.utils import BaseIndexParams
+from aixplain.factories.index_factory.utils import BaseIndexParams, AirParams, VectaraParams, ZeroEntropyParams, GraphRAGParams
+from aixplain.enums.index_stores import IndexStores
 from aixplain.modules.model.utility_model import BaseScriptModelParams
 from typing import Optional, Text, Union
 from aixplain.enums import ResponseStatus
@@ -10,43 +14,115 @@ from aixplain.enums import ResponseStatus
 class ToolFactory:
     @classmethod
     def create(
-        cls, params: Optional[Union[BaseScriptModelParams, BaseIndexParams, BaseAuthenticationParams]] = None, **kwargs
+        cls,
+        integration: Optional[Union[Text, Model]] = None,
+        params: Optional[Union[BaseScriptModelParams, BaseIndexParams, BaseAuthenticationParams]] = None,
+        **kwargs,
     ) -> Model:
         """Factory method to create indexes, script models and connections
 
         Examples:
-            - Create a script model:
+            Create a script model (option 1):
+                Option 1:
+                    from aixplain.modules.model.utility_model import BaseScriptModelParams
 
-                >>> from aixplain.modules.model.utility_model import BaseScriptModelParams
+                    def add(a: int, b: int) -> int:
+                        return a + b
 
-                >>> def add(aaa: int, bbb: int) -> int: return aaa + bbb
+                    params = BaseScriptModelParams(
+                        name="My Script Model",
+                        description="My Script Model Description",
+                        code=add
+                    )
+                    tool = ToolFactory.create(params=params)
 
-                >>> params = BaseScriptModelParams(name="My Script Model", description="My Script Model Description", code=add)
+                Option 2:
+                    def add(a: int, b: int) -> int:
+                        \"\"\"Add two numbers\"\"\"
+                        return a + b
 
-                >>> tool = ToolFactory.create(params)
-            - Create a search collection:
+                    tool = ToolFactory.create(
+                        name="My Script Model",
+                        code=add
+                    )
 
-                >>> from aixplain.factories.index_factory.utils import AirParams
+            Create a search collection:
+                Option 1:
+                    from aixplain.factories.index_factory.utils import AirParams
 
-                >>> params = AirParams(name="My Search Collection", description="My Search Collection Description")
+                    params = AirParams(
+                        name="My Search Collection",
+                        description="My Search Collection Description"
+                    )
+                    tool = ToolFactory.create(params=params)
 
-                >>> tool = ToolFactory.create(params)
-            - Create a connector:
+                Option 2:
+                    from aixplain.enums.index_stores import IndexStores
 
-                >>> from aixplain.modules.model.connector import BearerAuthenticationParams
+                    tool = ToolFactory.create(
+                        integration=IndexStores.VECTARA.get_model_id(),
+                        name="My Search Collection",
+                        description="My Search Collection Description"
+                    )
 
-                >>> params = BearerAuthenticationParams(connector_id="my_connector_id", token="my_token", name="My Connection")
+            Create a connector:
+                Option 1:
+                    from aixplain.modules.model.connector import BearerAuthenticationParams
 
-                >>> tool = ToolFactory.create(params)
+                    params = BearerAuthenticationParams(
+                        connector_id="my_connector_id",
+                        token="my_token",
+                        name="My Connection"
+                    )
+                    tool = ToolFactory.create(params=params)
+
+                Option 2:
+                    tool = ToolFactory.create(
+                        integration="my_connector_id",
+                        name="My Connection",
+                        token="my_token"
+                    )
 
         Args:
             params: The parameters for the tool
         Returns:
             The created tool
         """
-        if isinstance(params, BaseScriptModelParams):
-            from aixplain.factories import ModelFactory
+        if params is None:
+            integration_model = None
+            if isinstance(integration, Text):
+                integration_model = ModelFactory.get(integration)
+            elif isinstance(integration, Model):
+                integration_model = integration
+                integration = integration_model.id
 
+            assert (
+                isinstance(integration_model, ConnectorModel)
+                or isinstance(integration_model, IndexModel)
+                or kwargs.get("code") is not None
+            ), "Please provide the proper integration (ConnectorModel, IndexModel or ScriptModel code) or params to create a model tool."
+            if isinstance(integration_model, ConnectorModel):
+                from aixplain.modules.model.connector import build_connector_params
+
+                kwargs["connector_id"] = integration_model.id
+                params = build_connector_params(**kwargs)
+            elif isinstance(integration_model, IndexModel):
+                if IndexStores.AIR.get_model_id() == integration_model.id:
+                    params = AirParams(**kwargs)
+                elif IndexStores.VECTARA.get_model_id() == integration_model.id:
+                    params = VectaraParams(**kwargs)
+                elif IndexStores.ZERO_ENTROPY.get_model_id() == integration_model.id:
+                    params = ZeroEntropyParams(**kwargs)
+                elif IndexStores.GRAPHRAG.get_model_id() == integration_model.id:
+                    params = GraphRAGParams(**kwargs)
+                else:
+                    raise ValueError(
+                        f"ToolFactory Error: The index store '{integration_model.id} - {integration_model.name}' is not supported."
+                    )
+            else:
+                params = BaseScriptModelParams(**kwargs)
+
+        if isinstance(params, BaseScriptModelParams):
             return ModelFactory.create_utility_model(
                 name=params.name,
                 description=params.description,
@@ -57,8 +133,6 @@ class ToolFactory:
 
             return IndexFactory.create(params=params)
         elif isinstance(params, BaseAuthenticationParams):
-            from aixplain.factories import ModelFactory
-
             assert params.connector_id is not None, "Please provide the ID of the service you want to connect to"
             connector = ModelFactory.get(params.connector_id)
             assert (
@@ -69,4 +143,4 @@ class ToolFactory:
             connection = ModelFactory.get(response.data["id"])
             return connection
         else:
-            raise ValueError("Invalid params")
+            raise ValueError("ToolFactory Error: Invalid params")

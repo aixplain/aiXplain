@@ -35,8 +35,8 @@ from pydantic import BaseModel
 
 class BaseScriptModelParams(BaseModel):
     name: Text
-    description: Text
     code: Union[Text, Callable]
+    description: Optional[Text] = None
 
 
 @dataclass
