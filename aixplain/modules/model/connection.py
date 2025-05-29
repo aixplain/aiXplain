@@ -115,7 +115,12 @@ class ConnectionTool(Model):
             self.action_scope is not None and len(self.action_scope) > 0
         ), f"Please set the scope of actions for the connection '{self.id}'."
         response = [
-            {"name": action.name, "description": action.description, "inputs": self.get_action_inputs(action)}
+            {
+                "code": action.code,
+                "name": action.name,
+                "description": action.description,
+                "inputs": self.get_action_inputs(action),
+            }
             for action in self.action_scope
         ]
         return response
