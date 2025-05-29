@@ -36,6 +36,7 @@ class PythonInterpreterTool(Tool):
         super().__init__(name="Python Interpreter", description=description, **additional_info)
         self.status = AssetStatus.ONBOARDED  # TODO: change to DRAFT when we have a way to onboard the tool
 
+        
     def to_dict(self):
         return {
             "description": self.description,
@@ -48,3 +49,6 @@ class PythonInterpreterTool(Tool):
 
     def __repr__(self) -> Text:
         return "PythonInterpreterTool()"
+
+    def deploy(self):
+        pass

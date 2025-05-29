@@ -75,7 +75,8 @@ class CustomPythonCodeTool(Tool):
             AssetStatus.ONBOARDED,
         ], "Custom Python Code Tool Error: Status must be DRAFT or ONBOARDED"
 
-
-
     def __repr__(self) -> Text:
         return f"CustomPythonCodeTool(name={self.name})"
+
+    def deploy(self):
+        pass

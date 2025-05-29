@@ -369,7 +369,7 @@ def test_sql_tool(delete_agents_and_team_agents, AgentFactory):
             f.write("")
 
         tool = AgentFactory.create_sql_tool(
-            name="Teste",
+            name="TestDB",
             description="Execute an SQL query and return the result",
             source="ftest.db",
             source_type="sqlite",
@@ -404,7 +404,6 @@ def test_sql_tool(delete_agents_and_team_agents, AgentFactory):
         os.remove("ftest.db")
         if agent:
             agent.delete()
-
 
 @pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
 def test_sql_tool_with_csv(delete_agents_and_team_agents, AgentFactory):
@@ -445,7 +444,7 @@ def test_sql_tool_with_csv(delete_agents_and_team_agents, AgentFactory):
         # Verify tool setup
         assert tool is not None
         assert tool.description == "Execute SQL queries on employee data"
-        assert tool.database.endswith(".db")
+        assert tool.database.split("?")[0].endswith(".db")
         assert tool.tables == ["employees"]
         assert (
             tool.schema
@@ -606,3 +605,113 @@ def test_agent_with_pipeline_tool(delete_agents_and_team_agents, AgentFactory):
 
     assert "hello" in answer["data"]["output"].lower()
     assert "hello pipeline" in answer["data"]["intermediate_steps"][0]["tool_steps"][0]["tool"].lower()
+
+@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
+def test_agent_llm_parameter_preservation(delete_agents_and_team_agents, AgentFactory):
+    """Test that LLM parameters like temperature are preserved when creating agents."""
+    assert delete_agents_and_team_agents
+
+    # Get an LLM instance and customize its temperature
+    llm = ModelFactory.get("671be4886eb56397e51f7541")  # Anthropic Claude 3.5 Sonnet v1
+    original_temperature = llm.temperature
+    custom_temperature = 0.1
+    llm.temperature = custom_temperature
+
+    # Create agent with the custom LLM
+    agent = AgentFactory.create(
+        name="LLM Parameter Test Agent",
+        description="An agent for testing LLM parameter preservation",
+        instructions="Testing LLM parameter preservation",
+        llm=llm,
+    )
+
+    # Verify that the temperature setting was preserved
+    assert agent.llm.temperature == custom_temperature
+
+    # Verify that the agent's LLM is the same instance as the original
+    assert id(agent.llm) == id(llm)
+
+    # Clean up
+    agent.delete()
+
+    # Reset the LLM temperature to its original value
+    llm.temperature = original_temperature
+
+def test_run_agent_with_expected_output():
+    from pydantic import BaseModel
+    from typing import Optional, List
+    from aixplain.modules.agent import AgentResponse
+    from aixplain.modules.agent.output_format import OutputFormat
+
+    class Person(BaseModel):
+        name: str
+        age: int
+        city: Optional[str] = None
+
+    class Response(BaseModel):
+        result: List[Person]
+
+    INSTRUCTIONS = """Answer questions based on the following context:
+
++-----------------+-------+----------------+
+| Name            |   Age | City           |
++=================+=======+================+
+| João Silva      |    34 | São Paulo      |
++-----------------+-------+----------------+
+| Maria Santos    |    28 | Rio de Janeiro |
++-----------------+-------+----------------+
+| Pedro Oliveira  |    45 |                |
++-----------------+-------+----------------+
+| Ana Costa       |    19 | Recife         |
++-----------------+-------+----------------+
+| Carlos Pereira  |    52 | Belo Horizonte |
++-----------------+-------+----------------+
+| Beatriz Lima    |    31 |                |
++-----------------+-------+----------------+
+| Lucas Ferreira  |    25 | Curitiba       |
++-----------------+-------+----------------+
+| Julia Rodrigues |    41 | Salvador       |
++-----------------+-------+----------------+
+| Miguel Almeida  |    37 |                |
++-----------------+-------+----------------+
+| Sofia Carvalho  |    29 | Brasília       |
++-----------------+-------+----------------+"""
+
+    agent = AgentFactory.create(
+        name="Test Agent",
+        description="Test description",
+        instructions=INSTRUCTIONS,
+        llm_id="6646261c6eb563165658bbb1",
+    )
+    # Run the agent
+    response = agent.run("Who have more than 30 years old?", output_format=OutputFormat.JSON, expected_output=Response)
+
+    # Verify response basics
+    assert response is not None
+    assert isinstance(response, AgentResponse)
+
+    try:
+        response_json = json.loads(response.data.output)
+    except Exception:
+        import re
+
+        response_json = re.search(r"```json(.*?)```", response.data.output, re.DOTALL).group(1)
+        response_json = json.loads(response_json)
+    assert "result" in response_json
+    assert len(response_json["result"]) > 0
+
+    more_than_30_years_old = [
+        "João Silva",
+        "Pedro Oliveira",
+        "Carlos Pereira",
+        "Beatriz Lima",
+        "Julia Rodrigues",
+        "Miguel Almeida",
+        "Sofia Carvalho",
+    ]
+
+    for person in response_json["result"]:
+        assert "name" in person
+        assert "age" in person
+        assert "city" in person
+        assert person["name"] in more_than_30_years_old

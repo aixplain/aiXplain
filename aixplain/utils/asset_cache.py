@@ -17,7 +17,7 @@ T = TypeVar("T")
 
 # Constants
 CACHE_FOLDER = ".cache"
-DEFAULT_CACHE_EXPIRY = 86400
+CACHE_DURATION = 86400
 
 
 @dataclass
@@ -51,15 +51,15 @@ class AssetCache(Generic[T]):
 
     def compute_expiry(self):
         try:
-            expiry = int(os.getenv("CACHE_EXPIRY_TIME", DEFAULT_CACHE_EXPIRY))
+            expiry = int(os.getenv("CACHE_EXPIRY_TIME", CACHE_DURATION))
         except Exception as e:
             logger.warning(
                 f"Failed to parse CACHE_EXPIRY_TIME: {e}, "
-                f"fallback to default value {DEFAULT_CACHE_EXPIRY}"
+                f"fallback to default value {CACHE_DURATION}"
             )
             # remove the CACHE_EXPIRY_TIME from the environment variables
             del os.environ["CACHE_EXPIRY_TIME"]
-            expiry = DEFAULT_CACHE_EXPIRY
+            expiry = CACHE_DURATION
 
         return time.time() + int(expiry)
 
@@ -112,7 +112,7 @@ class AssetCache(Generic[T]):
                 data_dict = {}
                 for asset_id, asset in self.store.data.items():
                     try:
-                        data_dict[asset_id] = asset.to_dict()
+                        data_dict[asset_id] = serialize(asset)
                     except Exception as e:
                         logger.error(f"Error serializing {asset_id}: {e}")
                 serializable_store = {
@@ -138,3 +138,18 @@ class AssetCache(Generic[T]):
 
     def has_valid_cache(self) -> bool:
         return self.store.expiry >= time.time() and bool(self.store.data)
+    
+def serialize(obj):
+    if isinstance(obj, (str, int, float, bool, type(None))):
+        return obj
+    elif isinstance(obj, (list, tuple, set)):
+        return [serialize(o) for o in obj]
+    elif isinstance(obj, dict):
+        return {str(k): serialize(v) for k, v in obj.items()}
+    elif hasattr(obj, "to_dict"):
+        return serialize(obj.to_dict())
+    elif hasattr(obj, "__dict__"):
+        return serialize(vars(obj))
+    else:
+        return str(obj)
+

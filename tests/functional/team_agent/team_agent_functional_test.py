@@ -634,3 +634,142 @@ def test_team_agent_with_instructions(delete_agents_and_team_agents):
     team_agent.delete()
     agent_1.delete()
     agent_2.delete()
+
+@pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory, v2.TeamAgent])
+def test_team_agent_llm_parameter_preservation(delete_agents_and_team_agents, run_input_map, TeamAgentFactory):
+    """Test that LLM parameters like temperature are preserved for all LLM roles in team agents."""
+    assert delete_agents_and_team_agents
+
+    # Create a regular agent first
+    agents = create_agents_from_input_map(run_input_map, deploy=True)
+
+    # Get LLM instances and customize their temperatures
+    supervisor_llm = ModelFactory.get("671be4886eb56397e51f7541")  # Anthropic Claude 3.5 Sonnet v1
+    mentalist_llm = ModelFactory.get("671be4886eb56397e51f7541")  # Anthropic Claude 3.5 Sonnet v1
+    inspector_llm = ModelFactory.get("671be4886eb56397e51f7541")  # Anthropic Claude 3.5 Sonnet v1
+    # Set custom temperatures
+    supervisor_llm.temperature = 0.1
+    mentalist_llm.temperature = 0.3
+    inspector_llm.temperature = 0.5
+
+    # Create a team agent with custom LLMs
+    team_agent = TeamAgentFactory.create(
+        name="LLM Parameter Test Team Agent",
+        agents=agents,
+        supervisor_llm=supervisor_llm,
+        mentalist_llm=mentalist_llm,
+        inspector_llm=inspector_llm,
+        llm_id="671be4886eb56397e51f7541",  # Still required even with custom LLMs
+        description="A team agent for testing LLM parameter preservation",
+        use_mentalist=True,
+        use_inspector=True,
+    )
+
+    # Verify that temperature settings were preserved
+    assert team_agent.supervisor_llm.temperature == 0.1
+    assert team_agent.mentalist_llm.temperature == 0.3
+    assert team_agent.inspector_llm.temperature == 0.5
+
+    # Verify that the team agent's LLMs are the same instances as the originals
+    assert id(team_agent.supervisor_llm) == id(supervisor_llm)
+    assert id(team_agent.mentalist_llm) == id(mentalist_llm)
+    assert id(team_agent.inspector_llm) == id(inspector_llm)
+
+    # Clean up
+    team_agent.delete()
+
+def test_run_team_agent_with_expected_output():
+    from pydantic import BaseModel
+    from typing import Optional, List
+    from aixplain.modules.agent import AgentResponse
+    from aixplain.modules.agent.output_format import OutputFormat
+
+    class Person(BaseModel):
+        name: str
+        age: int
+        city: Optional[str] = None
+
+    class Response(BaseModel):
+        result: List[Person]
+
+    INSTRUCTIONS = """Answer questions based on the following context:
+
++-----------------+-------+----------------+
+| Name            |   Age | City           |
++=================+=======+================+
+| João Silva      |    34 | São Paulo      |
++-----------------+-------+----------------+
+| Maria Santos    |    28 | Rio de Janeiro |
++-----------------+-------+----------------+
+| Pedro Oliveira  |    45 |                |
++-----------------+-------+----------------+
+| Ana Costa       |    19 | Recife         |
++-----------------+-------+----------------+
+| Carlos Pereira  |    52 | Belo Horizonte |
++-----------------+-------+----------------+
+| Beatriz Lima    |    31 |                |
++-----------------+-------+----------------+
+| Lucas Ferreira  |    25 | Curitiba       |
++-----------------+-------+----------------+
+| Julia Rodrigues |    41 | Salvador       |
++-----------------+-------+----------------+
+| Miguel Almeida  |    37 |                |
++-----------------+-------+----------------+
+| Sofia Carvalho  |    29 | Brasília       |
++-----------------+-------+----------------+"""
+
+    agent = AgentFactory.create(
+        name="Test Agent",
+        description="Test description",
+        instructions=INSTRUCTIONS,
+        tasks=[
+            AgentFactory.create_task(
+                name="Task 1",
+                description="Check table for information about people related to the query",
+                expected_output="A table with the following columns: Name, Age, City",
+            )
+        ],
+        llm_id="6646261c6eb563165658bbb1",
+    )
+
+    team_agent = TeamAgentFactory.create(
+        name="Team Agent",
+        agents=[agent],
+        description="Team agent",
+        llm_id="6646261c6eb563165658bbb1",
+        use_mentalist=False,
+        use_inspector=False,
+    )
+
+    # Run the team agent
+    response = team_agent.run("Who have more than 30 years old?", output_format=OutputFormat.JSON, expected_output=Response)
+
+    # Verify response basics
+    assert response is not None
+    assert isinstance(response, AgentResponse)
+
+    try:
+        response_json = json.loads(response.data.output)
+    except Exception:
+        import re
+
+        response_json = re.search(r"```json(.*?)```", response.data.output, re.DOTALL).group(1)
+        response_json = json.loads(response_json)
+    assert "result" in response_json
+    assert len(response_json["result"]) > 0
+
+    more_than_30_years_old = [
+        "João Silva",
+        "Pedro Oliveira",
+        "Carlos Pereira",
+        "Beatriz Lima",
+        "Julia Rodrigues",
+        "Miguel Almeida",
+        "Sofia Carvalho",
+    ]
+
+    for person in response_json["result"]:
+        assert "name" in person
+        assert "age" in person
+        assert "city" in person
+        assert person["name"] in more_than_30_years_old

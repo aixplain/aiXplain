@@ -7,11 +7,11 @@ from filelock import FileLock
 CACHE_FOLDER = ".cache"
 CACHE_FILE = f"{CACHE_FOLDER}/cache.json"
 LOCK_FILE = f"{CACHE_FILE}.lock"
-DEFAULT_CACHE_EXPIRY = 86400
+CACHE_DURATION = 86400
 
 
 def get_cache_expiry():
-    return int(os.getenv("CACHE_EXPIRY_TIME", DEFAULT_CACHE_EXPIRY))
+    return int(os.getenv("CACHE_EXPIRY_TIME", CACHE_DURATION))
 
 
 def save_to_cache(cache_file, data, lock_file):
