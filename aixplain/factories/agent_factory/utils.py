@@ -12,10 +12,42 @@ from aixplain.modules.agent.tool.pipeline_tool import PipelineTool
 from aixplain.modules.agent.tool.python_interpreter_tool import PythonInterpreterTool
 from aixplain.modules.agent.tool.custom_python_code_tool import CustomPythonCodeTool
 from aixplain.modules.agent.tool.sql_tool import SQLTool
-from typing import Dict, Text, List
+from aixplain.modules.model import Model
+from aixplain.modules.model.connection import ConnectionTool
+from typing import Dict, Text, List, Union
 from urllib.parse import urljoin
 
 GPT_4o_ID = "6646261c6eb563165658bbb1"
+
+
+def build_tool_payload(tool: Union[Tool, Model]):
+    """Build a tool payload from a tool or model object.
+
+    Args:
+        tool (Union[Tool, Model]): The tool or model object to build the payload from.
+
+    Returns:
+        Dict: The tool payload.
+    """
+    if isinstance(tool, Tool):
+        return tool.to_dict()
+    else:
+        parameters = None
+        if isinstance(tool, ConnectionTool):
+            parameters = tool.get_parameters()
+        elif hasattr(tool, "get_parameters") and tool.get_parameters() is not None:
+            parameters = tool.get_parameters().to_list()
+        return {
+            "id": tool.id,
+            "name": tool.name,
+            "description": tool.description,
+            "supplier": tool.supplier.value["code"] if isinstance(tool.supplier, Supplier) else tool.supplier,
+            "parameters": parameters,
+            "function": tool.function if hasattr(tool, "function") and tool.function is not None else None,
+            "type": "model",
+            "version": tool.version if hasattr(tool, "version") else None,
+            "assetId": tool.id,
+        }
 
 
 def build_tool(tool: Dict):

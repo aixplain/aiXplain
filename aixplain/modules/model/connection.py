@@ -1,6 +1,5 @@
 from aixplain.enums import Function, Supplier, FunctionType, ResponseStatus
 from aixplain.modules.model import Model
-from aixplain.modules.model.model_parameters import ModelParameters
 from aixplain.utils import config
 from typing import Text, Optional, Union, Dict, List
 
@@ -23,7 +22,7 @@ class ConnectAction:
 
 class ConnectionTool(Model):
     actions: List[ConnectAction]
-    scope: Optional[List[ConnectAction]] = None
+    action_scope: Optional[List[ConnectAction]] = None
 
     def __init__(
         self,
@@ -71,7 +70,7 @@ class ConnectionTool(Model):
         self.url = config.MODELS_RUN_URL
         self.backend_url = config.BACKEND_URL
         self.actions = self._get_actions()
-        self.scope = None
+        self.action_scope = None
 
     def _get_actions(self):
         response = super().run({"action": "LIST_ACTIONS", "data": " "})
@@ -111,15 +110,15 @@ class ConnectionTool(Model):
             action = action.code
         return super().run({"action": action, "data": inputs})
 
-    def get_parameters(self) -> Dict:
-        assert self.scope is not None, f"Please set the scope of actions for the connection '{self.id}'."
-        response = {
-            "scope": [
-                {"name": action.name, "description": action.description, "inputs": self.get_action_inputs(action)}
-                for action in self.scope
-            ]
-        }
-        return ModelParameters(response)
+    def get_parameters(self) -> List[Dict]:
+        assert (
+            self.action_scope is not None and len(self.action_scope) > 0
+        ), f"Please set the scope of actions for the connection '{self.id}'."
+        response = [
+            {"name": action.name, "description": action.description, "inputs": self.get_action_inputs(action)}
+            for action in self.action_scope
+        ]
+        return response
 
     def __repr__(self):
         return f"ConnectionTool(id={self.id}, name={self.name})"
