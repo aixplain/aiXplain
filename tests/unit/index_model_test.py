@@ -3,7 +3,7 @@ from aixplain.enums import DataType, Function, ResponseStatus, StorageType, Embe
 from aixplain.factories.index_factory import IndexFactory
 from aixplain.modules.model.record import Record
 from aixplain.modules.model.response import ModelResponse
-from aixplain.modules.model.index_model import IndexModel
+from aiXplain.aixplain.modules.model.index_models.index_model import IndexModel
 from aixplain.utils import config
 import logging
 import pytest
@@ -208,7 +208,7 @@ def test_record_to_dict():
 
 
 def test_index_filter():
-    from aixplain.modules.model.index_model import IndexFilter, IndexFilterOperator
+    from aiXplain.aixplain.modules.model.index_models.index_model import IndexFilter, IndexFilterOperator
 
     filter = IndexFilter(field="category", value="world", operator=IndexFilterOperator.EQUALS)
     assert filter.field == "category"

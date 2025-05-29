@@ -11,6 +11,7 @@ from pathlib import Path
 from aixplain.factories.index_factory.utils import AirParams, VectaraParams, GraphRAGParams, ZeroEntropyParams
 import time
 import os
+import json
 
 
 def pytest_generate_tests(metafunc):
@@ -91,6 +92,7 @@ def run_index_model(index_model, retries):
         except Exception as e:
             time.sleep(180)
 
+
     response = index_model.search("Berlin")
     assert str(response.status) == "SUCCESS"
     assert "germany" in response.data.lower()
@@ -128,6 +130,7 @@ def test_index_model(embedding_model, supplier_params):
     run_index_model(index_model, retries)
 
 
+
 @pytest.mark.parametrize(
     "embedding_model,supplier_params",
     [
@@ -143,7 +146,7 @@ def test_index_model_with_filter(embedding_model, supplier_params):
     from uuid import uuid4
     from aixplain.modules.model.record import Record
     from aixplain.factories import IndexFactory
-    from aixplain.modules.model.index_model import IndexFilter, IndexFilterOperator
+    from aiXplain.aixplain.modules.model.index_models.index_model import IndexFilter, IndexFilterOperator
 
     for index in IndexFactory.list()["results"]:
         index.delete()
@@ -162,6 +165,9 @@ def test_index_model_with_filter(embedding_model, supplier_params):
             index_model.upsert(
                 [Record(value="Hello, aiXplain!", value_type="text", uri="", id="1", attributes={"category": "hello"})]
             )
+            index_model.upsert(
+                [Record(value="Hello, aiXplain!", value_type="text", uri="", id="1", attributes={"category": "hello"})]
+            )
             break
         except Exception:
             time.sleep(180)
@@ -170,9 +176,13 @@ def test_index_model_with_filter(embedding_model, supplier_params):
             index_model.upsert(
                 [Record(value="The world is great", value_type="text", uri="", id="2", attributes={"category": "world"})]
             )
+            index_model.upsert(
+                [Record(value="The world is great", value_type="text", uri="", id="2", attributes={"category": "world"})]
+            )
             break
         except Exception:
             time.sleep(180)
+
 
     assert index_model.count() == 2
     response = index_model.search(
@@ -304,7 +314,7 @@ def test_index_model_air_with_splitter(embedding_model, supplier_params):
     from aixplain.factories import IndexFactory
     from aixplain.modules.model.record import Record
     from uuid import uuid4
-    from aixplain.modules.model.index_model import Splitter
+    from aixplain.modules.model.index_models.index_model import Splitter
     from aixplain.enums.splitting_options import SplittingOptions
 
     for index in IndexFactory.list()["results"]:
