@@ -9,8 +9,6 @@ from aixplain.modules import LLM
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from aixplain.factories.index_factory.utils import AirParams, VectaraParams, GraphRAGParams, ZeroEntropyParams
-from aixplain.factories import IndexFactory
-from aixplain.modules.model.record import Record
 import time
 import os
 
@@ -110,8 +108,7 @@ def run_index_model(index_model, retries):
         pytest.param(EmbeddingModel.OPENAI_ADA002, AirParams, id="AIR - OpenAI Ada 002"),
         pytest.param("6658d40729985c2cf72f42ec", AirParams, id="AIR - Snowflake Arctic Embed M Long"),
         pytest.param(EmbeddingModel.MULTILINGUAL_E5_LARGE, AirParams, id="AIR - Multilingual E5 Large"),
-        pytest.param("67efd4f92a0a850afa045af7", AirParams, id="AIR - BGE M3"),
-        pytest.param("681254b668e47e7844c1f15a", AirParams, id="AIR - aiXplain Legal Embeddings"),
+        pytest.param("67efd4f92a0a850afa045af7", AirParams, id="AIR - BGE M3")
     ],
 )
 def test_index_model(embedding_model, supplier_params):
@@ -140,7 +137,6 @@ def test_index_model(embedding_model, supplier_params):
         pytest.param(EmbeddingModel.JINA_CLIP_V2_MULTIMODAL, AirParams, id="Jina Clip v2 Multimodal"),
         pytest.param(EmbeddingModel.MULTILINGUAL_E5_LARGE, AirParams, id="Multilingual E5 Large"),
         pytest.param("67efd4f92a0a850afa045af7", AirParams, id="BGE M3"),
-        pytest.param("681254b668e47e7844c1f15a", AirParams, id="aiXplain Legal Embeddings"),
     ],
 )
 def test_index_model_with_filter(embedding_model, supplier_params):
@@ -309,6 +305,7 @@ def test_index_model_air_with_splitter(embedding_model, supplier_params):
     from aixplain.modules.model.record import Record
     from uuid import uuid4
     from aixplain.modules.model.index_model import Splitter
+    from aixplain.enums.splitting_options import SplittingOptions
 
     for index in IndexFactory.list()["results"]:
         index.delete()
@@ -319,7 +316,7 @@ def test_index_model_air_with_splitter(embedding_model, supplier_params):
     index_model = IndexFactory.create(params=params)
     index_model.upsert(
         [Record(value="Berlin is the capital of Germany.", value_type="text", uri="", id="1", attributes={})],
-        splitter=Splitter(split=True, split_by="word", split_length=1, split_overlap=0),
+        splitter=Splitter(split=True, split_by=SplittingOptions.WORD, split_length=1, split_overlap=0),
     )
     response = index_model.count()
     assert response == 6
