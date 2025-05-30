@@ -15,9 +15,6 @@ import time
 import os
 
 
-
-
-
 def pytest_generate_tests(metafunc):
     if "llm_model" in metafunc.fixturenames:
         four_weeks_ago = datetime.now(timezone.utc) - timedelta(weeks=4)
@@ -87,14 +84,15 @@ def test_run_async():
 def run_index_model(index_model, retries):
     from aixplain.modules.model.record import Record
 
-
     for _ in range(retries):
         try:
-            index_model.upsert([Record(value="Berlin is the capital of Germany.", value_type="text", uri="", id="1", attributes={})])
+            index_model.upsert(
+                [Record(value="Berlin is the capital of Germany.", value_type="text", uri="", id="1", attributes={})]
+            )
             break
         except Exception as e:
             time.sleep(180)
-            
+
     response = index_model.search("Berlin")
     assert str(response.status) == "SUCCESS"
     assert "germany" in response.data.lower()
@@ -132,6 +130,7 @@ def test_index_model(embedding_model, supplier_params):
         retries = 1
     run_index_model(index_model, retries)
 
+
 @pytest.mark.parametrize(
     "embedding_model,supplier_params",
     [
@@ -150,8 +149,8 @@ def test_index_model_with_filter(embedding_model, supplier_params):
     from aixplain.factories import IndexFactory
     from aixplain.modules.model.index_model import IndexFilter, IndexFilterOperator
 
-    # for index in IndexFactory.list()["results"]:
-    #     index.delete()
+    for index in IndexFactory.list()["results"]:
+        index.delete()
 
     params = supplier_params(name=str(uuid4()), description=str(uuid4()))
     if embedding_model is not None:
@@ -164,17 +163,21 @@ def test_index_model_with_filter(embedding_model, supplier_params):
         retries = 1
     for _ in range(retries):
         try:
-            index_model.upsert([Record(value="Hello, aiXplain!", value_type="text", uri="", id="1", attributes={"category": "hello"})])
+            index_model.upsert(
+                [Record(value="Hello, aiXplain!", value_type="text", uri="", id="1", attributes={"category": "hello"})]
+            )
             break
         except Exception:
             time.sleep(180)
     for _ in range(retries):
         try:
-            index_model.upsert([Record(value="The world is great", value_type="text", uri="", id="2", attributes={"category": "world"})])
+            index_model.upsert(
+                [Record(value="The world is great", value_type="text", uri="", id="2", attributes={"category": "world"})]
+            )
             break
         except Exception:
             time.sleep(180)
-            
+
     assert index_model.count() == 2
     response = index_model.search(
         "", filters=[IndexFilter(field="category", value="world", operator=IndexFilterOperator.EQUALS)]
@@ -233,8 +236,8 @@ def test_index_model_air_with_image():
     from uuid import uuid4
     from aixplain.factories.index_factory.utils import AirParams
 
-    # for index in IndexFactory.list()["results"]:
-    #     index.delete()
+    for index in IndexFactory.list()["results"]:
+        index.delete()
 
     params = AirParams(
         name=f"Image Index {uuid4()}", description="Index for images", embedding_model=EmbeddingModel.JINA_CLIP_V2_MULTIMODAL
@@ -269,7 +272,6 @@ def test_index_model_air_with_image():
     records.append(Record(value="Hello, world!", value_type="text", uri="", attributes={}, id="4"))
 
     index_model.upsert(records)
-
 
     response = index_model.search("beach")
     assert str(response.status) == "SUCCESS"
@@ -308,17 +310,18 @@ def test_index_model_air_with_splitter(embedding_model, supplier_params):
     from uuid import uuid4
     from aixplain.modules.model.index_model import Splitter
 
-    # for index in IndexFactory.list()["results"]:
-    #     index.delete()
+    for index in IndexFactory.list()["results"]:
+        index.delete()
 
-    params = supplier_params(name=f"Splitter Index {uuid4()}", description="Index for splitter", embedding_model=embedding_model)
+    params = supplier_params(
+        name=f"Splitter Index {uuid4()}", description="Index for splitter", embedding_model=embedding_model
+    )
     index_model = IndexFactory.create(params=params)
     index_model.upsert(
         [Record(value="Berlin is the capital of Germany.", value_type="text", uri="", id="1", attributes={})],
         splitter=Splitter(split=True, split_by="word", split_length=1, split_overlap=0),
     )
     response = index_model.count()
-    # assert str(response.status) == "SUCCESS"
     assert response == 6
     response = index_model.search("berlin")
     assert str(response.status) == "SUCCESS"

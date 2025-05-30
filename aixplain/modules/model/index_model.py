@@ -43,7 +43,7 @@ class IndexFilter:
 
 
 class Splitter:
-    def __init__(self, split: bool, split_by: str, split_length: int, split_overlap: int):
+    def __init__(self, split: bool=False, split_by: str="word", split_length: int=1, split_overlap: int=0):
         self.split = split
         self.split_by = split_by
         self.split_length = split_length
@@ -152,7 +152,7 @@ class IndexModel(Model):
         }
         return self.run(data=data)
 
-    def upsert(self, documents: List[Record], splitter: Splitter = None) -> ModelResponse:
+    def upsert(self, documents: List[Record], splitter: Optional[Splitter] = None) -> ModelResponse:
         """Upsert documents into the index
 
         Args:
@@ -162,9 +162,10 @@ class IndexModel(Model):
         Returns:
             ModelResponse: Response from the indexing service
 
-        Example:
+        Examples:
             index_model.upsert([Record(value="Hello, world!", value_type="text", uri="", id="1", attributes={})])
             index_model.upsert([Record(value="Hello, world!", value_type="text", uri="", id="1", attributes={})], splitter=Splitter(split=True, split_by="word", split_length=1, split_overlap=0))
+            Splitter in the above example is optional and can be used to split the documents into smaller chunks.
         """
         # Validate documents
         for doc in documents:
