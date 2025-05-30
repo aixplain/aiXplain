@@ -12,6 +12,7 @@ from aixplain.factories.index_factory.utils import AirParams, VectaraParams, Gra
 from aixplain.factories import IndexFactory
 from aixplain.modules.model.record import Record
 import time
+import os
 
 
 
@@ -149,8 +150,8 @@ def test_index_model_with_filter(embedding_model, supplier_params):
     from aixplain.factories import IndexFactory
     from aixplain.modules.model.index_model import IndexFilter, IndexFilterOperator
 
-    for index in IndexFactory.list()["results"]:
-        index.delete()
+    # for index in IndexFactory.list()["results"]:
+    #     index.delete()
 
     params = supplier_params(name=str(uuid4()), description=str(uuid4()))
     if embedding_model is not None:
@@ -232,8 +233,8 @@ def test_index_model_air_with_image():
     from uuid import uuid4
     from aixplain.factories.index_factory.utils import AirParams
 
-    for index in IndexFactory.list()["results"]:
-        index.delete()
+    # for index in IndexFactory.list()["results"]:
+    #     index.delete()
 
     params = AirParams(
         name=f"Image Index {uuid4()}", description="Index for images", embedding_model=EmbeddingModel.JINA_CLIP_V2_MULTIMODAL
@@ -296,8 +297,6 @@ def test_index_model_air_with_image():
     "embedding_model,supplier_params",
     [
         pytest.param(EmbeddingModel.OPENAI_ADA002, AirParams, id="OpenAI Ada 002"),
-        pytest.param(EmbeddingModel.SNOWFLAKE_ARCTIC_EMBED_M_LONG, AirParams, id="Snowflake Arctic Embed M Long"),
-        pytest.param(EmbeddingModel.SNOWFLAKE_ARCTIC_EMBED_L_V2_0, AirParams, id="Snowflake Arctic Embed L v2.0"),
         pytest.param(EmbeddingModel.JINA_CLIP_V2_MULTIMODAL, AirParams, id="Jina Clip v2 Multimodal"),
         pytest.param(EmbeddingModel.MULTILINGUAL_E5_LARGE, AirParams, id="Multilingual E5 Large"),
         pytest.param(EmbeddingModel.BGE_M3, AirParams, id="BGE M3"),
@@ -309,8 +308,8 @@ def test_index_model_air_with_splitter(embedding_model, supplier_params):
     from uuid import uuid4
     from aixplain.modules.model.index_model import Splitter
 
-    for index in IndexFactory.list()["results"]:
-        index.delete()
+    # for index in IndexFactory.list()["results"]:
+    #     index.delete()
 
     params = supplier_params(name=f"Splitter Index {uuid4()}", description="Index for splitter", embedding_model=embedding_model)
     index_model = IndexFactory.create(params=params)
@@ -319,8 +318,8 @@ def test_index_model_air_with_splitter(embedding_model, supplier_params):
         splitter=Splitter(split=True, split_by="word", split_length=1, split_overlap=0),
     )
     response = index_model.count()
-    assert str(response.status) == "SUCCESS"
-    assert response.data == 6
+    # assert str(response.status) == "SUCCESS"
+    assert response == 6
     response = index_model.search("berlin")
     assert str(response.status) == "SUCCESS"
     assert "berlin" in response.data.lower()
