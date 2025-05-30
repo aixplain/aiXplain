@@ -38,6 +38,7 @@ from aixplain.modules.agent.utils import process_variables
 from pydantic import BaseModel
 from typing import Dict, List, Text, Optional, Union
 from urllib.parse import urljoin
+from aixplain.modules.model.llm_model import LLM
 
 from aixplain.utils import config
 from aixplain.modules.mixins import DeployableMixin
@@ -70,6 +71,7 @@ class Agent(Model, DeployableMixin[Tool]):
         instructions: Text,
         tools: List[Union[Tool, Model]] = [],
         llm_id: Text = "6646261c6eb563165658bbb1",
+        llm: Optional[LLM] = None,
         api_key: Optional[Text] = config.TEAM_API_KEY,
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
         version: Optional[Text] = None,
@@ -86,7 +88,8 @@ class Agent(Model, DeployableMixin[Tool]):
             description (Text): description of the Agent.
             instructions (Text): role of the Agent.
             tools (List[Union[Tool, Model]]): List of tools that the Agent uses.
-            llm_id (Text, optional): large language model. Defaults to GPT-4o (6646261c6eb563165658bbb1).
+            llm_id (Text, optional): large language model ID. Defaults to GPT-4o (6646261c6eb563165658bbb1).
+            llm (LLM, optional): large language model object. Defaults to None.
             supplier (Text): Supplier of the Agent.
             version (Text): Version of the Agent.
             backend_url (str): URL of the backend.
@@ -100,6 +103,7 @@ class Agent(Model, DeployableMixin[Tool]):
         for i, _ in enumerate(tools):
             self.tools[i].api_key = api_key
         self.llm_id = llm_id
+        self.llm = llm
         if isinstance(status, str):
             try:
                 status = AssetStatus(status)
@@ -111,17 +115,14 @@ class Agent(Model, DeployableMixin[Tool]):
 
     def _validate(self) -> None:
         """Validate the Agent."""
-        from aixplain.factories.model_factory import ModelFactory
+        from aixplain.utils.llm_utils import get_llm_instance
 
         # validate name
         assert (
             re.match(r"^[a-zA-Z0-9 \-\(\)]*$", self.name) is not None
         ), "Agent Creation Error: Agent name contains invalid characters. Only alphanumeric characters, spaces, hyphens, and brackets are allowed."
 
-        try:
-            llm = ModelFactory.get(self.llm_id, api_key=self.api_key)
-        except Exception:
-            raise Exception(f"Large Language Model with ID '{self.llm_id}' not found.")
+        llm = get_llm_instance(self.llm_id, api_key=self.api_key)
 
         assert llm.function == Function.TEXT_GENERATION, "Large Language Model must be a text generation model."
 
@@ -372,9 +373,18 @@ class Agent(Model, DeployableMixin[Tool]):
             "role": self.instructions,
             "supplier": (self.supplier.value["code"] if isinstance(self.supplier, Supplier) else self.supplier),
             "version": self.version,
-            "llmId": self.llm_id,
+            "llmId": self.llm_id if self.llm is None else self.llm.id,
             "status": self.status.value,
             "tasks": [task.to_dict() for task in self.tasks],
+            "tools": [
+                {
+                    "type": "llm",
+                    "description": "main",
+                    "parameters": self.llm.get_parameters().to_list() if self.llm.get_parameters() else None,
+                }
+            ]
+            if self.llm is not None
+            else [],
         }
 
     def delete(self) -> None:

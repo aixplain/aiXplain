@@ -2,8 +2,10 @@ __author__ = "thiagocastroferreira"
 
 import logging
 import aixplain.utils.config as config
+from aixplain.utils.llm_utils import get_llm_instance
 from aixplain.enums import Function, Supplier
 from aixplain.enums.asset_status import AssetStatus
+from aixplain.modules.model.llm_model import LLM
 from aixplain.modules.agent import Agent
 from aixplain.modules.agent.tool import Tool
 from aixplain.modules.agent.agent_task import AgentTask
@@ -113,6 +115,42 @@ def build_tool(tool: Dict):
     return tool
 
 
+def build_llm(payload: Dict, api_key: Text = config.TEAM_API_KEY) -> LLM:
+    """Build a LLM from a dictionary."""
+    # Get LLM from tools if present
+    llm = None
+    # First check if we have the LLM object
+    if "llm" in payload:
+        llm = payload["llm"]
+    # Otherwise create from the parameters
+    elif "tools" in payload:
+        for tool in payload["tools"]:
+            if tool["type"] == "llm" and tool["description"] == "main":
+
+                llm = get_llm_instance(payload["llmId"], api_key=api_key)
+                # Set parameters from the tool
+                if "parameters" in tool:
+                    # Apply all parameters directly to the LLM properties
+                    for param in tool["parameters"]:
+                        param_name = param["name"]
+                        param_value = param["value"]
+                        # Apply any parameter that exists as an attribute on the LLM
+                        if hasattr(llm, param_name):
+                            setattr(llm, param_name, param_value)
+
+                    # Also set model_params for completeness
+                    # Convert parameters list to dictionary format expected by ModelParameters
+                    params_dict = {}
+                    for param in tool["parameters"]:
+                        params_dict[param["name"]] = {"required": False, "value": param["value"]}
+                    # Create ModelParameters and set it on the LLM
+                    from aixplain.modules.model.model_parameters import ModelParameters
+
+                    llm.model_params = ModelParameters(params_dict)
+                break
+    return llm
+
+
 def build_agent(payload: Dict, tools: List[Tool] = None, api_key: Text = config.TEAM_API_KEY) -> Agent:
     """Instantiate a new agent in the platform."""
     tools_dict = payload["assets"]
@@ -132,6 +170,8 @@ def build_agent(payload: Dict, tools: List[Tool] = None, api_key: Text = config.
                 )
                 continue
 
+    llm = build_llm(payload, api_key)
+
     agent = Agent(
         id=payload["id"] if "id" in payload else "",
         name=payload.get("name", ""),
@@ -142,6 +182,7 @@ def build_agent(payload: Dict, tools: List[Tool] = None, api_key: Text = config.
         version=payload.get("version", None),
         cost=payload.get("cost", None),
         llm_id=payload.get("llmId", GPT_4o_ID),
+        llm=llm,
         api_key=api_key,
         status=AssetStatus(payload["status"]),
         tasks=[
