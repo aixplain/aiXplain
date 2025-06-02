@@ -187,6 +187,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                     session_id=result_data.get("session_id"),
                     intermediate_steps=result_data.get("intermediate_steps"),
                     execution_stats=result_data.get("executionStats"),
+                    critiques=result_data.get("critiques", ""),
                 ),
                 used_credits=result_data.get("usedCredits", 0.0),
                 run_time=result_data.get("runTime", end - start),
