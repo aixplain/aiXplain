@@ -16,9 +16,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 import json
-from copy import copy
 from dotenv import load_dotenv
-from typing import Dict, List
 from uuid import uuid4
 
 load_dotenv()
@@ -30,14 +28,13 @@ from aixplain.factories import AgentFactory, TeamAgentFactory, ModelFactory
 from aixplain.enums.asset_status import AssetStatus
 from aixplain.enums.function import Function
 from aixplain.enums.supplier import Supplier
-from aixplain.modules.team_agent import InspectorTarget
-from aixplain.modules.team_agent.inspector import Inspector, InspectorPolicy
 
-RUN_FILE = "tests/functional/team_agent/data/team_agent_test_end2end.json"
-
-
-def read_data(data_path):
-    return json.load(open(data_path, "r"))
+from tests.functional.team_agent.test_utils import (
+    RUN_FILE,
+    read_data,
+    create_agents_from_input_map,
+    create_team_agent,
+)
 
 
 @pytest.fixture(scope="function")
@@ -58,101 +55,6 @@ def delete_agents_and_team_agents():
 @pytest.fixture(scope="module", params=read_data(RUN_FILE))
 def run_input_map(request):
     return request.param
-
-
-def create_agents_from_input_map(run_input_map, deploy=True):
-    """Helper function to create agents from input map"""
-    agents = []
-    for agent in run_input_map["agents"]:
-        tools = []
-        if "model_tools" in agent:
-            for tool in agent["model_tools"]:
-                tool_ = copy(tool)
-                for supplier in Supplier:
-                    if tool["supplier"] is not None and tool["supplier"].lower() in [
-                        supplier.value["code"].lower(),
-                        supplier.value["name"].lower(),
-                    ]:
-                        tool_["supplier"] = supplier
-                        break
-                tools.append(AgentFactory.create_model_tool(**tool_))
-        if "pipeline_tools" in agent:
-            for tool in agent["pipeline_tools"]:
-                tools.append(AgentFactory.create_pipeline_tool(pipeline=tool["pipeline_id"], description=tool["description"]))
-
-        agent = AgentFactory.create(
-            name=agent["agent_name"],
-            description=agent["agent_name"],
-            instructions=agent["agent_name"],
-            llm_id=agent["llm_id"],
-            tools=tools,
-        )
-        if deploy:
-            agent.deploy()
-        agents.append(agent)
-
-    return agents
-
-
-def create_team_agent(factory, agents, run_input_map, use_mentalist=True, inspectors=[], inspector_targets=None):
-    """Helper function to create a team agent"""
-    if inspector_targets is None:
-        inspector_targets = [InspectorTarget.STEPS]
-
-    team_agent = factory.create(
-        name=run_input_map["team_agent_name"],
-        agents=agents,
-        description=run_input_map["team_agent_name"],
-        llm_id=run_input_map["llm_id"],
-        use_mentalist=use_mentalist,
-        inspectors=inspectors,
-        inspector_targets=inspector_targets,
-    )
-
-    return team_agent
-
-
-def verify_inspector_steps(steps: Dict, inspector_names: List[str], inspector_targets: List[InspectorTarget]) -> None:
-    """Helper function to verify inspector steps"""
-    # Count occurrences of each inspector
-    inspector_counts = {}
-    for inspector_name in inspector_names:
-        inspector_steps = [step for step in steps if inspector_name.lower() in step.get("agent", "").lower()]
-        inspector_counts[inspector_name] = len(inspector_steps)
-
-    # Verify all inspectors are present and have the same number of steps
-    assert len(inspector_counts) == len(
-        inspector_names
-    ), f"Expected {len(inspector_names)} inspectors, found {len(inspector_counts)}"
-
-    if len(inspector_counts) > 0:
-        first_count = next(iter(inspector_counts.values()))
-        for inspector, count in inspector_counts.items():
-            assert count > 0, f"Inspector {inspector} has no steps"
-            assert count == first_count, f"Inspector {inspector} has {count} steps, expected {first_count}"
-            print(f"Inspector {inspector} has {count} steps")
-
-    # If OUTPUT is in inspector_targets, verify there are inspector steps after response generator
-    if InspectorTarget.OUTPUT in inspector_targets:
-        response_generator_steps = [step for step in steps if "response_generator" in step.get("agent", "").lower()]
-        assert len(response_generator_steps) == 1, "Expected exactly one response_generator step"
-        response_generator_index = steps.index(response_generator_steps[0])
-
-        inspector_steps_after = [
-            step
-            for step in steps[response_generator_index + 1 :]
-            if any(inspector_name.lower() in step.get("agent", "").lower() for inspector_name in inspector_names)
-        ]
-        assert len(inspector_steps_after) > 0, "No inspector steps found after response generator step"
-        print(f"Found {len(inspector_steps_after)} inspector steps after response generator")
-
-
-def verify_response_generator(steps: Dict) -> None:
-    """Helper function to verify response generator step"""
-    response_generator_steps = [step for step in steps if "response_generator" in step.get("agent", "").lower()]
-    assert (
-        len(response_generator_steps) == 1
-    ), f"Expected exactly one response_generator step, found {len(response_generator_steps)}"
 
 
 @pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory, v2.TeamAgent])
@@ -361,163 +263,6 @@ def test_team_agent_with_parameterized_agents(run_input_map, delete_agents_and_t
     translation_agent.delete()
 
 
-@pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory, v2.TeamAgent])
-def test_team_agent_with_steps_inspector(run_input_map, delete_agents_and_team_agents, TeamAgentFactory):
-    """Test team agent with one inspector targeting steps"""
-    assert delete_agents_and_team_agents
-
-    agents = create_agents_from_input_map(run_input_map)
-
-    # Create inspector
-    inspector = Inspector(
-        name="test_inspector",
-        model_id=run_input_map["llm_id"],
-        model_params={"prompt": "Check if the steps are valid"},
-        policy=InspectorPolicy.WARN,
-    )
-
-    # Create team agent with steps inspector
-    team_agent = create_team_agent(
-        TeamAgentFactory,
-        agents,
-        run_input_map,
-        use_mentalist=True,
-        inspectors=[inspector],
-        inspector_targets=[InspectorTarget.STEPS],
-    )
-
-    assert team_agent is not None
-    assert team_agent.status == AssetStatus.DRAFT
-
-    # deploy team agent
-    team_agent.deploy()
-    team_agent = TeamAgentFactory.get(team_agent.id)
-    assert team_agent is not None
-    assert team_agent.status == AssetStatus.ONBOARDED
-
-    # Run the team agent
-    response = team_agent.run(data=run_input_map["query"])
-
-    assert response is not None
-    print(f"response: {response}")
-    assert response["completed"] is True
-    assert response["status"].lower() == "success"
-
-    # Check for inspector steps
-    if "intermediate_steps" in response["data"]:
-        steps = response["data"]["intermediate_steps"]
-        verify_inspector_steps(steps, ["test_inspector"], [InspectorTarget.STEPS])
-        verify_response_generator(steps)
-
-    team_agent.delete()
-
-
-@pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory, v2.TeamAgent])
-def test_team_agent_with_output_inspector(run_input_map, delete_agents_and_team_agents, TeamAgentFactory):
-    """Test team agent with one inspector targeting output"""
-    assert delete_agents_and_team_agents
-
-    agents = create_agents_from_input_map(run_input_map)
-
-    # Create inspector
-    inspector = Inspector(
-        name="test_inspector",
-        model_id=run_input_map["llm_id"],
-        model_params={"prompt": "Check if the output is valid"},
-        policy=InspectorPolicy.WARN,
-    )
-
-    # Create team agent with output inspector
-    team_agent = create_team_agent(
-        TeamAgentFactory,
-        agents,
-        run_input_map,
-        use_mentalist=True,
-        inspectors=[inspector],
-        inspector_targets=[InspectorTarget.OUTPUT],
-    )
-
-    assert team_agent is not None
-    assert team_agent.status == AssetStatus.DRAFT
-
-    # deploy team agent
-    team_agent.deploy()
-    team_agent = TeamAgentFactory.get(team_agent.id)
-    assert team_agent is not None
-    assert team_agent.status == AssetStatus.ONBOARDED
-
-    # Run the team agent
-    response = team_agent.run(data=run_input_map["query"])
-
-    assert response is not None
-    assert response["completed"] is True
-    assert response["status"].lower() == "success"
-
-    # Check for inspector steps
-    if "intermediate_steps" in response["data"]:
-        steps = response["data"]["intermediate_steps"]
-        verify_inspector_steps(steps, ["test_inspector"], [InspectorTarget.OUTPUT])
-        verify_response_generator(steps)
-
-    team_agent.delete()
-
-
-@pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory, v2.TeamAgent])
-def test_team_agent_with_multiple_inspectors(run_input_map, delete_agents_and_team_agents, TeamAgentFactory):
-    """Test team agent with multiple inspectors targeting steps"""
-    assert delete_agents_and_team_agents
-
-    agents = create_agents_from_input_map(run_input_map)
-
-    # Create inspectors
-    inspector1 = Inspector(
-        name="test1_inspector",
-        model_id=run_input_map["llm_id"],
-        model_params={"prompt": "Check if the steps are valid"},
-        policy=InspectorPolicy.WARN,
-    )
-    inspector2 = Inspector(
-        name="test2_inspector",
-        model_id=run_input_map["llm_id"],
-        model_params={"prompt": "Check if the steps are valid"},
-        policy=InspectorPolicy.WARN,
-    )
-
-    # Create team agent with multiple steps inspectors
-    team_agent = create_team_agent(
-        TeamAgentFactory,
-        agents,
-        run_input_map,
-        use_mentalist=True,
-        inspectors=[inspector1, inspector2],
-        inspector_targets=[InspectorTarget.STEPS],
-    )
-
-    assert team_agent is not None
-    assert team_agent.status == AssetStatus.DRAFT
-
-    # deploy team agent
-    team_agent.deploy()
-    team_agent = TeamAgentFactory.get(team_agent.id)
-    assert team_agent is not None
-    assert team_agent.status == AssetStatus.ONBOARDED
-
-    # Run the team agent
-    response = team_agent.run(data=run_input_map["query"])
-
-    assert response is not None
-    assert response["completed"] is True
-    assert response["status"].lower() == "success"
-
-    # Check for inspector steps
-    if "intermediate_steps" in response["data"]:
-        steps = response["data"]["intermediate_steps"]
-        verify_inspector_steps(steps, ["test1_inspector", "test2_inspector"], [InspectorTarget.STEPS])
-        verify_response_generator(steps)
-
-    team_agent.delete()
-
-
 def test_team_agent_with_instructions(delete_agents_and_team_agents):
     assert delete_agents_and_team_agents
 
@@ -655,7 +400,3 @@ def test_run_team_agent_with_expected_output():
         assert "age" in person
         assert "city" in person
         assert person["name"] in more_than_30_years_old
-
-
-# TODO: activate inspector tests
-# TODO: add tests for different inspector policies
