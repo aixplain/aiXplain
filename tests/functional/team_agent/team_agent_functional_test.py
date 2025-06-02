@@ -360,7 +360,7 @@ def test_team_agent_with_parameterized_agents(run_input_map, delete_agents_and_t
 
 
 @pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory, v2.TeamAgent])
-def todo_test_team_agent_with_steps_inspector(run_input_map, delete_agents_and_team_agents, TeamAgentFactory):
+def test_team_agent_with_steps_inspector(run_input_map, delete_agents_and_team_agents, TeamAgentFactory):
     """Test team agent with one inspector targeting steps"""
     assert delete_agents_and_team_agents
 
@@ -368,10 +368,10 @@ def todo_test_team_agent_with_steps_inspector(run_input_map, delete_agents_and_t
 
     # Create inspector
     inspector = Inspector(
-        name="Steps Inspector",
+        name="test_inspector",
         model_id=run_input_map["llm_id"],
         model_params={"prompt": "Check if the steps are valid"},
-        policy=InspectorPolicy.ADAPTIVE,
+        policy=InspectorPolicy.WARN,
     )
 
     # Create team agent with steps inspector
@@ -397,13 +397,14 @@ def todo_test_team_agent_with_steps_inspector(run_input_map, delete_agents_and_t
     response = team_agent.run(data=run_input_map["query"])
 
     assert response is not None
+    print(f"response: {response}")
     assert response["completed"] is True
     assert response["status"].lower() == "success"
 
     # Check for inspector steps
     if "intermediate_steps" in response["data"]:
         steps = response["data"]["intermediate_steps"]
-        verify_inspector_steps(steps, ["Steps Inspector"])
+        verify_inspector_steps(steps, ["test_inspector"])
         verify_response_generator(steps, inspect=False)
 
     team_agent.delete()
