@@ -463,7 +463,7 @@ def test_team_agent_with_output_inspector(run_input_map, delete_agents_and_team_
 
 
 @pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory, v2.TeamAgent])
-def todo_test_team_agent_with_multiple_steps_inspectors(run_input_map, delete_agents_and_team_agents, TeamAgentFactory):
+def test_team_agent_with_multiple_inspectors(run_input_map, delete_agents_and_team_agents, TeamAgentFactory):
     """Test team agent with multiple inspectors targeting steps"""
     assert delete_agents_and_team_agents
 
@@ -471,16 +471,16 @@ def todo_test_team_agent_with_multiple_steps_inspectors(run_input_map, delete_ag
 
     # Create inspectors
     inspector1 = Inspector(
-        name="Steps Inspector 1",
+        name="test1_inspector",
         model_id=run_input_map["llm_id"],
         model_params={"prompt": "Check if the steps are valid"},
-        policy=InspectorPolicy.ADAPTIVE,
+        policy=InspectorPolicy.WARN,
     )
     inspector2 = Inspector(
-        name="Steps Inspector 2",
+        name="test2_inspector",
         model_id=run_input_map["llm_id"],
         model_params={"prompt": "Check if the steps are valid"},
-        policy=InspectorPolicy.ADAPTIVE,
+        policy=InspectorPolicy.WARN,
     )
 
     # Create team agent with multiple steps inspectors
@@ -512,8 +512,8 @@ def todo_test_team_agent_with_multiple_steps_inspectors(run_input_map, delete_ag
     # Check for inspector steps
     if "intermediate_steps" in response["data"]:
         steps = response["data"]["intermediate_steps"]
-        verify_inspector_steps(steps, ["Steps Inspector 1", "Steps Inspector 2"])
-        verify_response_generator(steps, inspect=False)
+        verify_inspector_steps(steps, ["test1_inspector", "test2_inspector"], [InspectorTarget.STEPS])
+        verify_response_generator(steps)
 
     team_agent.delete()
 
