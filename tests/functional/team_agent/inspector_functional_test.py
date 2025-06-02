@@ -87,6 +87,60 @@ def verify_inspector_steps(steps: Dict, inspector_names: List[str], inspector_ta
 
 
 @pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory, v2.TeamAgent])
+def test_team_agent_with_warn_inspector(run_input_map, delete_agents_and_team_agents, TeamAgentFactory):
+    """Test team agent with warn policy inspector that provides feedback but continues execution"""
+    assert delete_agents_and_team_agents
+
+    agents = create_agents_from_input_map(run_input_map)
+
+    # Create inspector with warn policy
+    inspector = Inspector(
+        name="warn_inspector",
+        model_id=run_input_map["llm_id"],
+        model_params={"prompt": "Check if the steps are valid and provide feedback"},
+        policy=InspectorPolicy.WARN,
+    )
+
+    # Create team agent with steps inspector
+    team_agent = create_team_agent(
+        TeamAgentFactory,
+        agents,
+        run_input_map,
+        use_mentalist=True,
+        inspectors=[inspector],
+        inspector_targets=[InspectorTarget.STEPS],
+    )
+
+    assert team_agent is not None
+    assert team_agent.status == AssetStatus.DRAFT
+
+    # deploy team agent
+    team_agent.deploy()
+    team_agent = TeamAgentFactory.get(team_agent.id)
+    assert team_agent is not None
+    assert team_agent.status == AssetStatus.ONBOARDED
+
+    # Run the team agent
+    response = team_agent.run(data=run_input_map["query"])
+
+    assert response is not None
+    assert response["completed"] is True
+    assert response["status"].lower() == "success"
+
+    # Check for inspector steps
+    if "intermediate_steps" in response["data"]:
+        steps = response["data"]["intermediate_steps"]
+        verify_inspector_steps(steps, ["warn_inspector"], [InspectorTarget.STEPS])
+        verify_response_generator(steps)
+
+        # Verify inspector runs and execution continues
+        inspector_steps = [step for step in steps if "warn_inspector" in step.get("agent", "").lower()]
+        assert len(inspector_steps) > 0, "Warn inspector should run at least once"
+
+    team_agent.delete()
+
+
+@pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory, v2.TeamAgent])
 def test_team_agent_with_adaptive_inspector(run_input_map, delete_agents_and_team_agents, TeamAgentFactory):
     """Test team agent with adaptive inspector that runs multiple times"""
     assert delete_agents_and_team_agents
