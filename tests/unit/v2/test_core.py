@@ -14,18 +14,12 @@ def test_aixplain_instance():
                 aixplain = Aixplain(api_key="test")
                 assert aixplain is not None
                 assert aixplain.api_key == "test"
-                assert (
-                    aixplain.base_url == os.getenv("BACKEND_URL")
-                    or "https://platform-api.aixplain.com"
-                )
+                assert aixplain.base_url == os.getenv("BACKEND_URL") or "https://platform-api.aixplain.com"
                 assert (
                     aixplain.pipeline_url == os.getenv("PIPELINES_RUN_URL")
                     or "https://platform-api.aixplain.com/assets/pipeline/execution/run"
                 )
-                assert (
-                    aixplain.model_url == os.getenv("MODELS_RUN_URL")
-                    or "https://models.aixplain.com/api/v1/execute"
-                )
+                assert aixplain.model_url == os.getenv("MODELS_RUN_URL") or "https://models.aixplain.com/api/v1/execute"
                 aixplain.init_env.assert_called_once()
                 aixplain.init_client.assert_called_once()
                 aixplain.init_resources.assert_called_once()
@@ -42,10 +36,7 @@ def test_aixplain_init_env():
         aixplain.init_env()
         assert mock_environ["TEAM_API_KEY"] == "test"
         assert mock_environ["BACKEND_URL"] == "https://platform-api.aixplain.com"
-        assert (
-            mock_environ["PIPELINE_URL"]
-            == "https://platform-api.aixplain.com/assets/pipeline/execution/run"
-        )
+        assert mock_environ["PIPELINE_URL"] == "https://platform-api.aixplain.com/assets/pipeline/execution/run"
         assert mock_environ["MODEL_URL"] == "https://models.aixplain.com/api/v1/execute"
 
 
