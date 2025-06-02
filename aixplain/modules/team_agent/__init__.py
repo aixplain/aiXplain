@@ -88,7 +88,6 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         llm: Optional[LLM] = None,
         supervisor_llm: Optional[LLM] = None,
         mentalist_llm: Optional[LLM] = None,
-        inspector_llm: Optional[LLM] = None,
         api_key: Optional[Text] = config.TEAM_API_KEY,
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
         version: Optional[Text] = None,
@@ -108,9 +107,9 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         self.use_mentalist = use_mentalist
         self.inspectors = inspectors
         self.inspector_targets = inspector_targets
+        self.use_inspector = True if inspectors else False
         self.supervisor_llm = supervisor_llm
         self.mentalist_llm = mentalist_llm
-        self.inspector_llm = inspector_llm
         self.instructions = instructions
         if isinstance(status, str):
             try:
@@ -341,10 +340,6 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             planner_id = self.mentalist_llm.id if self.mentalist_llm else self.llm_id
         else:
             planner_id = None
-        if self.use_inspector:
-            inspector_id = self.inspector_llm.id if self.inspector_llm else self.llm_id
-        else:
-            inspector_id = None
         return {
             "id": self.id,
             "name": self.name,

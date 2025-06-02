@@ -42,15 +42,12 @@ def build_team_agent(payload: Dict, agents: List[Agent] = None, api_key: Text = 
     # Get LLMs from tools if present
     supervisor_llm = None
     mentalist_llm = None
-    inspector_llm = None
 
     # First check if we have direct LLM objects in the payload
     if "supervisor_llm" in payload:
         supervisor_llm = payload["supervisor_llm"]
     if "mentalist_llm" in payload:
         mentalist_llm = payload["mentalist_llm"]
-    if "inspector_llm" in payload:
-        inspector_llm = payload["inspector_llm"]
     # Otherwise create from the parameters
     elif "tools" in payload:
         for tool in payload["tools"]:
@@ -79,8 +76,6 @@ def build_team_agent(payload: Dict, agents: List[Agent] = None, api_key: Text = 
                     supervisor_llm = llm
                 elif tool["description"] == "mentalist":
                     mentalist_llm = llm
-                elif tool["description"] == "inspector":
-                    inspector_llm = llm
 
     team_agent = TeamAgent(
         id=payload.get("id", ""),
@@ -94,7 +89,6 @@ def build_team_agent(payload: Dict, agents: List[Agent] = None, api_key: Text = 
         llm_id=payload.get("llmId", GPT_4o_ID),
         supervisor_llm=supervisor_llm,
         mentalist_llm=mentalist_llm,
-        inspector_llm=inspector_llm,
         use_mentalist=True if payload.get("plannerId", None) is not None else False,
         inspectors=inspectors,
         inspector_targets=inspector_targets,
