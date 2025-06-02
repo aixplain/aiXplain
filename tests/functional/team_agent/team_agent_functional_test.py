@@ -112,7 +112,7 @@ def create_team_agent(factory, agents, run_input_map, use_mentalist=True, inspec
     return team_agent
 
 
-def verify_inspector_steps(steps: Dict, inspector_names: List[str]) -> Dict:
+def verify_inspector_steps(steps: Dict, inspector_names: List[str], inspector_targets: List[InspectorTarget]) -> None:
     """Helper function to verify inspector steps"""
     # Count occurrences of each inspector
     inspector_counts = {}
@@ -132,25 +132,27 @@ def verify_inspector_steps(steps: Dict, inspector_names: List[str]) -> Dict:
             assert count == first_count, f"Inspector {inspector} has {count} steps, expected {first_count}"
             print(f"Inspector {inspector} has {count} steps")
 
-    return inspector_counts
+    # If OUTPUT is in inspector_targets, verify there are inspector steps after response generator
+    if InspectorTarget.OUTPUT in inspector_targets:
+        response_generator_steps = [step for step in steps if "response_generator" in step.get("agent", "").lower()]
+        assert len(response_generator_steps) == 1, "Expected exactly one response_generator step"
+        response_generator_index = steps.index(response_generator_steps[0])
+
+        inspector_steps_after = [
+            step
+            for step in steps[response_generator_index + 1 :]
+            if any(inspector_name.lower() in step.get("agent", "").lower() for inspector_name in inspector_names)
+        ]
+        assert len(inspector_steps_after) > 0, "No inspector steps found after response generator step"
+        print(f"Found {len(inspector_steps_after)} inspector steps after response generator")
 
 
-def verify_response_generator(steps: Dict, inspect: bool = False) -> Dict:
+def verify_response_generator(steps: Dict) -> None:
     """Helper function to verify response generator step"""
     response_generator_steps = [step for step in steps if "response_generator" in step.get("agent", "").lower()]
     assert (
         len(response_generator_steps) == 1
     ), f"Expected exactly one response_generator step, found {len(response_generator_steps)}"
-
-    response_generator_step = response_generator_steps[0]
-
-    if inspect:
-        assert response_generator_step[
-            "thought"
-        ], "Response generator thought is empty, but should contain inspector feedback because OUTPUT is in inspector_targets"
-        print(f"Response generator thought with OUTPUT target: {response_generator_step['thought']}")
-
-    return response_generator_step
 
 
 @pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory, v2.TeamAgent])
@@ -404,14 +406,14 @@ def test_team_agent_with_steps_inspector(run_input_map, delete_agents_and_team_a
     # Check for inspector steps
     if "intermediate_steps" in response["data"]:
         steps = response["data"]["intermediate_steps"]
-        verify_inspector_steps(steps, ["test_inspector"])
-        verify_response_generator(steps, inspect=False)
+        verify_inspector_steps(steps, ["test_inspector"], [InspectorTarget.STEPS])
+        verify_response_generator(steps)
 
     team_agent.delete()
 
 
 @pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory, v2.TeamAgent])
-def todo_test_team_agent_with_output_inspector(run_input_map, delete_agents_and_team_agents, TeamAgentFactory):
+def test_team_agent_with_output_inspector(run_input_map, delete_agents_and_team_agents, TeamAgentFactory):
     """Test team agent with one inspector targeting output"""
     assert delete_agents_and_team_agents
 
@@ -419,10 +421,10 @@ def todo_test_team_agent_with_output_inspector(run_input_map, delete_agents_and_
 
     # Create inspector
     inspector = Inspector(
-        name="Output Inspector",
+        name="test_inspector",
         model_id=run_input_map["llm_id"],
         model_params={"prompt": "Check if the output is valid"},
-        policy=InspectorPolicy.ADAPTIVE,
+        policy=InspectorPolicy.WARN,
     )
 
     # Create team agent with output inspector
@@ -454,7 +456,8 @@ def todo_test_team_agent_with_output_inspector(run_input_map, delete_agents_and_
     # Check for inspector steps
     if "intermediate_steps" in response["data"]:
         steps = response["data"]["intermediate_steps"]
-        verify_response_generator(steps, inspect=True)
+        verify_inspector_steps(steps, ["test_inspector"], [InspectorTarget.OUTPUT])
+        verify_response_generator(steps)
 
     team_agent.delete()
 
