@@ -59,6 +59,9 @@ class ErrorCode(str, Enum):
     AX_SVC_ERROR = "AX-SVC-1000"  # General service error. Use when a specific aiXplain service or endpoint is unavailable or malfunctioning (e.g., service downtime, internal component failure.
     AX_INT_ERROR = "AX-INT-1000"  # General internal error. Use for unexpected server-side errors that are not covered by other categories. This often indicates a bug or an issue within the aiXplain platform itself.
 
+    def __str__(self):
+        return self.value
+
 
 class AixplainBaseException(Exception):
     """Base exception class for all aiXplain exceptions."""

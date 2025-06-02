@@ -17,7 +17,7 @@ T = TypeVar("T")
 
 # Constants
 CACHE_FOLDER = ".cache"
-DEFAULT_CACHE_EXPIRY = 86400
+CACHE_DURATION = 86400
 
 
 @dataclass
@@ -51,15 +51,15 @@ class AssetCache(Generic[T]):
 
     def compute_expiry(self):
         try:
-            expiry = int(os.getenv("CACHE_EXPIRY_TIME", DEFAULT_CACHE_EXPIRY))
+            expiry = int(os.getenv("CACHE_EXPIRY_TIME", CACHE_DURATION))
         except Exception as e:
             logger.warning(
                 f"Failed to parse CACHE_EXPIRY_TIME: {e}, "
-                f"fallback to default value {DEFAULT_CACHE_EXPIRY}"
+                f"fallback to default value {CACHE_DURATION}"
             )
             # remove the CACHE_EXPIRY_TIME from the environment variables
             del os.environ["CACHE_EXPIRY_TIME"]
-            expiry = DEFAULT_CACHE_EXPIRY
+            expiry = CACHE_DURATION
 
         return time.time() + int(expiry)
 
