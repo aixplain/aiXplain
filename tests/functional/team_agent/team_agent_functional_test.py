@@ -16,6 +16,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 import json
+import os
 from dotenv import load_dotenv
 from uuid import uuid4
 
@@ -439,3 +440,52 @@ def test_run_team_agent_with_expected_output():
         assert "age" in person
         assert "city" in person
         assert person["name"] in more_than_30_years_old
+
+
+def test_team_agent_with_slack_connector():
+    from aixplain.modules.model.connector import AuthenticationSchema
+
+    connector = ModelFactory.get("67eff5c0e05614297caeef98")
+    # connect
+    response = connector.connect(authentication_schema=AuthenticationSchema.BEARER, token=os.getenv("SLACK_TOKEN"))
+    connection_id = response.data["id"]
+
+    connection = ModelFactory.get(connection_id)
+    connection.action_scope = [action for action in connection.actions if action.code == "SLACK_CHAT_POST_MESSAGE"]
+
+    agent = AgentFactory.create(
+        name="Test Agent",
+        description="This agent is used to send messages to Slack",
+        instructions="You are a helpful assistant that can answer questions based on a large knowledge base and send messages to Slack.",
+        llm_id="669a63646eb56306647e1091",
+        tasks=[
+            AgentFactory.create_task(
+                name="Task 1",
+                description="Check knowledge base for information about the query and send the response to Slack",
+                expected_output="A message sent to Slack",
+            )
+        ],
+        tools=[
+            connection,
+            AgentFactory.create_model_tool(model="6736411cf127849667606689"),
+        ],
+    )
+
+    team_agent = TeamAgentFactory.create(
+        name="Team Agent",
+        agents=[agent],
+        description="Team agent",
+        llm_id="6646261c6eb563165658bbb1",
+        use_mentalist=False,
+        use_inspector=False,
+    )
+
+    response = team_agent.run(
+        "Send what is the capital of Senegal on Slack to channel of #modelserving-alerts: 'C084G435LR5'. Add the name of the capital in the final answer."
+    )
+    assert response["status"].lower() == "success"
+    assert "dakar" in response.data.output.lower()
+
+    team_agent.delete()
+    agent.delete()
+    connection.delete()
