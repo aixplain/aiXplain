@@ -40,10 +40,10 @@ from aixplain.modules.agent import Agent, OutputFormat
 from aixplain.modules.agent.agent_response import AgentResponse
 from aixplain.modules.agent.agent_response_data import AgentResponseData
 from aixplain.modules.agent.utils import process_variables
+from aixplain.modules.team_agent.inspector import Inspector
 from aixplain.utils import config
 from aixplain.utils.request_utils import _request_with_retry
 from aixplain.modules.model.llm_model import LLM
-from aixplain.utils.llm_utils import get_llm_instance
 from aixplain.modules.mixins import DeployableMixin
 from pydantic import BaseModel
 
@@ -63,15 +63,16 @@ class TeamAgent(Model, DeployableMixin[Agent]):
     Attributes:
         id (Text): ID of the Team Agent
         name (Text): Name of the Team Agent
-        agents (List[Agent]): List of Agents that the Team Agent uses.
+        agents (List[Agent]): List of agents that the Team Agent uses.
         description (Text, optional): description of the Team Agent. Defaults to "".
         llm_id (Text, optional): large language model. Defaults to GPT-4o (6646261c6eb563165658bbb1).
+        api_key (str): The TEAM API key used for authentication.
         supplier (Text): Supplier of the Team Agent.
         version (Text): Version of the Team Agent.
-        backend_url (str): URL of the backend.
-        api_key (str): The TEAM API key used for authentication.
         cost (Dict, optional): model price. Defaults to None.
-        use_mentalist_and_inspector (bool): Use Mentalist and Inspector tools. Defaults to True.
+        use_mentalist (bool): Use Mentalist agent for pre-planning. Defaults to True.
+        inspectors (List[Inspector]): List of inspectors that the team agent uses.
+        inspector_targets (List[InspectorTarget]): List of targets where the inspectors are applied. Defaults to [InspectorTarget.STEPS].
     """
 
     is_valid: bool
@@ -86,51 +87,28 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         llm: Optional[LLM] = None,
         supervisor_llm: Optional[LLM] = None,
         mentalist_llm: Optional[LLM] = None,
-        inspector_llm: Optional[LLM] = None,
         api_key: Optional[Text] = config.TEAM_API_KEY,
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
         version: Optional[Text] = None,
         cost: Optional[Dict] = None,
         use_mentalist: bool = True,
-        use_inspector: bool = True,
-        max_inspectors: int = 1,
+        inspectors: List[Inspector] = [],
         inspector_targets: List[InspectorTarget] = [InspectorTarget.STEPS],
         status: AssetStatus = AssetStatus.DRAFT,
         instructions: Optional[Text] = None,
         **additional_info,
     ) -> None:
-        """Create a FineTune with the necessary information.
-
-        Args:
-            id (Text): ID of the Team Agent
-            name (Text): Name of the Team Agent
-            agents (List[Agent]): List of agents that the Team Agent uses.
-            description (Text, optional): The description of the team agent to be displayed in the aiXplain platform. Defaults to "".
-            llm_id (Text, optional): large language model. Defaults to GPT-4o (6646261c6eb563165658bbb1).
-            llm (LLM, optional): large language model object. Defaults to None.
-            supervisor_llm (LLM, optional): supervisor large language model object. Defaults to None.
-            mentalist_llm (LLM, optional): mentalist large language model object. Defaults to None.
-            inspector_llm (LLM, optional): inspector large language model object. Defaults to None.
-            supplier (Text): Supplier of the Team Agent.
-            version (Text): Version of the Team Agent.
-            backend_url (str): URL of the backend.
-            api_key (str): The TEAM API key used for authentication.
-            cost (Dict, optional): model price. Defaults to None.
-            use_mentalist_and_inspector (bool): Use Mentalist and Inspector tools. Defaults to True.
-            instructions (Text, optional): The instructions to guide the team agent (i.e. appended in the prompt of the team agent). Defaults to None.
-        """
         super().__init__(id, name, description, api_key, supplier, version, cost=cost)
         self.additional_info = additional_info
         self.agents = agents
         self.llm_id = llm_id
         self.llm = llm
         self.use_mentalist = use_mentalist
-        self.use_inspector = use_inspector
-        self.max_inspectors = max_inspectors
+        self.inspectors = inspectors
         self.inspector_targets = inspector_targets
+        self.use_inspector = True if inspectors else False
         self.supervisor_llm = supervisor_llm
         self.mentalist_llm = mentalist_llm
-        self.inspector_llm = inspector_llm
         self.instructions = instructions
         if isinstance(status, str):
             try:
@@ -208,6 +186,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                     session_id=result_data.get("session_id"),
                     intermediate_steps=result_data.get("intermediate_steps"),
                     execution_stats=result_data.get("executionStats"),
+                    critiques=result_data.get("critiques", ""),
                 ),
                 used_credits=result_data.get("usedCredits", 0.0),
                 run_time=result_data.get("runTime", end - start),
@@ -361,10 +340,6 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             planner_id = self.mentalist_llm.id if self.mentalist_llm else self.llm_id
         else:
             planner_id = None
-        if self.use_inspector:
-            inspector_id = self.inspector_llm.id if self.inspector_llm else self.llm_id
-        else:
-            inspector_id = None
         return {
             "id": self.id,
             "name": self.name,
@@ -376,8 +351,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             "llmId": self.llm.id if self.llm else self.llm_id,
             "supervisorId": self.supervisor_llm.id if self.supervisor_llm else self.llm_id,
             "plannerId": planner_id,
-            "inspectorId": inspector_id,
-            "maxInspectors": self.max_inspectors,
+            "inspectors": [inspector.model_dump(by_alias=True) for inspector in self.inspectors],
             "inspectorTargets": [target.value for target in self.inspector_targets],
             "supplier": self.supplier.value["code"] if isinstance(self.supplier, Supplier) else self.supplier,
             "version": self.version,
@@ -386,6 +360,8 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         }
 
     def _validate(self) -> None:
+        from aixplain.utils.llm_utils import get_llm_instance
+
         """Validate the Team."""
 
         # validate name

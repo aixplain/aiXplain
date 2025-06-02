@@ -45,7 +45,6 @@ from typing import Callable, Dict, List, Optional, Text, Union
 from aixplain.utils.request_utils import _request_with_retry
 from urllib.parse import urljoin
 from aixplain.enums import DatabaseSourceType
-from aixplain.utils.llm_utils import get_llm_instance
 
 
 class AgentFactory:
@@ -85,6 +84,8 @@ class AgentFactory:
         Returns:
             Agent: created Agent
         """
+        from aixplain.utils.llm_utils import get_llm_instance
+
         if llm is None and llm_id is not None:
             llm = get_llm_instance(llm_id, api_key=api_key)
         elif llm is None:
