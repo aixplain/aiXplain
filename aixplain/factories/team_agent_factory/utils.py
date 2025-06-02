@@ -8,6 +8,7 @@ import aixplain.utils.config as config
 from aixplain.enums.asset_status import AssetStatus
 from aixplain.modules.agent import Agent
 from aixplain.modules.team_agent import TeamAgent, InspectorTarget
+from aixplain.modules.team_agent.inspector import Inspector
 
 
 GPT_4o_ID = "6646261c6eb563165658bbb1"
@@ -31,6 +32,10 @@ def build_team_agent(payload: Dict, agents: List[Agent] = None, api_key: Text = 
                 )
                 continue
 
+    # Ensure custom classes are instantiated: for compatibility with backend return format
+    inspectors = [
+        inspector if isinstance(inspector, Inspector) else Inspector(**inspector) for inspector in payload.get("inspectors", [])
+    ]
     inspector_targets = [InspectorTarget(target.lower()) for target in payload.get("inspectorTargets", [])]
 
     team_agent = TeamAgent(
@@ -44,7 +49,7 @@ def build_team_agent(payload: Dict, agents: List[Agent] = None, api_key: Text = 
         cost=payload.get("cost", None),
         llm_id=payload.get("llmId", GPT_4o_ID),
         use_mentalist=True if payload.get("plannerId", None) is not None else False,
-        inspectors=payload.get("inspectors", []),
+        inspectors=inspectors,
         inspector_targets=inspector_targets,
         api_key=api_key,
         status=AssetStatus(payload["status"]),
