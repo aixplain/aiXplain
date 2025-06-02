@@ -355,4 +355,6 @@ def test_create_sql_tool_source_type_handling(tmp_path):
 
     # Test invalid type
     with pytest.raises(SQLToolError, match="Source type must be either a string or DatabaseSourceType enum, got <class 'int'>"):
-        AgentFactory.create_sql_tool(description="Test", source=db_path, source_type=123, schema="test")  # Invalid type
+        AgentFactory.create_sql_tool(
+            name="Test SQL", description="Test", source=db_path, source_type=123, schema="test"
+        )  # Invalid type

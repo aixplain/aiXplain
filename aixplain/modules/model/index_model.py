@@ -39,7 +39,13 @@ class IndexFilter:
 
 
 class Splitter:
-    def __init__(self, split: bool = False, split_by: SplittingOptions = SplittingOptions.WORD, split_length: int = 1, split_overlap: int = 0):
+    def __init__(
+        self,
+        split: bool = False,
+        split_by: SplittingOptions = SplittingOptions.WORD,
+        split_length: int = 1,
+        split_overlap: int = 0,
+    ):
         self.split = split
         self.split_by = split_by
         self.split_length = split_length
