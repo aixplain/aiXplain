@@ -147,3 +147,9 @@ class ConnectorModel(Model):
                     "authScheme": authentication_schema.value,
                 }
             )
+
+    def __repr__(self):
+        try:
+            return f"Integration: {self.name} by {self.supplier['name']} (id={self.id})"
+        except Exception:
+            return f"Integration: {self.name} by {self.supplier} (id={self.id})"
