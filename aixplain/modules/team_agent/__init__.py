@@ -44,7 +44,6 @@ from aixplain.modules.team_agent.inspector import Inspector
 from aixplain.utils import config
 from aixplain.utils.request_utils import _request_with_retry
 from aixplain.modules.model.llm_model import LLM
-from aixplain.utils.llm_utils import get_llm_instance
 from aixplain.modules.mixins import DeployableMixin
 from pydantic import BaseModel
 
@@ -361,6 +360,8 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         }
 
     def _validate(self) -> None:
+        from aixplain.utils.llm_utils import get_llm_instance
+
         """Validate the Team."""
 
         # validate name
