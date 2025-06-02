@@ -78,20 +78,27 @@ def verify_inspector_steps(steps: Dict, inspector_names: List[str], inspector_ta
         assert len(inspector_steps_after) > 0, "No inspector steps found after response generator step"
         print(f"Found {len(inspector_steps_after)} inspector steps after response generator")
 
+        # Verify inspector steps are the last steps
+        last_steps = steps[response_generator_index + 1 :]
+        assert all(
+            any(inspector_name.lower() in step.get("agent", "").lower() for inspector_name in inspector_names)
+            for step in last_steps
+        ), "Not all steps after response generator are inspector steps"
+
 
 @pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory, v2.TeamAgent])
-def test_team_agent_with_steps_inspector(run_input_map, delete_agents_and_team_agents, TeamAgentFactory):
-    """Test team agent with one inspector targeting steps"""
+def test_team_agent_with_adaptive_inspector(run_input_map, delete_agents_and_team_agents, TeamAgentFactory):
+    """Test team agent with adaptive inspector that runs multiple times"""
     assert delete_agents_and_team_agents
 
     agents = create_agents_from_input_map(run_input_map)
 
-    # Create inspector
+    # Create inspector with adaptive policy
     inspector = Inspector(
-        name="test_inspector",
+        name="adaptive_inspector",
         model_id=run_input_map["llm_id"],
-        model_params={"prompt": "Check if the steps are valid"},
-        policy=InspectorPolicy.WARN,
+        model_params={"prompt": "Check if the steps are valid and provide feedback for improvement"},
+        policy=InspectorPolicy.ADAPTIVE,
     )
 
     # Create team agent with steps inspector
@@ -123,24 +130,90 @@ def test_team_agent_with_steps_inspector(run_input_map, delete_agents_and_team_a
     # Check for inspector steps
     if "intermediate_steps" in response["data"]:
         steps = response["data"]["intermediate_steps"]
-        verify_inspector_steps(steps, ["test_inspector"], [InspectorTarget.STEPS])
+        print(*steps, sep="\n")
+        verify_inspector_steps(steps, ["adaptive_inspector"], [InspectorTarget.STEPS])
         verify_response_generator(steps)
+
+        # Verify inspector runs multiple times
+        inspector_steps = [step for step in steps if "adaptive_inspector" in step.get("agent", "").lower()]
+        assert len(inspector_steps) > 1, "Adaptive inspector should run more than once"
+
+    team_agent.delete()
+
+
+@pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory, v2.TeamAgent])
+def test_team_agent_with_abort_inspector(run_input_map, delete_agents_and_team_agents, TeamAgentFactory):
+    """Test team agent with abort inspector that stops execution on critique"""
+    assert delete_agents_and_team_agents
+
+    agents = create_agents_from_input_map(run_input_map)
+
+    # Create inspector with abort policy
+    inspector = Inspector(
+        name="abort_inspector",
+        model_id=run_input_map["llm_id"],
+        model_params={"prompt": "Always find issues and provide negative feedback"},
+        policy=InspectorPolicy.ABORT,
+    )
+
+    # Create team agent with steps inspector
+    team_agent = create_team_agent(
+        TeamAgentFactory,
+        agents,
+        run_input_map,
+        use_mentalist=True,
+        inspectors=[inspector],
+        inspector_targets=[InspectorTarget.STEPS],
+    )
+
+    assert team_agent is not None
+    assert team_agent.status == AssetStatus.DRAFT
+
+    # deploy team agent
+    team_agent.deploy()
+    team_agent = TeamAgentFactory.get(team_agent.id)
+    assert team_agent is not None
+    assert team_agent.status == AssetStatus.ONBOARDED
+
+    # Run the team agent
+    response = team_agent.run(data=run_input_map["query"])
+
+    assert response is not None
+    assert response["completed"] is True
+    assert response["status"].lower() == "success"
+    assert "I couldn't provide an answer because the inspector detected issues" in response["data"]["output"]
+
+    # Check for inspector steps
+    if "intermediate_steps" in response["data"]:
+        steps = response["data"]["intermediate_steps"]
+        verify_inspector_steps(steps, ["abort_inspector"], [InspectorTarget.STEPS])
+        verify_response_generator(steps)
+
+        # Verify response generator comes right after first inspector critique
+        inspector_steps = [step for step in steps if "abort_inspector" in step.get("agent", "").lower()]
+        assert len(inspector_steps) == 1, "Abort inspector should only run once"
+        response_generator_index = steps.index(
+            [step for step in steps if "response_generator" in step.get("agent", "").lower()][0]
+        )
+        assert (
+            response_generator_index == steps.index(inspector_steps[0]) + 1
+        ), "Response generator should come right after inspector critique"
 
     team_agent.delete()
 
 
 @pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory, v2.TeamAgent])
 def test_team_agent_with_output_inspector(run_input_map, delete_agents_and_team_agents, TeamAgentFactory):
-    """Test team agent with one inspector targeting output"""
+    """Test team agent with output inspector that runs after response generator"""
     assert delete_agents_and_team_agents
 
     agents = create_agents_from_input_map(run_input_map)
 
     # Create inspector
     inspector = Inspector(
-        name="test_inspector",
+        name="output_inspector",
         model_id=run_input_map["llm_id"],
-        model_params={"prompt": "Check if the output is valid"},
+        model_params={"prompt": "Check if the output is valid and provide feedback"},
         policy=InspectorPolicy.WARN,
     )
 
@@ -173,41 +246,45 @@ def test_team_agent_with_output_inspector(run_input_map, delete_agents_and_team_
     # Check for inspector steps
     if "intermediate_steps" in response["data"]:
         steps = response["data"]["intermediate_steps"]
-        verify_inspector_steps(steps, ["test_inspector"], [InspectorTarget.OUTPUT])
+        verify_inspector_steps(steps, ["output_inspector"], [InspectorTarget.OUTPUT])
         verify_response_generator(steps)
+
+        # Verify critiques are in response data
+        assert "critiques" in response["data"]
+        assert response["data"]["critiques"], "No critiques found in response data"
 
     team_agent.delete()
 
 
 @pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory, v2.TeamAgent])
-def test_team_agent_with_multiple_inspectors(run_input_map, delete_agents_and_team_agents, TeamAgentFactory):
-    """Test team agent with multiple inspectors targeting steps"""
+def test_team_agent_with_multiple_inspector_targets(run_input_map, delete_agents_and_team_agents, TeamAgentFactory):
+    """Test team agent with inspectors targeting both steps and output"""
     assert delete_agents_and_team_agents
 
     agents = create_agents_from_input_map(run_input_map)
 
     # Create inspectors
-    inspector1 = Inspector(
-        name="test1_inspector",
+    steps_inspector = Inspector(
+        name="steps_inspector",
         model_id=run_input_map["llm_id"],
         model_params={"prompt": "Check if the steps are valid"},
         policy=InspectorPolicy.WARN,
     )
-    inspector2 = Inspector(
-        name="test2_inspector",
+    output_inspector = Inspector(
+        name="output_inspector",
         model_id=run_input_map["llm_id"],
-        model_params={"prompt": "Check if the steps are valid"},
+        model_params={"prompt": "Check if the output is valid"},
         policy=InspectorPolicy.WARN,
     )
 
-    # Create team agent with multiple steps inspectors
+    # Create team agent with multiple inspectors
     team_agent = create_team_agent(
         TeamAgentFactory,
         agents,
         run_input_map,
         use_mentalist=True,
-        inspectors=[inspector1, inspector2],
-        inspector_targets=[InspectorTarget.STEPS],
+        inspectors=[steps_inspector, output_inspector],
+        inspector_targets=[InspectorTarget.STEPS, InspectorTarget.OUTPUT],
     )
 
     assert team_agent is not None
@@ -229,7 +306,11 @@ def test_team_agent_with_multiple_inspectors(run_input_map, delete_agents_and_te
     # Check for inspector steps
     if "intermediate_steps" in response["data"]:
         steps = response["data"]["intermediate_steps"]
-        verify_inspector_steps(steps, ["test1_inspector", "test2_inspector"], [InspectorTarget.STEPS])
+        verify_inspector_steps(steps, ["steps_inspector", "output_inspector"], [InspectorTarget.STEPS, InspectorTarget.OUTPUT])
         verify_response_generator(steps)
+
+        # Verify critiques are in response data
+        assert "critiques" in response["data"]
+        assert response["data"]["critiques"], "No critiques found in response data"
 
     team_agent.delete()
