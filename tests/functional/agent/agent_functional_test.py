@@ -725,7 +725,7 @@ def test_run_agent_with_expected_output():
 
 
 def test_agent_with_action_tool():
-    from aixplain.modules.model.connector import AuthenticationSchema
+    from aixplain.modules.model.integration import AuthenticationSchema
 
     connector = ModelFactory.get("67eff5c0e05614297caeef98")
     # connect

@@ -4,8 +4,8 @@ from aixplain.factories import ModelFactory
 from aixplain.factories.model_factory.mixins import ModelGetterMixin, ModelListMixin
 from aixplain.modules.model import Model
 from aixplain.modules.model.index_model import IndexModel
-from aixplain.modules.model.connector import ConnectorModel
-from aixplain.modules.model.connector import BaseAuthenticationParams
+from aixplain.modules.model.integration import Integration
+from aixplain.modules.model.integration import BaseAuthenticationParams
 from aixplain.factories.index_factory.utils import BaseIndexParams, AirParams, VectaraParams, ZeroEntropyParams, GraphRAGParams
 from aixplain.enums.index_stores import IndexStores
 from aixplain.modules.model.utility_model import BaseScriptModelParams
@@ -102,12 +102,12 @@ class ToolFactory(ModelGetterMixin, ModelListMixin):
                 integration = integration_model.id
 
             assert (
-                isinstance(integration_model, ConnectorModel)
+                isinstance(integration_model, Integration)
                 or isinstance(integration_model, IndexModel)
                 or kwargs.get("code") is not None
             ), "Please provide the proper integration (ConnectorModel, IndexModel or ScriptModel code) or params to create a model tool."
-            if isinstance(integration_model, ConnectorModel):
-                from aixplain.modules.model.connector import build_connector_params
+            if isinstance(integration_model, Integration):
+                from aixplain.modules.model.integration import build_connector_params
 
                 kwargs["connector_id"] = integration_model.id
                 params = build_connector_params(**kwargs)

@@ -34,7 +34,7 @@ from aixplain.modules.model.model_parameters import ModelParameters
 from aixplain.modules.model.llm_model import LLM
 from aixplain.modules.model.index_model import IndexModel
 from aixplain.modules.model.utility_model import ScriptModel
-from aixplain.modules.model.connector import ConnectorModel, AuthenticationSchema
+from aixplain.modules.model.integration import Integration, AuthenticationSchema
 from aixplain.modules.model.connection import ConnectionTool, ConnectAction
 
 
@@ -197,7 +197,7 @@ def test_get_assets_from_page_error():
 
 
 def test_get_model_from_ids():
-    from aixplain.factories.model_factory.mixins.model_list import get_model_from_ids
+    from aixplain.factories.model_factory.utils import get_model_from_ids
 
     with requests_mock.Mocker() as mock:
         model_ids = ["test-model-id-1", "test-model-id-2"]
@@ -676,7 +676,7 @@ def test_model_not_supports_streaming(mocker):
                 "params": {},
                 "version": {"id": "1.0"},
             },
-            ConnectorModel,
+            Integration,
         ),
         (
             {
@@ -723,7 +723,7 @@ def test_model_not_supports_streaming(mocker):
     ],
 )
 def test_create_model_from_response(payload, expected_model_class):
-    from aixplain.factories.model_factory.mixins import create_model_from_response
+    from aixplain.factories.model_factory.utils import create_model_from_response
     from aixplain.enums import FunctionType
 
     model = create_model_from_response(payload)
@@ -743,8 +743,8 @@ def test_create_model_from_response(payload, expected_model_class):
     ],
 )
 def test_connector_connect(mocker, authentication_schema, name, token, client_id, client_secret):
-    mocker.patch("aixplain.modules.model.connector.ConnectorModel.run", return_value={"id": "test-id"})
-    connector = ConnectorModel(
+    mocker.patch("aixplain.modules.model.integration.Integration.run", return_value={"id": "test-id"})
+    connector = Integration(
         id="connector-id",
         name="connector-name",
         function=Function.UTILITIES,

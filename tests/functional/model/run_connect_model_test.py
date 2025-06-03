@@ -1,7 +1,7 @@
 import os
 from aixplain.enums import ResponseStatus
 from aixplain.factories import ModelFactory
-from aixplain.modules.model.connector import ConnectorModel, AuthenticationSchema
+from aixplain.modules.model.integration import Integration, AuthenticationSchema
 from aixplain.modules.model.connection import ConnectionTool
 
 
@@ -9,7 +9,7 @@ def test_run_connect_model():
     # get slack connector
     connector = ModelFactory.get("67eff5c0e05614297caeef98")
 
-    assert isinstance(connector, ConnectorModel)
+    assert isinstance(connector, Integration)
     assert connector.id == "67eff5c0e05614297caeef98"
     assert connector.name == "Slack"
 

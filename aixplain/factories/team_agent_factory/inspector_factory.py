@@ -16,7 +16,7 @@ from urllib.parse import urljoin
 
 from aixplain.enums.asset_status import AssetStatus
 from aixplain.enums.function import Function
-from aixplain.factories.model_factory.mixins.model_getter import create_model_from_response
+from aixplain.factories.model_factory.utils import create_model_from_response
 from aixplain.modules.model import Model
 from aixplain.modules.team_agent.inspector import Inspector, InspectorPolicy, InspectorAuto
 from aixplain.utils import config

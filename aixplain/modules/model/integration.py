@@ -1,3 +1,4 @@
+import warnings
 from aixplain.enums import Function, Supplier, FunctionType
 from aixplain.modules.model import Model, ModelResponse
 from aixplain.utils import config
@@ -48,7 +49,7 @@ def build_connector_params(**kwargs) -> BaseAuthenticationParams:
     return args
 
 
-class ConnectorModel(Model):
+class Integration(Model):
     def __init__(
         self,
         id: Text,
@@ -63,7 +64,7 @@ class ConnectorModel(Model):
         function_type: Optional[FunctionType] = FunctionType.SEARCH,
         **additional_info,
     ) -> None:
-        """Connector Init
+        """Integration Init
 
         Args:
             id (Text): ID of the Model
@@ -77,7 +78,7 @@ class ConnectorModel(Model):
             cost (Dict, optional): model price. Defaults to None.
             **additional_info: Any additional Model info to be saved
         """
-        assert function_type == FunctionType.CONNECTOR, "Connector only supports connector function"
+        assert function_type == FunctionType.CONNECTOR, "Integration only supports connector function"
         super().__init__(
             id=id,
             name=name,
@@ -95,20 +96,20 @@ class ConnectorModel(Model):
         self.backend_url = config.BACKEND_URL
 
     def connect(self, args: Optional[BaseAuthenticationParams] = None, **kwargs) -> ModelResponse:
-        """Connect to the connector
+        """Connect to the integration
 
         Examples:
             - For Bearer Token Authentication:
-                >>> connector.connect(BearerAuthenticationSchema(name="My Connection", token="1234567890"))
-                >>> connector.connect(BearerAuthenticationSchema(token="1234567890"))
-                >>> connector.connect(token="1234567890")
+                >>> integration.connect(BearerAuthenticationSchema(name="My Connection", token="1234567890"))
+                >>> integration.connect(BearerAuthenticationSchema(token="1234567890"))
+                >>> integration.connect(token="1234567890")
             - For OAuth Authentication:
-                >>> connector.connect(OAuthAuthenticationSchema(name="My Connection", client_id="1234567890", client_secret="1234567890"))
-                >>> connector.connect(OAuthAuthenticationSchema(client_id="1234567890", client_secret="1234567890"))
-                >>> connector.connect(client_id="1234567890", client_secret="1234567890")
+                >>> integration.connect(OAuthAuthenticationSchema(name="My Connection", client_id="1234567890", client_secret="1234567890"))
+                >>> integration.connect(OAuthAuthenticationSchema(client_id="1234567890", client_secret="1234567890"))
+                >>> integration.connect(client_id="1234567890", client_secret="1234567890")
             - For OAuth2 Authentication:
-                >>> connector.connect(OAuth2AuthenticationSchema(name="My Connection"))
-                >>> connector.connect()
+                >>> integration.connect(OAuth2AuthenticationSchema(name="My Connection"))
+                >>> integration.connect()
                 Make sure to click on the redirect url to complete the connection.
 
         Returns:
@@ -141,12 +142,17 @@ class ConnectorModel(Model):
                 }
             )
         elif authentication_schema == AuthenticationSchema.OAUTH2:
-            return self.run(
+            response = self.run(
                 {
                     "name": args.name,
                     "authScheme": authentication_schema.value,
                 }
             )
+            if "redirectURL" in response.data:
+                warnings.warn(
+                    f"Before using the tool, please visit the following URL to complete the connection: {response.data['redirectURL']}"
+                )
+            return response
 
     def __repr__(self):
         try:

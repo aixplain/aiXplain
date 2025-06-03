@@ -4,7 +4,7 @@ import aixplain.utils.config as config
 from aixplain.enums import Function, Supplier, SortBy, SortOrder, OwnershipType
 from aixplain.factories.model_factory.mixins.model_getter import ModelGetterMixin
 from aixplain.factories.model_factory.mixins.model_list import ModelListMixin
-from aixplain.modules.model.connector import ConnectorModel
+from aixplain.modules.model.integration import Integration
 from typing import Optional, Text, Union, Tuple, List
 
 
@@ -12,9 +12,9 @@ class IntegrationFactory(ModelGetterMixin, ModelListMixin):
     backend_url = config.BACKEND_URL
 
     @classmethod
-    def get(cls, model_id: Text, api_key: Optional[Text] = None, use_cache: bool = False) -> ConnectorModel:
+    def get(cls, model_id: Text, api_key: Optional[Text] = None, use_cache: bool = False) -> Integration:
         model = super().get(model_id=model_id, api_key=api_key)
-        assert isinstance(model, ConnectorModel), f"The provided ID ('{model_id}') is not from an integration model"
+        assert isinstance(model, Integration), f"The provided ID ('{model_id}') is not from an integration model"
         return model
 
     @classmethod
@@ -28,7 +28,7 @@ class IntegrationFactory(ModelGetterMixin, ModelListMixin):
         page_number: int = 0,
         page_size: int = 20,
         api_key: Optional[Text] = None,
-    ) -> List[ConnectorModel]:
+    ) -> List[Integration]:
         return super().list(
             function=Function.CONNECTOR,
             query=query,
