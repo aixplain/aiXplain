@@ -92,7 +92,6 @@ def run_index_model(index_model, retries):
         except Exception as e:
             time.sleep(180)
 
-
     response = index_model.search("Berlin")
     assert str(response.status) == "SUCCESS"
     assert "germany" in response.data.lower()
@@ -130,7 +129,6 @@ def test_index_model(embedding_model, supplier_params):
     run_index_model(index_model, retries)
 
 
-
 @pytest.mark.parametrize(
     "embedding_model,supplier_params",
     [
@@ -146,7 +144,7 @@ def test_index_model_with_filter(embedding_model, supplier_params):
     from uuid import uuid4
     from aixplain.modules.model.record import Record
     from aixplain.factories import IndexFactory
-    from aiXplain.aixplain.modules.model.index_models.index_model import IndexFilter, IndexFilterOperator
+    from aixplain.modules.model.index_models.vector_index_model import IndexFilter, IndexFilterOperator
 
     for index in IndexFactory.list()["results"]:
         index.delete()
@@ -182,7 +180,6 @@ def test_index_model_with_filter(embedding_model, supplier_params):
             break
         except Exception:
             time.sleep(180)
-
 
     assert index_model.count() == 2
     response = index_model.search(

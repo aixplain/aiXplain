@@ -241,7 +241,7 @@ def test_index_factory_create_failure():
 
 
 def test_index_model_splitter():
-    from aixplain.modules.model.index_model import Splitter
+    from aixplain.modules.model.index_models.index_model import Splitter
 
     splitter = Splitter(split=True, split_by="sentence", split_length=100, split_overlap=0)
     assert splitter.split == True

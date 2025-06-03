@@ -4,6 +4,21 @@ from aixplain.modules.model import Model
 from aixplain.utils import config
 from aixplain.modules.model.response import ModelResponse
 from aixplain.modules.model.record import Record
+from aixplain.enums.splitting_options import SplittingOptions
+
+
+class Splitter:
+    def __init__(
+        self,
+        split: bool = False,
+        split_by: SplittingOptions = SplittingOptions.WORD,
+        split_length: int = 1,
+        split_overlap: int = 0,
+    ):
+        self.split = split
+        self.split_by = split_by
+        self.split_length = split_length
+        self.split_overlap = split_overlap
 
 
 class IndexModel(Model):
@@ -94,17 +109,20 @@ class IndexModel(Model):
         }
         return self.run(data=data)
 
-    def upsert(self, documents: List[Record]) -> ModelResponse:
+    def upsert(self, documents: List[Record], splitter: Optional[Splitter] = None) -> ModelResponse:
         """Upsert documents into the index
 
         Args:
             documents (List[Record]): List of documents to be upserted
+            splitter (Splitter, optional): Splitter to be applied. Defaults to None.
 
         Returns:
             ModelResponse: Response from the indexing service
 
         Example:
             index_model.upsert([Record(value="Hello, world!", value_type="text", uri="", id="1", attributes={})])
+            index_model.upsert([Record(value="Hello, world!", value_type="text", uri="", id="1", attributes={})], splitter=Splitter(split=True, split_by=SplittingOptions.WORD, split_length=1, split_overlap=0))
+            Splitter in the above example is optional and can be used to split the documents into smaller chunks.
         """
         # Validate documents
         for doc in documents:
@@ -112,7 +130,19 @@ class IndexModel(Model):
         # Convert documents to payloads
         payloads = [doc.to_dict() for doc in documents]
         # Build payload
-        data = {"action": "ingest", "data": payloads}
+        data = {
+            "action": "ingest",
+            "data": payloads,
+        }
+        if splitter and splitter.split:
+            data["additional_params"] = {
+                "splitter": {
+                    "split": splitter.split,
+                    "split_by": splitter.split_by,
+                    "split_length": splitter.split_length,
+                    "split_overlap": splitter.split_overlap,
+                }
+            }
         # Run the indexing service
         response = self.run(data=data)
         if response.status == ResponseStatus.SUCCESS:
