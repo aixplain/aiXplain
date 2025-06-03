@@ -163,17 +163,11 @@ def test_index_model_with_filter(embedding_model, supplier_params):
             index_model.upsert(
                 [Record(value="Hello, aiXplain!", value_type="text", uri="", id="1", attributes={"category": "hello"})]
             )
-            index_model.upsert(
-                [Record(value="Hello, aiXplain!", value_type="text", uri="", id="1", attributes={"category": "hello"})]
-            )
             break
         except Exception:
             time.sleep(180)
     for _ in range(retries):
         try:
-            index_model.upsert(
-                [Record(value="The world is great", value_type="text", uri="", id="2", attributes={"category": "world"})]
-            )
             index_model.upsert(
                 [Record(value="The world is great", value_type="text", uri="", id="2", attributes={"category": "world"})]
             )
