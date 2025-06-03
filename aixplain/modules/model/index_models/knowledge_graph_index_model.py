@@ -1,4 +1,4 @@
-from aixplain.modules.model.index_models.index_model import IndexModel, Splitter
+from aixplain.modules.model.index_models.index_model import IndexModel
 from aixplain.enums import ResponseStatus
 from typing import Text, Optional, Union, Dict, List, Any
 from aixplain.modules.model.record import Record
@@ -87,20 +87,17 @@ class KnowledgeGraphIndexModel(IndexModel):
         raise Exception(f"Failed to run indexing: {response.error_message}")
 
     # Add current documents to the storage and start the indexing process.
-    def upsert(self, documents: List[Record], splitter: Optional[Splitter] = None) -> ModelResponse:
+    def upsert(self, documents: List[Record]) -> ModelResponse:
         """Upsert documents into the index
 
         Args:
             documents (List[Record]): List of documents to be upserted
-            splitter (Splitter, optional): Splitter to be applied. Defaults to None.
 
         Returns:
             ModelResponse: Response from the indexing service
 
         Example:
             index_model.upsert([Record(value="Hello, world!", value_type="text", uri="", id="1", attributes={})])
-            index_model.upsert([Record(value="Hello, world!", value_type="text", uri="", id="1", attributes={})], splitter=Splitter(split=True, split_by=SplittingOptions.WORD, split_length=1, split_overlap=0))
-            Splitter in the above example is optional and can be used to split the documents into smaller chunks.
         """
         self.add_documents(documents)
         return self.graph_indexing()

@@ -1,9 +1,8 @@
-from typing import Text, Optional, Union, Dict, List
-from aixplain.enums import EmbeddingModel, Function, Supplier, ResponseStatus
+from typing import Text, Optional, Union, Dict
+from aixplain.enums import EmbeddingModel, Function, Supplier
 from aixplain.modules.model import Model
 from aixplain.utils import config
 from aixplain.modules.model.response import ModelResponse
-from aixplain.modules.model.record import Record
 from aixplain.enums.splitting_options import SplittingOptions
 
 
@@ -108,47 +107,6 @@ class IndexModel(Model):
             "payload": {"top_k": top_k},
         }
         return self.run(data=data)
-
-    def upsert(self, documents: List[Record], splitter: Optional[Splitter] = None) -> ModelResponse:
-        """Upsert documents into the index
-
-        Args:
-            documents (List[Record]): List of documents to be upserted
-            splitter (Splitter, optional): Splitter to be applied. Defaults to None.
-
-        Returns:
-            ModelResponse: Response from the indexing service
-
-        Example:
-            index_model.upsert([Record(value="Hello, world!", value_type="text", uri="", id="1", attributes={})])
-            index_model.upsert([Record(value="Hello, world!", value_type="text", uri="", id="1", attributes={})], splitter=Splitter(split=True, split_by=SplittingOptions.WORD, split_length=1, split_overlap=0))
-            Splitter in the above example is optional and can be used to split the documents into smaller chunks.
-        """
-        # Validate documents
-        for doc in documents:
-            doc.validate()
-        # Convert documents to payloads
-        payloads = [doc.to_dict() for doc in documents]
-        # Build payload
-        data = {
-            "action": "ingest",
-            "data": payloads,
-        }
-        if splitter and splitter.split:
-            data["additional_params"] = {
-                "splitter": {
-                    "split": splitter.split,
-                    "split_by": splitter.split_by,
-                    "split_length": splitter.split_length,
-                    "split_overlap": splitter.split_overlap,
-                }
-            }
-        # Run the indexing service
-        response = self.run(data=data)
-        if response.status == ResponseStatus.SUCCESS:
-            response.data = payloads
-            return response
-        raise Exception(f"Failed to upsert documents: {response.error_message}")
 
     def get_record(self, record_id: Text) -> ModelResponse:
         """

@@ -1,9 +1,10 @@
 from typing import Union, List, Text, Optional, Dict
 from enum import Enum
 from aixplain.enums import StorageType
-from aixplain.modules.model.index_models.index_model import IndexModel
+from aixplain.modules.model.index_models.index_model import IndexModel, Splitter
+from aixplain.modules.model.record import Record
 from aixplain.modules.model.response import ModelResponse
-from aixplain.enums import Function, Supplier, EmbeddingModel
+from aixplain.enums import Function, Supplier, EmbeddingModel, ResponseStatus
 
 
 class IndexFilterOperator(Enum):
@@ -50,7 +51,7 @@ class VectorIndexModel(IndexModel):
         is_subscribed: bool = False,
         cost: Optional[Dict] = None,
         embedding_model: Optional[EmbeddingModel] = None,
-        **additional_info
+        **additional_info,
     ):
         super().__init__(
             id, name, description, api_key, supplier, version, function, is_subscribed, cost, embedding_model, **additional_info
@@ -88,3 +89,44 @@ class VectorIndexModel(IndexModel):
             "payload": {"uri": uri, "value_type": value_type, "top_k": top_k},
         }
         return self.run(data=data)
+
+    def upsert(self, documents: List[Record], splitter: Optional[Splitter] = None) -> ModelResponse:
+        """Upsert documents into the index
+
+        Args:
+            documents (List[Record]): List of documents to be upserted
+            splitter (Splitter, optional): Splitter to be applied. Defaults to None.
+
+        Returns:
+            ModelResponse: Response from the indexing service
+
+        Example:
+            index_model.upsert([Record(value="Hello, world!", value_type="text", uri="", id="1", attributes={})])
+            index_model.upsert([Record(value="Hello, world!", value_type="text", uri="", id="1", attributes={})], splitter=Splitter(split=True, split_by=SplittingOptions.WORD, split_length=1, split_overlap=0))
+            Splitter in the above example is optional and can be used to split the documents into smaller chunks.
+        """
+        # Validate documents
+        for doc in documents:
+            doc.validate()
+        # Convert documents to payloads
+        payloads = [doc.to_dict() for doc in documents]
+        # Build payload
+        data = {
+            "action": "ingest",
+            "data": payloads,
+        }
+        if splitter and splitter.split:
+            data["additional_params"] = {
+                "splitter": {
+                    "split": splitter.split,
+                    "split_by": splitter.split_by,
+                    "split_length": splitter.split_length,
+                    "split_overlap": splitter.split_overlap,
+                }
+            }
+        # Run the indexing service
+        response = self.run(data=data)
+        if response.status == ResponseStatus.SUCCESS:
+            response.data = payloads
+            return response
+        raise Exception(f"Failed to upsert documents: {response.error_message}")
