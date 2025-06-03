@@ -61,7 +61,7 @@ class Integration(Model):
         function: Optional[Function] = None,
         is_subscribed: bool = False,
         cost: Optional[Dict] = None,
-        function_type: Optional[FunctionType] = FunctionType.SEARCH,
+        function_type: Optional[FunctionType] = FunctionType.CONNECTOR,
         **additional_info,
     ) -> None:
         """Integration Init

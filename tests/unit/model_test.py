@@ -799,3 +799,95 @@ def test_connection_init_with_actions(mocker):
     assert "test-code" in inputs
     assert inputs["test-code"]["name"] == "test-name"
     assert inputs["test-code"]["description"] == "test-description"
+
+
+def test_tool_factory(mocker):
+    from aixplain.factories import ToolFactory
+    from aixplain.modules.model.utility_model import BaseScriptModelParams
+
+    # Utility Model
+    mocker.patch(
+        "aixplain.factories.model_factory.ModelFactory.create_utility_model",
+        return_value=ScriptModel(
+            id="test-id",
+            name="test-name",
+            function=Function.UTILITIES,
+            function_type=FunctionType.AI,
+            api_key="api_key",
+            version={"id": "1.0"},
+        ),
+    )
+
+    def add(aaa: int, bbb: int) -> int:
+        return aaa + bbb
+
+    params = BaseScriptModelParams(name="My Script Model", description="My Script Model Description", code=add)
+    tool = ToolFactory.create(params=params)
+    assert isinstance(tool, ScriptModel)
+    assert tool.id == "test-id"
+    assert tool.name == "test-name"
+    assert tool.function == Function.UTILITIES
+    assert tool.function_type == FunctionType.AI
+    assert tool.api_key == "api_key"
+    assert tool.version == {"id": "1.0"}
+
+    # Index Model
+    from aixplain.factories.index_factory.utils import AirParams
+
+    params = AirParams(name="My Search Collection", description="My Search Collection Description")
+    mocker.patch(
+        "aixplain.factories.index_factory.IndexFactory.create",
+        return_value=IndexModel(
+            id="test-id",
+            name="test-name",
+            function=Function.SEARCH,
+            function_type=FunctionType.SEARCH,
+            api_key="api_key",
+            version={"id": "1.0"},
+        ),
+    )
+    tool = ToolFactory.create(params=params)
+    assert isinstance(tool, IndexModel)
+    assert tool.id == "test-id"
+    assert tool.name == "test-name"
+    assert tool.function == Function.SEARCH
+    assert tool.function_type == FunctionType.SEARCH
+    assert tool.api_key == "api_key"
+    assert tool.version == {"id": "1.0"}
+
+    # Integration Model
+    mocker.patch("aixplain.modules.model.connection.ConnectionTool._get_actions", return_value=[])
+    mocker.patch(
+        "aixplain.modules.model.integration.Integration.connect",
+        return_value=ModelResponse(status=ResponseStatus.SUCCESS, data={"id": "connection-id"}),
+    )
+
+    def get_mock(id):
+        if id == "67eff5c0e05614297caeef98":
+            return Integration(
+                id="67eff5c0e05614297caeef98",
+                name="test-name",
+                function=Function.UTILITIES,
+                function_type=FunctionType.CONNECTOR,
+                api_key="api_key",
+                version={"id": "1.0"},
+            )
+        elif id == "connection-id":
+            return ConnectionTool(
+                id="connection-id",
+                name="test-name",
+                function=Function.UTILITIES,
+                function_type=FunctionType.CONNECTION,
+                api_key="api_key",
+                version={"id": "1.0"},
+            )
+
+    mocker.patch("aixplain.factories.tool_factory.ToolFactory.get", side_effect=get_mock)
+    tool = ToolFactory.create(integration="67eff5c0e05614297caeef98", name="My Connector 1234", token="slack-token")
+    assert isinstance(tool, ConnectionTool)
+    assert tool.id == "connection-id"
+    assert tool.name == "test-name"
+    assert tool.function == Function.UTILITIES
+    assert tool.function_type == FunctionType.CONNECTION
+    assert tool.api_key == "api_key"
+    assert tool.version == {"id": "1.0"}

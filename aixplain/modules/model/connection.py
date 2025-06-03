@@ -35,7 +35,7 @@ class ConnectionTool(Model):
         function: Optional[Function] = None,
         is_subscribed: bool = False,
         cost: Optional[Dict] = None,
-        function_type: Optional[FunctionType] = FunctionType.SEARCH,
+        function_type: Optional[FunctionType] = FunctionType.CONNECTION,
         **additional_info,
     ) -> None:
         """Connection Init
