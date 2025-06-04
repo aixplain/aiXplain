@@ -23,7 +23,7 @@ Description:
 import time
 import logging
 import traceback
-from aixplain.enums import Supplier, Function
+from aixplain.enums import Supplier, Function, FunctionType
 from aixplain.modules.asset import Asset
 from aixplain.modules.model.model_response_streamer import ModelResponseStreamer
 from aixplain.modules.model.utils import build_payload, call_run_endpoint
@@ -58,6 +58,7 @@ class Model(Asset):
         output_params (Dict, optional): output parameters for the function.
         model_params (ModelParameters, optional): parameters for the function.
         supports_streaming (bool, optional): whether the model supports streaming. Defaults to False.
+        function_type (FunctionType, optional): type of the function. Defaults to FunctionType.AI.
     """
 
     def __init__(
@@ -77,6 +78,7 @@ class Model(Asset):
         model_params: Optional[Dict] = None,
         supports_streaming: bool = False,
         status: Optional[AssetStatus] = AssetStatus.ONBOARDED,  # default status for models is ONBOARDED
+        function_type: Optional[FunctionType] = FunctionType.AI,
         **additional_info,
     ) -> None:
         """Model Init
@@ -96,6 +98,7 @@ class Model(Asset):
             model_params (Dict, optional): parameters for the function.
             supports_streaming (bool, optional): whether the model supports streaming. Defaults to False.
             status (AssetStatus, optional): status of the model. Defaults to None.
+            function_type (FunctionType, optional): type of the function. Defaults to FunctionType.AI.
             **additional_info: Any additional Model info to be saved
         """
         super().__init__(id, name, description, supplier, version, cost=cost)
@@ -110,6 +113,7 @@ class Model(Asset):
         self.output_params = output_params
         self.model_params = ModelParameters(model_params) if model_params else None
         self.supports_streaming = supports_streaming
+        self.function_type = function_type
         if isinstance(status, str):
             try:
                 status = AssetStatus(status)

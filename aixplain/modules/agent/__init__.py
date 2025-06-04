@@ -363,10 +363,12 @@ class Agent(Model, DeployableMixin[Tool]):
             )
 
     def to_dict(self) -> Dict:
+        from aixplain.factories.agent_factory.utils import build_tool_payload
+
         return {
             "id": self.id,
             "name": self.name,
-            "assets": [tool.to_dict() for tool in self.tools],
+            "assets": [build_tool_payload(tool) for tool in self.tools],
             "description": self.description,
             "role": self.instructions,
             "supplier": (self.supplier.value["code"] if isinstance(self.supplier, Supplier) else self.supplier),

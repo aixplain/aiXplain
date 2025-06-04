@@ -85,6 +85,7 @@ class AgentFactory:
             Agent: created Agent
         """
         from aixplain.utils.llm_utils import get_llm_instance
+
         if llm is None and llm_id is not None:
             llm = get_llm_instance(llm_id, api_key=api_key)
         elif llm is None:
@@ -104,8 +105,7 @@ class AgentFactory:
             "Note: In upcoming releases, `llm` will become a required parameter.",
             UserWarning,
         )
-
-        from aixplain.factories.agent_factory.utils import build_agent
+        from aixplain.factories.agent_factory.utils import build_agent, build_tool_payload
 
         agent = None
         url = urljoin(config.BACKEND_URL, "sdk/agents")
@@ -118,24 +118,7 @@ class AgentFactory:
 
         payload = {
             "name": name,
-            "assets": [
-                tool.to_dict()
-                if isinstance(tool, Tool)
-                else {
-                    "id": tool.id,
-                    "name": tool.name,
-                    "description": tool.description,
-                    "supplier": tool.supplier.value["code"] if isinstance(tool.supplier, Supplier) else tool.supplier,
-                    "parameters": tool.get_parameters().to_list()
-                    if hasattr(tool, "get_parameters") and tool.get_parameters() is not None
-                    else None,
-                    "function": tool.function if hasattr(tool, "function") and tool.function is not None else None,
-                    "type": "model",
-                    "version": tool.version if hasattr(tool, "version") else None,
-                    "assetId": tool.id,
-                }
-                for tool in tools
-            ],
+            "assets": [build_tool_payload(tool) for tool in tools],
             "description": description,
             "role": instructions or description,
             "supplier": supplier,

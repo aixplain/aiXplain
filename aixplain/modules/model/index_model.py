@@ -1,4 +1,4 @@
-from aixplain.enums import EmbeddingModel, Function, Supplier, ResponseStatus, StorageType
+from aixplain.enums import EmbeddingModel, Function, Supplier, ResponseStatus, StorageType, FunctionType
 from aixplain.modules.model import Model
 from aixplain.utils import config
 from aixplain.modules.model.response import ModelResponse
@@ -65,6 +65,7 @@ class IndexModel(Model):
         is_subscribed: bool = False,
         cost: Optional[Dict] = None,
         embedding_model: Union[EmbeddingModel, str] = None,
+        function_type: Optional[FunctionType] = FunctionType.SEARCH,
         **additional_info,
     ) -> None:
         """Index Init
@@ -93,6 +94,7 @@ class IndexModel(Model):
             function=function,
             is_subscribed=is_subscribed,
             api_key=api_key,
+            function_type=function_type,
             **additional_info,
         )
         self.url = config.MODELS_RUN_URL
