@@ -5,7 +5,7 @@ from aixplain.modules.model.llm_model import LLM
 from aixplain.modules.model.index_model import IndexModel
 from aixplain.modules.model.integration import Integration
 from aixplain.modules.model.connection import ConnectionTool
-from aixplain.modules.model.utility_model import ScriptModel
+from aixplain.modules.model.utility_model import UtilityModel
 from aixplain.modules.model.utility_model import UtilityModelInput
 from aixplain.enums import DataType, Function, FunctionType, Language, OwnershipType, Supplier, SortBy, SortOrder, AssetStatus
 from aixplain.utils import config
@@ -68,12 +68,12 @@ def create_model_from_response(response: Dict) -> Model:
             temperature = float(f[0]["defaultValues"][0]["value"])
     elif function == Function.SEARCH:
         ModelClass = IndexModel
-    elif function_type == FunctionType.CONNECTOR:
+    elif function_type == FunctionType.INTEGRATION:
         ModelClass = Integration
     elif function_type == FunctionType.CONNECTION:
         ModelClass = ConnectionTool
     elif function == Function.UTILITIES:
-        ModelClass = ScriptModel
+        ModelClass = UtilityModel
         inputs = [
             UtilityModelInput(name=param["name"], description=param.get("description", ""), type=DataType(param["dataType"]))
             for param in response["params"]

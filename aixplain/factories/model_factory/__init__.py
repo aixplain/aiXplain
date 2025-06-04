@@ -22,7 +22,7 @@ Description:
 """
 import json
 import logging
-from aixplain.modules.model.utility_model import ScriptModel, UtilityModelInput
+from aixplain.modules.model.utility_model import UtilityModel, UtilityModelInput
 from aixplain.enums import Function
 from aixplain.utils import config
 from aixplain.utils.request_utils import _request_with_retry
@@ -49,7 +49,7 @@ class ModelFactory(ModelGetterMixin, ModelListMixin):
         description: Optional[Text] = None,
         output_examples: Text = "",
         api_key: Optional[Text] = None,
-    ) -> ScriptModel:
+    ) -> UtilityModel:
         """Create a utility model
 
         Args:
@@ -63,7 +63,7 @@ class ModelFactory(ModelGetterMixin, ModelListMixin):
             UtilityModel: created utility model
         """
         api_key = config.TEAM_API_KEY if api_key is None else api_key
-        utility_model = ScriptModel(
+        utility_model = UtilityModel(
             id="",
             name=name,
             description=description,

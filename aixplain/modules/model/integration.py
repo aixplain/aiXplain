@@ -61,7 +61,7 @@ class Integration(Model):
         function: Optional[Function] = None,
         is_subscribed: bool = False,
         cost: Optional[Dict] = None,
-        function_type: Optional[FunctionType] = FunctionType.CONNECTOR,
+        function_type: Optional[FunctionType] = FunctionType.INTEGRATION,
         **additional_info,
     ) -> None:
         """Integration Init
@@ -78,7 +78,7 @@ class Integration(Model):
             cost (Dict, optional): model price. Defaults to None.
             **additional_info: Any additional Model info to be saved
         """
-        assert function_type == FunctionType.CONNECTOR, "Integration only supports connector function"
+        assert function_type == FunctionType.INTEGRATION, "Integration only supports connector function"
         super().__init__(
             id=id,
             name=name,

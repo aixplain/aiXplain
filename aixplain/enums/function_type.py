@@ -31,5 +31,5 @@ class FunctionType(Enum):
     UTILITY = "utility"
     METRIC = "metric"
     SEARCH = "search"
-    CONNECTOR = "connector"
+    INTEGRATION = "connector"
     CONNECTION = "connection"

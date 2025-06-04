@@ -33,7 +33,7 @@ from aixplain.modules.mixins import DeployableMixin
 from pydantic import BaseModel
 
 
-class BaseScriptModelParams(BaseModel):
+class BaseUtilityModelParams(BaseModel):
     name: Text
     code: Union[Text, Callable]
     description: Optional[Text] = None
@@ -96,7 +96,7 @@ def utility_tool(
     return decorator
 
 
-class ScriptModel(Model, DeployableMixin):
+class UtilityModel(Model, DeployableMixin):
     """Ready-to-use Utility Model.
 
     Note: Non-deployed utility models (status=DRAFT) will expire after 24 hours after creation.

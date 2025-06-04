@@ -8,7 +8,7 @@ from aixplain.modules.model.integration import Integration
 from aixplain.modules.model.integration import BaseAuthenticationParams
 from aixplain.factories.index_factory.utils import BaseIndexParams, AirParams, VectaraParams, ZeroEntropyParams, GraphRAGParams
 from aixplain.enums.index_stores import IndexStores
-from aixplain.modules.model.utility_model import BaseScriptModelParams
+from aixplain.modules.model.utility_model import BaseUtilityModelParams
 from typing import Optional, Text, Union
 from aixplain.enums import ResponseStatus
 from aixplain.utils import config
@@ -21,7 +21,7 @@ class ToolFactory(ModelGetterMixin, ModelListMixin):
     def create(
         cls,
         integration: Optional[Union[Text, Model]] = None,
-        params: Optional[Union[BaseScriptModelParams, BaseIndexParams, BaseAuthenticationParams]] = None,
+        params: Optional[Union[BaseUtilityModelParams, BaseIndexParams, BaseAuthenticationParams]] = None,
         **kwargs,
     ) -> Model:
         """Factory method to create indexes, script models and connections
@@ -29,12 +29,12 @@ class ToolFactory(ModelGetterMixin, ModelListMixin):
         Examples:
             Create a script model (option 1):
                 Option 1:
-                    from aixplain.modules.model.utility_model import BaseScriptModelParams
+                    from aixplain.modules.model.utility_model import BaseUtilityModelParams
 
                     def add(a: int, b: int) -> int:
                         return a + b
 
-                    params = BaseScriptModelParams(
+                    params = BaseUtilityModelParams(
                         name="My Script Model",
                         description="My Script Model Description",
                         code=add
@@ -105,7 +105,7 @@ class ToolFactory(ModelGetterMixin, ModelListMixin):
                 isinstance(integration_model, Integration)
                 or isinstance(integration_model, IndexModel)
                 or kwargs.get("code") is not None
-            ), "Please provide the proper integration (ConnectorModel, IndexModel or ScriptModel code) or params to create a model tool."
+            ), "Please provide the proper integration (ConnectorModel, IndexModel or UtilityModel code) or params to create a model tool."
             if isinstance(integration_model, Integration):
                 from aixplain.modules.model.integration import build_connector_params
 
@@ -125,9 +125,9 @@ class ToolFactory(ModelGetterMixin, ModelListMixin):
                         f"ToolFactory Error: The index store '{integration_model.id} - {integration_model.name}' is not supported."
                     )
             else:
-                params = BaseScriptModelParams(**kwargs)
+                params = BaseUtilityModelParams(**kwargs)
 
-        if isinstance(params, BaseScriptModelParams):
+        if isinstance(params, BaseUtilityModelParams):
             return ModelFactory.create_utility_model(
                 name=params.name,
                 description=params.description,
@@ -141,7 +141,7 @@ class ToolFactory(ModelGetterMixin, ModelListMixin):
             assert params.connector_id is not None, "Please provide the ID of the service you want to connect to"
             connector = cls.get(params.connector_id)
             assert (
-                connector.function_type == FunctionType.CONNECTOR
+                connector.function_type == FunctionType.INTEGRATION
             ), f"The model you are trying to connect ({connector.id}) to is not a connector."
             response = connector.connect(params)
             assert response.status == ResponseStatus.SUCCESS, f"Failed to connect to {connector.id} - {response.error_message}"

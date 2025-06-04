@@ -33,7 +33,7 @@ from aixplain.enums.asset_status import AssetStatus
 from aixplain.modules.model.model_parameters import ModelParameters
 from aixplain.modules.model.llm_model import LLM
 from aixplain.modules.model.index_model import IndexModel
-from aixplain.modules.model.utility_model import ScriptModel
+from aixplain.modules.model.utility_model import UtilityModel
 from aixplain.modules.model.integration import Integration, AuthenticationSchema
 from aixplain.modules.model.connection import ConnectionTool, ConnectAction
 
@@ -718,7 +718,7 @@ def test_model_not_supports_streaming(mocker):
                 "params": {},
                 "version": {"id": "1.0"},
             },
-            ScriptModel,
+            UtilityModel,
         ),
     ],
 )
@@ -748,7 +748,7 @@ def test_connector_connect(mocker, authentication_schema, name, token, client_id
         id="connector-id",
         name="connector-name",
         function=Function.UTILITIES,
-        function_type=FunctionType.CONNECTOR,
+        function_type=FunctionType.INTEGRATION,
         supplier="aiXplain",
         api_key="api_key",
         version={"id": "1.0"},
@@ -803,12 +803,12 @@ def test_connection_init_with_actions(mocker):
 
 def test_tool_factory(mocker):
     from aixplain.factories import ToolFactory
-    from aixplain.modules.model.utility_model import BaseScriptModelParams
+    from aixplain.modules.model.utility_model import BaseUtilityModelParams
 
     # Utility Model
     mocker.patch(
         "aixplain.factories.model_factory.ModelFactory.create_utility_model",
-        return_value=ScriptModel(
+        return_value=UtilityModel(
             id="test-id",
             name="test-name",
             function=Function.UTILITIES,
@@ -821,9 +821,9 @@ def test_tool_factory(mocker):
     def add(aaa: int, bbb: int) -> int:
         return aaa + bbb
 
-    params = BaseScriptModelParams(name="My Script Model", description="My Script Model Description", code=add)
+    params = BaseUtilityModelParams(name="My Script Model", description="My Script Model Description", code=add)
     tool = ToolFactory.create(params=params)
-    assert isinstance(tool, ScriptModel)
+    assert isinstance(tool, UtilityModel)
     assert tool.id == "test-id"
     assert tool.name == "test-name"
     assert tool.function == Function.UTILITIES
@@ -868,7 +868,7 @@ def test_tool_factory(mocker):
                 id="67eff5c0e05614297caeef98",
                 name="test-name",
                 function=Function.UTILITIES,
-                function_type=FunctionType.CONNECTOR,
+                function_type=FunctionType.INTEGRATION,
                 api_key="api_key",
                 version={"id": "1.0"},
             )
