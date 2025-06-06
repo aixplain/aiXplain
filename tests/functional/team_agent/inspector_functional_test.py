@@ -368,3 +368,192 @@ def test_team_agent_with_multiple_inspector_targets(run_input_map, delete_agents
         assert response["data"]["critiques"], "No critiques found in response data"
 
     team_agent.delete()
+
+
+@pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory, v2.TeamAgent])
+def test_team_agent_with_input_inspector(run_input_map, delete_agents_and_team_agents, TeamAgentFactory):
+    """Test team agent with input inspector that runs before any steps are executed"""
+    assert delete_agents_and_team_agents
+
+    agents = create_agents_from_input_map(run_input_map)
+
+    # Create inspector with warn policy
+    inspector = Inspector(
+        name="input_inspector",
+        model_id=run_input_map["llm_id"],
+        model_params={"prompt": "Check if the input is valid and provide feedback"},
+        policy=InspectorPolicy.WARN,
+    )
+
+    # Create team agent with input inspector
+    team_agent = create_team_agent(
+        TeamAgentFactory,
+        agents,
+        run_input_map,
+        use_mentalist=True,
+        inspectors=[inspector],
+        inspector_targets=[InspectorTarget.INPUT],
+    )
+
+    assert team_agent is not None
+    assert team_agent.status == AssetStatus.DRAFT
+
+    # deploy team agent
+    team_agent.deploy()
+    team_agent = TeamAgentFactory.get(team_agent.id)
+    assert team_agent is not None
+    assert team_agent.status == AssetStatus.ONBOARDED
+
+    # Run the team agent
+    response = team_agent.run(data=run_input_map["query"])
+
+    assert response is not None
+    assert response["completed"] is True
+    assert response["status"].lower() == "success"
+
+    # Check for inspector steps
+    if "intermediate_steps" in response["data"]:
+        steps = response["data"]["intermediate_steps"]
+        verify_inspector_steps(steps, ["input_inspector"], [InspectorTarget.INPUT])
+        verify_response_generator(steps)
+
+        # Verify inspector runs and execution continues
+        inspector_steps = [step for step in steps if "input_inspector" in step.get("agent", "").lower()]
+        assert len(inspector_steps) > 0, "Input inspector should run at least once"
+
+    team_agent.delete()
+
+
+@pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory, v2.TeamAgent])
+def test_team_agent_with_input_abort_inspector(run_input_map, delete_agents_and_team_agents, TeamAgentFactory):
+    """Test team agent with input inspector (ABORT policy): if critiques are non-empty, response_generator is called immediately after inspector."""
+    assert delete_agents_and_team_agents
+
+    agents = create_agents_from_input_map(run_input_map)
+
+    # Create inspector with abort policy
+    inspector = Inspector(
+        name="input_abort_inspector",
+        model_id=run_input_map["llm_id"],
+        model_params={"prompt": "Always find issues and provide negative feedback on input"},
+        policy=InspectorPolicy.ABORT,
+    )
+
+    # Create team agent with input inspector
+    team_agent = create_team_agent(
+        TeamAgentFactory,
+        agents,
+        run_input_map,
+        use_mentalist=True,
+        inspectors=[inspector],
+        inspector_targets=[InspectorTarget.INPUT],
+    )
+
+    assert team_agent is not None
+    assert team_agent.status == AssetStatus.DRAFT
+
+    # deploy team agent
+    team_agent.deploy()
+    team_agent = TeamAgentFactory.get(team_agent.id)
+    assert team_agent is not None
+    assert team_agent.status == AssetStatus.ONBOARDED
+
+    # Run the team agent
+    response = team_agent.run(data=run_input_map["query"])
+
+    assert response is not None
+    assert response["completed"] is True
+    assert response["status"].lower() == "success"
+
+    # Check for inspector steps
+    if "intermediate_steps" in response["data"]:
+        steps = response["data"]["intermediate_steps"]
+        verify_inspector_steps(steps, ["input_abort_inspector"], [InspectorTarget.INPUT])
+        verify_response_generator(steps)
+
+        # Critiques should be present and non-empty in the inspector step's 'thought'
+        inspector_steps = [step for step in steps if "input_abort_inspector" in step.get("agent", "").lower()]
+        assert len(inspector_steps) == 1, "Input abort inspector should only run once"
+        inspector_thought = inspector_steps[0].get("thought", "")
+        assert inspector_thought, "No thought found in inspector step"
+        assert (
+            "critique" in inspector_thought.lower() or len(inspector_thought.strip()) > 0
+        ), "Inspector step's thought does not contain critique or is empty"
+
+        # Inspector should run once, then response_generator should come right after
+        response_generator_index = next(
+            (i for i, step in enumerate(steps) if "response_generator" in step.get("agent", "").lower()),
+            None,
+        )
+        assert response_generator_index is not None, "No response_generator step found"
+        assert (
+            response_generator_index == steps.index(inspector_steps[0]) + 1
+        ), "Response generator should come right after input abort inspector critique"
+
+    team_agent.delete()
+
+
+@pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory, v2.TeamAgent])
+def test_team_agent_with_input_adaptive_inspector(run_input_map, delete_agents_and_team_agents, TeamAgentFactory):
+    """Test team agent with input inspector (ADAPTIVE policy): query_manager step exists more than once and mentalist creates a plan for the revised query (output of the last query_manager)."""
+    assert delete_agents_and_team_agents
+
+    agents = create_agents_from_input_map(run_input_map)
+
+    # Create inspector with adaptive policy
+    inspector = Inspector(
+        name="input_adaptive_inspector",
+        model_id=run_input_map["llm_id"],
+        model_params={"prompt": "If the input is not valid, suggest a revised query and critique."},
+        policy=InspectorPolicy.ADAPTIVE,
+    )
+
+    # Create team agent with input inspector
+    team_agent = create_team_agent(
+        TeamAgentFactory,
+        agents,
+        run_input_map,
+        use_mentalist=True,
+        inspectors=[inspector],
+        inspector_targets=[InspectorTarget.INPUT],
+    )
+
+    assert team_agent is not None
+    assert team_agent.status == AssetStatus.DRAFT
+
+    # deploy team agent
+    team_agent.deploy()
+    team_agent = TeamAgentFactory.get(team_agent.id)
+    assert team_agent is not None
+    assert team_agent.status == AssetStatus.ONBOARDED
+
+    # Run the team agent
+    response = team_agent.run(data=run_input_map["query"])
+
+    assert response is not None
+    assert response["completed"] is True
+    assert response["status"].lower() == "success"
+
+    # Check for inspector steps
+    if "intermediate_steps" in response["data"]:
+        steps = response["data"]["intermediate_steps"]
+        verify_inspector_steps(steps, ["input_adaptive_inspector"], [InspectorTarget.INPUT])
+        verify_response_generator(steps)
+
+        # There should be more than one query_manager step
+        query_manager_steps = [step for step in steps if "query_manager" in step.get("agent", "").lower()]
+        assert len(query_manager_steps) > 1, "There should be more than one query_manager step for adaptive input inspector"
+
+        # The last query_manager's output should be contained in the mentalist's input
+        last_query_manager = query_manager_steps[-1]
+        revised_query = last_query_manager.get("output", None)
+        assert revised_query, "No output found in the last query_manager step"
+
+        # There must be only one mentalist step
+        mentalist_steps = [step for step in steps if "mentalist" in step.get("agent", "").lower()]
+        mentalist_input = mentalist_steps[0].get("input", None)
+        assert (
+            mentalist_input and revised_query in mentalist_input
+        ), "The mentalist input does not contain the revised query from the last query_manager"
+
+    team_agent.delete()

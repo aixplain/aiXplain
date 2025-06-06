@@ -49,7 +49,7 @@ from pydantic import BaseModel
 
 
 class InspectorTarget(str, Enum):
-    # TODO: INPUT
+    INPUT = "input"
     STEPS = "steps"
     OUTPUT = "output"
 
