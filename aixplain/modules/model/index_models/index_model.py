@@ -3,7 +3,7 @@ from aixplain.enums import EmbeddingModel, Function, Supplier
 from aixplain.modules.model import Model
 from aixplain.utils import config
 from aixplain.modules.model.response import ModelResponse
-from aixplain.enums.splitting_options import SplittingOptions
+from aixplain.enums import IndexType, SplittingOptions
 
 
 class Splitter:
@@ -25,14 +25,15 @@ class IndexModel(Model):
         self,
         id: Text,
         name: Text,
+        version: Text,
         description: Text = "",
         api_key: Optional[Text] = None,
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
-        version: Optional[Text] = None,
         function: Optional[Function] = None,
         is_subscribed: bool = False,
         cost: Optional[Dict] = None,
-        embedding_model: Optional[EmbeddingModel] = None,
+        embedding_model: Union[EmbeddingModel, Text] = None,
+        index_type: Optional[IndexType] = None,
         **additional_info,
     ) -> None:
         """Index Init
@@ -47,7 +48,7 @@ class IndexModel(Model):
             function (Function, optional): model AI function. Defaults to None.
             is_subscribed (bool, optional): Is the user subscribed. Defaults to False.
             cost (Dict, optional): model price. Defaults to None.
-            embedding_model (EmbeddingModel, optional): embedding model. Defaults to None.
+            embedding_model (Union[EmbeddingModel, Text], optional): embedding model. Defaults to None.
             **additional_info: Any additional Model info to be saved
         """
         assert function == Function.SEARCH, "Index only supports search function"
@@ -66,6 +67,7 @@ class IndexModel(Model):
         self.url = config.MODELS_RUN_URL
         self.backend_url = config.BACKEND_URL
         self.embedding_model = embedding_model
+        self.index_type = index_type
         self.embedding_size = None
         if embedding_model:
             try:

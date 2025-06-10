@@ -3,7 +3,7 @@ from aixplain.enums import ResponseStatus
 from typing import Text, Optional, Union, Dict, List, Any
 from aixplain.modules.model.record import Record
 from aixplain.modules.model.response import ModelResponse
-from aixplain.enums import Function, Supplier, EmbeddingModel
+from aixplain.enums import Function, Supplier, EmbeddingModel, IndexType
 
 
 class KnowledgeGraphIndexModel(IndexModel):
@@ -13,10 +13,10 @@ class KnowledgeGraphIndexModel(IndexModel):
         self,
         id: Text,
         name: Text,
+        version: Text,
         description: Text = "",
         api_key: Optional[Text] = None,
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
-        version: Optional[Text] = None,
         function: Optional[Function] = None,
         is_subscribed: bool = False,
         cost: Optional[Dict] = None,
@@ -25,7 +25,18 @@ class KnowledgeGraphIndexModel(IndexModel):
         **additional_info,
     ):
         super().__init__(
-            id, name, description, api_key, supplier, version, function, is_subscribed, cost, embedding_model, **additional_info
+            id,
+            name,
+            version,
+            description,
+            api_key,
+            supplier,
+            function,
+            is_subscribed,
+            cost,
+            embedding_model,
+            IndexType.KNOWLEDGE_GRAPH,
+            **additional_info,
         )
         self.llm = llm
 

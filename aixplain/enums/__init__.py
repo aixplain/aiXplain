@@ -20,3 +20,5 @@ from .embedding_model import EmbeddingModel
 from .asset_status import AssetStatus
 from .index_stores import IndexStores
 from .function_type import FunctionType
+from .splitting_options import SplittingOptions
+from .index_type import IndexType

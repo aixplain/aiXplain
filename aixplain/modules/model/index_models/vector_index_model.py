@@ -4,7 +4,7 @@ from aixplain.enums import StorageType
 from aixplain.modules.model.index_models.index_model import IndexModel, Splitter
 from aixplain.modules.model.record import Record
 from aixplain.modules.model.response import ModelResponse
-from aixplain.enums import Function, Supplier, EmbeddingModel, ResponseStatus
+from aixplain.enums import Function, Supplier, EmbeddingModel, ResponseStatus, IndexType
 
 
 class IndexFilterOperator(Enum):
@@ -43,10 +43,10 @@ class VectorIndexModel(IndexModel):
         self,
         id: Text,
         name: Text,
+        version: Text,
         description: Text = "",
         api_key: Optional[Text] = None,
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
-        version: Optional[Text] = None,
         function: Optional[Function] = None,
         is_subscribed: bool = False,
         cost: Optional[Dict] = None,
@@ -54,7 +54,18 @@ class VectorIndexModel(IndexModel):
         **additional_info,
     ):
         super().__init__(
-            id, name, description, api_key, supplier, version, function, is_subscribed, cost, embedding_model, **additional_info
+            id,
+            name,
+            version,
+            description,
+            api_key,
+            supplier,
+            function,
+            is_subscribed,
+            cost,
+            embedding_model,
+            IndexType.VECTOR,
+            **additional_info,
         )
 
     def search(self, query: str, top_k: int = 10, filters: List[IndexFilter] = []) -> ModelResponse:
