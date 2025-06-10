@@ -395,19 +395,63 @@ class Agent(Model, DeployableMixin[Tool]):
                 "x-api-key": config.TEAM_API_KEY,
                 "Content-Type": "application/json",
             }
-            logging.debug(f"Start service for DELETE Agent  - {url} - {headers}")
+            logging.debug(
+                f"Start service for DELETE Agent  - {url} - {headers}"
+            )
             r = _request_with_retry("delete", url, headers=headers)
-            logging.debug(f"Result of request for DELETE Agent - {r.status_code}")
+            logging.debug(
+                f"Result of request for DELETE Agent - {r.status_code}"
+            )
             if r.status_code != 200:
                 raise Exception()
         except Exception:
             try:
                 response_json = r.json()
-                message = f"Agent Deletion Error (HTTP {r.status_code}): {response_json.get('message', '').strip('{{}}')}."
+                error_message = response_json.get('message', '').strip('{{}}')
+
+                if r.status_code == 403 and error_message == "err.agent_is_in_use":
+                    # Get team agents that use this agent
+                    from aixplain.factories.team_agent_factory import (
+                        TeamAgentFactory
+                    )
+                    team_agents = TeamAgentFactory.list()["results"]
+                    using_team_agents = [
+                        ta for ta in team_agents
+                        if any(agent.id == self.id for agent in ta.agents)
+                    ]
+
+                    if using_team_agents:
+                        # Scenario 1: User has access to team agents
+                        team_agent_ids = [ta.id for ta in using_team_agents]
+                        message = (
+                            "Error: Agent cannot be deleted.\n"
+                            "Reason: This agent is currently used by one or more "
+                            "team agents.\n\n"
+                            f"team_agent_id: {', '.join(team_agent_ids)}. "
+                            "To proceed, remove the agent from all team agents "
+                            "before deletion."
+                        )
+                    else:
+                        # Scenario 2: User doesn't have access to team agents
+                        message = (
+                            "Error: Agent cannot be deleted.\n"
+                            "Reason: This agent is currently used by one or more "
+                            "team agents.\n\n"
+                            "One or more inaccessible team agents are "
+                            "referencing it."
+                        )
+                else:
+                    message = (
+                        f"Agent Deletion Error (HTTP {r.status_code}): "
+                        f"{error_message}."
+                    )
             except ValueError:
-                message = f"Agent Deletion Error (HTTP {r.status_code}): There was an error in deleting the agent."
+                message = (
+                    f"Agent Deletion Error (HTTP {r.status_code}): "
+                    "There was an error in deleting the agent."
+                )
             logging.error(message)
-            raise Exception(f"{message}")
+            raise Exception(message)
 
     def update(self) -> None:
         """Update agent."""
