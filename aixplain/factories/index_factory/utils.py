@@ -80,7 +80,12 @@ class GraphRAGParams(BaseIndexParamsWithEmbeddingModel):
     def id(self) -> str:
         return self._id
 
-
-
-
-
+    @field_validator('llm')
+    def validate_llm(cls, llm) -> Optional[Text]:
+        if llm is None:
+            return None
+        model = ModelFactory.get(llm)
+        if model.function == Function.TEXT_GENERATION:
+            return llm
+        else:
+            raise ValueError("This is not an LLM model")

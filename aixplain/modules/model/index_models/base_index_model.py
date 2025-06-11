@@ -158,7 +158,8 @@ class BaseIndexModel(Model):
         data = {"action": "count", "data": ""}
         response = self.run(data=data)
         if response.status == "SUCCESS":
-            return int(response.data)
+            n_indexed = response.data.get("data", response.data)
+            return int(n_indexed)
         raise Exception(f"Failed to count documents: {response.error_message}")
 
     @staticmethod

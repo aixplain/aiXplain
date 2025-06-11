@@ -1,4 +1,4 @@
-from aiXplain.aixplain.modules.model.index_models.base_index_model import BaseIndexModel
+from aixplain.modules.model.index_models.base_index_model import BaseIndexModel
 from aixplain.enums import ResponseStatus
 from typing import Text, Optional, Union, Dict, List, Any
 from aixplain.modules.model.record import Record
@@ -69,11 +69,12 @@ class KnowledgeGraphIndexModel(BaseIndexModel):
         raise Exception(f"Failed to add documents: {response.error_message}")
 
     # Run prompt auto tuning, while also adding new documents to the storage if provided.
-    def auto_prompt_tune(self, documents: List[Record]) -> Dict[str, str]:
+    def auto_prompt_tune(self, documents: List[Record] = None) -> Dict[str, str]:
         # TODO: Check if any files are already uploaded. If none and documents is also None, then raise an error.
-        self.add_documents(documents)
+        if documents:
+            self.add_documents(documents)
         # Build payload
-        data = {"action": "auto_prompt_tune", "data": ""}
+        data = {"action": "auto_prompt_tune", "data": []}
         # Run the indexing service
         response = self.run(data=data)
         if response.status == ResponseStatus.SUCCESS:
@@ -93,7 +94,6 @@ class KnowledgeGraphIndexModel(BaseIndexModel):
         data = {"action": "ingest", "data": []}
         response = self.run(data=data)
         if response.status == ResponseStatus.SUCCESS:
-            response.data = response.data
             return response
         raise Exception(f"Failed to run indexing: {response.error_message}")
 

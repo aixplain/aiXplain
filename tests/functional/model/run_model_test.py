@@ -105,7 +105,6 @@ def run_index_model(index_model, retries):
     [
         pytest.param(None, VectaraParams, id="VECTARA"),
         pytest.param(None, ZeroEntropyParams, id="ZERO_ENTROPY"),
-        pytest.param(EmbeddingModel.OPENAI_ADA002, GraphRAGParams, id="GRAPHRAG"),
         pytest.param(EmbeddingModel.OPENAI_ADA002, AirParams, id="AIR - OpenAI Ada 002"),
         pytest.param("6658d40729985c2cf72f42ec", AirParams, id="AIR - Snowflake Arctic Embed M Long"),
         pytest.param(EmbeddingModel.MULTILINGUAL_E5_LARGE, AirParams, id="AIR - Multilingual E5 Large"),
@@ -144,7 +143,7 @@ def test_index_model_with_filter(embedding_model, supplier_params):
     from uuid import uuid4
     from aixplain.modules.model.record import Record
     from aixplain.factories import IndexFactory
-    from aixplain.modules.model.index_models.vector_index_model import IndexFilter, IndexFilterOperator
+    from aixplain.modules.model.index_models import IndexFilter, IndexFilterOperator
 
     for index in IndexFactory.list()["results"]:
         index.delete()
@@ -182,6 +181,43 @@ def test_index_model_with_filter(embedding_model, supplier_params):
     assert str(response.status) == "SUCCESS"
     assert "world" in response.data.lower()
     assert len(response.details) == 1
+    index_model.delete()
+
+
+def test_knowledge_graph_index_mode_prompt_tune():
+    from uuid import uuid4
+    from aixplain.modules.model.record import Record
+    from aixplain.factories import IndexFactory
+
+    for index in IndexFactory.list()["results"]:
+        index.delete()
+
+    params = GraphRAGParams(name=str(uuid4()), description=str(uuid4()), llm="6646261c6eb563165658bbb1")
+    index_model = IndexFactory.create(params=params)
+    add_response = index_model.add_documents(
+        [Record(value="Berlin is the capital of Germany.", value_type="text", uri="", id="1", attributes={})]
+    )
+    response = index_model.auto_prompt_tune()
+    assert index_model.count() == 0
+    assert str(response.status) == "SUCCESS"
+    index_model.delete()
+
+
+def test_knowledge_graph_index_model():
+    from aixplain.factories import IndexFactory
+    from aixplain.modules.model.record import Record
+    from uuid import uuid4
+
+    for index in IndexFactory.list()["results"]:
+        index.delete()
+
+    params = GraphRAGParams(name=str(uuid4()), description=str(uuid4()), llm="6646261c6eb563165658bbb1")
+    index_model = IndexFactory.create(params=params)
+    index_model.upsert([Record(value="Berlin is the capital of Germany.", value_type="text", uri="", id="1", attributes={})])
+    response = index_model.search("Berlin")
+    assert str(response.status) == "SUCCESS"
+    assert "germany" in response.data.lower()
+    assert index_model.count() == 1
     index_model.delete()
 
 
@@ -305,7 +341,7 @@ def test_index_model_air_with_splitter(embedding_model, supplier_params):
     from aixplain.factories import IndexFactory
     from aixplain.modules.model.record import Record
     from uuid import uuid4
-    from aixplain.modules.model.index_models.index_model import Splitter
+    from aixplain.modules.model.index_models import Splitter
     from aixplain.enums.splitting_options import SplittingOptions
 
     for index in IndexFactory.list()["results"]:

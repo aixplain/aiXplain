@@ -39,7 +39,7 @@ class IndexFactory(ModelFactory, Generic[T]):
         embedding_model: Union[EmbeddingModel, str] = EmbeddingModel.OPENAI_ADA002,
         params: Optional[T] = None,
         **kwargs,
-    ) -> IndexModel:
+    ) -> BaseIndexModel:
         """Create a new index collection"""
         import warnings
 
@@ -83,7 +83,7 @@ class IndexFactory(ModelFactory, Generic[T]):
         sort_order: SortOrder = SortOrder.ASCENDING,
         page_number: int = 0,
         page_size: int = 20,
-    ) -> List[IndexModel]:
+    ) -> List[BaseIndexModel]:
         """List all indexes"""
         return super().list(
             function=Function.SEARCH,

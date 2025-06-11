@@ -1,7 +1,7 @@
 from typing import Union, List, Text, Optional, Dict
 from enum import Enum
 from aixplain.enums import StorageType
-from aiXplain.aixplain.modules.model.index_models.base_index_model import BaseIndexModel, Splitter
+from aixplain.modules.model.index_models.base_index_model import BaseIndexModel, Splitter
 from aixplain.modules.model.record import Record
 from aixplain.modules.model.response import ModelResponse
 from aixplain.enums import Function, Supplier, EmbeddingModel, ResponseStatus, IndexType

@@ -13,17 +13,11 @@ from aixplain.factories.index_factory import IndexFactory
 from aixplain.factories.index_factory.utils import AirParams
 from aixplain.modules.model.record import Record
 from aixplain.modules.model.response import ModelResponse
-from aixplain.modules.model.index_models.vector_index_model import (
-    VectorIndexModel,
-    IndexFilter,
-    IndexFilterOperator,
-)
-from aixplain.modules.model.index_models.knowledge_graph_index_model import (
-    KnowledgeGraphIndexModel,
-)
+from aixplain.modules.model.index_models import VectorIndexModel, IndexFilter, IndexFilterOperator, KnowledgeGraphIndexModel
 from aixplain.utils import config
 import logging
 import pytest
+from aixplain.modules.model.index_models.base_index_model import BaseIndexModel
 
 logging.basicConfig(
     format="%(levelname)s • %(name)s • %(message)s",
@@ -43,6 +37,7 @@ def _make_vec():
     return VectorIndexModel(
         id=VEC_ID,
         name="vec-name",
+        version="airv2-dev-1-test",
         description="",
         function=Function.SEARCH,
         embedding_model=EmbeddingModel.OPENAI_ADA002,
@@ -109,6 +104,7 @@ def _make_kg():
     return KnowledgeGraphIndexModel(
         id=KG_ID,
         name="kg-name",
+        version="graphrag-dev-1-test",
         description="",
         function=Function.SEARCH,
         llm="gpt-4o",
@@ -177,7 +173,7 @@ def test_kg_graph_indexing():
     assert resp.status == ResponseStatus.SUCCESS
 
 
-def test_kg_upsert_full_roundtrip(mocker):
+def test_kg_upsert(mocker):
     mocker.patch("aixplain.factories.FileFactory.check_storage_type", side_effect=[StorageType.TEXT] * 4)
 
     docs = [Record(value="round", value_type="text", id=7, uri="", attributes={})]
@@ -241,7 +237,7 @@ def test_index_factory_create_failure():
 
 
 def test_index_model_splitter():
-    from aixplain.modules.model.index_models.index_model import Splitter
+    from aixplain.modules.model.index_models.base_index_model import Splitter
 
     splitter = Splitter(split=True, split_by="sentence", split_length=100, split_overlap=0)
     assert splitter.split == True
