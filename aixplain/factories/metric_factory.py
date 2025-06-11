@@ -22,14 +22,12 @@ Description:
 """
 
 import logging
-import os
 from typing import List, Optional
 from aixplain.modules import Metric
 from aixplain.utils import config
-from aixplain.utils.file_utils import _request_with_retry
+from aixplain.utils.request_utils import _request_with_retry
 from typing import Dict, Text
 from urllib.parse import urljoin
-from warnings import warn
 
 
 class MetricFactory:
@@ -113,7 +111,7 @@ class MetricFactory:
             List[Metric]: List of supported metrics
         """
         try:
-            url = urljoin(cls.backend_url, f"sdk/metrics")
+            url = urljoin(cls.backend_url, "sdk/metrics")
             filter_params = {}
             if model_id is not None:
                 filter_params["modelId"] = model_id

@@ -18,7 +18,7 @@ from aixplain.modules.data import Data
 from aixplain.modules.dataset import Dataset
 from aixplain.modules.file import File
 from aixplain.modules.metadata import MetaData
-from aixplain.utils.file_utils import _request_with_retry
+from aixplain.utils.request_utils import _request_with_retry
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Text, Union
 from urllib.parse import urljoin
@@ -203,11 +203,10 @@ def build_payload_dataset(
         "description": dataset.description,
         "function": dataset.function.value,
         "onboardingErrorsPolicy": error_handler.value,
-        "tags": dataset.tags,
+        "tags": dataset.tags or tags,
         "privacy": dataset.privacy.value,
         "license": {"typeId": dataset.license.value},
         "refData": ref_data,
-        "tags": tags,
         "data": [],
         "input": [],
         "hypotheses": [],
