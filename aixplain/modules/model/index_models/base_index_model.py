@@ -1,4 +1,5 @@
-from typing import Text, Optional, Union, Dict
+from typing import Text, Optional, Union, Dict, List
+from aixplain.modules.model.record import Record
 from aixplain.enums import EmbeddingModel, Function, Supplier
 from aixplain.modules.model import Model
 from aixplain.utils import config
@@ -161,6 +162,9 @@ class BaseIndexModel(Model):
             n_indexed = response.data.get("data", response.data)
             return int(n_indexed)
         raise Exception(f"Failed to count documents: {response.error_message}")
+
+    def upsert(self, documents: List[Record], splitter: Optional[Splitter] = None) -> ModelResponse:
+        raise NotImplementedError("Upsert is not implemented for this index model")
 
     @staticmethod
     def parse_file(file_path: Text) -> ModelResponse:
