@@ -136,7 +136,7 @@ class Model(Asset):
             "additional_info": clean_additional_info,
             "input_params": self.input_params,
             "output_params": self.output_params,
-            "model_params": self.model_params.to_dict(),
+            "model_params": self.model_params.to_dict() if self.model_params else None,
             "function": self.function,
             "status": self.status,
         }

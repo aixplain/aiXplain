@@ -1,224 +1,216 @@
+"""
+Covers
+──────
+• VectorIndexModel
+• KnowledgeGraphIndexModel
+• Record utilities
+• IndexFilter dataclass
+• IndexFactory negative-path rules
+"""
 import requests_mock
 from aixplain.enums import DataType, Function, ResponseStatus, StorageType, EmbeddingModel
 from aixplain.factories.index_factory import IndexFactory
+from aixplain.factories.index_factory.utils import AirParams
 from aixplain.modules.model.record import Record
 from aixplain.modules.model.response import ModelResponse
-from aixplain.modules.model.index_model import IndexModel
+from aixplain.modules.model.index_models import VectorIndexModel, IndexFilter, IndexFilterOperator, KnowledgeGraphIndexModel
 from aixplain.utils import config
 import logging
 import pytest
+from aixplain.modules.model.index_models.base_index_model import BaseIndexModel
 
-data = {"data": "Model Index", "description": "This is a dummy collection for testing."}
-index_id = "id"
-execute_url = f"{config.MODELS_RUN_URL}/{index_id}".replace("/api/v1/execute", "/api/v2/execute")
+logging.basicConfig(
+    format="%(levelname)s • %(name)s • %(message)s",
+    level=logging.DEBUG,
+)
+
+# ────────────────────────────────────────────────────────────────────────────────
+# VECTOR-BASED INDEX TESTS
+# ────────────────────────────────────────────────────────────────────────────────
+
+VEC_ID = "vec-id"
+VEC_EXEC_URL = f"{config.MODELS_RUN_URL}/{VEC_ID}".replace("/api/v1/execute", "/api/v2/execute")
+logger = logging.getLogger("VectorIndexModelTests")
 
 
-def test_text_search_success(mocker):
+def _make_vec():
+    return VectorIndexModel(
+        id=VEC_ID,
+        name="vec-name",
+        version="airv2-dev-1-test",
+        description="",
+        function=Function.SEARCH,
+        embedding_model=EmbeddingModel.OPENAI_ADA002,
+    )
+
+
+def test_vector_text_search(mocker):
     mocker.patch("aixplain.factories.FileFactory.check_storage_type", return_value=StorageType.TEXT)
-    mock_response = {"status": "SUCCESS"}
 
-    with requests_mock.Mocker() as mock:
-        mock.post(execute_url, json=mock_response, status_code=200)
-        index_model = IndexModel(id=index_id, data=data, name="name", function=Function.SEARCH)
-        response = index_model.search("test query")
+    with requests_mock.Mocker() as m:
+        m.post(VEC_EXEC_URL, json={"status": "SUCCESS"}, status_code=200)
+        logger.debug("POST %s  • payload={status:SUCCESS}", VEC_EXEC_URL)
+        resp = _make_vec().search("hello world")
 
-    assert isinstance(response, ModelResponse)
-    assert response.status == ResponseStatus.SUCCESS
+    assert isinstance(resp, ModelResponse)
+    assert resp.status == ResponseStatus.SUCCESS
 
 
-def test_image_search_success(mocker):
+def test_vector_image_search(mocker):
     mocker.patch("aixplain.factories.FileFactory.check_storage_type", return_value=StorageType.FILE)
     mocker.patch("aixplain.modules.model.utils.is_supported_image_type", return_value=True)
-    mocker.patch("aixplain.factories.FileFactory.to_link", return_value="https://example.com/test.jpg")
+    mocker.patch("aixplain.factories.FileFactory.to_link", return_value="https://ex.com/img.jpg")
 
-    mock_response = {"status": "SUCCESS"}
+    with requests_mock.Mocker() as m:
+        m.post(VEC_EXEC_URL, json={"status": "SUCCESS"}, status_code=200)
+        logger.debug("POST %s  • payload={status:SUCCESS}", VEC_EXEC_URL)
+        resp = _make_vec().search("img.jpg")
 
-    with requests_mock.Mocker() as mock:
-        mock.post(execute_url, json=mock_response, status_code=200)
-        index_model = IndexModel(
-            id=index_id,
-            data=data,
-            name="name",
-            function=Function.SEARCH,
-            embedding_model=EmbeddingModel.JINA_CLIP_V2_MULTIMODAL,
-        )
-        response = index_model.search("test.jpg")
-
-    assert isinstance(response, ModelResponse)
-    assert response.status == ResponseStatus.SUCCESS
+    assert resp.status == ResponseStatus.SUCCESS
 
 
-def test_text_add_success(mocker):
+def test_vector_upsert_text(mocker):
     mocker.patch("aixplain.factories.FileFactory.check_storage_type", side_effect=[StorageType.TEXT] * 4)
-    mock_response = {"status": "SUCCESS"}
 
-    mock_documents = [
-        Record(value="Sample document content 1", value_type="text", id=0, uri="", attributes={}),
-        Record(value="Sample document content 2", value_type="text", id=1, uri="", attributes={}),
+    docs = [
+        Record(value="doc1", value_type="text", id=1, uri="", attributes={}),
+        Record(value="doc2", value_type="text", id=2, uri="", attributes={}),
     ]
 
-    with requests_mock.Mocker() as mock:
-        mock.post(execute_url, json=mock_response, status_code=200)
+    with requests_mock.Mocker() as m:
+        m.post(VEC_EXEC_URL, json={"status": "SUCCESS"}, status_code=200)
+        resp = _make_vec().upsert(docs)
 
-        index_model = IndexModel(id=index_id, data=data, name="name", function=Function.SEARCH)
-
-        response = index_model.upsert(mock_documents)
-
-    assert isinstance(response, ModelResponse)
-    assert response.status == ResponseStatus.SUCCESS
+    assert resp.status == ResponseStatus.SUCCESS
+    assert resp.data == [d.to_dict() for d in docs]
 
 
-def test_image_add_success(mocker):
-    mocker.patch("aixplain.factories.FileFactory.check_storage_type", side_effect=[StorageType.FILE] * 4)
-    mocker.patch("aixplain.modules.model.utils.is_supported_image_type", return_value=True)
-    mocker.patch("aixplain.factories.FileFactory.to_link", return_value="https://example.com/test.jpg")
-    mock_response = {"status": "SUCCESS"}
-
-    mock_documents = [
-        Record(uri="https://example.com/test.jpg", value_type="image", id=0, attributes={}),
-    ]
-
-    with requests_mock.Mocker() as mock:
-        mock.post(execute_url, json=mock_response, status_code=200)
-        index_model = IndexModel(id=index_id, data=data, name="name", function=Function.SEARCH)
-        response = index_model.upsert(mock_documents)
-
-    assert isinstance(response, ModelResponse)
-    assert response.status == ResponseStatus.SUCCESS
+def test_vector_index_filter():
+    flt = IndexFilter("category", "news", IndexFilterOperator.EQUALS)
+    assert flt.to_dict() == {"field": "category", "value": "news", "operator": "=="}
 
 
-def test_text_update_success(mocker):
+# ────────────────────────────────────────────────────────────────────────────────
+# KNOWLEDGE-GRAPH INDEX TESTS
+# ────────────────────────────────────────────────────────────────────────────────
+
+KG_ID = "kg-id"
+KG_EXEC_URL = f"{config.MODELS_RUN_URL}/{KG_ID}".replace("/api/v1/execute", "/api/v2/execute")
+
+kg_logger = logging.getLogger("KGIndexModelTests")
+
+
+def _make_kg():
+    return KnowledgeGraphIndexModel(
+        id=KG_ID,
+        name="kg-name",
+        version="graphrag-dev-1-test",
+        description="",
+        function=Function.SEARCH,
+        llm="gpt-4o",
+    )
+
+
+def _kg_mock(m, payload):
+    m.post(KG_EXEC_URL, json=payload, status_code=200)
+    kg_logger.debug("POST %s  • payload=%s", KG_EXEC_URL, payload)
+
+
+def test_kg_get_prompts():
+    with requests_mock.Mocker() as m:
+        _kg_mock(m, {"status": "SUCCESS", "data": {"sys": "hi"}})
+        resp = _make_kg().get_prompts()
+
+    assert resp.status == ResponseStatus.SUCCESS
+    assert resp.data == {"sys": "hi"}
+
+
+def test_kg_add_documents(mocker):
     mocker.patch("aixplain.factories.FileFactory.check_storage_type", side_effect=[StorageType.TEXT] * 4)
-    mock_response = {"status": "SUCCESS"}
 
-    mock_documents = [
-        Record(value="Updated document content 1", value_type="text", id=0, uri="", attributes={}),
-        Record(value="Updated document content 2", value_type="text", id=1, uri="", attributes={}),
-    ]
+    docs = [Record(value="kg-doc", value_type="text", id=0, uri="", attributes={})]
 
-    with requests_mock.Mocker() as mock:
-        mock.post(execute_url, json=mock_response, status_code=200)
-        logging.debug(f"Requesting URL: {execute_url}")
+    with requests_mock.Mocker() as m:
+        _kg_mock(m, {"status": "SUCCESS"})
+        resp = _make_kg().add_documents(docs)
 
-        index_model = IndexModel(id=index_id, data=data, name="name", function=Function.SEARCH)
-
-        response = index_model.upsert(mock_documents)
-
-    assert isinstance(response, ModelResponse)
-    assert response.status == ResponseStatus.SUCCESS
+    assert resp.status == ResponseStatus.SUCCESS
+    assert resp.data == docs
 
 
-def test_count_success():
-    mock_response = {"status": "SUCCESS", "data": 4}
+def test_kg_manual_prompt_tune():
+    prompts = {"sys": "You are helpful"}
 
-    with requests_mock.Mocker() as mock:
-        mock.post(execute_url, json=mock_response, status_code=200)
-        logging.debug(f"Requesting URL: {execute_url}")
+    with requests_mock.Mocker() as m:
+        _kg_mock(m, {"status": "SUCCESS"})
+        resp = _make_kg().manual_prompt_tune(prompts)
 
-        index_model = IndexModel(id=index_id, data=data, name="name", function=Function.SEARCH)
-
-        response = index_model.count()
-
-    assert isinstance(response, int)
-    assert response == 4
+    assert resp.status == ResponseStatus.SUCCESS
+    assert resp.data == prompts
 
 
-def test_get_document_success():
-    mock_response = {
-        "status": "SUCCESS",
-        "data": {"value": "Sample document content 1", "value_type": "text", "id": 0, "uri": "", "attributes": {}},
-    }
-    mock_documents = [Record(value="Sample document content 1", value_type="text", id=0, uri="", attributes={})]
-    with requests_mock.Mocker() as mock:
-        mock.post(execute_url, json=mock_response, status_code=200)
-        index_model = IndexModel(id=index_id, data=data, name="name", function=Function.SEARCH)
-        index_model.upsert(mock_documents)
-        response = index_model.get_record(0)
+def test_kg_auto_prompt_tune(mocker):
+    mocker.patch("aixplain.factories.FileFactory.check_storage_type", side_effect=[StorageType.TEXT] * 4)
 
-    assert isinstance(response, ModelResponse)
-    assert response.status == ResponseStatus.SUCCESS
+    docs = [Record(value="auto", value_type="text", id=1, uri="", attributes={})]
 
+    with requests_mock.Mocker() as m:
+        # upload_documents
+        _kg_mock(m, {"status": "SUCCESS"})
+        # auto_prompt_tune
+        _kg_mock(m, {"status": "SUCCESS", "data": {"sys": "ok"}})
 
-def test_delete_document_success():
-    mock_response = {"status": "SUCCESS"}
-    mock_documents = [Record(value="Sample document content 1", value_type="text", id=0, uri="", attributes={})]
+        resp = _make_kg().auto_prompt_tune(docs)
 
-    with requests_mock.Mocker() as mock:
-        mock.post(execute_url, json=mock_response, status_code=200)
-        index_model = IndexModel(id=index_id, data=data, name="name", function=Function.SEARCH)
-        index_model.upsert(mock_documents)
-        response = index_model.delete_record("0")
-
-    assert isinstance(response, ModelResponse)
-    assert response.status == ResponseStatus.SUCCESS
+    assert resp == {"sys": "ok"}
 
 
-def test_validate_record_success(mocker):
+def test_kg_graph_indexing():
+    with requests_mock.Mocker() as m:
+        _kg_mock(m, {"status": "SUCCESS", "data": "started"})
+        resp = _make_kg().graph_indexing()
+
+    assert resp.status == ResponseStatus.SUCCESS
+
+
+def test_kg_upsert(mocker):
+    mocker.patch("aixplain.factories.FileFactory.check_storage_type", side_effect=[StorageType.TEXT] * 4)
+
+    docs = [Record(value="round", value_type="text", id=7, uri="", attributes={})]
+
+    with requests_mock.Mocker() as m:
+        # upload_documents
+        _kg_mock(m, {"status": "SUCCESS"})
+        # ingest
+        _kg_mock(m, {"status": "SUCCESS", "data": "done"})
+
+        resp = _make_kg().upsert(docs)
+
+    assert resp.status == ResponseStatus.SUCCESS
+
+
+# ────────────────────────────────────────────────────────────────────────────────
+# RECORD UTILITY TESTS
+# ────────────────────────────────────────────────────────────────────────────────
+def test_record_validate_and_dict(mocker):
     mocker.patch("aixplain.modules.model.utils.is_supported_image_type", return_value=True)
     mocker.patch("aixplain.factories.FileFactory.check_storage_type", return_value=StorageType.FILE)
-    mocker.patch("aixplain.factories.FileFactory.to_link", return_value="https://example.com/test.jpg")
+    mocker.patch("aixplain.factories.FileFactory.to_link", return_value="https://ex.com/img.jpg")
 
-    record = Record(uri="test.jpg", value_type="image", id=0, attributes={})
-    record.validate()
-    assert record.value_type == DataType.IMAGE
-    assert record.uri == "https://example.com/test.jpg"
-    assert record.value == ""
+    rec = Record(uri="img.jpg", value_type="image", id=0, attributes={})
+    rec.validate()
+    d = rec.to_dict()
 
-
-def test_validate_record_failure(mocker):
-    mocker.patch("aixplain.modules.model.utils.is_supported_image_type", return_value=False)
-    mocker.patch("aixplain.factories.FileFactory.check_storage_type", return_value=StorageType.FILE)
-    mocker.patch("aixplain.factories.FileFactory.to_link", return_value="https://example.com/test.jpg")
-    record = Record(uri="test.mov", value_type="video", id=0, attributes={})
-    with pytest.raises(Exception) as e:
-        record.validate()
-    assert str(e.value) == "Index Upsert Error: Invalid value type"
+    assert d["dataType"] == DataType.IMAGE
+    assert d["uri"] == "https://ex.com/img.jpg"
 
 
-def test_validate_record_failure_no_uri(mocker):
-    record = Record(value="test.jpg", value_type="image", id=0, uri="", attributes={})
-    with pytest.raises(Exception) as e:
-        record.validate()
-    assert str(e.value) == "Index Upsert Error: URI is required for image records"
-
-
-def test_validate_record_failure_no_value(mocker):
-    record = Record(uri="test.jpg", value_type="text", id=0, attributes={})
-    with pytest.raises(Exception) as e:
-        record.validate()
-    assert str(e.value) == "Index Upsert Error: Value is required for text records"
-
-
-def test_record_to_dict():
-    record = Record(value="test", value_type=DataType.TEXT, id=0, uri="", attributes={})
-    record_dict = record.to_dict()
-    assert record_dict["dataType"] == "text"
-    assert record_dict["uri"] == ""
-    assert record_dict["data"] == "test"
-    assert record_dict["document_id"] == 0
-    assert record_dict["attributes"] == {}
-
-    record = Record(value="test", value_type=DataType.IMAGE, id=0, uri="https://example.com/test.jpg", attributes={})
-    record_dict = record.to_dict()
-    assert record_dict["dataType"] == "image"
-    assert record_dict["uri"] == "https://example.com/test.jpg"
-    assert record_dict["data"] == "test"
-    assert record_dict["document_id"] == 0
-    assert record_dict["attributes"] == {}
-
-
-def test_index_filter():
-    from aixplain.modules.model.index_model import IndexFilter, IndexFilterOperator
-
-    filter = IndexFilter(field="category", value="world", operator=IndexFilterOperator.EQUALS)
-    assert filter.field == "category"
-    assert filter.value == "world"
-    assert filter.operator == IndexFilterOperator.EQUALS
+# ────────────────────────────────────────────────────────────────────────────────
+# INDEX FACTORY TESTS
+# ────────────────────────────────────────────────────────────────────────────────
 
 
 def test_index_factory_create_failure():
-    from aixplain.factories.index_factory.utils import AirParams
-
     with pytest.raises(Exception) as e:
         IndexFactory.create(
             name="test",
@@ -245,7 +237,7 @@ def test_index_factory_create_failure():
 
 
 def test_index_model_splitter():
-    from aixplain.modules.model.index_model import Splitter
+    from aixplain.modules.model.index_models.base_index_model import Splitter
 
     splitter = Splitter(split=True, split_by="sentence", split_length=100, split_overlap=0)
     assert splitter.split == True

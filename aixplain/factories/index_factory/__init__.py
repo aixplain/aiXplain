@@ -21,18 +21,13 @@ Description:
     Index Factory Class
 """
 
-from aixplain.modules.model.index_model import IndexModel
+from aixplain.modules.model.index_models import BaseIndexModel
 from aixplain.factories import ModelFactory
 from aixplain.enums import Function, ResponseStatus, SortBy, SortOrder, OwnershipType, Supplier, IndexStores, EmbeddingModel
 from typing import Text, Union, List, Tuple, Optional, TypeVar, Generic
-from aixplain.factories.index_factory.utils import BaseIndexParams
+from aixplain.factories.index_factory.utils import BaseIndexParams, AirParams
 
 T = TypeVar("T", bound=BaseIndexParams)
-
-
-def validate_embedding_model(model_id) -> bool:
-    model = ModelFactory.get(model_id)
-    return model.function == Function.TEXT_EMBEDDING
 
 
 class IndexFactory(ModelFactory, Generic[T]):
@@ -44,7 +39,7 @@ class IndexFactory(ModelFactory, Generic[T]):
         embedding_model: Union[EmbeddingModel, str] = EmbeddingModel.OPENAI_ADA002,
         params: Optional[T] = None,
         **kwargs,
-    ) -> IndexModel:
+    ) -> BaseIndexModel:
         """Create a new index collection"""
         import warnings
 
@@ -64,12 +59,8 @@ class IndexFactory(ModelFactory, Generic[T]):
             assert (
                 name is not None and description is not None and embedding_model is not None
             ), "Index Factory Exception: name, description, and embedding_model must be provided when params is not"
-            if validate_embedding_model(embedding_model):
-                data = {
-                    "data": name,
-                    "description": description,
-                    "model": embedding_model,
-                }
+            params = AirParams(name=name, description=description, embedding_model=embedding_model)
+            data = params.to_dict()
         model = cls.get(model_id)
         response = model.run(data=data)
         if response.status == ResponseStatus.SUCCESS:
@@ -92,7 +83,7 @@ class IndexFactory(ModelFactory, Generic[T]):
         sort_order: SortOrder = SortOrder.ASCENDING,
         page_number: int = 0,
         page_size: int = 20,
-    ) -> List[IndexModel]:
+    ) -> List[BaseIndexModel]:
         """List all indexes"""
         return super().list(
             function=Function.SEARCH,

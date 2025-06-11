@@ -2,7 +2,7 @@ import json
 import logging
 from aixplain.modules.model import Model
 from aixplain.modules.model.llm_model import LLM
-from aixplain.modules.model.index_model import IndexModel
+from aixplain.modules.model.index_models import BaseIndexModel, VectorIndexModel, KnowledgeGraphIndexModel
 from aixplain.modules.model.integration import Integration
 from aixplain.modules.model.connection import ConnectionTool
 from aixplain.modules.model.utility_model import UtilityModel
@@ -67,7 +67,15 @@ def create_model_from_response(response: Dict) -> Model:
         if len(f) > 0 and len(f[0].get("defaultValues", [])) > 0:
             temperature = float(f[0]["defaultValues"][0]["value"])
     elif function == Function.SEARCH:
-        ModelClass = IndexModel
+        version = response.get("version", None)
+        if version and version.get("id", None) is not None and "-" in version["id"]:
+            collection_type = version["id"].split("-", 1)[0]
+            ModelClass = BaseIndexModel
+            if collection_type in VectorIndexModel.supported_indices:
+                ModelClass = VectorIndexModel
+            elif collection_type in KnowledgeGraphIndexModel.supported_indices:
+                ModelClass = KnowledgeGraphIndexModel
+                additional_kwargs["llm"] = next((item["code"] for item in attributes if item["name"] == "llm"), None)
     elif function_type == FunctionType.INTEGRATION:
         ModelClass = Integration
     elif function_type == FunctionType.CONNECTION:
