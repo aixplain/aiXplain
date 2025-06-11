@@ -1,4 +1,4 @@
-from aixplain.modules.model.index_models.index_model import IndexModel
+from aiXplain.aixplain.modules.model.index_models.base_index_model import BaseIndexModel
 from aixplain.enums import ResponseStatus
 from typing import Text, Optional, Union, Dict, List, Any
 from aixplain.modules.model.record import Record
@@ -6,7 +6,7 @@ from aixplain.modules.model.response import ModelResponse
 from aixplain.enums import Function, Supplier, EmbeddingModel, IndexType
 
 
-class KnowledgeGraphIndexModel(IndexModel):
+class KnowledgeGraphIndexModel(BaseIndexModel):
     supported_indices = ["graphrag"]
 
     def __init__(

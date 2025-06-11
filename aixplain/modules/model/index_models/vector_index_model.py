@@ -1,7 +1,7 @@
 from typing import Union, List, Text, Optional, Dict
 from enum import Enum
 from aixplain.enums import StorageType
-from aixplain.modules.model.index_models.index_model import IndexModel, Splitter
+from aiXplain.aixplain.modules.model.index_models.base_index_model import BaseIndexModel, Splitter
 from aixplain.modules.model.record import Record
 from aixplain.modules.model.response import ModelResponse
 from aixplain.enums import Function, Supplier, EmbeddingModel, ResponseStatus, IndexType
@@ -36,7 +36,7 @@ class IndexFilter:
         }
 
 
-class VectorIndexModel(IndexModel):
+class VectorIndexModel(BaseIndexModel):
     supported_indices = ["airv2", "vectara", "zeroentropy"]
 
     def __init__(

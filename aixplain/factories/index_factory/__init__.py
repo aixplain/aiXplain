@@ -21,7 +21,7 @@ Description:
     Index Factory Class
 """
 
-from aixplain.modules.model.index_models.index_model import IndexModel
+from aixplain.modules.model.index_models import BaseIndexModel
 from aixplain.factories import ModelFactory
 from aixplain.enums import Function, ResponseStatus, SortBy, SortOrder, OwnershipType, Supplier, IndexStores, EmbeddingModel
 from typing import Text, Union, List, Tuple, Optional, TypeVar, Generic

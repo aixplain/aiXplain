@@ -20,7 +20,7 @@ class Splitter:
         self.split_overlap = split_overlap
 
 
-class IndexModel(Model):
+class BaseIndexModel(Model):
     def __init__(
         self,
         id: Text,
