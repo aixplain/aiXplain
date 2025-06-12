@@ -27,7 +27,7 @@ import time
 import traceback
 import re
 from enum import Enum
-from typing import Dict, List, Text, Optional, Union
+from typing import Dict, List, Text, Optional, Union, Any
 from urllib.parse import urljoin
 
 from aixplain.enums import ResponseStatus
@@ -39,6 +39,7 @@ from aixplain.modules.model import Model
 from aixplain.modules.agent import Agent, OutputFormat
 from aixplain.modules.agent.agent_response import AgentResponse
 from aixplain.modules.agent.agent_response_data import AgentResponseData
+from aixplain.modules.agent.evolve_param import EvolveParam, validate_evolve_param
 from aixplain.modules.agent.utils import process_variables
 from aixplain.modules.team_agent.inspector import Inspector
 from aixplain.modules.team_agent.evolver_response_data import EvolverResponseData
@@ -135,7 +136,6 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         max_iterations: int = 30,
         output_format: OutputFormat = OutputFormat.TEXT,
         expected_output: Optional[Union[BaseModel, Text, dict]] = None,
-        evolve: bool = False,
     ) -> AgentResponse:
         """Runs a team agent call.
 
@@ -153,12 +153,10 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             max_iterations (int, optional): maximum number of iterations between the agents. Defaults to 30.
             output_format (OutputFormat, optional): response format. Defaults to TEXT.
             expected_output (Union[BaseModel, Text, dict], optional): expected output. Defaults to None.
-            evolve (bool, optional): evolve the team agent. Defaults to False.
         Returns:
             AgentResponse: parsed output from model
         """
         start = time.time()
-        result_data = {}
         try:
             response = self.run_async(
                 data=data,
@@ -172,7 +170,6 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                 max_iterations=max_iterations,
                 output_format=output_format,
                 expected_output=expected_output,
-                evolve=evolve,
             )
             if response["status"] == ResponseStatus.FAILED:
                 end = time.time()
@@ -180,9 +177,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                 return response
             poll_url = response["url"]
             end = time.time()
-            result = self.sync_poll(
-                poll_url, name=name, timeout=timeout, wait_time=wait_time
-            )
+            result = self.sync_poll(poll_url, name=name, timeout=timeout, wait_time=wait_time)
             result_data = result.data
             return AgentResponse(
                 status=ResponseStatus.SUCCESS,
@@ -220,7 +215,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         max_iterations: int = 30,
         output_format: OutputFormat = OutputFormat.TEXT,
         expected_output: Optional[Union[BaseModel, Text, dict]] = None,
-        evolve: bool = False,
+        evolve: Union[Dict[str, Any], EvolveParam, None] = None,
     ) -> AgentResponse:
         """Runs asynchronously a Team Agent call.
 
@@ -236,25 +231,23 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             max_iterations (int, optional): maximum number of iterations between the agents. Defaults to 30.
             output_format (OutputFormat, optional): response format. Defaults to TEXT.
             expected_output (Union[BaseModel, Text, dict], optional): expected output. Defaults to None.
-            evolve (bool, optional): evolve the team agent. Defaults to False.
+            evolve (Union[Dict[str, Any], EvolveParam, None], optional): evolve the team agent configuration. Can be a dictionary, EvolveParam instance, or None.
         Returns:
             AgentResponse: polling URL in response
         """
         from aixplain.factories.file_factory import FileFactory
 
-        if not self.is_valid:
-            raise Exception(
-                "Team Agent is not valid. Please validate the team agent before running."
-            )
+        # Validate and normalize evolve parameters using the base model
+        evolve_param = validate_evolve_param(evolve)
+        evolve_dict = evolve_param.to_dict()
 
-        assert (
-            data is not None or query is not None
-        ), "Either 'data' or 'query' must be provided."
+        if not self.is_valid:
+            raise Exception("Team Agent is not valid. Please validate the team agent before running.")
+
+        assert data is not None or query is not None, "Either 'data' or 'query' must be provided."
         if data is not None:
             if isinstance(data, dict):
-                assert (
-                    "query" in data and data["query"] is not None
-                ), "When providing a dictionary, 'query' must be provided."
+                assert "query" in data and data["query"] is not None, "When providing a dictionary, 'query' must be provided."
                 if session_id is None:
                     session_id = data.pop("session_id", None)
                 if history is None:
@@ -268,8 +261,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         # process content inputs
         if content is not None:
             assert (
-                isinstance(query, str)
-                and FileFactory.check_storage_type(query) == StorageType.TEXT
+                isinstance(query, str) and FileFactory.check_storage_type(query) == StorageType.TEXT
             ), "When providing 'content', query must be text."
 
             if isinstance(content, list):
@@ -279,9 +271,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                     query += f"\n{input_link}"
             elif isinstance(content, dict):
                 for key, value in content.items():
-                    assert (
-                        "{{" + key + "}}" in query
-                    ), f"Key '{key}' not found in query."
+                    assert "{{" + key + "}}" in query, f"Key '{key}' not found in query."
                     value = FileFactory.to_link(value)
                     query = query.replace("{{" + key + "}}", f"'{value}'")
 
@@ -301,28 +291,18 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             "sessionId": session_id,
             "history": history,
             "executionParams": {
-                "maxTokens": (
-                    parameters["max_tokens"]
-                    if "max_tokens" in parameters
-                    else max_tokens
-                ),
-                "maxIterations": (
-                    parameters["max_iterations"]
-                    if "max_iterations" in parameters
-                    else max_iterations
-                ),
+                "maxTokens": (parameters["max_tokens"] if "max_tokens" in parameters else max_tokens),
+                "maxIterations": (parameters["max_iterations"] if "max_iterations" in parameters else max_iterations),
                 "outputFormat": output_format,
                 "expectedOutput": expected_output,
             },
-            "evolve": evolve,
+            "evolve": json.dumps(evolve_dict),
         }
         payload.update(parameters)
         payload = json.dumps(payload)
 
         r = _request_with_retry("post", self.url, headers=headers, data=payload)
-        logging.info(
-            f"Team Agent Run Async: Start service for {name} - {self.url} - {payload} - {headers}"
-        )
+        logging.info(f"Team Agent Run Async: Start service for {name} - {self.url} - {payload} - {headers}")
 
         resp = None
         try:
@@ -361,17 +341,13 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                     error_message = resp.get("error_message")
             else:
                 status = ResponseStatus.IN_PROGRESS
-            logging.debug(
-                f"Single Poll for Team Agent: Status of polling for {name}: {resp}"
-            )
+            logging.debug(f"Single Poll for Team Agent: Status of polling for {name}: {resp}")
 
             resp_data = resp.get("data") or {}
             used_credits = resp_data.get("usedCredits", 0.0)
             run_time = resp_data.get("runTime", 0.0)
             if "evolved_agent" in resp_data and status == ResponseStatus.SUCCESS:
-                resp_data = EvolverResponseData.from_dict(
-                    resp_data, llm_id=self.llm_id, api_key=self.api_key
-                )
+                resp_data = EvolverResponseData.from_dict(resp_data, llm_id=self.llm_id, api_key=self.api_key)
             else:
                 resp_data = AgentResponseData(
                     input=resp_data.get("input"),
@@ -381,9 +357,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                     execution_stats=resp_data.get("executionStats"),
                 )
         except Exception as e:
-            logging.error(
-                f"Single Poll for Team Agent: Error of polling for {name}: {e}"
-            )
+            logging.error(f"Single Poll for Team Agent: Error of polling for {name}: {e}")
             status = ResponseStatus.FAILED
             error_message = str(e)
         finally:
@@ -412,7 +386,9 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             if r.status_code != 200:
                 raise Exception()
         except Exception:
-            message = f"Team Agent Deletion Error (HTTP {r.status_code}): Make sure the Team Agent exists and you are the owner."
+            message = (
+                f"Team Agent Deletion Error (HTTP {r.status_code}): Make sure the Team Agent exists and you are the owner."
+            )
             logging.error(message)
             raise Exception(f"{message}")
 
@@ -425,25 +401,16 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             "id": self.id,
             "name": self.name,
             "agents": [
-                {"assetId": agent.id, "number": idx, "type": "AGENT", "label": "AGENT"}
-                for idx, agent in enumerate(self.agents)
+                {"assetId": agent.id, "number": idx, "type": "AGENT", "label": "AGENT"} for idx, agent in enumerate(self.agents)
             ],
             "links": [],
             "description": self.description,
             "llmId": self.llm.id if self.llm else self.llm_id,
-            "supervisorId": (
-                self.supervisor_llm.id if self.supervisor_llm else self.llm_id
-            ),
+            "supervisorId": (self.supervisor_llm.id if self.supervisor_llm else self.llm_id),
             "plannerId": planner_id,
-            "inspectors": [
-                inspector.model_dump(by_alias=True) for inspector in self.inspectors
-            ],
+            "inspectors": [inspector.model_dump(by_alias=True) for inspector in self.inspectors],
             "inspectorTargets": [target.value for target in self.inspector_targets],
-            "supplier": (
-                self.supplier.value["code"]
-                if isinstance(self.supplier, Supplier)
-                else self.supplier
-            ),
+            "supplier": (self.supplier.value["code"] if isinstance(self.supplier, Supplier) else self.supplier),
             "version": self.version,
             "status": self.status.value,
             "role": self.instructions,
@@ -461,9 +428,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
 
         try:
             llm = get_llm_instance(self.llm_id)
-            assert (
-                llm.function == Function.TEXT_GENERATION
-            ), "Large Language Model must be a text generation model."
+            assert llm.function == Function.TEXT_GENERATION, "Large Language Model must be a text generation model."
         except Exception:
             raise Exception(f"Large Language Model with ID '{self.llm_id}' not found.")
 
@@ -480,9 +445,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                 raise e
             else:
                 logging.warning(f"Team Agent Validation Error: {e}")
-                logging.warning(
-                    "You won't be able to run the Team Agent until the issues are handled manually."
-                )
+                logging.warning("You won't be able to run the Team Agent until the issues are handled manually.")
 
         return self.is_valid
 
@@ -495,8 +458,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         stack = inspect.stack()
         if len(stack) > 2 and stack[1].function != "save":
             warnings.warn(
-                "update() is deprecated and will be removed in a future version. "
-                "Please use save() instead.",
+                "update() is deprecated and will be removed in a future version. " "Please use save() instead.",
                 DeprecationWarning,
                 stacklevel=2,
             )
@@ -508,17 +470,13 @@ class TeamAgent(Model, DeployableMixin[Agent]):
 
         payload = self.to_dict()
 
-        logging.debug(
-            f"Start service for PUT Update Team Agent - {url} - {headers} - {json.dumps(payload)}"
-        )
+        logging.debug(f"Start service for PUT Update Team Agent - {url} - {headers} - {json.dumps(payload)}")
         resp = "No specified error."
         try:
             r = _request_with_retry("put", url, headers=headers, json=payload)
             resp = r.json()
         except Exception:
-            raise Exception(
-                "Team Agent Update Error: Please contact the administrators."
-            )
+            raise Exception("Team Agent Update Error: Please contact the administrators.")
 
         if 200 <= r.status_code < 300:
             return build_team_agent(resp)
@@ -529,6 +487,26 @@ class TeamAgent(Model, DeployableMixin[Agent]):
     def __repr__(self):
         return f"TeamAgent: {self.name} (id={self.id})"
 
-    def evolve(self, query: Text) -> None:
-        """Evolve the Team Agent."""
-        return self.run_async(query=query, evolve=True)
+    def evolve(self, evolve_parameters: Union[Dict[str, Any], EvolveParam, None] = None) -> None:
+        """Evolve the Team Agent.
+
+        Args:
+            evolve_parameters (Union[Dict[str, Any], EvolveParam, None]): Evolution parameters.
+                Can be a dictionary, EvolveParam instance, or None.
+
+        Returns:
+            AgentResponse: Response from the evolution process.
+        """
+        query = "Placeholder query"
+        if evolve_parameters is None:
+            evolve_parameters = EvolveParam(to_evolve=True)
+        elif isinstance(evolve_parameters, dict):
+            evolve_parameters = EvolveParam.from_dict(evolve_parameters)
+            evolve_parameters.to_evolve = True
+        elif isinstance(evolve_parameters, EvolveParam):
+            evolve_parameters.to_evolve = True
+        else:
+            raise ValueError("evolve_parameters must be a dictionary, EvolveParam instance, or None")
+
+        response = self.run_async(query=query, evolve=evolve_parameters)
+        return response

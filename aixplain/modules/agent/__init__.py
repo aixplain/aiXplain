@@ -36,7 +36,8 @@ from aixplain.modules.agent.agent_response import AgentResponse
 from aixplain.modules.agent.agent_response_data import AgentResponseData
 from aixplain.modules.agent.utils import process_variables
 from pydantic import BaseModel
-from typing import Dict, List, Text, Optional, Union
+from typing import Dict, List, Text, Optional, Union, Any
+from aixplain.modules.agent.evolve_param import EvolveParam, validate_evolve_param
 from urllib.parse import urljoin
 from aixplain.modules.model.llm_model import LLM
 
@@ -260,6 +261,7 @@ class Agent(Model, DeployableMixin[Tool]):
         max_iterations: int = 10,
         output_format: OutputFormat = OutputFormat.TEXT,
         expected_output: Optional[Union[BaseModel, Text, dict]] = None,
+        evolve: Union[Dict[str, Any], EvolveParam, None] = None,
     ) -> AgentResponse:
         """Runs asynchronously an agent call.
 
@@ -275,13 +277,16 @@ class Agent(Model, DeployableMixin[Tool]):
             max_iterations (int, optional): maximum number of iterations between the agent and the tools. Defaults to 10.
             output_format (OutputFormat, optional): response format. Defaults to TEXT.
             expected_output (Union[BaseModel, Text, dict], optional): expected output. Defaults to None.
+            output_format (ResponseFormat, optional): response format. Defaults to TEXT.
+            evolve (Union[Dict[str, Any], EvolveParam, None], optional): evolve the agent configuration. Can be a dictionary, EvolveParam instance, or None.
         Returns:
             dict: polling URL in response
         """
         from aixplain.factories.file_factory import FileFactory
 
-        if not self.is_valid:
-            raise Exception("Agent is not valid. Please validate the agent before running.")
+        # Validate and normalize evolve parameters using the base model
+        evolve_param = validate_evolve_param(evolve)
+        evolve_dict = evolve_param.to_dict()
 
         if output_format == OutputFormat.JSON:
             assert expected_output is not None and (
@@ -338,6 +343,7 @@ class Agent(Model, DeployableMixin[Tool]):
                 "outputFormat": output_format,
                 "expectedOutput": expected_output,
             },
+            "evolve": json.dumps(evolve_dict),
         }
 
         payload.update(parameters)
@@ -376,15 +382,17 @@ class Agent(Model, DeployableMixin[Tool]):
             "llmId": self.llm_id if self.llm is None else self.llm.id,
             "status": self.status.value,
             "tasks": [task.to_dict() for task in self.tasks],
-            "tools": [
-                {
-                    "type": "llm",
-                    "description": "main",
-                    "parameters": self.llm.get_parameters().to_list() if self.llm.get_parameters() else None,
-                }
-            ]
-            if self.llm is not None
-            else [],
+            "tools": (
+                [
+                    {
+                        "type": "llm",
+                        "description": "main",
+                        "parameters": (self.llm.get_parameters().to_list() if self.llm.get_parameters() else None),
+                    }
+                ]
+                if self.llm is not None
+                else []
+            ),
         }
 
     def delete(self) -> None:
@@ -395,30 +403,22 @@ class Agent(Model, DeployableMixin[Tool]):
                 "x-api-key": config.TEAM_API_KEY,
                 "Content-Type": "application/json",
             }
-            logging.debug(
-                f"Start service for DELETE Agent  - {url} - {headers}"
-            )
+            logging.debug(f"Start service for DELETE Agent  - {url} - {headers}")
             r = _request_with_retry("delete", url, headers=headers)
-            logging.debug(
-                f"Result of request for DELETE Agent - {r.status_code}"
-            )
+            logging.debug(f"Result of request for DELETE Agent - {r.status_code}")
             if r.status_code != 200:
                 raise Exception()
         except Exception:
             try:
                 response_json = r.json()
-                error_message = response_json.get('message', '').strip('{{}}')
+                error_message = response_json.get("message", "").strip("{{}}")
 
                 if r.status_code == 403 and error_message == "err.agent_is_in_use":
                     # Get team agents that use this agent
-                    from aixplain.factories.team_agent_factory import (
-                        TeamAgentFactory
-                    )
+                    from aixplain.factories.team_agent_factory import TeamAgentFactory
+
                     team_agents = TeamAgentFactory.list()["results"]
-                    using_team_agents = [
-                        ta for ta in team_agents
-                        if any(agent.id == self.id for agent in ta.agents)
-                    ]
+                    using_team_agents = [ta for ta in team_agents if any(agent.id == self.id for agent in ta.agents)]
 
                     if using_team_agents:
                         # Scenario 1: User has access to team agents
@@ -441,15 +441,9 @@ class Agent(Model, DeployableMixin[Tool]):
                             "referencing it."
                         )
                 else:
-                    message = (
-                        f"Agent Deletion Error (HTTP {r.status_code}): "
-                        f"{error_message}."
-                    )
+                    message = f"Agent Deletion Error (HTTP {r.status_code}): " f"{error_message}."
             except ValueError:
-                message = (
-                    f"Agent Deletion Error (HTTP {r.status_code}): "
-                    "There was an error in deleting the agent."
-                )
+                message = f"Agent Deletion Error (HTTP {r.status_code}): " "There was an error in deleting the agent."
             logging.error(message)
             raise Exception(message)
 
@@ -494,3 +488,26 @@ class Agent(Model, DeployableMixin[Tool]):
 
     def __repr__(self):
         return f"Agent: {self.name} (id={self.id})"
+
+    def evolve(self, evolve_parameters: Union[Dict[str, Any], EvolveParam, None] = None) -> None:
+        """Evolve the Agent.
+
+        Args:
+            evolve_parameters (Union[Dict[str, Any], EvolveParam, None]): Evolution parameters.
+                Can be a dictionary, EvolveParam instance, or None.
+
+        Returns:
+            AgentResponse: Response from the evolution process.
+        """
+        query = "Placeholder query"
+        if evolve_parameters is None:
+            evolve_parameters = EvolveParam(to_evolve=True)
+        elif isinstance(evolve_parameters, dict):
+            evolve_parameters = EvolveParam.from_dict(evolve_parameters)
+            evolve_parameters.to_evolve = True
+        elif isinstance(evolve_parameters, EvolveParam):
+            evolve_parameters.to_evolve = True
+        else:
+            raise ValueError("evolve_parameters must be a dictionary, EvolveParam instance, or None")
+
+        return self.run_async(query=query, evolve=evolve_parameters)
