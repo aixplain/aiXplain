@@ -2,7 +2,6 @@ from aixplain.v2.resource import BaseResource
 
 
 class Script(BaseResource):
-
     @classmethod
     def upload(cls, script_path: str) -> "Script":
         """Upload a script to the server.

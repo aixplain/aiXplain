@@ -19,3 +19,4 @@ from .database_source import DatabaseSourceType
 from .embedding_model import EmbeddingModel
 from .asset_status import AssetStatus
 from .index_stores import IndexStores
+from .function_type import FunctionType
