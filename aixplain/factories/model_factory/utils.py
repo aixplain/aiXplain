@@ -118,6 +118,7 @@ def create_model_from_response(response: Dict) -> Model:
         supports_streaming=response.get("supportsStreaming", False),
         status=status,
         function_type=function_type,
+
         **additional_kwargs,
     )
 

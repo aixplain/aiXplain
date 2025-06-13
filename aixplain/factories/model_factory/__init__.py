@@ -31,6 +31,7 @@ from aixplain.factories.model_factory.mixins import ModelGetterMixin, ModelListM
 from typing import Callable, Dict, List, Optional, Text, Union
 
 
+
 class ModelFactory(ModelGetterMixin, ModelListMixin):
     """A static class for creating and exploring Model Objects.
 
@@ -78,7 +79,9 @@ class ModelFactory(ModelGetterMixin, ModelListMixin):
         url = urljoin(cls.backend_url, "sdk/utilities")
         headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
         try:
-            logging.info(f"Start service for POST Utility Model - {url} - {headers} - {payload}")
+            logging.info(
+                f"Start service for POST Utility Model - {url} - {headers} - {payload}"
+            )
             r = _request_with_retry("post", url, headers=headers, json=payload)
             resp = r.json()
         except Exception as e:
@@ -87,12 +90,12 @@ class ModelFactory(ModelGetterMixin, ModelListMixin):
 
         if 200 <= r.status_code < 300:
             utility_model.id = resp["id"]
-            logging.info(f"Utility Model Creation: Model {utility_model.id} instantiated.")
+            logging.info(
+                f"Utility Model Creation: Model {utility_model.id} instantiated."
+            )
             return utility_model
         else:
-            error_message = (
-                f"Utility Model Creation: Failed to create utility model. Status Code: {r.status_code}. Error: {resp}"
-            )
+            error_message = f"Utility Model Creation: Failed to create utility model. Status Code: {r.status_code}. Error: {resp}"
             logging.error(error_message)
             raise Exception(error_message)
 
@@ -148,7 +151,9 @@ class ModelFactory(ModelGetterMixin, ModelListMixin):
         return response_list
 
     @classmethod
-    def list_functions(cls, verbose: Optional[bool] = False, api_key: Optional[Text] = None) -> List[Dict]:
+    def list_functions(
+        cls, verbose: Optional[bool] = False, api_key: Optional[Text] = None
+    ) -> List[Dict]:
         """Lists supported model functions on platform.
 
         Args:
@@ -246,7 +251,9 @@ class ModelFactory(ModelGetterMixin, ModelListMixin):
             "onboardingParams": {},
         }
         logging.debug(f"Body: {str(payload)}")
-        response = _request_with_retry("post", create_url, headers=headers, json=payload)
+        response = _request_with_retry(
+            "post", create_url, headers=headers, json=payload
+        )
 
         assert response.status_code == 201
 
@@ -310,7 +317,9 @@ class ModelFactory(ModelGetterMixin, ModelListMixin):
             }
         payload = {"image": image_tag, "sha": image_hash, "hostMachine": host_machine}
         logging.debug(f"Body: {str(payload)}")
-        response = _request_with_retry("post", onboard_url, headers=headers, json=payload)
+        response = _request_with_retry(
+            "post", onboard_url, headers=headers, json=payload
+        )
         if response.status_code == 201:
             message = "Your onboarding request has been submitted to an aiXplain specialist for finalization. We will notify you when the process is completed."
             logging.info(message)
@@ -372,7 +381,9 @@ class ModelFactory(ModelGetterMixin, ModelListMixin):
         return response_dicts
 
     @classmethod
-    def get_huggingface_model_status(cls, model_id: Text, api_key: Optional[Text] = None):
+    def get_huggingface_model_status(
+        cls, model_id: Text, api_key: Optional[Text] = None
+    ):
         """Gets the on-boarding status of a Hugging Face model with ID MODEL_ID.
 
         Args:

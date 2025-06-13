@@ -429,3 +429,4 @@ class TeamAgent(Model, DeployableMixin[Agent]):
 
     def __repr__(self):
         return f"TeamAgent: {self.name} (id={self.id})"
+

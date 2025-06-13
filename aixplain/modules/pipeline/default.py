@@ -16,3 +16,4 @@ class DefaultPipeline(PipelineAsset, DesignerPipeline):
     def to_dict(self) -> dict:
         return self.serialize()
     
+

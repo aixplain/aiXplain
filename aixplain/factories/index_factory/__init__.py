@@ -29,6 +29,14 @@ from aixplain.factories.index_factory.utils import BaseIndexParams
 
 T = TypeVar("T", bound=BaseIndexParams)
 
+import os
+from aixplain.utils.file_utils import _request_with_retry
+from urllib.parse import urljoin
+
+def validate_embedding_model(model_id) -> bool:
+        model = ModelFactory.get(model_id)
+        return model.function == Function.TEXT_EMBEDDING
+
 
 def validate_embedding_model(model_id) -> bool:
     model = ModelFactory.get(model_id)

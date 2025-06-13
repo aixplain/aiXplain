@@ -20,6 +20,7 @@ CACHE_FOLDER = ".cache"
 CACHE_DURATION = 86400
 
 
+
 @dataclass
 class Store(Generic[T]):
     data: Dict[str, T]
@@ -60,6 +61,7 @@ class AssetCache(Generic[T]):
             # remove the CACHE_EXPIRY_TIME from the environment variables
             del os.environ["CACHE_EXPIRY_TIME"]
             expiry = CACHE_DURATION
+
 
         return time.time() + int(expiry)
 

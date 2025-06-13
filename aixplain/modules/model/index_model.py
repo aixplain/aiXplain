@@ -8,6 +8,11 @@ from enum import Enum
 from typing import List
 from aixplain.enums.splitting_options import SplittingOptions
 
+import os
+
+from urllib.parse import urljoin
+from aixplain.utils.file_utils import _request_with_retry
+
 
 class IndexFilterOperator(Enum):
     EQUALS = "=="
@@ -50,6 +55,7 @@ class Splitter:
         self.split_by = split_by
         self.split_length = split_length
         self.split_overlap = split_overlap
+
 
 
 class IndexModel(Model):
@@ -119,6 +125,7 @@ class IndexModel(Model):
         data["collection_type"] = self.version.split("-", 1)[0]
         return data
 
+
     def search(self, query: str, top_k: int = 10, filters: List[IndexFilter] = []) -> ModelResponse:
         """Search for documents in the index
 
@@ -148,7 +155,7 @@ class IndexModel(Model):
             "data": query or uri,
             "dataType": value_type,
             "filters": [filter.to_dict() for filter in filters],
-            "payload": {"uri": uri, "value_type": value_type, "top_k": top_k},
+            "payload": {"uri": uri, "value_type": value_type, "top_k": top_k}
         }
         return self.run(data=data)
 
