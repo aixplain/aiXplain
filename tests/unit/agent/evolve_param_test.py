@@ -22,7 +22,7 @@ class TestEvolveParam:
         assert default_param.criteria is None
         assert default_param.max_iterations == 100
         assert default_param.temperature == 0.0
-        assert default_param.type == EvolveType.TEAM_TUNING
+        assert default_param.evolve_type == EvolveType.TEAM_TUNING
         assert default_param.additional_params == {}
 
         # Test to_dict method
@@ -37,7 +37,7 @@ class TestEvolveParam:
             criteria="accuracy > 0.8",
             max_iterations=5,
             temperature=0.7,
-            type=EvolveType.TEAM_TUNING,
+            evolve_type=EvolveType.TEAM_TUNING,
             additional_params={"customParam": "custom_value"},
         )
 
@@ -45,7 +45,7 @@ class TestEvolveParam:
         assert custom_param.criteria == "accuracy > 0.8"
         assert custom_param.max_iterations == 5
         assert custom_param.temperature == 0.7
-        assert custom_param.type == EvolveType.TEAM_TUNING
+        assert custom_param.evolve_type == EvolveType.TEAM_TUNING
         assert custom_param.additional_params == {"customParam": "custom_value"}
 
         # Test to_dict method
@@ -54,7 +54,7 @@ class TestEvolveParam:
         assert result_dict["criteria"] == "accuracy > 0.8"
         assert result_dict["maxIterations"] == 5
         assert result_dict["temperature"] == 0.7
-        assert result_dict["type"] == EvolveType.TEAM_TUNING
+        assert result_dict["evolve_type"] == EvolveType.TEAM_TUNING
         assert result_dict["customParam"] == "custom_value"
 
     def test_from_dict_with_api_format(self):
@@ -64,7 +64,7 @@ class TestEvolveParam:
             "criteria": "custom criteria",
             "maxIterations": 10,
             "temperature": 0.5,
-            "type": EvolveType.TEAM_TUNING,
+            "evolve_type": EvolveType.TEAM_TUNING,
             "customParam": "custom_value",
         }
 
@@ -74,7 +74,7 @@ class TestEvolveParam:
         assert from_dict_param.criteria == "custom criteria"
         assert from_dict_param.max_iterations == 10
         assert from_dict_param.temperature == 0.5
-        assert from_dict_param.type == EvolveType.TEAM_TUNING
+        assert from_dict_param.evolve_type == EvolveType.TEAM_TUNING
 
         # Test round-trip conversion
         result_dict = from_dict_param.to_dict()
@@ -114,7 +114,7 @@ class TestEvolveParam:
             criteria="accuracy > 0.8",
             max_iterations=5,
             temperature=0.7,
-            type=EvolveType.TEAM_TUNING,
+            evolve_type=EvolveType.TEAM_TUNING,
             additional_params={"customParam": "custom_value"},
         )
 
@@ -137,14 +137,14 @@ class TestEvolveParam:
 
     def test_evolve_type_enum_values(self):
         """Test that EvolveType enum values work correctly"""
-        param_team_tuning = EvolveParam(type=EvolveType.TEAM_TUNING)
+        param_team_tuning = EvolveParam(evolve_type=EvolveType.TEAM_TUNING)
 
-        assert param_team_tuning.type == EvolveType.TEAM_TUNING
+        assert param_team_tuning.evolve_type == EvolveType.TEAM_TUNING
 
         # Test in to_dict conversion
         dict_team_tuning = param_team_tuning.to_dict()
 
-        assert "type" in dict_team_tuning
+        assert "evolve_type" in dict_team_tuning
 
     def test_empty_criteria_handling(self):
         """Test that empty criteria is handled properly"""

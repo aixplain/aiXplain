@@ -34,14 +34,14 @@ class EvolveParam:
         criteria (Optional[str]): Custom criteria for evolution evaluation.
         max_iterations (Optional[int]): Maximum number of evolution iterations.
         temperature (Optional[float]): Temperature for evolution randomness (0.0-1.0).
-        type (Optional[EvolveType]): Type of evolution.
+        evolve_type (Optional[EvolveType]): Type of evolve.
     """
 
     to_evolve: bool = False
     criteria: Optional[str] = None
     max_iterations: Optional[int] = 100
     temperature: Optional[float] = 0.0
-    type: Optional[EvolveType] = EvolveType.TEAM_TUNING
+    evolve_type: Optional[EvolveType] = EvolveType.TEAM_TUNING
     additional_params: Optional[Dict[str, Any]] = field(default_factory=dict)
 
     def __post_init__(self):
@@ -66,9 +66,9 @@ class EvolveParam:
             if self.max_iterations <= 0:
                 raise ValueError("max_iterations must be positive")
 
-        if self.type is not None:
-            if not isinstance(self.type, EvolveType):
-                raise ValueError("type must be a valid EvolveType")
+        if self.evolve_type is not None:
+            if not isinstance(self.evolve_type, EvolveType):
+                raise ValueError("evolve_type must be a valid EvolveType")
         if self.additional_params is not None:
             if not isinstance(self.additional_params, dict):
                 raise ValueError("additional_params must be a dictionary")
@@ -98,7 +98,7 @@ class EvolveParam:
             "criteria": data.get("criteria"),
             "max_iterations": data.get("maxIterations", data.get("max_iterations")),
             "temperature": data.get("temperature"),
-            "type": data.get("type"),
+            "evolve_type": data.get("evolveType", data.get("evolve_type")),
             "additional_params": data.get("additional_params"),
         }
 
@@ -117,7 +117,8 @@ class EvolveParam:
                 "maxIterations",
                 "max_iterations",
                 "temperature",
-                "type",
+                "evolveType",
+                "evolve_type",
                 "additional_params",
             ]
         }
@@ -141,8 +142,8 @@ class EvolveParam:
             result["maxIterations"] = self.max_iterations
         if self.temperature is not None:
             result["temperature"] = self.temperature
-        if self.type is not None:
-            result["type"] = self.type
+        if self.evolve_type is not None:
+            result["evolve_type"] = self.evolve_type
         if self.additional_params is not None:
             result.update(self.additional_params)
 
@@ -170,7 +171,7 @@ class EvolveParam:
             criteria=other.criteria if other.criteria is not None else self.criteria,
             max_iterations=(other.max_iterations if other.max_iterations is not None else self.max_iterations),
             temperature=(other.temperature if other.temperature is not None else self.temperature),
-            type=(other.type if other.type is not None else self.type),
+            evolve_type=(other.evolve_type if other.evolve_type is not None else self.evolve_type),
             additional_params=merged_additional,
         )
 
@@ -181,7 +182,7 @@ class EvolveParam:
             f"criteria={self.criteria}, "
             f"max_iterations={self.max_iterations}, "
             f"temperature={self.temperature}, "
-            f"type={self.type}, "
+            f"evolve_type={self.evolve_type}, "
             f"additional_params={self.additional_params})"
         )
 
