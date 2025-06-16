@@ -1,3 +1,5 @@
+import os
+from uuid import uuid4
 from aixplain.enums import EmbeddingModel, Function, Supplier, ResponseStatus, StorageType, FunctionType
 from aixplain.modules.model import Model
 from aixplain.utils import config
@@ -152,11 +154,11 @@ class IndexModel(Model):
         }
         return self.run(data=data)
 
-    def upsert(self, documents: List[Record], splitter: Optional[Splitter] = None) -> ModelResponse:
+    def upsert(self, documents: List[Record] | str, splitter: Optional[Splitter] = None) -> ModelResponse:
         """Upsert documents into the index
 
         Args:
-            documents (List[Record]): List of documents to be upserted
+            documents (List[Record] | str): List of documents to be upserted or a file path
             splitter (Splitter, optional): Splitter to be applied. Defaults to None.
 
         Returns:
@@ -165,8 +167,12 @@ class IndexModel(Model):
         Examples:
             index_model.upsert([Record(value="Hello, world!", value_type="text", uri="", id="1", attributes={})])
             index_model.upsert([Record(value="Hello, world!", value_type="text", uri="", id="1", attributes={})], splitter=Splitter(split=True, split_by=SplittingOptions.WORD, split_length=1, split_overlap=0))
+            index_model.upsert("my_file.pdf")
+            index_model.upsert("my_file.pdf", splitter=Splitter(split=True, split_by=SplittingOptions.WORD, split_length=400, split_overlap=50))
             Splitter in the above example is optional and can be used to split the documents into smaller chunks.
         """
+        if isinstance(documents, str):
+            documents = [self.prepare_record_from_file(documents)]
         # Validate documents
         for doc in documents:
             doc.validate()
@@ -193,7 +199,7 @@ class IndexModel(Model):
             return response
         raise Exception(f"Failed to upsert documents: {response.error_message}")
 
-    def count(self) -> float:
+    def count(self) -> int:
         data = {"action": "count", "data": ""}
         response = self.run(data=data)
         if response.status == "SUCCESS":
@@ -243,3 +249,30 @@ class IndexModel(Model):
         if response.status == "SUCCESS":
             return response
         raise Exception(f"Failed to delete record: {response.error_message}")
+
+    def prepare_record_from_file(self, file_path: str, file_id: str = None) -> Record:
+        """
+        Prepare a record from a file.
+        """
+        response = self.parse_file(file_path)
+        file_name = file_path.split("/")[-1]
+        if not file_id:
+            file_id = file_name + "_" + str(uuid4())
+        return Record(value=response.data, value_type="text", id=file_id, attributes={"file_name": file_name})
+
+    @staticmethod
+    def parse_file(file_path: str) -> ModelResponse:
+        """
+        Parse a file using the Docling model.
+        """
+        if not os.path.exists(file_path):
+            raise Exception(f"File {file_path} does not exist")
+        try:
+            from aixplain.factories import ModelFactory
+
+            docling_model_id = "677bee6c6eb56331f9192a91"
+            model = ModelFactory.get(docling_model_id)
+            response = model.run(file_path)
+            return response
+        except Exception as e:
+            raise Exception(f"Failed to parse file: {e}")
