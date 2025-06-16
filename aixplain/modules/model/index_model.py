@@ -267,6 +267,10 @@ class IndexModel(Model):
         """
         if not os.path.exists(file_path):
             raise Exception(f"File {file_path} does not exist")
+        if file_path.endswith(".txt"):
+            with open(file_path, "r") as file:
+                data = file.read()
+            return ModelResponse(status=ResponseStatus.SUCCESS, data=data, completed=True)
         try:
             from aixplain.factories import ModelFactory
 
