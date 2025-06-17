@@ -37,11 +37,12 @@ from aixplain.modules.agent.tool.sql_tool import (
     SQLTool,
 )
 from aixplain.modules.model import Model
+from aixplain.modules.model.llm_model import LLM
 from aixplain.modules.pipeline import Pipeline
 from aixplain.utils import config
 from typing import Callable, Dict, List, Optional, Text, Union
 
-from aixplain.utils.file_utils import _request_with_retry
+from aixplain.utils.request_utils import _request_with_retry
 from urllib.parse import urljoin
 from aixplain.enums import DatabaseSourceType
 
@@ -53,7 +54,8 @@ class AgentFactory:
         name: Text,
         description: Text,
         instructions: Optional[Text] = None,
-        llm_id: Text = "669a63646eb56306647e1091",
+        llm: Optional[Union[LLM, Text]] = None,
+        llm_id: Optional[Text] = None,
         tools: List[Union[Tool, Model]] = [],
         api_key: Text = config.TEAM_API_KEY,
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
@@ -71,22 +73,39 @@ class AgentFactory:
             name (Text): name of the agent
             description (Text): description of the agent role.
             instructions (Text): role of the agent.
-            llm_id (Text, optional): aiXplain ID of the large language model to be used as agent. Defaults to "669a63646eb56306647e1091" (GPT-4o mini).
+            llm (Optional[Union[LLM, Text]], optional): LLM instance to use as an object or as an ID.
+            llm_id (Optional[Text], optional): ID of LLM to use if no LLM instance provided. Defaults to None.
             tools (List[Union[Tool, Model]], optional): list of tool for the agent. Defaults to [].
             api_key (Text, optional): team/user API key. Defaults to config.TEAM_API_KEY.
             supplier (Union[Dict, Text, Supplier, int], optional): owner of the agent. Defaults to "aiXplain".
             version (Optional[Text], optional): version of the agent. Defaults to None.
             tasks (List[AgentTask], optional): list of tasks for the agent. Defaults to [].
+
         Returns:
             Agent: created Agent
         """
+        from aixplain.utils.llm_utils import get_llm_instance
+
+        if llm is None and llm_id is not None:
+            llm = get_llm_instance(llm_id, api_key=api_key)
+        elif llm is None:
+            # Use default GPT-4o if no LLM specified
+            llm = get_llm_instance("669a63646eb56306647e1091", api_key=api_key)
+
+        if instructions is None:
+            warnings.warn(
+                "Use `instructions` to define the **system prompt**. "
+                "Use `description` to provide a **short summary** of the agent for metadata and dashboard display. "
+                "Note: In upcoming releases, `instructions` will become a required parameter.",
+                UserWarning,
+            )
         warnings.warn(
-            "Use `instructions` to define the **system prompt**. "
-            "Use `description` to provide a **short summary** of the agent for metadata and dashboard display. "
-            "Note: In upcoming releases, `instructions` will become a required parameter.",
+            "Use `llm` to define the large language model (aixplain.modules.model.llm_model.LLM) to be used as agent. "
+            "Use `llm_id` to provide the model ID of the large language model to be used as agent. "
+            "Note: In upcoming releases, `llm` will become a required parameter.",
             UserWarning,
         )
-        from aixplain.factories.agent_factory.utils import build_agent
+        from aixplain.factories.agent_factory.utils import build_agent, build_tool_payload
 
         agent = None
         url = urljoin(config.BACKEND_URL, "sdk/agents")
@@ -99,24 +118,7 @@ class AgentFactory:
 
         payload = {
             "name": name,
-            "assets": [
-                tool.to_dict()
-                if isinstance(tool, Tool)
-                else {
-                    "id": tool.id,
-                    "name": tool.name,
-                    "description": tool.description,
-                    "supplier": tool.supplier.value["code"] if isinstance(tool.supplier, Supplier) else tool.supplier,
-                    "parameters": tool.get_parameters().to_list()
-                    if hasattr(tool, "get_parameters") and tool.get_parameters() is not None
-                    else None,
-                    "function": tool.function if hasattr(tool, "function") and tool.function is not None else None,
-                    "type": "model",
-                    "version": tool.version if hasattr(tool, "version") else None,
-                    "assetId": tool.id,
-                }
-                for tool in tools
-            ],
+            "assets": [build_tool_payload(tool) for tool in tools],
             "description": description,
             "role": instructions or description,
             "supplier": supplier,
@@ -124,7 +126,22 @@ class AgentFactory:
             "llmId": llm_id,
             "status": "draft",
             "tasks": [task.to_dict() for task in tasks],
+            "tools": [],
         }
+
+        if llm is not None:
+            llm = get_llm_instance(llm, api_key=api_key) if isinstance(llm, str) else llm
+            payload["tools"].append(
+                {
+                    "type": "llm",
+                    "description": "main",
+                    "parameters": llm.get_parameters().to_list() if llm.get_parameters() else None,
+                }
+            )
+            payload["llmId"] = llm.id
+            # Store the LLM object in payload to avoid recreating it
+            payload["llm"] = llm
+
         agent = build_agent(payload=payload, tools=tools, api_key=api_key)
         agent.validate(raise_exception=True)
         response = "Unspecified error"
@@ -136,6 +153,9 @@ class AgentFactory:
             raise Exception("Agent Onboarding Error: Please contact the administrators.")
 
         if 200 <= r.status_code < 300:
+            # Preserve the LLM if it exists
+            if "llm" in payload:
+                response["llm"] = payload["llm"]
             agent = build_agent(payload=response, tools=tools, api_key=api_key)
         else:
             error_msg = f"Agent Onboarding Error: {response}"
@@ -164,6 +184,7 @@ class AgentFactory:
         supplier: Optional[Union[Supplier, Text]] = None,
         description: Text = "",
         parameters: Optional[Dict] = None,
+        name: Optional[Text] = None,
     ) -> ModelTool:
         """Create a new model tool."""
         if function is not None and isinstance(function, str):
@@ -176,12 +197,16 @@ class AgentFactory:
                         supplier = supplier_
                         break
             assert isinstance(supplier, Supplier), f"Supplier {supplier} is not a valid supplier"
-        return ModelTool(function=function, supplier=supplier, model=model, description=description, parameters=parameters)
+        return ModelTool(
+            function=function, supplier=supplier, model=model, name=name, description=description, parameters=parameters
+        )
 
     @classmethod
-    def create_pipeline_tool(cls, description: Text, pipeline: Union[Pipeline, Text]) -> PipelineTool:
+    def create_pipeline_tool(
+        cls, description: Text, pipeline: Union[Pipeline, Text], name: Optional[Text] = None
+    ) -> PipelineTool:
         """Create a new pipeline tool."""
-        return PipelineTool(description=description, pipeline=pipeline)
+        return PipelineTool(description=description, pipeline=pipeline, name=name)
 
     @classmethod
     def create_python_interpreter_tool(cls) -> PythonInterpreterTool:
@@ -189,13 +214,16 @@ class AgentFactory:
         return PythonInterpreterTool()
 
     @classmethod
-    def create_custom_python_code_tool(cls, code: Union[Text, Callable], description: Text = "") -> CustomPythonCodeTool:
+    def create_custom_python_code_tool(
+        cls, code: Union[Text, Callable], name: Text, description: Text = ""
+    ) -> CustomPythonCodeTool:
         """Create a new custom python code tool."""
-        return CustomPythonCodeTool(description=description, code=code)
+        return CustomPythonCodeTool(name=name, description=description, code=code)
 
     @classmethod
     def create_sql_tool(
         cls,
+        name: Text,
         description: Text,
         source: str,
         source_type: Union[str, DatabaseSourceType],
@@ -206,6 +234,7 @@ class AgentFactory:
         """Create a new SQL tool
 
         Args:
+            name (Text): name of the tool
             description (Text): description of the database tool
             source (Union[Text, Dict]): database source - can be a connection string or dictionary with connection details
             source_type (Union[str, DatabaseSourceType]): type of source (postgresql, sqlite, csv) or DatabaseSourceType enum
@@ -271,7 +300,6 @@ class AgentFactory:
             base_name = os.path.splitext(os.path.basename(source))[0]
             db_path = os.path.join(os.path.dirname(source), f"{base_name}.db")
             table_name = tables[0] if tables else None
-
             try:
                 # Create database from CSV
                 schema = create_database_from_csv(source, db_path, table_name)
@@ -317,6 +345,7 @@ class AgentFactory:
 
         # Create and return SQLTool
         return SQLTool(
+            name=name,
             description=description,
             database=database_path,
             schema=schema,

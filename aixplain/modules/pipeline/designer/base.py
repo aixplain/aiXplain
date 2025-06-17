@@ -1,4 +1,3 @@
-import re
 from typing import (
     List,
     Union,
@@ -94,8 +93,6 @@ class Param(Serializable):
         assert from_param.param_type == ParamType.OUTPUT, "Invalid param type"
         assert self.code in self.node.inputs, "Param not registered as input"
         link = from_param.node.link(self.node, from_param, self)
-        self.link_ = link
-        from_param.link_ = link
         return link
 
     def serialize(self) -> dict:
@@ -131,6 +128,7 @@ class Link(Serializable):
     to_node: "Node"
     from_param: str
     to_param: str
+    data_source_id: Optional[str] = None
 
     pipeline: Optional["DesignerPipeline"] = None
 
@@ -140,6 +138,7 @@ class Link(Serializable):
         to_node: "Node",
         from_param: Union[Param, str],
         to_param: Union[Param, str],
+        data_source_id: Optional[str] = None,
         pipeline: "DesignerPipeline" = None,
     ):
 
@@ -152,25 +151,21 @@ class Link(Serializable):
             "Invalid from param. " "Make sure all input params are already linked accordingly"
         )
 
-        fp_instance = from_node.outputs[from_param]
-        from .nodes import Decision
+        assert to_param in to_node.inputs, "Invalid to param. " "Make sure all output params are already linked accordingly"
 
-        if isinstance(to_node, Decision) and to_param == to_node.inputs.passthrough.code:
-            if from_param not in to_node.outputs:
-                to_node.outputs.create_param(
-                    from_param,
-                    fp_instance.data_type,
-                    is_required=fp_instance.is_required,
-                )
-            else:
-                to_node.outputs[from_param].data_type = fp_instance.data_type
+        tp_instance = to_node.inputs[to_param]
+        fp_instance = from_node.outputs[from_param]
 
         assert to_param in to_node.inputs, "Invalid to param"
+
+        tp_instance.link_ = self
+        fp_instance.link_ = self
 
         self.from_node = from_node
         self.to_node = to_node
         self.from_param = from_param
         self.to_param = to_param
+        self.data_source_id = data_source_id
 
         if pipeline:
             self.attach_to(pipeline)
@@ -224,15 +219,17 @@ class Link(Serializable):
     def serialize(self) -> dict:
         assert self.from_node.number is not None, "From node number not set"
         assert self.to_node.number is not None, "To node number not set"
+        param_mapping = {
+            "from": self.from_param,
+            "to": self.to_param,
+        }
+        if self.data_source_id:
+            param_mapping["dataSourceId"] = self.data_source_id
+
         return {
             "from": self.from_node.number,
             "to": self.to_node.number,
-            "paramMapping": [
-                {
-                    "from": self.from_param,
-                    "to": self.to_param,
-                }
-            ],
+            "paramMapping": [param_mapping],
         }
 
 

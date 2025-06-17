@@ -1,5 +1,6 @@
 from .asset import Pipeline as PipelineAsset
 from .designer import DesignerPipeline
+from enum import Enum
 
 
 class DefaultPipeline(PipelineAsset, DesignerPipeline):
@@ -14,3 +15,4 @@ class DefaultPipeline(PipelineAsset, DesignerPipeline):
 
     def to_dict(self) -> dict:
         return self.serialize()
+    

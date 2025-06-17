@@ -43,9 +43,7 @@ class Function(str, Enum):
     AUTO_MASK_GENERATION = "auto-mask-generation"
     DOCUMENT_IMAGE_PARSING = "document-image-parsing"
     ENTITY_LINKING = "entity-linking"
-    REFERENCELESS_TEXT_GENERATION_METRIC_DEFAULT = (
-        "referenceless-text-generation-metric-default"
-    )
+    REFERENCELESS_TEXT_GENERATION_METRIC_DEFAULT = "referenceless-text-generation-metric-default"
     FILL_TEXT_MASK = "fill-text-mask"
     SUBTITLING_TRANSLATION = "subtitling-translation"
     INSTANCE_SEGMENTATION = "instance-segmentation"

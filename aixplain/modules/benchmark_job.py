@@ -5,7 +5,8 @@ from urllib.parse import urljoin
 import pandas as pd
 import json
 from pathlib import Path
-from aixplain.utils.file_utils import _request_with_retry, save_file
+from aixplain.utils.request_utils import _request_with_retry
+from aixplain.utils.file_utils import save_file
 
 
 class BenchmarkJob:
@@ -73,7 +74,7 @@ class BenchmarkJob:
             logging.info(f"Downloading Benchmark Results: Status of downloading results for {self.id}: {resp}")
             if "reportUrl" not in resp or resp["reportUrl"] == "":
                 logging.error(
-                    f"Downloading Benchmark Results: Can't get download results as they aren't generated yet. Please wait for a while."
+                    "Downloading Benchmark Results: Can't get download results as they aren't generated yet. Please wait for a while."
                 )
                 return None
             csv_url = resp["reportUrl"]

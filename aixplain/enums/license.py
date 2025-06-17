@@ -26,30 +26,63 @@ from enum import Enum
 from urllib.parse import urljoin
 from aixplain.utils import config
 from aixplain.utils.request_utils import _request_with_retry
-from aixplain.utils.cache_utils import save_to_cache, load_from_cache, CACHE_FOLDER
+from aixplain.utils.asset_cache import AssetCache, CACHE_FOLDER
 
-CACHE_FILE = f"{CACHE_FOLDER}/licenses.json"
+from dataclasses import dataclass
+
+@dataclass
+class LicenseMetadata:
+    id: str
+    name: str
+    description: str
+    url: str
+    allowCustomUrl: bool
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "name": self.name,
+            "description": self.description,
+            "url": self.url,
+            "allowCustomUrl": self.allowCustomUrl,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict):
+        return cls(
+            id=data.get("id"),
+            name=data.get("name"),
+            description=data.get("description"),
+            url=data.get("url"),
+            allowCustomUrl=data.get("allowCustomUrl", False),
+        )
 
 
 def load_licenses():
-    resp = load_from_cache(CACHE_FILE)
 
     try:
-        if resp is None:
-            api_key = config.TEAM_API_KEY
-            backend_url = config.BACKEND_URL
+        api_key = config.TEAM_API_KEY
+        backend_url = config.BACKEND_URL
 
-            url = urljoin(backend_url, "sdk/licenses")
+        url = urljoin(backend_url, "sdk/licenses")
+        cache = AssetCache(LicenseMetadata, cache_filename="licenses")
 
+        if cache.has_valid_cache():
+            logging.info("Loading licenses from cache...")
+            license_objects = list(cache.store.data.values())
+        else:
+            logging.info("Fetching licenses from backend...")
             headers = {"x-api-key": api_key, "Content-Type": "application/json"}
             r = _request_with_retry("get", url, headers=headers)
             if not 200 <= r.status_code < 300:
                 raise Exception(
-                    f'Licenses could not be loaded, probably due to the set API key (e.g. "{api_key}") is not valid. For help, please refer to the documentation (https://github.com/aixplain/aixplain#api-key-setup)'
+                    f'Licenses could not be loaded, probably due to the set API key (e.g. "{api_key}") is not valid. For help, please refer to the documentation.'
                 )
             resp = r.json()
-            save_to_cache(CACHE_FILE, resp)
-        licenses = {"_".join(w["name"].split()): w["id"] for w in resp}
+            license_objects = [LicenseMetadata.from_dict(item) for item in resp]
+            cache.add_list(license_objects)
+
+        licenses = {"_".join(lic.name.split()): lic.id for lic in license_objects}
         return Enum("License", licenses, type=str)
     except Exception:
         logging.exception("License Loading Error")

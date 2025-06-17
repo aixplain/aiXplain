@@ -3,13 +3,17 @@ import logging
 from aixplain.modules.model import Model
 from aixplain.modules.model.llm_model import LLM
 from aixplain.modules.model.index_model import IndexModel
-from aixplain.modules.model.utility_model import UtilityModel, UtilityModelInput
-from aixplain.enums import DataType, Function, Language, OwnershipType, Supplier, SortBy, SortOrder
+from aixplain.modules.model.integration import Integration
+from aixplain.modules.model.connection import ConnectionTool
+from aixplain.modules.model.utility_model import UtilityModel
+from aixplain.modules.model.utility_model import UtilityModelInput
+from aixplain.enums import DataType, Function, FunctionType, Language, OwnershipType, Supplier, SortBy, SortOrder, AssetStatus
 from aixplain.utils import config
-from aixplain.utils.file_utils import _request_with_retry
+from aixplain.utils.request_utils import _request_with_retry
 from datetime import datetime
 from typing import Dict, Union, List, Optional, Tuple
 from urllib.parse import urljoin
+import requests
 
 
 def create_model_from_response(response: Dict) -> Model:
@@ -34,15 +38,29 @@ def create_model_from_response(response: Dict) -> Model:
                 if len(values) > 0:
                     parameters[param["name"]] = values
 
+    additional_kwargs = {}
+    attributes = response.get("attributes", None)
+    if attributes:
+        embedding_model = next((item["code"] for item in attributes if item["name"] == "embeddingmodel"), None)
+        if embedding_model:
+            additional_kwargs["embedding_model"] = embedding_model
+        embedding_size = next((item["value"] for item in attributes if item["name"] == "embeddingSize"), None)
+        if embedding_size:
+            additional_kwargs["embedding_size"] = embedding_size
+
     function_id = response["function"]["id"]
     function = Function(function_id)
+    function_type = FunctionType(response.get("functionType", "ai"))
     function_input_params, function_output_params = function.get_input_output_params()
     model_params = {param["name"]: param for param in response["params"]}
+
+    code = response.get("code", "")
 
     inputs, temperature = [], None
     input_params, output_params = function_input_params, function_output_params
 
     ModelClass = Model
+
     if function == Function.TEXT_GENERATION:
         ModelClass = LLM
         f = [p for p in response.get("params", []) if p["name"] == "temperature"]
@@ -50,6 +68,10 @@ def create_model_from_response(response: Dict) -> Model:
             temperature = float(f[0]["defaultValues"][0]["value"])
     elif function == Function.SEARCH:
         ModelClass = IndexModel
+    elif function_type == FunctionType.INTEGRATION:
+        ModelClass = Integration
+    elif function_type == FunctionType.CONNECTION:
+        ModelClass = ConnectionTool
     elif function == Function.UTILITIES:
         ModelClass = UtilityModel
         inputs = [
@@ -57,6 +79,19 @@ def create_model_from_response(response: Dict) -> Model:
             for param in response["params"]
         ]
         input_params = model_params
+        if not code:
+            if "version" in response and response["version"]:
+                version_link = response["version"]["id"]
+                if version_link:
+                    try:
+                        version_content = requests.get(version_link).text
+                        code = version_content
+                    except Exception:
+                        code = ""
+            else:
+                raise Exception("Utility Model Error: Code not found")
+
+    status = AssetStatus(response.get("status", AssetStatus.DRAFT.value))
 
     created_at = None
     if "createdAt" in response and response["createdAt"]:
@@ -66,7 +101,7 @@ def create_model_from_response(response: Dict) -> Model:
         response["id"],
         response["name"],
         description=response.get("description", ""),
-        code=response.get("code", ""),
+        code=code if code else "",
         supplier=response["supplier"],
         api_key=response["api_key"],
         cost=response["pricing"],
@@ -80,6 +115,10 @@ def create_model_from_response(response: Dict) -> Model:
         version=response["version"]["id"],
         inputs=inputs,
         temperature=temperature,
+        supports_streaming=response.get("supportsStreaming", False),
+        status=status,
+        function_type=function_type,
+        **additional_kwargs,
     )
 
 

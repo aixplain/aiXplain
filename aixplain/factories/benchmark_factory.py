@@ -32,7 +32,7 @@ from aixplain.factories.metric_factory import MetricFactory
 from aixplain.factories.dataset_factory import DatasetFactory
 from aixplain.factories.model_factory import ModelFactory
 from aixplain.utils import config
-from aixplain.utils.file_utils import _request_with_retry
+from aixplain.utils.request_utils import _request_with_retry
 from urllib.parse import urljoin
 
 

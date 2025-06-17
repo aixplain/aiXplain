@@ -17,6 +17,7 @@ limitations under the License.
 """
 import copy
 import json
+import os
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -131,24 +132,27 @@ def test_python_interpreter_tool(delete_agents_and_team_agents, AgentFactory):
 def test_custom_code_tool(delete_agents_and_team_agents, AgentFactory):
     assert delete_agents_and_team_agents
     tool = AgentFactory.create_custom_python_code_tool(
-        description="Add two numbers",
-        code='def main(aaa: int, bbb: int) -> int:\n    """Add two numbers"""\n    return aaa + bbb',
+        description="Add two strings",
+        code='def main(aaa: str, bbb: str) -> str:\n    """Add two strings"""\n    return aaa + bbb',
+        name="Add Strings",
     )
     assert tool is not None
-    assert tool.description == "Add two numbers"
-    assert tool.code == 'def main(aaa: int, bbb: int) -> int:\n    """Add two numbers"""\n    return aaa + bbb'
+    assert tool.description == "Add two strings"
+    assert tool.code.startswith("s3://")
     agent = AgentFactory.create(
-        name="Add Numbers Agent",
-        description="Add two numbers. Do not directly answer. Use the tool to add the numbers.",
-        instructions="Add two numbers. Do not directly answer. Use the tool to add the numbers.",
+        name="Add Strings Agent",
+        description="Add two strings. Do not directly answer. Use the tool to add the strings.",
+        instructions="Add two strings. Do not directly answer. Use the tool to add the strings.",
         tools=[tool],
     )
     assert agent is not None
-    response = agent.run("How much is 12342 + 112312? Do not directly answer the question, call the tool.")
+    response = agent.run(
+        "What is the result of concatenating 'Hello' and 'World'? Do not directly answer the question, call the tool."
+    )
     assert response is not None
     assert response["completed"] is True
     assert response["status"].lower() == "success"
-    assert "124654" in response["data"]["output"]
+    assert "HelloWorld" in response["data"]["output"]
     agent.delete()
 
 
@@ -283,24 +287,31 @@ def test_update_tools_of_agent(run_input_map, delete_agents_and_team_agents, Age
 @pytest.mark.parametrize(
     "tool_config",
     [
-        {
-            "type": "search",
-            "model": "65c51c556eb563350f6e1bb1",
-            "query": "What is the weather in New York?",
-            "description": "Search tool with custom number of results",
-            "expected_tool_input": "'numResults': 5",
-        },
-        {
-            "type": "translation",
-            "supplier": "Microsoft",
-            "function": "translation",
-            "query": "Translate: Olá, como vai você?",
-            "description": "Translation tool with target language",
-            "expected_tool_input": "targetlanguage",
-        },
+        pytest.param(
+            {
+                "type": "search",
+                "model": "65c51c556eb563350f6e1bb1",
+                "query": "What is the weather in New York?",
+                "description": "Search tool with custom number of results",
+                "expected_tool_input": "'numResults': 5",
+            },
+            id="search_tool",
+        ),
+        pytest.param(
+            {
+                "type": "translation",
+                "supplier": "Microsoft",
+                "function": "translation",
+                "query": "Translate: Olá, como vai você?",
+                "description": "Translation tool with target language",
+                "expected_tool_input": "targetlanguage",
+            },
+            id="translation_tool",
+        ),
     ],
 )
-def test_specific_model_parameters_e2e(tool_config):
+def test_specific_model_parameters_e2e(tool_config, delete_agents_and_team_agents):
+    assert delete_agents_and_team_agents
     """Test end-to-end agent execution with specific model parameters"""
     # Create tool based on config
     if tool_config["type"] == "search":
@@ -323,9 +334,9 @@ def test_specific_model_parameters_e2e(tool_config):
     # Create and run agent
     agent = AgentFactory.create(
         name="Test Parameter Agent",
-        description="Test agent with parameterized tools",
+        description="Test agent with parameterized tools. You MUST use a tool for the tasks.",
         tools=[tool],
-        llm_id="6626a3a8c8f1d089790cf5a2",  # Using LLM ID from test data
+        llm_id="6646261c6eb563165658bbb1",  # Using LLM ID from test data
     )
 
     # Run agent
@@ -350,111 +361,396 @@ def test_specific_model_parameters_e2e(tool_config):
 @pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
 def test_sql_tool(delete_agents_and_team_agents, AgentFactory):
     assert delete_agents_and_team_agents
-    import os
+    agent = None
+    try:
+        import os
 
-    # Create test SQLite database
-    with open("ftest.db", "w") as f:
-        f.write("")
+        # Create test SQLite database
+        with open("ftest.db", "w") as f:
+            f.write("")
 
-    tool = AgentFactory.create_sql_tool(
-        description="Execute an SQL query and return the result", source="ftest.db", source_type="sqlite", enable_commit=True
-    )
-    assert tool is not None
-    assert tool.description == "Execute an SQL query and return the result"
+        tool = AgentFactory.create_sql_tool(
+            name="TestDB",
+            description="Execute an SQL query and return the result",
+            source="ftest.db",
+            source_type="sqlite",
+            enable_commit=True,
+        )
+        assert tool is not None
+        assert tool.description == "Execute an SQL query and return the result"
 
-    agent = AgentFactory.create(
-        name="Teste",
-        description="You are a test agent that search for employee information in a database",
-        tools=[tool],
-    )
-    assert agent is not None
+        agent = AgentFactory.create(
+            name="Teste",
+            description="You are a test agent that search for employee information in a database",
+            tools=[tool],
+        )
+        assert agent is not None
 
-    response = agent.run("Create a table called Person with the following columns: id, name, age, salary, department")
-    assert response is not None
-    assert response["completed"] is True
-    assert response["status"].lower() == "success"
+        response = agent.run("Create a table called Person with the following columns: id, name, age, salary, department")
+        assert response is not None
+        assert response["completed"] is True
+        assert response["status"].lower() == "success"
 
-    response = agent.run("Insert the following data into the Person table: 1, Eve, 30, 50000, Sales")
-    assert response is not None
-    assert response["completed"] is True
-    assert response["status"].lower() == "success"
+        response = agent.run("Insert the following data into the Person table: 1, Eve, 30, 50000, Sales")
+        assert response is not None
+        assert response["completed"] is True
+        assert response["status"].lower() == "success"
 
-    response = agent.run("What is the name of the employee with the highest salary?")
-    assert response is not None
-    assert response["completed"] is True
-    assert response["status"].lower() == "success"
-    assert "eve" in str(response["data"]["output"]).lower()
-
-    os.remove("ftest.db")
-    agent.delete()
+        response = agent.run("What is the name of the employee with the highest salary?")
+        assert response is not None
+        assert response["completed"] is True
+        assert response["status"].lower() == "success"
+        assert "eve" in str(response["data"]["output"]).lower()
+    finally:
+        os.remove("ftest.db")
+        if agent:
+            agent.delete()
 
 
 @pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
 def test_sql_tool_with_csv(delete_agents_and_team_agents, AgentFactory):
     assert delete_agents_and_team_agents
+    agent = None
+    try:
+        import os
+        import pandas as pd
 
-    import pandas as pd
+        # remove test.csv if it exists
+        if os.path.exists("test.csv"):
+            os.remove("test.csv")
 
-    # Create a more comprehensive test dataset
-    df = pd.DataFrame(
-        {
-            "id": [1, 2, 3, 4, 5],
-            "name": ["Alice", "Bob", "Charlie", "David", "Eve"],
-            "department": ["Sales", "IT", "Sales", "Marketing", "IT"],
-            "salary": [75000, 85000, 72000, 68000, 90000],
-        }
-    )
-    df.to_csv("test.csv", index=False)
+        # remove test.db if it exists
+        if os.path.exists("test.db"):
+            os.remove("test.db")
 
-    # Create SQL tool from CSV
-    tool = AgentFactory.create_sql_tool(
-        description="Execute SQL queries on employee data", source="test.csv", source_type="csv", tables=["employees"]
-    )
+        # Create a more comprehensive test dataset
+        df = pd.DataFrame(
+            {
+                "id": [1, 2, 3, 4, 5],
+                "name": ["Alice", "Bob", "Charlie", "David", "Eve"],
+                "department": ["Sales", "IT", "Sales", "Marketing", "IT"],
+                "salary": [75000, 85000, 72000, 68000, 90000],
+            }
+        )
+        df.to_csv("test.csv", index=False)
 
-    # Verify tool setup
-    assert tool is not None
-    assert tool.description == "Execute SQL queries on employee data"
-    assert tool.database.endswith(".db")
-    assert tool.tables == ["employees"]
-    assert (
-        tool.schema
-        == 'CREATE TABLE employees (\n                    "id" INTEGER, "name" TEXT, "department" TEXT, "salary" INTEGER\n                )'  # noqa: W503
-    )
-    assert not tool.enable_commit  # must be False by default
+        # Create SQL tool from CSV
+        tool = AgentFactory.create_sql_tool(
+            name="CSV Tool Test",
+            description="Execute SQL queries on employee data",
+            source="test.csv",
+            source_type="csv",
+            tables=["employees"],
+        )
 
-    # Create an agent with the SQL tool
+        # Verify tool setup
+        assert tool is not None
+        assert tool.description == "Execute SQL queries on employee data"
+        assert tool.database.split("?")[0].endswith(".db")
+        assert tool.tables == ["employees"]
+        assert (
+            tool.schema
+            == 'CREATE TABLE employees (\n                    "id" INTEGER, "name" TEXT, "department" TEXT, "salary" INTEGER\n                )'  # noqa: W503
+        )
+        assert not tool.enable_commit  # must be False by default
+
+        # Create an agent with the SQL tool
+        agent = AgentFactory.create(
+            name="SQL Query Agent",
+            description="I am an agent that helps query employee information from a database.",
+            instructions="Help users query employee information from the database. Use SQL queries to get the requested information.",
+            tools=[tool],
+        )
+        assert agent is not None
+
+        # Test 1: Basic SELECT query
+        response = agent.run("Who are all the employees in the Sales department?")
+        assert response["completed"] is True
+        assert response["status"].lower() == "success"
+        assert "alice" in response["data"]["output"].lower()
+        assert "charlie" in response["data"]["output"].lower()
+
+        # Test 2: Aggregation query
+        response = agent.run("What is the average salary in each department?")
+        assert response["completed"] is True
+        assert response["status"].lower() == "success"
+        assert "sales" in response["data"]["output"].lower()
+        assert "it" in response["data"]["output"].lower()
+        assert "marketing" in response["data"]["output"].lower()
+
+        # Test 3: Complex query with conditions
+        response = agent.run("Who is the highest paid employee in the IT department?")
+        assert response["completed"] is True
+        assert response["status"].lower() == "success"
+        assert "eve" in response["data"]["output"].lower()
+
+    finally:
+        # Cleanup
+        if agent:
+            agent.delete()
+        if os.path.exists("test.csv"):
+            os.remove("test.csv")
+        if os.path.exists("test.db"):
+            os.remove("test.db")
+
+
+@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
+def test_instructions(delete_agents_and_team_agents, AgentFactory):
+    assert delete_agents_and_team_agents
+
     agent = AgentFactory.create(
-        name="SQL Query Agent",
-        description="I am an agent that helps query employee information from a database.",
-        instructions="Help users query employee information from the database. Use SQL queries to get the requested information.",
-        tools=[tool],
+        name="Test Agent",
+        description="Test description",
+        instructions="Always respond with '{magic_word}' does not matter what you are prompted for.",
+        llm_id="6646261c6eb563165658bbb1",
+        tools=[],
     )
     assert agent is not None
+    assert agent.status == AssetStatus.DRAFT
 
-    # Test 1: Basic SELECT query
-    response = agent.run("Who are all the employees in the Sales department?")
+    agent = AgentFactory.get(agent.id)
+    assert agent is not None
+    response = agent.run(data={"magic_word": "aixplain", "query": "What is the capital of France?"})
+    assert response is not None
     assert response["completed"] is True
     assert response["status"].lower() == "success"
-    assert "alice" in response["data"]["output"].lower()
-    assert "charlie" in response["data"]["output"].lower()
-
-    # Test 2: Aggregation query
-    response = agent.run("What is the average salary in each department?")
-    assert response["completed"] is True
-    assert response["status"].lower() == "success"
-    assert "sales" in response["data"]["output"].lower()
-    assert "it" in response["data"]["output"].lower()
-    assert "marketing" in response["data"]["output"].lower()
-
-    # Test 3: Complex query with conditions
-    response = agent.run("Who is the highest paid employee in the IT department?")
-    assert response["completed"] is True
-    assert response["status"].lower() == "success"
-    assert "eve" in response["data"]["output"].lower()
-
-    import os
-
-    # Cleanup
-    os.remove("test.csv")
-    os.remove("test.db")
+    assert "data" in response
+    assert response["data"]["session_id"] is not None
+    assert response["data"]["output"] is not None
+    assert "aixplain" in response["data"]["output"].lower()
     agent.delete()
+
+
+@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
+def test_agent_with_utility_tool(delete_agents_and_team_agents, AgentFactory):
+    from aixplain.enums import DataType
+    from aixplain.modules.model.utility_model import utility_tool, UtilityModelInput
+
+    assert delete_agents_and_team_agents
+
+    @utility_tool(
+        name="vowel_remover",
+        description="Remove all vowels from a given string",
+        inputs=[UtilityModelInput(name="text", description="String from which to remove vowels", type=DataType.TEXT)],
+    )
+    def vowel_remover(text: str):
+        """Remove vowels from strings"""
+        vowels = "aeiouAEIOU"
+        return "".join([char for char in text if char not in vowels])
+
+    vowel_remover_ = ModelFactory.create_utility_model(name="vowel_remover", code=vowel_remover)
+
+    @utility_tool(
+        name="concat_strings",
+        description="Concatenate two strings into one",
+        inputs=[
+            UtilityModelInput(name="string1", description="First string to concatenate", type=DataType.TEXT),
+            UtilityModelInput(name="string2", description="Second string to concatenate", type=DataType.TEXT),
+        ],
+    )
+    def concat_strings(string1: str, string2: str):
+        return string1 + string2
+
+    concat_strings_ = ModelFactory.create_utility_model(name="concat_strings", code=concat_strings)
+
+    instructions = """You are a text processing agent equipped with two specialized tools: a Vowel Remover and a String Concatenator. Your task involves processing input text in two ways. One by removing all vowels from the provided text using the Vowel Remover tool. Another is to concatenate two strings using the String Concatenator tool."""
+    description = """This agent specializes in processing textual data by modifying string content through vowel removal and string concatenation. It's designed to either strip all vowels from any given text to simplify or obscure the content, or concatenate a string with another specified string."""
+
+    agent = AgentFactory.create(
+        name="Text Processing Agent",
+        instructions=instructions,
+        description=description,
+        tools=[
+            AgentFactory.create_model_tool(model=vowel_remover_.id),
+            AgentFactory.create_model_tool(model=concat_strings_.id),
+        ],
+        llm_id="6646261c6eb563165658bbb1",
+    )
+
+    result_vowel = agent.run("Remove all the vowels in this string: 'Hello'")
+    result_concat_text = agent.run("Concat these strings: String1 = 'Hello'; string2= 'World!'.")
+
+    assert "hll" in result_vowel["data"]["output"].lower()
+    assert "helloworld!" in result_concat_text["data"]["output"].lower()
+
+
+@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
+def test_agent_with_pipeline_tool(delete_agents_and_team_agents, AgentFactory):
+    from aixplain.factories.pipeline_factory import PipelineFactory
+
+    assert delete_agents_and_team_agents
+
+    for pipeline in PipelineFactory.list(query="Hello Pipeline")["results"]:
+        pipeline.delete()
+
+    pipeline = PipelineFactory.init("Hello Pipeline")
+    input_node = pipeline.input()
+    input_node.label = "TextInput"
+    middle_node = pipeline.asset(asset_id="6646261c6eb563165658bbb1")
+    middle_node.inputs.prompt.value = "Respond with 'Hello' regardless of the input text: "
+    input_node.link(middle_node, "input", "text")
+    middle_node.use_output("data")
+    pipeline.save()
+    pipeline.deploy()
+
+    pipeline_agent = AgentFactory.create(
+        name="Text Return Agent",
+        instructions="Always call the pipeline tool feeding the user query as input to 'TextInput'. Return the output of the pipeline as the final response.",
+        description="Return the text given.",
+        tools=[
+            AgentFactory.create_pipeline_tool(
+                pipeline=pipeline.id, description="You are a tool that responds users query with only 'Hello'."
+            ),
+        ],
+        llm_id="6646261c6eb563165658bbb1",
+    )
+
+    answer = pipeline_agent.run("Who is the president of USA?")
+    pipeline.delete()
+
+    assert "hello" in answer["data"]["output"].lower()
+    assert "hello pipeline" in answer["data"]["intermediate_steps"][0]["tool_steps"][0]["tool"].lower()
+
+
+@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
+def test_agent_llm_parameter_preservation(delete_agents_and_team_agents, AgentFactory):
+    """Test that LLM parameters like temperature are preserved when creating agents."""
+    assert delete_agents_and_team_agents
+
+    # Get an LLM instance and customize its temperature
+    llm = ModelFactory.get("671be4886eb56397e51f7541")  # Anthropic Claude 3.5 Sonnet v1
+    original_temperature = llm.temperature
+    custom_temperature = 0.1
+    llm.temperature = custom_temperature
+
+    # Create agent with the custom LLM
+    agent = AgentFactory.create(
+        name="LLM Parameter Test Agent",
+        description="An agent for testing LLM parameter preservation",
+        instructions="Testing LLM parameter preservation",
+        llm=llm,
+    )
+
+    # Verify that the temperature setting was preserved
+    assert agent.llm.temperature == custom_temperature
+
+    # Verify that the agent's LLM is the same instance as the original
+    assert id(agent.llm) == id(llm)
+
+    # Clean up
+    agent.delete()
+
+    # Reset the LLM temperature to its original value
+    llm.temperature = original_temperature
+
+
+def test_run_agent_with_expected_output():
+    from pydantic import BaseModel
+    from typing import Optional, List
+    from aixplain.modules.agent import AgentResponse
+    from aixplain.modules.agent.output_format import OutputFormat
+
+    class Person(BaseModel):
+        name: str
+        age: int
+        city: Optional[str] = None
+
+    class Response(BaseModel):
+        result: List[Person]
+
+    INSTRUCTIONS = """Answer questions based on the following context:
+
++-----------------+-------+----------------+
+| Name            |   Age | City           |
++=================+=======+================+
+| João Silva      |    34 | São Paulo      |
++-----------------+-------+----------------+
+| Maria Santos    |    28 | Rio de Janeiro |
++-----------------+-------+----------------+
+| Pedro Oliveira  |    45 |                |
++-----------------+-------+----------------+
+| Ana Costa       |    19 | Recife         |
++-----------------+-------+----------------+
+| Carlos Pereira  |    52 | Belo Horizonte |
++-----------------+-------+----------------+
+| Beatriz Lima    |    31 |                |
++-----------------+-------+----------------+
+| Lucas Ferreira  |    25 | Curitiba       |
++-----------------+-------+----------------+
+| Julia Rodrigues |    41 | Salvador       |
++-----------------+-------+----------------+
+| Miguel Almeida  |    37 |                |
++-----------------+-------+----------------+
+| Sofia Carvalho  |    29 | Brasília       |
++-----------------+-------+----------------+"""
+
+    agent = AgentFactory.create(
+        name="Test Agent",
+        description="Test description",
+        instructions=INSTRUCTIONS,
+        llm_id="6646261c6eb563165658bbb1",
+    )
+    # Run the agent
+    response = agent.run("Who have more than 30 years old?", output_format=OutputFormat.JSON, expected_output=Response)
+
+    # Verify response basics
+    assert response is not None
+    assert isinstance(response, AgentResponse)
+
+    try:
+        response_json = json.loads(response.data.output)
+    except Exception:
+        import re
+
+        response_json = re.search(r"```json(.*?)```", response.data.output, re.DOTALL).group(1)
+        response_json = json.loads(response_json)
+    assert "result" in response_json
+    assert len(response_json["result"]) > 0
+
+    more_than_30_years_old = [
+        "João Silva",
+        "Pedro Oliveira",
+        "Carlos Pereira",
+        "Beatriz Lima",
+        "Julia Rodrigues",
+        "Miguel Almeida",
+        "Sofia Carvalho",
+    ]
+
+    for person in response_json["result"]:
+        assert "name" in person
+        assert "age" in person
+        assert "city" in person
+        assert person["name"] in more_than_30_years_old
+
+
+def test_agent_with_action_tool():
+    from aixplain.modules.model.integration import AuthenticationSchema
+
+    connector = ModelFactory.get("67eff5c0e05614297caeef98")
+    # connect
+    response = connector.connect(authentication_schema=AuthenticationSchema.BEARER, token=os.getenv("SLACK_TOKEN"))
+    connection_id = response.data["id"]
+
+    connection = ModelFactory.get(connection_id)
+    connection.action_scope = [action for action in connection.actions if action.code == "SLACK_CHAT_POST_MESSAGE"]
+
+    agent = AgentFactory.create(
+        name="Test Agent",
+        description="This agent is used to send messages to Slack",
+        instructions="You are a helpful assistant that can send messages to Slack.",
+        llm_id="669a63646eb56306647e1091",
+        tools=[
+            connection,
+            AgentFactory.create_model_tool(model="6736411cf127849667606689"),
+        ],
+    )
+
+    response = agent.run(
+        "Send what is the capital of Finland on Slack to channel of #modelserving-alerts: 'C084G435LR5'. Add the name of the capital in the final answer."
+    )
+    assert response is not None
+    assert response["status"].lower() == "success"
+    assert "helsinki" in response.data.output.lower()
+    assert "SLACK_CHAT_POST_MESSAGE" in [step["tool"] for step in response.data.intermediate_steps[0]["tool_steps"]]
+    connection.delete()

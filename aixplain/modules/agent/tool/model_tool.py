@@ -22,10 +22,33 @@ Description:
 """
 from typing import Optional, Union, Text, Dict, List
 
-from aixplain.enums.function import Function
-from aixplain.enums.supplier import Supplier
+from aixplain.enums import AssetStatus, Function, Supplier
 from aixplain.modules.agent.tool import Tool
 from aixplain.modules.model import Model
+
+
+def set_tool_name(function: Function, supplier: Supplier = None, model: Model = None) -> Text:
+    """Sets the name of the tool based on the function, supplier, and model.
+
+    Args:
+        function (Function): The function to be used in the tool.
+        supplier (Supplier): The supplier to be used in the tool.
+        model (Model): The model to be used in the tool.
+
+    Returns:
+        Text: The name of the tool.
+    """
+    function_name = function.value.lower().replace(" ", "_")
+    tool_name = f"{function_name}"
+
+    if supplier is not None:
+        supplier_name = supplier.name.lower().replace(" ", "_")
+        tool_name += f"-{supplier_name}"
+
+    if model is not None and supplier is not None:
+        model_name = model.name.lower().replace(" ", "_")
+        tool_name += f"-{model_name}"
+    return tool_name
 
 
 class ModelTool(Tool):
@@ -59,8 +82,26 @@ class ModelTool(Tool):
         """
         name = name or ""
         super().__init__(name=name, description=description, **additional_info)
+        status = AssetStatus.ONBOARDED if model is None else AssetStatus.DRAFT
+        model_id = model  # if None,  Set id to None as default
+        self.model_object = None  # Store the actual model object for parameter access
+
+        if isinstance(model, Model):
+            model_id = model.id
+            status = model.status
+            self.model_object = model  # Store the Model object
+        elif isinstance(model, Text):
+            # get model from id
+            try:
+                self.model_object = self._get_model(model)  # Store the Model object
+                model_id = self.model_object.id
+                status = self.model_object.status
+            except Exception:
+                raise Exception(f"Model Tool Unavailable. Make sure Model '{model}' exists or you have access to it.")
+
         self.supplier = supplier
-        self.model = model
+        self.model = model_id
+        self.status = status
         self.function = function
         self.parameters = parameters
         self.validate()
@@ -85,6 +126,7 @@ class ModelTool(Tool):
             "version": self.version if self.version else None,
             "assetId": self.model.id if self.model is not None and isinstance(self.model, Model) else self.model,
             "parameters": self.parameters,
+            "status": self.status,
         }
 
     def validate(self) -> None:
@@ -99,7 +141,6 @@ class ModelTool(Tool):
             - If the description is empty, it sets the description to the function description or the model description.
         """
         from aixplain.enums import FunctionInputOutput
-        from aixplain.factories.model_factory import ModelFactory
 
         assert (
             self.function is not None or self.model is not None
@@ -121,7 +162,7 @@ class ModelTool(Tool):
         if self.model is not None:
             if isinstance(self.model, Text) is True:
                 try:
-                    self.model = ModelFactory.get(self.model, api_key=self.api_key)
+                    self.model = self._get_model()
                 except Exception:
                     raise Exception(f"Model Tool Unavailable. Make sure Model '{self.model}' exists or you have access to it.")
             self.function = self.model.function
@@ -133,14 +174,30 @@ class ModelTool(Tool):
                 self.description = self.model.description
             elif self.function is not None:
                 try:
-                    self.description = FunctionInputOutput[self.function.value]["spec"]["metaData"]["description"]
+                    self.description = FunctionInputOutput[self.function.value]["spec"]["description"]
                 except Exception:
                     self.description = ""
 
         self.parameters = self.validate_parameters(self.parameters)
+        self.name = self.name if self.name else set_tool_name(self.function, self.supplier, self.model)
+
 
     def get_parameters(self) -> Dict:
+        # If parameters were not explicitly provided, get them from the model
+        if (
+            self.parameters is None
+            and self.model_object is not None  # noqa: W503
+            and hasattr(self.model_object, "model_params")  # noqa: W503
+            and self.model_object.model_params is not None  # noqa: W503
+        ):
+            return self.model_object.model_params.to_list()
         return self.parameters
+
+    def _get_model(self, model_id: Text = None):
+        from aixplain.factories.model_factory import ModelFactory
+
+        model_id = model_id or self.model
+        return ModelFactory.get(model_id, api_key=self.api_key)
 
     def validate_parameters(self, received_parameters: Optional[List[Dict]] = None) -> Optional[List[Dict]]:
         """Validates and formats the parameters for the tool.
@@ -156,8 +213,13 @@ class ModelTool(Tool):
         """
         if received_parameters is None:
             # Get default parameters if none provided
-            if self.model is not None and self.model.model_params is not None:
-                return self.model.model_params.to_list()
+            if (
+                self.model_object is not None
+                and hasattr(self.model_object, "model_params")  # noqa: W503
+                and self.model_object.model_params is not None  # noqa: W503
+            ):
+                return self.model_object.model_params.to_list()
+    
             elif self.function is not None:
                 function_params = self.function.get_parameters()
                 if function_params is not None:
@@ -166,8 +228,12 @@ class ModelTool(Tool):
 
         # Get expected parameters
         expected_params = None
-        if self.model is not None and self.model.model_params is not None:
-            expected_params = self.model.model_params
+        if (
+            self.model_object is not None
+            and hasattr(self.model_object, "model_params")  # noqa: W503
+            and self.model_object.model_params is not None  # noqa: W503
+        ):
+            expected_params = self.model_object.model_params
         elif self.function is not None:
             expected_params = self.function.get_parameters()
 
@@ -187,3 +253,11 @@ class ModelTool(Tool):
             raise ValueError(f"Invalid parameters provided: {invalid_params}. Expected parameters are: {expected_param_names}")
 
         return received_parameters
+
+    def __repr__(self) -> Text:
+        supplier_str = self.supplier.value if self.supplier is not None else None
+        model_str = self.model.id if self.model is not None else None
+        return f"ModelTool(name={self.name}, function={self.function}, supplier={supplier_str}, model={model_str})"
+
+    def deploy(self):
+        pass

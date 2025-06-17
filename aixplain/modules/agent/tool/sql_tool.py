@@ -27,7 +27,7 @@ import pandas as pd
 import numpy as np
 from typing import Text, Optional, Dict, List, Union
 import sqlite3
-
+from aixplain.enums import AssetStatus
 from aixplain.modules.agent.tool import Tool
 
 
@@ -259,17 +259,18 @@ class SQLTool(Tool):
 
     def __init__(
         self,
+        name: Text,
         description: Text,
         database: Text,
         schema: Optional[Text] = None,
         tables: Optional[Union[List[Text], Text]] = None,
         enable_commit: bool = False,
-        name: Optional[Text] = None,
         **additional_info,
     ) -> None:
         """Tool to execute SQL query commands in an SQLite database.
 
         Args:
+            name (Text): name of the tool
             description (Text): description of the tool
             database (Text): database uri
             schema (Optional[Text]): database schema description
@@ -277,13 +278,14 @@ class SQLTool(Tool):
             enable_commit (bool): enable to modify the database (optional)
         """
 
-        name = name or ""
         super().__init__(name=name, description=description, **additional_info)
 
         self.database = database
         self.schema = schema
         self.tables = tables if isinstance(tables, list) else [tables] if tables else None
         self.enable_commit = enable_commit
+        self.status = AssetStatus.ONBOARDED  # TODO: change to DRAFT when we have a way to onboard the tool
+        self.validate()
 
     def to_dict(self) -> Dict[str, Text]:
         return {
@@ -305,7 +307,6 @@ class SQLTool(Tool):
             raise SQLToolError("Description is required")
         if not self.database:
             raise SQLToolError("Database must be provided")
-
         # Handle database validation
         if not (
             str(self.database).startswith("s3://")
@@ -334,6 +335,25 @@ class SQLTool(Tool):
 
             # Upload database
             try:
-                self.database = FileFactory.upload(local_path=self.database, is_temp=True)
+                self.database = FileFactory.create(local_path=self.database, is_temp=True)
             except Exception as e:
                 raise SQLToolError(f"Failed to upload database: {str(e)}")
+
+    def deploy(self) -> None:
+        import uuid
+        import requests
+        from pathlib import Path
+        from aixplain.factories.file_factory import FileFactory
+        from aixplain.enums import License
+
+        # Generate unique filename with uuid4
+        local_path = str(Path(f"{uuid.uuid4()}.db"))
+
+        # Download database file
+        if str(self.database).startswith(("http://", "https://")):
+            response = requests.get(self.database)
+            response.raise_for_status()
+            with open(local_path, "wb") as f:
+                f.write(response.content)
+            self.database = FileFactory.create(local_path=local_path, is_temp=False, license=License.MIT)
+            os.remove(local_path)
