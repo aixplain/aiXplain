@@ -1,4 +1,5 @@
 import os
+import warnings
 from uuid import uuid4
 from aixplain.enums import EmbeddingModel, Function, Supplier, ResponseStatus, StorageType, FunctionType
 from aixplain.modules.model import Model
@@ -179,8 +180,6 @@ class IndexModel(Model):
                 model = ModelFactory.get(embedding_model)
                 self.embedding_size = model.additional_info["embedding_size"]
             except Exception as e:
-                import warnings
-
                 warnings.warn(f"Failed to get embedding size for embedding model {embedding_model}: {e}")
                 self.embedding_size = None
 
@@ -361,6 +360,8 @@ class IndexModel(Model):
         if file_path.endswith(".txt"):
             with open(file_path, "r") as file:
                 data = file.read()
+            if not data:
+                warnings.warn(f"File {file_path} is empty")
             return ModelResponse(status=ResponseStatus.SUCCESS, data=data, completed=True)
         try:
             from aixplain.factories import ModelFactory
@@ -368,6 +369,8 @@ class IndexModel(Model):
             docling_model_id = "677bee6c6eb56331f9192a91"
             model = ModelFactory.get(docling_model_id)
             response = model.run(file_path)
+            if not response.data:
+                warnings.warn(f"File {file_path} is empty")
             return response
         except Exception as e:
             raise Exception(f"Failed to parse file: {e}")
