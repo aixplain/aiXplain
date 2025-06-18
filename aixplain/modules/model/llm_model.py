@@ -23,7 +23,7 @@ Description:
 import time
 import logging
 import traceback
-from aixplain.enums import Function, Supplier
+from aixplain.enums import Function, Supplier, FunctionType
 from aixplain.modules.model import Model
 from aixplain.modules.model.model_response_streamer import ModelResponseStreamer
 from aixplain.modules.model.utils import build_payload, call_run_endpoint
@@ -48,6 +48,7 @@ class LLM(Model):
         url (str): URL to run the model.
         backend_url (str): URL of the backend.
         pricing (Dict, optional): model price. Defaults to None.
+        function_type (FunctionType, optional): type of the function. Defaults to FunctionType.AI.
         **additional_info: Any additional Model info to be saved
     """
 
@@ -63,6 +64,7 @@ class LLM(Model):
         is_subscribed: bool = False,
         cost: Optional[Dict] = None,
         temperature: float = 0.001,
+        function_type: Optional[FunctionType] = FunctionType.AI,
         **additional_info,
     ) -> None:
         """LLM Init
@@ -77,6 +79,7 @@ class LLM(Model):
             function (Function, optional): model AI function. Defaults to None.
             is_subscribed (bool, optional): Is the user subscribed. Defaults to False.
             cost (Dict, optional): model price. Defaults to None.
+            function_type (FunctionType, optional): type of the function. Defaults to FunctionType.AI.
             **additional_info: Any additional Model info to be saved
         """
         assert function == Function.TEXT_GENERATION, "LLM only supports large language models (i.e. text generation function)"
@@ -90,6 +93,7 @@ class LLM(Model):
             function=function,
             is_subscribed=is_subscribed,
             api_key=api_key,
+            function_type=function_type,
             **additional_info,
         )
         self.url = config.MODELS_RUN_URL

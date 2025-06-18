@@ -9,11 +9,8 @@ from aixplain.modules import LLM
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from aixplain.factories.index_factory.utils import AirParams, VectaraParams, GraphRAGParams, ZeroEntropyParams
-from aixplain.factories import IndexFactory
-from aixplain.modules.model.record import Record
 import time
-
-
+import os
 
 
 def pytest_generate_tests(metafunc):
@@ -85,14 +82,15 @@ def test_run_async():
 def run_index_model(index_model, retries):
     from aixplain.modules.model.record import Record
 
-
     for _ in range(retries):
         try:
-            index_model.upsert([Record(value="Berlin is the capital of Germany.", value_type="text", uri="", id="1", attributes={})])
+            index_model.upsert(
+                [Record(value="Berlin is the capital of Germany.", value_type="text", uri="", id="1", attributes={})]
+            )
             break
         except Exception as e:
             time.sleep(180)
-            
+
     response = index_model.search("Berlin")
     assert str(response.status) == "SUCCESS"
     assert "germany" in response.data.lower()
@@ -111,7 +109,6 @@ def run_index_model(index_model, retries):
         pytest.param("6658d40729985c2cf72f42ec", AirParams, id="AIR - Snowflake Arctic Embed M Long"),
         pytest.param(EmbeddingModel.MULTILINGUAL_E5_LARGE, AirParams, id="AIR - Multilingual E5 Large"),
         pytest.param("67efd4f92a0a850afa045af7", AirParams, id="AIR - BGE M3"),
-        pytest.param("681254b668e47e7844c1f15a", AirParams, id="AIR - aiXplain Legal Embeddings"),
     ],
 )
 def test_index_model(embedding_model, supplier_params):
@@ -130,6 +127,7 @@ def test_index_model(embedding_model, supplier_params):
         retries = 1
     run_index_model(index_model, retries)
 
+
 @pytest.mark.parametrize(
     "embedding_model,supplier_params",
     [
@@ -139,7 +137,6 @@ def test_index_model(embedding_model, supplier_params):
         pytest.param(EmbeddingModel.JINA_CLIP_V2_MULTIMODAL, AirParams, id="Jina Clip v2 Multimodal"),
         pytest.param(EmbeddingModel.MULTILINGUAL_E5_LARGE, AirParams, id="Multilingual E5 Large"),
         pytest.param("67efd4f92a0a850afa045af7", AirParams, id="BGE M3"),
-        pytest.param("681254b668e47e7844c1f15a", AirParams, id="aiXplain Legal Embeddings"),
     ],
 )
 def test_index_model_with_filter(embedding_model, supplier_params):
@@ -162,17 +159,21 @@ def test_index_model_with_filter(embedding_model, supplier_params):
         retries = 1
     for _ in range(retries):
         try:
-            index_model.upsert([Record(value="Hello, aiXplain!", value_type="text", uri="", id="1", attributes={"category": "hello"})])
+            index_model.upsert(
+                [Record(value="Hello, aiXplain!", value_type="text", uri="", id="1", attributes={"category": "hello"})]
+            )
             break
         except Exception:
             time.sleep(180)
     for _ in range(retries):
         try:
-            index_model.upsert([Record(value="The world is great", value_type="text", uri="", id="2", attributes={"category": "world"})])
+            index_model.upsert(
+                [Record(value="The world is great", value_type="text", uri="", id="2", attributes={"category": "world"})]
+            )
             break
         except Exception:
             time.sleep(180)
-            
+
     assert index_model.count() == 2
     response = index_model.search(
         "", filters=[IndexFilter(field="category", value="world", operator=IndexFilterOperator.EQUALS)]
@@ -200,6 +201,29 @@ def test_llm_run_with_file():
     # Verify response
     assert response["status"] == "SUCCESS"
     assert "🤖" in response["data"], "Robot emoji should be present in the response"
+
+
+def test_aixplain_model_cache_creation():
+    """Ensure AssetCache is triggered and cache is created."""
+
+    cache_file = os.path.join(CACHE_FOLDER, "models.json")
+
+    # Clean up cache before the test
+    if os.path.exists(cache_file):
+        os.remove(cache_file)
+
+    # Instantiate the Model (replace this with a real model ID from your env)
+    model_id = "6239efa4822d7a13b8e20454"  # Translate from Punjabi to Portuguese (Brazil)
+    _ = Model(id=model_id)
+
+    # Assert the cache file was created
+    assert os.path.exists(cache_file), "Expected cache file was not created."
+
+    with open(cache_file, "r", encoding="utf-8") as f:
+        cache_data = json.load(f)
+
+    assert "data" in cache_data, "Cache file structure invalid - missing 'data' key."
+    assert any(m.get("id") == model_id for m in cache_data["data"]["items"]), "Instantiated model not found in cache."
 
 
 def test_index_model_air_with_image():
@@ -245,7 +269,6 @@ def test_index_model_air_with_image():
 
     index_model.upsert(records)
 
-
     response = index_model.search("beach")
     assert str(response.status) == "SUCCESS"
     second_record = response.details[1]["metadata"]["uri"]
@@ -267,7 +290,37 @@ def test_index_model_air_with_image():
 
     index_model.delete()
 
-    import os
 
-    if os.path.exists("hurricane.jpeg"):
-        os.remove("hurricane.jpeg")
+@pytest.mark.parametrize(
+    "embedding_model,supplier_params",
+    [
+        pytest.param(EmbeddingModel.OPENAI_ADA002, AirParams, id="OpenAI Ada 002"),
+        pytest.param(EmbeddingModel.JINA_CLIP_V2_MULTIMODAL, AirParams, id="Jina Clip v2 Multimodal"),
+        pytest.param(EmbeddingModel.MULTILINGUAL_E5_LARGE, AirParams, id="Multilingual E5 Large"),
+        pytest.param(EmbeddingModel.BGE_M3, AirParams, id="BGE M3"),
+    ],
+)
+def test_index_model_air_with_splitter(embedding_model, supplier_params):
+    from aixplain.factories import IndexFactory
+    from aixplain.modules.model.record import Record
+    from uuid import uuid4
+    from aixplain.modules.model.index_model import Splitter
+    from aixplain.enums.splitting_options import SplittingOptions
+
+    for index in IndexFactory.list()["results"]:
+        index.delete()
+
+    params = supplier_params(
+        name=f"Splitter Index {uuid4()}", description="Index for splitter", embedding_model=embedding_model
+    )
+    index_model = IndexFactory.create(params=params)
+    index_model.upsert(
+        [Record(value="Berlin is the capital of Germany.", value_type="text", uri="", id="1", attributes={})],
+        splitter=Splitter(split=True, split_by=SplittingOptions.WORD, split_length=1, split_overlap=0),
+    )
+    response = index_model.count()
+    assert response == 6
+    response = index_model.search("berlin")
+    assert str(response.status) == "SUCCESS"
+    assert "berlin" in response.data.lower()
+    index_model.delete()

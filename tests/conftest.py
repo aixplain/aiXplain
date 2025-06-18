@@ -23,9 +23,7 @@ def pytest_addoption(parser: pytest.Parser):
     # Here we're adding the options for the pipeline version and the sdk version
     parser.addoption(f"{PIPELINE_VERSION_ARG}", action="store", help="pipeline version")
     parser.addoption(f"{SDK_VERSION_ARG}", action="store", help="sdk version")
-    parser.addoption(
-        f"{SDK_VERSION_PARAM_ARG}", action="store", help="sdk version parameter"
-    )
+    parser.addoption(f"{SDK_VERSION_PARAM_ARG}", action="store", help="sdk version parameter")
 
 
 def filter_items(items: list, param_name: str, predicate: Callable):
@@ -39,9 +37,7 @@ def filter_items(items: list, param_name: str, predicate: Callable):
     items[:] = [
         item
         for item in items
-        if hasattr(item, "callspec")
-        and param_name in item.callspec.params
-        and predicate(item.callspec.params[param_name])
+        if hasattr(item, "callspec") and param_name in item.callspec.params and predicate(item.callspec.params[param_name])
     ]
 
 
@@ -77,18 +73,12 @@ def filter_sdk_version(items: list, sdk_version: str, sdk_param: str):
     from aixplain.v2.resource import BaseResource
 
     def predicate(param: Any):
-        return (
-            issubclass(param, BaseResource)
-            if sdk_version == SDK_VERSION_V1
-            else not issubclass(param, BaseResource)
-        )
+        return issubclass(param, BaseResource) if sdk_version == SDK_VERSION_V1 else not issubclass(param, BaseResource)
 
     filter_items(items, sdk_param, predicate)
 
 
-def pytest_collection_modifyitems(
-    session: pytest.Session, config: pytest.Config, items: list
-):
+def pytest_collection_modifyitems(session: pytest.Session, config: pytest.Config, items: list):
     """Modify the items based on the pipeline version and the SDK version.
 
     Args:
@@ -108,7 +98,5 @@ def pytest_collection_modifyitems(
     if sdk_version:
         sdk_param = config.getoption(f"{SDK_VERSION_PARAM_ARG}")
         if not sdk_param:
-            raise ValueError(
-                f"{SDK_VERSION_PARAM_ARG} parameter is required when using {SDK_VERSION_ARG}"
-            )
+            raise ValueError(f"{SDK_VERSION_PARAM_ARG} parameter is required when using {SDK_VERSION_ARG}")
         filter_sdk_version(items, sdk_version, sdk_param)

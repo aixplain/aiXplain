@@ -17,6 +17,7 @@ limitations under the License.
 """
 import copy
 import json
+import os
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -335,7 +336,7 @@ def test_specific_model_parameters_e2e(tool_config, delete_agents_and_team_agent
         name="Test Parameter Agent",
         description="Test agent with parameterized tools. You MUST use a tool for the tasks.",
         tools=[tool],
-        llm_id="6626a3a8c8f1d089790cf5a2",  # Using LLM ID from test data
+        llm_id="6646261c6eb563165658bbb1",  # Using LLM ID from test data
     )
 
     # Run agent
@@ -369,7 +370,7 @@ def test_sql_tool(delete_agents_and_team_agents, AgentFactory):
             f.write("")
 
         tool = AgentFactory.create_sql_tool(
-            name="Teste",
+            name="TestDB",
             description="Execute an SQL query and return the result",
             source="ftest.db",
             source_type="sqlite",
@@ -404,6 +405,7 @@ def test_sql_tool(delete_agents_and_team_agents, AgentFactory):
         os.remove("ftest.db")
         if agent:
             agent.delete()
+
 
 @pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
 def test_sql_tool_with_csv(delete_agents_and_team_agents, AgentFactory):
@@ -444,7 +446,7 @@ def test_sql_tool_with_csv(delete_agents_and_team_agents, AgentFactory):
         # Verify tool setup
         assert tool is not None
         assert tool.description == "Execute SQL queries on employee data"
-        assert tool.database.endswith(".db")
+        assert tool.database.split("?")[0].endswith(".db")
         assert tool.tables == ["employees"]
         assert (
             tool.schema
@@ -578,6 +580,9 @@ def test_agent_with_pipeline_tool(delete_agents_and_team_agents, AgentFactory):
 
     assert delete_agents_and_team_agents
 
+    for pipeline in PipelineFactory.list(query="Hello Pipeline")["results"]:
+        pipeline.delete()
+
     pipeline = PipelineFactory.init("Hello Pipeline")
     input_node = pipeline.input()
     input_node.label = "TextInput"
@@ -606,6 +611,37 @@ def test_agent_with_pipeline_tool(delete_agents_and_team_agents, AgentFactory):
     assert "hello" in answer["data"]["output"].lower()
     assert "hello pipeline" in answer["data"]["intermediate_steps"][0]["tool_steps"][0]["tool"].lower()
 
+
+@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
+def test_agent_llm_parameter_preservation(delete_agents_and_team_agents, AgentFactory):
+    """Test that LLM parameters like temperature are preserved when creating agents."""
+    assert delete_agents_and_team_agents
+
+    # Get an LLM instance and customize its temperature
+    llm = ModelFactory.get("671be4886eb56397e51f7541")  # Anthropic Claude 3.5 Sonnet v1
+    original_temperature = llm.temperature
+    custom_temperature = 0.1
+    llm.temperature = custom_temperature
+
+    # Create agent with the custom LLM
+    agent = AgentFactory.create(
+        name="LLM Parameter Test Agent",
+        description="An agent for testing LLM parameter preservation",
+        instructions="Testing LLM parameter preservation",
+        llm=llm,
+    )
+
+    # Verify that the temperature setting was preserved
+    assert agent.llm.temperature == custom_temperature
+
+    # Verify that the agent's LLM is the same instance as the original
+    assert id(agent.llm) == id(llm)
+
+    # Clean up
+    agent.delete()
+
+    # Reset the LLM temperature to its original value
+    llm.temperature = original_temperature
 
 def test_run_agent_with_expected_output():
     from pydantic import BaseModel
@@ -685,3 +721,36 @@ def test_run_agent_with_expected_output():
         assert "age" in person
         assert "city" in person
         assert person["name"] in more_than_30_years_old
+
+
+def test_agent_with_action_tool():
+    from aixplain.modules.model.integration import AuthenticationSchema
+
+    connector = ModelFactory.get("67eff5c0e05614297caeef98")
+    # connect
+    response = connector.connect(authentication_schema=AuthenticationSchema.BEARER, token=os.getenv("SLACK_TOKEN"))
+    connection_id = response.data["id"]
+
+    connection = ModelFactory.get(connection_id)
+    connection.action_scope = [action for action in connection.actions if action.code == "SLACK_CHAT_POST_MESSAGE"]
+
+    agent = AgentFactory.create(
+        name="Test Agent",
+        description="This agent is used to send messages to Slack",
+        instructions="You are a helpful assistant that can send messages to Slack.",
+        llm_id="669a63646eb56306647e1091",
+        tools=[
+            connection,
+            AgentFactory.create_model_tool(model="6736411cf127849667606689"),
+        ],
+    )
+
+    response = agent.run(
+        "Send what is the capital of Finland on Slack to channel of #modelserving-alerts: 'C084G435LR5'. Add the name of the capital in the final answer."
+    )
+    assert response is not None
+    assert response["status"].lower() == "success"
+    assert "helsinki" in response.data.output.lower()
+    assert "SLACK_CHAT_POST_MESSAGE" in [step["tool"] for step in response.data.intermediate_steps[0]["tool_steps"]]
+    connection.delete()
+

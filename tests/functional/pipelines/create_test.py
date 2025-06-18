@@ -25,6 +25,7 @@ from aixplain.modules import Pipeline
 from uuid import uuid4
 from aixplain import aixplain_v2 as v2
 
+
 @pytest.mark.parametrize("PipelineFactory", [PipelineFactory, v2.Pipeline])
 def test_create_pipeline_from_json(PipelineFactory):
     pipeline_json = "tests/functional/pipelines/data/pipeline.json"

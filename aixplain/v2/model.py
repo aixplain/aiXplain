@@ -69,11 +69,7 @@ class Model(
     ) -> "Model":
         from aixplain.factories import ModelFactory
 
-        return Model(
-            ModelFactory.create_utility_model(
-                name, code, inputs, description, output_examples, api_key
-            )
-        )
+        return Model(ModelFactory.create_utility_model(name, code, inputs, description, output_examples, api_key))
 
     @classmethod
     def list_host_machines(cls, api_key: str = None) -> List[str]:
@@ -135,9 +131,7 @@ class Model(
     ) -> dict:
         from aixplain.factories import ModelFactory
 
-        return ModelFactory.onboard_model(
-            model_id, image_tag, image_hash, host_machine=host_machine, api_key=api_key
-        )
+        return ModelFactory.onboard_model(model_id, image_tag, image_hash, host_machine=host_machine, api_key=api_key)
 
     @classmethod
     def deploy_hugging_face_model(
