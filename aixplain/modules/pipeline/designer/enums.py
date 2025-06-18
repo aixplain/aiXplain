@@ -29,7 +29,6 @@ class NodeType(str, Enum):
 class AssetType(str, Enum):
     MODEL = "MODEL"
 
-
 class ParamType:
     INPUT = "INPUT"
     OUTPUT = "OUTPUT"
