@@ -36,6 +36,9 @@ class FunctionType(str, Enum):
     RECONSTRUCTOR = "reconstructor"
     UTILITY = "utility"
     METRIC = "metric"
+    CONNECTOR = 'connector'
+    CONNECTION = 'connection'
+    MCPSERVER = 'mcpserver'
 
 
 class ParamType:
