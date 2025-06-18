@@ -7,6 +7,10 @@ from aixplain.modules.model.record import Record
 from enum import Enum
 from typing import List
 from aixplain.enums.splitting_options import SplittingOptions
+import os
+
+from urllib.parse import urljoin
+from aixplain.utils.file_utils import _request_with_retry
 
 
 class IndexFilterOperator(Enum):
@@ -50,7 +54,6 @@ class Splitter:
         self.split_by = split_by
         self.split_length = split_length
         self.split_overlap = split_overlap
-
 
 class IndexModel(Model):
     def __init__(
@@ -148,7 +151,7 @@ class IndexModel(Model):
             "data": query or uri,
             "dataType": value_type,
             "filters": [filter.to_dict() for filter in filters],
-            "payload": {"uri": uri, "value_type": value_type, "top_k": top_k},
+            "payload": {"uri": uri, "value_type": value_type, "top_k": top_k}
         }
         return self.run(data=data)
 
