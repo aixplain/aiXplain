@@ -43,6 +43,11 @@ def validate_embedding_model(model_id) -> bool:
     return model.function == Function.TEXT_EMBEDDING
 
 
+def validate_embedding_model(model_id) -> bool:
+    model = ModelFactory.get(model_id)
+    return model.function == Function.TEXT_EMBEDDING
+
+
 class IndexFactory(ModelFactory, Generic[T]):
     @classmethod
     def create(

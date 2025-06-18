@@ -30,8 +30,6 @@ from urllib.parse import urljoin
 from aixplain.factories.model_factory.mixins import ModelGetterMixin, ModelListMixin
 from typing import Callable, Dict, List, Optional, Text, Union
 
-
-
 class ModelFactory(ModelGetterMixin, ModelListMixin):
     """A static class for creating and exploring Model Objects.
 
