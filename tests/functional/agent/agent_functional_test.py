@@ -643,7 +643,6 @@ def test_agent_llm_parameter_preservation(delete_agents_and_team_agents, AgentFa
     # Reset the LLM temperature to its original value
     llm.temperature = original_temperature
 
-
 def test_run_agent_with_expected_output():
     from pydantic import BaseModel
     from typing import Optional, List
@@ -754,3 +753,4 @@ def test_agent_with_action_tool():
     assert "helsinki" in response.data.output.lower()
     assert "SLACK_CHAT_POST_MESSAGE" in [step["tool"] for step in response.data.intermediate_steps[0]["tool_steps"]]
     connection.delete()
+

@@ -510,3 +510,4 @@ class TeamAgent(Model, DeployableMixin[Agent]):
 
         response = self.run_async(query=query, evolve=evolve_parameters)
         return response
+
