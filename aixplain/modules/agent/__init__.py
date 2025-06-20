@@ -489,17 +489,17 @@ class Agent(Model, DeployableMixin[Tool]):
     def __repr__(self):
         return f"Agent: {self.name} (id={self.id})"
 
-    def evolve(self, evolve_parameters: Union[Dict[str, Any], EvolveParam, None] = None) -> None:
-        """Evolve the Agent.
+    def evolve_async(self, evolve_parameters: Union[Dict[str, Any], EvolveParam, None] = None) -> AgentResponse:
+        """Asynchronously evolve the Agent and return a polling URL in the AgentResponse.
 
         Args:
             evolve_parameters (Union[Dict[str, Any], EvolveParam, None]): Evolution parameters.
                 Can be a dictionary, EvolveParam instance, or None.
 
         Returns:
-            AgentResponse: Response from the evolution process.
+            AgentResponse: Response containing polling URL and status.
         """
-        query = "Placeholder query"
+        query = "<placeholder query>"
         if evolve_parameters is None:
             evolve_parameters = EvolveParam(to_evolve=True)
         elif isinstance(evolve_parameters, dict):
@@ -511,3 +511,71 @@ class Agent(Model, DeployableMixin[Tool]):
             raise ValueError("evolve_parameters must be a dictionary, EvolveParam instance, or None")
 
         return self.run_async(query=query, evolve=evolve_parameters)
+
+    def evolve(
+        self,
+        evolve_parameters: Union[Dict[str, Any], EvolveParam, None] = None,
+    ) -> AgentResponse:
+        """Synchronously evolve the Agent and poll for the result.
+
+        Args:
+            evolve_parameters (Union[Dict[str, Any], EvolveParam, None]): Evolution parameters.
+                Can be a dictionary, EvolveParam instance, or None.
+
+        Returns:
+            AgentResponse: Final response from the evolution process.
+        """
+        from aixplain.utils.evolve_utils import from_yaml
+        from aixplain.enums import EvolveType
+
+        if evolve_parameters is None:
+            evolve_parameters = EvolveParam(to_evolve=True)
+        elif isinstance(evolve_parameters, dict):
+            evolve_parameters = EvolveParam.from_dict(evolve_parameters)
+            evolve_parameters.to_evolve = True
+        elif isinstance(evolve_parameters, EvolveParam):
+            evolve_parameters.to_evolve = True
+        else:
+            raise ValueError("evolve_parameters must be a dictionary, EvolveParam instance, or None")
+
+        start = time.time()
+        try:
+            response = self.evolve_async(evolve_parameters)
+            if response["status"] == ResponseStatus.FAILED:
+                end = time.time()
+                response["elapsed_time"] = end - start
+                return response
+            poll_url = response["url"]
+            end = time.time()
+            result = self.sync_poll(poll_url, name="evolve_process", timeout=600)
+            result_data = result.data
+
+            if "current_code" in result_data and result_data["current_code"] is not None:
+                if evolve_parameters.evolve_type == EvolveType.TEAM_TUNING:
+                    result_data["evolved_agent"] = from_yaml(
+                        result_data["current_code"],
+                        self.llm_id,
+                    )
+                elif evolve_parameters.evolve_type == EvolveType.INSTRUCTION_TUNING:
+                    self.instructions = result_data["current_code"]
+                    self.update()
+                    result_data["evolved_agent"] = self
+                else:
+                    raise ValueError(
+                        "evolve_parameters.evolve_type must be one of the following: TEAM_TUNING, INSTRUCTION_TUNING"
+                    )
+            return AgentResponse(
+                status=ResponseStatus.SUCCESS,
+                completed=True,
+                data=result_data,
+                used_credits=getattr(result, "used_credits", 0.0),
+                run_time=getattr(result, "run_time", end - start),
+            )
+        except Exception as e:
+            logging.error(f"Agent Evolve: Error in evolving: {e}")
+            end = time.time()
+            return AgentResponse(
+                status=ResponseStatus.FAILED,
+                completed=False,
+                error_message="No response from the service.",
+            )

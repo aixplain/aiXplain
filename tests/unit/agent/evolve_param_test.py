@@ -19,10 +19,11 @@ class TestEvolveParam:
 
         assert default_param is not None
         assert default_param.to_evolve is False
-        assert default_param.criteria is None
-        assert default_param.max_iterations == 100
-        assert default_param.temperature == 0.0
         assert default_param.evolve_type == EvolveType.TEAM_TUNING
+        assert default_param.max_generations == 3
+        assert default_param.max_retries == 3
+        assert default_param.recursion_limit == 50
+        assert default_param.max_iterations_without_improvement == 3
         assert default_param.additional_params == {}
 
         # Test to_dict method
@@ -34,26 +35,29 @@ class TestEvolveParam:
         """Test EvolveParam custom initialization"""
         custom_param = EvolveParam(
             to_evolve=True,
-            criteria="accuracy > 0.8",
-            max_iterations=5,
-            temperature=0.7,
+            max_generations=5,
+            max_retries=2,
+            recursion_limit=30,
+            max_iterations_without_improvement=4,
             evolve_type=EvolveType.TEAM_TUNING,
             additional_params={"customParam": "custom_value"},
         )
 
         assert custom_param.to_evolve is True
-        assert custom_param.criteria == "accuracy > 0.8"
-        assert custom_param.max_iterations == 5
-        assert custom_param.temperature == 0.7
+        assert custom_param.max_generations == 5
+        assert custom_param.max_retries == 2
+        assert custom_param.recursion_limit == 30
+        assert custom_param.max_iterations_without_improvement == 4
         assert custom_param.evolve_type == EvolveType.TEAM_TUNING
         assert custom_param.additional_params == {"customParam": "custom_value"}
 
         # Test to_dict method
         result_dict = custom_param.to_dict()
         assert result_dict["toEvolve"] is True
-        assert result_dict["criteria"] == "accuracy > 0.8"
-        assert result_dict["maxIterations"] == 5
-        assert result_dict["temperature"] == 0.7
+        assert result_dict["max_generations"] == 5
+        assert result_dict["max_retries"] == 2
+        assert result_dict["recursion_limit"] == 30
+        assert result_dict["max_iterations_without_improvement"] == 4
         assert result_dict["evolve_type"] == EvolveType.TEAM_TUNING
         assert result_dict["customParam"] == "custom_value"
 
@@ -61,9 +65,10 @@ class TestEvolveParam:
         """Test EvolveParam from_dict() with API format"""
         api_dict = {
             "toEvolve": True,
-            "criteria": "custom criteria",
-            "maxIterations": 10,
-            "temperature": 0.5,
+            "max_generations": 10,
+            "max_retries": 4,
+            "recursion_limit": 40,
+            "max_iterations_without_improvement": 5,
             "evolve_type": EvolveType.TEAM_TUNING,
             "customParam": "custom_value",
         }
@@ -71,17 +76,19 @@ class TestEvolveParam:
         from_dict_param = EvolveParam.from_dict(api_dict)
 
         assert from_dict_param.to_evolve is True
-        assert from_dict_param.criteria == "custom criteria"
-        assert from_dict_param.max_iterations == 10
-        assert from_dict_param.temperature == 0.5
+        assert from_dict_param.max_generations == 10
+        assert from_dict_param.max_retries == 4
+        assert from_dict_param.recursion_limit == 40
+        assert from_dict_param.max_iterations_without_improvement == 5
         assert from_dict_param.evolve_type == EvolveType.TEAM_TUNING
 
         # Test round-trip conversion
         result_dict = from_dict_param.to_dict()
         assert result_dict["toEvolve"] is True
-        assert result_dict["criteria"] == "custom criteria"
-        assert result_dict["maxIterations"] == 10
-        assert result_dict["temperature"] == 0.5
+        assert result_dict["max_generations"] == 10
+        assert result_dict["max_retries"] == 4
+        assert result_dict["recursion_limit"] == 40
+        assert result_dict["max_iterations_without_improvement"] == 5
 
     def test_validate_evolve_param_with_none(self):
         """Test validate_evolve_param() with None input"""
@@ -96,24 +103,25 @@ class TestEvolveParam:
 
     def test_validate_evolve_param_with_dict(self):
         """Test validate_evolve_param() with dictionary input"""
-        input_dict = {"toEvolve": True, "temperature": 0.3}
+        input_dict = {"toEvolve": True, "max_generations": 5}
         validated_dict = validate_evolve_param(input_dict)
 
         assert isinstance(validated_dict, EvolveParam)
         assert validated_dict.to_evolve is True
-        assert validated_dict.temperature == 0.3
+        assert validated_dict.max_generations == 5
 
         result_dict = validated_dict.to_dict()
         assert result_dict["toEvolve"] is True
-        assert result_dict["temperature"] == 0.3
+        assert result_dict["max_generations"] == 5
 
     def test_validate_evolve_param_with_instance(self):
         """Test validate_evolve_param() with EvolveParam instance"""
         custom_param = EvolveParam(
             to_evolve=True,
-            criteria="accuracy > 0.8",
-            max_iterations=5,
-            temperature=0.7,
+            max_generations=5,
+            max_retries=2,
+            recursion_limit=30,
+            max_iterations_without_improvement=4,
             evolve_type=EvolveType.TEAM_TUNING,
             additional_params={"customParam": "custom_value"},
         )
@@ -122,17 +130,17 @@ class TestEvolveParam:
 
         assert validated_instance is custom_param  # Should return the same instance
         assert validated_instance.to_evolve is True
-        assert validated_instance.criteria == "accuracy > 0.8"
-        assert validated_instance.max_iterations == 5
+        assert validated_instance.max_generations == 5
+        assert validated_instance.max_retries == 2
 
-    def test_invalid_temperature_raises_error(self):
-        """Test that invalid temperature raises ValueError"""
-        with pytest.raises(ValueError, match="temperature"):
-            EvolveParam(temperature=1.5)  # Temperature > 1.0 should fail
+    def test_invalid_max_generations_raises_error(self):
+        """Test that invalid max_generations raises ValueError"""
+        with pytest.raises(ValueError, match="max_generations must be positive"):
+            EvolveParam(max_generations=0)  # max_generations <= 0 should fail
 
     def test_validate_evolve_param_missing_to_evolve_key(self):
         """Test that missing toEvolve key raises ValueError"""
-        with pytest.raises(ValueError, match="toEvolve"):
+        with pytest.raises(ValueError, match="evolve parameter must contain 'toEvolve' key"):
             validate_evolve_param({"no_to_evolve": True})  # Missing toEvolve key
 
     def test_evolve_type_enum_values(self):
@@ -146,20 +154,25 @@ class TestEvolveParam:
 
         assert "evolve_type" in dict_team_tuning
 
-    def test_empty_criteria_handling(self):
-        """Test that empty criteria is handled properly"""
-        param = EvolveParam(criteria="")
+    def test_invalid_additional_params_type(self):
+        """Test that invalid additional_params type raises ValueError"""
+        with pytest.raises(ValueError, match="additional_params must be a dictionary"):
+            EvolveParam(additional_params="not a dict")
 
-        assert param.criteria == ""
+    def test_merge_with_dict(self):
+        """Test merging with a dictionary"""
+        base_param = EvolveParam(to_evolve=False, max_generations=3, additional_params={"base": "value"})
+        merge_dict = {
+            "toEvolve": True,
+            "max_generations": 5,
+            "customParam": "custom_value",
+        }
 
-        result_dict = param.to_dict()
-        assert result_dict["criteria"] == ""
+        merged = base_param.merge(merge_dict)
 
-    def test_none_criteria_handling(self):
-        """Test that None criteria is handled properly"""
-        param = EvolveParam(criteria=None)
-
-        assert param.criteria is None
-
-        result_dict = param.to_dict()
-        assert "criteria" not in result_dict
+        assert merged.to_evolve is True
+        assert merged.max_generations == 5
+        assert merged.additional_params == {
+            "base": "value",
+            "customParam": "custom_value",
+        }

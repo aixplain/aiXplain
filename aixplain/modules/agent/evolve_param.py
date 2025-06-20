@@ -31,17 +31,20 @@ class EvolveParam:
 
     Attributes:
         to_evolve (bool): Whether to enable evolution. Defaults to False.
-        criteria (Optional[str]): Custom criteria for evolution evaluation.
-        max_iterations (Optional[int]): Maximum number of evolution iterations.
-        temperature (Optional[float]): Temperature for evolution randomness (0.0-1.0).
         evolve_type (Optional[EvolveType]): Type of evolve.
+        max_generations (int): Maximum number of generations.
+        max_retries (int): Maximum number of retries.
+        recursion_limit (int): Maximum number of recursion.
+        max_iterations_without_improvement (int): Maximum number of iterations without improvement.
+        additional_params (Optional[Dict[str, Any]]): Additional parameters.
     """
 
     to_evolve: bool = False
-    criteria: Optional[str] = None
-    max_iterations: Optional[int] = 100
-    temperature: Optional[float] = 0.0
     evolve_type: Optional[EvolveType] = EvolveType.TEAM_TUNING
+    max_generations: int = 3
+    max_retries: int = 3
+    recursion_limit: int = 50
+    max_iterations_without_improvement: int = 3
     additional_params: Optional[Dict[str, Any]] = field(default_factory=dict)
 
     def __post_init__(self):
@@ -54,24 +57,36 @@ class EvolveParam:
         Raises:
             ValueError: If any parameter is invalid.
         """
-        if self.temperature is not None:
-            if not isinstance(self.temperature, (int, float)):
-                raise ValueError("temperature must be a number")
-            if not 0.0 <= self.temperature <= 1.0:
-                raise ValueError("temperature must be between 0.0 and 1.0")
-
-        if self.max_iterations is not None:
-            if not isinstance(self.max_iterations, int):
-                raise ValueError("max_iterations must be an integer")
-            if self.max_iterations <= 0:
-                raise ValueError("max_iterations must be positive")
-
         if self.evolve_type is not None:
             if not isinstance(self.evolve_type, EvolveType):
                 raise ValueError("evolve_type must be a valid EvolveType")
         if self.additional_params is not None:
             if not isinstance(self.additional_params, dict):
                 raise ValueError("additional_params must be a dictionary")
+
+        if self.max_generations is not None:
+            if not isinstance(self.max_generations, int):
+                raise ValueError("max_generations must be an integer")
+            if self.max_generations <= 0:
+                raise ValueError("max_generations must be positive")
+
+        if self.max_retries is not None:
+            if not isinstance(self.max_retries, int):
+                raise ValueError("max_retries must be an integer")
+            if self.max_retries <= 0:
+                raise ValueError("max_retries must be positive")
+
+        if self.recursion_limit is not None:
+            if not isinstance(self.recursion_limit, int):
+                raise ValueError("recursion_limit must be an integer")
+            if self.recursion_limit <= 0:
+                raise ValueError("recursion_limit must be positive")
+
+        if self.max_iterations_without_improvement is not None:
+            if not isinstance(self.max_iterations_without_improvement, int):
+                raise ValueError("max_iterations_without_improvement must be an integer")
+            if self.max_iterations_without_improvement <= 0:
+                raise ValueError("max_iterations_without_improvement must be positive")
 
     @classmethod
     def from_dict(cls, data: Union[Dict[str, Any], None]) -> "EvolveParam":
@@ -95,10 +110,11 @@ class EvolveParam:
         # Extract known parameters
         known_params = {
             "to_evolve": data.get("toEvolve", data.get("to_evolve", False)),
-            "criteria": data.get("criteria"),
-            "max_iterations": data.get("maxIterations", data.get("max_iterations")),
-            "temperature": data.get("temperature"),
-            "evolve_type": data.get("evolveType", data.get("evolve_type")),
+            "evolve_type": data.get("evolve_type"),
+            "max_generations": data.get("max_generations"),
+            "max_retries": data.get("max_retries"),
+            "recursion_limit": data.get("recursion_limit"),
+            "max_iterations_without_improvement": data.get("max_iterations_without_improvement"),
             "additional_params": data.get("additional_params"),
         }
 
@@ -113,12 +129,11 @@ class EvolveParam:
             not in [
                 "toEvolve",
                 "to_evolve",
-                "criteria",
-                "maxIterations",
-                "max_iterations",
-                "temperature",
-                "evolveType",
                 "evolve_type",
+                "max_generations",
+                "max_retries",
+                "recursion_limit",
+                "max_iterations_without_improvement",
                 "additional_params",
             ]
         }
@@ -136,14 +151,16 @@ class EvolveParam:
         }
 
         # Add optional parameters if they are set
-        if self.criteria is not None:
-            result["criteria"] = self.criteria
-        if self.max_iterations is not None:
-            result["maxIterations"] = self.max_iterations
-        if self.temperature is not None:
-            result["temperature"] = self.temperature
         if self.evolve_type is not None:
             result["evolve_type"] = self.evolve_type
+        if self.max_generations is not None:
+            result["max_generations"] = self.max_generations
+        if self.max_retries is not None:
+            result["max_retries"] = self.max_retries
+        if self.recursion_limit is not None:
+            result["recursion_limit"] = self.recursion_limit
+        if self.max_iterations_without_improvement is not None:
+            result["max_iterations_without_improvement"] = self.max_iterations_without_improvement
         if self.additional_params is not None:
             result.update(self.additional_params)
 
@@ -168,10 +185,15 @@ class EvolveParam:
 
         return EvolveParam(
             to_evolve=other.to_evolve if other.to_evolve else self.to_evolve,
-            criteria=other.criteria if other.criteria is not None else self.criteria,
-            max_iterations=(other.max_iterations if other.max_iterations is not None else self.max_iterations),
-            temperature=(other.temperature if other.temperature is not None else self.temperature),
             evolve_type=(other.evolve_type if other.evolve_type is not None else self.evolve_type),
+            max_generations=(other.max_generations if other.max_generations is not None else self.max_generations),
+            max_retries=(other.max_retries if other.max_retries is not None else self.max_retries),
+            recursion_limit=(other.recursion_limit if other.recursion_limit is not None else self.recursion_limit),
+            max_iterations_without_improvement=(
+                other.max_iterations_without_improvement
+                if other.max_iterations_without_improvement is not None
+                else self.max_iterations_without_improvement
+            ),
             additional_params=merged_additional,
         )
 
@@ -179,10 +201,11 @@ class EvolveParam:
         return (
             f"EvolveParam("
             f"to_evolve={self.to_evolve}, "
-            f"criteria={self.criteria}, "
-            f"max_iterations={self.max_iterations}, "
-            f"temperature={self.temperature}, "
             f"evolve_type={self.evolve_type}, "
+            f"max_generations={self.max_generations}, "
+            f"max_retries={self.max_retries}, "
+            f"recursion_limit={self.recursion_limit}, "
+            f"max_iterations_without_improvement={self.max_iterations_without_improvement}, "
             f"additional_params={self.additional_params})"
         )
 
