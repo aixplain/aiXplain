@@ -109,6 +109,76 @@ def test_draft_team_agent_update(run_input_map, TeamAgentFactory):
 
 
 @pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory, v2.TeamAgent])
+def test_nested_deployment_chain(delete_agents_and_team_agents, TeamAgentFactory):
+    """Test that deploying a team agent properly deploys all nested components (tools -> agents -> team)"""
+    assert delete_agents_and_team_agents
+
+    # Create first agent with translation tool (in DRAFT state)
+    translation_function = Function.TRANSLATION
+    function_params = translation_function.get_parameters()
+    function_params.targetlanguage = "es"
+    function_params.sourcelanguage = "en"
+    translation_tool = AgentFactory.create_model_tool(
+        function=translation_function,
+        description="Translation tool from English to Spanish",
+        supplier="microsoft",
+    )
+
+    translation_agent = AgentFactory.create(
+        name="Translation Agent",
+        description="Agent for translation",
+        instructions="Translate text from English to Spanish",
+        llm_id="6646261c6eb563165658bbb1",
+        tools=[translation_tool],
+    )
+    assert translation_agent.status == AssetStatus.DRAFT
+    # Create second agent with text generation tool (in DRAFT state)
+    text_gen_tool = AgentFactory.create_model_tool(
+        function=Function.TEXT_GENERATION,
+        description="Text generation tool",
+        supplier="openai",
+    )
+
+    text_gen_agent = AgentFactory.create(
+        name="Text Generation Agent",
+        description="Agent for text generation",
+        instructions="Generate creative text based on input",
+        llm_id="6646261c6eb563165658bbb1",
+        tools=[text_gen_tool],
+    )
+    assert text_gen_agent.status == AssetStatus.DRAFT
+
+    # Create team agent with both agents (in DRAFT state)
+    team_agent = TeamAgentFactory.create(
+        name="Multi-Function Team",
+        description="Team that can translate and generate text",
+        agents=[translation_agent, text_gen_agent],
+        llm_id="6646261c6eb563165658bbb1",
+    )
+    assert team_agent.status == AssetStatus.DRAFT
+    for agent in team_agent.agents:
+        assert agent.status == AssetStatus.DRAFT
+
+    # Deploy team agent - this should trigger deployment of all nested components
+    team_agent.deploy()
+
+    # Verify team agent is deployed
+    team_agent = TeamAgentFactory.get(team_agent.id)
+    assert team_agent.status == AssetStatus.ONBOARDED
+
+    # Verify all agents are deployed
+    for agent in team_agent.agents:
+        agent_obj = AgentFactory.get(agent.id)
+        assert agent_obj.status == AssetStatus.ONBOARDED
+        # Verify all tools are deployed
+        for tool in agent_obj.tools:
+            assert tool.status == AssetStatus.ONBOARDED
+
+    # Clean up
+    team_agent.delete()
+
+
+@pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory, v2.TeamAgent])
 def test_fail_non_existent_llm(run_input_map, TeamAgentFactory):
     for team in TeamAgentFactory.list()["results"]:
         team.delete()

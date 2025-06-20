@@ -18,6 +18,7 @@ Date: November 25th 2024
 Description:
     Mixins for common functionality across different asset types
 """
+
 from abc import ABC
 from typing import TypeVar, Generic
 from aixplain.enums import AssetStatus
@@ -67,8 +68,14 @@ class DeployableMixin(ABC, Generic[T]):
         self._validate_deployment_readiness()
         previous_status = self.status
         try:
+            # Deploy tools if present
             if hasattr(self, "tools"):
                 [tool.deploy() for tool in self.tools]
+
+            # Deploy agents if present (for TeamAgent)
+            if hasattr(self, "agents"):
+                [agent.deploy() for agent in self.agents]
+
             self.status = AssetStatus.ONBOARDED
             self.update()
         except Exception as e:
