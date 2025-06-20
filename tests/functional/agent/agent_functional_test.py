@@ -306,7 +306,7 @@ def test_update_tools_of_agent(run_input_map, delete_agents_and_team_agents, Age
                 "type": "translation",
                 "supplier": "Microsoft",
                 "function": "translation",
-                "query": "Translate: Olá, como vai você?",
+                "query": "Translate: 'Olá, como vai você?'",
                 "description": "Translation tool with target language",
                 "expected_tool_input": "targetlanguage",
             },
@@ -338,7 +338,7 @@ def test_specific_model_parameters_e2e(tool_config, delete_agents_and_team_agent
     # Create and run agent
     agent = AgentFactory.create(
         name="Test Parameter Agent",
-        description="Test agent with parameterized tools. You MUST use a tool for the tasks.",
+        description="Test agent with parameterized tools. You MUST use a tool for the tasks. Do not directly answer the question.",
         tools=[tool],
         llm_id="6646261c6eb563165658bbb1",  # Using LLM ID from test data
     )
@@ -355,8 +355,9 @@ def test_specific_model_parameters_e2e(tool_config, delete_agents_and_team_agent
     # Verify tool was used in execution
     assert len(response["data"]["intermediate_steps"]) > 0
     tool_used = False
+
     for step in response["data"]["intermediate_steps"]:
-        if tool_config["expected_tool_input"] in step["tool_steps"][0]["input"]:
+        if len(step["tool_steps"]) > 0 and tool_config["expected_tool_input"] in step["tool_steps"][0]["input"]:
             tool_used = True
             break
     assert tool_used, "Tool was not used in execution"
