@@ -7,7 +7,6 @@ from aixplain.modules.model.record import Record
 from enum import Enum
 from typing import List
 from aixplain.enums.splitting_options import SplittingOptions
-
 import os
 
 from urllib.parse import urljoin
@@ -55,8 +54,6 @@ class Splitter:
         self.split_by = split_by
         self.split_length = split_length
         self.split_overlap = split_overlap
-
-
 
 class IndexModel(Model):
     def __init__(
@@ -124,7 +121,6 @@ class IndexModel(Model):
         data["embedding_size"] = self.embedding_size
         data["collection_type"] = self.version.split("-", 1)[0]
         return data
-
 
     def search(self, query: str, top_k: int = 10, filters: List[IndexFilter] = []) -> ModelResponse:
         """Search for documents in the index

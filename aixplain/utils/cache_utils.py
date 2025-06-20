@@ -14,7 +14,6 @@ def get_cache_expiry():
     return int(os.getenv("CACHE_EXPIRY_TIME", CACHE_DURATION))
 
 
-
 def save_to_cache(cache_file, data, lock_file):
     try:
         os.makedirs(os.path.dirname(cache_file), exist_ok=True)
