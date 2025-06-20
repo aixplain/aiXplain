@@ -18,6 +18,7 @@ limitations under the License.
 import copy
 import json
 import os
+import re
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -234,7 +235,10 @@ def test_delete_agent_in_use(delete_agents_and_team_agents, AgentFactory):
 
     with pytest.raises(Exception) as exc_info:
         agent.delete()
-    assert str(exc_info.value) == "Agent Deletion Error (HTTP 403): err.agent_is_in_use."
+    assert re.match(
+        r"Error: Agent cannot be deleted\.\nReason: This agent is currently used by one or more team agents\.\n\nteam_agent_id: [a-f0-9]{24}\. To proceed, remove the agent from all team agents before deletion\.",
+        str(exc_info.value),
+    )
 
 
 @pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
@@ -643,6 +647,7 @@ def test_agent_llm_parameter_preservation(delete_agents_and_team_agents, AgentFa
     # Reset the LLM temperature to its original value
     llm.temperature = original_temperature
 
+
 def test_run_agent_with_expected_output():
     from pydantic import BaseModel
     from typing import Optional, List
@@ -753,4 +758,3 @@ def test_agent_with_action_tool():
     assert "helsinki" in response.data.output.lower()
     assert "SLACK_CHAT_POST_MESSAGE" in [step["tool"] for step in response.data.intermediate_steps[0]["tool_steps"]]
     connection.delete()
-
