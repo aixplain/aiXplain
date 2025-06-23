@@ -153,6 +153,8 @@ class Integration(Model):
                     f"Before using the tool, please visit the following URL to complete the connection: {response.data['redirectURL']}"
                 )
             return response
+        elif self.id == "68549a33ba00e44f357896f1":
+            response = self.run({"data": kwargs.get("data")})
 
     def __repr__(self):
         try:
