@@ -335,6 +335,29 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             logging.error(message)
             raise Exception(f"{message}")
 
+    def _serialize_agent(self, agent, idx: int) -> Dict:
+        """Serialize an agent for the to_dict method."""
+        base_dict = {"assetId": agent.id, "number": idx, "type": "AGENT", "label": "AGENT"}
+
+        # Try to get additional data from agent's to_dict method
+        try:
+            if hasattr(agent, "to_dict") and callable(getattr(agent, "to_dict")):
+                agent_dict = agent.to_dict()
+                # Ensure it's actually a dictionary and not a Mock or other object
+                if isinstance(agent_dict, dict) and hasattr(agent_dict, "items"):
+                    try:
+                        # Add all fields except 'id' to avoid duplication with 'assetId'
+                        additional_data = {k: v for k, v in agent_dict.items() if k not in ["id"]}
+                        base_dict.update(additional_data)
+                    except (TypeError, AttributeError):
+                        # If items() doesn't work or iteration fails, skip the additional data
+                        pass
+        except Exception:
+            # If anything goes wrong, just use the base dictionary
+            pass
+
+        return base_dict
+
     def to_dict(self) -> Dict:
         if self.use_mentalist:
             planner_id = self.mentalist_llm.id if self.mentalist_llm else self.llm_id
@@ -343,9 +366,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         return {
             "id": self.id,
             "name": self.name,
-            "agents": [
-                {"assetId": agent.id, "number": idx, "type": "AGENT", "label": "AGENT"} for idx, agent in enumerate(self.agents)
-            ],
+            "agents": [self._serialize_agent(agent, idx) for idx, agent in enumerate(self.agents)],
             "links": [],
             "description": self.description,
             "llmId": self.llm.id if self.llm else self.llm_id,
@@ -358,6 +379,107 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             "status": self.status.value,
             "role": self.instructions,
         }
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> "TeamAgent":
+        """Create a TeamAgent instance from a dictionary representation.
+
+        Args:
+            data: Dictionary containing TeamAgent parameters
+
+        Returns:
+            TeamAgent instance
+        """
+        from aixplain.factories.agent_factory import AgentFactory
+        from aixplain.factories.model_factory import ModelFactory
+        from aixplain.enums import AssetStatus
+        from aixplain.modules.team_agent import Inspector, InspectorTarget
+
+        # Extract agents from agents list using proper agent loading
+        agents = []
+        if "agents" in data:
+            for agent_data in data["agents"]:
+                if "assetId" in agent_data:
+                    try:
+                        # Load agent using AgentFactory
+                        agent = AgentFactory.get(agent_data["assetId"])
+                        agents.append(agent)
+                    except Exception as e:
+                        # Log warning but continue processing other agents
+                        import logging
+
+                        logging.warning(f"Failed to load agent {agent_data['assetId']}: {e}")
+
+        # Extract inspectors using proper model validation
+        inspectors = []
+        if "inspectors" in data:
+            for inspector_data in data["inspectors"]:
+                try:
+                    if hasattr(Inspector, "model_validate"):
+                        inspectors.append(Inspector.model_validate(inspector_data))
+                    else:
+                        inspectors.append(Inspector(**inspector_data))
+                except Exception as e:
+                    import logging
+
+                    logging.warning(f"Failed to create inspector from data: {e}")
+
+        # Extract inspector targets
+        inspector_targets = [InspectorTarget.STEPS]  # default
+        if "inspectorTargets" in data:
+            inspector_targets = [InspectorTarget(target) for target in data["inspectorTargets"]]
+
+        # Extract status
+        status = AssetStatus.DRAFT
+        if "status" in data:
+            if isinstance(data["status"], str):
+                status = AssetStatus(data["status"])
+            else:
+                status = data["status"]
+
+        # Extract LLM instances using proper model loading
+        llm = None
+        supervisor_llm = None
+        mentalist_llm = None
+
+        try:
+            if "llmId" in data:
+                llm = ModelFactory.get(data["llmId"])
+        except Exception:
+            pass  # llm remains None, will use llm_id
+
+        try:
+            if "supervisorId" in data and data["supervisorId"] != data.get("llmId"):
+                supervisor_llm = ModelFactory.get(data["supervisorId"])
+        except Exception:
+            pass  # supervisor_llm remains None
+
+        try:
+            if "plannerId" in data and data["plannerId"]:
+                mentalist_llm = ModelFactory.get(data["plannerId"])
+        except Exception:
+            pass  # mentalist_llm remains None
+
+        # Determine if mentalist is used
+        use_mentalist = data.get("plannerId") is not None
+
+        return cls(
+            id=data["id"],
+            name=data["name"],
+            agents=agents,
+            description=data.get("description", ""),
+            llm_id=data.get("llmId", "6646261c6eb563165658bbb1"),
+            llm=llm,
+            supervisor_llm=supervisor_llm,
+            mentalist_llm=mentalist_llm,
+            supplier=data.get("supplier", "aiXplain"),
+            version=data.get("version"),
+            use_mentalist=use_mentalist,
+            status=status,
+            instructions=data.get("role"),
+            inspectors=inspectors,
+            inspector_targets=inspector_targets,
+        )
 
     def _validate(self) -> None:
         from aixplain.utils.llm_utils import get_llm_instance
@@ -429,4 +551,3 @@ class TeamAgent(Model, DeployableMixin[Agent]):
 
     def __repr__(self):
         return f"TeamAgent: {self.name} (id={self.id})"
-
