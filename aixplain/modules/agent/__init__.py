@@ -142,7 +142,7 @@ class Agent(Model, DeployableMixin[Tool]):
                 f"Agent Creation Error - Duplicate tool names found: {', '.join(duplicates)}. Make sure all tool names are unique."
             )
 
-                tool_name = tool.name
+            tool_name = tool.name
             tool_names.append(tool_name)
 
         if len(tool_names) != len(set(tool_names)):
