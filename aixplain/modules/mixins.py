@@ -22,6 +22,7 @@ Description:
 from abc import ABC
 from typing import TypeVar, Generic
 from aixplain.enums import AssetStatus
+from aixplain.exceptions import AlreadyDeployedError
 
 T = TypeVar("T")
 
@@ -51,7 +52,7 @@ class DeployableMixin(ABC, Generic[T]):
         """
         asset_type = self.__class__.__name__
         if self.status == AssetStatus.ONBOARDED:
-            raise ValueError(f"{asset_type} is already deployed.")
+            raise AlreadyDeployedError(f"{asset_type} is already deployed.")
 
         if self.status != AssetStatus.DRAFT:
             raise ValueError(f"{asset_type} must be in DRAFT status to be deployed.")
@@ -71,10 +72,23 @@ class DeployableMixin(ABC, Generic[T]):
             # Deploy tools if present
             if hasattr(self, "tools"):
                 [tool.deploy() for tool in self.tools]
+                for tool in self.tools:
+                    try:
+                        tool.deploy()
+                    except AlreadyDeployedError:
+                        pass
+                    except Exception as e:
+                        raise Exception(f"Error deploying tool {tool.name}: {e}") from e
 
             # Deploy agents if present (for TeamAgent)
             if hasattr(self, "agents"):
-                [agent.deploy() for agent in self.agents]
+                for agent in self.agents:
+                    try:
+                        agent.deploy()
+                    except AlreadyDeployedError:
+                        pass
+                    except Exception as e:
+                        raise Exception(f"Error deploying agent {agent.name}: {e}") from e
 
             self.status = AssetStatus.ONBOARDED
             self.update()
