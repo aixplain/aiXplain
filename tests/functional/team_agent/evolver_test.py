@@ -124,3 +124,15 @@ def test_evolver_output(team_agent):
     assert "evaluation_report" in result["data"], "Data should contain 'evaluation_report'"
     assert "criteria" in result["data"], "Data should contain 'criteria'"
     assert "archive" in result["data"], "Data should contain 'archive'"
+
+
+def test_evolver_with_custom_llm_id(team_agent):
+    """Test evolver functionality with custom LLM ID"""
+    custom_llm_id = "6646261c6eb563165658bbb1"  # GPT-4o ID
+
+    # Test with evolver_llm parameter
+    response = team_agent.evolve_async(evolver_llm=custom_llm_id)
+
+    assert response is not None
+    assert "url" in response or response.get("url") is not None
+    assert response["status"] == ResponseStatus.IN_PROGRESS

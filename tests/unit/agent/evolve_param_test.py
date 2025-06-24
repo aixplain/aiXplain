@@ -23,7 +23,8 @@ class TestEvolveParam:
         assert default_param.max_generations == 3
         assert default_param.max_retries == 3
         assert default_param.recursion_limit == 50
-        assert default_param.max_iterations_without_improvement == 3
+        assert default_param.max_iterations_without_improvement == 2
+        assert default_param.evolver_llm is None
         assert default_param.additional_params == {}
 
         # Test to_dict method
@@ -40,6 +41,7 @@ class TestEvolveParam:
             recursion_limit=30,
             max_iterations_without_improvement=4,
             evolve_type=EvolveType.TEAM_TUNING,
+            evolver_llm={"id": "test_llm_id", "name": "Test LLM"},
             additional_params={"customParam": "custom_value"},
         )
 
@@ -49,6 +51,7 @@ class TestEvolveParam:
         assert custom_param.recursion_limit == 30
         assert custom_param.max_iterations_without_improvement == 4
         assert custom_param.evolve_type == EvolveType.TEAM_TUNING
+        assert custom_param.evolver_llm == {"id": "test_llm_id", "name": "Test LLM"}
         assert custom_param.additional_params == {"customParam": "custom_value"}
 
         # Test to_dict method
@@ -59,6 +62,7 @@ class TestEvolveParam:
         assert result_dict["recursion_limit"] == 30
         assert result_dict["max_iterations_without_improvement"] == 4
         assert result_dict["evolve_type"] == EvolveType.TEAM_TUNING
+        assert result_dict["evolver_llm"] == {"id": "test_llm_id", "name": "Test LLM"}
         assert result_dict["customParam"] == "custom_value"
 
     def test_from_dict_with_api_format(self):
@@ -70,6 +74,7 @@ class TestEvolveParam:
             "recursion_limit": 40,
             "max_iterations_without_improvement": 5,
             "evolve_type": EvolveType.TEAM_TUNING,
+            "evolver_llm": {"id": "api_llm_id", "name": "API LLM"},
             "customParam": "custom_value",
         }
 
@@ -81,6 +86,7 @@ class TestEvolveParam:
         assert from_dict_param.recursion_limit == 40
         assert from_dict_param.max_iterations_without_improvement == 5
         assert from_dict_param.evolve_type == EvolveType.TEAM_TUNING
+        assert from_dict_param.evolver_llm == {"id": "api_llm_id", "name": "API LLM"}
 
         # Test round-trip conversion
         result_dict = from_dict_param.to_dict()
@@ -123,6 +129,7 @@ class TestEvolveParam:
             recursion_limit=30,
             max_iterations_without_improvement=4,
             evolve_type=EvolveType.TEAM_TUNING,
+            evolver_llm={"id": "instance_llm_id"},
             additional_params={"customParam": "custom_value"},
         )
 
@@ -165,6 +172,7 @@ class TestEvolveParam:
         merge_dict = {
             "toEvolve": True,
             "max_generations": 5,
+            "evolver_llm": {"id": "merged_llm_id"},
             "customParam": "custom_value",
         }
 
@@ -172,6 +180,7 @@ class TestEvolveParam:
 
         assert merged.to_evolve is True
         assert merged.max_generations == 5
+        assert merged.evolver_llm == {"id": "merged_llm_id"}
         assert merged.additional_params == {
             "base": "value",
             "customParam": "custom_value",

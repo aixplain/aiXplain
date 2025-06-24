@@ -1,9 +1,37 @@
 import yaml
-from typing import Union
+from typing import Union, Dict, Any, Optional, Text
 from aixplain.enums import Function, Supplier
 from aixplain.modules.agent import Agent
 from aixplain.modules.team_agent import TeamAgent
+from aixplain.modules.model.llm_model import LLM
 from aixplain.factories import AgentFactory, TeamAgentFactory
+
+
+def create_evolver_llm_dict(evolver_llm: Optional[Union[Text, LLM]]) -> Optional[Dict[str, Any]]:
+    """Create a dictionary representation of an evolver LLM for evolution parameters.
+
+    Args:
+        evolver_llm: Either an LLM ID string or an LLM object instance.
+
+    Returns:
+        Dictionary with LLM information if evolver_llm is provided, None otherwise.
+    """
+    if evolver_llm is None:
+        return None
+
+    if isinstance(evolver_llm, LLM):
+        return {
+            "id": evolver_llm.id,
+            "name": evolver_llm.name,
+            "description": evolver_llm.description,
+            "supplier": evolver_llm.supplier,
+            "version": evolver_llm.version,
+            "function": evolver_llm.function,
+            "parameters": (evolver_llm.get_parameters().to_list() if evolver_llm.get_parameters() else None),
+            "temperature": getattr(evolver_llm, "temperature", None),
+        }
+    else:
+        return {"id": evolver_llm}
 
 
 def generate_tools_from_str(tools: list) -> list:

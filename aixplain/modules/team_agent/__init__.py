@@ -35,6 +35,7 @@ from aixplain.enums.function import Function
 from aixplain.enums.supplier import Supplier
 from aixplain.enums.asset_status import AssetStatus
 from aixplain.enums.storage_type import StorageType
+from aixplain.enums.evolve_type import EvolveType
 from aixplain.modules.model import Model
 from aixplain.modules.agent import Agent, OutputFormat
 from aixplain.modules.agent.agent_response import AgentResponse
@@ -487,61 +488,93 @@ class TeamAgent(Model, DeployableMixin[Agent]):
     def __repr__(self):
         return f"TeamAgent: {self.name} (id={self.id})"
 
-    def evolve_async(self, evolve_parameters: Union[Dict[str, Any], EvolveParam, None] = None) -> AgentResponse:
+    def evolve_async(
+        self,
+        evolve_type: Union[EvolveType, str] = EvolveType.TEAM_TUNING,
+        max_generations: int = 3,
+        max_retries: int = 3,
+        recursion_limit: int = 50,
+        max_iterations_without_improvement: Optional[int] = 2,
+        evolver_llm: Optional[Union[Text, LLM]] = None,
+    ) -> AgentResponse:
         """Asynchronously evolve the Team Agent and return a polling URL in the AgentResponse.
 
         Args:
-            evolve_parameters (Union[Dict[str, Any], EvolveParam, None]): Evolution parameters.
-                Can be a dictionary, EvolveParam instance, or None.
+            evolve_type (Union[EvolveType, str]): Type of evolution (TEAM_TUNING or INSTRUCTION_TUNING). Defaults to TEAM_TUNING.
+            max_generations (int): Maximum number of generations to evolve. Defaults to 3.
+            max_retries (int): Maximum retry attempts. Defaults to 3.
+            recursion_limit (int): Limit for recursive operations. Defaults to 50.
+            max_iterations_without_improvement (Optional[int]): Stop condition parameter. Defaults to 2, can be None.
+            evolver_llm (Optional[Union[Text, LLM]]): LLM to use for evolution. Can be an LLM ID string or LLM object. Defaults to None.
 
         Returns:
             AgentResponse: Response containing polling URL and status.
         """
+        from aixplain.utils.evolve_utils import create_evolver_llm_dict
+
         query = "<placeholder query>"
-        if evolve_parameters is None:
-            evolve_parameters = EvolveParam(to_evolve=True)
-        elif isinstance(evolve_parameters, dict):
-            evolve_parameters = EvolveParam.from_dict(evolve_parameters)
-            evolve_parameters.to_evolve = True
-        elif isinstance(evolve_parameters, EvolveParam):
-            evolve_parameters.to_evolve = True
-        else:
-            raise ValueError("evolve_parameters must be a dictionary, EvolveParam instance, or None")
+
+        # Create EvolveParam from individual parameters
+        evolve_parameters = EvolveParam(
+            to_evolve=True,
+            evolve_type=evolve_type,
+            max_generations=max_generations,
+            max_retries=max_retries,
+            recursion_limit=recursion_limit,
+            max_iterations_without_improvement=max_iterations_without_improvement,
+            evolver_llm=create_evolver_llm_dict(evolver_llm),
+        )
 
         response = self.run_async(query=query, evolve=evolve_parameters)
         return response
 
     def evolve(
         self,
-        evolve_parameters: Union[Dict[str, Any], EvolveParam, None] = None,
+        evolve_type: Union[EvolveType, str] = EvolveType.TEAM_TUNING,
+        max_generations: int = 3,
+        max_retries: int = 3,
+        recursion_limit: int = 50,
+        max_iterations_without_improvement: Optional[int] = 2,
+        evolver_llm: Optional[Union[Text, LLM]] = None,
     ) -> AgentResponse:
         """Synchronously evolve the Team Agent and poll for the result.
 
         Args:
-            evolve_parameters (Union[Dict[str, Any], EvolveParam, None]): Evolution parameters.
-                Can be a dictionary, EvolveParam instance, or None.
-            name (str, optional): Name for the process. Defaults to "evolve_process".
+            evolve_type (Union[EvolveType, str]): Type of evolution (TEAM_TUNING or INSTRUCTION_TUNING). Defaults to TEAM_TUNING.
+            max_generations (int): Maximum number of generations to evolve. Defaults to 3.
+            max_retries (int): Maximum retry attempts. Defaults to 3.
+            recursion_limit (int): Limit for recursive operations. Defaults to 50.
+            max_iterations_without_improvement (Optional[int]): Stop condition parameter. Defaults to 2, can be None.
+            evolver_llm (Optional[Union[Text, LLM]]): LLM to use for evolution. Can be an LLM ID string or LLM object. Defaults to None.
 
         Returns:
             AgentResponse: Final response from the evolution process.
         """
         from aixplain.enums import EvolveType
-        from aixplain.utils.evolve_utils import from_yaml
+        from aixplain.utils.evolve_utils import from_yaml, create_evolver_llm_dict
 
-        if evolve_parameters is None:
-            evolve_parameters = EvolveParam(to_evolve=True)
-        elif isinstance(evolve_parameters, dict):
-            evolve_parameters = EvolveParam.from_dict(evolve_parameters)
-            evolve_parameters.to_evolve = True
-        elif isinstance(evolve_parameters, EvolveParam):
-            evolve_parameters.to_evolve = True
-        else:
-            raise ValueError("evolve_parameters must be a dictionary, EvolveParam instance, or None")
+        # Create EvolveParam from individual parameters
+        evolve_parameters = EvolveParam(
+            to_evolve=True,
+            evolve_type=evolve_type,
+            max_generations=max_generations,
+            max_retries=max_retries,
+            recursion_limit=recursion_limit,
+            max_iterations_without_improvement=max_iterations_without_improvement,
+            evolver_llm=create_evolver_llm_dict(evolver_llm),
+        )
         start = time.time()
         try:
             logging.info(f"Evolve started with parameters: {evolve_parameters}")
             logging.info("It might take a while...")
-            response = self.evolve_async(evolve_parameters)
+            response = self.evolve_async(
+                evolve_type=evolve_type,
+                max_generations=max_generations,
+                max_retries=max_retries,
+                recursion_limit=recursion_limit,
+                max_iterations_without_improvement=max_iterations_without_improvement,
+                evolver_llm=evolver_llm,
+            )
             if response["status"] == ResponseStatus.FAILED:
                 end = time.time()
                 response["elapsed_time"] = end - start

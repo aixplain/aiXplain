@@ -36,6 +36,7 @@ class EvolveParam:
         max_retries (int): Maximum number of retries.
         recursion_limit (int): Maximum number of recursion.
         max_iterations_without_improvement (int): Maximum number of iterations without improvement.
+        evolver_llm (Optional[Dict[str, Any]]): Evolver LLM configuration with all parameters.
         additional_params (Optional[Dict[str, Any]]): Additional parameters.
     """
 
@@ -44,7 +45,8 @@ class EvolveParam:
     max_generations: int = 3
     max_retries: int = 3
     recursion_limit: int = 50
-    max_iterations_without_improvement: int = 3
+    max_iterations_without_improvement: Optional[int] = 2
+    evolver_llm: Optional[Dict[str, Any]] = None
     additional_params: Optional[Dict[str, Any]] = field(default_factory=dict)
 
     def __post_init__(self):
@@ -58,8 +60,16 @@ class EvolveParam:
             ValueError: If any parameter is invalid.
         """
         if self.evolve_type is not None:
-            if not isinstance(self.evolve_type, EvolveType):
-                raise ValueError("evolve_type must be a valid EvolveType")
+            if isinstance(self.evolve_type, str):
+                # Convert string to EvolveType
+                try:
+                    self.evolve_type = EvolveType(self.evolve_type)
+                except ValueError:
+                    raise ValueError(
+                        f"evolve_type '{self.evolve_type}' is not a valid EvolveType. Valid values are: {list(EvolveType)}"
+                    )
+            elif not isinstance(self.evolve_type, EvolveType):
+                raise ValueError("evolve_type must be a valid EvolveType or string")
         if self.additional_params is not None:
             if not isinstance(self.additional_params, dict):
                 raise ValueError("additional_params must be a dictionary")
@@ -84,9 +94,9 @@ class EvolveParam:
 
         if self.max_iterations_without_improvement is not None:
             if not isinstance(self.max_iterations_without_improvement, int):
-                raise ValueError("max_iterations_without_improvement must be an integer")
+                raise ValueError("max_iterations_without_improvement must be an integer or None")
             if self.max_iterations_without_improvement <= 0:
-                raise ValueError("max_iterations_without_improvement must be positive")
+                raise ValueError("max_iterations_without_improvement must be positive or None")
 
     @classmethod
     def from_dict(cls, data: Union[Dict[str, Any], None]) -> "EvolveParam":
@@ -115,6 +125,7 @@ class EvolveParam:
             "max_retries": data.get("max_retries"),
             "recursion_limit": data.get("recursion_limit"),
             "max_iterations_without_improvement": data.get("max_iterations_without_improvement"),
+            "evolver_llm": data.get("evolver_llm"),
             "additional_params": data.get("additional_params"),
         }
 
@@ -134,6 +145,7 @@ class EvolveParam:
                 "max_retries",
                 "recursion_limit",
                 "max_iterations_without_improvement",
+                "evolver_llm",
                 "additional_params",
             ]
         }
@@ -159,8 +171,10 @@ class EvolveParam:
             result["max_retries"] = self.max_retries
         if self.recursion_limit is not None:
             result["recursion_limit"] = self.recursion_limit
-        if self.max_iterations_without_improvement is not None:
-            result["max_iterations_without_improvement"] = self.max_iterations_without_improvement
+        # Always include max_iterations_without_improvement, even if None
+        result["max_iterations_without_improvement"] = self.max_iterations_without_improvement
+        if self.evolver_llm is not None:
+            result["evolver_llm"] = self.evolver_llm
         if self.additional_params is not None:
             result.update(self.additional_params)
 
@@ -194,6 +208,7 @@ class EvolveParam:
                 if other.max_iterations_without_improvement is not None
                 else self.max_iterations_without_improvement
             ),
+            evolver_llm=(other.evolver_llm if other.evolver_llm is not None else self.evolver_llm),
             additional_params=merged_additional,
         )
 
@@ -206,6 +221,7 @@ class EvolveParam:
             f"max_retries={self.max_retries}, "
             f"recursion_limit={self.recursion_limit}, "
             f"max_iterations_without_improvement={self.max_iterations_without_improvement}, "
+            f"evolver_llm={self.evolver_llm}, "
             f"additional_params={self.additional_params})"
         )
 
