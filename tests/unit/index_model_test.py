@@ -252,3 +252,60 @@ def test_index_model_splitter():
     assert splitter.split_by == "sentence"
     assert splitter.split_length == 100
     assert splitter.split_overlap == 0
+
+
+def test_parse_file_success(mocker):
+    mock_response = {"status": "SUCCESS", "data": "parsed content"}
+    mock_model = mocker.Mock()
+    mock_model.run.return_value = ModelResponse(status=ResponseStatus.SUCCESS, data="parsed content")
+
+    mocker.patch("aixplain.factories.ModelFactory.get", return_value=mock_model)
+    mocker.patch("os.path.exists", return_value=True)
+
+    response = IndexModel.parse_file("test.pdf")
+
+    assert isinstance(response, ModelResponse)
+    assert response.status == ResponseStatus.SUCCESS
+    assert response.data == "parsed content"
+    mock_model.run.assert_called_once_with("test.pdf")
+
+
+def test_parse_file_not_found():
+    with pytest.raises(Exception) as e:
+        IndexModel.parse_file("nonexistent.pdf")
+    assert str(e.value) == "File nonexistent.pdf does not exist"
+
+
+def test_parse_file_error(mocker):
+    mocker.patch("os.path.exists", return_value=True)
+    mocker.patch("aixplain.factories.ModelFactory.get", side_effect=Exception("Model error"))
+
+    with pytest.raises(Exception) as e:
+        IndexModel.parse_file("test.pdf")
+    assert str(e.value) == "Failed to parse file: Model error"
+
+
+def test_upsert_with_file_path(mocker):
+    mock_parse_response = ModelResponse(status=ResponseStatus.SUCCESS, data="parsed content")
+    mock_upsert_response = {"status": "SUCCESS"}
+
+    mocker.patch("aixplain.modules.model.index_model.IndexModel.parse_file", return_value=mock_parse_response)
+    mocker.patch("aixplain.factories.FileFactory.check_storage_type", return_value=StorageType.TEXT)
+
+    with requests_mock.Mocker() as mock:
+        mock.post(execute_url, json=mock_upsert_response, status_code=200)
+        index_model = IndexModel(id=index_id, data=data, name="name", function=Function.SEARCH)
+        response = index_model.upsert("test.pdf")
+
+    assert isinstance(response, ModelResponse)
+    assert response.status == ResponseStatus.SUCCESS
+
+
+def test_upsert_with_invalid_file_path(mocker):
+    mocker.patch("aixplain.modules.model.index_model.IndexModel.parse_file", side_effect=Exception("File not found"))
+
+    index_model = IndexModel(id=index_id, data=data, name="name", function=Function.SEARCH)
+
+    with pytest.raises(Exception) as e:
+        index_model.upsert("nonexistent.pdf")
+    assert str(e.value) == "File not found"
