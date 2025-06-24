@@ -539,8 +539,8 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             raise ValueError("evolve_parameters must be a dictionary, EvolveParam instance, or None")
         start = time.time()
         try:
-            print("Evolve started with parameters: ", evolve_parameters)
-            print("It might take a while...")
+            logging.info(f"Evolve started with parameters: {evolve_parameters}")
+            logging.info("It might take a while...")
             response = self.evolve_async(evolve_parameters)
             if response["status"] == ResponseStatus.FAILED:
                 end = time.time()
@@ -550,8 +550,8 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             end = time.time()
             result = self.sync_poll(poll_url, name="evolve_process", timeout=600)
             result_data = result.data
-
-            if "current_code" in result_data and result_data["current_code"] is not None:
+            current_code = result_data.get("current_code")
+            if current_code is not None:
                 if evolve_parameters.evolve_type == EvolveType.TEAM_TUNING:
                     result_data["evolved_agent"] = from_yaml(
                         result_data["current_code"],

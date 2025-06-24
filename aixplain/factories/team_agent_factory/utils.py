@@ -19,9 +19,7 @@ from aixplain.modules.model.model_parameters import ModelParameters
 GPT_4o_ID = "6646261c6eb563165658bbb1"
 
 
-def build_team_agent(
-    payload: Dict, agents: List[Agent] = None, api_key: Text = config.TEAM_API_KEY
-) -> TeamAgent:
+def build_team_agent(payload: Dict, agents: List[Agent] = None, api_key: Text = config.TEAM_API_KEY) -> TeamAgent:
     """Instantiate a new team agent in the platform."""
     agents_dict = payload["agents"]
     payload_agents = agents
@@ -39,13 +37,9 @@ def build_team_agent(
 
     # Ensure custom classes are instantiated: for compatibility with backend return format
     inspectors = [
-        inspector if isinstance(inspector, Inspector) else Inspector(**inspector)
-        for inspector in payload.get("inspectors", [])
+        inspector if isinstance(inspector, Inspector) else Inspector(**inspector) for inspector in payload.get("inspectors", [])
     ]
-    inspector_targets = [
-        InspectorTarget(target.lower())
-        for target in payload.get("inspectorTargets", [])
-    ]
+    inspector_targets = [InspectorTarget(target.lower()) for target in payload.get("inspectorTargets", [])]
 
     # Get LLMs from tools if present
     supervisor_llm = None
@@ -106,9 +100,7 @@ def build_team_agent(
         api_key=api_key,
         status=AssetStatus(payload["status"]),
     )
-    team_agent.url = urljoin(
-        config.BACKEND_URL, f"sdk/agent-communities/{team_agent.id}/run"
-    )
+    team_agent.url = urljoin(config.BACKEND_URL, f"sdk/agent-communities/{team_agent.id}/run")
 
     # fill up dependencies
     all_tasks = {}
@@ -122,9 +114,7 @@ def build_team_agent(
                 if isinstance(dependency, Text):
                     task_dependency = all_tasks.get(dependency, None)
                     if task_dependency:
-                        team_agent.agents[idx].tasks[i].dependencies[
-                            j
-                        ] = task_dependency
+                        team_agent.agents[idx].tasks[i].dependencies[j] = task_dependency
                     else:
                         team_agent.agents[idx].tasks[i].dependencies[j] = None
 
@@ -134,21 +124,22 @@ def build_team_agent(
 def parse_tool_from_yaml(tool: str) -> ModelTool:
     from aixplain.enums import Function
 
-    if tool.strip() == "translation":
+    tool_name = tool.strip()
+    if tool_name == "translation":
         return ModelTool(
             function=Function.TRANSLATION,
         )
-    elif tool.strip() == "speech-recognition":
+    elif tool_name == "speech-recognition":
         return ModelTool(
             function=Function.SPEECH_RECOGNITION,
         )
-    elif tool.strip() == "text-to-speech":
+    elif tool_name == "text-to-speech":
         return ModelTool(
             function=Function.SPEECH_SYNTHESIS,
         )
-    elif tool.strip() == "llm":
+    elif tool_name == "llm":
         return ModelTool(function=Function.TEXT_GENERATION)
-    elif tool.strip() == "serper_search":
+    elif tool_name == "serper_search":
         return ModelTool(model="65c51c556eb563350f6e1bb1")
     elif tool.strip() == "website_search":
         return ModelTool(model="6736411cf127849667606689")
@@ -160,9 +151,7 @@ def parse_tool_from_yaml(tool: str) -> ModelTool:
         raise Exception(f"Tool {tool} in yaml not found.")
 
 
-def build_team_agent_from_yaml(
-    yaml_code: str, llm_id: str, api_key: str, team_id: Optional[str] = None
-) -> TeamAgent:
+def build_team_agent_from_yaml(yaml_code: str, llm_id: str, api_key: str, team_id: Optional[str] = None) -> TeamAgent:
     import yaml
     from aixplain.factories import AgentFactory, TeamAgentFactory
 
@@ -170,11 +159,7 @@ def build_team_agent_from_yaml(
 
     agents_data = team_config["agents"]
     tasks_data = team_config.get("tasks", [])
-    system_data = (
-        team_config["system"]
-        if "system" in team_config
-        else {"query": "", "name": "Test Team"}
-    )
+    system_data = team_config["system"] if "system" in team_config else {"query": "", "name": "Test Team"}
     team_name = system_data["name"]
 
     # Create agent mapping by name for easier task assignment
@@ -190,22 +175,14 @@ def build_team_agent_from_yaml(
 
             description = f"You are an expert {agent_role}. {agent_backstory} Your primary goal is to {agent_goal}. Use your expertise to ensure the success of your tasks."
             agent_name = agent_name.replace("_", " ")
-            agent_name = (
-                f"{agent_name} agent"
-                if not agent_name.endswith(" agent")
-                else agent_name
-            )
+            agent_name = f"{agent_name} agent" if not agent_name.endswith(" agent") else agent_name
             agent_obj = Agent(
                 id="",
                 name=agent_name,
                 description=description,
                 instructions=description,
                 tasks=[],  # Tasks will be assigned later
-                tools=[
-                    parse_tool_from_yaml(tool)
-                    for tool in agent_info.get("tools", [])
-                    if tool != "language_model"
-                ],
+                tools=[parse_tool_from_yaml(tool) for tool in agent_info.get("tools", []) if tool != "language_model"],
                 llmId=llm_id,
             )
             agents_mapping[agent_name] = agent_obj
@@ -219,11 +196,7 @@ def build_team_agent_from_yaml(
             dependencies = task_info.get("dependencies", [])
             agent_name = task_info["agent"]
             agent_name = agent_name.replace("_", " ")
-            agent_name = (
-                f"{agent_name} agent"
-                if not agent_name.endswith(" agent")
-                else agent_name
-            )
+            agent_name = f"{agent_name} agent" if not agent_name.endswith(" agent") else agent_name
 
             task_obj = AgentTask(
                 name=task_name,

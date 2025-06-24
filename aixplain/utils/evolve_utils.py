@@ -6,35 +6,36 @@ from aixplain.modules.team_agent import TeamAgent
 from aixplain.factories import AgentFactory, TeamAgentFactory
 
 
-def parse_tools(tools: list) -> list:
+def generate_tools_from_str(tools: list) -> list:
     obj_tools = []
     for tool in tools:
-        if tool.strip() == "translation":
+        tool_name = tool.strip()
+        if tool_name == "translation":
             obj_tools.append(
                 AgentFactory.create_model_tool(
                     function=Function.TRANSLATION,
                     supplier=Supplier.GOOGLE,
                 )
             )
-        elif tool.strip() == "speech-recognition":
+        elif tool_name == "speech-recognition":
             obj_tools.append(
                 AgentFactory.create_model_tool(
                     function=Function.SPEECH_RECOGNITION,
                     supplier=Supplier.GOOGLE,
                 )
             )
-        elif tool.strip() == "text-to-speech":
+        elif tool_name == "text-to-speech":
             obj_tools.append(
                 AgentFactory.create_model_tool(
                     function=Function.SPEECH_SYNTHESIS,
                     supplier=Supplier.GOOGLE,
                 )
             )
-        elif tool.strip() == "serper_search":
+        elif tool_name == "serper_search":
             obj_tools.append(AgentFactory.create_model_tool(model="65c51c556eb563350f6e1bb1"))
-        elif tool.strip() == "website_search":
+        elif tool_name == "website_search":
             obj_tools.append(AgentFactory.create_model_tool(model="6736411cf127849667606689"))
-        elif tool.strip() == "website_scrape":
+        elif tool_name == "website_scrape":
             obj_tools.append(AgentFactory.create_model_tool(model="6748e4746eb5633559668a15"))
         else:
             continue
@@ -80,7 +81,7 @@ def from_yaml(
                         name=agent_name.replace("_", " "),
                         description=description,
                         tasks=[],  # Tasks will be assigned later
-                        tools=parse_tools(agent_info.get("tools", [])),
+                        tools=generate_tools_from_str(agent_info.get("tools", [])),
                         llm_id=llm_id,
                     )
                     agents_mapping[agent_name] = agent_obj
@@ -96,7 +97,7 @@ def from_yaml(
                             agent_backstory = agent_info["backstory"]
 
                             description = f"## ROLE\n{agent_role}\n\n## GOAL\n{agent_goal}\n\n## BACKSTORY\n{agent_backstory}"
-                            agent_tools = parse_tools(agent_info.get("tools", []))
+                            agent_tools = generate_tools_from_str(agent_info.get("tools", []))
                             agent_obj = AgentFactory.create(
                                 name=agent_name.replace("_", " "),
                                 description=description,
