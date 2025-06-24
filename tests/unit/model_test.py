@@ -23,7 +23,7 @@ from aixplain.utils import config
 from aixplain.modules import Model
 from aixplain.modules.model.utils import build_payload, call_run_endpoint
 from aixplain.factories import ModelFactory
-from aixplain.enums import Function
+from aixplain.enums import Function, FunctionType
 from urllib.parse import urljoin
 from aixplain.modules.model.response import ModelResponse, ResponseStatus
 from aixplain.modules.model.model_response_streamer import ModelResponseStreamer
@@ -31,6 +31,11 @@ import pytest
 from unittest.mock import patch
 from aixplain.enums.asset_status import AssetStatus
 from aixplain.modules.model.model_parameters import ModelParameters
+from aixplain.modules.model.llm_model import LLM
+from aixplain.modules.model.index_model import IndexModel
+from aixplain.modules.model.utility_model import UtilityModel
+from aixplain.modules.model.integration import Integration, AuthenticationSchema
+from aixplain.modules.model.connection import ConnectionTool, ConnectAction
 
 
 def test_build_payload():
@@ -165,7 +170,7 @@ def test_get_model_error_response():
 
 
 def test_get_assets_from_page_error():
-    from aixplain.factories.model_factory.utils import get_assets_from_page
+    from aixplain.factories.model_factory.mixins.model_list import get_assets_from_page
 
     with requests_mock.Mocker() as mock:
         query = "test-query"
@@ -435,11 +440,11 @@ def test_model_to_dict():
 def test_model_repr():
     # Test with supplier as dict
     model1 = Model(id="test-id", name="Test Model", supplier={"name": "aiXplain"})
-    assert repr(model1).lower() == "<model: test model by aixplain>".lower()
+    assert repr(model1).lower() == "model: test model by aixplain (id=test-id)".lower()
 
     # Test with supplier as string
     model2 = Model(id="test-id", name="Test Model", supplier="aiXplain")
-    assert str(model2).lower() == "<model: test model by aixplain>".lower()
+    assert str(model2).lower() == "model: test model by aixplain (id=test-id)".lower()
 
 
 def test_poll_with_error():
@@ -654,3 +659,235 @@ def test_model_not_supports_streaming(mocker):
     with pytest.raises(Exception) as excinfo:
         model.run(data="test", stream=True)
     assert f"Model '{model.name} ({model.id})' does not support streaming" in str(excinfo.value)
+
+
+@pytest.mark.parametrize(
+    "payload, expected_model_class",
+    [
+        (
+            {
+                "id": "connector-id",
+                "name": "connector-name",
+                "function": {"id": "utilities"},
+                "functionType": "connector",
+                "supplier": "aiXplain",
+                "api_key": "api_key",
+                "pricing": {"price": 10, "currency": "USD"},
+                "params": {},
+                "version": {"id": "1.0"},
+            },
+            Integration,
+        ),
+        (
+            {
+                "id": "llm-id",
+                "name": "llm-name",
+                "function": {"id": "text-generation"},
+                "functionType": "ai",
+                "supplier": "aiXplain",
+                "api_key": "api_key",
+                "pricing": {"price": 10, "currency": "USD"},
+                "params": {},
+                "version": {"id": "1.0"},
+            },
+            LLM,
+        ),
+        (
+            {
+                "id": "index-id",
+                "name": "index-name",
+                "function": {"id": "search"},
+                "functionType": "ai",
+                "supplier": "aiXplain",
+                "api_key": "api_key",
+                "pricing": {"price": 10, "currency": "USD"},
+                "params": {},
+                "version": {"id": "1.0"},
+            },
+            IndexModel,
+        ),
+        (
+            {
+                "id": "utility-id",
+                "name": "utility-name",
+                "function": {"id": "utilities"},
+                "functionType": "utility",
+                "supplier": "aiXplain",
+                "api_key": "api_key",
+                "pricing": {"price": 10, "currency": "USD"},
+                "params": {},
+                "version": {"id": "1.0"},
+            },
+            UtilityModel,
+        ),
+    ],
+)
+def test_create_model_from_response(payload, expected_model_class):
+    from aixplain.factories.model_factory.utils import create_model_from_response
+    from aixplain.enums import FunctionType
+
+    model = create_model_from_response(payload)
+    assert isinstance(model, expected_model_class)
+    assert model.id == payload["id"]
+    assert model.name == payload["name"]
+    assert model.function == Function(payload["function"]["id"])
+    assert model.function_type == FunctionType(payload["functionType"])
+    assert model.api_key == payload["api_key"]
+
+
+@pytest.mark.parametrize(
+    "authentication_schema, name, token, client_id, client_secret",
+    [
+        (AuthenticationSchema.BEARER, "test-name", "test-token", None, None),
+        (AuthenticationSchema.OAUTH, "test-name", None, "test-client-id", "test-client-secret"),
+    ],
+)
+def test_connector_connect(mocker, authentication_schema, name, token, client_id, client_secret):
+    mocker.patch("aixplain.modules.model.integration.Integration.run", return_value={"id": "test-id"})
+    connector = Integration(
+        id="connector-id",
+        name="connector-name",
+        function=Function.UTILITIES,
+        function_type=FunctionType.INTEGRATION,
+        supplier="aiXplain",
+        api_key="api_key",
+        version={"id": "1.0"},
+    )
+    response = connector.connect(
+        authentication_schema=authentication_schema, name=name, token=token, client_id=client_id, client_secret=client_secret
+    )
+    assert response == {"id": "test-id"}
+
+
+def test_connection_init_with_actions(mocker):
+    mocker.patch(
+        "aixplain.modules.model.Model.run",
+        side_effect=[
+            ModelResponse(
+                status=ResponseStatus.SUCCESS,
+                data=[{"displayName": "test-name", "description": "test-description", "name": "test-code"}],
+            ),
+            ModelResponse(
+                status=ResponseStatus.SUCCESS,
+                data=[{"inputs": [{"code": "test-code", "name": "test-name", "description": "test-description"}]}],
+            ),
+        ],
+    )
+    connection = ConnectionTool(
+        id="connection-id",
+        name="connection-name",
+        function=Function.UTILITIES,
+        function_type=FunctionType.CONNECTION,
+        supplier="aiXplain",
+        api_key="api_key",
+        version={"id": "1.0"},
+    )
+    assert connection.id == "connection-id"
+    assert connection.name == "connection-name"
+    assert connection.function == Function.UTILITIES
+    assert connection.function_type == FunctionType.CONNECTION
+    assert connection.api_key == "api_key"
+    assert connection.version == {"id": "1.0"}
+    assert connection.actions is not None
+    assert len(connection.actions) == 1
+    assert connection.actions[0].name == "test-name"
+    assert connection.actions[0].description == "test-description"
+    assert connection.actions[0].code == "test-code"
+
+    action = ConnectAction(code="test-code", name="test-name", description="test-description")
+    inputs = connection.get_action_inputs(action)
+    assert "test-code" in inputs
+    assert inputs["test-code"]["name"] == "test-name"
+    assert inputs["test-code"]["description"] == "test-description"
+
+
+def test_tool_factory(mocker):
+    from aixplain.factories import ToolFactory
+    from aixplain.modules.model.utility_model import BaseUtilityModelParams
+
+    # Utility Model
+    mocker.patch(
+        "aixplain.factories.model_factory.ModelFactory.create_utility_model",
+        return_value=UtilityModel(
+            id="test-id",
+            name="test-name",
+            function=Function.UTILITIES,
+            function_type=FunctionType.AI,
+            api_key="api_key",
+            version={"id": "1.0"},
+        ),
+    )
+
+    def add(aaa: int, bbb: int) -> int:
+        return aaa + bbb
+
+    params = BaseUtilityModelParams(name="My Script Model", description="My Script Model Description", code=add)
+    tool = ToolFactory.create(params=params)
+    assert isinstance(tool, UtilityModel)
+    assert tool.id == "test-id"
+    assert tool.name == "test-name"
+    assert tool.function == Function.UTILITIES
+    assert tool.function_type == FunctionType.AI
+    assert tool.api_key == "api_key"
+    assert tool.version == {"id": "1.0"}
+
+    # Index Model
+    from aixplain.factories.index_factory.utils import AirParams
+
+    params = AirParams(name="My Search Collection", description="My Search Collection Description")
+    mocker.patch(
+        "aixplain.factories.index_factory.IndexFactory.create",
+        return_value=IndexModel(
+            id="test-id",
+            name="test-name",
+            function=Function.SEARCH,
+            function_type=FunctionType.SEARCH,
+            api_key="api_key",
+            version={"id": "1.0"},
+        ),
+    )
+    tool = ToolFactory.create(params=params)
+    assert isinstance(tool, IndexModel)
+    assert tool.id == "test-id"
+    assert tool.name == "test-name"
+    assert tool.function == Function.SEARCH
+    assert tool.function_type == FunctionType.SEARCH
+    assert tool.api_key == "api_key"
+    assert tool.version == {"id": "1.0"}
+
+    # Integration Model
+    mocker.patch("aixplain.modules.model.connection.ConnectionTool._get_actions", return_value=[])
+    mocker.patch(
+        "aixplain.modules.model.integration.Integration.connect",
+        return_value=ModelResponse(status=ResponseStatus.SUCCESS, data={"id": "connection-id"}),
+    )
+
+    def get_mock(id):
+        if id == "67eff5c0e05614297caeef98":
+            return Integration(
+                id="67eff5c0e05614297caeef98",
+                name="test-name",
+                function=Function.UTILITIES,
+                function_type=FunctionType.INTEGRATION,
+                api_key="api_key",
+                version={"id": "1.0"},
+            )
+        elif id == "connection-id":
+            return ConnectionTool(
+                id="connection-id",
+                name="test-name",
+                function=Function.UTILITIES,
+                function_type=FunctionType.CONNECTION,
+                api_key="api_key",
+                version={"id": "1.0"},
+            )
+
+    mocker.patch("aixplain.factories.tool_factory.ToolFactory.get", side_effect=get_mock)
+    tool = ToolFactory.create(integration="67eff5c0e05614297caeef98", name="My Connector 1234", token="slack-token")
+    assert isinstance(tool, ConnectionTool)
+    assert tool.id == "connection-id"
+    assert tool.name == "test-name"
+    assert tool.function == Function.UTILITIES
+    assert tool.function_type == FunctionType.CONNECTION
+    assert tool.api_key == "api_key"
+    assert tool.version == {"id": "1.0"}

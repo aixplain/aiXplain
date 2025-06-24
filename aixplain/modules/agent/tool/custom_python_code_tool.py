@@ -25,6 +25,7 @@ from typing import Text, Union, Callable, Optional
 from aixplain.modules.agent.tool import Tool
 import logging
 from aixplain.enums import AssetStatus
+from aixplain.enums.code_interpeter import CodeInterpreterModel
 
 
 class CustomPythonCodeTool(Tool):
@@ -37,11 +38,13 @@ class CustomPythonCodeTool(Tool):
         super().__init__(name=name or "", description=description, **additional_info)
         self.code = code
         self.status = AssetStatus.ONBOARDED  # TODO: change to DRAFT when we have a way to onboard the tool
+        self.id = CodeInterpreterModel.PYTHON_AZURE
 
         self.validate()
 
     def to_dict(self):
         return {
+            "id": self.id,
             "name": self.name,
             "description": self.description,
             "type": "utility",
@@ -75,7 +78,8 @@ class CustomPythonCodeTool(Tool):
             AssetStatus.ONBOARDED,
         ], "Custom Python Code Tool Error: Status must be DRAFT or ONBOARDED"
 
-
-
     def __repr__(self) -> Text:
         return f"CustomPythonCodeTool(name={self.name})"
+
+    def deploy(self):
+        pass

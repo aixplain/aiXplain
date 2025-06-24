@@ -174,7 +174,7 @@ class ModelTool(Tool):
                 self.description = self.model.description
             elif self.function is not None:
                 try:
-                    self.description = FunctionInputOutput[self.function.value]["spec"]["metaData"]["description"]
+                    self.description = FunctionInputOutput[self.function.value]["spec"]["description"]
                 except Exception:
                     self.description = ""
 
@@ -258,3 +258,6 @@ class ModelTool(Tool):
         supplier_str = self.supplier.value if self.supplier is not None else None
         model_str = self.model.id if self.model is not None else None
         return f"ModelTool(name={self.name}, function={self.function}, supplier={supplier_str}, model={model_str})"
+
+    def deploy(self):
+        pass

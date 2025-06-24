@@ -1,4 +1,4 @@
-from aixplain.enums import EmbeddingModel, Function, Supplier, ResponseStatus, StorageType
+from aixplain.enums import EmbeddingModel, Function, Supplier, ResponseStatus, StorageType, FunctionType
 from aixplain.modules.model import Model
 from aixplain.utils import config
 from aixplain.modules.model.response import ModelResponse
@@ -6,6 +6,11 @@ from typing import Text, Optional, Union, Dict
 from aixplain.modules.model.record import Record
 from enum import Enum
 from typing import List
+from aixplain.enums.splitting_options import SplittingOptions
+import os
+
+from urllib.parse import urljoin
+from aixplain.utils.file_utils import _request_with_retry
 
 
 class IndexFilterOperator(Enum):
@@ -37,6 +42,19 @@ class IndexFilter:
         }
 
 
+class Splitter:
+    def __init__(
+        self,
+        split: bool = False,
+        split_by: SplittingOptions = SplittingOptions.WORD,
+        split_length: int = 1,
+        split_overlap: int = 0,
+    ):
+        self.split = split
+        self.split_by = split_by
+        self.split_length = split_length
+        self.split_overlap = split_overlap
+
 class IndexModel(Model):
     def __init__(
         self,
@@ -49,7 +67,8 @@ class IndexModel(Model):
         function: Optional[Function] = None,
         is_subscribed: bool = False,
         cost: Optional[Dict] = None,
-        embedding_model: Optional[EmbeddingModel] = None,
+        embedding_model: Union[EmbeddingModel, str] = None,
+        function_type: Optional[FunctionType] = FunctionType.SEARCH,
         **additional_info,
     ) -> None:
         """Index Init
@@ -64,7 +83,7 @@ class IndexModel(Model):
             function (Function, optional): model AI function. Defaults to None.
             is_subscribed (bool, optional): Is the user subscribed. Defaults to False.
             cost (Dict, optional): model price. Defaults to None.
-            embedding_model (EmbeddingModel, optional): embedding model. Defaults to None.
+            embedding_model (Union[EmbeddingModel, str], optional): embedding model. Defaults to None.
             **additional_info: Any additional Model info to be saved
         """
         assert function == Function.SEARCH, "Index only supports search function"
@@ -78,11 +97,30 @@ class IndexModel(Model):
             function=function,
             is_subscribed=is_subscribed,
             api_key=api_key,
+            function_type=function_type,
             **additional_info,
         )
         self.url = config.MODELS_RUN_URL
         self.backend_url = config.BACKEND_URL
         self.embedding_model = embedding_model
+        if embedding_model:
+            try:
+                from aixplain.factories import ModelFactory
+
+                model = ModelFactory.get(embedding_model)
+                self.embedding_size = model.additional_info["embedding_size"]
+            except Exception as e:
+                import warnings
+
+                warnings.warn(f"Failed to get embedding size for embedding model {embedding_model}: {e}")
+                self.embedding_size = None
+
+    def to_dict(self) -> Dict:
+        data = super().to_dict()
+        data["embedding_model"] = self.embedding_model
+        data["embedding_size"] = self.embedding_size
+        data["collection_type"] = self.version.split("-", 1)[0]
+        return data
 
     def search(self, query: str, top_k: int = 10, filters: List[IndexFilter] = []) -> ModelResponse:
         """Search for documents in the index
@@ -113,21 +151,24 @@ class IndexModel(Model):
             "data": query or uri,
             "dataType": value_type,
             "filters": [filter.to_dict() for filter in filters],
-            "payload": {"uri": uri, "value_type": value_type, "top_k": top_k},
+            "payload": {"uri": uri, "value_type": value_type, "top_k": top_k}
         }
         return self.run(data=data)
 
-    def upsert(self, documents: List[Record]) -> ModelResponse:
+    def upsert(self, documents: List[Record], splitter: Optional[Splitter] = None) -> ModelResponse:
         """Upsert documents into the index
 
         Args:
             documents (List[Record]): List of documents to be upserted
+            splitter (Splitter, optional): Splitter to be applied. Defaults to None.
 
         Returns:
             ModelResponse: Response from the indexing service
 
-        Example:
+        Examples:
             index_model.upsert([Record(value="Hello, world!", value_type="text", uri="", id="1", attributes={})])
+            index_model.upsert([Record(value="Hello, world!", value_type="text", uri="", id="1", attributes={})], splitter=Splitter(split=True, split_by=SplittingOptions.WORD, split_length=1, split_overlap=0))
+            Splitter in the above example is optional and can be used to split the documents into smaller chunks.
         """
         # Validate documents
         for doc in documents:
@@ -135,7 +176,19 @@ class IndexModel(Model):
         # Convert documents to payloads
         payloads = [doc.to_dict() for doc in documents]
         # Build payload
-        data = {"action": "ingest", "data": payloads}
+        data = {
+            "action": "ingest",
+            "data": payloads,
+        }
+        if splitter and splitter.split:
+            data["additional_params"] = {
+                "splitter": {
+                    "split": splitter.split,
+                    "split_by": splitter.split_by,
+                    "split_length": splitter.split_length,
+                    "split_overlap": splitter.split_overlap,
+                }
+            }
         # Run the indexing service
         response = self.run(data=data)
         if response.status == ResponseStatus.SUCCESS:

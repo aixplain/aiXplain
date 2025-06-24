@@ -15,13 +15,15 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
-
+import os
+from aixplain.modules.pipeline import Pipeline
 import json
 import pytest
 from aixplain.factories import PipelineFactory
 from aixplain.modules import Pipeline
 from uuid import uuid4
 from aixplain import aixplain_v2 as v2
+
 
 @pytest.mark.parametrize("PipelineFactory", [PipelineFactory, v2.Pipeline])
 def test_create_pipeline_from_json(PipelineFactory):
@@ -75,3 +77,4 @@ def test_create_pipeline_wrong_path(PipelineFactory):
 
     with pytest.raises(Exception):
         PipelineFactory.create(name=pipeline_name, pipeline="/")
+

@@ -12,6 +12,7 @@ from aixplain.modules.agent.tool.sql_tool import SQLTool
 from aixplain.modules.agent import Agent
 from aixplain.modules.agent.agent_task import AgentTask
 from aixplain.factories import ModelFactory, PipelineFactory
+import os
 
 
 @pytest.fixture
@@ -143,7 +144,7 @@ def test_build_tool_error_cases(tool_dict, expected_error):
                 "name": "Test SQL",
                 "description": "Test SQL",
                 "parameters": [
-                    {"name": "database", "value": "test_db.db"},
+                    {"name": "database", "value": "s3://test_db.db"},
                     {"name": "schema", "value": "public"},
                     {"name": "tables", "value": "table1,table2"},
                     {"name": "enable_commit", "value": True},
@@ -153,7 +154,7 @@ def test_build_tool_error_cases(tool_dict, expected_error):
             {
                 "name": "Test SQL",
                 "description": "Test SQL",
-                "database": "test_db.db",
+                "database": "s3://test_db.db",
                 "schema": "public",
                 "tables": ["table1", "table2"],
                 "enable_commit": True,
@@ -166,7 +167,7 @@ def test_build_tool_error_cases(tool_dict, expected_error):
                 "name": "Test SQL",
                 "description": "Test SQL with string enable_commit",
                 "parameters": [
-                    {"name": "database", "value": "test_db.db"},
+                    {"name": "database", "value": "s3://test_db.db"},
                     {"name": "schema", "value": "public"},
                     {"name": "tables", "value": "table1"},
                     {"name": "enable_commit", "value": True},
@@ -176,7 +177,7 @@ def test_build_tool_error_cases(tool_dict, expected_error):
             {
                 "name": "Test SQL",
                 "description": "Test SQL with string enable_commit",
-                "database": "test_db.db",
+                "database": "s3://test_db.db",
                 "schema": "public",
                 "tables": ["table1"],
                 "enable_commit": True,

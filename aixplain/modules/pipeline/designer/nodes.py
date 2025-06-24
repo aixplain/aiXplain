@@ -1,4 +1,5 @@
 from typing import List, Union, Type, TYPE_CHECKING, Optional
+from enum import Enum
 
 from aixplain.modules import Model
 from aixplain.enums import DataType, Function
@@ -79,9 +80,7 @@ class AssetNode(Node[TI, TO], LinkableMixin, OutputableMixin):
 
         if self.function:
             if self.asset.function.value != self.function:
-                raise ValueError(
-                    f"Function {self.function} is not supported by asset {self.asset_id}"
-                )
+                raise ValueError(f"Function {self.function} is not supported by asset {self.asset_id}")
         else:
             self.function = self.asset.function.value
 
@@ -144,7 +143,11 @@ class AssetNode(Node[TI, TO], LinkableMixin, OutputableMixin):
         obj["supplier"] = self.supplier
         obj["version"] = self.version
         obj["assetType"] = self.assetType
-        obj["functionType"] = self.functionType
+        # Handle functionType as enum or string
+        if isinstance(self.functionType, Enum):
+            obj["functionType"] = self.functionType.value
+        else:
+            obj["functionType"] = self.functionType
         obj["type"] = self.type
         return obj
 
@@ -409,13 +412,14 @@ class Decision(Node[DecisionInputs, DecisionOutputs], LinkableMixin):
         link = super().link(to_node, from_param, to_param)
 
         if isinstance(from_param, str):
-            assert from_param in self.outputs, f"Decision node has no input param called {from_param}, node linking validation is broken, please report this issue."
+            assert (
+                from_param in self.outputs
+            ), f"Decision node has no input param called {from_param}, node linking validation is broken, please report this issue."
             from_param = self.outputs[from_param]
 
         if from_param.code == "data":
             if not self.inputs.passthrough.link_:
-                raise ValueError("To able to infer data source, "
-                                 "passthrough input param should be linked first.")
+                raise ValueError("To able to infer data source, " "passthrough input param should be linked first.")
 
             # Infer data source from the passthrough node
             link.data_source_id = self.inputs.passthrough.link_.from_node.number

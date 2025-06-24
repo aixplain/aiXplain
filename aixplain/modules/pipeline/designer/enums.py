@@ -1,10 +1,9 @@
 from enum import Enum
-
+from aixplain.enums import FunctionType
 
 class RouteType(str, Enum):
     CHECK_TYPE = "checkType"
     CHECK_VALUE = "checkValue"
-
 
 class Operation(str, Enum):
     GREATER_THAN = "greaterThan"
@@ -28,15 +27,6 @@ class NodeType(str, Enum):
 
 class AssetType(str, Enum):
     MODEL = "MODEL"
-
-
-class FunctionType(str, Enum):
-    AI = "ai"
-    SEGMENTOR = "segmentor"
-    RECONSTRUCTOR = "reconstructor"
-    UTILITY = "utility"
-    METRIC = "metric"
-
 
 class ParamType:
     INPUT = "INPUT"
