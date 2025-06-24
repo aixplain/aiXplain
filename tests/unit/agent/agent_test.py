@@ -18,21 +18,21 @@ from aixplain.modules.agent.agent_response_data import AgentResponseData
 
 
 def test_fail_no_data_query():
-    agent = Agent("123", "Test Agent(-)", "Sample Description", "Test Agent Role")
+    agent = Agent("123", "Test Agent(-)", "Sample Description", instructions="Test Agent Role")
     with pytest.raises(Exception) as exc_info:
         agent.run_async()
     assert str(exc_info.value) == "Either 'data' or 'query' must be provided."
 
 
 def test_fail_query_must_be_provided():
-    agent = Agent("123", "Test Agent", "Sample Description", "Test Agent Role")
+    agent = Agent("123", "Test Agent", "Sample Description", instructions="Test Agent Role")
     with pytest.raises(Exception) as exc_info:
         agent.run_async(data={})
     assert str(exc_info.value) == "When providing a dictionary, 'query' must be provided."
 
 
 def test_fail_query_as_text_when_content_not_empty():
-    agent = Agent("123", "Test Agent", "Sample Description", "Test Agent Role")
+    agent = Agent("123", "Test Agent", "Sample Description", instructions="Test Agent Role")
     with pytest.raises(Exception) as exc_info:
         agent.run_async(
             data={"query": "https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.wav"},
@@ -45,7 +45,7 @@ def test_fail_query_as_text_when_content_not_empty():
 
 
 def test_fail_content_exceed_maximum():
-    agent = Agent("123", "Test Agent", "Sample Description", "Test Agent Role")
+    agent = Agent("123", "Test Agent", "Sample Description", instructions="Test Agent Role")
     with pytest.raises(Exception) as exc_info:
         agent.run_async(
             data={"query": "Transcribe the audios:"},
@@ -60,14 +60,14 @@ def test_fail_content_exceed_maximum():
 
 
 def test_fail_key_not_found():
-    agent = Agent("123", "Test Agent", "Sample Description", "Test Agent Role")
+    agent = Agent("123", "Test Agent", "Sample Description", instructions="Test Agent Role")
     with pytest.raises(Exception) as exc_info:
         agent.run_async(data={"query": "Translate the text: {{input1}}"}, content={"input2": "Hello, how are you?"})
     assert str(exc_info.value) == "Key 'input2' not found in query."
 
 
 def test_success_query_content():
-    agent = Agent("123", "Test Agent(-)", "Sample Description", "Test Agent Role")
+    agent = Agent("123", "Test Agent(-)", "Sample Description", instructions="Test Agent Role")
     with requests_mock.Mocker() as mock:
         url = agent.url
         headers = {"x-api-key": config.TEAM_API_KEY, "Content-Type": "application/json"}
@@ -388,7 +388,7 @@ def test_save_success(mock_model_factory_get):
 
 
 def test_run_success():
-    agent = Agent("123", "Test Agent(-)", "Sample Description", "Test Agent Role")
+    agent = Agent("123", "Test Agent(-)", "Sample Description", instructions="Test Agent Role")
     url = urljoin(config.BACKEND_URL, f"sdk/agents/{agent.id}/run")
     agent.url = url
     with requests_mock.Mocker() as mock:
@@ -406,7 +406,7 @@ def test_run_success():
 
 
 def test_run_variable_error():
-    agent = Agent("123", "Test Agent", "Agent description", "Translate the input data into {target_language}")
+    agent = Agent("123", "Test Agent", "Agent description", instructions="Translate the input data into {target_language}")
     with pytest.raises(Exception) as exc_info:
         agent.run_async(data={"query": "Hello, how are you?"}, output_format=OutputFormat.MARKDOWN)
     assert str(exc_info.value) == (
@@ -460,6 +460,193 @@ def test_agent_default_api_key():
     assert agent.api_key == config.TEAM_API_KEY
     # Check that the tool has the default api_key
     assert agent.tools[0].api_key == config.TEAM_API_KEY
+
+
+def test_agent_optional_instructions():
+    """Test that Agent can be created with optional instructions"""
+    agent = Agent(id="123", name="Test Agent", description="Test Description")
+
+    # Check that the agent was created successfully
+    assert agent.id == "123"
+    assert agent.name == "Test Agent"
+    assert agent.description == "Test Description"
+    assert agent.instructions is None
+
+
+def test_agent_factory_create_without_instructions():
+    """Test AgentFactory.create() payload when no instructions are provided"""
+    from aixplain.factories import AgentFactory
+    from unittest.mock import patch
+    import requests_mock
+    from urllib.parse import urljoin
+    from aixplain.utils import config
+
+    with patch("aixplain.factories.model_factory.ModelFactory.get") as mock_model_factory_get:
+        from aixplain.enums import Function
+        from aixplain.modules.model import Model
+
+        # Mock the LLM model
+        mock_model = Model(
+            id="6646261c6eb563165658bbb1",
+            name="Test LLM",
+            description="Test LLM Description",
+            function=Function.TEXT_GENERATION,
+        )
+        mock_model_factory_get.return_value = mock_model
+
+        with requests_mock.Mocker() as mock:
+            url = urljoin(config.BACKEND_URL, "sdk/agents")
+            headers = {"x-api-key": config.TEAM_API_KEY}
+
+            # Mock response from server
+            ref_response = {
+                "id": "123",
+                "name": "Test Agent",
+                "description": "Test Agent Description",
+                "role": "Test Agent Description",  # Should fallback to description
+                "teamId": "123",
+                "version": "1.0",
+                "status": "draft",
+                "llmId": "6646261c6eb563165658bbb1",
+                "assets": [],
+            }
+            mock.post(url, headers=headers, json=ref_response)
+
+            # Mock LLM GET request
+            url = urljoin(config.BACKEND_URL, "sdk/models/6646261c6eb563165658bbb1")
+            model_ref_response = {
+                "id": "6646261c6eb563165658bbb1",
+                "name": "Test LLM",
+                "description": "Test LLM Description",
+                "function": {"id": "text-generation"},
+                "supplier": "openai",
+                "version": {"id": "1.0"},
+                "status": "onboarded",
+                "pricing": {"currency": "USD", "value": 0.0},
+            }
+            mock.get(url, headers=headers, json=model_ref_response)
+
+            # Create agent without instructions
+            agent = AgentFactory.create(
+                name="Test Agent",
+                description="Test Agent Description",
+                # No instructions parameter
+                llm_id="6646261c6eb563165658bbb1",
+            )
+
+            # Verify the agent was created with fallback instructions
+            assert agent.instructions == "Test Agent Description"  # Should fallback to description
+            assert agent.name == "Test Agent"
+            assert agent.description == "Test Agent Description"
+
+            # Check the request payload that was sent
+            sent_request = mock.request_history[0]
+            sent_payload = sent_request.json()
+
+            # The role should be set to description when instructions is None
+            assert sent_payload["role"] == "Test Agent Description"
+            assert sent_payload["description"] == "Test Agent Description"
+
+
+def test_agent_to_dict_payload_without_instructions():
+    """Test Agent.to_dict() payload when instructions is None"""
+    # Create agent with no instructions
+    agent = Agent(id="123", name="Test Agent", description="Test Description")
+
+    # Get the payload
+    payload = agent.to_dict()
+
+    # Check that role falls back to description when instructions is None
+    assert payload["role"] == "Test Description"  # Should fallback to description
+    assert payload["description"] == "Test Description"
+    assert agent.instructions is None
+
+
+def test_agent_to_dict_payload_with_instructions():
+    """Test Agent.to_dict() payload when instructions is provided"""
+    # Create agent with instructions
+    agent = Agent(id="123", name="Test Agent", description="Test Description", instructions="Custom Instructions")
+
+    # Get the payload
+    payload = agent.to_dict()
+
+    # Check that role uses instructions when provided
+    assert payload["role"] == "Custom Instructions"
+    assert payload["description"] == "Test Description"
+    assert agent.instructions == "Custom Instructions"
+
+
+def test_agent_factory_create_with_explicit_none_instructions():
+    """Test AgentFactory.create() payload when instructions=None is explicitly passed"""
+    from aixplain.factories import AgentFactory
+    from unittest.mock import patch
+    import requests_mock
+    from urllib.parse import urljoin
+    from aixplain.utils import config
+
+    with patch("aixplain.factories.model_factory.ModelFactory.get") as mock_model_factory_get:
+        from aixplain.enums import Function
+        from aixplain.modules.model import Model
+
+        # Mock the LLM model
+        mock_model = Model(
+            id="6646261c6eb563165658bbb1",
+            name="Test LLM",
+            description="Test LLM Description",
+            function=Function.TEXT_GENERATION,
+        )
+        mock_model_factory_get.return_value = mock_model
+
+        with requests_mock.Mocker() as mock:
+            url = urljoin(config.BACKEND_URL, "sdk/agents")
+            headers = {"x-api-key": config.TEAM_API_KEY}
+
+            # Mock response from server
+            ref_response = {
+                "id": "123",
+                "name": "Test Agent",
+                "description": "Test Agent Description",
+                "role": "Test Agent Description",  # Should fallback to description
+                "teamId": "123",
+                "version": "1.0",
+                "status": "draft",
+                "llmId": "6646261c6eb563165658bbb1",
+                "assets": [],
+            }
+            mock.post(url, headers=headers, json=ref_response)
+
+            # Mock LLM GET request
+            url = urljoin(config.BACKEND_URL, "sdk/models/6646261c6eb563165658bbb1")
+            model_ref_response = {
+                "id": "6646261c6eb563165658bbb1",
+                "name": "Test LLM",
+                "description": "Test LLM Description",
+                "function": {"id": "text-generation"},
+                "supplier": "openai",
+                "version": {"id": "1.0"},
+                "status": "onboarded",
+                "pricing": {"currency": "USD", "value": 0.0},
+            }
+            mock.get(url, headers=headers, json=model_ref_response)
+
+            # Create agent with explicit instructions=None
+            agent = AgentFactory.create(
+                name="Test Agent",
+                description="Test Agent Description",
+                instructions=None,  # Explicitly set to None
+                llm_id="6646261c6eb563165658bbb1",
+            )
+
+            # Verify the agent was created with fallback instructions
+            assert agent.instructions == "Test Agent Description"  # Should fallback to description
+
+            # Check the request payload that was sent
+            sent_request = mock.request_history[0]
+            sent_payload = sent_request.json()
+
+            # The role should be set to description when instructions is None
+            assert sent_payload["role"] == "Test Agent Description"
+            assert sent_payload["description"] == "Test Agent Description"
 
 
 def test_agent_multiple_tools_api_key():
@@ -632,7 +819,6 @@ def test_custom_python_code_tool_validation_missing_code():
         with pytest.raises(AssertionError) as exc_info:
             CustomPythonCodeTool(code="", description="Test description")
         assert str(exc_info.value) == "Custom Python Code Tool Error: Code is required"
-
 
 
 @patch("aixplain.factories.model_factory.ModelFactory.get")
