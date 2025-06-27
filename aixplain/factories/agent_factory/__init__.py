@@ -164,6 +164,14 @@ class AgentFactory:
         return agent
 
     @classmethod
+    def create_from_dict(cls, dict: Dict) -> Agent:
+        """Create an agent from a dictionary."""
+        agent = Agent.from_dict(dict)
+        agent.validate(raise_exception=True)
+        agent.url = urljoin(config.BACKEND_URL, f"sdk/agents/{agent.id}/run")
+        return agent
+
+    @classmethod
     def create_task(
         cls, name: Text, description: Text, expected_output: Text, dependencies: Optional[List[Text]] = None
     ) -> AgentTask:
