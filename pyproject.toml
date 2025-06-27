@@ -10,7 +10,7 @@ namespaces = true
 
 [project]
 name = "aiXplain"
-version = "0.2.26"
+version = "0.2.32"
 description = "aiXplain SDK adds AI functions to software."
 readme = "README.md"
 requires-python = ">=3.5, <4"
@@ -18,7 +18,8 @@ license = { text = "Apache License, Version 2.0: http://www.apache.org/licenses/
 authors = [
   {email = "thiago.ferreira@aixplain.com"},
   {email = "krishna.durai@aixplain.com"},
-  {email = "lucas.pavanelli@aixplain.com"}
+  {email = "lucas.pavanelli@aixplain.com"},
+  {email = "ahmet.gunduz@aixplain.com"}
 ]
 classifiers = [
     "Development Status :: 2 - Pre-Alpha",
@@ -36,6 +37,8 @@ classifiers = [
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
@@ -45,7 +48,7 @@ classifiers = [
 dependencies = [
     "requests>=2.1.0", 
     "tqdm>=4.1.0", 
-    "pandas>=1.2.1", 
+    "pandas>=2.3.0", 
     "python-dotenv>=1.0.0", 
     "validators>=0.20.0", 
     "filetype>=1.2.0",
@@ -71,7 +74,7 @@ model-builder = [
 ]
 test = [
     "pytest>=6.1.0",
-    "docker>=6.1.3",
     "requests-mock>=1.11.0",
-    "pytest-mock>=3.10.0"
+    "pytest-mock>=3.10.0",
+    "coverage>=7.9.0"
 ]
