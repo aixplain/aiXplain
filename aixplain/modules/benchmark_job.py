@@ -3,6 +3,7 @@ from typing import Text, Dict, Optional
 from aixplain.utils import config
 from urllib.parse import urljoin
 import pandas as pd
+import json
 from pathlib import Path
 from aixplain.utils.request_utils import _request_with_retry
 from aixplain.utils.file_utils import save_file
@@ -109,6 +110,10 @@ class BenchmarkJob:
             scores = {}
             for iteration_info in iterations:
                 model_id = iteration_info["pipeline"]
+                pipeline_json = json.loads(iteration_info["pipelineJson"])
+                if "benchmark" in pipeline_json:
+                    model_id = pipeline_json["benchmark"]["displayName"]
+
                 model_info = {
                     "creditsUsed": round(iteration_info.get("credits", 0), 5),
                     "timeSpent": round(iteration_info.get("runtime", 0), 2),

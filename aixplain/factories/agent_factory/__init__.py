@@ -92,13 +92,6 @@ class AgentFactory:
             # Use default GPT-4o if no LLM specified
             llm = get_llm_instance("669a63646eb56306647e1091", api_key=api_key)
 
-        if instructions is None:
-            warnings.warn(
-                "Use `instructions` to define the **system prompt**. "
-                "Use `description` to provide a **short summary** of the agent for metadata and dashboard display. "
-                "Note: In upcoming releases, `instructions` will become a required parameter.",
-                UserWarning,
-            )
         warnings.warn(
             "Use `llm` to define the large language model (aixplain.modules.model.llm_model.LLM) to be used as agent. "
             "Use `llm_id` to provide the model ID of the large language model to be used as agent. "
