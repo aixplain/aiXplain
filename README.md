@@ -194,6 +194,6 @@ aiXplain is the leading AI platform for building, deploying, and managing AI sol
   
 **Ready to build the future with AI?**
 
-[**Get Started →**](https://docs.aixplain.com/getting-started/) | [**Explore Models →**](https://platform.aixplain.com/discovery/models) | [**Join Community →**](https://www.linkedin.com/company/aixplain/)
+[**Get Started →**](https://docs.aixplain.com/getting-started/) | [**Explore Models →**](https://platform.aixplain.com/discovery/models) | [**Join Community →**](https://discord.com/invite/T5dCmjRSYA)
 
 </div>
