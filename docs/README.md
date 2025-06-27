@@ -43,14 +43,22 @@ export TEAM_API_KEY=your_api_key_here
 
 ## 🏃‍♂️ Quick Start
 ```python
-from aixplain.factories import ModelFactory
+agent = AgentFactory.create(
+    name="Google Search Agent",
+    description="A search agent",
+    instructions="Use Google Search to answer queries.",
+    tools=[
+        # Google Search (Serp)
+        AgentFactory.create_model_tool("65c51c556eb563350f6e1bb1")])
 
-# Run a model
-model = ModelFactory.get("61dc52976eb5634cf06e97cc")
-result = model.run("Hello, how are you today?")
+response = agent.run("What's the latest AI news?").data.output
+print(response)
+
+agent.deploy()
 ```
 
 ## 🔗 Platform Links
 - **Platform**: [platform.aixplain.com](https://platform.aixplain.com)
-- **Models**: [platform.aixplain.com/discovery/models](https://platform.aixplain.com/discovery/models)
+- **Discover**: [platform.aixplain.com/discover](https://platform.aixplain.com/discover)
+- **Docs**: [docs.aixplain.com/](https://docs.aixplain.com/)
 - **Support**: [GitHub Issues](https://github.com/aixplain/aiXplain/issues)
