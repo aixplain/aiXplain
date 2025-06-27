@@ -28,8 +28,6 @@ The aiXplain SDK is a comprehensive Python library that empowers developers to i
 - **⚡ Benchmark**: Compare AI systems using comprehensive datasets and metrics
 - **🛠️ Design**: Create and deploy custom AI pipelines with our visual designer
 - **🎯 FineTune**: Enhance pre-trained models with your data for optimal performance
-- **👥 Collaborate**: Built-in team management and collaboration tools
-- **🏢 Enterprise Ready**: Scalable solutions for production environments
 
 ## 📦 Installation
 
