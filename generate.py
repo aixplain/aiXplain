@@ -1,12 +1,11 @@
 import re
+import os
 import requests
 from urllib.parse import urljoin
 from jinja2 import Environment, BaseLoader
 
-from aixplain.utils import config
-
-# Note: We don't import Function from aixplain.enums here to avoid circular
-# dependency. The UTILITIES check is done with string comparison instead
+# Note: We don't import anything from aixplain.* here to avoid circular
+# dependency. All configuration is handled via environment variables.
 
 
 def enumify(s):
@@ -28,6 +27,13 @@ def none_to_none(value):
     if value is None:
         return "None"
     return value
+
+
+def escape_quotes(value):
+    """Escape double quotes in strings for Python code generation"""
+    if value is None:
+        return ""
+    return value.replace('"', '\\"')
 
 
 SEGMENTOR_FUNCTIONS = [
@@ -99,7 +105,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "{{ function.id }}",
             "name": "{{ function.name }}",
-            "description": "{{ function.description }}",
+            "description": "{{ function.metaData.description|escape_quotes }}",
             "params": [
                 {% for param in function.params %}
                 {
@@ -269,13 +275,24 @@ class Pipeline(DefaultPipeline):
 """
 
 
+def get_config():
+    """Get configuration from environment variables"""
+    return {
+        'TEAM_API_KEY': os.getenv('TEAM_API_KEY'),
+        'BACKEND_URL': os.getenv('BACKEND_URL', 'https://api.aixplain.com/'),
+    }
+
+
 def api_request(path: str):
     """
     Fetch functions from the backend
     """
-    api_key = config.TEAM_API_KEY
+    config = get_config()
+    api_key = config['TEAM_API_KEY']
+    backend_url = config['BACKEND_URL']
 
-    backend_url = config.BACKEND_URL
+    if not api_key:
+        raise ValueError("TEAM_API_KEY environment variable is required")
 
     url = urljoin(backend_url, f"sdk/{path}")
     headers = {
@@ -416,6 +433,7 @@ if __name__ == "__main__":
     )
     env.filters["enumify"] = enumify
     env.filters["none_to_none"] = none_to_none
+    env.filters["escape_quotes"] = escape_quotes
 
     # Generate pipeline module
     pipeline_template = env.from_string(PIPELINE_MODULE_TEMPLATE)
