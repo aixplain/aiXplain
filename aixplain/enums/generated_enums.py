@@ -9,11 +9,11 @@ from aixplain.base.parameters import BaseParameters, Parameter
 # Function enum with static values
 class Function(str, Enum):
     ACTIVITY_DETECTION = "activity-detection"
-    TEXT_DETECTION = "text-detection"
     SCRIPT_EXECUTION = "script-execution"
+    TEXT_DETECTION = "text-detection"
     AUDIO_SOURCE_SEPARATION = "audio-source-separation"
-    IMAGE_IMPAINTING = "image-impainting"
     MULTI_CLASS_TEXT_CLASSIFICATION = "multi-class-text-classification"
+    IMAGE_IMPAINTING = "image-impainting"
     SCENE_DETECTION = "scene-detection"
     ZERO_SHOT_CLASSIFICATION = "zero-shot-classification"
     AUDIO_INTENT_DETECTION = "audio-intent-detection"
@@ -59,8 +59,8 @@ class Function(str, Enum):
     SEMANTIC_SEGMENTATION = "semantic-segmentation"
     AUDIO_GENERATION_METRIC = "audio-generation-metric"
     AUTO_MASK_GENERATION = "auto-mask-generation"
-    TEXT_TO_AUDIO = "text-to-audio"
     FACT_CHECKING = "fact-checking"
+    TEXT_TO_AUDIO = "text-to-audio"
     TABLE_QUESTION_ANSWERING = "table-question-answering"
     CLASSIFICATION_METRIC = "classification-metric"
     TEXT_GENERATION_METRIC = "text-generation-metric"
@@ -81,6 +81,9 @@ class Function(str, Enum):
     INTENT_CLASSIFICATION = "intent-classification"
     IMAGE_LABEL_DETECTION = "image-label-detection"
     SUMMARIZATION = "summarization"
+    TOPIC_CLASSIFICATION = "topic-classification"
+    TEXT_DENORMALIZATION = "text-denormalization"
+    SPEECH_TRANSLATION = "speech-translation"
     SPEECH_SYNTHESIS = "speech-synthesis"
     SPEECH_NON_SPEECH_CLASSIFICATION = "speech-non-speech-classification"
     OBJECT_DETECTION = "object-detection"
@@ -89,49 +92,46 @@ class Function(str, Enum):
     SELECT_SUPPLIER_FOR_TRANSLATION = "select-supplier-for-translation"
     KEYWORD_EXTRACTION = "keyword-extraction"
     TEXT_GENERATION_METRIC_DEFAULT = "text-generation-metric-default"
-    TEXT_SPAM_DETECTION = "text-spam-detection"
-    VIDEO_UNDERSTANDING = "video-understanding"
-    DEPTH_ESTIMATION = "depth-estimation"
     TOKEN_CLASSIFICATION = "token-classification"
+    DEPTH_ESTIMATION = "depth-estimation"
     INSTANCE_SEGMENTATION = "instance-segmentation"
     REFERENCELESS_TEXT_GENERATION_METRIC_DEFAULT = "referenceless-text-generation-metric-default"
     SUBTITLING_TRANSLATION = "subtitling-translation"
     VISEME_GENERATION = "viseme-generation"
     METRIC_AGGREGATION = "metric-aggregation"
     LANGUAGE_IDENTIFICATION = "language-identification"
-    EMOTION_DETECTION = "emotion-detection"
     AUDIO_FORCED_ALIGNMENT = "audio-forced-alignment"
+    EMOTION_DETECTION = "emotion-detection"
     DIACRITIZATION = "diacritization"
     LOGLIKELIHOOD = "loglikelihood"
     OFFENSIVE_LANGUAGE_IDENTIFICATION = "offensive-language-identification"
-    REFERENCELESS_AUDIO_GENERATION_METRIC = "referenceless-audio-generation-metric"
     EXPRESSION_DETECTION = "expression-detection"
     TEXT_CONTENT_MODERATION = "text-content-moderation"
-    AUDIO_TRANSCRIPT_IMPROVEMENT = "audio-transcript-improvement"
+    REFERENCELESS_AUDIO_GENERATION_METRIC = "referenceless-audio-generation-metric"
     TEXT_CLASSIFICATION = "text-classification"
-    VIDEO_FORCED_ALIGNMENT = "video-forced-alignment"
     MULTI_LABEL_TEXT_CLASSIFICATION = "multi-label-text-classification"
-    TOPIC_CLASSIFICATION = "topic-classification"
+    VIDEO_FORCED_ALIGNMENT = "video-forced-alignment"
     SPEECH_EMBEDDING = "speech-embedding"
     AUDIO_TRANSCRIPT_ANALYSIS = "audio-transcript-analysis"
     SPEAKER_DIARIZATION_VIDEO = "speaker-diarization-video"
     PARAPHRASING = "paraphrasing"
     TEXT_SUMMARIZATION = "text-summarization"
-    TEXT_DENORMALIZATION = "text-denormalization"
-    SPEECH_TRANSLATION = "speech-translation"
-    VOICE_ACTIVITY_DETECTION = "voice-activity-detection"
     SENTIMENT_ANALYSIS = "sentiment-analysis"
     IMAGE_COMPRESSION = "image-compression"
     TEXT_NORMALIZATION = "text-normalization"
     TEXT_GENERATION = "text-generation"
     TRANSLATION = "translation"
+    TEXT_SPAM_DETECTION = "text-spam-detection"
+    VIDEO_UNDERSTANDING = "video-understanding"
+    AUDIO_TRANSCRIPT_IMPROVEMENT = "audio-transcript-improvement"
+    VOICE_ACTIVITY_DETECTION = "voice-activity-detection"
     SUBTITLING = "subtitling"
     SPEECH_RECOGNITION = "speech-recognition"
     SPLIT_ON_LINEBREAK = "split-on-linebreak"
-    ASR_QUALITY_ESTIMATION = "asr-quality-estimation"
     SEARCH = "search"
-    TEXT_SEGMENATION = "text-segmenation"
+    ASR_QUALITY_ESTIMATION = "asr-quality-estimation"
     ASR_AGE_CLASSIFICATION = "asr-age-classification"
+    TEXT_SEGMENATION = "text-segmenation"
     IMAGE_MANIPULATION = "image-manipulation"
     ENTITY_SENTIMENT_ANALYSIS = "entity-sentiment-analysis"
     GUARDRAILS = "guardrails"
@@ -176,7 +176,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "activity-detection",
             "name": "Activity Detection",
-            "description": "",
+            "description": "detection of the presence or absence of human speech, used in speech processing.",
             "params": [
                 {
                     "code": "image",
@@ -193,21 +193,21 @@ FunctionInputOutput = {
                     "defaultValue": []
                 }            ]
         }
-    },    "text-detection": {
+    },    "script-execution": {
         "input": { 
-"image" 
+"text" 
         },
         "output": { 
 "text" 
         },
         "spec": {
-            "id": "text-detection",
-            "name": "Text Detection",
-            "description": "",
+            "id": "script-execution",
+            "name": "Script Execution",
+            "description": "Script Execution refers to the process of running a set of programmed instructions or code within a computing environment, enabling the automated performance of tasks, calculations, or operations as defined by the script.",
             "params": [
                 {
-                    "code": "image",
-                    "dataType": "image",
+                    "code": "text",
+                    "dataType": "text",
                     "required": True,
                     "multipleValues": False,
                     "defaultValues": [],
@@ -220,21 +220,21 @@ FunctionInputOutput = {
                     "defaultValue": []
                 }            ]
         }
-    },    "script-execution": {
+    },    "text-detection": {
         "input": { 
-"text" 
+"image" 
         },
         "output": { 
 "text" 
         },
         "spec": {
-            "id": "script-execution",
-            "name": "Script Execution",
-            "description": "",
+            "id": "text-detection",
+            "name": "Text Detection",
+            "description": "detect text regions in the complex background and label them with bounding boxes.",
             "params": [
                 {
-                    "code": "text",
-                    "dataType": "text",
+                    "code": "image",
+                    "dataType": "image",
                     "required": True,
                     "multipleValues": False,
                     "defaultValues": [],
@@ -257,7 +257,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "audio-source-separation",
             "name": "Audio Source Separation",
-            "description": "",
+            "description": "Audio Source Separation is the process of separating a mixture (e.g. a pop band recording) into isolated sounds from individual sources (e.g. just the lead vocals).",
             "params": [
                 {
                     "code": "audio",
@@ -274,33 +274,6 @@ FunctionInputOutput = {
                     "defaultValue": []
                 }            ]
         }
-    },    "image-impainting": {
-        "input": { 
- 
-        },
-        "output": { 
-"image" 
-        },
-        "spec": {
-            "id": "image-impainting",
-            "name": "Image Impainting",
-            "description": "",
-            "params": [
-                {
-                    "code": "image",
-                    "dataType": "image",
-                    "required": False,
-                    "multipleValues": False,
-                    "defaultValues": None,
-                    "isFixed": False
-                }            ],
-            "output": [
-                {
-                    "code": "image",
-                    "dataType": "image",
-                    "defaultValue": None
-                }            ]
-        }
     },    "multi-class-text-classification": {
         "input": { 
 "label",  
@@ -311,7 +284,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "multi-class-text-classification",
             "name": "Multi Class Text Classification",
-            "description": "",
+            "description": "Multi Class Text Classification is a natural language processing task that involves categorizing a given text into one of several predefined classes or categories based on its content.",
             "params": [
                 {
                     "code": "language",
@@ -335,6 +308,33 @@ FunctionInputOutput = {
                     "defaultValue": None
                 }            ]
         }
+    },    "image-impainting": {
+        "input": { 
+ 
+        },
+        "output": { 
+"image" 
+        },
+        "spec": {
+            "id": "image-impainting",
+            "name": "Image Impainting",
+            "description": "Image inpainting is a process that involves filling in missing or damaged parts of an image in a way that is visually coherent and seamlessly blends with the surrounding areas, often using advanced algorithms and techniques to restore the image to its original or intended appearance.",
+            "params": [
+                {
+                    "code": "image",
+                    "dataType": "image",
+                    "required": False,
+                    "multipleValues": False,
+                    "defaultValues": None,
+                    "isFixed": False
+                }            ],
+            "output": [
+                {
+                    "code": "image",
+                    "dataType": "image",
+                    "defaultValue": None
+                }            ]
+        }
     },    "scene-detection": {
         "input": { 
 "image" 
@@ -345,7 +345,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "scene-detection",
             "name": "Scene Detection",
-            "description": "",
+            "description": "Scene detection is used for detecting transitions between shots in a video to split it into basic temporal segments.",
             "params": [
                 {
                     "code": "image",
@@ -413,7 +413,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "audio-intent-detection",
             "name": "Audio Intent Detection",
-            "description": "",
+            "description": "Audio Intent Detection is a process that involves analyzing audio signals to identify and interpret the underlying intentions or purposes behind spoken words, enabling systems to understand and respond appropriately to human speech.",
             "params": [
                 {
                     "code": "audio",
@@ -440,7 +440,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "ocr",
             "name": "OCR",
-            "description": "",
+            "description": "Converts images of typed, handwritten, or printed text into machine-encoded text. Used in digitizing printed texts for data retrieval.",
             "params": [
                 {
                     "code": "image",
@@ -474,7 +474,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "intent-recognition",
             "name": "Intent Recognition",
-            "description": "",
+            "description": "classify the user's utterance (provided in varied natural language)  or text into one of several predefined classes, that is, intents.",
             "params": [
                 {
                     "code": "audio",
@@ -542,7 +542,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "video-embedding",
             "name": "Video Embedding",
-            "description": "",
+            "description": "Video Embedding is a process that transforms video content into a fixed-dimensional vector representation, capturing essential features and patterns to facilitate tasks such as retrieval, classification, and recommendation.",
             "params": [
                 {
                     "code": "language",
@@ -576,7 +576,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "extract-audio-from-video",
             "name": "Extract Audio From Video",
-            "description": "",
+            "description": "Isolates and extracts audio tracks from video files, aiding in audio analysis or transcription tasks.",
             "params": [
                 {
                     "code": "video",
@@ -603,7 +603,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "image-captioning",
             "name": "Image Captioning",
-            "description": "",
+            "description": "Image Captioning is a process that involves generating a textual description of an image, typically using machine learning models to analyze the visual content and produce coherent and contextually relevant sentences that describe the objects, actions, and scenes depicted in the image.",
             "params": [
                 {
                     "code": "image",
@@ -630,7 +630,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "image-analysis",
             "name": "Image Analysis",
-            "description": "",
+            "description": "Image analysis is the extraction of meaningful information from images",
             "params": [
                 {
                     "code": "image",
@@ -657,7 +657,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "benchmark-scoring-mt",
             "name": "Benchmark Scoring MT",
-            "description": "",
+            "description": "Benchmark Scoring MT is a function designed to evaluate and score machine translation systems by comparing their output against a set of predefined benchmarks, thereby assessing their accuracy and performance.",
             "params": [
                 {
                     "code": "input",
@@ -698,7 +698,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "speaker-diarization-audio",
             "name": "Speaker Diarization Audio",
-            "description": "",
+            "description": "Identifies individual speakers and their respective speech segments within an audio clip. Ideal for multi-speaker recordings or conference calls.",
             "params": [
                 {
                     "code": "audio",
@@ -746,7 +746,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "connection",
             "name": "Connection",
-            "description": "",
+            "description": "Connections are integration that allow you to connect your AI agents to external tools",
             "params": [
                 {
                     "code": "name",
@@ -773,7 +773,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "connector",
             "name": "Connector",
-            "description": "",
+            "description": "Connectors are integration that allow you to connect your AI agents to external tools",
             "params": [
                 {
                     "code": "name",
@@ -800,7 +800,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "image-content-moderation",
             "name": "Image Content Moderation",
-            "description": "",
+            "description": "Detects and filters out inappropriate or harmful images, essential for platforms with user-generated visual content.",
             "params": [
                 {
                     "code": "image",
@@ -834,7 +834,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "image-colorization",
             "name": "Image Colorization",
-            "description": "",
+            "description": "Image colorization is a process that involves adding color to grayscale images, transforming them from black-and-white to full-color representations, often using advanced algorithms and machine learning techniques to predict and apply the appropriate hues and shades.",
             "params": [
                 {
                     "code": "image",
@@ -888,7 +888,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "benchmark-scoring-asr",
             "name": "Benchmark Scoring ASR",
-            "description": "",
+            "description": "Benchmark Scoring ASR is a function that evaluates and compares the performance of automatic speech recognition systems by analyzing their accuracy, speed, and other relevant metrics against a standardized set of benchmarks.",
             "params": [
                 {
                     "code": "input",
@@ -929,7 +929,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "video-content-moderation",
             "name": "Video Content Moderation",
-            "description": "",
+            "description": "Automatically reviews video content to detect and possibly remove inappropriate or harmful material. Essential for user-generated content platforms.",
             "params": [
                 {
                     "code": "video",
@@ -963,7 +963,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "multilingual-speech-recognition",
             "name": "Multilingual Speech Recognition",
-            "description": "",
+            "description": "Multilingual Speech Recognition is a technology that enables the automatic transcription of spoken language into text across multiple languages, allowing for seamless communication and understanding in diverse linguistic contexts.",
             "params": [
                 {
                     "code": "source_audio",
@@ -997,7 +997,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "topic-modeling",
             "name": "Topic Modeling",
-            "description": "",
+            "description": "Topic modeling is a type of statistical modeling for discovering the abstract “topics” that occur in a collection of documents.",
             "params": [
                 {
                     "code": "text",
@@ -1038,7 +1038,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "visual-question-answering",
             "name": "Visual Question Answering",
-            "description": "",
+            "description": "Visual Question Answering (VQA) is a task in artificial intelligence that involves analyzing an image and providing accurate, contextually relevant answers to questions posed about the visual content of that image.",
             "params": [
                 {
                     "code": "text",
@@ -1079,7 +1079,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "document-image-parsing",
             "name": "Document Image Parsing",
-            "description": "",
+            "description": "Document Image Parsing is the process of analyzing and converting scanned or photographed images of documents into structured, machine-readable formats by identifying and extracting text, layout, and other relevant information.",
             "params": [
                 {
                     "code": "image",
@@ -1106,7 +1106,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "text-reconstruction",
             "name": "Text Reconstruction",
-            "description": "",
+            "description": "Text Reconstruction is a process that involves piecing together fragmented or incomplete text data to restore it to its original, coherent form.",
             "params": [
                 {
                     "code": "text",
@@ -1133,7 +1133,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "audio-emotion-detection",
             "name": "Audio Emotion Detection",
-            "description": "",
+            "description": "Audio Emotion Detection is a technology that analyzes vocal characteristics and patterns in audio recordings to identify and classify the emotional state of the speaker.",
             "params": [
                 {
                     "code": "audio",
@@ -1160,7 +1160,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "keyword-spotting",
             "name": "Keyword Spotting",
-            "description": "",
+            "description": "Keyword Spotting is a function that enables the detection and identification of specific words or phrases within a stream of audio, often used in voice-activated systems to trigger actions or commands based on recognized keywords.",
             "params": [
                 {
                     "code": "audio",
@@ -1187,7 +1187,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "named-entity-recognition",
             "name": "Named Entity Recognition",
-            "description": "",
+            "description": "Identifies and classifies named entities (e.g., persons, organizations, locations) within text. Useful for information extraction, content tagging, and search enhancements.",
             "params": [
                 {
                     "code": "text",
@@ -1242,7 +1242,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "split-on-silence",
             "name": "Split On Silence",
-            "description": "",
+            "description": "The \"Split On Silence\" function divides an audio recording into separate segments based on periods of silence, allowing for easier editing and analysis of individual sections.",
             "params": [
                 {
                     "code": "audio",
@@ -1269,7 +1269,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "document-information-extraction",
             "name": "Document Information Extraction",
-            "description": "",
+            "description": "Document Information Extraction is the process of automatically identifying, extracting, and structuring relevant data from unstructured or semi-structured documents, such as invoices, receipts, contracts, and forms, to facilitate easier data management and analysis.",
             "params": [
                 {
                     "code": "image",
@@ -1296,7 +1296,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "text-to-video-generation",
             "name": "Text To Video Generation",
-            "description": "",
+            "description": "Text To Video Generation is a process that converts written descriptions or scripts into dynamic, visual video content using advanced algorithms and artificial intelligence.",
             "params": [
                 {
                     "code": "text",
@@ -1330,7 +1330,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "video-generation",
             "name": "Video Generation",
-            "description": "",
+            "description": "Produces video content based on specific inputs or datasets. Can be used for simulations, animations, or even deepfake detection.",
             "params": [
                 {
                     "code": "text",
@@ -1357,7 +1357,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "text-to-image-generation",
             "name": "Text To Image Generation",
-            "description": "",
+            "description": "Creates a visual representation based on textual input, turning descriptions into pictorial forms. Used in creative processes and content generation.",
             "params": [
                 {
                     "code": "text",
@@ -1384,7 +1384,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "dialect-detection",
             "name": "Dialect Detection",
-            "description": "",
+            "description": "Identifies specific dialects within a language, aiding in localized content creation or user experience personalization.",
             "params": [
                 {
                     "code": "audio",
@@ -1418,7 +1418,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "speaker-recognition",
             "name": "Speaker Recognition",
-            "description": "",
+            "description": "In speaker identification, an utterance from an unknown speaker is analyzed and compared with speech models of known speakers.",
             "params": [
                 {
                     "code": "audio",
@@ -1466,7 +1466,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "syntax-analysis",
             "name": "Syntax Analysis",
-            "description": "",
+            "description": "Is the process of analyzing natural language with the rules of a formal grammar. Grammatical rules are applied to categories and groups of words, not individual words. Syntactic analysis basically assigns a semantic structure to text.",
             "params": [
                 {
                     "code": "text",
@@ -1507,7 +1507,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "question-answering",
             "name": "Question Answering",
-            "description": "",
+            "description": "building systems that automatically answer questions posed by humans in a natural language usually from a given text",
             "params": [
                 {
                     "code": "text",
@@ -1541,7 +1541,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "referenceless-text-generation-metric",
             "name": "Referenceless Text Generation Metric",
-            "description": "",
+            "description": "The Referenceless Text Generation Metric is a method for evaluating the quality of generated text without requiring a reference text for comparison, often leveraging models or algorithms to assess coherence, relevance, and fluency based on intrinsic properties of the text itself.",
             "params": [
                 {
                     "code": "hypotheses",
@@ -1582,7 +1582,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "detect-language-from-text",
             "name": "Detect Language From Text",
-            "description": "",
+            "description": "Detect Language From Text",
             "params": [
                 {
                     "code": "text",
@@ -1609,7 +1609,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "audio-language-identification",
             "name": "Audio Language Identification",
-            "description": "",
+            "description": "Audio Language Identification is a process that involves analyzing an audio recording to determine the language being spoken.",
             "params": [
                 {
                     "code": "audio",
@@ -1636,7 +1636,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "base-model",
             "name": "Base-Model",
-            "description": "",
+            "description": "The Base-Model function serves as a foundational framework designed to provide essential features and capabilities upon which more specialized or advanced models can be built and customized.",
             "params": [
                 {
                     "code": "language",
@@ -1670,7 +1670,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "language-identification-audio",
             "name": "Language Identification Audio",
-            "description": "",
+            "description": "The Language Identification Audio function analyzes audio input to determine and identify the language being spoken.",
             "params": [
                 {
                     "code": "audio",
@@ -1697,7 +1697,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "multi-class-image-classification",
             "name": "Multi Class Image Classification",
-            "description": "",
+            "description": "Multi Class Image Classification is a machine learning task where an algorithm is trained to categorize images into one of several predefined classes or categories based on their visual content.",
             "params": [
                 {
                     "code": "image",
@@ -1724,7 +1724,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "semantic-segmentation",
             "name": "Semantic Segmentation",
-            "description": "",
+            "description": "Semantic segmentation is a computer vision process that involves classifying each pixel in an image into a predefined category, effectively partitioning the image into meaningful segments based on the objects or regions they represent.",
             "params": [
                 {
                     "code": "image",
@@ -1751,7 +1751,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "audio-generation-metric",
             "name": "Audio Generation Metric",
-            "description": "",
+            "description": "The Audio Generation Metric is a quantitative measure used to evaluate the quality, accuracy, and overall performance of audio generated by artificial intelligence systems, often considering factors such as fidelity, intelligibility, and similarity to human-produced audio.",
             "params": [
                 {
                     "code": "hypotheses",
@@ -1799,7 +1799,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "auto-mask-generation",
             "name": "Auto Mask Generation",
-            "description": "",
+            "description": "Auto-mask generation refers to the automated process of creating masks in image processing or computer vision, typically for segmentation tasks. A mask is a binary or multi-class image that labels different parts of an image, usually separating the foreground (objects of interest) from the background, or identifying specific object classes in an image.",
             "params": [
                 {
                     "code": "image",
@@ -1816,6 +1816,40 @@ FunctionInputOutput = {
                     "defaultValue": []
                 }            ]
         }
+    },    "fact-checking": {
+        "input": { 
+"label",  
+        },
+        "output": { 
+"label" 
+        },
+        "spec": {
+            "id": "fact-checking",
+            "name": "Fact Checking",
+            "description": "Fact Checking is the process of verifying the accuracy and truthfulness of information, statements, or claims by cross-referencing with reliable sources and evidence.",
+            "params": [
+                {
+                    "code": "language",
+                    "dataType": "label",
+                    "required": True,
+                    "multipleValues": False,
+                    "defaultValues": None,
+                    "isFixed": False
+                },                {
+                    "code": "text",
+                    "dataType": "text",
+                    "required": False,
+                    "multipleValues": False,
+                    "defaultValues": None,
+                    "isFixed": False
+                }            ],
+            "output": [
+                {
+                    "code": "data",
+                    "dataType": "label",
+                    "defaultValue": None
+                }            ]
+        }
     },    "text-to-audio": {
         "input": { 
 "text",  
@@ -1826,7 +1860,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "text-to-audio",
             "name": "Text to Audio",
-            "description": "",
+            "description": "The Text to Audio function converts written text into spoken words, allowing users to listen to the content instead of reading it.",
             "params": [
                 {
                     "code": "text",
@@ -1850,40 +1884,6 @@ FunctionInputOutput = {
                     "defaultValue": None
                 }            ]
         }
-    },    "fact-checking": {
-        "input": { 
-"label",  
-        },
-        "output": { 
-"label" 
-        },
-        "spec": {
-            "id": "fact-checking",
-            "name": "Fact Checking",
-            "description": "",
-            "params": [
-                {
-                    "code": "language",
-                    "dataType": "label",
-                    "required": True,
-                    "multipleValues": False,
-                    "defaultValues": None,
-                    "isFixed": False
-                },                {
-                    "code": "text",
-                    "dataType": "text",
-                    "required": False,
-                    "multipleValues": False,
-                    "defaultValues": None,
-                    "isFixed": False
-                }            ],
-            "output": [
-                {
-                    "code": "data",
-                    "dataType": "label",
-                    "defaultValue": None
-                }            ]
-        }
     },    "table-question-answering": {
         "input": { 
 "text", "label" 
@@ -1894,7 +1894,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "table-question-answering",
             "name": "Table Question Answering",
-            "description": "",
+            "description": "The task of question answering over tables is given an input table (or a set of tables) T and a natural language question Q (a user query), output the correct answer A",
             "params": [
                 {
                     "code": "text",
@@ -1928,7 +1928,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "classification-metric",
             "name": "Classification Metric",
-            "description": "",
+            "description": "A Classification Metric is a quantitative measure used to evaluate the quality and effectiveness of classification models.",
             "params": [
                 {
                     "code": "hypotheses",
@@ -1983,7 +1983,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "text-generation-metric",
             "name": "Text Generation Metric",
-            "description": "",
+            "description": "A Text Generation Metric is a quantitative measure used to evaluate the quality and effectiveness of text produced by natural language processing models, often assessing aspects such as coherence, relevance, fluency, and adherence to given prompts or instructions.",
             "params": [
                 {
                     "code": "hypotheses",
@@ -2031,7 +2031,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "asr-gender-classification",
             "name": "ASR Gender Classification",
-            "description": "",
+            "description": "The ASR Gender Classification function analyzes audio recordings to determine and classify the speaker's gender based on their voice characteristics.",
             "params": [
                 {
                     "code": "source_audio",
@@ -2058,7 +2058,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "entity-linking",
             "name": "Entity Linking",
-            "description": "",
+            "description": "Associates identified entities in the text with specific entries in a knowledge base or database.",
             "params": [
                 {
                     "code": "text",
@@ -2099,7 +2099,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "part-of-speech-tagging",
             "name": "Part of Speech Tagging",
-            "description": "",
+            "description": "Part of Speech Tagging is a natural language processing task that involves assigning each word in a sentence its corresponding part of speech, such as noun, verb, adjective, or adverb, based on its role and context within the sentence.",
             "params": [
                 {
                     "code": "language",
@@ -2133,7 +2133,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "fill-text-mask",
             "name": "Fill Text Mask",
-            "description": "",
+            "description": "Completes missing parts of a text based on the context, ideal for content generation or data augmentation tasks.",
             "params": [
                 {
                     "code": "text",
@@ -2181,7 +2181,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "text-embedding",
             "name": "Text Embedding",
-            "description": "",
+            "description": "Text embedding is a process that converts text into numerical vectors, capturing the semantic meaning and contextual relationships of words or phrases, enabling machines to understand and analyze natural language more effectively.",
             "params": [
                 {
                     "code": "text",
@@ -2229,7 +2229,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "other-(multipurpose)",
             "name": "Other (Multipurpose)",
-            "description": "",
+            "description": "The \"Other (Multipurpose)\" function serves as a versatile category designed to accommodate a wide range of tasks and activities that do not fit neatly into predefined classifications, offering flexibility and adaptability for various needs.",
             "params": [
                 {
                     "code": "text",
@@ -2263,7 +2263,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "video-label-detection",
             "name": "Video Label Detection",
-            "description": "",
+            "description": "Identifies and tags objects, scenes, or activities within a video. Useful for content indexing and recommendation systems.",
             "params": [
                 {
                     "code": "video",
@@ -2297,7 +2297,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "noise-removal",
             "name": "Noise Removal",
-            "description": "",
+            "description": "Noise Removal is a process that involves identifying and eliminating unwanted random variations or disturbances from an audio signal to enhance the clarity and quality of the underlying information.",
             "params": [
                 {
                     "code": "audio",
@@ -2324,7 +2324,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "image-embedding",
             "name": "Image Embedding",
-            "description": "",
+            "description": "Image Embedding is a process that transforms an image into a fixed-dimensional vector representation, capturing its essential features and enabling efficient comparison, retrieval, and analysis in various machine learning and computer vision tasks.",
             "params": [
                 {
                     "code": "language",
@@ -2358,7 +2358,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "inverse-text-normalization",
             "name": "Inverse Text Normalization",
-            "description": "",
+            "description": "Inverse Text Normalization is the process of converting spoken or written language in its normalized form, such as numbers, dates, and abbreviations, back into their original, more complex or detailed textual representations.",
             "params": [
                 {
                     "code": "text",
@@ -2385,7 +2385,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "image-to-video-generation",
             "name": "Image To Video Generation",
-            "description": "",
+            "description": "The Image To Video Generation function transforms a series of static images into a cohesive, dynamic video sequence, often incorporating transitions, effects, and synchronization with audio to create a visually engaging narrative.",
             "params": [
                 {
                     "code": "language",
@@ -2419,7 +2419,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "facial-recognition",
             "name": "Facial Recognition",
-            "description": "",
+            "description": "A facial recognition system is a technology capable of matching a human face from a digital image or a video frame against a database of faces",
             "params": [
                 {
                     "code": "video",
@@ -2446,7 +2446,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "speech-classification",
             "name": "Speech Classification",
-            "description": "",
+            "description": "Categorizes audio clips based on their content, aiding in content organization and targeted actions.",
             "params": [
                 {
                     "code": "audio",
@@ -2494,7 +2494,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "voice-cloning",
             "name": "Voice Cloning",
-            "description": "",
+            "description": "Replicates a person's voice based on a sample, allowing for the generation of speech in that person's tone and style. Used cautiously due to ethical considerations.",
             "params": [
                 {
                     "code": "text",
@@ -2563,7 +2563,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "intent-classification",
             "name": "Intent Classification",
-            "description": "",
+            "description": "Intent Classification is a natural language processing task that involves analyzing and categorizing user text input to determine the underlying purpose or goal behind the communication, such as booking a flight, asking for weather information, or setting a reminder.",
             "params": [
                 {
                     "code": "language",
@@ -2597,7 +2597,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "image-label-detection",
             "name": "Image Label Detection",
-            "description": "",
+            "description": "Identifies objects, themes, or topics within images, useful for image categorization, search, and recommendation systems.",
             "params": [
                 {
                     "code": "image",
@@ -2631,7 +2631,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "summarization",
             "name": "Summarization",
-            "description": "",
+            "description": "Text summarization is the process of distilling the most important information from a source (or sources) to produce an abridged version for a particular user (or users) and task (or tasks)",
             "params": [
                 {
                     "code": "text",
@@ -2669,6 +2669,171 @@ FunctionInputOutput = {
                     "defaultValue": []
                 }            ]
         }
+    },    "topic-classification": {
+        "input": { 
+"text", "label",  
+        },
+        "output": { 
+"label" 
+        },
+        "spec": {
+            "id": "topic-classification",
+            "name": "Topic Classification",
+            "description": "Assigns categories or topics to a piece of text based on its content, facilitating content organization and retrieval.",
+            "params": [
+                {
+                    "code": "text",
+                    "dataType": "text",
+                    "required": True,
+                    "multipleValues": False,
+                    "defaultValues": [],
+                    "isFixed": False
+                },                {
+                    "code": "language",
+                    "dataType": "label",
+                    "required": True,
+                    "multipleValues": False,
+                    "defaultValues": [],
+                    "isFixed": True
+                },                {
+                    "code": "script",
+                    "dataType": "label",
+                    "required": False,
+                    "multipleValues": False,
+                    "defaultValues": [],
+                    "isFixed": True
+                },                {
+                    "code": "dialect",
+                    "dataType": "label",
+                    "required": False,
+                    "multipleValues": False,
+                    "defaultValues": [],
+                    "isFixed": True
+                }            ],
+            "output": [
+                {
+                    "code": "data",
+                    "dataType": "label",
+                    "defaultValue": []
+                }            ]
+        }
+    },    "text-denormalization": {
+        "input": { 
+"text", "label",  
+        },
+        "output": { 
+"label" 
+        },
+        "spec": {
+            "id": "text-denormalization",
+            "name": "Text Denormalization",
+            "description": "Converts standardized or normalized text into its original, often more readable, form. Useful in natural language generation tasks.",
+            "params": [
+                {
+                    "code": "text",
+                    "dataType": "text",
+                    "required": True,
+                    "multipleValues": False,
+                    "defaultValues": [],
+                    "isFixed": False
+                },                {
+                    "code": "language",
+                    "dataType": "label",
+                    "required": True,
+                    "multipleValues": False,
+                    "defaultValues": None,
+                    "isFixed": True
+                },                {
+                    "code": "lowercase_latin",
+                    "dataType": "text",
+                    "required": False,
+                    "multipleValues": False,
+                    "defaultValues": [{'value': '0', 'label': 'No'}],
+                    "isFixed": False
+                },                {
+                    "code": "remove_accents",
+                    "dataType": "text",
+                    "required": False,
+                    "multipleValues": False,
+                    "defaultValues": [{'value': '1', 'label': 'Yes'}],
+                    "isFixed": False
+                },                {
+                    "code": "remove_punctuation",
+                    "dataType": "text",
+                    "required": False,
+                    "multipleValues": False,
+                    "defaultValues": [{'value': '0', 'label': 'No'}],
+                    "isFixed": False
+                }            ],
+            "output": [
+                {
+                    "code": "data",
+                    "dataType": "label",
+                    "defaultValue": []
+                }            ]
+        }
+    },    "speech-translation": {
+        "input": { 
+"audio", "label", "label",  
+        },
+        "output": { 
+"text" 
+        },
+        "spec": {
+            "id": "speech-translation",
+            "name": "Speech Translation",
+            "description": "Speech Translation is a technology that converts spoken language in real-time from one language to another, enabling seamless communication between speakers of different languages.",
+            "params": [
+                {
+                    "code": "source_audio",
+                    "dataType": "audio",
+                    "required": True,
+                    "multipleValues": False,
+                    "defaultValues": [],
+                    "isFixed": False
+                },                {
+                    "code": "sourcelanguage",
+                    "dataType": "label",
+                    "required": True,
+                    "multipleValues": False,
+                    "defaultValues": [],
+                    "isFixed": True
+                },                {
+                    "code": "targetlanguage",
+                    "dataType": "label",
+                    "required": True,
+                    "multipleValues": False,
+                    "defaultValues": [],
+                    "isFixed": True
+                },                {
+                    "code": "dialect",
+                    "dataType": "label",
+                    "required": False,
+                    "multipleValues": False,
+                    "defaultValues": [],
+                    "isFixed": True
+                },                {
+                    "code": "voice",
+                    "dataType": "label",
+                    "required": False,
+                    "multipleValues": False,
+                    "defaultValues": [],
+                    "isFixed": True
+                },                {
+                    "code": "script",
+                    "dataType": "label",
+                    "required": False,
+                    "multipleValues": False,
+                    "defaultValues": [],
+                    "isFixed": True
+                }            ],
+            "output": [
+                {
+                    "code": "data",
+                    "dataType": "text",
+                    "defaultValue": []
+                }            ]
+        }
     },    "speech-synthesis": {
         "input": { 
 "label", "text",  
@@ -2679,7 +2844,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "speech-synthesis",
             "name": "Speech Synthesis",
-            "description": "",
+            "description": "Generates human-like speech from written text. Ideal for text-to-speech applications, audiobooks, and voice assistants.",
             "params": [
                 {
                     "code": "audio",
@@ -2748,7 +2913,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "speech-non-speech-classification",
             "name": "Speech or Non-Speech Classification",
-            "description": "",
+            "description": "Differentiates between speech and non-speech audio segments. Great for editing software and transcription services to exclude irrelevant audio.",
             "params": [
                 {
                     "code": "audio",
@@ -2796,7 +2961,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "object-detection",
             "name": "Object Detection",
-            "description": "",
+            "description": "Object Detection is a computer vision technology that identifies and locates objects within an image, typically by drawing bounding boxes around the detected objects and classifying them into predefined categories.",
             "params": [
                 {
                     "code": "image",
@@ -2823,7 +2988,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "audio-reconstruction",
             "name": "Audio Reconstruction",
-            "description": "",
+            "description": "Audio Reconstruction is the process of restoring or recreating audio signals from incomplete, damaged, or degraded recordings to achieve a high-quality, accurate representation of the original sound.",
             "params": [
                 {
                     "code": "audio",
@@ -2850,7 +3015,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "style-transfer",
             "name": "Style Transfer",
-            "description": "",
+            "description": "Style Transfer is a technique in artificial intelligence that applies the visual style of one image (such as the brushstrokes of a famous painting) to the content of another image, effectively blending the artistic elements of the first image with the subject matter of the second.",
             "params": [
                 {
                     "code": "image",
@@ -2877,7 +3042,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "select-supplier-for-translation",
             "name": "Select Supplier For Translation",
-            "description": "",
+            "description": "Supplier For Translation",
             "params": [
                 {
                     "code": "language",
@@ -2911,7 +3076,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "keyword-extraction",
             "name": "Keyword Extraction",
-            "description": "",
+            "description": "It helps concise the text and obtain relevant keywords Example use-cases are finding topics of interest from a news article and identifying the problems based on customer reviews and so.",
             "params": [
                 {
                     "code": "text",
@@ -2959,7 +3124,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "text-generation-metric-default",
             "name": "Text Generation Metric Default",
-            "description": "",
+            "description": "The \"Text Generation Metric Default\" function provides a standard set of evaluation metrics for assessing the quality and performance of text generation models.",
             "params": [
                 {
                     "code": "hypotheses",
@@ -2997,7 +3162,7 @@ FunctionInputOutput = {
                     "defaultValue": None
                 }            ]
         }
-    },    "text-spam-detection": {
+    },    "token-classification": {
         "input": { 
 "text", "label",  
         },
@@ -3005,9 +3170,9 @@ FunctionInputOutput = {
 "label" 
         },
         "spec": {
-            "id": "text-spam-detection",
-            "name": "Text Spam Detection",
-            "description": "",
+            "id": "token-classification",
+            "name": "Token Classification",
+            "description": "Token-level classification means that each token will be given a label, for example a part-of-speech tagger will classify each word as one particular part of speech.",
             "params": [
                 {
                     "code": "text",
@@ -3020,13 +3185,6 @@ FunctionInputOutput = {
                     "code": "language",
                     "dataType": "label",
                     "required": True,
-                    "multipleValues": False,
-                    "defaultValues": [],
-                    "isFixed": True
-                },                {
-                    "code": "dialect",
-                    "dataType": "label",
-                    "required": False,
                     "multipleValues": False,
                     "defaultValues": [],
                     "isFixed": True
@@ -3045,61 +3203,6 @@ FunctionInputOutput = {
                     "defaultValue": []
                 }            ]
         }
-    },    "video-understanding": {
-        "input": { 
-"video", "text", "label",  
-        },
-        "output": { 
-"text" 
-        },
-        "spec": {
-            "id": "video-understanding",
-            "name": "Video Understanding",
-            "description": "",
-            "params": [
-                {
-                    "code": "video",
-                    "dataType": "video",
-                    "required": True,
-                    "multipleValues": False,
-                    "defaultValues": [],
-                    "isFixed": False
-                },                {
-                    "code": "text",
-                    "dataType": "text",
-                    "required": True,
-                    "multipleValues": False,
-                    "defaultValues": [],
-                    "isFixed": False
-                },                {
-                    "code": "language",
-                    "dataType": "label",
-                    "required": True,
-                    "multipleValues": False,
-                    "defaultValues": [],
-                    "isFixed": True
-                },                {
-                    "code": "dialect",
-                    "dataType": "label",
-                    "required": False,
-                    "multipleValues": False,
-                    "defaultValues": [],
-                    "isFixed": True
-                },                {
-                    "code": "script",
-                    "dataType": "label",
-                    "required": False,
-                    "multipleValues": False,
-                    "defaultValues": [],
-                    "isFixed": True
-                }            ],
-            "output": [
-                {
-                    "code": "text",
-                    "dataType": "text",
-                    "defaultValue": []
-                }            ]
-        }
     },    "depth-estimation": {
         "input": { 
 "label",  
@@ -3110,7 +3213,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "depth-estimation",
             "name": "Depth Estimation",
-            "description": "",
+            "description": "Depth estimation is a computational process that determines the distance of objects from a viewpoint, typically using visual data from cameras or sensors to create a three-dimensional understanding of a scene.",
             "params": [
                 {
                     "code": "language",
@@ -3134,47 +3237,6 @@ FunctionInputOutput = {
                     "defaultValue": None
                 }            ]
         }
-    },    "token-classification": {
-        "input": { 
-"text", "label",  
-        },
-        "output": { 
-"label" 
-        },
-        "spec": {
-            "id": "token-classification",
-            "name": "Token Classification",
-            "description": "",
-            "params": [
-                {
-                    "code": "text",
-                    "dataType": "text",
-                    "required": True,
-                    "multipleValues": False,
-                    "defaultValues": [],
-                    "isFixed": False
-                },                {
-                    "code": "language",
-                    "dataType": "label",
-                    "required": True,
-                    "multipleValues": False,
-                    "defaultValues": [],
-                    "isFixed": True
-                },                {
-                    "code": "script",
-                    "dataType": "label",
-                    "required": False,
-                    "multipleValues": False,
-                    "defaultValues": [],
-                    "isFixed": True
-                }            ],
-            "output": [
-                {
-                    "code": "data",
-                    "dataType": "label",
-                    "defaultValue": []
-                }            ]
-        }
     },    "instance-segmentation": {
         "input": { 
  
@@ -3185,7 +3247,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "instance-segmentation",
             "name": "Instance Segmentation",
-            "description": "",
+            "description": "Instance segmentation is a computer vision task that involves detecting and delineating each distinct object within an image, assigning a unique label and precise boundary to every individual instance of objects, even if they belong to the same category.",
             "params": [
                 {
                     "code": "image",
@@ -3212,7 +3274,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "referenceless-text-generation-metric-default",
             "name": "Referenceless Text Generation Metric Default",
-            "description": "",
+            "description": "The Referenceless Text Generation Metric Default is a function designed to evaluate the quality of generated text without relying on reference texts for comparison.",
             "params": [
                 {
                     "code": "hypotheses",
@@ -3253,7 +3315,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "subtitling-translation",
             "name": "Subtitling Translation",
-            "description": "",
+            "description": "Converts the text of subtitles from one language to another, ensuring context and cultural nuances are maintained. Essential for global content distribution.",
             "params": [
                 {
                     "code": "text",
@@ -3308,7 +3370,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "viseme-generation",
             "name": "Viseme Generation",
-            "description": "",
+            "description": "Viseme Generation is the process of creating visual representations of phonemes, which are the distinct units of sound in speech, to synchronize lip movements with spoken words in animations or virtual avatars.",
             "params": [
                 {
                     "code": "text",
@@ -3356,7 +3418,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "metric-aggregation",
             "name": "Metric Aggregation",
-            "description": "",
+            "description": "Metric Aggregation is a function that computes and summarizes numerical data by applying statistical operations, such as averaging, summing, or finding the minimum and maximum values, to provide insights and facilitate analysis of large datasets.",
             "params": [
                 {
                     "code": "text",
@@ -3383,7 +3445,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "language-identification",
             "name": "Language Identification",
-            "description": "",
+            "description": "Detects the language in which a given text is written, aiding in multilingual platforms or content localization.",
             "params": [
                 {
                     "code": "text",
@@ -3392,54 +3454,6 @@ FunctionInputOutput = {
                     "multipleValues": False,
                     "defaultValues": [],
                     "isFixed": False
-                }            ],
-            "output": [
-                {
-                    "code": "data",
-                    "dataType": "label",
-                    "defaultValue": []
-                }            ]
-        }
-    },    "emotion-detection": {
-        "input": { 
-"text", "label",  
-        },
-        "output": { 
-"label" 
-        },
-        "spec": {
-            "id": "emotion-detection",
-            "name": "Emotion Detection",
-            "description": "",
-            "params": [
-                {
-                    "code": "text",
-                    "dataType": "text",
-                    "required": True,
-                    "multipleValues": False,
-                    "defaultValues": [],
-                    "isFixed": False
-                },                {
-                    "code": "language",
-                    "dataType": "label",
-                    "required": True,
-                    "multipleValues": False,
-                    "defaultValues": [],
-                    "isFixed": True
-                },                {
-                    "code": "dialect",
-                    "dataType": "label",
-                    "required": False,
-                    "multipleValues": False,
-                    "defaultValues": [],
-                    "isFixed": True
-                },                {
-                    "code": "script",
-                    "dataType": "label",
-                    "required": False,
-                    "multipleValues": False,
-                    "defaultValues": [],
-                    "isFixed": True
                 }            ],
             "output": [
                 {
@@ -3458,7 +3472,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "audio-forced-alignment",
             "name": "Audio Forced Alignment",
-            "description": "",
+            "description": "Synchronizes phonetic and phonological text with the corresponding segments in an audio file. Useful in linguistic research and detailed transcription tasks.",
             "params": [
                 {
                     "code": "audio",
@@ -3507,6 +3521,54 @@ FunctionInputOutput = {
                     "defaultValue": []
                 }            ]
         }
+    },    "emotion-detection": {
+        "input": { 
+"text", "label",  
+        },
+        "output": { 
+"label" 
+        },
+        "spec": {
+            "id": "emotion-detection",
+            "name": "Emotion Detection",
+            "description": "Identifies human emotions from text or audio, enhancing user experience in chatbots or customer feedback analysis.",
+            "params": [
+                {
+                    "code": "text",
+                    "dataType": "text",
+                    "required": True,
+                    "multipleValues": False,
+                    "defaultValues": [],
+                    "isFixed": False
+                },                {
+                    "code": "language",
+                    "dataType": "label",
+                    "required": True,
+                    "multipleValues": False,
+                    "defaultValues": [],
+                    "isFixed": True
+                },                {
+                    "code": "dialect",
+                    "dataType": "label",
+                    "required": False,
+                    "multipleValues": False,
+                    "defaultValues": [],
+                    "isFixed": True
+                },                {
+                    "code": "script",
+                    "dataType": "label",
+                    "required": False,
+                    "multipleValues": False,
+                    "defaultValues": [],
+                    "isFixed": True
+                }            ],
+            "output": [
+                {
+                    "code": "data",
+                    "dataType": "label",
+                    "defaultValue": []
+                }            ]
+        }
     },    "diacritization": {
         "input": { 
 "label", "label", "text" 
@@ -3517,7 +3579,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "diacritization",
             "name": "Diacritization",
-            "description": "",
+            "description": "Adds diacritical marks to text, essential for languages where meaning can change based on diacritics.",
             "params": [
                 {
                     "code": "language",
@@ -3565,7 +3627,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "loglikelihood",
             "name": "Log Likelihood",
-            "description": "",
+            "description": "The Log Likelihood function measures the probability of observing the given data under a specific statistical model by taking the natural logarithm of the likelihood function, thereby transforming the product of probabilities into a sum, which simplifies the process of optimization and parameter estimation.",
             "params": [
                 {
                     "code": "text",
@@ -3592,7 +3654,82 @@ FunctionInputOutput = {
         "spec": {
             "id": "offensive-language-identification",
             "name": "Offensive Language Identification",
-            "description": "",
+            "description": "Detects language or phrases that might be considered offensive, aiding in content moderation and creating respectful user interactions.",
+            "params": [
+                {
+                    "code": "text",
+                    "dataType": "text",
+                    "required": True,
+                    "multipleValues": False,
+                    "defaultValues": [],
+                    "isFixed": False
+                },                {
+                    "code": "language",
+                    "dataType": "label",
+                    "required": True,
+                    "multipleValues": False,
+                    "defaultValues": [],
+                    "isFixed": True
+                },                {
+                    "code": "dialect",
+                    "dataType": "label",
+                    "required": False,
+                    "multipleValues": False,
+                    "defaultValues": [],
+                    "isFixed": True
+                },                {
+                    "code": "script",
+                    "dataType": "label",
+                    "required": False,
+                    "multipleValues": False,
+                    "defaultValues": [],
+                    "isFixed": True
+                }            ],
+            "output": [
+                {
+                    "code": "data",
+                    "dataType": "label",
+                    "defaultValue": []
+                }            ]
+        }
+    },    "expression-detection": {
+        "input": { 
+"image" 
+        },
+        "output": { 
+"label" 
+        },
+        "spec": {
+            "id": "expression-detection",
+            "name": "Expression Detection",
+            "description": "Expression Detection is the process of identifying and analyzing facial expressions to interpret emotions or intentions using AI and computer vision techniques.",
+            "params": [
+                {
+                    "code": "media",
+                    "dataType": "image",
+                    "required": True,
+                    "multipleValues": False,
+                    "defaultValues": [],
+                    "isFixed": False
+                }            ],
+            "output": [
+                {
+                    "code": "data",
+                    "dataType": "label",
+                    "defaultValue": []
+                }            ]
+        }
+    },    "text-content-moderation": {
+        "input": { 
+"text", "label",  
+        },
+        "output": { 
+"label" 
+        },
+        "spec": {
+            "id": "text-content-moderation",
+            "name": "Text Content Moderation",
+            "description": "Scans and identifies potentially harmful, offensive, or inappropriate textual content, ensuring safer user environments.",
             "params": [
                 {
                     "code": "text",
@@ -3640,7 +3777,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "referenceless-audio-generation-metric",
             "name": "Referenceless Audio Generation Metric",
-            "description": "",
+            "description": "The Referenceless Audio Generation Metric is a tool designed to evaluate the quality of generated audio content without the need for a reference or original audio sample for comparison.",
             "params": [
                 {
                     "code": "hypotheses",
@@ -3671,143 +3808,6 @@ FunctionInputOutput = {
                     "defaultValue": None
                 }            ]
         }
-    },    "expression-detection": {
-        "input": { 
-"image" 
-        },
-        "output": { 
-"label" 
-        },
-        "spec": {
-            "id": "expression-detection",
-            "name": "Expression Detection",
-            "description": "",
-            "params": [
-                {
-                    "code": "media",
-                    "dataType": "image",
-                    "required": True,
-                    "multipleValues": False,
-                    "defaultValues": [],
-                    "isFixed": False
-                }            ],
-            "output": [
-                {
-                    "code": "data",
-                    "dataType": "label",
-                    "defaultValue": []
-                }            ]
-        }
-    },    "text-content-moderation": {
-        "input": { 
-"text", "label",  
-        },
-        "output": { 
-"label" 
-        },
-        "spec": {
-            "id": "text-content-moderation",
-            "name": "Text Content Moderation",
-            "description": "",
-            "params": [
-                {
-                    "code": "text",
-                    "dataType": "text",
-                    "required": True,
-                    "multipleValues": False,
-                    "defaultValues": [],
-                    "isFixed": False
-                },                {
-                    "code": "language",
-                    "dataType": "label",
-                    "required": True,
-                    "multipleValues": False,
-                    "defaultValues": [],
-                    "isFixed": True
-                },                {
-                    "code": "dialect",
-                    "dataType": "label",
-                    "required": False,
-                    "multipleValues": False,
-                    "defaultValues": [],
-                    "isFixed": True
-                },                {
-                    "code": "script",
-                    "dataType": "label",
-                    "required": False,
-                    "multipleValues": False,
-                    "defaultValues": [],
-                    "isFixed": True
-                }            ],
-            "output": [
-                {
-                    "code": "data",
-                    "dataType": "label",
-                    "defaultValue": []
-                }            ]
-        }
-    },    "audio-transcript-improvement": {
-        "input": { 
-"label", "text", "audio",  
-        },
-        "output": { 
-"text" 
-        },
-        "spec": {
-            "id": "audio-transcript-improvement",
-            "name": "Audio Transcript Improvement",
-            "description": "",
-            "params": [
-                {
-                    "code": "language",
-                    "dataType": "label",
-                    "required": True,
-                    "multipleValues": False,
-                    "defaultValues": [],
-                    "isFixed": True
-                },                {
-                    "code": "dialect",
-                    "dataType": "label",
-                    "required": False,
-                    "multipleValues": False,
-                    "defaultValues": [],
-                    "isFixed": True
-                },                {
-                    "code": "source_supplier",
-                    "dataType": "label",
-                    "required": False,
-                    "multipleValues": False,
-                    "defaultValues": None,
-                    "isFixed": True
-                },                {
-                    "code": "is_medical",
-                    "dataType": "text",
-                    "required": True,
-                    "multipleValues": False,
-                    "defaultValues": None,
-                    "isFixed": True
-                },                {
-                    "code": "source_audio",
-                    "dataType": "audio",
-                    "required": True,
-                    "multipleValues": False,
-                    "defaultValues": [],
-                    "isFixed": False
-                },                {
-                    "code": "script",
-                    "dataType": "label",
-                    "required": False,
-                    "multipleValues": False,
-                    "defaultValues": [],
-                    "isFixed": True
-                }            ],
-            "output": [
-                {
-                    "code": "data",
-                    "dataType": "text",
-                    "defaultValue": []
-                }            ]
-        }
     },    "text-classification": {
         "input": { 
 "text", "label",  
@@ -3818,7 +3818,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "text-classification",
             "name": "Text Classification",
-            "description": "",
+            "description": "Categorizes text into predefined groups or topics, facilitating content organization and targeted actions.",
             "params": [
                 {
                     "code": "text",
@@ -3853,65 +3853,6 @@ FunctionInputOutput = {
                 {
                     "code": "data",
                     "dataType": "label",
-                    "defaultValue": []
-                }            ]
-        }
-    },    "video-forced-alignment": {
-        "input": { 
-"video", "text", "label",  
-        },
-        "output": { 
-"text", "video" 
-        },
-        "spec": {
-            "id": "video-forced-alignment",
-            "name": "Video Forced Alignment",
-            "description": "",
-            "params": [
-                {
-                    "code": "video",
-                    "dataType": "video",
-                    "required": True,
-                    "multipleValues": False,
-                    "defaultValues": [],
-                    "isFixed": False
-                },                {
-                    "code": "text",
-                    "dataType": "text",
-                    "required": True,
-                    "multipleValues": False,
-                    "defaultValues": [],
-                    "isFixed": False
-                },                {
-                    "code": "language",
-                    "dataType": "label",
-                    "required": True,
-                    "multipleValues": False,
-                    "defaultValues": [],
-                    "isFixed": True
-                },                {
-                    "code": "dialect",
-                    "dataType": "label",
-                    "required": False,
-                    "multipleValues": False,
-                    "defaultValues": [],
-                    "isFixed": True
-                },                {
-                    "code": "script",
-                    "dataType": "label",
-                    "required": False,
-                    "multipleValues": False,
-                    "defaultValues": [],
-                    "isFixed": True
-                }            ],
-            "output": [
-                {
-                    "code": "text",
-                    "dataType": "text",
-                    "defaultValue": []
-                },                {
-                    "code": "video",
-                    "dataType": "video",
                     "defaultValue": []
                 }            ]
         }
@@ -3925,7 +3866,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "multi-label-text-classification",
             "name": "Multi Label Text Classification",
-            "description": "",
+            "description": "Multi Label Text Classification is a natural language processing task where a given text is analyzed and assigned multiple relevant labels or categories from a predefined set, allowing for the text to belong to more than one category simultaneously.",
             "params": [
                 {
                     "code": "language",
@@ -3949,19 +3890,26 @@ FunctionInputOutput = {
                     "defaultValue": None
                 }            ]
         }
-    },    "topic-classification": {
+    },    "video-forced-alignment": {
         "input": { 
-"text", "label",  
+"video", "text", "label",  
         },
         "output": { 
-"label" 
+"text", "video" 
         },
         "spec": {
-            "id": "topic-classification",
-            "name": "Topic Classification",
-            "description": "",
+            "id": "video-forced-alignment",
+            "name": "Video Forced Alignment",
+            "description": "Aligns the transcription of spoken content in a video with its corresponding timecodes, facilitating subtitle creation.",
             "params": [
                 {
+                    "code": "video",
+                    "dataType": "video",
+                    "required": True,
+                    "multipleValues": False,
+                    "defaultValues": [],
+                    "isFixed": False
+                },                {
                     "code": "text",
                     "dataType": "text",
                     "required": True,
@@ -3976,14 +3924,14 @@ FunctionInputOutput = {
                     "defaultValues": [],
                     "isFixed": True
                 },                {
-                    "code": "script",
+                    "code": "dialect",
                     "dataType": "label",
                     "required": False,
                     "multipleValues": False,
                     "defaultValues": [],
                     "isFixed": True
                 },                {
-                    "code": "dialect",
+                    "code": "script",
                     "dataType": "label",
                     "required": False,
                     "multipleValues": False,
@@ -3992,8 +3940,12 @@ FunctionInputOutput = {
                 }            ],
             "output": [
                 {
-                    "code": "data",
-                    "dataType": "label",
+                    "code": "text",
+                    "dataType": "text",
+                    "defaultValue": []
+                },                {
+                    "code": "video",
+                    "dataType": "video",
                     "defaultValue": []
                 }            ]
         }
@@ -4007,7 +3959,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "speech-embedding",
             "name": "Speech Embedding",
-            "description": "",
+            "description": "Transforms spoken content into a fixed-size vector in a high-dimensional space that captures the content's essence. Facilitates tasks like speech recognition and speaker verification.",
             "params": [
                 {
                     "code": "audio",
@@ -4055,7 +4007,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "audio-transcript-analysis",
             "name": "Audio Transcript Analysis",
-            "description": "",
+            "description": "Analyzes transcribed audio data for insights, patterns, or specific information extraction.",
             "params": [
                 {
                     "code": "language",
@@ -4110,7 +4062,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "speaker-diarization-video",
             "name": "Speaker Diarization Video",
-            "description": "",
+            "description": "Segments a video based on different speakers, identifying when each individual speaks. Useful for transcriptions and understanding multi-person conversations.",
             "params": [
                 {
                     "code": "video",
@@ -4158,7 +4110,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "paraphrasing",
             "name": "Paraphrasing",
-            "description": "",
+            "description": "Express the meaning of the writer or speaker or something written or spoken using different words.",
             "params": [
                 {
                     "code": "text",
@@ -4192,7 +4144,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "text-summarization",
             "name": "Text summarization",
-            "description": "",
+            "description": "Extracts the main points from a larger body of text, producing a concise summary without losing the primary message.",
             "params": [
                 {
                     "code": "text",
@@ -4227,178 +4179,6 @@ FunctionInputOutput = {
                 {
                     "code": "data",
                     "dataType": "text",
-                    "defaultValue": []
-                }            ]
-        }
-    },    "text-denormalization": {
-        "input": { 
-"text", "label",  
-        },
-        "output": { 
-"label" 
-        },
-        "spec": {
-            "id": "text-denormalization",
-            "name": "Text Denormalization",
-            "description": "",
-            "params": [
-                {
-                    "code": "text",
-                    "dataType": "text",
-                    "required": True,
-                    "multipleValues": False,
-                    "defaultValues": [],
-                    "isFixed": False
-                },                {
-                    "code": "language",
-                    "dataType": "label",
-                    "required": True,
-                    "multipleValues": False,
-                    "defaultValues": None,
-                    "isFixed": True
-                },                {
-                    "code": "lowercase_latin",
-                    "dataType": "text",
-                    "required": False,
-                    "multipleValues": False,
-                    "defaultValues": [{'value': '0', 'label': 'No'}],
-                    "isFixed": False
-                },                {
-                    "code": "remove_accents",
-                    "dataType": "text",
-                    "required": False,
-                    "multipleValues": False,
-                    "defaultValues": [{'value': '1', 'label': 'Yes'}],
-                    "isFixed": False
-                },                {
-                    "code": "remove_punctuation",
-                    "dataType": "text",
-                    "required": False,
-                    "multipleValues": False,
-                    "defaultValues": [{'value': '0', 'label': 'No'}],
-                    "isFixed": False
-                }            ],
-            "output": [
-                {
-                    "code": "data",
-                    "dataType": "label",
-                    "defaultValue": []
-                }            ]
-        }
-    },    "speech-translation": {
-        "input": { 
-"audio", "label", "label",  
-        },
-        "output": { 
-"text" 
-        },
-        "spec": {
-            "id": "speech-translation",
-            "name": "Speech Translation",
-            "description": "",
-            "params": [
-                {
-                    "code": "source_audio",
-                    "dataType": "audio",
-                    "required": True,
-                    "multipleValues": False,
-                    "defaultValues": [],
-                    "isFixed": False
-                },                {
-                    "code": "sourcelanguage",
-                    "dataType": "label",
-                    "required": True,
-                    "multipleValues": False,
-                    "defaultValues": [],
-                    "isFixed": True
-                },                {
-                    "code": "targetlanguage",
-                    "dataType": "label",
-                    "required": True,
-                    "multipleValues": False,
-                    "defaultValues": [],
-                    "isFixed": True
-                },                {
-                    "code": "dialect",
-                    "dataType": "label",
-                    "required": False,
-                    "multipleValues": False,
-                    "defaultValues": [],
-                    "isFixed": True
-                },                {
-                    "code": "voice",
-                    "dataType": "label",
-                    "required": False,
-                    "multipleValues": False,
-                    "defaultValues": [],
-                    "isFixed": True
-                },                {
-                    "code": "script",
-                    "dataType": "label",
-                    "required": False,
-                    "multipleValues": False,
-                    "defaultValues": [],
-                    "isFixed": True
-                }            ],
-            "output": [
-                {
-                    "code": "data",
-                    "dataType": "text",
-                    "defaultValue": []
-                }            ]
-        }
-    },    "voice-activity-detection": {
-        "input": { 
-"audio",  
-        },
-        "output": { 
-"audio" 
-        },
-        "spec": {
-            "id": "voice-activity-detection",
-            "name": "Voice Activity Detection",
-            "description": "",
-            "params": [
-                {
-                    "code": "audio",
-                    "dataType": "audio",
-                    "required": True,
-                    "multipleValues": False,
-                    "defaultValues": [],
-                    "isFixed": False
-                },                {
-                    "code": "onset",
-                    "dataType": "text",
-                    "required": False,
-                    "multipleValues": False,
-                    "defaultValues": [{'value': '0.5', 'label': '0.5'}],
-                    "isFixed": False
-                },                {
-                    "code": "offset",
-                    "dataType": "text",
-                    "required": False,
-                    "multipleValues": False,
-                    "defaultValues": [{'value': '0.5', 'label': '0.5'}],
-                    "isFixed": False
-                },                {
-                    "code": "min_duration_on",
-                    "dataType": "text",
-                    "required": False,
-                    "multipleValues": False,
-                    "defaultValues": [{'value': '1', 'label': '1'}],
-                    "isFixed": False
-                },                {
-                    "code": "min_duration_off",
-                    "dataType": "text",
-                    "required": False,
-                    "multipleValues": False,
-                    "defaultValues": [{'value': '0.5', 'label': '0.5'}],
-                    "isFixed": False
-                }            ],
-            "output": [
-                {
-                    "code": "data",
-                    "dataType": "audio",
                     "defaultValue": []
                 }            ]
         }
@@ -4412,7 +4192,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "sentiment-analysis",
             "name": "Sentiment Analysis",
-            "description": "",
+            "description": "Determines the sentiment or emotion (e.g., positive, negative, neutral) of a piece of text, aiding in understanding user feedback or market sentiment.",
             "params": [
                 {
                     "code": "text",
@@ -4460,7 +4240,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "image-compression",
             "name": "Image Compression",
-            "description": "",
+            "description": "Reduces the size of image files without significantly compromising their visual quality. Useful for optimizing storage and improving webpage load times.",
             "params": [
                 {
                     "code": "image",
@@ -4494,7 +4274,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "text-normalization",
             "name": "Text Normalization",
-            "description": "",
+            "description": "Converts unstructured or non-standard textual data into a more readable and uniform format, dealing with abbreviations, numerals, and other non-standard words.",
             "params": [
                 {
                     "code": "text",
@@ -4535,7 +4315,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "text-generation",
             "name": "Text Generation",
-            "description": "",
+            "description": "Creates coherent and contextually relevant textual content based on prompts or certain parameters. Useful for chatbots, content creation, and data augmentation.",
             "params": [
                 {
                     "code": "text",
@@ -4597,7 +4377,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "translation",
             "name": "Translation",
-            "description": "",
+            "description": "Converts text from one language to another while maintaining the original message's essence and context. Crucial for global communication.",
             "params": [
                 {
                     "code": "text",
@@ -4663,6 +4443,226 @@ FunctionInputOutput = {
                     "defaultValue": True
                 }            ]
         }
+    },    "text-spam-detection": {
+        "input": { 
+"text", "label",  
+        },
+        "output": { 
+"label" 
+        },
+        "spec": {
+            "id": "text-spam-detection",
+            "name": "Text Spam Detection",
+            "description": "Identifies and filters out unwanted or irrelevant text content, ideal for moderating user-generated content or ensuring quality in communication platforms.",
+            "params": [
+                {
+                    "code": "text",
+                    "dataType": "text",
+                    "required": True,
+                    "multipleValues": False,
+                    "defaultValues": [],
+                    "isFixed": False
+                },                {
+                    "code": "language",
+                    "dataType": "label",
+                    "required": True,
+                    "multipleValues": False,
+                    "defaultValues": [],
+                    "isFixed": True
+                },                {
+                    "code": "dialect",
+                    "dataType": "label",
+                    "required": False,
+                    "multipleValues": False,
+                    "defaultValues": [],
+                    "isFixed": True
+                },                {
+                    "code": "script",
+                    "dataType": "label",
+                    "required": False,
+                    "multipleValues": False,
+                    "defaultValues": [],
+                    "isFixed": True
+                }            ],
+            "output": [
+                {
+                    "code": "data",
+                    "dataType": "label",
+                    "defaultValue": []
+                }            ]
+        }
+    },    "video-understanding": {
+        "input": { 
+"video", "text", "label",  
+        },
+        "output": { 
+"text" 
+        },
+        "spec": {
+            "id": "video-understanding",
+            "name": "Video Understanding",
+            "description": "Video Understanding is the process of analyzing and interpreting video content to extract meaningful information, such as identifying objects, actions, events, and contextual relationships within the footage.",
+            "params": [
+                {
+                    "code": "video",
+                    "dataType": "video",
+                    "required": True,
+                    "multipleValues": False,
+                    "defaultValues": [],
+                    "isFixed": False
+                },                {
+                    "code": "text",
+                    "dataType": "text",
+                    "required": True,
+                    "multipleValues": False,
+                    "defaultValues": [],
+                    "isFixed": False
+                },                {
+                    "code": "language",
+                    "dataType": "label",
+                    "required": True,
+                    "multipleValues": False,
+                    "defaultValues": [],
+                    "isFixed": True
+                },                {
+                    "code": "dialect",
+                    "dataType": "label",
+                    "required": False,
+                    "multipleValues": False,
+                    "defaultValues": [],
+                    "isFixed": True
+                },                {
+                    "code": "script",
+                    "dataType": "label",
+                    "required": False,
+                    "multipleValues": False,
+                    "defaultValues": [],
+                    "isFixed": True
+                }            ],
+            "output": [
+                {
+                    "code": "text",
+                    "dataType": "text",
+                    "defaultValue": []
+                }            ]
+        }
+    },    "audio-transcript-improvement": {
+        "input": { 
+"label", "text", "audio",  
+        },
+        "output": { 
+"text" 
+        },
+        "spec": {
+            "id": "audio-transcript-improvement",
+            "name": "Audio Transcript Improvement",
+            "description": "Refines and corrects transcriptions generated from audio data, improving readability and accuracy.",
+            "params": [
+                {
+                    "code": "language",
+                    "dataType": "label",
+                    "required": True,
+                    "multipleValues": False,
+                    "defaultValues": [],
+                    "isFixed": True
+                },                {
+                    "code": "dialect",
+                    "dataType": "label",
+                    "required": False,
+                    "multipleValues": False,
+                    "defaultValues": [],
+                    "isFixed": True
+                },                {
+                    "code": "source_supplier",
+                    "dataType": "label",
+                    "required": False,
+                    "multipleValues": False,
+                    "defaultValues": None,
+                    "isFixed": True
+                },                {
+                    "code": "is_medical",
+                    "dataType": "text",
+                    "required": True,
+                    "multipleValues": False,
+                    "defaultValues": None,
+                    "isFixed": True
+                },                {
+                    "code": "source_audio",
+                    "dataType": "audio",
+                    "required": True,
+                    "multipleValues": False,
+                    "defaultValues": [],
+                    "isFixed": False
+                },                {
+                    "code": "script",
+                    "dataType": "label",
+                    "required": False,
+                    "multipleValues": False,
+                    "defaultValues": [],
+                    "isFixed": True
+                }            ],
+            "output": [
+                {
+                    "code": "data",
+                    "dataType": "text",
+                    "defaultValue": []
+                }            ]
+        }
+    },    "voice-activity-detection": {
+        "input": { 
+"audio",  
+        },
+        "output": { 
+"audio" 
+        },
+        "spec": {
+            "id": "voice-activity-detection",
+            "name": "Voice Activity Detection",
+            "description": "Determines when a person is speaking in an audio clip. It's an essential preprocessing step for other audio-related tasks.",
+            "params": [
+                {
+                    "code": "audio",
+                    "dataType": "audio",
+                    "required": True,
+                    "multipleValues": False,
+                    "defaultValues": [],
+                    "isFixed": False
+                },                {
+                    "code": "onset",
+                    "dataType": "text",
+                    "required": False,
+                    "multipleValues": False,
+                    "defaultValues": [{'value': '0.5', 'label': '0.5'}],
+                    "isFixed": False
+                },                {
+                    "code": "offset",
+                    "dataType": "text",
+                    "required": False,
+                    "multipleValues": False,
+                    "defaultValues": [{'value': '0.5', 'label': '0.5'}],
+                    "isFixed": False
+                },                {
+                    "code": "min_duration_on",
+                    "dataType": "text",
+                    "required": False,
+                    "multipleValues": False,
+                    "defaultValues": [{'value': '1', 'label': '1'}],
+                    "isFixed": False
+                },                {
+                    "code": "min_duration_off",
+                    "dataType": "text",
+                    "required": False,
+                    "multipleValues": False,
+                    "defaultValues": [{'value': '0.5', 'label': '0.5'}],
+                    "isFixed": False
+                }            ],
+            "output": [
+                {
+                    "code": "data",
+                    "dataType": "audio",
+                    "defaultValue": []
+                }            ]
+        }
     },    "subtitling": {
         "input": { 
 "audio", "label",  
@@ -4673,7 +4673,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "subtitling",
             "name": "Subtitling",
-            "description": "",
+            "description": "Generates accurate subtitles for videos, enhancing accessibility for diverse audiences.",
             "params": [
                 {
                     "code": "source_audio",
@@ -4735,7 +4735,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "speech-recognition",
             "name": "Speech Recognition",
-            "description": "",
+            "description": "Converts spoken language into written text. Useful for transcription services, voice assistants, and applications requiring voice-to-text capabilities.",
             "params": [
                 {
                     "code": "language",
@@ -4790,7 +4790,34 @@ FunctionInputOutput = {
         "spec": {
             "id": "split-on-linebreak",
             "name": "Split On Linebreak",
-            "description": "",
+            "description": "The \"Split On Linebreak\" function divides a given string into a list of substrings, using linebreaks (newline characters) as the points of separation.",
+            "params": [
+                {
+                    "code": "text",
+                    "dataType": "text",
+                    "required": True,
+                    "multipleValues": False,
+                    "defaultValues": [],
+                    "isFixed": False
+                }            ],
+            "output": [
+                {
+                    "code": "data",
+                    "dataType": "text",
+                    "defaultValue": []
+                }            ]
+        }
+    },    "search": {
+        "input": { 
+"text" 
+        },
+        "output": { 
+"text" 
+        },
+        "spec": {
+            "id": "search",
+            "name": "Search",
+            "description": "An algorithm that identifies and returns data or items that match particular keywords or conditions from a dataset. A fundamental tool for databases and websites.",
             "params": [
                 {
                     "code": "text",
@@ -4817,7 +4844,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "asr-quality-estimation",
             "name": "ASR Quality Estimation",
-            "description": "",
+            "description": "ASR Quality Estimation is a process that evaluates the accuracy and reliability of automatic speech recognition systems by analyzing their performance in transcribing spoken language into text.",
             "params": [
                 {
                     "code": "text",
@@ -4841,21 +4868,21 @@ FunctionInputOutput = {
                     "defaultValue": []
                 }            ]
         }
-    },    "search": {
+    },    "asr-age-classification": {
         "input": { 
-"text" 
+"audio" 
         },
         "output": { 
-"text" 
+"label" 
         },
         "spec": {
-            "id": "search",
-            "name": "Search",
-            "description": "",
+            "id": "asr-age-classification",
+            "name": "ASR Age Classification",
+            "description": "The ASR Age Classification function is designed to analyze audio recordings of speech to determine the speaker's age group by leveraging automatic speech recognition (ASR) technology and machine learning algorithms.",
             "params": [
                 {
-                    "code": "text",
-                    "dataType": "text",
+                    "code": "source_audio",
+                    "dataType": "audio",
                     "required": True,
                     "multipleValues": False,
                     "defaultValues": [],
@@ -4864,7 +4891,7 @@ FunctionInputOutput = {
             "output": [
                 {
                     "code": "data",
-                    "dataType": "text",
+                    "dataType": "label",
                     "defaultValue": []
                 }            ]
         }
@@ -4878,7 +4905,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "text-segmenation",
             "name": "Text Segmentation",
-            "description": "",
+            "description": "Text Segmentation is the process of dividing a continuous text into meaningful units, such as words, sentences, or topics, to facilitate easier analysis and understanding.",
             "params": [
                 {
                     "code": "text",
@@ -4902,33 +4929,6 @@ FunctionInputOutput = {
                     "defaultValue": []
                 }            ]
         }
-    },    "asr-age-classification": {
-        "input": { 
-"audio" 
-        },
-        "output": { 
-"label" 
-        },
-        "spec": {
-            "id": "asr-age-classification",
-            "name": "ASR Age Classification",
-            "description": "",
-            "params": [
-                {
-                    "code": "source_audio",
-                    "dataType": "audio",
-                    "required": True,
-                    "multipleValues": False,
-                    "defaultValues": [],
-                    "isFixed": False
-                }            ],
-            "output": [
-                {
-                    "code": "data",
-                    "dataType": "label",
-                    "defaultValue": []
-                }            ]
-        }
     },    "image-manipulation": {
         "input": { 
 "image", "image" 
@@ -4939,7 +4939,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "image-manipulation",
             "name": "Image Manipulation",
-            "description": "",
+            "description": "Image Manipulation refers to the process of altering or enhancing digital images using various techniques and tools to achieve desired visual effects, correct imperfections, or transform the image's appearance.",
             "params": [
                 {
                     "code": "image",
@@ -4973,7 +4973,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "entity-sentiment-analysis",
             "name": "Entity Sentiment Analysis",
-            "description": "",
+            "description": "Entity Sentiment Analysis combines both entity analysis and sentiment analysis and attempts to determine the sentiment (positive or negative) expressed about entities within the text.",
             "params": [
                 {
                     "code": "text",
@@ -5000,7 +5000,7 @@ FunctionInputOutput = {
         "spec": {
             "id": "guardrails",
             "name": "Guardrails",
-            "description": "",
+            "description": " Guardrails are governance rules that enforce security, compliance, and operational best practices, helping prevent mistakes and detect suspicious activity",
             "params": [
                 {
                     "code": "text",
