@@ -5,8 +5,8 @@ from jinja2 import Environment, BaseLoader
 
 from aixplain.utils import config
 
-# Note: We don't import Function from aixplain.enums here to avoid circular dependency
-# The UTILITIES check is done with string comparison instead
+# Note: We don't import Function from aixplain.enums here to avoid circular
+# dependency. The UTILITIES check is done with string comparison instead
 
 
 def enumify(s):
@@ -38,41 +38,11 @@ SEGMENTOR_FUNCTIONS = [
 
 RECONSTRUCTOR_FUNCTIONS = ["text-reconstruction", "audio-reconstruction"]
 
-ENUMS_MODULE_PATH = "aixplain/v2/enums.py"
-MAIN_ENUMS_MODULE_PATH = "aixplain/enums/generated_enums.py"
+# Centralized enum generation - only generate in main enums directory
+ENUMS_MODULE_PATH = "aixplain/enums/generated_enums.py"
+PIPELINE_MODULE_PATH = "aixplain/modules/pipeline/pipeline.py"
+
 ENUMS_MODULE_TEMPLATE = """# This is an auto generated module. PLEASE DO NOT EDIT
-
-
-from enum import Enum
-from .enums_include import *  # noqa
-
-
-class Function(str, Enum):
-    {% for function in functions %}
-    {{ function.id|enumify }} = "{{ function.id }}"
-    {% endfor %}
-
-class Supplier(Enum):
-    {% for supplier in suppliers %}
-    {{ supplier.code|enumify }} = {"id": "{{ supplier.id }}", "name": "{{ supplier.name }}", "code": "{{ supplier.code }}"}
-    {% endfor %}
-
-class Language(Enum):
-    {% for language in languages %}
-    {{ language.label|enumify }} = {"language": "{{ language.value }}", "dialect": ""}
-    {% for dialect in language.dialects %}
-    {{ language.label|enumify }}_{{ dialect.label|enumify }} = {"language": "{{ language.value }}", "dialect": "{{ dialect.value }}"}
-    {% endfor %}
-    {% endfor %}
-
-class License(str, Enum):
-    {% for license in licenses %}
-    {{ license.name|enumify }} = "{{ license.id }}"
-    {% endfor %}
-
-"""
-
-MAIN_ENUMS_TEMPLATE = """# This is an auto generated module. PLEASE DO NOT EDIT
 # This module contains static enums that were previously loaded dynamically
 
 from enum import Enum
@@ -118,8 +88,14 @@ class Function(str, Enum):
 FunctionInputOutput = {
     {% for function in functions %}
     "{{ function.id }}": {
-        "input": { {% for param in function.params %}{% if param.required %}"{{ param.dataType }}"{% if not loop.last %}, {% endif %}{% endif %}{% endfor %} },
-        "output": { {% for output in function.output %}"{{ output.dataType }}"{% if not loop.last %}, {% endif %}{% endfor %} },
+        "input": { 
+            {% for param in function.params %}
+            {% if param.required %}"{{ param.dataType }}"{% if not loop.last %}, {% endif %}{% endif %}
+            {% endfor %} 
+        },
+        "output": { 
+            {% for output in function.output %}"{{ output.dataType }}"{% if not loop.last %}, {% endif %}{% endfor %} 
+        },
         "spec": {
             "id": "{{ function.id }}",
             "name": "{{ function.name }}",
@@ -170,7 +146,11 @@ class FunctionParameters(BaseParameters):
 # Supplier enum with static values
 class Supplier(Enum):
     {% for supplier in suppliers %}
-    {{ supplier.code|enumify }} = {"id": "{{ supplier.id }}", "name": "{{ supplier.name }}", "code": "{{ supplier.code }}"}
+    {{ supplier.code|enumify }} = {
+        "id": "{{ supplier.id }}", 
+        "name": "{{ supplier.name }}", 
+        "code": "{{ supplier.code }}"
+    }
     {% endfor %}
 
     def __str__(self):
@@ -179,9 +159,15 @@ class Supplier(Enum):
 # Language enum with static values
 class Language(Enum):
     {% for language in languages %}
-    {{ language.label|enumify }} = {"language": "{{ language.value }}", "dialect": ""}
+    {{ language.label|enumify }} = {
+        "language": "{{ language.value }}", 
+        "dialect": ""
+    }
     {% for dialect in language.dialects %}
-    {{ language.label|enumify }}_{{ dialect.label|enumify }} = {"language": "{{ language.value }}", "dialect": "{{ dialect.value }}"}
+    {{ language.label|enumify }}_{{ dialect.label|enumify }} = {
+        "language": "{{ language.value }}", 
+        "dialect": "{{ dialect.value }}"
+    }
     {% endfor %}
     {% endfor %}
 
@@ -193,7 +179,6 @@ class License(str, Enum):
 
 """
 
-PIPELINE_MODULE_PATH = "aixplain/modules/pipeline/pipeline.py"
 PIPELINE_MODULE_TEMPLATE = """# This is an auto generated module. PLEASE DO NOT EDIT
 
 
@@ -225,7 +210,11 @@ class {{ spec.class_name }}Inputs(Inputs):
     def __init__(self, node=None):
         super().__init__(node=node)
 {% for input in spec.inputs %}
-        self.{{ input.name }} = self.create_param(code="{{ input.name }}", data_type=DataType.{{ input.data_type | upper }}, is_required={{ input.is_required }})
+        self.{{ input.name }} = self.create_param(
+            code="{{ input.name }}", 
+            data_type=DataType.{{ input.data_type | upper }}, 
+            is_required={{ input.is_required }}
+        )
 {% endfor %}
 
 
@@ -240,7 +229,10 @@ class {{ spec.class_name }}Outputs(Outputs):
     def __init__(self, node=None):
         super().__init__(node=node)
 {% for output in spec.outputs %}
-        self.{{ output.name }} = self.create_param(code="{{ output.name }}", data_type=DataType.{{ output.data_type | upper }})
+        self.{{ output.name }} = self.create_param(
+            code="{{ output.name }}", 
+            data_type=DataType.{{ output.data_type | upper }}
+        )
 {% endfor %}
 {% if spec.is_segmentor %}
         self.audio = self.create_param(code="audio", data_type=DataType.AUDIO)
@@ -355,7 +347,9 @@ def populate_specs(functions: list):
 
         # slugify function name by trimming some special chars and
         # transforming it to snake case
-        function_name = function["id"].replace("-", "_").replace("(", "_").replace(")", "_")
+        function_name = (
+            function["id"].replace("-", "_").replace("(", "_").replace(")", "_")
+        )
         base_class = "AssetNode"
         is_segmentor = function["id"] in SEGMENTOR_FUNCTIONS
         is_reconstructor = function["id"] in RECONSTRUCTOR_FUNCTIONS
@@ -363,7 +357,9 @@ def populate_specs(functions: list):
             base_class = "BaseSegmentor"
         elif is_reconstructor:
             base_class = "BaseReconstructor"
-        elif "metric" in function_name.split("_"):  # noqa: Advise a better distinguisher please
+        elif "metric" in function_name.split(
+            "_"
+        ):  # noqa: Advise a better distinguisher please
             base_class = "BaseMetric"
 
         spec = {
@@ -420,6 +416,8 @@ if __name__ == "__main__":
     )
     env.filters["enumify"] = enumify
     env.filters["none_to_none"] = none_to_none
+
+    # Generate pipeline module
     pipeline_template = env.from_string(PIPELINE_MODULE_TEMPLATE)
     pipeline_output = pipeline_template.render(data_types=data_types, specs=specs)
 
@@ -427,17 +425,13 @@ if __name__ == "__main__":
     with open(PIPELINE_MODULE_PATH, "w") as f:
         f.write(pipeline_output)
 
+    # Generate centralized enums file
     enums_template = env.from_string(ENUMS_MODULE_TEMPLATE)
-    enums_output = enums_template.render(functions=functions, suppliers=suppliers, languages=languages, licenses=licenses)
-    print(f"Writing module to file: {ENUMS_MODULE_PATH}")
+    enums_output = enums_template.render(
+        functions=functions, suppliers=suppliers, languages=languages, licenses=licenses
+    )
+    print(f"Writing centralized enums module to file: {ENUMS_MODULE_PATH}")
     with open(ENUMS_MODULE_PATH, "w") as f:
         f.write(enums_output)
-
-    # Generate main enums file for the main enums directory
-    main_enums_template = env.from_string(MAIN_ENUMS_TEMPLATE)
-    main_enums_output = main_enums_template.render(functions=functions, suppliers=suppliers, languages=languages, licenses=licenses)
-    print(f"Writing main enums module to file: {MAIN_ENUMS_MODULE_PATH}")
-    with open(MAIN_ENUMS_MODULE_PATH, "w") as f:
-        f.write(main_enums_output)
 
     print("Modules generated successfully")
