@@ -59,45 +59,6 @@ processing.
     outputs_class: Type[TO] = ActivityDetectionOutputs
 
 
-class TextDetectionInputs(Inputs):
-    image: InputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.image = self.create_param(
-            code="image", 
-            data_type=DataType.IMAGE, 
-            is_required=True
-        )
-
-
-class TextDetectionOutputs(Outputs):
-    data: OutputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.data = self.create_param(
-            code="data", 
-            data_type=DataType.TEXT
-        )
-
-
-class TextDetection(AssetNode[TextDetectionInputs, TextDetectionOutputs]):
-    """
-    detect text regions in the complex background and label them with bounding
-boxes.
-
-    InputType: image
-    OutputType: text 
-    """
-    function: str = "text-detection"
-    input_type: str = DataType.IMAGE
-    output_type: str = DataType.TEXT 
-
-    inputs_class: Type[TI] = TextDetectionInputs
-    outputs_class: Type[TO] = TextDetectionOutputs
-
-
 class ScriptExecutionInputs(Inputs):
     text: InputParam = None
 
@@ -138,6 +99,45 @@ performance of tasks, calculations, or operations as defined by the script.
     outputs_class: Type[TO] = ScriptExecutionOutputs
 
 
+class TextDetectionInputs(Inputs):
+    image: InputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.image = self.create_param(
+            code="image", 
+            data_type=DataType.IMAGE, 
+            is_required=True
+        )
+
+
+class TextDetectionOutputs(Outputs):
+    data: OutputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.TEXT
+        )
+
+
+class TextDetection(AssetNode[TextDetectionInputs, TextDetectionOutputs]):
+    """
+    detect text regions in the complex background and label them with bounding
+boxes.
+
+    InputType: image
+    OutputType: text 
+    """
+    function: str = "text-detection"
+    input_type: str = DataType.IMAGE
+    output_type: str = DataType.TEXT 
+
+    inputs_class: Type[TI] = TextDetectionInputs
+    outputs_class: Type[TO] = TextDetectionOutputs
+
+
 class AudioSourceSeparationInputs(Inputs):
     audio: InputParam = None
 
@@ -176,47 +176,6 @@ vocals).
 
     inputs_class: Type[TI] = AudioSourceSeparationInputs
     outputs_class: Type[TO] = AudioSourceSeparationOutputs
-
-
-class ImageImpaintingInputs(Inputs):
-    image: InputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.image = self.create_param(
-            code="image", 
-            data_type=DataType.IMAGE, 
-            is_required=False
-        )
-
-
-class ImageImpaintingOutputs(Outputs):
-    image: OutputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.image = self.create_param(
-            code="image", 
-            data_type=DataType.IMAGE
-        )
-
-
-class ImageImpainting(AssetNode[ImageImpaintingInputs, ImageImpaintingOutputs]):
-    """
-    Image inpainting is a process that involves filling in missing or damaged parts
-of an image in a way that is visually coherent and seamlessly blends with the
-surrounding areas, often using advanced algorithms and techniques to restore
-the image to its original or intended appearance.
-
-    InputType: image
-    OutputType: image
-    """
-    function: str = "image-impainting"
-    input_type: str = DataType.IMAGE
-    output_type: str = DataType.IMAGE
-
-    inputs_class: Type[TI] = ImageImpaintingInputs
-    outputs_class: Type[TO] = ImageImpaintingOutputs
 
 
 class MultiClassTextClassificationInputs(Inputs):
@@ -263,6 +222,47 @@ categories based on its content.
 
     inputs_class: Type[TI] = MultiClassTextClassificationInputs
     outputs_class: Type[TO] = MultiClassTextClassificationOutputs
+
+
+class ImageImpaintingInputs(Inputs):
+    image: InputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.image = self.create_param(
+            code="image", 
+            data_type=DataType.IMAGE, 
+            is_required=False
+        )
+
+
+class ImageImpaintingOutputs(Outputs):
+    image: OutputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.image = self.create_param(
+            code="image", 
+            data_type=DataType.IMAGE
+        )
+
+
+class ImageImpainting(AssetNode[ImageImpaintingInputs, ImageImpaintingOutputs]):
+    """
+    Image inpainting is a process that involves filling in missing or damaged parts
+of an image in a way that is visually coherent and seamlessly blends with the
+surrounding areas, often using advanced algorithms and techniques to restore
+the image to its original or intended appearance.
+
+    InputType: image
+    OutputType: image
+    """
+    function: str = "image-impainting"
+    input_type: str = DataType.IMAGE
+    output_type: str = DataType.IMAGE
+
+    inputs_class: Type[TI] = ImageImpaintingInputs
+    outputs_class: Type[TO] = ImageImpaintingOutputs
 
 
 class SceneDetectionInputs(Inputs):
@@ -2238,51 +2238,6 @@ identifying specific object classes in an image.
     outputs_class: Type[TO] = AutoMaskGenerationOutputs
 
 
-class TextToAudioInputs(Inputs):
-    text: InputParam = None
-    language: InputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.text = self.create_param(
-            code="text", 
-            data_type=DataType.TEXT, 
-            is_required=True
-        )
-        self.language = self.create_param(
-            code="language", 
-            data_type=DataType.LABEL, 
-            is_required=False
-        )
-
-
-class TextToAudioOutputs(Outputs):
-    data: OutputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.data = self.create_param(
-            code="data", 
-            data_type=DataType.AUDIO
-        )
-
-
-class TextToAudio(AssetNode[TextToAudioInputs, TextToAudioOutputs]):
-    """
-    The Text to Audio function converts written text into spoken words, allowing
-users to listen to the content instead of reading it.
-
-    InputType: text
-    OutputType: audio
-    """
-    function: str = "text-to-audio"
-    input_type: str = DataType.TEXT
-    output_type: str = DataType.AUDIO
-
-    inputs_class: Type[TI] = TextToAudioInputs
-    outputs_class: Type[TO] = TextToAudioOutputs
-
-
 class FactCheckingInputs(Inputs):
     language: InputParam = None
     text: InputParam = None
@@ -2327,6 +2282,51 @@ and evidence.
 
     inputs_class: Type[TI] = FactCheckingInputs
     outputs_class: Type[TO] = FactCheckingOutputs
+
+
+class TextToAudioInputs(Inputs):
+    text: InputParam = None
+    language: InputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
+        self.language = self.create_param(
+            code="language", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+
+
+class TextToAudioOutputs(Outputs):
+    data: OutputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.AUDIO
+        )
+
+
+class TextToAudio(AssetNode[TextToAudioInputs, TextToAudioOutputs]):
+    """
+    The Text to Audio function converts written text into spoken words, allowing
+users to listen to the content instead of reading it.
+
+    InputType: text
+    OutputType: audio
+    """
+    function: str = "text-to-audio"
+    input_type: str = DataType.TEXT
+    output_type: str = DataType.AUDIO
+
+    inputs_class: Type[TI] = TextToAudioInputs
+    outputs_class: Type[TO] = TextToAudioOutputs
 
 
 class TableQuestionAnsweringInputs(Inputs):
@@ -3338,6 +3338,196 @@ from a source (or sources) to produce an abridged version for a particular user
     outputs_class: Type[TO] = SummarizationOutputs
 
 
+class TopicClassificationInputs(Inputs):
+    text: InputParam = None
+    language: InputParam = None
+    script: InputParam = None
+    dialect: InputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
+        self.language = self.create_param(
+            code="language", 
+            data_type=DataType.LABEL, 
+            is_required=True
+        )
+        self.script = self.create_param(
+            code="script", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+        self.dialect = self.create_param(
+            code="dialect", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+
+
+class TopicClassificationOutputs(Outputs):
+    data: OutputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.LABEL
+        )
+
+
+class TopicClassification(AssetNode[TopicClassificationInputs, TopicClassificationOutputs]):
+    """
+    Assigns categories or topics to a piece of text based on its content,
+facilitating content organization and retrieval.
+
+    InputType: text
+    OutputType: label
+    """
+    function: str = "topic-classification"
+    input_type: str = DataType.TEXT
+    output_type: str = DataType.LABEL
+
+    inputs_class: Type[TI] = TopicClassificationInputs
+    outputs_class: Type[TO] = TopicClassificationOutputs
+
+
+class TextDenormalizationInputs(Inputs):
+    text: InputParam = None
+    language: InputParam = None
+    lowercase_latin: InputParam = None
+    remove_accents: InputParam = None
+    remove_punctuation: InputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
+        self.language = self.create_param(
+            code="language", 
+            data_type=DataType.LABEL, 
+            is_required=True
+        )
+        self.lowercase_latin = self.create_param(
+            code="lowercase_latin", 
+            data_type=DataType.TEXT, 
+            is_required=False
+        )
+        self.remove_accents = self.create_param(
+            code="remove_accents", 
+            data_type=DataType.TEXT, 
+            is_required=False
+        )
+        self.remove_punctuation = self.create_param(
+            code="remove_punctuation", 
+            data_type=DataType.TEXT, 
+            is_required=False
+        )
+
+
+class TextDenormalizationOutputs(Outputs):
+    data: OutputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.LABEL
+        )
+
+
+class TextDenormalization(AssetNode[TextDenormalizationInputs, TextDenormalizationOutputs]):
+    """
+    Converts standardized or normalized text into its original, often more
+readable, form. Useful in natural language generation tasks.
+
+    InputType: text
+    OutputType: label
+    """
+    function: str = "text-denormalization"
+    input_type: str = DataType.TEXT
+    output_type: str = DataType.LABEL
+
+    inputs_class: Type[TI] = TextDenormalizationInputs
+    outputs_class: Type[TO] = TextDenormalizationOutputs
+
+
+class SpeechTranslationInputs(Inputs):
+    source_audio: InputParam = None
+    sourcelanguage: InputParam = None
+    targetlanguage: InputParam = None
+    dialect: InputParam = None
+    voice: InputParam = None
+    script: InputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.source_audio = self.create_param(
+            code="source_audio", 
+            data_type=DataType.AUDIO, 
+            is_required=True
+        )
+        self.sourcelanguage = self.create_param(
+            code="sourcelanguage", 
+            data_type=DataType.LABEL, 
+            is_required=True
+        )
+        self.targetlanguage = self.create_param(
+            code="targetlanguage", 
+            data_type=DataType.LABEL, 
+            is_required=True
+        )
+        self.dialect = self.create_param(
+            code="dialect", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+        self.voice = self.create_param(
+            code="voice", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+        self.script = self.create_param(
+            code="script", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+
+
+class SpeechTranslationOutputs(Outputs):
+    data: OutputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.TEXT
+        )
+
+
+class SpeechTranslation(AssetNode[SpeechTranslationInputs, SpeechTranslationOutputs]):
+    """
+    Speech Translation is a technology that converts spoken language in real-time
+from one language to another, enabling seamless communication between speakers
+of different languages.
+
+    InputType: audio
+    OutputType: text
+    """
+    function: str = "speech-translation"
+    input_type: str = DataType.AUDIO
+    output_type: str = DataType.TEXT
+
+    inputs_class: Type[TI] = SpeechTranslationInputs
+    outputs_class: Type[TO] = SpeechTranslationOutputs
+
+
 class SpeechSynthesisInputs(Inputs):
     audio: InputParam = None
     language: InputParam = None
@@ -3751,174 +3941,6 @@ models.
     outputs_class: Type[TO] = TextGenerationMetricDefaultOutputs
 
 
-class TextSpamDetectionInputs(Inputs):
-    text: InputParam = None
-    language: InputParam = None
-    dialect: InputParam = None
-    script: InputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.text = self.create_param(
-            code="text", 
-            data_type=DataType.TEXT, 
-            is_required=True
-        )
-        self.language = self.create_param(
-            code="language", 
-            data_type=DataType.LABEL, 
-            is_required=True
-        )
-        self.dialect = self.create_param(
-            code="dialect", 
-            data_type=DataType.LABEL, 
-            is_required=False
-        )
-        self.script = self.create_param(
-            code="script", 
-            data_type=DataType.LABEL, 
-            is_required=False
-        )
-
-
-class TextSpamDetectionOutputs(Outputs):
-    data: OutputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.data = self.create_param(
-            code="data", 
-            data_type=DataType.LABEL
-        )
-
-
-class TextSpamDetection(AssetNode[TextSpamDetectionInputs, TextSpamDetectionOutputs]):
-    """
-    Identifies and filters out unwanted or irrelevant text content, ideal for
-moderating user-generated content or ensuring quality in communication
-platforms.
-
-    InputType: text
-    OutputType: label
-    """
-    function: str = "text-spam-detection"
-    input_type: str = DataType.TEXT
-    output_type: str = DataType.LABEL
-
-    inputs_class: Type[TI] = TextSpamDetectionInputs
-    outputs_class: Type[TO] = TextSpamDetectionOutputs
-
-
-class VideoUnderstandingInputs(Inputs):
-    video: InputParam = None
-    text: InputParam = None
-    language: InputParam = None
-    dialect: InputParam = None
-    script: InputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.video = self.create_param(
-            code="video", 
-            data_type=DataType.VIDEO, 
-            is_required=True
-        )
-        self.text = self.create_param(
-            code="text", 
-            data_type=DataType.TEXT, 
-            is_required=True
-        )
-        self.language = self.create_param(
-            code="language", 
-            data_type=DataType.LABEL, 
-            is_required=True
-        )
-        self.dialect = self.create_param(
-            code="dialect", 
-            data_type=DataType.LABEL, 
-            is_required=False
-        )
-        self.script = self.create_param(
-            code="script", 
-            data_type=DataType.LABEL, 
-            is_required=False
-        )
-
-
-class VideoUnderstandingOutputs(Outputs):
-    text: OutputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.text = self.create_param(
-            code="text", 
-            data_type=DataType.TEXT
-        )
-
-
-class VideoUnderstanding(AssetNode[VideoUnderstandingInputs, VideoUnderstandingOutputs]):
-    """
-    Video Understanding is the process of analyzing and interpreting video content
-to extract meaningful information, such as identifying objects, actions,
-events, and contextual relationships within the footage.
-
-    InputType: video
-    OutputType: text
-    """
-    function: str = "video-understanding"
-    input_type: str = DataType.VIDEO
-    output_type: str = DataType.TEXT
-
-    inputs_class: Type[TI] = VideoUnderstandingInputs
-    outputs_class: Type[TO] = VideoUnderstandingOutputs
-
-
-class DepthEstimationInputs(Inputs):
-    language: InputParam = None
-    image: InputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.language = self.create_param(
-            code="language", 
-            data_type=DataType.LABEL, 
-            is_required=True
-        )
-        self.image = self.create_param(
-            code="image", 
-            data_type=DataType.IMAGE, 
-            is_required=False
-        )
-
-
-class DepthEstimationOutputs(Outputs):
-    data: OutputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.data = self.create_param(
-            code="data", 
-            data_type=DataType.TEXT
-        )
-
-
-class DepthEstimation(AssetNode[DepthEstimationInputs, DepthEstimationOutputs]):
-    """
-    Depth estimation is a computational process that determines the distance of
-objects from a viewpoint, typically using visual data from cameras or sensors
-to create a three-dimensional understanding of a scene.
-
-    InputType: image
-    OutputType: text
-    """
-    function: str = "depth-estimation"
-    input_type: str = DataType.IMAGE
-    output_type: str = DataType.TEXT
-
-    inputs_class: Type[TI] = DepthEstimationInputs
-    outputs_class: Type[TO] = DepthEstimationOutputs
-
-
 class TokenClassificationInputs(Inputs):
     text: InputParam = None
     language: InputParam = None
@@ -3969,6 +3991,52 @@ of speech.
 
     inputs_class: Type[TI] = TokenClassificationInputs
     outputs_class: Type[TO] = TokenClassificationOutputs
+
+
+class DepthEstimationInputs(Inputs):
+    language: InputParam = None
+    image: InputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.language = self.create_param(
+            code="language", 
+            data_type=DataType.LABEL, 
+            is_required=True
+        )
+        self.image = self.create_param(
+            code="image", 
+            data_type=DataType.IMAGE, 
+            is_required=False
+        )
+
+
+class DepthEstimationOutputs(Outputs):
+    data: OutputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.TEXT
+        )
+
+
+class DepthEstimation(AssetNode[DepthEstimationInputs, DepthEstimationOutputs]):
+    """
+    Depth estimation is a computational process that determines the distance of
+objects from a viewpoint, typically using visual data from cameras or sensors
+to create a three-dimensional understanding of a scene.
+
+    InputType: image
+    OutputType: text
+    """
+    function: str = "depth-estimation"
+    input_type: str = DataType.IMAGE
+    output_type: str = DataType.TEXT
+
+    inputs_class: Type[TI] = DepthEstimationInputs
+    outputs_class: Type[TO] = DepthEstimationOutputs
 
 
 class InstanceSegmentationInputs(Inputs):
@@ -4265,63 +4333,6 @@ platforms or content localization.
     outputs_class: Type[TO] = LanguageIdentificationOutputs
 
 
-class EmotionDetectionInputs(Inputs):
-    text: InputParam = None
-    language: InputParam = None
-    dialect: InputParam = None
-    script: InputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.text = self.create_param(
-            code="text", 
-            data_type=DataType.TEXT, 
-            is_required=True
-        )
-        self.language = self.create_param(
-            code="language", 
-            data_type=DataType.LABEL, 
-            is_required=True
-        )
-        self.dialect = self.create_param(
-            code="dialect", 
-            data_type=DataType.LABEL, 
-            is_required=False
-        )
-        self.script = self.create_param(
-            code="script", 
-            data_type=DataType.LABEL, 
-            is_required=False
-        )
-
-
-class EmotionDetectionOutputs(Outputs):
-    data: OutputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.data = self.create_param(
-            code="data", 
-            data_type=DataType.LABEL
-        )
-
-
-class EmotionDetection(AssetNode[EmotionDetectionInputs, EmotionDetectionOutputs]):
-    """
-    Identifies human emotions from text or audio, enhancing user experience in
-chatbots or customer feedback analysis.
-
-    InputType: text
-    OutputType: label
-    """
-    function: str = "emotion-detection"
-    input_type: str = DataType.TEXT
-    output_type: str = DataType.LABEL
-
-    inputs_class: Type[TI] = EmotionDetectionInputs
-    outputs_class: Type[TO] = EmotionDetectionOutputs
-
-
 class AudioForcedAlignmentInputs(Inputs):
     audio: InputParam = None
     text: InputParam = None
@@ -4388,6 +4399,63 @@ an audio file. Useful in linguistic research and detailed transcription tasks.
 
     inputs_class: Type[TI] = AudioForcedAlignmentInputs
     outputs_class: Type[TO] = AudioForcedAlignmentOutputs
+
+
+class EmotionDetectionInputs(Inputs):
+    text: InputParam = None
+    language: InputParam = None
+    dialect: InputParam = None
+    script: InputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
+        self.language = self.create_param(
+            code="language", 
+            data_type=DataType.LABEL, 
+            is_required=True
+        )
+        self.dialect = self.create_param(
+            code="dialect", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+        self.script = self.create_param(
+            code="script", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+
+
+class EmotionDetectionOutputs(Outputs):
+    data: OutputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.LABEL
+        )
+
+
+class EmotionDetection(AssetNode[EmotionDetectionInputs, EmotionDetectionOutputs]):
+    """
+    Identifies human emotions from text or audio, enhancing user experience in
+chatbots or customer feedback analysis.
+
+    InputType: text
+    OutputType: label
+    """
+    function: str = "emotion-detection"
+    input_type: str = DataType.TEXT
+    output_type: str = DataType.LABEL
+
+    inputs_class: Type[TI] = EmotionDetectionInputs
+    outputs_class: Type[TO] = EmotionDetectionOutputs
 
 
 class DiacritizationInputs(Inputs):
@@ -4545,58 +4613,6 @@ content moderation and creating respectful user interactions.
     outputs_class: Type[TO] = OffensiveLanguageIdentificationOutputs
 
 
-class ReferencelessAudioGenerationMetricInputs(Inputs):
-    hypotheses: InputParam = None
-    sources: InputParam = None
-    score_identifier: InputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.hypotheses = self.create_param(
-            code="hypotheses", 
-            data_type=DataType.AUDIO, 
-            is_required=True
-        )
-        self.sources = self.create_param(
-            code="sources", 
-            data_type=DataType.AUDIO, 
-            is_required=False
-        )
-        self.score_identifier = self.create_param(
-            code="score_identifier", 
-            data_type=DataType.TEXT, 
-            is_required=True
-        )
-
-
-class ReferencelessAudioGenerationMetricOutputs(Outputs):
-    data: OutputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.data = self.create_param(
-            code="data", 
-            data_type=DataType.TEXT
-        )
-
-
-class ReferencelessAudioGenerationMetric(BaseMetric[ReferencelessAudioGenerationMetricInputs, ReferencelessAudioGenerationMetricOutputs]):
-    """
-    The Referenceless Audio Generation Metric is a tool designed to evaluate the
-quality of generated audio content without the need for a reference or original
-audio sample for comparison.
-
-    InputType: text
-    OutputType: text
-    """
-    function: str = "referenceless-audio-generation-metric"
-    input_type: str = DataType.TEXT
-    output_type: str = DataType.TEXT
-
-    inputs_class: Type[TI] = ReferencelessAudioGenerationMetricInputs
-    outputs_class: Type[TO] = ReferencelessAudioGenerationMetricOutputs
-
-
 class ExpressionDetectionInputs(Inputs):
     media: InputParam = None
 
@@ -4694,49 +4710,31 @@ content, ensuring safer user environments.
     outputs_class: Type[TO] = TextContentModerationOutputs
 
 
-class AudioTranscriptImprovementInputs(Inputs):
-    language: InputParam = None
-    dialect: InputParam = None
-    source_supplier: InputParam = None
-    is_medical: InputParam = None
-    source_audio: InputParam = None
-    script: InputParam = None
+class ReferencelessAudioGenerationMetricInputs(Inputs):
+    hypotheses: InputParam = None
+    sources: InputParam = None
+    score_identifier: InputParam = None
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.language = self.create_param(
-            code="language", 
-            data_type=DataType.LABEL, 
-            is_required=True
-        )
-        self.dialect = self.create_param(
-            code="dialect", 
-            data_type=DataType.LABEL, 
-            is_required=False
-        )
-        self.source_supplier = self.create_param(
-            code="source_supplier", 
-            data_type=DataType.LABEL, 
-            is_required=False
-        )
-        self.is_medical = self.create_param(
-            code="is_medical", 
-            data_type=DataType.TEXT, 
-            is_required=True
-        )
-        self.source_audio = self.create_param(
-            code="source_audio", 
+        self.hypotheses = self.create_param(
+            code="hypotheses", 
             data_type=DataType.AUDIO, 
             is_required=True
         )
-        self.script = self.create_param(
-            code="script", 
-            data_type=DataType.LABEL, 
+        self.sources = self.create_param(
+            code="sources", 
+            data_type=DataType.AUDIO, 
             is_required=False
+        )
+        self.score_identifier = self.create_param(
+            code="score_identifier", 
+            data_type=DataType.TEXT, 
+            is_required=True
         )
 
 
-class AudioTranscriptImprovementOutputs(Outputs):
+class ReferencelessAudioGenerationMetricOutputs(Outputs):
     data: OutputParam = None
 
     def __init__(self, node=None):
@@ -4747,20 +4745,21 @@ class AudioTranscriptImprovementOutputs(Outputs):
         )
 
 
-class AudioTranscriptImprovement(AssetNode[AudioTranscriptImprovementInputs, AudioTranscriptImprovementOutputs]):
+class ReferencelessAudioGenerationMetric(BaseMetric[ReferencelessAudioGenerationMetricInputs, ReferencelessAudioGenerationMetricOutputs]):
     """
-    Refines and corrects transcriptions generated from audio data, improving
-readability and accuracy.
+    The Referenceless Audio Generation Metric is a tool designed to evaluate the
+quality of generated audio content without the need for a reference or original
+audio sample for comparison.
 
-    InputType: audio
+    InputType: text
     OutputType: text
     """
-    function: str = "audio-transcript-improvement"
-    input_type: str = DataType.AUDIO
+    function: str = "referenceless-audio-generation-metric"
+    input_type: str = DataType.TEXT
     output_type: str = DataType.TEXT
 
-    inputs_class: Type[TI] = AudioTranscriptImprovementInputs
-    outputs_class: Type[TO] = AudioTranscriptImprovementOutputs
+    inputs_class: Type[TI] = ReferencelessAudioGenerationMetricInputs
+    outputs_class: Type[TO] = ReferencelessAudioGenerationMetricOutputs
 
 
 class TextClassificationInputs(Inputs):
@@ -4818,6 +4817,53 @@ organization and targeted actions.
 
     inputs_class: Type[TI] = TextClassificationInputs
     outputs_class: Type[TO] = TextClassificationOutputs
+
+
+class MultiLabelTextClassificationInputs(Inputs):
+    language: InputParam = None
+    text: InputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.language = self.create_param(
+            code="language", 
+            data_type=DataType.LABEL, 
+            is_required=True
+        )
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=False
+        )
+
+
+class MultiLabelTextClassificationOutputs(Outputs):
+    data: OutputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.LABEL
+        )
+
+
+class MultiLabelTextClassification(AssetNode[MultiLabelTextClassificationInputs, MultiLabelTextClassificationOutputs]):
+    """
+    Multi Label Text Classification is a natural language processing task where a
+given text is analyzed and assigned multiple relevant labels or categories from
+a predefined set, allowing for the text to belong to more than one category
+simultaneously.
+
+    InputType: text
+    OutputType: label
+    """
+    function: str = "multi-label-text-classification"
+    input_type: str = DataType.TEXT
+    output_type: str = DataType.LABEL
+
+    inputs_class: Type[TI] = MultiLabelTextClassificationInputs
+    outputs_class: Type[TO] = MultiLabelTextClassificationOutputs
 
 
 class VideoForcedAlignmentInputs(Inputs):
@@ -4886,110 +4932,6 @@ timecodes, facilitating subtitle creation.
 
     inputs_class: Type[TI] = VideoForcedAlignmentInputs
     outputs_class: Type[TO] = VideoForcedAlignmentOutputs
-
-
-class MultiLabelTextClassificationInputs(Inputs):
-    language: InputParam = None
-    text: InputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.language = self.create_param(
-            code="language", 
-            data_type=DataType.LABEL, 
-            is_required=True
-        )
-        self.text = self.create_param(
-            code="text", 
-            data_type=DataType.TEXT, 
-            is_required=False
-        )
-
-
-class MultiLabelTextClassificationOutputs(Outputs):
-    data: OutputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.data = self.create_param(
-            code="data", 
-            data_type=DataType.LABEL
-        )
-
-
-class MultiLabelTextClassification(AssetNode[MultiLabelTextClassificationInputs, MultiLabelTextClassificationOutputs]):
-    """
-    Multi Label Text Classification is a natural language processing task where a
-given text is analyzed and assigned multiple relevant labels or categories from
-a predefined set, allowing for the text to belong to more than one category
-simultaneously.
-
-    InputType: text
-    OutputType: label
-    """
-    function: str = "multi-label-text-classification"
-    input_type: str = DataType.TEXT
-    output_type: str = DataType.LABEL
-
-    inputs_class: Type[TI] = MultiLabelTextClassificationInputs
-    outputs_class: Type[TO] = MultiLabelTextClassificationOutputs
-
-
-class TopicClassificationInputs(Inputs):
-    text: InputParam = None
-    language: InputParam = None
-    script: InputParam = None
-    dialect: InputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.text = self.create_param(
-            code="text", 
-            data_type=DataType.TEXT, 
-            is_required=True
-        )
-        self.language = self.create_param(
-            code="language", 
-            data_type=DataType.LABEL, 
-            is_required=True
-        )
-        self.script = self.create_param(
-            code="script", 
-            data_type=DataType.LABEL, 
-            is_required=False
-        )
-        self.dialect = self.create_param(
-            code="dialect", 
-            data_type=DataType.LABEL, 
-            is_required=False
-        )
-
-
-class TopicClassificationOutputs(Outputs):
-    data: OutputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.data = self.create_param(
-            code="data", 
-            data_type=DataType.LABEL
-        )
-
-
-class TopicClassification(AssetNode[TopicClassificationInputs, TopicClassificationOutputs]):
-    """
-    Assigns categories or topics to a piece of text based on its content,
-facilitating content organization and retrieval.
-
-    InputType: text
-    OutputType: label
-    """
-    function: str = "topic-classification"
-    input_type: str = DataType.TEXT
-    output_type: str = DataType.LABEL
-
-    inputs_class: Type[TI] = TopicClassificationInputs
-    outputs_class: Type[TO] = TopicClassificationOutputs
 
 
 class SpeechEmbeddingInputs(Inputs):
@@ -5270,204 +5212,6 @@ summary without losing the primary message.
 
     inputs_class: Type[TI] = TextSummarizationInputs
     outputs_class: Type[TO] = TextSummarizationOutputs
-
-
-class TextDenormalizationInputs(Inputs):
-    text: InputParam = None
-    language: InputParam = None
-    lowercase_latin: InputParam = None
-    remove_accents: InputParam = None
-    remove_punctuation: InputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.text = self.create_param(
-            code="text", 
-            data_type=DataType.TEXT, 
-            is_required=True
-        )
-        self.language = self.create_param(
-            code="language", 
-            data_type=DataType.LABEL, 
-            is_required=True
-        )
-        self.lowercase_latin = self.create_param(
-            code="lowercase_latin", 
-            data_type=DataType.TEXT, 
-            is_required=False
-        )
-        self.remove_accents = self.create_param(
-            code="remove_accents", 
-            data_type=DataType.TEXT, 
-            is_required=False
-        )
-        self.remove_punctuation = self.create_param(
-            code="remove_punctuation", 
-            data_type=DataType.TEXT, 
-            is_required=False
-        )
-
-
-class TextDenormalizationOutputs(Outputs):
-    data: OutputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.data = self.create_param(
-            code="data", 
-            data_type=DataType.LABEL
-        )
-
-
-class TextDenormalization(AssetNode[TextDenormalizationInputs, TextDenormalizationOutputs]):
-    """
-    Converts standardized or normalized text into its original, often more
-readable, form. Useful in natural language generation tasks.
-
-    InputType: text
-    OutputType: label
-    """
-    function: str = "text-denormalization"
-    input_type: str = DataType.TEXT
-    output_type: str = DataType.LABEL
-
-    inputs_class: Type[TI] = TextDenormalizationInputs
-    outputs_class: Type[TO] = TextDenormalizationOutputs
-
-
-class SpeechTranslationInputs(Inputs):
-    source_audio: InputParam = None
-    sourcelanguage: InputParam = None
-    targetlanguage: InputParam = None
-    dialect: InputParam = None
-    voice: InputParam = None
-    script: InputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.source_audio = self.create_param(
-            code="source_audio", 
-            data_type=DataType.AUDIO, 
-            is_required=True
-        )
-        self.sourcelanguage = self.create_param(
-            code="sourcelanguage", 
-            data_type=DataType.LABEL, 
-            is_required=True
-        )
-        self.targetlanguage = self.create_param(
-            code="targetlanguage", 
-            data_type=DataType.LABEL, 
-            is_required=True
-        )
-        self.dialect = self.create_param(
-            code="dialect", 
-            data_type=DataType.LABEL, 
-            is_required=False
-        )
-        self.voice = self.create_param(
-            code="voice", 
-            data_type=DataType.LABEL, 
-            is_required=False
-        )
-        self.script = self.create_param(
-            code="script", 
-            data_type=DataType.LABEL, 
-            is_required=False
-        )
-
-
-class SpeechTranslationOutputs(Outputs):
-    data: OutputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.data = self.create_param(
-            code="data", 
-            data_type=DataType.TEXT
-        )
-
-
-class SpeechTranslation(AssetNode[SpeechTranslationInputs, SpeechTranslationOutputs]):
-    """
-    Speech Translation is a technology that converts spoken language in real-time
-from one language to another, enabling seamless communication between speakers
-of different languages.
-
-    InputType: audio
-    OutputType: text
-    """
-    function: str = "speech-translation"
-    input_type: str = DataType.AUDIO
-    output_type: str = DataType.TEXT
-
-    inputs_class: Type[TI] = SpeechTranslationInputs
-    outputs_class: Type[TO] = SpeechTranslationOutputs
-
-
-class VoiceActivityDetectionInputs(Inputs):
-    audio: InputParam = None
-    onset: InputParam = None
-    offset: InputParam = None
-    min_duration_on: InputParam = None
-    min_duration_off: InputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.audio = self.create_param(
-            code="audio", 
-            data_type=DataType.AUDIO, 
-            is_required=True
-        )
-        self.onset = self.create_param(
-            code="onset", 
-            data_type=DataType.TEXT, 
-            is_required=False
-        )
-        self.offset = self.create_param(
-            code="offset", 
-            data_type=DataType.TEXT, 
-            is_required=False
-        )
-        self.min_duration_on = self.create_param(
-            code="min_duration_on", 
-            data_type=DataType.TEXT, 
-            is_required=False
-        )
-        self.min_duration_off = self.create_param(
-            code="min_duration_off", 
-            data_type=DataType.TEXT, 
-            is_required=False
-        )
-
-
-class VoiceActivityDetectionOutputs(Outputs):
-    data: OutputParam = None
-    audio: OutputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.data = self.create_param(
-            code="data", 
-            data_type=DataType.AUDIO
-        )
-        self.audio = self.create_param(code="audio", data_type=DataType.AUDIO)
-
-
-class VoiceActivityDetection(BaseSegmentor[VoiceActivityDetectionInputs, VoiceActivityDetectionOutputs]):
-    """
-    Determines when a person is speaking in an audio clip. It's an essential
-preprocessing step for other audio-related tasks.
-
-    InputType: audio
-    OutputType: audio
-    """
-    function: str = "voice-activity-detection"
-    input_type: str = DataType.AUDIO
-    output_type: str = DataType.AUDIO
-
-    inputs_class: Type[TI] = VoiceActivityDetectionInputs
-    outputs_class: Type[TO] = VoiceActivityDetectionOutputs
 
 
 class SentimentAnalysisInputs(Inputs):
@@ -5775,6 +5519,262 @@ message's essence and context. Crucial for global communication.
     outputs_class: Type[TO] = TranslationOutputs
 
 
+class TextSpamDetectionInputs(Inputs):
+    text: InputParam = None
+    language: InputParam = None
+    dialect: InputParam = None
+    script: InputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
+        self.language = self.create_param(
+            code="language", 
+            data_type=DataType.LABEL, 
+            is_required=True
+        )
+        self.dialect = self.create_param(
+            code="dialect", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+        self.script = self.create_param(
+            code="script", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+
+
+class TextSpamDetectionOutputs(Outputs):
+    data: OutputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.LABEL
+        )
+
+
+class TextSpamDetection(AssetNode[TextSpamDetectionInputs, TextSpamDetectionOutputs]):
+    """
+    Identifies and filters out unwanted or irrelevant text content, ideal for
+moderating user-generated content or ensuring quality in communication
+platforms.
+
+    InputType: text
+    OutputType: label
+    """
+    function: str = "text-spam-detection"
+    input_type: str = DataType.TEXT
+    output_type: str = DataType.LABEL
+
+    inputs_class: Type[TI] = TextSpamDetectionInputs
+    outputs_class: Type[TO] = TextSpamDetectionOutputs
+
+
+class VideoUnderstandingInputs(Inputs):
+    video: InputParam = None
+    text: InputParam = None
+    language: InputParam = None
+    dialect: InputParam = None
+    script: InputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.video = self.create_param(
+            code="video", 
+            data_type=DataType.VIDEO, 
+            is_required=True
+        )
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
+        self.language = self.create_param(
+            code="language", 
+            data_type=DataType.LABEL, 
+            is_required=True
+        )
+        self.dialect = self.create_param(
+            code="dialect", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+        self.script = self.create_param(
+            code="script", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+
+
+class VideoUnderstandingOutputs(Outputs):
+    text: OutputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT
+        )
+
+
+class VideoUnderstanding(AssetNode[VideoUnderstandingInputs, VideoUnderstandingOutputs]):
+    """
+    Video Understanding is the process of analyzing and interpreting video content
+to extract meaningful information, such as identifying objects, actions,
+events, and contextual relationships within the footage.
+
+    InputType: video
+    OutputType: text
+    """
+    function: str = "video-understanding"
+    input_type: str = DataType.VIDEO
+    output_type: str = DataType.TEXT
+
+    inputs_class: Type[TI] = VideoUnderstandingInputs
+    outputs_class: Type[TO] = VideoUnderstandingOutputs
+
+
+class AudioTranscriptImprovementInputs(Inputs):
+    language: InputParam = None
+    dialect: InputParam = None
+    source_supplier: InputParam = None
+    is_medical: InputParam = None
+    source_audio: InputParam = None
+    script: InputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.language = self.create_param(
+            code="language", 
+            data_type=DataType.LABEL, 
+            is_required=True
+        )
+        self.dialect = self.create_param(
+            code="dialect", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+        self.source_supplier = self.create_param(
+            code="source_supplier", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+        self.is_medical = self.create_param(
+            code="is_medical", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
+        self.source_audio = self.create_param(
+            code="source_audio", 
+            data_type=DataType.AUDIO, 
+            is_required=True
+        )
+        self.script = self.create_param(
+            code="script", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+
+
+class AudioTranscriptImprovementOutputs(Outputs):
+    data: OutputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.TEXT
+        )
+
+
+class AudioTranscriptImprovement(AssetNode[AudioTranscriptImprovementInputs, AudioTranscriptImprovementOutputs]):
+    """
+    Refines and corrects transcriptions generated from audio data, improving
+readability and accuracy.
+
+    InputType: audio
+    OutputType: text
+    """
+    function: str = "audio-transcript-improvement"
+    input_type: str = DataType.AUDIO
+    output_type: str = DataType.TEXT
+
+    inputs_class: Type[TI] = AudioTranscriptImprovementInputs
+    outputs_class: Type[TO] = AudioTranscriptImprovementOutputs
+
+
+class VoiceActivityDetectionInputs(Inputs):
+    audio: InputParam = None
+    onset: InputParam = None
+    offset: InputParam = None
+    min_duration_on: InputParam = None
+    min_duration_off: InputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.audio = self.create_param(
+            code="audio", 
+            data_type=DataType.AUDIO, 
+            is_required=True
+        )
+        self.onset = self.create_param(
+            code="onset", 
+            data_type=DataType.TEXT, 
+            is_required=False
+        )
+        self.offset = self.create_param(
+            code="offset", 
+            data_type=DataType.TEXT, 
+            is_required=False
+        )
+        self.min_duration_on = self.create_param(
+            code="min_duration_on", 
+            data_type=DataType.TEXT, 
+            is_required=False
+        )
+        self.min_duration_off = self.create_param(
+            code="min_duration_off", 
+            data_type=DataType.TEXT, 
+            is_required=False
+        )
+
+
+class VoiceActivityDetectionOutputs(Outputs):
+    data: OutputParam = None
+    audio: OutputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.AUDIO
+        )
+        self.audio = self.create_param(code="audio", data_type=DataType.AUDIO)
+
+
+class VoiceActivityDetection(BaseSegmentor[VoiceActivityDetectionInputs, VoiceActivityDetectionOutputs]):
+    """
+    Determines when a person is speaking in an audio clip. It's an essential
+preprocessing step for other audio-related tasks.
+
+    InputType: audio
+    OutputType: audio
+    """
+    function: str = "voice-activity-detection"
+    input_type: str = DataType.AUDIO
+    output_type: str = DataType.AUDIO
+
+    inputs_class: Type[TI] = VoiceActivityDetectionInputs
+    outputs_class: Type[TO] = VoiceActivityDetectionOutputs
+
+
 class SubtitlingInputs(Inputs):
     source_audio: InputParam = None
     sourcelanguage: InputParam = None
@@ -5948,6 +5948,46 @@ substrings, using linebreaks (newline characters) as the points of separation.
     outputs_class: Type[TO] = SplitOnLinebreakOutputs
 
 
+class SearchInputs(Inputs):
+    text: InputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
+
+
+class SearchOutputs(Outputs):
+    data: OutputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.TEXT
+        )
+
+
+class Search(AssetNode[SearchInputs, SearchOutputs]):
+    """
+    An algorithm that identifies and returns data or items that match particular
+keywords or conditions from a dataset. A fundamental tool for databases and
+websites.
+
+    InputType: text
+    OutputType: text
+    """
+    function: str = "search"
+    input_type: str = DataType.TEXT
+    output_type: str = DataType.TEXT
+
+    inputs_class: Type[TI] = SearchInputs
+    outputs_class: Type[TO] = SearchOutputs
+
+
 class AsrQualityEstimationInputs(Inputs):
     text: InputParam = None
     script: InputParam = None
@@ -5994,44 +6034,44 @@ transcribing spoken language into text.
     outputs_class: Type[TO] = AsrQualityEstimationOutputs
 
 
-class SearchInputs(Inputs):
-    text: InputParam = None
+class AsrAgeClassificationInputs(Inputs):
+    source_audio: InputParam = None
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.text = self.create_param(
-            code="text", 
-            data_type=DataType.TEXT, 
+        self.source_audio = self.create_param(
+            code="source_audio", 
+            data_type=DataType.AUDIO, 
             is_required=True
         )
 
 
-class SearchOutputs(Outputs):
+class AsrAgeClassificationOutputs(Outputs):
     data: OutputParam = None
 
     def __init__(self, node=None):
         super().__init__(node=node)
         self.data = self.create_param(
             code="data", 
-            data_type=DataType.TEXT
+            data_type=DataType.LABEL
         )
 
 
-class Search(AssetNode[SearchInputs, SearchOutputs]):
+class AsrAgeClassification(AssetNode[AsrAgeClassificationInputs, AsrAgeClassificationOutputs]):
     """
-    An algorithm that identifies and returns data or items that match particular
-keywords or conditions from a dataset. A fundamental tool for databases and
-websites.
+    The ASR Age Classification function is designed to analyze audio recordings of
+speech to determine the speaker's age group by leveraging automatic speech
+recognition (ASR) technology and machine learning algorithms.
 
-    InputType: text
-    OutputType: text
+    InputType: audio
+    OutputType: label
     """
-    function: str = "search"
-    input_type: str = DataType.TEXT
-    output_type: str = DataType.TEXT
+    function: str = "asr-age-classification"
+    input_type: str = DataType.AUDIO
+    output_type: str = DataType.LABEL
 
-    inputs_class: Type[TI] = SearchInputs
-    outputs_class: Type[TO] = SearchOutputs
+    inputs_class: Type[TI] = AsrAgeClassificationInputs
+    outputs_class: Type[TO] = AsrAgeClassificationOutputs
 
 
 class TextSegmenationInputs(Inputs):
@@ -6078,46 +6118,6 @@ understanding.
 
     inputs_class: Type[TI] = TextSegmenationInputs
     outputs_class: Type[TO] = TextSegmenationOutputs
-
-
-class AsrAgeClassificationInputs(Inputs):
-    source_audio: InputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.source_audio = self.create_param(
-            code="source_audio", 
-            data_type=DataType.AUDIO, 
-            is_required=True
-        )
-
-
-class AsrAgeClassificationOutputs(Outputs):
-    data: OutputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.data = self.create_param(
-            code="data", 
-            data_type=DataType.LABEL
-        )
-
-
-class AsrAgeClassification(AssetNode[AsrAgeClassificationInputs, AsrAgeClassificationOutputs]):
-    """
-    The ASR Age Classification function is designed to analyze audio recordings of
-speech to determine the speaker's age group by leveraging automatic speech
-recognition (ASR) technology and machine learning algorithms.
-
-    InputType: audio
-    OutputType: label
-    """
-    function: str = "asr-age-classification"
-    input_type: str = DataType.AUDIO
-    output_type: str = DataType.LABEL
-
-    inputs_class: Type[TI] = AsrAgeClassificationInputs
-    outputs_class: Type[TO] = AsrAgeClassificationOutputs
 
 
 class ImageManipulationInputs(Inputs):
@@ -6256,13 +6256,6 @@ processing.
         """
         return ActivityDetection(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
-    def text_detection(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> TextDetection:
-        """
-        detect text regions in the complex background and label them with bounding
-boxes.
-        """
-        return TextDetection(*args, asset_id=asset_id, pipeline=self, **kwargs)
-
     def script_execution(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> ScriptExecution:
         """
         Script Execution refers to the process of running a set of programmed
@@ -6270,6 +6263,13 @@ instructions or code within a computing environment, enabling the automated
 performance of tasks, calculations, or operations as defined by the script.
         """
         return ScriptExecution(*args, asset_id=asset_id, pipeline=self, **kwargs)
+
+    def text_detection(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> TextDetection:
+        """
+        detect text regions in the complex background and label them with bounding
+boxes.
+        """
+        return TextDetection(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def audio_source_separation(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> AudioSourceSeparation:
         """
@@ -6279,6 +6279,14 @@ vocals).
         """
         return AudioSourceSeparation(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
+    def multi_class_text_classification(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> MultiClassTextClassification:
+        """
+        Multi Class Text Classification is a natural language processing task that
+involves categorizing a given text into one of several predefined classes or
+categories based on its content.
+        """
+        return MultiClassTextClassification(*args, asset_id=asset_id, pipeline=self, **kwargs)
+
     def image_impainting(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> ImageImpainting:
         """
         Image inpainting is a process that involves filling in missing or damaged parts
@@ -6287,14 +6295,6 @@ surrounding areas, often using advanced algorithms and techniques to restore
 the image to its original or intended appearance.
         """
         return ImageImpainting(*args, asset_id=asset_id, pipeline=self, **kwargs)
-
-    def multi_class_text_classification(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> MultiClassTextClassification:
-        """
-        Multi Class Text Classification is a natural language processing task that
-involves categorizing a given text into one of several predefined classes or
-categories based on its content.
-        """
-        return MultiClassTextClassification(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def scene_detection(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> SceneDetection:
         """
@@ -6631,13 +6631,6 @@ identifying specific object classes in an image.
         """
         return AutoMaskGeneration(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
-    def text_to_audio(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> TextToAudio:
-        """
-        The Text to Audio function converts written text into spoken words, allowing
-users to listen to the content instead of reading it.
-        """
-        return TextToAudio(*args, asset_id=asset_id, pipeline=self, **kwargs)
-
     def fact_checking(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> FactChecking:
         """
         Fact Checking is the process of verifying the accuracy and truthfulness of
@@ -6645,6 +6638,13 @@ information, statements, or claims by cross-referencing with reliable sources
 and evidence.
         """
         return FactChecking(*args, asset_id=asset_id, pipeline=self, **kwargs)
+
+    def text_to_audio(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> TextToAudio:
+        """
+        The Text to Audio function converts written text into spoken words, allowing
+users to listen to the content instead of reading it.
+        """
+        return TextToAudio(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def table_question_answering(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> TableQuestionAnswering:
         """
@@ -6805,6 +6805,28 @@ from a source (or sources) to produce an abridged version for a particular user
         """
         return Summarization(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
+    def topic_classification(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> TopicClassification:
+        """
+        Assigns categories or topics to a piece of text based on its content,
+facilitating content organization and retrieval.
+        """
+        return TopicClassification(*args, asset_id=asset_id, pipeline=self, **kwargs)
+
+    def text_denormalization(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> TextDenormalization:
+        """
+        Converts standardized or normalized text into its original, often more
+readable, form. Useful in natural language generation tasks.
+        """
+        return TextDenormalization(*args, asset_id=asset_id, pipeline=self, **kwargs)
+
+    def speech_translation(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> SpeechTranslation:
+        """
+        Speech Translation is a technology that converts spoken language in real-time
+from one language to another, enabling seamless communication between speakers
+of different languages.
+        """
+        return SpeechTranslation(*args, asset_id=asset_id, pipeline=self, **kwargs)
+
     def speech_synthesis(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> SpeechSynthesis:
         """
         Generates human-like speech from written text. Ideal for text-to-speech
@@ -6866,21 +6888,13 @@ models.
         """
         return TextGenerationMetricDefault(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
-    def text_spam_detection(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> TextSpamDetection:
+    def token_classification(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> TokenClassification:
         """
-        Identifies and filters out unwanted or irrelevant text content, ideal for
-moderating user-generated content or ensuring quality in communication
-platforms.
+        Token-level classification means that each token will be given a label, for
+example a part-of-speech tagger will classify each word as one particular part
+of speech.
         """
-        return TextSpamDetection(*args, asset_id=asset_id, pipeline=self, **kwargs)
-
-    def video_understanding(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> VideoUnderstanding:
-        """
-        Video Understanding is the process of analyzing and interpreting video content
-to extract meaningful information, such as identifying objects, actions,
-events, and contextual relationships within the footage.
-        """
-        return VideoUnderstanding(*args, asset_id=asset_id, pipeline=self, **kwargs)
+        return TokenClassification(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def depth_estimation(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> DepthEstimation:
         """
@@ -6889,14 +6903,6 @@ objects from a viewpoint, typically using visual data from cameras or sensors
 to create a three-dimensional understanding of a scene.
         """
         return DepthEstimation(*args, asset_id=asset_id, pipeline=self, **kwargs)
-
-    def token_classification(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> TokenClassification:
-        """
-        Token-level classification means that each token will be given a label, for
-example a part-of-speech tagger will classify each word as one particular part
-of speech.
-        """
-        return TokenClassification(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def instance_segmentation(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> InstanceSegmentation:
         """
@@ -6946,19 +6952,19 @@ platforms or content localization.
         """
         return LanguageIdentification(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
-    def emotion_detection(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> EmotionDetection:
-        """
-        Identifies human emotions from text or audio, enhancing user experience in
-chatbots or customer feedback analysis.
-        """
-        return EmotionDetection(*args, asset_id=asset_id, pipeline=self, **kwargs)
-
     def audio_forced_alignment(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> AudioForcedAlignment:
         """
         Synchronizes phonetic and phonological text with the corresponding segments in
 an audio file. Useful in linguistic research and detailed transcription tasks.
         """
         return AudioForcedAlignment(*args, asset_id=asset_id, pipeline=self, **kwargs)
+
+    def emotion_detection(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> EmotionDetection:
+        """
+        Identifies human emotions from text or audio, enhancing user experience in
+chatbots or customer feedback analysis.
+        """
+        return EmotionDetection(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def diacritization(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> Diacritization:
         """
@@ -6983,14 +6989,6 @@ content moderation and creating respectful user interactions.
         """
         return OffensiveLanguageIdentification(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
-    def referenceless_audio_generation_metric(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> ReferencelessAudioGenerationMetric:
-        """
-        The Referenceless Audio Generation Metric is a tool designed to evaluate the
-quality of generated audio content without the need for a reference or original
-audio sample for comparison.
-        """
-        return ReferencelessAudioGenerationMetric(*args, asset_id=asset_id, pipeline=self, **kwargs)
-
     def expression_detection(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> ExpressionDetection:
         """
         Expression Detection is the process of identifying and analyzing facial
@@ -7006,12 +7004,13 @@ content, ensuring safer user environments.
         """
         return TextContentModeration(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
-    def audio_transcript_improvement(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> AudioTranscriptImprovement:
+    def referenceless_audio_generation_metric(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> ReferencelessAudioGenerationMetric:
         """
-        Refines and corrects transcriptions generated from audio data, improving
-readability and accuracy.
+        The Referenceless Audio Generation Metric is a tool designed to evaluate the
+quality of generated audio content without the need for a reference or original
+audio sample for comparison.
         """
-        return AudioTranscriptImprovement(*args, asset_id=asset_id, pipeline=self, **kwargs)
+        return ReferencelessAudioGenerationMetric(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def text_classification(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> TextClassification:
         """
@@ -7019,13 +7018,6 @@ readability and accuracy.
 organization and targeted actions.
         """
         return TextClassification(*args, asset_id=asset_id, pipeline=self, **kwargs)
-
-    def video_forced_alignment(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> VideoForcedAlignment:
-        """
-        Aligns the transcription of spoken content in a video with its corresponding
-timecodes, facilitating subtitle creation.
-        """
-        return VideoForcedAlignment(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def multi_label_text_classification(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> MultiLabelTextClassification:
         """
@@ -7036,12 +7028,12 @@ simultaneously.
         """
         return MultiLabelTextClassification(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
-    def topic_classification(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> TopicClassification:
+    def video_forced_alignment(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> VideoForcedAlignment:
         """
-        Assigns categories or topics to a piece of text based on its content,
-facilitating content organization and retrieval.
+        Aligns the transcription of spoken content in a video with its corresponding
+timecodes, facilitating subtitle creation.
         """
-        return TopicClassification(*args, asset_id=asset_id, pipeline=self, **kwargs)
+        return VideoForcedAlignment(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def speech_embedding(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> SpeechEmbedding:
         """
@@ -7078,28 +7070,6 @@ using different words.
 summary without losing the primary message.
         """
         return TextSummarization(*args, asset_id=asset_id, pipeline=self, **kwargs)
-
-    def text_denormalization(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> TextDenormalization:
-        """
-        Converts standardized or normalized text into its original, often more
-readable, form. Useful in natural language generation tasks.
-        """
-        return TextDenormalization(*args, asset_id=asset_id, pipeline=self, **kwargs)
-
-    def speech_translation(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> SpeechTranslation:
-        """
-        Speech Translation is a technology that converts spoken language in real-time
-from one language to another, enabling seamless communication between speakers
-of different languages.
-        """
-        return SpeechTranslation(*args, asset_id=asset_id, pipeline=self, **kwargs)
-
-    def voice_activity_detection(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> VoiceActivityDetection:
-        """
-        Determines when a person is speaking in an audio clip. It's an essential
-preprocessing step for other audio-related tasks.
-        """
-        return VoiceActivityDetection(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def sentiment_analysis(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> SentimentAnalysis:
         """
@@ -7138,6 +7108,36 @@ message's essence and context. Crucial for global communication.
         """
         return Translation(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
+    def text_spam_detection(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> TextSpamDetection:
+        """
+        Identifies and filters out unwanted or irrelevant text content, ideal for
+moderating user-generated content or ensuring quality in communication
+platforms.
+        """
+        return TextSpamDetection(*args, asset_id=asset_id, pipeline=self, **kwargs)
+
+    def video_understanding(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> VideoUnderstanding:
+        """
+        Video Understanding is the process of analyzing and interpreting video content
+to extract meaningful information, such as identifying objects, actions,
+events, and contextual relationships within the footage.
+        """
+        return VideoUnderstanding(*args, asset_id=asset_id, pipeline=self, **kwargs)
+
+    def audio_transcript_improvement(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> AudioTranscriptImprovement:
+        """
+        Refines and corrects transcriptions generated from audio data, improving
+readability and accuracy.
+        """
+        return AudioTranscriptImprovement(*args, asset_id=asset_id, pipeline=self, **kwargs)
+
+    def voice_activity_detection(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> VoiceActivityDetection:
+        """
+        Determines when a person is speaking in an audio clip. It's an essential
+preprocessing step for other audio-related tasks.
+        """
+        return VoiceActivityDetection(*args, asset_id=asset_id, pipeline=self, **kwargs)
+
     def subtitling(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> Subtitling:
         """
         Generates accurate subtitles for videos, enhancing accessibility for diverse
@@ -7159,14 +7159,6 @@ substrings, using linebreaks (newline characters) as the points of separation.
         """
         return SplitOnLinebreak(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
-    def asr_quality_estimation(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> AsrQualityEstimation:
-        """
-        ASR Quality Estimation is a process that evaluates the accuracy and reliability
-of automatic speech recognition systems by analyzing their performance in
-transcribing spoken language into text.
-        """
-        return AsrQualityEstimation(*args, asset_id=asset_id, pipeline=self, **kwargs)
-
     def search(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> Search:
         """
         An algorithm that identifies and returns data or items that match particular
@@ -7175,13 +7167,13 @@ websites.
         """
         return Search(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
-    def text_segmenation(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> TextSegmenation:
+    def asr_quality_estimation(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> AsrQualityEstimation:
         """
-        Text Segmentation is the process of dividing a continuous text into meaningful
-units, such as words, sentences, or topics, to facilitate easier analysis and
-understanding.
+        ASR Quality Estimation is a process that evaluates the accuracy and reliability
+of automatic speech recognition systems by analyzing their performance in
+transcribing spoken language into text.
         """
-        return TextSegmenation(*args, asset_id=asset_id, pipeline=self, **kwargs)
+        return AsrQualityEstimation(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def asr_age_classification(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> AsrAgeClassification:
         """
@@ -7190,6 +7182,14 @@ speech to determine the speaker's age group by leveraging automatic speech
 recognition (ASR) technology and machine learning algorithms.
         """
         return AsrAgeClassification(*args, asset_id=asset_id, pipeline=self, **kwargs)
+
+    def text_segmenation(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> TextSegmenation:
+        """
+        Text Segmentation is the process of dividing a continuous text into meaningful
+units, such as words, sentences, or topics, to facilitate easier analysis and
+understanding.
+        """
+        return TextSegmenation(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def image_manipulation(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> ImageManipulation:
         """
