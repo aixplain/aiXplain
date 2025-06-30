@@ -20,252 +20,16 @@ from .default import DefaultPipeline
 from aixplain.modules import asset
 
 
-class ImageAndVideoAnalysisInputs(Inputs):
-    image: InputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.image = self.create_param(code="image", data_type=DataType.IMAGE, is_required=True)
-
-
-class ImageAndVideoAnalysisOutputs(Outputs):
-    data: OutputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.LABEL)
-
-
-class ImageAndVideoAnalysis(AssetNode[ImageAndVideoAnalysisInputs, ImageAndVideoAnalysisOutputs]):
-    """
-    
-
-    InputType: image
-    OutputType: text
-    """
-    function: str = "image-and-video-analysis"
-    input_type: str = DataType.IMAGE
-    output_type: str = DataType.TEXT
-
-    inputs_class: Type[TI] = ImageAndVideoAnalysisInputs
-    outputs_class: Type[TO] = ImageAndVideoAnalysisOutputs
-
-
-class SelectSupplierForTranslationInputs(Inputs):
-    language: InputParam = None
-    text: InputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.language = self.create_param(code="language", data_type=DataType.LABEL, is_required=True)
-        self.text = self.create_param(code="text", data_type=DataType.TEXT, is_required=True)
-
-
-class SelectSupplierForTranslationOutputs(Outputs):
-    data: OutputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.LABEL)
-
-
-class SelectSupplierForTranslation(AssetNode[SelectSupplierForTranslationInputs, SelectSupplierForTranslationOutputs]):
-    """
-    Supplier For Translation
-
-    InputType: text
-    OutputType: label
-    """
-    function: str = "select-supplier-for-translation"
-    input_type: str = DataType.TEXT
-    output_type: str = DataType.LABEL
-
-    inputs_class: Type[TI] = SelectSupplierForTranslationInputs
-    outputs_class: Type[TO] = SelectSupplierForTranslationOutputs
-
-
-class ObjectDetectionInputs(Inputs):
-    image: InputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.image = self.create_param(code="image", data_type=DataType.IMAGE, is_required=True)
-
-
-class ObjectDetectionOutputs(Outputs):
-    data: OutputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.LABEL)
-
-
-class ObjectDetection(AssetNode[ObjectDetectionInputs, ObjectDetectionOutputs]):
-    """
-    Object Detection is a computer vision technology that identifies and locates
-objects within an image, typically by drawing bounding boxes around the
-detected objects and classifying them into predefined categories.
-
-    InputType: video
-    OutputType: text
-    """
-    function: str = "object-detection"
-    input_type: str = DataType.VIDEO
-    output_type: str = DataType.TEXT
-
-    inputs_class: Type[TI] = ObjectDetectionInputs
-    outputs_class: Type[TO] = ObjectDetectionOutputs
-
-
-class LanguageIdentificationInputs(Inputs):
-    text: InputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.text = self.create_param(code="text", data_type=DataType.TEXT, is_required=True)
-
-
-class LanguageIdentificationOutputs(Outputs):
-    data: OutputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.LABEL)
-
-
-class LanguageIdentification(AssetNode[LanguageIdentificationInputs, LanguageIdentificationOutputs]):
-    """
-    Detects the language in which a given text is written, aiding in multilingual
-platforms or content localization.
-
-    InputType: text
-    OutputType: text
-    """
-    function: str = "language-identification"
-    input_type: str = DataType.TEXT
-    output_type: str = DataType.TEXT
-
-    inputs_class: Type[TI] = LanguageIdentificationInputs
-    outputs_class: Type[TO] = LanguageIdentificationOutputs
-
-
-class VisemeGenerationInputs(Inputs):
-    text: InputParam = None
-    language: InputParam = None
-    dialect: InputParam = None
-    script: InputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.text = self.create_param(code="text", data_type=DataType.TEXT, is_required=True)
-        self.language = self.create_param(code="language", data_type=DataType.LABEL, is_required=True)
-        self.dialect = self.create_param(code="dialect", data_type=DataType.LABEL, is_required=False)
-        self.script = self.create_param(code="script", data_type=DataType.LABEL, is_required=False)
-
-
-class VisemeGenerationOutputs(Outputs):
-    data: OutputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.LABEL)
-
-
-class VisemeGeneration(AssetNode[VisemeGenerationInputs, VisemeGenerationOutputs]):
-    """
-    Viseme Generation is the process of creating visual representations of
-phonemes, which are the distinct units of sound in speech, to synchronize lip
-movements with spoken words in animations or virtual avatars.
-
-    InputType: text
-    OutputType: label
-    """
-    function: str = "viseme-generation"
-    input_type: str = DataType.TEXT
-    output_type: str = DataType.LABEL
-
-    inputs_class: Type[TI] = VisemeGenerationInputs
-    outputs_class: Type[TO] = VisemeGenerationOutputs
-
-
-class ImageLabelDetectionInputs(Inputs):
-    image: InputParam = None
-    min_confidence: InputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.image = self.create_param(code="image", data_type=DataType.IMAGE, is_required=True)
-        self.min_confidence = self.create_param(code="min_confidence", data_type=DataType.TEXT, is_required=False)
-
-
-class ImageLabelDetectionOutputs(Outputs):
-    data: OutputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.LABEL)
-
-
-class ImageLabelDetection(AssetNode[ImageLabelDetectionInputs, ImageLabelDetectionOutputs]):
-    """
-    Identifies objects, themes, or topics within images, useful for image
-categorization, search, and recommendation systems.
-
-    InputType: image
-    OutputType: label
-    """
-    function: str = "image-label-detection"
-    input_type: str = DataType.IMAGE
-    output_type: str = DataType.LABEL
-
-    inputs_class: Type[TI] = ImageLabelDetectionInputs
-    outputs_class: Type[TO] = ImageLabelDetectionOutputs
-
-
-class OffensiveLanguageIdentificationInputs(Inputs):
-    text: InputParam = None
-    language: InputParam = None
-    dialect: InputParam = None
-    script: InputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.text = self.create_param(code="text", data_type=DataType.TEXT, is_required=True)
-        self.language = self.create_param(code="language", data_type=DataType.LABEL, is_required=True)
-        self.dialect = self.create_param(code="dialect", data_type=DataType.LABEL, is_required=False)
-        self.script = self.create_param(code="script", data_type=DataType.LABEL, is_required=False)
-
-
-class OffensiveLanguageIdentificationOutputs(Outputs):
-    data: OutputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.LABEL)
-
-
-class OffensiveLanguageIdentification(AssetNode[OffensiveLanguageIdentificationInputs, OffensiveLanguageIdentificationOutputs]):
-    """
-    Detects language or phrases that might be considered offensive, aiding in
-content moderation and creating respectful user interactions.
-
-    InputType: text
-    OutputType: label
-    """
-    function: str = "offensive-language-identification"
-    input_type: str = DataType.TEXT
-    output_type: str = DataType.LABEL
-
-    inputs_class: Type[TI] = OffensiveLanguageIdentificationInputs
-    outputs_class: Type[TO] = OffensiveLanguageIdentificationOutputs
-
-
 class ActivityDetectionInputs(Inputs):
     image: InputParam = None
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.image = self.create_param(code="image", data_type=DataType.IMAGE, is_required=True)
+        self.image = self.create_param(
+            code="image", 
+            data_type=DataType.IMAGE, 
+            is_required=True
+        )
 
 
 class ActivityDetectionOutputs(Outputs):
@@ -273,7 +37,10 @@ class ActivityDetectionOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.LABEL)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.LABEL
+        )
 
 
 class ActivityDetection(AssetNode[ActivityDetectionInputs, ActivityDetectionOutputs]):
@@ -292,39 +59,43 @@ processing.
     outputs_class: Type[TO] = ActivityDetectionOutputs
 
 
-class DepthEstimationInputs(Inputs):
-    language: InputParam = None
+class TextDetectionInputs(Inputs):
     image: InputParam = None
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.language = self.create_param(code="language", data_type=DataType.LABEL, is_required=True)
-        self.image = self.create_param(code="image", data_type=DataType.IMAGE, is_required=False)
+        self.image = self.create_param(
+            code="image", 
+            data_type=DataType.IMAGE, 
+            is_required=True
+        )
 
 
-class DepthEstimationOutputs(Outputs):
+class TextDetectionOutputs(Outputs):
     data: OutputParam = None
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.TEXT)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.TEXT
+        )
 
 
-class DepthEstimation(AssetNode[DepthEstimationInputs, DepthEstimationOutputs]):
+class TextDetection(AssetNode[TextDetectionInputs, TextDetectionOutputs]):
     """
-    Depth estimation is a computational process that determines the distance of
-objects from a viewpoint, typically using visual data from cameras or sensors
-to create a three-dimensional understanding of a scene.
+    detect text regions in the complex background and label them with bounding
+boxes.
 
     InputType: image
-    OutputType: text
+    OutputType: text 
     """
-    function: str = "depth-estimation"
+    function: str = "text-detection"
     input_type: str = DataType.IMAGE
-    output_type: str = DataType.TEXT
+    output_type: str = DataType.TEXT 
 
-    inputs_class: Type[TI] = DepthEstimationInputs
-    outputs_class: Type[TO] = DepthEstimationOutputs
+    inputs_class: Type[TI] = TextDetectionInputs
+    outputs_class: Type[TO] = TextDetectionOutputs
 
 
 class ScriptExecutionInputs(Inputs):
@@ -332,7 +103,11 @@ class ScriptExecutionInputs(Inputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.text = self.create_param(code="text", data_type=DataType.TEXT, is_required=True)
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
 
 
 class ScriptExecutionOutputs(Outputs):
@@ -340,7 +115,10 @@ class ScriptExecutionOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.TEXT)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.TEXT
+        )
 
 
 class ScriptExecution(AssetNode[ScriptExecutionInputs, ScriptExecutionOutputs]):
@@ -360,44 +138,16 @@ performance of tasks, calculations, or operations as defined by the script.
     outputs_class: Type[TO] = ScriptExecutionOutputs
 
 
-class TextDetectionInputs(Inputs):
-    image: InputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.image = self.create_param(code="image", data_type=DataType.IMAGE, is_required=True)
-
-
-class TextDetectionOutputs(Outputs):
-    data: OutputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.TEXT)
-
-
-class TextDetection(AssetNode[TextDetectionInputs, TextDetectionOutputs]):
-    """
-    detect text regions in the complex background and label them with bounding
-boxes.
-
-    InputType: image
-    OutputType: text 
-    """
-    function: str = "text-detection"
-    input_type: str = DataType.IMAGE
-    output_type: str = DataType.TEXT 
-
-    inputs_class: Type[TI] = TextDetectionInputs
-    outputs_class: Type[TO] = TextDetectionOutputs
-
-
 class AudioSourceSeparationInputs(Inputs):
     audio: InputParam = None
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.audio = self.create_param(code="audio", data_type=DataType.AUDIO, is_required=True)
+        self.audio = self.create_param(
+            code="audio", 
+            data_type=DataType.AUDIO, 
+            is_required=True
+        )
 
 
 class AudioSourceSeparationOutputs(Outputs):
@@ -405,7 +155,10 @@ class AudioSourceSeparationOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.AUDIO)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.AUDIO
+        )
 
 
 class AudioSourceSeparation(AssetNode[AudioSourceSeparationInputs, AudioSourceSeparationOutputs]):
@@ -430,7 +183,11 @@ class ImageImpaintingInputs(Inputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.image = self.create_param(code="image", data_type=DataType.IMAGE, is_required=False)
+        self.image = self.create_param(
+            code="image", 
+            data_type=DataType.IMAGE, 
+            is_required=False
+        )
 
 
 class ImageImpaintingOutputs(Outputs):
@@ -438,7 +195,10 @@ class ImageImpaintingOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.image = self.create_param(code="image", data_type=DataType.IMAGE)
+        self.image = self.create_param(
+            code="image", 
+            data_type=DataType.IMAGE
+        )
 
 
 class ImageImpainting(AssetNode[ImageImpaintingInputs, ImageImpaintingOutputs]):
@@ -465,8 +225,16 @@ class MultiClassTextClassificationInputs(Inputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.language = self.create_param(code="language", data_type=DataType.LABEL, is_required=True)
-        self.text = self.create_param(code="text", data_type=DataType.TEXT, is_required=False)
+        self.language = self.create_param(
+            code="language", 
+            data_type=DataType.LABEL, 
+            is_required=True
+        )
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=False
+        )
 
 
 class MultiClassTextClassificationOutputs(Outputs):
@@ -474,7 +242,10 @@ class MultiClassTextClassificationOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.LABEL)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.LABEL
+        )
 
 
 class MultiClassTextClassification(AssetNode[MultiClassTextClassificationInputs, MultiClassTextClassificationOutputs]):
@@ -494,155 +265,16 @@ categories based on its content.
     outputs_class: Type[TO] = MultiClassTextClassificationOutputs
 
 
-class StyleTransferInputs(Inputs):
-    image: InputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.image = self.create_param(code="image", data_type=DataType.IMAGE, is_required=False)
-
-
-class StyleTransferOutputs(Outputs):
-    image: OutputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.image = self.create_param(code="image", data_type=DataType.IMAGE)
-
-
-class StyleTransfer(AssetNode[StyleTransferInputs, StyleTransferOutputs]):
-    """
-    Style Transfer is a technique in artificial intelligence that applies the
-visual style of one image (such as the brushstrokes of a famous painting) to
-the content of another image, effectively blending the artistic elements of the
-first image with the subject matter of the second.
-
-    InputType: image
-    OutputType: image
-    """
-    function: str = "style-transfer"
-    input_type: str = DataType.IMAGE
-    output_type: str = DataType.IMAGE
-
-    inputs_class: Type[TI] = StyleTransferInputs
-    outputs_class: Type[TO] = StyleTransferOutputs
-
-
-class ImageColorizationInputs(Inputs):
-    image: InputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.image = self.create_param(code="image", data_type=DataType.IMAGE, is_required=False)
-
-
-class ImageColorizationOutputs(Outputs):
-    image: OutputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.image = self.create_param(code="image", data_type=DataType.IMAGE)
-
-
-class ImageColorization(AssetNode[ImageColorizationInputs, ImageColorizationOutputs]):
-    """
-    Image colorization is a process that involves adding color to grayscale images,
-transforming them from black-and-white to full-color representations, often
-using advanced algorithms and machine learning techniques to predict and apply
-the appropriate hues and shades.
-
-    InputType: image
-    OutputType: image
-    """
-    function: str = "image-colorization"
-    input_type: str = DataType.IMAGE
-    output_type: str = DataType.IMAGE
-
-    inputs_class: Type[TI] = ImageColorizationInputs
-    outputs_class: Type[TO] = ImageColorizationOutputs
-
-
-class KeywordExtractionInputs(Inputs):
-    text: InputParam = None
-    language: InputParam = None
-    dialect: InputParam = None
-    script: InputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.text = self.create_param(code="text", data_type=DataType.TEXT, is_required=True)
-        self.language = self.create_param(code="language", data_type=DataType.LABEL, is_required=True)
-        self.dialect = self.create_param(code="dialect", data_type=DataType.LABEL, is_required=False)
-        self.script = self.create_param(code="script", data_type=DataType.LABEL, is_required=False)
-
-
-class KeywordExtractionOutputs(Outputs):
-    data: OutputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.LABEL)
-
-
-class KeywordExtraction(AssetNode[KeywordExtractionInputs, KeywordExtractionOutputs]):
-    """
-    It helps concise the text and obtain relevant keywords Example use-cases are
-finding topics of interest from a news article and identifying the problems
-based on customer reviews and so.
-
-    InputType: text
-    OutputType: label
-    """
-    function: str = "keyword-extraction"
-    input_type: str = DataType.TEXT
-    output_type: str = DataType.LABEL
-
-    inputs_class: Type[TI] = KeywordExtractionInputs
-    outputs_class: Type[TO] = KeywordExtractionOutputs
-
-
-class IntentClassificationInputs(Inputs):
-    language: InputParam = None
-    text: InputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.language = self.create_param(code="language", data_type=DataType.LABEL, is_required=True)
-        self.text = self.create_param(code="text", data_type=DataType.TEXT, is_required=False)
-
-
-class IntentClassificationOutputs(Outputs):
-    data: OutputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.LABEL)
-
-
-class IntentClassification(AssetNode[IntentClassificationInputs, IntentClassificationOutputs]):
-    """
-    Intent Classification is a natural language processing task that involves
-analyzing and categorizing user text input to determine the underlying purpose
-or goal behind the communication, such as booking a flight, asking for weather
-information, or setting a reminder.
-
-    InputType: text
-    OutputType: label
-    """
-    function: str = "intent-classification"
-    input_type: str = DataType.TEXT
-    output_type: str = DataType.LABEL
-
-    inputs_class: Type[TI] = IntentClassificationInputs
-    outputs_class: Type[TO] = IntentClassificationOutputs
-
-
 class SceneDetectionInputs(Inputs):
     image: InputParam = None
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.image = self.create_param(code="image", data_type=DataType.IMAGE, is_required=True)
+        self.image = self.create_param(
+            code="image", 
+            data_type=DataType.IMAGE, 
+            is_required=True
+        )
 
 
 class SceneDetectionOutputs(Outputs):
@@ -650,7 +282,10 @@ class SceneDetectionOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.LABEL)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.LABEL
+        )
 
 
 class SceneDetection(AssetNode[SceneDetectionInputs, SceneDetectionOutputs]):
@@ -669,50 +304,54 @@ split it into basic temporal segments.
     outputs_class: Type[TO] = SceneDetectionOutputs
 
 
-class TranslationInputs(Inputs):
+class ZeroShotClassificationInputs(Inputs):
     text: InputParam = None
-    sourcelanguage: InputParam = None
-    targetlanguage: InputParam = None
+    language: InputParam = None
     script_in: InputParam = None
-    script_out: InputParam = None
-    dialect_in: InputParam = None
-    dialect_out: InputParam = None
-    context: InputParam = None
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.text = self.create_param(code="text", data_type=DataType.TEXT, is_required=True)
-        self.sourcelanguage = self.create_param(code="sourcelanguage", data_type=DataType.LABEL, is_required=True)
-        self.targetlanguage = self.create_param(code="targetlanguage", data_type=DataType.LABEL, is_required=True)
-        self.script_in = self.create_param(code="script_in", data_type=DataType.LABEL, is_required=False)
-        self.script_out = self.create_param(code="script_out", data_type=DataType.LABEL, is_required=False)
-        self.dialect_in = self.create_param(code="dialect_in", data_type=DataType.LABEL, is_required=False)
-        self.dialect_out = self.create_param(code="dialect_out", data_type=DataType.LABEL, is_required=False)
-        self.context = self.create_param(code="context", data_type=DataType.LABEL, is_required=False)
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
+        self.language = self.create_param(
+            code="language", 
+            data_type=DataType.LABEL, 
+            is_required=True
+        )
+        self.script_in = self.create_param(
+            code="script_in", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
 
 
-class TranslationOutputs(Outputs):
+class ZeroShotClassificationOutputs(Outputs):
     data: OutputParam = None
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.TEXT)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.LABEL
+        )
 
 
-class Translation(AssetNode[TranslationInputs, TranslationOutputs]):
+class ZeroShotClassification(AssetNode[ZeroShotClassificationInputs, ZeroShotClassificationOutputs]):
     """
-    Converts text from one language to another while maintaining the original
-message's essence and context. Crucial for global communication.
+    
 
     InputType: text
     OutputType: text
     """
-    function: str = "translation"
+    function: str = "zero-shot-classification"
     input_type: str = DataType.TEXT
     output_type: str = DataType.TEXT
 
-    inputs_class: Type[TI] = TranslationInputs
-    outputs_class: Type[TO] = TranslationOutputs
+    inputs_class: Type[TI] = ZeroShotClassificationInputs
+    outputs_class: Type[TO] = ZeroShotClassificationOutputs
 
 
 class AudioIntentDetectionInputs(Inputs):
@@ -720,7 +359,11 @@ class AudioIntentDetectionInputs(Inputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.audio = self.create_param(code="audio", data_type=DataType.AUDIO, is_required=False)
+        self.audio = self.create_param(
+            code="audio", 
+            data_type=DataType.AUDIO, 
+            is_required=False
+        )
 
 
 class AudioIntentDetectionOutputs(Outputs):
@@ -728,7 +371,10 @@ class AudioIntentDetectionOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.LABEL)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.LABEL
+        )
 
 
 class AudioIntentDetection(AssetNode[AudioIntentDetectionInputs, AudioIntentDetectionOutputs]):
@@ -749,49 +395,22 @@ speech.
     outputs_class: Type[TO] = AudioIntentDetectionOutputs
 
 
-class ZeroShotClassificationInputs(Inputs):
-    text: InputParam = None
-    language: InputParam = None
-    script_in: InputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.text = self.create_param(code="text", data_type=DataType.TEXT, is_required=True)
-        self.language = self.create_param(code="language", data_type=DataType.LABEL, is_required=True)
-        self.script_in = self.create_param(code="script_in", data_type=DataType.LABEL, is_required=False)
-
-
-class ZeroShotClassificationOutputs(Outputs):
-    data: OutputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.LABEL)
-
-
-class ZeroShotClassification(AssetNode[ZeroShotClassificationInputs, ZeroShotClassificationOutputs]):
-    """
-    
-
-    InputType: text
-    OutputType: text
-    """
-    function: str = "zero-shot-classification"
-    input_type: str = DataType.TEXT
-    output_type: str = DataType.TEXT
-
-    inputs_class: Type[TI] = ZeroShotClassificationInputs
-    outputs_class: Type[TO] = ZeroShotClassificationOutputs
-
-
 class OcrInputs(Inputs):
     image: InputParam = None
     featuretypes: InputParam = None
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.image = self.create_param(code="image", data_type=DataType.IMAGE, is_required=True)
-        self.featuretypes = self.create_param(code="featuretypes", data_type=DataType.TEXT, is_required=True)
+        self.image = self.create_param(
+            code="image", 
+            data_type=DataType.IMAGE, 
+            is_required=True
+        )
+        self.featuretypes = self.create_param(
+            code="featuretypes", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
 
 
 class OcrOutputs(Outputs):
@@ -799,7 +418,10 @@ class OcrOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.TEXT)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.TEXT
+        )
 
 
 class Ocr(AssetNode[OcrInputs, OcrOutputs]):
@@ -825,9 +447,21 @@ class IntentRecognitionInputs(Inputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.audio = self.create_param(code="audio", data_type=DataType.AUDIO, is_required=True)
-        self.language = self.create_param(code="language", data_type=DataType.LABEL, is_required=True)
-        self.dialect = self.create_param(code="dialect", data_type=DataType.LABEL, is_required=False)
+        self.audio = self.create_param(
+            code="audio", 
+            data_type=DataType.AUDIO, 
+            is_required=True
+        )
+        self.language = self.create_param(
+            code="language", 
+            data_type=DataType.LABEL, 
+            is_required=True
+        )
+        self.dialect = self.create_param(
+            code="dialect", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
 
 
 class IntentRecognitionOutputs(Outputs):
@@ -835,7 +469,10 @@ class IntentRecognitionOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.LABEL)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.LABEL
+        )
 
 
 class IntentRecognition(AssetNode[IntentRecognitionInputs, IntentRecognitionOutputs]):
@@ -860,8 +497,16 @@ class VideoEmbeddingInputs(Inputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.language = self.create_param(code="language", data_type=DataType.LABEL, is_required=True)
-        self.video = self.create_param(code="video", data_type=DataType.VIDEO, is_required=False)
+        self.language = self.create_param(
+            code="language", 
+            data_type=DataType.LABEL, 
+            is_required=True
+        )
+        self.video = self.create_param(
+            code="video", 
+            data_type=DataType.VIDEO, 
+            is_required=False
+        )
 
 
 class VideoEmbeddingOutputs(Outputs):
@@ -869,7 +514,10 @@ class VideoEmbeddingOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.EMBEDDING)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.EMBEDDING
+        )
 
 
 class VideoEmbedding(AssetNode[VideoEmbeddingInputs, VideoEmbeddingOutputs]):
@@ -889,45 +537,16 @@ facilitate tasks such as retrieval, classification, and recommendation.
     outputs_class: Type[TO] = VideoEmbeddingOutputs
 
 
-class ExpressionDetectionInputs(Inputs):
-    media: InputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.media = self.create_param(code="media", data_type=DataType.IMAGE, is_required=True)
-
-
-class ExpressionDetectionOutputs(Outputs):
-    data: OutputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.LABEL)
-
-
-class ExpressionDetection(AssetNode[ExpressionDetectionInputs, ExpressionDetectionOutputs]):
-    """
-    Expression Detection is the process of identifying and analyzing facial
-expressions to interpret emotions or intentions using AI and computer vision
-techniques.
-
-    InputType: text
-    OutputType: label
-    """
-    function: str = "expression-detection"
-    input_type: str = DataType.TEXT
-    output_type: str = DataType.LABEL
-
-    inputs_class: Type[TI] = ExpressionDetectionInputs
-    outputs_class: Type[TO] = ExpressionDetectionOutputs
-
-
 class ExtractAudioFromVideoInputs(Inputs):
     video: InputParam = None
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.video = self.create_param(code="video", data_type=DataType.VIDEO, is_required=True)
+        self.video = self.create_param(
+            code="video", 
+            data_type=DataType.VIDEO, 
+            is_required=True
+        )
 
 
 class ExtractAudioFromVideoOutputs(Outputs):
@@ -935,7 +554,10 @@ class ExtractAudioFromVideoOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.AUDIO)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.AUDIO
+        )
 
 
 class ExtractAudioFromVideo(AssetNode[ExtractAudioFromVideoInputs, ExtractAudioFromVideoOutputs]):
@@ -959,7 +581,11 @@ class ImageCaptioningInputs(Inputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.image = self.create_param(code="image", data_type=DataType.IMAGE, is_required=True)
+        self.image = self.create_param(
+            code="image", 
+            data_type=DataType.IMAGE, 
+            is_required=True
+        )
 
 
 class ImageCaptioningOutputs(Outputs):
@@ -967,7 +593,10 @@ class ImageCaptioningOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.TEXT)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.TEXT
+        )
 
 
 class ImageCaptioning(AssetNode[ImageCaptioningInputs, ImageCaptioningOutputs]):
@@ -993,7 +622,11 @@ class ImageAnalysisInputs(Inputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.image = self.create_param(code="image", data_type=DataType.IMAGE, is_required=True)
+        self.image = self.create_param(
+            code="image", 
+            data_type=DataType.IMAGE, 
+            is_required=True
+        )
 
 
 class ImageAnalysisOutputs(Outputs):
@@ -1001,7 +634,10 @@ class ImageAnalysisOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.LABEL)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.LABEL
+        )
 
 
 class ImageAnalysis(AssetNode[ImageAnalysisInputs, ImageAnalysisOutputs]):
@@ -1019,40 +655,6 @@ class ImageAnalysis(AssetNode[ImageAnalysisInputs, ImageAnalysisOutputs]):
     outputs_class: Type[TO] = ImageAnalysisOutputs
 
 
-class InstanceSegmentationInputs(Inputs):
-    image: InputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.image = self.create_param(code="image", data_type=DataType.IMAGE, is_required=False)
-
-
-class InstanceSegmentationOutputs(Outputs):
-    data: OutputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.LABEL)
-
-
-class InstanceSegmentation(AssetNode[InstanceSegmentationInputs, InstanceSegmentationOutputs]):
-    """
-    Instance segmentation is a computer vision task that involves detecting and
-delineating each distinct object within an image, assigning a unique label and
-precise boundary to every individual instance of objects, even if they belong
-to the same category.
-
-    InputType: image
-    OutputType: label
-    """
-    function: str = "instance-segmentation"
-    input_type: str = DataType.IMAGE
-    output_type: str = DataType.LABEL
-
-    inputs_class: Type[TI] = InstanceSegmentationInputs
-    outputs_class: Type[TO] = InstanceSegmentationOutputs
-
-
 class BenchmarkScoringMtInputs(Inputs):
     input: InputParam = None
     text: InputParam = None
@@ -1060,9 +662,21 @@ class BenchmarkScoringMtInputs(Inputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.input = self.create_param(code="input", data_type=DataType.TEXT, is_required=True)
-        self.text = self.create_param(code="text", data_type=DataType.TEXT, is_required=True)
-        self.text = self.create_param(code="text", data_type=DataType.TEXT, is_required=True)
+        self.input = self.create_param(
+            code="input", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
 
 
 class BenchmarkScoringMtOutputs(Outputs):
@@ -1070,7 +684,10 @@ class BenchmarkScoringMtOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.LABEL)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.LABEL
+        )
 
 
 class BenchmarkScoringMt(AssetNode[BenchmarkScoringMtInputs, BenchmarkScoringMtOutputs]):
@@ -1098,10 +715,26 @@ class SpeakerDiarizationAudioInputs(Inputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.audio = self.create_param(code="audio", data_type=DataType.AUDIO, is_required=True)
-        self.language = self.create_param(code="language", data_type=DataType.LABEL, is_required=False)
-        self.script = self.create_param(code="script", data_type=DataType.LABEL, is_required=False)
-        self.dialect = self.create_param(code="dialect", data_type=DataType.LABEL, is_required=False)
+        self.audio = self.create_param(
+            code="audio", 
+            data_type=DataType.AUDIO, 
+            is_required=True
+        )
+        self.language = self.create_param(
+            code="language", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+        self.script = self.create_param(
+            code="script", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+        self.dialect = self.create_param(
+            code="dialect", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
 
 
 class SpeakerDiarizationAudioOutputs(Outputs):
@@ -1110,7 +743,10 @@ class SpeakerDiarizationAudioOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.LABEL)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.LABEL
+        )
         self.audio = self.create_param(code="audio", data_type=DataType.AUDIO)
 
 
@@ -1130,92 +766,16 @@ audio clip. Ideal for multi-speaker recordings or conference calls.
     outputs_class: Type[TO] = SpeakerDiarizationAudioOutputs
 
 
-class SpeakerDiarizationVideoInputs(Inputs):
-    video: InputParam = None
-    language: InputParam = None
-    script: InputParam = None
-    dialect: InputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.video = self.create_param(code="video", data_type=DataType.VIDEO, is_required=True)
-        self.language = self.create_param(code="language", data_type=DataType.LABEL, is_required=False)
-        self.script = self.create_param(code="script", data_type=DataType.LABEL, is_required=False)
-        self.dialect = self.create_param(code="dialect", data_type=DataType.LABEL, is_required=False)
-
-
-class SpeakerDiarizationVideoOutputs(Outputs):
-    data: OutputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.VIDEO)
-
-
-class SpeakerDiarizationVideo(AssetNode[SpeakerDiarizationVideoInputs, SpeakerDiarizationVideoOutputs]):
-    """
-    Segments a video based on different speakers, identifying when each individual
-speaks. Useful for transcriptions and understanding multi-person conversations.
-
-    InputType: video
-    OutputType: label
-    """
-    function: str = "speaker-diarization-video"
-    input_type: str = DataType.VIDEO
-    output_type: str = DataType.LABEL
-
-    inputs_class: Type[TI] = SpeakerDiarizationVideoInputs
-    outputs_class: Type[TO] = SpeakerDiarizationVideoOutputs
-
-
-class AudioTranscriptImprovementInputs(Inputs):
-    language: InputParam = None
-    dialect: InputParam = None
-    source_supplier: InputParam = None
-    is_medical: InputParam = None
-    source_audio: InputParam = None
-    script: InputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.language = self.create_param(code="language", data_type=DataType.LABEL, is_required=True)
-        self.dialect = self.create_param(code="dialect", data_type=DataType.LABEL, is_required=False)
-        self.source_supplier = self.create_param(code="source_supplier", data_type=DataType.LABEL, is_required=False)
-        self.is_medical = self.create_param(code="is_medical", data_type=DataType.TEXT, is_required=True)
-        self.source_audio = self.create_param(code="source_audio", data_type=DataType.AUDIO, is_required=True)
-        self.script = self.create_param(code="script", data_type=DataType.LABEL, is_required=False)
-
-
-class AudioTranscriptImprovementOutputs(Outputs):
-    data: OutputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.TEXT)
-
-
-class AudioTranscriptImprovement(AssetNode[AudioTranscriptImprovementInputs, AudioTranscriptImprovementOutputs]):
-    """
-    Refines and corrects transcriptions generated from audio data, improving
-readability and accuracy.
-
-    InputType: audio
-    OutputType: text
-    """
-    function: str = "audio-transcript-improvement"
-    input_type: str = DataType.AUDIO
-    output_type: str = DataType.TEXT
-
-    inputs_class: Type[TI] = AudioTranscriptImprovementInputs
-    outputs_class: Type[TO] = AudioTranscriptImprovementOutputs
-
-
 class ConnectionInputs(Inputs):
     name: InputParam = None
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.name = self.create_param(code="name", data_type=DataType.TEXT, is_required=True)
+        self.name = self.create_param(
+            code="name", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
 
 
 class ConnectionOutputs(Outputs):
@@ -1223,7 +783,10 @@ class ConnectionOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.TEXT)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.TEXT
+        )
 
 
 class Connection(AssetNode[ConnectionInputs, ConnectionOutputs]):
@@ -1247,7 +810,11 @@ class ConnectorInputs(Inputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.name = self.create_param(code="name", data_type=DataType.TEXT, is_required=True)
+        self.name = self.create_param(
+            code="name", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
 
 
 class ConnectorOutputs(Outputs):
@@ -1255,7 +822,10 @@ class ConnectorOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.TEXT)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.TEXT
+        )
 
 
 class Connector(AssetNode[ConnectorInputs, ConnectorOutputs]):
@@ -1274,6 +844,130 @@ tools
     outputs_class: Type[TO] = ConnectorOutputs
 
 
+class ImageContentModerationInputs(Inputs):
+    image: InputParam = None
+    min_confidence: InputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.image = self.create_param(
+            code="image", 
+            data_type=DataType.IMAGE, 
+            is_required=True
+        )
+        self.min_confidence = self.create_param(
+            code="min_confidence", 
+            data_type=DataType.TEXT, 
+            is_required=False
+        )
+
+
+class ImageContentModerationOutputs(Outputs):
+    data: OutputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.LABEL
+        )
+
+
+class ImageContentModeration(AssetNode[ImageContentModerationInputs, ImageContentModerationOutputs]):
+    """
+    Detects and filters out inappropriate or harmful images, essential for
+platforms with user-generated visual content.
+
+    InputType: image
+    OutputType: label
+    """
+    function: str = "image-content-moderation"
+    input_type: str = DataType.IMAGE
+    output_type: str = DataType.LABEL
+
+    inputs_class: Type[TI] = ImageContentModerationInputs
+    outputs_class: Type[TO] = ImageContentModerationOutputs
+
+
+class ImageColorizationInputs(Inputs):
+    image: InputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.image = self.create_param(
+            code="image", 
+            data_type=DataType.IMAGE, 
+            is_required=False
+        )
+
+
+class ImageColorizationOutputs(Outputs):
+    image: OutputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.image = self.create_param(
+            code="image", 
+            data_type=DataType.IMAGE
+        )
+
+
+class ImageColorization(AssetNode[ImageColorizationInputs, ImageColorizationOutputs]):
+    """
+    Image colorization is a process that involves adding color to grayscale images,
+transforming them from black-and-white to full-color representations, often
+using advanced algorithms and machine learning techniques to predict and apply
+the appropriate hues and shades.
+
+    InputType: image
+    OutputType: image
+    """
+    function: str = "image-colorization"
+    input_type: str = DataType.IMAGE
+    output_type: str = DataType.IMAGE
+
+    inputs_class: Type[TI] = ImageColorizationInputs
+    outputs_class: Type[TO] = ImageColorizationOutputs
+
+
+class ImageAndVideoAnalysisInputs(Inputs):
+    image: InputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.image = self.create_param(
+            code="image", 
+            data_type=DataType.IMAGE, 
+            is_required=True
+        )
+
+
+class ImageAndVideoAnalysisOutputs(Outputs):
+    data: OutputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.LABEL
+        )
+
+
+class ImageAndVideoAnalysis(AssetNode[ImageAndVideoAnalysisInputs, ImageAndVideoAnalysisOutputs]):
+    """
+    
+
+    InputType: image
+    OutputType: text
+    """
+    function: str = "image-and-video-analysis"
+    input_type: str = DataType.IMAGE
+    output_type: str = DataType.TEXT
+
+    inputs_class: Type[TI] = ImageAndVideoAnalysisInputs
+    outputs_class: Type[TO] = ImageAndVideoAnalysisOutputs
+
+
 class BenchmarkScoringAsrInputs(Inputs):
     input: InputParam = None
     text: InputParam = None
@@ -1281,9 +975,21 @@ class BenchmarkScoringAsrInputs(Inputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.input = self.create_param(code="input", data_type=DataType.AUDIO, is_required=True)
-        self.text = self.create_param(code="text", data_type=DataType.TEXT, is_required=True)
-        self.text = self.create_param(code="text", data_type=DataType.TEXT, is_required=True)
+        self.input = self.create_param(
+            code="input", 
+            data_type=DataType.AUDIO, 
+            is_required=True
+        )
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
 
 
 class BenchmarkScoringAsrOutputs(Outputs):
@@ -1291,7 +997,10 @@ class BenchmarkScoringAsrOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.LABEL)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.LABEL
+        )
 
 
 class BenchmarkScoringAsr(AssetNode[BenchmarkScoringAsrInputs, BenchmarkScoringAsrOutputs]):
@@ -1311,414 +1020,49 @@ other relevant metrics against a standardized set of benchmarks.
     outputs_class: Type[TO] = BenchmarkScoringAsrOutputs
 
 
-class SentimentAnalysisInputs(Inputs):
-    text: InputParam = None
-    language: InputParam = None
-    dialect: InputParam = None
-    script: InputParam = None
+class VideoContentModerationInputs(Inputs):
+    video: InputParam = None
+    min_confidence: InputParam = None
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.text = self.create_param(code="text", data_type=DataType.TEXT, is_required=True)
-        self.language = self.create_param(code="language", data_type=DataType.LABEL, is_required=True)
-        self.dialect = self.create_param(code="dialect", data_type=DataType.LABEL, is_required=False)
-        self.script = self.create_param(code="script", data_type=DataType.LABEL, is_required=False)
+        self.video = self.create_param(
+            code="video", 
+            data_type=DataType.VIDEO, 
+            is_required=True
+        )
+        self.min_confidence = self.create_param(
+            code="min_confidence", 
+            data_type=DataType.TEXT, 
+            is_required=False
+        )
 
 
-class SentimentAnalysisOutputs(Outputs):
+class VideoContentModerationOutputs(Outputs):
     data: OutputParam = None
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.LABEL)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.LABEL
+        )
 
 
-class SentimentAnalysis(AssetNode[SentimentAnalysisInputs, SentimentAnalysisOutputs]):
+class VideoContentModeration(AssetNode[VideoContentModerationInputs, VideoContentModerationOutputs]):
     """
-    Determines the sentiment or emotion (e.g., positive, negative, neutral) of a
-piece of text, aiding in understanding user feedback or market sentiment.
+    Automatically reviews video content to detect and possibly remove inappropriate
+or harmful material. Essential for user-generated content platforms.
 
-    InputType: text
+    InputType: video
     OutputType: label
     """
-    function: str = "sentiment-analysis"
-    input_type: str = DataType.TEXT
+    function: str = "video-content-moderation"
+    input_type: str = DataType.VIDEO
     output_type: str = DataType.LABEL
 
-    inputs_class: Type[TI] = SentimentAnalysisInputs
-    outputs_class: Type[TO] = SentimentAnalysisOutputs
-
-
-class MetricAggregationInputs(Inputs):
-    text: InputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.text = self.create_param(code="text", data_type=DataType.TEXT, is_required=True)
-
-
-class MetricAggregationOutputs(Outputs):
-    data: OutputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.TEXT)
-
-
-class MetricAggregation(BaseMetric[MetricAggregationInputs, MetricAggregationOutputs]):
-    """
-    Metric Aggregation is a function that computes and summarizes numerical data by
-applying statistical operations, such as averaging, summing, or finding the
-minimum and maximum values, to provide insights and facilitate analysis of
-large datasets.
-
-    InputType: text
-    OutputType: text
-    """
-    function: str = "metric-aggregation"
-    input_type: str = DataType.TEXT
-    output_type: str = DataType.TEXT
-
-    inputs_class: Type[TI] = MetricAggregationInputs
-    outputs_class: Type[TO] = MetricAggregationOutputs
-
-
-class TopicModelingInputs(Inputs):
-    text: InputParam = None
-    language: InputParam = None
-    script: InputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.text = self.create_param(code="text", data_type=DataType.TEXT, is_required=True)
-        self.language = self.create_param(code="language", data_type=DataType.LABEL, is_required=True)
-        self.script = self.create_param(code="script", data_type=DataType.LABEL, is_required=False)
-
-
-class TopicModelingOutputs(Outputs):
-    data: OutputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.LABEL)
-
-
-class TopicModeling(AssetNode[TopicModelingInputs, TopicModelingOutputs]):
-    """
-    Topic modeling is a type of statistical modeling for discovering the abstract
-“topics” that occur in a collection of documents.
-
-    InputType: text
-    OutputType: label
-    """
-    function: str = "topic-modeling"
-    input_type: str = DataType.TEXT
-    output_type: str = DataType.LABEL
-
-    inputs_class: Type[TI] = TopicModelingInputs
-    outputs_class: Type[TO] = TopicModelingOutputs
-
-
-class SubtitlingInputs(Inputs):
-    source_audio: InputParam = None
-    sourcelanguage: InputParam = None
-    dialect_in: InputParam = None
-    source_supplier: InputParam = None
-    target_supplier: InputParam = None
-    targetlanguages: InputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.source_audio = self.create_param(code="source_audio", data_type=DataType.AUDIO, is_required=True)
-        self.sourcelanguage = self.create_param(code="sourcelanguage", data_type=DataType.LABEL, is_required=True)
-        self.dialect_in = self.create_param(code="dialect_in", data_type=DataType.LABEL, is_required=False)
-        self.source_supplier = self.create_param(code="source_supplier", data_type=DataType.LABEL, is_required=False)
-        self.target_supplier = self.create_param(code="target_supplier", data_type=DataType.LABEL, is_required=False)
-        self.targetlanguages = self.create_param(code="targetlanguages", data_type=DataType.LABEL, is_required=False)
-
-
-class SubtitlingOutputs(Outputs):
-    data: OutputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.TEXT)
-
-
-class Subtitling(AssetNode[SubtitlingInputs, SubtitlingOutputs]):
-    """
-    Generates accurate subtitles for videos, enhancing accessibility for diverse
-audiences.
-
-    InputType: audio
-    OutputType: text
-    """
-    function: str = "subtitling"
-    input_type: str = DataType.AUDIO
-    output_type: str = DataType.TEXT
-
-    inputs_class: Type[TI] = SubtitlingInputs
-    outputs_class: Type[TO] = SubtitlingOutputs
-
-
-class TextGenerationMetricDefaultInputs(Inputs):
-    hypotheses: InputParam = None
-    references: InputParam = None
-    sources: InputParam = None
-    score_identifier: InputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.hypotheses = self.create_param(code="hypotheses", data_type=DataType.TEXT, is_required=True)
-        self.references = self.create_param(code="references", data_type=DataType.TEXT, is_required=False)
-        self.sources = self.create_param(code="sources", data_type=DataType.TEXT, is_required=False)
-        self.score_identifier = self.create_param(code="score_identifier", data_type=DataType.TEXT, is_required=True)
-
-
-class TextGenerationMetricDefaultOutputs(Outputs):
-    data: OutputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.TEXT)
-
-
-class TextGenerationMetricDefault(BaseMetric[TextGenerationMetricDefaultInputs, TextGenerationMetricDefaultOutputs]):
-    """
-    The "Text Generation Metric Default" function provides a standard set of
-evaluation metrics for assessing the quality and performance of text generation
-models.
-
-    InputType: text
-    OutputType: text
-    """
-    function: str = "text-generation-metric-default"
-    input_type: str = DataType.TEXT
-    output_type: str = DataType.TEXT
-
-    inputs_class: Type[TI] = TextGenerationMetricDefaultInputs
-    outputs_class: Type[TO] = TextGenerationMetricDefaultOutputs
-
-
-class VisualQuestionAnsweringInputs(Inputs):
-    text: InputParam = None
-    language: InputParam = None
-    image: InputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.text = self.create_param(code="text", data_type=DataType.TEXT, is_required=True)
-        self.language = self.create_param(code="language", data_type=DataType.LABEL, is_required=True)
-        self.image = self.create_param(code="image", data_type=DataType.IMAGE, is_required=False)
-
-
-class VisualQuestionAnsweringOutputs(Outputs):
-    data: OutputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.TEXT)
-
-
-class VisualQuestionAnswering(AssetNode[VisualQuestionAnsweringInputs, VisualQuestionAnsweringOutputs]):
-    """
-    Visual Question Answering (VQA) is a task in artificial intelligence that
-involves analyzing an image and providing accurate, contextually relevant
-answers to questions posed about the visual content of that image.
-
-    InputType: image
-    OutputType: video
-    """
-    function: str = "visual-question-answering"
-    input_type: str = DataType.IMAGE
-    output_type: str = DataType.VIDEO
-
-    inputs_class: Type[TI] = VisualQuestionAnsweringInputs
-    outputs_class: Type[TO] = VisualQuestionAnsweringOutputs
-
-
-class TextGenerationInputs(Inputs):
-    text: InputParam = None
-    temperature: InputParam = None
-    prompt: InputParam = None
-    context: InputParam = None
-    language: InputParam = None
-    script: InputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.text = self.create_param(code="text", data_type=DataType.TEXT, is_required=True)
-        self.temperature = self.create_param(code="temperature", data_type=DataType.NUMBER, is_required=False)
-        self.prompt = self.create_param(code="prompt", data_type=DataType.TEXT, is_required=False)
-        self.context = self.create_param(code="context", data_type=DataType.TEXT, is_required=False)
-        self.language = self.create_param(code="language", data_type=DataType.LABEL, is_required=False)
-        self.script = self.create_param(code="script", data_type=DataType.LABEL, is_required=False)
-
-
-class TextGenerationOutputs(Outputs):
-    data: OutputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.TEXT)
-
-
-class TextGeneration(AssetNode[TextGenerationInputs, TextGenerationOutputs]):
-    """
-    Creates coherent and contextually relevant textual content based on prompts or
-certain parameters. Useful for chatbots, content creation, and data
-augmentation.
-
-    InputType: text
-    OutputType: text
-    """
-    function: str = "text-generation"
-    input_type: str = DataType.TEXT
-    output_type: str = DataType.TEXT
-
-    inputs_class: Type[TI] = TextGenerationInputs
-    outputs_class: Type[TO] = TextGenerationOutputs
-
-
-class DocumentImageParsingInputs(Inputs):
-    image: InputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.image = self.create_param(code="image", data_type=DataType.IMAGE, is_required=False)
-
-
-class DocumentImageParsingOutputs(Outputs):
-    data: OutputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.TEXT)
-
-
-class DocumentImageParsing(AssetNode[DocumentImageParsingInputs, DocumentImageParsingOutputs]):
-    """
-    Document Image Parsing is the process of analyzing and converting scanned or
-photographed images of documents into structured, machine-readable formats by
-identifying and extracting text, layout, and other relevant information.
-
-    InputType: image
-    OutputType: text
-    """
-    function: str = "document-image-parsing"
-    input_type: str = DataType.IMAGE
-    output_type: str = DataType.TEXT
-
-    inputs_class: Type[TI] = DocumentImageParsingInputs
-    outputs_class: Type[TO] = DocumentImageParsingOutputs
-
-
-class SpeechRecognitionInputs(Inputs):
-    language: InputParam = None
-    dialect: InputParam = None
-    voice: InputParam = None
-    source_audio: InputParam = None
-    script: InputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.language = self.create_param(code="language", data_type=DataType.LABEL, is_required=True)
-        self.dialect = self.create_param(code="dialect", data_type=DataType.LABEL, is_required=False)
-        self.voice = self.create_param(code="voice", data_type=DataType.LABEL, is_required=False)
-        self.source_audio = self.create_param(code="source_audio", data_type=DataType.AUDIO, is_required=True)
-        self.script = self.create_param(code="script", data_type=DataType.LABEL, is_required=False)
-
-
-class SpeechRecognitionOutputs(Outputs):
-    data: OutputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.TEXT)
-
-
-class SpeechRecognition(AssetNode[SpeechRecognitionInputs, SpeechRecognitionOutputs]):
-    """
-    Converts spoken language into written text. Useful for transcription services,
-voice assistants, and applications requiring voice-to-text capabilities.
-
-    InputType: audio
-    OutputType: text
-    """
-    function: str = "speech-recognition"
-    input_type: str = DataType.AUDIO
-    output_type: str = DataType.TEXT
-
-    inputs_class: Type[TI] = SpeechRecognitionInputs
-    outputs_class: Type[TO] = SpeechRecognitionOutputs
-
-
-class TextReconstructionInputs(Inputs):
-    text: InputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.text = self.create_param(code="text", data_type=DataType.TEXT, is_required=True)
-
-
-class TextReconstructionOutputs(Outputs):
-    data: OutputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.TEXT)
-
-
-class TextReconstruction(BaseReconstructor[TextReconstructionInputs, TextReconstructionOutputs]):
-    """
-    Text Reconstruction is a process that involves piecing together fragmented or
-incomplete text data to restore it to its original, coherent form.
-
-    InputType: text
-    OutputType: text
-    """
-    function: str = "text-reconstruction"
-    input_type: str = DataType.TEXT
-    output_type: str = DataType.TEXT
-
-    inputs_class: Type[TI] = TextReconstructionInputs
-    outputs_class: Type[TO] = TextReconstructionOutputs
-
-
-class MultiLabelTextClassificationInputs(Inputs):
-    language: InputParam = None
-    text: InputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.language = self.create_param(code="language", data_type=DataType.LABEL, is_required=True)
-        self.text = self.create_param(code="text", data_type=DataType.TEXT, is_required=False)
-
-
-class MultiLabelTextClassificationOutputs(Outputs):
-    data: OutputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.LABEL)
-
-
-class MultiLabelTextClassification(AssetNode[MultiLabelTextClassificationInputs, MultiLabelTextClassificationOutputs]):
-    """
-    Multi Label Text Classification is a natural language processing task where a
-given text is analyzed and assigned multiple relevant labels or categories from
-a predefined set, allowing for the text to belong to more than one category
-simultaneously.
-
-    InputType: text
-    OutputType: label
-    """
-    function: str = "multi-label-text-classification"
-    input_type: str = DataType.TEXT
-    output_type: str = DataType.LABEL
-
-    inputs_class: Type[TI] = MultiLabelTextClassificationInputs
-    outputs_class: Type[TO] = MultiLabelTextClassificationOutputs
+    inputs_class: Type[TI] = VideoContentModerationInputs
+    outputs_class: Type[TO] = VideoContentModerationOutputs
 
 
 class MultilingualSpeechRecognitionInputs(Inputs):
@@ -1727,8 +1071,16 @@ class MultilingualSpeechRecognitionInputs(Inputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.source_audio = self.create_param(code="source_audio", data_type=DataType.AUDIO, is_required=True)
-        self.language = self.create_param(code="language", data_type=DataType.LABEL, is_required=False)
+        self.source_audio = self.create_param(
+            code="source_audio", 
+            data_type=DataType.AUDIO, 
+            is_required=True
+        )
+        self.language = self.create_param(
+            code="language", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
 
 
 class MultilingualSpeechRecognitionOutputs(Outputs):
@@ -1736,7 +1088,10 @@ class MultilingualSpeechRecognitionOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.TEXT)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.TEXT
+        )
 
 
 class MultilingualSpeechRecognition(AssetNode[MultilingualSpeechRecognitionInputs, MultilingualSpeechRecognitionOutputs]):
@@ -1756,38 +1111,186 @@ for seamless communication and understanding in diverse linguistic contexts.
     outputs_class: Type[TO] = MultilingualSpeechRecognitionOutputs
 
 
-class VideoContentModerationInputs(Inputs):
-    video: InputParam = None
-    min_confidence: InputParam = None
+class TopicModelingInputs(Inputs):
+    text: InputParam = None
+    language: InputParam = None
+    script: InputParam = None
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.video = self.create_param(code="video", data_type=DataType.VIDEO, is_required=True)
-        self.min_confidence = self.create_param(code="min_confidence", data_type=DataType.TEXT, is_required=False)
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
+        self.language = self.create_param(
+            code="language", 
+            data_type=DataType.LABEL, 
+            is_required=True
+        )
+        self.script = self.create_param(
+            code="script", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
 
 
-class VideoContentModerationOutputs(Outputs):
+class TopicModelingOutputs(Outputs):
     data: OutputParam = None
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.LABEL)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.LABEL
+        )
 
 
-class VideoContentModeration(AssetNode[VideoContentModerationInputs, VideoContentModerationOutputs]):
+class TopicModeling(AssetNode[TopicModelingInputs, TopicModelingOutputs]):
     """
-    Automatically reviews video content to detect and possibly remove inappropriate
-or harmful material. Essential for user-generated content platforms.
+    Topic modeling is a type of statistical modeling for discovering the abstract
+“topics” that occur in a collection of documents.
 
-    InputType: video
+    InputType: text
     OutputType: label
     """
-    function: str = "video-content-moderation"
-    input_type: str = DataType.VIDEO
+    function: str = "topic-modeling"
+    input_type: str = DataType.TEXT
     output_type: str = DataType.LABEL
 
-    inputs_class: Type[TI] = VideoContentModerationInputs
-    outputs_class: Type[TO] = VideoContentModerationOutputs
+    inputs_class: Type[TI] = TopicModelingInputs
+    outputs_class: Type[TO] = TopicModelingOutputs
+
+
+class VisualQuestionAnsweringInputs(Inputs):
+    text: InputParam = None
+    language: InputParam = None
+    image: InputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
+        self.language = self.create_param(
+            code="language", 
+            data_type=DataType.LABEL, 
+            is_required=True
+        )
+        self.image = self.create_param(
+            code="image", 
+            data_type=DataType.IMAGE, 
+            is_required=False
+        )
+
+
+class VisualQuestionAnsweringOutputs(Outputs):
+    data: OutputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.TEXT
+        )
+
+
+class VisualQuestionAnswering(AssetNode[VisualQuestionAnsweringInputs, VisualQuestionAnsweringOutputs]):
+    """
+    Visual Question Answering (VQA) is a task in artificial intelligence that
+involves analyzing an image and providing accurate, contextually relevant
+answers to questions posed about the visual content of that image.
+
+    InputType: image
+    OutputType: video
+    """
+    function: str = "visual-question-answering"
+    input_type: str = DataType.IMAGE
+    output_type: str = DataType.VIDEO
+
+    inputs_class: Type[TI] = VisualQuestionAnsweringInputs
+    outputs_class: Type[TO] = VisualQuestionAnsweringOutputs
+
+
+class DocumentImageParsingInputs(Inputs):
+    image: InputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.image = self.create_param(
+            code="image", 
+            data_type=DataType.IMAGE, 
+            is_required=False
+        )
+
+
+class DocumentImageParsingOutputs(Outputs):
+    data: OutputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.TEXT
+        )
+
+
+class DocumentImageParsing(AssetNode[DocumentImageParsingInputs, DocumentImageParsingOutputs]):
+    """
+    Document Image Parsing is the process of analyzing and converting scanned or
+photographed images of documents into structured, machine-readable formats by
+identifying and extracting text, layout, and other relevant information.
+
+    InputType: image
+    OutputType: text
+    """
+    function: str = "document-image-parsing"
+    input_type: str = DataType.IMAGE
+    output_type: str = DataType.TEXT
+
+    inputs_class: Type[TI] = DocumentImageParsingInputs
+    outputs_class: Type[TO] = DocumentImageParsingOutputs
+
+
+class TextReconstructionInputs(Inputs):
+    text: InputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
+
+
+class TextReconstructionOutputs(Outputs):
+    data: OutputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.TEXT
+        )
+
+
+class TextReconstruction(BaseReconstructor[TextReconstructionInputs, TextReconstructionOutputs]):
+    """
+    Text Reconstruction is a process that involves piecing together fragmented or
+incomplete text data to restore it to its original, coherent form.
+
+    InputType: text
+    OutputType: text
+    """
+    function: str = "text-reconstruction"
+    input_type: str = DataType.TEXT
+    output_type: str = DataType.TEXT
+
+    inputs_class: Type[TI] = TextReconstructionInputs
+    outputs_class: Type[TO] = TextReconstructionOutputs
 
 
 class AudioEmotionDetectionInputs(Inputs):
@@ -1795,7 +1298,11 @@ class AudioEmotionDetectionInputs(Inputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.audio = self.create_param(code="audio", data_type=DataType.AUDIO, is_required=False)
+        self.audio = self.create_param(
+            code="audio", 
+            data_type=DataType.AUDIO, 
+            is_required=False
+        )
 
 
 class AudioEmotionDetectionOutputs(Outputs):
@@ -1803,7 +1310,10 @@ class AudioEmotionDetectionOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.LABEL)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.LABEL
+        )
 
 
 class AudioEmotionDetection(AssetNode[AudioEmotionDetectionInputs, AudioEmotionDetectionOutputs]):
@@ -1828,7 +1338,11 @@ class KeywordSpottingInputs(Inputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.audio = self.create_param(code="audio", data_type=DataType.AUDIO, is_required=False)
+        self.audio = self.create_param(
+            code="audio", 
+            data_type=DataType.AUDIO, 
+            is_required=False
+        )
 
 
 class KeywordSpottingOutputs(Outputs):
@@ -1836,7 +1350,10 @@ class KeywordSpottingOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.LABEL)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.LABEL
+        )
 
 
 class KeywordSpotting(AssetNode[KeywordSpottingInputs, KeywordSpottingOutputs]):
@@ -1865,11 +1382,31 @@ class NamedEntityRecognitionInputs(Inputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.text = self.create_param(code="text", data_type=DataType.TEXT, is_required=True)
-        self.language = self.create_param(code="language", data_type=DataType.LABEL, is_required=True)
-        self.dialect = self.create_param(code="dialect", data_type=DataType.LABEL, is_required=False)
-        self.script = self.create_param(code="script", data_type=DataType.LABEL, is_required=False)
-        self.domain = self.create_param(code="domain", data_type=DataType.LABEL, is_required=False)
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
+        self.language = self.create_param(
+            code="language", 
+            data_type=DataType.LABEL, 
+            is_required=True
+        )
+        self.dialect = self.create_param(
+            code="dialect", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+        self.script = self.create_param(
+            code="script", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+        self.domain = self.create_param(
+            code="domain", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
 
 
 class NamedEntityRecognitionOutputs(Outputs):
@@ -1877,7 +1414,10 @@ class NamedEntityRecognitionOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.LABEL)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.LABEL
+        )
 
 
 class NamedEntityRecognition(AssetNode[NamedEntityRecognitionInputs, NamedEntityRecognitionOutputs]):
@@ -1902,7 +1442,11 @@ class SplitOnSilenceInputs(Inputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.audio = self.create_param(code="audio", data_type=DataType.AUDIO, is_required=True)
+        self.audio = self.create_param(
+            code="audio", 
+            data_type=DataType.AUDIO, 
+            is_required=True
+        )
 
 
 class SplitOnSilenceOutputs(Outputs):
@@ -1910,7 +1454,10 @@ class SplitOnSilenceOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.AUDIO)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.AUDIO
+        )
 
 
 class SplitOnSilence(AssetNode[SplitOnSilenceInputs, SplitOnSilenceOutputs]):
@@ -1935,7 +1482,11 @@ class DocumentInformationExtractionInputs(Inputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.image = self.create_param(code="image", data_type=DataType.IMAGE, is_required=False)
+        self.image = self.create_param(
+            code="image", 
+            data_type=DataType.IMAGE, 
+            is_required=False
+        )
 
 
 class DocumentInformationExtractionOutputs(Outputs):
@@ -1943,7 +1494,10 @@ class DocumentInformationExtractionOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.TEXT)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.TEXT
+        )
 
 
 class DocumentInformationExtraction(AssetNode[DocumentInformationExtractionInputs, DocumentInformationExtractionOutputs]):
@@ -1970,8 +1524,16 @@ class TextToVideoGenerationInputs(Inputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.text = self.create_param(code="text", data_type=DataType.TEXT, is_required=True)
-        self.language = self.create_param(code="language", data_type=DataType.LABEL, is_required=False)
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
+        self.language = self.create_param(
+            code="language", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
 
 
 class TextToVideoGenerationOutputs(Outputs):
@@ -1979,7 +1541,10 @@ class TextToVideoGenerationOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.VIDEO)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.VIDEO
+        )
 
 
 class TextToVideoGeneration(AssetNode[TextToVideoGenerationInputs, TextToVideoGenerationOutputs]):
@@ -2004,7 +1569,11 @@ class VideoGenerationInputs(Inputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.text = self.create_param(code="text", data_type=DataType.TEXT, is_required=True)
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
 
 
 class VideoGenerationOutputs(Outputs):
@@ -2012,7 +1581,10 @@ class VideoGenerationOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.VIDEO)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.VIDEO
+        )
 
 
 class VideoGeneration(AssetNode[VideoGenerationInputs, VideoGenerationOutputs]):
@@ -2036,7 +1608,11 @@ class TextToImageGenerationInputs(Inputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.text = self.create_param(code="text", data_type=DataType.TEXT, is_required=True)
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
 
 
 class TextToImageGenerationOutputs(Outputs):
@@ -2044,7 +1620,10 @@ class TextToImageGenerationOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.IMAGE)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.IMAGE
+        )
 
 
 class TextToImageGeneration(AssetNode[TextToImageGenerationInputs, TextToImageGenerationOutputs]):
@@ -2069,8 +1648,16 @@ class DialectDetectionInputs(Inputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.audio = self.create_param(code="audio", data_type=DataType.AUDIO, is_required=True)
-        self.language = self.create_param(code="language", data_type=DataType.LABEL, is_required=False)
+        self.audio = self.create_param(
+            code="audio", 
+            data_type=DataType.AUDIO, 
+            is_required=True
+        )
+        self.language = self.create_param(
+            code="language", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
 
 
 class DialectDetectionOutputs(Outputs):
@@ -2078,7 +1665,10 @@ class DialectDetectionOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.TEXT)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.TEXT
+        )
 
 
 class DialectDetection(AssetNode[DialectDetectionInputs, DialectDetectionOutputs]):
@@ -2105,10 +1695,26 @@ class SpeakerRecognitionInputs(Inputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.audio = self.create_param(code="audio", data_type=DataType.AUDIO, is_required=True)
-        self.language = self.create_param(code="language", data_type=DataType.LABEL, is_required=True)
-        self.script = self.create_param(code="script", data_type=DataType.LABEL, is_required=False)
-        self.dialect = self.create_param(code="dialect", data_type=DataType.LABEL, is_required=False)
+        self.audio = self.create_param(
+            code="audio", 
+            data_type=DataType.AUDIO, 
+            is_required=True
+        )
+        self.language = self.create_param(
+            code="language", 
+            data_type=DataType.LABEL, 
+            is_required=True
+        )
+        self.script = self.create_param(
+            code="script", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+        self.dialect = self.create_param(
+            code="dialect", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
 
 
 class SpeakerRecognitionOutputs(Outputs):
@@ -2116,7 +1722,10 @@ class SpeakerRecognitionOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.LABEL)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.LABEL
+        )
 
 
 class SpeakerRecognition(AssetNode[SpeakerRecognitionInputs, SpeakerRecognitionOutputs]):
@@ -2142,9 +1751,21 @@ class SyntaxAnalysisInputs(Inputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.text = self.create_param(code="text", data_type=DataType.TEXT, is_required=True)
-        self.language = self.create_param(code="language", data_type=DataType.TEXT, is_required=True)
-        self.script = self.create_param(code="script", data_type=DataType.TEXT, is_required=False)
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
+        self.language = self.create_param(
+            code="language", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
+        self.script = self.create_param(
+            code="script", 
+            data_type=DataType.TEXT, 
+            is_required=False
+        )
 
 
 class SyntaxAnalysisOutputs(Outputs):
@@ -2152,7 +1773,10 @@ class SyntaxAnalysisOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.TEXT)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.TEXT
+        )
 
 
 class SyntaxAnalysis(AssetNode[SyntaxAnalysisInputs, SyntaxAnalysisOutputs]):
@@ -2179,8 +1803,16 @@ class QuestionAnsweringInputs(Inputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.text = self.create_param(code="text", data_type=DataType.TEXT, is_required=True)
-        self.language = self.create_param(code="language", data_type=DataType.LABEL, is_required=True)
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
+        self.language = self.create_param(
+            code="language", 
+            data_type=DataType.LABEL, 
+            is_required=True
+        )
 
 
 class QuestionAnsweringOutputs(Outputs):
@@ -2188,7 +1820,10 @@ class QuestionAnsweringOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.TEXT)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.TEXT
+        )
 
 
 class QuestionAnswering(AssetNode[QuestionAnsweringInputs, QuestionAnsweringOutputs]):
@@ -2207,40 +1842,6 @@ natural language usually from a given text
     outputs_class: Type[TO] = QuestionAnsweringOutputs
 
 
-class ParaphrasingInputs(Inputs):
-    text: InputParam = None
-    language: InputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.text = self.create_param(code="text", data_type=DataType.TEXT, is_required=True)
-        self.language = self.create_param(code="language", data_type=DataType.LABEL, is_required=True)
-
-
-class ParaphrasingOutputs(Outputs):
-    data: OutputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.TEXT)
-
-
-class Paraphrasing(AssetNode[ParaphrasingInputs, ParaphrasingOutputs]):
-    """
-    Express the meaning of the writer or speaker or something written or spoken
-using different words.
-
-    InputType: text
-    OutputType: text
-    """
-    function: str = "paraphrasing"
-    input_type: str = DataType.TEXT
-    output_type: str = DataType.TEXT
-
-    inputs_class: Type[TI] = ParaphrasingInputs
-    outputs_class: Type[TO] = ParaphrasingOutputs
-
-
 class ReferencelessTextGenerationMetricInputs(Inputs):
     hypotheses: InputParam = None
     sources: InputParam = None
@@ -2248,9 +1849,21 @@ class ReferencelessTextGenerationMetricInputs(Inputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.hypotheses = self.create_param(code="hypotheses", data_type=DataType.TEXT, is_required=True)
-        self.sources = self.create_param(code="sources", data_type=DataType.TEXT, is_required=False)
-        self.score_identifier = self.create_param(code="score_identifier", data_type=DataType.TEXT, is_required=True)
+        self.hypotheses = self.create_param(
+            code="hypotheses", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
+        self.sources = self.create_param(
+            code="sources", 
+            data_type=DataType.TEXT, 
+            is_required=False
+        )
+        self.score_identifier = self.create_param(
+            code="score_identifier", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
 
 
 class ReferencelessTextGenerationMetricOutputs(Outputs):
@@ -2258,7 +1871,10 @@ class ReferencelessTextGenerationMetricOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.TEXT)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.TEXT
+        )
 
 
 class ReferencelessTextGenerationMetric(BaseMetric[ReferencelessTextGenerationMetricInputs, ReferencelessTextGenerationMetricOutputs]):
@@ -2284,7 +1900,11 @@ class DetectLanguageFromTextInputs(Inputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.text = self.create_param(code="text", data_type=DataType.TEXT, is_required=True)
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
 
 
 class DetectLanguageFromTextOutputs(Outputs):
@@ -2292,7 +1912,10 @@ class DetectLanguageFromTextOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.LABEL)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.LABEL
+        )
 
 
 class DetectLanguageFromText(AssetNode[DetectLanguageFromTextInputs, DetectLanguageFromTextOutputs]):
@@ -2315,7 +1938,11 @@ class AudioLanguageIdentificationInputs(Inputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.audio = self.create_param(code="audio", data_type=DataType.AUDIO, is_required=True)
+        self.audio = self.create_param(
+            code="audio", 
+            data_type=DataType.AUDIO, 
+            is_required=True
+        )
 
 
 class AudioLanguageIdentificationOutputs(Outputs):
@@ -2323,7 +1950,10 @@ class AudioLanguageIdentificationOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.LABEL)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.LABEL
+        )
 
 
 class AudioLanguageIdentification(AssetNode[AudioLanguageIdentificationInputs, AudioLanguageIdentificationOutputs]):
@@ -2348,8 +1978,16 @@ class BaseModelInputs(Inputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.language = self.create_param(code="language", data_type=DataType.LABEL, is_required=True)
-        self.text = self.create_param(code="text", data_type=DataType.TEXT, is_required=True)
+        self.language = self.create_param(
+            code="language", 
+            data_type=DataType.LABEL, 
+            is_required=True
+        )
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
 
 
 class BaseModelOutputs(Outputs):
@@ -2357,7 +1995,10 @@ class BaseModelOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.TEXT)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.TEXT
+        )
 
 
 class BaseModel(AssetNode[BaseModelInputs, BaseModelOutputs]):
@@ -2382,7 +2023,11 @@ class LanguageIdentificationAudioInputs(Inputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.audio = self.create_param(code="audio", data_type=DataType.AUDIO, is_required=True)
+        self.audio = self.create_param(
+            code="audio", 
+            data_type=DataType.AUDIO, 
+            is_required=True
+        )
 
 
 class LanguageIdentificationAudioOutputs(Outputs):
@@ -2390,7 +2035,10 @@ class LanguageIdentificationAudioOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.LABEL)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.LABEL
+        )
 
 
 class LanguageIdentificationAudio(AssetNode[LanguageIdentificationAudioInputs, LanguageIdentificationAudioOutputs]):
@@ -2414,7 +2062,11 @@ class MultiClassImageClassificationInputs(Inputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.image = self.create_param(code="image", data_type=DataType.IMAGE, is_required=False)
+        self.image = self.create_param(
+            code="image", 
+            data_type=DataType.IMAGE, 
+            is_required=False
+        )
 
 
 class MultiClassImageClassificationOutputs(Outputs):
@@ -2422,7 +2074,10 @@ class MultiClassImageClassificationOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.LABEL)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.LABEL
+        )
 
 
 class MultiClassImageClassification(AssetNode[MultiClassImageClassificationInputs, MultiClassImageClassificationOutputs]):
@@ -2447,7 +2102,11 @@ class SemanticSegmentationInputs(Inputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.image = self.create_param(code="image", data_type=DataType.IMAGE, is_required=False)
+        self.image = self.create_param(
+            code="image", 
+            data_type=DataType.IMAGE, 
+            is_required=False
+        )
 
 
 class SemanticSegmentationOutputs(Outputs):
@@ -2455,7 +2114,10 @@ class SemanticSegmentationOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.LABEL)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.LABEL
+        )
 
 
 class SemanticSegmentation(AssetNode[SemanticSegmentationInputs, SemanticSegmentationOutputs]):
@@ -2475,78 +2137,6 @@ image into meaningful segments based on the objects or regions they represent.
     outputs_class: Type[TO] = SemanticSegmentationOutputs
 
 
-class EmotionDetectionInputs(Inputs):
-    text: InputParam = None
-    language: InputParam = None
-    dialect: InputParam = None
-    script: InputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.text = self.create_param(code="text", data_type=DataType.TEXT, is_required=True)
-        self.language = self.create_param(code="language", data_type=DataType.LABEL, is_required=True)
-        self.dialect = self.create_param(code="dialect", data_type=DataType.LABEL, is_required=False)
-        self.script = self.create_param(code="script", data_type=DataType.LABEL, is_required=False)
-
-
-class EmotionDetectionOutputs(Outputs):
-    data: OutputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.LABEL)
-
-
-class EmotionDetection(AssetNode[EmotionDetectionInputs, EmotionDetectionOutputs]):
-    """
-    Identifies human emotions from text or audio, enhancing user experience in
-chatbots or customer feedback analysis.
-
-    InputType: text
-    OutputType: label
-    """
-    function: str = "emotion-detection"
-    input_type: str = DataType.TEXT
-    output_type: str = DataType.LABEL
-
-    inputs_class: Type[TI] = EmotionDetectionInputs
-    outputs_class: Type[TO] = EmotionDetectionOutputs
-
-
-class ImageContentModerationInputs(Inputs):
-    image: InputParam = None
-    min_confidence: InputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.image = self.create_param(code="image", data_type=DataType.IMAGE, is_required=True)
-        self.min_confidence = self.create_param(code="min_confidence", data_type=DataType.TEXT, is_required=False)
-
-
-class ImageContentModerationOutputs(Outputs):
-    data: OutputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.LABEL)
-
-
-class ImageContentModeration(AssetNode[ImageContentModerationInputs, ImageContentModerationOutputs]):
-    """
-    Detects and filters out inappropriate or harmful images, essential for
-platforms with user-generated visual content.
-
-    InputType: image
-    OutputType: label
-    """
-    function: str = "image-content-moderation"
-    input_type: str = DataType.IMAGE
-    output_type: str = DataType.LABEL
-
-    inputs_class: Type[TI] = ImageContentModerationInputs
-    outputs_class: Type[TO] = ImageContentModerationOutputs
-
-
 class AudioGenerationMetricInputs(Inputs):
     hypotheses: InputParam = None
     references: InputParam = None
@@ -2555,10 +2145,26 @@ class AudioGenerationMetricInputs(Inputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.hypotheses = self.create_param(code="hypotheses", data_type=DataType.AUDIO, is_required=True)
-        self.references = self.create_param(code="references", data_type=DataType.AUDIO, is_required=False)
-        self.sources = self.create_param(code="sources", data_type=DataType.TEXT, is_required=False)
-        self.score_identifier = self.create_param(code="score_identifier", data_type=DataType.TEXT, is_required=True)
+        self.hypotheses = self.create_param(
+            code="hypotheses", 
+            data_type=DataType.AUDIO, 
+            is_required=True
+        )
+        self.references = self.create_param(
+            code="references", 
+            data_type=DataType.AUDIO, 
+            is_required=False
+        )
+        self.sources = self.create_param(
+            code="sources", 
+            data_type=DataType.TEXT, 
+            is_required=False
+        )
+        self.score_identifier = self.create_param(
+            code="score_identifier", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
 
 
 class AudioGenerationMetricOutputs(Outputs):
@@ -2566,7 +2172,10 @@ class AudioGenerationMetricOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.TEXT)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.TEXT
+        )
 
 
 class AudioGenerationMetric(BaseMetric[AudioGenerationMetricInputs, AudioGenerationMetricOutputs]):
@@ -2592,7 +2201,11 @@ class AutoMaskGenerationInputs(Inputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.image = self.create_param(code="image", data_type=DataType.IMAGE, is_required=True)
+        self.image = self.create_param(
+            code="image", 
+            data_type=DataType.IMAGE, 
+            is_required=True
+        )
 
 
 class AutoMaskGenerationOutputs(Outputs):
@@ -2600,7 +2213,10 @@ class AutoMaskGenerationOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.LABEL)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.LABEL
+        )
 
 
 class AutoMaskGeneration(AssetNode[AutoMaskGenerationInputs, AutoMaskGenerationOutputs]):
@@ -2622,14 +2238,67 @@ identifying specific object classes in an image.
     outputs_class: Type[TO] = AutoMaskGenerationOutputs
 
 
+class TextToAudioInputs(Inputs):
+    text: InputParam = None
+    language: InputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
+        self.language = self.create_param(
+            code="language", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+
+
+class TextToAudioOutputs(Outputs):
+    data: OutputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.AUDIO
+        )
+
+
+class TextToAudio(AssetNode[TextToAudioInputs, TextToAudioOutputs]):
+    """
+    The Text to Audio function converts written text into spoken words, allowing
+users to listen to the content instead of reading it.
+
+    InputType: text
+    OutputType: audio
+    """
+    function: str = "text-to-audio"
+    input_type: str = DataType.TEXT
+    output_type: str = DataType.AUDIO
+
+    inputs_class: Type[TI] = TextToAudioInputs
+    outputs_class: Type[TO] = TextToAudioOutputs
+
+
 class FactCheckingInputs(Inputs):
     language: InputParam = None
     text: InputParam = None
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.language = self.create_param(code="language", data_type=DataType.LABEL, is_required=True)
-        self.text = self.create_param(code="text", data_type=DataType.TEXT, is_required=False)
+        self.language = self.create_param(
+            code="language", 
+            data_type=DataType.LABEL, 
+            is_required=True
+        )
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=False
+        )
 
 
 class FactCheckingOutputs(Outputs):
@@ -2637,7 +2306,10 @@ class FactCheckingOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.LABEL)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.LABEL
+        )
 
 
 class FactChecking(AssetNode[FactCheckingInputs, FactCheckingOutputs]):
@@ -2657,48 +2329,22 @@ and evidence.
     outputs_class: Type[TO] = FactCheckingOutputs
 
 
-class TextToAudioInputs(Inputs):
-    text: InputParam = None
-    language: InputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.text = self.create_param(code="text", data_type=DataType.TEXT, is_required=True)
-        self.language = self.create_param(code="language", data_type=DataType.LABEL, is_required=False)
-
-
-class TextToAudioOutputs(Outputs):
-    data: OutputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.AUDIO)
-
-
-class TextToAudio(AssetNode[TextToAudioInputs, TextToAudioOutputs]):
-    """
-    The Text to Audio function converts written text into spoken words, allowing
-users to listen to the content instead of reading it.
-
-    InputType: text
-    OutputType: audio
-    """
-    function: str = "text-to-audio"
-    input_type: str = DataType.TEXT
-    output_type: str = DataType.AUDIO
-
-    inputs_class: Type[TI] = TextToAudioInputs
-    outputs_class: Type[TO] = TextToAudioOutputs
-
-
 class TableQuestionAnsweringInputs(Inputs):
     text: InputParam = None
     language: InputParam = None
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.text = self.create_param(code="text", data_type=DataType.TEXT, is_required=True)
-        self.language = self.create_param(code="language", data_type=DataType.LABEL, is_required=True)
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
+        self.language = self.create_param(
+            code="language", 
+            data_type=DataType.LABEL, 
+            is_required=True
+        )
 
 
 class TableQuestionAnsweringOutputs(Outputs):
@@ -2706,7 +2352,10 @@ class TableQuestionAnsweringOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.TEXT)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.TEXT
+        )
 
 
 class TableQuestionAnswering(AssetNode[TableQuestionAnsweringInputs, TableQuestionAnsweringOutputs]):
@@ -2735,11 +2384,31 @@ class ClassificationMetricInputs(Inputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.hypotheses = self.create_param(code="hypotheses", data_type=DataType.LABEL, is_required=True)
-        self.references = self.create_param(code="references", data_type=DataType.LABEL, is_required=True)
-        self.lowerIsBetter = self.create_param(code="lowerIsBetter", data_type=DataType.TEXT, is_required=False)
-        self.sources = self.create_param(code="sources", data_type=DataType.TEXT, is_required=False)
-        self.score_identifier = self.create_param(code="score_identifier", data_type=DataType.TEXT, is_required=True)
+        self.hypotheses = self.create_param(
+            code="hypotheses", 
+            data_type=DataType.LABEL, 
+            is_required=True
+        )
+        self.references = self.create_param(
+            code="references", 
+            data_type=DataType.LABEL, 
+            is_required=True
+        )
+        self.lowerIsBetter = self.create_param(
+            code="lowerIsBetter", 
+            data_type=DataType.TEXT, 
+            is_required=False
+        )
+        self.sources = self.create_param(
+            code="sources", 
+            data_type=DataType.TEXT, 
+            is_required=False
+        )
+        self.score_identifier = self.create_param(
+            code="score_identifier", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
 
 
 class ClassificationMetricOutputs(Outputs):
@@ -2747,7 +2416,10 @@ class ClassificationMetricOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.NUMBER)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.NUMBER
+        )
 
 
 class ClassificationMetric(BaseMetric[ClassificationMetricInputs, ClassificationMetricOutputs]):
@@ -2774,10 +2446,26 @@ class TextGenerationMetricInputs(Inputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.hypotheses = self.create_param(code="hypotheses", data_type=DataType.TEXT, is_required=True)
-        self.references = self.create_param(code="references", data_type=DataType.TEXT, is_required=False)
-        self.sources = self.create_param(code="sources", data_type=DataType.TEXT, is_required=False)
-        self.score_identifier = self.create_param(code="score_identifier", data_type=DataType.TEXT, is_required=True)
+        self.hypotheses = self.create_param(
+            code="hypotheses", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
+        self.references = self.create_param(
+            code="references", 
+            data_type=DataType.TEXT, 
+            is_required=False
+        )
+        self.sources = self.create_param(
+            code="sources", 
+            data_type=DataType.TEXT, 
+            is_required=False
+        )
+        self.score_identifier = self.create_param(
+            code="score_identifier", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
 
 
 class TextGenerationMetricOutputs(Outputs):
@@ -2785,7 +2473,10 @@ class TextGenerationMetricOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.TEXT)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.TEXT
+        )
 
 
 class TextGenerationMetric(BaseMetric[TextGenerationMetricInputs, TextGenerationMetricOutputs]):
@@ -2811,7 +2502,11 @@ class AsrGenderClassificationInputs(Inputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.source_audio = self.create_param(code="source_audio", data_type=DataType.AUDIO, is_required=True)
+        self.source_audio = self.create_param(
+            code="source_audio", 
+            data_type=DataType.AUDIO, 
+            is_required=True
+        )
 
 
 class AsrGenderClassificationOutputs(Outputs):
@@ -2819,7 +2514,10 @@ class AsrGenderClassificationOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.LABEL)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.LABEL
+        )
 
 
 class AsrGenderClassification(AssetNode[AsrGenderClassificationInputs, AsrGenderClassificationOutputs]):
@@ -2845,9 +2543,21 @@ class EntityLinkingInputs(Inputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.text = self.create_param(code="text", data_type=DataType.TEXT, is_required=True)
-        self.language = self.create_param(code="language", data_type=DataType.LABEL, is_required=True)
-        self.domain = self.create_param(code="domain", data_type=DataType.LABEL, is_required=False)
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
+        self.language = self.create_param(
+            code="language", 
+            data_type=DataType.LABEL, 
+            is_required=True
+        )
+        self.domain = self.create_param(
+            code="domain", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
 
 
 class EntityLinkingOutputs(Outputs):
@@ -2855,7 +2565,10 @@ class EntityLinkingOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.LABEL)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.LABEL
+        )
 
 
 class EntityLinking(AssetNode[EntityLinkingInputs, EntityLinkingOutputs]):
@@ -2874,51 +2587,22 @@ base or database.
     outputs_class: Type[TO] = EntityLinkingOutputs
 
 
-class ReferencelessTextGenerationMetricDefaultInputs(Inputs):
-    hypotheses: InputParam = None
-    sources: InputParam = None
-    score_identifier: InputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.hypotheses = self.create_param(code="hypotheses", data_type=DataType.TEXT, is_required=True)
-        self.sources = self.create_param(code="sources", data_type=DataType.TEXT, is_required=False)
-        self.score_identifier = self.create_param(code="score_identifier", data_type=DataType.TEXT, is_required=True)
-
-
-class ReferencelessTextGenerationMetricDefaultOutputs(Outputs):
-    data: OutputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.TEXT)
-
-
-class ReferencelessTextGenerationMetricDefault(BaseMetric[ReferencelessTextGenerationMetricDefaultInputs, ReferencelessTextGenerationMetricDefaultOutputs]):
-    """
-    The Referenceless Text Generation Metric Default is a function designed to
-evaluate the quality of generated text without relying on reference texts for
-comparison.
-
-    InputType: text
-    OutputType: text
-    """
-    function: str = "referenceless-text-generation-metric-default"
-    input_type: str = DataType.TEXT
-    output_type: str = DataType.TEXT
-
-    inputs_class: Type[TI] = ReferencelessTextGenerationMetricDefaultInputs
-    outputs_class: Type[TO] = ReferencelessTextGenerationMetricDefaultOutputs
-
-
 class PartOfSpeechTaggingInputs(Inputs):
     language: InputParam = None
     text: InputParam = None
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.language = self.create_param(code="language", data_type=DataType.LABEL, is_required=True)
-        self.text = self.create_param(code="text", data_type=DataType.TEXT, is_required=False)
+        self.language = self.create_param(
+            code="language", 
+            data_type=DataType.LABEL, 
+            is_required=True
+        )
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=False
+        )
 
 
 class PartOfSpeechTaggingOutputs(Outputs):
@@ -2926,7 +2610,10 @@ class PartOfSpeechTaggingOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.LABEL)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.LABEL
+        )
 
 
 class PartOfSpeechTagging(AssetNode[PartOfSpeechTaggingInputs, PartOfSpeechTaggingOutputs]):
@@ -2955,10 +2642,26 @@ class FillTextMaskInputs(Inputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.text = self.create_param(code="text", data_type=DataType.TEXT, is_required=True)
-        self.language = self.create_param(code="language", data_type=DataType.LABEL, is_required=True)
-        self.dialect = self.create_param(code="dialect", data_type=DataType.LABEL, is_required=False)
-        self.script = self.create_param(code="script", data_type=DataType.LABEL, is_required=False)
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
+        self.language = self.create_param(
+            code="language", 
+            data_type=DataType.LABEL, 
+            is_required=True
+        )
+        self.dialect = self.create_param(
+            code="dialect", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+        self.script = self.create_param(
+            code="script", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
 
 
 class FillTextMaskOutputs(Outputs):
@@ -2966,7 +2669,10 @@ class FillTextMaskOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.TEXT)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.TEXT
+        )
 
 
 class FillTextMask(AssetNode[FillTextMaskInputs, FillTextMaskOutputs]):
@@ -2993,10 +2699,26 @@ class TextEmbeddingInputs(Inputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.text = self.create_param(code="text", data_type=DataType.TEXT, is_required=True)
-        self.language = self.create_param(code="language", data_type=DataType.LABEL, is_required=True)
-        self.dialect = self.create_param(code="dialect", data_type=DataType.LABEL, is_required=False)
-        self.script = self.create_param(code="script", data_type=DataType.LABEL, is_required=False)
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
+        self.language = self.create_param(
+            code="language", 
+            data_type=DataType.LABEL, 
+            is_required=True
+        )
+        self.dialect = self.create_param(
+            code="dialect", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+        self.script = self.create_param(
+            code="script", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
 
 
 class TextEmbeddingOutputs(Outputs):
@@ -3004,7 +2726,10 @@ class TextEmbeddingOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.LABEL)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.LABEL
+        )
 
 
 class TextEmbedding(AssetNode[TextEmbeddingInputs, TextEmbeddingOutputs]):
@@ -3031,8 +2756,16 @@ class OtherMultipurposeInputs(Inputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.text = self.create_param(code="text", data_type=DataType.TEXT, is_required=True)
-        self.language = self.create_param(code="language", data_type=DataType.LABEL, is_required=True)
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
+        self.language = self.create_param(
+            code="language", 
+            data_type=DataType.LABEL, 
+            is_required=True
+        )
 
 
 class OtherMultipurposeOutputs(Outputs):
@@ -3040,7 +2773,10 @@ class OtherMultipurposeOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.TEXT)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.TEXT
+        )
 
 
 class OtherMultipurpose(AssetNode[OtherMultipurposeInputs, OtherMultipurposeOutputs]):
@@ -3067,8 +2803,16 @@ class VideoLabelDetectionInputs(Inputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.video = self.create_param(code="video", data_type=DataType.VIDEO, is_required=True)
-        self.min_confidence = self.create_param(code="min_confidence", data_type=DataType.TEXT, is_required=False)
+        self.video = self.create_param(
+            code="video", 
+            data_type=DataType.VIDEO, 
+            is_required=True
+        )
+        self.min_confidence = self.create_param(
+            code="min_confidence", 
+            data_type=DataType.TEXT, 
+            is_required=False
+        )
 
 
 class VideoLabelDetectionOutputs(Outputs):
@@ -3076,7 +2820,10 @@ class VideoLabelDetectionOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.LABEL)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.LABEL
+        )
 
 
 class VideoLabelDetection(AssetNode[VideoLabelDetectionInputs, VideoLabelDetectionOutputs]):
@@ -3100,7 +2847,11 @@ class NoiseRemovalInputs(Inputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.audio = self.create_param(code="audio", data_type=DataType.AUDIO, is_required=False)
+        self.audio = self.create_param(
+            code="audio", 
+            data_type=DataType.AUDIO, 
+            is_required=False
+        )
 
 
 class NoiseRemovalOutputs(Outputs):
@@ -3108,7 +2859,10 @@ class NoiseRemovalOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.AUDIO)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.AUDIO
+        )
 
 
 class NoiseRemoval(AssetNode[NoiseRemovalInputs, NoiseRemovalOutputs]):
@@ -3134,8 +2888,16 @@ class ImageEmbeddingInputs(Inputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.language = self.create_param(code="language", data_type=DataType.LABEL, is_required=True)
-        self.image = self.create_param(code="image", data_type=DataType.IMAGE, is_required=False)
+        self.language = self.create_param(
+            code="language", 
+            data_type=DataType.LABEL, 
+            is_required=True
+        )
+        self.image = self.create_param(
+            code="image", 
+            data_type=DataType.IMAGE, 
+            is_required=False
+        )
 
 
 class ImageEmbeddingOutputs(Outputs):
@@ -3143,7 +2905,10 @@ class ImageEmbeddingOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.TEXT)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.TEXT
+        )
 
 
 class ImageEmbedding(AssetNode[ImageEmbeddingInputs, ImageEmbeddingOutputs]):
@@ -3169,7 +2934,11 @@ class InverseTextNormalizationInputs(Inputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.text = self.create_param(code="text", data_type=DataType.TEXT, is_required=False)
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=False
+        )
 
 
 class InverseTextNormalizationOutputs(Outputs):
@@ -3177,7 +2946,10 @@ class InverseTextNormalizationOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.LABEL)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.LABEL
+        )
 
 
 class InverseTextNormalization(AssetNode[InverseTextNormalizationInputs, InverseTextNormalizationOutputs]):
@@ -3197,59 +2969,22 @@ back into their original, more complex or detailed textual representations.
     outputs_class: Type[TO] = InverseTextNormalizationOutputs
 
 
-class VoiceCloningInputs(Inputs):
-    text: InputParam = None
-    audio: InputParam = None
-    language: InputParam = None
-    dialect: InputParam = None
-    voice: InputParam = None
-    script: InputParam = None
-    type: InputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.text = self.create_param(code="text", data_type=DataType.TEXT, is_required=True)
-        self.audio = self.create_param(code="audio", data_type=DataType.AUDIO, is_required=True)
-        self.language = self.create_param(code="language", data_type=DataType.LABEL, is_required=True)
-        self.dialect = self.create_param(code="dialect", data_type=DataType.LABEL, is_required=False)
-        self.voice = self.create_param(code="voice", data_type=DataType.LABEL, is_required=False)
-        self.script = self.create_param(code="script", data_type=DataType.LABEL, is_required=False)
-        self.type = self.create_param(code="type", data_type=DataType.LABEL, is_required=False)
-
-
-class VoiceCloningOutputs(Outputs):
-    data: OutputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.AUDIO)
-
-
-class VoiceCloning(AssetNode[VoiceCloningInputs, VoiceCloningOutputs]):
-    """
-    Replicates a person's voice based on a sample, allowing for the generation of
-speech in that person's tone and style. Used cautiously due to ethical
-considerations.
-
-    InputType: text
-    OutputType: audio
-    """
-    function: str = "voice-cloning"
-    input_type: str = DataType.TEXT
-    output_type: str = DataType.AUDIO
-
-    inputs_class: Type[TI] = VoiceCloningInputs
-    outputs_class: Type[TO] = VoiceCloningOutputs
-
-
 class ImageToVideoGenerationInputs(Inputs):
     language: InputParam = None
     image: InputParam = None
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.language = self.create_param(code="language", data_type=DataType.LABEL, is_required=True)
-        self.image = self.create_param(code="image", data_type=DataType.IMAGE, is_required=False)
+        self.language = self.create_param(
+            code="language", 
+            data_type=DataType.LABEL, 
+            is_required=True
+        )
+        self.image = self.create_param(
+            code="image", 
+            data_type=DataType.IMAGE, 
+            is_required=False
+        )
 
 
 class ImageToVideoGenerationOutputs(Outputs):
@@ -3257,7 +2992,10 @@ class ImageToVideoGenerationOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.VIDEO)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.VIDEO
+        )
 
 
 class ImageToVideoGeneration(AssetNode[ImageToVideoGenerationInputs, ImageToVideoGenerationOutputs]):
@@ -3283,7 +3021,11 @@ class FacialRecognitionInputs(Inputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.video = self.create_param(code="video", data_type=DataType.VIDEO, is_required=True)
+        self.video = self.create_param(
+            code="video", 
+            data_type=DataType.VIDEO, 
+            is_required=True
+        )
 
 
 class FacialRecognitionOutputs(Outputs):
@@ -3291,7 +3033,10 @@ class FacialRecognitionOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.LABEL)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.LABEL
+        )
 
 
 class FacialRecognition(AssetNode[FacialRecognitionInputs, FacialRecognitionOutputs]):
@@ -3310,40 +3055,6 @@ from a digital image or a video frame against a database of faces
     outputs_class: Type[TO] = FacialRecognitionOutputs
 
 
-class LoglikelihoodInputs(Inputs):
-    text: InputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.text = self.create_param(code="text", data_type=DataType.TEXT, is_required=True)
-
-
-class LoglikelihoodOutputs(Outputs):
-    data: OutputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.NUMBER)
-
-
-class Loglikelihood(AssetNode[LoglikelihoodInputs, LoglikelihoodOutputs]):
-    """
-    The Log Likelihood function measures the probability of observing the given
-data under a specific statistical model by taking the natural logarithm of the
-likelihood function, thereby transforming the product of probabilities into a
-sum, which simplifies the process of optimization and parameter estimation.
-
-    InputType: text
-    OutputType: number
-    """
-    function: str = "loglikelihood"
-    input_type: str = DataType.TEXT
-    output_type: str = DataType.NUMBER
-
-    inputs_class: Type[TI] = LoglikelihoodInputs
-    outputs_class: Type[TO] = LoglikelihoodOutputs
-
-
 class SpeechClassificationInputs(Inputs):
     audio: InputParam = None
     language: InputParam = None
@@ -3352,10 +3063,26 @@ class SpeechClassificationInputs(Inputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.audio = self.create_param(code="audio", data_type=DataType.AUDIO, is_required=True)
-        self.language = self.create_param(code="language", data_type=DataType.LABEL, is_required=True)
-        self.script = self.create_param(code="script", data_type=DataType.LABEL, is_required=False)
-        self.dialect = self.create_param(code="dialect", data_type=DataType.LABEL, is_required=False)
+        self.audio = self.create_param(
+            code="audio", 
+            data_type=DataType.AUDIO, 
+            is_required=True
+        )
+        self.language = self.create_param(
+            code="language", 
+            data_type=DataType.LABEL, 
+            is_required=True
+        )
+        self.script = self.create_param(
+            code="script", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+        self.dialect = self.create_param(
+            code="dialect", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
 
 
 class SpeechClassificationOutputs(Outputs):
@@ -3363,7 +3090,10 @@ class SpeechClassificationOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.LABEL)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.LABEL
+        )
 
 
 class SpeechClassification(AssetNode[SpeechClassificationInputs, SpeechClassificationOutputs]):
@@ -3382,48 +3112,172 @@ and targeted actions.
     outputs_class: Type[TO] = SpeechClassificationOutputs
 
 
-class SpeechSynthesisInputs(Inputs):
+class VoiceCloningInputs(Inputs):
+    text: InputParam = None
     audio: InputParam = None
     language: InputParam = None
     dialect: InputParam = None
     voice: InputParam = None
     script: InputParam = None
-    text: InputParam = None
     type: InputParam = None
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.audio = self.create_param(code="audio", data_type=DataType.AUDIO, is_required=False)
-        self.language = self.create_param(code="language", data_type=DataType.LABEL, is_required=True)
-        self.dialect = self.create_param(code="dialect", data_type=DataType.LABEL, is_required=False)
-        self.voice = self.create_param(code="voice", data_type=DataType.LABEL, is_required=False)
-        self.script = self.create_param(code="script", data_type=DataType.LABEL, is_required=False)
-        self.text = self.create_param(code="text", data_type=DataType.TEXT, is_required=True)
-        self.type = self.create_param(code="type", data_type=DataType.LABEL, is_required=False)
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
+        self.audio = self.create_param(
+            code="audio", 
+            data_type=DataType.AUDIO, 
+            is_required=True
+        )
+        self.language = self.create_param(
+            code="language", 
+            data_type=DataType.LABEL, 
+            is_required=True
+        )
+        self.dialect = self.create_param(
+            code="dialect", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+        self.voice = self.create_param(
+            code="voice", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+        self.script = self.create_param(
+            code="script", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+        self.type = self.create_param(
+            code="type", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
 
 
-class SpeechSynthesisOutputs(Outputs):
+class VoiceCloningOutputs(Outputs):
     data: OutputParam = None
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.AUDIO)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.AUDIO
+        )
 
 
-class SpeechSynthesis(AssetNode[SpeechSynthesisInputs, SpeechSynthesisOutputs]):
+class VoiceCloning(AssetNode[VoiceCloningInputs, VoiceCloningOutputs]):
     """
-    Generates human-like speech from written text. Ideal for text-to-speech
-applications, audiobooks, and voice assistants.
+    Replicates a person's voice based on a sample, allowing for the generation of
+speech in that person's tone and style. Used cautiously due to ethical
+considerations.
 
     InputType: text
     OutputType: audio
     """
-    function: str = "speech-synthesis"
+    function: str = "voice-cloning"
     input_type: str = DataType.TEXT
     output_type: str = DataType.AUDIO
 
-    inputs_class: Type[TI] = SpeechSynthesisInputs
-    outputs_class: Type[TO] = SpeechSynthesisOutputs
+    inputs_class: Type[TI] = VoiceCloningInputs
+    outputs_class: Type[TO] = VoiceCloningOutputs
+
+
+class IntentClassificationInputs(Inputs):
+    language: InputParam = None
+    text: InputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.language = self.create_param(
+            code="language", 
+            data_type=DataType.LABEL, 
+            is_required=True
+        )
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=False
+        )
+
+
+class IntentClassificationOutputs(Outputs):
+    data: OutputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.LABEL
+        )
+
+
+class IntentClassification(AssetNode[IntentClassificationInputs, IntentClassificationOutputs]):
+    """
+    Intent Classification is a natural language processing task that involves
+analyzing and categorizing user text input to determine the underlying purpose
+or goal behind the communication, such as booking a flight, asking for weather
+information, or setting a reminder.
+
+    InputType: text
+    OutputType: label
+    """
+    function: str = "intent-classification"
+    input_type: str = DataType.TEXT
+    output_type: str = DataType.LABEL
+
+    inputs_class: Type[TI] = IntentClassificationInputs
+    outputs_class: Type[TO] = IntentClassificationOutputs
+
+
+class ImageLabelDetectionInputs(Inputs):
+    image: InputParam = None
+    min_confidence: InputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.image = self.create_param(
+            code="image", 
+            data_type=DataType.IMAGE, 
+            is_required=True
+        )
+        self.min_confidence = self.create_param(
+            code="min_confidence", 
+            data_type=DataType.TEXT, 
+            is_required=False
+        )
+
+
+class ImageLabelDetectionOutputs(Outputs):
+    data: OutputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.LABEL
+        )
+
+
+class ImageLabelDetection(AssetNode[ImageLabelDetectionInputs, ImageLabelDetectionOutputs]):
+    """
+    Identifies objects, themes, or topics within images, useful for image
+categorization, search, and recommendation systems.
+
+    InputType: image
+    OutputType: label
+    """
+    function: str = "image-label-detection"
+    input_type: str = DataType.IMAGE
+    output_type: str = DataType.LABEL
+
+    inputs_class: Type[TI] = ImageLabelDetectionInputs
+    outputs_class: Type[TO] = ImageLabelDetectionOutputs
 
 
 class SummarizationInputs(Inputs):
@@ -3434,10 +3288,26 @@ class SummarizationInputs(Inputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.text = self.create_param(code="text", data_type=DataType.TEXT, is_required=True)
-        self.language = self.create_param(code="language", data_type=DataType.LABEL, is_required=True)
-        self.script = self.create_param(code="script", data_type=DataType.LABEL, is_required=False)
-        self.dialect = self.create_param(code="dialect", data_type=DataType.LABEL, is_required=False)
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
+        self.language = self.create_param(
+            code="language", 
+            data_type=DataType.LABEL, 
+            is_required=True
+        )
+        self.script = self.create_param(
+            code="script", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+        self.dialect = self.create_param(
+            code="dialect", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
 
 
 class SummarizationOutputs(Outputs):
@@ -3445,7 +3315,10 @@ class SummarizationOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.TEXT)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.TEXT
+        )
 
 
 class Summarization(AssetNode[SummarizationInputs, SummarizationOutputs]):
@@ -3465,125 +3338,304 @@ from a source (or sources) to produce an abridged version for a particular user
     outputs_class: Type[TO] = SummarizationOutputs
 
 
-class AudioTranscriptAnalysisInputs(Inputs):
+class SpeechSynthesisInputs(Inputs):
+    audio: InputParam = None
     language: InputParam = None
     dialect: InputParam = None
-    source_supplier: InputParam = None
-    source_audio: InputParam = None
+    voice: InputParam = None
     script: InputParam = None
+    text: InputParam = None
+    type: InputParam = None
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.language = self.create_param(code="language", data_type=DataType.LABEL, is_required=True)
-        self.dialect = self.create_param(code="dialect", data_type=DataType.LABEL, is_required=False)
-        self.source_supplier = self.create_param(code="source_supplier", data_type=DataType.LABEL, is_required=False)
-        self.source_audio = self.create_param(code="source_audio", data_type=DataType.AUDIO, is_required=True)
-        self.script = self.create_param(code="script", data_type=DataType.LABEL, is_required=False)
+        self.audio = self.create_param(
+            code="audio", 
+            data_type=DataType.AUDIO, 
+            is_required=False
+        )
+        self.language = self.create_param(
+            code="language", 
+            data_type=DataType.LABEL, 
+            is_required=True
+        )
+        self.dialect = self.create_param(
+            code="dialect", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+        self.voice = self.create_param(
+            code="voice", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+        self.script = self.create_param(
+            code="script", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
+        self.type = self.create_param(
+            code="type", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
 
 
-class AudioTranscriptAnalysisOutputs(Outputs):
+class SpeechSynthesisOutputs(Outputs):
     data: OutputParam = None
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.TEXT)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.AUDIO
+        )
 
 
-class AudioTranscriptAnalysis(AssetNode[AudioTranscriptAnalysisInputs, AudioTranscriptAnalysisOutputs]):
+class SpeechSynthesis(AssetNode[SpeechSynthesisInputs, SpeechSynthesisOutputs]):
     """
-    Analyzes transcribed audio data for insights, patterns, or specific information
-extraction.
+    Generates human-like speech from written text. Ideal for text-to-speech
+applications, audiobooks, and voice assistants.
+
+    InputType: text
+    OutputType: audio
+    """
+    function: str = "speech-synthesis"
+    input_type: str = DataType.TEXT
+    output_type: str = DataType.AUDIO
+
+    inputs_class: Type[TI] = SpeechSynthesisInputs
+    outputs_class: Type[TO] = SpeechSynthesisOutputs
+
+
+class SpeechNonSpeechClassificationInputs(Inputs):
+    audio: InputParam = None
+    language: InputParam = None
+    script: InputParam = None
+    dialect: InputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.audio = self.create_param(
+            code="audio", 
+            data_type=DataType.AUDIO, 
+            is_required=True
+        )
+        self.language = self.create_param(
+            code="language", 
+            data_type=DataType.LABEL, 
+            is_required=True
+        )
+        self.script = self.create_param(
+            code="script", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+        self.dialect = self.create_param(
+            code="dialect", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+
+
+class SpeechNonSpeechClassificationOutputs(Outputs):
+    data: OutputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.LABEL
+        )
+
+
+class SpeechNonSpeechClassification(AssetNode[SpeechNonSpeechClassificationInputs, SpeechNonSpeechClassificationOutputs]):
+    """
+    Differentiates between speech and non-speech audio segments. Great for editing
+software and transcription services to exclude irrelevant audio.
 
     InputType: audio
-    OutputType: text
+    OutputType: label
     """
-    function: str = "audio-transcript-analysis"
+    function: str = "speech-non-speech-classification"
     input_type: str = DataType.AUDIO
-    output_type: str = DataType.TEXT
+    output_type: str = DataType.LABEL
 
-    inputs_class: Type[TI] = AudioTranscriptAnalysisInputs
-    outputs_class: Type[TO] = AudioTranscriptAnalysisOutputs
+    inputs_class: Type[TI] = SpeechNonSpeechClassificationInputs
+    outputs_class: Type[TO] = SpeechNonSpeechClassificationOutputs
 
 
-class TopicClassificationInputs(Inputs):
-    text: InputParam = None
-    language: InputParam = None
-    script: InputParam = None
-    dialect: InputParam = None
+class ObjectDetectionInputs(Inputs):
+    image: InputParam = None
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.text = self.create_param(code="text", data_type=DataType.TEXT, is_required=True)
-        self.language = self.create_param(code="language", data_type=DataType.LABEL, is_required=True)
-        self.script = self.create_param(code="script", data_type=DataType.LABEL, is_required=False)
-        self.dialect = self.create_param(code="dialect", data_type=DataType.LABEL, is_required=False)
+        self.image = self.create_param(
+            code="image", 
+            data_type=DataType.IMAGE, 
+            is_required=True
+        )
 
 
-class TopicClassificationOutputs(Outputs):
+class ObjectDetectionOutputs(Outputs):
     data: OutputParam = None
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.LABEL)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.LABEL
+        )
 
 
-class TopicClassification(AssetNode[TopicClassificationInputs, TopicClassificationOutputs]):
+class ObjectDetection(AssetNode[ObjectDetectionInputs, ObjectDetectionOutputs]):
     """
-    Assigns categories or topics to a piece of text based on its content,
-facilitating content organization and retrieval.
+    Object Detection is a computer vision technology that identifies and locates
+objects within an image, typically by drawing bounding boxes around the
+detected objects and classifying them into predefined categories.
+
+    InputType: video
+    OutputType: text
+    """
+    function: str = "object-detection"
+    input_type: str = DataType.VIDEO
+    output_type: str = DataType.TEXT
+
+    inputs_class: Type[TI] = ObjectDetectionInputs
+    outputs_class: Type[TO] = ObjectDetectionOutputs
+
+
+class AudioReconstructionInputs(Inputs):
+    audio: InputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.audio = self.create_param(
+            code="audio", 
+            data_type=DataType.AUDIO, 
+            is_required=True
+        )
+
+
+class AudioReconstructionOutputs(Outputs):
+    data: OutputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.AUDIO
+        )
+
+
+class AudioReconstruction(BaseReconstructor[AudioReconstructionInputs, AudioReconstructionOutputs]):
+    """
+    Audio Reconstruction is the process of restoring or recreating audio signals
+from incomplete, damaged, or degraded recordings to achieve a high-quality,
+accurate representation of the original sound.
+
+    InputType: audio
+    OutputType: audio
+    """
+    function: str = "audio-reconstruction"
+    input_type: str = DataType.AUDIO
+    output_type: str = DataType.AUDIO
+
+    inputs_class: Type[TI] = AudioReconstructionInputs
+    outputs_class: Type[TO] = AudioReconstructionOutputs
+
+
+class StyleTransferInputs(Inputs):
+    image: InputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.image = self.create_param(
+            code="image", 
+            data_type=DataType.IMAGE, 
+            is_required=False
+        )
+
+
+class StyleTransferOutputs(Outputs):
+    image: OutputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.image = self.create_param(
+            code="image", 
+            data_type=DataType.IMAGE
+        )
+
+
+class StyleTransfer(AssetNode[StyleTransferInputs, StyleTransferOutputs]):
+    """
+    Style Transfer is a technique in artificial intelligence that applies the
+visual style of one image (such as the brushstrokes of a famous painting) to
+the content of another image, effectively blending the artistic elements of the
+first image with the subject matter of the second.
+
+    InputType: image
+    OutputType: image
+    """
+    function: str = "style-transfer"
+    input_type: str = DataType.IMAGE
+    output_type: str = DataType.IMAGE
+
+    inputs_class: Type[TI] = StyleTransferInputs
+    outputs_class: Type[TO] = StyleTransferOutputs
+
+
+class SelectSupplierForTranslationInputs(Inputs):
+    language: InputParam = None
+    text: InputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.language = self.create_param(
+            code="language", 
+            data_type=DataType.LABEL, 
+            is_required=True
+        )
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
+
+
+class SelectSupplierForTranslationOutputs(Outputs):
+    data: OutputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.LABEL
+        )
+
+
+class SelectSupplierForTranslation(AssetNode[SelectSupplierForTranslationInputs, SelectSupplierForTranslationOutputs]):
+    """
+    Supplier For Translation
 
     InputType: text
     OutputType: label
     """
-    function: str = "topic-classification"
+    function: str = "select-supplier-for-translation"
     input_type: str = DataType.TEXT
     output_type: str = DataType.LABEL
 
-    inputs_class: Type[TI] = TopicClassificationInputs
-    outputs_class: Type[TO] = TopicClassificationOutputs
+    inputs_class: Type[TI] = SelectSupplierForTranslationInputs
+    outputs_class: Type[TO] = SelectSupplierForTranslationOutputs
 
 
-class SpeechEmbeddingInputs(Inputs):
-    audio: InputParam = None
-    language: InputParam = None
-    dialect: InputParam = None
-    script: InputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.audio = self.create_param(code="audio", data_type=DataType.AUDIO, is_required=True)
-        self.language = self.create_param(code="language", data_type=DataType.LABEL, is_required=True)
-        self.dialect = self.create_param(code="dialect", data_type=DataType.LABEL, is_required=False)
-        self.script = self.create_param(code="script", data_type=DataType.LABEL, is_required=False)
-
-
-class SpeechEmbeddingOutputs(Outputs):
-    data: OutputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.TEXT)
-
-
-class SpeechEmbedding(AssetNode[SpeechEmbeddingInputs, SpeechEmbeddingOutputs]):
-    """
-    Transforms spoken content into a fixed-size vector in a high-dimensional space
-that captures the content's essence. Facilitates tasks like speech recognition
-and speaker verification.
-
-    InputType: audio
-    OutputType: text
-    """
-    function: str = "speech-embedding"
-    input_type: str = DataType.AUDIO
-    output_type: str = DataType.TEXT
-
-    inputs_class: Type[TI] = SpeechEmbeddingInputs
-    outputs_class: Type[TO] = SpeechEmbeddingOutputs
-
-
-class VideoForcedAlignmentInputs(Inputs):
-    video: InputParam = None
+class KeywordExtractionInputs(Inputs):
     text: InputParam = None
     language: InputParam = None
     dialect: InputParam = None
@@ -3591,77 +3643,112 @@ class VideoForcedAlignmentInputs(Inputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.video = self.create_param(code="video", data_type=DataType.VIDEO, is_required=True)
-        self.text = self.create_param(code="text", data_type=DataType.TEXT, is_required=True)
-        self.language = self.create_param(code="language", data_type=DataType.LABEL, is_required=True)
-        self.dialect = self.create_param(code="dialect", data_type=DataType.LABEL, is_required=False)
-        self.script = self.create_param(code="script", data_type=DataType.LABEL, is_required=False)
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
+        self.language = self.create_param(
+            code="language", 
+            data_type=DataType.LABEL, 
+            is_required=True
+        )
+        self.dialect = self.create_param(
+            code="dialect", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+        self.script = self.create_param(
+            code="script", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
 
 
-class VideoForcedAlignmentOutputs(Outputs):
-    text: OutputParam = None
-    video: OutputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.text = self.create_param(code="text", data_type=DataType.TEXT)
-        self.video = self.create_param(code="video", data_type=DataType.VIDEO)
-
-
-class VideoForcedAlignment(AssetNode[VideoForcedAlignmentInputs, VideoForcedAlignmentOutputs]):
-    """
-    Aligns the transcription of spoken content in a video with its corresponding
-timecodes, facilitating subtitle creation.
-
-    InputType: video
-    OutputType: video
-    """
-    function: str = "video-forced-alignment"
-    input_type: str = DataType.VIDEO
-    output_type: str = DataType.VIDEO
-
-    inputs_class: Type[TI] = VideoForcedAlignmentInputs
-    outputs_class: Type[TO] = VideoForcedAlignmentOutputs
-
-
-class SubtitlingTranslationInputs(Inputs):
-    text: InputParam = None
-    sourcelanguage: InputParam = None
-    dialect_in: InputParam = None
-    target_supplier: InputParam = None
-    targetlanguages: InputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.text = self.create_param(code="text", data_type=DataType.TEXT, is_required=True)
-        self.sourcelanguage = self.create_param(code="sourcelanguage", data_type=DataType.LABEL, is_required=True)
-        self.dialect_in = self.create_param(code="dialect_in", data_type=DataType.LABEL, is_required=False)
-        self.target_supplier = self.create_param(code="target_supplier", data_type=DataType.LABEL, is_required=False)
-        self.targetlanguages = self.create_param(code="targetlanguages", data_type=DataType.LABEL, is_required=False)
-
-
-class SubtitlingTranslationOutputs(Outputs):
+class KeywordExtractionOutputs(Outputs):
     data: OutputParam = None
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.TEXT)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.LABEL
+        )
 
 
-class SubtitlingTranslation(AssetNode[SubtitlingTranslationInputs, SubtitlingTranslationOutputs]):
+class KeywordExtraction(AssetNode[KeywordExtractionInputs, KeywordExtractionOutputs]):
     """
-    Converts the text of subtitles from one language to another, ensuring context
-and cultural nuances are maintained. Essential for global content distribution.
+    It helps concise the text and obtain relevant keywords Example use-cases are
+finding topics of interest from a news article and identifying the problems
+based on customer reviews and so.
+
+    InputType: text
+    OutputType: label
+    """
+    function: str = "keyword-extraction"
+    input_type: str = DataType.TEXT
+    output_type: str = DataType.LABEL
+
+    inputs_class: Type[TI] = KeywordExtractionInputs
+    outputs_class: Type[TO] = KeywordExtractionOutputs
+
+
+class TextGenerationMetricDefaultInputs(Inputs):
+    hypotheses: InputParam = None
+    references: InputParam = None
+    sources: InputParam = None
+    score_identifier: InputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.hypotheses = self.create_param(
+            code="hypotheses", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
+        self.references = self.create_param(
+            code="references", 
+            data_type=DataType.TEXT, 
+            is_required=False
+        )
+        self.sources = self.create_param(
+            code="sources", 
+            data_type=DataType.TEXT, 
+            is_required=False
+        )
+        self.score_identifier = self.create_param(
+            code="score_identifier", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
+
+
+class TextGenerationMetricDefaultOutputs(Outputs):
+    data: OutputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.TEXT
+        )
+
+
+class TextGenerationMetricDefault(BaseMetric[TextGenerationMetricDefaultInputs, TextGenerationMetricDefaultOutputs]):
+    """
+    The "Text Generation Metric Default" function provides a standard set of
+evaluation metrics for assessing the quality and performance of text generation
+models.
 
     InputType: text
     OutputType: text
     """
-    function: str = "subtitling-translation"
+    function: str = "text-generation-metric-default"
     input_type: str = DataType.TEXT
     output_type: str = DataType.TEXT
 
-    inputs_class: Type[TI] = SubtitlingTranslationInputs
-    outputs_class: Type[TO] = SubtitlingTranslationOutputs
+    inputs_class: Type[TI] = TextGenerationMetricDefaultInputs
+    outputs_class: Type[TO] = TextGenerationMetricDefaultOutputs
 
 
 class TextSpamDetectionInputs(Inputs):
@@ -3672,10 +3759,26 @@ class TextSpamDetectionInputs(Inputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.text = self.create_param(code="text", data_type=DataType.TEXT, is_required=True)
-        self.language = self.create_param(code="language", data_type=DataType.LABEL, is_required=True)
-        self.dialect = self.create_param(code="dialect", data_type=DataType.LABEL, is_required=False)
-        self.script = self.create_param(code="script", data_type=DataType.LABEL, is_required=False)
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
+        self.language = self.create_param(
+            code="language", 
+            data_type=DataType.LABEL, 
+            is_required=True
+        )
+        self.dialect = self.create_param(
+            code="dialect", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+        self.script = self.create_param(
+            code="script", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
 
 
 class TextSpamDetectionOutputs(Outputs):
@@ -3683,7 +3786,10 @@ class TextSpamDetectionOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.LABEL)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.LABEL
+        )
 
 
 class TextSpamDetection(AssetNode[TextSpamDetectionInputs, TextSpamDetectionOutputs]):
@@ -3712,11 +3818,31 @@ class VideoUnderstandingInputs(Inputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.video = self.create_param(code="video", data_type=DataType.VIDEO, is_required=True)
-        self.text = self.create_param(code="text", data_type=DataType.TEXT, is_required=True)
-        self.language = self.create_param(code="language", data_type=DataType.LABEL, is_required=True)
-        self.dialect = self.create_param(code="dialect", data_type=DataType.LABEL, is_required=False)
-        self.script = self.create_param(code="script", data_type=DataType.LABEL, is_required=False)
+        self.video = self.create_param(
+            code="video", 
+            data_type=DataType.VIDEO, 
+            is_required=True
+        )
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
+        self.language = self.create_param(
+            code="language", 
+            data_type=DataType.LABEL, 
+            is_required=True
+        )
+        self.dialect = self.create_param(
+            code="dialect", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+        self.script = self.create_param(
+            code="script", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
 
 
 class VideoUnderstandingOutputs(Outputs):
@@ -3724,7 +3850,10 @@ class VideoUnderstandingOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.text = self.create_param(code="text", data_type=DataType.TEXT)
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT
+        )
 
 
 class VideoUnderstanding(AssetNode[VideoUnderstandingInputs, VideoUnderstandingOutputs]):
@@ -3744,115 +3873,453 @@ events, and contextual relationships within the footage.
     outputs_class: Type[TO] = VideoUnderstandingOutputs
 
 
-class TextDenormalizationInputs(Inputs):
-    text: InputParam = None
+class DepthEstimationInputs(Inputs):
     language: InputParam = None
-    lowercase_latin: InputParam = None
-    remove_accents: InputParam = None
-    remove_punctuation: InputParam = None
+    image: InputParam = None
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.text = self.create_param(code="text", data_type=DataType.TEXT, is_required=True)
-        self.language = self.create_param(code="language", data_type=DataType.LABEL, is_required=True)
-        self.lowercase_latin = self.create_param(code="lowercase_latin", data_type=DataType.TEXT, is_required=False)
-        self.remove_accents = self.create_param(code="remove_accents", data_type=DataType.TEXT, is_required=False)
-        self.remove_punctuation = self.create_param(code="remove_punctuation", data_type=DataType.TEXT, is_required=False)
+        self.language = self.create_param(
+            code="language", 
+            data_type=DataType.LABEL, 
+            is_required=True
+        )
+        self.image = self.create_param(
+            code="image", 
+            data_type=DataType.IMAGE, 
+            is_required=False
+        )
 
 
-class TextDenormalizationOutputs(Outputs):
+class DepthEstimationOutputs(Outputs):
     data: OutputParam = None
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.LABEL)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.TEXT
+        )
 
 
-class TextDenormalization(AssetNode[TextDenormalizationInputs, TextDenormalizationOutputs]):
+class DepthEstimation(AssetNode[DepthEstimationInputs, DepthEstimationOutputs]):
     """
-    Converts standardized or normalized text into its original, often more
-readable, form. Useful in natural language generation tasks.
+    Depth estimation is a computational process that determines the distance of
+objects from a viewpoint, typically using visual data from cameras or sensors
+to create a three-dimensional understanding of a scene.
+
+    InputType: image
+    OutputType: text
+    """
+    function: str = "depth-estimation"
+    input_type: str = DataType.IMAGE
+    output_type: str = DataType.TEXT
+
+    inputs_class: Type[TI] = DepthEstimationInputs
+    outputs_class: Type[TO] = DepthEstimationOutputs
+
+
+class TokenClassificationInputs(Inputs):
+    text: InputParam = None
+    language: InputParam = None
+    script: InputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
+        self.language = self.create_param(
+            code="language", 
+            data_type=DataType.LABEL, 
+            is_required=True
+        )
+        self.script = self.create_param(
+            code="script", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+
+
+class TokenClassificationOutputs(Outputs):
+    data: OutputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.LABEL
+        )
+
+
+class TokenClassification(AssetNode[TokenClassificationInputs, TokenClassificationOutputs]):
+    """
+    Token-level classification means that each token will be given a label, for
+example a part-of-speech tagger will classify each word as one particular part
+of speech.
 
     InputType: text
     OutputType: label
     """
-    function: str = "text-denormalization"
+    function: str = "token-classification"
     input_type: str = DataType.TEXT
     output_type: str = DataType.LABEL
 
-    inputs_class: Type[TI] = TextDenormalizationInputs
-    outputs_class: Type[TO] = TextDenormalizationOutputs
+    inputs_class: Type[TI] = TokenClassificationInputs
+    outputs_class: Type[TO] = TokenClassificationOutputs
 
 
-class SpeechNonSpeechClassificationInputs(Inputs):
-    audio: InputParam = None
-    language: InputParam = None
-    script: InputParam = None
-    dialect: InputParam = None
+class InstanceSegmentationInputs(Inputs):
+    image: InputParam = None
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.audio = self.create_param(code="audio", data_type=DataType.AUDIO, is_required=True)
-        self.language = self.create_param(code="language", data_type=DataType.LABEL, is_required=True)
-        self.script = self.create_param(code="script", data_type=DataType.LABEL, is_required=False)
-        self.dialect = self.create_param(code="dialect", data_type=DataType.LABEL, is_required=False)
+        self.image = self.create_param(
+            code="image", 
+            data_type=DataType.IMAGE, 
+            is_required=False
+        )
 
 
-class SpeechNonSpeechClassificationOutputs(Outputs):
+class InstanceSegmentationOutputs(Outputs):
     data: OutputParam = None
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.LABEL)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.LABEL
+        )
 
 
-class SpeechNonSpeechClassification(AssetNode[SpeechNonSpeechClassificationInputs, SpeechNonSpeechClassificationOutputs]):
+class InstanceSegmentation(AssetNode[InstanceSegmentationInputs, InstanceSegmentationOutputs]):
     """
-    Differentiates between speech and non-speech audio segments. Great for editing
-software and transcription services to exclude irrelevant audio.
+    Instance segmentation is a computer vision task that involves detecting and
+delineating each distinct object within an image, assigning a unique label and
+precise boundary to every individual instance of objects, even if they belong
+to the same category.
 
-    InputType: audio
+    InputType: image
     OutputType: label
     """
-    function: str = "speech-non-speech-classification"
-    input_type: str = DataType.AUDIO
+    function: str = "instance-segmentation"
+    input_type: str = DataType.IMAGE
     output_type: str = DataType.LABEL
 
-    inputs_class: Type[TI] = SpeechNonSpeechClassificationInputs
-    outputs_class: Type[TO] = SpeechNonSpeechClassificationOutputs
+    inputs_class: Type[TI] = InstanceSegmentationInputs
+    outputs_class: Type[TO] = InstanceSegmentationOutputs
 
 
-class AudioReconstructionInputs(Inputs):
-    audio: InputParam = None
+class ReferencelessTextGenerationMetricDefaultInputs(Inputs):
+    hypotheses: InputParam = None
+    sources: InputParam = None
+    score_identifier: InputParam = None
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.audio = self.create_param(code="audio", data_type=DataType.AUDIO, is_required=True)
+        self.hypotheses = self.create_param(
+            code="hypotheses", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
+        self.sources = self.create_param(
+            code="sources", 
+            data_type=DataType.TEXT, 
+            is_required=False
+        )
+        self.score_identifier = self.create_param(
+            code="score_identifier", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
 
 
-class AudioReconstructionOutputs(Outputs):
+class ReferencelessTextGenerationMetricDefaultOutputs(Outputs):
     data: OutputParam = None
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.AUDIO)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.TEXT
+        )
 
 
-class AudioReconstruction(BaseReconstructor[AudioReconstructionInputs, AudioReconstructionOutputs]):
+class ReferencelessTextGenerationMetricDefault(BaseMetric[ReferencelessTextGenerationMetricDefaultInputs, ReferencelessTextGenerationMetricDefaultOutputs]):
     """
-    Audio Reconstruction is the process of restoring or recreating audio signals
-from incomplete, damaged, or degraded recordings to achieve a high-quality,
-accurate representation of the original sound.
+    The Referenceless Text Generation Metric Default is a function designed to
+evaluate the quality of generated text without relying on reference texts for
+comparison.
 
-    InputType: audio
-    OutputType: audio
+    InputType: text
+    OutputType: text
     """
-    function: str = "audio-reconstruction"
-    input_type: str = DataType.AUDIO
-    output_type: str = DataType.AUDIO
+    function: str = "referenceless-text-generation-metric-default"
+    input_type: str = DataType.TEXT
+    output_type: str = DataType.TEXT
 
-    inputs_class: Type[TI] = AudioReconstructionInputs
-    outputs_class: Type[TO] = AudioReconstructionOutputs
+    inputs_class: Type[TI] = ReferencelessTextGenerationMetricDefaultInputs
+    outputs_class: Type[TO] = ReferencelessTextGenerationMetricDefaultOutputs
+
+
+class SubtitlingTranslationInputs(Inputs):
+    text: InputParam = None
+    sourcelanguage: InputParam = None
+    dialect_in: InputParam = None
+    target_supplier: InputParam = None
+    targetlanguages: InputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
+        self.sourcelanguage = self.create_param(
+            code="sourcelanguage", 
+            data_type=DataType.LABEL, 
+            is_required=True
+        )
+        self.dialect_in = self.create_param(
+            code="dialect_in", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+        self.target_supplier = self.create_param(
+            code="target_supplier", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+        self.targetlanguages = self.create_param(
+            code="targetlanguages", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+
+
+class SubtitlingTranslationOutputs(Outputs):
+    data: OutputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.TEXT
+        )
+
+
+class SubtitlingTranslation(AssetNode[SubtitlingTranslationInputs, SubtitlingTranslationOutputs]):
+    """
+    Converts the text of subtitles from one language to another, ensuring context
+and cultural nuances are maintained. Essential for global content distribution.
+
+    InputType: text
+    OutputType: text
+    """
+    function: str = "subtitling-translation"
+    input_type: str = DataType.TEXT
+    output_type: str = DataType.TEXT
+
+    inputs_class: Type[TI] = SubtitlingTranslationInputs
+    outputs_class: Type[TO] = SubtitlingTranslationOutputs
+
+
+class VisemeGenerationInputs(Inputs):
+    text: InputParam = None
+    language: InputParam = None
+    dialect: InputParam = None
+    script: InputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
+        self.language = self.create_param(
+            code="language", 
+            data_type=DataType.LABEL, 
+            is_required=True
+        )
+        self.dialect = self.create_param(
+            code="dialect", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+        self.script = self.create_param(
+            code="script", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+
+
+class VisemeGenerationOutputs(Outputs):
+    data: OutputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.LABEL
+        )
+
+
+class VisemeGeneration(AssetNode[VisemeGenerationInputs, VisemeGenerationOutputs]):
+    """
+    Viseme Generation is the process of creating visual representations of
+phonemes, which are the distinct units of sound in speech, to synchronize lip
+movements with spoken words in animations or virtual avatars.
+
+    InputType: text
+    OutputType: label
+    """
+    function: str = "viseme-generation"
+    input_type: str = DataType.TEXT
+    output_type: str = DataType.LABEL
+
+    inputs_class: Type[TI] = VisemeGenerationInputs
+    outputs_class: Type[TO] = VisemeGenerationOutputs
+
+
+class MetricAggregationInputs(Inputs):
+    text: InputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
+
+
+class MetricAggregationOutputs(Outputs):
+    data: OutputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.TEXT
+        )
+
+
+class MetricAggregation(BaseMetric[MetricAggregationInputs, MetricAggregationOutputs]):
+    """
+    Metric Aggregation is a function that computes and summarizes numerical data by
+applying statistical operations, such as averaging, summing, or finding the
+minimum and maximum values, to provide insights and facilitate analysis of
+large datasets.
+
+    InputType: text
+    OutputType: text
+    """
+    function: str = "metric-aggregation"
+    input_type: str = DataType.TEXT
+    output_type: str = DataType.TEXT
+
+    inputs_class: Type[TI] = MetricAggregationInputs
+    outputs_class: Type[TO] = MetricAggregationOutputs
+
+
+class LanguageIdentificationInputs(Inputs):
+    text: InputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
+
+
+class LanguageIdentificationOutputs(Outputs):
+    data: OutputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.LABEL
+        )
+
+
+class LanguageIdentification(AssetNode[LanguageIdentificationInputs, LanguageIdentificationOutputs]):
+    """
+    Detects the language in which a given text is written, aiding in multilingual
+platforms or content localization.
+
+    InputType: text
+    OutputType: text
+    """
+    function: str = "language-identification"
+    input_type: str = DataType.TEXT
+    output_type: str = DataType.TEXT
+
+    inputs_class: Type[TI] = LanguageIdentificationInputs
+    outputs_class: Type[TO] = LanguageIdentificationOutputs
+
+
+class EmotionDetectionInputs(Inputs):
+    text: InputParam = None
+    language: InputParam = None
+    dialect: InputParam = None
+    script: InputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
+        self.language = self.create_param(
+            code="language", 
+            data_type=DataType.LABEL, 
+            is_required=True
+        )
+        self.dialect = self.create_param(
+            code="dialect", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+        self.script = self.create_param(
+            code="script", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+
+
+class EmotionDetectionOutputs(Outputs):
+    data: OutputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.LABEL
+        )
+
+
+class EmotionDetection(AssetNode[EmotionDetectionInputs, EmotionDetectionOutputs]):
+    """
+    Identifies human emotions from text or audio, enhancing user experience in
+chatbots or customer feedback analysis.
+
+    InputType: text
+    OutputType: label
+    """
+    function: str = "emotion-detection"
+    input_type: str = DataType.TEXT
+    output_type: str = DataType.LABEL
+
+    inputs_class: Type[TI] = EmotionDetectionInputs
+    outputs_class: Type[TO] = EmotionDetectionOutputs
 
 
 class AudioForcedAlignmentInputs(Inputs):
@@ -3864,11 +4331,31 @@ class AudioForcedAlignmentInputs(Inputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.audio = self.create_param(code="audio", data_type=DataType.AUDIO, is_required=True)
-        self.text = self.create_param(code="text", data_type=DataType.TEXT, is_required=True)
-        self.language = self.create_param(code="language", data_type=DataType.LABEL, is_required=True)
-        self.dialect = self.create_param(code="dialect", data_type=DataType.LABEL, is_required=False)
-        self.script = self.create_param(code="script", data_type=DataType.LABEL, is_required=False)
+        self.audio = self.create_param(
+            code="audio", 
+            data_type=DataType.AUDIO, 
+            is_required=True
+        )
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
+        self.language = self.create_param(
+            code="language", 
+            data_type=DataType.LABEL, 
+            is_required=True
+        )
+        self.dialect = self.create_param(
+            code="dialect", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+        self.script = self.create_param(
+            code="script", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
 
 
 class AudioForcedAlignmentOutputs(Outputs):
@@ -3877,8 +4364,14 @@ class AudioForcedAlignmentOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.text = self.create_param(code="text", data_type=DataType.TEXT)
-        self.audio = self.create_param(code="audio", data_type=DataType.AUDIO)
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT
+        )
+        self.audio = self.create_param(
+            code="audio", 
+            data_type=DataType.AUDIO
+        )
 
 
 class AudioForcedAlignment(AssetNode[AudioForcedAlignmentInputs, AudioForcedAlignmentOutputs]):
@@ -3905,10 +4398,26 @@ class DiacritizationInputs(Inputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.language = self.create_param(code="language", data_type=DataType.LABEL, is_required=True)
-        self.dialect = self.create_param(code="dialect", data_type=DataType.LABEL, is_required=True)
-        self.script = self.create_param(code="script", data_type=DataType.LABEL, is_required=False)
-        self.text = self.create_param(code="text", data_type=DataType.TEXT, is_required=True)
+        self.language = self.create_param(
+            code="language", 
+            data_type=DataType.LABEL, 
+            is_required=True
+        )
+        self.dialect = self.create_param(
+            code="dialect", 
+            data_type=DataType.LABEL, 
+            is_required=True
+        )
+        self.script = self.create_param(
+            code="script", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
 
 
 class DiacritizationOutputs(Outputs):
@@ -3916,7 +4425,10 @@ class DiacritizationOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.TEXT)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.TEXT
+        )
 
 
 class Diacritization(AssetNode[DiacritizationInputs, DiacritizationOutputs]):
@@ -3935,6 +4447,104 @@ change based on diacritics.
     outputs_class: Type[TO] = DiacritizationOutputs
 
 
+class LoglikelihoodInputs(Inputs):
+    text: InputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
+
+
+class LoglikelihoodOutputs(Outputs):
+    data: OutputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.NUMBER
+        )
+
+
+class Loglikelihood(AssetNode[LoglikelihoodInputs, LoglikelihoodOutputs]):
+    """
+    The Log Likelihood function measures the probability of observing the given
+data under a specific statistical model by taking the natural logarithm of the
+likelihood function, thereby transforming the product of probabilities into a
+sum, which simplifies the process of optimization and parameter estimation.
+
+    InputType: text
+    OutputType: number
+    """
+    function: str = "loglikelihood"
+    input_type: str = DataType.TEXT
+    output_type: str = DataType.NUMBER
+
+    inputs_class: Type[TI] = LoglikelihoodInputs
+    outputs_class: Type[TO] = LoglikelihoodOutputs
+
+
+class OffensiveLanguageIdentificationInputs(Inputs):
+    text: InputParam = None
+    language: InputParam = None
+    dialect: InputParam = None
+    script: InputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
+        self.language = self.create_param(
+            code="language", 
+            data_type=DataType.LABEL, 
+            is_required=True
+        )
+        self.dialect = self.create_param(
+            code="dialect", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+        self.script = self.create_param(
+            code="script", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+
+
+class OffensiveLanguageIdentificationOutputs(Outputs):
+    data: OutputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.LABEL
+        )
+
+
+class OffensiveLanguageIdentification(AssetNode[OffensiveLanguageIdentificationInputs, OffensiveLanguageIdentificationOutputs]):
+    """
+    Detects language or phrases that might be considered offensive, aiding in
+content moderation and creating respectful user interactions.
+
+    InputType: text
+    OutputType: label
+    """
+    function: str = "offensive-language-identification"
+    input_type: str = DataType.TEXT
+    output_type: str = DataType.LABEL
+
+    inputs_class: Type[TI] = OffensiveLanguageIdentificationInputs
+    outputs_class: Type[TO] = OffensiveLanguageIdentificationOutputs
+
+
 class ReferencelessAudioGenerationMetricInputs(Inputs):
     hypotheses: InputParam = None
     sources: InputParam = None
@@ -3942,9 +4552,21 @@ class ReferencelessAudioGenerationMetricInputs(Inputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.hypotheses = self.create_param(code="hypotheses", data_type=DataType.AUDIO, is_required=True)
-        self.sources = self.create_param(code="sources", data_type=DataType.AUDIO, is_required=False)
-        self.score_identifier = self.create_param(code="score_identifier", data_type=DataType.TEXT, is_required=True)
+        self.hypotheses = self.create_param(
+            code="hypotheses", 
+            data_type=DataType.AUDIO, 
+            is_required=True
+        )
+        self.sources = self.create_param(
+            code="sources", 
+            data_type=DataType.AUDIO, 
+            is_required=False
+        )
+        self.score_identifier = self.create_param(
+            code="score_identifier", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
 
 
 class ReferencelessAudioGenerationMetricOutputs(Outputs):
@@ -3952,7 +4574,10 @@ class ReferencelessAudioGenerationMetricOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.TEXT)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.TEXT
+        )
 
 
 class ReferencelessAudioGenerationMetric(BaseMetric[ReferencelessAudioGenerationMetricInputs, ReferencelessAudioGenerationMetricOutputs]):
@@ -3972,83 +4597,742 @@ audio sample for comparison.
     outputs_class: Type[TO] = ReferencelessAudioGenerationMetricOutputs
 
 
-class VoiceActivityDetectionInputs(Inputs):
-    audio: InputParam = None
-    onset: InputParam = None
-    offset: InputParam = None
-    min_duration_on: InputParam = None
-    min_duration_off: InputParam = None
+class ExpressionDetectionInputs(Inputs):
+    media: InputParam = None
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.audio = self.create_param(code="audio", data_type=DataType.AUDIO, is_required=True)
-        self.onset = self.create_param(code="onset", data_type=DataType.TEXT, is_required=False)
-        self.offset = self.create_param(code="offset", data_type=DataType.TEXT, is_required=False)
-        self.min_duration_on = self.create_param(code="min_duration_on", data_type=DataType.TEXT, is_required=False)
-        self.min_duration_off = self.create_param(code="min_duration_off", data_type=DataType.TEXT, is_required=False)
+        self.media = self.create_param(
+            code="media", 
+            data_type=DataType.IMAGE, 
+            is_required=True
+        )
 
 
-class VoiceActivityDetectionOutputs(Outputs):
-    data: OutputParam = None
-    audio: OutputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.AUDIO)
-        self.audio = self.create_param(code="audio", data_type=DataType.AUDIO)
-
-
-class VoiceActivityDetection(BaseSegmentor[VoiceActivityDetectionInputs, VoiceActivityDetectionOutputs]):
-    """
-    Determines when a person is speaking in an audio clip. It's an essential
-preprocessing step for other audio-related tasks.
-
-    InputType: audio
-    OutputType: audio
-    """
-    function: str = "voice-activity-detection"
-    input_type: str = DataType.AUDIO
-    output_type: str = DataType.AUDIO
-
-    inputs_class: Type[TI] = VoiceActivityDetectionInputs
-    outputs_class: Type[TO] = VoiceActivityDetectionOutputs
-
-
-class TokenClassificationInputs(Inputs):
-    text: InputParam = None
-    language: InputParam = None
-    script: InputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.text = self.create_param(code="text", data_type=DataType.TEXT, is_required=True)
-        self.language = self.create_param(code="language", data_type=DataType.LABEL, is_required=True)
-        self.script = self.create_param(code="script", data_type=DataType.LABEL, is_required=False)
-
-
-class TokenClassificationOutputs(Outputs):
+class ExpressionDetectionOutputs(Outputs):
     data: OutputParam = None
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.LABEL)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.LABEL
+        )
 
 
-class TokenClassification(AssetNode[TokenClassificationInputs, TokenClassificationOutputs]):
+class ExpressionDetection(AssetNode[ExpressionDetectionInputs, ExpressionDetectionOutputs]):
     """
-    Token-level classification means that each token will be given a label, for
-example a part-of-speech tagger will classify each word as one particular part
-of speech.
+    Expression Detection is the process of identifying and analyzing facial
+expressions to interpret emotions or intentions using AI and computer vision
+techniques.
 
     InputType: text
     OutputType: label
     """
-    function: str = "token-classification"
+    function: str = "expression-detection"
     input_type: str = DataType.TEXT
     output_type: str = DataType.LABEL
 
-    inputs_class: Type[TI] = TokenClassificationInputs
-    outputs_class: Type[TO] = TokenClassificationOutputs
+    inputs_class: Type[TI] = ExpressionDetectionInputs
+    outputs_class: Type[TO] = ExpressionDetectionOutputs
+
+
+class TextContentModerationInputs(Inputs):
+    text: InputParam = None
+    language: InputParam = None
+    dialect: InputParam = None
+    script: InputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
+        self.language = self.create_param(
+            code="language", 
+            data_type=DataType.LABEL, 
+            is_required=True
+        )
+        self.dialect = self.create_param(
+            code="dialect", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+        self.script = self.create_param(
+            code="script", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+
+
+class TextContentModerationOutputs(Outputs):
+    data: OutputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.LABEL
+        )
+
+
+class TextContentModeration(AssetNode[TextContentModerationInputs, TextContentModerationOutputs]):
+    """
+    Scans and identifies potentially harmful, offensive, or inappropriate textual
+content, ensuring safer user environments.
+
+    InputType: text
+    OutputType: label
+    """
+    function: str = "text-content-moderation"
+    input_type: str = DataType.TEXT
+    output_type: str = DataType.LABEL
+
+    inputs_class: Type[TI] = TextContentModerationInputs
+    outputs_class: Type[TO] = TextContentModerationOutputs
+
+
+class AudioTranscriptImprovementInputs(Inputs):
+    language: InputParam = None
+    dialect: InputParam = None
+    source_supplier: InputParam = None
+    is_medical: InputParam = None
+    source_audio: InputParam = None
+    script: InputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.language = self.create_param(
+            code="language", 
+            data_type=DataType.LABEL, 
+            is_required=True
+        )
+        self.dialect = self.create_param(
+            code="dialect", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+        self.source_supplier = self.create_param(
+            code="source_supplier", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+        self.is_medical = self.create_param(
+            code="is_medical", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
+        self.source_audio = self.create_param(
+            code="source_audio", 
+            data_type=DataType.AUDIO, 
+            is_required=True
+        )
+        self.script = self.create_param(
+            code="script", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+
+
+class AudioTranscriptImprovementOutputs(Outputs):
+    data: OutputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.TEXT
+        )
+
+
+class AudioTranscriptImprovement(AssetNode[AudioTranscriptImprovementInputs, AudioTranscriptImprovementOutputs]):
+    """
+    Refines and corrects transcriptions generated from audio data, improving
+readability and accuracy.
+
+    InputType: audio
+    OutputType: text
+    """
+    function: str = "audio-transcript-improvement"
+    input_type: str = DataType.AUDIO
+    output_type: str = DataType.TEXT
+
+    inputs_class: Type[TI] = AudioTranscriptImprovementInputs
+    outputs_class: Type[TO] = AudioTranscriptImprovementOutputs
+
+
+class TextClassificationInputs(Inputs):
+    text: InputParam = None
+    language: InputParam = None
+    dialect: InputParam = None
+    script: InputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
+        self.language = self.create_param(
+            code="language", 
+            data_type=DataType.LABEL, 
+            is_required=True
+        )
+        self.dialect = self.create_param(
+            code="dialect", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+        self.script = self.create_param(
+            code="script", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+
+
+class TextClassificationOutputs(Outputs):
+    data: OutputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.LABEL
+        )
+
+
+class TextClassification(AssetNode[TextClassificationInputs, TextClassificationOutputs]):
+    """
+    Categorizes text into predefined groups or topics, facilitating content
+organization and targeted actions.
+
+    InputType: text
+    OutputType: label
+    """
+    function: str = "text-classification"
+    input_type: str = DataType.TEXT
+    output_type: str = DataType.LABEL
+
+    inputs_class: Type[TI] = TextClassificationInputs
+    outputs_class: Type[TO] = TextClassificationOutputs
+
+
+class VideoForcedAlignmentInputs(Inputs):
+    video: InputParam = None
+    text: InputParam = None
+    language: InputParam = None
+    dialect: InputParam = None
+    script: InputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.video = self.create_param(
+            code="video", 
+            data_type=DataType.VIDEO, 
+            is_required=True
+        )
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
+        self.language = self.create_param(
+            code="language", 
+            data_type=DataType.LABEL, 
+            is_required=True
+        )
+        self.dialect = self.create_param(
+            code="dialect", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+        self.script = self.create_param(
+            code="script", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+
+
+class VideoForcedAlignmentOutputs(Outputs):
+    text: OutputParam = None
+    video: OutputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT
+        )
+        self.video = self.create_param(
+            code="video", 
+            data_type=DataType.VIDEO
+        )
+
+
+class VideoForcedAlignment(AssetNode[VideoForcedAlignmentInputs, VideoForcedAlignmentOutputs]):
+    """
+    Aligns the transcription of spoken content in a video with its corresponding
+timecodes, facilitating subtitle creation.
+
+    InputType: video
+    OutputType: video
+    """
+    function: str = "video-forced-alignment"
+    input_type: str = DataType.VIDEO
+    output_type: str = DataType.VIDEO
+
+    inputs_class: Type[TI] = VideoForcedAlignmentInputs
+    outputs_class: Type[TO] = VideoForcedAlignmentOutputs
+
+
+class MultiLabelTextClassificationInputs(Inputs):
+    language: InputParam = None
+    text: InputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.language = self.create_param(
+            code="language", 
+            data_type=DataType.LABEL, 
+            is_required=True
+        )
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=False
+        )
+
+
+class MultiLabelTextClassificationOutputs(Outputs):
+    data: OutputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.LABEL
+        )
+
+
+class MultiLabelTextClassification(AssetNode[MultiLabelTextClassificationInputs, MultiLabelTextClassificationOutputs]):
+    """
+    Multi Label Text Classification is a natural language processing task where a
+given text is analyzed and assigned multiple relevant labels or categories from
+a predefined set, allowing for the text to belong to more than one category
+simultaneously.
+
+    InputType: text
+    OutputType: label
+    """
+    function: str = "multi-label-text-classification"
+    input_type: str = DataType.TEXT
+    output_type: str = DataType.LABEL
+
+    inputs_class: Type[TI] = MultiLabelTextClassificationInputs
+    outputs_class: Type[TO] = MultiLabelTextClassificationOutputs
+
+
+class TopicClassificationInputs(Inputs):
+    text: InputParam = None
+    language: InputParam = None
+    script: InputParam = None
+    dialect: InputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
+        self.language = self.create_param(
+            code="language", 
+            data_type=DataType.LABEL, 
+            is_required=True
+        )
+        self.script = self.create_param(
+            code="script", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+        self.dialect = self.create_param(
+            code="dialect", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+
+
+class TopicClassificationOutputs(Outputs):
+    data: OutputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.LABEL
+        )
+
+
+class TopicClassification(AssetNode[TopicClassificationInputs, TopicClassificationOutputs]):
+    """
+    Assigns categories or topics to a piece of text based on its content,
+facilitating content organization and retrieval.
+
+    InputType: text
+    OutputType: label
+    """
+    function: str = "topic-classification"
+    input_type: str = DataType.TEXT
+    output_type: str = DataType.LABEL
+
+    inputs_class: Type[TI] = TopicClassificationInputs
+    outputs_class: Type[TO] = TopicClassificationOutputs
+
+
+class SpeechEmbeddingInputs(Inputs):
+    audio: InputParam = None
+    language: InputParam = None
+    dialect: InputParam = None
+    script: InputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.audio = self.create_param(
+            code="audio", 
+            data_type=DataType.AUDIO, 
+            is_required=True
+        )
+        self.language = self.create_param(
+            code="language", 
+            data_type=DataType.LABEL, 
+            is_required=True
+        )
+        self.dialect = self.create_param(
+            code="dialect", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+        self.script = self.create_param(
+            code="script", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+
+
+class SpeechEmbeddingOutputs(Outputs):
+    data: OutputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.TEXT
+        )
+
+
+class SpeechEmbedding(AssetNode[SpeechEmbeddingInputs, SpeechEmbeddingOutputs]):
+    """
+    Transforms spoken content into a fixed-size vector in a high-dimensional space
+that captures the content's essence. Facilitates tasks like speech recognition
+and speaker verification.
+
+    InputType: audio
+    OutputType: text
+    """
+    function: str = "speech-embedding"
+    input_type: str = DataType.AUDIO
+    output_type: str = DataType.TEXT
+
+    inputs_class: Type[TI] = SpeechEmbeddingInputs
+    outputs_class: Type[TO] = SpeechEmbeddingOutputs
+
+
+class AudioTranscriptAnalysisInputs(Inputs):
+    language: InputParam = None
+    dialect: InputParam = None
+    source_supplier: InputParam = None
+    source_audio: InputParam = None
+    script: InputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.language = self.create_param(
+            code="language", 
+            data_type=DataType.LABEL, 
+            is_required=True
+        )
+        self.dialect = self.create_param(
+            code="dialect", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+        self.source_supplier = self.create_param(
+            code="source_supplier", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+        self.source_audio = self.create_param(
+            code="source_audio", 
+            data_type=DataType.AUDIO, 
+            is_required=True
+        )
+        self.script = self.create_param(
+            code="script", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+
+
+class AudioTranscriptAnalysisOutputs(Outputs):
+    data: OutputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.TEXT
+        )
+
+
+class AudioTranscriptAnalysis(AssetNode[AudioTranscriptAnalysisInputs, AudioTranscriptAnalysisOutputs]):
+    """
+    Analyzes transcribed audio data for insights, patterns, or specific information
+extraction.
+
+    InputType: audio
+    OutputType: text
+    """
+    function: str = "audio-transcript-analysis"
+    input_type: str = DataType.AUDIO
+    output_type: str = DataType.TEXT
+
+    inputs_class: Type[TI] = AudioTranscriptAnalysisInputs
+    outputs_class: Type[TO] = AudioTranscriptAnalysisOutputs
+
+
+class SpeakerDiarizationVideoInputs(Inputs):
+    video: InputParam = None
+    language: InputParam = None
+    script: InputParam = None
+    dialect: InputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.video = self.create_param(
+            code="video", 
+            data_type=DataType.VIDEO, 
+            is_required=True
+        )
+        self.language = self.create_param(
+            code="language", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+        self.script = self.create_param(
+            code="script", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+        self.dialect = self.create_param(
+            code="dialect", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+
+
+class SpeakerDiarizationVideoOutputs(Outputs):
+    data: OutputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.VIDEO
+        )
+
+
+class SpeakerDiarizationVideo(AssetNode[SpeakerDiarizationVideoInputs, SpeakerDiarizationVideoOutputs]):
+    """
+    Segments a video based on different speakers, identifying when each individual
+speaks. Useful for transcriptions and understanding multi-person conversations.
+
+    InputType: video
+    OutputType: label
+    """
+    function: str = "speaker-diarization-video"
+    input_type: str = DataType.VIDEO
+    output_type: str = DataType.LABEL
+
+    inputs_class: Type[TI] = SpeakerDiarizationVideoInputs
+    outputs_class: Type[TO] = SpeakerDiarizationVideoOutputs
+
+
+class ParaphrasingInputs(Inputs):
+    text: InputParam = None
+    language: InputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
+        self.language = self.create_param(
+            code="language", 
+            data_type=DataType.LABEL, 
+            is_required=True
+        )
+
+
+class ParaphrasingOutputs(Outputs):
+    data: OutputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.TEXT
+        )
+
+
+class Paraphrasing(AssetNode[ParaphrasingInputs, ParaphrasingOutputs]):
+    """
+    Express the meaning of the writer or speaker or something written or spoken
+using different words.
+
+    InputType: text
+    OutputType: text
+    """
+    function: str = "paraphrasing"
+    input_type: str = DataType.TEXT
+    output_type: str = DataType.TEXT
+
+    inputs_class: Type[TI] = ParaphrasingInputs
+    outputs_class: Type[TO] = ParaphrasingOutputs
+
+
+class TextSummarizationInputs(Inputs):
+    text: InputParam = None
+    language: InputParam = None
+    script: InputParam = None
+    dialect: InputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
+        self.language = self.create_param(
+            code="language", 
+            data_type=DataType.LABEL, 
+            is_required=True
+        )
+        self.script = self.create_param(
+            code="script", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+        self.dialect = self.create_param(
+            code="dialect", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+
+
+class TextSummarizationOutputs(Outputs):
+    data: OutputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.TEXT
+        )
+
+
+class TextSummarization(AssetNode[TextSummarizationInputs, TextSummarizationOutputs]):
+    """
+    Extracts the main points from a larger body of text, producing a concise
+summary without losing the primary message.
+
+    InputType: text
+    OutputType: text
+    """
+    function: str = "text-summarization"
+    input_type: str = DataType.TEXT
+    output_type: str = DataType.TEXT
+
+    inputs_class: Type[TI] = TextSummarizationInputs
+    outputs_class: Type[TO] = TextSummarizationOutputs
+
+
+class TextDenormalizationInputs(Inputs):
+    text: InputParam = None
+    language: InputParam = None
+    lowercase_latin: InputParam = None
+    remove_accents: InputParam = None
+    remove_punctuation: InputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
+        self.language = self.create_param(
+            code="language", 
+            data_type=DataType.LABEL, 
+            is_required=True
+        )
+        self.lowercase_latin = self.create_param(
+            code="lowercase_latin", 
+            data_type=DataType.TEXT, 
+            is_required=False
+        )
+        self.remove_accents = self.create_param(
+            code="remove_accents", 
+            data_type=DataType.TEXT, 
+            is_required=False
+        )
+        self.remove_punctuation = self.create_param(
+            code="remove_punctuation", 
+            data_type=DataType.TEXT, 
+            is_required=False
+        )
+
+
+class TextDenormalizationOutputs(Outputs):
+    data: OutputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.LABEL
+        )
+
+
+class TextDenormalization(AssetNode[TextDenormalizationInputs, TextDenormalizationOutputs]):
+    """
+    Converts standardized or normalized text into its original, often more
+readable, form. Useful in natural language generation tasks.
+
+    InputType: text
+    OutputType: label
+    """
+    function: str = "text-denormalization"
+    input_type: str = DataType.TEXT
+    output_type: str = DataType.LABEL
+
+    inputs_class: Type[TI] = TextDenormalizationInputs
+    outputs_class: Type[TO] = TextDenormalizationOutputs
 
 
 class SpeechTranslationInputs(Inputs):
@@ -4061,12 +5345,36 @@ class SpeechTranslationInputs(Inputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.source_audio = self.create_param(code="source_audio", data_type=DataType.AUDIO, is_required=True)
-        self.sourcelanguage = self.create_param(code="sourcelanguage", data_type=DataType.LABEL, is_required=True)
-        self.targetlanguage = self.create_param(code="targetlanguage", data_type=DataType.LABEL, is_required=True)
-        self.dialect = self.create_param(code="dialect", data_type=DataType.LABEL, is_required=False)
-        self.voice = self.create_param(code="voice", data_type=DataType.LABEL, is_required=False)
-        self.script = self.create_param(code="script", data_type=DataType.LABEL, is_required=False)
+        self.source_audio = self.create_param(
+            code="source_audio", 
+            data_type=DataType.AUDIO, 
+            is_required=True
+        )
+        self.sourcelanguage = self.create_param(
+            code="sourcelanguage", 
+            data_type=DataType.LABEL, 
+            is_required=True
+        )
+        self.targetlanguage = self.create_param(
+            code="targetlanguage", 
+            data_type=DataType.LABEL, 
+            is_required=True
+        )
+        self.dialect = self.create_param(
+            code="dialect", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+        self.voice = self.create_param(
+            code="voice", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+        self.script = self.create_param(
+            code="script", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
 
 
 class SpeechTranslationOutputs(Outputs):
@@ -4074,7 +5382,10 @@ class SpeechTranslationOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.TEXT)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.TEXT
+        )
 
 
 class SpeechTranslation(AssetNode[SpeechTranslationInputs, SpeechTranslationOutputs]):
@@ -4094,12 +5405,518 @@ of different languages.
     outputs_class: Type[TO] = SpeechTranslationOutputs
 
 
+class VoiceActivityDetectionInputs(Inputs):
+    audio: InputParam = None
+    onset: InputParam = None
+    offset: InputParam = None
+    min_duration_on: InputParam = None
+    min_duration_off: InputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.audio = self.create_param(
+            code="audio", 
+            data_type=DataType.AUDIO, 
+            is_required=True
+        )
+        self.onset = self.create_param(
+            code="onset", 
+            data_type=DataType.TEXT, 
+            is_required=False
+        )
+        self.offset = self.create_param(
+            code="offset", 
+            data_type=DataType.TEXT, 
+            is_required=False
+        )
+        self.min_duration_on = self.create_param(
+            code="min_duration_on", 
+            data_type=DataType.TEXT, 
+            is_required=False
+        )
+        self.min_duration_off = self.create_param(
+            code="min_duration_off", 
+            data_type=DataType.TEXT, 
+            is_required=False
+        )
+
+
+class VoiceActivityDetectionOutputs(Outputs):
+    data: OutputParam = None
+    audio: OutputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.AUDIO
+        )
+        self.audio = self.create_param(code="audio", data_type=DataType.AUDIO)
+
+
+class VoiceActivityDetection(BaseSegmentor[VoiceActivityDetectionInputs, VoiceActivityDetectionOutputs]):
+    """
+    Determines when a person is speaking in an audio clip. It's an essential
+preprocessing step for other audio-related tasks.
+
+    InputType: audio
+    OutputType: audio
+    """
+    function: str = "voice-activity-detection"
+    input_type: str = DataType.AUDIO
+    output_type: str = DataType.AUDIO
+
+    inputs_class: Type[TI] = VoiceActivityDetectionInputs
+    outputs_class: Type[TO] = VoiceActivityDetectionOutputs
+
+
+class SentimentAnalysisInputs(Inputs):
+    text: InputParam = None
+    language: InputParam = None
+    dialect: InputParam = None
+    script: InputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
+        self.language = self.create_param(
+            code="language", 
+            data_type=DataType.LABEL, 
+            is_required=True
+        )
+        self.dialect = self.create_param(
+            code="dialect", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+        self.script = self.create_param(
+            code="script", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+
+
+class SentimentAnalysisOutputs(Outputs):
+    data: OutputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.LABEL
+        )
+
+
+class SentimentAnalysis(AssetNode[SentimentAnalysisInputs, SentimentAnalysisOutputs]):
+    """
+    Determines the sentiment or emotion (e.g., positive, negative, neutral) of a
+piece of text, aiding in understanding user feedback or market sentiment.
+
+    InputType: text
+    OutputType: label
+    """
+    function: str = "sentiment-analysis"
+    input_type: str = DataType.TEXT
+    output_type: str = DataType.LABEL
+
+    inputs_class: Type[TI] = SentimentAnalysisInputs
+    outputs_class: Type[TO] = SentimentAnalysisOutputs
+
+
+class ImageCompressionInputs(Inputs):
+    image: InputParam = None
+    apl_qfactor: InputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.image = self.create_param(
+            code="image", 
+            data_type=DataType.IMAGE, 
+            is_required=True
+        )
+        self.apl_qfactor = self.create_param(
+            code="apl_qfactor", 
+            data_type=DataType.TEXT, 
+            is_required=False
+        )
+
+
+class ImageCompressionOutputs(Outputs):
+    image: OutputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.image = self.create_param(
+            code="image", 
+            data_type=DataType.IMAGE
+        )
+
+
+class ImageCompression(AssetNode[ImageCompressionInputs, ImageCompressionOutputs]):
+    """
+    Reduces the size of image files without significantly compromising their visual
+quality. Useful for optimizing storage and improving webpage load times.
+
+    InputType: image
+    OutputType: image
+    """
+    function: str = "image-compression"
+    input_type: str = DataType.IMAGE
+    output_type: str = DataType.IMAGE
+
+    inputs_class: Type[TI] = ImageCompressionInputs
+    outputs_class: Type[TO] = ImageCompressionOutputs
+
+
+class TextNormalizationInputs(Inputs):
+    text: InputParam = None
+    language: InputParam = None
+    settings: InputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
+        self.language = self.create_param(
+            code="language", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+        self.settings = self.create_param(
+            code="settings", 
+            data_type=DataType.TEXT, 
+            is_required=False
+        )
+
+
+class TextNormalizationOutputs(Outputs):
+    data: OutputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.LABEL
+        )
+
+
+class TextNormalization(AssetNode[TextNormalizationInputs, TextNormalizationOutputs]):
+    """
+    Converts unstructured or non-standard textual data into a more readable and
+uniform format, dealing with abbreviations, numerals, and other non-standard
+words.
+
+    InputType: text
+    OutputType: label
+    """
+    function: str = "text-normalization"
+    input_type: str = DataType.TEXT
+    output_type: str = DataType.LABEL
+
+    inputs_class: Type[TI] = TextNormalizationInputs
+    outputs_class: Type[TO] = TextNormalizationOutputs
+
+
+class TextGenerationInputs(Inputs):
+    text: InputParam = None
+    temperature: InputParam = None
+    prompt: InputParam = None
+    context: InputParam = None
+    language: InputParam = None
+    script: InputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
+        self.temperature = self.create_param(
+            code="temperature", 
+            data_type=DataType.NUMBER, 
+            is_required=False
+        )
+        self.prompt = self.create_param(
+            code="prompt", 
+            data_type=DataType.TEXT, 
+            is_required=False
+        )
+        self.context = self.create_param(
+            code="context", 
+            data_type=DataType.TEXT, 
+            is_required=False
+        )
+        self.language = self.create_param(
+            code="language", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+        self.script = self.create_param(
+            code="script", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+
+
+class TextGenerationOutputs(Outputs):
+    data: OutputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.TEXT
+        )
+
+
+class TextGeneration(AssetNode[TextGenerationInputs, TextGenerationOutputs]):
+    """
+    Creates coherent and contextually relevant textual content based on prompts or
+certain parameters. Useful for chatbots, content creation, and data
+augmentation.
+
+    InputType: text
+    OutputType: text
+    """
+    function: str = "text-generation"
+    input_type: str = DataType.TEXT
+    output_type: str = DataType.TEXT
+
+    inputs_class: Type[TI] = TextGenerationInputs
+    outputs_class: Type[TO] = TextGenerationOutputs
+
+
+class TranslationInputs(Inputs):
+    text: InputParam = None
+    sourcelanguage: InputParam = None
+    targetlanguage: InputParam = None
+    script_in: InputParam = None
+    script_out: InputParam = None
+    dialect_in: InputParam = None
+    dialect_out: InputParam = None
+    context: InputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
+        self.sourcelanguage = self.create_param(
+            code="sourcelanguage", 
+            data_type=DataType.LABEL, 
+            is_required=True
+        )
+        self.targetlanguage = self.create_param(
+            code="targetlanguage", 
+            data_type=DataType.LABEL, 
+            is_required=True
+        )
+        self.script_in = self.create_param(
+            code="script_in", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+        self.script_out = self.create_param(
+            code="script_out", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+        self.dialect_in = self.create_param(
+            code="dialect_in", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+        self.dialect_out = self.create_param(
+            code="dialect_out", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+        self.context = self.create_param(
+            code="context", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+
+
+class TranslationOutputs(Outputs):
+    data: OutputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.TEXT
+        )
+
+
+class Translation(AssetNode[TranslationInputs, TranslationOutputs]):
+    """
+    Converts text from one language to another while maintaining the original
+message's essence and context. Crucial for global communication.
+
+    InputType: text
+    OutputType: text
+    """
+    function: str = "translation"
+    input_type: str = DataType.TEXT
+    output_type: str = DataType.TEXT
+
+    inputs_class: Type[TI] = TranslationInputs
+    outputs_class: Type[TO] = TranslationOutputs
+
+
+class SubtitlingInputs(Inputs):
+    source_audio: InputParam = None
+    sourcelanguage: InputParam = None
+    dialect_in: InputParam = None
+    source_supplier: InputParam = None
+    target_supplier: InputParam = None
+    targetlanguages: InputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.source_audio = self.create_param(
+            code="source_audio", 
+            data_type=DataType.AUDIO, 
+            is_required=True
+        )
+        self.sourcelanguage = self.create_param(
+            code="sourcelanguage", 
+            data_type=DataType.LABEL, 
+            is_required=True
+        )
+        self.dialect_in = self.create_param(
+            code="dialect_in", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+        self.source_supplier = self.create_param(
+            code="source_supplier", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+        self.target_supplier = self.create_param(
+            code="target_supplier", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+        self.targetlanguages = self.create_param(
+            code="targetlanguages", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+
+
+class SubtitlingOutputs(Outputs):
+    data: OutputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.TEXT
+        )
+
+
+class Subtitling(AssetNode[SubtitlingInputs, SubtitlingOutputs]):
+    """
+    Generates accurate subtitles for videos, enhancing accessibility for diverse
+audiences.
+
+    InputType: audio
+    OutputType: text
+    """
+    function: str = "subtitling"
+    input_type: str = DataType.AUDIO
+    output_type: str = DataType.TEXT
+
+    inputs_class: Type[TI] = SubtitlingInputs
+    outputs_class: Type[TO] = SubtitlingOutputs
+
+
+class SpeechRecognitionInputs(Inputs):
+    language: InputParam = None
+    dialect: InputParam = None
+    voice: InputParam = None
+    source_audio: InputParam = None
+    script: InputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.language = self.create_param(
+            code="language", 
+            data_type=DataType.LABEL, 
+            is_required=True
+        )
+        self.dialect = self.create_param(
+            code="dialect", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+        self.voice = self.create_param(
+            code="voice", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+        self.source_audio = self.create_param(
+            code="source_audio", 
+            data_type=DataType.AUDIO, 
+            is_required=True
+        )
+        self.script = self.create_param(
+            code="script", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
+
+
+class SpeechRecognitionOutputs(Outputs):
+    data: OutputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.TEXT
+        )
+
+
+class SpeechRecognition(AssetNode[SpeechRecognitionInputs, SpeechRecognitionOutputs]):
+    """
+    Converts spoken language into written text. Useful for transcription services,
+voice assistants, and applications requiring voice-to-text capabilities.
+
+    InputType: audio
+    OutputType: text
+    """
+    function: str = "speech-recognition"
+    input_type: str = DataType.AUDIO
+    output_type: str = DataType.TEXT
+
+    inputs_class: Type[TI] = SpeechRecognitionInputs
+    outputs_class: Type[TO] = SpeechRecognitionOutputs
+
+
 class SplitOnLinebreakInputs(Inputs):
     text: InputParam = None
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.text = self.create_param(code="text", data_type=DataType.TEXT, is_required=True)
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
 
 
 class SplitOnLinebreakOutputs(Outputs):
@@ -4108,7 +5925,10 @@ class SplitOnLinebreakOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.TEXT)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.TEXT
+        )
         self.audio = self.create_param(code="audio", data_type=DataType.AUDIO)
 
 
@@ -4128,90 +5948,22 @@ substrings, using linebreaks (newline characters) as the points of separation.
     outputs_class: Type[TO] = SplitOnLinebreakOutputs
 
 
-class TextClassificationInputs(Inputs):
-    text: InputParam = None
-    language: InputParam = None
-    dialect: InputParam = None
-    script: InputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.text = self.create_param(code="text", data_type=DataType.TEXT, is_required=True)
-        self.language = self.create_param(code="language", data_type=DataType.LABEL, is_required=True)
-        self.dialect = self.create_param(code="dialect", data_type=DataType.LABEL, is_required=False)
-        self.script = self.create_param(code="script", data_type=DataType.LABEL, is_required=False)
-
-
-class TextClassificationOutputs(Outputs):
-    data: OutputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.LABEL)
-
-
-class TextClassification(AssetNode[TextClassificationInputs, TextClassificationOutputs]):
-    """
-    Categorizes text into predefined groups or topics, facilitating content
-organization and targeted actions.
-
-    InputType: text
-    OutputType: label
-    """
-    function: str = "text-classification"
-    input_type: str = DataType.TEXT
-    output_type: str = DataType.LABEL
-
-    inputs_class: Type[TI] = TextClassificationInputs
-    outputs_class: Type[TO] = TextClassificationOutputs
-
-
-class TextSummarizationInputs(Inputs):
-    text: InputParam = None
-    language: InputParam = None
-    script: InputParam = None
-    dialect: InputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.text = self.create_param(code="text", data_type=DataType.TEXT, is_required=True)
-        self.language = self.create_param(code="language", data_type=DataType.LABEL, is_required=True)
-        self.script = self.create_param(code="script", data_type=DataType.LABEL, is_required=False)
-        self.dialect = self.create_param(code="dialect", data_type=DataType.LABEL, is_required=False)
-
-
-class TextSummarizationOutputs(Outputs):
-    data: OutputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.TEXT)
-
-
-class TextSummarization(AssetNode[TextSummarizationInputs, TextSummarizationOutputs]):
-    """
-    Extracts the main points from a larger body of text, producing a concise
-summary without losing the primary message.
-
-    InputType: text
-    OutputType: text
-    """
-    function: str = "text-summarization"
-    input_type: str = DataType.TEXT
-    output_type: str = DataType.TEXT
-
-    inputs_class: Type[TI] = TextSummarizationInputs
-    outputs_class: Type[TO] = TextSummarizationOutputs
-
-
 class AsrQualityEstimationInputs(Inputs):
     text: InputParam = None
     script: InputParam = None
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.text = self.create_param(code="text", data_type=DataType.TEXT, is_required=True)
-        self.script = self.create_param(code="script", data_type=DataType.LABEL, is_required=False)
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
+        self.script = self.create_param(
+            code="script", 
+            data_type=DataType.LABEL, 
+            is_required=False
+        )
 
 
 class AsrQualityEstimationOutputs(Outputs):
@@ -4219,7 +5971,10 @@ class AsrQualityEstimationOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.LABEL)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.LABEL
+        )
 
 
 class AsrQualityEstimation(AssetNode[AsrQualityEstimationInputs, AsrQualityEstimationOutputs]):
@@ -4244,7 +5999,11 @@ class SearchInputs(Inputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.text = self.create_param(code="text", data_type=DataType.TEXT, is_required=True)
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
 
 
 class SearchOutputs(Outputs):
@@ -4252,7 +6011,10 @@ class SearchOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.TEXT)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.TEXT
+        )
 
 
 class Search(AssetNode[SearchInputs, SearchOutputs]):
@@ -4272,47 +6034,22 @@ websites.
     outputs_class: Type[TO] = SearchOutputs
 
 
-class AsrAgeClassificationInputs(Inputs):
-    source_audio: InputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.source_audio = self.create_param(code="source_audio", data_type=DataType.AUDIO, is_required=True)
-
-
-class AsrAgeClassificationOutputs(Outputs):
-    data: OutputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.LABEL)
-
-
-class AsrAgeClassification(AssetNode[AsrAgeClassificationInputs, AsrAgeClassificationOutputs]):
-    """
-    The ASR Age Classification function is designed to analyze audio recordings of
-speech to determine the speaker's age group by leveraging automatic speech
-recognition (ASR) technology and machine learning algorithms.
-
-    InputType: audio
-    OutputType: label
-    """
-    function: str = "asr-age-classification"
-    input_type: str = DataType.AUDIO
-    output_type: str = DataType.LABEL
-
-    inputs_class: Type[TI] = AsrAgeClassificationInputs
-    outputs_class: Type[TO] = AsrAgeClassificationOutputs
-
-
 class TextSegmenationInputs(Inputs):
     text: InputParam = None
     language: InputParam = None
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.text = self.create_param(code="text", data_type=DataType.TEXT, is_required=True)
-        self.language = self.create_param(code="language", data_type=DataType.LABEL, is_required=True)
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
+        self.language = self.create_param(
+            code="language", 
+            data_type=DataType.LABEL, 
+            is_required=True
+        )
 
 
 class TextSegmenationOutputs(Outputs):
@@ -4320,7 +6057,10 @@ class TextSegmenationOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.TEXT)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.TEXT
+        )
 
 
 class TextSegmenation(AssetNode[TextSegmenationInputs, TextSegmenationOutputs]):
@@ -4340,14 +6080,62 @@ understanding.
     outputs_class: Type[TO] = TextSegmenationOutputs
 
 
+class AsrAgeClassificationInputs(Inputs):
+    source_audio: InputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.source_audio = self.create_param(
+            code="source_audio", 
+            data_type=DataType.AUDIO, 
+            is_required=True
+        )
+
+
+class AsrAgeClassificationOutputs(Outputs):
+    data: OutputParam = None
+
+    def __init__(self, node=None):
+        super().__init__(node=node)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.LABEL
+        )
+
+
+class AsrAgeClassification(AssetNode[AsrAgeClassificationInputs, AsrAgeClassificationOutputs]):
+    """
+    The ASR Age Classification function is designed to analyze audio recordings of
+speech to determine the speaker's age group by leveraging automatic speech
+recognition (ASR) technology and machine learning algorithms.
+
+    InputType: audio
+    OutputType: label
+    """
+    function: str = "asr-age-classification"
+    input_type: str = DataType.AUDIO
+    output_type: str = DataType.LABEL
+
+    inputs_class: Type[TI] = AsrAgeClassificationInputs
+    outputs_class: Type[TO] = AsrAgeClassificationOutputs
+
+
 class ImageManipulationInputs(Inputs):
     image: InputParam = None
     targetimage: InputParam = None
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.image = self.create_param(code="image", data_type=DataType.IMAGE, is_required=True)
-        self.targetimage = self.create_param(code="targetimage", data_type=DataType.IMAGE, is_required=True)
+        self.image = self.create_param(
+            code="image", 
+            data_type=DataType.IMAGE, 
+            is_required=True
+        )
+        self.targetimage = self.create_param(
+            code="targetimage", 
+            data_type=DataType.IMAGE, 
+            is_required=True
+        )
 
 
 class ImageManipulationOutputs(Outputs):
@@ -4355,7 +6143,10 @@ class ImageManipulationOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.image = self.create_param(code="image", data_type=DataType.IMAGE)
+        self.image = self.create_param(
+            code="image", 
+            data_type=DataType.IMAGE
+        )
 
 
 class ImageManipulation(AssetNode[ImageManipulationInputs, ImageManipulationOutputs]):
@@ -4375,84 +6166,16 @@ correct imperfections, or transform the image's appearance.
     outputs_class: Type[TO] = ImageManipulationOutputs
 
 
-class ImageCompressionInputs(Inputs):
-    image: InputParam = None
-    apl_qfactor: InputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.image = self.create_param(code="image", data_type=DataType.IMAGE, is_required=True)
-        self.apl_qfactor = self.create_param(code="apl_qfactor", data_type=DataType.TEXT, is_required=False)
-
-
-class ImageCompressionOutputs(Outputs):
-    image: OutputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.image = self.create_param(code="image", data_type=DataType.IMAGE)
-
-
-class ImageCompression(AssetNode[ImageCompressionInputs, ImageCompressionOutputs]):
-    """
-    Reduces the size of image files without significantly compromising their visual
-quality. Useful for optimizing storage and improving webpage load times.
-
-    InputType: image
-    OutputType: image
-    """
-    function: str = "image-compression"
-    input_type: str = DataType.IMAGE
-    output_type: str = DataType.IMAGE
-
-    inputs_class: Type[TI] = ImageCompressionInputs
-    outputs_class: Type[TO] = ImageCompressionOutputs
-
-
-class TextContentModerationInputs(Inputs):
-    text: InputParam = None
-    language: InputParam = None
-    dialect: InputParam = None
-    script: InputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.text = self.create_param(code="text", data_type=DataType.TEXT, is_required=True)
-        self.language = self.create_param(code="language", data_type=DataType.LABEL, is_required=True)
-        self.dialect = self.create_param(code="dialect", data_type=DataType.LABEL, is_required=False)
-        self.script = self.create_param(code="script", data_type=DataType.LABEL, is_required=False)
-
-
-class TextContentModerationOutputs(Outputs):
-    data: OutputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.LABEL)
-
-
-class TextContentModeration(AssetNode[TextContentModerationInputs, TextContentModerationOutputs]):
-    """
-    Scans and identifies potentially harmful, offensive, or inappropriate textual
-content, ensuring safer user environments.
-
-    InputType: text
-    OutputType: label
-    """
-    function: str = "text-content-moderation"
-    input_type: str = DataType.TEXT
-    output_type: str = DataType.LABEL
-
-    inputs_class: Type[TI] = TextContentModerationInputs
-    outputs_class: Type[TO] = TextContentModerationOutputs
-
-
 class EntitySentimentAnalysisInputs(Inputs):
     text: InputParam = None
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.text = self.create_param(code="text", data_type=DataType.TEXT, is_required=True)
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
 
 
 class EntitySentimentAnalysisOutputs(Outputs):
@@ -4460,7 +6183,10 @@ class EntitySentimentAnalysisOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.LABEL)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.LABEL
+        )
 
 
 class EntitySentimentAnalysis(AssetNode[EntitySentimentAnalysisInputs, EntitySentimentAnalysisOutputs]):
@@ -4480,49 +6206,16 @@ entities within the text.
     outputs_class: Type[TO] = EntitySentimentAnalysisOutputs
 
 
-class TextNormalizationInputs(Inputs):
-    text: InputParam = None
-    language: InputParam = None
-    settings: InputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.text = self.create_param(code="text", data_type=DataType.TEXT, is_required=True)
-        self.language = self.create_param(code="language", data_type=DataType.LABEL, is_required=False)
-        self.settings = self.create_param(code="settings", data_type=DataType.TEXT, is_required=False)
-
-
-class TextNormalizationOutputs(Outputs):
-    data: OutputParam = None
-
-    def __init__(self, node=None):
-        super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.LABEL)
-
-
-class TextNormalization(AssetNode[TextNormalizationInputs, TextNormalizationOutputs]):
-    """
-    Converts unstructured or non-standard textual data into a more readable and
-uniform format, dealing with abbreviations, numerals, and other non-standard
-words.
-
-    InputType: text
-    OutputType: label
-    """
-    function: str = "text-normalization"
-    input_type: str = DataType.TEXT
-    output_type: str = DataType.LABEL
-
-    inputs_class: Type[TI] = TextNormalizationInputs
-    outputs_class: Type[TO] = TextNormalizationOutputs
-
-
 class GuardrailsInputs(Inputs):
     text: InputParam = None
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.text = self.create_param(code="text", data_type=DataType.TEXT, is_required=True)
+        self.text = self.create_param(
+            code="text", 
+            data_type=DataType.TEXT, 
+            is_required=True
+        )
 
 
 class GuardrailsOutputs(Outputs):
@@ -4530,7 +6223,10 @@ class GuardrailsOutputs(Outputs):
 
     def __init__(self, node=None):
         super().__init__(node=node)
-        self.data = self.create_param(code="data", data_type=DataType.LABEL)
+        self.data = self.create_param(
+            code="data", 
+            data_type=DataType.LABEL
+        )
 
 
 class Guardrails(AssetNode[GuardrailsInputs, GuardrailsOutputs]):
@@ -4553,55 +6249,6 @@ activity
 
 class Pipeline(DefaultPipeline):
 
-    def image_and_video_analysis(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> ImageAndVideoAnalysis:
-        """
-        
-        """
-        return ImageAndVideoAnalysis(*args, asset_id=asset_id, pipeline=self, **kwargs)
-
-    def select_supplier_for_translation(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> SelectSupplierForTranslation:
-        """
-        Supplier For Translation
-        """
-        return SelectSupplierForTranslation(*args, asset_id=asset_id, pipeline=self, **kwargs)
-
-    def object_detection(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> ObjectDetection:
-        """
-        Object Detection is a computer vision technology that identifies and locates
-objects within an image, typically by drawing bounding boxes around the
-detected objects and classifying them into predefined categories.
-        """
-        return ObjectDetection(*args, asset_id=asset_id, pipeline=self, **kwargs)
-
-    def language_identification(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> LanguageIdentification:
-        """
-        Detects the language in which a given text is written, aiding in multilingual
-platforms or content localization.
-        """
-        return LanguageIdentification(*args, asset_id=asset_id, pipeline=self, **kwargs)
-
-    def viseme_generation(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> VisemeGeneration:
-        """
-        Viseme Generation is the process of creating visual representations of
-phonemes, which are the distinct units of sound in speech, to synchronize lip
-movements with spoken words in animations or virtual avatars.
-        """
-        return VisemeGeneration(*args, asset_id=asset_id, pipeline=self, **kwargs)
-
-    def image_label_detection(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> ImageLabelDetection:
-        """
-        Identifies objects, themes, or topics within images, useful for image
-categorization, search, and recommendation systems.
-        """
-        return ImageLabelDetection(*args, asset_id=asset_id, pipeline=self, **kwargs)
-
-    def offensive_language_identification(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> OffensiveLanguageIdentification:
-        """
-        Detects language or phrases that might be considered offensive, aiding in
-content moderation and creating respectful user interactions.
-        """
-        return OffensiveLanguageIdentification(*args, asset_id=asset_id, pipeline=self, **kwargs)
-
     def activity_detection(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> ActivityDetection:
         """
         detection of the presence or absence of human speech, used in speech
@@ -4609,13 +6256,12 @@ processing.
         """
         return ActivityDetection(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
-    def depth_estimation(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> DepthEstimation:
+    def text_detection(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> TextDetection:
         """
-        Depth estimation is a computational process that determines the distance of
-objects from a viewpoint, typically using visual data from cameras or sensors
-to create a three-dimensional understanding of a scene.
+        detect text regions in the complex background and label them with bounding
+boxes.
         """
-        return DepthEstimation(*args, asset_id=asset_id, pipeline=self, **kwargs)
+        return TextDetection(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def script_execution(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> ScriptExecution:
         """
@@ -4624,13 +6270,6 @@ instructions or code within a computing environment, enabling the automated
 performance of tasks, calculations, or operations as defined by the script.
         """
         return ScriptExecution(*args, asset_id=asset_id, pipeline=self, **kwargs)
-
-    def text_detection(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> TextDetection:
-        """
-        detect text regions in the complex background and label them with bounding
-boxes.
-        """
-        return TextDetection(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def audio_source_separation(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> AudioSourceSeparation:
         """
@@ -4657,41 +6296,6 @@ categories based on its content.
         """
         return MultiClassTextClassification(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
-    def style_transfer(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> StyleTransfer:
-        """
-        Style Transfer is a technique in artificial intelligence that applies the
-visual style of one image (such as the brushstrokes of a famous painting) to
-the content of another image, effectively blending the artistic elements of the
-first image with the subject matter of the second.
-        """
-        return StyleTransfer(*args, asset_id=asset_id, pipeline=self, **kwargs)
-
-    def image_colorization(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> ImageColorization:
-        """
-        Image colorization is a process that involves adding color to grayscale images,
-transforming them from black-and-white to full-color representations, often
-using advanced algorithms and machine learning techniques to predict and apply
-the appropriate hues and shades.
-        """
-        return ImageColorization(*args, asset_id=asset_id, pipeline=self, **kwargs)
-
-    def keyword_extraction(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> KeywordExtraction:
-        """
-        It helps concise the text and obtain relevant keywords Example use-cases are
-finding topics of interest from a news article and identifying the problems
-based on customer reviews and so.
-        """
-        return KeywordExtraction(*args, asset_id=asset_id, pipeline=self, **kwargs)
-
-    def intent_classification(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> IntentClassification:
-        """
-        Intent Classification is a natural language processing task that involves
-analyzing and categorizing user text input to determine the underlying purpose
-or goal behind the communication, such as booking a flight, asking for weather
-information, or setting a reminder.
-        """
-        return IntentClassification(*args, asset_id=asset_id, pipeline=self, **kwargs)
-
     def scene_detection(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> SceneDetection:
         """
         Scene detection is used for detecting transitions between shots in a video to
@@ -4699,12 +6303,11 @@ split it into basic temporal segments.
         """
         return SceneDetection(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
-    def translation(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> Translation:
+    def zero_shot_classification(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> ZeroShotClassification:
         """
-        Converts text from one language to another while maintaining the original
-message's essence and context. Crucial for global communication.
+        
         """
-        return Translation(*args, asset_id=asset_id, pipeline=self, **kwargs)
+        return ZeroShotClassification(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def audio_intent_detection(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> AudioIntentDetection:
         """
@@ -4714,12 +6317,6 @@ words, enabling systems to understand and respond appropriately to human
 speech.
         """
         return AudioIntentDetection(*args, asset_id=asset_id, pipeline=self, **kwargs)
-
-    def zero_shot_classification(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> ZeroShotClassification:
-        """
-        
-        """
-        return ZeroShotClassification(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def ocr(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> Ocr:
         """
@@ -4743,14 +6340,6 @@ facilitate tasks such as retrieval, classification, and recommendation.
         """
         return VideoEmbedding(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
-    def expression_detection(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> ExpressionDetection:
-        """
-        Expression Detection is the process of identifying and analyzing facial
-expressions to interpret emotions or intentions using AI and computer vision
-techniques.
-        """
-        return ExpressionDetection(*args, asset_id=asset_id, pipeline=self, **kwargs)
-
     def extract_audio_from_video(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> ExtractAudioFromVideo:
         """
         Isolates and extracts audio tracks from video files, aiding in audio analysis
@@ -4773,15 +6362,6 @@ objects, actions, and scenes depicted in the image.
         """
         return ImageAnalysis(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
-    def instance_segmentation(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> InstanceSegmentation:
-        """
-        Instance segmentation is a computer vision task that involves detecting and
-delineating each distinct object within an image, assigning a unique label and
-precise boundary to every individual instance of objects, even if they belong
-to the same category.
-        """
-        return InstanceSegmentation(*args, asset_id=asset_id, pipeline=self, **kwargs)
-
     def benchmark_scoring_mt(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> BenchmarkScoringMt:
         """
         Benchmark Scoring MT is a function designed to evaluate and score machine
@@ -4797,20 +6377,6 @@ audio clip. Ideal for multi-speaker recordings or conference calls.
         """
         return SpeakerDiarizationAudio(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
-    def speaker_diarization_video(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> SpeakerDiarizationVideo:
-        """
-        Segments a video based on different speakers, identifying when each individual
-speaks. Useful for transcriptions and understanding multi-person conversations.
-        """
-        return SpeakerDiarizationVideo(*args, asset_id=asset_id, pipeline=self, **kwargs)
-
-    def audio_transcript_improvement(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> AudioTranscriptImprovement:
-        """
-        Refines and corrects transcriptions generated from audio data, improving
-readability and accuracy.
-        """
-        return AudioTranscriptImprovement(*args, asset_id=asset_id, pipeline=self, **kwargs)
-
     def connection(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> Connection:
         """
         Connections are integration that allow you to connect your AI agents to
@@ -4825,6 +6391,28 @@ tools
         """
         return Connector(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
+    def image_content_moderation(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> ImageContentModeration:
+        """
+        Detects and filters out inappropriate or harmful images, essential for
+platforms with user-generated visual content.
+        """
+        return ImageContentModeration(*args, asset_id=asset_id, pipeline=self, **kwargs)
+
+    def image_colorization(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> ImageColorization:
+        """
+        Image colorization is a process that involves adding color to grayscale images,
+transforming them from black-and-white to full-color representations, often
+using advanced algorithms and machine learning techniques to predict and apply
+the appropriate hues and shades.
+        """
+        return ImageColorization(*args, asset_id=asset_id, pipeline=self, **kwargs)
+
+    def image_and_video_analysis(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> ImageAndVideoAnalysis:
+        """
+        
+        """
+        return ImageAndVideoAnalysis(*args, asset_id=asset_id, pipeline=self, **kwargs)
+
     def benchmark_scoring_asr(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> BenchmarkScoringAsr:
         """
         Benchmark Scoring ASR is a function that evaluates and compares the performance
@@ -4833,90 +6421,12 @@ other relevant metrics against a standardized set of benchmarks.
         """
         return BenchmarkScoringAsr(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
-    def sentiment_analysis(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> SentimentAnalysis:
+    def video_content_moderation(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> VideoContentModeration:
         """
-        Determines the sentiment or emotion (e.g., positive, negative, neutral) of a
-piece of text, aiding in understanding user feedback or market sentiment.
+        Automatically reviews video content to detect and possibly remove inappropriate
+or harmful material. Essential for user-generated content platforms.
         """
-        return SentimentAnalysis(*args, asset_id=asset_id, pipeline=self, **kwargs)
-
-    def metric_aggregation(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> MetricAggregation:
-        """
-        Metric Aggregation is a function that computes and summarizes numerical data by
-applying statistical operations, such as averaging, summing, or finding the
-minimum and maximum values, to provide insights and facilitate analysis of
-large datasets.
-        """
-        return MetricAggregation(*args, asset_id=asset_id, pipeline=self, **kwargs)
-
-    def topic_modeling(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> TopicModeling:
-        """
-        Topic modeling is a type of statistical modeling for discovering the abstract
-“topics” that occur in a collection of documents.
-        """
-        return TopicModeling(*args, asset_id=asset_id, pipeline=self, **kwargs)
-
-    def subtitling(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> Subtitling:
-        """
-        Generates accurate subtitles for videos, enhancing accessibility for diverse
-audiences.
-        """
-        return Subtitling(*args, asset_id=asset_id, pipeline=self, **kwargs)
-
-    def text_generation_metric_default(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> TextGenerationMetricDefault:
-        """
-        The "Text Generation Metric Default" function provides a standard set of
-evaluation metrics for assessing the quality and performance of text generation
-models.
-        """
-        return TextGenerationMetricDefault(*args, asset_id=asset_id, pipeline=self, **kwargs)
-
-    def visual_question_answering(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> VisualQuestionAnswering:
-        """
-        Visual Question Answering (VQA) is a task in artificial intelligence that
-involves analyzing an image and providing accurate, contextually relevant
-answers to questions posed about the visual content of that image.
-        """
-        return VisualQuestionAnswering(*args, asset_id=asset_id, pipeline=self, **kwargs)
-
-    def text_generation(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> TextGeneration:
-        """
-        Creates coherent and contextually relevant textual content based on prompts or
-certain parameters. Useful for chatbots, content creation, and data
-augmentation.
-        """
-        return TextGeneration(*args, asset_id=asset_id, pipeline=self, **kwargs)
-
-    def document_image_parsing(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> DocumentImageParsing:
-        """
-        Document Image Parsing is the process of analyzing and converting scanned or
-photographed images of documents into structured, machine-readable formats by
-identifying and extracting text, layout, and other relevant information.
-        """
-        return DocumentImageParsing(*args, asset_id=asset_id, pipeline=self, **kwargs)
-
-    def speech_recognition(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> SpeechRecognition:
-        """
-        Converts spoken language into written text. Useful for transcription services,
-voice assistants, and applications requiring voice-to-text capabilities.
-        """
-        return SpeechRecognition(*args, asset_id=asset_id, pipeline=self, **kwargs)
-
-    def text_reconstruction(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> TextReconstruction:
-        """
-        Text Reconstruction is a process that involves piecing together fragmented or
-incomplete text data to restore it to its original, coherent form.
-        """
-        return TextReconstruction(*args, asset_id=asset_id, pipeline=self, **kwargs)
-
-    def multi_label_text_classification(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> MultiLabelTextClassification:
-        """
-        Multi Label Text Classification is a natural language processing task where a
-given text is analyzed and assigned multiple relevant labels or categories from
-a predefined set, allowing for the text to belong to more than one category
-simultaneously.
-        """
-        return MultiLabelTextClassification(*args, asset_id=asset_id, pipeline=self, **kwargs)
+        return VideoContentModeration(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def multilingual_speech_recognition(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> MultilingualSpeechRecognition:
         """
@@ -4926,12 +6436,35 @@ for seamless communication and understanding in diverse linguistic contexts.
         """
         return MultilingualSpeechRecognition(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
-    def video_content_moderation(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> VideoContentModeration:
+    def topic_modeling(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> TopicModeling:
         """
-        Automatically reviews video content to detect and possibly remove inappropriate
-or harmful material. Essential for user-generated content platforms.
+        Topic modeling is a type of statistical modeling for discovering the abstract
+“topics” that occur in a collection of documents.
         """
-        return VideoContentModeration(*args, asset_id=asset_id, pipeline=self, **kwargs)
+        return TopicModeling(*args, asset_id=asset_id, pipeline=self, **kwargs)
+
+    def visual_question_answering(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> VisualQuestionAnswering:
+        """
+        Visual Question Answering (VQA) is a task in artificial intelligence that
+involves analyzing an image and providing accurate, contextually relevant
+answers to questions posed about the visual content of that image.
+        """
+        return VisualQuestionAnswering(*args, asset_id=asset_id, pipeline=self, **kwargs)
+
+    def document_image_parsing(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> DocumentImageParsing:
+        """
+        Document Image Parsing is the process of analyzing and converting scanned or
+photographed images of documents into structured, machine-readable formats by
+identifying and extracting text, layout, and other relevant information.
+        """
+        return DocumentImageParsing(*args, asset_id=asset_id, pipeline=self, **kwargs)
+
+    def text_reconstruction(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> TextReconstruction:
+        """
+        Text Reconstruction is a process that involves piecing together fragmented or
+incomplete text data to restore it to its original, coherent form.
+        """
+        return TextReconstruction(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def audio_emotion_detection(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> AudioEmotionDetection:
         """
@@ -5026,13 +6559,6 @@ natural language usually from a given text
         """
         return QuestionAnswering(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
-    def paraphrasing(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> Paraphrasing:
-        """
-        Express the meaning of the writer or speaker or something written or spoken
-using different words.
-        """
-        return Paraphrasing(*args, asset_id=asset_id, pipeline=self, **kwargs)
-
     def referenceless_text_generation_metric(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> ReferencelessTextGenerationMetric:
         """
         The Referenceless Text Generation Metric is a method for evaluating the quality
@@ -5086,20 +6612,6 @@ image into meaningful segments based on the objects or regions they represent.
         """
         return SemanticSegmentation(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
-    def emotion_detection(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> EmotionDetection:
-        """
-        Identifies human emotions from text or audio, enhancing user experience in
-chatbots or customer feedback analysis.
-        """
-        return EmotionDetection(*args, asset_id=asset_id, pipeline=self, **kwargs)
-
-    def image_content_moderation(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> ImageContentModeration:
-        """
-        Detects and filters out inappropriate or harmful images, essential for
-platforms with user-generated visual content.
-        """
-        return ImageContentModeration(*args, asset_id=asset_id, pipeline=self, **kwargs)
-
     def audio_generation_metric(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> AudioGenerationMetric:
         """
         The Audio Generation Metric is a quantitative measure used to evaluate the
@@ -5119,6 +6631,13 @@ identifying specific object classes in an image.
         """
         return AutoMaskGeneration(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
+    def text_to_audio(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> TextToAudio:
+        """
+        The Text to Audio function converts written text into spoken words, allowing
+users to listen to the content instead of reading it.
+        """
+        return TextToAudio(*args, asset_id=asset_id, pipeline=self, **kwargs)
+
     def fact_checking(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> FactChecking:
         """
         Fact Checking is the process of verifying the accuracy and truthfulness of
@@ -5126,13 +6645,6 @@ information, statements, or claims by cross-referencing with reliable sources
 and evidence.
         """
         return FactChecking(*args, asset_id=asset_id, pipeline=self, **kwargs)
-
-    def text_to_audio(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> TextToAudio:
-        """
-        The Text to Audio function converts written text into spoken words, allowing
-users to listen to the content instead of reading it.
-        """
-        return TextToAudio(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def table_question_answering(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> TableQuestionAnswering:
         """
@@ -5171,14 +6683,6 @@ and classify the speaker's gender based on their voice characteristics.
 base or database.
         """
         return EntityLinking(*args, asset_id=asset_id, pipeline=self, **kwargs)
-
-    def referenceless_text_generation_metric_default(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> ReferencelessTextGenerationMetricDefault:
-        """
-        The Referenceless Text Generation Metric Default is a function designed to
-evaluate the quality of generated text without relying on reference texts for
-comparison.
-        """
-        return ReferencelessTextGenerationMetricDefault(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def part_of_speech_tagging(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> PartOfSpeechTagging:
         """
@@ -5246,14 +6750,6 @@ back into their original, more complex or detailed textual representations.
         """
         return InverseTextNormalization(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
-    def voice_cloning(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> VoiceCloning:
-        """
-        Replicates a person's voice based on a sample, allowing for the generation of
-speech in that person's tone and style. Used cautiously due to ethical
-considerations.
-        """
-        return VoiceCloning(*args, asset_id=asset_id, pipeline=self, **kwargs)
-
     def image_to_video_generation(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> ImageToVideoGeneration:
         """
         The Image To Video Generation function transforms a series of static images
@@ -5270,15 +6766,6 @@ from a digital image or a video frame against a database of faces
         """
         return FacialRecognition(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
-    def loglikelihood(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> Loglikelihood:
-        """
-        The Log Likelihood function measures the probability of observing the given
-data under a specific statistical model by taking the natural logarithm of the
-likelihood function, thereby transforming the product of probabilities into a
-sum, which simplifies the process of optimization and parameter estimation.
-        """
-        return Loglikelihood(*args, asset_id=asset_id, pipeline=self, **kwargs)
-
     def speech_classification(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> SpeechClassification:
         """
         Categorizes audio clips based on their content, aiding in content organization
@@ -5286,12 +6773,29 @@ and targeted actions.
         """
         return SpeechClassification(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
-    def speech_synthesis(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> SpeechSynthesis:
+    def voice_cloning(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> VoiceCloning:
         """
-        Generates human-like speech from written text. Ideal for text-to-speech
-applications, audiobooks, and voice assistants.
+        Replicates a person's voice based on a sample, allowing for the generation of
+speech in that person's tone and style. Used cautiously due to ethical
+considerations.
         """
-        return SpeechSynthesis(*args, asset_id=asset_id, pipeline=self, **kwargs)
+        return VoiceCloning(*args, asset_id=asset_id, pipeline=self, **kwargs)
+
+    def intent_classification(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> IntentClassification:
+        """
+        Intent Classification is a natural language processing task that involves
+analyzing and categorizing user text input to determine the underlying purpose
+or goal behind the communication, such as booking a flight, asking for weather
+information, or setting a reminder.
+        """
+        return IntentClassification(*args, asset_id=asset_id, pipeline=self, **kwargs)
+
+    def image_label_detection(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> ImageLabelDetection:
+        """
+        Identifies objects, themes, or topics within images, useful for image
+categorization, search, and recommendation systems.
+        """
+        return ImageLabelDetection(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def summarization(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> Summarization:
         """
@@ -5301,41 +6805,66 @@ from a source (or sources) to produce an abridged version for a particular user
         """
         return Summarization(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
-    def audio_transcript_analysis(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> AudioTranscriptAnalysis:
+    def speech_synthesis(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> SpeechSynthesis:
         """
-        Analyzes transcribed audio data for insights, patterns, or specific information
-extraction.
+        Generates human-like speech from written text. Ideal for text-to-speech
+applications, audiobooks, and voice assistants.
         """
-        return AudioTranscriptAnalysis(*args, asset_id=asset_id, pipeline=self, **kwargs)
+        return SpeechSynthesis(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
-    def topic_classification(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> TopicClassification:
+    def speech_non_speech_classification(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> SpeechNonSpeechClassification:
         """
-        Assigns categories or topics to a piece of text based on its content,
-facilitating content organization and retrieval.
+        Differentiates between speech and non-speech audio segments. Great for editing
+software and transcription services to exclude irrelevant audio.
         """
-        return TopicClassification(*args, asset_id=asset_id, pipeline=self, **kwargs)
+        return SpeechNonSpeechClassification(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
-    def speech_embedding(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> SpeechEmbedding:
+    def object_detection(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> ObjectDetection:
         """
-        Transforms spoken content into a fixed-size vector in a high-dimensional space
-that captures the content's essence. Facilitates tasks like speech recognition
-and speaker verification.
+        Object Detection is a computer vision technology that identifies and locates
+objects within an image, typically by drawing bounding boxes around the
+detected objects and classifying them into predefined categories.
         """
-        return SpeechEmbedding(*args, asset_id=asset_id, pipeline=self, **kwargs)
+        return ObjectDetection(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
-    def video_forced_alignment(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> VideoForcedAlignment:
+    def audio_reconstruction(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> AudioReconstruction:
         """
-        Aligns the transcription of spoken content in a video with its corresponding
-timecodes, facilitating subtitle creation.
+        Audio Reconstruction is the process of restoring or recreating audio signals
+from incomplete, damaged, or degraded recordings to achieve a high-quality,
+accurate representation of the original sound.
         """
-        return VideoForcedAlignment(*args, asset_id=asset_id, pipeline=self, **kwargs)
+        return AudioReconstruction(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
-    def subtitling_translation(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> SubtitlingTranslation:
+    def style_transfer(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> StyleTransfer:
         """
-        Converts the text of subtitles from one language to another, ensuring context
-and cultural nuances are maintained. Essential for global content distribution.
+        Style Transfer is a technique in artificial intelligence that applies the
+visual style of one image (such as the brushstrokes of a famous painting) to
+the content of another image, effectively blending the artistic elements of the
+first image with the subject matter of the second.
         """
-        return SubtitlingTranslation(*args, asset_id=asset_id, pipeline=self, **kwargs)
+        return StyleTransfer(*args, asset_id=asset_id, pipeline=self, **kwargs)
+
+    def select_supplier_for_translation(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> SelectSupplierForTranslation:
+        """
+        Supplier For Translation
+        """
+        return SelectSupplierForTranslation(*args, asset_id=asset_id, pipeline=self, **kwargs)
+
+    def keyword_extraction(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> KeywordExtraction:
+        """
+        It helps concise the text and obtain relevant keywords Example use-cases are
+finding topics of interest from a news article and identifying the problems
+based on customer reviews and so.
+        """
+        return KeywordExtraction(*args, asset_id=asset_id, pipeline=self, **kwargs)
+
+    def text_generation_metric_default(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> TextGenerationMetricDefault:
+        """
+        The "Text Generation Metric Default" function provides a standard set of
+evaluation metrics for assessing the quality and performance of text generation
+models.
+        """
+        return TextGenerationMetricDefault(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def text_spam_detection(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> TextSpamDetection:
         """
@@ -5353,27 +6882,76 @@ events, and contextual relationships within the footage.
         """
         return VideoUnderstanding(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
-    def text_denormalization(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> TextDenormalization:
+    def depth_estimation(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> DepthEstimation:
         """
-        Converts standardized or normalized text into its original, often more
-readable, form. Useful in natural language generation tasks.
+        Depth estimation is a computational process that determines the distance of
+objects from a viewpoint, typically using visual data from cameras or sensors
+to create a three-dimensional understanding of a scene.
         """
-        return TextDenormalization(*args, asset_id=asset_id, pipeline=self, **kwargs)
+        return DepthEstimation(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
-    def speech_non_speech_classification(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> SpeechNonSpeechClassification:
+    def token_classification(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> TokenClassification:
         """
-        Differentiates between speech and non-speech audio segments. Great for editing
-software and transcription services to exclude irrelevant audio.
+        Token-level classification means that each token will be given a label, for
+example a part-of-speech tagger will classify each word as one particular part
+of speech.
         """
-        return SpeechNonSpeechClassification(*args, asset_id=asset_id, pipeline=self, **kwargs)
+        return TokenClassification(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
-    def audio_reconstruction(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> AudioReconstruction:
+    def instance_segmentation(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> InstanceSegmentation:
         """
-        Audio Reconstruction is the process of restoring or recreating audio signals
-from incomplete, damaged, or degraded recordings to achieve a high-quality,
-accurate representation of the original sound.
+        Instance segmentation is a computer vision task that involves detecting and
+delineating each distinct object within an image, assigning a unique label and
+precise boundary to every individual instance of objects, even if they belong
+to the same category.
         """
-        return AudioReconstruction(*args, asset_id=asset_id, pipeline=self, **kwargs)
+        return InstanceSegmentation(*args, asset_id=asset_id, pipeline=self, **kwargs)
+
+    def referenceless_text_generation_metric_default(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> ReferencelessTextGenerationMetricDefault:
+        """
+        The Referenceless Text Generation Metric Default is a function designed to
+evaluate the quality of generated text without relying on reference texts for
+comparison.
+        """
+        return ReferencelessTextGenerationMetricDefault(*args, asset_id=asset_id, pipeline=self, **kwargs)
+
+    def subtitling_translation(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> SubtitlingTranslation:
+        """
+        Converts the text of subtitles from one language to another, ensuring context
+and cultural nuances are maintained. Essential for global content distribution.
+        """
+        return SubtitlingTranslation(*args, asset_id=asset_id, pipeline=self, **kwargs)
+
+    def viseme_generation(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> VisemeGeneration:
+        """
+        Viseme Generation is the process of creating visual representations of
+phonemes, which are the distinct units of sound in speech, to synchronize lip
+movements with spoken words in animations or virtual avatars.
+        """
+        return VisemeGeneration(*args, asset_id=asset_id, pipeline=self, **kwargs)
+
+    def metric_aggregation(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> MetricAggregation:
+        """
+        Metric Aggregation is a function that computes and summarizes numerical data by
+applying statistical operations, such as averaging, summing, or finding the
+minimum and maximum values, to provide insights and facilitate analysis of
+large datasets.
+        """
+        return MetricAggregation(*args, asset_id=asset_id, pipeline=self, **kwargs)
+
+    def language_identification(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> LanguageIdentification:
+        """
+        Detects the language in which a given text is written, aiding in multilingual
+platforms or content localization.
+        """
+        return LanguageIdentification(*args, asset_id=asset_id, pipeline=self, **kwargs)
+
+    def emotion_detection(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> EmotionDetection:
+        """
+        Identifies human emotions from text or audio, enhancing user experience in
+chatbots or customer feedback analysis.
+        """
+        return EmotionDetection(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def audio_forced_alignment(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> AudioForcedAlignment:
         """
@@ -5389,6 +6967,22 @@ change based on diacritics.
         """
         return Diacritization(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
+    def loglikelihood(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> Loglikelihood:
+        """
+        The Log Likelihood function measures the probability of observing the given
+data under a specific statistical model by taking the natural logarithm of the
+likelihood function, thereby transforming the product of probabilities into a
+sum, which simplifies the process of optimization and parameter estimation.
+        """
+        return Loglikelihood(*args, asset_id=asset_id, pipeline=self, **kwargs)
+
+    def offensive_language_identification(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> OffensiveLanguageIdentification:
+        """
+        Detects language or phrases that might be considered offensive, aiding in
+content moderation and creating respectful user interactions.
+        """
+        return OffensiveLanguageIdentification(*args, asset_id=asset_id, pipeline=self, **kwargs)
+
     def referenceless_audio_generation_metric(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> ReferencelessAudioGenerationMetric:
         """
         The Referenceless Audio Generation Metric is a tool designed to evaluate the
@@ -5397,20 +6991,100 @@ audio sample for comparison.
         """
         return ReferencelessAudioGenerationMetric(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
-    def voice_activity_detection(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> VoiceActivityDetection:
+    def expression_detection(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> ExpressionDetection:
         """
-        Determines when a person is speaking in an audio clip. It's an essential
-preprocessing step for other audio-related tasks.
+        Expression Detection is the process of identifying and analyzing facial
+expressions to interpret emotions or intentions using AI and computer vision
+techniques.
         """
-        return VoiceActivityDetection(*args, asset_id=asset_id, pipeline=self, **kwargs)
+        return ExpressionDetection(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
-    def token_classification(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> TokenClassification:
+    def text_content_moderation(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> TextContentModeration:
         """
-        Token-level classification means that each token will be given a label, for
-example a part-of-speech tagger will classify each word as one particular part
-of speech.
+        Scans and identifies potentially harmful, offensive, or inappropriate textual
+content, ensuring safer user environments.
         """
-        return TokenClassification(*args, asset_id=asset_id, pipeline=self, **kwargs)
+        return TextContentModeration(*args, asset_id=asset_id, pipeline=self, **kwargs)
+
+    def audio_transcript_improvement(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> AudioTranscriptImprovement:
+        """
+        Refines and corrects transcriptions generated from audio data, improving
+readability and accuracy.
+        """
+        return AudioTranscriptImprovement(*args, asset_id=asset_id, pipeline=self, **kwargs)
+
+    def text_classification(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> TextClassification:
+        """
+        Categorizes text into predefined groups or topics, facilitating content
+organization and targeted actions.
+        """
+        return TextClassification(*args, asset_id=asset_id, pipeline=self, **kwargs)
+
+    def video_forced_alignment(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> VideoForcedAlignment:
+        """
+        Aligns the transcription of spoken content in a video with its corresponding
+timecodes, facilitating subtitle creation.
+        """
+        return VideoForcedAlignment(*args, asset_id=asset_id, pipeline=self, **kwargs)
+
+    def multi_label_text_classification(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> MultiLabelTextClassification:
+        """
+        Multi Label Text Classification is a natural language processing task where a
+given text is analyzed and assigned multiple relevant labels or categories from
+a predefined set, allowing for the text to belong to more than one category
+simultaneously.
+        """
+        return MultiLabelTextClassification(*args, asset_id=asset_id, pipeline=self, **kwargs)
+
+    def topic_classification(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> TopicClassification:
+        """
+        Assigns categories or topics to a piece of text based on its content,
+facilitating content organization and retrieval.
+        """
+        return TopicClassification(*args, asset_id=asset_id, pipeline=self, **kwargs)
+
+    def speech_embedding(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> SpeechEmbedding:
+        """
+        Transforms spoken content into a fixed-size vector in a high-dimensional space
+that captures the content's essence. Facilitates tasks like speech recognition
+and speaker verification.
+        """
+        return SpeechEmbedding(*args, asset_id=asset_id, pipeline=self, **kwargs)
+
+    def audio_transcript_analysis(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> AudioTranscriptAnalysis:
+        """
+        Analyzes transcribed audio data for insights, patterns, or specific information
+extraction.
+        """
+        return AudioTranscriptAnalysis(*args, asset_id=asset_id, pipeline=self, **kwargs)
+
+    def speaker_diarization_video(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> SpeakerDiarizationVideo:
+        """
+        Segments a video based on different speakers, identifying when each individual
+speaks. Useful for transcriptions and understanding multi-person conversations.
+        """
+        return SpeakerDiarizationVideo(*args, asset_id=asset_id, pipeline=self, **kwargs)
+
+    def paraphrasing(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> Paraphrasing:
+        """
+        Express the meaning of the writer or speaker or something written or spoken
+using different words.
+        """
+        return Paraphrasing(*args, asset_id=asset_id, pipeline=self, **kwargs)
+
+    def text_summarization(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> TextSummarization:
+        """
+        Extracts the main points from a larger body of text, producing a concise
+summary without losing the primary message.
+        """
+        return TextSummarization(*args, asset_id=asset_id, pipeline=self, **kwargs)
+
+    def text_denormalization(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> TextDenormalization:
+        """
+        Converts standardized or normalized text into its original, often more
+readable, form. Useful in natural language generation tasks.
+        """
+        return TextDenormalization(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def speech_translation(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> SpeechTranslation:
         """
@@ -5420,26 +7094,70 @@ of different languages.
         """
         return SpeechTranslation(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
+    def voice_activity_detection(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> VoiceActivityDetection:
+        """
+        Determines when a person is speaking in an audio clip. It's an essential
+preprocessing step for other audio-related tasks.
+        """
+        return VoiceActivityDetection(*args, asset_id=asset_id, pipeline=self, **kwargs)
+
+    def sentiment_analysis(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> SentimentAnalysis:
+        """
+        Determines the sentiment or emotion (e.g., positive, negative, neutral) of a
+piece of text, aiding in understanding user feedback or market sentiment.
+        """
+        return SentimentAnalysis(*args, asset_id=asset_id, pipeline=self, **kwargs)
+
+    def image_compression(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> ImageCompression:
+        """
+        Reduces the size of image files without significantly compromising their visual
+quality. Useful for optimizing storage and improving webpage load times.
+        """
+        return ImageCompression(*args, asset_id=asset_id, pipeline=self, **kwargs)
+
+    def text_normalization(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> TextNormalization:
+        """
+        Converts unstructured or non-standard textual data into a more readable and
+uniform format, dealing with abbreviations, numerals, and other non-standard
+words.
+        """
+        return TextNormalization(*args, asset_id=asset_id, pipeline=self, **kwargs)
+
+    def text_generation(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> TextGeneration:
+        """
+        Creates coherent and contextually relevant textual content based on prompts or
+certain parameters. Useful for chatbots, content creation, and data
+augmentation.
+        """
+        return TextGeneration(*args, asset_id=asset_id, pipeline=self, **kwargs)
+
+    def translation(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> Translation:
+        """
+        Converts text from one language to another while maintaining the original
+message's essence and context. Crucial for global communication.
+        """
+        return Translation(*args, asset_id=asset_id, pipeline=self, **kwargs)
+
+    def subtitling(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> Subtitling:
+        """
+        Generates accurate subtitles for videos, enhancing accessibility for diverse
+audiences.
+        """
+        return Subtitling(*args, asset_id=asset_id, pipeline=self, **kwargs)
+
+    def speech_recognition(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> SpeechRecognition:
+        """
+        Converts spoken language into written text. Useful for transcription services,
+voice assistants, and applications requiring voice-to-text capabilities.
+        """
+        return SpeechRecognition(*args, asset_id=asset_id, pipeline=self, **kwargs)
+
     def split_on_linebreak(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> SplitOnLinebreak:
         """
         The "Split On Linebreak" function divides a given string into a list of
 substrings, using linebreaks (newline characters) as the points of separation.
         """
         return SplitOnLinebreak(*args, asset_id=asset_id, pipeline=self, **kwargs)
-
-    def text_classification(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> TextClassification:
-        """
-        Categorizes text into predefined groups or topics, facilitating content
-organization and targeted actions.
-        """
-        return TextClassification(*args, asset_id=asset_id, pipeline=self, **kwargs)
-
-    def text_summarization(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> TextSummarization:
-        """
-        Extracts the main points from a larger body of text, producing a concise
-summary without losing the primary message.
-        """
-        return TextSummarization(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def asr_quality_estimation(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> AsrQualityEstimation:
         """
@@ -5457,14 +7175,6 @@ websites.
         """
         return Search(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
-    def asr_age_classification(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> AsrAgeClassification:
-        """
-        The ASR Age Classification function is designed to analyze audio recordings of
-speech to determine the speaker's age group by leveraging automatic speech
-recognition (ASR) technology and machine learning algorithms.
-        """
-        return AsrAgeClassification(*args, asset_id=asset_id, pipeline=self, **kwargs)
-
     def text_segmenation(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> TextSegmenation:
         """
         Text Segmentation is the process of dividing a continuous text into meaningful
@@ -5472,6 +7182,14 @@ units, such as words, sentences, or topics, to facilitate easier analysis and
 understanding.
         """
         return TextSegmenation(*args, asset_id=asset_id, pipeline=self, **kwargs)
+
+    def asr_age_classification(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> AsrAgeClassification:
+        """
+        The ASR Age Classification function is designed to analyze audio recordings of
+speech to determine the speaker's age group by leveraging automatic speech
+recognition (ASR) technology and machine learning algorithms.
+        """
+        return AsrAgeClassification(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def image_manipulation(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> ImageManipulation:
         """
@@ -5481,20 +7199,6 @@ correct imperfections, or transform the image's appearance.
         """
         return ImageManipulation(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
-    def image_compression(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> ImageCompression:
-        """
-        Reduces the size of image files without significantly compromising their visual
-quality. Useful for optimizing storage and improving webpage load times.
-        """
-        return ImageCompression(*args, asset_id=asset_id, pipeline=self, **kwargs)
-
-    def text_content_moderation(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> TextContentModeration:
-        """
-        Scans and identifies potentially harmful, offensive, or inappropriate textual
-content, ensuring safer user environments.
-        """
-        return TextContentModeration(*args, asset_id=asset_id, pipeline=self, **kwargs)
-
     def entity_sentiment_analysis(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> EntitySentimentAnalysis:
         """
         Entity Sentiment Analysis combines both entity analysis and sentiment analysis
@@ -5502,14 +7206,6 @@ and attempts to determine the sentiment (positive or negative) expressed about
 entities within the text.
         """
         return EntitySentimentAnalysis(*args, asset_id=asset_id, pipeline=self, **kwargs)
-
-    def text_normalization(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> TextNormalization:
-        """
-        Converts unstructured or non-standard textual data into a more readable and
-uniform format, dealing with abbreviations, numerals, and other non-standard
-words.
-        """
-        return TextNormalization(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
     def guardrails(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> Guardrails:
         """
