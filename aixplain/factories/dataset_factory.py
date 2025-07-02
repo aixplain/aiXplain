@@ -153,23 +153,23 @@ class DatasetFactory(AssetFactory):
         return dataset
 
     @classmethod
-    def get(cls, dataset_id: Text) -> Dataset:
+    def get(cls, dataset_id: Text, api_key: str = None) -> Dataset:
         """Create a 'Dataset' object from dataset id
 
         Args:
             dataset_id (Text): Dataset ID of required dataset.
+            api_key (str, optional): Team API key. Defaults to None.
 
         Returns:
             Dataset: Created 'Dataset' object
         """
         try:
             url = urljoin(cls.backend_url, f"sdk/datasets/{dataset_id}/overview")
-
-            headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+            api_key = api_key or config.TEAM_API_KEY
+            headers = {"Authorization": f"Token {api_key}", "Content-Type": "application/json"}
             logging.info(f"Start service for GET Dataset  - {url} - {headers}")
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()
-
         except Exception as e:
             error_message = f"Error retrieving Dataset {dataset_id}: {str(e)}"
             logging.error(error_message, exc_info=True)

@@ -44,12 +44,14 @@ class Benchmark(
     def get(cls, id: str, **kwargs: Unpack[BareGetParams]) -> "Benchmark":
         from aixplain.factories import BenchmarkFactory
 
-        return BenchmarkFactory.get(benchmark_id=id)
+        api_key = cls._get_api_key(kwargs)
+        return BenchmarkFactory.get(benchmark_id=id, api_key=api_key)
 
     @classmethod
     def create(cls, *args, **kwargs: Unpack[BenchmarkCreateParams]) -> "Benchmark":
         from aixplain.factories import BenchmarkFactory
 
+        # Note: BenchmarkFactory.create doesn't accept api_key yet
         return BenchmarkFactory.create(*args, **kwargs)
 
     @classmethod
@@ -66,6 +68,7 @@ class Benchmark(
         """
         from aixplain.factories import BenchmarkFactory
 
+        # Note: BenchmarkFactory.list_normalization_options doesn't accept api_key yet
         return BenchmarkFactory.list_normalization_options(metric, model)
 
 
@@ -81,7 +84,8 @@ class BenchmarkJob(
     def get(cls, **kwargs: Unpack[BareGetParams]) -> "BenchmarkJob":
         from aixplain.factories import BenchmarkFactory
 
-        return BenchmarkFactory.get_job(job_id=kwargs["id"])
+        api_key = cls._get_api_key(kwargs)
+        return BenchmarkFactory.get_job(job_id=kwargs["id"], api_key=api_key)
 
     def get_scores(self) -> dict:
         """
@@ -92,4 +96,5 @@ class BenchmarkJob(
         """
         from aixplain.factories import BenchmarkFactory
 
+        # Note: BenchmarkFactory.get_benchmark_job_scores doesn't accept api_key yet
         return BenchmarkFactory.get_benchmark_job_scores(self.id)

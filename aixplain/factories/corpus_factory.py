@@ -105,23 +105,23 @@ class CorpusFactory(AssetFactory):
         return corpus
 
     @classmethod
-    def get(cls, corpus_id: Text) -> Corpus:
+    def get(cls, corpus_id: Text, api_key: str = None) -> Corpus:
         """Create a 'Corpus' object from corpus id
 
         Args:
             corpus_id (Text): Corpus ID of required corpus.
+            api_key (str, optional): Team API key. Defaults to None.
 
         Returns:
             Corpus: Created 'Corpus' object
         """
         try:
             url = urljoin(cls.backend_url, f"sdk/corpora/{corpus_id}/overview")
-
-            headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+            api_key = api_key or config.TEAM_API_KEY
+            headers = {"Authorization": f"Token {api_key}", "Content-Type": "application/json"}
             logging.info(f"Start service for GET Corpus  - {url} - {headers}")
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()
-
         except Exception as e:
             error_message = f"Error retrieving Corpus {corpus_id}: {str(e)}"
             logging.error(error_message, exc_info=True)
