@@ -44,16 +44,22 @@ class BaseResource:
     @classmethod
     def _get_api_key(cls, kwargs: dict) -> str:
         """
-        Get API key from kwargs or context.
+        Get API key from kwargs or context, with fallback to config for backwards compatibility.
         
         Args:
             kwargs: dict: Keyword arguments passed to the method.
             
         Returns:
-            str: API key from kwargs or context, or None if not found.
+            str: API key from kwargs, context, or config.TEAM_API_KEY as fallback.
         """
-        return (kwargs.get("api_key") or 
-                getattr(cls.context, "api_key", None))
+        api_key = (kwargs.get("api_key") or 
+                  getattr(cls.context, "api_key", None))
+        
+        if api_key is None:
+            import aixplain.utils.config as config
+            api_key = config.TEAM_API_KEY
+            
+        return api_key
 
     def __getattr__(self, key: str) -> Any:
         """
