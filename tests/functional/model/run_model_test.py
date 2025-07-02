@@ -411,7 +411,7 @@ def test_delete_records_by_date(setup_index_with_test_records):
     index_model = setup_index_with_test_records
     response = index_model.delete_records_by_date(1751464796)
     assert response.status == "SUCCESS"
-    assert response.data["data"] == "2"  # 2 records should remain
+    assert response.data == "2"  # 2 records should remain
     filter_all = IndexFilter(field="date", value=0, operator=IndexFilterOperator.GREATER_THAN)
     response = index_model.retrieve_records_with_filter(filter_all)
     assert response.status == "SUCCESS"
