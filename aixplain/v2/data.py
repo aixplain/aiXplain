@@ -15,4 +15,5 @@ class Data(
     def get(cls, id: str, **kwargs: Unpack[BareGetParams]) -> "Data":
         from aixplain.factories import DataFactory
 
-        return DataFactory.get(data_id=id)
+        api_key = cls._get_api_key(kwargs)
+        return DataFactory.get(data_id=id, api_key=api_key)

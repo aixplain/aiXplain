@@ -1,6 +1,10 @@
 from typing import Optional, Union, List, Tuple, Text
-from aixplain.factories.model_factory.utils import get_model_from_ids, get_assets_from_page
-from aixplain.enums import Function, Language, OwnershipType, SortBy, SortOrder, Supplier
+from aixplain.factories.model_factory.utils import (
+    get_model_from_ids, get_assets_from_page
+)
+from aixplain.enums import (
+    Function, Language, OwnershipType, SortBy, SortOrder, Supplier
+)
 from aixplain.modules.model import Model
 
 
@@ -21,25 +25,35 @@ class ModelListMixin:
         page_size: int = 20,
         model_ids: Optional[List[Text]] = None,
         api_key: Optional[Text] = None,
+        **kwargs
     ) -> List[Model]:
-        """Gets the first k given models based on the provided task and language filters
+        """Gets the first k given models based on the provided task and 
+        language filters
 
         Args:
             query (Optional[Text], optional): query filter. Defaults to "".
             function (Function): function filter.
-            source_languages (Optional[Union[Language, List[Language]]], optional): language filter of input data. Defaults to None.
-            target_languages (Optional[Union[Language, List[Language]]], optional): language filter of output data. Defaults to None.
-            is_finetunable (Optional[bool], optional): can be finetuned or not. Defaults to None.
-            ownership (Optional[Tuple[OwnershipType, List[OwnershipType]]], optional): Ownership filters (e.g. SUBSCRIBED, OWNER). Defaults to None.
-            sort_by (Optional[SortBy], optional): sort the retrived models by a specific attribute,
+            source_languages (Optional[Union[Language, List[Language]]], 
+                optional): language filter of input data. Defaults to None.
+            target_languages (Optional[Union[Language, List[Language]]], 
+                optional): language filter of output data. Defaults to None.
+            is_finetunable (Optional[bool], optional): can be finetuned or 
+                not. Defaults to None.
+            ownership (Optional[Tuple[OwnershipType, List[OwnershipType]]], 
+                optional): Ownership filters (e.g. SUBSCRIBED, OWNER). 
+                Defaults to None.
+            sort_by (Optional[SortBy], optional): sort the retrived models by 
+                a specific attribute,
             page_number (int, optional): page number. Defaults to 0.
             page_size (int, optional): page size. Defaults to 20.
-            model_ids (Optional[List[Text]], optional): model ids to filter. Defaults to None.
+            model_ids (Optional[List[Text]], optional): model ids to filter. 
+                Defaults to None.
             api_key (Optional[Text], optional): Team API key. Defaults to None.
 
         Returns:
             List[Model]: List of models based on given filters
         """
+        api_key = kwargs.get("api_key", None) if api_key is None else api_key
         if model_ids is not None:
             assert len(model_ids) > 0, "Please provide at least one model id"
             assert (
@@ -50,8 +64,14 @@ class ModelListMixin:
                 and is_finetunable is None
                 and ownership is None
                 and sort_by is None
-            ), "Cannot filter by function, suppliers, source languages, target languages, is finetunable, ownership, sort by when using model ids"
-            assert len(model_ids) <= page_size, "Page size must be greater than the number of model ids"
+            ), (
+                "Cannot filter by function, suppliers, source languages, "
+                "target languages, is finetunable, ownership, sort by when "
+                "using model ids"
+            )
+            assert (
+                len(model_ids) <= page_size
+            ), "Page size must be greater than the number of model ids"
             models, total = get_model_from_ids(model_ids, api_key), len(model_ids)
         else:
             models, total = get_assets_from_page(

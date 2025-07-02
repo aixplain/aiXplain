@@ -58,7 +58,7 @@ class BenchmarkFactory:
         return BenchmarkJob(response["jobId"], response["status"], response["benchmark"]["id"])
 
     @classmethod
-    def _get_benchmark_jobs_from_benchmark_id(cls, benchmark_id: Text) -> List[BenchmarkJob]:
+    def _get_benchmark_jobs_from_benchmark_id(cls, benchmark_id: Text, api_key: str = None) -> List[BenchmarkJob]:
         """Get list of benchmark jobs from benchmark id
 
         Args:
@@ -68,15 +68,15 @@ class BenchmarkFactory:
             List[BenchmarkJob]: List of associated benchmark jobs
         """
         url = urljoin(cls.backend_url, f"sdk/benchmarks/{benchmark_id}/jobs")
-
-        headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+        api_key = api_key or config.TEAM_API_KEY
+        headers = {"Authorization": f"Token {api_key}", "Content-Type": "application/json"}
         r = _request_with_retry("get", url, headers=headers)
         resp = r.json()
         job_list = [cls._create_benchmark_job_from_response(job_info) for job_info in resp]
         return job_list
 
     @classmethod
-    def _create_benchmark_from_response(cls, response: Dict) -> Benchmark:
+    def _create_benchmark_from_response(cls, response: Dict, api_key: str = None) -> Benchmark:
         """Converts response Json to 'Benchmark' object
 
         Args:
@@ -85,14 +85,14 @@ class BenchmarkFactory:
         Returns:
             Benchmark: Coverted 'Benchmark' object
         """
-        model_list = [ModelFactory().get(model_info["id"]) for model_info in response["model"]]
-        dataset_list = [DatasetFactory().get(dataset_id) for dataset_id in response["datasets"]]
-        metric_list = [MetricFactory().get(metric_info["id"]) for metric_info in response["metrics"]]
-        job_list = cls._get_benchmark_jobs_from_benchmark_id(response["id"])
+        model_list = [ModelFactory().get(model_info["id"], api_key=api_key) for model_info in response["model"]]
+        dataset_list = [DatasetFactory().get(dataset_id, api_key=api_key) for dataset_id in response["datasets"]]
+        metric_list = [MetricFactory().get(metric_info["id"], api_key=api_key) for metric_info in response["metrics"]]
+        job_list = cls._get_benchmark_jobs_from_benchmark_id(response["id"], api_key=api_key)
         return Benchmark(response["id"], response["name"], dataset_list, model_list, metric_list, job_list)
 
     @classmethod
-    def get(cls, benchmark_id: str) -> Benchmark:
+    def get(cls, benchmark_id: str, api_key: str = None) -> Benchmark:
         """Create a 'Benchmark' object from Benchmark id
 
         Args:
@@ -102,9 +102,10 @@ class BenchmarkFactory:
             Benchmark: Created 'Benchmark' object
         """
         resp = None
+        api_key = api_key or config.TEAM_API_KEY
         try:
             url = urljoin(cls.backend_url, f"sdk/benchmarks/{benchmark_id}")
-            headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+            headers = {"Authorization": f"Token {api_key}", "Content-Type": "application/json"}
             logging.info(f"Start service for GET Benchmark  - {url} - {headers}")
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()
@@ -120,7 +121,7 @@ class BenchmarkFactory:
             logging.error(f"Benchmark Creation Failed: {e}")
             raise Exception(f"Status {status_code}: {message}")
         if 200 <= r.status_code < 300:
-            benchmark = cls._create_benchmark_from_response(resp)
+            benchmark = cls._create_benchmark_from_response(resp, api_key=api_key)
             logging.info(f"Benchmark {benchmark_id} retrieved successfully.")
             return benchmark
         else:
@@ -129,7 +130,7 @@ class BenchmarkFactory:
             raise Exception(error_message)
 
     @classmethod
-    def get_job(cls, job_id: Text) -> BenchmarkJob:
+    def get_job(cls, job_id: Text, api_key: str = None) -> BenchmarkJob:
         """Create a 'BenchmarkJob' object from job id
 
         Args:
@@ -138,8 +139,9 @@ class BenchmarkFactory:
         Returns:
             BenchmarkJob: Created 'BenchmarkJob' object
         """
+        api_key = api_key or config.TEAM_API_KEY
         url = urljoin(cls.backend_url, f"sdk/benchmarks/jobs/{job_id}")
-        headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+        headers = {"Authorization": f"Token {api_key}", "Content-Type": "application/json"}
         r = _request_with_retry("get", url, headers=headers)
         resp = r.json()
         benchmarkJob = cls._create_benchmark_job_from_response(resp)
