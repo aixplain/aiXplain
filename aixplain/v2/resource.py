@@ -41,6 +41,20 @@ class BaseResource:
         """
         self._obj = obj
 
+    @classmethod
+    def _get_api_key(cls, kwargs: dict) -> str:
+        """
+        Get API key from kwargs or context.
+        
+        Args:
+            kwargs: dict: Keyword arguments passed to the method.
+            
+        Returns:
+            str: API key from kwargs or context, or None if not found.
+        """
+        return (kwargs.get("api_key") or 
+                getattr(cls.context, "api_key", None))
+
     def __getattr__(self, key: str) -> Any:
         """
         Return the value corresponding to the key from the wrapped dictionary
@@ -72,7 +86,8 @@ class BaseResource:
         else:
             self._action("post", **self._obj)
 
-    def _action(self, method: str = None, action_paths: List[str] = None, **kwargs) -> requests.Response:
+    def _action(self, method: str = None, action_paths: List[str] = None, 
+                **kwargs) -> requests.Response:
         """
         Internal method to perform actions on the resource.
 
@@ -90,7 +105,8 @@ class BaseResource:
                             'id' attribute is missing.
         """
 
-        assert getattr(self, "RESOURCE_PATH"), "Subclasses of 'BaseResource' must specify 'RESOURCE_PATH'"
+        assert getattr(self, "RESOURCE_PATH"), ("Subclasses of 'BaseResource' must "
+                                               "specify 'RESOURCE_PATH'")
 
         if not self.id:
             raise ValueError("Action call requires an 'id' attribute")
@@ -108,7 +124,17 @@ class BaseResource:
         return f"{self.__class__.__name__}(id={self.id})"
 
 
-class BaseListParams(TypedDict):
+class BaseApiKeyParams(TypedDict):
+    """Base class for parameters that include API key.
+
+    Attributes:
+        api_key: str: The API key for authentication.
+    """
+
+    api_key: NotRequired[str]
+
+
+class BaseListParams(BaseApiKeyParams):
     """Base class for all list parameters.
 
     Attributes:
@@ -128,7 +154,7 @@ class BaseListParams(TypedDict):
     page_size: NotRequired[int]
 
 
-class BaseGetParams(TypedDict):
+class BaseGetParams(BaseApiKeyParams):
     """Base class for all get parameters.
 
     Attributes:
@@ -138,7 +164,7 @@ class BaseGetParams(TypedDict):
     pass
 
 
-class BaseCreateParams(TypedDict):
+class BaseCreateParams(BaseApiKeyParams):
     """Base class for all create parameters.
 
     Attributes:
