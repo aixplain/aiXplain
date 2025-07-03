@@ -89,7 +89,7 @@ class MCPConnection(ConnectionTool):
         response = Model.run(self, {"action": "LIST_TOOLS", "data": {"actions": [action]}})
         if response.status == ResponseStatus.SUCCESS:
             try:
-                inputs = {inp["name"]: inp for inp in response.data[0]["inputs"]}
+                inputs = {inp["code"]: inp for inp in response.data[0]["inputs"]}
                 action_idx = next((i for i, a in enumerate(self.actions) if a.code == action), None)
                 if action_idx is not None:
                     self.actions[action_idx].inputs = inputs
