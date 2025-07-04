@@ -55,7 +55,8 @@ class Model(
     def get(cls, id: str, **kwargs: Unpack[BareGetParams]) -> "Model":
         from aixplain.factories import ModelFactory
 
-        return ModelFactory.get(model_id=id)
+        api_key = cls._get_api_key(kwargs)
+        return ModelFactory.get(model_id=id, api_key=api_key)
 
     @classmethod
     def create_utility_model(
