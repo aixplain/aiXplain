@@ -28,16 +28,16 @@ AIXPLAIN_API_KEY = os.getenv("AIXPLAIN_API_KEY", "")
 
 ENV = "dev" if "dev" in BACKEND_URL else "test" if "test" in BACKEND_URL else "prod"
 
-if not TEAM_API_KEY and not AIXPLAIN_API_KEY:
-    raise Exception(
-        "'TEAM_API_KEY' has not been set properly and is empty. For help, please refer to the documentation (https://github.com/aixplain/aixplain#api-key-setup)"
-    )
+# if not TEAM_API_KEY and not AIXPLAIN_API_KEY:
+#     raise Exception(
+#         "'TEAM_API_KEY' has not been set properly and is empty. For help, please refer to the documentation (https://github.com/aixplain/aixplain#api-key-setup)"
+#     )
 
 
-if AIXPLAIN_API_KEY and TEAM_API_KEY and AIXPLAIN_API_KEY != TEAM_API_KEY:
-    raise Exception(
-        "Conflicting API keys: 'AIXPLAIN_API_KEY' and 'TEAM_API_KEY' are both provided but do not match. Please provide only one API key."
-    )
+# if AIXPLAIN_API_KEY and TEAM_API_KEY and AIXPLAIN_API_KEY != TEAM_API_KEY:
+#     raise Exception(
+#         "Conflicting API keys: 'AIXPLAIN_API_KEY' and 'TEAM_API_KEY' are both provided but do not match. Please provide only one API key."
+#     )
 
 
 if AIXPLAIN_API_KEY and not TEAM_API_KEY:
