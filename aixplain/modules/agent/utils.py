@@ -2,7 +2,9 @@ from typing import Dict, Text, Union
 import re
 
 
-def process_variables(query: Union[Text, Dict], data: Union[Dict, Text], parameters: Dict, agent_description: Text) -> Text:
+def process_variables(
+    query: Union[Text, Dict], data: Union[Dict, Text], parameters: Dict, agent_description: Union[Text, None]
+) -> Text:
     from aixplain.factories.file_factory import FileFactory
 
     if isinstance(query, dict):
@@ -13,7 +15,7 @@ def process_variables(query: Union[Text, Dict], data: Union[Dict, Text], paramet
     else:
         input_data = {"input": FileFactory.to_link(query)}
 
-    variables = re.findall(r"(?<!{){([^}]+)}(?!})", agent_description)
+    variables = re.findall(r"(?<!{){([^}]+)}(?!})", agent_description or "")
     for variable in variables:
         if isinstance(data, dict):
             assert (
