@@ -249,6 +249,23 @@ class IndexModel(Model):
         raise Exception(f"Failed to delete record: {response.error_message}")
 
     def retrieve_records_with_filter(self, filter: IndexFilter) -> ModelResponse:
+        """
+        Retrieve records from the index that match the given filter.
+
+        Args:
+            filter (IndexFilter): The filter criteria to apply when retrieving records.
+
+        Returns:
+            ModelResponse: Response containing the retrieved records.
+
+        Raises:
+            Exception: If retrieval fails.
+
+        Example:
+            >>> from aixplain.modules.model.index_model import IndexFilter, IndexFilterOperator
+            >>> my_filter = IndexFilter(field="category", value="world", operator=IndexFilterOperator.EQUALS)
+            >>> index_model.retrieve_records_with_filter(my_filter)
+        """
         data = {"action": "retrieve_by_filter", "data": filter.to_dict()}
         response = self.run(data=data)
         if response.status == "SUCCESS":
@@ -256,6 +273,21 @@ class IndexModel(Model):
         raise Exception(f"Failed to retrieve records with filter: {response.error_message}")
 
     def delete_records_by_date(self, date: float) -> ModelResponse:
+        """
+        Delete records from the index that match the given date.
+
+        Args:
+            date (float): The date (as a timestamp) to match records for deletion.
+
+        Returns:
+            ModelResponse: Response containing the result of the deletion operation.
+
+        Raises:
+            Exception: If deletion fails.
+
+        Example:
+            >>> index_model.delete_records_by_date(1717708800)
+        """
         data = {"action": "delete_by_date", "data": date}
         response = self.run(data=data)
         if response.status == "SUCCESS":
