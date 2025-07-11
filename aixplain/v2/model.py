@@ -67,28 +67,27 @@ class Model(
     """
 
     RESOURCE_PATH = "models"
+    RESPONSE_CLASS = ModelRunnableResponse
 
-    def _create_response(self, response_data: Dict[str, Any]) -> ModelRunnableResponse:
-        """Create a ModelRunnableResponse instance."""
-        return ModelRunnableResponse(response_data)
-
-    def _build_run_payload(self, **kwargs: Unpack[ModelRunParams]) -> Dict[str, Any]:
+    def _build_run_payload(
+        self, **kwargs: Unpack[ModelRunParams]
+    ) -> Dict[str, Any]:
         """Build Model-specific run payload."""
         data = kwargs.get("data")
         name = kwargs.get("name", "model-run")
         parameters = kwargs.get("parameters", {})
         stream = kwargs.get("stream", False)
-
+        
         payload = {
             "data": data,
             "name": name,
         }
-
+        
         # Add Model-specific parameters
         if parameters:
             payload["parameters"] = parameters
-
+            
         if stream:
             payload["stream"] = stream
-
+            
         return payload

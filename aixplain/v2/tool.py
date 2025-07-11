@@ -1,12 +1,9 @@
-from typing_extensions import Unpack
-
 from .resource import (
     BaseListParams,
     BaseResource,
     ListResourceMixin,
     GetResourceMixin,
     BareGetParams,
-    Page,
 )
 
 

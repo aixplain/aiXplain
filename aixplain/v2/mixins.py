@@ -516,72 +516,81 @@ class RunnableResponse(BaseRunnableResponse):
 
 class RunnableMixin(Generic[RU, ResponseT]):
     """Mixin for runnable resources like models, pipelines, and agents.
-
+    
     This mixin provides execution capabilities for resources that can be run
     asynchronously or synchronously. It follows the same patterns as the
     legacy Model module while using modern v2 architecture.
-
+    
     Type Parameters:
         RU: Type for run parameters (extends BaseRunParams)
         ResponseT: Type for response class (extends BaseRunnableResponse)
-
+    
     Attributes:
         RUN_ACTION_PATH: str: The action path for running the resource.
             Defaults to "run".
+        RESPONSE_CLASS: Type[ResponseT]: The response class to instantiate.
+            Must be set by subclasses.
     """
-
+    
     RUN_ACTION_PATH = "run"
-
+    RESPONSE_CLASS: Type[ResponseT]  # Must be set by subclasses
+    
     def run(
-        self, timeout: float = 300, wait_time: float = 0.5, **kwargs: Unpack[RU]
+        self,
+        timeout: float = 300,
+        wait_time: float = 0.5,
+        **kwargs: Unpack[RU]
     ) -> ResponseT:
         """
         Run the resource synchronously with automatic polling.
-
+        
         Args:
             timeout: Maximum time to wait for completion
             wait_time: Time between polling attempts
             **kwargs: Run parameters specific to the resource type
-
+            
         Returns:
             Response of the type specified in the generic parameter
         """
         name = kwargs.get("name", "process")
-
+        
         logging.debug(f"Running {self.__class__.__name__} sync: {name}")
-
+        
         # Start async execution
         async_response = self.run_async(**kwargs)
-
+        
         # If already completed, return immediately
         if async_response.completed:
             return async_response
-
+            
         # If we have a polling URL, use sync_poll for continuous polling
         if async_response.url:
             return self.sync_poll(
-                async_response.url, name=name, timeout=timeout, wait_time=wait_time
+                async_response.url,
+                name=name,
+                timeout=timeout,
+                wait_time=wait_time
             )
-
+        
         return async_response
 
     def run_async(self, **kwargs: Unpack[RU]) -> ResponseT:
         """
         Run the resource asynchronously.
-
+        
         Args:
             **kwargs: Run parameters specific to the resource type
-
+            
         Returns:
             Response of the type specified in the generic parameter
         """
         name = kwargs.get("name", "process")
-
+        
         logging.debug(f"Running {self.__class__.__name__} async: {name}")
-
+        
         # Build the payload using the resource-specific implementation
         payload = self._build_run_payload(**kwargs)
-
+        
         try:
             # Use _action to make the API call
             response = self._action("post", [self.RUN_ACTION_PATH], json=payload)
@@ -589,7 +598,7 @@ class RunnableMixin(Generic[RU, ResponseT]):
             # Parse response using the resource-specific response class
             response_data = response.json()
             return self._create_response(response_data)
-
+            
         except Exception as e:
             logging.error(f"Error in async run for {name}: {e}")
             return self._create_response(
@@ -603,16 +612,16 @@ class RunnableMixin(Generic[RU, ResponseT]):
     def poll(self, poll_url: str, name: str = "process") -> ResponseT:
         """
         Poll for the result of an asynchronous operation.
-
+        
         Args:
             poll_url: URL to poll for results
             name: Name/ID of the process
-
+            
         Returns:
             Response of the type specified in the generic parameter
         """
         logging.debug(f"Polling {self.__class__.__name__} for {name}")
-
+        
         # Use the existing client infrastructure instead of manual requests
         try:
             # Extract path from full URL if needed
@@ -632,18 +641,21 @@ class RunnableMixin(Generic[RU, ResponseT]):
                     "error_message": str(e),
                 }
             )
-
+        
         # Determine status based on completion
         if response_data.get("completed", False):
-            if "error_message" in response_data or "supplierError" in response_data:
+            if (
+                "error_message" in response_data 
+                or "supplierError" in response_data
+            ):
                 status = ResponseStatus.FAILED
             else:
                 status = ResponseStatus.SUCCESS
         else:
             status = ResponseStatus.IN_PROGRESS
-
+            
         response_data.setdefault("status", status.value)
-
+        
         return self._create_response(response_data)
 
     def sync_poll(
@@ -655,34 +667,34 @@ class RunnableMixin(Generic[RU, ResponseT]):
     ) -> ResponseT:
         """
         Keeps polling until an asynchronous operation is complete.
-
+        
         Args:
             poll_url: URL to poll for results
             name: Name/ID of the process
             wait_time: Time between polling attempts (minimum 0.2s)
             timeout: Maximum time to wait for completion
-
+            
         Returns:
             Response of the type specified in the generic parameter
         """
         import time
-
+        
         logging.info(f"Sync polling {self.__class__.__name__} for {name}")
-
+        
         start_time = time.time()
         wait_time = max(wait_time, 0.2)  # Minimum wait time
-
+        
         while (time.time() - start_time) < timeout:
             result = self.poll(poll_url, name=name)
-
+            
             if result.completed:
                 logging.debug(f"Sync poll completed for {name}: {result}")
                 return result
-
+                
             time.sleep(wait_time)
             if wait_time < 60:
                 wait_time *= 1.1  # Exponential backoff
-
+                
         # Timeout reached
         logging.error(f"Sync poll timeout for {name} after {timeout}s")
         return self._create_response(
@@ -694,97 +706,97 @@ class RunnableMixin(Generic[RU, ResponseT]):
         )
 
     def _create_response(self, response_data: Dict[str, Any]) -> ResponseT:
-        """Create a response instance using the resource-specific response
-        class.
-
-        This method must be implemented by subclasses to specify which
-        response class to use.
-
+        """Create a response instance using the configured response class.
+        
         Args:
             response_data: Raw response data from the API
-
+            
         Returns:
-            Instance of the response class specified in generic parameter
+            Instance of the response class specified in RESPONSE_CLASS
         """
-        raise NotImplementedError(
-            "Subclasses must implement _create_response() to specify "
-            "their response class"
-        )
+        if not hasattr(self, 'RESPONSE_CLASS'):
+            raise NotImplementedError(
+                f"{self.__class__.__name__} must define RESPONSE_CLASS "
+                "attribute"
+            )
+        return self.RESPONSE_CLASS(response_data)
 
     def _build_run_payload(self, **kwargs) -> Dict[str, Any]:
         """
         Build the payload for running the resource.
-
+        
         This method should be overridden by subclasses to handle their
         specific parameter structures.
-
+        
         Args:
             **kwargs: All run parameters for the resource
-
+            
         Returns:
             Dict: The payload to send to the API
         """
         # Default implementation for basic resources
         data = kwargs.get("data")
         name = kwargs.get("name", "process")
-
+        
         payload = {
             "data": data,
             "name": name,
         }
-
+        
         # Add any additional parameters that are not core fields
         core_fields = {"data", "name", "api_key"}
         additional_params = {
             k: v for k, v in kwargs.items() if k not in core_fields and v is not None
         }
-
+        
         if additional_params:
             payload["parameters"] = additional_params
-
+            
         return payload
 
     def _poll_external_url(self, poll_url: str, name: str) -> ResponseT:
         """
         Poll an external URL (for backward compatibility).
-
+        
         Args:
             poll_url: External URL to poll
             name: Process name
-
+            
         Returns:
             Response of the type specified in the generic parameter
         """
         import requests
-
+        
         # Get API key using the existing method
         api_key = getattr(self.context, "api_key", None)
         if not api_key:
             import aixplain.utils.config as config
-
             api_key = config.TEAM_API_KEY
-
+            
         headers = {"x-api-key": api_key, "Content-Type": "application/json"}
-
+        
         try:
             response = requests.get(poll_url, headers=headers)
             response.raise_for_status()
-
+            
             response_data = response.json()
-
+            
             # Determine status based on completion
             if response_data.get("completed", False):
-                if "error_message" in response_data or "supplierError" in response_data:
+                if (
+                    "error_message" in response_data 
+                    or "supplierError" in response_data
+                ):
                     status = ResponseStatus.FAILED
                 else:
                     status = ResponseStatus.SUCCESS
             else:
                 status = ResponseStatus.IN_PROGRESS
-
+                
             response_data.setdefault("status", status.value)
-
+            
             return self._create_response(response_data)
-
+            
         except Exception as e:
             return self._create_response(
                 {
