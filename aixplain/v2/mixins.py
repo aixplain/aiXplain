@@ -217,7 +217,9 @@ class ListResourceMixin(Generic[L, Any]):
         return cls._build_page(response, **kwargs)
 
     @classmethod
-    def _build_page(cls, response: requests.Response, **kwargs: Unpack[L]) -> Page[Any]:
+    def _build_page(
+        cls, response: requests.Response, **kwargs: Unpack[L]
+    ) -> Page[Any]:
         """
         Build a page of resources from the response.
 
