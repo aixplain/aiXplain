@@ -10,7 +10,9 @@ DEFAULT_RETRY_BACKOFF_FACTOR = 0.1
 DEFAULT_RETRY_STATUS_FORCELIST = [500, 502, 503, 504]
 
 
-def create_retry_session(total=None, backoff_factor=None, status_forcelist=None, **kwargs):
+def create_retry_session(
+    total=None, backoff_factor=None, status_forcelist=None, **kwargs
+):
     """
     Creates a requests.Session with a specified retry strategy.
 
@@ -66,10 +68,14 @@ class AixplainClient:
         self.aixplain_api_key = aixplain_api_key
 
         if not (self.aixplain_api_key or self.team_api_key):
-            raise ValueError("Either `aixplain_api_key` or `team_api_key` should be set")
+            raise ValueError(
+                "Either `aixplain_api_key` or `team_api_key` should be set"
+            )
 
         if self.aixplain_api_key and self.team_api_key:
-            raise ValueError("Either `aixplain_api_key` or `team_api_key` should be set")
+            raise ValueError(
+                "Either `aixplain_api_key` or `team_api_key` should be set"
+            )
 
         headers = {"Content-Type": "application/json"}
         if self.aixplain_api_key:

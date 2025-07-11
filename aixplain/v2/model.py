@@ -1,161 +1,94 @@
-from typing import Union, List, Callable, TYPE_CHECKING
+"""Model resource implementation for v2 API."""
+
+from typing import Dict, Any, Optional, Union
 from typing_extensions import Unpack, NotRequired
 
-from .resource import (
-    BaseListParams,
-    BaseResource,
+from .resource import BaseResource
+from .mixins import (
+    BaseRunnableResponse,
+    BaseRunParams,
+    RunnableMixin,
     ListResourceMixin,
     GetResourceMixin,
+    CreateResourceMixin,
+    DeleteResourceMixin,
+    BareListParams,
     BareGetParams,
-    Page,
+    BareCreateParams,
+    BareDeleteParams,
 )
-from .enums import Function, Supplier, Language
-
-if TYPE_CHECKING:
-    from aixplain.modules.model.utility_model import UtilityModelInput
 
 
-class ModelListParams(BaseListParams):
-    """Parameters for listing models.
+class ModelRunParams(BaseRunParams):
+    """Parameters for Model.run() method."""
 
-    Attributes:
-        function: Function: The function of the model.
-        suppliers: Union[Supplier, List[Supplier]: The suppliers of the model.
-        source_languages: Union[Language, List[Language]: The source languages of the model.
-        target_languages: Union[Language, List[Language]: The target languages of the model.
-        is_finetunable: bool: Whether the model is finetunable.
+    data: Union[str, Dict[str, Any]]
+    name: NotRequired[str]
+    parameters: NotRequired[Dict[str, Any]]
+    stream: NotRequired[bool]
+
+
+class ModelRunnableResponse(BaseRunnableResponse):
+    """Response class optimized for Model resources.
+
+    Provides Model-specific fields and behavior while maintaining compatibility
+    with the legacy Model.run() response format.
     """
 
-    function: NotRequired[Function]
-    suppliers: NotRequired[Union[Supplier, List[Supplier]]]
-    source_languages: NotRequired[Union[Language, List[Language]]]
-    target_languages: NotRequired[Union[Language, List[Language]]]
-    is_finetunable: NotRequired[bool]
+    def _parse_response(self, response_data: Dict[str, Any]) -> None:
+        """Parse Model-specific response fields."""
+        super()._parse_response(response_data)
+
+        # Model-specific fields
+        self.supplier_error: str = response_data.get("supplierError", "")
+        self.model_id: Optional[str] = response_data.get("modelId")
+
+        # Handle streaming responses
+        self.streaming: bool = response_data.get("streaming", False)
+
+    def _get_known_fields(self) -> set:
+        """Include Model-specific fields in known fields."""
+        base_fields = super()._get_known_fields()
+        return base_fields | {"supplierError", "modelId", "streaming"}
 
 
 class Model(
     BaseResource,
-    ListResourceMixin[ModelListParams, "Model"],
+    ListResourceMixin[BareListParams, "Model"],
     GetResourceMixin[BareGetParams, "Model"],
+    CreateResourceMixin[BareCreateParams, "Model"],
+    DeleteResourceMixin[BareDeleteParams, "Model"],
+    RunnableMixin[ModelRunParams, ModelRunnableResponse],
 ):
-    """Resource for models."""
+    """Model resource class.
 
-    RESOURCE_PATH = "sdk/models"
+    Provides full CRUD operations plus run capabilities with Model-specific
+    response handling.
+    """
 
-    @classmethod
-    def list(cls, **kwargs: Unpack[ModelListParams]) -> Page["Model"]:
-        from aixplain.factories import ModelFactory
+    RESOURCE_PATH = "models"
 
-        api_key = cls._get_api_key(kwargs)
-        kwargs.setdefault("page_number", cls.PAGINATE_DEFAULT_PAGE_NUMBER)
-        kwargs.setdefault("page_size", cls.PAGINATE_DEFAULT_PAGE_SIZE)
+    def _create_response(self, response_data: Dict[str, Any]) -> ModelRunnableResponse:
+        """Create a ModelRunnableResponse instance."""
+        return ModelRunnableResponse(response_data)
 
-        return ModelFactory.list(**kwargs, api_key=api_key)
+    def _build_run_payload(self, **kwargs: Unpack[ModelRunParams]) -> Dict[str, Any]:
+        """Build Model-specific run payload."""
+        data = kwargs.get("data")
+        name = kwargs.get("name", "model-run")
+        parameters = kwargs.get("parameters", {})
+        stream = kwargs.get("stream", False)
 
-    @classmethod
-    def get(cls, id: str, **kwargs: Unpack[BareGetParams]) -> "Model":
-        from aixplain.factories import ModelFactory
+        payload = {
+            "data": data,
+            "name": name,
+        }
 
-        api_key = cls._get_api_key(kwargs)
-        return ModelFactory.get(model_id=id, api_key=api_key)
+        # Add Model-specific parameters
+        if parameters:
+            payload["parameters"] = parameters
 
-    @classmethod
-    def create_utility_model(
-        cls,
-        name: str,
-        code: Union[str, Callable],
-        inputs: List["UtilityModelInput"] = [],
-        description: str = None,
-        output_examples: str = "",
-        api_key: str = None,
-    ) -> "Model":
-        from aixplain.factories import ModelFactory
+        if stream:
+            payload["stream"] = stream
 
-        return Model(ModelFactory.create_utility_model(name, code, inputs, description, output_examples, api_key))
-
-    @classmethod
-    def list_host_machines(cls, api_key: str = None) -> List[str]:
-        from aixplain.factories import ModelFactory
-
-        return ModelFactory.list_host_machines(api_key)
-
-    @classmethod
-    def list_gpus(cls, api_key: str = None) -> List[str]:
-        from aixplain.factories import ModelFactory
-
-        return ModelFactory.list_gpus(api_key)
-
-    @classmethod
-    def list_functions(cls, verbose: bool = False, api_key: str = None) -> List[str]:
-        from aixplain.factories import ModelFactory
-
-        return ModelFactory.list_functions(verbose=verbose, api_key=api_key)
-
-    @classmethod
-    def create_asset_repo(
-        cls,
-        name: str,
-        description: str,
-        function: str,
-        source_language: str,
-        input_modality: str,
-        output_modality: str,
-        documentation_url: str = "",
-        api_key: str = None,
-    ) -> dict:
-        from aixplain.factories import ModelFactory
-
-        return ModelFactory.create_asset_repo(
-            name,
-            description,
-            function,
-            source_language,
-            input_modality,
-            output_modality,
-            documentation_url,
-            api_key,
-        )
-
-    @classmethod
-    def asset_repo_login(cls, api_key: str = None) -> dict:
-        from aixplain.factories import ModelFactory
-
-        return ModelFactory.asset_repo_login(api_key=api_key)
-
-    @classmethod
-    def onboard_model(
-        cls,
-        model_id: str,
-        image_tag: str,
-        image_hash: str,
-        host_machine: str = "",
-        api_key: str = None,
-    ) -> dict:
-        from aixplain.factories import ModelFactory
-
-        return ModelFactory.onboard_model(model_id, image_tag, image_hash, host_machine=host_machine, api_key=api_key)
-
-    @classmethod
-    def deploy_hugging_face_model(
-        cls,
-        name: str,
-        hf_repo_id: str,
-        revision: str = "",
-        hf_token: str = "",
-        api_key: str = None,
-    ) -> dict:
-        from aixplain.factories import ModelFactory
-
-        return ModelFactory.deploy_hugging_face_model(
-            name,
-            hf_repo_id,
-            revision=revision,
-            hf_token=hf_token,
-            api_key=api_key,
-        )
-
-    @classmethod
-    def get_huggingface_model_status(cls, model_id: str, api_key: str = None) -> dict:
-        from aixplain.factories import ModelFactory
-
-        return ModelFactory.get_huggingface_model_status(model_id, api_key=api_key)
+        return payload
