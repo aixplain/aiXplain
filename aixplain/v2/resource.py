@@ -198,10 +198,17 @@ class BareGetParams(BaseGetParams):
     pass
 
 
+class BaseDeleteParams(BaseApiKeyParams):
+    """Base class for all delete parameters."""
+
+    pass
+
+
 R = TypeVar("R", bound=BaseResource)
 L = TypeVar("L", bound=BaseListParams)
 C = TypeVar("C", bound=BaseCreateParams)
 G = TypeVar("G", bound=BaseGetParams)
+D = TypeVar("D", bound=BaseDeleteParams)
 
 
 class Page(Generic[R]):
@@ -406,3 +413,17 @@ class CreateResourceMixin(Generic[C, R]):
 
         obj = cls.context.client.request("post", cls.RESOURCE_PATH, *args, **kwargs)
         return cls(obj)
+
+
+class DeleteResourceMixin(Generic[D, R]):
+    """Mixin for deleting a resource."""
+
+    @classmethod
+    def delete(cls: Type[R], id: Any, **kwargs: Unpack[D]) -> R:
+        """
+        Delete a resource.
+        """
+        assert getattr(cls, "RESOURCE_PATH"), "Subclasses of 'BaseResource' must specify 'RESOURCE_PATH'"
+
+        path = f"{cls.RESOURCE_PATH}/{id}"
+        cls.context.client.request("delete", path, **kwargs)
