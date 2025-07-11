@@ -14,8 +14,10 @@ from .finetune import Finetune
 from .script import Script
 from .wallet import Wallet
 from .file import File
-from . import enums
 from .team_agent import TeamAgent
+from .tool import Tool
+
+from . import enums
 
 APIKeyType = TypeVar("APIKeyType", bound=APIKey)
 DataType = TypeVar("DataType", bound=Data)
@@ -32,6 +34,7 @@ ScriptType = TypeVar("ScriptType", bound=Script)
 WalletType = TypeVar("WalletType", bound=Wallet)
 FileType = TypeVar("FileType", bound=File)
 TeamAgentType = TypeVar("TeamAgentType", bound=TeamAgent)
+ToolType = TypeVar("ToolType", bound=Tool)
 
 
 class Aixplain:
@@ -74,6 +77,7 @@ class Aixplain:
     Wallet: WalletType = None
     File: FileType = None
     TeamAgent: TeamAgentType = None
+    Tool: ToolType = None
     Function = enums.Function
     Supplier = enums.Supplier
     Language = enums.Language
@@ -167,3 +171,4 @@ class Aixplain:
         self.Wallet = type("Wallet", (Wallet,), {"context": self})
         self.File = type("File", (File,), {"context": self})
         self.TeamAgent = type("TeamAgent", (TeamAgent,), {"context": self})
+        self.Tool = type("Tool", (Tool,), {"context": self})

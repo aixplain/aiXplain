@@ -46,10 +46,11 @@ class Model(
     def list(cls, **kwargs: Unpack[ModelListParams]) -> Page["Model"]:
         from aixplain.factories import ModelFactory
 
+        api_key = cls._get_api_key(kwargs)
         kwargs.setdefault("page_number", cls.PAGINATE_DEFAULT_PAGE_NUMBER)
         kwargs.setdefault("page_size", cls.PAGINATE_DEFAULT_PAGE_SIZE)
 
-        return ModelFactory.list(**kwargs)
+        return ModelFactory.list(**kwargs, api_key=api_key)
 
     @classmethod
     def get(cls, id: str, **kwargs: Unpack[BareGetParams]) -> "Model":

@@ -172,7 +172,9 @@ def get_assets_from_page(
             filter_params["sort"] = [{"dir": sort_order.value, "field": sort_by.value}]
         if len(lang_filter_params) != 0:
             filter_params["ioFilter"] = lang_filter_params
-        headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+
+        api_key = config.TEAM_API_KEY if api_key is None else api_key
+        headers = {"Authorization": f"Token {api_key}", "Content-Type": "application/json"}
 
         logging.info(f"Start service for POST Models Paginate - {url} - {headers} - {json.dumps(filter_params)}")
         r = _request_with_retry("post", url, headers=headers, json=filter_params)
@@ -202,11 +204,11 @@ def get_assets_from_page(
 
 def get_model_from_ids(model_ids: List[str], api_key: Optional[str] = None) -> List[Model]:
     from aixplain.factories.model_factory.utils import create_model_from_response
+    api_key = config.TEAM_API_KEY if api_key is None else api_key
 
     resp = None
     try:
-        url = urljoin(config.BACKEND_URL, f"sdk/models?ids={','.join(model_ids)}")
-        api_key = config.TEAM_API_KEY if api_key is None else api_key
+        url = urljoin(config.BACKEND_URL, f"sdk/models?ids={','.join(model_ids)}")    
         headers = {"Authorization": f"Token {api_key}", "Content-Type": "application/json"}
         logging.info(f"Start service for GET Model  - {url} - {headers}")
         r = _request_with_retry("get", url, headers=headers)
@@ -224,9 +226,7 @@ def get_model_from_ids(model_ids: List[str], api_key: Optional[str] = None) -> L
     if 200 <= r.status_code < 300:
         models = []
         for item in resp["items"]:
-            item["api_key"] = config.TEAM_API_KEY
-            if api_key is not None:
-                item["api_key"] = api_key
+            item["api_key"] = api_key
             models.append(create_model_from_response(item))
         return models
     else:
