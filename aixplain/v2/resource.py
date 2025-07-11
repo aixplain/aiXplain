@@ -64,20 +64,21 @@ class BaseResource:
         """
         Get API key from kwargs or context, with fallback to config for
         backwards compatibility.
-        
+
         Args:
             kwargs: dict: Keyword arguments passed to the method.
-            
+
         Returns:
             str: API key from kwargs, context, or config.TEAM_API_KEY as
                  fallback.
         """
         api_key = kwargs.get("api_key") or getattr(cls.context, "api_key", None)
-        
+
         if api_key is None:
             import aixplain.utils.config as config
+
             api_key = config.TEAM_API_KEY
-            
+
         return api_key
 
     def __getattr__(self, key: str) -> Any:
@@ -141,7 +142,7 @@ class BaseResource:
             raise ValueError("Action call requires an 'id' attribute")
 
         method = method or "GET"
-        path = f"sdk/{self.RESOURCE_PATH}/{self.id}"
+        path = f"{self.RESOURCE_PATH}/{self.id}"
         if action_paths:
             path += "/".join(["", *action_paths])
 
