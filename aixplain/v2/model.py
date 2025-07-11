@@ -42,14 +42,34 @@ class ModelRunnableResponse(BaseRunnableResponse):
         # Model-specific fields
         self.supplier_error: str = response_data.get("supplierError", "")
         self.model_id: Optional[str] = response_data.get("modelId")
+        self.request_id: Optional[str] = response_data.get("requestId")
 
         # Handle streaming responses
         self.streaming: bool = response_data.get("streaming", False)
+        
+        # Fix status parsing for model responses
+        if self.status is None:
+            if self.completed:
+                if self.error_message or self.supplier_error:
+                    from aixplain.enums import ResponseStatus
+                    self.status = ResponseStatus.FAILED
+                else:
+                    from aixplain.enums import ResponseStatus
+                    self.status = ResponseStatus.SUCCESS
+            else:
+                from aixplain.enums import ResponseStatus
+                self.status = ResponseStatus.IN_PROGRESS
+                
+        # For async responses, if not completed, data contains the polling URL
+        if not self.completed and self.data and self.url is None:
+            self.url = self.data
 
     def _get_known_fields(self) -> set:
         """Include Model-specific fields in known fields."""
         base_fields = super()._get_known_fields()
-        return base_fields | {"supplierError", "modelId", "streaming"}
+        return base_fields | {
+            "supplierError", "modelId", "streaming", "requestId"
+        }
 
 
 class Model(
@@ -68,24 +88,27 @@ class Model(
 
     RESOURCE_PATH = "sdk/models"
     RESPONSE_CLASS = ModelRunnableResponse
+    RUN_ACTION_PATH = None  # Use direct model execution service
 
-    def _build_run_payload(self, **kwargs: Unpack[ModelRunParams]) -> Dict[str, Any]:
+    def _build_run_payload(
+        self, **kwargs: Unpack[ModelRunParams]
+    ) -> Dict[str, Any]:
         """Build Model-specific run payload."""
         data = kwargs.get("data")
         name = kwargs.get("name", "model-run")
         parameters = kwargs.get("parameters", {})
         stream = kwargs.get("stream", False)
-
+        
         payload = {
             "data": data,
             "name": name,
         }
-
+        
         # Add Model-specific parameters
         if parameters:
             payload["parameters"] = parameters
-
+            
         if stream:
             payload["stream"] = stream
-
+            
         return payload

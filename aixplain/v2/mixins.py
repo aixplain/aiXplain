@@ -533,8 +533,25 @@ class RunnableMixin(Generic[RU]):
     RUN_ACTION_PATH = "run"
     RESPONSE_CLASS: Type[BaseRunnableResponse] = RunnableResponse
 
+    def _get_run_headers(self) -> Dict[str, str]:
+        """
+        Get headers for run operations.
+        
+        Subclasses can override this to customize headers for run operations.
+        
+        Returns:
+            Dict of headers for API requests
+        """
+        return {
+            "x-api-key": self.context.api_key,
+            "Content-Type": "application/json"
+        }
+
     def run(
-        self, timeout: float = 300, wait_time: float = 0.5, **kwargs: Unpack[RU]
+        self,
+        timeout: float = 300,
+        wait_time: float = 0.5,
+        **kwargs: Unpack[RU]
     ) -> BaseRunnableResponse:
         """
         Run the resource synchronously with automatic polling.
@@ -561,7 +578,10 @@ class RunnableMixin(Generic[RU]):
         # If we have a polling URL, use sync_poll for continuous polling
         if async_response.url:
             return self.sync_poll(
-                async_response.url, name=name, timeout=timeout, wait_time=wait_time
+                async_response.url,
+                name=name,
+                timeout=timeout,
+                wait_time=wait_time
             )
 
         return async_response
@@ -569,28 +589,46 @@ class RunnableMixin(Generic[RU]):
     def run_async(self, **kwargs: Unpack[RU]) -> BaseRunnableResponse:
         """
         Run the resource asynchronously.
-
+        
         Args:
             **kwargs: Run parameters specific to the resource type
-
+            
         Returns:
             Response instance from the configured RESPONSE_CLASS
         """
+        import json
+        import requests
+        
         name = kwargs.get("name", "process")
-
+        
         logging.debug(f"Running {self.__class__.__name__} async: {name}")
-
+        
         # Build the payload using the resource-specific implementation
         payload = self._build_run_payload(**kwargs)
-
+        
         try:
-            # Use _action to make the API call
-            response = self._action("post", [self.RUN_ACTION_PATH], json=payload)
+            # Determine URL based on RUN_ACTION_PATH
+            if self.RUN_ACTION_PATH is None:
+                # Use direct execution service (for models/tools)
+                url = f"{self.context.model_url}/{self.id}"
+            else:
+                # Use platform API with action path (for other resources)
+                path = f"{self.RESOURCE_PATH}/{self.id}/{self.RUN_ACTION_PATH}"
+                url = f"{self.context.base_url}/{path}"
+            
+            headers = self._get_run_headers()
+            
+            logging.debug(f"Run Async: {url} - {payload}")
+            
+            response = requests.post(
+                url, headers=headers, data=json.dumps(payload)
+            )
+            response.raise_for_status()
 
             # Parse response using the resource-specific response class
             response_data = response.json()
             return self._create_response(response_data)
-
+            
         except Exception as e:
             logging.error(f"Error in async run for {name}: {e}")
             return self._create_response(
@@ -730,15 +768,19 @@ class RunnableMixin(Generic[RU]):
         # Add any additional parameters that are not core fields
         core_fields = {"data", "name", "api_key"}
         additional_params = {
-            k: v for k, v in kwargs.items() if k not in core_fields and v is not None
+            k: v
+            for k, v in kwargs.items()
+            if k not in core_fields and v is not None
         }
 
         if additional_params:
             payload["parameters"] = additional_params
-
+            
         return payload
 
-    def _poll_external_url(self, poll_url: str, name: str) -> BaseRunnableResponse:
+    def _poll_external_url(
+        self, poll_url: str, name: str
+    ) -> BaseRunnableResponse:
         """
         Poll an external URL (for backward compatibility).
 

@@ -72,7 +72,9 @@ class BaseResource:
             str: API key from kwargs, context, or config.TEAM_API_KEY as
                  fallback.
         """
-        api_key = kwargs.get("api_key") or getattr(cls.context, "api_key", None)
+        api_key = kwargs.get("api_key") or getattr(
+            cls.context, "api_key", None
+        )
 
         if api_key is None:
             import aixplain.utils.config as config
