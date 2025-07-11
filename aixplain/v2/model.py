@@ -58,7 +58,7 @@ class Model(
     GetResourceMixin[BareGetParams, "Model"],
     CreateResourceMixin[BareCreateParams, "Model"],
     DeleteResourceMixin[BareDeleteParams, "Model"],
-    RunnableMixin[ModelRunParams, ModelRunnableResponse],
+    RunnableMixin[ModelRunParams],
 ):
     """Model resource class.
 

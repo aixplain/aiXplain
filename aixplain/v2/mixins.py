@@ -19,6 +19,7 @@ from .enums import OwnershipType, SortBy, SortOrder, ResponseStatus
 
 if TYPE_CHECKING:
     from .core import Aixplain  # noqa: F401
+    from .resource import BaseResource  # noqa: F401
 
 
 # Base parameter classes for mixins
@@ -128,24 +129,24 @@ C = TypeVar("C", bound=BaseCreateParams)
 G = TypeVar("G", bound=BaseGetParams)
 D = TypeVar("D", bound=BaseDeleteParams)
 RU = TypeVar("RU", bound=BaseRunParams)
-ResponseT = TypeVar("ResponseT", bound="BaseRunnableResponse")
+T = TypeVar("T", bound="BaseResource")  # Resources must extend BaseResource
 
 
-class Page(Generic[Any]):
+class Page(Generic[T]):
     """Page of resources.
 
     Attributes:
-        items: List[Any]: The list of resources.
+        results: List[T]: The list of resources.
         total: int: The total number of resources.
     """
 
-    results: List[Any]
+    results: List[T]
     page_number: int
     page_total: int
     total: int
 
     def __init__(
-        self, results: List[Any], page_number: int, page_total: int, total: int
+        self, results: List[T], page_number: int, page_total: int, total: int
     ):
         self.results = results
         self.page_number = page_number
@@ -161,7 +162,7 @@ class Page(Generic[Any]):
         return getattr(self, key)
 
 
-class ListResourceMixin(Generic[L, Any]):
+class ListResourceMixin(Generic[L, T]):
     """Mixin for listing resources.
 
     Attributes:
@@ -184,7 +185,7 @@ class ListResourceMixin(Generic[L, Any]):
     PAGINATE_DEFAULT_PAGE_SIZE = 20
 
     @classmethod
-    def list(cls: Type[Any], **kwargs: Unpack[L]) -> Page[Any]:
+    def list(cls: Type[T], **kwargs: Unpack[L]) -> Page[T]:
         """
         List resources across the first n pages with optional filtering.
 
@@ -192,7 +193,7 @@ class ListResourceMixin(Generic[L, Any]):
             kwargs: Unpack[L]: The keyword arguments.
 
         Returns:
-            Page[Any]: Page of BaseResource instances
+            Page[T]: Page of BaseResource instances
         """
 
         assert getattr(
@@ -219,7 +220,7 @@ class ListResourceMixin(Generic[L, Any]):
     @classmethod
     def _build_page(
         cls, response: requests.Response, **kwargs: Unpack[L]
-    ) -> Page[Any]:
+    ) -> Page[T]:
         """
         Build a page of resources from the response.
 
@@ -227,7 +228,7 @@ class ListResourceMixin(Generic[L, Any]):
             response: requests.Response: The response to build the page from.
 
         Returns:
-            Page[Any]: The page of resources.
+            Page[T]: The page of resources.
         """
         json = response.json()
 
@@ -301,11 +302,11 @@ class ListResourceMixin(Generic[L, Any]):
         return filters
 
 
-class GetResourceMixin(Generic[G, Any]):
+class GetResourceMixin(Generic[G, T]):
     """Mixin for getting a resource."""
 
     @classmethod
-    def get(cls: Type[Any], id: Any, **kwargs: Unpack[G]) -> Any:
+    def get(cls: Type[T], id: Any, **kwargs: Unpack[G]) -> T:
         """
         Retrieve a single resource by its ID (or other get parameters).
 
@@ -314,7 +315,7 @@ class GetResourceMixin(Generic[G, Any]):
             kwargs: Unpack[G]: Get parameters to pass to the request.
 
         Returns:
-            Any: Instance of the BaseResource class.
+            T: Instance of the BaseResource class.
 
         Raises:
             ValueError: If 'RESOURCE_PATH' is not defined by the subclass.
@@ -328,11 +329,11 @@ class GetResourceMixin(Generic[G, Any]):
         return cls(obj)
 
 
-class CreateResourceMixin(Generic[C, Any]):
+class CreateResourceMixin(Generic[C, T]):
     """Mixin for creating a resource."""
 
     @classmethod
-    def create(cls, *args, **kwargs: Unpack[C]) -> Any:
+    def create(cls, *args, **kwargs: Unpack[C]) -> T:
         """
         Create a resource.
 
@@ -340,7 +341,7 @@ class CreateResourceMixin(Generic[C, Any]):
             kwargs: Unpack[C]: The keyword arguments.
 
         Returns:
-            Any: The created resource.
+            T: The created resource.
         """
         assert getattr(
             cls, "RESOURCE_PATH"
@@ -350,11 +351,11 @@ class CreateResourceMixin(Generic[C, Any]):
         return cls(obj)
 
 
-class DeleteResourceMixin(Generic[D, Any]):
+class DeleteResourceMixin(Generic[D, T]):
     """Mixin for deleting a resource."""
 
     @classmethod
-    def delete(cls: Type[Any], id: Any, **kwargs: Unpack[D]) -> Any:
+    def delete(cls: Type[T], id: Any, **kwargs: Unpack[D]) -> Any:
         """
         Delete a resource.
         """
@@ -508,15 +509,14 @@ class BaseRunnableResponse:
 
 class RunnableResponse(BaseRunnableResponse):
     """Default implementation of runnable response.
-
+    
     This is the standard response class used by most resources. It provides
     all the common functionality without resource-specific customizations.
     """
-
     pass
 
 
-class RunnableMixin(Generic[RU, ResponseT]):
+class RunnableMixin(Generic[RU]):
     """Mixin for runnable resources like models, pipelines, and agents.
     
     This mixin provides execution capabilities for resources that can be run
@@ -525,24 +525,23 @@ class RunnableMixin(Generic[RU, ResponseT]):
     
     Type Parameters:
         RU: Type for run parameters (extends BaseRunParams)
-        ResponseT: Type for response class (extends BaseRunnableResponse)
     
     Attributes:
         RUN_ACTION_PATH: str: The action path for running the resource.
             Defaults to "run".
-        RESPONSE_CLASS: Type[ResponseT]: The response class to instantiate.
+        RESPONSE_CLASS: Type[BaseRunnableResponse]: The response class to use.
             Must be set by subclasses.
     """
     
     RUN_ACTION_PATH = "run"
-    RESPONSE_CLASS: Type[ResponseT]  # Must be set by subclasses
+    RESPONSE_CLASS: Type[BaseRunnableResponse] = RunnableResponse
     
     def run(
         self,
         timeout: float = 300,
         wait_time: float = 0.5,
         **kwargs: Unpack[RU]
-    ) -> ResponseT:
+    ) -> BaseRunnableResponse:
         """
         Run the resource synchronously with automatic polling.
         
@@ -552,7 +551,7 @@ class RunnableMixin(Generic[RU, ResponseT]):
             **kwargs: Run parameters specific to the resource type
             
         Returns:
-            Response of the type specified in the generic parameter
+            Response instance from the configured RESPONSE_CLASS
         """
         name = kwargs.get("name", "process")
         
@@ -576,7 +575,7 @@ class RunnableMixin(Generic[RU, ResponseT]):
         
         return async_response
 
-    def run_async(self, **kwargs: Unpack[RU]) -> ResponseT:
+    def run_async(self, **kwargs: Unpack[RU]) -> BaseRunnableResponse:
         """
         Run the resource asynchronously.
         
@@ -584,7 +583,7 @@ class RunnableMixin(Generic[RU, ResponseT]):
             **kwargs: Run parameters specific to the resource type
             
         Returns:
-            Response of the type specified in the generic parameter
+            Response instance from the configured RESPONSE_CLASS
         """
         name = kwargs.get("name", "process")
         
@@ -611,7 +610,7 @@ class RunnableMixin(Generic[RU, ResponseT]):
                 }
             )
 
-    def poll(self, poll_url: str, name: str = "process") -> ResponseT:
+    def poll(self, poll_url: str, name: str = "process") -> BaseRunnableResponse:
         """
         Poll for the result of an asynchronous operation.
         
@@ -620,7 +619,7 @@ class RunnableMixin(Generic[RU, ResponseT]):
             name: Name/ID of the process
             
         Returns:
-            Response of the type specified in the generic parameter
+            Response instance from the configured RESPONSE_CLASS
         """
         logging.debug(f"Polling {self.__class__.__name__} for {name}")
         
@@ -666,7 +665,7 @@ class RunnableMixin(Generic[RU, ResponseT]):
         name: str = "process",
         wait_time: float = 0.5,
         timeout: float = 300,
-    ) -> ResponseT:
+    ) -> BaseRunnableResponse:
         """
         Keeps polling until an asynchronous operation is complete.
         
@@ -677,7 +676,7 @@ class RunnableMixin(Generic[RU, ResponseT]):
             timeout: Maximum time to wait for completion
             
         Returns:
-            Response of the type specified in the generic parameter
+            Response instance from the configured RESPONSE_CLASS
         """
         import time
         
@@ -707,7 +706,7 @@ class RunnableMixin(Generic[RU, ResponseT]):
             }
         )
 
-    def _create_response(self, response_data: Dict[str, Any]) -> ResponseT:
+    def _create_response(self, response_data: Dict[str, Any]) -> BaseRunnableResponse:
         """Create a response instance using the configured response class.
         
         Args:
@@ -716,11 +715,6 @@ class RunnableMixin(Generic[RU, ResponseT]):
         Returns:
             Instance of the response class specified in RESPONSE_CLASS
         """
-        if not hasattr(self, 'RESPONSE_CLASS'):
-            raise NotImplementedError(
-                f"{self.__class__.__name__} must define RESPONSE_CLASS "
-                "attribute"
-            )
         return self.RESPONSE_CLASS(response_data)
 
     def _build_run_payload(self, **kwargs) -> Dict[str, Any]:
@@ -756,7 +750,7 @@ class RunnableMixin(Generic[RU, ResponseT]):
             
         return payload
 
-    def _poll_external_url(self, poll_url: str, name: str) -> ResponseT:
+    def _poll_external_url(self, poll_url: str, name: str) -> BaseRunnableResponse:
         """
         Poll an external URL (for backward compatibility).
         
@@ -765,7 +759,7 @@ class RunnableMixin(Generic[RU, ResponseT]):
             name: Process name
             
         Returns:
-            Response of the type specified in the generic parameter
+            Response instance from the configured RESPONSE_CLASS
         """
         import requests
         
@@ -785,10 +779,7 @@ class RunnableMixin(Generic[RU, ResponseT]):
             
             # Determine status based on completion
             if response_data.get("completed", False):
-                if (
-                    "error_message" in response_data 
-                    or "supplierError" in response_data
-                ):
+                if "error_message" in response_data or "supplierError" in response_data:
                     status = ResponseStatus.FAILED
                 else:
                     status = ResponseStatus.SUCCESS

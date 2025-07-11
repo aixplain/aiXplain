@@ -7,6 +7,33 @@ from typing import (
     TYPE_CHECKING,
 )
 
+# Re-export essential classes for backward compatibility
+from .mixins import (  # noqa: F401
+    # Parameter classes
+    BaseApiKeyParams,
+    BaseListParams,
+    BaseGetParams,
+    BaseCreateParams,
+    BaseDeleteParams,
+    BaseRunParams,
+    BareListParams,
+    BareGetParams,
+    BareCreateParams,
+    BareDeleteParams,
+    BareRunParams,
+    # Core classes
+    Page,
+    # Mixins
+    ListResourceMixin,
+    GetResourceMixin,
+    CreateResourceMixin,
+    DeleteResourceMixin,
+    RunnableMixin,
+    # Response classes
+    BaseRunnableResponse,
+    RunnableResponse,
+)
+
 if TYPE_CHECKING:
     from .core import Aixplain
 
@@ -37,21 +64,20 @@ class BaseResource:
         """
         Get API key from kwargs or context, with fallback to config for
         backwards compatibility.
-
+        
         Args:
             kwargs: dict: Keyword arguments passed to the method.
-
+            
         Returns:
             str: API key from kwargs, context, or config.TEAM_API_KEY as
                  fallback.
         """
         api_key = kwargs.get("api_key") or getattr(cls.context, "api_key", None)
-
+        
         if api_key is None:
             import aixplain.utils.config as config
-
             api_key = config.TEAM_API_KEY
-
+            
         return api_key
 
     def __getattr__(self, key: str) -> Any:
