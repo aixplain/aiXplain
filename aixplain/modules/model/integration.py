@@ -5,48 +5,24 @@ from aixplain.utils import config
 from typing import Text, Optional, Union, Dict
 from enum import Enum
 from pydantic import BaseModel
-
+import json
 
 class AuthenticationSchema(Enum):
-    BEARER = "BEARER_TOKEN"
-    OAUTH = "OAUTH"
+    BEARER_TOKEN = "BEARER_TOKEN"
+    OAUTH1 = "OAUTH1"
     OAUTH2 = "OAUTH2"
-
-
+    API_KEY = "API_KEY"
+    BASIC = "BASIC"
+    NO_AUTH = "NO_AUTH"
+    
 class BaseAuthenticationParams(BaseModel):
     name: Optional[Text] = None
-    authentication_schema: AuthenticationSchema = AuthenticationSchema.OAUTH2
     connector_id: Optional[Text] = None
-
-
-class BearerAuthenticationParams(BaseAuthenticationParams):
-    token: Text
-    authentication_schema: AuthenticationSchema = AuthenticationSchema.BEARER
-
-
-class OAuthAuthenticationParams(BaseAuthenticationParams):
-    client_id: Text
-    client_secret: Text
-    authentication_schema: AuthenticationSchema = AuthenticationSchema.OAUTH
-
-
-class OAuth2AuthenticationParams(BaseAuthenticationParams):
-    authentication_schema: AuthenticationSchema = AuthenticationSchema.OAUTH2
-
 
 def build_connector_params(**kwargs) -> BaseAuthenticationParams:
     name = kwargs.get("name")
-    token = kwargs.get("token")
-    client_id = kwargs.get("client_id")
-    client_secret = kwargs.get("client_secret")
     connector_id = kwargs.get("connector_id")
-    if token:
-        args = BearerAuthenticationParams(name=name, token=token, connector_id=connector_id)
-    elif client_id and client_secret:
-        args = OAuthAuthenticationParams(name=name, client_id=client_id, client_secret=client_secret, connector_id=connector_id)
-    else:
-        args = OAuth2AuthenticationParams(name=name, connector_id=connector_id)
-    return args
+    return BaseAuthenticationParams(name=name, connector_id=connector_id)
 
 
 class Integration(Model):
@@ -94,8 +70,10 @@ class Integration(Model):
         )
         self.url = config.MODELS_RUN_URL
         self.backend_url = config.BACKEND_URL
+        self.authentication_methods = json.loads([item for item in additional_info['attributes'] if item['name'] == 'auth_schemes'][0]['code'])
 
-    def connect(self, args: Optional[BaseAuthenticationParams] = None, **kwargs) -> ModelResponse:
+
+    def connect(self, authentication_schema: AuthenticationSchema, args: Optional[BaseAuthenticationParams] = None, data: Optional[Dict] = None, **kwargs) -> ModelResponse:
         """Connect to the integration
 
         Examples:
@@ -119,29 +97,20 @@ class Integration(Model):
         if args is None:
             args = build_connector_params(**kwargs)
 
-        authentication_schema = args.authentication_schema
-        if authentication_schema == AuthenticationSchema.BEARER:
-            return self.run(
-                {
-                    "name": args.name,
-                    "authScheme": authentication_schema.value,
-                    "data": {
-                        "token": args.token,
-                    },
-                }
-            )
-        elif authentication_schema == AuthenticationSchema.OAUTH:
-            return self.run(
-                {
-                    "name": args.name,
-                    "authScheme": authentication_schema.value,
-                    "data": {
-                        "client_id": args.client_id,
-                        "client_secret": args.client_secret,
-                    },
-                }
-            )
-        elif authentication_schema == AuthenticationSchema.OAUTH2:
+        if authentication_schema.value not in self.authentication_methods:
+            raise ValueError(f"Authentication schema {authentication_schema.value} is not supported for this integration. Supported authentication methods: {self.authentication_methods}")
+        if data is None:
+            data = {}
+        required_params = json.loads([item for item in self.additional_info['attributes'] if item['name'] == authentication_schema.value + "-inputs"][0]['code'])
+        required_params_names = [param['name'] for param in required_params]
+        for param in required_params_names:
+            if param not in data:
+                if len(required_params_names) == 1:
+                    raise ValueError(f"Parameter '{param}' is required for {self.name} {authentication_schema.value} authentication. Please provide the parameter in the data dictionary.")
+                else:
+                    raise ValueError(f"Parameters {required_params_names} are required for {self.name} {authentication_schema.value} authentication. Please provide the parameters in the data dictionary.")
+
+        if authentication_schema in [AuthenticationSchema.OAUTH2, AuthenticationSchema.OAUTH1, AuthenticationSchema.NO_AUTH]:
             response = self.run(
                 {
                     "name": args.name,
@@ -153,6 +122,15 @@ class Integration(Model):
                     f"Before using the tool, please visit the following URL to complete the connection: {response.data['redirectURL']}"
                 )
             return response
+        else:
+            return self.run(
+                {
+                    "name": args.name,
+                    "authScheme": authentication_schema.value,
+                    "data": data,
+                }
+            )
+
 
     def __repr__(self):
         try:
