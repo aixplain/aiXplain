@@ -99,8 +99,10 @@ class Integration(Model):
 
         if authentication_schema.value not in self.authentication_methods:
             raise ValueError(f"Authentication schema {authentication_schema.value} is not supported for this integration. Supported authentication methods: {self.authentication_methods}")
+        
         if data is None:
             data = {}
+            
         if authentication_schema not in [AuthenticationSchema.OAUTH2, AuthenticationSchema.OAUTH1, AuthenticationSchema.NO_AUTH]:
             required_params = json.loads([item for item in self.additional_info['attributes'] if item['name'] == authentication_schema.value + "-inputs"][0]['code'])
             required_params_names = [param['name'] for param in required_params]
@@ -110,8 +112,14 @@ class Integration(Model):
                         raise ValueError(f"Parameter '{param}' is required for {self.name} {authentication_schema.value} authentication. Please provide the parameter in the data dictionary.")
                     else:
                         raise ValueError(f"Parameters {required_params_names} are required for {self.name} {authentication_schema.value} authentication. Please provide the parameters in the data dictionary.")
-
-        if authentication_schema in [AuthenticationSchema.OAUTH2, AuthenticationSchema.OAUTH1, AuthenticationSchema.NO_AUTH]:
+            return self.run(
+                {
+                    "name": args.name,
+                    "authScheme": authentication_schema.value,
+                    "data": data,
+                }
+            )
+        else:
             response = self.run(
                 {
                     "name": args.name,
@@ -123,14 +131,6 @@ class Integration(Model):
                     f"Before using the tool, please visit the following URL to complete the connection: {response.data['redirectURL']}"
                 )
             return response
-        else:
-            return self.run(
-                {
-                    "name": args.name,
-                    "authScheme": authentication_schema.value,
-                    "data": data,
-                }
-            )
 
 
     def __repr__(self):
