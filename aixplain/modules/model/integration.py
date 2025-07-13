@@ -9,10 +9,11 @@ import json
 
 class AuthenticationSchema(Enum):
     BEARER_TOKEN = "BEARER_TOKEN"
-    OAUTH = "OAUTH"
+    OAUTH1 = "OAUTH1"
     OAUTH2 = "OAUTH2"
     API_KEY = "API_KEY"
     BASIC = "BASIC"
+    NO_AUTH = "NO_AUTH"
     
 class BaseAuthenticationParams(BaseModel):
     name: Optional[Text] = None
@@ -109,7 +110,7 @@ class Integration(Model):
                 else:
                     raise ValueError(f"Parameters {required_params_names} are required for {self.name} {authentication_schema.value} authentication. Please provide the parameters in the data dictionary.")
 
-        if authentication_schema == AuthenticationSchema.OAUTH2:
+        if authentication_schema in [AuthenticationSchema.OAUTH2, AuthenticationSchema.OAUTH1, AuthenticationSchema.NO_AUTH]:
             response = self.run(
                 {
                     "name": args.name,
