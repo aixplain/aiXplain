@@ -4,7 +4,7 @@ from typing_extensions import Unpack, NotRequired
 from aixplain.v2.resource import BaseResource, CreateResourceMixin, BaseCreateParams
 
 if TYPE_CHECKING:
-    from aixplain.v2.enums import License, StorageType
+    from aixplain.enums import License, StorageType
 
 
 class FileCreateParams(BaseCreateParams):
