@@ -2,7 +2,7 @@ from typing_extensions import Unpack, List, Union, NotRequired
 
 from .resource import (
     BaseResource,
-    ListResourceMixin,
+    PagedListResourceMixin,
     GetResourceMixin,
     BareListParams,
     BareGetParams,
@@ -26,7 +26,7 @@ class AgentCreateParams(BaseCreateParams):
 
 class Agent(
     BaseResource,
-    ListResourceMixin[BareListParams, "Agent"],
+    PagedListResourceMixin[BareListParams, "Agent"],
     GetResourceMixin[BareGetParams, "Agent"],
     CreateResourceMixin[AgentCreateParams, "Agent"],
 ):

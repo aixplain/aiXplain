@@ -1,12 +1,15 @@
 import os
-from typing import TypeVar, Optional
+from typing import Optional, TypeVar
 from .client import AixplainClient
 from .model import Model
 from .agent import Agent
+from .utility import Utility
 from . import enums
+
 
 ModelType = TypeVar("ModelType", bound=Model)
 AgentType = TypeVar("AgentType", bound=Agent)
+UtilityType = TypeVar("UtilityType", bound=Utility)
 
 
 class Aixplain:
@@ -36,6 +39,7 @@ class Aixplain:
 
     Model: ModelType = None
     Agent: AgentType = None
+    Utility: UtilityType = None
 
     Function = enums.Function
     Supplier = enums.Supplier
@@ -108,3 +112,4 @@ class Aixplain:
         """
         self.Model = type("Model", (Model,), {"context": self})
         self.Agent = type("Agent", (Agent,), {"context": self})
+        self.Utility = type("Utility", (Utility,), {"context": self})

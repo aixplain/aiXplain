@@ -4,7 +4,7 @@ from typing_extensions import NotRequired, Unpack
 from .resource import (
     BaseListParams,
     BaseResource,
-    ListResourceMixin,
+    PagedListResourceMixin,
     GetResourceMixin,
     BareGetParams,
     Page,
@@ -35,7 +35,7 @@ class ModelListParams(BaseListParams):
 
 class Model(
     BaseResource,
-    ListResourceMixin[ModelListParams, "Model"],
+    PagedListResourceMixin[ModelListParams, "Model"],
     GetResourceMixin[BareGetParams, "Model"],
     RunnableResourceMixin[BareRunParams, Result],
 ):
