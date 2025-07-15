@@ -1,5 +1,6 @@
 import requests
 import pprint
+from dataclasses import dataclass
 from typing import (
     List,
     Tuple,
@@ -18,6 +19,24 @@ from .enums import OwnershipType, SortBy, SortOrder
 
 if TYPE_CHECKING:
     from .core import Aixplain
+
+
+class BaseMixin:
+    """Base mixin with meta capabilities for resource operations."""
+    
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        # Skip check for BaseMixin itself
+        if cls is BaseMixin:
+            return
+        # Skip check for any class whose name ends with 'Mixin'
+        if cls.__name__.endswith('Mixin'):
+            return
+        # Enforce: if a class inherits from BaseMixin but not BaseResource, raise
+        if BaseMixin in cls.__mro__ and not issubclass(cls, BaseResource):
+            raise TypeError(
+                f"{cls.__name__} must inherit from BaseResource to use resource mixins"
+            )
 
 
 class BaseResource:
@@ -188,6 +207,16 @@ class BareCreateParams(BaseCreateParams):
     pass
 
 
+class BaseDeleteParams(BaseApiKeyParams):
+    """Base class for all delete parameters.
+
+    Attributes:
+        id: str: The resource ID.
+    """
+
+    pass
+
+
 class BareListParams(BaseListParams):
     """Default implementation of list parameters."""
 
@@ -200,10 +229,17 @@ class BareGetParams(BaseGetParams):
     pass
 
 
+class BareDeleteParams(BaseDeleteParams):
+    """Default implementation of delete parameters."""
+
+    pass
+
+
 R = TypeVar("R", bound=BaseResource)
 L = TypeVar("L", bound=BaseListParams)
 C = TypeVar("C", bound=BaseCreateParams)
 G = TypeVar("G", bound=BaseGetParams)
+D = TypeVar("D", bound=BaseDeleteParams)
 
 
 class Page(Generic[R]):
@@ -232,7 +268,7 @@ class Page(Generic[R]):
         return getattr(self, key)
 
 
-class ListResourceMixin(Generic[L, R]):
+class ListResourceMixin(BaseMixin, Generic[L, R]):
     """Mixin for listing resources.
 
     Attributes:
@@ -244,7 +280,7 @@ class ListResourceMixin(Generic[L, R]):
         PAGINATE_DEFAULT_PAGE_NUMBER: int: The default page number.
         PAGINATE_DEFAULT_PAGE_SIZE: int: The default page size.
     """
-
+    
     PAGINATE_PATH = "paginate"
     PAGINATE_METHOD = "post"
     PAGINATE_ITEMS_KEY = "items"
@@ -265,10 +301,6 @@ class ListResourceMixin(Generic[L, R]):
         Returns:
             Page[R]: Page of BaseResource instances
         """
-
-        assert getattr(
-            cls, "RESOURCE_PATH"
-        ), "Subclasses of 'BaseResource' must specify 'RESOURCE_PATH'"
 
         # TypedDict does not support default values, so we need to manually set them
         # Dataclasses might be a better fit, but we're using the TypedDict to ensure
@@ -369,7 +401,7 @@ class ListResourceMixin(Generic[L, R]):
         return filters
 
 
-class GetResourceMixin(Generic[G, R]):
+class GetResourceMixin(BaseMixin, Generic[G, R]):
     """Mixin for getting a resource."""
 
     @classmethod
@@ -387,16 +419,12 @@ class GetResourceMixin(Generic[G, R]):
         Raises:
             ValueError: If 'RESOURCE_PATH' is not defined by the subclass.
         """
-        assert getattr(
-            cls, "RESOURCE_PATH"
-        ), "Subclasses of 'BaseResource' must specify 'RESOURCE_PATH'"
-
         path = f"{cls.RESOURCE_PATH}/{id}"
         obj = cls.context.client.get_obj(path, **kwargs)
         return cls(obj)
 
 
-class CreateResourceMixin(Generic[C, R]):
+class CreateResourceMixin(BaseMixin, Generic[C, R]):
     """Mixin for creating a resource."""
 
     @classmethod
@@ -410,9 +438,51 @@ class CreateResourceMixin(Generic[C, R]):
         Returns:
             BaseResource: The created resource.
         """
-        assert getattr(
-            cls, "RESOURCE_PATH"
-        ), "Subclasses of 'BaseResource' must specify 'RESOURCE_PATH'"
-
         obj = cls.context.client.request("post", cls.RESOURCE_PATH, *args, **kwargs)
         return cls(obj)
+
+
+class DeleteResourceMixin(BaseMixin, Generic[D, R]):
+    """Mixin for deleting a resource."""
+
+    @classmethod
+    def delete(cls, id: Any, **kwargs: Unpack[D]) -> R:
+        """
+        Delete a resource.
+        """
+        path = f"{cls.RESOURCE_PATH}/{id}"
+        cls.context.client.request("delete", path, **kwargs)
+        return cls(None)
+
+
+@dataclass
+class BaseResult:
+    """Base class for running results."""
+
+    pass
+
+
+class Result(BaseResult):
+    """Default implementation of running results."""
+
+    pass
+
+
+RR = TypeVar("RR", bound=BaseResult)
+
+
+class RunnableResourceMixin(BaseMixin, Generic[R, RR]):
+    """Mixin for runnable resources."""
+    
+    ACTION_PATH = None
+
+    def run(self, **kwargs: Unpack[R]) -> RR:
+        """
+        Run a resource.
+        """
+        path = f"{self.RESOURCE_PATH}/{self.id}"
+        if self.ACTION_PATH:
+            path += f"/{self.ACTION_PATH}"
+
+        obj = self._action("post", [self.ACTION_PATH], **kwargs)
+        return RR(obj)
