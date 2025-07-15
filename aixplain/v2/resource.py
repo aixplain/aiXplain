@@ -23,16 +23,11 @@ if TYPE_CHECKING:
 
 class BaseMixin:
     """Base mixin with meta capabilities for resource operations."""
-    
+
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
-        # Skip check for BaseMixin itself
-        if cls is BaseMixin:
+        if cls.__name__.endswith("Mixin"):
             return
-        # Skip check for any class whose name ends with 'Mixin'
-        if cls.__name__.endswith('Mixin'):
-            return
-        # Enforce: if a class inherits from BaseMixin but not BaseResource, raise
         if BaseMixin in cls.__mro__ and not issubclass(cls, BaseResource):
             raise TypeError(
                 f"{cls.__name__} must inherit from BaseResource to use resource mixins"
@@ -201,18 +196,29 @@ class BaseCreateParams(BaseApiKeyParams):
     name: str
 
 
-class BareCreateParams(BaseCreateParams):
-    """Default implementation of create parameters."""
-
-    pass
-
-
 class BaseDeleteParams(BaseApiKeyParams):
     """Base class for all delete parameters.
 
     Attributes:
         id: str: The resource ID.
     """
+
+    pass
+
+
+class BaseRunParams(BaseApiKeyParams):
+    """Base class for all run parameters.
+
+    Attributes:
+        text: str: The text to run.
+    """
+
+    timeout: NotRequired[int]
+    wait_time: NotRequired[int]
+
+
+class BareCreateParams(BaseCreateParams):
+    """Default implementation of create parameters."""
 
     pass
 
@@ -235,11 +241,32 @@ class BareDeleteParams(BaseDeleteParams):
     pass
 
 
+class BareRunParams(BaseRunParams):
+    """Default implementation of run parameters."""
+
+    pass
+
+
+@dataclass
+class BaseResult:
+    """Base class for running results."""
+
+    pass
+
+
+class Result(BaseResult):
+    """Default implementation of running results."""
+
+    pass
+
+
 R = TypeVar("R", bound=BaseResource)
-L = TypeVar("L", bound=BaseListParams)
-C = TypeVar("C", bound=BaseCreateParams)
-G = TypeVar("G", bound=BaseGetParams)
-D = TypeVar("D", bound=BaseDeleteParams)
+LP = TypeVar("LP", bound=BaseListParams)
+CP = TypeVar("CP", bound=BaseCreateParams)
+GP = TypeVar("GP", bound=BaseGetParams)
+DP = TypeVar("DP", bound=BaseDeleteParams)
+RP = TypeVar("RP", bound=BaseRunParams)
+RR = TypeVar("RR", bound=BaseResult)
 
 
 class Page(Generic[R]):
@@ -268,7 +295,7 @@ class Page(Generic[R]):
         return getattr(self, key)
 
 
-class ListResourceMixin(BaseMixin, Generic[L, R]):
+class ListResourceMixin(BaseMixin, Generic[LP, R]):
     """Mixin for listing resources.
 
     Attributes:
@@ -280,7 +307,7 @@ class ListResourceMixin(BaseMixin, Generic[L, R]):
         PAGINATE_DEFAULT_PAGE_NUMBER: int: The default page number.
         PAGINATE_DEFAULT_PAGE_SIZE: int: The default page size.
     """
-    
+
     PAGINATE_PATH = "paginate"
     PAGINATE_METHOD = "post"
     PAGINATE_ITEMS_KEY = "items"
@@ -291,7 +318,7 @@ class ListResourceMixin(BaseMixin, Generic[L, R]):
     PAGINATE_DEFAULT_PAGE_SIZE = 20
 
     @classmethod
-    def list(cls: Type[R], **kwargs: Unpack[L]) -> Page[R]:
+    def list(cls: Type[R], **kwargs: Unpack[LP]) -> Page[R]:
         """
         List resources across the first n pages with optional filtering.
 
@@ -319,7 +346,7 @@ class ListResourceMixin(BaseMixin, Generic[L, R]):
         return cls._build_page(response, **kwargs)
 
     @classmethod
-    def _build_page(cls, response: requests.Response, **kwargs: Unpack[L]) -> Page[R]:
+    def _build_page(cls, response: requests.Response, **kwargs: Unpack[LP]) -> Page[R]:
         """
         Build a page of resources from the response.
 
@@ -401,11 +428,11 @@ class ListResourceMixin(BaseMixin, Generic[L, R]):
         return filters
 
 
-class GetResourceMixin(BaseMixin, Generic[G, R]):
+class GetResourceMixin(BaseMixin, Generic[GP, R]):
     """Mixin for getting a resource."""
 
     @classmethod
-    def get(cls: Type[R], id: Any, **kwargs: Unpack[G]) -> R:
+    def get(cls: Type[R], id: Any, **kwargs: Unpack[GP]) -> R:
         """
         Retrieve a single resource by its ID (or other get parameters).
 
@@ -424,11 +451,11 @@ class GetResourceMixin(BaseMixin, Generic[G, R]):
         return cls(obj)
 
 
-class CreateResourceMixin(BaseMixin, Generic[C, R]):
+class CreateResourceMixin(BaseMixin, Generic[CP, R]):
     """Mixin for creating a resource."""
 
     @classmethod
-    def create(cls, *args, **kwargs: Unpack[C]) -> R:
+    def create(cls, *args, **kwargs: Unpack[CP]) -> R:
         """
         Create a resource.
 
@@ -442,11 +469,11 @@ class CreateResourceMixin(BaseMixin, Generic[C, R]):
         return cls(obj)
 
 
-class DeleteResourceMixin(BaseMixin, Generic[D, R]):
+class DeleteResourceMixin(BaseMixin, Generic[DP, R]):
     """Mixin for deleting a resource."""
 
     @classmethod
-    def delete(cls, id: Any, **kwargs: Unpack[D]) -> R:
+    def delete(cls, id: Any, **kwargs: Unpack[DP]) -> R:
         """
         Delete a resource.
         """
@@ -455,28 +482,12 @@ class DeleteResourceMixin(BaseMixin, Generic[D, R]):
         return cls(None)
 
 
-@dataclass
-class BaseResult:
-    """Base class for running results."""
-
-    pass
-
-
-class Result(BaseResult):
-    """Default implementation of running results."""
-
-    pass
-
-
-RR = TypeVar("RR", bound=BaseResult)
-
-
-class RunnableResourceMixin(BaseMixin, Generic[R, RR]):
+class RunnableResourceMixin(BaseMixin, Generic[RP, RR]):
     """Mixin for runnable resources."""
-    
+
     ACTION_PATH = None
 
-    def run(self, **kwargs: Unpack[R]) -> RR:
+    def run(self, **kwargs: Unpack[RP]) -> RR:
         """
         Run a resource.
         """
