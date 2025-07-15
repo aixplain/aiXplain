@@ -53,7 +53,7 @@ class ConnectionTool(Model):
             scope (Text, optional): action scope of the connection. Defaults to None.
             **additional_info: Any additional Model info to be saved
         """
-        assert function_type == FunctionType.CONNECTION, "Connection only supports connection function"
+        assert function_type == FunctionType.CONNECTION or function_type == FunctionType.MCPCONNECTION, "Connection only supports connection function"
         super().__init__(
             id=id,
             name=name,

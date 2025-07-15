@@ -34,3 +34,4 @@ class FunctionType(Enum):
     INTEGRATION = "connector"
     CONNECTION = "connection"
     MCPSERVER = 'mcpserver'
+    MCPCONNECTION = "mcpconnection"
