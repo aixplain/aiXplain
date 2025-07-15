@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Optional
 
 import requests
 from requests.adapters import HTTPAdapter, Retry
@@ -46,8 +46,8 @@ class AixplainClient:
     def __init__(
         self,
         base_url: str,
-        aixplain_api_key: str = None,
-        team_api_key: str = None,
+        aixplain_api_key: Optional[str] = None,
+        team_api_key: Optional[str] = None,
         retry_total=DEFAULT_RETRY_TOTAL,
         retry_backoff_factor=DEFAULT_RETRY_BACKOFF_FACTOR,
         retry_status_forcelist=DEFAULT_RETRY_STATUS_FORCELIST,
@@ -80,7 +80,8 @@ class AixplainClient:
         headers = {"Content-Type": "application/json"}
         if self.aixplain_api_key:
             headers["x-aixplain-key"] = self.aixplain_api_key
-        else:
+
+        if self.team_api_key:
             headers["x-api-key"] = self.team_api_key
 
         self.session = create_retry_session(

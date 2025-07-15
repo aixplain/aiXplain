@@ -1,37 +1,12 @@
 import os
-from typing import TypeVar
+from typing import TypeVar, Optional
 from .client import AixplainClient
-from .api_key import APIKey
-from .data import Data
-from .dataset import Dataset
-from .corpus import Corpus
 from .model import Model
-from .pipeline import Pipeline
 from .agent import Agent
-from .benchmark import Benchmark, BenchmarkJob
-from .metric import Metric
-from .finetune import Finetune
-from .script import Script
-from .wallet import Wallet
-from .file import File
 from . import enums
-from .team_agent import TeamAgent
 
-APIKeyType = TypeVar("APIKeyType", bound=APIKey)
-DataType = TypeVar("DataType", bound=Data)
-DatasetType = TypeVar("DatasetType", bound=Dataset)
-CorpusType = TypeVar("CorpusType", bound=Corpus)
 ModelType = TypeVar("ModelType", bound=Model)
-PipelineType = TypeVar("PipelineType", bound=Pipeline)
 AgentType = TypeVar("AgentType", bound=Agent)
-BenchmarkType = TypeVar("BenchmarkType", bound=Benchmark)
-BenchmarkJobType = TypeVar("BenchmarkJobType", bound=BenchmarkJob)
-MetricType = TypeVar("MetricType", bound=Metric)
-FinetuneType = TypeVar("FinetuneType", bound=Finetune)
-ScriptType = TypeVar("ScriptType", bound=Script)
-WalletType = TypeVar("WalletType", bound=Wallet)
-FileType = TypeVar("FileType", bound=File)
-TeamAgentType = TypeVar("TeamAgentType", bound=TeamAgent)
 
 
 class Aixplain:
@@ -59,21 +34,9 @@ class Aixplain:
     # 1. We can benefit from the type checking and autocompletion of the IDE.
     # 2. We can access enums and resources without having to import them.
 
-    APIKey: APIKeyType = None
-    Data: DataType = None
-    Dataset: DatasetType = None
-    Corpus: CorpusType = None
     Model: ModelType = None
-    Pipeline: PipelineType = None
     Agent: AgentType = None
-    Benchmark: BenchmarkType = None
-    BenchmarkJob: BenchmarkJobType = None
-    Metric: MetricType = None
-    Finetune: FinetuneType = None
-    Script: ScriptType = None
-    Wallet: WalletType = None
-    File: FileType = None
-    TeamAgent: TeamAgentType = None
+
     Function = enums.Function
     Supplier = enums.Supplier
     Language = enums.Language
@@ -102,10 +65,10 @@ class Aixplain:
 
     def __init__(
         self,
-        api_key: str = None,
-        backend_url: str = None,
-        pipeline_url: str = None,
-        model_url: str = None,
+        api_key: Optional[str] = None,
+        backend_url: Optional[str] = None,
+        pipeline_url: Optional[str] = None,
+        model_url: Optional[str] = None,
     ):
         """Initialize the Aixplain class.
 
@@ -115,7 +78,7 @@ class Aixplain:
             pipeline_url: str: The URL for the pipeline.
             model_url: str: The URL for the model.
         """
-        self.api_key = api_key or os.getenv("TEAM_API_KEY")
+        self.api_key = api_key or os.getenv("TEAM_API_KEY") or ""
         assert self.api_key, (
             "API key is required. You should either pass it as an argument or "
             "set the TEAM_API_KEY environment variable."
@@ -143,18 +106,5 @@ class Aixplain:
         We're dynamically creating the classes here to avoid potential race
         conditions when using class level attributes
         """
-        self.APIKey = type("APIKey", (APIKey,), {"context": self})
-        self.Data = type("Data", (Data,), {"context": self})
-        self.Dataset = type("Dataset", (Dataset,), {"context": self})
-        self.Corpus = type("Corpus", (Corpus,), {"context": self})
         self.Model = type("Model", (Model,), {"context": self})
-        self.Pipeline = type("Pipeline", (Pipeline,), {"context": self})
         self.Agent = type("Agent", (Agent,), {"context": self})
-        self.Benchmark = type("Benchmark", (Benchmark,), {"context": self})
-        self.BenchmarkJob = type("BenchmarkJob", (BenchmarkJob,), {"context": self})
-        self.Metric = type("Metric", (Metric,), {"context": self})
-        self.Finetune = type("Finetune", (Finetune,), {"context": self})
-        self.Script = type("Script", (Script,), {"context": self})
-        self.Wallet = type("Wallet", (Wallet,), {"context": self})
-        self.File = type("File", (File,), {"context": self})
-        self.TeamAgent = type("TeamAgent", (TeamAgent,), {"context": self})
