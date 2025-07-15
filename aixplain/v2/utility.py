@@ -1,11 +1,11 @@
-from typing import Union, List, Callable
+from typing import Union, List, Callable, Tuple
 from typing_extensions import NotRequired, Unpack
 
 from .resource import (
     BaseListParams,
     BaseCreateParams,
     BaseResource,
-    PlainListResourceMixin,
+    PagedListResourceMixin,
     GetResourceMixin,
     CreateResourceMixin,
     BareGetParams,
@@ -14,7 +14,7 @@ from .resource import (
     Result,
     RunnableResourceMixin,
 )
-from .enums import Function
+from .enums import Function, OwnershipType, SortBy, SortOrder
 
 
 class UtilityListParams(BaseListParams):
@@ -23,10 +23,22 @@ class UtilityListParams(BaseListParams):
     Attributes:
         function: Function: The function of the utility (should be UTILITIES).
         status: str: The status of the utility.
+        query: str: Search query for utilities.
+        ownership: Tuple[OwnershipType, List[OwnershipType]]: Ownership filter.
+        sort_by: SortBy: Sort by attribute.
+        sort_order: SortOrder: Sort order.
+        page_number: int: Page number for pagination.
+        page_size: int: Page size for pagination.
     """
 
     function: NotRequired[Function]
     status: NotRequired[str]
+    query: NotRequired[str]
+    ownership: NotRequired[Tuple[OwnershipType, List[OwnershipType]]]
+    sort_by: NotRequired[SortBy]
+    sort_order: NotRequired[SortOrder]
+    page_number: NotRequired[int]
+    page_size: NotRequired[int]
 
 
 class UtilityCreateParams(BaseCreateParams):
@@ -58,7 +70,7 @@ class UtilityRunParams(BaseRunParams):
 
 class Utility(
     BaseResource,
-    PlainListResourceMixin[UtilityListParams, "Utility"],
+    PagedListResourceMixin[UtilityListParams, "Utility"],
     GetResourceMixin[BareGetParams, "Utility"],
     CreateResourceMixin[UtilityCreateParams, "Utility"],
     RunnableResourceMixin[UtilityRunParams, Result],
@@ -86,15 +98,25 @@ class Utility(
         return super().get(id, **kwargs)
 
     @classmethod
-    def list(cls, **kwargs: Unpack[UtilityListParams]) -> List["Utility"]:
-        """List utilities.
+    def list(cls, **kwargs: Unpack[UtilityListParams]) -> Page["Utility"]:
+        """List utilities with pagination support.
 
         Args:
-            **kwargs: List parameters.
+            **kwargs: List parameters including pagination and filtering
+                options.
 
         Returns:
-            Page[Utility]: Page of utilities.
+            Page[Utility]: Page of utilities with metadata.
         """
+        # Use models endpoint with UTILITIES function filter
+        # This matches the legacy implementation behavior
+        
+        # Force the function to be UTILITIES
+        kwargs['function'] = Function.UTILITIES
+        
+        # Use custom resource path to route to models endpoint
+        kwargs['resource_path'] = "sdk/models"
+        
         return super().list(**kwargs)
 
     @classmethod
@@ -137,3 +159,5 @@ class Utility(
         """
         response = self._action("post", ["validate"])
         return response.status_code == 200
+
+

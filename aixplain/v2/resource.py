@@ -159,17 +159,19 @@ class BaseResource:
         return f"{self.__class__.__name__}(id={self.id})"
 
 
-class BaseApiKeyParams(TypedDict):
-    """Base class for parameters that include API key.
+class BaseParams(TypedDict):
+    """Base class for parameters that include API key and resource path.
 
     Attributes:
         api_key: str: The API key for authentication.
+        resource_path: str: Custom resource path for actions (optional).
     """
 
     api_key: NotRequired[str]
+    resource_path: NotRequired[str]
 
 
-class BaseListParams(BaseApiKeyParams):
+class BaseListParams(BaseParams):
     """Base class for all list parameters.
 
     Attributes:
@@ -189,7 +191,7 @@ class BaseListParams(BaseApiKeyParams):
     page_size: NotRequired[int]
 
 
-class BaseGetParams(BaseApiKeyParams):
+class BaseGetParams(BaseParams):
     """Base class for all get parameters.
 
     Attributes:
@@ -199,7 +201,7 @@ class BaseGetParams(BaseApiKeyParams):
     pass
 
 
-class BaseCreateParams(BaseApiKeyParams):
+class BaseCreateParams(BaseParams):
     """Base class for all create parameters.
 
     Attributes:
@@ -209,7 +211,7 @@ class BaseCreateParams(BaseApiKeyParams):
     name: str
 
 
-class BaseDeleteParams(BaseApiKeyParams):
+class BaseDeleteParams(BaseParams):
     """Base class for all delete parameters.
 
     Attributes:
@@ -219,7 +221,7 @@ class BaseDeleteParams(BaseApiKeyParams):
     pass
 
 
-class BaseRunParams(BaseApiKeyParams):
+class BaseRunParams(BaseParams):
     """Base class for all run parameters.
 
     Attributes:
@@ -380,7 +382,11 @@ class PagedListResourceMixin(BaseMixin, Generic[LP, R]):
 
         params = BareListParams(**kwargs)
         filters = cls._populate_filters(params)
-        paginate_path = cls._populate_path(cls.RESOURCE_PATH)
+        
+        # Use custom resource path if provided, otherwise use default
+        custom_path = params.get("resource_path")
+        paginate_path = cls._populate_path(cls.RESOURCE_PATH, custom_path)
+        
         response = cls.context.client.request(
             cls.PAGINATE_METHOD, paginate_path, json=filters
         )
@@ -419,19 +425,21 @@ class PagedListResourceMixin(BaseMixin, Generic[LP, R]):
         )
 
     @classmethod
-    def _populate_path(cls, path: str) -> str:
+    def _populate_path(cls, path: str, custom_path: Optional[str] = None) -> str:
         """
         Populate the path for pagination.
 
         Args:
             path: str: The path to populate.
+            custom_path: str, optional: Custom resource path to use instead.
 
         Returns:
             str: The populated path.
         """
+        base_path = custom_path if custom_path is not None else path
         if cls.PAGINATE_PATH:
-            return f"{path}/{cls.PAGINATE_PATH}"
-        return path
+            return f"{base_path}/{cls.PAGINATE_PATH}"
+        return base_path
 
     @classmethod
     def _populate_filters(cls, params: BaseListParams) -> dict:
@@ -463,6 +471,12 @@ class PagedListResourceMixin(BaseMixin, Generic[LP, R]):
 
         if params.get("sort_order") is not None:
             filters["sortOrder"] = params["sort_order"]
+
+        # Handle function filter (for utilities and other function-specific listings)
+        if params.get("function") is not None:
+            if "functions" not in filters:
+                filters["functions"] = []
+            filters["functions"].append(params["function"].value)
 
         return filters
 
@@ -567,7 +581,8 @@ class GetResourceMixin(BaseMixin, Generic[GP, R]):
         Raises:
             ValueError: If 'RESOURCE_PATH' is not defined by the subclass.
         """
-        path = f"{cls.RESOURCE_PATH}/{id}"
+        resource_path = kwargs.pop("resource_path", None) or cls.RESOURCE_PATH
+        path = f"{resource_path}/{id}"
         obj = cls.context.client.get_obj(path, **kwargs)
         return cls(obj)
 
@@ -586,7 +601,8 @@ class CreateResourceMixin(BaseMixin, Generic[CP, R]):
         Returns:
             BaseResource: The created resource.
         """
-        obj = cls.context.client.request("post", cls.RESOURCE_PATH, *args, **kwargs)
+        resource_path = kwargs.pop("resource_path", None) or cls.RESOURCE_PATH
+        obj = cls.context.client.request("post", resource_path, *args, **kwargs)
         return cls(obj)
 
 
@@ -598,7 +614,8 @@ class DeleteResourceMixin(BaseMixin, Generic[DP, R]):
         """
         Delete a resource.
         """
-        path = f"{cls.RESOURCE_PATH}/{id}"
+        resource_path = kwargs.pop("resource_path", None) or cls.RESOURCE_PATH
+        path = f"{resource_path}/{id}"
         cls.context.client.request("delete", path, **kwargs)
         return cls(None)
 
@@ -654,12 +671,13 @@ class RunnableResourceMixin(BaseMixin, Generic[RP, RR]):
 
         try:
             # Determine URL based on ACTION_PATH
+            resource_path = kwargs.pop("resource_path", None) or self.RESOURCE_PATH
             if self.ACTION_PATH is None:
                 # Use direct execution service (for models/tools)
                 url = f"{self.context.model_url}/{self.id}"
             else:
                 # Use platform API with action path (for other resources)
-                path = f"{self.RESOURCE_PATH}/{self.id}/{self.ACTION_PATH}"
+                path = f"{resource_path}/{self.id}/{self.ACTION_PATH}"
                 url = f"{self.context.base_url}/{path}"
 
             logger.debug(f"Run Async: {url} - {kwargs}")
