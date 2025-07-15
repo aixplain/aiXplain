@@ -44,24 +44,12 @@ class Model(
     RESOURCE_PATH = "sdk/models"
 
     @classmethod
+    def get(cls, id: str, **kwargs: Unpack[BareGetParams]) -> "Model":
+        return super().get(id, **kwargs)
+
+    @classmethod
     def list(cls, **kwargs: Unpack[ModelListParams]) -> Page["Model"]:
-        """List models.
-
-        Args:
-            **kwargs: The parameters for listing models.
-
-        Returns:
-            A list of models.
-        """
         return super().list(**kwargs)
 
     def run(self, **kwargs: Unpack[BareRunParams]) -> Result:
-        """Run a model.
-
-        Args:
-            **kwargs: The parameters for running a model.
-
-        Returns:
-            The result of the model run.
-        """
         return super().run(**kwargs)

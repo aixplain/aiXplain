@@ -64,19 +64,17 @@ class BaseResource:
     @classmethod
     def _get_api_key(cls, kwargs: dict) -> str:
         """
-        Get API key from kwargs or context, with fallback to config for 
+        Get API key from kwargs or context, with fallback to config for
         backwards compatibility.
 
         Args:
             kwargs: dict: Keyword arguments passed to the method.
 
         Returns:
-            str: API key from kwargs, context, or config.TEAM_API_KEY as 
+            str: API key from kwargs, context, or config.TEAM_API_KEY as
                  fallback.
         """
-        api_key = kwargs.get("api_key") or getattr(
-            cls.context, "api_key", None
-        )
+        api_key = kwargs.get("api_key") or getattr(cls.context, "api_key", None)
 
         if api_key is None:
             import aixplain.utils.config as config
@@ -109,7 +107,7 @@ class BaseResource:
     def save(self):
         """Save the resource.
 
-        If the resource has an ID, it will be updated, otherwise it will be 
+        If the resource has an ID, it will be updated, otherwise it will be
         created.
         """
         if hasattr(self, "id") and self.id:
@@ -118,9 +116,9 @@ class BaseResource:
             self._action("post", **self._obj)
 
     def _action(
-        self, 
-        method: Optional[str] = None, 
-        action_paths: Optional[List[str]] = None, 
+        self,
+        method: Optional[str] = None,
+        action_paths: Optional[List[str]] = None,
         **kwargs
     ) -> requests.Response:
         """
@@ -128,12 +126,12 @@ class BaseResource:
 
         Args:
             method: str, optional: HTTP method to use (default is 'GET').
-            action_paths: List[str], optional: Optional list of action paths to 
+            action_paths: List[str], optional: Optional list of action paths to
                          append to the URL.
             kwargs: dict: Additional keyword arguments to pass to the request.
 
         Returns:
-            requests.Response: Response from the client's request as 
+            requests.Response: Response from the client's request as
                               requests.Response
 
         Raises:
@@ -272,13 +270,30 @@ class BaseResult:
     url: Optional[str] = None
     result: Optional[Any] = None
     supplier_error: Optional[str] = None
+    data: Optional[Any] = None
+    _raw_data: Optional[dict] = None  # Store all raw response data
 
-    def __post_init__(self):
-        """Set default values after initialization."""
-        if self.status is None:
-            self.status = ResponseStatus.IN_PROGRESS.value
-        if self.completed is None:
-            self.completed = False
+    def __init__(self, **kwargs):
+        """Initialize with any fields from API response."""
+        # Extract known fields
+        self.status = kwargs.get("status", ResponseStatus.IN_PROGRESS.value)
+        self.completed = kwargs.get("completed", False)
+        self.error_message = kwargs.get("error_message")
+        self.url = kwargs.get("url")
+        self.result = kwargs.get("result")
+        self.supplier_error = kwargs.get("supplier_error")
+        self.data = kwargs.get("data")
+
+        # Store all raw data for flexible access
+        self._raw_data = kwargs
+
+    def __getattr__(self, name: str) -> Any:
+        """Allow access to any field from the raw response data."""
+        if self._raw_data and name in self._raw_data:
+            return self._raw_data[name]
+        raise AttributeError(
+            f"'{self.__class__.__name__}' object has no attribute '{name}'"
+        )
 
 
 class Result(BaseResult):
@@ -366,16 +381,13 @@ class ListResourceMixin(BaseMixin, Generic[LP, R]):
         params = BareListParams(**kwargs)
         filters = cls._populate_filters(params)
         paginate_path = cls._populate_path(cls.RESOURCE_PATH)
-        print(paginate_path, filters)
         response = cls.context.client.request(
             cls.PAGINATE_METHOD, paginate_path, json=filters
         )
         return cls._build_page(response, **kwargs)
 
     @classmethod
-    def _build_page(
-        cls, response: requests.Response, **kwargs: Unpack[LP]
-    ) -> Page[R]:
+    def _build_page(cls, response: requests.Response, **kwargs: Unpack[LP]) -> Page[R]:
         """
         Build a page of resources from the response.
 
@@ -451,8 +463,6 @@ class ListResourceMixin(BaseMixin, Generic[LP, R]):
 
         if params.get("sort_order") is not None:
             filters["sortOrder"] = params["sort_order"]
-
-        print("filters", filters)
 
         return filters
 
@@ -539,8 +549,10 @@ class RunnableResourceMixin(BaseMixin, Generic[RP, RR]):
             return result
 
         # If we have a polling URL, use sync_poll for continuous polling
-        if result.url:
-            return self.sync_poll(result.url, name=name, **kwargs)
+        # Check both 'url' and 'data' fields for the polling URL
+        poll_url = result.url or result.data
+        if poll_url:
+            return self.sync_poll(poll_url, name=name, **kwargs)
 
         return result
 
@@ -576,6 +588,16 @@ class RunnableResourceMixin(BaseMixin, Generic[RP, RR]):
 
             # Parse response using the resource-specific response class
             response_data = response.json()
+
+            # Provide default values for required fields
+            if "status" not in response_data:
+                response_data["status"] = ResponseStatus.IN_PROGRESS.value
+            if "completed" not in response_data:
+                response_data["completed"] = False
+
+            # Store raw data for flexible access
+            response_data["_raw_data"] = response_data
+
             return self.RESPONSE_CLASS(**response_data)
 
         except Exception as e:
@@ -624,11 +646,17 @@ class RunnableResourceMixin(BaseMixin, Generic[RP, RR]):
 
         response_data.setdefault("status", status.value)
 
+        # Provide default values for required fields
+        if "completed" not in response_data:
+            response_data["completed"] = False
+
+        # Store raw data for flexible access
+        response_data["_raw_data"] = response_data
+
         return self.RESPONSE_CLASS(**response_data)
 
     def sync_poll(
-        self, poll_url: str, name: str = "process", 
-        **kwargs: Unpack[RP]
+        self, poll_url: str, name: str = "process", **kwargs: Unpack[RP]
     ) -> RR:
         """
         Keeps polling until an asynchronous operation is complete.
@@ -646,24 +674,36 @@ class RunnableResourceMixin(BaseMixin, Generic[RP, RR]):
         timeout = kwargs.get("timeout", 300)
         wait_time = kwargs.get("wait_time", 0.5)
 
-        logger.info(f"Sync polling {self.__class__.__name__} for {name}")
+        logger.info(f"Starting sync polling for {name} (timeout: {timeout}s)")
 
         start_time = time.time()
         wait_time = max(wait_time, 0.2)  # Minimum wait time
+        poll_count = 0
 
         while (time.time() - start_time) < timeout:
+            poll_count += 1
             result = self.poll(poll_url, name=name)
 
             if result.completed:
-                logger.debug(f"Sync poll completed for {name}: {result}")
+                logger.info(f"Sync poll completed for {name} after {poll_count} polls")
                 return result
+
+            # Log progress every 10 polls
+            if poll_count % 10 == 0:
+                elapsed = time.time() - start_time
+                logger.info(
+                    f"Still polling {name}... "
+                    f"({poll_count} polls, {elapsed:.1f}s elapsed)"
+                )
 
             time.sleep(wait_time)
             if wait_time < 60:
                 wait_time *= 1.1  # Exponential backoff
 
         # Timeout reached
-        logger.error(f"Sync poll timeout for {name} after {timeout}s")
+        logger.error(
+            f"Sync poll timeout for {name} after {timeout}s ({poll_count} polls)"
+        )
         return self.RESPONSE_CLASS(
             status=ResponseStatus.FAILED.value,
             completed=False,
@@ -721,13 +761,13 @@ class RunnableResourceMixin(BaseMixin, Generic[RP, RR]):
         """
         if not result.completed:
             raise ValueError("Cannot extract data from incomplete result")
-        
+
         if result.status == ResponseStatus.FAILED.value:
             raise ValueError(f"Result failed: {result.error_message}")
-        
+
         return result.result
 
-    def get_error_message(self, result: RR) -> str:
+    def get_error_message(self, result: RR) -> Optional[str]:
         """
         Get the error message from a failed result.
 
@@ -735,6 +775,6 @@ class RunnableResourceMixin(BaseMixin, Generic[RP, RR]):
             result: The result to get error from
 
         Returns:
-            str: The error message, or None if no error
+            Optional[str]: The error message, or None if no error
         """
         return result.error_message or result.supplier_error
