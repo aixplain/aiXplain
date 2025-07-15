@@ -1,24 +1,29 @@
 import requests
+import logging
 import pprint
 from dataclasses import dataclass
 from typing import (
     List,
     Tuple,
     TypedDict,
+    Type,
     TypeVar,
     Generic,
-    Type,
     Any,
     Union,
+    Optional,
     TYPE_CHECKING,
 )
 from typing_extensions import Unpack, NotRequired
 
 
-from .enums import OwnershipType, SortBy, SortOrder
+from .enums import OwnershipType, SortBy, SortOrder, ResponseStatus
 
 if TYPE_CHECKING:
     from .core import Aixplain
+
+
+logger = logging.getLogger(__name__)
 
 
 class BaseMixin:
@@ -30,7 +35,8 @@ class BaseMixin:
             return
         if BaseMixin in cls.__mro__ and not issubclass(cls, BaseResource):
             raise TypeError(
-                f"{cls.__name__} must inherit from BaseResource to use resource mixins"
+                f"{cls.__name__} must inherit from BaseResource to use "
+                "resource mixins"
             )
 
 
@@ -58,15 +64,19 @@ class BaseResource:
     @classmethod
     def _get_api_key(cls, kwargs: dict) -> str:
         """
-        Get API key from kwargs or context, with fallback to config for backwards compatibility.
+        Get API key from kwargs or context, with fallback to config for 
+        backwards compatibility.
 
         Args:
             kwargs: dict: Keyword arguments passed to the method.
 
         Returns:
-            str: API key from kwargs, context, or config.TEAM_API_KEY as fallback.
+            str: API key from kwargs, context, or config.TEAM_API_KEY as 
+                 fallback.
         """
-        api_key = kwargs.get("api_key") or getattr(cls.context, "api_key", None)
+        api_key = kwargs.get("api_key") or getattr(
+            cls.context, "api_key", None
+        )
 
         if api_key is None:
             import aixplain.utils.config as config
@@ -99,7 +109,8 @@ class BaseResource:
     def save(self):
         """Save the resource.
 
-        If the resource has an ID, it will be updated, otherwise it will be created.
+        If the resource has an ID, it will be updated, otherwise it will be 
+        created.
         """
         if hasattr(self, "id") and self.id:
             self._action("put", [self.id], **self._obj)
@@ -107,19 +118,23 @@ class BaseResource:
             self._action("post", **self._obj)
 
     def _action(
-        self, method: str = None, action_paths: List[str] = None, **kwargs
+        self, 
+        method: Optional[str] = None, 
+        action_paths: Optional[List[str]] = None, 
+        **kwargs
     ) -> requests.Response:
         """
         Internal method to perform actions on the resource.
 
         Args:
             method: str, optional: HTTP method to use (default is 'GET').
-            action_paths: List[str], optional: Optional list of action paths to append to the
-                             URL.
+            action_paths: List[str], optional: Optional list of action paths to 
+                         append to the URL.
             kwargs: dict: Additional keyword arguments to pass to the request.
 
         Returns:
-            requests.Response: Response from the client's request as requests.Response
+            requests.Response: Response from the client's request as 
+                              requests.Response
 
         Raises:
             ValueError: If 'RESOURCE_PATH' is not defined by the subclass or
@@ -251,7 +266,19 @@ class BareRunParams(BaseRunParams):
 class BaseResult:
     """Base class for running results."""
 
-    pass
+    status: str
+    completed: bool
+    error_message: Optional[str] = None
+    url: Optional[str] = None
+    result: Optional[Any] = None
+    supplier_error: Optional[str] = None
+
+    def __post_init__(self):
+        """Set default values after initialization."""
+        if self.status is None:
+            self.status = ResponseStatus.IN_PROGRESS.value
+        if self.completed is None:
+            self.completed = False
 
 
 class Result(BaseResult):
@@ -318,12 +345,12 @@ class ListResourceMixin(BaseMixin, Generic[LP, R]):
     PAGINATE_DEFAULT_PAGE_SIZE = 20
 
     @classmethod
-    def list(cls: Type[R], **kwargs: Unpack[LP]) -> Page[R]:
+    def list(cls, **kwargs: Unpack[LP]) -> Page[R]:
         """
         List resources across the first n pages with optional filtering.
 
         Args:
-            kwargs: Unpack[L]: The keyword arguments.
+            kwargs: Unpack[LP]: The keyword arguments.
 
         Returns:
             Page[R]: Page of BaseResource instances
@@ -346,7 +373,9 @@ class ListResourceMixin(BaseMixin, Generic[LP, R]):
         return cls._build_page(response, **kwargs)
 
     @classmethod
-    def _build_page(cls, response: requests.Response, **kwargs: Unpack[LP]) -> Page[R]:
+    def _build_page(
+        cls, response: requests.Response, **kwargs: Unpack[LP]
+    ) -> Page[R]:
         """
         Build a page of resources from the response.
 
@@ -438,7 +467,7 @@ class GetResourceMixin(BaseMixin, Generic[GP, R]):
 
         Args:
             id: Any: The ID of the resource to get.
-            kwargs: Unpack[G]: Get parameters to pass to the request.
+            kwargs: Unpack[GP]: Get parameters to pass to the request.
 
         Returns:
             BaseResource: Instance of the BaseResource class.
@@ -460,7 +489,7 @@ class CreateResourceMixin(BaseMixin, Generic[CP, R]):
         Create a resource.
 
         Args:
-            kwargs: Unpack[C]: The keyword arguments.
+            kwargs: Unpack[CP]: The keyword arguments.
 
         Returns:
             BaseResource: The created resource.
@@ -486,14 +515,226 @@ class RunnableResourceMixin(BaseMixin, Generic[RP, RR]):
     """Mixin for runnable resources."""
 
     ACTION_PATH = None
+    RESPONSE_CLASS = Result  # Default response class
 
     def run(self, **kwargs: Unpack[RP]) -> RR:
         """
-        Run a resource.
-        """
-        path = f"{self.RESOURCE_PATH}/{self.id}"
-        if self.ACTION_PATH:
-            path += f"/{self.ACTION_PATH}"
+        Run the resource synchronously with automatic polling.
 
-        obj = self._action("post", [self.ACTION_PATH], **kwargs)
-        return RR(obj)
+        Args:
+            **kwargs: Run parameters including timeout and wait_time
+
+        Returns:
+            Response instance from the configured response class
+        """
+        name = kwargs.get("name", "process")
+
+        logger.debug(f"Running {self.__class__.__name__} sync: {name}")
+
+        # Start async execution
+        result = self.run_async(**kwargs)
+
+        # If already completed, return immediately
+        if result.completed:
+            return result
+
+        # If we have a polling URL, use sync_poll for continuous polling
+        if result.url:
+            return self.sync_poll(result.url, name=name, **kwargs)
+
+        return result
+
+    def run_async(self, **kwargs: Unpack[RP]) -> RR:
+        """
+        Run the resource asynchronously.
+
+        Args:
+            **kwargs: Run parameters specific to the resource type
+
+        Returns:
+            Response instance from the configured RESPONSE_CLASS
+        """
+        name = kwargs.get("name", "process")
+
+        logger.debug(f"Running {self.__class__.__name__} async: {name}")
+
+        try:
+            # Determine URL based on ACTION_PATH
+            if self.ACTION_PATH is None:
+                # Use direct execution service (for models/tools)
+                url = f"{self.context.model_url}/{self.id}"
+            else:
+                # Use platform API with action path (for other resources)
+                path = f"{self.RESOURCE_PATH}/{self.id}/{self.ACTION_PATH}"
+                url = f"{self.context.base_url}/{path}"
+
+            logger.debug(f"Run Async: {url} - {kwargs}")
+
+            # Use context.client.request() instead of direct requests
+            # Pass the full URL as path - urljoin will handle it correctly
+            response = self.context.client.request("post", url, json=kwargs)
+
+            # Parse response using the resource-specific response class
+            response_data = response.json()
+            return self.RESPONSE_CLASS(**response_data)
+
+        except Exception as e:
+            logger.error(f"Error in async run for {name}: {e}")
+            return self.RESPONSE_CLASS(
+                status=ResponseStatus.FAILED.value,
+                completed=True,
+                error_message=str(e),
+            )
+
+    def poll(self, poll_url: str, name: str = "process") -> RR:
+        """
+        Poll for the result of an asynchronous operation.
+
+        Args:
+            poll_url: URL to poll for results
+            name: Name/ID of the process
+
+        Returns:
+            Response instance from the configured RESPONSE_CLASS
+        """
+        logger.debug(f"Polling {self.__class__.__name__} for {name}")
+
+        try:
+            # Use context.client for all polling operations
+            # If poll_url is a full URL, urljoin will use it directly
+            # If it's a relative path, it will be joined with base_url
+            response = self.context.client.get(poll_url)
+            response_data = response.json()
+        except Exception as e:
+            logger.error(f"Error polling for {name}: {e}")
+            return self.RESPONSE_CLASS(
+                status=ResponseStatus.FAILED.value,
+                completed=False,
+                error_message=str(e),
+            )
+
+        # Determine status based on completion
+        if response_data.get("completed", False):
+            if "error_message" in response_data or "supplierError" in response_data:
+                status = ResponseStatus.FAILED
+            else:
+                status = ResponseStatus.SUCCESS
+        else:
+            status = ResponseStatus.IN_PROGRESS
+
+        response_data.setdefault("status", status.value)
+
+        return self.RESPONSE_CLASS(**response_data)
+
+    def sync_poll(
+        self, poll_url: str, name: str = "process", 
+        **kwargs: Unpack[RP]
+    ) -> RR:
+        """
+        Keeps polling until an asynchronous operation is complete.
+
+        Args:
+            poll_url: URL to poll for results
+            name: Name/ID of the process
+            **kwargs: Run parameters including timeout and wait_time
+
+        Returns:
+            Response instance from the configured RESPONSE_CLASS
+        """
+        import time
+
+        timeout = kwargs.get("timeout", 300)
+        wait_time = kwargs.get("wait_time", 0.5)
+
+        logger.info(f"Sync polling {self.__class__.__name__} for {name}")
+
+        start_time = time.time()
+        wait_time = max(wait_time, 0.2)  # Minimum wait time
+
+        while (time.time() - start_time) < timeout:
+            result = self.poll(poll_url, name=name)
+
+            if result.completed:
+                logger.debug(f"Sync poll completed for {name}: {result}")
+                return result
+
+            time.sleep(wait_time)
+            if wait_time < 60:
+                wait_time *= 1.1  # Exponential backoff
+
+        # Timeout reached
+        logger.error(f"Sync poll timeout for {name} after {timeout}s")
+        return self.RESPONSE_CLASS(
+            status=ResponseStatus.FAILED.value,
+            completed=False,
+            error_message=f"Timeout after {timeout} seconds",
+        )
+
+    def is_completed(self, result: RR) -> bool:
+        """
+        Check if a result is completed.
+
+        Args:
+            result: The result to check
+
+        Returns:
+            bool: True if completed, False otherwise
+        """
+        return result.completed
+
+    def is_successful(self, result: RR) -> bool:
+        """
+        Check if a result is successful.
+
+        Args:
+            result: The result to check
+
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        return result.completed and result.status == ResponseStatus.SUCCESS.value
+
+    def is_failed(self, result: RR) -> bool:
+        """
+        Check if a result failed.
+
+        Args:
+            result: The result to check
+
+        Returns:
+            bool: True if failed, False otherwise
+        """
+        return result.completed and result.status == ResponseStatus.FAILED.value
+
+    def get_result_data(self, result: RR) -> Any:
+        """
+        Extract the result data from a completed result.
+
+        Args:
+            result: The result to extract data from
+
+        Returns:
+            Any: The result data
+
+        Raises:
+            ValueError: If the result is not completed or failed
+        """
+        if not result.completed:
+            raise ValueError("Cannot extract data from incomplete result")
+        
+        if result.status == ResponseStatus.FAILED.value:
+            raise ValueError(f"Result failed: {result.error_message}")
+        
+        return result.result
+
+    def get_error_message(self, result: RR) -> str:
+        """
+        Get the error message from a failed result.
+
+        Args:
+            result: The result to get error from
+
+        Returns:
+            str: The error message, or None if no error
+        """
+        return result.error_message or result.supplier_error
