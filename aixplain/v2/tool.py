@@ -4,12 +4,20 @@ from typing_extensions import Unpack
 from .resource import (
     BaseListParams,
     ListResourceMixin,
+    GetResourceMixin,
+    BaseGetParams,
 )
 from .model import Model, ModelRunParams, ModelRunnableResponse
 
 
 class ToolListParams(BaseListParams):
     """Parameters for listing tools."""
+
+    pass
+
+
+class ToolGetParams(BaseGetParams):
+    """Parameters for getting a tool."""
 
     pass
 
@@ -49,6 +57,7 @@ class ToolRunnableResponse(ModelRunnableResponse):
 class Tool(
     Model,  # Inherit from Model instead of BaseResource + mixins
     ListResourceMixin[ToolListParams, "Tool"],
+    GetResourceMixin[ToolGetParams, "Tool"],
 ):
     """Resource for tools.
 
@@ -59,15 +68,3 @@ class Tool(
 
     # Override the response class to use tool-specific response
     RESPONSE_CLASS = ToolRunnableResponse
-
-    # Tool-specific build payload if needed (optional override)
-    def _build_run_payload(
-        self, **kwargs: Unpack[ToolRunParams]
-    ) -> Dict[str, Any]:
-        """Build Tool-specific run payload.
-        
-        Uses the same structure as Model but can customize if needed.
-        """
-        # For now, tools use the same payload structure as models
-        # but we can customize here if needed
-        return super()._build_run_payload(**kwargs)
