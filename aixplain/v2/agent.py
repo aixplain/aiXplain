@@ -100,17 +100,26 @@ class Agent(
         from aixplain.factories import AgentFactory
 
         return AgentFactory.create_model_tool(
-            model=model, function=function, supplier=supplier, description=description, name=name
+            model=model,
+            function=function,
+            supplier=supplier,
+            description=description,
+            name=name,
         )
 
     @classmethod
     def create_pipeline_tool(
-        cls, description: str, pipeline: Union["Pipeline", str], name: Optional[str] = None
+        cls,
+        description: str,
+        pipeline: Union["Pipeline", str],
+        name: Optional[str] = None,
     ) -> "PipelineTool":
         """Create a new pipeline tool."""
         from aixplain.factories import AgentFactory
 
-        return AgentFactory.create_pipeline_tool(description=description, pipeline=pipeline, name=name)
+        return AgentFactory.create_pipeline_tool(
+            description=description, pipeline=pipeline, name=name
+        )
 
     @classmethod
     def create_python_interpreter_tool(cls) -> "PythonInterpreterTool":
@@ -126,7 +135,9 @@ class Agent(
         """Create a new custom python code tool."""
         from aixplain.factories import AgentFactory
 
-        return AgentFactory.create_custom_python_code_tool(code=code, name=name, description=description)
+        return AgentFactory.create_custom_python_code_tool(
+            code=code, name=name, description=description
+        )
 
     @classmethod
     def create_sql_tool(
