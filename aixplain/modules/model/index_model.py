@@ -55,7 +55,6 @@ class Splitter:
         self.split_length = split_length
         self.split_overlap = split_overlap
 
-
 class IndexModel(Model):
     def __init__(
         self,
