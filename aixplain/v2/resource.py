@@ -337,8 +337,8 @@ class Page(Generic[R]):
         return getattr(self, key)
 
 
-class ListResourceMixin(BaseMixin, Generic[LP, R]):
-    """Mixin for listing resources.
+class PagedListResourceMixin(BaseMixin, Generic[LP, R]):
+    """Mixin for listing resources with pagination.
 
     Attributes:
         PAGINATE_PATH: str: The path for pagination.
@@ -451,6 +451,88 @@ class ListResourceMixin(BaseMixin, Generic[LP, R]):
 
         if params.get("page_size") is not None:
             filters["pageSize"] = params["page_size"]
+
+        if params.get("query") is not None:
+            filters["q"] = params["query"]
+
+        if params.get("ownership") is not None:
+            filters["ownership"] = params["ownership"]
+
+        if params.get("sort_by") is not None:
+            filters["sortBy"] = params["sort_by"]
+
+        if params.get("sort_order") is not None:
+            filters["sortOrder"] = params["sort_order"]
+
+        return filters
+
+
+class PlainListResourceMixin(BaseMixin, Generic[LP, R]):
+    """Mixin for listing resources without pagination.
+
+    This mixin provides a simple list method that returns all resources
+    without pagination. It's useful for resources that don't support
+    pagination or when you need all items at once.
+
+    Attributes:
+        LIST_METHOD: str: The HTTP method for listing.
+        LIST_ITEMS_KEY: str: The key for the response items.
+    """
+
+    LIST_METHOD = "get"
+    LIST_ITEMS_KEY = "items"
+
+    @classmethod
+    def list(cls, **kwargs: Unpack[LP]) -> List[R]:
+        """
+        List all resources without pagination.
+
+        Args:
+            kwargs: Unpack[LP]: The keyword arguments.
+
+        Returns:
+            List[R]: List of BaseResource instances
+        """
+        params = BareListParams(**kwargs)
+        filters = cls._populate_plain_filters(params)
+        list_path = cls.RESOURCE_PATH
+
+        response = cls.context.client.request(
+            cls.LIST_METHOD, list_path, params=filters
+        )
+        return cls._build_plain_list(response)
+
+    @classmethod
+    def _build_plain_list(cls, response: requests.Response) -> List[R]:
+        """
+        Build a list of resources from the response.
+
+        Args:
+            response: requests.Response: The response to build the list from.
+
+        Returns:
+            List[R]: The list of resources.
+        """
+        json = response.json()
+
+        items = json
+        if cls.LIST_ITEMS_KEY and cls.LIST_ITEMS_KEY in json:
+            items = json[cls.LIST_ITEMS_KEY]
+
+        return [cls(item) for item in items]
+
+    @classmethod
+    def _populate_plain_filters(cls, params: BaseListParams) -> dict:
+        """
+        Populate the filters for plain listing.
+
+        Args:
+            params: BaseListParams: The parameters to populate.
+
+        Returns:
+            dict: The populated filters.
+        """
+        filters = {}
 
         if params.get("query") is not None:
             filters["q"] = params["query"]
