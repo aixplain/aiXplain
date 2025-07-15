@@ -146,8 +146,8 @@ class ToolFactory(ModelGetterMixin, ModelListMixin):
                 connector.function_type == FunctionType.INTEGRATION
             ), f"The model you are trying to connect ({connector.id}) to is not a connector."
             
-            assert authentication_schema is not None, "Please provide the authentication schema to use (auth_schema parameter)"
-            assert isinstance(authentication_schema, AuthenticationSchema), "auth_schema must be an instance of AuthenticationSchema"
+            assert authentication_schema is not None, "Please provide the authentication schema to use (authentication_schema parameter)"
+            assert isinstance(authentication_schema, AuthenticationSchema), "authentication_schema must be an instance of AuthenticationSchema"
             
             auth_data = data if data is not None else {}
             if not auth_data:
