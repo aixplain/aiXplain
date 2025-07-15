@@ -70,7 +70,7 @@ def create_model_from_response(response: Dict) -> Model:
         ModelClass = IndexModel
     elif function_type == FunctionType.INTEGRATION:
         ModelClass = Integration
-    elif function_type == FunctionType.CONNECTION:
+    elif function_type == FunctionType.CONNECTION or function_type == FunctionType.MCPCONNECTION:
         ModelClass = ConnectionTool
     elif function == Function.UTILITIES:
         ModelClass = UtilityModel
