@@ -45,20 +45,20 @@ class BaseResource:
     def _get_api_key(cls, kwargs: dict) -> str:
         """
         Get API key from kwargs or context, with fallback to config for backwards compatibility.
-        
+
         Args:
             kwargs: dict: Keyword arguments passed to the method.
-            
+
         Returns:
             str: API key from kwargs, context, or config.TEAM_API_KEY as fallback.
         """
-        api_key = (kwargs.get("api_key") or 
-                  getattr(cls.context, "api_key", None))
-        
+        api_key = kwargs.get("api_key") or getattr(cls.context, "api_key", None)
+
         if api_key is None:
             import aixplain.utils.config as config
+
             api_key = config.TEAM_API_KEY
-            
+
         return api_key
 
     def __getattr__(self, key: str) -> Any:
@@ -92,8 +92,9 @@ class BaseResource:
         else:
             self._action("post", **self._obj)
 
-    def _action(self, method: str = None, action_paths: List[str] = None, 
-                **kwargs) -> requests.Response:
+    def _action(
+        self, method: str = None, action_paths: List[str] = None, **kwargs
+    ) -> requests.Response:
         """
         Internal method to perform actions on the resource.
 
@@ -111,8 +112,9 @@ class BaseResource:
                             'id' attribute is missing.
         """
 
-        assert getattr(self, "RESOURCE_PATH"), ("Subclasses of 'BaseResource' must "
-                                               "specify 'RESOURCE_PATH'")
+        assert getattr(self, "RESOURCE_PATH"), (
+            "Subclasses of 'BaseResource' must " "specify 'RESOURCE_PATH'"
+        )
 
         if not self.id:
             raise ValueError("Action call requires an 'id' attribute")
@@ -264,7 +266,9 @@ class ListResourceMixin(Generic[L, R]):
             Page[R]: Page of BaseResource instances
         """
 
-        assert getattr(cls, "RESOURCE_PATH"), "Subclasses of 'BaseResource' must specify 'RESOURCE_PATH'"
+        assert getattr(
+            cls, "RESOURCE_PATH"
+        ), "Subclasses of 'BaseResource' must specify 'RESOURCE_PATH'"
 
         # TypedDict does not support default values, so we need to manually set them
         # Dataclasses might be a better fit, but we're using the TypedDict to ensure
@@ -277,7 +281,9 @@ class ListResourceMixin(Generic[L, R]):
         filters = cls._populate_filters(params)
         paginate_path = cls._populate_path(cls.RESOURCE_PATH)
         print(paginate_path, filters)
-        response = cls.context.client.request(cls.PAGINATE_METHOD, paginate_path, json=filters)
+        response = cls.context.client.request(
+            cls.PAGINATE_METHOD, paginate_path, json=filters
+        )
         return cls._build_page(response, **kwargs)
 
     @classmethod
@@ -381,7 +387,9 @@ class GetResourceMixin(Generic[G, R]):
         Raises:
             ValueError: If 'RESOURCE_PATH' is not defined by the subclass.
         """
-        assert getattr(cls, "RESOURCE_PATH"), "Subclasses of 'BaseResource' must specify 'RESOURCE_PATH'"
+        assert getattr(
+            cls, "RESOURCE_PATH"
+        ), "Subclasses of 'BaseResource' must specify 'RESOURCE_PATH'"
 
         path = f"{cls.RESOURCE_PATH}/{id}"
         obj = cls.context.client.get_obj(path, **kwargs)
@@ -402,7 +410,9 @@ class CreateResourceMixin(Generic[C, R]):
         Returns:
             BaseResource: The created resource.
         """
-        assert getattr(cls, "RESOURCE_PATH"), "Subclasses of 'BaseResource' must specify 'RESOURCE_PATH'"
+        assert getattr(
+            cls, "RESOURCE_PATH"
+        ), "Subclasses of 'BaseResource' must specify 'RESOURCE_PATH'"
 
         obj = cls.context.client.request("post", cls.RESOURCE_PATH, *args, **kwargs)
         return cls(obj)

@@ -53,7 +53,7 @@ class Aixplain:
         BenchmarkJob: type: The benchmark job class.
     """
 
-    # Here below we're defining both resources and enums as class level 
+    # Here below we're defining both resources and enums as class level
     # attributes manually instead of populating them dynamically
     # This has two benefits:
     # 1. We can benefit from the type checking and autocompletion of the IDE.
@@ -116,23 +116,16 @@ class Aixplain:
             model_url: str: The URL for the model.
         """
         self.api_key = api_key or os.getenv("TEAM_API_KEY")
-        assert (
-            self.api_key
-        ), (
+        assert self.api_key, (
             "API key is required. You should either pass it as an argument or "
             "set the TEAM_API_KEY environment variable."
         )
 
-        self.base_url = (
-            backend_url or os.getenv("BACKEND_URL") or self.BACKEND_URL
-        )
+        self.base_url = backend_url or os.getenv("BACKEND_URL") or self.BACKEND_URL
         self.pipeline_url = (
-            pipeline_url or os.getenv("PIPELINES_RUN_URL") or 
-            self.PIPELINES_RUN_URL
+            pipeline_url or os.getenv("PIPELINES_RUN_URL") or self.PIPELINES_RUN_URL
         )
-        self.model_url = (
-            model_url or os.getenv("MODELS_RUN_URL") or self.MODELS_RUN_URL
-        )
+        self.model_url = model_url or os.getenv("MODELS_RUN_URL") or self.MODELS_RUN_URL
 
         self.init_client()
         self.init_resources()
@@ -158,9 +151,7 @@ class Aixplain:
         self.Pipeline = type("Pipeline", (Pipeline,), {"context": self})
         self.Agent = type("Agent", (Agent,), {"context": self})
         self.Benchmark = type("Benchmark", (Benchmark,), {"context": self})
-        self.BenchmarkJob = type(
-            "BenchmarkJob", (BenchmarkJob,), {"context": self}
-        )
+        self.BenchmarkJob = type("BenchmarkJob", (BenchmarkJob,), {"context": self})
         self.Metric = type("Metric", (Metric,), {"context": self})
         self.Finetune = type("Finetune", (Finetune,), {"context": self})
         self.Script = type("Script", (Script,), {"context": self})

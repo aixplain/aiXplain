@@ -70,6 +70,4 @@ class APIKey(
 
         api_key_param = api_key or cls._get_api_key({})
 
-        return APIKeyFactory.get_usage_limits(
-            api_key, asset_id, api_key=api_key_param
-        )
+        return APIKeyFactory.get_usage_limits(api_key, asset_id, api_key=api_key_param)
