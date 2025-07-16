@@ -738,8 +738,8 @@ def test_create_model_from_response(payload, expected_model_class):
 @pytest.mark.parametrize(
     "authentication_schema, name, token, client_id, client_secret",
     [
-        (AuthenticationSchema.BEARER, "test-name", "test-token", None, None),
-        (AuthenticationSchema.OAUTH, "test-name", None, "test-client-id", "test-client-secret"),
+        (AuthenticationSchema.BEARER_TOKEN, "test-name", "test-token", None, None),
+        (AuthenticationSchema.OAUTH2, "test-name", None, "test-client-id", "test-client-secret"),
     ],
 )
 def test_connector_connect(mocker, authentication_schema, name, token, client_id, client_secret):
