@@ -1,7 +1,8 @@
 import requests
 import logging
 import pprint
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from dataclasses_json import dataclass_json, config
 from typing import (
     List,
     Tuple,
@@ -10,7 +11,6 @@ from typing import (
     TypeVar,
     Generic,
     Any,
-    Union,
     Optional,
     TYPE_CHECKING,
 )
@@ -40,69 +40,27 @@ class BaseMixin:
             )
 
 
+@dataclass_json
+@dataclass
 class BaseResource:
     """Base class for all resources.
 
     Attributes:
-        context: Aixplain: The Aixplain instance.
+        context: Aixplain: The Aixplain instance (hidden from serialization).
         RESOURCE_PATH: str: The resource path.
+        id: str: The resource ID.
+        name: str: The resource name.
     """
 
-    _obj: Union[dict, Any]
-    context: "Aixplain"
-    RESOURCE_PATH: str
-
-    def __init__(self, obj: Union[dict, Any]):
-        """
-        Initialize a BaseResource instance.
-
-        Args:
-            obj: dict: Dictionary containing the resource's attributes.
-        """
-        self._obj = obj
-
-    @classmethod
-    def _get_api_key(cls, kwargs: dict) -> str:
-        """
-        Get API key from kwargs or context, with fallback to config for
-        backwards compatibility.
-
-        Args:
-            kwargs: dict: Keyword arguments passed to the method.
-
-        Returns:
-            str: API key from kwargs, context, or config.TEAM_API_KEY as
-                 fallback.
-        """
-        api_key = kwargs.get("api_key") or getattr(cls.context, "api_key", None)
-
-        if api_key is None:
-            import aixplain.utils.config as config
-
-            api_key = config.TEAM_API_KEY
-
-        return api_key
-
-    def __getattr__(self, key: str) -> Any:
-        """
-        Return the value corresponding to the key from the wrapped dictionary
-        if found, otherwise raise an AttributeError.
-
-        Args:
-            key: str: Attribute name to retrieve from the resource.
-
-        Returns:
-            Any: Value corresponding to the specified key.
-
-        Raises:
-            AttributeError: If the key is not found in the wrapped
-                                dictionary.
-        """
-        if isinstance(self._obj, dict):
-            if key in self._obj:
-                return self._obj[key]
-            raise AttributeError(f"Object has no attribute '{key}'")
-        return getattr(self._obj, key)
+    context: "Aixplain" = field(
+        repr=False, compare=False, metadata=config(exclude=lambda x: True)
+    )
+    RESOURCE_PATH: str = field(
+        default="", repr=False, compare=False, metadata=config(exclude=lambda x: True)
+    )
+    id: str = field(default="", repr=True, compare=True)
+    name: str = field(default="", repr=True, compare=True)
+    description: str = field(default="", repr=True, compare=True)
 
     def save(self):
         """Save the resource.
@@ -110,10 +68,13 @@ class BaseResource:
         If the resource has an ID, it will be updated, otherwise it will be
         created.
         """
-        if hasattr(self, "id") and self.id:
-            self._action("put", [self.id], **self._obj)
+        # Use dataclasses_json to_dict() which automatically excludes fields
+        # marked with config(exclude=lambda x: True)
+        data = self.to_dict()
+        if self.id:
+            self._action("put", [self.id], **data)
         else:
-            self._action("post", **self._obj)
+            self._action("post", **data)
 
     def _action(
         self,
@@ -154,9 +115,7 @@ class BaseResource:
         return self.context.client.request(method, path, **kwargs)
 
     def __repr__(self) -> str:
-        if hasattr(self, "name"):
-            return f"{self.__class__.__name__}(id={self.id}, name={self.name})"
-        return f"{self.__class__.__name__}(id={self.id})"
+        return f"{self.__class__.__name__}" f"(id={self.id}, name={self.name})"
 
 
 class BaseParams(TypedDict):
@@ -201,16 +160,6 @@ class BaseGetParams(BaseParams):
     pass
 
 
-class BaseCreateParams(BaseParams):
-    """Base class for all create parameters.
-
-    Attributes:
-        name: str: The name of the resource.
-    """
-
-    name: str
-
-
 class BaseDeleteParams(BaseParams):
     """Base class for all delete parameters.
 
@@ -230,12 +179,6 @@ class BaseRunParams(BaseParams):
 
     timeout: NotRequired[int]
     wait_time: NotRequired[int]
-
-
-class BareCreateParams(BaseCreateParams):
-    """Default implementation of create parameters."""
-
-    pass
 
 
 class BareListParams(BaseListParams):
@@ -273,7 +216,9 @@ class BaseResult:
     result: Optional[Any] = None
     supplier_error: Optional[str] = None
     data: Optional[Any] = None
-    _raw_data: Optional[dict] = None  # Store all raw response data
+    _raw_data: Optional[dict] = field(
+        default=None, repr=False
+    )  # Store all raw response data
 
     def __init__(self, **kwargs):
         """Initialize with any fields from API response."""
@@ -306,7 +251,6 @@ class Result(BaseResult):
 
 R = TypeVar("R", bound=BaseResource)
 LP = TypeVar("LP", bound=BaseListParams)
-CP = TypeVar("CP", bound=BaseCreateParams)
 GP = TypeVar("GP", bound=BaseGetParams)
 DP = TypeVar("DP", bound=BaseDeleteParams)
 RP = TypeVar("RP", bound=BaseRunParams)
@@ -382,12 +326,17 @@ class PagedListResourceMixin(BaseMixin, Generic[LP, R]):
 
         params = BareListParams(**kwargs)
         filters = cls._populate_filters(params)
-        
+
         # Use custom resource path if provided, otherwise use default
         custom_path = params.get("resource_path")
-        paginate_path = cls._populate_path(cls.RESOURCE_PATH, custom_path)
-        
-        response = cls.context.client.request(
+        resource_path = getattr(cls, "RESOURCE_PATH", "")
+        paginate_path = cls._populate_path(resource_path, custom_path)
+        context = getattr(cls, "context", None)
+
+        if context is None:
+            raise ValueError("Context is required for resource listing")
+
+        response = context.client.request(
             cls.PAGINATE_METHOD, paginate_path, json=filters
         )
         return cls._build_page(response, **kwargs)
@@ -417,8 +366,12 @@ class PagedListResourceMixin(BaseMixin, Generic[LP, R]):
         if cls.PAGINATE_PAGE_TOTAL_KEY:
             page_total = json[cls.PAGINATE_PAGE_TOTAL_KEY]
 
+        context = getattr(cls, "context", None)
+        if context is None:
+            raise ValueError("Context is required for resource operations")
+
         return Page(
-            results=[cls(item) for item in items],
+            results=[cls(context=context, **item) for item in items],
             total=total,
             page_number=kwargs["page_number"],
             page_total=page_total,
@@ -509,11 +462,13 @@ class PlainListResourceMixin(BaseMixin, Generic[LP, R]):
         """
         params = BareListParams(**kwargs)
         filters = cls._populate_plain_filters(params)
-        list_path = cls.RESOURCE_PATH
+        list_path = getattr(cls, "RESOURCE_PATH", "")
+        context = getattr(cls, "context", None)
 
-        response = cls.context.client.request(
-            cls.LIST_METHOD, list_path, params=filters
-        )
+        if context is None:
+            raise ValueError("Context is required for resource listing")
+
+        response = context.client.request(cls.LIST_METHOD, list_path, params=filters)
         return cls._build_plain_list(response)
 
     @classmethod
@@ -533,7 +488,11 @@ class PlainListResourceMixin(BaseMixin, Generic[LP, R]):
         if cls.LIST_ITEMS_KEY and cls.LIST_ITEMS_KEY in json:
             items = json[cls.LIST_ITEMS_KEY]
 
-        return [cls(item) for item in items]
+        context = getattr(cls, "context", None)
+        if context is None:
+            raise ValueError("Context is required for resource operations")
+
+        return [cls(context=context, **item) for item in items]
 
     @classmethod
     def _populate_plain_filters(cls, params: BaseListParams) -> dict:
@@ -581,29 +540,16 @@ class GetResourceMixin(BaseMixin, Generic[GP, R]):
         Raises:
             ValueError: If 'RESOURCE_PATH' is not defined by the subclass.
         """
-        resource_path = kwargs.pop("resource_path", None) or cls.RESOURCE_PATH
+        resource_path = kwargs.pop("resource_path", None) or getattr(
+            cls, "RESOURCE_PATH", ""
+        )
+        context = getattr(cls, "context", None)
+        if context is None:
+            raise ValueError("Context is required for resource operations")
+
         path = f"{resource_path}/{id}"
-        obj = cls.context.client.get_obj(path, **kwargs)
-        return cls(obj)
-
-
-class CreateResourceMixin(BaseMixin, Generic[CP, R]):
-    """Mixin for creating a resource."""
-
-    @classmethod
-    def create(cls, *args, **kwargs: Unpack[CP]) -> R:
-        """
-        Create a resource.
-
-        Args:
-            kwargs: Unpack[CP]: The keyword arguments.
-
-        Returns:
-            BaseResource: The created resource.
-        """
-        resource_path = kwargs.pop("resource_path", None) or cls.RESOURCE_PATH
-        obj = cls.context.client.request("post", resource_path, *args, **kwargs)
-        return cls(obj)
+        obj = context.client.get_obj(path, **kwargs)
+        return cls(context=context, **obj)
 
 
 class DeleteResourceMixin(BaseMixin, Generic[DP, R]):
@@ -614,10 +560,16 @@ class DeleteResourceMixin(BaseMixin, Generic[DP, R]):
         """
         Delete a resource.
         """
-        resource_path = kwargs.pop("resource_path", None) or cls.RESOURCE_PATH
+        resource_path = kwargs.pop("resource_path", None) or getattr(
+            cls, "RESOURCE_PATH", ""
+        )
+        context = getattr(cls, "context", None)
+        if context is None:
+            raise ValueError("Context is required for resource operations")
+
         path = f"{resource_path}/{id}"
-        cls.context.client.request("delete", path, **kwargs)
-        return cls(None)
+        context.client.request("delete", path, **kwargs)
+        return cls(context=context, id=id)
 
 
 class RunnableResourceMixin(BaseMixin, Generic[RP, RR]):
@@ -671,13 +623,15 @@ class RunnableResourceMixin(BaseMixin, Generic[RP, RR]):
 
         try:
             # Determine URL based on ACTION_PATH
-            resource_path = kwargs.pop("resource_path", None) or self.RESOURCE_PATH
-            if self.ACTION_PATH is None:
+            resource_path = kwargs.pop("resource_path", None) or getattr(
+                self, "RESOURCE_PATH", ""
+            )
+            if getattr(self, "ACTION_PATH", None) is None:
                 # Use direct execution service (for models/tools)
                 url = f"{self.context.model_url}/{self.id}"
             else:
                 # Use platform API with action path (for other resources)
-                path = f"{resource_path}/{self.id}/{self.ACTION_PATH}"
+                path = f"{resource_path}/{self.id}/" f"{self.ACTION_PATH}"
                 url = f"{self.context.base_url}/{path}"
 
             logger.debug(f"Run Async: {url} - {kwargs}")
@@ -802,7 +756,7 @@ class RunnableResourceMixin(BaseMixin, Generic[RP, RR]):
 
         # Timeout reached
         logger.error(
-            f"Sync poll timeout for {name} after {timeout}s ({poll_count} polls)"
+            f"Sync poll timeout for {name} after {timeout}s " f"({poll_count} polls)"
         )
         return self.RESPONSE_CLASS(
             status=ResponseStatus.FAILED.value,

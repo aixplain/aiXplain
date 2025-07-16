@@ -1,20 +1,13 @@
+from dataclasses import dataclass, field
 from typing import Callable, Optional, Union
-from typing_extensions import Unpack
 
-from .resource import BaseResource, BaseCreateParams, CreateResourceMixin
-
-
-class ToolCreateParams(BaseCreateParams):
-    name: str
-    code: Union[str, Callable]
-    description: Optional[str]
+from .resource import BaseResource
 
 
-class Tool(BaseResource, CreateResourceMixin[ToolCreateParams, "Tool"]):
+@dataclass
+class Tool(BaseResource):
     """Resource for tools."""
 
     RESOURCE_PATH = "sdk/tools"
 
-    @classmethod
-    def create(cls, *args, **kwargs: Unpack[ToolCreateParams]) -> "Tool":
-        return super().create(*args, **kwargs)
+    code: Optional[Union[str, Callable]] = field(default=None)
