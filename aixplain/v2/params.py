@@ -53,6 +53,13 @@ class InputParameter:
         if not self.description or not self.description.strip():
             raise ValueError("Input parameter description cannot be empty")
 
+        if len(self.description.strip()) <= 10:
+            current_length = len(self.description.strip())
+            raise ValueError(
+                "Input parameter description must be more than 10 characters. "
+                f"Current length: {current_length}"
+            )
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary format.
 

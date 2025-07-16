@@ -74,6 +74,7 @@ def upload_data(
     content_encoding: Optional[Text] = None,
     nattempts: int = 2,
     return_download_link: bool = False,
+    api_key: Optional[Text] = None,
 ):
     """Upload files to S3 with pre-signed URLs
 
@@ -105,7 +106,7 @@ def upload_data(
                 tags = []
             payload = {"contentType": content_type, "originalName": file_name, "tags": ",".join(tags), "license": license.value}
 
-        team_key = config.TEAM_API_KEY
+        team_key = api_key or config.TEAM_API_KEY
         headers = {"Authorization": "token " + team_key}
 
         r = _request_with_retry("post", url, headers=headers, data=payload)
