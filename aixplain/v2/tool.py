@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Callable, Optional, Union
 
 from .resource import BaseResource
@@ -10,4 +10,4 @@ class Tool(BaseResource):
 
     RESOURCE_PATH = "sdk/tools"
 
-    code: Optional[Union[str, Callable]] = field(default=None)
+    code: Optional[Union[str, Callable]] = None
