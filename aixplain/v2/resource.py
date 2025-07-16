@@ -115,7 +115,13 @@ class BaseResource:
         return self.context.client.request(method, path, **kwargs)
 
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}" f"(id={self.id}, name={self.name})"
+        return (
+            f"{self.__class__.__name__}"
+            f"(id={self.id}, name={self.name}, description={self.description})"
+        )
+
+    def __str__(self) -> str:
+        return self.__repr__()
 
 
 class BaseParams(TypedDict):
@@ -359,19 +365,37 @@ class PagedListResourceMixin(BaseMixin, Generic[LP, R]):
             items = json[cls.PAGINATE_ITEMS_KEY]
 
         total = len(items)
-        if cls.PAGINATE_TOTAL_KEY:
+        if cls.PAGINATE_TOTAL_KEY and isinstance(json, dict):
             total = json[cls.PAGINATE_TOTAL_KEY]
 
         page_total = len(items)
-        if cls.PAGINATE_PAGE_TOTAL_KEY:
+        if cls.PAGINATE_PAGE_TOTAL_KEY and isinstance(json, dict):
             page_total = json[cls.PAGINATE_PAGE_TOTAL_KEY]
 
         context = getattr(cls, "context", None)
         if context is None:
             raise ValueError("Context is required for resource operations")
 
+        # Map API field names to dataclass field names
+        def map_item_fields(item):
+            mapped_item = {}
+            field_mappings = {
+                "teamId": "team_id",
+                "llmId": "llm_id",
+                # Add more mappings as needed
+            }
+
+            for key, value in item.items():
+                # Handle field name mappings
+                if key in field_mappings:
+                    mapped_item[field_mappings[key]] = value
+                else:
+                    # Keep the original field name if no mapping exists
+                    mapped_item[key] = value
+            return mapped_item
+
         return Page(
-            results=[cls(context=context, **item) for item in items],
+            results=[cls(context=context, **map_item_fields(item)) for item in items],
             total=total,
             page_number=kwargs["page_number"],
             page_total=page_total,
