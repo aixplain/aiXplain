@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from typing import List, Optional, Any
+from typing_extensions import Unpack
 from dataclasses_json import dataclass_json, config
 
 from .resource import (
@@ -8,7 +9,18 @@ from .resource import (
     GetResourceMixin,
     BareListParams,
     BareGetParams,
+    BaseRunParams,
+    BaseResult,
+    RunnableResourceMixin,
 )
+
+
+class AgentRunParams(BaseRunParams):
+    pass
+
+
+class AgentRunResult(BaseResult):
+    pass
 
 
 @dataclass_json
@@ -17,6 +29,7 @@ class Agent(
     BaseResource,
     PagedListResourceMixin[BareListParams, "Agent"],
     GetResourceMixin[BareGetParams, "Agent"],
+    RunnableResourceMixin[AgentRunParams, AgentRunResult],
 ):
     RESOURCE_PATH = "sdk/agents"
     PAGINATE_PATH = None
@@ -53,3 +66,14 @@ class Agent(
     def __post_init__(self):
         if not self.id:
             self.save(status="draft")
+
+    @classmethod
+    def get(cls, id: str, **kwargs) -> "Agent":
+        return super().get(id, **kwargs)
+
+    @classmethod
+    def list(cls, **kwargs) -> List["Agent"]:
+        return super().list(**kwargs)
+
+    def run(self, **kwargs: Unpack[AgentRunParams]) -> "AgentRunResult":
+        return super().run(**kwargs)
