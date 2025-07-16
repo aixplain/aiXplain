@@ -63,29 +63,41 @@ class BaseResource:
         init=False,
     )
 
-    id: str = field(default="", repr=True, compare=True)
-    name: str = field(default="", repr=True, compare=True)
-    description: str = field(default="", repr=True, compare=True)
+    id: str = ""
+    name: str = ""
+    description: str = ""
     
-    def save(self):
+    def save(self, **kwargs):
         """Save the resource.
 
         If the resource has an ID, it will be updated, otherwise it will be
         created.
         """
+        resource_path = kwargs.pop("resource_path", self.RESOURCE_PATH)
+
         data = self.to_dict()
+        data.update(kwargs)
         result = None
         if self.id:
             result = self.context.client.request(
-                "put", f"{self.RESOURCE_PATH}/{self.id}", json=data
+                "put", f"{resource_path}/{self.id}", json=data
             )
         else:
             result = self.context.client.request(
-                "post", f"{self.RESOURCE_PATH}", json=data
+                "post", f"{resource_path}", json=data
             )
-        self.id = result["id"]
-        self.name = result.get("name", self.name)
-        self.description = result.get("description", self.description)
+        if isinstance(self, GetResourceMixin):
+            obj = self.__class__.get(result["id"])
+            # Update the current instance with the retrieved data using setattr
+            # This will properly override all existing fields with API response data
+            for key, value in obj.to_dict().items():
+                if hasattr(self, key):
+                    setattr(self, key, value)
+        else:
+            for key, value in result.items():
+                if hasattr(self, key):
+                    setattr(self, key, value)
+        return self
 
     def _action(
         self,
@@ -233,9 +245,8 @@ class BaseResult:
     result: Optional[Any] = None
     supplier_error: Optional[str] = None
     data: Optional[Any] = None
-    _raw_data: Optional[dict] = field(
-        default=None, repr=False
-    )  # Store all raw response data
+    _raw_data: Optional[dict] = field(default=None, repr=False)  
+    # Store all raw response data
 
     def __init__(self, **kwargs):
         """Initialize with any fields from API response."""
@@ -322,7 +333,8 @@ class BaseListResourceMixin(BaseMixin, Generic[LP, R]):
         resources = []
         for item in items:
             # Use dataclasses_json's from_dict to handle field aliasing
-            # This will automatically map API field names to dataclass field names
+            # This will automatically map API field names to dataclass field 
+            # names
             obj = cls.from_dict(item)
             setattr(obj, "context", context)
             resources.append(obj)
@@ -584,7 +596,9 @@ class GetResourceMixin(BaseMixin, Generic[GP, R]):
 
         path = f"{resource_path}/{id}"
         obj = context.client.get(path, **kwargs)
-        return cls(context=context, **obj)
+        instance = cls.from_dict(obj)
+        setattr(instance, "context", context)
+        return instance
 
 
 class DeleteResourceMixin(BaseMixin, Generic[DP, R]):

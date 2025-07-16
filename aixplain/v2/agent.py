@@ -33,7 +33,7 @@ class Agent(
     description: str = ""
     role: str = ""
     tasks: Optional[List[Any]] = field(default_factory=list)
-    llm_id: str = field(default="", metadata=config(field_name="llmId"))
+    llm_id: str = field(default=LLM_ID, metadata=config(field_name="llmId"))
     assets: Optional[List[Any]] = field(default_factory=list)
     tools: Optional[List[Any]] = field(default_factory=list)
     createdAt: Optional[str] = None
@@ -41,6 +41,7 @@ class Agent(
     inspectorTargets: Optional[List[Any]] = field(default_factory=list)
     maxInspectors: Optional[int] = None
     inspectors: Optional[List[Any]] = field(default_factory=list)
+    instructions: Optional[str] = None
 
     def __repr__(self) -> str:
         """Override dataclass __repr__ to show only id, name, and description."""
@@ -48,3 +49,7 @@ class Agent(
             f"{self.__class__.__name__}"
             f"(id={self.id}, name={self.name}, description={self.description})"
         )
+
+    def __post_init__(self):
+        if not self.id:
+            self.save(status="draft")

@@ -69,22 +69,30 @@ class Utility(
     inputs: List[str] = field(default_factory=list)
 
     def __post_init__(self):
-        from aixplain.modules.model.utils import parse_code_decorated
+        # Only run parsing logic for new instances (no id yet)
+        if not self.id:
+            from aixplain.modules.model.utils import parse_code_decorated
 
-        code, inputs, description, name = parse_code_decorated(
-            self.code, self.context.api_key
-        )
-        self.code = code
-        self.inputs = inputs
-        self.description = description
-        self.name = name
-
-        # Validate description length
-        if not self.description or len(self.description.strip()) <= 10:
-            current_length = len(self.description.strip()) if self.description else 0
-            raise ValueError(
-                f"Utility description must be more than 10 characters. "
-                f"Current description length: {current_length}"
+            code, inputs, description, name = parse_code_decorated(
+                self.code, self.context.api_key
             )
+            self.code = code
+            self.inputs = inputs
+            self.description = description
+            self.name = name
 
-        self.save()
+            # Validate description length
+            if (not self.description or 
+                    len(self.description.strip()) <= 10):
+                current_length = len(self.description.strip()) if self.description else 0
+                raise ValueError(
+                    f"Utility description must be more than 10 characters. "
+                    f"Current description length: {current_length}"
+                )
+
+            # Only save if this is a new instance (no id yet)
+            self.save()
+
+    @classmethod
+    def get(cls, id: str, **kwargs) -> "Utility":
+        return super().get(id, resource_path="sdk/models", **kwargs)
