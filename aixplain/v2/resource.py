@@ -53,11 +53,16 @@ class BaseResource:
     """
 
     context: "Aixplain" = field(
-        repr=False, compare=False, metadata=config(exclude=lambda x: True)
+        repr=False, compare=False, metadata=config(exclude=lambda x: True), init=False
     )
     RESOURCE_PATH: str = field(
-        default="", repr=False, compare=False, metadata=config(exclude=lambda x: True)
+        default="",
+        repr=False,
+        compare=False,
+        metadata=config(exclude=lambda x: True),
+        init=False,
     )
+
     id: str = field(default="", repr=True, compare=True)
     name: str = field(default="", repr=True, compare=True)
     description: str = field(default="", repr=True, compare=True)
@@ -68,13 +73,19 @@ class BaseResource:
         If the resource has an ID, it will be updated, otherwise it will be
         created.
         """
-        # Use dataclasses_json to_dict() which automatically excludes fields
-        # marked with config(exclude=lambda x: True)
         data = self.to_dict()
+        result = None
         if self.id:
-            self._action("put", [self.id], **data)
+            result = self.context.client.request(
+                "put", f"{self.RESOURCE_PATH}/{self.id}", json=data
+            )
         else:
-            self._action("post", **data)
+            result = self.context.client.request(
+                "post", f"{self.RESOURCE_PATH}", json=data
+            )
+        self.id = result["id"]
+        self.name = result.get("name", self.name)
+        self.description = result.get("description", self.description)
 
     def _action(
         self,
@@ -108,7 +119,7 @@ class BaseResource:
             raise ValueError("Action call requires an 'id' attribute")
 
         method = method or "GET"
-        path = f"sdk/{self.RESOURCE_PATH}/{self.id}"
+        path = f"{self.RESOURCE_PATH}/{self.id}"
         if action_paths:
             path += "/".join(["", *action_paths])
 
@@ -572,7 +583,7 @@ class GetResourceMixin(BaseMixin, Generic[GP, R]):
             raise ValueError("Context is required for resource operations")
 
         path = f"{resource_path}/{id}"
-        obj = context.client.get_obj(path, **kwargs)
+        obj = context.client.get(path, **kwargs)
         return cls(context=context, **obj)
 
 
