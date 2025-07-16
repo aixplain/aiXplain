@@ -45,6 +45,7 @@ class FileFactory:
         license: Optional[License] = None,
         is_temp: bool = True,
         return_download_link: bool = False,
+        api_key: Optional[Text] = None,
     ) -> Text:
         """
         Uploads a file to an S3 bucket.
@@ -104,7 +105,7 @@ class FileFactory:
                 return_download_link=return_download_link,
             )
         else:
-            s3_path = upload_data(file_name=local_path, return_download_link=return_download_link)
+            s3_path = upload_data(file_name=local_path, return_download_link=return_download_link, api_key=api_key)
         return s3_path
 
     @classmethod

@@ -1,13 +1,31 @@
-from typing import Any, Optional
-
+from typing import Any, Optional, Union, List
+import logging
 import requests
 from requests.adapters import HTTPAdapter, Retry
 from urllib.parse import urljoin
+
+logger = logging.getLogger(__name__)
 
 
 DEFAULT_RETRY_TOTAL = 5
 DEFAULT_RETRY_BACKOFF_FACTOR = 0.1
 DEFAULT_RETRY_STATUS_FORCELIST = [500, 502, 503, 504]
+
+
+class AixplainError(Exception):
+
+    message: str
+    error: str
+    status_code: int
+
+    """Exception raised for errors in the Aixplain API."""
+    def __init__(self, message: Union[str, List[str]], error: str, status_code: int):
+        if isinstance(message, list):
+            message = "\n".join(message)
+        self.message = message
+        self.error = error
+        self.status_code = status_code
+        super().__init__(self.message)
 
 
 def create_retry_session(
@@ -91,7 +109,7 @@ class AixplainClient:
         )
         self.session.headers.update(headers)
 
-    def request(self, method: str, path: str, **kwargs: Any) -> requests.Response:
+    def request(self, method: str, path: str, **kwargs: Any) -> dict:
         """
         Sends an HTTP request.
 
@@ -105,8 +123,19 @@ class AixplainClient:
         """
         url = urljoin(self.base_url, path)
         response = self.session.request(method=method, url=url, **kwargs)
-        response.raise_for_status()
-        return response
+        if not response.ok:
+            error_obj = None
+            try:
+                error_obj = response.json()
+            except Exception as e:
+                logger.error(f"Error parsing error response: {e}")
+
+            if error_obj:
+                raise AixplainError(error_obj["message"], error_obj["error"], error_obj["statusCode"])
+            else:
+                raise AixplainError(response.text, response.text, response.status_code)
+
+        return response.json()
 
     def get(self, path: str, **kwargs: Any) -> requests.Response:
         """
@@ -120,10 +149,3 @@ class AixplainClient:
             requests.Response: The response from the request
         """
         return self.request("GET", path, **kwargs)
-
-    def get_obj(self, path: str, **kwargs: Any) -> dict:
-        """
-        Sends an HTTP GET request and returns the object.
-        """
-        response = self.get(path, **kwargs)
-        return response.json()
