@@ -52,7 +52,7 @@ class BaseResource:
         name: str: The resource name.
     """
 
-    context: "Aixplain" = field(
+    context: Any = field(
         repr=False, compare=False, metadata=config(exclude=lambda x: True), init=False
     )
     RESOURCE_PATH: str = field(
@@ -66,7 +66,7 @@ class BaseResource:
     id: str = field(default="", repr=True, compare=True)
     name: str = field(default="", repr=True, compare=True)
     description: str = field(default="", repr=True, compare=True)
-
+    
     def save(self):
         """Save the resource.
 
@@ -300,7 +300,55 @@ class Page(Generic[R]):
         return getattr(self, key)
 
 
-class PagedListResourceMixin(BaseMixin, Generic[LP, R]):
+class BaseListResourceMixin(BaseMixin, Generic[LP, R]):
+    """Base mixin for listing resources with shared functionality."""
+
+    @classmethod
+    def _get_context_and_path(cls, **kwargs) -> Tuple["Aixplain", str, Optional[str]]:
+        """Get context and resource path for listing operations."""
+        params = BareListParams(**kwargs)
+        custom_path = params.get("resource_path")
+        resource_path = getattr(cls, "RESOURCE_PATH", "")
+        context = getattr(cls, "context", None)
+
+        if context is None:
+            raise ValueError("Context is required for resource listing")
+
+        return context, resource_path, custom_path
+
+    @classmethod
+    def _build_resources(cls, items: List[dict], context: "Aixplain") -> List[R]:
+        """Build resource instances from response items."""
+        resources = []
+        for item in items:
+            # Use dataclasses_json's from_dict to handle field aliasing
+            # This will automatically map API field names to dataclass field names
+            obj = cls.from_dict(item)
+            setattr(obj, "context", context)
+            resources.append(obj)
+        return resources
+
+    @classmethod
+    def _populate_base_filters(cls, params: BaseListParams) -> dict:
+        """Populate common filters for listing operations."""
+        filters = {}
+
+        if params.get("query") is not None:
+            filters["q"] = params["query"]
+
+        if params.get("ownership") is not None:
+            filters["ownership"] = params["ownership"]
+
+        if params.get("sort_by") is not None:
+            filters["sortBy"] = params["sort_by"]
+
+        if params.get("sort_order") is not None:
+            filters["sortOrder"] = params["sort_order"]
+
+        return filters
+
+
+class PagedListResourceMixin(BaseListResourceMixin, Generic[LP, R]):
     """Mixin for listing resources with pagination.
 
     Attributes:
@@ -333,80 +381,57 @@ class PagedListResourceMixin(BaseMixin, Generic[LP, R]):
         Returns:
             Page[R]: Page of BaseResource instances
         """
-
-        # TypedDict does not support default values, so we need to manually set them
-        # Dataclasses might be a better fit, but we're using the TypedDict to ensure
-        # the correct types are used and to get IDE support
-
+        # Set default pagination values
         kwargs.setdefault("page_number", cls.PAGINATE_DEFAULT_PAGE_NUMBER)
         kwargs.setdefault("page_size", cls.PAGINATE_DEFAULT_PAGE_SIZE)
 
+        # Get context and path
+        context, resource_path, custom_path = cls._get_context_and_path(**kwargs)
+        
+        # Build path and filters
+        paginate_path = cls._populate_path(resource_path, custom_path)
         params = BareListParams(**kwargs)
         filters = cls._populate_filters(params)
 
-        # Use custom resource path if provided, otherwise use default
-        custom_path = params.get("resource_path")
-        resource_path = getattr(cls, "RESOURCE_PATH", "")
-        paginate_path = cls._populate_path(resource_path, custom_path)
-        context = getattr(cls, "context", None)
-
-        if context is None:
-            raise ValueError("Context is required for resource listing")
-
+        # Make request
         response = context.client.request(
             cls.PAGINATE_METHOD, paginate_path, json=filters
         )
-        return cls._build_page(response, **kwargs)
+        return cls._build_page(response, context, **kwargs)
 
     @classmethod
-    def _build_page(cls, response: requests.Response, **kwargs: Unpack[LP]) -> Page[R]:
+    def _build_page(
+        cls, 
+        response: "Any", 
+        context: "Aixplain", 
+        **kwargs: Unpack[LP]
+    ) -> Page[R]:
         """
         Build a page of resources from the response.
-
-        Args:
-            response: requests.Response: The response to build the page from.
-
-        Returns:
-            Page[R]: The page of resources.
+        Accepts either a requests.Response or already-decoded dict/list.
         """
-        json = response.json()
+        if hasattr(response, "json"):
+            json_data = response.json()
+        else:
+            json_data = response
 
-        items = json
-        if cls.PAGINATE_ITEMS_KEY:
-            items = json[cls.PAGINATE_ITEMS_KEY]
+        items = json_data
+        if cls.PAGINATE_ITEMS_KEY and isinstance(json_data, dict):
+            items = json_data[cls.PAGINATE_ITEMS_KEY]
 
         total = len(items)
-        if cls.PAGINATE_TOTAL_KEY and isinstance(json, dict):
-            total = json[cls.PAGINATE_TOTAL_KEY]
+        if cls.PAGINATE_TOTAL_KEY and isinstance(json_data, dict):
+            total = json_data[cls.PAGINATE_TOTAL_KEY]
 
         page_total = len(items)
-        if cls.PAGINATE_PAGE_TOTAL_KEY and isinstance(json, dict):
-            page_total = json[cls.PAGINATE_PAGE_TOTAL_KEY]
+        if cls.PAGINATE_PAGE_TOTAL_KEY and isinstance(json_data, dict):
+            page_total = json_data[cls.PAGINATE_PAGE_TOTAL_KEY]
 
-        context = getattr(cls, "context", None)
-        if context is None:
-            raise ValueError("Context is required for resource operations")
-
-        # Map API field names to dataclass field names
-        def map_item_fields(item):
-            mapped_item = {}
-            field_mappings = {
-                "teamId": "team_id",
-                "llmId": "llm_id",
-                # Add more mappings as needed
-            }
-
-            for key, value in item.items():
-                # Handle field name mappings
-                if key in field_mappings:
-                    mapped_item[field_mappings[key]] = value
-                else:
-                    # Keep the original field name if no mapping exists
-                    mapped_item[key] = value
-            return mapped_item
+        # Build resources using shared method
+        results = cls._build_resources(items, context)
 
         return Page(
-            results=[cls(context=context, **map_item_fields(item)) for item in items],
+            results=results,
             total=total,
             page_number=kwargs["page_number"],
             page_total=page_total,
@@ -440,25 +465,14 @@ class PagedListResourceMixin(BaseMixin, Generic[LP, R]):
         Returns:
             dict: The populated filters.
         """
-        filters = {}
+        filters = cls._populate_base_filters(params)
 
+        # Add pagination-specific filters
         if params.get("page_number") is not None:
             filters["pageNumber"] = params["page_number"]
 
         if params.get("page_size") is not None:
             filters["pageSize"] = params["page_size"]
-
-        if params.get("query") is not None:
-            filters["q"] = params["query"]
-
-        if params.get("ownership") is not None:
-            filters["ownership"] = params["ownership"]
-
-        if params.get("sort_by") is not None:
-            filters["sortBy"] = params["sort_by"]
-
-        if params.get("sort_order") is not None:
-            filters["sortOrder"] = params["sort_order"]
 
         # Handle function filter (for utilities and other function-specific listings)
         if params.get("function") is not None:
@@ -469,7 +483,7 @@ class PagedListResourceMixin(BaseMixin, Generic[LP, R]):
         return filters
 
 
-class PlainListResourceMixin(BaseMixin, Generic[LP, R]):
+class PlainListResourceMixin(BaseListResourceMixin, Generic[LP, R]):
     """Mixin for listing resources without pagination.
 
     This mixin provides a simple list method that returns all resources
@@ -495,39 +509,39 @@ class PlainListResourceMixin(BaseMixin, Generic[LP, R]):
         Returns:
             List[R]: List of BaseResource instances
         """
+        # Get context and path
+        context, resource_path, _ = cls._get_context_and_path(**kwargs)
+        
+        # Build filters
         params = BareListParams(**kwargs)
         filters = cls._populate_plain_filters(params)
-        list_path = getattr(cls, "RESOURCE_PATH", "")
-        context = getattr(cls, "context", None)
 
-        if context is None:
-            raise ValueError("Context is required for resource listing")
-
-        response = context.client.request(cls.LIST_METHOD, list_path, params=filters)
-        return cls._build_plain_list(response)
+        # Make request
+        response = context.client.request(
+            cls.LIST_METHOD, resource_path, params=filters
+        )
+        return cls._build_plain_list(response, context)
 
     @classmethod
-    def _build_plain_list(cls, response: requests.Response) -> List[R]:
+    def _build_plain_list(
+        cls, response: "Any", context: "Aixplain"
+    ) -> List[R]:
         """
         Build a list of resources from the response.
-
-        Args:
-            response: requests.Response: The response to build the list from.
-
-        Returns:
-            List[R]: The list of resources.
+        Accepts either a requests.Response or already-decoded list/dict.
         """
-        json = response.json()
+        if hasattr(response, "json"):
+            json_data = response.json()
+        else:
+            json_data = response
 
-        items = json
-        if cls.LIST_ITEMS_KEY and cls.LIST_ITEMS_KEY in json:
-            items = json[cls.LIST_ITEMS_KEY]
+        items = json_data
+        if cls.LIST_ITEMS_KEY and isinstance(json_data, dict) and \
+                cls.LIST_ITEMS_KEY in json_data:
+            items = json_data[cls.LIST_ITEMS_KEY]
 
-        context = getattr(cls, "context", None)
-        if context is None:
-            raise ValueError("Context is required for resource operations")
-
-        return [cls(context=context, **item) for item in items]
+        # Build resources using shared method
+        return cls._build_resources(items, context)
 
     @classmethod
     def _populate_plain_filters(cls, params: BaseListParams) -> dict:
@@ -540,21 +554,7 @@ class PlainListResourceMixin(BaseMixin, Generic[LP, R]):
         Returns:
             dict: The populated filters.
         """
-        filters = {}
-
-        if params.get("query") is not None:
-            filters["q"] = params["query"]
-
-        if params.get("ownership") is not None:
-            filters["ownership"] = params["ownership"]
-
-        if params.get("sort_by") is not None:
-            filters["sortBy"] = params["sort_by"]
-
-        if params.get("sort_order") is not None:
-            filters["sortOrder"] = params["sort_order"]
-
-        return filters
+        return cls._populate_base_filters(params)
 
 
 class GetResourceMixin(BaseMixin, Generic[GP, R]):
