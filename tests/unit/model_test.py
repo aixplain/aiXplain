@@ -34,7 +34,7 @@ from aixplain.modules.model.model_parameters import ModelParameters
 from aixplain.modules.model.llm_model import LLM
 from aixplain.modules.model.index_model import IndexModel
 from aixplain.modules.model.utility_model import UtilityModel
-from aixplain.modules.model.integration import Integration, AuthenticationSchema
+from aixplain.modules.model.integration import Integration, AuthenticationSchema, build_connector_params
 from aixplain.modules.model.connection import ConnectionTool, ConnectAction
 
 
@@ -675,6 +675,12 @@ def test_model_not_supports_streaming(mocker):
                 "pricing": {"price": 10, "currency": "USD"},
                 "params": {},
                 "version": {"id": "1.0"},
+                "attributes": [
+                    {
+                        "name": "auth_schemes",
+                        "code": '["BEARER_TOKEN", "API_KEY", "BASIC"]'
+                    },
+                ]
             },
             Integration,
         ),
@@ -736,14 +742,35 @@ def test_create_model_from_response(payload, expected_model_class):
 
 
 @pytest.mark.parametrize(
-    "authentication_schema, name, token, client_id, client_secret",
+    "authentication_schema, name, data",
     [
-        (AuthenticationSchema.BEARER, "test-name", "test-token", None, None),
-        (AuthenticationSchema.OAUTH, "test-name", None, "test-client-id", "test-client-secret"),
+        (AuthenticationSchema.BEARER_TOKEN, "test-name", {"token": "test-token"}),
+        (AuthenticationSchema.API_KEY, "test-name", {"api_key": "test-api-key"}),
+        (AuthenticationSchema.BASIC, "test-name", {"username": "test-user", "password": "test-pass"}),
     ],
 )
-def test_connector_connect(mocker, authentication_schema, name, token, client_id, client_secret):
+def test_connector_connect(mocker, authentication_schema, name, data):
     mocker.patch("aixplain.modules.model.integration.Integration.run", return_value={"id": "test-id"})
+    additional_info = {
+        'attributes': [
+            {
+                'name': 'auth_schemes',
+                'code': '["BEARER_TOKEN", "API_KEY", "BASIC"]'
+            },
+            {
+                'name': 'BEARER_TOKEN-inputs',
+                'code': '[{"name": "token"}]'
+            },
+            {
+                'name': 'API_KEY-inputs',
+                'code': '[{"name": "api_key"}]'
+            },
+            {
+                'name': 'BASIC-inputs',
+                'code': '[{"name": "username"}, {"name": "password"}]'
+            }
+        ]
+    }
     connector = Integration(
         id="connector-id",
         name="connector-name",
@@ -752,11 +779,16 @@ def test_connector_connect(mocker, authentication_schema, name, token, client_id
         supplier="aiXplain",
         api_key="api_key",
         version={"id": "1.0"},
+        **additional_info
     )
+    args = build_connector_params(name=name)
     response = connector.connect(
-        authentication_schema=authentication_schema, name=name, token=token, client_id=client_id, client_secret=client_secret
+        authentication_schema=authentication_schema,
+        args=args,
+        data=data
     )
-    assert response == {"id": "test-id"}
+    
+    assert response["id"] == "test-id"
 
 
 def test_connection_init_with_actions(mocker):
@@ -863,14 +895,35 @@ def test_tool_factory(mocker):
     )
 
     def get_mock(id):
-        if id == "67eff5c0e05614297caeef98":
+        additional_info = {
+            'attributes': [
+                {
+                    'name': 'auth_schemes',
+                    'code': '["BEARER_TOKEN", "API_KEY", "BASIC"]'
+                },
+                {
+                    'name': 'BEARER_TOKEN-inputs',
+                    'code': '[{"name": "token"}]'
+                },
+                {
+                    'name': 'API_KEY-inputs',
+                    'code': '[{"name": "api_key"}]'
+                },
+                {
+                    'name': 'BASIC-inputs',
+                    'code': '[{"name": "username"}, {"name": "password"}]'
+                }
+            ]
+        }
+        if id == "686432941223092cb4294d3f":
             return Integration(
-                id="67eff5c0e05614297caeef98",
+                id="686432941223092cb4294d3f",
                 name="test-name",
                 function=Function.UTILITIES,
                 function_type=FunctionType.INTEGRATION,
                 api_key="api_key",
                 version={"id": "1.0"},
+                **additional_info
             )
         elif id == "connection-id":
             return ConnectionTool(
@@ -880,10 +933,11 @@ def test_tool_factory(mocker):
                 function_type=FunctionType.CONNECTION,
                 api_key="api_key",
                 version={"id": "1.0"},
+                **additional_info
             )
 
     mocker.patch("aixplain.factories.tool_factory.ToolFactory.get", side_effect=get_mock)
-    tool = ToolFactory.create(integration="67eff5c0e05614297caeef98", name="My Connector 1234", token="slack-token")
+    tool = ToolFactory.create(integration="686432941223092cb4294d3f", name="My Connector 1234", authentication_schema=AuthenticationSchema.BEARER_TOKEN, data={"token": "slack-token"})
     assert isinstance(tool, ConnectionTool)
     assert tool.id == "connection-id"
     assert tool.name == "test-name"
