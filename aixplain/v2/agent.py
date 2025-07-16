@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from typing import List, Optional, Any
+from dataclasses_json import dataclass_json, config
 
 from .resource import (
     BaseResource,
@@ -10,6 +11,7 @@ from .resource import (
 )
 
 
+@dataclass_json
 @dataclass
 class Agent(
     BaseResource,
@@ -27,11 +29,11 @@ class Agent(
     id: str = ""
     name: str = ""
     status: str = ""
-    team_id: Optional[int] = None
+    team_id: Optional[int] = field(default=None, metadata=config(field_name="teamId"))
     description: str = ""
     role: str = ""
     tasks: Optional[List[Any]] = field(default_factory=list)
-    llm_id: str = ""
+    llm_id: str = field(default="", metadata=config(field_name="llmId"))
     assets: Optional[List[Any]] = field(default_factory=list)
     tools: Optional[List[Any]] = field(default_factory=list)
     createdAt: Optional[str] = None
