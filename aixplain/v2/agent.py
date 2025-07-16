@@ -1,4 +1,5 @@
-from typing_extensions import List, Union
+from dataclasses import dataclass, field
+from typing import List, Optional, Any
 
 from .resource import (
     BaseResource,
@@ -8,24 +9,13 @@ from .resource import (
     BareGetParams,
 )
 
-from .enums import Supplier
-from .tool import Tool
 
-
+@dataclass
 class Agent(
     BaseResource,
     PagedListResourceMixin[BareListParams, "Agent"],
     GetResourceMixin[BareGetParams, "Agent"],
 ):
-    """Resource for agents.
-
-    Attributes:
-        RESOURCE_PATH: str: The resource path.
-        PAGINATE_PATH: None: The path for pagination.
-        PAGINATE_METHOD: str: The method for pagination.
-        PAGINATE_ITEMS_KEY: None: The key for the response.
-    """
-
     RESOURCE_PATH = "sdk/agents"
     PAGINATE_PATH = None
     PAGINATE_METHOD = "get"
@@ -34,22 +24,25 @@ class Agent(
     LLM_ID = "669a63646eb56306647e1091"
     SUPPLIER = "aiXplain"
 
-    llm_id: str
-    tools: List[Tool]
-    api_key: str
-    supplier: Union[dict, str, Supplier, int]
-    version: str
+    id: str = ""
+    name: str = ""
+    status: str = ""
+    team_id: Optional[int] = None
+    description: str = ""
+    role: str = ""
+    tasks: Optional[List[Any]] = field(default_factory=list)
+    llm_id: str = ""
+    assets: Optional[List[Any]] = field(default_factory=list)
+    tools: Optional[List[Any]] = field(default_factory=list)
+    createdAt: Optional[str] = None
+    updatedAt: Optional[str] = None
+    inspectorTargets: Optional[List[Any]] = field(default_factory=list)
+    maxInspectors: Optional[int] = None
+    inspectors: Optional[List[Any]] = field(default_factory=list)
 
-    def __init__(
-        self,
-        llm_id: str,
-        tools: List[Tool],
-        api_key: str,
-        supplier: Union[dict, str, Supplier, int],
-        version: str,
-    ):
-        self.llm_id = llm_id
-        self.tools = tools
-        self.api_key = api_key
-        self.supplier = supplier
-        self.version = version
+    def __repr__(self) -> str:
+        """Override dataclass __repr__ to show only id, name, and description."""
+        return (
+            f"{self.__class__.__name__}"
+            f"(id={self.id}, name={self.name}, description={self.description})"
+        )
