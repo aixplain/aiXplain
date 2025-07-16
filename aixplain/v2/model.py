@@ -1,6 +1,5 @@
 from typing import Union, List
 from typing_extensions import NotRequired, Unpack
-
 from .resource import (
     BaseListParams,
     BaseResource,

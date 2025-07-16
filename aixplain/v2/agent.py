@@ -1,4 +1,4 @@
-from typing_extensions import Unpack, List, Union, NotRequired
+from typing_extensions import List, Union
 
 from .resource import (
     BaseResource,
@@ -6,29 +6,16 @@ from .resource import (
     GetResourceMixin,
     BareListParams,
     BareGetParams,
-    BaseCreateParams,
-    CreateResourceMixin,
 )
 
 from .enums import Supplier
 from .tool import Tool
 
 
-class AgentCreateParams(BaseCreateParams):
-    name: str
-    description: str
-    llm_id: NotRequired[str]
-    tools: NotRequired[List["Tool"]]
-    api_key: NotRequired[str]
-    supplier: NotRequired[Union[dict, str, "Supplier", int]]
-    version: NotRequired[str]
-
-
 class Agent(
     BaseResource,
     PagedListResourceMixin[BareListParams, "Agent"],
     GetResourceMixin[BareGetParams, "Agent"],
-    CreateResourceMixin[AgentCreateParams, "Agent"],
 ):
     """Resource for agents.
 
@@ -47,10 +34,22 @@ class Agent(
     LLM_ID = "669a63646eb56306647e1091"
     SUPPLIER = "aiXplain"
 
-    @classmethod
-    def create(cls, *args, **kwargs: Unpack[AgentCreateParams]) -> "Agent":
-        kwargs.setdefault("llm_id", cls.LLM_ID)
-        kwargs.setdefault("supplier", cls.SUPPLIER)
-        kwargs.setdefault("tools", [])
+    llm_id: str
+    tools: List[Tool]
+    api_key: str
+    supplier: Union[dict, str, Supplier, int]
+    version: str
 
-        return super().create(*args, **kwargs)
+    def __init__(
+        self,
+        llm_id: str,
+        tools: List[Tool],
+        api_key: str,
+        supplier: Union[dict, str, Supplier, int],
+        version: str,
+    ):
+        self.llm_id = llm_id
+        self.tools = tools
+        self.api_key = api_key
+        self.supplier = supplier
+        self.version = version
