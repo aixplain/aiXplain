@@ -71,16 +71,12 @@ class AgentRunResult(BaseResult):
         # Handle data field specially
         if "data" in kwargs and isinstance(kwargs["data"], dict):
             self.data = AgentResponseData(**kwargs["data"])
-        elif "data" in kwargs and isinstance(
-            kwargs["data"], AgentResponseData
-        ):
+        elif "data" in kwargs and isinstance(kwargs["data"], AgentResponseData):
             self.data = kwargs["data"]
         else:
             self.data = AgentResponseData()
 
-        self.used_credits = kwargs.get(
-            "usedCredits", kwargs.get("used_credits", 0.0)
-        )
+        self.used_credits = kwargs.get("usedCredits", kwargs.get("used_credits", 0.0))
         self.run_time = kwargs.get("runTime", kwargs.get("run_time", 0.0))
 
     def __getitem__(self, key: Text) -> Any:
@@ -110,7 +106,6 @@ class Agent(
     PAGINATE_PATH = None
     PAGINATE_METHOD = "get"
     PAGINATE_ITEMS_KEY = None
-    RUN_ACTION_PATH = "run"
 
     LLM_ID = "669a63646eb56306647e1091"
     SUPPLIER = "aiXplain"
@@ -118,9 +113,7 @@ class Agent(
     id: str = ""
     name: str = ""
     status: str = ""
-    team_id: Optional[int] = field(
-        default=None, metadata=config(field_name="teamId")
-    )
+    team_id: Optional[int] = field(default=None, metadata=config(field_name="teamId"))
     description: str = ""
     role: str = ""
     tasks: Optional[List[Any]] = field(default_factory=list)
@@ -156,3 +149,14 @@ class Agent(
 
     def run(self, **kwargs: Unpack[AgentRunParams]) -> "AgentRunResult":
         return super().run(**kwargs)
+
+    def build_run_payload(self, **kwargs: Unpack[AgentRunParams]) -> dict:
+        """
+        Build the payload for the run action.
+        """
+        serialized = self.to_dict()
+        return {
+            "llmId": serialized["llmId"],
+            "tools": serialized["tools"],
+            **kwargs,
+        }

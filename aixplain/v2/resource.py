@@ -67,6 +67,18 @@ class BaseResource:
     name: str = ""
     description: str = ""
 
+    def on_save(self, result: dict):
+        """
+        Callback to be called after the resource is saved.
+        """
+        pass
+
+    def on_deploy(self):
+        """
+        Callback to be called after the resource is deployed.
+        """
+        pass
+
     def save(self, **kwargs):
         """Save the resource.
 
@@ -75,8 +87,10 @@ class BaseResource:
         """
         resource_path = kwargs.pop("resource_path", self.RESOURCE_PATH)
 
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
         data = self.to_dict()
-        data.update(kwargs)
         result = None
         if self.id:
             result = self.context.client.request(
@@ -84,22 +98,14 @@ class BaseResource:
             )
         else:
             result = self.context.client.request("post", f"{resource_path}", json=data)
-        if isinstance(self, GetResourceMixin):
-            obj = self.__class__.get(result["id"])
-            # Update the current instance with the retrieved data using setattr
-            # This will properly override all existing fields with API response data
-            for key, value in obj.to_dict().items():
-                if hasattr(self, key):
-                    setattr(self, key, value)
-        else:
-            for key, value in result.items():
-                if hasattr(self, key):
-                    setattr(self, key, value)
+        self.id = result["id"]
+        self.on_save(result)
         return self
 
     def deploy(self, **kwargs):
         """Deploy the resource."""
         self.save(status="onboarded")
+        self.on_deploy()
         return self
 
     def _action(
@@ -621,8 +627,14 @@ class DeleteResourceMixin(BaseMixin, Generic[DP, R]):
 class RunnableResourceMixin(BaseMixin, Generic[RP, RR]):
     """Mixin for runnable resources."""
 
-    RUN_ACTION_PATH = None
+    RUN_ACTION_PATH = "run"
     RESPONSE_CLASS = Result  # Default response class
+
+    def build_run_payload(self, **kwargs: Unpack[RP]) -> dict:
+        """
+        Build the payload for the run action.
+        """
+        return kwargs
 
     def run(self, **kwargs: Unpack[RP]) -> RR:
         """
@@ -634,9 +646,6 @@ class RunnableResourceMixin(BaseMixin, Generic[RP, RR]):
         Returns:
             Response instance from the configured response class
         """
-        name = kwargs.get("name", "process")
-
-        logger.debug(f"Running {self.__class__.__name__} sync: {name}")
 
         # Start async execution
         result = self.run_async(**kwargs)
@@ -649,7 +658,7 @@ class RunnableResourceMixin(BaseMixin, Generic[RP, RR]):
         # Check both 'url' and 'data' fields for the polling URL
         poll_url = result.url or result.data
         if poll_url:
-            return self.sync_poll(poll_url, name=name, **kwargs)
+            return self.sync_poll(poll_url, **kwargs)
 
         return result
 
@@ -663,11 +672,9 @@ class RunnableResourceMixin(BaseMixin, Generic[RP, RR]):
         Returns:
             Response instance from the configured RESPONSE_CLASS
         """
-        name = kwargs.get("name", "process")
-
-        logger.debug(f"Running {self.__class__.__name__} async: {name}")
-
         try:
+
+            payload = self.build_run_payload(**kwargs)
 
             run_action_path = getattr(self, "RUN_ACTION_PATH", None)
             action_paths = []
@@ -676,7 +683,7 @@ class RunnableResourceMixin(BaseMixin, Generic[RP, RR]):
 
             # Use context.client.request() instead of direct requests
             # Pass the full URL as path - urljoin will handle it correctly
-            response = self._action("post", action_paths, json=kwargs)
+            response = self._action("post", action_paths, json=payload)
 
             # Provide default values for required fields
             if "status" not in response:
@@ -690,14 +697,13 @@ class RunnableResourceMixin(BaseMixin, Generic[RP, RR]):
             return self.RESPONSE_CLASS(**response)
 
         except Exception as e:
-            logger.error(f"Error in async run for {name}: {e}")
             return self.RESPONSE_CLASS(
                 status=ResponseStatus.FAILED.value,
                 completed=True,
                 error_message=str(e),
             )
 
-    def poll(self, poll_url: str, name: str = "process") -> RR:
+    def poll(self, poll_url: str) -> RR:
         """
         Poll for the result of an asynchronous operation.
 
@@ -708,7 +714,6 @@ class RunnableResourceMixin(BaseMixin, Generic[RP, RR]):
         Returns:
             Response instance from the configured RESPONSE_CLASS
         """
-        logger.debug(f"Polling {self.__class__.__name__} for {name}")
 
         response = None
         try:
@@ -717,7 +722,6 @@ class RunnableResourceMixin(BaseMixin, Generic[RP, RR]):
             # If it's a relative path, it will be joined with base_url
             response = self.context.client.get(poll_url)
         except Exception as e:
-            logger.error(f"Error polling for {name}: {e}")
             return self.RESPONSE_CLASS(
                 status=ResponseStatus.FAILED.value,
                 completed=False,
@@ -745,7 +749,7 @@ class RunnableResourceMixin(BaseMixin, Generic[RP, RR]):
         return self.RESPONSE_CLASS(**response)
 
     def sync_poll(
-        self, poll_url: str, name: str = "process", **kwargs: Unpack[RP]
+        self, poll_url: str, **kwargs: Unpack[RP]
     ) -> RR:
         """
         Keeps polling until an asynchronous operation is complete.
@@ -763,36 +767,19 @@ class RunnableResourceMixin(BaseMixin, Generic[RP, RR]):
         timeout = kwargs.get("timeout", 300)
         wait_time = kwargs.get("wait_time", 0.5)
 
-        logger.info(f"Starting sync polling for {name} (timeout: {timeout}s)")
-
         start_time = time.time()
         wait_time = max(wait_time, 0.2)  # Minimum wait time
-        poll_count = 0
 
         while (time.time() - start_time) < timeout:
-            poll_count += 1
-            result = self.poll(poll_url, name=name)
+            result = self.poll(poll_url)
 
             if result.completed:
-                logger.info(f"Sync poll completed for {name} after {poll_count} polls")
                 return result
-
-            # Log progress every 10 polls
-            if poll_count % 10 == 0:
-                elapsed = time.time() - start_time
-                logger.info(
-                    f"Still polling {name}... "
-                    f"({poll_count} polls, {elapsed:.1f}s elapsed)"
-                )
 
             time.sleep(wait_time)
             if wait_time < 60:
                 wait_time *= 1.1  # Exponential backoff
 
-        # Timeout reached
-        logger.error(
-            f"Sync poll timeout for {name} after {timeout}s " f"({poll_count} polls)"
-        )
         return self.RESPONSE_CLASS(
             status=ResponseStatus.FAILED.value,
             completed=False,
