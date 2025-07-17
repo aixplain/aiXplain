@@ -98,6 +98,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         instructions: Optional[Text] = None,
         **additional_info,
     ) -> None:
+
         super().__init__(id, name, description, api_key, supplier, version, cost=cost)
         self.additional_info = additional_info
         self.agents = agents

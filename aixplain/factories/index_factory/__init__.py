@@ -29,6 +29,7 @@ from aixplain.factories.index_factory.utils import BaseIndexParams
 
 T = TypeVar("T", bound=BaseIndexParams)
 
+
 import os
 from aixplain.utils.file_utils import _request_with_retry
 from urllib.parse import urljoin
@@ -54,7 +55,9 @@ class IndexFactory(ModelFactory, Generic[T]):
         cls,
         name: Optional[Text] = None,
         description: Optional[Text] = None,
+
         embedding_model: Union[EmbeddingModel, str] = EmbeddingModel.OPENAI_ADA002,
+
         params: Optional[T] = None,
         **kwargs,
     ) -> IndexModel:
@@ -77,6 +80,7 @@ class IndexFactory(ModelFactory, Generic[T]):
             assert (
                 name is not None and description is not None and embedding_model is not None
             ), "Index Factory Exception: name, description, and embedding_model must be provided when params is not"
+
             if validate_embedding_model(embedding_model):
                 data = {
                     "data": name,
@@ -84,6 +88,7 @@ class IndexFactory(ModelFactory, Generic[T]):
                     "model": embedding_model,
                 }
         model = cls.get(model_id)
+
         response = model.run(data=data)
         if response.status == ResponseStatus.SUCCESS:
             model_id = response.data

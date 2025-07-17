@@ -133,8 +133,16 @@ class Agent(Model, DeployableMixin[Tool]):
                 tool_name = tool.name
             elif isinstance(tool, Model):
                 assert not isinstance(tool, Agent), "Agent cannot contain another Agent."
-
                 tool_name = tool.name
+            tool_names.append(tool_name)
+
+        if len(tool_names) != len(set(tool_names)):
+            duplicates = set([name for name in tool_names if tool_names.count(name) > 1])
+            raise Exception(
+                f"Agent Creation Error - Duplicate tool names found: {', '.join(duplicates)}. Make sure all tool names are unique."
+            )
+
+            tool_name = tool.name
             tool_names.append(tool_name)
 
         if len(tool_names) != len(set(tool_names)):

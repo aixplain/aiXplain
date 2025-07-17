@@ -286,7 +286,6 @@ class UtilityModel(Model, DeployableMixin):
             message = f"Utility Model Deletion Error: {response}"
             logging.error(message)
             raise Exception(f"{message}")
-
     def __repr__(self):
         try:
             return f"UtilityModel: {self.name} by {self.supplier['name']} (id={self.id})"
