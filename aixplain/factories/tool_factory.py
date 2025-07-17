@@ -4,12 +4,12 @@ from aixplain.factories import ModelFactory
 from aixplain.factories.model_factory.mixins import ModelGetterMixin, ModelListMixin
 from aixplain.modules.model import Model
 from aixplain.modules.model.index_model import IndexModel
-from aixplain.modules.model.integration import Integration
+from aixplain.modules.model.integration import Integration, AuthenticationSchema
 from aixplain.modules.model.integration import BaseAuthenticationParams
 from aixplain.factories.index_factory.utils import BaseIndexParams, AirParams, VectaraParams, ZeroEntropyParams, GraphRAGParams
 from aixplain.enums.index_stores import IndexStores
 from aixplain.modules.model.utility_model import BaseUtilityModelParams
-from typing import Optional, Text, Union
+from typing import Optional, Text, Union, Dict
 from aixplain.enums import ResponseStatus
 from aixplain.utils import config
 
@@ -22,6 +22,8 @@ class ToolFactory(ModelGetterMixin, ModelListMixin):
         cls,
         integration: Optional[Union[Text, Model]] = None,
         params: Optional[Union[BaseUtilityModelParams, BaseIndexParams, BaseAuthenticationParams]] = None,
+        authentication_schema: Optional[AuthenticationSchema] = None,
+        data: Optional[Dict] = None,
         **kwargs,
     ) -> Model:
         """Factory method to create indexes, script models and connections
@@ -143,7 +145,17 @@ class ToolFactory(ModelGetterMixin, ModelListMixin):
             assert (
                 connector.function_type == FunctionType.INTEGRATION
             ), f"The model you are trying to connect ({connector.id}) to is not a connector."
-            response = connector.connect(params)
+            
+            assert authentication_schema is not None, "Please provide the authentication schema to use (authentication_schema parameter)"
+            assert isinstance(authentication_schema, AuthenticationSchema), "authentication_schema must be an instance of AuthenticationSchema"
+            
+            auth_data = data if data is not None else {}
+            if not auth_data:
+                for key, value in kwargs.items():
+                    if key not in ['name', 'connector_id']:
+                        auth_data[key] = value
+            
+            response = connector.connect(authentication_schema, params, auth_data)
             assert response.status == ResponseStatus.SUCCESS, f"Failed to connect to {connector.id} - {response.error_message}"
             connection = cls.get(response.data["id"])
             if "redirectURL" in response.data:
