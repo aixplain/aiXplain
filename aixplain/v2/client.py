@@ -110,7 +110,7 @@ class AixplainClient:
         )
         self.session.headers.update(headers)
 
-    def request(self, method: str, path: str, **kwargs: Any) -> dict:
+    def request_raw(self, method: str, path: str, **kwargs: Any) -> requests.Response:
         """
         Sends an HTTP request.
 
@@ -138,6 +138,21 @@ class AixplainClient:
             else:
                 raise AixplainError(response.text, response.text, response.status_code)
 
+        return response
+
+    def request(self, method: str, path: str, **kwargs: Any) -> dict:
+        """
+        Sends an HTTP request.
+
+        Args:
+            method (str): HTTP method (e.g. 'GET', 'POST')
+            path (str): URL path
+            kwargs (dict, optional): Additional keyword arguments for the request
+
+        Returns:
+            dict: The response from the request
+        """
+        response = self.request_raw(method, path, **kwargs)
         return response.json()
 
     def get(self, path: str, **kwargs: Any) -> requests.Response:

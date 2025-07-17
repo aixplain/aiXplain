@@ -97,6 +97,11 @@ class BaseResource:
                     setattr(self, key, value)
         return self
 
+    def deploy(self, **kwargs):
+        """Deploy the resource."""
+        self.save(status="onboarded")
+        return self
+
     def _action(
         self,
         method: Optional[str] = None,
@@ -600,21 +605,17 @@ class GetResourceMixin(BaseMixin, Generic[GP, R]):
 class DeleteResourceMixin(BaseMixin, Generic[DP, R]):
     """Mixin for deleting a resource."""
 
-    @classmethod
-    def delete(cls, id: Any, **kwargs: Unpack[DP]) -> R:
+    def delete(self, **kwargs: Unpack[DP]) -> R:
         """
         Delete a resource.
         """
         resource_path = kwargs.pop("resource_path", None) or getattr(
-            cls, "RESOURCE_PATH", ""
+            self, "RESOURCE_PATH", ""
         )
-        context = getattr(cls, "context", None)
-        if context is None:
-            raise ValueError("Context is required for resource operations")
 
-        path = f"{resource_path}/{id}"
-        context.client.request("delete", path, **kwargs)
-        return cls(context=context, id=id)
+        path = f"{resource_path}/{self.id}"
+        self.context.client.request_raw("delete", path, **kwargs)
+        return self
 
 
 class RunnableResourceMixin(BaseMixin, Generic[RP, RR]):
