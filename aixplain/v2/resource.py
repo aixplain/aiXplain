@@ -19,6 +19,7 @@ from typing_extensions import Unpack, NotRequired
 
 from .enums import OwnershipType, SortBy, SortOrder, ResponseStatus
 
+
 if TYPE_CHECKING:
     from .core import Aixplain
 
@@ -650,17 +651,14 @@ class RunnableResourceMixin(BaseMixin, Generic[RP, RR]):
         # Start async execution
         result = self.run_async(**kwargs)
 
-        # If already completed, return immediately
-        if result.completed:
-            return result
+        if not result.data or not isinstance(result.data, str):
+            return self.RESPONSE_CLASS.from_dict({
+                "status": ResponseStatus.FAILED,
+                "completed": True,
+                "error_message": "No polling URL found",
+            })
 
-        # If we have a polling URL, use sync_poll for continuous polling
-        # Check both 'url' and 'data' fields for the polling URL
-        poll_url = result.url or result.data
-        if poll_url:
-            return self.sync_poll(poll_url, **kwargs)
-
-        return result
+        return self.sync_poll(result.data, **kwargs)
 
     def run_async(self, **kwargs: Unpack[RP]) -> RR:
         """
@@ -675,6 +673,7 @@ class RunnableResourceMixin(BaseMixin, Generic[RP, RR]):
         try:
 
             payload = self.build_run_payload(**kwargs)
+            print(payload)
 
             run_action_path = getattr(self, "RUN_ACTION_PATH", None)
             action_paths = []
@@ -685,23 +684,14 @@ class RunnableResourceMixin(BaseMixin, Generic[RP, RR]):
             # Pass the full URL as path - urljoin will handle it correctly
             response = self._action("post", action_paths, json=payload)
 
-            # Provide default values for required fields
-            if "status" not in response:
-                response["status"] = ResponseStatus.IN_PROGRESS.value
-            if "completed" not in response:
-                response["completed"] = False
-
-            # Store raw data for flexible access
-            response["_raw_data"] = response
-
-            return self.RESPONSE_CLASS(**response)
+            return self.RESPONSE_CLASS.from_dict(response)
 
         except Exception as e:
-            return self.RESPONSE_CLASS(
-                status=ResponseStatus.FAILED.value,
-                completed=True,
-                error_message=str(e),
-            )
+            return self.RESPONSE_CLASS.from_dict({
+                "status": ResponseStatus.FAILED.value,
+                "completed": True,
+                "error_message": str(e),
+            })
 
     def poll(self, poll_url: str) -> RR:
         """
@@ -722,31 +712,13 @@ class RunnableResourceMixin(BaseMixin, Generic[RP, RR]):
             # If it's a relative path, it will be joined with base_url
             response = self.context.client.get(poll_url)
         except Exception as e:
-            return self.RESPONSE_CLASS(
-                status=ResponseStatus.FAILED.value,
-                completed=False,
-                error_message=str(e),
-            )
+            return self.RESPONSE_CLASS.from_dict({
+                "status": ResponseStatus.FAILED,
+                "completed": True,
+                "error_message": str(e),
+            })
 
-        # Determine status based on completion
-        if response.get("completed", False):
-            if "error_message" in response or "supplierError" in response:
-                status = ResponseStatus.FAILED
-            else:
-                status = ResponseStatus.SUCCESS
-        else:
-            status = ResponseStatus.IN_PROGRESS
-
-        response.setdefault("status", status.value)
-
-        # Provide default values for required fields
-        if "completed" not in response:
-            response["completed"] = False
-
-        # Store raw data for flexible access
-        response["_raw_data"] = response
-
-        return self.RESPONSE_CLASS(**response)
+        return self.RESPONSE_CLASS.from_dict(response)
 
     def sync_poll(self, poll_url: str, **kwargs: Unpack[RP]) -> RR:
         """
@@ -778,77 +750,8 @@ class RunnableResourceMixin(BaseMixin, Generic[RP, RR]):
             if wait_time < 60:
                 wait_time *= 1.1  # Exponential backoff
 
-        return self.RESPONSE_CLASS(
-            status=ResponseStatus.FAILED.value,
-            completed=False,
-            error_message=f"Timeout after {timeout} seconds",
-        )
-
-    def is_completed(self, result: RR) -> bool:
-        """
-        Check if a result is completed.
-
-        Args:
-            result: The result to check
-
-        Returns:
-            bool: True if completed, False otherwise
-        """
-        return result.completed
-
-    def is_successful(self, result: RR) -> bool:
-        """
-        Check if a result is successful.
-
-        Args:
-            result: The result to check
-
-        Returns:
-            bool: True if successful, False otherwise
-        """
-        return result.completed and result.status == ResponseStatus.SUCCESS.value
-
-    def is_failed(self, result: RR) -> bool:
-        """
-        Check if a result failed.
-
-        Args:
-            result: The result to check
-
-        Returns:
-            bool: True if failed, False otherwise
-        """
-        return result.completed and result.status == ResponseStatus.FAILED.value
-
-    def get_result_data(self, result: RR) -> Any:
-        """
-        Extract the result data from a completed result.
-
-        Args:
-            result: The result to extract data from
-
-        Returns:
-            Any: The result data
-
-        Raises:
-            ValueError: If the result is not completed or failed
-        """
-        if not result.completed:
-            raise ValueError("Cannot extract data from incomplete result")
-
-        if result.status == ResponseStatus.FAILED.value:
-            raise ValueError(f"Result failed: {result.error_message}")
-
-        return result.result
-
-    def get_error_message(self, result: RR) -> Optional[str]:
-        """
-        Get the error message from a failed result.
-
-        Args:
-            result: The result to get error from
-
-        Returns:
-            Optional[str]: The error message, or None if no error
-        """
-        return result.error_message or result.supplier_error
+        return self.RESPONSE_CLASS.from_dict({
+            "status": ResponseStatus.FAILED,
+            "completed": True,
+            "error_message": f"Timeout after {timeout} seconds",
+        })
