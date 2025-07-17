@@ -3,7 +3,8 @@ from typing import List, Optional, Any, Dict, Union, Text
 from typing_extensions import Unpack, NotRequired
 from dataclasses_json import dataclass_json, config
 
-from .enums import AssetStatus
+from aixplain.enums import AssetStatus, ResponseStatus
+
 from .resource import (
     BaseResource,
     PagedListResourceMixin,
@@ -15,14 +16,13 @@ from .resource import (
     BaseRunParams,
     BaseResult,
     RunnableResourceMixin,
+    Page,
 )
 
 
 class AgentRunParams(BaseRunParams):
     """Parameters for running an agent."""
-
-    data: NotRequired[Optional[Union[Dict, Text]]]
-    query: NotRequired[Optional[Text]]
+    query: NotRequired[Optional[Union[Dict, Text]]]
     session_id: NotRequired[Optional[Text]]
     history: NotRequired[Optional[List[Dict]]]
     name: NotRequired[Text]
@@ -41,17 +41,26 @@ class AgentResponseData:
 
     input: Optional[Any] = None
     output: Optional[Any] = None
-    session_id: str = ""
     intermediate_steps: Optional[List[Any]] = field(default_factory=list)
     execution_stats: Optional[Dict[str, Any]] = None
     critiques: Optional[str] = ""
+
 
 @dataclass_json
 @dataclass
 class AgentRunResult(BaseResult):
     """Result from running an agent."""
 
-    data: Optional[AgentResponseData] = None
+    data: Optional[Union[AgentResponseData, Text]] = None
+    session_id: Optional[Text] = field(
+        default=None, metadata=config(field_name="sessionId")
+    )
+    request_id: Optional[Text] = field(
+        default=None, metadata=config(field_name="requestId")
+    )
+    status: Optional[ResponseStatus] = ResponseStatus.IN_PROGRESS
+    completed: Optional[bool] = False
+    error_message: Optional[Text] = None
     used_credits: float = 0.0
     run_time: float = 0.0
 
@@ -73,10 +82,14 @@ class Agent(
     LLM_ID = "669a63646eb56306647e1091"
     SUPPLIER = "aiXplain"
 
+    RESPONSE_CLASS = AgentRunResult
+
     id: str = ""
     name: str = ""
     status: str = ""
-    team_id: Optional[int] = field(default=None, metadata=config(field_name="teamId"))
+    team_id: Optional[int] = field(
+        default=None, metadata=config(field_name="teamId")
+    )
     description: str = ""
     role: str = ""
     tasks: Optional[List[Any]] = field(default_factory=list)
@@ -91,7 +104,9 @@ class Agent(
     instructions: Optional[str] = None
 
     def __repr__(self) -> str:
-        """Override dataclass __repr__ to show only id, name, and description."""
+        """
+        Override dataclass __repr__ to show only id, name, and description.
+        """
         return (
             f"{self.__class__.__name__}"
             f"(id={self.id}, name={self.name}, "
@@ -107,29 +122,48 @@ class Agent(
         return super().get(id, **kwargs)
 
     @classmethod
-    def list(cls, **kwargs) -> List["Agent"]:
+    def list(cls, **kwargs) -> "Page[Agent]":
         return super().list(**kwargs)
-
-    RESPONSE_CLASS = AgentRunResult
 
     def build_run_payload(self, **kwargs: Unpack[AgentRunParams]) -> dict:
         """
         Build the payload for the run action.
+
+        Expample request:
+            {
+                "id": "687925d9153e7e4d81e495c4",
+                "query": {
+                    "input": "Who is the president of Brazil right now? Translate to pt"
+                },
+                "sessionId": null,
+                "history": null,
+                "executionParams": {
+                    "maxTokens": 2048,
+                    "maxIterations": 10,
+                    "outputFormat": "text",
+                    "expectedOutput": null
+                }
+            }
         """
         max_tokens = kwargs.pop("max_tokens", 2048)
         max_iterations = kwargs.pop("max_iterations", 10)
         output_format = kwargs.pop("output_format", "text")
+        expected_output = kwargs.pop("expected_output", None)
+        session_id = kwargs.pop("session_id", None)
+        history = kwargs.pop("history", None)
 
-        serialized = self.to_dict()
+        serialized = self.to_dict()  # type: ignore
+        payload = {k: serialized[k] for k in ['id', 'tools'] if k in serialized}
 
-        payload = {
+        return {
             "executionParams": {
                 "maxTokens": max_tokens,
                 "maxIterations": max_iterations,
                 "outputFormat": output_format,
+                "expectedOutput": expected_output,
             },
-            **serialized,
+            "sessionId": session_id,
+            "history": history,
+            **payload,
             **kwargs,
         }
-
-        return payload
