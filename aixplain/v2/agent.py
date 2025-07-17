@@ -1,14 +1,16 @@
 from dataclasses import dataclass, field
-from typing import List, Optional, Any
-from typing_extensions import Unpack
+from typing import List, Optional, Any, Dict, Union, Text
+from typing_extensions import Unpack, NotRequired
 from dataclasses_json import dataclass_json, config
 
 from .resource import (
     BaseResource,
     PagedListResourceMixin,
     GetResourceMixin,
+    DeleteResourceMixin,
     BareListParams,
     BareGetParams,
+    BareDeleteParams,
     BaseRunParams,
     BaseResult,
     RunnableResourceMixin,
@@ -16,11 +18,78 @@ from .resource import (
 
 
 class AgentRunParams(BaseRunParams):
-    pass
+    """Parameters for running an agent."""
+
+    data: NotRequired[Optional[Union[Dict, Text]]]
+    query: NotRequired[Optional[Text]]
+    session_id: NotRequired[Optional[Text]]
+    history: NotRequired[Optional[List[Dict]]]
+    name: NotRequired[Text]
+    parameters: NotRequired[Dict]
+    content: NotRequired[Optional[Union[Dict[Text, Text], List[Text]]]]
+    max_tokens: NotRequired[int]
+    max_iterations: NotRequired[int]
+    output_format: NotRequired[Optional[str]]
+    expected_output: NotRequired[Optional[Union[Any, Text, dict]]]
 
 
+@dataclass_json
+@dataclass
+class AgentResponseData:
+    """Data structure for agent response."""
+
+    input: Optional[Any] = None
+    output: Optional[Any] = None
+    session_id: str = ""
+    intermediate_steps: Optional[List[Any]] = field(default_factory=list)
+    execution_stats: Optional[Dict[str, Any]] = None
+    critiques: Optional[str] = ""
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "input": self.input,
+            "output": self.output,
+            "session_id": self.session_id,
+            "intermediate_steps": self.intermediate_steps,
+            "executionStats": self.execution_stats,
+            "critiques": self.critiques,
+        }
+
+
+@dataclass_json
+@dataclass
 class AgentRunResult(BaseResult):
-    pass
+    """Result from running an agent."""
+
+    data: Optional[AgentResponseData] = None
+    used_credits: float = 0.0
+    run_time: float = 0.0
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        # Handle data field specially
+        if "data" in kwargs and isinstance(kwargs["data"], dict):
+            self.data = AgentResponseData(**kwargs["data"])
+        elif "data" in kwargs and isinstance(kwargs["data"], AgentResponseData):
+            self.data = kwargs["data"]
+        else:
+            self.data = AgentResponseData()
+
+        self.used_credits = kwargs.get("usedCredits", kwargs.get("used_credits", 0.0))
+        self.run_time = kwargs.get("runTime", kwargs.get("run_time", 0.0))
+
+    def __getitem__(self, key: Text) -> Any:
+        if key == "data":
+            return self.data.to_dict() if self.data else {}
+        return getattr(self, key, None)
+
+    def __setitem__(self, key: Text, value: Any) -> None:
+        if key == "data" and isinstance(value, Dict):
+            self.data = AgentResponseData(**value)
+        elif key == "data" and isinstance(value, AgentResponseData):
+            self.data = value
+        else:
+            setattr(self, key, value)
 
 
 @dataclass_json
@@ -29,6 +98,7 @@ class Agent(
     BaseResource,
     PagedListResourceMixin[BareListParams, "Agent"],
     GetResourceMixin[BareGetParams, "Agent"],
+    DeleteResourceMixin[BareDeleteParams, "Agent"],
     RunnableResourceMixin[AgentRunParams, AgentRunResult],
 ):
     RESOURCE_PATH = "sdk/agents"
