@@ -97,18 +97,18 @@ class APIKey:
         from aixplain.factories import ModelFactory
 
         if self.budget is not None:
-            assert self.budget > 0, "Budget must be greater than 0"
+            assert self.budget >= 0, "Budget must be greater or equal to 0"
         if self.global_limits is not None:
-            assert self.global_limits.request_per_day > 0, "Request per day must be greater than 0"
-            assert self.global_limits.request_per_minute > 0, "Request per minute must be greater than 0"
-            assert self.global_limits.token_per_day > 0, "Token per day must be greater than 0"
-            assert self.global_limits.token_per_minute > 0, "Token per minute must be greater than 0"
+            assert self.global_limits.request_per_day >= 0, "Request per day must be greater or equal to 0"
+            assert self.global_limits.request_per_minute >= 0, "Request per minute must be greater or equal to 0"
+            assert self.global_limits.token_per_day >= 0, "Token per day must be greater or equal to 0"
+            assert self.global_limits.token_per_minute >= 0, "Token per minute must be greater or equal to 0"
         for i, asset_limit in enumerate(self.asset_limits):
             assert asset_limit.model is not None, f"Asset limit {i} must have a model."
-            assert asset_limit.request_per_day > 0, f"Asset limit {i} request per day must be greater than 0"
-            assert asset_limit.request_per_minute > 0, f"Asset limit {i} request per minute must be greater than 0"
-            assert asset_limit.token_per_day > 0, f"Asset limit {i} token per day must be greater than 0"
-            assert asset_limit.token_per_minute > 0, f"Asset limit {i} token per minute must be greater than 0"
+            assert asset_limit.request_per_day >= 0, f"Asset limit {i} request per day must be greater or equal to 0"
+            assert asset_limit.request_per_minute >= 0, f"Asset limit {i} request per minute must be greater or equal to 0"
+            assert asset_limit.token_per_day >= 0, f"Asset limit {i} token per day must be greater or equal to 0"
+            assert asset_limit.token_per_minute >= 0, f"Asset limit {i} token per minute must be greater or equal to 0"
 
             if isinstance(asset_limit.model, str):
                 try:
