@@ -66,7 +66,7 @@ class BaseResource:
     id: str = ""
     name: str = ""
     description: str = ""
-    
+
     def save(self, **kwargs):
         """Save the resource.
 
@@ -83,9 +83,7 @@ class BaseResource:
                 "put", f"{resource_path}/{self.id}", json=data
             )
         else:
-            result = self.context.client.request(
-                "post", f"{resource_path}", json=data
-            )
+            result = self.context.client.request("post", f"{resource_path}", json=data)
         if isinstance(self, GetResourceMixin):
             obj = self.__class__.get(result["id"])
             # Update the current instance with the retrieved data using setattr
@@ -245,7 +243,7 @@ class BaseResult:
     result: Optional[Any] = None
     supplier_error: Optional[str] = None
     data: Optional[Any] = None
-    _raw_data: Optional[dict] = field(default=None, repr=False)  
+    _raw_data: Optional[dict] = field(default=None, repr=False)
     # Store all raw response data
 
     def __init__(self, **kwargs):
@@ -333,7 +331,7 @@ class BaseListResourceMixin(BaseMixin, Generic[LP, R]):
         resources = []
         for item in items:
             # Use dataclasses_json's from_dict to handle field aliasing
-            # This will automatically map API field names to dataclass field 
+            # This will automatically map API field names to dataclass field
             # names
             obj = cls.from_dict(item)
             setattr(obj, "context", context)
@@ -399,7 +397,7 @@ class PagedListResourceMixin(BaseListResourceMixin, Generic[LP, R]):
 
         # Get context and path
         context, resource_path, custom_path = cls._get_context_and_path(**kwargs)
-        
+
         # Build path and filters
         paginate_path = cls._populate_path(resource_path, custom_path)
         params = BareListParams(**kwargs)
@@ -413,10 +411,7 @@ class PagedListResourceMixin(BaseListResourceMixin, Generic[LP, R]):
 
     @classmethod
     def _build_page(
-        cls, 
-        response: "Any", 
-        context: "Aixplain", 
-        **kwargs: Unpack[LP]
+        cls, response: "Any", context: "Aixplain", **kwargs: Unpack[LP]
     ) -> Page[R]:
         """
         Build a page of resources from the response.
@@ -523,7 +518,7 @@ class PlainListResourceMixin(BaseListResourceMixin, Generic[LP, R]):
         """
         # Get context and path
         context, resource_path, _ = cls._get_context_and_path(**kwargs)
-        
+
         # Build filters
         params = BareListParams(**kwargs)
         filters = cls._populate_plain_filters(params)
@@ -535,9 +530,7 @@ class PlainListResourceMixin(BaseListResourceMixin, Generic[LP, R]):
         return cls._build_plain_list(response, context)
 
     @classmethod
-    def _build_plain_list(
-        cls, response: "Any", context: "Aixplain"
-    ) -> List[R]:
+    def _build_plain_list(cls, response: "Any", context: "Aixplain") -> List[R]:
         """
         Build a list of resources from the response.
         Accepts either a requests.Response or already-decoded list/dict.
@@ -548,8 +541,11 @@ class PlainListResourceMixin(BaseListResourceMixin, Generic[LP, R]):
             json_data = response
 
         items = json_data
-        if cls.LIST_ITEMS_KEY and isinstance(json_data, dict) and \
-                cls.LIST_ITEMS_KEY in json_data:
+        if (
+            cls.LIST_ITEMS_KEY
+            and isinstance(json_data, dict)
+            and cls.LIST_ITEMS_KEY in json_data
+        ):
             items = json_data[cls.LIST_ITEMS_KEY]
 
         # Build resources using shared method

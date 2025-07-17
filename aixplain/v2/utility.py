@@ -82,9 +82,10 @@ class Utility(
             self.name = name
 
             # Validate description length
-            if (not self.description or 
-                    len(self.description.strip()) <= 10):
-                current_length = len(self.description.strip()) if self.description else 0
+            if not self.description or len(self.description.strip()) <= 10:
+                current_length = (
+                    len(self.description.strip()) if self.description else 0
+                )
                 raise ValueError(
                     f"Utility description must be more than 10 characters. "
                     f"Current description length: {current_length}"
