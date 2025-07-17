@@ -94,6 +94,9 @@ class Integration(Model):
             id: Connection ID (retrieve it with ModelFactory.get(id))
             redirectUrl: Redirect URL to complete the connection (only for OAuth2)
         """
+        if self.id == "68549a33ba00e44f357896f1":
+            return self.run({"data": kwargs.get("data")})
+
         if args is None:
             args = build_connector_params(**kwargs)
 
@@ -131,6 +134,9 @@ class Integration(Model):
                     f"Before using the tool, please visit the following URL to complete the connection: {response.data['redirectURL']}"
                 )
             return response
+        else:
+            raise ValueError(f"Invalid authentication schema: {authentication_schema}")
+
 
 
     def __repr__(self):
