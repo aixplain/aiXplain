@@ -59,16 +59,18 @@ class Pipeline(
     def list(cls, **kwargs: Unpack[PipelineListParams]) -> Page["Pipeline"]:
         from aixplain.factories import PipelineFactory
 
+        api_key = cls._get_api_key(kwargs)
         kwargs.setdefault("page_number", cls.PAGINATE_DEFAULT_PAGE_NUMBER)
         kwargs.setdefault("page_size", cls.PAGINATE_DEFAULT_PAGE_SIZE)
 
-        return PipelineFactory.list(**kwargs)
+        return PipelineFactory.list(**kwargs, api_key=api_key)
 
     @classmethod
     def get(cls, id: str, **kwargs: Unpack[BareGetParams]) -> "Pipeline":
         from aixplain.factories import PipelineFactory
 
-        return PipelineFactory.get(pipeline_id=id)
+        api_key = cls._get_api_key(kwargs)
+        return PipelineFactory.get(pipeline_id=id, api_key=api_key)
 
     @classmethod
     def create(cls, *args, **kwargs: Unpack[PipelineCreateParams]) -> "Pipeline":

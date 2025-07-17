@@ -37,34 +37,39 @@ class APIKey(
     @classmethod
     def get(cls, **kwargs: Unpack[APIKeyGetParams]) -> "APIKey":
         from aixplain.factories import APIKeyFactory
-        import aixplain.utils.config as config
 
-        api_key = kwargs.get("api_key", config.TEAM_API_KEY)
+        api_key = cls._get_api_key(kwargs)
         return APIKeyFactory.get(api_key=api_key)
 
     @classmethod
     def list(cls, **kwargs: Unpack[BareListParams]) -> Page["APIKey"]:
         from aixplain.factories import APIKeyFactory
 
-        return APIKeyFactory.list(**kwargs)
+        api_key = cls._get_api_key(kwargs)
+        return APIKeyFactory.list(api_key=api_key)
 
     @classmethod
     def create(cls, *args, **kwargs: Unpack[APIKeyCreateParams]) -> "APIKey":
         from aixplain.factories import APIKeyFactory
 
-        return APIKeyFactory.create(*args, **kwargs)
+        api_key = cls._get_api_key(kwargs)
+        return APIKeyFactory.create(*args, api_key=api_key)
 
     @classmethod
     def update(cls, api_key: "APIKey") -> "APIKey":
         from aixplain.factories import APIKeyFactory
 
-        return APIKeyFactory.update(api_key)
+        api_key_param = cls._get_api_key({})
+        return APIKeyFactory.update(api_key, api_key=api_key_param)
 
     @classmethod
-    def get_usage_limits(cls, api_key: Text = None, asset_id: Optional[Text] = None) -> List["APIKeyUsageLimit"]:
+    def get_usage_limits(
+        cls, api_key: Text = None, asset_id: Optional[Text] = None
+    ) -> List["APIKeyUsageLimit"]:
         from aixplain.factories import APIKeyFactory
-        from aixplain.utils import config
 
-        api_key = api_key or config.TEAM_API_KEY
+        api_key_param = api_key or cls._get_api_key({})
 
-        return APIKeyFactory.get_usage_limits(api_key, asset_id)
+        return APIKeyFactory.get_usage_limits(
+            api_key, asset_id, api_key=api_key_param
+        )
