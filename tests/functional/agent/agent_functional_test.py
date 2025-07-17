@@ -761,7 +761,7 @@ def test_agent_with_action_tool():
 
 
 def test_agent_with_mcp_tool():
-    connector = ModelFactory.get("68549a33ba00e44f357896f1")
+    connector = ModelFactory.get("686eb9cd26480723d0634d3e")
     # connect
     response = connector.connect(
         data="https://mcp.zapier.com/api/mcp/s/OTJiMjVlYjEtMGE4YS00OTVjLWIwMGYtZDJjOGVkNTc4NjFkOjI0MTNjNzg5LWZlNGMtNDZmNC05MDhmLWM0MGRlNDU4ZmU1NA==/mcp"

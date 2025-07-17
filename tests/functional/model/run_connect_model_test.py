@@ -37,7 +37,6 @@ def test_run_mcp_connect_model():
 
     assert isinstance(connector, Integration)
     assert connector.id == "686eb9cd26480723d0634d3e"
-
     assert connector.name == ""
 
     url = "https://mcp.zapier.com/api/mcp/s/OTJiMjVlYjEtMGE4YS00OTVjLWIwMGYtZDJjOGVkNTc4NjFkOjI0MTNjNzg5LWZlNGMtNDZmNC05MDhmLWM0MGRlNDU4ZmU1NA=="
