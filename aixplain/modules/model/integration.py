@@ -138,7 +138,6 @@ class Integration(Model):
             raise ValueError(f"Invalid authentication schema: {authentication_schema}")
 
 
-
     def __repr__(self):
         try:
             return f"Integration: {self.name} by {self.supplier['name']} (id={self.id})"

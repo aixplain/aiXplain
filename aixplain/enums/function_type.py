@@ -32,5 +32,6 @@ class FunctionType(Enum):
     METRIC = "metric"
     SEARCH = "search"
     INTEGRATION = "connector"
+    CONNECTION = "connection"
     MCP_CONNECTION = "mcpconnection"
     MCPSERVER = "mcpserver"
