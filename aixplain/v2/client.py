@@ -19,6 +19,7 @@ class AixplainError(Exception):
     status_code: int
 
     """Exception raised for errors in the Aixplain API."""
+
     def __init__(self, message: Union[str, List[str]], error: str, status_code: int):
         if isinstance(message, list):
             message = "\n".join(message)
@@ -131,7 +132,9 @@ class AixplainClient:
                 logger.error(f"Error parsing error response: {e}")
 
             if error_obj:
-                raise AixplainError(error_obj["message"], error_obj["error"], error_obj["statusCode"])
+                raise AixplainError(
+                    error_obj["message"], error_obj["error"], error_obj["statusCode"]
+                )
             else:
                 raise AixplainError(response.text, response.text, response.status_code)
 
