@@ -68,7 +68,7 @@ class Agent(Model, DeployableMixin[Tool]):
         id: Text,
         name: Text,
         description: Text,
-        instructions: Text,
+        instructions: Optional[Text] = None,
         tools: List[Union[Tool, Model]] = [],
         llm_id: Text = "6646261c6eb563165658bbb1",
         llm: Optional[LLM] = None,
@@ -378,7 +378,7 @@ class Agent(Model, DeployableMixin[Tool]):
             "name": self.name,
             "assets": [build_tool_payload(tool) for tool in self.tools],
             "description": self.description,
-            "role": self.instructions,
+            "role": self.instructions or self.description,
             "supplier": (self.supplier.value["code"] if isinstance(self.supplier, Supplier) else self.supplier),
             "version": self.version,
             "llmId": self.llm_id if self.llm is None else self.llm.id,
@@ -403,30 +403,22 @@ class Agent(Model, DeployableMixin[Tool]):
                 "x-api-key": config.TEAM_API_KEY,
                 "Content-Type": "application/json",
             }
-            logging.debug(
-                f"Start service for DELETE Agent  - {url} - {headers}"
-            )
+            logging.debug(f"Start service for DELETE Agent  - {url} - {headers}")
             r = _request_with_retry("delete", url, headers=headers)
-            logging.debug(
-                f"Result of request for DELETE Agent - {r.status_code}"
-            )
+            logging.debug(f"Result of request for DELETE Agent - {r.status_code}")
             if r.status_code != 200:
                 raise Exception()
         except Exception:
             try:
                 response_json = r.json()
-                error_message = response_json.get('message', '').strip('{{}}')
+                error_message = response_json.get("message", "").strip("{{}}")
 
                 if r.status_code == 403 and error_message == "err.agent_is_in_use":
                     # Get team agents that use this agent
-                    from aixplain.factories.team_agent_factory import (
-                        TeamAgentFactory
-                    )
+                    from aixplain.factories.team_agent_factory import TeamAgentFactory
+
                     team_agents = TeamAgentFactory.list()["results"]
-                    using_team_agents = [
-                        ta for ta in team_agents
-                        if any(agent.id == self.id for agent in ta.agents)
-                    ]
+                    using_team_agents = [ta for ta in team_agents if any(agent.id == self.id for agent in ta.agents)]
 
                     if using_team_agents:
                         # Scenario 1: User has access to team agents
@@ -449,15 +441,9 @@ class Agent(Model, DeployableMixin[Tool]):
                             "referencing it."
                         )
                 else:
-                    message = (
-                        f"Agent Deletion Error (HTTP {r.status_code}): "
-                        f"{error_message}."
-                    )
+                    message = f"Agent Deletion Error (HTTP {r.status_code}): " f"{error_message}."
             except ValueError:
-                message = (
-                    f"Agent Deletion Error (HTTP {r.status_code}): "
-                    "There was an error in deleting the agent."
-                )
+                message = f"Agent Deletion Error (HTTP {r.status_code}): " "There was an error in deleting the agent."
             logging.error(message)
             raise Exception(message)
 
