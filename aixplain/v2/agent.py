@@ -3,6 +3,7 @@ from typing import List, Optional, Any, Dict, Union, Text
 from typing_extensions import Unpack, NotRequired
 from dataclasses_json import dataclass_json, config
 
+from .enums import AssetStatus
 from .resource import (
     BaseResource,
     PagedListResourceMixin,
@@ -135,7 +136,7 @@ class Agent(
 
     def __post_init__(self):
         if not self.id:
-            self.save(status="draft")
+            self.save(status=AssetStatus.DRAFT)
 
     @classmethod
     def get(cls, id: str, **kwargs) -> "Agent":
