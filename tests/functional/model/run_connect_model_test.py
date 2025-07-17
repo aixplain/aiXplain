@@ -33,10 +33,10 @@ def test_run_connect_model():
 
 def test_run_mcp_connect_model():
     # get slack connector
-    connector = ModelFactory.get("68549a33ba00e44f357896f1")
+    connector = ModelFactory.get("686eb9cd26480723d0634d3e")
 
     assert isinstance(connector, Integration)
-    assert connector.id == "68549a33ba00e44f357896f1"
+    assert connector.id == "686eb9cd26480723d0634d3e"
     assert connector.name == ""
 
     url = "https://mcp.zapier.com/api/mcp/s/OTJiMjVlYjEtMGE4YS00OTVjLWIwMGYtZDJjOGVkNTc4NjFkOjI0MTNjNzg5LWZlNGMtNDZmNC05MDhmLWM0MGRlNDU4ZmU1NA=="
