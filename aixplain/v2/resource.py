@@ -621,7 +621,7 @@ class DeleteResourceMixin(BaseMixin, Generic[DP, R]):
 class RunnableResourceMixin(BaseMixin, Generic[RP, RR]):
     """Mixin for runnable resources."""
 
-    ACTION_PATH = None
+    RUN_ACTION_PATH = None
     RESPONSE_CLASS = Result  # Default response class
 
     def run(self, **kwargs: Unpack[RP]) -> RR:
@@ -668,37 +668,26 @@ class RunnableResourceMixin(BaseMixin, Generic[RP, RR]):
         logger.debug(f"Running {self.__class__.__name__} async: {name}")
 
         try:
-            # Determine URL based on ACTION_PATH
-            resource_path = kwargs.pop("resource_path", None) or getattr(
-                self, "RESOURCE_PATH", ""
-            )
-            if getattr(self, "ACTION_PATH", None) is None:
-                # Use direct execution service (for models/tools)
-                url = f"{self.context.model_url}/{self.id}"
-            else:
-                # Use platform API with action path (for other resources)
-                path = f"{resource_path}/{self.id}/" f"{self.ACTION_PATH}"
-                url = f"{self.context.base_url}/{path}"
 
-            logger.debug(f"Run Async: {url} - {kwargs}")
+            run_action_path = getattr(self, "RUN_ACTION_PATH", None)
+            action_paths = []
+            if run_action_path:
+                action_paths.append(run_action_path)
 
             # Use context.client.request() instead of direct requests
             # Pass the full URL as path - urljoin will handle it correctly
-            response = self.context.client.request("post", url, json=kwargs)
-
-            # Parse response using the resource-specific response class
-            response_data = response.json()
+            response = self._action("post", action_paths, json=kwargs)
 
             # Provide default values for required fields
-            if "status" not in response_data:
-                response_data["status"] = ResponseStatus.IN_PROGRESS.value
-            if "completed" not in response_data:
-                response_data["completed"] = False
+            if "status" not in response:
+                response["status"] = ResponseStatus.IN_PROGRESS.value
+            if "completed" not in response:
+                response["completed"] = False
 
             # Store raw data for flexible access
-            response_data["_raw_data"] = response_data
+            response["_raw_data"] = response
 
-            return self.RESPONSE_CLASS(**response_data)
+            return self.RESPONSE_CLASS(**response)
 
         except Exception as e:
             logger.error(f"Error in async run for {name}: {e}")
@@ -721,12 +710,12 @@ class RunnableResourceMixin(BaseMixin, Generic[RP, RR]):
         """
         logger.debug(f"Polling {self.__class__.__name__} for {name}")
 
+        response = None
         try:
             # Use context.client for all polling operations
             # If poll_url is a full URL, urljoin will use it directly
             # If it's a relative path, it will be joined with base_url
             response = self.context.client.get(poll_url)
-            response_data = response.json()
         except Exception as e:
             logger.error(f"Error polling for {name}: {e}")
             return self.RESPONSE_CLASS(
@@ -736,24 +725,24 @@ class RunnableResourceMixin(BaseMixin, Generic[RP, RR]):
             )
 
         # Determine status based on completion
-        if response_data.get("completed", False):
-            if "error_message" in response_data or "supplierError" in response_data:
+        if response.get("completed", False):
+            if "error_message" in response or "supplierError" in response:
                 status = ResponseStatus.FAILED
             else:
                 status = ResponseStatus.SUCCESS
         else:
             status = ResponseStatus.IN_PROGRESS
 
-        response_data.setdefault("status", status.value)
+        response.setdefault("status", status.value)
 
         # Provide default values for required fields
-        if "completed" not in response_data:
-            response_data["completed"] = False
+        if "completed" not in response:
+            response["completed"] = False
 
         # Store raw data for flexible access
-        response_data["_raw_data"] = response_data
+        response["_raw_data"] = response
 
-        return self.RESPONSE_CLASS(**response_data)
+        return self.RESPONSE_CLASS(**response)
 
     def sync_poll(
         self, poll_url: str, name: str = "process", **kwargs: Unpack[RP]
