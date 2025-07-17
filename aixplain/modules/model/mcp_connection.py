@@ -1,6 +1,6 @@
 from aixplain.enums import Function, Supplier, FunctionType, ResponseStatus
+from aixplain.modules.model.connection import ConnectionTool
 from aixplain.modules.model import Model
-from aixplain.utils import config
 from typing import Text, Optional, Union, Dict, List
 
 
@@ -20,7 +20,7 @@ class ConnectAction:
         return f"Action(code={self.code}, name={self.name})"
 
 
-class ConnectionTool(Model):
+class MCPConnection(ConnectionTool):
     actions: List[ConnectAction]
     action_scope: Optional[List[ConnectAction]] = None
 
@@ -53,10 +53,7 @@ class ConnectionTool(Model):
             scope (Text, optional): action scope of the connection. Defaults to None.
             **additional_info: Any additional Model info to be saved
         """
-        assert (
-            function_type == FunctionType.CONNECTION or function_type == FunctionType.MCP_CONNECTION
-        ), "Connection only supports connection function"
-
+        assert function_type == FunctionType.MCP_CONNECTION, "Connection only supports mcp connection function"
         super().__init__(
             id=id,
             name=name,
@@ -70,16 +67,12 @@ class ConnectionTool(Model):
             function_type=function_type,
             **additional_info,
         )
-        self.url = config.MODELS_RUN_URL
-        self.backend_url = config.BACKEND_URL
-        self.actions = self._get_actions()
-        self.action_scope = None
 
     def _get_actions(self):
-        response = super().run({"action": "LIST_ACTIONS", "data": " "})
+        response = Model.run(self, {"action": "LIST_TOOLS", "data": " "})
         if response.status == ResponseStatus.SUCCESS:
             return [
-                ConnectAction(name=action["displayName"], description=action["description"], code=action["name"])
+                ConnectAction(name=action["name"], description=action["description"], code=action["name"])
                 for action in response.data
             ]
         raise Exception(
@@ -93,7 +86,7 @@ class ConnectionTool(Model):
         if isinstance(action, ConnectAction):
             action = action.code
 
-        response = super().run({"action": "LIST_INPUTS", "data": {"actions": [action]}})
+        response = Model.run(self, {"action": "LIST_TOOLS", "data": {"actions": [action]}})
         if response.status == ResponseStatus.SUCCESS:
             try:
                 inputs = {inp["code"]: inp for inp in response.data[0]["inputs"]}
@@ -107,26 +100,3 @@ class ConnectionTool(Model):
         raise Exception(
             f"It was not possible to get the inputs for the action {action}. Error {response.error_code}: {response.error_message}"
         )
-
-    def run(self, action: Union[ConnectAction, Text], inputs: Dict):
-        if isinstance(action, ConnectAction):
-            action = action.code
-        return super().run({"action": action, "data": inputs})
-
-    def get_parameters(self) -> List[Dict]:
-        assert (
-            self.action_scope is not None and len(self.action_scope) > 0
-        ), f"Please set the scope of actions for the connection '{self.id}'."
-        response = [
-            {
-                "code": action.code,
-                "name": action.name,
-                "description": action.description,
-                "inputs": self.get_action_inputs(action),
-            }
-            for action in self.action_scope
-        ]
-        return response
-
-    def __repr__(self):
-        return f"ConnectionTool(id={self.id}, name={self.name})"
