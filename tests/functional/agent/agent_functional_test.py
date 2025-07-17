@@ -790,3 +790,4 @@ def test_agent_with_mcp_tool():
     assert "helsinki" in response.data.output.lower()
     assert action_name in [step["tool"] for step in response.data.intermediate_steps[0]["tool_steps"]]
     connection.delete()
+
