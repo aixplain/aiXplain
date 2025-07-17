@@ -46,17 +46,6 @@ class AgentResponseData:
     execution_stats: Optional[Dict[str, Any]] = None
     critiques: Optional[str] = ""
 
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "input": self.input,
-            "output": self.output,
-            "session_id": self.session_id,
-            "intermediate_steps": self.intermediate_steps,
-            "executionStats": self.execution_stats,
-            "critiques": self.critiques,
-        }
-
-
 @dataclass_json
 @dataclass
 class AgentRunResult(BaseResult):
@@ -65,32 +54,6 @@ class AgentRunResult(BaseResult):
     data: Optional[AgentResponseData] = None
     used_credits: float = 0.0
     run_time: float = 0.0
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        # Handle data field specially
-        if "data" in kwargs and isinstance(kwargs["data"], dict):
-            self.data = AgentResponseData(**kwargs["data"])
-        elif "data" in kwargs and isinstance(kwargs["data"], AgentResponseData):
-            self.data = kwargs["data"]
-        else:
-            self.data = AgentResponseData()
-
-        self.used_credits = kwargs.get("usedCredits", kwargs.get("used_credits", 0.0))
-        self.run_time = kwargs.get("runTime", kwargs.get("run_time", 0.0))
-
-    def __getitem__(self, key: Text) -> Any:
-        if key == "data":
-            return self.data.to_dict() if self.data else {}
-        return getattr(self, key, None)
-
-    def __setitem__(self, key: Text, value: Any) -> None:
-        if key == "data" and isinstance(value, Dict):
-            self.data = AgentResponseData(**value)
-        elif key == "data" and isinstance(value, AgentResponseData):
-            self.data = value
-        else:
-            setattr(self, key, value)
 
 
 @dataclass_json
@@ -147,16 +110,26 @@ class Agent(
     def list(cls, **kwargs) -> List["Agent"]:
         return super().list(**kwargs)
 
-    def run(self, **kwargs: Unpack[AgentRunParams]) -> "AgentRunResult":
-        return super().run(**kwargs)
+    RESPONSE_CLASS = AgentRunResult
 
     def build_run_payload(self, **kwargs: Unpack[AgentRunParams]) -> dict:
         """
         Build the payload for the run action.
         """
+        max_tokens = kwargs.pop("max_tokens", 2048)
+        max_iterations = kwargs.pop("max_iterations", 10)
+        output_format = kwargs.pop("output_format", "text")
+
         serialized = self.to_dict()
-        return {
-            "llmId": serialized["llmId"],
-            "tools": serialized["tools"],
+
+        payload = {
+            "executionParams": {
+                "maxTokens": max_tokens,
+                "maxIterations": max_iterations,
+                "outputFormat": output_format,
+            },
+            **serialized,
             **kwargs,
         }
+
+        return payload

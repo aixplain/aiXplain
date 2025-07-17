@@ -748,9 +748,7 @@ class RunnableResourceMixin(BaseMixin, Generic[RP, RR]):
 
         return self.RESPONSE_CLASS(**response)
 
-    def sync_poll(
-        self, poll_url: str, **kwargs: Unpack[RP]
-    ) -> RR:
+    def sync_poll(self, poll_url: str, **kwargs: Unpack[RP]) -> RR:
         """
         Keeps polling until an asynchronous operation is complete.
 
