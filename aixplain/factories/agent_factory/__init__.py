@@ -28,7 +28,7 @@ import os
 
 from aixplain.enums.function import Function
 from aixplain.enums.supplier import Supplier
-from aixplain.modules.agent import Agent, AgentTask, Tool
+from aixplain.modules.agent import Agent, Tool, WorkflowTask
 from aixplain.modules.agent.tool.model_tool import ModelTool
 from aixplain.modules.agent.tool.pipeline_tool import PipelineTool
 from aixplain.modules.agent.tool.python_interpreter_tool import PythonInterpreterTool
@@ -60,7 +60,8 @@ class AgentFactory:
         api_key: Text = config.TEAM_API_KEY,
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
         version: Optional[Text] = None,
-        tasks: List[AgentTask] = [],
+        tasks: List[WorkflowTask] = None,  # For backward compatibility
+        workflow_tasks: List[WorkflowTask] = [],
     ) -> Agent:
         """Create a new agent in the platform.
 
@@ -79,7 +80,7 @@ class AgentFactory:
             api_key (Text, optional): team/user API key. Defaults to config.TEAM_API_KEY.
             supplier (Union[Dict, Text, Supplier, int], optional): owner of the agent. Defaults to "aiXplain".
             version (Optional[Text], optional): version of the agent. Defaults to None.
-            tasks (List[AgentTask], optional): list of tasks for the agent. Defaults to [].
+            workflow_tasks (List[WorkflowTask], optional): list of tasks for the agent. Defaults to [].
 
         Returns:
             Agent: created Agent
@@ -109,6 +110,16 @@ class AgentFactory:
         elif isinstance(supplier, Supplier):
             supplier = supplier.value["code"]
 
+        if tasks is not None:
+            warnings.warn(
+                "The 'tasks' parameter is deprecated and will be removed in a future version. " "Use 'workflow_tasks' instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            workflow_tasks = tasks if workflow_tasks is None else workflow_tasks
+
+        workflow_tasks = workflow_tasks or []
+
         payload = {
             "name": name,
             "assets": [build_tool_payload(tool) for tool in tools],
@@ -118,7 +129,7 @@ class AgentFactory:
             "version": version,
             "llmId": llm_id,
             "status": "draft",
-            "tasks": [task.to_dict() for task in tasks],
+            "tasks": [task.to_dict() for task in workflow_tasks],
             "tools": [],
         }
 
@@ -164,10 +175,20 @@ class AgentFactory:
         return agent
 
     @classmethod
-    def create_task(
+    def create_workflow_task(
         cls, name: Text, description: Text, expected_output: Text, dependencies: Optional[List[Text]] = None
-    ) -> AgentTask:
-        return AgentTask(name=name, description=description, expected_output=expected_output, dependencies=dependencies)
+    ) -> WorkflowTask:
+        return WorkflowTask(name=name, description=description, expected_output=expected_output, dependencies=dependencies)
+
+    @classmethod
+    def create_task(cls, *args, **kwargs):
+        warnings.warn(
+            "The 'create_task' method is deprecated and will be removed in a future version. "
+            "Use 'create_workflow_task' instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return cls.create_workflow_task(*args, **kwargs)
 
     @classmethod
     def create_model_tool(
