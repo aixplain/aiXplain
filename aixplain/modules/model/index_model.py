@@ -7,7 +7,6 @@ from aixplain.modules.model.record import Record
 from enum import Enum
 from typing import List
 from aixplain.enums.splitting_options import SplittingOptions
-
 import os
 
 from urllib.parse import urljoin
@@ -55,7 +54,6 @@ class Splitter:
         self.split_by = split_by
         self.split_length = split_length
         self.split_overlap = split_overlap
-
 
 
 class IndexModel(Model):
@@ -125,7 +123,6 @@ class IndexModel(Model):
         data["collection_type"] = self.version.split("-", 1)[0]
         return data
 
-
     def search(self, query: str, top_k: int = 10, filters: List[IndexFilter] = []) -> ModelResponse:
         """Search for documents in the index
 
@@ -155,7 +152,7 @@ class IndexModel(Model):
             "data": query or uri,
             "dataType": value_type,
             "filters": [filter.to_dict() for filter in filters],
-            "payload": {"uri": uri, "value_type": value_type, "top_k": top_k}
+            "payload": {"uri": uri, "value_type": value_type, "top_k": top_k},
         }
         return self.run(data=data)
 
@@ -250,3 +247,49 @@ class IndexModel(Model):
         if response.status == "SUCCESS":
             return response
         raise Exception(f"Failed to delete record: {response.error_message}")
+
+    def retrieve_records_with_filter(self, filter: IndexFilter) -> ModelResponse:
+        """
+        Retrieve records from the index that match the given filter.
+
+        Args:
+            filter (IndexFilter): The filter criteria to apply when retrieving records.
+
+        Returns:
+            ModelResponse: Response containing the retrieved records.
+
+        Raises:
+            Exception: If retrieval fails.
+
+        Example:
+            >>> from aixplain.modules.model.index_model import IndexFilter, IndexFilterOperator
+            >>> my_filter = IndexFilter(field="category", value="world", operator=IndexFilterOperator.EQUALS)
+            >>> index_model.retrieve_records_with_filter(my_filter)
+        """
+        data = {"action": "retrieve_by_filter", "data": filter.to_dict()}
+        response = self.run(data=data)
+        if response.status == "SUCCESS":
+            return response
+        raise Exception(f"Failed to retrieve records with filter: {response.error_message}")
+
+    def delete_records_by_date(self, date: float) -> ModelResponse:
+        """
+        Delete records from the index that match the given date.
+
+        Args:
+            date (float): The date (as a timestamp) to match records for deletion.
+
+        Returns:
+            ModelResponse: Response containing the result of the deletion operation.
+
+        Raises:
+            Exception: If deletion fails.
+
+        Example:
+            >>> index_model.delete_records_by_date(1717708800)
+        """
+        data = {"action": "delete_by_date", "data": date}
+        response = self.run(data=data)
+        if response.status == "SUCCESS":
+            return response
+        raise Exception(f"Failed to delete records by date: {response.error_message}")

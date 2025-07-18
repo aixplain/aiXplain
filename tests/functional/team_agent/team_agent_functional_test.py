@@ -445,13 +445,13 @@ def test_run_team_agent_with_expected_output():
 def test_team_agent_with_slack_connector():
     from aixplain.modules.model.integration import AuthenticationSchema
 
-    connector = ModelFactory.get("67eff5c0e05614297caeef98")
+    connector = ModelFactory.get("686432941223092cb4294d3f")
     # connect
-    response = connector.connect(authentication_schema=AuthenticationSchema.BEARER, token=os.getenv("SLACK_TOKEN"))
+    response = connector.connect(authentication_schema=AuthenticationSchema.BEARER_TOKEN, data={"token": os.getenv("SLACK_TOKEN")})
     connection_id = response.data["id"]
 
     connection = ModelFactory.get(connection_id)
-    connection.action_scope = [action for action in connection.actions if action.code == "SLACK_CHAT_POST_MESSAGE"]
+    connection.action_scope = [action for action in connection.actions if action.code == "SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL"]
 
     agent = AgentFactory.create(
         name="Test Agent",

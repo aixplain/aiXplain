@@ -8,8 +8,8 @@ class ModelListMixin:
     @classmethod
     def list(
         cls,
-        function: Optional[Function] = None,
         query: Optional[Text] = "",
+        function: Optional[Function] = None,
         suppliers: Optional[Union[Supplier, List[Supplier]]] = None,
         source_languages: Optional[Union[Language, List[Language]]] = None,
         target_languages: Optional[Union[Language, List[Language]]] = None,
@@ -25,6 +25,7 @@ class ModelListMixin:
         """Gets the first k given models based on the provided task and language filters
 
         Args:
+            query (Optional[Text], optional): query filter. Defaults to "".
             function (Function): function filter.
             source_languages (Optional[Union[Language, List[Language]]], optional): language filter of input data. Defaults to None.
             target_languages (Optional[Union[Language, List[Language]]], optional): language filter of output data. Defaults to None.

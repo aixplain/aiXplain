@@ -18,6 +18,7 @@ limitations under the License.
 import copy
 import json
 import os
+import re
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -234,7 +235,10 @@ def test_delete_agent_in_use(delete_agents_and_team_agents, AgentFactory):
 
     with pytest.raises(Exception) as exc_info:
         agent.delete()
-    assert str(exc_info.value) == "Agent Deletion Error (HTTP 403): err.agent_is_in_use."
+    assert re.match(
+        r"Error: Agent cannot be deleted\.\nReason: This agent is currently used by one or more team agents\.\n\nteam_agent_id: [a-f0-9]{24}\. To proceed, remove the agent from all team agents before deletion\.",
+        str(exc_info.value),
+    )
 
 
 @pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
@@ -302,7 +306,7 @@ def test_update_tools_of_agent(run_input_map, delete_agents_and_team_agents, Age
                 "type": "translation",
                 "supplier": "Microsoft",
                 "function": "translation",
-                "query": "Translate: Olá, como vai você?",
+                "query": "Translate: 'Olá, como vai você?'",
                 "description": "Translation tool with target language",
                 "expected_tool_input": "targetlanguage",
             },
@@ -334,7 +338,7 @@ def test_specific_model_parameters_e2e(tool_config, delete_agents_and_team_agent
     # Create and run agent
     agent = AgentFactory.create(
         name="Test Parameter Agent",
-        description="Test agent with parameterized tools. You MUST use a tool for the tasks.",
+        description="Test agent with parameterized tools. You MUST use a tool for the tasks. Do not directly answer the question.",
         tools=[tool],
         llm_id="6646261c6eb563165658bbb1",  # Using LLM ID from test data
     )
@@ -351,8 +355,9 @@ def test_specific_model_parameters_e2e(tool_config, delete_agents_and_team_agent
     # Verify tool was used in execution
     assert len(response["data"]["intermediate_steps"]) > 0
     tool_used = False
+
     for step in response["data"]["intermediate_steps"]:
-        if tool_config["expected_tool_input"] in step["tool_steps"][0]["input"]:
+        if len(step["tool_steps"]) > 0 and tool_config["expected_tool_input"] in step["tool_steps"][0]["input"]:
             tool_used = True
             break
     assert tool_used, "Tool was not used in execution"
@@ -643,6 +648,7 @@ def test_agent_llm_parameter_preservation(delete_agents_and_team_agents, AgentFa
     # Reset the LLM temperature to its original value
     llm.temperature = original_temperature
 
+
 def test_run_agent_with_expected_output():
     from pydantic import BaseModel
     from typing import Optional, List
@@ -726,13 +732,13 @@ def test_run_agent_with_expected_output():
 def test_agent_with_action_tool():
     from aixplain.modules.model.integration import AuthenticationSchema
 
-    connector = ModelFactory.get("67eff5c0e05614297caeef98")
+    connector = ModelFactory.get("686432941223092cb4294d3f")
     # connect
-    response = connector.connect(authentication_schema=AuthenticationSchema.BEARER, token=os.getenv("SLACK_TOKEN"))
+    response = connector.connect(authentication_schema=AuthenticationSchema.BEARER_TOKEN, data={"token": os.getenv("SLACK_TOKEN")})
     connection_id = response.data["id"]
 
     connection = ModelFactory.get(connection_id)
-    connection.action_scope = [action for action in connection.actions if action.code == "SLACK_CHAT_POST_MESSAGE"]
+    connection.action_scope = [action for action in connection.actions if action.code == "SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL"]
 
     agent = AgentFactory.create(
         name="Test Agent",
@@ -751,6 +757,36 @@ def test_agent_with_action_tool():
     assert response is not None
     assert response["status"].lower() == "success"
     assert "helsinki" in response.data.output.lower()
-    assert "SLACK_CHAT_POST_MESSAGE" in [step["tool"] for step in response.data.intermediate_steps[0]["tool_steps"]]
+    assert "SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL" in [step["tool"] for step in response.data.intermediate_steps[0]["tool_steps"]]
     connection.delete()
 
+
+def test_agent_with_mcp_tool():
+    connector = ModelFactory.get("68549a33ba00e44f357896f1")
+    # connect
+    response = connector.connect(
+        data="https://mcp.zapier.com/api/mcp/s/OTJiMjVlYjEtMGE4YS00OTVjLWIwMGYtZDJjOGVkNTc4NjFkOjI0MTNjNzg5LWZlNGMtNDZmNC05MDhmLWM0MGRlNDU4ZmU1NA==/mcp"
+    )
+    connection_id = response.data["id"]
+    connection = ModelFactory.get(connection_id)
+    action_name = "SLACK_SEND_CHANNEL_MESSAGE".lower()
+    connection.action_scope = [action for action in connection.actions if action.code == action_name]
+
+    agent = AgentFactory.create(
+        name="Test Agent",
+        description="This agent is used to send messages to Slack",
+        instructions="You are a helpful assistant that can send messages to Slack. You MUST use the tool to send the message.",
+        llm_id="669a63646eb56306647e1091",
+        tools=[
+            connection,
+        ],
+    )
+
+    response = agent.run(
+        "Send what is the capital of Finland on Slack to channel of #modelserving-alerts-testing. Add the name of the capital in the final answer."
+    )
+    assert response is not None
+    assert response["status"].lower() == "success"
+    assert "helsinki" in response.data.output.lower()
+    assert action_name in [step["tool"] for step in response.data.intermediate_steps[0]["tool_steps"]]
+    connection.delete()
