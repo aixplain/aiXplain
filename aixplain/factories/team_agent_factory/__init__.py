@@ -160,7 +160,7 @@ class TeamAgentFactory:
             "version": version,
             "status": "draft",
             "tools": [],
-            "role": instructions,
+            "instructions": instructions,
         }
 
         # Add LLM tools to the payload

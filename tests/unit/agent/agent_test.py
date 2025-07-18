@@ -139,7 +139,7 @@ def test_create_agent(mock_model_factory_get):
                 "id": "123",
                 "name": "Test Agent(-)",
                 "description": "Test Agent Description",
-                "role": "Test Agent Role",
+                "instructions": "Test Agent Instruction",
                 "teamId": "123",
                 "version": "1.0",
                 "status": "draft",
@@ -203,7 +203,7 @@ def test_create_agent(mock_model_factory_get):
 
     assert agent.name == ref_response["name"]
     assert agent.description == ref_response["description"]
-    assert agent.instructions == ref_response["role"]
+    assert agent.instructions == ref_response["instructions"]
     assert agent.llm_id == ref_response["llmId"]
     assert agent.tools[0].function.value == ref_response["assets"][0]["function"]
     assert agent.tools[0].description == ref_response["assets"][0]["description"]
@@ -231,7 +231,7 @@ def test_to_dict():
     assert agent_json["id"] == ""
     assert agent_json["name"] == "Test Agent(-)"
     assert agent_json["description"] == "Test Agent Description"
-    assert agent_json["role"] == "Test Agent Role"
+    assert agent_json["instructions"] == "Test Agent Instructions"
     assert agent_json["llmId"] == "6646261c6eb563165658bbb1"
     assert agent_json["assets"][0]["function"] == "text-generation"
     assert agent_json["assets"][0]["type"] == "model"
@@ -264,7 +264,7 @@ def test_update_success(mock_model_factory_get):
             "id": "123",
             "name": "Test Agent(-)",
             "description": "Test Agent Description",
-            "role": "Test Agent Role",
+            "instructions": "Test Agent Instructions",
             "teamId": "123",
             "version": "1.0",
             "status": "onboarded",
@@ -305,7 +305,7 @@ def test_update_success(mock_model_factory_get):
     assert agent.id == ref_response["id"]
     assert agent.name == ref_response["name"]
     assert agent.description == ref_response["description"]
-    assert agent.instructions == ref_response["role"]
+    assert agent.instructions == ref_response["instructions"]
     assert agent.llm_id == ref_response["llmId"]
     assert agent.tools[0].function.value == ref_response["assets"][0]["function"]
 
@@ -336,7 +336,7 @@ def test_save_success(mock_model_factory_get):
             "id": "123",
             "name": "Test Agent(-)",
             "description": "Test Agent Description",
-            "role": "Test Agent Role",
+            "instructions": "Test Agent Instructions",
             "teamId": "123",
             "version": "1.0",
             "status": "onboarded",
@@ -382,7 +382,7 @@ def test_save_success(mock_model_factory_get):
     assert agent.id == ref_response["id"]
     assert agent.name == ref_response["name"]
     assert agent.description == ref_response["description"]
-    assert agent.instructions == ref_response["role"]
+    assert agent.instructions == ref_response["instructions"]
     assert agent.llm_id == ref_response["llmId"]
     assert agent.tools[0].function.value == ref_response["assets"][0]["function"]
 
@@ -503,7 +503,7 @@ def test_agent_factory_create_without_instructions():
                 "id": "123",
                 "name": "Test Agent",
                 "description": "Test Agent Description",
-                "role": "Test Agent Description",  # Should fallback to description
+                "instructions": "Test Agent Description",  # Should fallback to description
                 "teamId": "123",
                 "version": "1.0",
                 "status": "draft",
@@ -544,7 +544,7 @@ def test_agent_factory_create_without_instructions():
             sent_payload = sent_request.json()
 
             # The role should be set to description when instructions is None
-            assert sent_payload["role"] == "Test Agent Description"
+            assert sent_payload["instructions"] == "Test Agent Description"
             assert sent_payload["description"] == "Test Agent Description"
 
 
@@ -557,7 +557,7 @@ def test_agent_to_dict_payload_without_instructions():
     payload = agent.to_dict()
 
     # Check that role falls back to description when instructions is None
-    assert payload["role"] == "Test Description"  # Should fallback to description
+    assert payload["instructions"] == "Test Description"  # Should fallback to description
     assert payload["description"] == "Test Description"
     assert agent.instructions is None
 
@@ -571,7 +571,7 @@ def test_agent_to_dict_payload_with_instructions():
     payload = agent.to_dict()
 
     # Check that role uses instructions when provided
-    assert payload["role"] == "Custom Instructions"
+    assert payload["instructions"] == "Custom Instructions"
     assert payload["description"] == "Test Description"
     assert agent.instructions == "Custom Instructions"
 
@@ -606,7 +606,7 @@ def test_agent_factory_create_with_explicit_none_instructions():
                 "id": "123",
                 "name": "Test Agent",
                 "description": "Test Agent Description",
-                "role": "Test Agent Description",  # Should fallback to description
+                "instructions": "Test Agent Description",  # Should fallback to description
                 "teamId": "123",
                 "version": "1.0",
                 "status": "draft",
@@ -645,7 +645,7 @@ def test_agent_factory_create_with_explicit_none_instructions():
             sent_payload = sent_request.json()
 
             # The role should be set to description when instructions is None
-            assert sent_payload["role"] == "Test Agent Description"
+            assert sent_payload["instructions"] == "Test Agent Description"
             assert sent_payload["description"] == "Test Agent Description"
 
 
