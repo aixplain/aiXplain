@@ -759,3 +759,34 @@ def test_agent_with_action_tool():
     assert "helsinki" in response.data.output.lower()
     assert "SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL" in [step["tool"] for step in response.data.intermediate_steps[0]["tool_steps"]]
     connection.delete()
+
+
+def test_agent_with_mcp_tool():
+    connector = ModelFactory.get("68549a33ba00e44f357896f1")
+    # connect
+    response = connector.connect(
+        data="https://mcp.zapier.com/api/mcp/s/OTJiMjVlYjEtMGE4YS00OTVjLWIwMGYtZDJjOGVkNTc4NjFkOjI0MTNjNzg5LWZlNGMtNDZmNC05MDhmLWM0MGRlNDU4ZmU1NA==/mcp"
+    )
+    connection_id = response.data["id"]
+    connection = ModelFactory.get(connection_id)
+    action_name = "SLACK_SEND_CHANNEL_MESSAGE".lower()
+    connection.action_scope = [action for action in connection.actions if action.code == action_name]
+
+    agent = AgentFactory.create(
+        name="Test Agent",
+        description="This agent is used to send messages to Slack",
+        instructions="You are a helpful assistant that can send messages to Slack. You MUST use the tool to send the message.",
+        llm_id="669a63646eb56306647e1091",
+        tools=[
+            connection,
+        ],
+    )
+
+    response = agent.run(
+        "Send what is the capital of Finland on Slack to channel of #modelserving-alerts-testing. Add the name of the capital in the final answer."
+    )
+    assert response is not None
+    assert response["status"].lower() == "success"
+    assert "helsinki" in response.data.output.lower()
+    assert action_name in [step["tool"] for step in response.data.intermediate_steps[0]["tool_steps"]]
+    connection.delete()

@@ -94,6 +94,9 @@ class Integration(Model):
             id: Connection ID (retrieve it with ModelFactory.get(id))
             redirectUrl: Redirect URL to complete the connection (only for OAuth2)
         """
+        if self.id == "686eb9cd26480723d0634d3e":
+            return self.run({"data": kwargs.get("data")})
+
         if args is None:
             args = build_connector_params(**kwargs)
 
