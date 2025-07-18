@@ -191,20 +191,20 @@ class TestAgentEvolve:
 
             result = agent.evolve(
                 evolve_type=EvolveType.TEAM_TUNING,
-                max_generations=5,
-                max_retries=3,
+                max_successful_generations=5,
+                max_failed_generation_retries=3,
                 recursion_limit=40,
-                max_iterations_without_improvement=3,
+                max_non_improving_generations=3,
                 evolver_llm="custom_evolver_llm_id",
             )
 
             # Verify evolve_async was called with correct parameters
             mock_evolve_async.assert_called_once_with(
                 evolve_type=EvolveType.TEAM_TUNING,
-                max_generations=5,
-                max_retries=3,
+                max_successful_generations=5,
+                max_failed_generation_retries=3,
                 recursion_limit=40,
-                max_iterations_without_improvement=3,
+                max_non_improving_generations=3,
                 evolver_llm="custom_evolver_llm_id",
             )
 

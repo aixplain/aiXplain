@@ -493,20 +493,20 @@ class Agent(Model, DeployableMixin[Tool]):
     def evolve_async(
         self,
         evolve_type: Union[EvolveType, str] = EvolveType.TEAM_TUNING,
-        max_generations: int = 3,
-        max_retries: int = 3,
+        max_successful_generations: int = 3,
+        max_failed_generation_retries: int = 3,
         recursion_limit: int = 50,
-        max_iterations_without_improvement: Optional[int] = 2,
+        max_non_improving_generations: Optional[int] = 2,
         evolver_llm: Optional[Union[Text, LLM]] = None,
     ) -> AgentResponse:
         """Asynchronously evolve the Agent and return a polling URL in the AgentResponse.
 
         Args:
             evolve_type (Union[EvolveType, str]): Type of evolution (TEAM_TUNING or INSTRUCTION_TUNING). Defaults to TEAM_TUNING.
-            max_generations (int): Maximum number of generations to evolve. Defaults to 3.
-            max_retries (int): Maximum retry attempts. Defaults to 3.
+            max_successful_generations (int): Maximum number of successful generations to evolve. Defaults to 3.
+            max_failed_generation_retries (int): Maximum retry attempts for failed generations. Defaults to 3.
             recursion_limit (int): Limit for recursive operations. Defaults to 50.
-            max_iterations_without_improvement (Optional[int]): Stop condition parameter. Defaults to 2, can be None.
+            max_non_improving_generations (Optional[int]): Stop condition parameter for non-improving generations. Defaults to 2, can be None.
             evolver_llm (Optional[Union[Text, LLM]]): LLM to use for evolution. Can be an LLM ID string or LLM object. Defaults to None.
 
         Returns:
@@ -520,10 +520,10 @@ class Agent(Model, DeployableMixin[Tool]):
         evolve_parameters = EvolveParam(
             to_evolve=True,
             evolve_type=evolve_type,
-            max_generations=max_generations,
-            max_retries=max_retries,
+            max_generations=max_successful_generations,
+            max_retries=max_failed_generation_retries,
             recursion_limit=recursion_limit,
-            max_iterations_without_improvement=max_iterations_without_improvement,
+            max_iterations_without_improvement=max_non_improving_generations,
             evolver_llm=create_evolver_llm_dict(evolver_llm),
         )
 
@@ -532,20 +532,20 @@ class Agent(Model, DeployableMixin[Tool]):
     def evolve(
         self,
         evolve_type: Union[EvolveType, str] = EvolveType.TEAM_TUNING,
-        max_generations: int = 3,
-        max_retries: int = 3,
+        max_successful_generations: int = 3,
+        max_failed_generation_retries: int = 3,
         recursion_limit: int = 50,
-        max_iterations_without_improvement: Optional[int] = 2,
+        max_non_improving_generations: Optional[int] = 2,
         evolver_llm: Optional[Union[Text, LLM]] = None,
     ) -> AgentResponse:
         """Synchronously evolve the Agent and poll for the result.
 
         Args:
             evolve_type (Union[EvolveType, str]): Type of evolution (TEAM_TUNING or INSTRUCTION_TUNING). Defaults to TEAM_TUNING.
-            max_generations (int): Maximum number of generations to evolve. Defaults to 3.
-            max_retries (int): Maximum retry attempts. Defaults to 3.
+            max_successful_generations (int): Maximum number of successful generations to evolve. Defaults to 3.
+            max_failed_generation_retries (int): Maximum retry attempts for failed generations. Defaults to 3.
             recursion_limit (int): Limit for recursive operations. Defaults to 50.
-            max_iterations_without_improvement (Optional[int]): Stop condition parameter. Defaults to 2, can be None.
+            max_non_improving_generations (Optional[int]): Stop condition parameter for non-improving generations. Defaults to 2, can be None.
             evolver_llm (Optional[Union[Text, LLM]]): LLM to use for evolution. Can be an LLM ID string or LLM object. Defaults to None.
 
         Returns:
@@ -557,21 +557,23 @@ class Agent(Model, DeployableMixin[Tool]):
         evolve_parameters = EvolveParam(
             to_evolve=True,
             evolve_type=evolve_type,
-            max_generations=max_generations,
-            max_retries=max_retries,
+            max_generations=max_successful_generations,
+            max_retries=max_failed_generation_retries,
             recursion_limit=recursion_limit,
-            max_iterations_without_improvement=max_iterations_without_improvement,
+            max_iterations_without_improvement=max_non_improving_generations,
             evolver_llm=create_evolver_llm_dict(evolver_llm),
         )
 
         start = time.time()
         try:
+            logging.info(f"Evolve started with parameters: {evolve_parameters}")
+            logging.info("It might take a while...")
             response = self.evolve_async(
                 evolve_type=evolve_type,
-                max_generations=max_generations,
-                max_retries=max_retries,
+                max_successful_generations=max_successful_generations,
+                max_failed_generation_retries=max_failed_generation_retries,
                 recursion_limit=recursion_limit,
-                max_iterations_without_improvement=max_iterations_without_improvement,
+                max_non_improving_generations=max_non_improving_generations,
                 evolver_llm=evolver_llm,
             )
             if response["status"] == ResponseStatus.FAILED:
