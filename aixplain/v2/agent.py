@@ -18,11 +18,11 @@ from .resource import (
     RunnableResourceMixin,
     Page,
 )
-from .model import Model
 
 
 class AgentRunParams(BaseRunParams):
     """Parameters for running an agent."""
+
     query: NotRequired[Optional[Union[Dict, Text]]]
     session_id: NotRequired[Optional[Text]]
     history: NotRequired[Optional[List[Dict]]]
@@ -88,9 +88,7 @@ class Agent(
     id: str = ""
     name: str = ""
     status: str = ""
-    team_id: Optional[int] = field(
-        default=None, metadata=config(field_name="teamId")
-    )
+    team_id: Optional[int] = field(default=None, metadata=config(field_name="teamId"))
     description: str = ""
     role: str = ""
     tasks: Optional[List[Any]] = field(default_factory=list)
@@ -133,14 +131,10 @@ class Agent(
         payload = self.to_dict()
         tools = payload.pop("tools")
         for tool in tools:
-            tool['assetId'] = tool.pop("id")
+            tool["assetId"] = tool.pop("id")
         payload["assets"] = tools
-        payload["tools"] = [{
-            "type": "llm",
-            "description": "main",
-            "parameters": []
-        }]
-        payload['role'] = payload.pop("instructions")
+        payload["tools"] = [{"type": "llm", "description": "main", "parameters": []}]
+        payload["role"] = payload.pop("instructions")
         return payload
 
     def build_run_payload(self, **kwargs: Unpack[AgentRunParams]) -> dict:
