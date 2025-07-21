@@ -80,6 +80,12 @@ class BaseResource:
         """
         pass
 
+    def build_save_payload(self, **kwargs):
+        """
+        Build the payload for the save action.
+        """
+        return self.to_dict()
+
     def save(self, **kwargs):
         """Save the resource.
 
@@ -91,14 +97,14 @@ class BaseResource:
         for key, value in kwargs.items():
             setattr(self, key, value)
 
-        data = self.to_dict()
+        payload = self.build_save_payload(**kwargs)
         result = None
         if self.id:
             result = self.context.client.request(
-                "put", f"{resource_path}/{self.id}", json=data
+                "put", f"{resource_path}/{self.id}", json=payload
             )
         else:
-            result = self.context.client.request("post", f"{resource_path}", json=data)
+            result = self.context.client.request("post", f"{resource_path}", json=payload)
         self.id = result["id"]
         self.on_save(result)
         return self

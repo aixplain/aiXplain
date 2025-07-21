@@ -18,6 +18,7 @@ from .resource import (
     RunnableResourceMixin,
     Page,
 )
+from .model import Model
 
 
 class AgentRunParams(BaseRunParams):
@@ -125,45 +126,39 @@ class Agent(
     def list(cls, **kwargs) -> "Page[Agent]":
         return super().list(**kwargs)
 
+    def build_save_payload(self, **kwargs):
+        """
+        Build the payload for the save action.
+        """
+        payload = self.to_dict()
+        tools = payload.pop("tools")
+        for tool in tools:
+            tool['assetId'] = tool.pop("id")
+        payload["assets"] = tools
+        payload["tools"] = [{
+            "type": "llm",
+            "description": "main",
+            "parameters": []
+        }]
+        payload['role'] = payload.pop("instructions")
+        return payload
+
     def build_run_payload(self, **kwargs: Unpack[AgentRunParams]) -> dict:
         """
         Build the payload for the run action.
-
-        Expample request:
-            {
-                "id": "687925d9153e7e4d81e495c4",
-                "query": {
-                    "input": "Who is the president of Brazil right now? Translate to pt"
-                },
-                "sessionId": null,
-                "history": null,
-                "executionParams": {
-                    "maxTokens": 2048,
-                    "maxIterations": 10,
-                    "outputFormat": "text",
-                    "expectedOutput": null
-                }
-            }
         """
         max_tokens = kwargs.pop("max_tokens", 2048)
         max_iterations = kwargs.pop("max_iterations", 10)
         output_format = kwargs.pop("output_format", "text")
         expected_output = kwargs.pop("expected_output", None)
-        session_id = kwargs.pop("session_id", None)
-        history = kwargs.pop("history", None)
-
-        serialized = self.to_dict()  # type: ignore
-        payload = {k: serialized[k] for k in ['id', 'tools'] if k in serialized}
 
         return {
+            "id": self.id,
             "executionParams": {
                 "maxTokens": max_tokens,
                 "maxIterations": max_iterations,
                 "outputFormat": output_format,
                 "expectedOutput": expected_output,
             },
-            "sessionId": session_id,
-            "history": history,
-            **payload,
             **kwargs,
         }

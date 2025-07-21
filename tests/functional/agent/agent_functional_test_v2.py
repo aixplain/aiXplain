@@ -16,6 +16,7 @@ def test_v2_agent_run_with_utility(aix):
     # Create a simple utility function
     def greet_random_name(greeting: str) -> int:
         """Greet a random name and return the result as a string."""
+        import random
         list_of_names = ["John", "Jane", "Jim", "Jill", "Jack", "Jill", "Jim", "Jane", "John", "Jack"]
         return f"{greeting} {random.choice(list_of_names)}"
 
@@ -30,7 +31,7 @@ def test_v2_agent_run_with_utility(aix):
 
     # Create agent with utility tool and a valid LLM
     agent = aix.Agent(
-        name="v2_test_agent_run",
+        name="test-agent-v2",
         description="A test agent for v2 run",
         instructions=(
             "You are a test assistant. Use the provided tool to greet a random name."
