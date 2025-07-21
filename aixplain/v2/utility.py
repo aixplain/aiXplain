@@ -1,6 +1,7 @@
 from typing import List, Tuple
 from typing_extensions import NotRequired
 from dataclasses import dataclass, field
+from dataclasses_json import dataclass_json
 
 from .resource import (
     BaseListParams,
@@ -11,6 +12,8 @@ from .resource import (
     BaseRunParams,
     Result,
     RunnableResourceMixin,
+    DeleteResourceMixin,
+    BareDeleteParams,
 )
 from .enums import Function, OwnershipType, SortBy, SortOrder
 
@@ -48,12 +51,13 @@ class UtilityRunParams(BaseRunParams):
 
     data: str
 
-
+@dataclass_json
 @dataclass
 class Utility(
     BaseResource,
     PagedListResourceMixin[UtilityListParams, "Utility"],
     GetResourceMixin[BareGetParams, "Utility"],
+    DeleteResourceMixin[BareDeleteParams, "Utility"],
     RunnableResourceMixin[UtilityRunParams, Result],
 ):
     """Resource for utilities.
@@ -67,6 +71,8 @@ class Utility(
 
     code: str = ""
     inputs: List[str] = field(default_factory=list)
+    type: str = "model"
+    utility_id: str = "custom_python_code"
 
     def __post_init__(self):
         # Only run parsing logic for new instances (no id yet)
@@ -77,7 +83,11 @@ class Utility(
                 self.code, self.context.api_key
             )
             self.code = code
-            self.inputs = inputs
+
+            # TODO: This is a hack to get the inputs in the correct format
+            # using legacy code
+            self.inputs = [input.to_dict() for input in inputs]
+
             self.description = description
             self.name = name
 
