@@ -25,6 +25,7 @@ import logging
 import re
 import time
 import traceback
+from datetime import datetime
 
 from aixplain.utils.file_utils import _request_with_retry
 from aixplain.enums import Function, Supplier, AssetStatus, StorageType, ResponseStatus
@@ -156,6 +157,16 @@ class Agent(Model, DeployableMixin[Tool]):
                 logging.warning(f"Agent Validation Error: {e}")
                 logging.warning("You won't be able to run the Agent until the issues are handled manually.")
         return self.is_valid
+    
+    def generate_session_id(self, history: list = None) -> str:
+        timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+        session_id = f"{self.id}_{timestamp}"
+
+        if history:
+            resp=self.run(query=str(history), session_id=session_id)
+            logging.info(resp.data.output)
+
+        return session_id
 
     def run(
         self,
@@ -193,6 +204,13 @@ class Agent(Model, DeployableMixin[Tool]):
             Dict: parsed output from model
         """
         start = time.time()
+        if session_id is not None and history is not None:
+            raise ValueError("Provide either `session_id` or `history`, not both.")
+
+        if session_id is not None:
+            if not session_id.startswith(f"{self.id}_"):
+                raise ValueError(f"Session ID '{session_id}' does not belong to this Agent.")
+
         result_data = {}
         try:
             response = self.run_async(
@@ -278,6 +296,14 @@ class Agent(Model, DeployableMixin[Tool]):
         Returns:
             dict: polling URL in response
         """
+
+        if session_id is not None and history is not None:
+            raise ValueError("Provide either `session_id` or `history`, not both.")
+
+        if session_id is not None:
+            if not session_id.startswith(f"{self.id}_"):
+                raise ValueError(f"Session ID '{session_id}' does not belong to this Agent.")
+
         from aixplain.factories.file_factory import FileFactory
 
         if not self.is_valid:
