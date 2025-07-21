@@ -1,4 +1,4 @@
-from typing import List, Tuple
+from typing import List
 from typing_extensions import NotRequired
 from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json
@@ -15,7 +15,7 @@ from .resource import (
     DeleteResourceMixin,
     BareDeleteParams,
 )
-from .enums import Function, OwnershipType, SortBy, SortOrder
+from .enums import Function
 
 
 class UtilityListParams(BaseListParams):
@@ -26,20 +26,10 @@ class UtilityListParams(BaseListParams):
         status: str: The status of the utility.
         query: str: Search query for utilities.
         ownership: Tuple[OwnershipType, List[OwnershipType]]: Ownership filter.
-        sort_by: SortBy: Sort by attribute.
-        sort_order: SortOrder: Sort order.
-        page_number: int: Page number for pagination.
-        page_size: int: Page size for pagination.
     """
 
     function: NotRequired[Function]
     status: NotRequired[str]
-    query: NotRequired[str]
-    ownership: NotRequired[Tuple[OwnershipType, List[OwnershipType]]]
-    sort_by: NotRequired[SortBy]
-    sort_order: NotRequired[SortOrder]
-    page_number: NotRequired[int]
-    page_size: NotRequired[int]
 
 
 class UtilityRunParams(BaseRunParams):
@@ -50,6 +40,7 @@ class UtilityRunParams(BaseRunParams):
     """
 
     data: str
+
 
 @dataclass_json
 @dataclass
@@ -83,11 +74,7 @@ class Utility(
                 self.code, self.context.api_key
             )
             self.code = code
-
-            # TODO: This is a hack to get the inputs in the correct format
-            # using legacy code
-            self.inputs = [input.to_dict() for input in inputs]
-
+            self.inputs = inputs
             self.description = description
             self.name = name
 
@@ -103,6 +90,14 @@ class Utility(
 
             # Only save if this is a new instance (no id yet)
             self.save()
+
+    def build_save_payload(self, **kwargs):
+        """
+        Build the payload for the save action.
+        """
+        payload = self.to_dict()
+        payload["inputs"] = [input.to_dict() for input in self.inputs]
+        return payload
 
     @classmethod
     def get(cls, id: str, **kwargs) -> "Utility":

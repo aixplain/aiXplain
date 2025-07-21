@@ -104,7 +104,9 @@ class BaseResource:
                 "put", f"{resource_path}/{self.id}", json=payload
             )
         else:
-            result = self.context.client.request("post", f"{resource_path}", json=payload)
+            result = self.context.client.request(
+                "post", f"{resource_path}", json=payload
+            )
         self.id = result["id"]
         self.on_save(result)
         return self
@@ -658,11 +660,13 @@ class RunnableResourceMixin(BaseMixin, Generic[RP, RR]):
         result = self.run_async(**kwargs)
 
         if not result.data or not isinstance(result.data, str):
-            return self.RESPONSE_CLASS.from_dict({
-                "status": ResponseStatus.FAILED,
-                "completed": True,
-                "error_message": "No polling URL found",
-            })
+            return self.RESPONSE_CLASS.from_dict(
+                {
+                    "status": ResponseStatus.FAILED,
+                    "completed": True,
+                    "error_message": "No polling URL found",
+                }
+            )
 
         return self.sync_poll(result.data, **kwargs)
 
@@ -693,11 +697,13 @@ class RunnableResourceMixin(BaseMixin, Generic[RP, RR]):
             return self.RESPONSE_CLASS.from_dict(response)
 
         except Exception as e:
-            return self.RESPONSE_CLASS.from_dict({
-                "status": ResponseStatus.FAILED.value,
-                "completed": True,
-                "error_message": str(e),
-            })
+            return self.RESPONSE_CLASS.from_dict(
+                {
+                    "status": ResponseStatus.FAILED.value,
+                    "completed": True,
+                    "error_message": str(e),
+                }
+            )
 
     def poll(self, poll_url: str) -> RR:
         """
@@ -718,11 +724,13 @@ class RunnableResourceMixin(BaseMixin, Generic[RP, RR]):
             # If it's a relative path, it will be joined with base_url
             response = self.context.client.get(poll_url)
         except Exception as e:
-            return self.RESPONSE_CLASS.from_dict({
-                "status": ResponseStatus.FAILED,
-                "completed": True,
-                "error_message": str(e),
-            })
+            return self.RESPONSE_CLASS.from_dict(
+                {
+                    "status": ResponseStatus.FAILED,
+                    "completed": True,
+                    "error_message": str(e),
+                }
+            )
 
         return self.RESPONSE_CLASS.from_dict(response)
 
@@ -756,8 +764,10 @@ class RunnableResourceMixin(BaseMixin, Generic[RP, RR]):
             if wait_time < 60:
                 wait_time *= 1.1  # Exponential backoff
 
-        return self.RESPONSE_CLASS.from_dict({
-            "status": ResponseStatus.FAILED,
-            "completed": True,
-            "error_message": f"Timeout after {timeout} seconds",
-        })
+        return self.RESPONSE_CLASS.from_dict(
+            {
+                "status": ResponseStatus.FAILED,
+                "completed": True,
+                "error_message": f"Timeout after {timeout} seconds",
+            }
+        )
