@@ -14,21 +14,20 @@ def aix():
 def test_v2_agent_run_with_utility(aix):
     """Ported legacy agent run test: create, deploy, run, assert output."""
     # Create a simple utility function
-    def greet_random_name(greeting: str) -> int:
+    def greet_random_name(greeting: str) -> str:
         """Greet a random name and return the result as a string."""
         import random
         list_of_names = ["John", "Jane", "Jim", "Jill", "Jack", "Jill", "Jim", "Jane", "John", "Jack"]
         return f"{greeting} {random.choice(list_of_names)}"
 
-    # Create utility model
-    utility = aix.Utility(
+    # Create utility tool using convenient constructor
+    utility_tool = aix.Tool(
         name="greet_random_name",
         description=(
             "Greet a random name and return the result as a string."
         ),
         code=greet_random_name
     )
-
     # Create agent with utility tool and a valid LLM
     agent = aix.Agent(
         name="test-agent-v2",
@@ -36,7 +35,7 @@ def test_v2_agent_run_with_utility(aix):
         instructions=(
             "You are a test assistant. Use the provided tool to greet a random name."
         ),
-        tools=[utility],
+        tools=[utility_tool],
         llm_id="6646261c6eb563165658bbb1",
     )
 
@@ -66,4 +65,4 @@ def test_v2_agent_run_with_utility(aix):
 
     # Clean up
     agent.delete()
-    utility.delete()
+    utility_tool.resource.delete()

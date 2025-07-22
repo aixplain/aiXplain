@@ -1,5 +1,5 @@
 from typing import List
-from typing_extensions import NotRequired
+from typing_extensions import NotRequired, Unpack
 from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json
 
@@ -14,8 +14,9 @@ from .resource import (
     RunnableResourceMixin,
     DeleteResourceMixin,
     BareDeleteParams,
+    ToolMixin,
 )
-from .enums import Function
+from .enums import Function, ToolType
 
 
 class UtilityListParams(BaseListParams):
@@ -50,6 +51,7 @@ class Utility(
     GetResourceMixin[BareGetParams, "Utility"],
     DeleteResourceMixin[BareDeleteParams, "Utility"],
     RunnableResourceMixin[UtilityRunParams, Result],
+    ToolMixin,
 ):
     """Resource for utilities.
 
@@ -59,10 +61,10 @@ class Utility(
     """
 
     RESOURCE_PATH = "sdk/utilities"
+    TOOL_TYPE = ToolType.MODEL
 
     code: str = ""
     inputs: List[str] = field(default_factory=list)
-    type: str = "model"
     utility_id: str = "custom_python_code"
 
     def __post_init__(self):
@@ -102,3 +104,7 @@ class Utility(
     @classmethod
     def get(cls, id: str, **kwargs) -> "Utility":
         return super().get(id, resource_path="sdk/models", **kwargs)
+
+    @classmethod
+    def run(cls, **kwargs: Unpack[UtilityRunParams]) -> Result:
+        return super().run(**kwargs)

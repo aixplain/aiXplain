@@ -18,6 +18,17 @@ from aixplain.enums import (
     SortOrder,
     StorageType,
 )
+from enum import Enum
+
+
+class ToolType(str, Enum):
+    """Enum for tool types."""
+
+    UTILITY = "utility"
+    MODEL = "model"
+    PIPELINE = "pipeline"
+    INTEGRATION = "integration"
+
 
 __all__ = [
     "Function",
@@ -37,4 +48,5 @@ __all__ = [
     "SortBy",
     "SortOrder",
     "StorageType",
+    "ToolType",
 ]
