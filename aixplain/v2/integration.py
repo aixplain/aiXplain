@@ -3,17 +3,10 @@ from dataclasses_json import dataclass_json
 from dataclasses import dataclass
 from typing import Optional
 
+from .model import Model, ModelRunParams
 from .resource import (
     BaseListParams,
-    BaseResource,
-    PagedListResourceMixin,
-    GetResourceMixin,
-    BareGetParams,
-    Page,
-    RunnableResourceMixin,
-    BareRunParams,
     BaseResult,
-    ToolMixin,
 )
 from .enums import Function, ToolType
 
@@ -38,21 +31,17 @@ class IntegrationResult(BaseResult):
 
 @dataclass_json
 @dataclass
-class Integration(
-    BaseResource,
-    PagedListResourceMixin[IntegrationListParams, "Integration"],
-    GetResourceMixin[BareGetParams, "Integration"],
-    RunnableResourceMixin[BareRunParams, IntegrationResult],
-    ToolMixin,
-):
-    """Resource for integrations."""
+class Integration(Model):
+    """Resource for integrations.
 
-    RESOURCE_PATH = "sdk/models"  # Use models endpoint like legacy
+    Integrations are a subtype of models with Function.CONNECTOR.
+    """
+
     TOOL_TYPE = ToolType.INTEGRATION
     RESPONSE_CLASS = IntegrationResult
 
     @classmethod
-    def get(cls, id: str, **kwargs: Unpack[BareGetParams]) -> "Integration":
+    def get(cls, id: str, **kwargs: Unpack[BaseListParams]) -> "Integration":
         return super().get(id, **kwargs)
 
     @classmethod
@@ -74,6 +63,21 @@ class Integration(
 
         return filters
 
+    def build_run_payload(self, **kwargs: Unpack[ModelRunParams]) -> dict:
+        """
+        Build the payload for running the integration.
+
+        For connections, we want to preserve the exact payload structure
+        without the Model's restructuring.
+        """
+        # If this is a connection call (has authScheme), preserve the payload
+        if "authScheme" in kwargs:
+            return kwargs
+
+        # Otherwise, use the parent's method for regular model runs
+        result = super().build_run_payload(**kwargs)
+        return result
+
     def connect(self, name: Optional[str] = None, **kwargs) -> IntegrationResult:
         """Connect to the integration.
 
@@ -83,23 +87,44 @@ class Integration(
 
         Args:
             name: Optional name for the connection
-            **kwargs: Additional connection parameters
+            **kwargs: Additional connection parameters (token, client_id, client_secret, etc.)
 
         Returns:
             Result: The connection result with ID if successful
         """
-        # Build the connection payload5
-        payload = {
-            "name": name or "Connection",
-            "authScheme": "OAUTH2",
-        }
+        # Determine authentication scheme based on provided parameters
+        auth_scheme = "OAUTH2"  # Default
+        if "token" in kwargs:
+            auth_scheme = "BEARER_TOKEN"
+        elif "client_id" in kwargs and "client_secret" in kwargs:
+            auth_scheme = "OAUTH"
 
-        # Add any additional data if provided
-        if kwargs:
-            payload["data"] = kwargs
+        # Build the connection payload based on authentication scheme
+        if auth_scheme == "BEARER_TOKEN":
+            payload = {
+                "name": name or "Connection",
+                "authScheme": auth_scheme,
+                "data": {
+                    "token": kwargs["token"],
+                },
+            }
+        elif auth_scheme == "OAUTH":
+            payload = {
+                "name": name or "Connection",
+                "authScheme": auth_scheme,
+                "data": {
+                    "client_id": kwargs["client_id"],
+                    "client_secret": kwargs["client_secret"],
+                },
+            }
+        else:  # OAUTH2
+            payload = {
+                "name": name or "Connection",
+                "authScheme": auth_scheme,
+            }
 
-        # Use the run method to create the connection
-        return self.run(**payload)
+        # Call the run method with the payload as the data parameter
+        return self.run(data=payload)
 
-    def run(self, **kwargs: Unpack[BareRunParams]) -> IntegrationResult:
+    def run(self, **kwargs: Unpack[ModelRunParams]) -> IntegrationResult:
         return super().run(**kwargs)
