@@ -107,15 +107,17 @@ class Tool(
             elif hasattr(response, "id") and response.id:
                 self.id = response.id
             else:
-                # If no ID in response, use the integration ID as a fallback
-                self.id = self.integration_id
+                # Connection succeeded but no valid ID found - this is an error
+                raise ValueError(
+                    f"Connection succeeded but no valid ID found in response. "
+                    f"Response data: {response.data}, "
+                    f"Response ID: {getattr(response, 'id', 'None')}"
+                )
         else:
-            # Connection failed, but don't raise exception
+            # Connection failed - don't set ID, let it remain None or empty
             print(
                 f"Warning: Connection failed with status {response.status}: "
                 f"{response.error_message}"
             )
-            # Use integration ID as fallback
-            self.id = self.integration_id
 
         return response
