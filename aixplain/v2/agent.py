@@ -5,6 +5,7 @@ from dataclasses_json import dataclass_json, config
 
 from aixplain.enums import AssetStatus, ResponseStatus
 
+
 from .resource import (
     BaseResource,
     PagedListResourceMixin,
@@ -129,10 +130,7 @@ class Agent(
         Build the payload for the save action.
         """
         payload = self.to_dict()
-        tools = payload.pop("tools")
-        for tool in tools:
-            tool["assetId"] = tool.pop("id")
-        payload["assets"] = tools
+        payload["assets"] = payload.pop("tools")
         payload["tools"] = [{"type": "llm", "description": "main", "parameters": []}]
         payload["role"] = payload.pop("instructions")
         return payload

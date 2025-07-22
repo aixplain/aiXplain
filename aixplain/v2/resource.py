@@ -3,6 +3,7 @@ import logging
 import pprint
 from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json, config
+import time
 from typing import (
     List,
     Tuple,
@@ -12,12 +13,13 @@ from typing import (
     Generic,
     Any,
     Optional,
+    Dict,
     TYPE_CHECKING,
 )
 from typing_extensions import Unpack, NotRequired
 
 
-from .enums import OwnershipType, SortBy, SortOrder, ResponseStatus
+from .enums import OwnershipType, SortBy, SortOrder, ResponseStatus, ToolType
 
 
 if TYPE_CHECKING:
@@ -252,6 +254,7 @@ class BareRunParams(BaseRunParams):
     pass
 
 
+@dataclass_json
 @dataclass
 class BaseResult:
     """Base class for running results."""
@@ -289,6 +292,8 @@ class BaseResult:
         )
 
 
+@dataclass_json
+@dataclass
 class Result(BaseResult):
     """Default implementation of running results."""
 
@@ -645,6 +650,30 @@ class RunnableResourceMixin(BaseMixin, Generic[RP, RR]):
         """
         return kwargs
 
+    def build_run_url(self, **kwargs: Unpack[RP]) -> str:
+        """
+        Build the URL for the run action.
+
+        This method can be overridden by subclasses to provide custom URL construction.
+        The default implementation uses the resource path with the run action.
+
+        Returns:
+            str: The URL to use for the run action
+        """
+        assert getattr(self, "RESOURCE_PATH"), (
+            "Subclasses of 'BaseResource' must " "specify 'RESOURCE_PATH'"
+        )
+
+        if not self.id:
+            raise ValueError("Run call requires an 'id' attribute")
+
+        run_action_path = getattr(self, "RUN_ACTION_PATH", None)
+        path = f"{self.RESOURCE_PATH}/{self.id}"
+        if run_action_path:
+            path += f"/{run_action_path}"
+
+        return path
+
     def run(self, **kwargs: Unpack[RP]) -> RR:
         """
         Run the resource synchronously with automatic polling.
@@ -685,14 +714,11 @@ class RunnableResourceMixin(BaseMixin, Generic[RP, RR]):
             payload = self.build_run_payload(**kwargs)
             print(payload)
 
-            run_action_path = getattr(self, "RUN_ACTION_PATH", None)
-            action_paths = []
-            if run_action_path:
-                action_paths.append(run_action_path)
+            # Build the run URL using the extensible method
+            run_url = self.build_run_url(**kwargs)
 
-            # Use context.client.request() instead of direct requests
-            # Pass the full URL as path - urljoin will handle it correctly
-            response = self._action("post", action_paths, json=payload)
+            # Use context.client.request() with the custom URL
+            response = self.context.client.request("post", run_url, json=payload)
 
             return self.RESPONSE_CLASS.from_dict(response)
 
@@ -771,3 +797,33 @@ class RunnableResourceMixin(BaseMixin, Generic[RP, RR]):
                 "error_message": f"Timeout after {timeout} seconds",
             }
         )
+
+
+class ToolMixin(BaseMixin):
+    """Mixin for resources that can be used as tools.
+
+    This mixin provides a default implementation of as_tool() that uses
+    the TOOL_TYPE class variable and the resource's id to create a simple
+    tool representation.
+
+    Subclasses must define a TOOL_TYPE class variable with a ToolType enum value.
+    """
+
+    TOOL_TYPE: ToolType = None  # Must be set by subclasses
+
+    def as_tool(self) -> Dict[str, Any]:
+        """Convert the resource to a tool representation.
+
+        Returns:
+            Dict containing basic tool information (id, type).
+            Subclasses can override this to provide additional information.
+        """
+        if not self.TOOL_TYPE:
+            raise NotImplementedError(
+                f"{self.__class__.__name__} must define TOOL_TYPE class variable"
+            )
+
+        return {
+            "assetId": self.id,
+            "type": self.TOOL_TYPE.value,
+        }

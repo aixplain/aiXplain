@@ -4,12 +4,16 @@ from .client import AixplainClient
 from .model import Model
 from .agent import Agent
 from .utility import Utility
+from .tool import Tool
+from .integration import Integration
 from . import enums
 
 
 ModelType = TypeVar("ModelType", bound=Model)
 AgentType = TypeVar("AgentType", bound=Agent)
 UtilityType = TypeVar("UtilityType", bound=Utility)
+ToolType = TypeVar("ToolType", bound=Tool)
+IntegrationType = TypeVar("IntegrationType", bound=Integration)
 
 
 class Aixplain:
@@ -40,6 +44,8 @@ class Aixplain:
     Model: ModelType = None
     Agent: AgentType = None
     Utility: UtilityType = None
+    Tool: ToolType = None
+    Integration: IntegrationType = None
 
     Function = enums.Function
     Supplier = enums.Supplier
@@ -113,3 +119,5 @@ class Aixplain:
         self.Model = type("Model", (Model,), {"context": self})
         self.Agent = type("Agent", (Agent,), {"context": self})
         self.Utility = type("Utility", (Utility,), {"context": self})
+        self.Tool = type("Tool", (Tool,), {"context": self})
+        self.Integration = type("Integration", (Integration,), {"context": self})
