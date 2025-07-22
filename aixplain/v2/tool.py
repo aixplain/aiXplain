@@ -12,7 +12,6 @@ from .resource import (
     BareGetParams,
     BareDeleteParams,
     BareRunParams,
-    Result,
     BaseResult,
 )
 
@@ -73,6 +72,7 @@ class Tool(
                 self.config = {
                     "code": self.code,
                 }
+            # Auto-connect for integration tools
             self.connect()
 
     def connect(self, name: Optional[str] = None, **kwargs) -> ToolResult:
@@ -83,7 +83,8 @@ class Tool(
 
         Args:
             name: Optional name for the connection
-            **kwargs: Additional connection parameters
+            **kwargs: Additional connection parameters (token, client_id,
+                     client_secret, etc.)
 
         Returns:
             Result: The connection result
@@ -94,6 +95,27 @@ class Tool(
         # Get the integration object and connect
         integration_obj = self.context.Integration.get(self.integration_id)
         response = integration_obj.connect(name=name, **kwargs)
-        self.id = response.data["id"]
+
+        # Handle the response properly
+        if response.completed and response.status == "SUCCESS":
+            if (
+                response.data
+                and isinstance(response.data, dict)
+                and "id" in response.data
+            ):
+                self.id = response.data["id"]
+            elif hasattr(response, "id") and response.id:
+                self.id = response.id
+            else:
+                # If no ID in response, use the integration ID as a fallback
+                self.id = self.integration_id
+        else:
+            # Connection failed, but don't raise exception
+            print(
+                f"Warning: Connection failed with status {response.status}: "
+                f"{response.error_message}"
+            )
+            # Use integration ID as fallback
+            self.id = self.integration_id
 
         return response
