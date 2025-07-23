@@ -113,9 +113,15 @@ class Tool(
         result = self.integration.connect(
             name=self.name,
             auth_scheme=self.auth_scheme,
-            auth_credentials=self.auth_credentials,
+            data=self.auth_credentials,
         )
-        self.id = result.connection_id
+
+        # Set the tool ID to the connection ID
+        if result.data and isinstance(result.data, dict) and "id" in result.data:
+            self.id = result.data["id"]
+        else:
+            raise ValueError("Connection succeeded but no connection ID received")
+
         return result
 
     def build_run_url(self, **kwargs: Unpack[ToolRunParams]) -> str:

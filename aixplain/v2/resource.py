@@ -722,7 +722,7 @@ class RunnableResourceMixin(BaseMixin, Generic[RP, RR]):
                 }
             )
         else:
-            # Direct response case - filter out unexpected fields
+            # Direct response case - include original response data
             filtered_response = {
                 "status": response.get("status", "IN_PROGRESS"),
                 "completed": response.get("completed", False),
@@ -730,13 +730,34 @@ class RunnableResourceMixin(BaseMixin, Generic[RP, RR]):
                 "url": response.get("url"),
                 "result": response.get("result"),
                 "supplier_error": response.get("supplier_error"),
+                "supplierError": response.get(
+                    "supplierError"
+                ),  # Include camelCase version
                 "data": response.get("data"),
+                "_raw_data": response,  # Include original response data
             }
-            try:
-                return self.RESPONSE_CLASS.from_dict(filtered_response)
-            except Exception as e:
-                # Fallback to manual construction
-                return self.RESPONSE_CLASS(**filtered_response)
+
+            # Check for failed status and raise appropriate error
+            status = response.get("status", "IN_PROGRESS")
+            if status == "FAILED":
+                # Get the most specific error message available
+                error_msg = None
+
+                # Try different ways to access the error message
+                if response.get("supplierError"):
+                    error_msg = response["supplierError"]
+                elif response.get("supplier_error"):
+                    error_msg = response["supplier_error"]
+                elif response.get("error_message"):
+                    error_msg = response["error_message"]
+                elif response.get("error"):
+                    error_msg = response["error"]
+                else:
+                    error_msg = "Operation failed"
+
+                raise ValueError(f"Operation failed: {error_msg}")
+
+            return self.RESPONSE_CLASS.from_dict(filtered_response)
 
     def run(self, **kwargs: Unpack[RP]) -> RR:
         """
@@ -768,26 +789,16 @@ class RunnableResourceMixin(BaseMixin, Generic[RP, RR]):
         Returns:
             Response instance from the configured RESPONSE_CLASS
         """
-        try:
-            payload = self.build_run_payload(**kwargs)
+        payload = self.build_run_payload(**kwargs)
 
-            # Build the run URL using the extensible method
-            run_url = self.build_run_url(**kwargs)
+        # Build the run URL using the extensible method
+        run_url = self.build_run_url(**kwargs)
 
-            # Use context.client.request() with the custom URL
-            response = self.context.client.request("post", run_url, json=payload)
+        # Use context.client.request() with the custom URL
+        response = self.context.client.request("post", run_url, json=payload)
 
-            # Use the extensible response handler
-            return self.handle_run_response(response, **kwargs)
-
-        except Exception as e:
-            return self.RESPONSE_CLASS.from_dict(
-                {
-                    "status": ResponseStatus.FAILED.value,
-                    "completed": True,
-                    "error_message": str(e),
-                }
-            )
+        # Use the extensible response handler
+        return self.handle_run_response(response, **kwargs)
 
     def poll(self, poll_url: str) -> RR:
         """
@@ -826,11 +837,7 @@ class RunnableResourceMixin(BaseMixin, Generic[RP, RR]):
             "supplier_error": response.get("supplier_error"),
             "data": response.get("data"),
         }
-        try:
-            return self.RESPONSE_CLASS.from_dict(filtered_response)
-        except Exception as e:
-            # Fallback to manual construction
-            return self.RESPONSE_CLASS(**filtered_response)
+        return self.RESPONSE_CLASS.from_dict(filtered_response)
 
     def sync_poll(self, poll_url: str, **kwargs: Unpack[RP]) -> RR:
         """
