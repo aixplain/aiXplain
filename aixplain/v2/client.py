@@ -139,7 +139,9 @@ class AixplainClient:
 
             if error_obj:
                 raise AixplainError(
-                    error_obj["message"], error_obj["error"], error_obj["statusCode"]
+                    error_obj.get("message", error_obj.get("error", response.text)),
+                    error_obj.get("error", response.text),
+                    error_obj.get("statusCode", response.status_code),
                 )
             else:
                 raise AixplainError(response.text, response.text, response.status_code)
