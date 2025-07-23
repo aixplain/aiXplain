@@ -8,7 +8,6 @@ for tools to connect without knowing implementation details.
 from typing import Optional, TypedDict
 from typing_extensions import Unpack
 from enum import Enum
-from dataclasses import dataclass
 
 from .resource import BaseListParams, BaseResult, Page
 from .model import Model
@@ -23,12 +22,21 @@ class AuthenticationScheme(str, Enum):
     OAUTH2 = "OAUTH2"
 
 
-@dataclass
 class IntegrationResult(BaseResult):
-    """Result for connection operations."""
+    """Result for connection operations.
 
-    connection_id: Optional[str] = None
-    polling_url: Optional[str] = None
+    The backend returns the connection ID in data.id.
+    """
+
+    data: Optional[dict] = None  # Contains {'id': 'connection_id'}
+    id: Optional[str] = None  # Connection ID for direct access
+
+    def __init__(self, **kwargs):
+        """Initialize with connection ID extraction."""
+        super().__init__(**kwargs)
+        # Make the connection ID accessible as result.id
+        if self.data and isinstance(self.data, dict) and "id" in self.data:
+            self.id = self.data["id"]
 
 
 class IntegrationListParams(BaseListParams):
@@ -86,7 +94,12 @@ class Integration(Model):
         payload = dict(kwargs)
         # Aliasing for top-level fields
         if "auth_scheme" in payload:
-            payload["authScheme"] = payload.pop("auth_scheme")
+            auth_scheme = payload.pop("auth_scheme")
+            # Convert enum to string value
+            if hasattr(auth_scheme, "value"):
+                payload["authScheme"] = auth_scheme.value
+            else:
+                payload["authScheme"] = auth_scheme
         if "data" in payload and payload["data"] is not None:
             data = dict(payload["data"])
             if "client_id" in data:
