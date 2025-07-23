@@ -35,18 +35,6 @@ def find_function_by_id(function_id: str) -> Optional[Function]:
 
 
 class ModelListParams(BaseListParams):
-    """Parameters for listing models.
-
-    Attributes:
-        function: Function: The function of the model.
-        suppliers: Union[Supplier, List[Supplier]: The suppliers of the model.
-        source_languages: Union[Language, List[Language]: The source languages
-            of the model.
-        target_languages: Union[Language, List[Language]: The target languages
-            of the model.
-        is_finetunable: bool: Whether the model is finetunable.
-    """
-
     function: NotRequired[Function]
     suppliers: NotRequired[Union[Supplier, List[Supplier]]]
     source_languages: NotRequired[Union[Language, List[Language]]]
@@ -55,18 +43,6 @@ class ModelListParams(BaseListParams):
 
 
 class ModelRunParams(BareRunParams):
-    """Parameters for running models.
-
-    Attributes:
-        data: Union[str, dict]: The input data for the model.
-        context: str: System message or context.
-        prompt: str: Prompt message.
-        history: List[dict]: Conversation history.
-        temperature: float: Model temperature.
-        max_tokens: int: Maximum tokens to generate.
-        top_p: float: Top-p sampling parameter.
-        parameters: dict: Additional model parameters.
-    """
 
     data: Union[str, dict]
     context: NotRequired[str]
@@ -75,7 +51,6 @@ class ModelRunParams(BareRunParams):
     temperature: NotRequired[float]
     max_tokens: NotRequired[int]
     top_p: NotRequired[float]
-    parameters: NotRequired[dict]
 
 
 @dataclass_json
@@ -116,7 +91,9 @@ class Model(
     status: Optional[AssetStatus] = None
 
     def build_run_url(self, **kwargs: Unpack[ModelRunParams]) -> str:
-        return f"{self.context.MODELS_RUN_URL}/{self.id}"
+        # Use api/v2/execute instead of api/v1/execute
+        url = f"{self.context.model_url}/{self.id}"
+        return url.replace("/api/v1/execute", "/api/v2/execute")
 
     @classmethod
     def get(cls, id: str, **kwargs: Unpack[BareGetParams]) -> "Model":

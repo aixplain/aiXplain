@@ -5,21 +5,17 @@ Integrations handle all connection logic and provide a clean interface
 for tools to connect without knowing implementation details.
 """
 
-from typing import Optional, Union
+from typing import Optional, TypedDict
 from typing_extensions import Unpack
-from dataclasses_json import dataclass_json
-from dataclasses import dataclass
 from enum import Enum
+from dataclasses import dataclass
 
-from .resource import (
-    BaseListParams,
-    BaseResult
-)
-from .model import Model, ModelRunParams
+from .resource import BaseListParams, BaseResult, Page
+from .model import Model
 from .enums import Function, ToolType
 
 
-class AuthenticationScheme(Enum):
+class AuthenticationScheme(str, Enum):
     """Authentication schemes supported by integrations."""
 
     BEARER_TOKEN = "BEARER_TOKEN"
@@ -27,7 +23,6 @@ class AuthenticationScheme(Enum):
     OAUTH2 = "OAUTH2"
 
 
-@dataclass_json
 @dataclass
 class IntegrationResult(BaseResult):
     """Result for connection operations."""
@@ -42,6 +37,28 @@ class IntegrationListParams(BaseListParams):
     pass
 
 
+class Credentials(TypedDict, total=False):
+    """Credentials for integrations."""
+
+    token: Optional[str]
+    client_id: Optional[str]
+    client_secret: Optional[str]
+
+
+class IntegrationRunParams(TypedDict, total=False):
+    """Parameters for running integrations (connections).
+
+    Integrations handle authentication and connection setup, so they need
+    different parameters than regular models.
+    """
+
+    name: Optional[str]
+    auth_scheme: Optional[AuthenticationScheme]
+    data: Optional[Credentials]
+    timeout: Optional[int]
+    wait_time: Optional[int]
+
+
 class Integration(Model):
     """Resource for integrations.
 
@@ -51,6 +68,11 @@ class Integration(Model):
 
     TOOL_TYPE = ToolType.INTEGRATION
     RESPONSE_CLASS = IntegrationResult
+    RUN_PARAMS_CLASS = IntegrationRunParams
+
+    # Make AuthenticationScheme accessible
+    AuthenticationScheme = AuthenticationScheme
+    Credentials = Credentials
 
     @classmethod
     def get(cls, id: str, **kwargs: Unpack[BaseListParams]) -> "Integration":
@@ -60,6 +82,20 @@ class Integration(Model):
     def list(cls, **kwargs: Unpack[IntegrationListParams]) -> "Page[Integration]":
         return super().list(**kwargs)
 
+    def build_run_payload(self, **kwargs) -> dict:
+        payload = dict(kwargs)
+        # Aliasing for top-level fields
+        if "auth_scheme" in payload:
+            payload["authScheme"] = payload.pop("auth_scheme")
+        if "data" in payload and payload["data"] is not None:
+            data = dict(payload["data"])
+            if "client_id" in data:
+                data["clientId"] = data.pop("client_id")
+            if "client_secret" in data:
+                data["clientSecret"] = data.pop("client_secret")
+            payload["data"] = data
+        return payload
+
     @classmethod
     def _populate_filters(cls, params: BaseListParams) -> dict:
         """Populate the filters for pagination."""
@@ -67,40 +103,6 @@ class Integration(Model):
         filters["functions"] = [Function.CONNECTOR]
         return filters
 
-    def build_run_payload(
-        self,
-        name: Optional[str],
-        auth_scheme: Optional[AuthenticationScheme],
-        **auth_params
-    ) -> dict:
-        """Build the connection payload based on authentication parameters."""
-        # Determine authentication scheme from parameters if not provided
-        if auth_scheme is None:
-            if "token" in auth_params:
-                auth_scheme = AuthenticationScheme.BEARER_TOKEN
-            elif "client_id" in auth_params and "client_secret" in auth_params:
-                auth_scheme = AuthenticationScheme.OAUTH
-            else:
-                auth_scheme = AuthenticationScheme.OAUTH2
-
-        # Build base payload
-        payload = {
-            "name": name or "Connection",
-            "authScheme": auth_scheme.value,
-        }
-
-        # Add authentication data based on scheme
-        if auth_scheme == AuthenticationScheme.BEARER_TOKEN:
-            payload["data"] = {
-                "token": auth_params["token"],
-            }
-        elif auth_scheme == AuthenticationScheme.OAUTH:
-            payload["data"] = {
-                "client_id": auth_params["client_id"],
-                "client_secret": auth_params["client_secret"],
-            }
-        elif auth_scheme == AuthenticationScheme.OAUTH2:
-            # OAuth2 doesn't need additional data
-            pass
-
-        return payload
+    def connect(self, **kwargs) -> IntegrationResult:
+        """Connect to the integration."""
+        return self.run(**kwargs)

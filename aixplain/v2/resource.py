@@ -641,7 +641,23 @@ class RunnableResourceMixin(BaseMixin, Generic[RP, RR]):
     def build_run_payload(self, **kwargs: Unpack[RP]) -> dict:
         """
         Build the payload for the run action.
+
+        This method automatically handles dataclass serialization if the run parameters
+        are dataclasses with @dataclass_json decorator.
         """
+        # Check if we have a RUN_PARAMS_CLASS defined that's a dataclass
+        run_params_class = getattr(self, "RUN_PARAMS_CLASS", None)
+
+        if run_params_class and hasattr(run_params_class, "to_dict"):
+            # Create instance of the run params class and serialize it
+            try:
+                params = run_params_class(**kwargs)
+                return params.to_dict()
+            except Exception:
+                # Fallback to direct kwargs if dataclass creation fails
+                return kwargs
+
+        # Default behavior for TypedDict or other parameter types
         return kwargs
 
     def build_run_url(self, **kwargs: Unpack[RP]) -> str:
@@ -682,8 +698,21 @@ class RunnableResourceMixin(BaseMixin, Generic[RP, RR]):
         Returns:
             Response instance from the configured response class
         """
-        # Default behavior: expect polling URL in data field
-        if response.get("status") == "IN_PROGRESS" and response.get("data"):
+        # Check for polling URL in data field (legacy format)
+        if (
+            response.get("data")
+            and isinstance(response["data"], str)
+            and response["data"].startswith("http")
+        ):
+            # This is a polling URL case
+            return self.RESPONSE_CLASS.from_dict(
+                {
+                    "status": response.get("status", "IN_PROGRESS"),
+                    "url": response["data"],
+                    "completed": False,
+                }
+            )
+        elif response.get("status") == "IN_PROGRESS" and response.get("data"):
             # This is a polling URL case
             return self.RESPONSE_CLASS.from_dict(
                 {
@@ -693,8 +722,21 @@ class RunnableResourceMixin(BaseMixin, Generic[RP, RR]):
                 }
             )
         else:
-            # Direct response case
-            return self.RESPONSE_CLASS.from_dict(response)
+            # Direct response case - filter out unexpected fields
+            filtered_response = {
+                "status": response.get("status", "IN_PROGRESS"),
+                "completed": response.get("completed", False),
+                "error_message": response.get("error_message"),
+                "url": response.get("url"),
+                "result": response.get("result"),
+                "supplier_error": response.get("supplier_error"),
+                "data": response.get("data"),
+            }
+            try:
+                return self.RESPONSE_CLASS.from_dict(filtered_response)
+            except Exception as e:
+                # Fallback to manual construction
+                return self.RESPONSE_CLASS(**filtered_response)
 
     def run(self, **kwargs: Unpack[RP]) -> RR:
         """
@@ -768,13 +810,27 @@ class RunnableResourceMixin(BaseMixin, Generic[RP, RR]):
         except Exception as e:
             return self.RESPONSE_CLASS.from_dict(
                 {
-                    "status": ResponseStatus.FAILED,
+                    "status": ResponseStatus.FAILED.value,
                     "completed": True,
                     "error_message": str(e),
                 }
             )
 
-        return self.RESPONSE_CLASS.from_dict(response)
+        # Handle polling response - it might not have all the expected fields
+        filtered_response = {
+            "status": response.get("status", "IN_PROGRESS"),
+            "completed": response.get("completed", False),
+            "error_message": response.get("error_message"),
+            "url": response.get("url"),
+            "result": response.get("result"),
+            "supplier_error": response.get("supplier_error"),
+            "data": response.get("data"),
+        }
+        try:
+            return self.RESPONSE_CLASS.from_dict(filtered_response)
+        except Exception as e:
+            # Fallback to manual construction
+            return self.RESPONSE_CLASS(**filtered_response)
 
     def sync_poll(self, poll_url: str, **kwargs: Unpack[RP]) -> RR:
         """
@@ -808,7 +864,7 @@ class RunnableResourceMixin(BaseMixin, Generic[RP, RR]):
 
         return self.RESPONSE_CLASS.from_dict(
             {
-                "status": ResponseStatus.FAILED,
+                "status": ResponseStatus.FAILED.value,
                 "completed": True,
                 "error_message": f"Timeout after {timeout} seconds",
             }

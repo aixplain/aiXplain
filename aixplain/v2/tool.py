@@ -15,44 +15,7 @@ from .resource import (
     BareRunParams,
     Result,
 )
-from .auth_utils import AuthenticationScheme
 from .integration import Integration
-
-
-@dataclass_json
-@dataclass
-class BearerTokenAuthentication:
-    """Bearer token authentication."""
-
-    token: str
-    name: Optional[str] = None
-    scheme: AuthenticationScheme = AuthenticationScheme.BEARER_TOKEN
-
-
-@dataclass_json
-@dataclass
-class OAuthAuthentication:
-    """OAuth authentication with client credentials."""
-
-    client_id: str
-    client_secret: str
-    name: Optional[str] = None
-    scheme: AuthenticationScheme = AuthenticationScheme.OAUTH
-
-
-@dataclass_json
-@dataclass
-class OAuth2Authentication:
-    """OAuth2 authentication (default, no additional credentials needed)."""
-
-    name: Optional[str] = None
-    scheme: AuthenticationScheme = AuthenticationScheme.OAUTH2
-
-
-# Union type for all authentication types
-Authentication = Union[
-    BearerTokenAuthentication, OAuthAuthentication, OAuth2Authentication
-]
 
 
 class ToolListParams(BaseListParams):
@@ -102,7 +65,8 @@ class Tool(
     config: Optional[dict] = None
     code: Optional[str] = None
     allowed_actions: Optional[List[str]] = None
-    authentication: Optional[Authentication] = None
+    auth_scheme: Optional[Integration.AuthenticationScheme] = None
+    auth_credentials: Optional[Integration.Credentials] = None
 
     def __post_init__(self):
         if not self.id:
@@ -124,7 +88,7 @@ class Tool(
                 ), "Integration must be an Integration object or a string"
 
             # Auto-connect for integration tools
-            if self.authentication:
+            if self.auth_scheme:
                 self.connect()
 
     def connect(self) -> ToolResult:
@@ -139,20 +103,20 @@ class Tool(
         if not self.integration:
             raise ValueError("No integration set for this tool")
 
-        if not self.authentication:
+        if not self.auth_scheme:
             raise ValueError("No authentication provided for this tool")
 
+        if not self.auth_credentials:
+            raise ValueError("No authentication credentials provided for this tool")
+
         # Build the connection payload based on authentication type
-        payload = self._build_connection_payload()
-        result = self.integration.connect(**payload)
-        self.id = result["id"]
+        result = self.integration.connect(
+            name=self.name,
+            auth_scheme=self.auth_scheme,
+            auth_credentials=self.auth_credentials,
+        )
+        self.id = result.connection_id
         return result
-
-    def _build_connection_payload(self) -> dict:
-        """Build the connection payload based on authentication type."""
-        from .auth_utils import build_connection_payload_from_auth
-
-        return build_connection_payload_from_auth(self.authentication)
 
     def build_run_url(self, **kwargs: Unpack[ToolRunParams]) -> str:
         """
