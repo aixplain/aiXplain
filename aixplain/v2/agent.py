@@ -130,7 +130,11 @@ class Agent(
         Build the payload for the save action.
         """
         payload = self.to_dict()
-        payload["assets"] = payload.pop("tools")
+        payload.pop("tools")  # Remove tools from payload
+
+        payload["assets"] = [
+            {"type": "model", "assetId": tool.integration.id} for tool in self.tools
+        ]
         payload["tools"] = [{"type": "llm", "description": "main", "parameters": []}]
         payload["role"] = payload.pop("instructions")
         return payload

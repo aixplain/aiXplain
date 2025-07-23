@@ -16,6 +16,7 @@ from .resource import (
     Result,
 )
 from .integration import Integration
+from .model import Model
 
 
 class ToolListParams(BaseListParams):
@@ -28,7 +29,7 @@ class ToolRunParams(BareRunParams):
     """Parameters for running tools."""
 
     action: str
-    params: dict
+    data: dict
 
 
 @dataclass_json
@@ -67,6 +68,7 @@ class Tool(
     allowed_actions: Optional[List[str]] = None
     auth_scheme: Optional[Integration.AuthenticationScheme] = None
     auth_credentials: Optional[Integration.Credentials] = None
+    connection: Optional[Model] = None
 
     def __post_init__(self):
         if not self.id:
@@ -88,8 +90,7 @@ class Tool(
                 ), "Integration must be an Integration object or a string"
 
             # Auto-connect for integration tools
-            if self.auth_scheme:
-                self.connect()
+            self.connect()
 
     def connect(self) -> ToolResult:
         """Connect to the integration if one is set.
@@ -117,17 +118,13 @@ class Tool(
         )
 
         # Set the tool ID to the connection ID
-        if result.data and isinstance(result.data, dict) and "id" in result.data:
-            self.id = result.data["id"]
-        else:
-            raise ValueError("Connection succeeded but no connection ID received")
+        connection_id = result.data["id"]
+        self.connection = self.context.Model.get(connection_id)
 
-        return result
+    def run(self, **kwargs: Unpack[ToolRunParams]) -> ToolResult:
+        """Run the tool."""
 
-    def build_run_url(self, **kwargs: Unpack[ToolRunParams]) -> str:
-        """
-        Build the URL for running the tool.
+        if not self.connection:
+            raise ValueError("No connection set for this tool")
 
-        Tools use the same MODELS_RUN_URL as connections for execution.
-        """
-        return f"{self.context.MODELS_RUN_URL}/{self.id}"
+        return self.connection.run(**kwargs)
