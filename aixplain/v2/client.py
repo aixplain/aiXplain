@@ -116,14 +116,20 @@ class AixplainClient:
 
         Args:
             method (str): HTTP method (e.g. 'GET', 'POST')
-            path (str): URL path
+            path (str): URL path or full URL
             kwargs (dict, optional): Additional keyword arguments for the request
 
         Returns:
             requests.Response: The response from the request
         """
-        url = urljoin(self.base_url, path)
+        # If path is a full URL (starts with http), use it directly
+        if path.startswith(("http://", "https://")):
+            url = path
+        else:
+            url = urljoin(self.base_url, path)
+        print(kwargs)
         response = self.session.request(method=method, url=url, **kwargs)
+        print(response.text)
         if not response.ok:
             error_obj = None
             try:
