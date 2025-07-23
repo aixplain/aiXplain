@@ -17,6 +17,7 @@ from .resource import (
 )
 from .integration import Integration
 from .model import Model
+from .connection import Connection
 
 
 class ToolListParams(BaseListParams):
@@ -68,7 +69,7 @@ class Tool(
     allowed_actions: Optional[List[str]] = None
     auth_scheme: Optional[Integration.AuthenticationScheme] = None
     auth_credentials: Optional[Integration.Credentials] = None
-    connection: Optional[Model] = None
+    connection: Optional[Union[Model, Connection]] = None
 
     def __post_init__(self):
         if not self.id:
@@ -119,7 +120,25 @@ class Tool(
 
         # Set the tool ID to the connection ID
         connection_id = result.data["id"]
-        self.connection = self.context.Model.get(connection_id)
+        self.id = connection_id  # Set the tool ID to the connection ID
+
+        # Create a Connection instead of a regular Model for better
+        # action handling
+        model_data = self.context.Model.get(connection_id)
+        self.connection = Connection(
+            id=model_data.id,
+            name=model_data.name,
+            description=model_data.description,
+            function=model_data.function,
+            supplier=model_data.supplier,
+            version=model_data.version,
+        )
+        # Set the context after creation
+        self.connection.context = self.context
+
+        # Set action scope if allowed_actions is specified
+        if self.allowed_actions and hasattr(self.connection, "set_action_scope"):
+            self.connection.set_action_scope(self.allowed_actions)
 
     def run(self, **kwargs: Unpack[ToolRunParams]) -> ToolResult:
         """Run the tool."""
@@ -128,3 +147,9 @@ class Tool(
             raise ValueError("No connection set for this tool")
 
         return self.connection.run(**kwargs)
+
+    def get_parameters(self) -> Optional[List[dict]]:
+        """Get parameters for the tool if it's a ConnectionTool."""
+        if hasattr(self.connection, "get_parameters"):
+            return self.connection.get_parameters()
+        return None

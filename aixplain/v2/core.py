@@ -21,18 +21,6 @@ class Aixplain:
 
     This class can be instantiated multiple times with different API keys,
     allowing for multi-instance usage with different authentication contexts.
-
-    Attributes:
-        api_key: str: The API key for the Aixplain API.
-        base_url: str: The URL for the backend.
-        pipeline_url: str: The URL for the pipeline.
-        model_url: str: The URL for the model.
-        client: AixplainClient: The client for the Aixplain API.
-        Model: type: The model class.
-        Pipeline: type: The pipeline class.
-        Agent: type: The agent class.
-        Benchmark: type: The benchmark class.
-        BenchmarkJob: type: The benchmark job class.
     """
 
     # Here below we're defining both resources and enums as class level
