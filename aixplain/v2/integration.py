@@ -1,40 +1,52 @@
+"""
+Integration resource for v2 implementation.
+
+Integrations handle all connection logic and provide a clean interface
+for tools to connect without knowing implementation details.
+"""
+
+from typing import Optional, Union
 from typing_extensions import Unpack
 from dataclasses_json import dataclass_json
 from dataclasses import dataclass
-from typing import Optional
+from enum import Enum
 
-from .model import Model, ModelRunParams
 from .resource import (
     BaseListParams,
-    BaseResult,
+    BaseResult
 )
+from .model import Model, ModelRunParams
 from .enums import Function, ToolType
 
 
-class IntegrationListParams(BaseListParams):
-    """Parameters for listing integrations.
+class AuthenticationScheme(Enum):
+    """Authentication schemes supported by integrations."""
 
-    Integrations are models with Function.CONNECTOR, so we use the models
-    endpoint and filter by function.
-    """
-
-    pass
+    BEARER_TOKEN = "BEARER_TOKEN"
+    OAUTH = "OAUTH"
+    OAUTH2 = "OAUTH2"
 
 
 @dataclass_json
 @dataclass
 class IntegrationResult(BaseResult):
-    """Result for integration operations."""
+    """Result for connection operations."""
+
+    connection_id: Optional[str] = None
+    polling_url: Optional[str] = None
+
+
+class IntegrationListParams(BaseListParams):
+    """Parameters for listing integrations."""
 
     pass
 
 
-@dataclass_json
-@dataclass
 class Integration(Model):
     """Resource for integrations.
 
     Integrations are a subtype of models with Function.CONNECTOR.
+    All connection logic is centralized here.
     """
 
     TOOL_TYPE = ToolType.INTEGRATION
@@ -46,85 +58,49 @@ class Integration(Model):
 
     @classmethod
     def list(cls, **kwargs: Unpack[IntegrationListParams]) -> "Page[Integration]":
-        # Add the function filter for CONNECTOR
-        kwargs["function"] = Function.CONNECTOR
         return super().list(**kwargs)
 
     @classmethod
-    def _populate_filters(cls, params):
-        """Override to handle function filter for integrations."""
+    def _populate_filters(cls, params: BaseListParams) -> dict:
+        """Populate the filters for pagination."""
         filters = super()._populate_filters(params)
-
-        # Handle function filter (for integrations)
-        if params.get("function") is not None:
-            if "functions" not in filters:
-                filters["functions"] = []
-            filters["functions"].append(params["function"].value)
-
+        filters["functions"] = [Function.CONNECTOR]
         return filters
 
-    def build_run_payload(self, **kwargs: Unpack[ModelRunParams]) -> dict:
-        """
-        Build the payload for running the integration.
+    def build_run_payload(
+        self,
+        name: Optional[str],
+        auth_scheme: Optional[AuthenticationScheme],
+        **auth_params
+    ) -> dict:
+        """Build the connection payload based on authentication parameters."""
+        # Determine authentication scheme from parameters if not provided
+        if auth_scheme is None:
+            if "token" in auth_params:
+                auth_scheme = AuthenticationScheme.BEARER_TOKEN
+            elif "client_id" in auth_params and "client_secret" in auth_params:
+                auth_scheme = AuthenticationScheme.OAUTH
+            else:
+                auth_scheme = AuthenticationScheme.OAUTH2
 
-        For connections, we want to preserve the exact payload structure
-        without the Model's restructuring.
-        """
-        # If this is a connection call (has authScheme), preserve the payload
-        if "authScheme" in kwargs:
-            return kwargs
+        # Build base payload
+        payload = {
+            "name": name or "Connection",
+            "authScheme": auth_scheme.value,
+        }
 
-        # Otherwise, use the parent's method for regular model runs
-        result = super().build_run_payload(**kwargs)
-        return result
-
-    def connect(self, name: Optional[str] = None, **kwargs) -> IntegrationResult:
-        """Connect to the integration.
-
-        This method creates a connection to the integration using OAuth2
-        by default. For other authentication methods, additional parameters
-        can be passed.
-
-        Args:
-            name: Optional name for the connection
-            **kwargs: Additional connection parameters (token, client_id, client_secret, etc.)
-
-        Returns:
-            Result: The connection result with ID if successful
-        """
-        # Determine authentication scheme based on provided parameters
-        auth_scheme = "OAUTH2"  # Default
-        if "token" in kwargs:
-            auth_scheme = "BEARER_TOKEN"
-        elif "client_id" in kwargs and "client_secret" in kwargs:
-            auth_scheme = "OAUTH"
-
-        # Build the connection payload based on authentication scheme
-        if auth_scheme == "BEARER_TOKEN":
-            payload = {
-                "name": name or "Connection",
-                "authScheme": auth_scheme,
-                "data": {
-                    "token": kwargs["token"],
-                },
+        # Add authentication data based on scheme
+        if auth_scheme == AuthenticationScheme.BEARER_TOKEN:
+            payload["data"] = {
+                "token": auth_params["token"],
             }
-        elif auth_scheme == "OAUTH":
-            payload = {
-                "name": name or "Connection",
-                "authScheme": auth_scheme,
-                "data": {
-                    "client_id": kwargs["client_id"],
-                    "client_secret": kwargs["client_secret"],
-                },
+        elif auth_scheme == AuthenticationScheme.OAUTH:
+            payload["data"] = {
+                "client_id": auth_params["client_id"],
+                "client_secret": auth_params["client_secret"],
             }
-        else:  # OAUTH2
-            payload = {
-                "name": name or "Connection",
-                "authScheme": auth_scheme,
-            }
+        elif auth_scheme == AuthenticationScheme.OAUTH2:
+            # OAuth2 doesn't need additional data
+            pass
 
-        # Call the run method with the payload as the data parameter
-        return self.run(data=payload)
-
-    def run(self, **kwargs: Unpack[ModelRunParams]) -> IntegrationResult:
-        return super().run(**kwargs)
+        return payload

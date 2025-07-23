@@ -506,12 +506,6 @@ class PagedListResourceMixin(BaseListResourceMixin, Generic[LP, R]):
         if params.get("page_size") is not None:
             filters["pageSize"] = params["page_size"]
 
-        # Handle function filter (for utilities and other function-specific listings)
-        if params.get("function") is not None:
-            if "functions" not in filters:
-                filters["functions"] = []
-            filters["functions"].append(params["function"].value)
-
         return filters
 
 
@@ -674,6 +668,34 @@ class RunnableResourceMixin(BaseMixin, Generic[RP, RR]):
 
         return path
 
+    def handle_run_response(self, response: dict, **kwargs: Unpack[RP]) -> RR:
+        """
+        Handle the response from a run request.
+
+        This method can be overridden by subclasses to handle different response patterns.
+        The default implementation assumes a polling URL in the 'data' field.
+
+        Args:
+            response: The raw response from the API
+            **kwargs: Run parameters
+
+        Returns:
+            Response instance from the configured response class
+        """
+        # Default behavior: expect polling URL in data field
+        if response.get("status") == "IN_PROGRESS" and response.get("data"):
+            # This is a polling URL case
+            return self.RESPONSE_CLASS.from_dict(
+                {
+                    "status": response["status"],
+                    "url": response["data"],
+                    "completed": True,
+                }
+            )
+        else:
+            # Direct response case
+            return self.RESPONSE_CLASS.from_dict(response)
+
     def run(self, **kwargs: Unpack[RP]) -> RR:
         """
         Run the resource synchronously with automatic polling.
@@ -688,16 +710,11 @@ class RunnableResourceMixin(BaseMixin, Generic[RP, RR]):
         # Start async execution
         result = self.run_async(**kwargs)
 
-        if not result.data or not isinstance(result.data, str):
-            return self.RESPONSE_CLASS.from_dict(
-                {
-                    "status": ResponseStatus.FAILED,
-                    "completed": True,
-                    "error_message": "No polling URL found",
-                }
-            )
+        # Check if we need to poll
+        if result.url and not result.completed:
+            return self.sync_poll(result.url, **kwargs)
 
-        return self.sync_poll(result.data, **kwargs)
+        return result
 
     def run_async(self, **kwargs: Unpack[RP]) -> RR:
         """
@@ -710,9 +727,7 @@ class RunnableResourceMixin(BaseMixin, Generic[RP, RR]):
             Response instance from the configured RESPONSE_CLASS
         """
         try:
-
             payload = self.build_run_payload(**kwargs)
-            print(payload)
 
             # Build the run URL using the extensible method
             run_url = self.build_run_url(**kwargs)
@@ -720,7 +735,8 @@ class RunnableResourceMixin(BaseMixin, Generic[RP, RR]):
             # Use context.client.request() with the custom URL
             response = self.context.client.request("post", run_url, json=payload)
 
-            return self.RESPONSE_CLASS.from_dict(response)
+            # Use the extensible response handler
+            return self.handle_run_response(response, **kwargs)
 
         except Exception as e:
             return self.RESPONSE_CLASS.from_dict(

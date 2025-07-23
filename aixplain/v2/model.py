@@ -116,52 +116,7 @@ class Model(
     status: Optional[AssetStatus] = None
 
     def build_run_url(self, **kwargs: Unpack[ModelRunParams]) -> str:
-        """
-        Build the URL for running the model.
-
-        Uses the model execution URL structure:
-        https://models.aixplain.com/api/v1/execute/{model_id}
-        """
-        if not self.id:
-            raise ValueError("Run call requires an 'id' attribute")
-
-        # Use the model execution URL from the context
-        model_url = getattr(
-            self.context, "model_url", "https://models.aixplain.com/api/v1/execute"
-        )
-        return f"{model_url}/{self.id}"
-
-    def build_run_payload(self, **kwargs: Unpack[ModelRunParams]) -> dict:
-        """
-        Build the payload for running the model.
-
-        Combines the data with additional parameters in the expected format.
-        """
-        data = kwargs.get("data", "")
-        parameters = kwargs.get("parameters", {})
-
-        # Extract model-specific parameters
-        model_params = {}
-        for key in [
-            "context",
-            "prompt",
-            "history",
-            "temperature",
-            "max_tokens",
-            "top_p",
-        ]:
-            if key in kwargs:
-                model_params[key] = kwargs[key]
-
-        # Combine all parameters
-        all_params = {**model_params, **parameters}
-
-        # If data is a dict, merge it with parameters
-        if isinstance(data, dict):
-            all_params = {**data, **all_params}
-            data = data.get("data", "")
-
-        return {"data": data, **all_params}
+        return f"{self.context.MODELS_RUN_URL}/{self.id}"
 
     @classmethod
     def get(cls, id: str, **kwargs: Unpack[BareGetParams]) -> "Model":

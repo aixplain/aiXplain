@@ -1,19 +1,58 @@
-from dataclasses import dataclass
-from typing import Optional, List
+from typing import Union, List, Optional
+from typing_extensions import Unpack
 from dataclasses_json import dataclass_json
+from dataclasses import dataclass
 
 from .resource import (
+    BaseListParams,
     BaseResource,
     PlainListResourceMixin,
     GetResourceMixin,
-    DeleteResourceMixin,
-    RunnableResourceMixin,
-    BaseListParams,
     BareGetParams,
+    DeleteResourceMixin,
     BareDeleteParams,
+    RunnableResourceMixin,
     BareRunParams,
-    BaseResult,
+    Result,
 )
+from .auth_utils import AuthenticationScheme
+from .integration import Integration
+
+
+@dataclass_json
+@dataclass
+class BearerTokenAuthentication:
+    """Bearer token authentication."""
+
+    token: str
+    name: Optional[str] = None
+    scheme: AuthenticationScheme = AuthenticationScheme.BEARER_TOKEN
+
+
+@dataclass_json
+@dataclass
+class OAuthAuthentication:
+    """OAuth authentication with client credentials."""
+
+    client_id: str
+    client_secret: str
+    name: Optional[str] = None
+    scheme: AuthenticationScheme = AuthenticationScheme.OAUTH
+
+
+@dataclass_json
+@dataclass
+class OAuth2Authentication:
+    """OAuth2 authentication (default, no additional credentials needed)."""
+
+    name: Optional[str] = None
+    scheme: AuthenticationScheme = AuthenticationScheme.OAUTH2
+
+
+# Union type for all authentication types
+Authentication = Union[
+    BearerTokenAuthentication, OAuthAuthentication, OAuth2Authentication
+]
 
 
 class ToolListParams(BaseListParams):
@@ -23,14 +62,15 @@ class ToolListParams(BaseListParams):
 
 
 class ToolRunParams(BareRunParams):
-    """Parameters for running a tool."""
+    """Parameters for running tools."""
 
-    pass
+    action: str
+    params: dict
 
 
 @dataclass_json
 @dataclass
-class ToolResult(BaseResult):
+class ToolResult(Result):
     """Result for a tool."""
 
     pass
@@ -58,66 +98,66 @@ class Tool(
     RESPONSE_CLASS = ToolResult
 
     DEFAULT_INTEGRATION_ID = "686432941223092cb4294d3f"  # Script integration
-    integration_id: Optional[str] = None
+    integration: Optional[Union[Integration, str]] = None
     config: Optional[dict] = None
     code: Optional[str] = None
     allowed_actions: Optional[List[str]] = None
+    authentication: Optional[Authentication] = None
 
     def __post_init__(self):
         if not self.id:
-            if self.integration_id is None:
+            if self.integration is None:
                 assert self.code is not None, "Code is required to create a Tool"
                 # Use default integration ID for utility tools
-                self.integration_id = self.DEFAULT_INTEGRATION_ID
+                self.integration = self.context.Integration.get(
+                    self.DEFAULT_INTEGRATION_ID
+                )
                 self.config = {
                     "code": self.code,
                 }
-            # Auto-connect for integration tools
-            self.connect()
+            else:
+                if isinstance(self.integration, str):
+                    self.integration = self.context.Integration.get(self.integration)
 
-    def connect(self, name: Optional[str] = None, **kwargs) -> ToolResult:
+                assert isinstance(
+                    self.integration, Integration
+                ), "Integration must be an Integration object or a string"
+
+            # Auto-connect for integration tools
+            if self.authentication:
+                self.connect()
+
+    def connect(self) -> ToolResult:
         """Connect to the integration if one is set.
 
         This method creates a connection to the integration and sets the tool ID
         to the connection ID.
 
-        Args:
-            name: Optional name for the connection
-            **kwargs: Additional connection parameters (token, client_id,
-                     client_secret, etc.)
-
         Returns:
             Result: The connection result
         """
-        if not self.integration_id:
-            raise ValueError("No integration ID set for this tool")
+        if not self.integration:
+            raise ValueError("No integration set for this tool")
 
-        # Get the integration object and connect
-        integration_obj = self.context.Integration.get(self.integration_id)
-        response = integration_obj.connect(name=name, **kwargs)
+        if not self.authentication:
+            raise ValueError("No authentication provided for this tool")
 
-        # Handle the response properly
-        if response.completed and response.status == "SUCCESS":
-            if (
-                response.data
-                and isinstance(response.data, dict)
-                and "id" in response.data
-            ):
-                self.id = response.data["id"]
-            elif hasattr(response, "id") and response.id:
-                self.id = response.id
-            else:
-                # Connection succeeded but no valid ID found - this is an error
-                raise ValueError(
-                    f"Connection succeeded but no valid ID found in response. "
-                    f"Response data: {response.data}, "
-                    f"Response ID: {getattr(response, 'id', 'None')}"
-                )
-        else:
-            # Connection failed - don't set ID, let it remain None or empty
-            print(
-                f"Warning: Connection failed with status {response.status}: "
-                f"{response.error_message}"
-            )
+        # Build the connection payload based on authentication type
+        payload = self._build_connection_payload()
+        result = self.integration.connect(**payload)
+        self.id = result["id"]
+        return result
 
-        return response
+    def _build_connection_payload(self) -> dict:
+        """Build the connection payload based on authentication type."""
+        from .auth_utils import build_connection_payload_from_auth
+
+        return build_connection_payload_from_auth(self.authentication)
+
+    def build_run_url(self, **kwargs: Unpack[ToolRunParams]) -> str:
+        """
+        Build the URL for running the tool.
+
+        Tools use the same MODELS_RUN_URL as connections for execution.
+        """
+        return f"{self.context.MODELS_RUN_URL}/{self.id}"
