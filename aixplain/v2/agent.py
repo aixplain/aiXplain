@@ -132,9 +132,34 @@ class Agent(
         payload = self.to_dict()
         payload.pop("tools")  # Remove tools from payload
 
-        payload["assets"] = [
-            {"type": "model", "assetId": tool.integration.id} for tool in self.tools
-        ]
+        # Handle different types of tools
+        assets = []
+        for tool in self.tools:
+            if hasattr(tool, "get_parameters") and tool.get_parameters():
+                # Tool has parameters (like ConnectionTool)
+                tool_payload = {
+                    "id": tool.id,
+                    "name": tool.name,
+                    "description": getattr(tool, "description", ""),
+                    "supplier": "aixplain",
+                    "parameters": tool.get_parameters(),
+                    "function": getattr(tool, "function", "utilities"),
+                    "type": "model",
+                    "version": getattr(tool, "version", None),
+                    "assetId": tool.id,
+                }
+                assets.append(tool_payload)
+            elif hasattr(tool, "integration") and hasattr(tool.integration, "id"):
+                # v2 Tool object with integration
+                assets.append({"type": "model", "assetId": tool.integration.id})
+            elif hasattr(tool, "id"):
+                # Model object or other resource with direct id
+                assets.append({"type": "model", "assetId": tool.id})
+            else:
+                # Fallback for other tool types
+                assets.append({"type": "model", "assetId": str(tool)})
+
+        payload["assets"] = assets
         payload["tools"] = [{"type": "llm", "description": "main", "parameters": []}]
         payload["role"] = payload.pop("instructions")
         return payload
