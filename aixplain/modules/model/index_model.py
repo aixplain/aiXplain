@@ -123,7 +123,7 @@ class IndexModel(Model):
         data["collection_type"] = self.version.split("-", 1)[0]
         return data
 
-    def search(self, query: str, top_k: int = 10, filters: List[IndexFilter] = []) -> ModelResponse:
+    def search(self, query: str, top_k: int = 10, score_threshold: float = 0.0, filters: List[IndexFilter] = []) -> ModelResponse:
         """Search for documents in the index
 
         Args:
@@ -137,6 +137,7 @@ class IndexModel(Model):
         Example:
             - index_model.search("Hello")
             - index_model.search("", filters=[IndexFilter(field="category", value="animate", operator=IndexFilterOperator.EQUALS)])
+            - index_model.search("", score_threshold=0.5, filters=[IndexFilter(field="category", value="animate", operator=IndexFilterOperator.EQUALS)])
         """
         from aixplain.factories import FileFactory
 
@@ -152,7 +153,7 @@ class IndexModel(Model):
             "data": query or uri,
             "dataType": value_type,
             "filters": [filter.to_dict() for filter in filters],
-            "payload": {"uri": uri, "value_type": value_type, "top_k": top_k},
+            "payload": {"uri": uri, "value_type": value_type, "top_k": top_k, "score_threshold": score_threshold},
         }
         return self.run(data=data)
 

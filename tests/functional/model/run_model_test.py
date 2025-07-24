@@ -416,3 +416,11 @@ def test_delete_records_by_date(setup_index_with_test_records):
     response = index_model.retrieve_records_with_filter(filter_all)
     assert response.status == "SUCCESS"
     assert len(response.details) == 2
+
+
+def test_index_model_search_with_score_threshold(setup_index_with_test_records):
+    from aixplain.modules.model.index_model import IndexFilter, IndexFilterOperator
+
+    index_model = setup_index_with_test_records
+    response = index_model.search("technology", score_threshold=0.5)
+    assert response.status == "SUCCESS"
