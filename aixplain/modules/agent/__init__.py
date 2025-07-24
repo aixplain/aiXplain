@@ -35,7 +35,7 @@ from aixplain.modules.agent.output_format import OutputFormat
 from aixplain.modules.agent.tool import Tool
 from aixplain.modules.agent.agent_response import AgentResponse
 from aixplain.modules.agent.agent_response_data import AgentResponseData
-from aixplain.modules.agent.utils import process_variables
+from aixplain.modules.agent.utils import process_variables, validate_history
 from pydantic import BaseModel
 from typing import Dict, List, Text, Optional, Union
 from urllib.parse import urljoin
@@ -159,6 +159,8 @@ class Agent(Model, DeployableMixin[Tool]):
         return self.is_valid
     
     def generate_session_id(self, history: list = None) -> str:
+        if history:
+            validate_history(history)
         timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
         session_id = f"{self.id}_{timestamp}"
 
@@ -210,7 +212,8 @@ class Agent(Model, DeployableMixin[Tool]):
         if session_id is not None:
             if not session_id.startswith(f"{self.id}_"):
                 raise ValueError(f"Session ID '{session_id}' does not belong to this Agent.")
-
+        if history:
+            validate_history(history)
         result_data = {}
         try:
             response = self.run_async(
@@ -303,6 +306,9 @@ class Agent(Model, DeployableMixin[Tool]):
         if session_id is not None:
             if not session_id.startswith(f"{self.id}_"):
                 raise ValueError(f"Session ID '{session_id}' does not belong to this Agent.")
+            
+        if history:
+            validate_history(history)
 
         from aixplain.factories.file_factory import FileFactory
 

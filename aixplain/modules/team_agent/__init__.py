@@ -39,7 +39,7 @@ from aixplain.modules.model import Model
 from aixplain.modules.agent import Agent, OutputFormat
 from aixplain.modules.agent.agent_response import AgentResponse
 from aixplain.modules.agent.agent_response_data import AgentResponseData
-from aixplain.modules.agent.utils import process_variables
+from aixplain.modules.agent.utils import process_variables, validate_history
 from aixplain.modules.team_agent.inspector import Inspector
 from aixplain.utils import config
 from aixplain.utils.request_utils import _request_with_retry
@@ -155,6 +155,8 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         """
         start = time.time()
         result_data = {}
+        if history:
+            validate_history(history)
         try:
             response = self.run_async(
                 data=data,
@@ -231,6 +233,9 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         Returns:
             dict: polling URL in response
         """
+        if history:
+            validate_history(history)
+            
         from aixplain.factories.file_factory import FileFactory
 
         if not self.is_valid:

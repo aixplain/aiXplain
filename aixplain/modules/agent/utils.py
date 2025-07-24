@@ -29,3 +29,29 @@ def process_variables(
             input_data[variable] = parameters.pop(variable)
 
     return input_data
+
+
+def validate_history(history):
+    """
+    Validates that `history` is a list of dicts, each with 'role' and 'content' keys.
+    Raises a ValueError if validation fails.
+    """
+    if not isinstance(history, list):
+        raise ValueError("History must be a list of message dictionaries.")
+
+    allowed_roles = {"user", "assistant"} 
+
+    for i, item in enumerate(history):
+        if not isinstance(item, dict):
+            raise ValueError(f"History item at index {i} is not a dict: {item}")
+        
+        if "role" not in item or "content" not in item:
+            raise ValueError(f"History item at index {i} is missing 'role' or 'content': {item}")
+
+        if item["role"] not in allowed_roles:
+            raise ValueError(f"Invalid role '{item['role']}' at index {i}. Allowed roles: {allowed_roles}")
+
+        if not isinstance(item["content"], str):
+            raise ValueError(f"'content' at index {i} must be a string. Got: {type(item['content'])}")
+
+    return True
