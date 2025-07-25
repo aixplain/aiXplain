@@ -645,18 +645,6 @@ class RunnableResourceMixin(BaseMixin, Generic[RP, RR]):
         This method automatically handles dataclass serialization if the run parameters
         are dataclasses with @dataclass_json decorator.
         """
-        # Check if we have a RUN_PARAMS_CLASS defined that's a dataclass
-        run_params_class = getattr(self, "RUN_PARAMS_CLASS", None)
-
-        if run_params_class and hasattr(run_params_class, "to_dict"):
-            # Create instance of the run params class and serialize it
-            try:
-                params = run_params_class(**kwargs)
-                return params.to_dict()
-            except Exception:
-                # Fallback to direct kwargs if dataclass creation fails
-                return kwargs
-
         # Default behavior for TypedDict or other parameter types
         return kwargs
 
