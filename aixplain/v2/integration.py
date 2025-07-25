@@ -1,14 +1,6 @@
-"""
-Integration resource for v2 implementation.
-
-Integrations handle all connection logic and provide a clean interface
-for tools to connect without knowing implementation details.
-"""
-
-from typing import Optional, TypedDict
+from typing import Optional, TypedDict, List
 from typing_extensions import Unpack
 from enum import Enum
-
 from .resource import BaseListParams, BaseResult, Page
 from .model import Model
 from .enums import Function, ToolType
@@ -90,17 +82,16 @@ class Integration(Model):
     def list(cls, **kwargs: Unpack[IntegrationListParams]) -> "Page[Integration]":
         return super().list(**kwargs)
 
+    def run(self, **kwargs: Unpack[IntegrationRunParams]) -> IntegrationResult:
+        return super().run(**kwargs)
+
     def build_run_payload(self, **kwargs) -> dict:
         payload = dict(kwargs)
         # Aliasing for top-level fields
         if "auth_scheme" in payload:
             auth_scheme = payload.pop("auth_scheme")
-            # Convert enum to string value
-            if hasattr(auth_scheme, "value"):
-                payload["authScheme"] = auth_scheme.value
-            else:
-                payload["authScheme"] = auth_scheme
-        if "data" in payload and payload["data"] is not None:
+            payload["authScheme"] = auth_scheme
+        if isinstance(payload.get("data"), dict):
             data = dict(payload["data"])
             if "client_id" in data:
                 data["clientId"] = data.pop("client_id")
@@ -116,6 +107,11 @@ class Integration(Model):
         filters["functions"] = [Function.CONNECTOR]
         return filters
 
-    def connect(self, **kwargs) -> IntegrationResult:
-        """Connect to the integration."""
-        return self.run(**kwargs)
+    def get_available_actions(self) -> List[str]:
+        """Get available actions for the integration."""
+        run_url = self.build_run_url()
+        # Use context.client.request() with the custom URL
+        response = self.context.client.request(
+            "post", run_url, json={"action": "LIST_ACTIONS", "data": {}}
+        )
+        return [action["name"] for action in response["data"]]

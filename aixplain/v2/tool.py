@@ -1,23 +1,51 @@
-from typing import Union, List, Optional
-from typing_extensions import Unpack
+from typing import Union, List, Optional, Any
 from dataclasses_json import dataclass_json
 from dataclasses import dataclass
 
 from .resource import (
     BaseListParams,
-    BaseResource,
-    PlainListResourceMixin,
-    GetResourceMixin,
-    BareGetParams,
-    DeleteResourceMixin,
-    BareDeleteParams,
-    RunnableResourceMixin,
     BareRunParams,
     Result,
 )
 from .integration import Integration
 from .model import Model
-from .connection import Connection
+
+
+@dataclass_json
+@dataclass
+class InputParameter:
+    name: str
+    code: str
+    value: List[Any]
+    availableOptions: List[Any]
+    datatype: str
+    allowMulti: bool
+    supportsVariables: bool
+    defaultValue: List[Any]
+    required: bool
+    fixed: bool
+    description: str
+
+
+@dataclass_json
+@dataclass
+class ToolAction:
+    """Container for tool action information and inputs."""
+
+    slug: str
+    name: str
+    description: str
+    available_versions: List[str]
+    version: str
+    toolkit: dict
+    input_parameters: dict
+    output_parameters: dict
+    scopes: List[str]
+    tags: List[str]
+    no_auth: bool
+    deprecated: dict
+    displayName: str
+    inputs: List[InputParameter]
 
 
 class ToolListParams(BaseListParams):
@@ -43,23 +71,7 @@ class ToolResult(Result):
 
 @dataclass_json
 @dataclass
-class Tool(
-    BaseResource,
-    PlainListResourceMixin,
-    GetResourceMixin[BareGetParams, "Tool"],
-    DeleteResourceMixin[BareDeleteParams, "Tool"],
-    RunnableResourceMixin[ToolRunParams, ToolResult],
-):
-    """Convenient wrapper class for tool representations.
-
-    This class automatically creates the appropriate underlying resource
-    based on constructor arguments and passes through all args/kwargs.
-    """
-
-    # Tools are not standalone resources, so we don't have a direct save
-    # endpoint
-    # Use models endpoint for getting existing tools
-    RESOURCE_PATH = "sdk/models"
+class Tool(Model):
     RESPONSE_CLASS = ToolResult
 
     DEFAULT_INTEGRATION_ID = "686432941223092cb4294d3f"  # Script integration
@@ -69,7 +81,6 @@ class Tool(
     allowed_actions: Optional[List[str]] = None
     auth_scheme: Optional[Integration.AuthenticationScheme] = None
     auth_credentials: Optional[Integration.Credentials] = None
-    connection: Optional[Union[Model, Connection]] = None
 
     def __post_init__(self):
         if not self.id:
@@ -90,18 +101,31 @@ class Tool(
                     self.integration, Integration
                 ), "Integration must be an Integration object or a string"
 
+            self.validate_allowed_actions()
+
             # Auto-connect for integration tools
             self.connect()
 
+    def validate_allowed_actions(self):
+        if self.allowed_actions:
+            assert (
+                self.integration is not None
+            ), "Integration is required to validate allowed actions"
+            assert (
+                self.integration.get_available_actions() is not None
+            ), "Integration must have available actions"
+            available_actions = self.integration.get_available_actions()
+            assert all(
+                action in available_actions for action in self.allowed_actions
+            ), "All allowed actions must be available"
+
+    def get_parameters(self):
+        if self.allowed_actions:
+            return self.integration.get_parameters()
+        else:
+            return {}
+
     def connect(self) -> ToolResult:
-        """Connect to the integration if one is set.
-
-        This method creates a connection to the integration and sets the tool ID
-        to the connection ID.
-
-        Returns:
-            Result: The connection result
-        """
         if not self.integration:
             raise ValueError("No integration set for this tool")
 
@@ -112,44 +136,19 @@ class Tool(
             raise ValueError("No authentication credentials provided for this tool")
 
         # Build the connection payload based on authentication type
-        result = self.integration.connect(
+        result = self.integration.run(
             name=self.name,
             auth_scheme=self.auth_scheme,
             data=self.auth_credentials,
         )
+        self.id = result.data["id"]
 
-        # Set the tool ID to the connection ID
-        connection_id = result.data["id"]
-        self.id = connection_id  # Set the tool ID to the connection ID
+    def _get_actions(self) -> List[ToolAction]:
+        """Get input parameters for specific actions."""
+        if not self.allowed_actions:
+            return []
 
-        # Create a Connection instead of a regular Model for better
-        # action handling
-        model_data = self.context.Model.get(connection_id)
-        self.connection = Connection(
-            id=model_data.id,
-            name=model_data.name,
-            description=model_data.description,
-            function=model_data.function,
-            supplier=model_data.supplier,
-            version=model_data.version,
+        response = super().run(
+            action="LIST_INPUTS", data={"actions": self.allowed_actions}
         )
-        # Set the context after creation
-        self.connection.context = self.context
-
-        # Set action scope if allowed_actions is specified
-        if self.allowed_actions and hasattr(self.connection, "set_action_scope"):
-            self.connection.set_action_scope(self.allowed_actions)
-
-    def run(self, **kwargs: Unpack[ToolRunParams]) -> ToolResult:
-        """Run the tool."""
-
-        if not self.connection:
-            raise ValueError("No connection set for this tool")
-
-        return self.connection.run(**kwargs)
-
-    def get_parameters(self) -> Optional[List[dict]]:
-        """Get parameters for the tool if it's a ConnectionTool."""
-        if hasattr(self.connection, "get_parameters"):
-            return self.connection.get_parameters()
-        return None
+        return [ToolAction.from_dict(action_data) for action_data in response.data]
