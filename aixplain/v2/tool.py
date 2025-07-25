@@ -85,7 +85,9 @@ class Tool(Model):
     def __post_init__(self):
         if not self.id:
             if self.integration is None:
-                assert self.code is not None, "Code is required to create a Tool"
+                assert self.code is not None, (
+                    "Code is required to create a Tool"
+                )
                 # Use default integration ID for utility tools
                 self.integration = self.context.Integration.get(
                     self.DEFAULT_INTEGRATION_ID
@@ -95,7 +97,9 @@ class Tool(Model):
                 }
             else:
                 if isinstance(self.integration, str):
-                    self.integration = self.context.Integration.get(self.integration)
+                    self.integration = self.context.Integration.get(
+                        self.integration
+                    )
 
                 assert isinstance(
                     self.integration, Integration
@@ -119,12 +123,6 @@ class Tool(Model):
                 action in available_actions for action in self.allowed_actions
             ), "All allowed actions must be available"
 
-    def get_parameters(self):
-        if self.allowed_actions:
-            return self.integration.get_parameters()
-        else:
-            return {}
-
     def connect(self) -> ToolResult:
         if not self.integration:
             raise ValueError("No integration set for this tool")
@@ -133,7 +131,9 @@ class Tool(Model):
             raise ValueError("No authentication provided for this tool")
 
         if not self.auth_credentials:
-            raise ValueError("No authentication credentials provided for this tool")
+            raise ValueError(
+                "No authentication credentials provided for this tool"
+            )
 
         # Build the connection payload based on authentication type
         result = self.integration.run(
@@ -151,4 +151,36 @@ class Tool(Model):
         response = super().run(
             action="LIST_INPUTS", data={"actions": self.allowed_actions}
         )
-        return [ToolAction.from_dict(action_data) for action_data in response.data]
+        return [
+            ToolAction.from_dict(action_data) 
+            for action_data in response.data
+        ]
+
+    def get_parameters(self) -> List[dict]:
+        """Get parameters for the tool in the format expected by agent saving.
+        """
+        parameters = []
+        for action in self._get_actions():
+            # Convert action inputs to the expected parameter format
+            action_inputs = {}
+            for input_param in action.inputs:
+                action_inputs[input_param.code] = {
+                    "name": input_param.name,
+                    "value": (
+                        input_param.value[0] if input_param.value 
+                        else input_param.defaultValue[0] 
+                        if input_param.defaultValue
+                        else None
+                    ),
+                    "required": input_param.required,
+                    "datatype": input_param.datatype,
+                    "description": input_param.description,
+                }
+            
+            parameters.append({
+                "code": action.slug,
+                "name": action.name,
+                "description": action.description,
+                "inputs": action_inputs
+            })
+        return parameters
