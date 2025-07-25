@@ -1,4 +1,5 @@
 from typing import Union, List, Optional, Any
+from typing_extensions import Unpack
 from dataclasses_json import dataclass_json
 from dataclasses import dataclass
 
@@ -57,7 +58,7 @@ class ToolListParams(BaseListParams):
 class ToolRunParams(BareRunParams):
     """Parameters for running tools."""
 
-    action: str
+    action: Optional[str] = None
     data: dict
 
 
@@ -79,8 +80,7 @@ class Tool(Model):
     config: Optional[dict] = None
     code: Optional[str] = None
     allowed_actions: Optional[List[str]] = None
-    auth_scheme: Optional[Integration.AuthenticationScheme] = None
-    auth_credentials: Optional[Integration.Credentials] = None
+    auth_scheme: Optional[Integration.AuthenticationScheme] = Integration.AuthenticationScheme.BEARER_TOKEN
 
     def __post_init__(self):
         if not self.id:
@@ -130,16 +130,25 @@ class Tool(Model):
         if not self.auth_scheme:
             raise ValueError("No authentication provided for this tool")
 
-        if not self.auth_credentials:
+        if not self.config:
             raise ValueError(
                 "No authentication credentials provided for this tool"
             )
+
+        auth_credentials = {}
+        if "token" in self.config:
+            auth_credentials["token"] = self.config.pop("token")
+        elif "client_id" in self.config and "client_secret" in self.config:
+            auth_credentials["client_id"] = self.config.pop("client_id")
+            auth_credentials["client_secret"] = self.config.pop("client_secret")
+        else:
+            raise ValueError("No authentication credentials provided for this tool")
 
         # Build the connection payload based on authentication type
         result = self.integration.run(
             name=self.name,
             auth_scheme=self.auth_scheme,
-            data=self.auth_credentials,
+            data=auth_credentials,
         )
         self.id = result.data["id"]
 
@@ -184,3 +193,9 @@ class Tool(Model):
                 "inputs": action_inputs
             })
         return parameters
+
+
+    def run(self, **kwargs: Unpack[ToolRunParams]) -> ToolResult:
+        """Run the tool."""
+        kwargs.setdefault("action", self.allowed_actions[0])
+        return super().run(**kwargs)

@@ -4,6 +4,7 @@ import pprint
 from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json, config
 import time
+from urllib.parse import quote
 from typing import (
     List,
     Tuple,
@@ -27,6 +28,19 @@ if TYPE_CHECKING:
 
 
 logger = logging.getLogger(__name__)
+
+
+def encode_resource_id(resource_id: str) -> str:
+    """
+    URL encode a resource ID for use in API paths.
+    
+    Args:
+        resource_id: The resource ID to encode
+        
+    Returns:
+        The URL-encoded resource ID
+    """
+    return quote(resource_id, safe='')
 
 
 class BaseMixin:
@@ -103,7 +117,9 @@ class BaseResource:
         result = None
         if self.id:
             result = self.context.client.request(
-                "put", f"{resource_path}/{self.id}", json=payload
+                "put", 
+                f"{resource_path}/{self.encoded_id}", 
+                json=payload
             )
         else:
             result = self.context.client.request(
@@ -151,7 +167,7 @@ class BaseResource:
             raise ValueError("Action call requires an 'id' attribute")
 
         method = method or "GET"
-        path = f"{self.RESOURCE_PATH}/{self.id}"
+        path = f"{self.RESOURCE_PATH}/{self.encoded_id}"
         if action_paths:
             path += "/".join(["", *action_paths])
 
@@ -165,6 +181,16 @@ class BaseResource:
 
     def __str__(self) -> str:
         return self.__repr__()
+
+    @property
+    def encoded_id(self) -> str:
+        """
+        Get the URL-encoded version of the resource ID.
+        
+        Returns:
+            The URL-encoded resource ID, or empty string if no ID exists
+        """
+        return encode_resource_id(self.id) if self.id else ""
 
 
 class BaseParams(TypedDict):
@@ -609,7 +635,8 @@ class GetResourceMixin(BaseMixin, Generic[GP, R]):
         if context is None:
             raise ValueError("Context is required for resource operations")
 
-        path = f"{resource_path}/{id}"
+        encoded_id = encode_resource_id(id)
+        path = f"{resource_path}/{encoded_id}"
         obj = context.client.get(path, **kwargs)
         instance = cls.from_dict(obj)
         setattr(instance, "context", context)
@@ -627,7 +654,7 @@ class DeleteResourceMixin(BaseMixin, Generic[DP, R]):
             self, "RESOURCE_PATH", ""
         )
 
-        path = f"{resource_path}/{self.id}"
+        path = f"{resource_path}/{self.encoded_id}"
         self.context.client.request_raw("delete", path, **kwargs)
         return self
 
@@ -666,7 +693,7 @@ class RunnableResourceMixin(BaseMixin, Generic[RP, RR]):
             raise ValueError("Run call requires an 'id' attribute")
 
         run_action_path = getattr(self, "RUN_ACTION_PATH", None)
-        path = f"{self.RESOURCE_PATH}/{self.id}"
+        path = f"{self.RESOURCE_PATH}/{self.encoded_id}"
         if run_action_path:
             path += f"/{run_action_path}"
 
