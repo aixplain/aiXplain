@@ -10,7 +10,7 @@ from .resource import (
 )
 from .integration import Integration
 from .model import Model
-from .exceptions import ResourceValidationError, AuthenticationError
+from .exceptions import ValidationError, ResourceError
 
 
 @dataclass_json
@@ -124,15 +124,13 @@ class Tool(Model):
 
     def connect(self) -> ToolResult:
         if not self.integration:
-            raise ResourceValidationError("No integration set for this tool")
+            raise ValidationError("No integration set for this tool")
 
         if not self.auth_scheme:
-            raise AuthenticationError("No authentication provided for this tool")
+            raise ResourceError("No authentication provided for this tool")
 
         if not self.config:
-            raise AuthenticationError(
-                "No authentication credentials provided for this tool"
-            )
+            raise ResourceError("No authentication credentials provided for this tool")
 
         auth_credentials = {}
         if "token" in self.config:
