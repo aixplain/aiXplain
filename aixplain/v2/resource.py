@@ -22,10 +22,9 @@ from typing_extensions import Unpack, NotRequired
 
 from .enums import OwnershipType, SortBy, SortOrder, ResponseStatus, ToolType
 from .exceptions import (
-    ResourceContextError,
-    ResourceOperationError,
-    ResourceValidationError,
-    OperationFailedError,
+    ResourceError,
+    ValidationError,
+    APIError,
     TimeoutError,
     create_operation_failed_error,
 )
@@ -170,7 +169,7 @@ class BaseResource:
         )
 
         if not self.id:
-            raise ResourceValidationError("Action call requires an 'id' attribute")
+            raise ValidationError("Action call requires an 'id' attribute")
 
         method = method or "GET"
         path = f"{self.RESOURCE_PATH}/{self.encoded_id}"
@@ -357,7 +356,7 @@ class BaseListResourceMixin(BaseMixin, Generic[ListParamsT, ResourceT]):
         context = getattr(cls, "context", None)
 
         if context is None:
-            raise ResourceContextError("Context is required for resource listing")
+            raise ResourceError("Context is required for resource listing")
 
         return context, resource_path, custom_path
 
@@ -620,7 +619,7 @@ class GetResourceMixin(BaseMixin, Generic[GetParamsT, ResourceT]):
         )
         context = getattr(cls, "context", None)
         if context is None:
-            raise ResourceContextError("Context is required for resource operations")
+            raise ResourceError("Context is required for resource operations")
 
         encoded_id = encode_resource_id(id)
         path = f"{resource_path}/{encoded_id}"
@@ -677,7 +676,7 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
         )
 
         if not self.id:
-            raise ResourceValidationError("Run call requires an 'id' attribute")
+            raise ValidationError("Run call requires an 'id' attribute")
 
         run_action_path = getattr(self, "RUN_ACTION_PATH", None)
         path = f"{self.RESOURCE_PATH}/{self.encoded_id}"
@@ -861,8 +860,8 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
                 if result.completed:
                     return result
 
-            except (APIError, OperationFailedError) as e:
-                # Re-raise API and operation errors immediately
+            except (APIError, ResourceError) as e:
+                # Re-raise API and resource errors immediately
                 raise e
             except Exception as e:
                 # Log other errors but continue polling
