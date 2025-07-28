@@ -21,6 +21,14 @@ from typing_extensions import Unpack, NotRequired
 
 
 from .enums import OwnershipType, SortBy, SortOrder, ResponseStatus, ToolType
+from .exceptions import (
+    ResourceContextError,
+    ResourceOperationError,
+    ResourceValidationError,
+    OperationFailedError,
+    TimeoutError,
+    create_operation_failed_error,
+)
 
 
 if TYPE_CHECKING:
@@ -164,7 +172,7 @@ class BaseResource:
         )
 
         if not self.id:
-            raise ValueError("Action call requires an 'id' attribute")
+            raise ResourceValidationError("Action call requires an 'id' attribute")
 
         method = method or "GET"
         path = f"{self.RESOURCE_PATH}/{self.encoded_id}"
@@ -256,28 +264,7 @@ class BaseRunParams(BaseParams):
     wait_time: NotRequired[int]
 
 
-class BareListParams(BaseListParams):
-    """Default implementation of list parameters."""
 
-    pass
-
-
-class BareGetParams(BaseGetParams):
-    """Default implementation of get parameters."""
-
-    pass
-
-
-class BareDeleteParams(BaseDeleteParams):
-    """Default implementation of delete parameters."""
-
-    pass
-
-
-class BareRunParams(BaseRunParams):
-    """Default implementation of run parameters."""
-
-    pass
 
 
 @dataclass_json
@@ -326,28 +313,35 @@ class Result(BaseResult):
     pass
 
 
-R = TypeVar("R", bound=BaseResource)
-LP = TypeVar("LP", bound=BaseListParams)
-GP = TypeVar("GP", bound=BaseGetParams)
-DP = TypeVar("DP", bound=BaseDeleteParams)
-RP = TypeVar("RP", bound=BaseRunParams)
-RR = TypeVar("RR", bound=BaseResult)
+# Standardized type variables with proper bounds
+ResourceT = TypeVar("ResourceT", bound=BaseResource)
+ListParamsT = TypeVar("ListParamsT", bound=BaseListParams)
+GetParamsT = TypeVar("GetParamsT", bound=BaseGetParams)
+DeleteParamsT = TypeVar("DeleteParamsT", bound=BaseDeleteParams)
+RunParamsT = TypeVar("RunParamsT", bound=BaseRunParams)
+ResultT = TypeVar("ResultT", bound=BaseResult)
 
 
-class Page(Generic[R]):
+class Page(Generic[ResourceT]):
     """Page of resources.
 
     Attributes:
-        items: List[R]: The list of resources.
+        items: List[ResourceT]: The list of resources.
         total: int: The total number of resources.
     """
 
-    results: List[R]
+    results: List[ResourceT]
     page_number: int
     page_total: int
     total: int
 
-    def __init__(self, results: List[R], page_number: int, page_total: int, total: int):
+    def __init__(
+        self, 
+        results: List[ResourceT], 
+        page_number: int, 
+        page_total: int, 
+        total: int
+    ):
         self.results = results
         self.page_number = page_number
         self.page_total = page_total
@@ -360,24 +354,28 @@ class Page(Generic[R]):
         return getattr(self, key)
 
 
-class BaseListResourceMixin(BaseMixin, Generic[LP, R]):
+class BaseListResourceMixin(BaseMixin, Generic[ListParamsT, ResourceT]):
     """Base mixin for listing resources with shared functionality."""
 
     @classmethod
-    def _get_context_and_path(cls, **kwargs) -> Tuple["Aixplain", str, Optional[str]]:
+    def _get_context_and_path(
+        cls, **kwargs
+    ) -> Tuple["Aixplain", str, Optional[str]]:
         """Get context and resource path for listing operations."""
-        params = BareListParams(**kwargs)
+        params = BaseListParams(**kwargs)
         custom_path = params.get("resource_path")
         resource_path = getattr(cls, "RESOURCE_PATH", "")
         context = getattr(cls, "context", None)
 
         if context is None:
-            raise ValueError("Context is required for resource listing")
+            raise ResourceContextError("Context is required for resource listing")
 
         return context, resource_path, custom_path
 
     @classmethod
-    def _build_resources(cls, items: List[dict], context: "Aixplain") -> List[R]:
+    def _build_resources(
+        cls, items: List[dict], context: "Aixplain"
+    ) -> List[ResourceT]:
         """Build resource instances from response items."""
         resources = []
         for item in items:
@@ -409,7 +407,7 @@ class BaseListResourceMixin(BaseMixin, Generic[LP, R]):
         return filters
 
 
-class PagedListResourceMixin(BaseListResourceMixin, Generic[LP, R]):
+class PagedListResourceMixin(BaseListResourceMixin, Generic[ListParamsT, ResourceT]):
     """Mixin for listing resources with pagination.
 
     Attributes:
@@ -432,15 +430,15 @@ class PagedListResourceMixin(BaseListResourceMixin, Generic[LP, R]):
     PAGINATE_DEFAULT_PAGE_SIZE = 20
 
     @classmethod
-    def list(cls, **kwargs: Unpack[LP]) -> Page[R]:
+    def list(cls, **kwargs: Unpack[ListParamsT]) -> Page[ResourceT]:
         """
         List resources across the first n pages with optional filtering.
 
         Args:
-            kwargs: Unpack[LP]: The keyword arguments.
+            kwargs: Unpack[ListParamsT]: The keyword arguments.
 
         Returns:
-            Page[R]: Page of BaseResource instances
+            Page[ResourceT]: Page of BaseResource instances
         """
         # Set default pagination values
         kwargs.setdefault("page_number", cls.PAGINATE_DEFAULT_PAGE_NUMBER)
@@ -451,7 +449,7 @@ class PagedListResourceMixin(BaseListResourceMixin, Generic[LP, R]):
 
         # Build path and filters
         paginate_path = cls._populate_path(resource_path, custom_path)
-        params = BareListParams(**kwargs)
+        params = BaseListParams(**kwargs)
         filters = cls._populate_filters(params)
 
         # Make request
@@ -462,8 +460,8 @@ class PagedListResourceMixin(BaseListResourceMixin, Generic[LP, R]):
 
     @classmethod
     def _build_page(
-        cls, response: "Any", context: "Aixplain", **kwargs: Unpack[LP]
-    ) -> Page[R]:
+        cls, response: "Any", context: "Aixplain", **kwargs: Unpack[ListParamsT]
+    ) -> Page[ResourceT]:
         """
         Build a page of resources from the response.
         Accepts either a requests.Response or already-decoded dict/list.
@@ -535,7 +533,7 @@ class PagedListResourceMixin(BaseListResourceMixin, Generic[LP, R]):
         return filters
 
 
-class PlainListResourceMixin(BaseListResourceMixin, Generic[LP, R]):
+class PlainListResourceMixin(BaseListResourceMixin, Generic[ListParamsT, ResourceT]):
     """Mixin for listing resources without pagination.
 
     This mixin provides a simple list method that returns all resources
@@ -551,21 +549,21 @@ class PlainListResourceMixin(BaseListResourceMixin, Generic[LP, R]):
     LIST_ITEMS_KEY = "items"
 
     @classmethod
-    def list(cls, **kwargs: Unpack[LP]) -> List[R]:
+    def list(cls, **kwargs: Unpack[ListParamsT]) -> List[ResourceT]:
         """
         List all resources without pagination.
 
         Args:
-            kwargs: Unpack[LP]: The keyword arguments.
+            kwargs: Unpack[ListParamsT]: The keyword arguments.
 
         Returns:
-            List[R]: List of BaseResource instances
+            List[ResourceT]: List of BaseResource instances
         """
         # Get context and path
         context, resource_path, _ = cls._get_context_and_path(**kwargs)
 
         # Build filters
-        params = BareListParams(**kwargs)
+        params = BaseListParams(**kwargs)
         filters = cls._populate_plain_filters(params)
 
         # Make request
@@ -575,7 +573,7 @@ class PlainListResourceMixin(BaseListResourceMixin, Generic[LP, R]):
         return cls._build_plain_list(response, context)
 
     @classmethod
-    def _build_plain_list(cls, response: "Any", context: "Aixplain") -> List[R]:
+    def _build_plain_list(cls, response: "Any", context: "Aixplain") -> List[ResourceT]:
         """
         Build a list of resources from the response.
         Accepts either a requests.Response or already-decoded list/dict.
@@ -610,17 +608,17 @@ class PlainListResourceMixin(BaseListResourceMixin, Generic[LP, R]):
         return cls._populate_base_filters(params)
 
 
-class GetResourceMixin(BaseMixin, Generic[GP, R]):
+class GetResourceMixin(BaseMixin, Generic[GetParamsT, ResourceT]):
     """Mixin for getting a resource."""
 
     @classmethod
-    def get(cls: Type[R], id: Any, **kwargs: Unpack[GP]) -> R:
+    def get(cls: Type[ResourceT], id: Any, **kwargs: Unpack[GetParamsT]) -> ResourceT:
         """
         Retrieve a single resource by its ID (or other get parameters).
 
         Args:
             id: Any: The ID of the resource to get.
-            kwargs: Unpack[GP]: Get parameters to pass to the request.
+            kwargs: Unpack[GetParamsT]: Get parameters to pass to the request.
 
         Returns:
             BaseResource: Instance of the BaseResource class.
@@ -633,7 +631,7 @@ class GetResourceMixin(BaseMixin, Generic[GP, R]):
         )
         context = getattr(cls, "context", None)
         if context is None:
-            raise ValueError("Context is required for resource operations")
+            raise ResourceContextError("Context is required for resource operations")
 
         encoded_id = encode_resource_id(id)
         path = f"{resource_path}/{encoded_id}"
@@ -643,10 +641,10 @@ class GetResourceMixin(BaseMixin, Generic[GP, R]):
         return instance
 
 
-class DeleteResourceMixin(BaseMixin, Generic[DP, R]):
+class DeleteResourceMixin(BaseMixin, Generic[DeleteParamsT, ResourceT]):
     """Mixin for deleting a resource."""
 
-    def delete(self, **kwargs: Unpack[DP]) -> R:
+    def delete(self, **kwargs: Unpack[DeleteParamsT]) -> ResourceT:
         """
         Delete a resource.
         """
@@ -659,13 +657,13 @@ class DeleteResourceMixin(BaseMixin, Generic[DP, R]):
         return self
 
 
-class RunnableResourceMixin(BaseMixin, Generic[RP, RR]):
+class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
     """Mixin for runnable resources."""
 
     RUN_ACTION_PATH = "run"
     RESPONSE_CLASS = Result  # Default response class
 
-    def build_run_payload(self, **kwargs: Unpack[RP]) -> dict:
+    def build_run_payload(self, **kwargs: Unpack[RunParamsT]) -> dict:
         """
         Build the payload for the run action.
 
@@ -675,7 +673,7 @@ class RunnableResourceMixin(BaseMixin, Generic[RP, RR]):
         # Default behavior for TypedDict or other parameter types
         return kwargs
 
-    def build_run_url(self, **kwargs: Unpack[RP]) -> str:
+    def build_run_url(self, **kwargs: Unpack[RunParamsT]) -> str:
         """
         Build the URL for the run action.
 
@@ -690,7 +688,7 @@ class RunnableResourceMixin(BaseMixin, Generic[RP, RR]):
         )
 
         if not self.id:
-            raise ValueError("Run call requires an 'id' attribute")
+            raise ResourceValidationError("Run call requires an 'id' attribute")
 
         run_action_path = getattr(self, "RUN_ACTION_PATH", None)
         path = f"{self.RESOURCE_PATH}/{self.encoded_id}"
@@ -699,7 +697,7 @@ class RunnableResourceMixin(BaseMixin, Generic[RP, RR]):
 
         return path
 
-    def handle_run_response(self, response: dict, **kwargs: Unpack[RP]) -> RR:
+    def handle_run_response(self, response: dict, **kwargs: Unpack[RunParamsT]) -> ResultT:
         """
         Handle the response from a run request.
 
@@ -755,26 +753,11 @@ class RunnableResourceMixin(BaseMixin, Generic[RP, RR]):
             # Check for failed status and raise appropriate error
             status = response.get("status", "IN_PROGRESS")
             if status == "FAILED":
-                # Get the most specific error message available
-                error_msg = None
-
-                # Try different ways to access the error message
-                if response.get("supplierError"):
-                    error_msg = response["supplierError"]
-                elif response.get("supplier_error"):
-                    error_msg = response["supplier_error"]
-                elif response.get("error_message"):
-                    error_msg = response["error_message"]
-                elif response.get("error"):
-                    error_msg = response["error"]
-                else:
-                    error_msg = "Operation failed"
-
-                raise ValueError(f"Operation failed: {error_msg}")
+                raise create_operation_failed_error(response)
 
             return self.RESPONSE_CLASS.from_dict(filtered_response)
 
-    def run(self, **kwargs: Unpack[RP]) -> RR:
+    def run(self, **kwargs: Unpack[RunParamsT]) -> ResultT:
         """
         Run the resource synchronously with automatic polling.
 
@@ -794,7 +777,7 @@ class RunnableResourceMixin(BaseMixin, Generic[RP, RR]):
 
         return result
 
-    def run_async(self, **kwargs: Unpack[RP]) -> RR:
+    def run_async(self, **kwargs: Unpack[RunParamsT]) -> ResultT:
         """
         Run the resource asynchronously.
 
@@ -815,7 +798,7 @@ class RunnableResourceMixin(BaseMixin, Generic[RP, RR]):
         # Use the extensible response handler
         return self.handle_run_response(response, **kwargs)
 
-    def poll(self, poll_url: str) -> RR:
+    def poll(self, poll_url: str) -> ResultT:
         """
         Poll for the result of an asynchronous operation.
 
@@ -825,22 +808,21 @@ class RunnableResourceMixin(BaseMixin, Generic[RP, RR]):
 
         Returns:
             Response instance from the configured RESPONSE_CLASS
+
+        Raises:
+            APIError: If the polling request fails
+            OperationFailedError: If the operation has failed
         """
 
-        response = None
         try:
             # Use context.client for all polling operations
             # If poll_url is a full URL, urljoin will use it directly
             # If it's a relative path, it will be joined with base_url
             response = self.context.client.get(poll_url)
         except Exception as e:
-            return self.RESPONSE_CLASS.from_dict(
-                {
-                    "status": ResponseStatus.FAILED.value,
-                    "completed": True,
-                    "error_message": str(e),
-                }
-            )
+            # Re-raise as APIError instead of silently returning failed result
+            from .exceptions import APIError
+            raise APIError(f"Polling failed: {str(e)}", 0, {"poll_url": poll_url})
 
         # Handle polling response - it might not have all the expected fields
         filtered_response = {
@@ -852,9 +834,15 @@ class RunnableResourceMixin(BaseMixin, Generic[RP, RR]):
             "supplier_error": response.get("supplier_error"),
             "data": response.get("data"),
         }
+        
+        # Check if the operation has failed and raise appropriate error
+        status = response.get("status", "IN_PROGRESS")
+        if status == "FAILED":
+            raise create_operation_failed_error(response)
+            
         return self.RESPONSE_CLASS.from_dict(filtered_response)
 
-    def sync_poll(self, poll_url: str, **kwargs: Unpack[RP]) -> RR:
+    def sync_poll(self, poll_url: str, **kwargs: Unpack[RunParamsT]) -> ResultT:
         """
         Keeps polling until an asynchronous operation is complete.
 
@@ -875,22 +863,24 @@ class RunnableResourceMixin(BaseMixin, Generic[RP, RR]):
         wait_time = max(wait_time, 0.2)  # Minimum wait time
 
         while (time.time() - start_time) < timeout:
-            result = self.poll(poll_url)
-
-            if result.completed:
-                return result
-
+            try:
+                result = self.poll(poll_url)
+                
+                if result.completed:
+                    return result
+                    
+            except (APIError, OperationFailedError) as e:
+                # Re-raise API and operation errors immediately
+                raise e
+            except Exception as e:
+                # Log other errors but continue polling
+                logger.warning(f"Polling error: {e}, continuing...")
+                
             time.sleep(wait_time)
             if wait_time < 60:
                 wait_time *= 1.1  # Exponential backoff
 
-        return self.RESPONSE_CLASS.from_dict(
-            {
-                "status": ResponseStatus.FAILED.value,
-                "completed": True,
-                "error_message": f"Timeout after {timeout} seconds",
-            }
-        )
+        raise TimeoutError(f"Operation timed out after {timeout} seconds")
 
 
 class ToolMixin(BaseMixin):

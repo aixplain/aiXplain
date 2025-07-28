@@ -5,11 +5,12 @@ from dataclasses import dataclass
 
 from .resource import (
     BaseListParams,
-    BareRunParams,
+    BaseRunParams,
     Result,
 )
 from .integration import Integration
 from .model import Model
+from .exceptions import ResourceValidationError, AuthenticationError
 
 
 @dataclass_json
@@ -55,7 +56,7 @@ class ToolListParams(BaseListParams):
     pass
 
 
-class ToolRunParams(BareRunParams):
+class ToolRunParams(BaseRunParams):
     """Parameters for running tools."""
 
     action: Optional[str] = None
@@ -125,13 +126,13 @@ class Tool(Model):
 
     def connect(self) -> ToolResult:
         if not self.integration:
-            raise ValueError("No integration set for this tool")
+            raise ResourceValidationError("No integration set for this tool")
 
         if not self.auth_scheme:
-            raise ValueError("No authentication provided for this tool")
+            raise AuthenticationError("No authentication provided for this tool")
 
         if not self.config:
-            raise ValueError(
+            raise AuthenticationError(
                 "No authentication credentials provided for this tool"
             )
 
