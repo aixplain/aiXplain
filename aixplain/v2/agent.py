@@ -11,9 +11,9 @@ from .resource import (
     PagedListResourceMixin,
     GetResourceMixin,
     DeleteResourceMixin,
-    BareListParams,
-    BareGetParams,
-    BareDeleteParams,
+    BaseListParams,
+    BaseGetParams,
+    BaseDeleteParams,
     BaseRunParams,
     BaseResult,
     RunnableResourceMixin,
@@ -71,9 +71,9 @@ class AgentRunResult(BaseResult):
 @dataclass
 class Agent(
     BaseResource,
-    PagedListResourceMixin[BareListParams, "Agent"],
-    GetResourceMixin[BareGetParams, "Agent"],
-    DeleteResourceMixin[BareDeleteParams, "Agent"],
+    PagedListResourceMixin[BaseListParams, "Agent"],
+    GetResourceMixin[BaseGetParams, "Agent"],
+    DeleteResourceMixin[BaseDeleteParams, "Agent"],
     RunnableResourceMixin[AgentRunParams, AgentRunResult],
 ):
     RESOURCE_PATH = "sdk/agents"

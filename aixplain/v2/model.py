@@ -8,10 +8,10 @@ from .resource import (
     BaseResource,
     PagedListResourceMixin,
     GetResourceMixin,
-    BareGetParams,
+    BaseGetParams,
     Page,
     RunnableResourceMixin,
-    BareRunParams,
+    BaseRunParams,
     Result,
     ToolMixin,
 )
@@ -42,7 +42,7 @@ class ModelListParams(BaseListParams):
     is_finetunable: NotRequired[bool]
 
 
-class ModelRunParams(BareRunParams):
+class ModelRunParams(BaseRunParams):
 
     data: Union[str, dict]
     context: NotRequired[str]
@@ -58,7 +58,7 @@ class ModelRunParams(BareRunParams):
 class Model(
     BaseResource,
     PagedListResourceMixin[ModelListParams, "Model"],
-    GetResourceMixin[BareGetParams, "Model"],
+    GetResourceMixin[BaseGetParams, "Model"],
     RunnableResourceMixin[ModelRunParams, Result],
     ToolMixin,
 ):
@@ -96,7 +96,7 @@ class Model(
         return url.replace("/api/v1/execute", "/api/v2/execute")
 
     @classmethod
-    def get(cls, id: str, **kwargs: Unpack[BareGetParams]) -> "Model":
+    def get(cls, id: str, **kwargs: Unpack[BaseGetParams]) -> "Model":
         return super().get(id, **kwargs)
 
     @classmethod

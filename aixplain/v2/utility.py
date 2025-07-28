@@ -8,12 +8,12 @@ from .resource import (
     BaseResource,
     PagedListResourceMixin,
     GetResourceMixin,
-    BareGetParams,
+    BaseGetParams,
     BaseRunParams,
     Result,
     RunnableResourceMixin,
     DeleteResourceMixin,
-    BareDeleteParams,
+    BaseDeleteParams,
     ToolMixin,
 )
 from .enums import Function, ToolType
@@ -48,8 +48,8 @@ class UtilityRunParams(BaseRunParams):
 class Utility(
     BaseResource,
     PagedListResourceMixin[UtilityListParams, "Utility"],
-    GetResourceMixin[BareGetParams, "Utility"],
-    DeleteResourceMixin[BareDeleteParams, "Utility"],
+    GetResourceMixin[BaseGetParams, "Utility"],
+    DeleteResourceMixin[BaseDeleteParams, "Utility"],
     RunnableResourceMixin[UtilityRunParams, Result],
     ToolMixin,
 ):
