@@ -53,7 +53,7 @@ def encode_resource_id(resource_id: str) -> str:
 class BaseMixin:
     """Base mixin with meta capabilities for resource operations."""
 
-    def __init_subclass__(cls, **kwargs):
+    def __init_subclass__(cls: type, **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)
         if cls.__name__.endswith("Mixin"):
             return
@@ -91,25 +91,25 @@ class BaseResource:
     name: str = ""
     description: str = ""
 
-    def on_save(self, result: dict):
+    def on_save(self, result: dict) -> None:
         """
         Callback to be called after the resource is saved.
         """
         pass
 
-    def on_deploy(self):
+    def on_deploy(self) -> None:
         """
         Callback to be called after the resource is deployed.
         """
         pass
 
-    def build_save_payload(self, **kwargs):
+    def build_save_payload(self, **kwargs: Any) -> dict:
         """
         Build the payload for the save action.
         """
         return self.to_dict()
 
-    def save(self, **kwargs):
+    def save(self, **kwargs: Any) -> "BaseResource":
         """Save the resource.
 
         If the resource has an ID, it will be updated, otherwise it will be
@@ -134,7 +134,7 @@ class BaseResource:
         self.on_save(result)
         return self
 
-    def deploy(self, **kwargs):
+    def deploy(self, **kwargs: Any) -> "BaseResource":
         """Deploy the resource."""
         self.save(status="onboarded")
         self.on_deploy()

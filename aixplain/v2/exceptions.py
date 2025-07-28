@@ -11,7 +11,7 @@ from typing import Optional, Any, Dict
 class AixplainV2Error(Exception):
     """Base exception for all v2 errors."""
 
-    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
+    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None) -> None:
         self.message = message
         self.details = details or {}
         super().__init__(self.message)
@@ -31,7 +31,7 @@ class APIError(AixplainV2Error):
         message: str,
         status_code: int = 0,
         response_data: Optional[Dict[str, Any]] = None,
-    ):
+    ) -> None:
         self.status_code = status_code
         self.response_data = response_data or {}
         super().__init__(
