@@ -41,14 +41,14 @@ logger = logging.getLogger(__name__)
 def encode_resource_id(resource_id: str) -> str:
     """
     URL encode a resource ID for use in API paths.
-    
+
     Args:
         resource_id: The resource ID to encode
-        
+
     Returns:
         The URL-encoded resource ID
     """
-    return quote(resource_id, safe='')
+    return quote(resource_id, safe="")
 
 
 class BaseMixin:
@@ -125,9 +125,7 @@ class BaseResource:
         result = None
         if self.id:
             result = self.context.client.request(
-                "put", 
-                f"{resource_path}/{self.encoded_id}", 
-                json=payload
+                "put", f"{resource_path}/{self.encoded_id}", json=payload
             )
         else:
             result = self.context.client.request(
@@ -194,7 +192,7 @@ class BaseResource:
     def encoded_id(self) -> str:
         """
         Get the URL-encoded version of the resource ID.
-        
+
         Returns:
             The URL-encoded resource ID, or empty string if no ID exists
         """
@@ -262,9 +260,6 @@ class BaseRunParams(BaseParams):
 
     timeout: NotRequired[int]
     wait_time: NotRequired[int]
-
-
-
 
 
 @dataclass_json
@@ -336,11 +331,7 @@ class Page(Generic[ResourceT]):
     total: int
 
     def __init__(
-        self, 
-        results: List[ResourceT], 
-        page_number: int, 
-        page_total: int, 
-        total: int
+        self, results: List[ResourceT], page_number: int, page_total: int, total: int
     ):
         self.results = results
         self.page_number = page_number
@@ -358,9 +349,7 @@ class BaseListResourceMixin(BaseMixin, Generic[ListParamsT, ResourceT]):
     """Base mixin for listing resources with shared functionality."""
 
     @classmethod
-    def _get_context_and_path(
-        cls, **kwargs
-    ) -> Tuple["Aixplain", str, Optional[str]]:
+    def _get_context_and_path(cls, **kwargs) -> Tuple["Aixplain", str, Optional[str]]:
         """Get context and resource path for listing operations."""
         params = BaseListParams(**kwargs)
         custom_path = params.get("resource_path")
@@ -697,7 +686,9 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
 
         return path
 
-    def handle_run_response(self, response: dict, **kwargs: Unpack[RunParamsT]) -> ResultT:
+    def handle_run_response(
+        self, response: dict, **kwargs: Unpack[RunParamsT]
+    ) -> ResultT:
         """
         Handle the response from a run request.
 
@@ -822,6 +813,7 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
         except Exception as e:
             # Re-raise as APIError instead of silently returning failed result
             from .exceptions import APIError
+
             raise APIError(f"Polling failed: {str(e)}", 0, {"poll_url": poll_url})
 
         # Handle polling response - it might not have all the expected fields
@@ -834,12 +826,12 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
             "supplier_error": response.get("supplier_error"),
             "data": response.get("data"),
         }
-        
+
         # Check if the operation has failed and raise appropriate error
         status = response.get("status", "IN_PROGRESS")
         if status == "FAILED":
             raise create_operation_failed_error(response)
-            
+
         return self.RESPONSE_CLASS.from_dict(filtered_response)
 
     def sync_poll(self, poll_url: str, **kwargs: Unpack[RunParamsT]) -> ResultT:
@@ -865,17 +857,17 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
         while (time.time() - start_time) < timeout:
             try:
                 result = self.poll(poll_url)
-                
+
                 if result.completed:
                     return result
-                    
+
             except (APIError, OperationFailedError) as e:
                 # Re-raise API and operation errors immediately
                 raise e
             except Exception as e:
                 # Log other errors but continue polling
                 logger.warning(f"Polling error: {e}, continuing...")
-                
+
             time.sleep(wait_time)
             if wait_time < 60:
                 wait_time *= 1.1  # Exponential backoff
