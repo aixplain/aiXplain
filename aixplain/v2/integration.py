@@ -1,4 +1,4 @@
-from typing import Optional, TypedDict, List
+from typing import Optional, TypedDict, List, Any
 from typing_extensions import Unpack
 from enum import Enum
 from .resource import BaseListParams, BaseResult, Page
@@ -23,7 +23,7 @@ class IntegrationResult(BaseResult):
     data: Optional[dict] = None  # Contains {'id': 'connection_id'}
     id: Optional[str] = None  # Connection ID for direct access
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
         """Initialize with connection ID extraction."""
         super().__init__(**kwargs)
         # Make the connection ID accessible as result.id
@@ -75,17 +75,17 @@ class Integration(Model):
     Credentials = Credentials
 
     @classmethod
-    def get(cls, id: str, **kwargs: Unpack[BaseListParams]) -> "Integration":
+    def get(cls: type["Integration"], id: str, **kwargs: Unpack[BaseListParams]) -> "Integration":
         return super().get(id, **kwargs)
 
     @classmethod
-    def list(cls, **kwargs: Unpack[IntegrationListParams]) -> "Page[Integration]":
+    def list(cls: type["Integration"], **kwargs: Unpack[IntegrationListParams]) -> "Page[Integration]":
         return super().list(**kwargs)
 
     def run(self, **kwargs: Unpack[IntegrationRunParams]) -> IntegrationResult:
         return super().run(**kwargs)
 
-    def build_run_payload(self, **kwargs) -> dict:
+    def build_run_payload(self, **kwargs: Any) -> dict:
         payload = dict(kwargs)
         # Aliasing for top-level fields
         if "auth_scheme" in payload:
@@ -101,7 +101,7 @@ class Integration(Model):
         return payload
 
     @classmethod
-    def _populate_filters(cls, params: BaseListParams) -> dict:
+    def _populate_filters(cls: type["Integration"], params: BaseListParams) -> dict:
         """Populate the filters for pagination."""
         filters = super()._populate_filters(params)
         filters["functions"] = [Function.CONNECTOR]

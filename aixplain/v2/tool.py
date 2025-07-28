@@ -85,7 +85,7 @@ class Tool(Model):
         Integration.AuthenticationScheme.BEARER_TOKEN
     )
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if not self.id:
             if self.integration is None:
                 assert self.code is not None, "Code is required to create a Tool"
@@ -109,7 +109,7 @@ class Tool(Model):
             # Auto-connect for integration tools
             self.connect()
 
-    def validate_allowed_actions(self):
+    def validate_allowed_actions(self) -> None:
         if self.allowed_actions:
             assert (
                 self.integration is not None

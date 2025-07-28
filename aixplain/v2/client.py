@@ -20,7 +20,7 @@ class AixplainError(Exception):
 
     """Exception raised for errors in the Aixplain API."""
 
-    def __init__(self, message: Union[str, List[str]], error: str, status_code: int):
+    def __init__(self, message: Union[str, List[str]], error: str, status_code: int) -> None:
         if isinstance(message, list):
             message = "\n".join(message)
         self.message = message
@@ -30,8 +30,11 @@ class AixplainError(Exception):
 
 
 def create_retry_session(
-    total=None, backoff_factor=None, status_forcelist=None, **kwargs
-):
+    total: Optional[int] = None,
+    backoff_factor: Optional[float] = None,
+    status_forcelist: Optional[List[int]] = None,
+    **kwargs: Any
+) -> requests.Session:
     """
     Creates a requests.Session with a specified retry strategy.
 
@@ -67,10 +70,10 @@ class AixplainClient:
         base_url: str,
         aixplain_api_key: Optional[str] = None,
         team_api_key: Optional[str] = None,
-        retry_total=DEFAULT_RETRY_TOTAL,
-        retry_backoff_factor=DEFAULT_RETRY_BACKOFF_FACTOR,
-        retry_status_forcelist=DEFAULT_RETRY_STATUS_FORCELIST,
-    ):
+        retry_total: int = DEFAULT_RETRY_TOTAL,
+        retry_backoff_factor: float = DEFAULT_RETRY_BACKOFF_FACTOR,
+        retry_status_forcelist: List[int] = DEFAULT_RETRY_STATUS_FORCELIST,
+    ) -> None:
         """
         Initializes AixplainClient with authentication and retry configuration.
 

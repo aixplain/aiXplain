@@ -96,11 +96,11 @@ class Model(
         return url.replace("/api/v1/execute", "/api/v2/execute")
 
     @classmethod
-    def get(cls, id: str, **kwargs: Unpack[BaseGetParams]) -> "Model":
+    def get(cls: type["Model"], id: str, **kwargs: Unpack[BaseGetParams]) -> "Model":
         return super().get(id, **kwargs)
 
     @classmethod
-    def list(cls, **kwargs: Unpack[ModelListParams]) -> Page["Model"]:
+    def list(cls: type["Model"], **kwargs: Unpack[ModelListParams]) -> Page["Model"]:
         return super().list(**kwargs)
 
     def run(self, **kwargs: Unpack[ModelRunParams]) -> Result:

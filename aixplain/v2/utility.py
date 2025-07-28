@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Any
 from typing_extensions import NotRequired, Unpack
 from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json
@@ -67,7 +67,7 @@ class Utility(
     inputs: List[str] = field(default_factory=list)
     utility_id: str = "custom_python_code"
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         # Only run parsing logic for new instances (no id yet)
         if not self.id:
             from aixplain.modules.model.utils import parse_code_decorated
@@ -93,7 +93,7 @@ class Utility(
             # Only save if this is a new instance (no id yet)
             self.save()
 
-    def build_save_payload(self, **kwargs):
+    def build_save_payload(self, **kwargs: Any) -> dict:
         """
         Build the payload for the save action.
         """
@@ -102,9 +102,9 @@ class Utility(
         return payload
 
     @classmethod
-    def get(cls, id: str, **kwargs) -> "Utility":
+    def get(cls: type["Utility"], id: str, **kwargs: Any) -> "Utility":
         return super().get(id, resource_path="sdk/models", **kwargs)
 
     @classmethod
-    def run(cls, **kwargs: Unpack[UtilityRunParams]) -> Result:
+    def run(cls: type["Utility"], **kwargs: Unpack[UtilityRunParams]) -> Result:
         return super().run(**kwargs)

@@ -113,19 +113,19 @@ class Agent(
             f"description={self.description})"
         )
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if not self.id:
             self.save(status=AssetStatus.DRAFT)
 
     @classmethod
-    def get(cls, id: str, **kwargs) -> "Agent":
+    def get(cls: type["Agent"], id: str, **kwargs: Any) -> "Agent":
         return super().get(id, **kwargs)
 
     @classmethod
-    def list(cls, **kwargs) -> "Page[Agent]":
+    def list(cls: type["Agent"], **kwargs: Any) -> "Page[Agent]":
         return super().list(**kwargs)
 
-    def build_save_payload(self, **kwargs):
+    def build_save_payload(self, **kwargs: Any) -> dict:
         """
         Build the payload for the save action.
         """

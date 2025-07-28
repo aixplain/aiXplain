@@ -34,7 +34,7 @@ class InputParameter:
     default: Optional[Any] = None
     options: Optional[List[Any]] = None
 
-    def validate(self):
+    def validate(self) -> None:
         """Validate the input parameter.
 
         Raises:
