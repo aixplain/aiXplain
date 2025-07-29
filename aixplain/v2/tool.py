@@ -7,6 +7,8 @@ from .resource import (
     BaseListParams,
     BaseRunParams,
     Result,
+    DeleteResourceMixin,
+    BaseDeleteParams,
 )
 from .integration import Integration
 from .model import Model
@@ -73,7 +75,7 @@ class ToolResult(Result):
 
 @dataclass_json
 @dataclass
-class Tool(Model):
+class Tool(Model, DeleteResourceMixin[BaseDeleteParams, "Tool"]):
     RESPONSE_CLASS = ToolResult
 
     DEFAULT_INTEGRATION_ID = "686432941223092cb4294d3f"  # Script integration

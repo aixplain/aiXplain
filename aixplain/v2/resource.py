@@ -3,21 +3,22 @@ import logging
 import pprint
 from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json, config
-import time
 from urllib.parse import quote
 from typing import (
     List,
     Tuple,
     TypedDict,
-    Type,
     TypeVar,
     Generic,
     Any,
     Optional,
     Dict,
     TYPE_CHECKING,
+    NotRequired,
+    Protocol,
+    runtime_checkable,
 )
-from typing_extensions import Unpack, NotRequired
+from typing_extensions import Unpack
 
 
 from .enums import OwnershipType, SortBy, SortOrder, ResponseStatus, ToolType
@@ -50,6 +51,34 @@ def encode_resource_id(resource_id: str) -> str:
     return quote(resource_id, safe="")
 
 
+# Protocol classes for better type safety
+@runtime_checkable
+class HasContext(Protocol):
+    """Protocol for classes that have a context attribute."""
+    context: Any
+
+
+@runtime_checkable
+class HasResourcePath(Protocol):
+    """Protocol for classes that have a RESOURCE_PATH attribute."""
+    RESOURCE_PATH: str
+
+
+@runtime_checkable
+class HasFromDict(Protocol):
+    """Protocol for classes that have a from_dict method."""
+    @classmethod
+    def from_dict(cls: type, data: dict) -> Any:
+        ...
+
+
+@runtime_checkable
+class HasToDict(Protocol):
+    """Protocol for classes that have a to_dict method."""
+    def to_dict(self) -> dict:
+        ...
+
+
 class BaseMixin:
     """Base mixin with meta capabilities for resource operations."""
 
@@ -77,7 +106,10 @@ class BaseResource:
     """
 
     context: Any = field(
-        repr=False, compare=False, metadata=config(exclude=lambda x: True), init=False
+        repr=False, 
+        compare=False, 
+        metadata=config(exclude=lambda x: True), 
+        init=False
     )
     RESOURCE_PATH: str = field(
         default="",
@@ -107,7 +139,9 @@ class BaseResource:
         """
         Build the payload for the save action.
         """
-        return self.to_dict()
+        if isinstance(self, HasToDict):
+            return self.to_dict()
+        return {}
 
     def save(self, **kwargs: Any) -> "BaseResource":
         """Save the resource.
@@ -144,7 +178,7 @@ class BaseResource:
         self,
         method: Optional[str] = None,
         action_paths: Optional[List[str]] = None,
-        **kwargs
+        **kwargs: Any
     ) -> requests.Response:
         """
         Internal method to perform actions on the resource.
@@ -215,7 +249,8 @@ class BaseListParams(BaseParams):
 
     Attributes:
         query: str: The query string.
-        ownership: Tuple[OwnershipType, List[OwnershipType]]: The ownership type.
+        ownership: Tuple[OwnershipType, List[OwnershipType]]: The ownership 
+                  type.
         sort_by: SortBy: The attribute to sort by.
         sort_order: SortOrder: The order to sort by.
         page_number: int: The page number.
@@ -298,6 +333,11 @@ class BaseResult:
             f"'{self.__class__.__name__}' object has no attribute '{name}'"
         )
 
+    @classmethod
+    def from_dict(cls: type, data: dict) -> "BaseResult":
+        """Create a BaseResult instance from a dictionary."""
+        return cls(**data)
+
 
 @dataclass_json
 @dataclass
@@ -330,7 +370,11 @@ class Page(Generic[ResourceT]):
     total: int
 
     def __init__(
-        self, results: List[ResourceT], page_number: int, page_total: int, total: int
+        self, 
+        results: List[ResourceT], 
+        page_number: int, 
+        page_total: int, 
+        total: int
     ):
         self.results = results
         self.page_number = page_number
@@ -348,10 +392,15 @@ class BaseListResourceMixin(BaseMixin, Generic[ListParamsT, ResourceT]):
     """Base mixin for listing resources with shared functionality."""
 
     @classmethod
-    def _get_context_and_path(cls, **kwargs) -> Tuple["Aixplain", str, Optional[str]]:
+    def _get_context_and_path(
+        cls: type, 
+        **kwargs: Any
+    ) -> Tuple["Aixplain", str, Optional[str]]:
         """Get context and resource path for listing operations."""
-        params = BaseListParams(**kwargs)
-        custom_path = params.get("resource_path")
+        # Use dict constructor instead of TypedDict unpacking for better mypy 
+        # support
+        params_dict = dict(kwargs)
+        custom_path = params_dict.get("resource_path")
         resource_path = getattr(cls, "RESOURCE_PATH", "")
         context = getattr(cls, "context", None)
 
@@ -362,7 +411,7 @@ class BaseListResourceMixin(BaseMixin, Generic[ListParamsT, ResourceT]):
 
     @classmethod
     def _build_resources(
-        cls, items: List[dict], context: "Aixplain"
+        cls: type, items: List[dict], context: "Aixplain"
     ) -> List[ResourceT]:
         """Build resource instances from response items."""
         resources = []
@@ -370,13 +419,17 @@ class BaseListResourceMixin(BaseMixin, Generic[ListParamsT, ResourceT]):
             # Use dataclasses_json's from_dict to handle field aliasing
             # This will automatically map API field names to dataclass field
             # names
-            obj = cls.from_dict(item)
+            if isinstance(cls, HasFromDict):
+                obj = cls.from_dict(item)
+            else:
+                # Fallback for classes without from_dict
+                obj = cls(**item)  # type: ignore[call-arg]
             setattr(obj, "context", context)
             resources.append(obj)
         return resources
 
     @classmethod
-    def _populate_base_filters(cls, params: BaseListParams) -> dict:
+    def _populate_base_filters(cls: type, params: BaseListParams) -> dict:
         """Populate common filters for listing operations."""
         filters = {}
 
@@ -384,18 +437,20 @@ class BaseListResourceMixin(BaseMixin, Generic[ListParamsT, ResourceT]):
             filters["q"] = params["query"]
 
         if params.get("ownership") is not None:
-            filters["ownership"] = params["ownership"]
+            filters["ownership"] = str(params["ownership"])
 
         if params.get("sort_by") is not None:
-            filters["sortBy"] = params["sort_by"]
+            filters["sortBy"] = str(params["sort_by"])
 
         if params.get("sort_order") is not None:
-            filters["sortOrder"] = params["sort_order"]
+            filters["sortOrder"] = str(params["sort_order"])
 
         return filters
 
 
-class PagedListResourceMixin(BaseListResourceMixin, Generic[ListParamsT, ResourceT]):
+class PagedListResourceMixin(
+    BaseListResourceMixin, Generic[ListParamsT, ResourceT]
+):
     """Mixin for listing resources with pagination.
 
     Attributes:
@@ -408,47 +463,68 @@ class PagedListResourceMixin(BaseListResourceMixin, Generic[ListParamsT, Resourc
         PAGINATE_DEFAULT_PAGE_SIZE: int: The default page size.
     """
 
-    PAGINATE_PATH = "paginate"
-    PAGINATE_METHOD = "post"
-    PAGINATE_ITEMS_KEY = "items"
-    PAGINATE_TOTAL_KEY = "total"
-    PAGINATE_PAGE_TOTAL_KEY = "pageTotal"
-    PAGINATE_PAGE_NUMBER_KEY = "pageNumber"
-    PAGINATE_DEFAULT_PAGE_NUMBER = 0
-    PAGINATE_DEFAULT_PAGE_SIZE = 20
+    PAGINATE_PATH: str = "paginate"
+    PAGINATE_METHOD: str = "post"
+    PAGINATE_ITEMS_KEY: str = "items"
+    PAGINATE_TOTAL_KEY: str = "total"
+    PAGINATE_PAGE_TOTAL_KEY: str = "pageTotal"
+    PAGINATE_PAGE_NUMBER_KEY: str = "pageNumber"
+    PAGINATE_DEFAULT_PAGE_NUMBER: int = 0
+    PAGINATE_DEFAULT_PAGE_SIZE: int = 20
 
     @classmethod
-    def list(cls, **kwargs: Unpack[ListParamsT]) -> Page[ResourceT]:
+    def list(cls: type, **kwargs: Unpack[ListParamsT]) -> Page[ResourceT]:
         """
         List resources across the first n pages with optional filtering.
 
         Args:
-            kwargs: Unpack[ListParamsT]: The keyword arguments.
+            kwargs: The keyword arguments.
 
         Returns:
             Page[ResourceT]: Page of BaseResource instances
         """
         # Set default pagination values
-        kwargs.setdefault("page_number", cls.PAGINATE_DEFAULT_PAGE_NUMBER)
-        kwargs.setdefault("page_size", cls.PAGINATE_DEFAULT_PAGE_SIZE)
+        default_page_number = getattr(cls, "PAGINATE_DEFAULT_PAGE_NUMBER", 0)
+        default_page_size = getattr(cls, "PAGINATE_DEFAULT_PAGE_SIZE", 20)
+        
+        kwargs.setdefault("page_number", default_page_number)
+        kwargs.setdefault("page_size", default_page_size)
 
         # Get context and path
-        context, resource_path, custom_path = cls._get_context_and_path(**kwargs)
+        context, resource_path, custom_path = cls._get_context_and_path(
+            **kwargs
+        )
 
         # Build path and filters
-        paginate_path = cls._populate_path(resource_path, custom_path)
-        params = BaseListParams(**kwargs)
-        filters = cls._populate_filters(params)
+        paginate_path = cls._populate_path(  # type: ignore[attr-defined]
+            resource_path, custom_path
+        )
+        params_dict = dict(kwargs)
+        filters = cls._populate_filters(  # type: ignore[attr-defined]
+            params_dict
+        )
 
         # Make request
+        paginate_method = getattr(cls, "PAGINATE_METHOD", "post")
         response = context.client.request(
-            cls.PAGINATE_METHOD, paginate_path, json=filters
+            paginate_method, paginate_path, json=filters
         )
-        return cls._build_page(response, context, **kwargs)
+        return cls._build_page(  # type: ignore[attr-defined,misc]
+            response, context, **kwargs
+        )
+
+    def search(cls: type, query: str, **kwargs: Unpack[ListParamsT]) -> Page[ResourceT]:
+        """
+        Search resources across the first n pages with optional filtering.
+        """
+        return cls.list(query=query, **kwargs)
 
     @classmethod
     def _build_page(
-        cls, response: "Any", context: "Aixplain", **kwargs: Unpack[ListParamsT]
+        cls: type, 
+        response: "Any", 
+        context: "Aixplain", 
+        **kwargs: Any
     ) -> Page[ResourceT]:
         """
         Build a page of resources from the response.
@@ -460,19 +536,26 @@ class PagedListResourceMixin(BaseListResourceMixin, Generic[ListParamsT, Resourc
             json_data = response
 
         items = json_data
-        if cls.PAGINATE_ITEMS_KEY and isinstance(json_data, dict):
-            items = json_data[cls.PAGINATE_ITEMS_KEY]
+        paginate_items_key = getattr(cls, "PAGINATE_ITEMS_KEY", "items")
+        if paginate_items_key and isinstance(json_data, dict):
+            items = json_data[paginate_items_key]
 
         total = len(items)
-        if cls.PAGINATE_TOTAL_KEY and isinstance(json_data, dict):
-            total = json_data[cls.PAGINATE_TOTAL_KEY]
+        paginate_total_key = getattr(cls, "PAGINATE_TOTAL_KEY", "total")
+        if paginate_total_key and isinstance(json_data, dict):
+            total = json_data[paginate_total_key]
 
         page_total = len(items)
-        if cls.PAGINATE_PAGE_TOTAL_KEY and isinstance(json_data, dict):
-            page_total = json_data[cls.PAGINATE_PAGE_TOTAL_KEY]
+        paginate_page_total_key = getattr(
+            cls, "PAGINATE_PAGE_TOTAL_KEY", "pageTotal"
+        )
+        if paginate_page_total_key and isinstance(json_data, dict):
+            page_total = json_data[paginate_page_total_key]
 
         # Build resources using shared method
-        results = cls._build_resources(items, context)
+        results = cls._build_resources(  # type: ignore[attr-defined]
+            items, context
+        )
 
         return Page(
             results=results,
@@ -482,7 +565,11 @@ class PagedListResourceMixin(BaseListResourceMixin, Generic[ListParamsT, Resourc
         )
 
     @classmethod
-    def _populate_path(cls, path: str, custom_path: Optional[str] = None) -> str:
+    def _populate_path(
+        cls, 
+        path: str, 
+        custom_path: Optional[str] = None
+    ) -> str:
         """
         Populate the path for pagination.
 
@@ -494,22 +581,25 @@ class PagedListResourceMixin(BaseListResourceMixin, Generic[ListParamsT, Resourc
             str: The populated path.
         """
         base_path = custom_path if custom_path is not None else path
-        if cls.PAGINATE_PATH:
-            return f"{base_path}/{cls.PAGINATE_PATH}"
+        paginate_path = getattr(cls, "PAGINATE_PATH", "paginate")
+        if paginate_path:
+            return f"{base_path}/{paginate_path}"
         return base_path
 
     @classmethod
-    def _populate_filters(cls, params: BaseListParams) -> dict:
+    def _populate_filters(cls, params: dict) -> dict:
         """
         Populate the filters for pagination.
 
         Args:
-            params: BaseListParams: The parameters to populate.
+            params: dict: The parameters to populate.
 
         Returns:
             dict: The populated filters.
         """
-        filters = cls._populate_base_filters(params)
+        # Convert to BaseListParams for type safety
+        list_params = BaseListParams(**params)
+        filters = cls._populate_base_filters(list_params)
 
         # Add pagination-specific filters
         if params.get("page_number") is not None:
@@ -521,7 +611,9 @@ class PagedListResourceMixin(BaseListResourceMixin, Generic[ListParamsT, Resourc
         return filters
 
 
-class PlainListResourceMixin(BaseListResourceMixin, Generic[ListParamsT, ResourceT]):
+class PlainListResourceMixin(
+    BaseListResourceMixin, Generic[ListParamsT, ResourceT]
+):
     """Mixin for listing resources without pagination.
 
     This mixin provides a simple list method that returns all resources
@@ -533,35 +625,46 @@ class PlainListResourceMixin(BaseListResourceMixin, Generic[ListParamsT, Resourc
         LIST_ITEMS_KEY: str: The key for the response items.
     """
 
-    LIST_METHOD = "get"
-    LIST_ITEMS_KEY = "items"
+    LIST_METHOD: str = "get"
+    LIST_ITEMS_KEY: str = "items"
 
     @classmethod
-    def list(cls, **kwargs: Unpack[ListParamsT]) -> List[ResourceT]:
+    def list(cls: type, **kwargs: Unpack[ListParamsT]) -> List[ResourceT]:
         """
         List all resources without pagination.
 
         Args:
-            kwargs: Unpack[ListParamsT]: The keyword arguments.
+            kwargs: The keyword arguments.
 
         Returns:
             List[ResourceT]: List of BaseResource instances
         """
         # Get context and path
-        context, resource_path, _ = cls._get_context_and_path(**kwargs)
+        context, resource_path, _ = cls._get_context_and_path(
+            **kwargs
+        )
 
         # Build filters
-        params = BaseListParams(**kwargs)
-        filters = cls._populate_plain_filters(params)
+        params_dict = dict(kwargs)
+        filters = cls._populate_plain_filters(  # type: ignore[attr-defined]
+            params_dict
+        )
 
         # Make request
+        list_method = getattr(cls, "LIST_METHOD", "get")
         response = context.client.request(
-            cls.LIST_METHOD, resource_path, params=filters
+            list_method, resource_path, params=filters
         )
-        return cls._build_plain_list(response, context)
+        return cls._build_plain_list(  # type: ignore[attr-defined]
+            response, context
+        )
 
     @classmethod
-    def _build_plain_list(cls, response: "Any", context: "Aixplain") -> List[ResourceT]:
+    def _build_plain_list(
+        cls: type, 
+        response: "Any", 
+        context: "Aixplain"
+    ) -> List[ResourceT]:
         """
         Build a list of resources from the response.
         Accepts either a requests.Response or already-decoded list/dict.
@@ -572,41 +675,44 @@ class PlainListResourceMixin(BaseListResourceMixin, Generic[ListParamsT, Resourc
             json_data = response
 
         items = json_data
+        list_items_key = getattr(cls, "LIST_ITEMS_KEY", "items")
         if (
-            cls.LIST_ITEMS_KEY
+            list_items_key
             and isinstance(json_data, dict)
-            and cls.LIST_ITEMS_KEY in json_data
+            and list_items_key in json_data
         ):
-            items = json_data[cls.LIST_ITEMS_KEY]
+            items = json_data[list_items_key]
 
         # Build resources using shared method
         return cls._build_resources(items, context)
 
     @classmethod
-    def _populate_plain_filters(cls, params: BaseListParams) -> dict:
+    def _populate_plain_filters(cls: type, params: dict) -> dict:
         """
         Populate the filters for plain listing.
 
         Args:
-            params: BaseListParams: The parameters to populate.
+            params: dict: The parameters to populate.
 
         Returns:
             dict: The populated filters.
         """
-        return cls._populate_base_filters(params)
+        # Convert to BaseListParams for type safety
+        list_params = BaseListParams(**params)
+        return cls._populate_base_filters(list_params)
 
 
 class GetResourceMixin(BaseMixin, Generic[GetParamsT, ResourceT]):
     """Mixin for getting a resource."""
 
     @classmethod
-    def get(cls: Type[ResourceT], id: Any, **kwargs: Unpack[GetParamsT]) -> ResourceT:
+    def get(cls: type, id: Any, **kwargs: Unpack[GetParamsT]) -> ResourceT:
         """
         Retrieve a single resource by its ID (or other get parameters).
 
         Args:
             id: Any: The ID of the resource to get.
-            kwargs: Unpack[GetParamsT]: Get parameters to pass to the request.
+            kwargs: Get parameters to pass to the request.
 
         Returns:
             BaseResource: Instance of the BaseResource class.
@@ -624,7 +730,11 @@ class GetResourceMixin(BaseMixin, Generic[GetParamsT, ResourceT]):
         encoded_id = encode_resource_id(id)
         path = f"{resource_path}/{encoded_id}"
         obj = context.client.get(path, **kwargs)
-        instance = cls.from_dict(obj)
+        
+        if isinstance(cls, HasFromDict):
+            instance = cls.from_dict(obj)
+        else:
+            instance = cls(**obj)  # type: ignore[call-arg]
         setattr(instance, "context", context)
         return instance
 
@@ -632,7 +742,7 @@ class GetResourceMixin(BaseMixin, Generic[GetParamsT, ResourceT]):
 class DeleteResourceMixin(BaseMixin, Generic[DeleteParamsT, ResourceT]):
     """Mixin for deleting a resource."""
 
-    def delete(self, **kwargs: Unpack[DeleteParamsT]) -> ResourceT:
+    def delete(self, **kwargs: Unpack[DeleteParamsT]) -> "BaseResource":
         """
         Delete a resource.
         """
@@ -648,15 +758,15 @@ class DeleteResourceMixin(BaseMixin, Generic[DeleteParamsT, ResourceT]):
 class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
     """Mixin for runnable resources."""
 
-    RUN_ACTION_PATH = "run"
-    RESPONSE_CLASS = Result  # Default response class
+    RUN_ACTION_PATH: str = "run"
+    RESPONSE_CLASS: type = Result  # Default response class
 
     def build_run_payload(self, **kwargs: Unpack[RunParamsT]) -> dict:
         """
         Build the payload for the run action.
 
-        This method automatically handles dataclass serialization if the run parameters
-        are dataclasses with @dataclass_json decorator.
+        This method automatically handles dataclass serialization if the run 
+        parameters are dataclasses with @dataclass_json decorator.
         """
         # Default behavior for TypedDict or other parameter types
         return kwargs
@@ -665,8 +775,9 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
         """
         Build the URL for the run action.
 
-        This method can be overridden by subclasses to provide custom URL construction.
-        The default implementation uses the resource path with the run action.
+        This method can be overridden by subclasses to provide custom URL 
+        construction. The default implementation uses the resource path with 
+        the run action.
 
         Returns:
             str: The URL to use for the run action
@@ -691,8 +802,9 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
         """
         Handle the response from a run request.
 
-        This method can be overridden by subclasses to handle different response patterns.
-        The default implementation assumes a polling URL in the 'data' field.
+        This method can be overridden by subclasses to handle different 
+        response patterns. The default implementation assumes a polling URL 
+        in the 'data' field.
 
         Args:
             response: The raw response from the API
@@ -708,7 +820,8 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
             and response["data"].startswith("http")
         ):
             # This is a polling URL case
-            return self.RESPONSE_CLASS.from_dict(
+            response_class = getattr(self, "RESPONSE_CLASS", Result)
+            return response_class.from_dict(
                 {
                     "status": response.get("status", "IN_PROGRESS"),
                     "url": response["data"],
@@ -717,7 +830,8 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
             )
         elif response.get("status") == "IN_PROGRESS" and response.get("data"):
             # This is a polling URL case
-            return self.RESPONSE_CLASS.from_dict(
+            response_class = getattr(self, "RESPONSE_CLASS", Result)
+            return response_class.from_dict(
                 {
                     "status": response["status"],
                     "url": response["data"],
@@ -745,7 +859,8 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
             if status == "FAILED":
                 raise create_operation_failed_error(response)
 
-            return self.RESPONSE_CLASS.from_dict(filtered_response)
+            response_class = getattr(self, "RESPONSE_CLASS", Result)
+            return response_class.from_dict(filtered_response)
 
     def run(self, **kwargs: Unpack[RunParamsT]) -> ResultT:
         """
@@ -813,7 +928,11 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
             # Re-raise as APIError instead of silently returning failed result
             from .exceptions import APIError
 
-            raise APIError(f"Polling failed: {str(e)}", 0, {"poll_url": poll_url})
+            raise APIError(
+                f"Polling failed: {str(e)}", 
+                0, 
+                {"poll_url": poll_url}
+            )
 
         # Handle polling response - it might not have all the expected fields
         filtered_response = {
@@ -831,7 +950,8 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
         if status == "FAILED":
             raise create_operation_failed_error(response)
 
-        return self.RESPONSE_CLASS.from_dict(filtered_response)
+        response_class = getattr(self, "RESPONSE_CLASS", Result)
+        return response_class.from_dict(filtered_response)
 
     def sync_poll(self, poll_url: str, **kwargs: Unpack[RunParamsT]) -> ResultT:
         """
@@ -881,10 +1001,11 @@ class ToolMixin(BaseMixin):
     the TOOL_TYPE class variable and the resource's id to create a simple
     tool representation.
 
-    Subclasses must define a TOOL_TYPE class variable with a ToolType enum value.
+    Subclasses must define a TOOL_TYPE class variable with a ToolType enum 
+    value.
     """
 
-    TOOL_TYPE: ToolType = None  # Must be set by subclasses
+    TOOL_TYPE: Optional[ToolType] = None  # Must be set by subclasses
 
     def as_tool(self) -> Dict[str, Any]:
         """Convert the resource to a tool representation.
@@ -895,7 +1016,8 @@ class ToolMixin(BaseMixin):
         """
         if not self.TOOL_TYPE:
             raise NotImplementedError(
-                f"{self.__class__.__name__} must define TOOL_TYPE class variable"
+                f"{self.__class__.__name__} must define TOOL_TYPE class "
+                "variable"
             )
 
         return {

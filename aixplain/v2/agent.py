@@ -118,11 +118,11 @@ class Agent(
             self.save(status=AssetStatus.DRAFT)
 
     @classmethod
-    def get(cls: type["Agent"], id: str, **kwargs: Any) -> "Agent":
+    def get(cls: type["Agent"], id: str, **kwargs: Unpack[BaseGetParams]) -> "Agent":
         return super().get(id, **kwargs)
 
     @classmethod
-    def list(cls: type["Agent"], **kwargs: Any) -> "Page[Agent]":
+    def list(cls: type["Agent"], **kwargs: Unpack[BaseListParams]) -> "Page[Agent]":
         return super().list(**kwargs)
 
     def build_save_payload(self, **kwargs: Any) -> dict:

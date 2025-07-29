@@ -102,7 +102,7 @@ class Utility(
         return payload
 
     @classmethod
-    def get(cls: type["Utility"], id: str, **kwargs: Any) -> "Utility":
+    def get(cls: type["Utility"], id: str, **kwargs: Unpack[BaseGetParams]) -> "Utility":
         return super().get(id, resource_path="sdk/models", **kwargs)
 
     @classmethod

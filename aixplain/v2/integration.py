@@ -1,7 +1,7 @@
 from typing import Optional, TypedDict, List, Any
 from typing_extensions import Unpack
 from enum import Enum
-from .resource import BaseListParams, BaseResult, Page
+from .resource import BaseListParams, BaseGetParams, BaseResult, Page
 from .model import Model
 from .enums import Function, ToolType
 
@@ -75,7 +75,7 @@ class Integration(Model):
     Credentials = Credentials
 
     @classmethod
-    def get(cls: type["Integration"], id: str, **kwargs: Unpack[BaseListParams]) -> "Integration":
+    def get(cls: type["Integration"], id: str, **kwargs: Unpack[BaseGetParams]) -> "Integration":
         return super().get(id, **kwargs)
 
     @classmethod

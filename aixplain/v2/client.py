@@ -166,7 +166,7 @@ class AixplainClient:
         response = self.request_raw(method, path, **kwargs)
         return response.json()
 
-    def get(self, path: str, **kwargs: Any) -> requests.Response:
+    def get(self, path: str, **kwargs: Any) -> dict:
         """
         Sends an HTTP GET request.
 
