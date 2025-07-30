@@ -17,7 +17,7 @@ from .resource import (
     BaseRunParams,
     BaseResult,
     RunnableResourceMixin,
-    Page
+    Page,
 )
 
 
@@ -89,9 +89,7 @@ class Agent(
     id: str = ""
     name: str = ""
     status: str = ""
-    team_id: Optional[int] = field(
-        default=None, metadata=config(field_name="teamId")
-    )
+    team_id: Optional[int] = field(default=None, metadata=config(field_name="teamId"))
     description: str = ""
     role: str = ""
     tasks: Optional[List[Any]] = field(default_factory=list)
@@ -119,21 +117,27 @@ class Agent(
         self.status = self.status or AssetStatus.DRAFT
 
     def before_run(self, **kwargs: Unpack[AgentRunParams]) -> None:
-        pass
+        # If the agent is draft or not set, and it is modified, implicitly save it
+        if self.status in [AssetStatus.DRAFT, None]:
+            if self.is_modified:
+                self.save()
+        elif self.status == AssetStatus.ONBOARDED:
+            if self.is_modified:
+                raise ValueError(
+                    "Agent is onboarded and cannot be modified unless you explicitly save it."
+                )
 
-    def after_run(self, result: Union[AgentRunResult, Exception], **kwargs: Unpack[AgentRunParams]) -> None:
+    def after_run(
+        self, result: Union[AgentRunResult, Exception], **kwargs: Unpack[AgentRunParams]
+    ) -> None:
         pass
 
     @classmethod
-    def get(
-        cls: type["Agent"], id: str, **kwargs: Unpack[BaseGetParams]
-    ) -> "Agent":
+    def get(cls: type["Agent"], id: str, **kwargs: Unpack[BaseGetParams]) -> "Agent":
         return super().get(id, **kwargs)
 
     @classmethod
-    def list(
-        cls: type["Agent"], **kwargs: Unpack[BaseListParams]
-    ) -> "Page[Agent]":
+    def list(cls: type["Agent"], **kwargs: Unpack[BaseListParams]) -> "Page[Agent]":
         return super().list(**kwargs)
 
     def build_save_payload(self, **kwargs: Any) -> dict:
@@ -142,13 +146,7 @@ class Agent(
         """
         payload = self.to_dict()
         payload["assets"] = payload.pop("tools")
-        payload["tools"] = [
-            {
-                "type": "llm", 
-                "description": "main", 
-                "parameters": []
-            }
-        ]
+        payload["tools"] = [{"type": "llm", "description": "main", "parameters": []}]
         payload["role"] = payload.pop("instructions")
         return payload
 

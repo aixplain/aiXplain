@@ -75,11 +75,15 @@ class Integration(Model):
     Credentials = Credentials
 
     @classmethod
-    def get(cls: type["Integration"], id: str, **kwargs: Unpack[BaseGetParams]) -> "Integration":
+    def get(
+        cls: type["Integration"], id: str, **kwargs: Unpack[BaseGetParams]
+    ) -> "Integration":
         return super().get(id, **kwargs)
 
     @classmethod
-    def list(cls: type["Integration"], **kwargs: Unpack[IntegrationListParams]) -> "Page[Integration]":
+    def list(
+        cls: type["Integration"], **kwargs: Unpack[IntegrationListParams]
+    ) -> "Page[Integration]":
         return super().list(**kwargs)
 
     def run(self, **kwargs: Unpack[IntegrationRunParams]) -> IntegrationResult:

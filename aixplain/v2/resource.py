@@ -56,28 +56,30 @@ def encode_resource_id(resource_id: str) -> str:
 @runtime_checkable
 class HasContext(Protocol):
     """Protocol for classes that have a context attribute."""
+
     context: Any
 
 
 @runtime_checkable
 class HasResourcePath(Protocol):
     """Protocol for classes that have a RESOURCE_PATH attribute."""
+
     RESOURCE_PATH: str
 
 
 @runtime_checkable
 class HasFromDict(Protocol):
     """Protocol for classes that have a from_dict method."""
+
     @classmethod
-    def from_dict(cls: type, data: dict) -> Any:
-        ...
+    def from_dict(cls: type, data: dict) -> Any: ...
 
 
 @runtime_checkable
 class HasToDict(Protocol):
     """Protocol for classes that have a to_dict method."""
-    def to_dict(self) -> dict:
-        ...
+
+    def to_dict(self) -> dict: ...
 
 
 class BaseMixin:
@@ -107,10 +109,7 @@ class BaseResource:
     """
 
     context: Any = field(
-        repr=False, 
-        compare=False, 
-        metadata=config(exclude=lambda x: True), 
-        init=False
+        repr=False, compare=False, metadata=config(exclude=lambda x: True), init=False
     )
     RESOURCE_PATH: str = field(
         default="",
@@ -134,7 +133,7 @@ class BaseResource:
     def _get_serializable_state(self) -> dict:
         """
         Get the current state of the resource as a serializable dictionary.
-        
+
         Returns:
             dict: The serializable state of the resource
         """
@@ -145,14 +144,14 @@ class BaseResource:
     def _is_state_changed(self) -> bool:
         """
         Check if the current state differs from the saved state.
-        
+
         Returns:
             bool: True if the state has changed, False otherwise
         """
         if self._saved_state is None:
             # No saved state means this is a new resource or hasn't been saved
             return True
-        
+
         current_state = self._get_serializable_state()
         return current_state != self._saved_state
 
@@ -160,7 +159,7 @@ class BaseResource:
     def is_modified(self) -> bool:
         """
         Check if the resource has been modified since last save.
-        
+
         Returns:
             bool: True if the resource has been modified, False otherwise
         """
@@ -204,6 +203,8 @@ class BaseResource:
         for key, value in kwargs.items():
             setattr(self, key, value)
 
+        self.before_save(kwargs)
+
         payload = self.build_save_payload(**kwargs)
         result = None
         if self.id:
@@ -223,7 +224,7 @@ class BaseResource:
         self,
         method: Optional[str] = None,
         action_paths: Optional[List[str]] = None,
-        **kwargs: Any
+        **kwargs: Any,
     ) -> requests.Response:
         """
         Internal method to perform actions on the resource.
@@ -294,7 +295,7 @@ class BaseListParams(BaseParams):
 
     Attributes:
         query: str: The query string.
-        ownership: Tuple[OwnershipType, List[OwnershipType]]: The ownership 
+        ownership: Tuple[OwnershipType, List[OwnershipType]]: The ownership
                   type.
         sort_by: SortBy: The attribute to sort by.
         sort_order: SortOrder: The order to sort by.
@@ -415,11 +416,7 @@ class Page(Generic[ResourceT]):
     total: int
 
     def __init__(
-        self, 
-        results: List[ResourceT], 
-        page_number: int, 
-        page_total: int, 
-        total: int
+        self, results: List[ResourceT], page_number: int, page_total: int, total: int
     ):
         self.results = results
         self.page_number = page_number
@@ -438,11 +435,10 @@ class BaseListResourceMixin(BaseMixin, Generic[ListParamsT, ResourceT]):
 
     @classmethod
     def _get_context_and_path(
-        cls: type, 
-        **kwargs: Any
+        cls: type, **kwargs: Any
     ) -> Tuple["Aixplain", str, Optional[str]]:
         """Get context and resource path for listing operations."""
-        # Use dict constructor instead of TypedDict unpacking for better mypy 
+        # Use dict constructor instead of TypedDict unpacking for better mypy
         # support
         params_dict = dict(kwargs)
         custom_path = params_dict.get("resource_path")
@@ -495,9 +491,7 @@ class BaseListResourceMixin(BaseMixin, Generic[ListParamsT, ResourceT]):
         return filters
 
 
-class PagedListResourceMixin(
-    BaseListResourceMixin, Generic[ListParamsT, ResourceT]
-):
+class PagedListResourceMixin(BaseListResourceMixin, Generic[ListParamsT, ResourceT]):
     """Mixin for listing resources with pagination.
 
     Attributes:
@@ -533,37 +527,29 @@ class PagedListResourceMixin(
         # Set default pagination values
         default_page_number = getattr(cls, "PAGINATE_DEFAULT_PAGE_NUMBER", 0)
         default_page_size = getattr(cls, "PAGINATE_DEFAULT_PAGE_SIZE", 20)
-        
+
         kwargs.setdefault("page_number", default_page_number)
         kwargs.setdefault("page_size", default_page_size)
 
         # Get context and path
-        context, resource_path, custom_path = cls._get_context_and_path(
-            **kwargs
-        )
+        context, resource_path, custom_path = cls._get_context_and_path(**kwargs)
 
         # Build path and filters
         paginate_path = cls._populate_path(  # type: ignore[attr-defined]
             resource_path, custom_path
         )
         params_dict = dict(kwargs)
-        filters = cls._populate_filters(  # type: ignore[attr-defined]
-            params_dict
-        )
+        filters = cls._populate_filters(params_dict)  # type: ignore[attr-defined]
 
         # Make request
         paginate_method = getattr(cls, "PAGINATE_METHOD", "post")
-        response = context.client.request(
-            paginate_method, paginate_path, json=filters
-        )
+        response = context.client.request(paginate_method, paginate_path, json=filters)
         return cls._build_page(  # type: ignore[attr-defined,misc]
             response, context, **kwargs
         )
 
     @classmethod
-    def search(
-        cls: type, query: str, **kwargs: Unpack[ListParamsT]
-    ) -> Page[ResourceT]:
+    def search(cls: type, query: str, **kwargs: Unpack[ListParamsT]) -> Page[ResourceT]:
         """
         Search resources across the first n pages with optional filtering.
         """
@@ -571,10 +557,7 @@ class PagedListResourceMixin(
 
     @classmethod
     def _build_page(
-        cls: type, 
-        response: "Any", 
-        context: "Aixplain", 
-        **kwargs: Any
+        cls: type, response: "Any", context: "Aixplain", **kwargs: Any
     ) -> Page[ResourceT]:
         """
         Build a page of resources from the response.
@@ -596,16 +579,12 @@ class PagedListResourceMixin(
             total = json_data[paginate_total_key]
 
         page_total = len(items)
-        paginate_page_total_key = getattr(
-            cls, "PAGINATE_PAGE_TOTAL_KEY", "pageTotal"
-        )
+        paginate_page_total_key = getattr(cls, "PAGINATE_PAGE_TOTAL_KEY", "pageTotal")
         if paginate_page_total_key and isinstance(json_data, dict):
             page_total = json_data[paginate_page_total_key]
 
         # Build resources using shared method
-        results = cls._build_resources(  # type: ignore[attr-defined]
-            items, context
-        )
+        results = cls._build_resources(items, context)  # type: ignore[attr-defined]
 
         return Page(
             results=results,
@@ -615,11 +594,7 @@ class PagedListResourceMixin(
         )
 
     @classmethod
-    def _populate_path(
-        cls, 
-        path: str, 
-        custom_path: Optional[str] = None
-    ) -> str:
+    def _populate_path(cls, path: str, custom_path: Optional[str] = None) -> str:
         """
         Populate the path for pagination.
 
@@ -661,9 +636,7 @@ class PagedListResourceMixin(
         return filters
 
 
-class PlainListResourceMixin(
-    BaseListResourceMixin, Generic[ListParamsT, ResourceT]
-):
+class PlainListResourceMixin(BaseListResourceMixin, Generic[ListParamsT, ResourceT]):
     """Mixin for listing resources without pagination.
 
     This mixin provides a simple list method that returns all resources
@@ -690,30 +663,20 @@ class PlainListResourceMixin(
             List[ResourceT]: List of BaseResource instances
         """
         # Get context and path
-        context, resource_path, _ = cls._get_context_and_path(
-            **kwargs
-        )
+        context, resource_path, _ = cls._get_context_and_path(**kwargs)
 
         # Build filters
         params_dict = dict(kwargs)
-        filters = cls._populate_plain_filters(  # type: ignore[attr-defined]
-            params_dict
-        )
+        filters = cls._populate_plain_filters(params_dict)  # type: ignore[attr-defined]
 
         # Make request
         list_method = getattr(cls, "LIST_METHOD", "get")
-        response = context.client.request(
-            list_method, resource_path, params=filters
-        )
-        return cls._build_plain_list(  # type: ignore[attr-defined]
-            response, context
-        )
+        response = context.client.request(list_method, resource_path, params=filters)
+        return cls._build_plain_list(response, context)  # type: ignore[attr-defined]
 
     @classmethod
     def _build_plain_list(
-        cls: type, 
-        response: "Any", 
-        context: "Aixplain"
+        cls: type, response: "Any", context: "Aixplain"
     ) -> List[ResourceT]:
         """
         Build a list of resources from the response.
@@ -780,7 +743,7 @@ class GetResourceMixin(BaseMixin, Generic[GetParamsT, ResourceT]):
         encoded_id = encode_resource_id(id)
         path = f"{resource_path}/{encoded_id}"
         obj = context.client.get(path, **kwargs)
-        
+
         if isinstance(cls, HasFromDict):
             instance = cls.from_dict(obj)
         else:
@@ -817,7 +780,7 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
         """
         Build the payload for the run action.
 
-        This method automatically handles dataclass serialization if the run 
+        This method automatically handles dataclass serialization if the run
         parameters are dataclasses with @dataclass_json decorator.
         """
         # Default behavior for TypedDict or other parameter types
@@ -827,8 +790,8 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
         """
         Build the URL for the run action.
 
-        This method can be overridden by subclasses to provide custom URL 
-        construction. The default implementation uses the resource path with 
+        This method can be overridden by subclasses to provide custom URL
+        construction. The default implementation uses the resource path with
         the run action.
 
         Returns:
@@ -854,8 +817,8 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
         """
         Handle the response from a run request.
 
-        This method can be overridden by subclasses to handle different 
-        response patterns. The default implementation assumes a polling URL 
+        This method can be overridden by subclasses to handle different
+        response patterns. The default implementation assumes a polling URL
         in the 'data' field.
 
         Args:
@@ -995,11 +958,7 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
             # Re-raise as APIError instead of silently returning failed result
             from .exceptions import APIError
 
-            raise APIError(
-                f"Polling failed: {str(e)}", 
-                0, 
-                {"poll_url": poll_url}
-            )
+            raise APIError(f"Polling failed: {str(e)}", 0, {"poll_url": poll_url})
 
         # Handle polling response - it might not have all the expected fields
         filtered_response = {
@@ -1020,9 +979,7 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
         response_class = getattr(self, "RESPONSE_CLASS", Result)
         return response_class.from_dict(filtered_response)
 
-    def sync_poll(
-        self, poll_url: str, **kwargs: Unpack[RunParamsT]
-    ) -> ResultT:
+    def sync_poll(self, poll_url: str, **kwargs: Unpack[RunParamsT]) -> ResultT:
         """
         Keeps polling until an asynchronous operation is complete.
 
@@ -1070,7 +1027,7 @@ class ToolMixin(BaseMixin):
     the TOOL_TYPE class variable and the resource's id to create a simple
     tool representation.
 
-    Subclasses must define a TOOL_TYPE class variable with a ToolType enum 
+    Subclasses must define a TOOL_TYPE class variable with a ToolType enum
     value.
     """
 
@@ -1085,8 +1042,7 @@ class ToolMixin(BaseMixin):
         """
         if not self.TOOL_TYPE:
             raise NotImplementedError(
-                f"{self.__class__.__name__} must define TOOL_TYPE class "
-                "variable"
+                f"{self.__class__.__name__} must define TOOL_TYPE class " "variable"
             )
 
         return {

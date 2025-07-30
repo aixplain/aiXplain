@@ -94,23 +94,18 @@ class Tool(
 
     supplier: str = field(
         default="aixplain",  # Use lowercase to match working
-        metadata=dj_config(field_name="supplier")
+        metadata=dj_config(field_name="supplier"),
     )
     function: Optional[str] = field(
         default=None,  # Use None to match working
-        metadata=dj_config(field_name="function")
+        metadata=dj_config(field_name="function"),
     )
-    type: str = field(
-        default="model",
-        metadata=dj_config(field_name="type")
-    )
+    type: str = field(default="model", metadata=dj_config(field_name="type"))
     version: Optional[str] = field(
-        default=None,
-        metadata=dj_config(field_name="version")
+        default=None, metadata=dj_config(field_name="version")
     )
     asset_id: Optional[str] = field(
-        default=None, 
-        metadata=dj_config(field_name="assetId")
+        default=None, metadata=dj_config(field_name="assetId")
     )
     integration: Optional[Union[Integration, str]] = field(
         default=None, metadata=dj_config(exclude=lambda x: True)
@@ -125,17 +120,15 @@ class Tool(
         default_factory=list, metadata=dj_config(field_name="allowedActions")
     )
     auth_scheme: Optional[Integration.AuthenticationScheme] = field(
-        default=Integration.AuthenticationScheme.BEARER_TOKEN, 
-        metadata=dj_config(exclude=lambda x: True)
+        default=Integration.AuthenticationScheme.BEARER_TOKEN,
+        metadata=dj_config(exclude=lambda x: True),
     )
     parameters: Optional[List[dict]] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         if not self.id:
             if self.integration is None:
-                assert self.code is not None, (
-                    "Code is required to create a Tool"
-                )
+                assert self.code is not None, "Code is required to create a Tool"
                 # Use default integration ID for utility tools
                 self.integration = self.context.Integration.get(
                     self.DEFAULT_INTEGRATION_ID
@@ -175,14 +168,10 @@ class Tool(
             raise ValidationError("No integration set for this tool")
 
         if not self.auth_scheme:
-            raise ResourceError(
-                "No authentication provided for this tool"
-            )
+            raise ResourceError("No authentication provided for this tool")
 
         if not self.config:
-            raise ResourceError(
-                "No authentication credentials provided for this tool"
-            )
+            raise ResourceError("No authentication credentials provided for this tool")
 
         auth_credentials = {}
         if "token" in self.config:
