@@ -18,6 +18,7 @@ from .resource import (
     BaseResult,
     RunnableResourceMixin,
     Page,
+    ToolMixin,
 )
 
 
@@ -89,7 +90,9 @@ class Agent(
     id: str = ""
     name: str = ""
     status: str = ""
-    team_id: Optional[int] = field(default=None, metadata=config(field_name="teamId"))
+    team_id: Optional[int] = field(
+        default=None, metadata=config(field_name="teamId")
+    )
     description: str = ""
     role: str = ""
     tasks: Optional[List[Any]] = field(default_factory=list)
@@ -118,11 +121,15 @@ class Agent(
             self.save(status=AssetStatus.DRAFT)
 
     @classmethod
-    def get(cls: type["Agent"], id: str, **kwargs: Unpack[BaseGetParams]) -> "Agent":
+    def get(
+        cls: type["Agent"], id: str, **kwargs: Unpack[BaseGetParams]
+    ) -> "Agent":
         return super().get(id, **kwargs)
 
     @classmethod
-    def list(cls: type["Agent"], **kwargs: Unpack[BaseListParams]) -> "Page[Agent]":
+    def list(
+        cls: type["Agent"], **kwargs: Unpack[BaseListParams]
+    ) -> "Page[Agent]":
         return super().list(**kwargs)
 
     def build_save_payload(self, **kwargs: Any) -> dict:
@@ -130,37 +137,14 @@ class Agent(
         Build the payload for the save action.
         """
         payload = self.to_dict()
-        payload.pop("tools")  # Remove tools from payload
-
-        # Handle different types of tools
-        assets = []
-        for tool in self.tools:
-            if hasattr(tool, "get_parameters") and tool.get_parameters():
-                # Tool has parameters (like ConnectionTool)
-                tool_payload = {
-                    "id": tool.id,
-                    "name": tool.name,
-                    "description": getattr(tool, "description", ""),
-                    "supplier": "aixplain",
-                    "parameters": tool.get_parameters(),
-                    "function": getattr(tool, "function", "utilities"),
-                    "type": "model",
-                    "version": getattr(tool, "version", None),
-                    "assetId": tool.id,
-                }
-                assets.append(tool_payload)
-            elif hasattr(tool, "integration") and hasattr(tool.integration, "id"):
-                # v2 Tool object with integration
-                assets.append({"type": "model", "assetId": tool.integration.id})
-            elif hasattr(tool, "id"):
-                # Model object or other resource with direct id
-                assets.append({"type": "model", "assetId": tool.id})
-            else:
-                # Fallback for other tool types
-                assets.append({"type": "model", "assetId": str(tool)})
-
-        payload["assets"] = assets
-        payload["tools"] = [{"type": "llm", "description": "main", "parameters": []}]
+        payload["assets"] = payload.pop("tools")
+        payload["tools"] = [
+            {
+                "type": "llm", 
+                "description": "main", 
+                "parameters": []
+            }
+        ]
         payload["role"] = payload.pop("instructions")
         return payload
 
