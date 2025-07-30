@@ -20,7 +20,9 @@ class AixplainError(Exception):
 
     """Exception raised for errors in the Aixplain API."""
 
-    def __init__(self, message: Union[str, List[str]], error: str, status_code: int) -> None:
+    def __init__(
+        self, message: Union[str, List[str]], error: str, status_code: int
+    ) -> None:
         if isinstance(message, list):
             message = "\n".join(message)
         self.message = message
@@ -33,7 +35,7 @@ def create_retry_session(
     total: Optional[int] = None,
     backoff_factor: Optional[float] = None,
     status_forcelist: Optional[List[int]] = None,
-    **kwargs: Any
+    **kwargs: Any,
 ) -> requests.Session:
     """
     Creates a requests.Session with a specified retry strategy.

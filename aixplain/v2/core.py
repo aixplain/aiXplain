@@ -82,16 +82,11 @@ class Aixplain:
             "set the TEAM_API_KEY environment variable."
         )
 
-        self.base_url = (
-            backend_url or os.getenv("BACKEND_URL") or self.BACKEND_URL
-        )
+        self.base_url = backend_url or os.getenv("BACKEND_URL") or self.BACKEND_URL
         self.pipeline_url = (
-            pipeline_url or os.getenv("PIPELINES_RUN_URL") or 
-            self.PIPELINES_RUN_URL
+            pipeline_url or os.getenv("PIPELINES_RUN_URL") or self.PIPELINES_RUN_URL
         )
-        self.model_url = (
-            model_url or os.getenv("MODELS_RUN_URL") or self.MODELS_RUN_URL
-        )
+        self.model_url = model_url or os.getenv("MODELS_RUN_URL") or self.MODELS_RUN_URL
 
         self.init_client()
         self.init_resources()
@@ -113,6 +108,4 @@ class Aixplain:
         self.Agent = type("Agent", (Agent,), {"context": self})
         self.Utility = type("Utility", (Utility,), {"context": self})
         self.Tool = type("Tool", (Tool,), {"context": self})
-        self.Integration = type(
-            "Integration", (Integration,), {"context": self}
-        )
+        self.Integration = type("Integration", (Integration,), {"context": self})
