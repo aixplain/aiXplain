@@ -169,7 +169,7 @@ class Agent(Model, DeployableMixin[Tool]):
         wait_time: float = 0.5,
         content: Optional[Union[Dict[Text, Text], List[Text]]] = None,
         max_tokens: int = 4096,
-        max_iterations: int = 2,
+        max_iterations: int = 3,
         output_format: OutputFormat = OutputFormat.TEXT,
         expected_output: Optional[Union[BaseModel, Text, dict]] = None,
     ) -> AgentResponse:
