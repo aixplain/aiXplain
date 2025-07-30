@@ -138,7 +138,9 @@ class BaseResource:
             dict: The serializable state of the resource
         """
         # All BaseResource subclasses inherit to_dict() from @dataclass_json
-        # Internal fields are already excluded via metadata=config(exclude=lambda x: True)
+        # Internal fields are already excluded via metadata=config(
+        #     exclude=lambda x: True
+        # )
         return self.to_dict()
 
     def _is_state_changed(self) -> bool:
