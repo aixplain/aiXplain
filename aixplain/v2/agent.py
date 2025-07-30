@@ -117,10 +117,10 @@ class Agent(
         self.status = self.status or AssetStatus.DRAFT
 
     def before_run(self, **kwargs: Unpack[AgentRunParams]) -> None:
-        # If the agent is draft or not set, and it is modified, implicitly save it
+        # If the agent is draft or not set, and it is modified, implicitly save it as draft
         if self.status in [AssetStatus.DRAFT, None]:
             if self.is_modified:
-                self.save()
+                self.save(as_draft=True)
         elif self.status == AssetStatus.ONBOARDED:
             if self.is_modified:
                 raise ValueError(
@@ -131,6 +131,17 @@ class Agent(
         self, result: Union[AgentRunResult, Exception], **kwargs: Unpack[AgentRunParams]
     ) -> None:
         pass
+
+    def before_save(self, result: dict) -> None:
+        """
+        Callback to be called before the resource is saved.
+        Handles status transitions based on save type.
+        """
+        as_draft = result.pop("as_draft", False)
+        if as_draft:
+            self.status = AssetStatus.DRAFT
+        else:
+            self.status = AssetStatus.ONBOARDED
 
     @classmethod
     def get(cls: type["Agent"], id: str, **kwargs: Unpack[BaseGetParams]) -> "Agent":
