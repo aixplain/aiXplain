@@ -35,7 +35,8 @@ from aixplain.factories.team_agent_factory.utils import build_team_agent
 from aixplain.utils.request_utils import _request_with_retry
 from aixplain.modules.model.llm_model import LLM
 from aixplain.utils.llm_utils import get_llm_instance
-
+from pydantic import BaseModel
+from aixplain.modules.agent.output_format import OutputFormat
 
 class TeamAgentFactory:
     @classmethod
@@ -55,6 +56,8 @@ class TeamAgentFactory:
         inspectors: List[Inspector] = [],
         inspector_targets: List[Union[InspectorTarget, Text]] = [InspectorTarget.STEPS],
         instructions: Optional[Text] = None,
+        output_format: Optional[OutputFormat] = None,
+        expected_output: Optional[Union[BaseModel, Text, dict]] = None,
         **kwargs,
     ) -> TeamAgent:
         """Create a new team agent in the platform.
@@ -75,7 +78,8 @@ class TeamAgentFactory:
             inspector_targets: Which stages to be inspected during an execution of the team agent. (steps, output)
             use_mentalist_and_inspector: Whether to use the mentalist and inspector agents. (legacy)
             instructions: The instructions to guide the team agent (i.e. appended in the prompt of the team agent).
-
+            output_format: The output format to be used for the team agent.
+            expected_output: The expected output to be used for the team agent.
         Returns:
             A new team agent instance.
         """
@@ -173,7 +177,10 @@ class TeamAgentFactory:
                     "parameters": llm.get_parameters().to_list() if llm.get_parameters() else None,
                 }
             )
-
+        if output_format:
+            payload["outputFormat"] = output_format.value
+        if expected_output:
+            payload["expectedOutput"] = expected_output
         if supervisor_llm is not None:
             supervisor_llm = (
                 get_llm_instance(supervisor_llm, api_key=api_key) if isinstance(supervisor_llm, str) else supervisor_llm

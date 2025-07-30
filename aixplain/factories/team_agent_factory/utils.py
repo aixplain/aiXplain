@@ -12,7 +12,7 @@ from aixplain.modules.team_agent.inspector import Inspector
 from aixplain.factories.agent_factory import AgentFactory
 from aixplain.factories.model_factory import ModelFactory
 from aixplain.modules.model.model_parameters import ModelParameters
-
+from aixplain.modules.agent.output_format import OutputFormat
 
 GPT_4o_ID = "6646261c6eb563165658bbb1"
 
@@ -94,6 +94,8 @@ def build_team_agent(payload: Dict, agents: List[Agent] = None, api_key: Text = 
         inspector_targets=inspector_targets,
         api_key=api_key,
         status=AssetStatus(payload["status"]),
+        output_format=OutputFormat(payload.get("outputFormat", OutputFormat.TEXT)),
+        expected_output=payload.get("expectedOutput", None),
     )
     team_agent.url = urljoin(config.BACKEND_URL, f"sdk/agent-communities/{team_agent.id}/run")
 
