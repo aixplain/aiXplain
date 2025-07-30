@@ -1,4 +1,4 @@
-from typing import Union, List, Optional, Any
+from typing import Union, List, Optional, Any, Dict
 from typing_extensions import NotRequired, Unpack
 from dataclasses_json import dataclass_json, config
 from dataclasses import dataclass, field
@@ -105,3 +105,28 @@ class Model(
 
     def run(self, **kwargs: Unpack[ModelRunParams]) -> Result:
         return super().run(**kwargs)
+
+    def as_tool(self) -> Dict[str, Any]:
+        """Override as_tool to include model-specific information and parameters."""
+        base_tool = super().as_tool()
+        
+        # Add parameters if available
+        if self.parameters:
+            base_tool["parameters"] = self.parameters
+        
+        # Add model-specific information
+        base_tool["name"] = self.name
+        base_tool["description"] = self.description
+        base_tool["supplier"] = (
+            self.supplier.value["code"] 
+            if hasattr(self.supplier, "value") 
+            else str(self.supplier)
+        ) if self.supplier else None
+        base_tool["function"] = (
+            self.function.value 
+            if hasattr(self.function, "value") 
+            else str(self.function)
+        ) if self.function else None
+        base_tool["version"] = self.version
+        
+        return base_tool

@@ -513,6 +513,7 @@ class PagedListResourceMixin(
             response, context, **kwargs
         )
 
+    @classmethod
     def search(cls: type, query: str, **kwargs: Unpack[ListParamsT]) -> Page[ResourceT]:
         """
         Search resources across the first n pages with optional filtering.

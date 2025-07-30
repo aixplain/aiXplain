@@ -1,7 +1,7 @@
 from typing import Union, List, Optional, Any
 from typing_extensions import Unpack
-from dataclasses_json import dataclass_json
-from dataclasses import dataclass
+from dataclasses_json import dataclass_json, config as dj_config
+from dataclasses import dataclass, field
 
 from .resource import (
     BaseListParams,
@@ -9,9 +9,14 @@ from .resource import (
     Result,
     DeleteResourceMixin,
     BaseDeleteParams,
+    BaseGetParams,
+    GetResourceMixin,
+    BaseResource,
+    RunnableResourceMixin,
+    ToolMixin,
 )
+from .model import ModelRunParams
 from .integration import Integration
-from .model import Model
 from .exceptions import ValidationError, ResourceError
 
 
@@ -75,22 +80,62 @@ class ToolResult(Result):
 
 @dataclass_json
 @dataclass
-class Tool(Model, DeleteResourceMixin[BaseDeleteParams, "Tool"]):
-    RESPONSE_CLASS = ToolResult
+class Tool(
+    BaseResource,
+    GetResourceMixin[BaseGetParams, "Model"],
+    RunnableResourceMixin[ModelRunParams, Result],
+    DeleteResourceMixin[BaseDeleteParams, "Tool"],
+    ToolMixin,
+):
 
+    RESOURCE_PATH = "sdk/models"
+    RESPONSE_CLASS = ToolResult
     DEFAULT_INTEGRATION_ID = "686432941223092cb4294d3f"  # Script integration
-    integration: Optional[Union[Integration, str]] = None
-    config: Optional[dict] = None
-    code: Optional[str] = None
-    allowed_actions: Optional[List[str]] = None
-    auth_scheme: Optional[Integration.AuthenticationScheme] = (
-        Integration.AuthenticationScheme.BEARER_TOKEN
+
+    supplier: str = field(
+        default="aixplain",  # Use lowercase to match working
+        metadata=dj_config(field_name="supplier")
     )
+    function: Optional[str] = field(
+        default=None,  # Use None to match working
+        metadata=dj_config(field_name="function")
+    )
+    type: str = field(
+        default="model",
+        metadata=dj_config(field_name="type")
+    )
+    version: Optional[str] = field(
+        default=None,
+        metadata=dj_config(field_name="version")
+    )
+    asset_id: Optional[str] = field(
+        default=None, 
+        metadata=dj_config(field_name="assetId")
+    )
+    integration: Optional[Union[Integration, str]] = field(
+        default=None, metadata=dj_config(exclude=lambda x: True)
+    )
+    config: Optional[dict] = field(
+        default=None, metadata=dj_config(exclude=lambda x: True)
+    )
+    code: Optional[str] = field(
+        default=None, metadata=dj_config(exclude=lambda x: True)
+    )
+    allowed_actions: Optional[List[str]] = field(
+        default_factory=list, metadata=dj_config(field_name="allowedActions")
+    )
+    auth_scheme: Optional[Integration.AuthenticationScheme] = field(
+        default=Integration.AuthenticationScheme.BEARER_TOKEN, 
+        metadata=dj_config(exclude=lambda x: True)
+    )
+    parameters: Optional[List[dict]] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         if not self.id:
             if self.integration is None:
-                assert self.code is not None, "Code is required to create a Tool"
+                assert self.code is not None, (
+                    "Code is required to create a Tool"
+                )
                 # Use default integration ID for utility tools
                 self.integration = self.context.Integration.get(
                     self.DEFAULT_INTEGRATION_ID
@@ -110,6 +155,7 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, "Tool"]):
 
             # Auto-connect for integration tools
             self.connect()
+            self.parameters = self.get_parameters()
 
     def validate_allowed_actions(self) -> None:
         if self.allowed_actions:
@@ -129,10 +175,14 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, "Tool"]):
             raise ValidationError("No integration set for this tool")
 
         if not self.auth_scheme:
-            raise ResourceError("No authentication provided for this tool")
+            raise ResourceError(
+                "No authentication provided for this tool"
+            )
 
         if not self.config:
-            raise ResourceError("No authentication credentials provided for this tool")
+            raise ResourceError(
+                "No authentication credentials provided for this tool"
+            )
 
         auth_credentials = {}
         if "token" in self.config:
@@ -150,6 +200,7 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, "Tool"]):
             data=auth_credentials,
         )
         self.id = result.data["id"]
+        self.asset_id = self.id
 
     def _get_actions(self) -> List[ToolAction]:
         """Get input parameters for specific actions."""
@@ -198,3 +249,8 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, "Tool"]):
         """Run the tool."""
         kwargs.setdefault("action", self.allowed_actions[0])
         return super().run(**kwargs)
+
+    def build_run_url(self, **kwargs: Unpack[ModelRunParams]) -> str:
+        # Use api/v2/execute instead of api/v1/execute
+        url = f"{self.context.model_url}/{self.id}"
+        return url.replace("/api/v1/execute", "/api/v2/execute")
