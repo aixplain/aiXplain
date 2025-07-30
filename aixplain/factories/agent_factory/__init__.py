@@ -29,6 +29,7 @@ import os
 from aixplain.enums.function import Function
 from aixplain.enums.supplier import Supplier
 from aixplain.modules.agent import Agent, AgentTask, Tool
+from aixplain.modules.agent.output_format import OutputFormat
 from aixplain.modules.agent.tool.model_tool import ModelTool
 from aixplain.modules.agent.tool.pipeline_tool import PipelineTool
 from aixplain.modules.agent.tool.python_interpreter_tool import PythonInterpreterTool
@@ -41,7 +42,7 @@ from aixplain.modules.model.llm_model import LLM
 from aixplain.modules.pipeline import Pipeline
 from aixplain.utils import config
 from typing import Callable, Dict, List, Optional, Text, Union
-
+from pydantic import BaseModel
 from aixplain.utils.request_utils import _request_with_retry
 from urllib.parse import urljoin
 from aixplain.enums import DatabaseSourceType
@@ -61,6 +62,8 @@ class AgentFactory:
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
         version: Optional[Text] = None,
         tasks: List[AgentTask] = [],
+        output_format: Optional[OutputFormat] = None,
+        expected_output: Optional[Union[BaseModel, Text, dict]] = None,
     ) -> Agent:
         """Create a new agent in the platform.
 
@@ -80,7 +83,8 @@ class AgentFactory:
             supplier (Union[Dict, Text, Supplier, int], optional): owner of the agent. Defaults to "aiXplain".
             version (Optional[Text], optional): version of the agent. Defaults to None.
             tasks (List[AgentTask], optional): list of tasks for the agent. Defaults to [].
-
+            output_format (OutputFormat, optional): default output format for agent responses. Defaults to OutputFormat.TEXT.
+            expected_output (Union[BaseModel, Text, dict], optional): expected output. Defaults to None.
         Returns:
             Agent: created Agent
         """
@@ -134,6 +138,11 @@ class AgentFactory:
             payload["llmId"] = llm.id
             # Store the LLM object in payload to avoid recreating it
             payload["llm"] = llm
+            
+        if expected_output:
+            payload["expectedOutput"] = expected_output
+        if output_format:
+            payload["outputFormat"] = output_format.value
 
         agent = build_agent(payload=payload, tools=tools, api_key=api_key)
         agent.validate(raise_exception=True)
