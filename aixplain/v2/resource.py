@@ -17,6 +17,7 @@ from typing import (
     NotRequired,
     Protocol,
     runtime_checkable,
+    Union,
 )
 from typing_extensions import Unpack
 
@@ -118,20 +119,69 @@ class BaseResource:
         metadata=config(exclude=lambda x: True),
         init=False,
     )
+    _saved_state: Optional[dict] = field(
+        default=None,
+        repr=False,
+        compare=False,
+        metadata=config(exclude=lambda x: True),
+        init=False,
+    )
 
     id: str = ""
     name: str = ""
     description: str = ""
 
-    def on_save(self, result: dict) -> None:
+    def _get_serializable_state(self) -> dict:
         """
-        Callback to be called after the resource is saved.
+        Get the current state of the resource as a serializable dictionary.
+        
+        Returns:
+            dict: The serializable state of the resource
+        """
+        # All BaseResource subclasses inherit to_dict() from @dataclass_json
+        # Internal fields are already excluded via metadata=config(exclude=lambda x: True)
+        return self.to_dict()
+
+    def _is_state_changed(self) -> bool:
+        """
+        Check if the current state differs from the saved state.
+        
+        Returns:
+            bool: True if the state has changed, False otherwise
+        """
+        if self._saved_state is None:
+            # No saved state means this is a new resource or hasn't been saved
+            return True
+        
+        current_state = self._get_serializable_state()
+        return current_state != self._saved_state
+
+    @property
+    def is_modified(self) -> bool:
+        """
+        Check if the resource has been modified since last save.
+        
+        Returns:
+            bool: True if the resource has been modified, False otherwise
+        """
+        return self._is_state_changed()
+
+    def _update_saved_state(self) -> None:
+        """
+        Update the saved state to match the current state.
+        Called after successful save operations.
+        """
+        self._saved_state = self._get_serializable_state()
+
+    def before_save(self, result: dict) -> None:
+        """
+        Callback to be called before the resource is saved.
         """
         pass
 
-    def on_deploy(self) -> None:
+    def after_save(self, result: dict) -> None:
         """
-        Callback to be called after the resource is deployed.
+        Callback to be called after the resource is saved.
         """
         pass
 
@@ -165,13 +215,8 @@ class BaseResource:
                 "post", f"{resource_path}", json=payload
             )
         self.id = result["id"]
-        self.on_save(result)
-        return self
-
-    def deploy(self, **kwargs: Any) -> "BaseResource":
-        """Deploy the resource."""
-        self.save(status="onboarded")
-        self.on_deploy()
+        self._update_saved_state()
+        self.after_save(result)
         return self
 
     def _action(
@@ -425,6 +470,8 @@ class BaseListResourceMixin(BaseMixin, Generic[ListParamsT, ResourceT]):
                 # Fallback for classes without from_dict
                 obj = cls(**item)  # type: ignore[call-arg]
             setattr(obj, "context", context)
+            # Set the saved state to match the loaded state
+            obj._update_saved_state()
             resources.append(obj)
         return resources
 
@@ -514,7 +561,9 @@ class PagedListResourceMixin(
         )
 
     @classmethod
-    def search(cls: type, query: str, **kwargs: Unpack[ListParamsT]) -> Page[ResourceT]:
+    def search(
+        cls: type, query: str, **kwargs: Unpack[ListParamsT]
+    ) -> Page[ResourceT]:
         """
         Search resources across the first n pages with optional filtering.
         """
@@ -737,6 +786,8 @@ class GetResourceMixin(BaseMixin, Generic[GetParamsT, ResourceT]):
         else:
             instance = cls(**obj)  # type: ignore[call-arg]
         setattr(instance, "context", context)
+        # Set the saved state to match the loaded state
+        instance._update_saved_state()
         return instance
 
 
@@ -863,6 +914,14 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
             response_class = getattr(self, "RESPONSE_CLASS", Result)
             return response_class.from_dict(filtered_response)
 
+    def before_run(self, **kwargs: Unpack[RunParamsT]) -> ResultT:
+        pass
+
+    def after_run(
+        self, result: Union[ResultT, Exception], **kwargs: Unpack[RunParamsT]
+    ) -> None:
+        pass
+
     def run(self, **kwargs: Unpack[RunParamsT]) -> ResultT:
         """
         Run the resource synchronously with automatic polling.
@@ -873,13 +932,20 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
         Returns:
             Response instance from the configured response class
         """
+        self.before_run(**kwargs)
 
         # Start async execution
-        result = self.run_async(**kwargs)
+        try:
+            result = self.run_async(**kwargs)
 
-        # Check if we need to poll
-        if result.url and not result.completed:
-            return self.sync_poll(result.url, **kwargs)
+            # Check if we need to poll
+            if result.url and not result.completed:
+                return self.sync_poll(result.url, **kwargs)
+        except Exception as e:
+            self.after_run(e, **kwargs)
+            raise e
+        finally:
+            self.after_run(result, **kwargs)
 
         return result
 
@@ -954,7 +1020,9 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
         response_class = getattr(self, "RESPONSE_CLASS", Result)
         return response_class.from_dict(filtered_response)
 
-    def sync_poll(self, poll_url: str, **kwargs: Unpack[RunParamsT]) -> ResultT:
+    def sync_poll(
+        self, poll_url: str, **kwargs: Unpack[RunParamsT]
+    ) -> ResultT:
         """
         Keeps polling until an asynchronous operation is complete.
 

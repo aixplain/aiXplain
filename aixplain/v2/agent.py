@@ -17,8 +17,7 @@ from .resource import (
     BaseRunParams,
     BaseResult,
     RunnableResourceMixin,
-    Page,
-    ToolMixin,
+    Page
 )
 
 
@@ -117,8 +116,13 @@ class Agent(
         )
 
     def __post_init__(self) -> None:
-        if not self.id:
-            self.save(status=AssetStatus.DRAFT)
+        self.status = self.status or AssetStatus.DRAFT
+
+    def before_run(self, **kwargs: Unpack[AgentRunParams]) -> None:
+        pass
+
+    def after_run(self, result: Union[AgentRunResult, Exception], **kwargs: Unpack[AgentRunParams]) -> None:
+        pass
 
     @classmethod
     def get(
