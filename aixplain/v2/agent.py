@@ -119,7 +119,7 @@ class Agent(
     def before_run(
         self, *args: Any, **kwargs: Unpack[AgentRunParams]
     ) -> Optional[AgentRunResult]:
-        # If the agent is draft or not set, and it is modified, 
+        # If the agent is draft or not set, and it is modified,
         # implicitly save it as draft
         if self.status in [AssetStatus.DRAFT, None]:
             if self.is_modified:
@@ -133,10 +133,12 @@ class Agent(
         return None  # Continue with normal operation
 
     def after_run(
-        self, result: Union[AgentRunResult, Exception], 
-        *args: Any, **kwargs: Unpack[AgentRunParams]
+        self,
+        result: Union[AgentRunResult, Exception],
+        *args: Any,
+        **kwargs: Unpack[AgentRunParams],
     ) -> Optional[AgentRunResult]:
-        # Could implement caching, logging, or custom result transformation 
+        # Could implement caching, logging, or custom result transformation
         # here
         return None  # Return original result
 

@@ -45,60 +45,58 @@ logger = logging.getLogger(__name__)
 def with_hooks(func: Callable) -> Callable:
     """
     Generic decorator to add before/after hooks to resource operations.
-    
+
     This decorator automatically infers the operation name from the function name
     and provides a consistent pattern for all operations:
     - Before hooks can return early to bypass the operation
     - After hooks can transform the result
     - Error handling is consistent across all operations
     - Supports both positional and keyword arguments
-    
+
     Usage:
         @with_hooks
         def save(self, **kwargs):
             # operation implementation
-            
+
         @with_hooks
         def run(self, *args, **kwargs):
             # operation implementation with positional args
     """
     operation_name = func.__name__
-    
+
     @wraps(func)
     def wrapper(self, *args, **kwargs):
         # Call before hook with all arguments
-        before_method = getattr(self, f'before_{operation_name}', None)
+        before_method = getattr(self, f"before_{operation_name}", None)
         if before_method:
             early_result = before_method(*args, **kwargs)
             if early_result is not None:
                 return early_result
-        
+
         # Execute the operation
         try:
             result = func(self, *args, **kwargs)
-            
+
             # Call after hook (success case)
-            after_method = getattr(self, f'after_{operation_name}', None)
+            after_method = getattr(self, f"after_{operation_name}", None)
             if after_method:
                 custom_result = after_method(result, *args, **kwargs)
                 if custom_result is not None:
                     return custom_result
-            
+
             return result
-            
+
         except Exception as e:
             # Transform low-level exceptions to domain-specific errors
             if not isinstance(e, ResourceError):
-                raise ResourceError(
-                    f"Failed to {operation_name} resource: {e}"
-                )
-            
+                raise ResourceError(f"Failed to {operation_name} resource: {e}")
+
             # Call after hook (error case)
-            after_method = getattr(self, f'after_{operation_name}', None)
+            after_method = getattr(self, f"after_{operation_name}", None)
             if after_method:
                 after_method(e, *args, **kwargs)
             raise e
-    
+
     return wrapper
 
 
@@ -241,13 +239,13 @@ class BaseResource:
     def before_save(self, *args: Any, **kwargs: Any) -> Optional[dict]:
         """
         Optional callback called before the resource is saved.
-        
+
         Override this method to add custom logic before saving.
-        
+
         Args:
             *args: Positional arguments passed to the save operation
             **kwargs: Keyword arguments passed to the save operation
-            
+
         Returns:
             Optional[dict]: If not None, this result will be returned early,
                           bypassing the actual save operation. If None, the
@@ -260,15 +258,15 @@ class BaseResource:
     ) -> Optional[dict]:
         """
         Optional callback called after the resource is saved.
-        
+
         Override this method to add custom logic after saving.
-        
+
         Args:
-            result: The result from the save operation (dict on success, 
+            result: The result from the save operation (dict on success,
                    Exception on failure)
             *args: Positional arguments that were passed to the save operation
             **kwargs: Keyword arguments that were passed to the save operation
-            
+
         Returns:
             Optional[dict]: If not None, this result will be returned instead
                           of the original result. If None, the original result
@@ -297,7 +295,7 @@ class BaseResource:
             setattr(self, key, value)
 
         payload = self.build_save_payload(**kwargs)
-        
+
         # Execute the save operation
         if self.id:
             result = self.context.client.request(
@@ -307,7 +305,7 @@ class BaseResource:
             result = self.context.client.request(
                 "post", f"{resource_path}", json=payload
             )
-        
+
         # Update state on success
         self.id = result["id"]
         self._update_saved_state()
@@ -875,16 +873,18 @@ class DeleteResourceMixin(BaseMixin, Generic[DeleteParamsT, ResourceT]):
         self.id = None
 
     # Optional hook methods - only implement what you need
-    def before_delete(self, *args: Any, **kwargs: Unpack[DeleteParamsT]) -> Optional[bool]:
+    def before_delete(
+        self, *args: Any, **kwargs: Unpack[DeleteParamsT]
+    ) -> Optional[bool]:
         """
         Optional callback called before the resource is deleted.
-        
+
         Override this method to add custom logic before deleting.
-        
+
         Args:
             *args: Positional arguments passed to the delete operation
             **kwargs: Keyword arguments passed to the delete operation
-            
+
         Returns:
             Optional[bool]: If True, the delete operation will proceed.
                           If False, the delete operation will be cancelled.
@@ -897,15 +897,15 @@ class DeleteResourceMixin(BaseMixin, Generic[DeleteParamsT, ResourceT]):
     ) -> Optional[bool]:
         """
         Optional callback called after the resource is deleted.
-        
+
         Override this method to add custom logic after deleting.
-        
+
         Args:
-            result: The result from the delete operation (None on success, 
+            result: The result from the delete operation (None on success,
                    Exception on failure)
             *args: Positional arguments that were passed to the delete operation
             **kwargs: Keyword arguments that were passed to the delete operation
-            
+
         Returns:
             Optional[bool]: If not None, this value will be used to determine
                           if the delete was successful. If None, the original
@@ -1025,13 +1025,13 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
     def before_run(self, *args: Any, **kwargs: Unpack[RunParamsT]) -> Optional[ResultT]:
         """
         Optional callback called before the resource is run.
-        
+
         Override this method to add custom logic before running.
-        
+
         Args:
             *args: Positional arguments passed to the run operation
             **kwargs: Keyword arguments passed to the run operation
-            
+
         Returns:
             Optional[ResultT]: If not None, this result will be returned early,
                              bypassing the actual run operation. If None, the
@@ -1040,19 +1040,22 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
         return None
 
     def after_run(
-        self, result: Union[ResultT, Exception], *args: Any, **kwargs: Unpack[RunParamsT]
+        self,
+        result: Union[ResultT, Exception],
+        *args: Any,
+        **kwargs: Unpack[RunParamsT],
     ) -> Optional[ResultT]:
         """
         Optional callback called after the resource is run.
-        
+
         Override this method to add custom logic after running.
-        
+
         Args:
-            result: The result from the run operation (ResultT on success, 
+            result: The result from the run operation (ResultT on success,
                    Exception on failure)
             *args: Positional arguments that were passed to the run operation
             **kwargs: Keyword arguments that were passed to the run operation
-            
+
         Returns:
             Optional[ResultT]: If not None, this result will be returned instead
                              of the original result. If None, the original result
@@ -1078,7 +1081,7 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
         # Check if we need to poll
         if result.url and not result.completed:
             result = self.sync_poll(result.url, **kwargs)
-        
+
         return result
 
     def run_async(self, **kwargs: Unpack[RunParamsT]) -> ResultT:
