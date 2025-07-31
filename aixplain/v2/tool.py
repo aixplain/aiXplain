@@ -122,7 +122,6 @@ class Tool(
         default=Integration.AuthenticationScheme.NO_AUTH,
         metadata=dj_config(exclude=lambda x: True),
     )
-    status: Optional[str] = None
     parameters: Optional[List[dict]] = field(default_factory=list)
 
     def __post_init__(self) -> None:
@@ -259,15 +258,14 @@ class Tool(
         """Run the tool."""
         if len(args) > 0:
             kwargs["data"] = args[0]
+            args = args[1:]
 
-        action = kwargs.pop("action", None)
-        if not action:
-            action = self.allowed_actions[0] if self.allowed_actions else None
-
-        if not action:
+        if "action" not in kwargs and self.allowed_actions:
+            kwargs["action"] = self.allowed_actions[0]
+        else:
             raise ValueError("No action provided")
 
-        return super().run(action=action, **kwargs)
+        return super().run(*args, **kwargs)
 
     def build_run_url(self, **kwargs: Unpack[ModelRunParams]) -> str:
         # Use api/v2/execute instead of api/v1/execute
