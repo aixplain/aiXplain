@@ -17,7 +17,6 @@ from .resource import (
 )
 from .model import ModelRunParams
 from .integration import Integration
-from .exceptions import ValidationError, ResourceError
 
 
 @dataclass_json
@@ -66,8 +65,8 @@ class ToolListParams(BaseListParams):
 class ToolRunParams(BaseRunParams):
     """Parameters for running tools."""
 
-    action: Optional[str] = None
     data: dict
+    action: Optional[str] = None
 
 
 @dataclass_json
@@ -120,9 +119,10 @@ class Tool(
         default_factory=list, metadata=dj_config(field_name="allowedActions")
     )
     auth_scheme: Optional[Integration.AuthenticationScheme] = field(
-        default=Integration.AuthenticationScheme.BEARER_TOKEN,
+        default=Integration.AuthenticationScheme.NO_AUTH,
         metadata=dj_config(exclude=lambda x: True),
     )
+    status: Optional[str] = None
     parameters: Optional[List[dict]] = field(default_factory=list)
 
     def __post_init__(self) -> None:
@@ -163,24 +163,45 @@ class Tool(
                 action in available_actions for action in self.allowed_actions
             ), "All allowed actions must be available"
 
+    def validate_auth_credentials(self) -> dict:
+        """Validate and extract authentication credentials based on auth scheme."""
+        # Scheme to required fields mapping
+        scheme_fields = {
+            Integration.AuthenticationScheme.NO_AUTH: [],
+            Integration.AuthenticationScheme.BEARER_TOKEN: ["token"],
+            Integration.AuthenticationScheme.OAUTH2: ["client_id", "client_secret"],
+            Integration.AuthenticationScheme.OAUTH1: [
+                "consumer_key",
+                "consumer_secret",
+            ],
+            Integration.AuthenticationScheme.API_KEY: ["api_key"],
+            Integration.AuthenticationScheme.BASIC: ["username", "password"],
+        }
+
+        if self.auth_scheme not in scheme_fields:
+            raise ValueError(f"Unsupported authentication scheme: {self.auth_scheme}")
+
+        required_fields = scheme_fields[self.auth_scheme]
+
+        # Validate all required fields are present
+        for field_name in required_fields:
+            if field_name not in self.config:
+                raise AssertionError(
+                    f"{field_name.replace('_', ' ').title()} is required "
+                    f"for this tool"
+                )
+
+        # Extract and return credentials
+        credentials = {}
+        for field_name in required_fields:
+            credentials[field_name] = self.config.pop(field_name)
+
+        return credentials
+
     def connect(self) -> ToolResult:
-        if not self.integration:
-            raise ValidationError("No integration set for this tool")
-
-        if not self.auth_scheme:
-            raise ResourceError("No authentication provided for this tool")
-
-        if not self.config:
-            raise ResourceError("No authentication credentials provided for this tool")
-
-        auth_credentials = {}
-        if "token" in self.config:
-            auth_credentials["token"] = self.config.pop("token")
-        elif "client_id" in self.config and "client_secret" in self.config:
-            auth_credentials["client_id"] = self.config.pop("client_id")
-            auth_credentials["client_secret"] = self.config.pop("client_secret")
-        else:
-            raise ValueError("No authentication credentials provided for this tool")
+        """Connect the tool using validated authentication credentials."""
+        # Validate and extract authentication credentials
+        auth_credentials = self.validate_auth_credentials()
 
         # Build the connection payload based on authentication type
         result = self.integration.run(
@@ -234,10 +255,19 @@ class Tool(
             )
         return parameters
 
-    def run(self, **kwargs: Unpack[ToolRunParams]) -> ToolResult:
+    def run(self, *args: Any, **kwargs: Unpack[ToolRunParams]) -> ToolResult:
         """Run the tool."""
-        kwargs.setdefault("action", self.allowed_actions[0])
-        return super().run(**kwargs)
+        if len(args) > 0:
+            kwargs["data"] = args[0]
+
+        action = kwargs.pop("action", None)
+        if not action:
+            action = self.allowed_actions[0] if self.allowed_actions else None
+
+        if not action:
+            raise ValueError("No action provided")
+
+        return super().run(action=action, **kwargs)
 
     def build_run_url(self, **kwargs: Unpack[ModelRunParams]) -> str:
         # Use api/v2/execute instead of api/v1/execute

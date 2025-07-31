@@ -18,8 +18,11 @@ from typing import (
     Protocol,
     runtime_checkable,
     Union,
+    Callable,
+    Type,
 )
 from typing_extensions import Unpack
+from functools import wraps
 
 
 from .enums import OwnershipType, SortBy, SortOrder, ResponseStatus, ToolType
@@ -37,6 +40,86 @@ if TYPE_CHECKING:
 
 
 logger = logging.getLogger(__name__)
+
+
+# Hook decorator system
+def with_hooks(operation_name: str, return_type: Optional[Type] = None):
+    """
+    Decorator to add before/after hooks to resource operations.
+    
+    Args:
+        operation_name: Name of the operation (e.g., 'save', 'delete', 'run')
+        return_type: Expected return type for type checking
+    
+    Usage:
+        @with_hooks('save')
+        def save(self, **kwargs):
+            # operation implementation
+    """
+    def decorator(func: Callable) -> Callable:
+        @wraps(func)
+        def wrapper(self, **kwargs):
+            # Call before hook
+            before_method = getattr(self, f'before_{operation_name}', None)
+            if before_method:
+                early_result = before_method(**kwargs)
+                if early_result is not None:
+                    return early_result
+            
+            # Execute the operation
+            try:
+                result = func(self, **kwargs)
+                
+                # Call after hook (success case)
+                after_method = getattr(self, f'after_{operation_name}', None)
+                if after_method:
+                    custom_result = after_method(result, **kwargs)
+                    if custom_result is not None:
+                        # Handle different return types based on operation
+                        if operation_name == 'save':
+                            # For save operations, custom_result can be a dict 
+                            # to update self
+                            if isinstance(custom_result, dict):
+                                for key, value in custom_result.items():
+                                    setattr(self, key, value)
+                            else:
+                                return custom_result
+                        elif operation_name == 'delete':
+                            # For delete operations, custom_result can be a bool
+                            # to indicate success
+                            if custom_result is False:
+                                raise ResourceError(
+                                    f"{operation_name} operation was "
+                                    f"cancelled by hook"
+                                )
+                        else:
+                            # For other operations (like run), return the 
+                            # custom result
+                            return custom_result
+                
+                return result
+                
+            except Exception as e:
+                # Transform low-level exceptions to domain-specific errors
+                if operation_name == 'save':
+                    if not isinstance(e, ResourceError):
+                        raise ResourceError(f"Failed to save resource: {e}")
+                elif operation_name == 'delete':
+                    if not isinstance(e, ResourceError):
+                        raise ResourceError(f"Failed to delete resource: {e}")
+                elif operation_name == 'run':
+                    if not isinstance(e, (ResourceError, APIError, 
+                                         TimeoutError)):
+                        raise ResourceError(f"Failed to run resource: {e}")
+                
+                # Call after hook (error case)
+                after_method = getattr(self, f'after_{operation_name}', None)
+                if after_method:
+                    after_method(e, **kwargs)
+                raise e
+        
+        return wrapper
+    return decorator
 
 
 def encode_resource_id(resource_id: str) -> str:
@@ -174,17 +257,42 @@ class BaseResource:
         """
         self._saved_state = self._get_serializable_state()
 
-    def before_save(self, result: dict) -> None:
+    # Optional hook methods - only implement what you need
+    def before_save(self, **kwargs: Any) -> Optional[dict]:
         """
-        Callback to be called before the resource is saved.
+        Optional callback called before the resource is saved.
+        
+        Override this method to add custom logic before saving.
+        
+        Args:
+            **kwargs: The parameters being passed to the save operation
+            
+        Returns:
+            Optional[dict]: If not None, this result will be returned early,
+                          bypassing the actual save operation. If None, the
+                          save operation will proceed normally.
         """
-        pass
+        return None
 
-    def after_save(self, result: dict) -> None:
+    def after_save(
+        self, result: Union[dict, Exception], **kwargs: Any
+    ) -> Optional[dict]:
         """
-        Callback to be called after the resource is saved.
+        Optional callback called after the resource is saved.
+        
+        Override this method to add custom logic after saving.
+        
+        Args:
+            result: The result from the save operation (dict on success, 
+                   Exception on failure)
+            **kwargs: The parameters that were passed to the save operation
+            
+        Returns:
+            Optional[dict]: If not None, this result will be returned instead
+                          of the original result. If None, the original result
+                          will be returned.
         """
-        pass
+        return None
 
     def build_save_payload(self, **kwargs: Any) -> dict:
         """
@@ -194,6 +302,7 @@ class BaseResource:
             return self.to_dict()
         return {}
 
+    @with_hooks('save')
     def save(self, **kwargs: Any) -> "BaseResource":
         """Save the resource.
 
@@ -205,10 +314,9 @@ class BaseResource:
         for key, value in kwargs.items():
             setattr(self, key, value)
 
-        self.before_save(kwargs)
-
         payload = self.build_save_payload(**kwargs)
-        result = None
+        
+        # Execute the save operation
         if self.id:
             result = self.context.client.request(
                 "put", f"{resource_path}/{self.encoded_id}", json=payload
@@ -217,9 +325,10 @@ class BaseResource:
             result = self.context.client.request(
                 "post", f"{resource_path}", json=payload
             )
+        
+        # Update state on success
         self.id = result["id"]
         self._update_saved_state()
-        self.after_save(result)
         return self
 
     def _action(
@@ -277,7 +386,10 @@ class BaseResource:
         Returns:
             The URL-encoded resource ID, or empty string if no ID exists
         """
-        return encode_resource_id(self.id) if self.id else ""
+        if not self.id:
+            raise ValidationError("Encoded ID requires an 'id' attribute")
+
+        return encode_resource_id(self.id)
 
 
 class BaseParams(TypedDict):
@@ -759,17 +871,63 @@ class GetResourceMixin(BaseMixin, Generic[GetParamsT, ResourceT]):
 class DeleteResourceMixin(BaseMixin, Generic[DeleteParamsT, ResourceT]):
     """Mixin for deleting a resource."""
 
+    @with_hooks('delete')
     def delete(self, **kwargs: Unpack[DeleteParamsT]) -> "BaseResource":
         """
         Delete a resource.
         """
+
+        if not self.id:
+            raise ValidationError("Delete call requires an 'id' attribute")
+
         resource_path = kwargs.pop("resource_path", None) or getattr(
             self, "RESOURCE_PATH", ""
         )
-
         path = f"{resource_path}/{self.encoded_id}"
+
+        # Execute the delete operation
         self.context.client.request_raw("delete", path, **kwargs)
-        return self
+        self.mark_as_deleted()
+
+    def mark_as_deleted(self) -> None:
+        self.id = None
+
+    # Optional hook methods - only implement what you need
+    def before_delete(self, **kwargs: Unpack[DeleteParamsT]) -> Optional[bool]:
+        """
+        Optional callback called before the resource is deleted.
+        
+        Override this method to add custom logic before deleting.
+        
+        Args:
+            **kwargs: The parameters being passed to the delete operation
+            
+        Returns:
+            Optional[bool]: If True, the delete operation will proceed.
+                          If False, the delete operation will be cancelled.
+                          If None, the delete operation will proceed normally.
+        """
+        return None
+
+    def after_delete(
+        self, result: Optional[Any], **kwargs: Unpack[DeleteParamsT]
+    ) -> Optional[bool]:
+        """
+        Optional callback called after the resource is deleted.
+        
+        Override this method to add custom logic after deleting.
+        
+        Args:
+            result: The result from the delete operation (None on success, 
+                   Exception on failure)
+            **kwargs: The parameters that were passed to the delete operation
+            
+        Returns:
+            Optional[bool]: If not None, this value will be used to determine
+                          if the delete was successful. If None, the original
+                          result will be used.
+        """
+        return None
 
 
 class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
@@ -879,14 +1037,44 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
             response_class = getattr(self, "RESPONSE_CLASS", Result)
             return response_class.from_dict(filtered_response)
 
-    def before_run(self, **kwargs: Unpack[RunParamsT]) -> ResultT:
-        pass
+    # Optional hook methods - only implement what you need
+    def before_run(self, **kwargs: Unpack[RunParamsT]) -> Optional[ResultT]:
+        """
+        Optional callback called before the resource is run.
+        
+        Override this method to add custom logic before running.
+        
+        Args:
+            **kwargs: The parameters being passed to the run operation
+            
+        Returns:
+            Optional[ResultT]: If not None, this result will be returned early,
+                             bypassing the actual run operation. If None, the
+                             run operation will proceed normally.
+        """
+        return None
 
     def after_run(
         self, result: Union[ResultT, Exception], **kwargs: Unpack[RunParamsT]
-    ) -> None:
-        pass
+    ) -> Optional[ResultT]:
+        """
+        Optional callback called after the resource is run.
+        
+        Override this method to add custom logic after running.
+        
+        Args:
+            result: The result from the run operation (ResultT on success, 
+                   Exception on failure)
+            **kwargs: The parameters that were passed to the run operation
+            
+        Returns:
+            Optional[ResultT]: If not None, this result will be returned instead
+                             of the original result. If None, the original result
+                             will be returned.
+        """
+        return None
 
+    @with_hooks('run')
     def run(self, **kwargs: Unpack[RunParamsT]) -> ResultT:
         """
         Run the resource synchronously with automatic polling.
@@ -897,21 +1085,13 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
         Returns:
             Response instance from the configured response class
         """
-        self.before_run(**kwargs)
-
         # Start async execution
-        try:
-            result = self.run_async(**kwargs)
+        result = self.run_async(**kwargs)
 
-            # Check if we need to poll
-            if result.url and not result.completed:
-                return self.sync_poll(result.url, **kwargs)
-        except Exception as e:
-            self.after_run(e, **kwargs)
-            raise e
-        finally:
-            self.after_run(result, **kwargs)
-
+        # Check if we need to poll
+        if result.url and not result.completed:
+            result = self.sync_poll(result.url, **kwargs)
+        
         return result
 
     def run_async(self, **kwargs: Unpack[RunParamsT]) -> ResultT:

@@ -30,6 +30,17 @@ class ToolType(str, Enum):
     INTEGRATION = "integration"
 
 
+class AuthenticationScheme(str, Enum):
+    """Authentication schemes supported by integrations."""
+
+    BEARER_TOKEN = "BEARER_TOKEN"
+    OAUTH1 = "OAUTH1"
+    OAUTH2 = "OAUTH2"
+    API_KEY = "API_KEY"
+    BASIC = "BASIC"
+    NO_AUTH = "NO_AUTH"
+
+
 __all__ = [
     "Function",
     "Supplier",
