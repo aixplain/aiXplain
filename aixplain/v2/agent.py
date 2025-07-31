@@ -117,7 +117,7 @@ class Agent(
         self.status = self.status or AssetStatus.DRAFT
 
     def before_run(
-        self, **kwargs: Unpack[AgentRunParams]
+        self, *args: Any, **kwargs: Unpack[AgentRunParams]
     ) -> Optional[AgentRunResult]:
         # If the agent is draft or not set, and it is modified, 
         # implicitly save it as draft
@@ -134,7 +134,7 @@ class Agent(
 
     def after_run(
         self, result: Union[AgentRunResult, Exception], 
-        **kwargs: Unpack[AgentRunParams]
+        *args: Any, **kwargs: Unpack[AgentRunParams]
     ) -> Optional[AgentRunResult]:
         # Could implement caching, logging, or custom result transformation 
         # here
@@ -145,7 +145,7 @@ class Agent(
             kwargs["query"] = args[0]
         return super().run(*args, **kwargs)
 
-    def before_save(self, **kwargs: Any) -> Optional[dict]:
+    def before_save(self, *args: Any, **kwargs: Any) -> Optional[dict]:
         """
         Callback to be called before the resource is saved.
         Handles status transitions based on save type.

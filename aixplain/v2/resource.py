@@ -42,59 +42,64 @@ logger = logging.getLogger(__name__)
 
 
 # Hook decorator system
-def with_hooks(operation_name: str):
+def with_hooks(func: Callable) -> Callable:
     """
     Generic decorator to add before/after hooks to resource operations.
     
-    This decorator provides a consistent pattern for all operations:
+    This decorator automatically infers the operation name from the function name
+    and provides a consistent pattern for all operations:
     - Before hooks can return early to bypass the operation
     - After hooks can transform the result
     - Error handling is consistent across all operations
-    
-    Args:
-        operation_name: Name of the operation (e.g., 'save', 'delete', 'run')
+    - Supports both positional and keyword arguments
     
     Usage:
-        @with_hooks('save')
+        @with_hooks
         def save(self, **kwargs):
             # operation implementation
-    """
-    def decorator(func: Callable) -> Callable:
-        @wraps(func)
-        def wrapper(self, **kwargs):
-            # Call before hook
-            before_method = getattr(self, f'before_{operation_name}', None)
-            if before_method:
-                early_result = before_method(**kwargs)
-                if early_result is not None:
-                    return early_result
             
-            # Execute the operation
-            try:
-                result = func(self, **kwargs)
-                
-                # Call after hook (success case)
-                after_method = getattr(self, f'after_{operation_name}', None)
-                if after_method:
-                    custom_result = after_method(result, **kwargs)
-                    if custom_result is not None:
-                        return custom_result
-                
-                return result
-                
-            except Exception as e:
-                # Transform low-level exceptions to domain-specific errors
-                if not isinstance(e, ResourceError):
-                    raise ResourceError(f"Failed to {operation_name} resource: {e}")
-                
-                # Call after hook (error case)
-                after_method = getattr(self, f'after_{operation_name}', None)
-                if after_method:
-                    after_method(e, **kwargs)
-                raise e
+        @with_hooks
+        def run(self, *args, **kwargs):
+            # operation implementation with positional args
+    """
+    operation_name = func.__name__
+    
+    @wraps(func)
+    def wrapper(self, *args, **kwargs):
+        # Call before hook with all arguments
+        before_method = getattr(self, f'before_{operation_name}', None)
+        if before_method:
+            early_result = before_method(*args, **kwargs)
+            if early_result is not None:
+                return early_result
         
-        return wrapper
-    return decorator
+        # Execute the operation
+        try:
+            result = func(self, *args, **kwargs)
+            
+            # Call after hook (success case)
+            after_method = getattr(self, f'after_{operation_name}', None)
+            if after_method:
+                custom_result = after_method(result, *args, **kwargs)
+                if custom_result is not None:
+                    return custom_result
+            
+            return result
+            
+        except Exception as e:
+            # Transform low-level exceptions to domain-specific errors
+            if not isinstance(e, ResourceError):
+                raise ResourceError(
+                    f"Failed to {operation_name} resource: {e}"
+                )
+            
+            # Call after hook (error case)
+            after_method = getattr(self, f'after_{operation_name}', None)
+            if after_method:
+                after_method(e, *args, **kwargs)
+            raise e
+    
+    return wrapper
 
 
 def encode_resource_id(resource_id: str) -> str:
@@ -233,14 +238,15 @@ class BaseResource:
         self._saved_state = self._get_serializable_state()
 
     # Optional hook methods - only implement what you need
-    def before_save(self, **kwargs: Any) -> Optional[dict]:
+    def before_save(self, *args: Any, **kwargs: Any) -> Optional[dict]:
         """
         Optional callback called before the resource is saved.
         
         Override this method to add custom logic before saving.
         
         Args:
-            **kwargs: The parameters being passed to the save operation
+            *args: Positional arguments passed to the save operation
+            **kwargs: Keyword arguments passed to the save operation
             
         Returns:
             Optional[dict]: If not None, this result will be returned early,
@@ -250,7 +256,7 @@ class BaseResource:
         return None
 
     def after_save(
-        self, result: Union[dict, Exception], **kwargs: Any
+        self, result: Union[dict, Exception], *args: Any, **kwargs: Any
     ) -> Optional[dict]:
         """
         Optional callback called after the resource is saved.
@@ -260,7 +266,8 @@ class BaseResource:
         Args:
             result: The result from the save operation (dict on success, 
                    Exception on failure)
-            **kwargs: The parameters that were passed to the save operation
+            *args: Positional arguments that were passed to the save operation
+            **kwargs: Keyword arguments that were passed to the save operation
             
         Returns:
             Optional[dict]: If not None, this result will be returned instead
@@ -277,8 +284,8 @@ class BaseResource:
             return self.to_dict()
         return {}
 
-    @with_hooks('save')
-    def save(self, **kwargs: Any) -> "BaseResource":
+    @with_hooks
+    def save(self, *args: Any, **kwargs: Any) -> "BaseResource":
         """Save the resource.
 
         If the resource has an ID, it will be updated, otherwise it will be
@@ -846,8 +853,8 @@ class GetResourceMixin(BaseMixin, Generic[GetParamsT, ResourceT]):
 class DeleteResourceMixin(BaseMixin, Generic[DeleteParamsT, ResourceT]):
     """Mixin for deleting a resource."""
 
-    @with_hooks('delete')
-    def delete(self, **kwargs: Unpack[DeleteParamsT]) -> "BaseResource":
+    @with_hooks
+    def delete(self, *args: Any, **kwargs: Unpack[DeleteParamsT]) -> "BaseResource":
         """
         Delete a resource.
         """
@@ -868,14 +875,15 @@ class DeleteResourceMixin(BaseMixin, Generic[DeleteParamsT, ResourceT]):
         self.id = None
 
     # Optional hook methods - only implement what you need
-    def before_delete(self, **kwargs: Unpack[DeleteParamsT]) -> Optional[bool]:
+    def before_delete(self, *args: Any, **kwargs: Unpack[DeleteParamsT]) -> Optional[bool]:
         """
         Optional callback called before the resource is deleted.
         
         Override this method to add custom logic before deleting.
         
         Args:
-            **kwargs: The parameters being passed to the delete operation
+            *args: Positional arguments passed to the delete operation
+            **kwargs: Keyword arguments passed to the delete operation
             
         Returns:
             Optional[bool]: If True, the delete operation will proceed.
@@ -885,7 +893,7 @@ class DeleteResourceMixin(BaseMixin, Generic[DeleteParamsT, ResourceT]):
         return None
 
     def after_delete(
-        self, result: Optional[Any], **kwargs: Unpack[DeleteParamsT]
+        self, result: Optional[Any], *args: Any, **kwargs: Unpack[DeleteParamsT]
     ) -> Optional[bool]:
         """
         Optional callback called after the resource is deleted.
@@ -895,7 +903,8 @@ class DeleteResourceMixin(BaseMixin, Generic[DeleteParamsT, ResourceT]):
         Args:
             result: The result from the delete operation (None on success, 
                    Exception on failure)
-            **kwargs: The parameters that were passed to the delete operation
+            *args: Positional arguments that were passed to the delete operation
+            **kwargs: Keyword arguments that were passed to the delete operation
             
         Returns:
             Optional[bool]: If not None, this value will be used to determine
@@ -1013,14 +1022,15 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
             return response_class.from_dict(filtered_response)
 
     # Optional hook methods - only implement what you need
-    def before_run(self, **kwargs: Unpack[RunParamsT]) -> Optional[ResultT]:
+    def before_run(self, *args: Any, **kwargs: Unpack[RunParamsT]) -> Optional[ResultT]:
         """
         Optional callback called before the resource is run.
         
         Override this method to add custom logic before running.
         
         Args:
-            **kwargs: The parameters being passed to the run operation
+            *args: Positional arguments passed to the run operation
+            **kwargs: Keyword arguments passed to the run operation
             
         Returns:
             Optional[ResultT]: If not None, this result will be returned early,
@@ -1030,7 +1040,7 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
         return None
 
     def after_run(
-        self, result: Union[ResultT, Exception], **kwargs: Unpack[RunParamsT]
+        self, result: Union[ResultT, Exception], *args: Any, **kwargs: Unpack[RunParamsT]
     ) -> Optional[ResultT]:
         """
         Optional callback called after the resource is run.
@@ -1040,7 +1050,8 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
         Args:
             result: The result from the run operation (ResultT on success, 
                    Exception on failure)
-            **kwargs: The parameters that were passed to the run operation
+            *args: Positional arguments that were passed to the run operation
+            **kwargs: Keyword arguments that were passed to the run operation
             
         Returns:
             Optional[ResultT]: If not None, this result will be returned instead
@@ -1049,12 +1060,13 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
         """
         return None
 
-    @with_hooks('run')
-    def run(self, **kwargs: Unpack[RunParamsT]) -> ResultT:
+    @with_hooks
+    def run(self, *args: Any, **kwargs: Unpack[RunParamsT]) -> ResultT:
         """
         Run the resource synchronously with automatic polling.
 
         Args:
+            *args: Positional arguments (converted to kwargs by subclasses)
             **kwargs: Run parameters including timeout and wait_time
 
         Returns:
