@@ -19,7 +19,6 @@ from typing import (
     runtime_checkable,
     Union,
     Callable,
-    Type,
 )
 from typing_extensions import Unpack
 from functools import wraps
@@ -43,13 +42,17 @@ logger = logging.getLogger(__name__)
 
 
 # Hook decorator system
-def with_hooks(operation_name: str, return_type: Optional[Type] = None):
+def with_hooks(operation_name: str):
     """
-    Decorator to add before/after hooks to resource operations.
+    Generic decorator to add before/after hooks to resource operations.
+    
+    This decorator provides a consistent pattern for all operations:
+    - Before hooks can return early to bypass the operation
+    - After hooks can transform the result
+    - Error handling is consistent across all operations
     
     Args:
         operation_name: Name of the operation (e.g., 'save', 'delete', 'run')
-        return_type: Expected return type for type checking
     
     Usage:
         @with_hooks('save')
@@ -75,42 +78,14 @@ def with_hooks(operation_name: str, return_type: Optional[Type] = None):
                 if after_method:
                     custom_result = after_method(result, **kwargs)
                     if custom_result is not None:
-                        # Handle different return types based on operation
-                        if operation_name == 'save':
-                            # For save operations, custom_result can be a dict 
-                            # to update self
-                            if isinstance(custom_result, dict):
-                                for key, value in custom_result.items():
-                                    setattr(self, key, value)
-                            else:
-                                return custom_result
-                        elif operation_name == 'delete':
-                            # For delete operations, custom_result can be a bool
-                            # to indicate success
-                            if custom_result is False:
-                                raise ResourceError(
-                                    f"{operation_name} operation was "
-                                    f"cancelled by hook"
-                                )
-                        else:
-                            # For other operations (like run), return the 
-                            # custom result
-                            return custom_result
+                        return custom_result
                 
                 return result
                 
             except Exception as e:
                 # Transform low-level exceptions to domain-specific errors
-                if operation_name == 'save':
-                    if not isinstance(e, ResourceError):
-                        raise ResourceError(f"Failed to save resource: {e}")
-                elif operation_name == 'delete':
-                    if not isinstance(e, ResourceError):
-                        raise ResourceError(f"Failed to delete resource: {e}")
-                elif operation_name == 'run':
-                    if not isinstance(e, (ResourceError, APIError, 
-                                         TimeoutError)):
-                        raise ResourceError(f"Failed to run resource: {e}")
+                if not isinstance(e, ResourceError):
+                    raise ResourceError(f"Failed to {operation_name} resource: {e}")
                 
                 # Call after hook (error case)
                 after_method = getattr(self, f'after_{operation_name}', None)
