@@ -135,6 +135,8 @@ class Integration(Model):
                     f"Before using the tool, please visit the following URL to complete the connection: {response.data['redirectURL']}"
                 )
             return response
+        else:
+            raise ValueError(f"Invalid authentication schema: {authentication_schema}")
 
 
     def __repr__(self):
