@@ -168,8 +168,8 @@ class Agent(Model, DeployableMixin[Tool]):
         parameters: Dict = {},
         wait_time: float = 0.5,
         content: Optional[Union[Dict[Text, Text], List[Text]]] = None,
-        max_tokens: int = 2048,
-        max_iterations: int = 10,
+        max_tokens: int = 4096,
+        max_iterations: int = 3,
         output_format: OutputFormat = OutputFormat.TEXT,
         expected_output: Optional[Union[BaseModel, Text, dict]] = None,
     ) -> AgentResponse:
@@ -385,7 +385,83 @@ class Agent(Model, DeployableMixin[Tool]):
             ]
             if self.llm is not None
             else [],
+            "cost": self.cost,
+            "api_key": self.api_key,
         }
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> "Agent":
+        """Create an Agent instance from a dictionary representation.
+
+        Args:
+            data: Dictionary containing Agent parameters
+
+        Returns:
+            Agent instance
+        """
+        from aixplain.factories.agent_factory.utils import build_tool
+        from aixplain.enums import AssetStatus
+        from aixplain.modules.agent_task import AgentTask
+
+        # Extract tools from assets using proper tool building
+        tools = []
+        if "assets" in data:
+            for asset_data in data["assets"]:
+                try:
+                    tool = build_tool(asset_data)
+                    tools.append(tool)
+                except Exception as e:
+                    # Log warning but continue processing other tools
+                    import logging
+
+                    logging.warning(f"Failed to build tool from asset data: {e}")
+
+        # Extract tasks using from_dict method
+        tasks = []
+        if "tasks" in data:
+            for task_data in data["tasks"]:
+                tasks.append(AgentTask.from_dict(task_data))
+
+        # Extract LLM from tools section (main LLM info)
+        llm = None
+        if "tools" in data and data["tools"]:
+            llm_tool = next((tool for tool in data["tools"] if tool.get("type") == "llm"), None)
+            if llm_tool and llm_tool.get("parameters"):
+                # Reconstruct LLM from parameters if available
+                from aixplain.factories.model_factory import ModelFactory
+
+                try:
+                    llm = ModelFactory.get(data.get("llmId", "6646261c6eb563165658bbb1"))
+                    if llm_tool.get("parameters"):
+                        # Apply stored parameters to LLM
+                        llm.set_parameters(llm_tool["parameters"])
+                except Exception:
+                    # If LLM loading fails, llm remains None and llm_id will be used
+                    pass
+
+        # Extract status
+        status = AssetStatus.DRAFT
+        if "status" in data:
+            if isinstance(data["status"], str):
+                status = AssetStatus(data["status"])
+            else:
+                status = data["status"]
+
+        return cls(
+            id=data["id"],
+            name=data["name"],
+            description=data["description"],
+            instructions=data.get("role"),
+            tools=tools,
+            llm_id=data.get("llmId", "6646261c6eb563165658bbb1"),
+            llm=llm,
+            api_key=data.get("api_key"),
+            supplier=data.get("supplier", "aiXplain"),
+            version=data.get("version"),
+            cost=data.get("cost"),
+            status=status,
+            tasks=tasks,
+        )
 
     def delete(self) -> None:
         """Delete Agent service"""

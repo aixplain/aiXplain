@@ -244,6 +244,14 @@ class TeamAgentFactory:
         return team_agent
 
     @classmethod
+    def create_from_dict(cls, dict: Dict) -> TeamAgent:
+        """Create a team agent from a dictionary."""
+        team_agent = TeamAgent.from_dict(dict)
+        team_agent.validate(raise_exception=True)
+        team_agent.url = urljoin(config.BACKEND_URL, f"sdk/agent-communities/{team_agent.id}/run")
+        return team_agent
+
+    @classmethod
     def list(cls) -> Dict:
         """List all agents available in the platform."""
         url = urljoin(config.BACKEND_URL, "sdk/agent-communities")

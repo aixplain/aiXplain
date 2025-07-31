@@ -17,6 +17,21 @@ from aixplain.utils import config
 class ToolFactory(ModelGetterMixin, ModelListMixin):
     backend_url = config.BACKEND_URL
 
+
+    @classmethod
+    def recreate(
+        cls,
+        integration: Optional[Union[Text, Model]] = None,
+        tool: Optional[Union[Text, Model]] = None,
+        params: Optional[Union[BaseUtilityModelParams, BaseIndexParams, BaseAuthenticationParams]] = None,
+        data: Optional[Dict] = None,
+        **kwargs,
+    ) -> Model: 
+        if data is None: 
+            data = {}
+        data["assetId"] = tool.id if isinstance(tool, Model) else tool
+        return ToolFactory.create(integration, params, AuthenticationSchema.NO_AUTH, data )
+    
     @classmethod
     def create(
         cls,

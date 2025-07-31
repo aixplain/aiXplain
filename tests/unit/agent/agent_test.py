@@ -1184,3 +1184,184 @@ def test_create_agent_with_duplicate_tool_names(mocker):
     assert "Agent Creation Error - Duplicate tool names found: Test Model. Make sure all tool names are unique." in str(
         exc_info.value
     )
+
+
+def test_agent_task_serialization():
+    """Test AgentTask to_dict/from_dict round-trip serialization."""
+    from aixplain.modules.agent.agent_task import AgentTask
+
+    # Create test task
+    task = AgentTask(
+        name="Test Task",
+        description="A test task for validation",
+        expected_output="Expected output description",
+        dependencies=["task1", "task2"],
+    )
+
+    # Test to_dict
+    task_dict = task.to_dict()
+    expected_keys = {"name", "description", "expectedOutput", "dependencies"}
+    assert set(task_dict.keys()) == expected_keys
+    assert task_dict["name"] == "Test Task"
+    assert task_dict["description"] == "A test task for validation"
+    assert task_dict["expectedOutput"] == "Expected output description"
+    assert task_dict["dependencies"] == ["task1", "task2"]
+
+    # Test from_dict
+    reconstructed_task = AgentTask.from_dict(task_dict)
+
+    # Verify round-trip
+    assert task.name == reconstructed_task.name
+    assert task.description == reconstructed_task.description
+    assert task.expected_output == reconstructed_task.expected_output
+    assert task.dependencies == reconstructed_task.dependencies
+
+
+def test_agent_task_serialization_with_task_dependencies():
+    """Test AgentTask serialization when dependencies are AgentTask objects."""
+    from aixplain.modules.agent.agent_task import AgentTask
+
+    # Create dependency tasks
+    dep_task1 = AgentTask(name="Dependency Task 1", description="First dependency", expected_output="Dep output 1")
+    dep_task2 = AgentTask(name="Dependency Task 2", description="Second dependency", expected_output="Dep output 2")
+
+    # Create main task with AgentTask dependencies
+    main_task = AgentTask(
+        name="Main Task",
+        description="Main task with AgentTask dependencies",
+        expected_output="Main output",
+        dependencies=[dep_task1, dep_task2, "string_dependency"],
+    )
+
+    # Test to_dict - should convert AgentTask dependencies to names
+    task_dict = main_task.to_dict()
+    assert task_dict["dependencies"] == ["Dependency Task 1", "Dependency Task 2", "string_dependency"]
+
+    # Test from_dict - dependencies will be strings
+    reconstructed_task = AgentTask.from_dict(task_dict)
+    assert reconstructed_task.dependencies == ["Dependency Task 1", "Dependency Task 2", "string_dependency"]
+
+
+def test_agent_serialization_completeness():
+    """Test that Agent to_dict includes all necessary fields."""
+    from aixplain.modules.agent.agent_task import AgentTask
+
+    # Create test tasks
+    task1 = AgentTask(name="Task 1", description="First task", expected_output="Output 1")
+    task2 = AgentTask(name="Task 2", description="Second task", expected_output="Output 2", dependencies=["Task 1"])
+
+    # Create test agent with comprehensive data
+    agent = Agent(
+        id="test-agent-123",
+        name="Test Agent",
+        description="A test agent for validation",
+        instructions="You are a helpful test agent",
+        tools=[],  # Empty for simplicity
+        llm_id="6646261c6eb563165658bbb1",
+        api_key="test-api-key",
+        supplier="aixplain",
+        version="1.0.0",
+        cost={"input": 0.01, "output": 0.02},
+        status=AssetStatus.DRAFT,
+        tasks=[task1, task2],
+    )
+
+    # Test to_dict includes all expected fields
+    agent_dict = agent.to_dict()
+
+    required_fields = {
+        "id",
+        "name",
+        "description",
+        "role",
+        "assets",
+        "supplier",
+        "version",
+        "llmId",
+        "status",
+        "tasks",
+        "tools",
+        "cost",
+        "api_key",
+    }
+    assert set(agent_dict.keys()) == required_fields
+
+    # Verify field values
+    assert agent_dict["id"] == "test-agent-123"
+    assert agent_dict["name"] == "Test Agent"
+    assert agent_dict["description"] == "A test agent for validation"
+    assert agent_dict["role"] == "You are a helpful test agent"
+    assert agent_dict["llmId"] == "6646261c6eb563165658bbb1"
+    assert agent_dict["api_key"] == "test-api-key"
+    assert agent_dict["supplier"] == "aixplain"
+    assert agent_dict["version"] == "1.0.0"
+    assert agent_dict["cost"] == {"input": 0.01, "output": 0.02}
+    assert agent_dict["status"] == "draft"
+    assert isinstance(agent_dict["assets"], list)
+    assert isinstance(agent_dict["tasks"], list)
+    assert len(agent_dict["tasks"]) == 2
+
+    # Verify task serialization
+    task_dict = agent_dict["tasks"][0]
+    assert task_dict["name"] == "Task 1"
+    assert task_dict["description"] == "First task"
+    assert task_dict["expectedOutput"] == "Output 1"
+
+
+def test_agent_serialization_with_llm():
+    """Test Agent to_dict when LLM instance is provided."""
+    from unittest.mock import Mock
+
+    # Mock LLM with parameters
+    mock_llm = Mock()
+    mock_llm.id = "custom-llm-id"
+    mock_parameters = Mock()
+    mock_parameters.to_list.return_value = [{"name": "temperature", "value": 0.7}]
+    mock_llm.get_parameters.return_value = mock_parameters
+
+    agent = Agent(id="test-agent", name="Test Agent", description="Test description", llm=mock_llm, llm_id="fallback-llm-id")
+
+    agent_dict = agent.to_dict()
+
+    # Should use LLM instance ID instead of llm_id
+    assert agent_dict["llmId"] == "custom-llm-id"
+
+    # Should include LLM parameters in tools section
+    assert len(agent_dict["tools"]) == 1
+    llm_tool = agent_dict["tools"][0]
+    assert llm_tool["type"] == "llm"
+    assert llm_tool["description"] == "main"
+    assert llm_tool["parameters"] == [{"name": "temperature", "value": 0.7}]
+
+
+def test_agent_serialization_role_fallback():
+    """Test Agent to_dict role field fallback behavior."""
+    # Test with instructions provided
+    agent_with_instructions = Agent(
+        id="test1", name="Test Agent 1", description="Test description", instructions="Custom instructions"
+    )
+
+    dict1 = agent_with_instructions.to_dict()
+    assert dict1["role"] == "Custom instructions"
+
+    # Test without instructions (should fall back to description)
+    agent_without_instructions = Agent(id="test2", name="Test Agent 2", description="Test description")
+
+    dict2 = agent_without_instructions.to_dict()
+    assert dict2["role"] == "Test description"
+
+
+@pytest.mark.parametrize(
+    "status_input,expected_output",
+    [
+        (AssetStatus.DRAFT, "draft"),
+        (AssetStatus.ONBOARDED, "onboarded"),
+        (AssetStatus.COMPLETED, "completed"),
+    ],
+)
+def test_agent_serialization_status_enum(status_input, expected_output):
+    """Test Agent to_dict properly serializes AssetStatus enum."""
+    agent = Agent(id="test-agent", name="Test Agent", description="Test description", status=status_input)
+
+    agent_dict = agent.to_dict()
+    assert agent_dict["status"] == expected_output
