@@ -116,32 +116,46 @@ class Agent(
     def __post_init__(self) -> None:
         self.status = self.status or AssetStatus.DRAFT
 
-    def before_run(self, **kwargs: Unpack[AgentRunParams]) -> None:
-        # If the agent is draft or not set, and it is modified, implicitly save it as draft
+    def before_run(
+        self, **kwargs: Unpack[AgentRunParams]
+    ) -> Optional[AgentRunResult]:
+        # If the agent is draft or not set, and it is modified, 
+        # implicitly save it as draft
         if self.status in [AssetStatus.DRAFT, None]:
             if self.is_modified:
                 self.save(as_draft=True)
         elif self.status == AssetStatus.ONBOARDED:
             if self.is_modified:
                 raise ValueError(
-                    "Agent is onboarded and cannot be modified unless you explicitly save it."
+                    "Agent is onboarded and cannot be modified unless you "
+                    "explicitly save it."
                 )
+        return None  # Continue with normal operation
 
     def after_run(
-        self, result: Union[AgentRunResult, Exception], **kwargs: Unpack[AgentRunParams]
-    ) -> None:
-        pass
+        self, result: Union[AgentRunResult, Exception], 
+        **kwargs: Unpack[AgentRunParams]
+    ) -> Optional[AgentRunResult]:
+        # Could implement caching, logging, or custom result transformation 
+        # here
+        return None  # Return original result
 
-    def before_save(self, result: dict) -> None:
+    def run(self, *args: Any, **kwargs: Unpack[AgentRunParams]) -> AgentRunResult:
+        if len(args) > 0:
+            kwargs["query"] = args[0]
+        return super().run(*args, **kwargs)
+
+    def before_save(self, **kwargs: Any) -> Optional[dict]:
         """
         Callback to be called before the resource is saved.
         Handles status transitions based on save type.
         """
-        as_draft = result.pop("as_draft", False)
+        as_draft = kwargs.pop("as_draft", False)
         if as_draft:
             self.status = AssetStatus.DRAFT
         else:
             self.status = AssetStatus.ONBOARDED
+        return None  # Continue with normal operation
 
     @classmethod
     def get(cls: type["Agent"], id: str, **kwargs: Unpack[BaseGetParams]) -> "Agent":

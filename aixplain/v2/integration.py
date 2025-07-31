@@ -1,17 +1,8 @@
 from typing import Optional, TypedDict, List, Any
 from typing_extensions import Unpack
-from enum import Enum
 from .resource import BaseListParams, BaseGetParams, BaseResult, Page
 from .model import Model
-from .enums import Function, ToolType
-
-
-class AuthenticationScheme(str, Enum):
-    """Authentication schemes supported by integrations."""
-
-    BEARER_TOKEN = "BEARER_TOKEN"
-    OAUTH = "OAUTH"
-    OAUTH2 = "OAUTH2"
+from .enums import Function, ToolType, AuthenticationScheme
 
 
 class IntegrationResult(BaseResult):
@@ -53,10 +44,10 @@ class IntegrationRunParams(TypedDict, total=False):
     """
 
     name: Optional[str]
-    auth_scheme: Optional[AuthenticationScheme]
     data: Optional[Credentials]
     timeout: Optional[int]
     wait_time: Optional[int]
+    auth_scheme: Optional[AuthenticationScheme] = AuthenticationScheme.NO_AUTH
 
 
 class Integration(Model):
