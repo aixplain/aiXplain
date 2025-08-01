@@ -487,6 +487,19 @@ class Result(BaseResult):
     pass
 
 
+@dataclass_json
+@dataclass
+class DeleteResult(BaseResult):
+    """Default implementation of delete results."""
+
+    deleted_id: Optional[str] = None
+
+    def __init__(self, **kwargs):
+        """Initialize with any fields from API response."""
+        super().__init__(**kwargs)
+        self.deleted_id = kwargs.get("deleted_id")
+
+
 # Standardized type variables with proper bounds
 ResourceT = TypeVar("ResourceT", bound=BaseResource)
 ListParamsT = TypeVar("ListParamsT", bound=BaseListParams)
@@ -494,6 +507,7 @@ GetParamsT = TypeVar("GetParamsT", bound=BaseGetParams)
 DeleteParamsT = TypeVar("DeleteParamsT", bound=BaseDeleteParams)
 RunParamsT = TypeVar("RunParamsT", bound=BaseRunParams)
 ResultT = TypeVar("ResultT", bound=BaseResult)
+DeleteResultT = TypeVar("DeleteResultT", bound=DeleteResult)
 
 
 class Page(Generic[ResourceT]):
@@ -848,14 +862,35 @@ class GetResourceMixin(BaseMixin, Generic[GetParamsT, ResourceT]):
         return instance
 
 
-class DeleteResourceMixin(BaseMixin, Generic[DeleteParamsT, ResourceT]):
+class DeleteResourceMixin(BaseMixin, Generic[DeleteParamsT, DeleteResultT]):
     """Mixin for deleting a resource."""
 
-    @with_hooks
-    def delete(self, *args: Any, **kwargs: Unpack[DeleteParamsT]) -> "BaseResource":
+    DELETE_RESPONSE_CLASS: type = DeleteResult  # Default response class
+
+    def build_delete_payload(self, **kwargs: Unpack[DeleteParamsT]) -> dict:
         """
-        Delete a resource.
+        Build the payload for the delete action.
+
+        This method can be overridden by subclasses to provide custom payload
+        construction for delete operations.
         """
+        # Default behavior - no payload for simple delete operations
+        return kwargs
+
+    def build_delete_url(self, **kwargs: Unpack[DeleteParamsT]) -> str:
+        """
+        Build the URL for the delete action.
+
+        This method can be overridden by subclasses to provide custom URL
+        construction. The default implementation uses the resource path with
+        the resource ID.
+
+        Returns:
+            str: The URL to use for the delete action
+        """
+        assert getattr(self, "RESOURCE_PATH"), (
+            "Subclasses of 'BaseResource' must " "specify 'RESOURCE_PATH'"
+        )
 
         if not self.id:
             raise ValidationError("Delete call requires an 'id' attribute")
@@ -863,19 +898,51 @@ class DeleteResourceMixin(BaseMixin, Generic[DeleteParamsT, ResourceT]):
         resource_path = kwargs.pop("resource_path", None) or getattr(
             self, "RESOURCE_PATH", ""
         )
-        path = f"{resource_path}/{self.encoded_id}"
+        return f"{resource_path}/{self.encoded_id}"
 
-        # Execute the delete operation
-        self.context.client.request_raw("delete", path, **kwargs)
+    def handle_delete_response(
+        self, response: Any, **kwargs: Unpack[DeleteParamsT]
+    ) -> DeleteResultT:
+        """
+        Handle the response from a delete request.
+
+        This method can be overridden by subclasses to handle different
+        response patterns. The default implementation creates a simple
+        success response.
+
+        Args:
+            response: The raw response from the API (may be Response object or dict)
+            **kwargs: Delete parameters
+
+        Returns:
+            DeleteResult instance from the configured response class
+        """
+        # Create a success response with basic information
+        response_class = getattr(self, "DELETE_RESPONSE_CLASS", DeleteResult)
+        
+        # Store the resource info before marking as deleted
+        deleted_id = self.id
+        
+        # Mark the resource as deleted
         self.mark_as_deleted()
-
-    def mark_as_deleted(self) -> None:
-        self.id = None
+        
+        # Build response data manually since delete endpoints don't return JSON
+        response_data = {
+            "status": "SUCCESS",
+            "completed": True,
+            "deleted_id": deleted_id,
+        }
+        
+        # Create the result object directly instead of using from_dict
+        result = response_class(**response_data)
+        result._raw_data = response  # Store raw response separately
+        
+        return result
 
     # Optional hook methods - only implement what you need
     def before_delete(
         self, *args: Any, **kwargs: Unpack[DeleteParamsT]
-    ) -> Optional[bool]:
+    ) -> Optional[DeleteResultT]:
         """
         Optional callback called before the resource is deleted.
 
@@ -886,32 +953,57 @@ class DeleteResourceMixin(BaseMixin, Generic[DeleteParamsT, ResourceT]):
             **kwargs: Keyword arguments passed to the delete operation
 
         Returns:
-            Optional[bool]: If True, the delete operation will proceed.
-                          If False, the delete operation will be cancelled.
-                          If None, the delete operation will proceed normally.
+            Optional[DeleteResultT]: If not None, this result will be returned early,
+                                   bypassing the actual delete operation. If None, the
+                                   delete operation will proceed normally.
         """
         return None
 
     def after_delete(
-        self, result: Optional[Any], *args: Any, **kwargs: Unpack[DeleteParamsT]
-    ) -> Optional[bool]:
+        self, result: Union[DeleteResultT, Exception], *args: Any,
+        **kwargs: Unpack[DeleteParamsT]
+    ) -> Optional[DeleteResultT]:
         """
         Optional callback called after the resource is deleted.
 
         Override this method to add custom logic after deleting.
 
         Args:
-            result: The result from the delete operation (None on success,
+            result: The result from the delete operation (DeleteResultT on success,
                    Exception on failure)
             *args: Positional arguments that were passed to the delete operation
             **kwargs: Keyword arguments that were passed to the delete operation
 
         Returns:
-            Optional[bool]: If not None, this value will be used to determine
-                          if the delete was successful. If None, the original
-                          result will be used.
+            Optional[DeleteResultT]: If not None, this result will be returned instead
+                                   of the original result. If None, the original result
+                                   will be returned.
         """
         return None
+
+    @with_hooks
+    def delete(self, *args: Any, **kwargs: Unpack[DeleteParamsT]) -> DeleteResultT:
+        """
+        Delete a resource.
+
+        Returns:
+            DeleteResultT: The result of the delete operation
+        """
+        if not self.id:
+            raise ValidationError("Delete call requires an 'id' attribute")
+
+        # Build the delete URL
+        delete_url = self.build_delete_url(**kwargs)
+
+        # Execute the delete operation (delete endpoints don't return JSON)
+        response = self.context.client.request_raw("delete", delete_url, **kwargs)
+
+        # Handle the response using the extensible response handler
+        return self.handle_delete_response(response, **kwargs)
+
+    def mark_as_deleted(self) -> None:
+        """Mark the resource as deleted by clearing its ID."""
+        self.id = None
 
 
 class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
