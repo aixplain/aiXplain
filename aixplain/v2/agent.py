@@ -145,6 +145,7 @@ class Agent(
     def run(self, *args: Any, **kwargs: Unpack[AgentRunParams]) -> AgentRunResult:
         if len(args) > 0:
             kwargs["query"] = args[0]
+            args = args[1:]
         return super().run(*args, **kwargs)
 
     def before_save(self, *args: Any, **kwargs: Any) -> Optional[dict]:
