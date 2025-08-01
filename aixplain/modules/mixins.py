@@ -73,7 +73,12 @@ class DeployableMixin(ABC, Generic[T]):
                 undeployed_agents = [agent for agent in self.agents if agent.status != AssetStatus.ONBOARDED]
                 if undeployed_agents:
                     names = ", ".join(str(agent) for agent in undeployed_agents)
-                    raise ValueError(f"The following agents are not deployed: {names}")
+                    if names:
+                        raise ValueError(
+                            f"Agents not deployed: {names}. "
+                            "Deploy them with `<agent>.deploy()` before running this command."
+                        )
+
                             
             self.status = AssetStatus.ONBOARDED
             self.update()
