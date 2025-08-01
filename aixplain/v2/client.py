@@ -132,9 +132,7 @@ class AixplainClient:
             url = path
         else:
             url = urljoin(self.base_url, path)
-        print(kwargs)
         response = self.session.request(method=method, url=url, **kwargs)
-        print(response.text)
         if not response.ok:
             error_obj = None
             try:
