@@ -25,7 +25,7 @@ from typing import Text, Union, Callable, Optional
 from aixplain.modules.agent.tool import Tool
 import logging
 from aixplain.enums import AssetStatus
-from aixplain.enums.code_interpeter import CodeInterpreterModel
+from aixplain.enums.code_interpreter import CodeInterpreterModel
 
 
 class CustomPythonCodeTool(Tool):
