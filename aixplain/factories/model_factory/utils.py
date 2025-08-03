@@ -42,10 +42,10 @@ def create_model_from_response(response: Dict) -> Model:
     additional_kwargs = {}
     attributes = response.get("attributes", None)
     if attributes:
-        embedding_model = next((item["code"] for item in attributes if item["name"] == "embeddingmodel"), None)
+        embedding_model = next((item.get("code") for item in attributes if item.get("name") == "embeddingmodel" and "code" in item), None)
         if embedding_model:
             additional_kwargs["embedding_model"] = embedding_model
-        embedding_size = next((item["value"] for item in attributes if item["name"] == "embeddingSize"), None)
+        embedding_size = next((item.get("value") for item in attributes if item.get("name") == "embeddingSize" and "value" in item), None)
         if embedding_size:
             additional_kwargs["embedding_size"] = embedding_size
 
