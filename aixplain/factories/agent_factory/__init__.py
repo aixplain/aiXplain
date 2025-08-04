@@ -96,6 +96,11 @@ class AgentFactory:
             # Use default GPT-4o if no LLM specified
             llm = get_llm_instance("669a63646eb56306647e1091", api_key=api_key)
 
+        if output_format == OutputFormat.JSON:
+            assert expected_output is not None and (
+                issubclass(expected_output, BaseModel) or isinstance(expected_output, dict)
+            ), "Expected output must be a Pydantic BaseModel or a JSON object when output format is JSON."
+
         warnings.warn(
             "Use `llm` to define the large language model (aixplain.modules.model.llm_model.LLM) to be used as agent. "
             "Use `llm_id` to provide the model ID of the large language model to be used as agent. "
@@ -142,7 +147,8 @@ class AgentFactory:
         if expected_output:
             payload["expectedOutput"] = expected_output
         if output_format:
-            payload["outputFormat"] = output_format.value
+            if isinstance(output_format, OutputFormat):
+                output_format = output_format.value
 
         agent = build_agent(payload=payload, tools=tools, api_key=api_key)
         agent.validate(raise_exception=True)
