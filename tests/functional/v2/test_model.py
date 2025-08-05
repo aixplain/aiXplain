@@ -1,7 +1,33 @@
+"""
+Functional tests for the v2 Model API.
+
+IMPORTANT: These tests reveal that the backend API's filtering implementation
+has some issues. Specifically:
+
+1. Function filtering - Not working correctly (returns models with different functions)
+2. Supplier filtering - Not working correctly (returns models with supplier=None)
+3. Model IDs filtering - Not working correctly (ignores model_ids parameter)
+4. Combined filtering - Not working correctly (doesn't apply multiple filters)
+
+However, the following features work correctly:
+- Query filtering (search by text)
+- Sorting (by creation date, price, etc.)
+- Pagination (page_number, page_size)
+- Ownership filtering
+- Finetunable filtering
+
+The tests are designed to validate the filtering when it works correctly,
+but they will fail if the backend filtering is broken. This is intentional
+to help identify when the API needs to be fixed.
+
+See also: tests/functional/general_assets/asset_functional_test.py for
+legacy validation patterns.
+"""
+
 import os
 import pytest
 from aixplain import Aixplain
-from aixplain.enums import Function, SortBy, SortOrder, Supplier
+from aixplain.enums import Function, SortBy, SortOrder, Supplier, OwnershipType
 
 
 @pytest.fixture(scope="module")
@@ -151,23 +177,35 @@ def test_list_with_function_filter(client):
     text_models = client.Model.list(function=Function.TEXT_GENERATION)
     assert hasattr(text_models, 'results')
     assert isinstance(text_models.results, list)
-    
-    # Note: Function filtering may not be fully implemented in v2 API yet
-    # For now, we just validate that we get results and the API call succeeds
     assert len(text_models.results) > 0, (
         "Expected to get results from function filter query"
     )
+    
+    # Validate that all returned models have the TEXT_GENERATION function
+    # (if the API filtering is working correctly)
+    for model in text_models.results:
+        if model.function:
+            assert model.function == Function.TEXT_GENERATION, (
+                f"Expected model {model.name} to have function "
+                f"{Function.TEXT_GENERATION}, but got {model.function}"
+            )
     
     # Test with translation function
     translation_models = client.Model.list(function=Function.TRANSLATION)
     assert hasattr(translation_models, 'results')
     assert isinstance(translation_models.results, list)
-    
-    # Note: Function filtering may not be fully implemented in v2 API yet
-    # For now, we just validate that we get results and the API call succeeds
     assert len(translation_models.results) > 0, (
         "Expected to get results from translation function filter query"
     )
+    
+    # Validate that all returned models have the TRANSLATION function
+    # (if the API filtering is working correctly)
+    for model in translation_models.results:
+        if model.function:
+            assert model.function == Function.TRANSLATION, (
+                f"Expected model {model.name} to have function "
+                f"{Function.TRANSLATION}, but got {model.function}"
+            )
 
 
 def test_list_with_supplier_filter(client):
@@ -176,12 +214,17 @@ def test_list_with_supplier_filter(client):
     openai_models = client.Model.list(suppliers=Supplier.OPENAI)
     assert hasattr(openai_models, 'results')
     assert isinstance(openai_models.results, list)
-    
-    # Note: Supplier filtering may not be fully implemented in v2 API yet
-    # For now, we just validate that we get results and the API call succeeds
     assert len(openai_models.results) > 0, (
         "Expected to get results from OpenAI supplier filter query"
     )
+    
+    # Validate that all returned models belong to OpenAI supplier
+    for model in openai_models.results:
+        if model.supplier:
+            assert model.supplier.code == "openai", (
+                f"Expected model {model.name} to belong to OpenAI supplier, "
+                f"but got {model.supplier.code}"
+            )
     
     # Test with multiple suppliers
     multiple_suppliers = client.Model.list(
@@ -189,37 +232,62 @@ def test_list_with_supplier_filter(client):
     )
     assert hasattr(multiple_suppliers, 'results')
     assert isinstance(multiple_suppliers.results, list)
-    
-    # Note: Supplier filtering may not be fully implemented in v2 API yet
-    # For now, we just validate that we get results and the API call succeeds
     assert len(multiple_suppliers.results) > 0, (
         "Expected to get results from multiple suppliers filter query"
     )
+    
+    # Validate that all returned models belong to one of the requested suppliers
+    expected_supplier_codes = {"openai", "aws"}
+    for model in multiple_suppliers.results:
+        if model.supplier:
+            supplier_code = model.supplier.code
+            assert supplier_code in expected_supplier_codes, (
+                f"Expected model {model.name} to belong to one of "
+                f"{expected_supplier_codes}, but got "
+                f"{supplier_code}"
+            )
 
 
 def test_list_with_query_filter(client):
     """Test listing models with text query filter."""
     # Test with a common search term
-    search_models = client.Model.list(query="GPT")
+    query = "GPT"
+    search_models = client.Model.list(query=query)
     assert hasattr(search_models, 'results')
     assert isinstance(search_models.results, list)
     
-    # Validate that returned models contain the search term in name or
-    # description
+    # Validate that returned models contain the search term in name or description
     if search_models.results:
-        gpt_count = 0
+        matching_count = 0
         for model in search_models.results:
             name = model.name.lower()
             desc = model.description or ''
             description = desc.lower()
             model_text = f"{name} {description}"
-            if "gpt" in model_text:
-                gpt_count += 1
+            if query.lower() in model_text:
+                matching_count += 1
         
-        assert gpt_count > 0, (
-            f"Expected to find at least one model containing 'GPT' in name "
-            f"or description, but found {gpt_count}"
+        # At least one model should match the query
+        assert matching_count > 0, (
+            f"Expected to find at least one model containing '{query}' in name "
+            f"or description, but found {matching_count}"
         )
+
+
+def test_list_with_ownership_filter(client):
+    """Test listing models with ownership filter."""
+    # Test with subscribed models
+    subscribed_models = client.Model.list(ownership=OwnershipType.SUBSCRIBED)
+    assert hasattr(subscribed_models, 'results')
+    assert isinstance(subscribed_models.results, list)
+    
+    # Validate that returned models are subscribed (if the API filtering works)
+    for model in subscribed_models.results:
+        if hasattr(model, 'is_subscribed') and model.is_subscribed is not None:
+            assert model.is_subscribed is True, (
+                f"Expected model {model.name} to be subscribed, "
+                f"but got {model.is_subscribed}"
+            )
 
 
 def test_list_with_sorting(client):
@@ -231,10 +299,21 @@ def test_list_with_sorting(client):
     )
     assert hasattr(models_date_asc, 'results')
     assert isinstance(models_date_asc.results, list)
-    
-    # Validate that we get results (sorting validation is optional since API
-    # might not always return exact order)
     assert len(models_date_asc.results) > 0
+    
+    # Validate that results are sorted by creation date in ascending order
+    if len(models_date_asc.results) > 1:
+        dates = []
+        for model in models_date_asc.results:
+            if model.created_at:
+                dates.append(model.created_at)
+        
+        if len(dates) > 1:
+            # Check if dates are in ascending order
+            sorted_dates = sorted(dates)
+            assert dates == sorted_dates, (
+                f"Expected dates to be in ascending order, but got: {dates}"
+            )
     
     # Test sorting by creation date descending
     models_date_desc = client.Model.list(
@@ -243,10 +322,21 @@ def test_list_with_sorting(client):
     )
     assert hasattr(models_date_desc, 'results')
     assert isinstance(models_date_desc.results, list)
-    
-    # Validate that we get results (sorting validation is optional since API
-    # might not always return exact order)
     assert len(models_date_desc.results) > 0
+    
+    # Validate that results are sorted by creation date in descending order
+    if len(models_date_desc.results) > 1:
+        dates = []
+        for model in models_date_desc.results:
+            if model.created_at:
+                dates.append(model.created_at)
+        
+        if len(dates) > 1:
+            # Check if dates are in descending order
+            sorted_dates = sorted(dates, reverse=True)
+            assert dates == sorted_dates, (
+                f"Expected dates to be in descending order, but got: {dates}"
+            )
 
 
 def test_list_with_combined_filters(client):
@@ -260,12 +350,25 @@ def test_list_with_combined_filters(client):
     assert hasattr(combined_models, 'results')
     assert isinstance(combined_models.results, list)
     assert len(combined_models.results) <= 10
-    
-    # Note: Combined filtering may not be fully implemented in v2 API yet
-    # For now, we just validate that we get results and the API call succeeds
     assert len(combined_models.results) > 0, (
         "Expected to get results from combined filter query"
     )
+    
+    # Validate that all returned models match the combined filters
+    for model in combined_models.results:
+        # Check function filter
+        if model.function:
+            assert model.function == Function.TEXT_GENERATION, (
+                f"Expected model {model.name} to have function "
+                f"{Function.TEXT_GENERATION}, but got {model.function}"
+            )
+        
+        # Check supplier filter
+        if model.supplier:
+            assert model.supplier.code == "openai", (
+                f"Expected model {model.name} to belong to OpenAI supplier, "
+                f"but got {model.supplier.code}"
+            )
 
 
 def test_list_with_finetunable_filter(client):
@@ -274,19 +377,55 @@ def test_list_with_finetunable_filter(client):
     finetunable_models = client.Model.list(is_finetunable=True)
     assert hasattr(finetunable_models, 'results')
     assert isinstance(finetunable_models.results, list)
+    assert len(finetunable_models.results) > 0, (
+        "Expected to get results from finetunable filter"
+    )
+    
+    # Validate that all returned models are finetunable
+    for model in finetunable_models.results:
+        if hasattr(model, 'is_finetunable') and model.is_finetunable is not None:
+            assert model.is_finetunable is True, (
+                f"Expected model {model.name} to be finetunable, "
+                f"but got {model.is_finetunable}"
+            )
     
     # Test non-finetunable models
     non_finetunable_models = client.Model.list(is_finetunable=False)
     assert hasattr(non_finetunable_models, 'results')
     assert isinstance(non_finetunable_models.results, list)
-    
-    # Validate that we get results from both queries
-    assert len(finetunable_models.results) > 0, (
-        "Expected to get results from finetunable filter"
-    )
     assert len(non_finetunable_models.results) > 0, (
         "Expected to get results from non-finetunable filter"
     )
+    
+    # Validate that all returned models are not finetunable
+    for model in non_finetunable_models.results:
+        if hasattr(model, 'is_finetunable') and model.is_finetunable is not None:
+            assert model.is_finetunable is False, (
+                f"Expected model {model.name} to not be finetunable, "
+                f"but got {model.is_finetunable}"
+            )
+
+
+def test_list_with_model_ids(client):
+    """Test listing models with specific model IDs."""
+    # Test with specific model IDs
+    model_ids = ["669a63646eb56306647e1091", "6409fae06eb563745c68c6d1"]  # GPT-4o Mini, Language Identification
+    models = client.Model.list(model_ids=model_ids)
+    assert hasattr(models, 'results')
+    assert isinstance(models.results, list)
+    
+    # Validate that we get the expected number of models
+    assert len(models.results) <= len(model_ids), (
+        f"Expected at most {len(model_ids)} models, but got {len(models.results)}"
+    )
+    
+    # Validate that returned models have the expected IDs
+    returned_ids = [model.id for model in models.results]
+    for model_id in model_ids:
+        if model_id in returned_ids:
+            assert model_id in returned_ids, (
+                f"Expected model ID {model_id} to be in returned models"
+            )
 
 
 def test_get(client, text_model_id):
