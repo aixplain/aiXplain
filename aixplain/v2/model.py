@@ -247,56 +247,104 @@ class Model(
     def _populate_filters(cls, params: dict) -> dict:
         """
         Override to handle model-specific filter structure.
+        Matches the Swagger specification:
+        {
+          "pageSize": 20,
+          "pageNumber": 0,
+          "q": "string",
+          "saved": true,
+          "functions": [
+            {
+              "field": "string",
+              "dir": 1
+            }
+          ],
+          "suppliers": [
+            "string"
+          ],
+          "sort": [
+            {
+              "field": "string",
+              "dir": 1
+            }
+          ],
+          "status": [
+            "onboarded"
+          ]
+        }
         """
-        filters = {}
-        
-        # Handle pagination
-        if params.get("page_number") is not None:
-            filters["pageNumber"] = params["page_number"]
-        
-        if params.get("page_size") is not None:
-            filters["pageSize"] = params["page_size"]
-        
-        # Handle query
-        if params.get("query") is not None:
-            filters["q"] = params["query"]
+        # Call parent's _populate_filters to get basic pagination and common 
+        # filters
+        filters = super()._populate_filters(params)
         
         # Handle saved filter
         if params.get("saved") is not None:
             filters["saved"] = params["saved"]
         
-        # Handle functions (convert to expected format)
+        # Handle functions - should be array of objects with field and dir
         if params.get("function") is not None:
             function = params["function"]
             if isinstance(function, Function):
-                filters["functions"] = [{"field": "function", "dir": 1}]
+                # Function inherits from str, so function.value is already a 
+                # string
+                filters["functions"] = [{"field": function.value, "dir": 1}]
         
-        # Handle suppliers
+        # Handle suppliers - should be array of strings
         if params.get("suppliers") is not None:
             suppliers = params["suppliers"]
             if isinstance(suppliers, list):
-                filters["suppliers"] = [str(s) for s in suppliers]
+                filters["suppliers"] = [
+                    s.value["code"] 
+                    if hasattr(s, 'value') and isinstance(s.value, dict) 
+                    else str(s) 
+                    for s in suppliers
+                ]
             else:
-                filters["suppliers"] = [str(suppliers)]
+                supplier_value = (
+                    suppliers.value["code"] 
+                    if (hasattr(suppliers, 'value') and 
+                        isinstance(suppliers.value, dict))
+                    else str(suppliers)
+                )
+                filters["suppliers"] = [supplier_value]
         
-        # Handle status
+        # Handle status - should be array of strings
         if params.get("status") is not None:
             status = params["status"]
             if isinstance(status, list):
-                filters["status"] = [str(s) for s in status]
+                filters["status"] = [
+                    s.value if (hasattr(s, 'value') and 
+                                isinstance(s.value, str)) 
+                    else str(s) 
+                    for s in status
+                ]
             else:
-                filters["status"] = [str(status)]
+                if (hasattr(status, 'value') and
+                        isinstance(status.value, str)):
+                    status_value = status.value
+                else:
+                    status_value = str(status)
+                filters["status"] = [status_value]
         
-        # Handle sort - always include at least an empty sort array
+        # Handle sort - should be array of objects with field and dir
         if (
             params.get("sort_by") is not None or
             params.get("sort_order") is not None
         ):
             sort_field = params.get("sort_by", "name")
-            sort_dir = 1 if params.get("sort_order", "asc") == "asc" else -1
-            filters["sort"] = [
-                {"field": str(sort_field), "dir": sort_dir}
-            ]
+            sort_order = params.get("sort_order", "asc")
+            
+            # Convert enum to string if needed
+            if hasattr(sort_field, 'value'):
+                sort_field = sort_field.value
+            
+            # Convert sort order to integer
+            if hasattr(sort_order, 'value'):
+                sort_dir = sort_order.value
+            else:
+                sort_dir = 1 if str(sort_order).lower() == "asc" else -1
+            
+            filters["sort"] = [{"field": str(sort_field), "dir": sort_dir}]
         else:
             # Always include empty sort array as backend requires it
             filters["sort"] = [{}]
