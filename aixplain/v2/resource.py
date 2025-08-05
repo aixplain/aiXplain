@@ -614,7 +614,7 @@ class PagedListResourceMixin(BaseListResourceMixin, Generic[ListParamsT, Resourc
 
     PAGINATE_PATH: str = "paginate"
     PAGINATE_METHOD: str = "post"
-    PAGINATE_ITEMS_KEY: str = "items"
+    PAGINATE_ITEMS_KEY: str = "results"  # Default to match backend
     PAGINATE_TOTAL_KEY: str = "total"
     PAGINATE_PAGE_TOTAL_KEY: str = "pageTotal"
     PAGINATE_PAGE_NUMBER_KEY: str = "pageNumber"
@@ -651,7 +651,10 @@ class PagedListResourceMixin(BaseListResourceMixin, Generic[ListParamsT, Resourc
 
         # Make request
         paginate_method = getattr(cls, "PAGINATE_METHOD", "post")
-        response = context.client.request(paginate_method, paginate_path, json=filters)
+        response = context.client.request(
+            paginate_method, paginate_path, json=filters
+        )
+
         return cls._build_page(  # type: ignore[attr-defined,misc]
             response, context, **kwargs
         )

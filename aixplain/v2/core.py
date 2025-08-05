@@ -56,7 +56,7 @@ class Aixplain:
 
     BACKEND_URL = "https://platform-api.aixplain.com"
     BENCHMARKS_BACKEND_URL = "https://platform-api.aixplain.com"
-    MODELS_RUN_URL = "https://models.aixplain.com/api/v1/execute"
+    MODELS_RUN_URL = "https://models.aixplain.com/api/v2/execute"
     PIPELINES_RUN_URL = (
         "https://platform-api.aixplain.com/assets/pipeline/execution/run"
     )

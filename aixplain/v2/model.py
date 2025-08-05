@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import Union, List, Optional, Any, Dict
 from typing_extensions import NotRequired, Unpack
 from dataclasses_json import dataclass_json, config
@@ -18,10 +20,11 @@ from .resource import (
 from .enums import Function, Supplier, Language, AssetStatus, ToolType
 
 
-def find_supplier_by_id(supplier_id: str) -> Optional[Supplier]:
+def find_supplier_by_id(supplier_id: Union[str, int]) -> Optional[Supplier]:
     """Find supplier enum by ID."""
+    supplier_id_str = str(supplier_id)
     for supplier in Supplier:
-        if supplier.value.get("id") == supplier_id:
+        if supplier.value.get("id") == supplier_id_str:
             return supplier
     return None
 
@@ -34,6 +37,63 @@ def find_function_by_id(function_id: str) -> Optional[Function]:
         return None
 
 
+@dataclass_json
+@dataclass
+class ModelAttribute:
+    """Model attribute structure from the API response."""
+    name: str
+    code: str
+
+
+@dataclass_json
+@dataclass
+class ModelParameter:
+    """Model parameter structure from the API response."""
+    name: str
+    required: bool
+    data_type: str = field(metadata=config(field_name="dataType"))
+    data_sub_type: str = field(metadata=config(field_name="dataSubType"))
+    multiple_values: bool = field(metadata=config(field_name="multipleValues"))
+    is_fixed: bool = field(metadata=config(field_name="isFixed"))
+    values: List[Any] = field(default_factory=list)
+    default_values: List[Any] = field(
+        default_factory=list, metadata=config(field_name="defaultValues")
+    )
+    available_options: List[Any] = field(
+        default_factory=list, metadata=config(field_name="availableOptions")
+    )
+
+
+@dataclass_json
+@dataclass
+class ModelVersion:
+    """Model version structure from the API response."""
+    name: Optional[str] = None
+    id: Optional[str] = None
+
+
+@dataclass_json
+@dataclass
+class ModelPricing:
+    """Model pricing structure from the API response."""
+    price: Optional[float] = None
+    unit_type: Optional[str] = field(
+        default=None, metadata=config(field_name="unitType")
+    )
+    unit_type_scale: Optional[str] = field(
+        default=None, metadata=config(field_name="unitTypeScale")
+    )
+
+
+@dataclass_json
+@dataclass
+class ModelSupplier:
+    """Model supplier structure from the API response."""
+    id: Optional[Union[str, int]] = None
+    name: Optional[str] = None
+    code: Optional[str] = None
+
+
 class ModelListParams(BaseListParams):
     function: NotRequired[Function]
     suppliers: NotRequired[Union[Supplier, List[Supplier]]]
@@ -43,7 +103,6 @@ class ModelListParams(BaseListParams):
 
 
 class ModelRunParams(BaseRunParams):
-
     data: Union[str, dict]
     context: NotRequired[str]
     prompt: NotRequired[str]
@@ -64,63 +123,106 @@ class Model(
 ):
     """Resource for models."""
 
-    RESOURCE_PATH = "sdk/models"
+    RESOURCE_PATH = "v2/models"
     TOOL_TYPE = ToolType.MODEL
 
+    # Core fields from BaseResource (id, name, description)
+    service_name: Optional[str] = field(
+        default=None, metadata=config(field_name="serviceName")
+    )
+    status: Optional[AssetStatus] = None
+    hosted_by: Optional[str] = field(
+        default=None, metadata=config(field_name="hostedBy")
+    )
+    developed_by: Optional[str] = field(
+        default=None, metadata=config(field_name="developedBy")
+    )
+    subscriptions: Optional[List[str]] = None
+    
+    # Supplier and function fields with proper decoders
+    supplier: Optional[ModelSupplier] = None
     function: Optional[Function] = field(
         default=None,
         metadata=config(
             decoder=lambda x: (
-                find_function_by_id(x["id"]) if isinstance(x, dict) and "id" in x else x
-            )
-        ),
-    )
-    supplier: Optional[Supplier] = field(
-        default=None,
-        metadata=config(
-            decoder=lambda x: (
-                find_supplier_by_id(str(x["id"]))
-                if isinstance(x, dict) and "id" in x
+                find_function_by_id(x["id"]) 
+                if isinstance(x, dict) and "id" in x 
                 else x
             )
         ),
     )
-    version: Optional[str] = None
-    asset_id: Optional[str] = field(default=None, metadata=config(field_name="assetId"))
-    parameters: Optional[List[Any]] = None
-    status: Optional[AssetStatus] = None
+    
+    # Pricing information
+    pricing: Optional[ModelPricing] = None
+    
+    # Version information
+    version: Optional[ModelVersion] = None
+    
+    # Function type and model type
+    function_type: Optional[str] = field(
+        default=None, metadata=config(field_name="functionType")
+    )
+    type: Optional[str] = None
+    
+    # Timestamps
+    created_at: Optional[str] = field(
+        default=None, metadata=config(field_name="createdAt")
+    )
+    updated_at: Optional[str] = field(
+        default=None, metadata=config(field_name="updatedAt")
+    )
+    
+    # Capabilities
+    supports_streaming: Optional[bool] = field(
+        default=None, metadata=config(field_name="supportsStreaming")
+    )
+    supports_byoc: Optional[bool] = field(
+        default=None, metadata=config(field_name="supportsBYOC")
+    )
+    
+    # Attributes and parameters with proper types
+    attributes: Optional[List[ModelAttribute]] = None
+    params: Optional[List[ModelParameter]] = None
 
     def build_run_url(self, **kwargs: Unpack[ModelRunParams]) -> str:
-        # Use api/v2/execute instead of api/v1/execute
-        url = f"{self.context.model_url}/{self.id}"
-        return url.replace("/api/v1/execute", "/api/v2/execute")
+        return f"{self.context.model_url}/{self.id}"
 
     @classmethod
-    def get(cls: type["Model"], id: str, **kwargs: Unpack[BaseGetParams]) -> "Model":
+    def get(
+        cls: type["Model"], 
+        id: str, 
+        **kwargs: Unpack[BaseGetParams]
+    ) -> "Model":
         return super().get(id, **kwargs)
 
     @classmethod
-    def list(cls: type["Model"], **kwargs: Unpack[ModelListParams]) -> Page["Model"]:
+    def list(
+        cls: type["Model"], 
+        **kwargs: Unpack[ModelListParams]
+    ) -> Page["Model"]:
         return super().list(**kwargs)
 
     def run(self, **kwargs: Unpack[ModelRunParams]) -> Result:
         return super().run(**kwargs)
 
     def as_tool(self) -> Dict[str, Any]:
-        """Override as_tool to include model-specific information and parameters."""
+        """
+        Override as_tool to include model-specific information and
+        parameters.
+        """
         base_tool = super().as_tool()
 
         # Add parameters if available
-        if self.parameters:
-            base_tool["parameters"] = self.parameters
+        if self.params:
+            base_tool["parameters"] = self.params
 
         # Add model-specific information
         base_tool["name"] = self.name
         base_tool["description"] = self.description
         base_tool["supplier"] = (
             (
-                self.supplier.value["code"]
-                if hasattr(self.supplier, "value")
+                self.supplier.code
+                if hasattr(self.supplier, "code")
                 else str(self.supplier)
             )
             if self.supplier
@@ -136,5 +238,67 @@ class Model(
             else None
         )
         base_tool["version"] = self.version
+        base_tool["function_type"] = self.function_type
+        base_tool["type"] = self.type
 
         return base_tool
+
+    @classmethod
+    def _populate_filters(cls, params: dict) -> dict:
+        """
+        Override to handle model-specific filter structure.
+        """
+        filters = {}
+        
+        # Handle pagination
+        if params.get("page_number") is not None:
+            filters["pageNumber"] = params["page_number"]
+        
+        if params.get("page_size") is not None:
+            filters["pageSize"] = params["page_size"]
+        
+        # Handle query
+        if params.get("query") is not None:
+            filters["q"] = params["query"]
+        
+        # Handle saved filter
+        if params.get("saved") is not None:
+            filters["saved"] = params["saved"]
+        
+        # Handle functions (convert to expected format)
+        if params.get("function") is not None:
+            function = params["function"]
+            if isinstance(function, Function):
+                filters["functions"] = [{"field": "function", "dir": 1}]
+        
+        # Handle suppliers
+        if params.get("suppliers") is not None:
+            suppliers = params["suppliers"]
+            if isinstance(suppliers, list):
+                filters["suppliers"] = [str(s) for s in suppliers]
+            else:
+                filters["suppliers"] = [str(suppliers)]
+        
+        # Handle status
+        if params.get("status") is not None:
+            status = params["status"]
+            if isinstance(status, list):
+                filters["status"] = [str(s) for s in status]
+            else:
+                filters["status"] = [str(status)]
+        
+        # Handle sort - always include at least an empty sort array
+        if (
+            params.get("sort_by") is not None or
+            params.get("sort_order") is not None
+        ):
+            sort_field = params.get("sort_by", "name")
+            sort_dir = 1 if params.get("sort_order", "asc") == "asc" else -1
+            filters["sort"] = [
+                {"field": str(sort_field), "dir": sort_dir}
+            ]
+        else:
+            # Always include empty sort array as backend requires it
+            filters["sort"] = [{}]
+        
+        return filters
