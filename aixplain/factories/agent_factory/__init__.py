@@ -149,7 +149,9 @@ class AgentFactory:
         if output_format:
             if isinstance(output_format, OutputFormat):
                 output_format = output_format.value
-
+            payload["outputFormat"] = output_format
+        logging.info("PAYLOAD")
+        logging.info(payload)
         agent = build_agent(payload=payload, tools=tools, api_key=api_key)
         agent.validate(raise_exception=True)
         response = "Unspecified error"

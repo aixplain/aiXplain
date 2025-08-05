@@ -399,6 +399,8 @@ class Agent(Model, DeployableMixin[Tool]):
             else [],
             "cost": self.cost,
             "api_key": self.api_key,
+            "outputFormat": self.output_format,
+            "expectedOutput": self.expected_output
         }
 
     @classmethod

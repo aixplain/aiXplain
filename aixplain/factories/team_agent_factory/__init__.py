@@ -178,7 +178,9 @@ class TeamAgentFactory:
                 }
             )
         if output_format:
-            payload["outputFormat"] = output_format.value
+            if isinstance(output_format, OutputFormat):
+                output_format = output_format.value
+            payload["outputFormat"] = output_format
         if expected_output:
             payload["expectedOutput"] = expected_output
         if supervisor_llm is not None:
