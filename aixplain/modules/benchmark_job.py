@@ -134,7 +134,7 @@ class BenchmarkJob:
             logging.error(error_message, exc_info=True)
             raise Exception(error_message)
 
-    def get_failuire_rate(self, return_as_dataframe=True):
+    def get_failure_rate(self, return_as_dataframe=True):
         try:
             scores = self.get_scores(return_simplified=False)
             failure_rates = {}
@@ -143,19 +143,19 @@ class BenchmarkJob:
                     failure_rates[model_id] = 0
                     continue
                 score_info = model_info["rawScores"][0]
-                num_succesful = score_info["count"]
+                num_successful = score_info["count"]
                 num_failed = score_info["failedSegmentsCount"]
-                failuire_rate = (num_failed * 100) / (num_succesful + num_failed)
-                failure_rates[model_id] = failuire_rate
+                failure_rate = (num_failed * 100) / (num_successful + num_failed)
+                failure_rates[model_id] = failure_rate
             if return_as_dataframe:
                 df = pd.DataFrame()
                 df["Model"] = list(failure_rates.keys())
-                df["Failuire Rate"] = list(failure_rates.values())
+                df["Failure Rate"] = list(failure_rates.values())
                 return df
             else:
                 return failure_rates
         except Exception as e:
-            error_message = f"Benchmark scores: Error in Getting benchmark failuire rate: {e}"
+            error_message = f"Benchmark scores: Error in Getting benchmark failure rate: {e}"
             logging.error(error_message, exc_info=True)
             raise Exception(error_message)
 

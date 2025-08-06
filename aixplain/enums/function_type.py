@@ -35,3 +35,4 @@ class FunctionType(Enum):
     CONNECTION = "connection"
     MCP_CONNECTION = "mcpconnection"
     MCPSERVER = "mcpserver"
+    MCPSERVERSAS = "mcpserversas"
