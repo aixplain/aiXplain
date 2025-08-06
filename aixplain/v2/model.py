@@ -39,16 +39,16 @@ def find_function_by_id(function_id: str) -> Optional[Function]:
 
 @dataclass_json
 @dataclass
-class ModelAttribute:
-    """Model attribute structure from the API response."""
+class Attribute:
+    """Common attribute structure from the API response."""
     name: str
     code: str
 
 
 @dataclass_json
 @dataclass
-class ModelParameter:
-    """Model parameter structure from the API response."""
+class Parameter:
+    """Common parameter structure from the API response."""
     name: str
     required: bool
     data_type: str = field(metadata=config(field_name="dataType"))
@@ -181,8 +181,8 @@ class Model(
     )
     
     # Attributes and parameters with proper types
-    attributes: Optional[List[ModelAttribute]] = None
-    params: Optional[List[ModelParameter]] = None
+    attributes: Optional[List[Attribute]] = None
+    params: Optional[List[Parameter]] = None
 
     def build_run_url(self, **kwargs: Unpack[ModelRunParams]) -> str:
         return f"{self.context.model_url}/{self.id}"

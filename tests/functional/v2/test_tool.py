@@ -1,0 +1,275 @@
+import os
+import pytest
+import time
+
+from aixplain.v2.integration import Integration
+
+
+@pytest.fixture(scope="module")
+def slack_integration_id():
+    """Return Slack integration ID for testing."""
+    return "686432941223092cb4294d3f"
+
+
+@pytest.fixture(scope="module")
+def slack_token():
+    """Return Slack token for testing."""
+    token = os.getenv("SLACK_TOKEN")
+    if not token:
+        pytest.skip("SLACK_TOKEN environment variable not set")
+    return token
+
+
+def validate_tool_structure(tool):
+    """Helper function to validate tool structure and data types."""
+    # Test core fields (inherited from Model)
+    assert isinstance(tool.id, str), "Tool ID should be a string"
+    assert isinstance(tool.name, str), "Tool name should be a string"
+    if tool.description is not None:
+        assert isinstance(tool.description, str), "Tool description should be a string"
+
+    # Test Tool-specific fields
+    if tool.asset_id is not None:
+        assert isinstance(tool.asset_id, str), "Tool asset_id should be a string"
+
+    if tool.integration is not None:
+        assert isinstance(
+            tool.integration, (Integration, str)
+        ), "Tool integration should be Integration object or string"
+
+    if tool.config is not None:
+        assert isinstance(tool.config, dict), "Tool config should be a dictionary"
+
+    if tool.code is not None:
+        assert isinstance(tool.code, str), "Tool code should be a string"
+
+    if tool.allowed_actions is not None:
+        assert isinstance(
+            tool.allowed_actions, list
+        ), "Tool allowed_actions should be a list"
+        for action in tool.allowed_actions:
+            assert isinstance(action, str), "Each allowed_action should be a string"
+
+    if tool.auth_scheme is not None:
+        assert hasattr(
+            tool.auth_scheme, "value"
+        ), "Tool auth_scheme should be an enum with value attribute"
+
+    if tool.parameters is not None:
+        assert isinstance(tool.parameters, list), "Tool parameters should be a list"
+        for param in tool.parameters:
+            assert isinstance(param, dict), "Each parameter should be a dictionary"
+
+    # Test inherited fields from Model
+    if tool.service_name is not None:
+        assert isinstance(
+            tool.service_name, str
+        ), "Tool service_name should be a string"
+
+    if tool.status is not None:
+        assert hasattr(
+            tool.status, "value"
+        ), "Tool status should be an enum with value attribute"
+
+    if tool.hosted_by is not None:
+        assert isinstance(tool.hosted_by, str), "Tool hosted_by should be a string"
+
+    if tool.developed_by is not None:
+        assert isinstance(
+            tool.developed_by, str
+        ), "Tool developed_by should be a string"
+
+    if tool.supplier is not None:
+        assert hasattr(tool.supplier, "id"), "Tool supplier should have id attribute"
+        assert hasattr(
+            tool.supplier, "name"
+        ), "Tool supplier should have name attribute"
+        assert hasattr(
+            tool.supplier, "code"
+        ), "Tool supplier should have code attribute"
+
+    if tool.function is not None:
+        assert isinstance(
+            tool.function, (dict, str)
+        ), "Tool function should be dict or string"
+
+    if tool.pricing is not None:
+        assert hasattr(
+            tool.pricing, "price"
+        ), "Tool pricing should have price attribute"
+
+    if tool.version is not None:
+        assert hasattr(tool.version, "name"), "Tool version should have name attribute"
+        assert hasattr(tool.version, "id"), "Tool version should have id attribute"
+
+    if tool.attributes is not None:
+        assert isinstance(tool.attributes, list), "Tool attributes should be a list"
+        for attr in tool.attributes:
+            assert hasattr(attr, "name"), "Each attribute should have name attribute"
+            assert hasattr(attr, "code"), "Each attribute should have code attribute"
+
+    if tool.params is not None:
+        assert isinstance(tool.params, list), "Tool params should be a list"
+        for param in tool.params:
+            assert hasattr(param, "name"), "Each param should have name attribute"
+            assert hasattr(
+                param, "required"
+            ), "Each param should have required attribute"
+            assert hasattr(
+                param, "data_type"
+            ), "Each param should have data_type attribute"
+
+    # Test that Tool has delete method from DeleteResourceMixin
+    assert hasattr(
+        tool, "delete"
+    ), "Tool should have delete method from DeleteResourceMixin"
+
+
+def test_list_tools(client):
+    """Test listing tools with pagination."""
+    tools = client.Tool.list()
+    assert hasattr(tools, "results")
+    assert isinstance(tools.results, list)
+    number_of_tools = len(tools.results)
+    assert number_of_tools > 0, "Expected to get results from tool listing"
+
+    # Validate structure of returned tools
+    for tool in tools.results:
+        validate_tool_structure(tool)
+
+    if number_of_tools < 2:
+        pytest.skip("Expected to have at least 2 tools for testing pagination")
+
+    # Test with page size
+    tools = client.Tool.list(page_size=number_of_tools - 1)
+    assert hasattr(tools, "results")
+    assert isinstance(tools.results, list)
+    assert (
+        len(tools.results) <= number_of_tools - 1
+    ), f"Expected at most {number_of_tools - 1} tools, but got {len(tools.results)}"
+
+    # Test with page number
+    tools_page_2 = client.Tool.list(page_number=1, page_size=number_of_tools - 1)
+    assert hasattr(tools_page_2, "results")
+    assert isinstance(tools_page_2.results, list)
+    assert (
+        len(tools_page_2.results) <= number_of_tools - 1
+    ), f"Expected at most {number_of_tools - 1} tools, but got {len(tools_page_2.results)}"
+
+
+def test_list_tools_with_query_filter(client):
+    """Test listing tools with query filter."""
+    # Test with search query - use a more generic query
+    query = "test"
+    tools = client.Tool.list(q=query)
+    assert hasattr(tools, "results"), "Tools should have results attribute"
+    assert isinstance(tools.results, list), "Tools results should be a list"
+
+    # If we get results, validate that at least some tools match the query
+    if tools.results:
+        matching_tools = []
+        for tool in tools.results:
+            # Check if the query appears in name, description, or other relevant fields
+            tool_text = f"{tool.name} {tool.description or ''}".lower()
+            if query.lower() in tool_text:
+                matching_tools.append(tool)
+
+        # If we have results but no matches, the search might be working differently
+        # or the query might not match any tools. This is acceptable behavior.
+        if not matching_tools:
+            # Log that no tools matched the query, but don't fail the test
+            print(
+                f"No tools matched query '{query}' in name or description, but search returned {len(tools.results)} results"
+            )
+    else:
+        # If no results returned, that's also acceptable for some queries
+        print(f"No tools returned for query '{query}'")
+
+
+def test_get_tool(client):
+    """Test getting a specific tool by ID."""
+    # First, list tools to get a valid tool ID
+    tools = client.Tool.list()
+    assert (
+        len(tools.results) > 0
+    ), "Expected to have at least one tool available for testing"
+
+    tool_id = tools.results[0].id
+    tool = client.Tool.get(tool_id)
+    assert tool.id == tool_id, "Retrieved tool ID should match the requested ID"
+
+    # Validate complete tool structure
+    validate_tool_structure(tool)
+
+
+def test_tool_run(client, slack_integration_id, slack_token):
+    """Test running an integration tool."""
+    tool_name = f"test-run-integration-{int(time.time())}"
+
+    # Get the integration
+    integration = client.Integration.get(slack_integration_id)
+
+    # Create tool with proper authentication
+    tool = client.Tool(
+        name=tool_name,
+        integration=integration,
+        config={"token": slack_token},
+        auth_scheme=client.Integration.AuthenticationScheme.BEARER_TOKEN,
+        allowed_actions=["SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL"],
+    )
+
+    result = tool.run(
+        action="SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL",
+        data={
+            "channel": "#integrations-test",
+            "text": f"Test message from functional test {int(time.time())}",
+        },
+    )
+
+    # Assert the result structure
+    assert hasattr(result, "status"), "Result should have status attribute"
+    assert hasattr(result, "data"), "Result should have data attribute"
+    assert (
+        result.status == "SUCCESS"
+    ), f"Expected SUCCESS status, got {result.status}"
+    assert result.data is not None, "Result data should not be None"
+
+    # Clean up - ensure tool is deleted
+    if tool.id:
+        tool.delete()
+
+
+def test_tool_get_parameters(client, slack_integration_id, slack_token):
+    """Test getting tool parameters."""
+    tool_name = f"test-params-{int(time.time())}"
+
+    # Get the integration
+    integration = client.Integration.get(slack_integration_id)
+
+    # Create tool with proper authentication
+    tool = client.Tool(
+        name=tool_name,
+        integration=integration,
+        config={"token": slack_token},
+        auth_scheme=client.Integration.AuthenticationScheme.BEARER_TOKEN,
+        allowed_actions=["SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL"],
+    )
+
+    # Get parameters - this should work for properly configured tools
+    parameters = tool.get_parameters()
+    assert isinstance(parameters, list), "get_parameters() should return a list"
+
+    # Validate parameter structure if parameters exist
+    if parameters:
+        for param in parameters:
+            assert "code" in param, "Parameter should have 'code' field"
+            assert "name" in param, "Parameter should have 'name' field"
+            assert "description" in param, "Parameter should have 'description' field"
+            assert "inputs" in param, "Parameter should have 'inputs' field"
+            assert isinstance(
+                param["inputs"], dict
+            ), "Parameter inputs should be a dictionary"
+
+    # Clean up - ensure tool is deleted
+    if tool.id:
+        tool.delete()

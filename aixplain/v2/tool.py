@@ -9,14 +9,12 @@ from .resource import (
     Result,
     DeleteResourceMixin,
     BaseDeleteParams,
-    BaseGetParams,
-    GetResourceMixin,
-    BaseResource,
-    RunnableResourceMixin,
-    ToolMixin,
+    DeleteResult,
 )
-from .model import ModelRunParams
+from .model import Model
 from .integration import Integration
+from .enums import ToolType
+from .exceptions import ValidationError
 
 
 @dataclass_json
@@ -69,6 +67,12 @@ class ToolRunParams(BaseRunParams):
     action: Optional[str] = None
 
 
+class ToolDeleteParams(BaseDeleteParams):
+    """Parameters for deleting tools."""
+
+    pass
+
+
 @dataclass_json
 @dataclass
 class ToolResult(Result):
@@ -79,30 +83,19 @@ class ToolResult(Result):
 
 @dataclass_json
 @dataclass
-class Tool(
-    BaseResource,
-    GetResourceMixin[BaseGetParams, "Model"],
-    RunnableResourceMixin[ModelRunParams, Result],
-    DeleteResourceMixin[BaseDeleteParams, "Tool"],
-    ToolMixin,
-):
+class Tool(Model, DeleteResourceMixin[ToolDeleteParams, DeleteResult]):
+    """Resource for tools.
 
-    RESOURCE_PATH = "sdk/models"
+    This class represents a tool resource that matches the backend structure.
+    Tools can be integrations, utilities, or other specialized resources.
+    Inherits from Model to reuse shared attributes and functionality.
+    """
+
+    RESOURCE_PATH = "v2/tools"
     RESPONSE_CLASS = ToolResult
     DEFAULT_INTEGRATION_ID = "686432941223092cb4294d3f"  # Script integration
 
-    supplier: str = field(
-        default="aixplain",  # Use lowercase to match working
-        metadata=dj_config(field_name="supplier"),
-    )
-    function: Optional[str] = field(
-        default=None,  # Use None to match working
-        metadata=dj_config(field_name="function"),
-    )
-    type: str = field(default="model", metadata=dj_config(field_name="type"))
-    version: Optional[str] = field(
-        default=None, metadata=dj_config(field_name="version")
-    )
+    # Tool-specific fields
     asset_id: Optional[str] = field(
         default=None, metadata=dj_config(field_name="assetId")
     )
@@ -135,6 +128,7 @@ class Tool(
                 self.config = {
                     "code": self.code,
                 }
+                self.auth_scheme = Integration.AuthenticationScheme.NO_AUTH
             else:
                 if isinstance(self.integration, str):
                     self.integration = self.context.Integration.get(self.integration)
@@ -144,8 +138,6 @@ class Tool(
                 ), "Integration must be an Integration object or a string"
 
             self.validate_allowed_actions()
-
-            # Auto-connect for integration tools
             self.connect()
             self.parameters = self.get_parameters()
 
@@ -154,10 +146,9 @@ class Tool(
             assert (
                 self.integration is not None
             ), "Integration is required to validate allowed actions"
-            assert (
-                self.integration.get_available_actions() is not None
-            ), "Integration must have available actions"
+
             available_actions = self.integration.get_available_actions()
+            assert available_actions is not None, "Integration must have available actions"
             assert all(
                 action in available_actions for action in self.allowed_actions
             ), "All allowed actions must be available"
@@ -260,14 +251,12 @@ class Tool(
             kwargs["data"] = args[0]
             args = args[1:]
 
-        if "action" not in kwargs and self.allowed_actions:
-            kwargs["action"] = self.allowed_actions[0]
-        else:
+        # If no action is provided and we have allowed actions, use the first one
+        if "action" not in kwargs:
+            if self.allowed_actions and len(self.allowed_actions) == 1:
+                kwargs["action"] = self.allowed_actions[0]
+
+        if "action" not in kwargs:
             raise ValueError("No action provided")
 
         return super().run(*args, **kwargs)
-
-    def build_run_url(self, **kwargs: Unpack[ModelRunParams]) -> str:
-        # Use api/v2/execute instead of api/v1/execute
-        url = f"{self.context.model_url}/{self.id}"
-        return url.replace("/api/v1/execute", "/api/v2/execute")
