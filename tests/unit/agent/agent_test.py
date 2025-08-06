@@ -1270,20 +1270,23 @@ def test_agent_serialization_completeness():
     agent_dict = agent.to_dict()
 
     required_fields = {
-        "id",
+        "llmId",
+        "version",
+        "role",
+        "api_key",
+        "supplier",
+        "outputFormat",
+        "status",
         "name",
         "description",
-        "role",
-        "assets",
-        "supplier",
-        "version",
-        "llmId",
-        "status",
-        "tasks",
-        "tools",
         "cost",
-        "api_key",
+        "tools",
+        "assets",
+        "tasks",
+        "expectedOutput",
+        "id",
     }
+
     assert set(agent_dict.keys()) == required_fields
 
     # Verify field values
@@ -1300,6 +1303,8 @@ def test_agent_serialization_completeness():
     assert isinstance(agent_dict["assets"], list)
     assert isinstance(agent_dict["tasks"], list)
     assert len(agent_dict["tasks"]) == 2
+    assert agent_dict["outputFormat"] == "text"
+    assert agent_dict["expectedOutput"] is None
 
     # Verify task serialization
     task_dict = agent_dict["tasks"][0]

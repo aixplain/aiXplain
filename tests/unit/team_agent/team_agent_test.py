@@ -443,7 +443,10 @@ def test_team_agent_serialization_completeness():
         "version",
         "status",
         "role",
+        "outputFormat",
+        "expectedOutput",
     }
+
     assert set(team_dict.keys()) == required_fields
 
     # Verify field values
@@ -457,6 +460,8 @@ def test_team_agent_serialization_completeness():
     assert team_dict["status"] == "draft"
     assert team_dict["links"] == []
     assert team_dict["plannerId"] is None  # use_mentalist=False
+    assert team_dict["outputFormat"] == "text"
+    assert team_dict["expectedOutput"] is None
 
     # Verify agents serialization
     assert isinstance(team_dict["agents"], list)
