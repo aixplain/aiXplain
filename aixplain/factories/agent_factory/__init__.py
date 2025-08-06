@@ -99,7 +99,7 @@ class AgentFactory:
         if output_format == OutputFormat.JSON:
             assert expected_output is not None and (
                 issubclass(expected_output, BaseModel) or isinstance(expected_output, dict)
-            ), "Expected output must be a Pydantic BaseModel or a JSON object when output format is JSON."
+            ), "'expected_output' must be a Pydantic BaseModel or a JSON object when 'output_format' is JSON."
 
         warnings.warn(
             "Use `llm` to define the large language model (aixplain.modules.model.llm_model.LLM) to be used as agent. "
@@ -143,15 +143,13 @@ class AgentFactory:
             payload["llmId"] = llm.id
             # Store the LLM object in payload to avoid recreating it
             payload["llm"] = llm
-            
+
         if expected_output:
             payload["expectedOutput"] = expected_output
         if output_format:
             if isinstance(output_format, OutputFormat):
                 output_format = output_format.value
             payload["outputFormat"] = output_format
-        logging.info("PAYLOAD")
-        logging.info(payload)
         agent = build_agent(payload=payload, tools=tools, api_key=api_key)
         agent.validate(raise_exception=True)
         response = "Unspecified error"

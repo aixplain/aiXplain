@@ -60,6 +60,7 @@ class Agent(Model, DeployableMixin[Tool]):
         api_key (str): The TEAM API key used for authentication.
         cost (Dict, optional): model price. Defaults to None.
         output_format (OutputFormat): default output format for agent responses.
+        expected_output (Union[BaseModel, Text, dict], optional): expected output. Defaults to None.
     """
 
     is_valid: bool
@@ -335,7 +336,7 @@ class Agent(Model, DeployableMixin[Tool]):
         # Use instance output_format if none provided
         if output_format is None:
             output_format = self.output_format
-        
+
         if isinstance(output_format, OutputFormat):
             output_format = output_format.value
 
@@ -399,8 +400,8 @@ class Agent(Model, DeployableMixin[Tool]):
             else [],
             "cost": self.cost,
             "api_key": self.api_key,
-            "outputFormat": self.output_format,
-            "expectedOutput": self.expected_output
+            "outputFormat": self.output_format.value,
+            "expectedOutput": self.expected_output,
         }
 
     @classmethod
@@ -475,6 +476,8 @@ class Agent(Model, DeployableMixin[Tool]):
             cost=data.get("cost"),
             status=status,
             tasks=tasks,
+            output_format=OutputFormat(data.get("outputFormat", OutputFormat.TEXT)),
+            expected_output=data.get("expectedOutput"),
         )
 
     def delete(self) -> None:

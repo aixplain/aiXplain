@@ -38,6 +38,7 @@ from aixplain.utils.llm_utils import get_llm_instance
 from pydantic import BaseModel
 from aixplain.modules.agent.output_format import OutputFormat
 
+
 class TeamAgentFactory:
     @classmethod
     def create(
@@ -94,6 +95,12 @@ class TeamAgentFactory:
             logging.warning("TeamAgent Onboarding Warning: num_inspectors is no longer supported. Use inspectors instead.")
 
         assert len(agents) > 0, "TeamAgent Onboarding Error: At least one agent must be provided."
+
+        if output_format == OutputFormat.JSON:
+            assert expected_output is not None and (
+                issubclass(expected_output, BaseModel) or isinstance(expected_output, dict)
+            ), "'expected_output' must be a Pydantic BaseModel or a JSON object when 'output_format' is JSON."
+
         agent_list = []
         for agent in agents:
             if isinstance(agent, Text) is True:
@@ -177,12 +184,12 @@ class TeamAgentFactory:
                     "parameters": llm.get_parameters().to_list() if llm.get_parameters() else None,
                 }
             )
+        if expected_output:
+            payload["expectedOutput"] = expected_output
         if output_format:
             if isinstance(output_format, OutputFormat):
                 output_format = output_format.value
             payload["outputFormat"] = output_format
-        if expected_output:
-            payload["expectedOutput"] = expected_output
         if supervisor_llm is not None:
             supervisor_llm = (
                 get_llm_instance(supervisor_llm, api_key=api_key) if isinstance(supervisor_llm, str) else supervisor_llm

@@ -385,6 +385,8 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             "version": self.version,
             "status": self.status.value,
             "role": self.instructions,
+            "outputFormat": self.output_format.value,
+            "expectedOutput": self.expected_output,
         }
 
     @classmethod
@@ -486,6 +488,8 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             instructions=data.get("role"),
             inspectors=inspectors,
             inspector_targets=inspector_targets,
+            output_format=OutputFormat(data.get("outputFormat", OutputFormat.TEXT)),
+            expected_output=data.get("expectedOutput"),
         )
 
     def _validate(self) -> None:
