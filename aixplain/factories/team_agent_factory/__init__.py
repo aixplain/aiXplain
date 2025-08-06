@@ -134,6 +134,7 @@ class TeamAgentFactory:
                               description: str,
                               tools: List[Dict]) -> LLM:
             """Helper to set up an LLM and add its tool configuration."""
+            llm_instance = None
             # Set up LLM
             if llm_param is None:
                 llm_instance = _get_llm_safely(default_id, llm_type)
@@ -147,14 +148,13 @@ class TeamAgentFactory:
                     "description": description,
                     "parameters": llm_instance.get_parameters().to_list() if llm_instance.get_parameters() else None,
                 })
-            
-            return llm_instance
+            return llm_instance, tools
 
         # Set up LLMs and their tools
         tools = []
-        llm = _setup_llm_and_tool(llm, llm_id, "Main LLM", "main", tools)
-        supervisor_llm = _setup_llm_and_tool(supervisor_llm, llm_id, "Supervisor LLM", "supervisor", tools)
-        mentalist_llm = _setup_llm_and_tool(mentalist_llm, llm_id, "Mentalist LLM", "mentalist", tools) if use_mentalist else None
+        llm, tools = _setup_llm_and_tool(llm, llm_id, "Main LLM", "main", tools)
+        supervisor_llm, tools = _setup_llm_and_tool(supervisor_llm, llm_id, "Supervisor LLM", "supervisor", tools)
+        mentalist_llm, tools = _setup_llm_and_tool(mentalist_llm, llm_id, "Mentalist LLM", "mentalist", tools) if use_mentalist else None
 
         team_agent = None
         url = urljoin(config.BACKEND_URL, "sdk/agent-communities")
