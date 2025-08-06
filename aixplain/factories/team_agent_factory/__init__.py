@@ -182,7 +182,7 @@ class TeamAgentFactory:
             "supplier": supplier,
             "version": version,
             "status": "draft",
-            "tools": tools,  # Use the tools list we built during LLM setup
+            "tools": tools,
             "role": instructions,
         }
 
