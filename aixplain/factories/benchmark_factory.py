@@ -37,35 +37,43 @@ from urllib.parse import urljoin
 
 
 class BenchmarkFactory:
-    """A static class for creating and managing the Benchmarking experience.
+    """Factory class for creating and managing benchmarks in the aiXplain platform.
+
+    This class provides functionality for creating benchmarks, managing benchmark jobs,
+    retrieving results, and configuring normalization options. Benchmarks can be used
+    to evaluate and compare multiple models using specified datasets and metrics.
 
     Attributes:
-        backend_url (str): The URL for the backend.
+        backend_url (str): Base URL for the aiXplain backend API.
     """
 
     backend_url = config.BACKEND_URL
 
     @classmethod
     def _create_benchmark_job_from_response(cls, response: Dict) -> BenchmarkJob:
-        """Converts response Json to 'BenchmarkJob' object
+        """Convert API response into a BenchmarkJob object.
 
         Args:
-            response (Dict): Json from API
+            response (Dict): API response containing:
+                - jobId: Unique job identifier
+                - status: Current job status
+                - benchmark: Dictionary containing benchmark information
 
         Returns:
-            BenchmarkJob: Coverted 'BenchmarkJob' object
+            BenchmarkJob: Instantiated benchmark job object.
         """
         return BenchmarkJob(response["jobId"], response["status"], response["benchmark"]["id"])
 
     @classmethod
     def _get_benchmark_jobs_from_benchmark_id(cls, benchmark_id: Text) -> List[BenchmarkJob]:
-        """Get list of benchmark jobs from benchmark id
+        """Retrieve all jobs associated with a benchmark.
 
         Args:
-            benchmark_id (Text): ID of benchmark
+            benchmark_id (Text): Unique identifier of the benchmark.
 
         Returns:
-            List[BenchmarkJob]: List of associated benchmark jobs
+            List[BenchmarkJob]: List of benchmark job objects associated with
+                the specified benchmark.
         """
         url = urljoin(cls.backend_url, f"sdk/benchmarks/{benchmark_id}/jobs")
 
@@ -77,13 +85,21 @@ class BenchmarkFactory:
 
     @classmethod
     def _create_benchmark_from_response(cls, response: Dict) -> Benchmark:
-        """Converts response Json to 'Benchmark' object
+        """Convert API response into a Benchmark object.
+
+        This method creates a Benchmark object by fetching and instantiating all
+        associated models, datasets, metrics, and jobs.
 
         Args:
-            response (Dict): Json from API
+            response (Dict): API response containing:
+                - id: Benchmark identifier
+                - name: Benchmark name
+                - model: List of model configurations
+                - datasets: List of dataset IDs
+                - metrics: List of metric configurations
 
         Returns:
-            Benchmark: Coverted 'Benchmark' object
+            Benchmark: Instantiated benchmark object with all components loaded.
         """
         model_list = [ModelFactory().get(model_info["id"]) for model_info in response["model"]]
         dataset_list = [DatasetFactory().get(dataset_id) for dataset_id in response["datasets"]]
@@ -93,13 +109,22 @@ class BenchmarkFactory:
 
     @classmethod
     def get(cls, benchmark_id: str) -> Benchmark:
-        """Create a 'Benchmark' object from Benchmark id
+        """Retrieve a benchmark by its ID.
+
+        This method fetches a benchmark and all its associated components
+        (models, datasets, metrics, jobs) from the platform.
 
         Args:
-            benchmark_id (Text): Benchmark ID of required Benchmark.
+            benchmark_id (str): Unique identifier of the benchmark to retrieve.
 
         Returns:
-            Benchmark: Created 'Benchmark' object
+            Benchmark: Retrieved benchmark object with all components loaded.
+
+        Raises:
+            Exception: If:
+                - Benchmark ID is invalid
+                - Authentication fails
+                - Service is unavailable
         """
         resp = None
         try:
@@ -130,13 +155,16 @@ class BenchmarkFactory:
 
     @classmethod
     def get_job(cls, job_id: Text) -> BenchmarkJob:
-        """Create a 'BenchmarkJob' object from job id
+        """Retrieve a benchmark job by its ID.
 
         Args:
-            job_id (Text): ID of the required BenchmarkJob.
+            job_id (Text): Unique identifier of the benchmark job to retrieve.
 
         Returns:
-            BenchmarkJob: Created 'BenchmarkJob' object
+            BenchmarkJob: Retrieved benchmark job object with its current status.
+
+        Raises:
+            Exception: If the job ID is invalid or the request fails.
         """
         url = urljoin(cls.backend_url, f"sdk/benchmarks/jobs/{job_id}")
         headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
@@ -170,14 +198,22 @@ class BenchmarkFactory:
     
     @classmethod
     def _reformat_model_list(cls, model_list: List[Model]) -> Tuple[List[Any], List[Any]]:
-        """Reformat the model list to be used in the create benchmark API
+        """Reformat a list of models for the benchmark creation API.
+
+        This method separates models into two lists based on whether they have
+        additional configuration information.
 
         Args:
-            model_list (List[Model]): List of models to be used in the benchmark
+            model_list (List[Model]): List of models to be used in the benchmark.
 
         Returns:
-            Tuple[List[Any], List[Any]]: Reformatted model lists
+            Tuple[List[Any], List[Any]]: A tuple containing:
+                - List of model IDs for models without additional parameters
+                - List of model configurations for models with parameters, or None
+                  if no models have parameters
 
+        Raises:
+            Exception: If some models have additional info and others don't.
         """
         model_list_without_parms, model_list_with_parms = [], []
         for model in model_list:
@@ -195,17 +231,32 @@ class BenchmarkFactory:
 
     @classmethod
     def create(cls, name: str, dataset_list: List[Dataset], model_list: List[Model], metric_list: List[Metric]) -> Benchmark:
-        """Creates a benchmark based on the information provided like name, dataset list, model list and score list.
-        Note: This only creates a benchmark. It needs to run seperately using start_benchmark_job.
+        """Create a new benchmark configuration.
+
+        This method creates a new benchmark that can be used to evaluate and compare
+        multiple models using specified datasets and metrics. Note that this only
+        creates the benchmark configuration - you need to run it separately using
+        start_benchmark_job.
 
         Args:
-            name (str): Unique Name of benchmark
-            dataset_list (List[Dataset]): List of Datasets to be used for benchmarking
-            model_list (List[Model]): List of Models to be used for benchmarking
-            metric_list (List[Metric]): List of Metrics to be used for benchmarking
+            name (str): Unique name for the benchmark.
+            dataset_list (List[Dataset]): List of datasets to use for evaluation.
+                Currently only supports a single dataset.
+            model_list (List[Model]): List of models to evaluate. All models must
+                either have additional configuration info or none should have it.
+            metric_list (List[Metric]): List of metrics to use for evaluation.
+                Must provide at least one metric.
 
         Returns:
-            Benchmark: _description_
+            Benchmark: Created benchmark object ready for execution.
+
+        Raises:
+            Exception: If:
+                - No dataset is provided or multiple datasets are provided
+                - No metrics are provided
+                - No models are provided
+                - Model configuration is inconsistent
+                - Request fails or returns an error
         """
         payload = {}
         try:
@@ -243,14 +294,23 @@ class BenchmarkFactory:
 
     @classmethod
     def list_normalization_options(cls, metric: Metric, model: Model) -> List[str]:
-        """Get list of supported normalization options for a metric and model to be used in benchmarking
+        """List supported normalization options for a metric-model pair.
+
+        This method retrieves the list of normalization options that can be used
+        when evaluating a specific model with a specific metric in a benchmark.
 
         Args:
-            metric (Metric): Metric for which normalization options are to be listed
-            model(Model): Model to be used in benchmarking
+            metric (Metric): Metric to get normalization options for.
+            model (Model): Model to check compatibility with.
 
         Returns:
-            List[str]: List of supported normalization options
+            List[str]: List of supported normalization option identifiers.
+
+        Raises:
+            Exception: If:
+                - Metric or model is invalid
+                - Request fails
+                - Service is unavailable
         """
         try:
             url = urljoin(cls.backend_url, "sdk/benchmarks/normalization-options")
@@ -274,7 +334,23 @@ class BenchmarkFactory:
             raise Exception(error_message)
 
     @classmethod
-    def get_benchmark_job_scores(cls, job_id):
+    def get_benchmark_job_scores(cls, job_id: Text) -> Any:
+        """Retrieve and format benchmark job scores.
+
+        This method fetches the scores from a benchmark job and formats them into
+        a pandas DataFrame, with model names properly formatted to include supplier
+        and version information.
+
+        Args:
+            job_id (Text): Unique identifier of the benchmark job.
+
+        Returns:
+            pandas.DataFrame: DataFrame containing benchmark scores with formatted
+                model names.
+
+        Raises:
+            Exception: If the job ID is invalid or the request fails.
+        """
         def __get_model_name(model_id):
             model = ModelFactory.get(model_id)
             supplier = str(model.supplier)

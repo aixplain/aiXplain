@@ -31,6 +31,26 @@ from typing import List, Optional, Text
 
 
 class MetaData:
+    """A class representing metadata for data in the aiXplain platform.
+
+    This class provides functionality for managing metadata, which is used to store
+    information about data in the platform. It supports various data types, languages,
+    and storage formats.
+
+    Attributes:
+        name (Text): Name of the data.
+        dtype (DataType): Type of data.
+        storage_type (StorageType): Storage type of the data.
+        data_column (Optional[Text]): Column index/name where the data is on a structured file.
+        start_column (Optional[Text]): Column index/name where the start indexes is on a structured file.
+        end_column (Optional[Text]): Column index/name where the end indexes is on a structured file.
+        privacy (Optional[Privacy]): Privacy of data.
+        file_extension (Optional[FileType]): File extension (e.g. CSV, TXT, etc.).
+        languages (List[Language]): List of languages which the data consists of.
+        dsubtype (DataSubtype): Data subtype (e.g., age, topic, race, split, etc.), used in datasets metadata.
+        id (Optional[Text]): Data ID.
+        kwargs (dict): Additional keyword arguments for extensibility.
+    """
     def __init__(
         self,
         name: Text,
@@ -46,11 +66,7 @@ class MetaData:
         id: Optional[Text] = None,
         **kwargs
     ) -> None:
-        """MetaData Class
-
-        Description:
-            This class is used to stored the meta-information of the Data Class.
-            It may be used to describe Data during the onboarding process of a corpus or dataset.
+        """Initialize a new MetaData instance.
 
         Args:
             name (Text): Data Name

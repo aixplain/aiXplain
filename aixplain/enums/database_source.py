@@ -25,7 +25,16 @@ from enum import Enum
 
 
 class DatabaseSourceType(Enum):
-    """Enum for database source types"""
+    """Enumeration of supported database source types.
+
+    This enum defines the different types of database sources that can be used
+    for data storage and retrieval in the system.
+
+    Attributes:
+        POSTGRESQL (str): PostgreSQL database source type.
+        SQLITE (str): SQLite database source type.
+        CSV (str): CSV file source type.
+    """
 
     POSTGRESQL = "postgresql"
     SQLITE = "sqlite"

@@ -15,6 +15,19 @@ from aixplain.utils import config
 
 
 class ToolFactory(ModelGetterMixin, ModelListMixin):
+    """A factory class for creating and managing various types of tools including indexes, scripts, and connections.
+
+    This class provides functionality to create and manage different types of tools:
+    - Script models (utility models)
+    - Search collections (index models)
+    - Connectors (integration models)
+
+    The factory inherits from ModelGetterMixin and ModelListMixin to provide model retrieval
+    and listing capabilities.
+
+    Attributes:
+        backend_url: The URL endpoint for the backend API.
+    """
     backend_url = config.BACKEND_URL
 
 
@@ -26,7 +39,23 @@ class ToolFactory(ModelGetterMixin, ModelListMixin):
         params: Optional[Union[BaseUtilityModelParams, BaseIndexParams, BaseAuthenticationParams]] = None,
         data: Optional[Dict] = None,
         **kwargs,
-    ) -> Model: 
+    ) -> Model:
+        """Recreates a tool based on an existing tool's configuration.
+
+        This method creates a new tool instance using the configuration of an existing tool.
+        It's useful for creating copies or variations of existing tools.
+
+        Args:
+            integration (Optional[Union[Text, Model]], optional): The integration model or its ID. Defaults to None.
+            tool (Optional[Union[Text, Model]], optional): The existing tool model or its ID to recreate from. Defaults to None.
+            params (Optional[Union[BaseUtilityModelParams, BaseIndexParams, BaseAuthenticationParams]], optional): 
+                Parameters for the new tool. Defaults to None.
+            data (Optional[Dict], optional): Additional data for tool creation. Defaults to None.
+            **kwargs: Additional keyword arguments passed to the tool creation process.
+
+        Returns:
+            Model: The newly created tool model.
+        """
         if data is None: 
             data = {}
         data["assetId"] = tool.id if isinstance(tool, Model) else tool

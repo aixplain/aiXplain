@@ -38,23 +38,29 @@ from urllib.parse import urljoin
 
 
 class FinetuneFactory:
-    """A static class for creating and managing the FineTune experience.
+    """Factory class for creating and managing model fine-tuning operations.
+
+    This class provides static methods to create and manage fine-tuning jobs
+    for machine learning models. It handles cost estimation, dataset preparation,
+    and fine-tuning configuration.
 
     Attributes:
-        backend_url (str): The URL for the backend.
+        backend_url (str): Base URL for the aiXplain backend API.
     """
 
     backend_url = config.BACKEND_URL
 
     @classmethod
     def _create_cost_from_response(cls, response: Dict) -> FinetuneCost:
-        """Create a Cost object from the response dictionary.
+        """Create a FinetuneCost object from an API response.
 
         Args:
-            response (Dict): The response dictionary containing cost information.
+            response (Dict): API response dictionary containing cost information
+                with 'trainingCost', 'inferenceCost', and 'hostingCost' fields.
 
         Returns:
-            Cost: The Cost object created from the response.
+            FinetuneCost: Object containing the parsed cost information for
+                training, inference, and hosting.
         """
         return FinetuneCost(response["trainingCost"], response["inferenceCost"], response["hostingCost"])
 
@@ -69,18 +75,31 @@ class FinetuneFactory:
         train_percentage: Optional[float] = 100,
         dev_percentage: Optional[float] = 0,
     ) -> Finetune:
-        """Create a Finetune object with the provided information.
+        """Create a new fine-tuning job with the specified configuration.
+
+        This method sets up a fine-tuning job by validating the configuration,
+        estimating costs, and preparing the datasets and model. It supports both
+        direct Dataset/Model objects and their IDs as inputs.
 
         Args:
-            name (Text): Name of the Finetune.
-            dataset_list (List[Dataset]): List of Datasets (or dataset IDs) to be used for fine-tuning.
-            model (Model): Model (Model ID) to be fine-tuned.
-            prompt_template (Text, optional): Fine-tuning prompt_template. Should reference columns in the dataset using format <<COLUMN_NAME>>. Defaults to None.
-            hyperparameters (Hyperparameters, optional): Hyperparameters for fine-tuning. Defaults to None.
-            train_percentage (float, optional): Percentage of training samples. Defaults to 100.
-            dev_percentage (float, optional): Percentage of development samples. Defaults to 0.
+            name (Text): Name for the fine-tuning job.
+            dataset_list (List[Union[Dataset, Text]]): List of Dataset objects or dataset IDs
+                to use for fine-tuning.
+            model (Union[Model, Text]): Model object or model ID to be fine-tuned.
+            prompt_template (Text, optional): Template for formatting training examples.
+                Use <<COLUMN_NAME>> to reference dataset columns. Defaults to None.
+            hyperparameters (Hyperparameters, optional): Fine-tuning hyperparameters
+                configuration. Defaults to None.
+            train_percentage (float, optional): Percentage of data to use for training.
+                Must be > 0. Defaults to 100.
+            dev_percentage (float, optional): Percentage of data to use for validation.
+                train_percentage + dev_percentage must be <= 100. Defaults to 0.
+
         Returns:
-            Finetune: The Finetune object created with the provided information or None if there was an error.
+            Finetune: Configured fine-tuning job object, or None if creation failed.
+
+        Raises:
+            AssertionError: If train_percentage <= 0 or train_percentage + dev_percentage > 100.
         """
         payload = {}
         assert train_percentage > 0, f"Create FineTune: Train percentage ({train_percentage}) must be greater than zero"
