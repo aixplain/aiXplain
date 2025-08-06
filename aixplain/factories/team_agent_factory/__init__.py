@@ -204,6 +204,12 @@ class TeamAgentFactory:
             internal_payload["supervisor_llm"] = supervisor_llm
         if mentalist_llm is not None:
             internal_payload["mentalist_llm"] = mentalist_llm
+        if expected_output:
+            payload["expectedOutput"] = expected_output
+        if output_format:
+            if isinstance(output_format, OutputFormat):
+                output_format = output_format.value
+            payload["outputFormat"] = output_format
 
         team_agent = build_team_agent(payload=internal_payload, agents=agent_list, api_key=api_key)
         team_agent.validate(raise_exception=True)
