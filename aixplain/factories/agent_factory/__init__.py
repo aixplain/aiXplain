@@ -48,6 +48,11 @@ from aixplain.enums import DatabaseSourceType
 
 
 class AgentFactory:
+    """Factory class for creating and managing agents in the aiXplain system.
+
+    This class provides class methods for creating various types of agents and tools,
+    as well as managing existing agents in the platform.
+    """
     @classmethod
     def create(
         cls,
@@ -165,7 +170,17 @@ class AgentFactory:
 
     @classmethod
     def create_from_dict(cls, dict: Dict) -> Agent:
-        """Create an agent from a dictionary."""
+        """Create an agent instance from a dictionary representation.
+
+        Args:
+            dict (Dict): Dictionary containing agent configuration and properties.
+
+        Returns:
+            Agent: Instantiated agent object with properties from the dictionary.
+
+        Raises:
+            Exception: If agent validation fails or required properties are missing.
+        """
         agent = Agent.from_dict(dict)
         agent.validate(raise_exception=True)
         agent.url = urljoin(config.BACKEND_URL, f"sdk/agents/{agent.id}/run")
@@ -175,6 +190,18 @@ class AgentFactory:
     def create_task(
         cls, name: Text, description: Text, expected_output: Text, dependencies: Optional[List[Text]] = None
     ) -> AgentTask:
+        """Create a new task for an agent.
+
+        Args:
+            name (Text): Name of the task.
+            description (Text): Description of what the task should accomplish.
+            expected_output (Text): Description of the expected output format.
+            dependencies (Optional[List[Text]], optional): List of task names that must
+                complete before this task can start. Defaults to None.
+
+        Returns:
+            AgentTask: Created task object.
+        """
         return AgentTask(name=name, description=description, expected_output=expected_output, dependencies=dependencies)
 
     @classmethod
@@ -187,7 +214,22 @@ class AgentFactory:
         parameters: Optional[Dict] = None,
         name: Optional[Text] = None,
     ) -> ModelTool:
-        """Create a new model tool."""
+        """Create a new model tool for use with an agent.
+
+        Args:
+            model (Optional[Union[Model, Text]], optional): Model instance or ID. Defaults to None.
+            function (Optional[Union[Function, Text]], optional): Function enum or ID. Defaults to None.
+            supplier (Optional[Union[Supplier, Text]], optional): Supplier enum or name. Defaults to None.
+            description (Text, optional): Description of the tool. Defaults to "".
+            parameters (Optional[Dict], optional): Tool parameters. Defaults to None.
+            name (Optional[Text], optional): Name of the tool. Defaults to None.
+
+        Returns:
+            ModelTool: Created model tool object.
+
+        Raises:
+            AssertionError: If the supplier is not valid.
+        """
         if function is not None and isinstance(function, str):
             function = Function(function)
 
@@ -206,19 +248,43 @@ class AgentFactory:
     def create_pipeline_tool(
         cls, description: Text, pipeline: Union[Pipeline, Text], name: Optional[Text] = None
     ) -> PipelineTool:
-        """Create a new pipeline tool."""
+        """Create a new pipeline tool for use with an agent.
+
+        Args:
+            description (Text): Description of what the pipeline tool does.
+            pipeline (Union[Pipeline, Text]): Pipeline instance or pipeline ID.
+            name (Optional[Text], optional): Name of the tool. Defaults to None.
+
+        Returns:
+            PipelineTool: Created pipeline tool object.
+        """
         return PipelineTool(description=description, pipeline=pipeline, name=name)
 
     @classmethod
     def create_python_interpreter_tool(cls) -> PythonInterpreterTool:
-        """Create a new python interpreter tool."""
+        """Create a new Python interpreter tool for use with an agent.
+
+        This tool allows the agent to execute Python code in a controlled environment.
+
+        Returns:
+            PythonInterpreterTool: Created Python interpreter tool object.
+        """
         return PythonInterpreterTool()
 
     @classmethod
     def create_custom_python_code_tool(
         cls, code: Union[Text, Callable], name: Text, description: Text = ""
     ) -> CustomPythonCodeTool:
-        """Create a new custom python code tool."""
+        """Create a new custom Python code tool for use with an agent.
+
+        Args:
+            code (Union[Text, Callable]): Python code as string or callable function.
+            name (Text): Name of the tool.
+            description (Text, optional): Description of what the tool does. Defaults to "".
+
+        Returns:
+            CustomPythonCodeTool: Created custom Python code tool object.
+        """
         return CustomPythonCodeTool(name=name, description=description, code=code)
 
     @classmethod
@@ -356,7 +422,18 @@ class AgentFactory:
 
     @classmethod
     def list(cls) -> Dict:
-        """List all agents available in the platform."""
+        """List all agents available in the platform.
+
+        Returns:
+            Dict: Dictionary containing:
+                - results (List[Agent]): List of available agents.
+                - page_total (int): Number of agents in current page.
+                - page_number (int): Current page number.
+                - total (int): Total number of agents.
+
+        Raises:
+            Exception: If there is an error listing the agents.
+        """
         from aixplain.factories.agent_factory.utils import build_agent
 
         url = urljoin(config.BACKEND_URL, "sdk/agents")
@@ -390,7 +467,19 @@ class AgentFactory:
 
     @classmethod
     def get(cls, agent_id: Text, api_key: Optional[Text] = None) -> Agent:
-        """Get agent by id."""
+        """Retrieve an agent by its ID.
+
+        Args:
+            agent_id (Text): ID of the agent to retrieve.
+            api_key (Optional[Text], optional): API key for authentication. 
+                Defaults to None, using the configured TEAM_API_KEY.
+
+        Returns:
+            Agent: Retrieved agent object.
+
+        Raises:
+            Exception: If the agent cannot be retrieved or doesn't exist.
+        """
         from aixplain.factories.agent_factory.utils import build_agent
 
         url = urljoin(config.BACKEND_URL, f"sdk/agents/{agent_id}")

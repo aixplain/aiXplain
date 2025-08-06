@@ -27,6 +27,23 @@ from typing import Dict, Optional, Text, Union
 
 
 class Asset:
+    """A class representing an aiXplain Asset.
+
+    This class provides functionality to create and manage assets in the aiXplain platform.
+    Assets can be models, datasets, or other resources with associated metadata like
+    supplier information, version, license, privacy settings, and cost.
+
+    Attributes:
+        id (Text): The unique identifier of the asset.
+        name (Text): The name of the asset.
+        description (Text): A detailed description of the asset.
+        supplier (Union[Dict, Text, Supplier, int]): The supplier of the asset.
+        version (Text): The version of the asset.
+        license (Optional[License]): The license associated with the asset.
+        privacy (Privacy): The privacy setting of the asset.
+        cost (Optional[Union[Dict, float]]): The cost associated with the asset.
+    """
+
     def __init__(
         self,
         id: Text,
@@ -38,15 +55,19 @@ class Asset:
         privacy: Privacy = Privacy.PRIVATE,
         cost: Optional[Union[Dict, float]] = None,
     ) -> None:
-        """Create an Asset with the necessary information
+        """Initialize a new Asset instance.
 
         Args:
-            id (Text): ID of the Asset
-            name (Text): Name of the Asset
-            description (Text): Description of the Asset
-            supplier (Union[Dict, Text, Supplier, int], optional): supplier of the asset. Defaults to "aiXplain".
-            version (Optional[Text], optional): asset version. Defaults to "1.0".
-            cost (Optional[Union[Dict, float]], optional): asset price. Defaults to None.
+            id (Text): Unique identifier of the asset.
+            name (Text): Name of the asset.
+            description (Text): Detailed description of the asset.
+            supplier (Union[Dict, Text, Supplier, int], optional): Supplier of the asset. 
+                Can be a Supplier enum, dictionary, text, or integer. Defaults to Supplier.AIXPLAIN.
+            version (Text, optional): Version of the asset. Defaults to "1.0".
+            license (Optional[License], optional): License associated with the asset. Defaults to None.
+            privacy (Privacy, optional): Privacy setting of the asset. Defaults to Privacy.PRIVATE.
+            cost (Optional[Union[Dict, float]], optional): Cost of the asset. Can be a dictionary
+                with pricing details or a float value. Defaults to None.
         """
         self.id = id
         self.name = name
@@ -72,9 +93,13 @@ class Asset:
         self.cost = cost
 
     def to_dict(self) -> dict:
-        """Get the asset info as a Dictionary
+        """Convert the Asset instance to a dictionary representation.
+
+        This method serializes all attributes of the Asset instance into a dictionary
+        format, which can be useful for data transmission or storage.
 
         Returns:
-            dict: Asset Information
+            dict: A dictionary containing all attributes of the Asset instance.
+                Keys are attribute names and values are their corresponding values.
         """
         return self.__dict__

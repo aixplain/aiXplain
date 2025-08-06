@@ -2,6 +2,19 @@ from typing import List, Dict, Any, Optional, Text
 
 
 class AgentResponseData:
+    """A container for agent execution response data.
+
+    This class encapsulates the input, output, and execution details of an agent's
+    response, including intermediate steps and execution statistics.
+
+    Attributes:
+        input (Optional[Any]): The input provided to the agent.
+        output (Optional[Any]): The final output from the agent.
+        session_id (str): Identifier for the conversation session.
+        intermediate_steps (List[Any]): List of steps taken during execution.
+        execution_stats (Optional[Dict[str, Any]]): Statistics about the execution.
+        critiques (str): Any critiques or feedback about the execution.
+    """
     def __init__(
         self,
         input: Optional[Any] = None,
@@ -11,6 +24,22 @@ class AgentResponseData:
         execution_stats: Optional[Dict[str, Any]] = None,
         critiques: Optional[str] = None,
     ):
+        """Initialize a new AgentResponseData instance.
+
+        Args:
+            input (Optional[Any], optional): The input provided to the agent.
+                Defaults to None.
+            output (Optional[Any], optional): The final output from the agent.
+                Defaults to None.
+            session_id (str, optional): Identifier for the conversation session.
+                Defaults to "".
+            intermediate_steps (Optional[List[Any]], optional): List of steps taken
+                during execution. Defaults to None.
+            execution_stats (Optional[Dict[str, Any]], optional): Statistics about
+                the execution. Defaults to None.
+            critiques (Optional[str], optional): Any critiques or feedback about
+                the execution. Defaults to None.
+        """
         self.input = input
         self.output = output
         self.session_id = session_id
@@ -20,6 +49,20 @@ class AgentResponseData:
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "AgentResponseData":
+        """Create an AgentResponseData instance from a dictionary.
+
+        Args:
+            data (Dict[str, Any]): Dictionary containing response data with keys:
+                - input: The input provided to the agent
+                - output: The final output from the agent
+                - session_id: Identifier for the conversation session
+                - intermediate_steps: List of steps taken during execution
+                - executionStats: Statistics about the execution
+                - critiques: Any critiques or feedback
+
+        Returns:
+            AgentResponseData: A new instance populated with the dictionary data.
+        """
         return cls(
             input=data.get("input"),
             output=data.get("output"),
@@ -30,6 +73,18 @@ class AgentResponseData:
         )
 
     def to_dict(self) -> Dict[str, Any]:
+        """Convert the response data to a dictionary representation.
+
+        Returns:
+            Dict[str, Any]: A dictionary containing all response data with keys:
+                - input: The input provided to the agent
+                - output: The final output from the agent
+                - session_id: Identifier for the conversation session
+                - intermediate_steps: List of steps taken during execution
+                - executionStats: Statistics about the execution
+                - execution_stats: Alias for executionStats
+                - critiques: Any critiques or feedback
+        """
         return {
             "input": self.input,
             "output": self.output,
@@ -40,16 +95,38 @@ class AgentResponseData:
             "critiques": self.critiques,
         }
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: str) -> Any:
+        """Get an attribute value using dictionary-style access.
+
+        Args:
+            key (str): The name of the attribute to get.
+
+        Returns:
+            Any: The value of the attribute, or None if not found.
+        """
         return getattr(self, key, None)
 
-    def __setitem__(self, key, value):
+    def __setitem__(self, key: str, value: Any) -> None:
+        """Set an attribute value using dictionary-style access.
+
+        Args:
+            key (str): The name of the attribute to set.
+            value (Any): The value to assign to the attribute.
+
+        Raises:
+            KeyError: If the key is not a valid attribute of the class.
+        """
         if hasattr(self, key):
             setattr(self, key, value)
         else:
             raise KeyError(f"{key} is not a valid attribute of {self.__class__.__name__}")
 
     def __repr__(self) -> str:
+        """Return a string representation of the response data.
+
+        Returns:
+            str: A string showing all attributes and their values in a readable format.
+        """
         return (
             f"{self.__class__.__name__}("
             f"input={self.input}, "
@@ -61,6 +138,14 @@ class AgentResponseData:
         )
 
     def __contains__(self, key: Text) -> bool:
+        """Check if an attribute exists using 'in' operator.
+
+        Args:
+            key (Text): The name of the attribute to check.
+
+        Returns:
+            bool: True if the attribute exists and is accessible, False otherwise.
+        """
         try:
             self[key]
             return True

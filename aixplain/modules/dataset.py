@@ -117,11 +117,29 @@ class Dataset(Asset):
         self.length = length
         self.kwargs = kwargs
 
-    def __repr__(self):
+    def __repr__(self) -> str:
+        """Return a string representation of the Dataset instance.
+
+        Returns:
+            str: A string in the format "<Dataset: name>".
+        """
         return f"<Dataset: {self.name}>"
 
     def delete(self) -> None:
-        """Delete Dataset service"""
+        """Delete this dataset from the aiXplain platform.
+
+        This method permanently removes the dataset from the platform. The operation
+        can only be performed by the dataset owner.
+
+        Returns:
+            None
+
+        Raises:
+            Exception: If the deletion fails, either because:
+                - The dataset doesn't exist
+                - The user is not the owner
+                - There's a network/server error
+        """
         try:
             url = urljoin(config.BACKEND_URL, f"sdk/datasets/{self.id}")
             headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}

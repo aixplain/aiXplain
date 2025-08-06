@@ -34,6 +34,17 @@ from pydantic import BaseModel
 
 
 class BaseUtilityModelParams(BaseModel):
+    """Base model for utility model parameters.
+
+    This class defines the basic parameters required to create or update a utility model.
+
+    Attributes:
+        name (Text): The name of the utility model.
+        code (Union[Text, Callable]): The implementation code, either as a string or
+            a callable function.
+        description (Optional[Text]): A description of what the utility model does.
+            Defaults to None.
+    """
     name: Text
     code: Union[Text, Callable]
     description: Optional[Text] = None
@@ -41,15 +52,38 @@ class BaseUtilityModelParams(BaseModel):
 
 @dataclass
 class UtilityModelInput:
+    """A class representing an input parameter for a utility model.
+
+    This class defines the structure and validation rules for input parameters
+    that can be used with utility models.
+
+    Attributes:
+        name (Text): The name of the input parameter.
+        description (Text): A description of what this input parameter represents.
+        type (DataType): The data type of the input parameter. Must be one of:
+            TEXT, BOOLEAN, or NUMBER. Defaults to DataType.TEXT.
+    """
+
     name: Text
     description: Text
     type: DataType = DataType.TEXT
 
     def validate(self):
+        """Validate that the input parameter has a supported data type.
+
+        Raises:
+            ValueError: If the type is not one of: TEXT, BOOLEAN, or NUMBER.
+        """
         if self.type not in [DataType.TEXT, DataType.BOOLEAN, DataType.NUMBER]:
             raise ValueError("Utility Model Input type must be TEXT, BOOLEAN or NUMBER")
 
     def to_dict(self):
+        """Convert the input parameter to a dictionary representation.
+
+        Returns:
+            dict: A dictionary containing the input parameter's name, description,
+                and type (as a string value).
+        """
         return {"name": self.name, "description": self.description, "type": self.type.value}
 
 
@@ -137,23 +171,45 @@ class UtilityModel(Model, DeployableMixin):
         function_type: Optional[FunctionType] = FunctionType.UTILITY,
         **additional_info,
     ) -> None:
-        """Utility Model Init
+        """Initialize a new UtilityModel instance.
 
         Args:
-            id (Text): ID of the Model
-            name (Text): Name of the Model
-            code (Union[Text, Callable]): code of the model.
-            description (Text): description of the model. Defaults to "".
-            inputs (List[UtilityModelInput]): inputs of the model. Defaults to [].
-            output_examples (Text): output examples. Defaults to "".
-            api_key (Text, optional): API key of the Model. Defaults to None.
-            supplier (Union[Dict, Text, Supplier, int], optional): supplier of the asset. Defaults to "aiXplain".
-            version (Text, optional): version of the model. Defaults to "1.0".
-            function (Function, optional): model AI function. Defaults to None.
-            is_subscribed (bool, optional): Is the user subscribed. Defaults to False.
-            cost (Dict, optional): model price. Defaults to None.
-            function_type (FunctionType, optional): type of the function. Defaults to FunctionType.UTILITY.
-            **additional_info: Any additional Model info to be saved
+            id (Text): ID of the utility model.
+            name (Optional[Text], optional): Name of the utility model. If not provided,
+                will be extracted from the code if decorated. Defaults to None.
+            code (Union[Text, Callable], optional): Implementation code, either as a string
+                or a callable function. Defaults to None.
+            description (Optional[Text], optional): Description of what the model does.
+                If not provided, will be extracted from the code if decorated.
+                Defaults to None.
+            inputs (List[UtilityModelInput], optional): List of input parameters the
+                model accepts. If not provided, will be extracted from the code if
+                decorated. Defaults to [].
+            output_examples (Text, optional): Examples of the model's expected outputs.
+                Defaults to "".
+            api_key (Optional[Text], optional): API key for accessing the model.
+                Defaults to None.
+            supplier (Union[Dict, Text, Supplier, int], optional): Supplier of the model.
+                Defaults to "aiXplain".
+            version (Optional[Text], optional): Version of the model. Defaults to None.
+            function (Optional[Function], optional): Function type. Must be
+                Function.UTILITIES. Defaults to None.
+            is_subscribed (bool, optional): Whether the user is subscribed.
+                Defaults to False.
+            cost (Optional[Dict], optional): Cost information for the model.
+                Defaults to None.
+            status (AssetStatus, optional): Current status of the model.
+                Defaults to AssetStatus.DRAFT.
+            function_type (Optional[FunctionType], optional): Type of the function.
+                Defaults to FunctionType.UTILITY.
+            **additional_info: Any additional model info to be saved.
+
+        Raises:
+            AssertionError: If function is not Function.UTILITIES.
+
+        Note:
+            Non-deployed utility models (status=DRAFT) will expire after 24 hours.
+            Use the .deploy() method to make the model permanent.
         """
         assert function == Function.UTILITIES, "Utility Model only supports 'utilities' function"
         super().__init__(
@@ -190,7 +246,12 @@ class UtilityModel(Model, DeployableMixin):
             )
 
     def validate(self):
-        """Validate the Utility Model."""
+        """Validate the Utility Model.
+
+        This method checks if the utility model exists in the backend and if the code is a string with s3://.
+        If not, it parses the code and updates the description and inputs and does the validation.
+        If yes, it just does the validation on the description and inputs.
+        """
         description = None
         name = None
         # check if the model exists and if the code is strring with s3://
@@ -213,6 +274,18 @@ class UtilityModel(Model, DeployableMixin):
         assert self.code and self.code.strip() != "", "Code is required"
 
     def _model_exists(self):
+        """Check if the utility model exists in the backend.
+
+        This internal method verifies whether a model with the current ID exists
+        by making a GET request to the backend API.
+
+        Returns:
+            bool: True if the model exists and is accessible, False if the ID is
+                empty or None.
+
+        Raises:
+            Exception: If the API request fails or returns a non-200 status code.
+        """
         if self.id is None or self.id == "":
             return False
         url = urljoin(self.backend_url, f"sdk/models/{self.id}")
@@ -224,6 +297,21 @@ class UtilityModel(Model, DeployableMixin):
         return True
 
     def to_dict(self):
+        """Convert the utility model to a dictionary representation.
+
+        This method creates a dictionary containing all the essential information
+        about the utility model, suitable for API requests or serialization.
+
+        Returns:
+            dict: A dictionary containing:
+                - name (str): The model's name
+                - description (str): The model's description
+                - inputs (List[dict]): List of input parameters as dictionaries
+                - code (Union[str, Callable]): The model's implementation code
+                - function (str): The function type as a string value
+                - outputDescription (str): Examples of expected outputs
+                - status (str): Current status as a string value
+        """
         return {
             "name": self.name,
             "description": self.description,
@@ -235,7 +323,13 @@ class UtilityModel(Model, DeployableMixin):
         }
 
     def update(self):
-        """Update the Utility Model."""
+        """Update the Utility Model.
+
+        This method validates the utility model and updates it in the backend.
+
+        Raises:
+            Exception: If the update fails.
+        """
         import warnings
         import inspect
 
@@ -266,11 +360,17 @@ class UtilityModel(Model, DeployableMixin):
             raise Exception(f"{message}")
 
     def save(self):
-        """Save the Utility Model."""
+        """Save the Utility Model.
+
+        This method updates the utility model in the backend.
+        """
         self.update()
 
     def delete(self):
-        """Delete the Utility Model."""
+        """Delete the Utility Model.
+
+        This method deletes the utility model from the backend.
+        """
         url = urljoin(self.backend_url, f"sdk/utilities/{self.id}")
         headers = {"x-api-key": f"{self.api_key}", "Content-Type": "application/json"}
         try:
@@ -288,6 +388,13 @@ class UtilityModel(Model, DeployableMixin):
             raise Exception(f"{message}")
 
     def __repr__(self):
+        """Return a string representation of the UtilityModel instance.
+
+        Returns:
+            str: A string in the format "UtilityModel: <name> by <supplier> (id=<id>)".
+                If supplier is a dictionary, uses supplier['name'], otherwise uses
+                supplier directly.
+        """
         try:
             return f"UtilityModel: {self.name} by {self.supplier['name']} (id={self.id})"
         except Exception:

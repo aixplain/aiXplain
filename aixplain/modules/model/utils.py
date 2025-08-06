@@ -8,6 +8,30 @@ from aixplain.exceptions import get_error_from_status_code
 
 
 def build_payload(data: Union[Text, Dict], parameters: Optional[Dict] = None, stream: Optional[bool] = None):
+    """Build a JSON payload for API requests.
+
+    This function constructs a JSON payload by combining input data with optional
+    parameters and streaming configuration. It handles various input formats and
+    ensures proper JSON serialization.
+
+    Args:
+        data (Union[Text, Dict]): The primary data to include in the payload.
+            Can be a string (which may be JSON) or a dictionary.
+        parameters (Optional[Dict], optional): Additional parameters to include
+            in the payload. Defaults to None.
+        stream (Optional[bool], optional): Whether to enable streaming for this
+            request. If provided, adds streaming configuration to parameters.
+            Defaults to None.
+
+    Returns:
+        str: A JSON string containing the complete payload with all parameters
+            and data properly formatted.
+
+    Note:
+        - If data is a string that can be parsed as JSON, it will be.
+        - If data is a number (after JSON parsing), it will be converted to string.
+        - The function ensures the result is a valid JSON string.
+    """
     from aixplain.factories import FileFactory
 
     if parameters is None:
@@ -37,6 +61,29 @@ def build_payload(data: Union[Text, Dict], parameters: Optional[Dict] = None, st
 
 
 def call_run_endpoint(url: Text, api_key: Text, payload: Dict) -> Dict:
+    """Call a model execution endpoint and handle the response.
+
+    This function makes a POST request to a model execution endpoint, handles
+    various response scenarios, and provides appropriate error handling.
+
+    Args:
+        url (Text): The endpoint URL to call.
+        api_key (Text): API key for authentication.
+        payload (Dict): The request payload to send.
+
+    Returns:
+        Dict: A response dictionary containing:
+            - status (str): "IN_PROGRESS", "SUCCESS", or "FAILED"
+            - completed (bool): Whether the request is complete
+            - url (str, optional): Polling URL for async requests
+            - data (Any, optional): Response data if available
+            - error_message (str, optional): Error message if failed
+
+    Note:
+        - For async operations, returns a polling URL in the 'url' field
+        - For failures, includes an error message and sets status to "FAILED"
+        - Handles both API errors and request exceptions
+    """
     headers = {"x-api-key": api_key, "Content-Type": "application/json"}
 
     resp = "unspecified error"
@@ -78,6 +125,37 @@ def call_run_endpoint(url: Text, api_key: Text, payload: Dict) -> Dict:
 
 
 def parse_code(code: Union[Text, Callable]) -> Tuple[Text, List, Text, Text]:
+    """Parse and process code for utility model creation.
+
+    This function takes code input in various forms (callable, file path, URL, or
+    string) and processes it for use in a utility model. It extracts metadata,
+    validates the code structure, and prepares it for execution.
+
+    Args:
+        code (Union[Text, Callable]): The code to parse. Can be:
+            - A callable function
+            - A file path (string)
+            - A URL (string)
+            - Raw code (string)
+
+    Returns:
+        Tuple[Text, List, Text, Text]: A tuple containing:
+            - code (Text): The processed code, uploaded to storage
+            - inputs (List[UtilityModelInput]): List of extracted input parameters
+            - description (Text): Function description from docstring
+            - name (Text): Function name
+
+    Raises:
+        Exception: If the code doesn't have a main function
+        AssertionError: If input types are not properly specified
+        Exception: If an input type is not supported (must be int, float, bool, or str)
+
+    Note:
+        - The function requires a 'main' function in the code
+        - Input parameters must have type annotations
+        - Supported input types are: int, float, bool, str
+        - The code is uploaded to temporary storage for later use
+    """
     import inspect
     import os
     import re
@@ -157,7 +235,45 @@ def parse_code(code: Union[Text, Callable]) -> Tuple[Text, List, Text, Text]:
     return code, inputs, description, name
 
 
-def parse_code_decorated(code: Union[Text, Callable]) -> Tuple[Text, List, Text]:
+def parse_code_decorated(code: Union[Text, Callable]) -> Tuple[Text, List, Text, Text]:
+    """Parse and process code that may be decorated with @utility_tool.
+
+    This function handles code that may be decorated with the @utility_tool
+    decorator, extracting metadata from either the decorator or the code itself.
+    It supports various input formats and provides robust parameter extraction.
+
+    Args:
+        code (Union[Text, Callable]): The code to parse. Can be:
+            - A decorated callable function
+            - A non-decorated callable function
+            - A file path (string)
+            - A URL (string)
+            - Raw code (string)
+
+    Returns:
+        Tuple[Text, List, Text, Text]: A tuple containing:
+            - code (Text): The processed code, uploaded to storage
+            - inputs (List[UtilityModelInput]): List of extracted input parameters
+            - description (Text): Function description from decorator or docstring
+            - name (Text): Function name from decorator or code
+
+    Raises:
+        TypeError: If code is a class or class instance
+        AssertionError: If input types are not properly specified
+        Exception: In various cases:
+            - If code doesn't have a function definition
+            - If code has invalid @utility_tool decorator
+            - If input type is not supported
+            - If code parsing fails
+
+    Note:
+        - Handles both decorated and non-decorated code
+        - For decorated code, extracts metadata from decorator
+        - For non-decorated code, falls back to code parsing
+        - Renames the function to 'main' for backend compatibility
+        - Supports TEXT, BOOLEAN, and NUMBER input types
+        - Uploads processed code to temporary storage
+    """
     import inspect
     import os
     import re
@@ -344,4 +460,23 @@ def parse_code_decorated(code: Union[Text, Callable]) -> Tuple[Text, List, Text]
 
 
 def is_supported_image_type(value: str) -> bool:
+    """Check if a file path or URL points to a supported image format.
+
+    This function checks if the provided string ends with a supported image
+    file extension. The check is case-insensitive.
+
+    Args:
+        value (str): The file path or URL to check.
+
+    Returns:
+        bool: True if the file has a supported image extension, False otherwise.
+
+    Note:
+        Supported image formats are:
+        - JPEG (.jpg, .jpeg)
+        - PNG (.png)
+        - GIF (.gif)
+        - BMP (.bmp)
+        - WebP (.webp)
+    """
     return any(value.lower().endswith(ext) for ext in [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp"])

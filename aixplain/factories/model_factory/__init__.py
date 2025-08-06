@@ -31,10 +31,14 @@ from aixplain.factories.model_factory.mixins import ModelGetterMixin, ModelListM
 from typing import Callable, Dict, List, Optional, Text, Union
 
 class ModelFactory(ModelGetterMixin, ModelListMixin):
-    """A static class for creating and exploring Model Objects.
+    """Factory class for creating, managing, and exploring models.
+
+    This class provides functionality for creating various types of models,
+    managing model repositories, and interacting with the aiXplain platform's
+    model-related features.
 
     Attributes:
-        backend_url (str): The URL for the backend.
+        backend_url (str): Base URL for the aiXplain backend API.
     """
 
     backend_url = config.BACKEND_URL
@@ -49,17 +53,29 @@ class ModelFactory(ModelGetterMixin, ModelListMixin):
         output_examples: Text = "",
         api_key: Optional[Text] = None,
     ) -> UtilityModel:
-        """Create a utility model
+        """Create a new utility model for custom functionality.
+
+        This method creates a utility model that can execute custom code or functions
+        with specified inputs and outputs.
 
         Args:
-            name (Text): name of the model
-            code (Union[Text, Callable]): code of the model
-            description (Text, optional): description of the model
-            inputs (List[UtilityModelInput], optional): inputs of the model
-            output_examples (Text, optional): output examples
-            api_key (Text, optional): Team API key. Defaults to None.
+            name (Optional[Text]): Name of the utility model.
+            code (Union[Text, Callable]): Python code as string or callable function
+                implementing the model's functionality.
+            inputs (List[UtilityModelInput], optional): List of input specifications.
+                Defaults to empty list.
+            description (Optional[Text], optional): Description of what the model does.
+                Defaults to None.
+            output_examples (Text, optional): Examples of expected outputs.
+                Defaults to empty string.
+            api_key (Optional[Text], optional): API key for authentication.
+                Defaults to None, using the configured TEAM_API_KEY.
+
         Returns:
-            UtilityModel: created utility model
+            UtilityModel: Created and registered utility model instance.
+
+        Raises:
+            Exception: If model creation fails or validation fails.
         """
         api_key = config.TEAM_API_KEY if api_key is None else api_key
         utility_model = UtilityModel(
@@ -200,22 +216,29 @@ class ModelFactory(ModelGetterMixin, ModelListMixin):
         documentation_url: Optional[Text] = "",
         api_key: Optional[Text] = None,
     ) -> Dict:
-        """Creates an image repository for this model and registers it in the
-        platform backend.
+        """Create a new model repository in the platform.
+
+        This method creates and registers a new model repository, setting up the
+        necessary infrastructure for model deployment.
 
         Args:
-            name (Text): Model name
-            hosting_machine (Text): Hosting machine ID obtained via list_host_machines
-            always_on (bool): Whether the model should always be on
-            version (Text): Model version
-            description (Text): Model description
-            function (Text): Model function name obtained via LIST_HOST_MACHINES
-            is_async (bool): Whether the model is asynchronous or not (False in first release)
-            source_language (Text): 2-character 639-1 code or 3-character 639-3 language code.
-            api_key (Text, optional): Team API key. Defaults to None.
+            name (Text): Name of the model.
+            description (Text): Description of the model's functionality.
+            function (Text): Function name from list_functions() defining model's task.
+            source_language (Text): Language code in ISO 639-1 (2-char) or 639-3 (3-char) format.
+            input_modality (Text): Type of input the model accepts (e.g., text, audio).
+            output_modality (Text): Type of output the model produces (e.g., text, audio).
+            documentation_url (Optional[Text], optional): URL to model documentation.
+                Defaults to empty string.
+            api_key (Optional[Text], optional): API key for authentication.
+                Defaults to None, using the configured TEAM_API_KEY.
 
         Returns:
-            Dict: Backend response
+            Dict: Repository creation response containing model ID and other details.
+
+        Raises:
+            Exception: If function name is invalid.
+            AssertionError: If response status code is not 201.
         """
         # Reconcile function name to be function ID in the backend
         function_list = cls.list_functions(True, config.TEAM_API_KEY)["items"]
@@ -334,15 +357,23 @@ class ModelFactory(ModelGetterMixin, ModelListMixin):
         hf_token: Optional[Text] = "",
         api_key: Optional[Text] = None,
     ) -> Dict:
-        """Onboards and deploys a Hugging Face large language model.
+        """Deploy a model from Hugging Face Hub to the aiXplain platform.
+
+        This method handles the deployment of a Hugging Face model, including
+        authentication and configuration setup.
 
         Args:
-            name (Text): The user's name for the model.
-            hf_repo_id (Text): The Hugging Face repository ID for this model ({author}/{model name}).
-            hf_token (Text, optional): Hugging Face access token. Defaults to None.
-            api_key (Text, optional): Team API key. Defaults to None.
+            name (Text): Display name for the deployed model.
+            hf_repo_id (Text): Hugging Face repository ID in 'author/model-name' format.
+            revision (Optional[Text], optional): Specific model revision/commit hash.
+                Defaults to empty string (latest version).
+            hf_token (Optional[Text], optional): Hugging Face access token for private models.
+                Defaults to empty string.
+            api_key (Optional[Text], optional): API key for authentication.
+                Defaults to None, using the configured TEAM_API_KEY.
+
         Returns:
-            Dict: Backend response
+            Dict: Deployment response containing model ID and status information.
         """
         supplier, model_name = hf_repo_id.split("/")
         deploy_url = urljoin(config.BACKEND_URL, "sdk/model-onboarding/onboard")
@@ -381,14 +412,23 @@ class ModelFactory(ModelGetterMixin, ModelListMixin):
     @classmethod
     def get_huggingface_model_status(
         cls, model_id: Text, api_key: Optional[Text] = None
-    ):
-        """Gets the on-boarding status of a Hugging Face model with ID MODEL_ID.
+    ) -> Dict:
+        """Check the deployment status of a Hugging Face model.
+
+        This method retrieves the current status and details of a deployed
+        Hugging Face model.
 
         Args:
-            model_id (Text): The model's ID as returned by DEPLOY_HUGGINGFACE_MODEL
-            api_key (Text, optional): Team API key. Defaults to None.
+            model_id (Text): Model ID returned by deploy_huggingface_model.
+            api_key (Optional[Text], optional): API key for authentication.
+                Defaults to None, using the configured TEAM_API_KEY.
+
         Returns:
-            Dict: Backend response
+            Dict: Status response containing:
+                - status: Current deployment status
+                - name: Model name
+                - id: Model ID
+                - pricing: Pricing information
         """
         status_url = urljoin(config.BACKEND_URL, f"sdk/models/{model_id}")
         if api_key:
