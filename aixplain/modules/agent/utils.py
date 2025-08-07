@@ -47,15 +47,27 @@ def validate_history(history):
 
     for i, item in enumerate(history):
         if not isinstance(item, dict):
-            raise ValueError(f"History item at index {i} is not a dict: {item}")
-        
+            raise ValueError(
+                f"History item at index {i} is not a dict: {item}. "
+                "Each item must be a dictionary like: {'role': 'user', 'content': 'Hello'}"
+            )
+
         if "role" not in item or "content" not in item:
-            raise ValueError(f"History item at index {i} is missing 'role' or 'content': {item}")
+            raise ValueError(
+                f"History item at index {i} is missing 'role' or 'content': {item}. "
+                "Example of a valid message: {'role': 'assistant', 'content': 'Hi there!'}"
+            )
 
         if item["role"] not in allowed_roles:
-            raise ValueError(f"Invalid role '{item['role']}' at index {i}. Allowed roles: {allowed_roles}")
+            raise ValueError(
+                f"Invalid role '{item['role']}' at index {i}. Allowed roles: {allowed_roles}. "
+                "Example: {'role': 'user', 'content': 'Tell me a joke'}"
+            )
 
         if not isinstance(item["content"], str):
-            raise ValueError(f"'content' at index {i} must be a string. Got: {type(item['content'])}")
+            raise ValueError(
+                f"'content' at index {i} must be a string. Got: {type(item['content'])}. "
+                "Example: {'role': 'assistant', 'content': 'Sure! Here’s one...'}"
+            )
 
     return True
