@@ -3,6 +3,7 @@ from typing import Text, Dict, Optional
 from aixplain.utils import config
 from urllib.parse import urljoin
 import pandas as pd
+import json
 from pathlib import Path
 from aixplain.utils.request_utils import _request_with_retry
 from aixplain.utils.file_utils import save_file
@@ -109,6 +110,10 @@ class BenchmarkJob:
             scores = {}
             for iteration_info in iterations:
                 model_id = iteration_info["pipeline"]
+                pipeline_json = json.loads(iteration_info["pipelineJson"])
+                if "benchmark" in pipeline_json:
+                    model_id = pipeline_json["benchmark"]["displayName"]
+
                 model_info = {
                     "creditsUsed": round(iteration_info.get("credits", 0), 5),
                     "timeSpent": round(iteration_info.get("runtime", 0), 2),
@@ -129,7 +134,7 @@ class BenchmarkJob:
             logging.error(error_message, exc_info=True)
             raise Exception(error_message)
 
-    def get_failuire_rate(self, return_as_dataframe=True):
+    def get_failure_rate(self, return_as_dataframe=True):
         try:
             scores = self.get_scores(return_simplified=False)
             failure_rates = {}
@@ -138,19 +143,19 @@ class BenchmarkJob:
                     failure_rates[model_id] = 0
                     continue
                 score_info = model_info["rawScores"][0]
-                num_succesful = score_info["count"]
+                num_successful = score_info["count"]
                 num_failed = score_info["failedSegmentsCount"]
-                failuire_rate = (num_failed * 100) / (num_succesful + num_failed)
-                failure_rates[model_id] = failuire_rate
+                failure_rate = (num_failed * 100) / (num_successful + num_failed)
+                failure_rates[model_id] = failure_rate
             if return_as_dataframe:
                 df = pd.DataFrame()
                 df["Model"] = list(failure_rates.keys())
-                df["Failuire Rate"] = list(failure_rates.values())
+                df["Failure Rate"] = list(failure_rates.values())
                 return df
             else:
                 return failure_rates
         except Exception as e:
-            error_message = f"Benchmark scores: Error in Getting benchmark failuire rate: {e}"
+            error_message = f"Benchmark scores: Error in Getting benchmark failure rate: {e}"
             logging.error(error_message, exc_info=True)
             raise Exception(error_message)
 

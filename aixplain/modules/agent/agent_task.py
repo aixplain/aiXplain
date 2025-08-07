@@ -26,3 +26,20 @@ class AgentTask:
             if isinstance(dependency, AgentTask):
                 agent_task_dict["dependencies"][i] = dependency.name
         return agent_task_dict
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "AgentTask":
+        """Create an AgentTask instance from a dictionary representation.
+
+        Args:
+            data: Dictionary containing AgentTask parameters
+
+        Returns:
+            AgentTask instance
+        """
+        return cls(
+            name=data["name"],
+            description=data["description"],
+            expected_output=data["expectedOutput"],
+            dependencies=data.get("dependencies", None),
+        )

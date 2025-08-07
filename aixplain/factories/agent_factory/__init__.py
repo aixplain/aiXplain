@@ -29,6 +29,7 @@ import os
 from aixplain.enums.function import Function
 from aixplain.enums.supplier import Supplier
 from aixplain.modules.agent import Agent, AgentTask, Tool
+from aixplain.modules.agent.output_format import OutputFormat
 from aixplain.modules.agent.tool.model_tool import ModelTool
 from aixplain.modules.agent.tool.pipeline_tool import PipelineTool
 from aixplain.modules.agent.tool.python_interpreter_tool import PythonInterpreterTool
@@ -41,7 +42,7 @@ from aixplain.modules.model.llm_model import LLM
 from aixplain.modules.pipeline import Pipeline
 from aixplain.utils import config
 from typing import Callable, Dict, List, Optional, Text, Union
-
+from pydantic import BaseModel
 from aixplain.utils.request_utils import _request_with_retry
 from urllib.parse import urljoin
 from aixplain.enums import DatabaseSourceType
@@ -61,6 +62,8 @@ class AgentFactory:
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
         version: Optional[Text] = None,
         tasks: List[AgentTask] = [],
+        output_format: Optional[OutputFormat] = None,
+        expected_output: Optional[Union[BaseModel, Text, dict]] = None,
     ) -> Agent:
         """Create a new agent in the platform.
 
@@ -80,7 +83,8 @@ class AgentFactory:
             supplier (Union[Dict, Text, Supplier, int], optional): owner of the agent. Defaults to "aiXplain".
             version (Optional[Text], optional): version of the agent. Defaults to None.
             tasks (List[AgentTask], optional): list of tasks for the agent. Defaults to [].
-
+            output_format (OutputFormat, optional): default output format for agent responses. Defaults to OutputFormat.TEXT.
+            expected_output (Union[BaseModel, Text, dict], optional): expected output. Defaults to None.
         Returns:
             Agent: created Agent
         """
@@ -92,13 +96,11 @@ class AgentFactory:
             # Use default GPT-4o if no LLM specified
             llm = get_llm_instance("669a63646eb56306647e1091", api_key=api_key)
 
-        if instructions is None:
-            warnings.warn(
-                "Use `instructions` to define the **system prompt**. "
-                "Use `description` to provide a **short summary** of the agent for metadata and dashboard display. "
-                "Note: In upcoming releases, `instructions` will become a required parameter.",
-                UserWarning,
-            )
+        if output_format == OutputFormat.JSON:
+            assert expected_output is not None and (
+                issubclass(expected_output, BaseModel) or isinstance(expected_output, dict)
+            ), "'expected_output' must be a Pydantic BaseModel or a JSON object when 'output_format' is JSON."
+
         warnings.warn(
             "Use `llm` to define the large language model (aixplain.modules.model.llm_model.LLM) to be used as agent. "
             "Use `llm_id` to provide the model ID of the large language model to be used as agent. "
@@ -142,6 +144,12 @@ class AgentFactory:
             # Store the LLM object in payload to avoid recreating it
             payload["llm"] = llm
 
+        if expected_output:
+            payload["expectedOutput"] = expected_output
+        if output_format:
+            if isinstance(output_format, OutputFormat):
+                output_format = output_format.value
+            payload["outputFormat"] = output_format
         agent = build_agent(payload=payload, tools=tools, api_key=api_key)
         agent.validate(raise_exception=True)
         response = "Unspecified error"
@@ -171,7 +179,16 @@ class AgentFactory:
         return agent
 
     @classmethod
-    def create_task(cls, name: Text, description: Text, expected_output: Text, dependencies: List[Text] = []) -> AgentTask:
+    def create_from_dict(cls, dict: Dict) -> Agent:
+        """Create an agent from a dictionary."""
+        agent = Agent.from_dict(dict)
+        agent.validate(raise_exception=True)
+        agent.url = urljoin(config.BACKEND_URL, f"sdk/agents/{agent.id}/run")
+        return agent
+
+    @classmethod
+    def create_task(cls, name: Text, description: Text, expected_output: Text, dependencies: Optional[List[Text]] = None
+    ) -> AgentTask:
         return AgentTask(name=name, description=description, expected_output=expected_output, dependencies=dependencies)
 
     @classmethod

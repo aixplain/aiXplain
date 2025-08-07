@@ -26,7 +26,7 @@ from aixplain.modules.asset import Asset
 
 
 class Metric(Asset):
-    """Represents a metric to be computed on one or more peices of data. It is usually linked to a machine learning task.
+    """Represents a metric to be computed on one or more pieces of data. It is usually linked to a machine learning task.
 
     Attributes:
         id (Text): ID of the Metric

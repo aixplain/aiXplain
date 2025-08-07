@@ -310,6 +310,8 @@ def test_create_sql_tool_from_csv(tmp_path, mocker):
         # Clean up the database file
         if os.path.exists(tool.database):
             os.remove(tool.database)
+        if os.path.exists("test.db"):
+            os.remove("test.db")
 
 
 def test_sql_tool_schema_inference(tmp_path):

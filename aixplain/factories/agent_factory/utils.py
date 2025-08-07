@@ -14,6 +14,7 @@ from aixplain.modules.agent.tool.pipeline_tool import PipelineTool
 from aixplain.modules.agent.tool.python_interpreter_tool import PythonInterpreterTool
 from aixplain.modules.agent.tool.custom_python_code_tool import CustomPythonCodeTool
 from aixplain.modules.agent.tool.sql_tool import SQLTool
+from aixplain.modules.agent.output_format import OutputFormat
 from aixplain.modules.model import Model
 from aixplain.modules.model.connection import ConnectionTool
 from typing import Dict, Text, List, Union
@@ -177,7 +178,7 @@ def build_agent(payload: Dict, tools: List[Tool] = None, api_key: Text = config.
         name=payload.get("name", ""),
         tools=payload_tools,
         description=payload.get("description", ""),
-        instructions=payload.get("role", ""),
+        instructions=payload.get("role"),
         supplier=payload.get("teamId", None),
         version=payload.get("version", None),
         cost=payload.get("cost", None),
@@ -185,6 +186,8 @@ def build_agent(payload: Dict, tools: List[Tool] = None, api_key: Text = config.
         llm=llm,
         api_key=api_key,
         status=AssetStatus(payload["status"]),
+        output_format=OutputFormat(payload.get("outputFormat", OutputFormat.TEXT)),
+        expected_output=payload.get("expectedOutput", None),
         tasks=[
             AgentTask(
                 name=task["name"],
