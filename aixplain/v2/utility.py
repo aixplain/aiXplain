@@ -13,10 +13,9 @@ from .resource import (
     Result,
     RunnableResourceMixin,
     DeleteResourceMixin,
-    BaseDeleteParams,
-    ToolMixin,
+    BaseDeleteParams
 )
-from .enums import Function, ToolType
+from .enums import Function
 
 
 class UtilityListParams(BaseListParams):
@@ -50,8 +49,7 @@ class Utility(
     PagedListResourceMixin[UtilityListParams, "Utility"],
     GetResourceMixin[BaseGetParams, "Utility"],
     DeleteResourceMixin[BaseDeleteParams, "Utility"],
-    RunnableResourceMixin[UtilityRunParams, Result],
-    ToolMixin,
+    RunnableResourceMixin[UtilityRunParams, Result]
 ):
     """Resource for utilities.
 
@@ -61,7 +59,6 @@ class Utility(
     """
 
     RESOURCE_PATH = "sdk/utilities"
-    TOOL_TYPE = ToolType.MODEL
 
     code: str = ""
     inputs: List[str] = field(default_factory=list)

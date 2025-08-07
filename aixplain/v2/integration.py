@@ -2,7 +2,7 @@ from typing import Optional, TypedDict, List, Any
 from typing_extensions import Unpack
 from .resource import BaseListParams, BaseGetParams, BaseResult, Page
 from .model import Model
-from .enums import Function, ToolType, AuthenticationScheme
+from .enums import Function, AuthenticationScheme
 
 
 class IntegrationResult(BaseResult):
@@ -57,7 +57,7 @@ class Integration(Model):
     All connection logic is centralized here.
     """
 
-    TOOL_TYPE = ToolType.INTEGRATION
+    RESOURCE_PATH = "v2/tools"
     RESPONSE_CLASS = IntegrationResult
     RUN_PARAMS_CLASS = IntegrationRunParams
 

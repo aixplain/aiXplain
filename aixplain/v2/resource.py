@@ -24,7 +24,7 @@ from typing_extensions import Unpack
 from functools import wraps
 
 
-from .enums import OwnershipType, SortBy, SortOrder, ResponseStatus, ToolType
+from .enums import OwnershipType, SortBy, SortOrder, ResponseStatus
 from .exceptions import (
     ResourceError,
     ValidationError,
@@ -1285,34 +1285,3 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
                 wait_time *= 1.1  # Exponential backoff
 
         raise TimeoutError(f"Operation timed out after {timeout} seconds")
-
-
-class ToolMixin(BaseMixin):
-    """Mixin for resources that can be used as tools.
-
-    This mixin provides a default implementation of as_tool() that uses
-    the TOOL_TYPE class variable and the resource's id to create a simple
-    tool representation.
-
-    Subclasses must define a TOOL_TYPE class variable with a ToolType enum
-    value.
-    """
-
-    TOOL_TYPE: Optional[ToolType] = None  # Must be set by subclasses
-
-    def as_tool(self) -> Dict[str, Any]:
-        """Convert the resource to a tool representation.
-
-        Returns:
-            Dict containing basic tool information (id, type).
-            Subclasses can override this to provide additional information.
-        """
-        if not self.TOOL_TYPE:
-            raise NotImplementedError(
-                f"{self.__class__.__name__} must define TOOL_TYPE class " "variable"
-            )
-
-        return {
-            "assetId": self.id,
-            "type": self.TOOL_TYPE.value,
-        }

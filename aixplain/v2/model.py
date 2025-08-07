@@ -15,9 +15,8 @@ from .resource import (
     RunnableResourceMixin,
     BaseRunParams,
     Result,
-    ToolMixin,
 )
-from .enums import Function, Supplier, Language, AssetStatus, ToolType
+from .enums import Function, Supplier, Language, AssetStatus
 
 
 def find_supplier_by_id(supplier_id: Union[str, int]) -> Optional[Supplier]:
@@ -118,13 +117,11 @@ class Model(
     BaseResource,
     PagedListResourceMixin[ModelListParams, "Model"],
     GetResourceMixin[BaseGetParams, "Model"],
-    RunnableResourceMixin[ModelRunParams, Result],
-    ToolMixin,
+    RunnableResourceMixin[ModelRunParams, Result]
 ):
     """Resource for models."""
 
     RESOURCE_PATH = "v2/models"
-    TOOL_TYPE = ToolType.MODEL
 
     # Core fields from BaseResource (id, name, description)
     service_name: Optional[str] = field(
@@ -204,44 +201,6 @@ class Model(
 
     def run(self, **kwargs: Unpack[ModelRunParams]) -> Result:
         return super().run(**kwargs)
-
-    def as_tool(self) -> Dict[str, Any]:
-        """
-        Override as_tool to include model-specific information and
-        parameters.
-        """
-        base_tool = super().as_tool()
-
-        # Add parameters if available
-        if self.params:
-            base_tool["parameters"] = self.params
-
-        # Add model-specific information
-        base_tool["name"] = self.name
-        base_tool["description"] = self.description
-        base_tool["supplier"] = (
-            (
-                self.supplier.code
-                if hasattr(self.supplier, "code")
-                else str(self.supplier)
-            )
-            if self.supplier
-            else None
-        )
-        base_tool["function"] = (
-            (
-                self.function.value
-                if hasattr(self.function, "value")
-                else str(self.function)
-            )
-            if self.function
-            else None
-        )
-        base_tool["version"] = self.version
-        base_tool["function_type"] = self.function_type
-        base_tool["type"] = self.type
-
-        return base_tool
 
     @classmethod
     def _populate_filters(cls, params: dict) -> dict:

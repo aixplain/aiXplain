@@ -21,15 +21,6 @@ from aixplain.enums import (
 from enum import Enum
 
 
-class ToolType(str, Enum):
-    """Enum for tool types."""
-
-    UTILITY = "utility"
-    MODEL = "model"
-    PIPELINE = "pipeline"
-    INTEGRATION = "integration"
-
-
 class AuthenticationScheme(str, Enum):
     """Authentication schemes supported by integrations."""
 
@@ -58,6 +49,5 @@ __all__ = [
     "ResponseStatus",
     "SortBy",
     "SortOrder",
-    "StorageType",
-    "ToolType",
+    "StorageType"
 ]
