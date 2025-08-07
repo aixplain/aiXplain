@@ -16,9 +16,10 @@ readme = "README.md"
 requires-python = ">=3.5, <4"
 license = { text = "Apache License, Version 2.0: http://www.apache.org/licenses/LICENSE-2.0" }
 authors = [
-  {email = "thiago.ferreira@aixplain.com"},
-  {email = "krishna.durai@aixplain.com"},
-  {email = "lucas.pavanelli@aixplain.com"}
+  {email = "ahmet@aixplain.com"},
+  {email = "hadi@aixplain.com"},
+  {email = "kadir.pekel@aixplain.com"},
+  {email = "aina.abushaban@aixplain.com"}
 ]
 classifiers = [
     "Development Status :: 2 - Pre-Alpha",
