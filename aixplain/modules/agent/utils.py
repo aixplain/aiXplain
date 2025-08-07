@@ -37,7 +37,11 @@ def validate_history(history):
     Raises a ValueError if validation fails.
     """
     if not isinstance(history, list):
-        raise ValueError("History must be a list of message dictionaries.")
+        raise ValueError(
+            "History must be a list of message dictionaries. "
+            "Example: [{'role': 'user', 'content': 'Hello'}, {'role': 'assistant', 'content': 'Hi there!'}]"
+        )
+
 
     allowed_roles = {"user", "assistant"} 
 
