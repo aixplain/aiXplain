@@ -30,6 +30,16 @@ from aixplain.modules.agent.model_with_params import ModelWithParams
 AUTO_DEFAULT_MODEL_ID = "67fd9e2bef0365783d06e2f0"  # GPT-4.1 Nano
 
 
+class InspectorAction(str, Enum):
+    """
+    Inspector's decision on the next action.
+    """
+
+    CONTINUE = "continue"
+    RERUN = "rerun"
+    ABORT = "abort"
+
+
 class InspectorAuto(str, Enum):
     """A list of keywords for inspectors configured automatically in the backend."""
 
