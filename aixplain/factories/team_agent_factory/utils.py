@@ -34,9 +34,21 @@ def build_team_agent(payload: Dict, agents: List[Agent] = None, api_key: Text = 
                 continue
 
     # Ensure custom classes are instantiated: for compatibility with backend return format
-    inspectors = [
-        inspector if isinstance(inspector, Inspector) else Inspector(**inspector) for inspector in payload.get("inspectors", [])
-    ]
+    inspectors = []
+    for inspector_data in payload.get("inspectors", []):
+        try:
+            if isinstance(inspector_data, Inspector):
+                inspectors.append(inspector_data)
+            else:
+                # Handle both old format and new format with policy_type
+                if hasattr(Inspector, "model_validate"):
+                    inspectors.append(Inspector.model_validate(inspector_data))
+                else:
+                    inspectors.append(Inspector(**inspector_data))
+        except Exception as e:
+            logging.warning(f"Failed to create inspector from data: {e}")
+            continue
+
     inspector_targets = [InspectorTarget(target.lower()) for target in payload.get("inspectorTargets", [])]
 
     # Get LLMs from tools if present

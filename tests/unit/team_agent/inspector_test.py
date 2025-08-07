@@ -6,6 +6,8 @@ from aixplain.modules.team_agent.inspector import (
     InspectorAuto,
     AUTO_DEFAULT_MODEL_ID,
     InspectorAction,
+    callable_to_code_string,
+    code_string_to_callable,
 )
 from aixplain.factories.team_agent_factory.inspector_factory import InspectorFactory
 from aixplain.enums.function import Function
@@ -69,6 +71,136 @@ def test_inspector_creation_with_callable_policy():
     assert inspector.model_params == INSPECTOR_CONFIG["model_config"]
     assert inspector.policy == process_response
     assert callable(inspector.policy)
+
+
+def test_callable_to_code_string():
+    """Test converting callable to code string"""
+
+    def process_response(model_response: str, input_content: str) -> InspectorAction:
+        if "error" in model_response.lower():
+            return InspectorAction.ABORT
+        return InspectorAction.CONTINUE
+
+    code_string = callable_to_code_string(process_response)
+    assert isinstance(code_string, str)
+    assert "def process_response" in code_string
+    assert "model_response" in code_string
+    assert "input_content" in code_string
+    assert "InspectorAction.ABORT" in code_string
+
+
+def test_code_string_to_callable():
+    """Test converting code string back to callable"""
+    code_string = """def process_response(model_response: str, input_content: str) -> InspectorAction:
+    if "error" in model_response.lower():
+        return InspectorAction.ABORT
+    return InspectorAction.CONTINUE"""
+
+    func = code_string_to_callable(code_string)
+    assert callable(func)
+    assert func.__name__ == "process_response"
+
+    # Test the function works correctly
+    result1 = func("This is an error message", "input")
+    assert result1 == InspectorAction.ABORT
+
+    result2 = func("This is a normal message", "input")
+    assert result2 == InspectorAction.CONTINUE
+
+
+def test_serialization_deserialization_roundtrip():
+    """Test that serialization and deserialization work correctly together"""
+
+    def process_response(model_response: str, input_content: str) -> InspectorAction:
+        if "error" in model_response.lower():
+            return InspectorAction.ABORT
+        elif "warning" in model_response.lower():
+            return InspectorAction.RERUN
+        return InspectorAction.CONTINUE
+
+    # Serialize
+    code_string = callable_to_code_string(process_response)
+
+    # Deserialize
+    deserialized_func = code_string_to_callable(code_string)
+
+    # Test that the deserialized function works the same
+    assert deserialized_func("error message", "input") == InspectorAction.ABORT
+    assert deserialized_func("warning message", "input") == InspectorAction.RERUN
+    assert deserialized_func("normal message", "input") == InspectorAction.CONTINUE
+
+
+def test_inspector_model_dump_with_callable():
+    """Test that Inspector.model_dump properly serializes callable policies"""
+
+    def process_response(model_response: str, input_content: str) -> InspectorAction:
+        return InspectorAction.ABORT
+
+    inspector = Inspector(
+        name="test_inspector",
+        model_id="test_model_id",
+        policy=process_response,
+    )
+
+    data = inspector.model_dump()
+    assert data["policy_type"] == "callable"
+    assert isinstance(data["policy"], str)
+    assert "def process_response" in data["policy"]
+
+
+def test_inspector_model_dump_with_enum():
+    """Test that Inspector.model_dump properly serializes enum policies"""
+    inspector = Inspector(
+        name="test_inspector",
+        model_id="test_model_id",
+        policy=InspectorPolicy.WARN,
+    )
+
+    data = inspector.model_dump()
+    assert data["policy_type"] == "enum"
+    assert data["policy"] == "warn"
+
+
+def test_inspector_model_validate_with_callable():
+    """Test that Inspector.model_validate properly deserializes callable policies"""
+    inspector_data = {
+        "name": "test_inspector",
+        "model_id": "test_model_id",
+        "policy": """def process_response(model_response: str, input_content: str) -> InspectorAction:
+    return InspectorAction.ABORT""",
+        "policy_type": "callable",
+    }
+
+    inspector = Inspector.model_validate(inspector_data)
+    assert callable(inspector.policy)
+    assert inspector.policy.__name__ == "process_response"
+    assert inspector.policy("test", "input") == InspectorAction.ABORT
+
+
+def test_inspector_model_validate_with_enum():
+    """Test that Inspector.model_validate properly deserializes enum policies"""
+    inspector_data = {
+        "name": "test_inspector",
+        "model_id": "test_model_id",
+        "policy": "warn",
+        "policy_type": "enum",
+    }
+
+    inspector = Inspector.model_validate(inspector_data)
+    assert inspector.policy == InspectorPolicy.WARN
+
+
+def test_inspector_model_validate_fallback():
+    """Test that Inspector.model_validate falls back to default policy on error"""
+    inspector_data = {
+        "name": "test_inspector",
+        "model_id": "test_model_id",
+        "policy": "invalid code string",
+        "policy_type": "callable",
+    }
+
+    inspector = Inspector.model_validate(inspector_data)
+    assert inspector.policy == InspectorPolicy.ADAPTIVE  # Default fallback
 
 
 def test_inspector_creation_with_invalid_callable_name():
