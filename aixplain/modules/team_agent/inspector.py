@@ -20,7 +20,7 @@ team = TeamAgent(
 """
 
 from enum import Enum
-from typing import Dict, Optional, Text
+from typing import Dict, Optional, Text, Union, Callable
 
 from pydantic import field_validator
 
@@ -57,6 +57,30 @@ class InspectorPolicy(str, Enum):
     ADAPTIVE = "adaptive"  # adjust execution according to feedback
 
 
+def validate_policy_callable(policy_func: Callable) -> bool:
+    """Validate that the policy callable meets the required constraints."""
+    import inspect
+
+    # Check function name
+    if policy_func.__name__ != "process_response":
+        return False
+
+    # Get function signature
+    sig = inspect.signature(policy_func)
+    params = list(sig.parameters.keys())
+
+    # Check arguments
+    if len(params) != 2 or params[0] != "model_response" or params[1] != "input_content":
+        return False
+
+    # Check return type annotation
+    return_annotation = sig.return_annotation
+    if return_annotation != InspectorAction:
+        return False
+
+    return True
+
+
 class Inspector(ModelWithParams):
     """Pre-defined agent for inspecting the data flow within a team agent.
 
@@ -66,13 +90,15 @@ class Inspector(ModelWithParams):
         name: The name of the inspector.
         model_id: The ID of the model to wrap.
         model_params: The configuration for the model.
-        policy: The policy for the inspector. Default is ADAPTIVE.
+        policy: The policy for the inspector. Can be InspectorPolicy enum or a callable function.
+               If callable, must have name "process_response", arguments "model_response" and "input_content" (both strings),
+               and return InspectorAction. Default is ADAPTIVE.
     """
 
     name: Text
     model_params: Optional[Dict] = None
     auto: Optional[InspectorAuto] = None
-    policy: InspectorPolicy = InspectorPolicy.ADAPTIVE
+    policy: Union[InspectorPolicy, Callable] = InspectorPolicy.ADAPTIVE
 
     def __init__(self, *args, **kwargs):
         if kwargs.get("auto"):
@@ -83,4 +109,15 @@ class Inspector(ModelWithParams):
     def validate_name(cls, v: Text) -> Text:
         if v == "":
             raise ValueError("name cannot be empty")
+        return v
+
+    @field_validator("policy")
+    def validate_policy(cls, v: Union[InspectorPolicy, Callable]) -> Union[InspectorPolicy, Callable]:
+        if callable(v):
+            if not validate_policy_callable(v):
+                raise ValueError(
+                    "Policy callable must have name 'process_response', arguments 'model_response' and 'input_content' (both strings), and return InspectorAction"
+                )
+        elif not isinstance(v, InspectorPolicy):
+            raise ValueError(f"Policy must be InspectorPolicy enum or a valid callable function, got {type(v)}")
         return v

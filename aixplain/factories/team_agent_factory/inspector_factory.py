@@ -11,7 +11,7 @@ inspector = InspectorFactory.create_from_model(
 """
 
 import logging
-from typing import Dict, Optional, Text, Union
+from typing import Dict, Optional, Text, Union, Callable
 from urllib.parse import urljoin
 
 from aixplain.enums.asset_status import AssetStatus
@@ -35,7 +35,7 @@ class InspectorFactory:
         name: Text,
         model: Union[Text, Model],
         model_config: Optional[Dict] = None,
-        policy: InspectorPolicy = InspectorPolicy.ADAPTIVE,  # default: doing something dynamically
+        policy: Union[InspectorPolicy, Callable] = InspectorPolicy.ADAPTIVE,  # default: doing something dynamically
     ) -> Inspector:
         """Create a new inspector agent from an onboarded model.
 
@@ -43,7 +43,9 @@ class InspectorFactory:
             name: Name of the inspector agent.
             model: Model or model ID to use for inspector.
             model_config: Configuration for the inspector. Defaults to None.
-            policy: Action to take upon negative feedback (WARN/ABORT/ADAPTIVE). Defaults to ADAPTIVE.
+            policy: Action to take upon negative feedback (WARN/ABORT/ADAPTIVE) or a callable function.
+                   If callable, must have name "process_response", arguments "model_response" and "input_content" (both strings),
+                   and return InspectorAction. Defaults to ADAPTIVE.
 
         Returns:
             Inspector: The created inspector
@@ -94,13 +96,15 @@ class InspectorFactory:
         cls,
         auto: InspectorAuto,
         name: Optional[Text] = None,
-        policy: InspectorPolicy = InspectorPolicy.ADAPTIVE,
+        policy: Union[InspectorPolicy, Callable] = InspectorPolicy.ADAPTIVE,
     ) -> Inspector:
         """Create a new inspector agent from an automatically configured inspector.
 
         Args:
             auto: The automatically configured inspector.
-            policy: Action to take upon negative feedback (WARN/ABORT/ADAPTIVE). Defaults to ADAPTIVE.
+            policy: Action to take upon negative feedback (WARN/ABORT/ADAPTIVE) or a callable function.
+                   If callable, must have name "process_response", arguments "model_response" and "input_content" (both strings),
+                   and return InspectorAction. Defaults to ADAPTIVE.
 
         Returns:
             Inspector: The created inspector.
