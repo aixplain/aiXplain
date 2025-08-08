@@ -13,7 +13,7 @@ from aixplain import aixplain_v2 as v2
 from aixplain.factories import AgentFactory, TeamAgentFactory
 from aixplain.enums.asset_status import AssetStatus
 from aixplain.modules.team_agent import InspectorTarget
-from aixplain.modules.team_agent.inspector import Inspector, InspectorPolicy
+from aixplain.modules.team_agent.inspector import Inspector, InspectorPolicy, InspectorAction
 
 from tests.functional.team_agent.test_utils import (
     RUN_FILE,
@@ -22,6 +22,32 @@ from tests.functional.team_agent.test_utils import (
     create_team_agent,
     verify_response_generator,
 )
+
+
+# Define callable policy functions at module level for proper serialization
+def process_response(model_response: str, input_content: str) -> InspectorAction:
+    """Basic callable policy function for testing."""
+    if "error" in model_response.lower() or "invalid" in model_response.lower():
+        return InspectorAction.ABORT
+    elif "warning" in model_response.lower():
+        return InspectorAction.RERUN
+    return InspectorAction.CONTINUE
+
+
+def process_response_abort(model_response: str, input_content: str) -> InspectorAction:
+    """Callable policy function that aborts on specific content."""
+    abort_keywords = ["dangerous", "harmful", "illegal", "inappropriate"]
+    for keyword in abort_keywords:
+        if keyword in model_response.lower():
+            return InspectorAction.ABORT
+    return InspectorAction.CONTINUE
+
+
+def process_response_rerun(model_response: str, input_content: str) -> InspectorAction:
+    """Callable policy function that triggers rerun on specific conditions."""
+    if len(model_response.strip()) < 10 or "placeholder" in model_response.lower():
+        return InspectorAction.RERUN
+    return InspectorAction.CONTINUE
 
 
 @pytest.fixture(scope="function")
@@ -555,5 +581,74 @@ def test_team_agent_with_input_adaptive_inspector(run_input_map, delete_agents_a
         assert (
             mentalist_input and revised_query in mentalist_input
         ), "The mentalist input does not contain the revised query from the last query_manager"
+
+    team_agent.delete()
+
+
+@pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory, v2.TeamAgent])
+def test_team_agent_with_callable_policy_comprehensive(run_input_map, delete_agents_and_team_agents, TeamAgentFactory):
+    """Comprehensive test of callable policy functionality"""
+    assert delete_agents_and_team_agents
+
+    agents = create_agents_from_input_map(run_input_map)
+
+    # Test 1: Create inspector with callable policy
+    inspector = Inspector(
+        name="callable_inspector",
+        model_id=run_input_map["llm_id"],
+        model_params={"prompt": "Check if the steps are valid and provide feedback"},
+        policy=process_response,  # Using module-level callable policy
+    )
+
+    # Test 2: Verify the inspector was created correctly
+    assert inspector.name == "callable_inspector"
+    assert callable(inspector.policy)
+    assert inspector.policy.__name__ == "process_response"
+
+    # Test 3: Verify the callable policy works correctly
+    result1 = inspector.policy("This is an error message", "input")
+    assert result1 == InspectorAction.ABORT
+
+    result2 = inspector.policy("This is a warning message", "input")
+    assert result2 == InspectorAction.RERUN
+
+    result3 = inspector.policy("This is a normal message", "input")
+    assert result3 == InspectorAction.CONTINUE
+
+    # Test 4: Create team agent with callable policy inspector
+    team_agent = create_team_agent(
+        TeamAgentFactory,
+        agents,
+        run_input_map,
+        use_mentalist=True,
+        inspectors=[inspector],
+        inspector_targets=[InspectorTarget.STEPS],
+    )
+
+    assert team_agent is not None
+    assert team_agent.status == AssetStatus.DRAFT
+
+    # Test 5: Verify serialization works
+    team_agent_dict = team_agent.to_dict()
+    assert "inspectors" in team_agent_dict
+    assert len(team_agent_dict["inspectors"]) == 1
+
+    inspector_data = team_agent_dict["inspectors"][0]
+    assert inspector_data["name"] == "callable_inspector"
+    assert inspector_data["policy_type"] == "callable"
+    assert "def process_response" in inspector_data["policy"]
+
+    # Test 6: Deploy team agent (backend will fall back to ADAPTIVE policy)
+    team_agent.deploy()
+    team_agent = TeamAgentFactory.get(team_agent.id)
+    assert team_agent is not None
+    assert team_agent.status == AssetStatus.ONBOARDED
+
+    # Test 7: Verify backend fallback behavior
+    assert len(team_agent.inspectors) == 1
+    backend_inspector = team_agent.inspectors[0]
+    assert backend_inspector.name == "callable_inspector"
+    # Backend falls back to ADAPTIVE policy for callable policies
+    assert backend_inspector.policy == InspectorPolicy.ADAPTIVE
 
     team_agent.delete()
