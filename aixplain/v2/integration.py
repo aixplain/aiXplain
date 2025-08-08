@@ -50,13 +50,19 @@ class Action:
     inputs: Optional[List[Input]] = None
 
 
+@dataclass_json
+@dataclass
+class ToolId:
+    """Result for tool operations."""
+    id: str
+
 class IntegrationResult(BaseResult):
     """Result for connection operations.
 
     The backend returns the connection ID in data.id.
     """
 
-    data: Optional[dict] = None
+    data: ToolId
 
 
 class IntegrationListParams(BaseListParams):
@@ -253,5 +259,5 @@ class Integration(Model):
     def connect(self, **kwargs: Any) -> "Tool":
         """Connect the integration."""
         response = self.run(**kwargs)
-        tool_id = response.data["id"]
+        tool_id = response.data.id
         return self.context.Tool.get(tool_id)
