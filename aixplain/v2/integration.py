@@ -1,8 +1,50 @@
-from typing import Optional, TypedDict, List, Any
-from typing_extensions import Unpack
-from .resource import BaseListParams, BaseGetParams, BaseResult, Page
+from typing import Optional, List, Any, Dict
+import json
+from dataclasses import dataclass
+from dataclasses_json import dataclass_json
+
+from .resource import BaseListParams, BaseResult
 from .model import Model
-from .enums import Function, AuthenticationScheme
+from .enums import AuthenticationScheme
+
+
+@dataclass_json
+@dataclass
+class Input:
+    """Input parameter for an action."""
+
+    name: str
+    code: str
+    value: List[Any]
+    availableOptions: List[Any]
+    datatype: str
+    allowMulti: bool
+    supportsVariables: bool
+    defaultValue: List[Any]
+    required: bool
+    fixed: bool
+    description: str
+
+
+@dataclass_json
+@dataclass
+class Action:
+    """Container for tool action information and inputs."""
+
+    name: Optional[str] = None
+    description: Optional[str] = None
+    displayName: Optional[str] = None
+    slug: Optional[str] = None
+    available_versions: Optional[List[str]] = None
+    version: Optional[str] = None
+    toolkit: Optional[Dict[str, Any]] = None
+    input_parameters: Optional[Dict[str, Any]] = None
+    output_parameters: Optional[Dict[str, Any]] = None
+    scopes: Optional[List[str]] = None
+    tags: Optional[List[str]] = None
+    no_auth: Optional[bool] = None
+    deprecated: Optional[Dict[str, Any]] = None
+    inputs: Optional[List[Input]] = None
 
 
 class IntegrationResult(BaseResult):
@@ -11,43 +53,13 @@ class IntegrationResult(BaseResult):
     The backend returns the connection ID in data.id.
     """
 
-    data: Optional[dict] = None  # Contains {'id': 'connection_id'}
-    id: Optional[str] = None  # Connection ID for direct access
-
-    def __init__(self, **kwargs: Any) -> None:
-        """Initialize with connection ID extraction."""
-        super().__init__(**kwargs)
-        # Make the connection ID accessible as result.id
-        if self.data and isinstance(self.data, dict) and "id" in self.data:
-            self.id = self.data["id"]
+    data: Optional[dict] = None
 
 
 class IntegrationListParams(BaseListParams):
     """Parameters for listing integrations."""
 
     pass
-
-
-class Credentials(TypedDict, total=False):
-    """Credentials for integrations."""
-
-    token: Optional[str]
-    client_id: Optional[str]
-    client_secret: Optional[str]
-
-
-class IntegrationRunParams(TypedDict, total=False):
-    """Parameters for running integrations (connections).
-
-    Integrations handle authentication and connection setup, so they need
-    different parameters than regular models.
-    """
-
-    name: Optional[str]
-    data: Optional[Credentials]
-    timeout: Optional[int]
-    wait_time: Optional[int]
-    auth_scheme: Optional[AuthenticationScheme] = AuthenticationScheme.NO_AUTH
 
 
 class Integration(Model):
@@ -57,56 +69,180 @@ class Integration(Model):
     All connection logic is centralized here.
     """
 
-    RESOURCE_PATH = "v2/tools"
+    RESOURCE_PATH = "v2/integrations"
     RESPONSE_CLASS = IntegrationResult
-    RUN_PARAMS_CLASS = IntegrationRunParams
 
     # Make AuthenticationScheme accessible
     AuthenticationScheme = AuthenticationScheme
-    Credentials = Credentials
 
-    @classmethod
-    def get(
-        cls: type["Integration"], id: str, **kwargs: Unpack[BaseGetParams]
-    ) -> "Integration":
-        return super().get(id, **kwargs)
+    # Integration-specific properties
+    @property
+    def auth_schemes(self) -> List[str]:
+        """Get authentication schemes for integrations."""
+        if not self.attributes:
+            return []
 
-    @classmethod
-    def list(
-        cls: type["Integration"], **kwargs: Unpack[IntegrationListParams]
-    ) -> "Page[Integration]":
-        return super().list(**kwargs)
+        auth_schemes_attr = next(
+            (attr for attr in self.attributes if attr.name == "auth_schemes"), None
+        )
 
-    def run(self, **kwargs: Unpack[IntegrationRunParams]) -> IntegrationResult:
+        if not auth_schemes_attr:
+            return []
+
+        try:
+            return json.loads(auth_schemes_attr.code)
+        except (json.JSONDecodeError, TypeError):
+            return []
+
+    def get_auth_inputs(
+        self, auth_scheme: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """Get authentication inputs for a specific auth scheme."""
+        if not self.attributes or not auth_scheme:
+            return []
+
+        inputs_attr = next(
+            (attr for attr in self.attributes if attr.name == f"{auth_scheme}-inputs"),
+            None,
+        )
+
+        if not inputs_attr:
+            return []
+
+        try:
+            return json.loads(inputs_attr.code)
+        except (json.JSONDecodeError, TypeError):
+            return []
+
+    def _validate_params(self, **kwargs) -> List[str]:
+        """Validate all provided parameters against the model's expected
+        parameters and integration-specific auth requirements."""
+        # Call parent validation first
+        errors = super()._validate_params(**kwargs)
+
+        auth_scheme = kwargs["auth_scheme"]
+        if auth_scheme not in self.auth_schemes:
+            errors.append(
+                f"Invalid auth_scheme '{auth_scheme}'. "
+                f"Available schemes: {self.auth_schemes}"
+            )
+
+        data = kwargs["data"]
+        data_errors = self._validate_data_params(data, auth_scheme)
+
+        if data_errors:
+            errors.extend(data_errors)
+
+        return errors
+
+    def _validate_data_params(
+        self, data: Optional[Dict[str, Any]], auth_scheme: Optional[str] = None
+    ) -> List[str]:
+        """Validate data parameter against expected auth inputs for the auth
+        scheme."""
+        errors = []
+
+        # Handle None data
+        if data is None:
+            data = {}
+
+        # Get expected auth inputs for the auth scheme
+        expected_inputs = self.get_auth_inputs(auth_scheme)
+        if not expected_inputs:
+            return errors
+
+        # Validate each required input
+        for expected_input in expected_inputs:
+            input_name = expected_input.get("name")
+            required = expected_input.get("required", False)
+
+            if required and input_name not in data:
+                errors.append(
+                    f"Required auth input '{input_name}' is missing for "
+                    f"auth scheme '{auth_scheme}'"
+                )
+
+            # Validate input type if specified
+            if input_name in data and "type" in expected_input:
+                expected_type = expected_input["type"]
+                actual_value = data[input_name]
+
+                if not self._validate_input_type(actual_value, expected_type):
+                    errors.append(
+                        f"Auth input '{input_name}' has invalid type. "
+                        f"Expected {expected_type}, got "
+                        f"{type(actual_value).__name__}"
+                    )
+
+        return errors
+
+    def _validate_input_type(self, value: Any, expected_type: str) -> bool:
+        """Validate input type based on expected type."""
+        type_validators = {
+            "string": lambda v: isinstance(v, str),
+            "number": lambda v: isinstance(v, (int, float)),
+            "boolean": lambda v: isinstance(v, bool),
+            "object": lambda v: isinstance(v, dict),
+            "array": lambda v: isinstance(v, list),
+        }
+
+        validator = type_validators.get(expected_type)
+        return validator(value) if validator else True
+
+    def run(self, **kwargs: Any) -> IntegrationResult:
+        """Run the integration with validation."""
         return super().run(**kwargs)
 
-    def build_run_payload(self, **kwargs: Any) -> dict:
-        payload = dict(kwargs)
-        # Aliasing for top-level fields
-        if "auth_scheme" in payload:
-            auth_scheme = payload.pop("auth_scheme")
-            payload["authScheme"] = auth_scheme
-        if isinstance(payload.get("data"), dict):
-            data = dict(payload["data"])
-            if "client_id" in data:
-                data["clientId"] = data.pop("client_id")
-            if "client_secret" in data:
-                data["clientSecret"] = data.pop("client_secret")
-            payload["data"] = data
-        return payload
-
-    @classmethod
-    def _populate_filters(cls: type["Integration"], params: BaseListParams) -> dict:
-        """Populate the filters for pagination."""
-        filters = super()._populate_filters(params)
-        filters["functions"] = [Function.CONNECTOR]
-        return filters
-
-    def get_available_actions(self) -> List[str]:
-        """Get available actions for the integration."""
+    def list_actions(self) -> List[Action]:
+        """List available actions for the integration."""
         run_url = self.build_run_url()
-        # Use context.client.request() with the custom URL
         response = self.context.client.request(
             "post", run_url, json={"action": "LIST_ACTIONS", "data": {}}
         )
-        return [action["name"] for action in response["data"]]
+
+        # Handle the response data
+        if "data" not in response:
+            return []
+
+        actions = []
+        for action_data in response["data"]:
+            try:
+                # Handle case where action_data might be a string or other format
+                if isinstance(action_data, dict):
+                    actions.append(Action.from_dict(action_data))
+                else:
+                    # Skip invalid action data
+                    continue
+            except Exception:
+                # Skip invalid action data
+                continue
+
+        return actions
+
+    def list_inputs(self, *actions: str) -> List[Input]:
+        """List available inputs for the integration."""
+        run_url = self.build_run_url()
+        response = self.context.client.request(
+            "post",
+            run_url,
+            json={"action": "LIST_INPUTS", "data": {"actions": actions}},
+        )
+
+        # Handle the response data
+        if "data" not in response:
+            return []
+
+        inputs = []
+        for input_data in response["data"]:
+            try:
+                # Handle case where input_data might be a string or other format
+                if isinstance(input_data, dict):
+                    inputs.append(Input.from_dict(input_data))
+                else:
+                    # Skip invalid input data
+                    continue
+            except Exception:
+                # Skip invalid input data
+                continue
+
+        return inputs

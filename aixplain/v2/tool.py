@@ -146,7 +146,9 @@ class Tool(Model, DeleteResourceMixin[ToolDeleteParams, DeleteResult]):
             ), "Integration is required to validate allowed actions"
 
             available_actions = self.integration.get_available_actions()
-            assert available_actions is not None, "Integration must have available actions"
+            assert (
+                available_actions is not None
+            ), "Integration must have available actions"
             assert all(
                 action in available_actions for action in self.allowed_actions
             ), "All allowed actions must be available"

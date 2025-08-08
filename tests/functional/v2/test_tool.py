@@ -229,9 +229,7 @@ def test_tool_run(client, slack_integration_id, slack_token):
     # Assert the result structure
     assert hasattr(result, "status"), "Result should have status attribute"
     assert hasattr(result, "data"), "Result should have data attribute"
-    assert (
-        result.status == "SUCCESS"
-    ), f"Expected SUCCESS status, got {result.status}"
+    assert result.status == "SUCCESS", f"Expected SUCCESS status, got {result.status}"
     assert result.data is not None, "Result data should not be None"
 
     # Clean up - ensure tool is deleted

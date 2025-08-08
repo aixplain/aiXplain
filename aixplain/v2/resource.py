@@ -651,9 +651,7 @@ class PagedListResourceMixin(BaseListResourceMixin, Generic[ListParamsT, Resourc
 
         # Make request
         paginate_method = getattr(cls, "PAGINATE_METHOD", "post")
-        response = context.client.request(
-            paginate_method, paginate_path, json=filters
-        )
+        response = context.client.request(paginate_method, paginate_path, json=filters)
 
         return cls._build_page(  # type: ignore[attr-defined,misc]
             response, context, **kwargs
@@ -922,24 +920,24 @@ class DeleteResourceMixin(BaseMixin, Generic[DeleteParamsT, DeleteResultT]):
         """
         # Create a success response with basic information
         response_class = getattr(self, "DELETE_RESPONSE_CLASS", DeleteResult)
-        
+
         # Store the resource info before marking as deleted
         deleted_id = self.id
-        
+
         # Mark the resource as deleted
         self.mark_as_deleted()
-        
+
         # Build response data manually since delete endpoints don't return JSON
         response_data = {
             "status": "SUCCESS",
             "completed": True,
             "deleted_id": deleted_id,
         }
-        
+
         # Create the result object directly instead of using from_dict
         result = response_class(**response_data)
         result._raw_data = response  # Store raw response separately
-        
+
         return result
 
     # Optional hook methods - only implement what you need
@@ -963,8 +961,10 @@ class DeleteResourceMixin(BaseMixin, Generic[DeleteParamsT, DeleteResultT]):
         return None
 
     def after_delete(
-        self, result: Union[DeleteResultT, Exception], *args: Any,
-        **kwargs: Unpack[DeleteParamsT]
+        self,
+        result: Union[DeleteResultT, Exception],
+        *args: Any,
+        **kwargs: Unpack[DeleteParamsT],
     ) -> Optional[DeleteResultT]:
         """
         Optional callback called after the resource is deleted.

@@ -13,7 +13,7 @@ from .resource import (
     Result,
     RunnableResourceMixin,
     DeleteResourceMixin,
-    BaseDeleteParams
+    BaseDeleteParams,
 )
 from .enums import Function
 
@@ -49,7 +49,7 @@ class Utility(
     PagedListResourceMixin[UtilityListParams, "Utility"],
     GetResourceMixin[BaseGetParams, "Utility"],
     DeleteResourceMixin[BaseDeleteParams, "Utility"],
-    RunnableResourceMixin[UtilityRunParams, Result]
+    RunnableResourceMixin[UtilityRunParams, Result],
 ):
     """Resource for utilities.
 

@@ -49,5 +49,5 @@ __all__ = [
     "ResponseStatus",
     "SortBy",
     "SortOrder",
-    "StorageType"
+    "StorageType",
 ]
