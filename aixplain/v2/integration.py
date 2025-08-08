@@ -1,4 +1,4 @@
-from typing import Optional, List, Any, Dict
+from typing import Optional, List, Any, Dict, TYPE_CHECKING
 import json
 from dataclasses import dataclass
 from dataclasses_json import dataclass_json
@@ -6,6 +6,9 @@ from dataclasses_json import dataclass_json
 from .resource import BaseListParams, BaseResult
 from .model import Model
 from .enums import AuthenticationScheme
+
+if TYPE_CHECKING:
+    from .tool import Tool
 
 
 @dataclass_json
@@ -120,7 +123,7 @@ class Integration(Model):
         # Call parent validation first
         errors = super()._validate_params(**kwargs)
 
-        auth_scheme = kwargs["auth_scheme"]
+        auth_scheme = kwargs["authScheme"]
         if auth_scheme not in self.auth_schemes:
             errors.append(
                 f"Invalid auth_scheme '{auth_scheme}'. "
@@ -246,3 +249,9 @@ class Integration(Model):
                 continue
 
         return inputs
+
+    def connect(self, **kwargs: Any) -> "Tool":
+        """Connect the integration."""
+        response = self.run(**kwargs)
+        tool_id = response.data["id"]
+        return self.context.Tool.get(tool_id)
