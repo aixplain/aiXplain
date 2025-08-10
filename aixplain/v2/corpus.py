@@ -61,7 +61,8 @@ class Corpus(
     def get(cls, id: str, **kwargs: Unpack[BareGetParams]) -> "Corpus":
         from aixplain.factories import CorpusFactory
 
-        return CorpusFactory.get(corpus_id=id)
+        api_key = cls._get_api_key(kwargs)
+        return CorpusFactory.get(corpus_id=id, api_key=api_key)
 
     @classmethod
     def list(cls, **kwargs: Unpack[CorpusListParams]) -> Page["Corpus"]:
@@ -76,9 +77,10 @@ class Corpus(
     def create(cls, *args, **kwargs: Unpack[CorpusCreateParams]) -> Dict:
         from aixplain.factories import CorpusFactory
 
+        api_key = cls._get_api_key(kwargs)
         kwargs.setdefault("ref_data", [])
         kwargs.setdefault("tags", [])
         kwargs.setdefault("functions", [])
         kwargs.setdefault("privacy", Privacy.PRIVATE)
         kwargs.setdefault("error_handler", ErrorHandler.SKIP)
-        return CorpusFactory.create(*args, **kwargs)
+        return CorpusFactory.create(*args, **kwargs, api_key=api_key)

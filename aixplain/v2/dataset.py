@@ -76,7 +76,8 @@ class Dataset(
     def get(cls, id: str, **kwargs: Unpack[BareGetParams]) -> "Dataset":
         from aixplain.factories import DatasetFactory
 
-        return DatasetFactory.get(dataset_id=id)
+        api_key = cls._get_api_key(kwargs)
+        return DatasetFactory.get(dataset_id=id, api_key=api_key)
 
     @classmethod
     def list(cls, **kwargs: Unpack[DatasetListParams]) -> Page["Dataset"]:
@@ -84,12 +85,14 @@ class Dataset(
 
         kwargs.setdefault("page_number", cls.PAGINATE_DEFAULT_PAGE_NUMBER)
         kwargs.setdefault("page_size", cls.PAGINATE_DEFAULT_PAGE_SIZE)
+        # Note: DatasetFactory.list doesn't accept api_key yet
         return DatasetFactory.list(**kwargs)
 
     @classmethod
     def create(cls, *args, **kwargs: Unpack[DatasetCreateParams]) -> Dict:
         from aixplain.factories import DatasetFactory
 
+        api_key = cls._get_api_key(kwargs)
         kwargs.setdefault("output_schema", [])
         kwargs.setdefault("hypotheses_schema", [])
         kwargs.setdefault("metadata_schema", [])
@@ -104,4 +107,4 @@ class Dataset(
             "aws_credentials",
             {"AWS_ACCESS_KEY_ID": None, "AWS_SECRET_ACCESS_KEY": None},
         )
-        return DatasetFactory.create(*args, **kwargs)
+        return DatasetFactory.create(*args, **kwargs, api_key=api_key)

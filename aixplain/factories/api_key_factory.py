@@ -11,21 +11,28 @@ class APIKeyFactory:
     backend_url = config.BACKEND_URL
 
     @classmethod
-    def get(cls, api_key: Text) -> APIKey:
+    def get(cls, api_key: Text, **kwargs) -> APIKey:
         """Get an API key"""
-        for api_key_obj in cls.list():
-            if str(api_key_obj.access_key).startswith(api_key[:4]) and str(api_key_obj.access_key).endswith(api_key[-4:]):
+        for api_key_obj in cls.list(**kwargs):
+            if (str(api_key_obj.access_key).startswith(api_key[:4]) and
+                    str(api_key_obj.access_key).endswith(api_key[-4:])):
                 return api_key_obj
         raise Exception(f"API Key Error: API key {api_key} not found")
 
     @classmethod
-    def list(cls) -> List[APIKey]:
+    def list(cls, **kwargs) -> List[APIKey]:
         """List all API keys"""
         resp = "Unspecified error"
+        api_key = kwargs.get("api_key", config.TEAM_API_KEY)
         try:
             url = f"{cls.backend_url}/sdk/api-keys"
-            headers = {"Content-Type": "application/json", "Authorization": f"Token {config.TEAM_API_KEY}"}
-            logging.info(f"Start service for GET API List  - {url} - {headers}")
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": f"Token {api_key}"
+            }
+            logging.info(
+                f"Start service for GET API List  - {url} - {headers}"
+            )
             r = _request_with_retry("GET", url, headers=headers)
             resp = r.json()
         except Exception:
@@ -37,16 +44,25 @@ class APIKeyFactory:
                     id=key["id"],
                     name=key["name"],
                     budget=key["budget"] if "budget" in key else None,
-                    global_limits=key["globalLimits"] if "globalLimits" in key else None,
-                    asset_limits=key["assetsLimits"] if "assetsLimits" in key else [],
-                    expires_at=key["expiresAt"] if "expiresAt" in key else None,
+                    global_limits=(
+                        key["globalLimits"] if "globalLimits" in key else None
+                    ),
+                    asset_limits=(
+                        key["assetsLimits"] if "assetsLimits" in key else []
+                    ),
+                    expires_at=(
+                        key["expiresAt"] if "expiresAt" in key else None
+                    ),
                     access_key=key["accessKey"],
                     is_admin=key["isAdmin"],
                 )
                 for key in resp
             ]
         else:
-            raise Exception(f"API Key List Error: Failed to list API keys. Error: {str(resp)}")
+            raise Exception(
+                f"API Key List Error: Failed to list API keys. "
+                f"Error: {str(resp)}"
+            )
         return api_keys
 
     @classmethod
@@ -57,22 +73,34 @@ class APIKeyFactory:
         global_limits: Union[Dict, APIKeyLimits],
         asset_limits: List[Union[Dict, APIKeyLimits]],
         expires_at: datetime,
+        **kwargs
     ) -> APIKey:
         """Create a new API key"""
         resp = "Unspecified error"
+        api_key = kwargs.get("api_key", config.TEAM_API_KEY)
         url = f"{cls.backend_url}/sdk/api-keys"
-        headers = {"Content-Type": "application/json", "Authorization": f"Token {config.TEAM_API_KEY}"}
+        headers = {
+            "Content-Type": "application/json", 
+            "Authorization": f"Token {api_key}"
+        }
 
         payload = APIKey(
-            name=name, budget=budget, global_limits=global_limits, asset_limits=asset_limits, expires_at=expires_at
+            name=name, budget=budget, global_limits=global_limits, 
+            asset_limits=asset_limits, expires_at=expires_at
         ).to_dict()
 
         try:
-            logging.info(f"Start service for POST API Creation  - {url} - {headers} - {json.dumps(payload)}")
+            logging.info(
+                f"Start service for POST API Creation  - {url} - {headers} - "
+                f"{json.dumps(payload)}"
+            )
             r = _request_with_retry("post", url, json=payload, headers=headers)
             resp = r.json()
         except Exception as e:
-            raise Exception(f"API Key Creation Error: Failed to create a new API key. Error: {str(e)}")
+            raise Exception(
+                f"API Key Creation Error: Failed to create a new API key. "
+                f"Error: {str(e)}"
+            )
 
         if 200 <= r.status_code < 300:
             api_key = APIKey(
@@ -87,23 +115,35 @@ class APIKeyFactory:
             )
             return api_key
         else:
-            raise Exception(f"API Key Creation Error: Failed to create a new API key. Error: {str(resp)}")
+            raise Exception(
+                f"API Key Creation Error: Failed to create a new API key. "
+                f"Error: {str(resp)}"
+            )
 
     @classmethod
-    def update(cls, api_key: APIKey) -> APIKey:
+    def update(cls, api_key_obj: APIKey, **kwargs) -> APIKey:
         """Update an existing API key"""
-        api_key.validate()
+        api_key_obj.validate()
+        api_key = kwargs.get("api_key", config.TEAM_API_KEY)
         try:
             resp = "Unspecified error"
-            url = f"{cls.backend_url}/sdk/api-keys/{api_key.id}"
-            headers = {"Content-Type": "application/json", "Authorization": f"Token {config.TEAM_API_KEY}"}
-            payload = api_key.to_dict()
+            url = f"{cls.backend_url}/sdk/api-keys/{api_key_obj.id}"
+            headers = {
+                "Content-Type": "application/json", 
+                "Authorization": f"Token {api_key}"
+            }
+            payload = api_key_obj.to_dict()
 
-            logging.info(f"Updating API key with ID {api_key.id} and new values")
+            logging.info(
+                f"Updating API key with ID {api_key_obj.id} and new values"
+            )
             r = _request_with_retry("put", url, json=payload, headers=headers)
             resp = r.json()
         except Exception as e:
-            raise Exception(f"API Key Update Error: Failed to update API key with ID {id}. Error: {str(e)}")
+            raise Exception(
+                f"API Key Update Error: Failed to update API key with ID "
+                f"{api_key_obj.id}. Error: {str(e)}"
+            )
 
         if 200 <= r.status_code < 300:
             api_key = APIKey(
@@ -118,19 +158,31 @@ class APIKeyFactory:
             )
             return api_key
         else:
-            raise Exception(f"API Key Update Error: Failed to update API key with ID {api_key.id}. Error: {str(resp)}")
+            raise Exception(
+                f"API Key Update Error: Failed to update API key with ID "
+                f"{api_key_obj.id}. Error: {str(resp)}"
+            )
 
     @classmethod
-    def get_usage_limits(cls, api_key: Text = config.TEAM_API_KEY, asset_id: Optional[Text] = None) -> List[APIKeyUsageLimit]:
+    def get_usage_limits(
+        cls, api_key: Text = None, asset_id: Optional[Text] = None, **kwargs
+    ) -> List[APIKeyUsageLimit]:
         """Get API key usage limits"""
+        api_key = api_key or kwargs.get("api_key", config.TEAM_API_KEY)
         try:
             url = f"{config.BACKEND_URL}/sdk/api-keys/usage-limits"
-            headers = {"Authorization": f"Token {api_key}", "Content-Type": "application/json"}
+            headers = {
+                "Authorization": f"Token {api_key}", 
+                "Content-Type": "application/json"
+            }
             logging.info(f"Start service for GET API Key Usage  - {url} - {headers}")
             r = _request_with_retry("GET", url, headers=headers)
             resp = r.json()
         except Exception:
-            message = "API Key Usage Error: Make sure the API Key exists and you are the owner."
+            message = (
+                "API Key Usage Error: Make sure the API Key exists and you "
+                "are the owner."
+            )
             logging.error(message)
             raise Exception(f"{message}")
 
@@ -144,7 +196,12 @@ class APIKeyFactory:
                     model=limit["assetId"] if "assetId" in limit else None,
                 )
                 for limit in resp
-                if asset_id is None or ("assetId" in limit and limit["assetId"] == asset_id)
+                if asset_id is None or (
+                    "assetId" in limit and limit["assetId"] == asset_id
+                )
             ]
         else:
-            raise Exception(f"API Key Usage Error: Failed to get usage. Error: {str(resp)}")
+            raise Exception(
+                f"API Key Usage Error: Failed to get usage. "
+                f"Error: {str(resp)}"
+            )
