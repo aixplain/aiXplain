@@ -187,9 +187,9 @@ class BaseResource:
         init=False,
     )
 
-    id: str = ""
-    name: str = ""
-    description: str = ""
+    id: Optional[str] = None
+    name: Optional[str] = None
+    description: Optional[str] = None
 
     def _get_serializable_state(self) -> dict:
         """

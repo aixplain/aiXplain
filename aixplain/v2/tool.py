@@ -83,7 +83,7 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult]):
             connection = self.integration.connect(
                 authScheme=self.auth_scheme, data=self.auth_params
             )
-            self.id = connection.id
+            self.id = self.asset_id = connection.id
             self.validate_allowed_actions()
             self.parameters = self.get_parameters()
 
@@ -91,7 +91,7 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult]):
         """List available actions for the tool."""
         return self.integration.list_actions()
 
-    def list_inputs(self, *actions: str) -> List[Input]:
+    def list_inputs(self, *actions: str) -> List[Action]:
         """List available inputs for the tool."""
         return self.integration.list_inputs(*actions)
 

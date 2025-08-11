@@ -24,16 +24,16 @@ from .resource import (
 class AgentRunParams(BaseRunParams):
     """Parameters for running an agent."""
 
+    sessionId: NotRequired[Optional[Text]]
     query: NotRequired[Optional[Union[Dict, Text]]]
-    session_id: NotRequired[Optional[Text]]
+    allowHistoryAndSessionId: NotRequired[Optional[bool]]
+    tasks: NotRequired[Optional[List[Any]]]
+    prompt: NotRequired[Optional[Text]]
     history: NotRequired[Optional[List[Dict]]]
-    name: NotRequired[Text]
-    parameters: NotRequired[Dict]
-    content: NotRequired[Optional[Union[Dict[Text, Text], List[Text]]]]
-    max_tokens: NotRequired[int]
-    max_iterations: NotRequired[int]
-    output_format: NotRequired[Optional[str]]
-    expected_output: NotRequired[Optional[Union[Any, Text, dict]]]
+    executionParams: NotRequired[Optional[Dict[str, Any]]]
+    criteria: NotRequired[Optional[Text]]
+    evolve: NotRequired[Optional[Text]]
+    inspectors: NotRequired[Optional[List[Dict]]]
 
 
 @dataclass_json
@@ -76,32 +76,64 @@ class Agent(
     DeleteResourceMixin[BaseDeleteParams, "Agent"],
     RunnableResourceMixin[AgentRunParams, AgentRunResult],
 ):
-    RESOURCE_PATH = "sdk/agents"
-    PAGINATE_PATH = None
-    PAGINATE_METHOD = "get"
-    PAGINATE_ITEMS_KEY = None
+    """
+    Agent resource class.
+
+    Note: There are some discrepancies between the Swagger documentation for creation
+    and what the server returns when retrieving agents:
+
+    - Server GET responses often omit: role, inspectorId, supervisorId, plannerId, tasks, tools
+    - Server GET responses may omit 'name' field in assets
+    - Some fields documented in Swagger may not be implemented server-side yet
+
+    This structure accommodates both creation (with all documented fields) and
+    retrieval (with potentially incomplete data from server).
+    """
+
+    RESOURCE_PATH = "v2/agents"
 
     LLM_ID = "669a63646eb56306647e1091"
     SUPPLIER = "aiXplain"
 
     RESPONSE_CLASS = AgentRunResult
 
-    id: str = ""
-    name: str = ""
+    # Core fields from Swagger
+    role: Optional[str] = None
     status: str = ""
     team_id: Optional[int] = field(default=None, metadata=config(field_name="teamId"))
-    description: str = ""
-    role: str = ""
-    tasks: Optional[List[Any]] = field(default_factory=list)
     llm_id: str = field(default=LLM_ID, metadata=config(field_name="llmId"))
-    assets: Optional[List[Any]] = field(default_factory=list)
-    tools: Optional[List[Any]] = field(default_factory=list)
+
+    # Asset and tool fields
+    assets: Optional[List[Dict[str, Any]]] = field(default_factory=list)
+    tools: Optional[List[Dict[str, Any]]] = field(default_factory=list)
+
+    # Inspector and supervisor fields
+    inspectorId: Optional[str] = field(
+        default=None, metadata=config(field_name="inspectorId")
+    )
+    supervisorId: Optional[str] = field(
+        default=None, metadata=config(field_name="supervisorId")
+    )
+    plannerId: Optional[str] = field(
+        default=None, metadata=config(field_name="plannerId")
+    )
+
+    # Task fields
+    tasks: Optional[List[Dict[str, Any]]] = field(default_factory=list)
+
+    # Output and execution fields
+    outputFormat: Optional[str] = field(
+        default="text", metadata=config(field_name="outputFormat")
+    )
+    expectedOutput: Optional[Any] = None
+
+    # Metadata fields
     createdAt: Optional[str] = None
     updatedAt: Optional[str] = None
     inspectorTargets: Optional[List[Any]] = field(default_factory=list)
     maxInspectors: Optional[int] = None
     inspectors: Optional[List[Any]] = field(default_factory=list)
-    instructions: Optional[str] = None
+    resourceInfo: Optional[Dict[str, Any]] = field(default_factory=dict)
 
     def __repr__(self) -> str:
         """
@@ -175,25 +207,33 @@ class Agent(
         payload = self.to_dict()
         payload["assets"] = payload.pop("tools")
         payload["tools"] = [{"type": "llm", "description": "main", "parameters": []}]
-        payload["role"] = payload.pop("instructions")
         return payload
 
     def build_run_payload(self, **kwargs: Unpack[AgentRunParams]) -> dict:
         """
         Build the payload for the run action.
         """
-        max_tokens = kwargs.pop("max_tokens", 2048)
-        max_iterations = kwargs.pop("max_iterations", 10)
-        output_format = kwargs.pop("output_format", "text")
-        expected_output = kwargs.pop("expected_output", None)
+        # Extract executionParams if provided, otherwise use defaults
+        execution_params = kwargs.pop("executionParams", {})
 
-        return {
+        # Set default values for executionParams if not provided
+        if not execution_params:
+            execution_params = {
+                "outputFormat": self.outputFormat or "text",
+                "maxTokens": 2048,
+                "maxIterations": 30,
+                "maxTime": 300,
+            }
+
+        # Build the payload according to Swagger specification
+        payload = {
             "id": self.id,
-            "executionParams": {
-                "maxTokens": max_tokens,
-                "maxIterations": max_iterations,
-                "outputFormat": output_format,
-                "expectedOutput": expected_output,
-            },
-            **kwargs,
+            "executionParams": execution_params,
         }
+
+        # Add all other parameters from kwargs
+        for key, value in kwargs.items():
+            if value is not None:  # Only include non-None values
+                payload[key] = value
+
+        return payload

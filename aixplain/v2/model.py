@@ -238,15 +238,12 @@ class Model(
                 value = kwargs[param.name]
                 if not self._validate_param_type(param, value):
                     errors.append(
-                        (
-                            f"Parameter '{param.name}' has invalid type. "
-                            f"Expected {param.data_type}, "
-                            f"got {type(value).__name__}"
-                        )
+                        f"Parameter '{param.name}' has invalid type. "
+                        f"Expected {param.data_type}, "
+                        f"got {type(value).__name__}"
                     )
             elif param.required:
-                # errors.append(f"Required parameter '{param.name}' is missing")
-                pass
+                errors.append(f"Required parameter '{param.name}' is missing")
 
         return errors
 

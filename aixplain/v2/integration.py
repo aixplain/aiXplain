@@ -1,7 +1,7 @@
 from typing import Optional, List, Any, Dict, TYPE_CHECKING
 import json
-from dataclasses import dataclass
-from dataclasses_json import dataclass_json
+from dataclasses import dataclass, field
+from dataclasses_json import dataclass_json, config
 
 from .resource import BaseListParams, BaseResult
 from .model import Model
@@ -17,16 +17,16 @@ class Input:
     """Input parameter for an action."""
 
     name: str
-    code: str
-    value: List[Any]
-    availableOptions: List[Any]
-    datatype: str
-    allowMulti: bool
-    supportsVariables: bool
-    defaultValue: List[Any]
-    required: bool
-    fixed: bool
-    description: str
+    code: Optional[str] = None
+    value: List[Any] = field(default_factory=list)
+    availableOptions: List[Any] = field(default_factory=list)
+    datatype: str = "string"
+    allowMulti: bool = False
+    supportsVariables: bool = False
+    defaultValue: List[Any] = field(default_factory=list)
+    required: bool = False
+    fixed: bool = False
+    description: str = ""
 
 
 @dataclass_json
@@ -54,7 +54,9 @@ class Action:
 @dataclass
 class ToolId:
     """Result for tool operations."""
+
     id: str
+
 
 class IntegrationResult(BaseResult):
     """Result for connection operations.
@@ -228,7 +230,7 @@ class Integration(Model):
 
         return actions
 
-    def list_inputs(self, *actions: str) -> List[Input]:
+    def list_inputs(self, *actions: str) -> List[Action]:
         """List available inputs for the integration."""
         run_url = self.build_run_url()
         response = self.context.client.request(
@@ -241,20 +243,11 @@ class Integration(Model):
         if "data" not in response:
             return []
 
-        inputs = []
+        actions = []
         for input_data in response["data"]:
-            try:
-                # Handle case where input_data might be a string or other format
-                if isinstance(input_data, dict):
-                    inputs.append(Input.from_dict(input_data))
-                else:
-                    # Skip invalid input data
-                    continue
-            except Exception:
-                # Skip invalid input data
-                continue
+            actions.append(Action.from_dict(input_data))
 
-        return inputs
+        return actions
 
     def connect(self, **kwargs: Any) -> "Tool":
         """Connect the integration."""
