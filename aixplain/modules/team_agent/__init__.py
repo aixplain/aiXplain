@@ -123,8 +123,8 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         self.output_format = output_format
         self.expected_output = expected_output
 
-    def generate_session_id(self, history: list = None) -> str:            
-        timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+    def generate_session_id(self, history: list = None) -> str:
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
         session_id = f"{self.id}_{timestamp}"
 
         if not history:
@@ -136,7 +136,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
 
             payload = {
                 "id": self.id,
-                "query": "/", 
+                "query": "/",
                 "sessionId": session_id,
                 "history": history,
                 "executionParams": {
@@ -145,7 +145,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                     "outputFormat": OutputFormat.TEXT.value,
                     "expectedOutput": None,
                 },
-                "allowHistoryAndSessionId": True
+                "allowHistoryAndSessionId": True,
             }
 
             r = _request_with_retry("post", self.url, headers=headers, data=json.dumps(payload))
@@ -162,7 +162,6 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         except Exception as e:
             logging.error(f"Failed to initialize team session {session_id}: {e}")
             return session_id
-
 
     def run(
         self,
@@ -291,10 +290,10 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         if session_id is not None:
             if not session_id.startswith(f"{self.id}_"):
                 raise ValueError(f"Session ID '{session_id}' does not belong to this Agent.")
-            
+
         if history:
             validate_history(history)
-            
+
         from aixplain.factories.file_factory import FileFactory
 
         if not self.is_valid:
@@ -620,7 +619,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             error_msg = f"Team Agent Update Error (HTTP {r.status_code}): {resp}"
             raise Exception(error_msg)
 
-     def save(self) -> None:
+    def save(self) -> None:
         """Save the Agent."""
         self.update()
 
