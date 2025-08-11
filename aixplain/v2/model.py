@@ -19,6 +19,217 @@ from .resource import (
 from .enums import Function, Supplier, Language, AssetStatus
 
 
+class ParameterProxy:
+    """Proxy object that provides both dict-like and dot notation access to model parameters."""
+
+    def __init__(self, model):
+        self._model = model
+        self._dynamic_attrs = {}
+        self._setup_dynamic_attributes()
+
+    def _setup_dynamic_attributes(self):
+        """Create dynamic attributes for all model parameters."""
+        if self._model.params:
+            for param in self._model.params:
+                # Create a dynamic attribute for each parameter
+                attr_name = param.name
+
+                # Set initial value from backend defaults if available
+                initial_value = None
+                if param.default_values:
+                    initial_value = param.default_values[0].get("value")
+
+                # Store the parameter metadata and value
+                self._dynamic_attrs[attr_name] = {
+                    "value": initial_value,
+                    "param": param,
+                    "required": param.required,
+                    "data_type": param.data_type,
+                    "data_sub_type": param.data_sub_type,
+                }
+
+    def __getitem__(self, key: str):
+        """Dict-like access: inputs['temperature']"""
+        if key in self._dynamic_attrs:
+            return self._dynamic_attrs[key]["value"]
+        raise KeyError(f"Parameter '{key}' not found")
+
+    def __setitem__(self, key: str, value):
+        """Dict-like assignment: inputs['temperature'] = 0.7"""
+        if key in self._dynamic_attrs:
+            # Validate the value against the parameter definition
+            param_info = self._dynamic_attrs[key]
+            param = param_info["param"]
+
+            if not self._validate_param_type(param, value):
+                raise ValueError(
+                    f"Invalid value type for parameter '{key}'. "
+                    f"Expected {param.data_type}, got {type(value).__name__}"
+                )
+
+            # Store the value
+            self._dynamic_attrs[key]["value"] = value
+        else:
+            raise KeyError(f"Parameter '{key}' not found")
+
+    def __getattr__(self, name: str):
+        """Dot notation access: inputs.temperature"""
+        if name in self._dynamic_attrs:
+            return self._dynamic_attrs[name]["value"]
+        raise AttributeError(f"Parameter '{name}' not found")
+
+    def __setattr__(self, name: str, value):
+        """Dot notation assignment: inputs.temperature = 0.7"""
+        if name == "_model" or name == "_dynamic_attrs":
+            super().__setattr__(name, value)
+        elif name in self._dynamic_attrs:
+            # Validate the value against the parameter definition
+            param_info = self._dynamic_attrs[name]
+            param = param_info["param"]
+
+            if not self._validate_param_type(param, value):
+                raise ValueError(
+                    f"Invalid value type for parameter '{name}'. "
+                    f"Expected {param.data_type}, got {type(value).__name__}"
+                )
+
+            # Store the value
+            self._dynamic_attrs[name]["value"] = value
+        else:
+            raise AttributeError(f"Parameter '{name}' not found")
+
+    def __contains__(self, key: str) -> bool:
+        """Check if parameter exists: 'temperature' in inputs"""
+        return key in self._dynamic_attrs
+
+    def __len__(self) -> int:
+        """Number of parameters"""
+        return len(self._dynamic_attrs)
+
+    def __iter__(self):
+        """Iterate over parameter names"""
+        return iter(self._dynamic_attrs.keys())
+
+    def keys(self):
+        """Get parameter names"""
+        return list(self._dynamic_attrs.keys())
+
+    def values(self):
+        """Get parameter values"""
+        return [info["value"] for info in self._dynamic_attrs.values()]
+
+    def items(self):
+        """Get parameter name-value pairs"""
+        return [(name, info["value"]) for name, info in self._dynamic_attrs.items()]
+
+    def get(self, key: str, default=None):
+        """Get parameter value with default"""
+        if key in self._dynamic_attrs:
+            return self._dynamic_attrs[key]["value"]
+        return default
+
+    def update(self, **kwargs):
+        """Update multiple parameters at once"""
+        for key, value in kwargs.items():
+            if key in self._dynamic_attrs:
+                self[key] = value  # This will trigger validation
+            else:
+                raise KeyError(f"Parameter '{key}' not found")
+
+    def clear(self):
+        """Reset all parameters to backend defaults"""
+        for param_name in self._dynamic_attrs:
+            self.reset_parameter(param_name)
+
+    def copy(self):
+        """Get a copy of current parameter values"""
+        return {name: info["value"] for name, info in self._dynamic_attrs.items()}
+
+    def has_parameter(self, param_name: str) -> bool:
+        """Check if a parameter exists."""
+        return param_name in self._dynamic_attrs
+
+    def get_parameter_names(self) -> list:
+        """Get a list of all available parameter names."""
+        return list(self._dynamic_attrs.keys())
+
+    def get_required_parameters(self) -> list:
+        """Get a list of required parameter names."""
+        return [name for name, info in self._dynamic_attrs.items() if info["required"]]
+
+    def get_parameter_info(self, param_name: str):
+        """Get information about a specific parameter."""
+        if param_name in self._dynamic_attrs:
+            return self._dynamic_attrs[param_name].copy()
+        return None
+
+    def get_all_parameters(self) -> dict:
+        """Get all current parameter values."""
+        return {name: info["value"] for name, info in self._dynamic_attrs.items()}
+
+    def reset_parameter(self, param_name: str):
+        """Reset a parameter to its backend default value."""
+        if param_name in self._dynamic_attrs:
+            param_info = self._dynamic_attrs[param_name]
+            param = param_info["param"]
+
+            if param.default_values:
+                self._dynamic_attrs[param_name]["value"] = param.default_values[0].get(
+                    "value"
+                )
+            else:
+                self._dynamic_attrs[param_name]["value"] = None
+
+    def reset_all_parameters(self):
+        """Reset all parameters to their backend default values."""
+        for param_name in self._dynamic_attrs:
+            self.reset_parameter(param_name)
+
+    def _validate_param_type(self, param, value) -> bool:
+        """Validate parameter type based on the parameter definition."""
+        # Allow None values for all parameters
+        if value is None:
+            return True
+
+        # If data_type is not specified, accept any value
+        if param.data_type is None:
+            return True
+
+        # Check data_type first
+        if param.data_type == "text":
+            # For text type, check data_sub_type for more specific validation
+            if param.data_sub_type == "json":
+                # text/json should accept dict, list, or string
+                return isinstance(value, (dict, list, str))
+            elif param.data_sub_type == "number":
+                # text/number should accept int, float, or string
+                return isinstance(value, (int, float, str))
+            else:
+                # text/other should accept only string
+                return isinstance(value, str)
+        elif param.data_type == "json":
+            return isinstance(value, (dict, list, str))
+        elif param.data_type == "number":
+            return isinstance(value, (int, float))
+        elif param.data_type == "boolean":
+            return isinstance(value, bool)
+        elif param.data_type == "array":
+            return isinstance(value, list)
+        elif param.data_type == "label":
+            # label type should accept string or None
+            return isinstance(value, (str, type(None)))
+        elif param.data_type == "audio":
+            # audio type should accept string or None
+            return isinstance(value, (str, type(None)))
+        else:
+            # For unknown types, accept any value
+            return True
+
+    def __repr__(self):
+        params = self.get_all_parameters()
+        return f"ParameterProxy({params})"
+
+
 def find_supplier_by_id(supplier_id: Union[str, int]) -> Optional[Supplier]:
     """Find supplier enum by ID."""
     supplier_id_str = str(supplier_id)
@@ -194,6 +405,23 @@ class Model(
     attributes: Optional[List[Attribute]] = None
     params: Optional[List[Parameter]] = None
 
+    # Dynamic parameter attributes for convenient access
+    # _dynamic_attrs: dict = field(default_factory=dict, init=False) # Removed
+
+    def __post_init__(self):
+        """Initialize dynamic attributes based on backend parameters."""
+        # Initialize the inputs proxy
+        self.inputs = ParameterProxy(self)
+
+    def __setattr__(self, name: str, value):
+        """Handle bulk assignment to inputs."""
+        if name == "inputs" and isinstance(value, dict):
+            # Handle bulk assignment to inputs
+            self.inputs.update(**value)
+        else:
+            # Handle regular attributes
+            super().__setattr__(name, value)
+
     def build_run_url(self, **kwargs: Unpack[ModelRunParams]) -> str:
         return f"{self.context.model_url}/{self.id}"
 
@@ -213,16 +441,39 @@ class Model(
         return super().list(**kwargs)
 
     def run(self, **kwargs: Unpack[ModelRunParams]) -> Result:
-        """Run the model with dynamic parameter validation."""
+        """Run the model with dynamic parameter validation and default handling."""
+        # Merge dynamic attributes with provided kwargs
+        effective_params = self._merge_with_dynamic_attrs(**kwargs)
+
         # Validate all parameters against model's expected inputs
         if self.params:
-            param_errors = self._validate_params(**kwargs)
+            param_errors = self._validate_params(**effective_params)
             if param_errors:
                 raise ValueError(
                     f"Parameter validation failed: {'; '.join(param_errors)}"
                 )
 
-        return super().run(**kwargs)
+        return super().run(**effective_params)
+
+    def _merge_with_dynamic_attrs(self, **kwargs) -> dict:
+        """Merge provided parameters with dynamic attributes.
+
+        Args:
+            **kwargs: Parameters provided to the run method
+
+        Returns:
+            Dictionary with all parameters, including dynamic attributes
+        """
+        # Start with current dynamic attribute values
+        merged = self.inputs.get_all_parameters()
+
+        # Override with explicitly provided parameters
+        merged.update(kwargs)
+
+        # Filter out None values - they represent unset parameters that shouldn't be sent to the API
+        filtered_merged = {k: v for k, v in merged.items() if v is not None}
+
+        return filtered_merged
 
     def _validate_params(self, **kwargs) -> List[str]:
         """Validate all provided parameters against the model's expected
@@ -236,7 +487,8 @@ class Model(
         for param in self.params:
             if param.name in kwargs:
                 value = kwargs[param.name]
-                if not self._validate_param_type(param, value):
+                # Only validate if the value is not None (None means parameter is not set)
+                if value is not None and not self._validate_param_type(param, value):
                     errors.append(
                         f"Parameter '{param.name}' has invalid type. "
                         f"Expected {param.data_type}, "

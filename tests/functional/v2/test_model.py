@@ -515,7 +515,368 @@ def test_list_models_with_q_parameter(client):
 
 
 def test_list_models_with_saved_flag(client):
-    """Test listing models with saved flag."""
-    models = client.Model.list(saved=False)
+    """Test listing models with saved flag filter."""
+    models = client.Model.list(saved=True)
     assert hasattr(models, "results")
     assert isinstance(models.results, list)
+
+
+def test_model_inputs_proxy_functionality(client, text_model_id):
+    """Test the new inputs proxy functionality for dynamic parameter management."""
+    model = client.Model.get(text_model_id)
+
+    # Test that inputs proxy is initialized
+    assert hasattr(model, "inputs")
+    assert model.inputs is not None
+
+    # Test that inputs proxy has the expected parameters
+    assert len(model.inputs) > 0, "Inputs proxy should have parameters"
+
+    # Test dot notation access and setting
+    if "temperature" in model.inputs:
+        # Set temperature using dot notation
+        model.inputs.temperature = 0.7
+        assert model.inputs.temperature == 0.7
+
+        # Test that the value persists
+        assert model.inputs["temperature"] == 0.7
+
+    # Test dict-like access and setting
+    if "max_tokens" in model.inputs:
+        # Set max_tokens using dict notation
+        model.inputs["max_tokens"] = 500
+        assert model.inputs["max_tokens"] == 500
+
+        # Test that the value persists
+        assert model.inputs.max_tokens == 500
+
+    # Test bulk assignment to inputs
+    bulk_params = {}
+    if "temperature" in model.inputs:
+        bulk_params["temperature"] = 0.8
+    if "max_tokens" in model.inputs:
+        bulk_params["max_tokens"] = 750
+    if "language" in model.inputs:
+        bulk_params["language"] = "en"
+
+    if bulk_params:
+        model.inputs = bulk_params
+
+        # Verify all values were set
+        for param_name, expected_value in bulk_params.items():
+            assert model.inputs[param_name] == expected_value
+            assert getattr(model.inputs, param_name) == expected_value
+
+
+def test_model_inputs_proxy_methods(client, text_model_id):
+    """Test the various methods available on the inputs proxy."""
+    model = client.Model.get(text_model_id)
+
+    # Test has_parameter method
+    assert model.inputs.has_parameter("text") == True
+    assert model.inputs.has_parameter("nonexistent_param") == False
+
+    # Test get_parameter_names method
+    param_names = model.inputs.get_parameter_names()
+    assert isinstance(param_names, list)
+    assert len(param_names) > 0
+    assert "text" in param_names
+
+    # Test get_required_parameters method
+    required_params = model.inputs.get_required_parameters()
+    assert isinstance(required_params, list)
+    assert len(required_params) > 0
+
+    # Test get_parameter_info method
+    if "text" in model.inputs:
+        text_param_info = model.inputs.get_parameter_info("text")
+        assert isinstance(text_param_info, dict)
+        assert "required" in text_param_info
+        assert "data_type" in text_param_info
+        assert "data_sub_type" in text_param_info
+
+    # Test get_all_parameters method
+    all_params = model.inputs.get_all_parameters()
+    assert isinstance(all_params, dict)
+    assert len(all_params) > 0
+
+    # Test copy method
+    params_copy = model.inputs.copy()
+    assert isinstance(params_copy, dict)
+    assert params_copy == all_params
+
+
+def test_model_inputs_proxy_validation(client, text_model_id):
+    """Test parameter validation through the inputs proxy."""
+    model = client.Model.get(text_model_id)
+
+    # Test setting valid values
+    if "temperature" in model.inputs:
+        # This should work
+        model.inputs.temperature = 0.5
+        assert model.inputs.temperature == 0.5
+
+    # Test setting invalid values (should raise ValueError)
+    if "temperature" in model.inputs:
+        # temperature has dataType "text" and dataSubType "number", so it accepts strings and numbers
+        # Let's test with a completely invalid type like a list
+        with pytest.raises(ValueError, match="Invalid value type"):
+            model.inputs.temperature = ["invalid", "list", "value"]
+
+    # Test setting values for non-existent parameters
+    with pytest.raises(AttributeError, match="Parameter 'nonexistent_param' not found"):
+        model.inputs.nonexistent_param = "value"
+
+    with pytest.raises(KeyError, match="Parameter 'nonexistent_param' not found"):
+        model.inputs["nonexistent_param"] = "value"
+
+
+def test_model_inputs_proxy_reset_functionality(client, text_model_id):
+    """Test parameter reset functionality through the inputs proxy."""
+    model = client.Model.get(text_model_id)
+
+    # Store original values
+    original_values = model.inputs.copy()
+
+    # Change some values
+    if "temperature" in model.inputs:
+        model.inputs.temperature = 0.9
+        assert model.inputs.temperature == 0.9
+
+    if "max_tokens" in model.inputs:
+        model.inputs.max_tokens = 1000
+        assert model.inputs.max_tokens == 1000
+
+    # Test reset_parameter for individual parameters
+    if "temperature" in model.inputs:
+        model.inputs.reset_parameter("temperature")
+        # Should be back to original or backend default
+        assert model.inputs.temperature == original_values.get("temperature")
+
+    # Test reset_all_parameters
+    model.inputs.reset_all_parameters()
+
+    # All values should be back to original
+    current_values = model.inputs.get_all_parameters()
+    for param_name in original_values:
+        if param_name in current_values:
+            assert current_values[param_name] == original_values[param_name]
+
+
+def test_model_inputs_proxy_update_method(client, text_model_id):
+    """Test the update method for setting multiple parameters at once."""
+    model = client.Model.get(text_model_id)
+
+    # Test update with valid parameters
+    update_params = {}
+    if "temperature" in model.inputs:
+        update_params["temperature"] = 0.6
+    if "max_tokens" in model.inputs:
+        update_params["max_tokens"] = 600
+
+    if update_params:
+        model.inputs.update(**update_params)
+
+        # Verify all values were updated
+        for param_name, expected_value in update_params.items():
+            assert model.inputs[param_name] == expected_value
+
+    # Test update with invalid parameter (should raise KeyError)
+    with pytest.raises(KeyError, match="Parameter 'nonexistent_param' not found"):
+        model.inputs.update(nonexistent_param="value")
+
+
+def test_model_inputs_proxy_iteration(client, text_model_id):
+    """Test iteration and membership testing on the inputs proxy."""
+    model = client.Model.get(text_model_id)
+
+    # Test membership testing
+    assert "text" in model.inputs
+    assert "nonexistent_param" not in model.inputs
+
+    # Test iteration
+    param_count = 0
+    for param_name in model.inputs:
+        param_count += 1
+        assert isinstance(param_name, str)
+        assert param_name in model.inputs
+
+    assert param_count == len(model.inputs)
+
+    # Test keys, values, items methods
+    keys = list(model.inputs.keys())
+    values = list(model.inputs.values())
+    items = list(model.inputs.items())
+
+    assert len(keys) == len(values) == len(items) == len(model.inputs)
+
+    # Test that keys and values correspond
+    for i, key in enumerate(keys):
+        assert model.inputs[key] == values[i]
+        assert (key, values[i]) == items[i]
+
+
+def test_model_run_with_configured_inputs(client, text_model_id):
+    """Test running a model with parameters configured through the inputs proxy."""
+    model = client.Model.get(text_model_id)
+
+    # Configure parameters through inputs proxy
+    if "temperature" in model.inputs:
+        model.inputs.temperature = 0.7
+    if "max_tokens" in model.inputs:
+        model.inputs.max_tokens = 500
+    if "language" in model.inputs:
+        model.inputs.language = "en"
+
+    # Prepare required parameters for the run
+    run_params = {}
+    for param in model.params:
+        if param.required:
+            if param.name == "text":
+                run_params[param.name] = "Hello! Please respond with a short greeting."
+            elif param.name == "language":
+                run_params[param.name] = "en"
+            else:
+                # For other required params, use appropriate defaults
+                if param.data_type == "text":
+                    run_params[param.name] = "test"
+                elif param.data_type == "number":
+                    run_params[param.name] = 1
+                elif param.data_type == "boolean":
+                    run_params[param.name] = True
+                elif param.data_type == "json":
+                    run_params[param.name] = {"test": "value"}
+
+    # Run the model - it should use the configured inputs plus the run parameters
+    result = model.run(**run_params)
+    assert hasattr(result, "status")
+    assert hasattr(result, "data")
+    assert result.status == "SUCCESS"
+    assert result.data is not None
+
+
+def test_model_inputs_proxy_edge_cases(client, text_model_id):
+    """Test edge cases and error handling for the inputs proxy."""
+    model = client.Model.get(text_model_id)
+
+    # Test setting None values (should work for most parameters)
+    if "temperature" in model.inputs:
+        model.inputs.temperature = None
+        assert model.inputs.temperature is None
+
+    # Test setting empty string
+    if "language" in model.inputs:
+        model.inputs.language = ""
+        assert model.inputs.language == ""
+
+    # Test setting zero values
+    if "max_tokens" in model.inputs:
+        model.inputs.max_tokens = 0
+        assert model.inputs.max_tokens == 0
+
+    # Test that the proxy object has a good string representation
+    proxy_repr = repr(model.inputs)
+    assert isinstance(proxy_repr, str)
+    assert "ParameterProxy" in proxy_repr
+
+    # Test that the proxy object has the expected length
+    assert len(model.inputs) > 0
+    assert len(model.inputs) == len(model.inputs.get_parameter_names())
+
+
+def test_model_inputs_bulk_assignment_syntax(client, text_model_id):
+    """Test the bulk assignment syntax: mymodel.inputs = {...}"""
+    model = client.Model.get(text_model_id)
+
+    # Store original values for comparison
+    original_values = model.inputs.copy()
+
+    # Test bulk assignment using the syntax: model.inputs = {...}
+    bulk_params = {}
+    if "temperature" in model.inputs:
+        bulk_params["temperature"] = 0.9
+    if "max_tokens" in model.inputs:
+        bulk_params["max_tokens"] = 800
+    if "language" in model.inputs:
+        bulk_params["language"] = "en"
+
+    if bulk_params:
+        # This is the key test - bulk assignment syntax
+        model.inputs = bulk_params
+
+        # Verify all values were set correctly
+        for param_name, expected_value in bulk_params.items():
+            assert model.inputs[param_name] == expected_value
+            assert getattr(model.inputs, param_name) == expected_value
+
+        # Verify that other parameters were not affected
+        for param_name in model.inputs:
+            if param_name not in bulk_params:
+                # These should retain their original values
+                assert model.inputs[param_name] == original_values.get(param_name)
+
+    # Test bulk assignment with empty dict (should reset to backend defaults)
+    model.inputs = {}
+
+    # All parameters should be back to their backend default values
+    current_values = model.inputs.get_all_parameters()
+    for param_name in original_values:
+        if param_name in current_values:
+            # For parameters that were changed, they should be back to backend defaults
+            # For parameters that weren't changed, they should be the same
+            if param_name in bulk_params:
+                # This parameter was changed, so it should be back to backend default
+                # We can't assert exact equality since we don't know the backend default
+                assert current_values[param_name] is not None or param_name in [
+                    "language"
+                ]
+            else:
+                # This parameter wasn't changed, so it should be the same
+                assert current_values[param_name] == original_values.get(param_name)
+
+    # Test bulk assignment with invalid parameters (should raise KeyError)
+    with pytest.raises(KeyError, match="Parameter 'nonexistent_param' not found"):
+        model.inputs = {"nonexistent_param": "value"}
+
+
+def test_model_inputs_proxy_integration_with_run(client, text_model_id):
+    """Test that the inputs proxy integrates correctly with model.run()."""
+    model = client.Model.get(text_model_id)
+
+    # Configure some parameters through inputs proxy
+    if "temperature" in model.inputs:
+        model.inputs.temperature = 0.6
+    if "max_tokens" in model.inputs:
+        model.inputs.max_tokens = 400
+
+    # Prepare minimal required parameters for the run
+    run_params = {}
+    for param in model.params:
+        if param.required:
+            if param.name == "text":
+                run_params[param.name] = "Please respond with a very short message."
+            elif param.name == "language":
+                run_params[param.name] = "en"
+            else:
+                # For other required params, use appropriate defaults
+                if param.data_type == "text":
+                    run_params[param.name] = "test"
+                elif param.data_type == "number":
+                    run_params[param.name] = 1
+                elif param.data_type == "boolean":
+                    run_params[param.name] = True
+                elif param.data_type == "json":
+                    run_params[param.name] = {"test": "value"}
+
+    # Run the model - it should automatically use the configured inputs
+    result = model.run(**run_params)
+    assert hasattr(result, "status")
+    assert hasattr(result, "data")
+    assert result.status == "SUCCESS"
+    assert result.data is not None
+
+    # Verify that the configured inputs are still intact after the run
+    if "temperature" in model.inputs:
+        assert model.inputs.temperature == 0.6
+    if "max_tokens" in model.inputs:
+        assert model.inputs.max_tokens == 400

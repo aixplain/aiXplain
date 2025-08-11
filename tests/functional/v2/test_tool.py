@@ -238,21 +238,32 @@ def test_tool_run(client, slack_integration_id, slack_token):
         # Store the ID before deletion since it might be cleared
         deleted_tool_id = tool.id
         assert deleted_tool_id is not None, "Tool ID should exist before deletion"
-        
+
         tool.delete()
-        
+
         # Verify the tool was actually deleted by trying to retrieve it
         from aixplain.v2.client import AixplainError
+
         with pytest.raises(AixplainError) as exc_info:
             client.Tool.get(deleted_tool_id)
-        
+
         # Verify the error indicates the resource was deleted/not accessible
         error_message = str(exc_info.value).lower()
-        expected_errors = ["not found", "404", "does not exist", "no such", "forbidden", "403"]
-        assert any(phrase in error_message for phrase in expected_errors), \
-            f"Expected deletion/access error, got: {exc_info.value}"
-        
-        print(f"✅ Tool deletion verified: {type(exc_info.value).__name__}: {exc_info.value}")
+        expected_errors = [
+            "not found",
+            "404",
+            "does not exist",
+            "no such",
+            "forbidden",
+            "403",
+        ]
+        assert any(
+            phrase in error_message for phrase in expected_errors
+        ), f"Expected deletion/access error, got: {exc_info.value}"
+
+        print(
+            f"✅ Tool deletion verified: {type(exc_info.value).__name__}: {exc_info.value}"
+        )
     else:
         print("⚠️ Tool has no ID, skipping deletion validation")
 
