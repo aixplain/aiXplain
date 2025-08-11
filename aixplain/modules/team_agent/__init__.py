@@ -29,6 +29,7 @@ import re
 from enum import Enum
 from typing import Dict, List, Text, Optional, Union
 from urllib.parse import urljoin
+from datetime import datetime
 
 from aixplain.enums import ResponseStatus
 from aixplain.enums.function import Function
@@ -118,6 +119,47 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         self.status = status
         self.is_valid = True
 
+    def generate_session_id(self, history: list = None) -> str:            
+        timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+        session_id = f"{self.id}_{timestamp}"
+
+        if not history:
+            return session_id
+
+        try:
+            validate_history(history)
+            headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}
+
+            payload = {
+                "id": self.id,
+                "query": "/", 
+                "sessionId": session_id,
+                "history": history,
+                "executionParams": {
+                    "maxTokens": 2048,
+                    "maxIterations": 30,
+                    "outputFormat": OutputFormat.TEXT.value,
+                    "expectedOutput": None,
+                },
+                "allowHistoryAndSessionId": True
+            }
+
+            r = _request_with_retry("post", self.url, headers=headers, data=json.dumps(payload))
+            resp = r.json()
+            poll_url = resp.get("data")
+
+            result = self.sync_poll(poll_url, name="model_process", timeout=300, wait_time=0.5)
+
+            if result.get("status") == ResponseStatus.SUCCESS:
+                return session_id
+            else:
+                logging.error(f"Team session init failed for {session_id}: {result}")
+                return session_id
+        except Exception as e:
+            logging.error(f"Failed to initialize team session {session_id}: {e}")
+            return session_id
+
+
     def run(
         self,
         data: Optional[Union[Dict, Text]] = None,
@@ -155,6 +197,12 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         """
         start = time.time()
         result_data = {}
+        if session_id is not None and history is not None:
+            raise ValueError("Provide either `session_id` or `history`, not both.")
+
+        if session_id is not None:
+            if not session_id.startswith(f"{self.id}_"):
+                raise ValueError(f"Session ID '{session_id}' does not belong to this Agent.")
         if history:
             validate_history(history)
         try:
@@ -233,6 +281,13 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         Returns:
             dict: polling URL in response
         """
+        if session_id is not None and history is not None:
+            raise ValueError("Provide either `session_id` or `history`, not both.")
+
+        if session_id is not None:
+            if not session_id.startswith(f"{self.id}_"):
+                raise ValueError(f"Session ID '{session_id}' does not belong to this Agent.")
+            
         if history:
             validate_history(history)
             
