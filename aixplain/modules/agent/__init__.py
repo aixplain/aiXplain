@@ -164,27 +164,42 @@ class Agent(Model, DeployableMixin[Tool]):
         timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
         session_id = f"{self.id}_{timestamp}"
 
-        if history:
-            response = self.run_async(
-                query="/",
-                history=history,
-                session_id=session_id,
-                allow_history_and_session_id=True
-            )
+        if not history:
+            return session_id
 
-            if response.status == ResponseStatus.FAILED:
-                logging.error(f"Failed to initialize session {session_id}: {response.error}")
-                return session_id
+        try:
+            validate_history(history)
+            headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}
 
-            poll_url = response.url
+            payload = {
+                "id": self.id,
+                "query": "/",
+                "sessionId": session_id,
+                "history": history,
+                "executionParams": {
+                    "maxTokens": 2048,
+                    "maxIterations": 10,
+                    "outputFormat": OutputFormat.TEXT.value,
+                    "expectedOutput": None,
+                },
+                "allowHistoryAndSessionId": True 
+            }
+
+            r = _request_with_retry("post", self.url, headers=headers, data=json.dumps(payload))
+            resp = r.json()
+            poll_url = resp.get("data")
+
             result = self.sync_poll(poll_url, name="model_process", timeout=300, wait_time=0.5)
 
             if result.get("status") == ResponseStatus.SUCCESS:
                 return session_id
             else:
                 logging.error(f"Session {session_id} initialization failed: {result}")
-        
-        return session_id
+                return session_id
+
+        except Exception as e:
+            logging.error(f"Failed to initialize session {session_id}: {e}")
+            return session_id
 
 
     def run(
@@ -298,7 +313,6 @@ class Agent(Model, DeployableMixin[Tool]):
         max_iterations: int = 10,
         output_format: OutputFormat = OutputFormat.TEXT,
         expected_output: Optional[Union[BaseModel, Text, dict]] = None,
-        allow_history_and_session_id: Optional[bool] = False
     ) -> AgentResponse:
         """Runs asynchronously an agent call.
 
@@ -318,7 +332,7 @@ class Agent(Model, DeployableMixin[Tool]):
             dict: polling URL in response
         """
 
-        if session_id is not None and history is not None and not allow_history_and_session_id:
+        if session_id is not None and history is not None:
             raise ValueError("Provide either `session_id` or `history`, not both.")
 
         if session_id is not None:
@@ -388,7 +402,6 @@ class Agent(Model, DeployableMixin[Tool]):
                 "outputFormat": output_format,
                 "expectedOutput": expected_output,
             },
-            "allowHistoryAndSessionId": allow_history_and_session_id
         }
         payload.update(parameters)
         payload = json.dumps(payload)
