@@ -84,6 +84,9 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult]):
                 authScheme=self.auth_scheme, data=self.auth_params
             )
             self.id = self.asset_id = connection.id
+            self.supplier = self.integration.supplier
+            self.function = self.integration.function
+            self.function_type = self.integration.function_type
             self.validate_allowed_actions()
             self.parameters = self.get_parameters()
 

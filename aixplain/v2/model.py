@@ -172,7 +172,7 @@ class Model(
     function_type: Optional[str] = field(
         default=None, metadata=config(field_name="functionType")
     )
-    type: Optional[str] = None
+    type: Optional[str] = "model"
 
     # Timestamps
     created_at: Optional[str] = field(
