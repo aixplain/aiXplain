@@ -73,6 +73,7 @@ class Integration(Model):
         self.authentication_methods = json.loads([item for item in additional_info['attributes'] if item['name'] == 'auth_schemes'][0]['code'])
 
 
+
     def connect(self, authentication_schema: AuthenticationSchema, args: Optional[BaseAuthenticationParams] = None, data: Optional[Dict] = None, **kwargs) -> ModelResponse:
         """Connect to the integration
 
@@ -95,10 +96,10 @@ class Integration(Model):
             redirectUrl: Redirect URL to complete the connection (only for OAuth2)
         """
         if self.id == "686eb9cd26480723d0634d3e":
-            return self.run({"data": kwargs.get("data")})
+            return self.run({"data": data})
 
         if args is None:
-            args = build_connector_params(**kwargs)
+            args = build_connector_params(**kwargs) 
 
         if authentication_schema.value not in self.authentication_methods:
             raise ValueError(f"Authentication schema {authentication_schema.value} is not supported for this integration. Supported authentication methods: {self.authentication_methods}")
@@ -106,7 +107,7 @@ class Integration(Model):
         if data is None:
             data = {}
             
-        if authentication_schema not in [AuthenticationSchema.OAUTH2, AuthenticationSchema.OAUTH1, AuthenticationSchema.NO_AUTH]:
+        if authentication_schema not in [AuthenticationSchema.OAUTH2, AuthenticationSchema.OAUTH1]:
             required_params = json.loads([item for item in self.additional_info['attributes'] if item['name'] == authentication_schema.value + "-inputs"][0]['code'])
             required_params_names = [param['name'] for param in required_params]
             for param in required_params_names:
