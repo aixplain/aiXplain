@@ -187,7 +187,7 @@ class BenchmarkFactory:
                 model_list_without_parms.append(model.id)
         if len(model_list_with_parms) > 0:
             if len(model_list_without_parms) > 0:
-                raise Exception("Please provide addditional info for all models or for none of the models")
+                raise Exception("Please provide additional info for all models or for none of the models")
         else:
             model_list_with_parms = None
         return model_list_without_parms, model_list_with_parms
@@ -196,7 +196,7 @@ class BenchmarkFactory:
     @classmethod
     def create(cls, name: str, dataset_list: List[Dataset], model_list: List[Model], metric_list: List[Metric]) -> Benchmark:
         """Creates a benchmark based on the information provided like name, dataset list, model list and score list.
-        Note: This only creates a benchmark. It needs to run seperately using start_benchmark_job.
+        Note: This only creates a benchmark. It needs to run separately using start_benchmark_job.
 
         Args:
             name (str): Unique Name of benchmark
