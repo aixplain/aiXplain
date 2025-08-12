@@ -12,17 +12,51 @@ if TYPE_CHECKING:
 
 
 class ActionInputsProxy:
-    """Proxy object that provides both dict-like and dot notation access to action input parameters."""
+    """Proxy object that provides both dict-like and dot notation access to action input parameters.
 
-    def __init__(self, action):
-        self._action = action
+    This proxy dynamically fetches action input specifications from the container resource
+    when needed, allowing for runtime discovery and validation of action inputs.
+    """
+
+    def __init__(self, container, action_name: str):
+        self._container = container
+        self._action_name = action_name
         self._dynamic_inputs = {}
-        self._setup_dynamic_inputs()
+        self._inputs_fetched = False
 
-    def _setup_dynamic_inputs(self):
-        """Create dynamic inputs for all action input parameters."""
-        if self._action.inputs:
-            for input_param in self._action.inputs:
+    def _ensure_inputs_fetched(self):
+        """Ensure action inputs have been fetched from the backend."""
+        if not self._inputs_fetched:
+            self._fetch_action_inputs()
+            self._inputs_fetched = True
+
+    def _fetch_action_inputs(self):
+        """Fetch action input specifications from the backend."""
+        # Use the container's list_inputs method to get action specifications
+        actions = self._container.list_inputs(self._action_name)
+
+        if not actions:
+            # Action not found, raise ValueError
+            raise ValueError(
+                f"Action '{self._action_name}' not found or has no input parameters defined."
+            )
+
+        # Get the first (and should be only) action with the specified name
+        action = actions[0] if actions else None
+        if action and action.inputs:
+            self._setup_dynamic_inputs_from_action(action)
+        else:
+            # Action found but no inputs, raise ValueError
+            raise ValueError(
+                f"Action '{self._action_name}' found but has no input parameters defined."
+            )
+
+    def _setup_dynamic_inputs_from_action(self, action):
+        """Create dynamic inputs from an action object."""
+        self._dynamic_inputs = {}
+
+        if action.inputs:
+            for input_param in action.inputs:
                 # Create a dynamic input for each parameter
                 input_code = input_param.code or input_param.name.lower().replace(
                     " ", "_"
@@ -51,12 +85,14 @@ class ActionInputsProxy:
 
     def __getitem__(self, key: str):
         """Dict-like access: inputs['channels']"""
+        self._ensure_inputs_fetched()
         if key in self._dynamic_inputs:
             return self._dynamic_inputs[key]["value"]
         raise KeyError(f"Input parameter '{key}' not found")
 
     def __setitem__(self, key: str, value):
         """Dict-like assignment: inputs['channels'] = 'general'"""
+        self._ensure_inputs_fetched()
         if key in self._dynamic_inputs:
             # Validate the value against the input definition
             input_info = self._dynamic_inputs[key]
@@ -75,65 +111,76 @@ class ActionInputsProxy:
 
     def __getattr__(self, name: str):
         """Dot notation access: inputs.channels"""
+        self._ensure_inputs_fetched()
         if name in self._dynamic_inputs:
             return self._dynamic_inputs[name]["value"]
         raise AttributeError(f"Input parameter '{name}' not found")
 
     def __setattr__(self, name: str, value):
         """Dot notation assignment: inputs.channels = 'general'"""
-        if name == "_action" or name == "_dynamic_inputs":
+        if name in ["_container", "_action_name", "_dynamic_inputs", "_inputs_fetched"]:
             super().__setattr__(name, value)
         elif name == "action_inputs" and isinstance(value, dict):
             # Handle bulk assignment to action_inputs
             self.update(**value)
-        elif name in self._dynamic_inputs:
-            # Validate the value against the input definition
-            input_info = self._dynamic_inputs[name]
-            input_param = input_info["input"]
-
-            if not self._validate_input_type(value, input_param.datatype):
-                raise ValueError(
-                    f"Invalid value type for input '{name}'. "
-                    f"Expected {input_param.datatype}, got {type(value).__name__}"
-                )
-
-            # Store the value
-            self._dynamic_inputs[name]["value"] = value
         else:
-            raise AttributeError(f"Input parameter '{name}' not found")
+            self._ensure_inputs_fetched()
+            if name in self._dynamic_inputs:
+                # Validate the value against the input definition
+                input_info = self._dynamic_inputs[name]
+                input_param = input_info["input"]
+
+                if not self._validate_input_type(value, input_param.datatype):
+                    raise ValueError(
+                        f"Invalid value type for input '{name}'. "
+                        f"Expected {input_param.datatype}, got {type(value).__name__}"
+                    )
+
+                # Store the value
+                self._dynamic_inputs[name]["value"] = value
+            else:
+                raise AttributeError(f"Input parameter '{name}' not found")
 
     def __contains__(self, key: str) -> bool:
         """Check if input parameter exists: 'channels' in inputs"""
+        self._ensure_inputs_fetched()
         return key in self._dynamic_inputs
 
     def __len__(self) -> int:
         """Number of input parameters"""
+        self._ensure_inputs_fetched()
         return len(self._dynamic_inputs)
 
     def __iter__(self):
         """Iterate over input parameter codes"""
+        self._ensure_inputs_fetched()
         return iter(self._dynamic_inputs.keys())
 
     def keys(self):
         """Get input parameter codes"""
+        self._ensure_inputs_fetched()
         return list(self._dynamic_inputs.keys())
 
     def values(self):
         """Get input parameter values"""
+        self._ensure_inputs_fetched()
         return [info["value"] for info in self._dynamic_inputs.values()]
 
     def items(self):
         """Get input parameter code-value pairs"""
+        self._ensure_inputs_fetched()
         return [(name, info["value"]) for name, info in self._dynamic_inputs.items()]
 
     def get(self, key: str, default=None):
         """Get input parameter value with default"""
+        self._ensure_inputs_fetched()
         if key in self._dynamic_inputs:
             return self._dynamic_inputs[key]["value"]
         return default
 
     def update(self, **kwargs):
         """Update multiple inputs at once"""
+        self._ensure_inputs_fetched()
         for key, value in kwargs.items():
             if key in self._dynamic_inputs:
                 self[key] = value  # This will trigger validation
@@ -148,6 +195,7 @@ class ActionInputsProxy:
             value: Value to set
             **kwargs: Optional metadata like description, dtype, etc.
         """
+        self._ensure_inputs_fetched()
         if input_name in self._dynamic_inputs:
             # Set the value (this will trigger validation)
             self[input_name] = value
@@ -173,6 +221,7 @@ class ActionInputsProxy:
                     }
                 }
         """
+        self._ensure_inputs_fetched()
         for input_name, input_data in inputs_dict.items():
             if input_name in self._dynamic_inputs:
                 # Extract value and metadata
@@ -190,37 +239,45 @@ class ActionInputsProxy:
 
     def clear(self):
         """Reset all inputs to backend defaults"""
+        self._ensure_inputs_fetched()
         for input_name in self._dynamic_inputs:
             self.reset_input(input_name)
 
     def copy(self):
         """Get a copy of current input parameter values"""
+        self._ensure_inputs_fetched()
         return {name: info["value"] for name, info in self._dynamic_inputs.items()}
 
     def has_input(self, input_code: str) -> bool:
         """Check if an input parameter exists."""
+        self._ensure_inputs_fetched()
         return input_code in self._dynamic_inputs
 
     def get_input_codes(self) -> list:
         """Get a list of all available input parameter codes."""
+        self._ensure_inputs_fetched()
         return list(self._dynamic_inputs.keys())
 
     def get_required_inputs(self) -> list:
         """Get a list of required input parameter codes."""
+        self._ensure_inputs_fetched()
         return [name for name, info in self._dynamic_inputs.items() if info["required"]]
 
     def get_input_info(self, input_code: str):
         """Get information about a specific input parameter."""
+        self._ensure_inputs_fetched()
         if input_code in self._dynamic_inputs:
             return self._dynamic_inputs[input_code].copy()
         return None
 
     def get_all_inputs(self) -> dict:
         """Get all current input values."""
+        self._ensure_inputs_fetched()
         return {name: info["value"] for name, info in self._dynamic_inputs.items()}
 
     def reset_input(self, input_code: str):
         """Reset an input parameter to its backend default value."""
+        self._ensure_inputs_fetched()
         if input_code in self._dynamic_inputs:
             input_info = self._dynamic_inputs[input_code]
             input_param = input_info["input"]
@@ -234,6 +291,7 @@ class ActionInputsProxy:
 
     def reset_all_inputs(self):
         """Reset all input parameters to their backend default values."""
+        self._ensure_inputs_fetched()
         for input_code in self._dynamic_inputs:
             self.reset_input(input_code)
 
@@ -265,8 +323,9 @@ class ActionInputsProxy:
             return True
 
     def __repr__(self):
+        self._ensure_inputs_fetched()
         inputs = self.get_all_inputs()
-        return f"ActionInputsProxy({inputs})"
+        return f"ActionInputsProxy(action='{self._action_name}', inputs={inputs})"
 
 
 @dataclass_json
@@ -307,35 +366,17 @@ class Action:
     deprecated: Optional[Dict[str, Any]] = None
     inputs: Optional[List[Input]] = None
 
-    # Dynamic inputs proxy for convenient access
-    _inputs_proxy: Optional[ActionInputsProxy] = field(default=None, init=False)
+    def get_inputs_proxy(self, container) -> ActionInputsProxy:
+        """Get an ActionInputsProxy for this action from a container.
 
-    def __post_init__(self):
-        """Initialize the inputs proxy after the action is created."""
-        if self.inputs:
-            self._inputs_proxy = ActionInputsProxy(self)
+        Args:
+            container: The container resource (Tool or Integration) that can fetch action specs
 
-    @property
-    def action_inputs(self):
-        """Get the inputs proxy for this action."""
-        if not self._inputs_proxy and self.inputs:
-            self._inputs_proxy = ActionInputsProxy(self)
-        return self._inputs_proxy
+        Returns:
+            ActionInputsProxy: A proxy object for accessing action inputs
+        """
+        return ActionInputsProxy(container, self.name or self.slug or "")
 
-    def __setattr__(self, name: str, value):
-        """Handle bulk assignment to action_inputs."""
-        if name == "action_inputs" and isinstance(value, dict):
-            # Handle bulk assignment to action_inputs
-            if hasattr(self, "_inputs_proxy") and self._inputs_proxy:
-                self._inputs_proxy.update(**value)
-            else:
-                # If inputs proxy doesn't exist yet, create it
-                if self.inputs:
-                    self._inputs_proxy = ActionInputsProxy(self)
-                    self._inputs_proxy.update(**value)
-        else:
-            # Handle regular attributes
-            super().__setattr__(name, value)
 
 @dataclass_json
 @dataclass
@@ -358,8 +399,6 @@ class IntegrationSearchParams(BaseSearchParams):
     """Parameters for listing integrations."""
 
     pass
-
-
 
 
 class ActionMixin:
@@ -408,6 +447,58 @@ class ActionMixin:
             actions.append(Action.from_dict(input_data))
 
         return actions
+
+    @property
+    def actions(self):
+        """Get a proxy object that provides access to actions with their inputs.
+
+        This enables the syntax: mytool.actions['ACTION_NAME'].channel = 'value'
+
+        Returns:
+            ActionsProxy: A proxy object for accessing actions and their inputs
+        """
+        return ActionsProxy(self)
+
+
+class ActionsProxy:
+    """Proxy object that provides access to actions with their inputs.
+
+    This enables the syntax: mytool.actions['ACTION_NAME'].channel = 'value'
+    """
+
+    def __init__(self, container):
+        self._container = container
+        self._actions_cache = {}
+
+    def __getitem__(self, action_name: str):
+        """Get an action with its inputs proxy: actions['SLACK_SEND_MESSAGE']"""
+        if action_name not in self._actions_cache:
+            # Create an action object and get its inputs proxy
+            action = Action(name=action_name)
+            proxy = action.get_inputs_proxy(self._container)
+            # Immediately validate that the action exists by trying to fetch inputs
+            proxy._ensure_inputs_fetched()
+            self._actions_cache[action_name] = proxy
+
+        return self._actions_cache[action_name]
+
+    def __contains__(self, action_name: str) -> bool:
+        """Check if an action exists: 'SLACK_SEND_MESSAGE' in actions"""
+        try:
+            # Try to access the action to see if it exists
+            self[action_name]
+            return True
+        except ValueError:
+            return False
+
+    def get_available_actions(self) -> List[str]:
+        """Get a list of available action names."""
+        actions = self._container.list_actions()
+        return [action.name for action in actions if action.name]
+
+    def refresh_cache(self):
+        """Clear the actions cache to force re-fetching."""
+        self._actions_cache.clear()
 
 
 class Integration(Model, ActionMixin):

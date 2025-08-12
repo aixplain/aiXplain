@@ -55,9 +55,6 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
         default=Integration.AuthenticationScheme.NO_AUTH,
         metadata=dj_config(exclude=lambda x: True),
     )
-    config: Optional[dict] = field(
-        default=None, metadata=dj_config(exclude=lambda x: True)
-    )
     parameters: Optional[List[dict]] = field(default_factory=list)
 
     def __post_init__(self) -> None:
