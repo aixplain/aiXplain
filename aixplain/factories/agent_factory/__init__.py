@@ -75,7 +75,7 @@ class AgentFactory:
         Args:
             name (Text): name of the agent
             description (Text): description of the agent role.
-            instructions (Text): instructions of the agent.
+            instructions (Text): role of the agent.
             llm (Optional[Union[LLM, Text]], optional): LLM instance to use as an object or as an ID.
             llm_id (Optional[Text], optional): ID of LLM to use if no LLM instance provided. Defaults to None.
             tools (List[Union[Tool, Model]], optional): list of tool for the agent. Defaults to [].
@@ -122,7 +122,7 @@ class AgentFactory:
             "name": name,
             "assets": [build_tool_payload(tool) for tool in tools],
             "description": description,
-            "instructions": instructions or description,
+            "role": instructions or description,
             "supplier": supplier,
             "version": version,
             "llmId": llm_id,

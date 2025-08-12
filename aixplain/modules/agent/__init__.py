@@ -446,7 +446,7 @@ class Agent(Model, DeployableMixin[Tool]):
             "name": self.name,
             "assets": [build_tool_payload(tool) for tool in self.tools],
             "description": self.description,
-            "instructions": self.instructions or self.description,
+            "role": self.instructions or self.description,
             "supplier": (self.supplier.value["code"] if isinstance(self.supplier, Supplier) else self.supplier),
             "version": self.version,
             "llmId": self.llm_id if self.llm is None else self.llm.id,
