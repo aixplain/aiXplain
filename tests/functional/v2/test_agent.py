@@ -312,7 +312,7 @@ def test_slack_tool_integration_with_agent(client, slack_token):
     slack_tool = client.Tool(
         name=f"test-slack-tool-{int(time.time())}",
         integration=integration,
-        auth_params={"token": slack_token},
+        config={"token": slack_token},
         auth_scheme=client.Integration.AuthenticationScheme.BEARER_TOKEN,
         allowed_actions=["SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL"],
     )

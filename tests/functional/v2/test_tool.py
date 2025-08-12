@@ -213,7 +213,7 @@ def test_tool_run(client, slack_integration_id, slack_token):
     tool = client.Tool(
         name=tool_name,
         integration=integration,
-        auth_params={"token": slack_token},
+        config={"token": slack_token},
         auth_scheme=client.Integration.AuthenticationScheme.BEARER_TOKEN,
         allowed_actions=["SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL"],
     )
@@ -279,7 +279,7 @@ def test_tool_get_parameters(client, slack_integration_id, slack_token):
     tool = client.Tool(
         name=tool_name,
         integration=integration,
-        auth_params={"token": slack_token},
+        config={"token": slack_token},
         auth_scheme=client.Integration.AuthenticationScheme.BEARER_TOKEN,
         allowed_actions=["SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL"],
     )

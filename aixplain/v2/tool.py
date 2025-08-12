@@ -55,7 +55,7 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult]):
         default=Integration.AuthenticationScheme.NO_AUTH,
         metadata=dj_config(exclude=lambda x: True),
     )
-    auth_params: Optional[dict] = field(
+    config: Optional[dict] = field(
         default=None, metadata=dj_config(exclude=lambda x: True)
     )
     parameters: Optional[List[dict]] = field(default_factory=list)
@@ -81,7 +81,7 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult]):
                 ), "Integration must be an Integration object or a string"
 
             connection = self.integration.connect(
-                authScheme=self.auth_scheme, data=self.auth_params
+                authScheme=self.auth_scheme, data=self.config
             )
             self.id = self.asset_id = connection.id
             self.supplier = self.integration.supplier
