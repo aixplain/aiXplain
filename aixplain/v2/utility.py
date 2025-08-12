@@ -1,12 +1,12 @@
-from typing import List, Any
+from typing import List, Any, Optional
 from typing_extensions import NotRequired, Unpack
 from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json
 
 from .resource import (
-    BaseListParams,
+    BaseSearchParams,
     BaseResource,
-    PagedListResourceMixin,
+    SearchResourceMixin,
     GetResourceMixin,
     BaseGetParams,
     BaseRunParams,
@@ -18,7 +18,7 @@ from .resource import (
 from .enums import Function
 
 
-class UtilityListParams(BaseListParams):
+class UtilitySearchParams(BaseSearchParams):
     """Parameters for listing utilities.
 
     Attributes:
@@ -46,7 +46,7 @@ class UtilityRunParams(BaseRunParams):
 @dataclass
 class Utility(
     BaseResource,
-    PagedListResourceMixin[UtilityListParams, "Utility"],
+    SearchResourceMixin[UtilitySearchParams, "Utility"],
     GetResourceMixin[BaseGetParams, "Utility"],
     DeleteResourceMixin[BaseDeleteParams, "Utility"],
     RunnableResourceMixin[UtilityRunParams, Result],
@@ -107,3 +107,25 @@ class Utility(
     @classmethod
     def run(cls: type["Utility"], **kwargs: Unpack[UtilityRunParams]) -> Result:
         return super().run(**kwargs)
+
+    @classmethod
+    def search(
+        cls: type["Utility"], 
+        query: Optional[str] = None,
+        **kwargs: Unpack[UtilitySearchParams]
+    ) -> "Page[Utility]":
+        """
+        Search utilities with optional query and filtering.
+        
+        Args:
+            query: Optional search query string
+            **kwargs: Additional search parameters (function, status, etc.)
+            
+        Returns:
+            Page of utilities matching the search criteria
+        """
+        # If query is provided, add it to kwargs
+        if query is not None:
+            kwargs["query"] = query
+            
+        return super().search(**kwargs)

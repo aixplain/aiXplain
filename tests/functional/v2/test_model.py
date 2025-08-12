@@ -86,13 +86,13 @@ def validate_model_structure(model):
             assert hasattr(param, "data_sub_type")
 
 
-def test_list_models(client):
-    """Test listing models with pagination."""
-    models = client.Model.list()
+def test_search_models(client):
+    """Test searching models with pagination."""
+    models = client.Model.search()
     assert hasattr(models, "results")
     assert isinstance(models.results, list)
     number_of_models = len(models.results)
-    assert number_of_models > 0, "Expected to get results from model listing"
+    assert number_of_models > 0, "Expected to get results from model search"
 
     # Validate structure of returned tools
     for model in models.results:
@@ -102,7 +102,7 @@ def test_list_models(client):
         pytest.skip("Expected to have at least 2 models for testing pagination")
 
     # Test with page size
-    models = client.Model.list(page_size=number_of_models - 1)
+    models = client.Model.search(page_size=number_of_models - 1)
     assert hasattr(models, "results")
     assert isinstance(models.results, list)
     assert (
@@ -110,7 +110,7 @@ def test_list_models(client):
     ), f"Expected at most {number_of_models - 1} models, but got {len(models.results)}"
 
     # Test with page number
-    models_page_2 = client.Model.list(page_number=1, page_size=number_of_models - 1)
+    models_page_2 = client.Model.search(page_number=1, page_size=number_of_models - 1)
     assert hasattr(models_page_2, "results")
     assert isinstance(models_page_2.results, list)
     assert (
@@ -118,11 +118,11 @@ def test_list_models(client):
     ), f"Expected at most {number_of_models - 1} models, but got {len(models_page_2.results)}"
 
 
-def test_list_models_with_filter(client):
-    """Test listing models with text query filter."""
+def test_search_models_with_filter(client):
+    """Test searching models with text query filter."""
     # Test with a common search term
     query = "GPT"
-    search_models = client.Model.list(query=query)
+    search_models = client.Model.search(query=query)
     assert hasattr(search_models, "results")
     assert isinstance(search_models.results, list)
 
@@ -131,10 +131,10 @@ def test_list_models_with_filter(client):
             assert query.lower() not in model.name
 
 
-def test_list_models_with_sorting(client):
-    """Test listing models with different sorting options."""
+def test_search_models_with_sorting(client):
+    """Test searching models with different sorting options."""
     # Test sorting by creation date ascending
-    models_date_asc = client.Model.list(
+    models_date_asc = client.Model.search(
         sort_by=SortBy.CREATION_DATE, sort_order=SortOrder.ASCENDING
     )
     assert hasattr(models_date_asc, "results")
@@ -156,7 +156,7 @@ def test_list_models_with_sorting(client):
             ), f"Expected dates to be in ascending order, but got: {dates}"
 
     # Test sorting by creation date descending
-    models_date_desc = client.Model.list(
+    models_date_desc = client.Model.search(
         sort_by=SortBy.CREATION_DATE, sort_order=SortOrder.DESCENDING
     )
     assert hasattr(models_date_desc, "results")
@@ -357,7 +357,7 @@ def test_dynamic_validation_parameter_types(client, text_model_id):
 def test_dynamic_validation_unknown_model(client):
     """Test dynamic validation with a model that has no params (should not fail)."""
     # Get a list of models to find one without params
-    models = client.Model.list()
+    models = client.Model.search()
 
     for model in models.results:
         if not model.params:
@@ -442,7 +442,7 @@ def test_model_parameter_structure(client, text_model_id):
 
 def test_model_validation_edge_cases(client):
     """Test edge cases in dynamic validation."""
-    models = client.Model.list()
+    models = client.Model.search()
 
     for model in models.results:
         if model.params:
@@ -477,10 +477,10 @@ def test_model_legacy_compatibility(client, text_model_id):
         print(f"Legacy compatibility test failed: {e}")
 
 
-def test_list_models_with_functions_filter(client):
-    """Test listing models using the 'functions' filter with a list of strings."""
+def test_search_models_with_functions_filter(client):
+    """Test searching models using the 'functions' filter with a list of strings."""
     # Use a known function id string from enums (e.g., 'text-generation')
-    models = client.Model.list(functions=["text-generation"])
+    models = client.Model.search(functions=["text-generation"])
     assert hasattr(models, "results")
     assert isinstance(models.results, list)
     # If results are present, ensure each model has the requested function
@@ -489,9 +489,9 @@ def test_list_models_with_functions_filter(client):
             assert model.function.value == "text-generation"
 
 
-def test_list_models_with_status_filter(client):
-    """Test listing models using the 'status' filter as a list of strings."""
-    models = client.Model.list(status=["onboarded"])
+def test_search_models_with_status_filter(client):
+    """Test searching models using the 'status' filter as a list of strings."""
+    models = client.Model.search(status=["onboarded"])
     assert hasattr(models, "results")
     assert isinstance(models.results, list)
     for model in models.results:
@@ -499,24 +499,24 @@ def test_list_models_with_status_filter(client):
             assert str(model.status.value) == "onboarded"
 
 
-def test_list_models_with_suppliers_filter(client):
-    """Test listing models using the 'suppliers' filter as a list of strings."""
+def test_search_models_with_suppliers_filter(client):
+    """Test searching models using the 'suppliers' filter as a list of strings."""
     # Use a supplier code known to exist in dev (fallback checks only structure)
-    models = client.Model.list(suppliers=["google"])
+    models = client.Model.search(suppliers=["google"])
     assert hasattr(models, "results")
     assert isinstance(models.results, list)
 
 
-def test_list_models_with_q_parameter(client):
-    """Test listing models with 'q' parameter as per Swagger spec."""
-    models = client.Model.list(q="GPT")
+def test_search_models_with_q_parameter(client):
+    """Test searching models with 'q' parameter as per Swagger spec."""
+    models = client.Model.search(q="GPT")
     assert hasattr(models, "results")
     assert isinstance(models.results, list)
 
 
-def test_list_models_with_saved_flag(client):
-    """Test listing models with saved flag filter."""
-    models = client.Model.list(saved=True)
+def test_search_models_with_saved_flag(client):
+    """Test searching models with saved flag filter."""
+    models = client.Model.search(saved=True)
     assert hasattr(models, "results")
     assert isinstance(models.results, list)
 

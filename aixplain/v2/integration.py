@@ -3,7 +3,7 @@ import json
 from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json, config
 
-from .resource import BaseListParams, BaseResult
+from .resource import BaseSearchParams, BaseResult
 from .model import Model
 from .enums import AuthenticationScheme
 
@@ -354,7 +354,7 @@ class IntegrationResult(BaseResult):
     data: ToolId
 
 
-class IntegrationListParams(BaseListParams):
+class IntegrationSearchParams(BaseSearchParams):
     """Parameters for listing integrations."""
 
     pass

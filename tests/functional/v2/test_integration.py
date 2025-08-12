@@ -153,7 +153,7 @@ def test_integration_list_inputs(client, slack_integration_id):
 def test_integration_with_no_auth_schemes(client):
     """Test integration behavior when no auth schemes are available."""
     # Get a list of integrations to find one without auth schemes
-    integrations = client.Integration.list()
+    integrations = client.Integration.search()
 
     for integration in integrations.results:
         if not integration.auth_schemes:

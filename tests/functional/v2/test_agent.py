@@ -69,10 +69,10 @@ def validate_agent_structure(agent):
         pass
 
 
-def test_list_agents(client):
-    """Test listing agents with pagination - verifies backend interaction."""
-    agents = client.Agent.list()
-    assert hasattr(agents, "results"), "Agent list response missing 'results' field"
+def test_search_agents(client):
+    """Test searching agents with pagination - verifies backend interaction."""
+    agents = client.Agent.search()
+    assert hasattr(agents, "results"), "Agent search response missing 'results' field"
     assert isinstance(agents.results, list), "Agent list results is not a list"
 
     number_of_agents = len(agents.results)

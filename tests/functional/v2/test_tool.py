@@ -125,13 +125,13 @@ def validate_tool_structure(tool):
     ), "Tool should have delete method from DeleteResourceMixin"
 
 
-def test_list_tools(client):
-    """Test listing tools with pagination."""
-    tools = client.Tool.list()
+def test_search_tools(client):
+    """Test searching tools with pagination."""
+    tools = client.Tool.search()
     assert hasattr(tools, "results")
     assert isinstance(tools.results, list)
     number_of_tools = len(tools.results)
-    assert number_of_tools > 0, "Expected to get results from tool listing"
+    assert number_of_tools > 0, "Expected to get results from tool search"
 
     # Validate structure of returned tools
     for tool in tools.results:
@@ -141,7 +141,7 @@ def test_list_tools(client):
         pytest.skip("Expected to have at least 2 tools for testing pagination")
 
     # Test with page size
-    tools = client.Tool.list(page_size=number_of_tools - 1)
+    tools = client.Tool.search(page_size=number_of_tools - 1)
     assert hasattr(tools, "results")
     assert isinstance(tools.results, list)
     assert (
@@ -149,7 +149,7 @@ def test_list_tools(client):
     ), f"Expected at most {number_of_tools - 1} tools, but got {len(tools.results)}"
 
     # Test with page number
-    tools_page_2 = client.Tool.list(page_number=1, page_size=number_of_tools - 1)
+    tools_page_2 = client.Tool.search(page_number=1, page_size=number_of_tools - 1)
     assert hasattr(tools_page_2, "results")
     assert isinstance(tools_page_2.results, list)
     assert (
@@ -157,11 +157,11 @@ def test_list_tools(client):
     ), f"Expected at most {number_of_tools - 1} tools, but got {len(tools_page_2.results)}"
 
 
-def test_list_tools_with_query_filter(client):
-    """Test listing tools with query filter."""
+def test_search_tools_with_query_filter(client):
+    """Test searching tools with query filter."""
     # Test with search query - use a more generic query
     query = "test"
-    tools = client.Tool.list(q=query)
+    tools = client.Tool.search(q=query)
     assert hasattr(tools, "results"), "Tools should have results attribute"
     assert isinstance(tools.results, list), "Tools results should be a list"
 
@@ -188,8 +188,8 @@ def test_list_tools_with_query_filter(client):
 
 def test_get_tool(client):
     """Test getting a specific tool by ID."""
-    # First, list tools to get a valid tool ID
-    tools = client.Tool.list()
+    # First, search tools to get a valid tool ID
+    tools = client.Tool.search()
     assert (
         len(tools.results) > 0
     ), "Expected to have at least one tool available for testing"

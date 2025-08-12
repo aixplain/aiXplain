@@ -384,8 +384,8 @@ class BaseParams(TypedDict):
     resource_path: NotRequired[str]
 
 
-class BaseListParams(BaseParams):
-    """Base class for all list parameters.
+class BaseSearchParams(BaseParams):
+    """Base class for all search parameters.
 
     Attributes:
         query: str: The query string.
@@ -502,7 +502,7 @@ class DeleteResult(BaseResult):
 
 # Standardized type variables with proper bounds
 ResourceT = TypeVar("ResourceT", bound=BaseResource)
-ListParamsT = TypeVar("ListParamsT", bound=BaseListParams)
+SearchParamsT = TypeVar("SearchParamsT", bound=BaseSearchParams)
 GetParamsT = TypeVar("GetParamsT", bound=BaseGetParams)
 DeleteParamsT = TypeVar("DeleteParamsT", bound=BaseDeleteParams)
 RunParamsT = TypeVar("RunParamsT", bound=BaseRunParams)
@@ -538,8 +538,27 @@ class Page(Generic[ResourceT]):
         return getattr(self, key)
 
 
-class BaseListResourceMixin(BaseMixin, Generic[ListParamsT, ResourceT]):
-    """Base mixin for listing resources with shared functionality."""
+class SearchResourceMixin(BaseMixin, Generic[SearchParamsT, ResourceT]):
+    """Mixin for listing resources with pagination and search functionality.
+
+    Attributes:
+        PAGINATE_PATH: str: The path for pagination.
+        PAGINATE_METHOD: str: The method for pagination.
+        PAGINATE_ITEMS_KEY: str: The key for the response.
+        PAGINATE_TOTAL_KEY: str: The key for the total number of resources.
+        PAGINATE_PAGE_TOTAL_KEY: str: The key for the total number of pages.
+        PAGINATE_DEFAULT_PAGE_NUMBER: int: The default page number.
+        PAGINATE_DEFAULT_PAGE_SIZE: int: The default page size.
+    """
+
+    PAGINATE_PATH: str = "paginate"
+    PAGINATE_METHOD: str = "post"
+    PAGINATE_ITEMS_KEY: str = "results"  # Default to match backend
+    PAGINATE_TOTAL_KEY: str = "total"
+    PAGINATE_PAGE_TOTAL_KEY: str = "pageTotal"
+    PAGINATE_PAGE_NUMBER_KEY: str = "pageNumber"
+    PAGINATE_DEFAULT_PAGE_NUMBER: int = 0
+    PAGINATE_DEFAULT_PAGE_SIZE: int = 20
 
     @classmethod
     def _get_context_and_path(
@@ -580,7 +599,7 @@ class BaseListResourceMixin(BaseMixin, Generic[ListParamsT, ResourceT]):
         return resources
 
     @classmethod
-    def _populate_base_filters(cls: type, params: BaseListParams) -> dict:
+    def _populate_base_filters(cls: type, params: BaseSearchParams) -> dict:
         """Populate common filters for listing operations."""
         filters = {}
 
@@ -598,33 +617,10 @@ class BaseListResourceMixin(BaseMixin, Generic[ListParamsT, ResourceT]):
 
         return filters
 
-
-class PagedListResourceMixin(BaseListResourceMixin, Generic[ListParamsT, ResourceT]):
-    """Mixin for listing resources with pagination.
-
-    Attributes:
-        PAGINATE_PATH: str: The path for pagination.
-        PAGINATE_METHOD: str: The method for pagination.
-        PAGINATE_ITEMS_KEY: str: The key for the response.
-        PAGINATE_TOTAL_KEY: str: The key for the total number of resources.
-        PAGINATE_PAGE_TOTAL_KEY: str: The key for the total number of pages.
-        PAGINATE_DEFAULT_PAGE_NUMBER: int: The default page number.
-        PAGINATE_DEFAULT_PAGE_SIZE: int: The default page size.
-    """
-
-    PAGINATE_PATH: str = "paginate"
-    PAGINATE_METHOD: str = "post"
-    PAGINATE_ITEMS_KEY: str = "results"  # Default to match backend
-    PAGINATE_TOTAL_KEY: str = "total"
-    PAGINATE_PAGE_TOTAL_KEY: str = "pageTotal"
-    PAGINATE_PAGE_NUMBER_KEY: str = "pageNumber"
-    PAGINATE_DEFAULT_PAGE_NUMBER: int = 0
-    PAGINATE_DEFAULT_PAGE_SIZE: int = 20
-
     @classmethod
-    def list(cls: type, **kwargs: Unpack[ListParamsT]) -> Page[ResourceT]:
+    def search(cls: type, **kwargs: Unpack[SearchParamsT]) -> Page[ResourceT]:
         """
-        List resources across the first n pages with optional filtering.
+        Search resources across the first n pages with optional filtering.
 
         Args:
             kwargs: The keyword arguments.
@@ -643,26 +639,23 @@ class PagedListResourceMixin(BaseListResourceMixin, Generic[ListParamsT, Resourc
         context, resource_path, custom_path = cls._get_context_and_path(**kwargs)
 
         # Build path and filters
-        paginate_path = cls._populate_path(  # type: ignore[attr-defined]
+        paginate_path = cls._populate_path(
             resource_path, custom_path
         )
         params_dict = dict(kwargs)
-        filters = cls._populate_filters(params_dict)  # type: ignore[attr-defined]
+        filters = cls._populate_filters(params_dict)
 
         # Make request
         paginate_method = getattr(cls, "PAGINATE_METHOD", "post")
         response = context.client.request(paginate_method, paginate_path, json=filters)
 
-        return cls._build_page(  # type: ignore[attr-defined,misc]
+        return cls._build_page(
             response, context, **kwargs
         )
 
-    @classmethod
-    def search(cls: type, query: str, **kwargs: Unpack[ListParamsT]) -> Page[ResourceT]:
-        """
-        Search resources across the first n pages with optional filtering.
-        """
-        return cls.list(query=query, **kwargs)
+
+
+
 
     @classmethod
     def _build_page(
@@ -693,7 +686,7 @@ class PagedListResourceMixin(BaseListResourceMixin, Generic[ListParamsT, Resourc
             page_total = json_data[paginate_page_total_key]
 
         # Build resources using shared method
-        results = cls._build_resources(items, context)  # type: ignore[attr-defined]
+        results = cls._build_resources(items, context)
 
         return Page(
             results=results,
@@ -731,8 +724,8 @@ class PagedListResourceMixin(BaseListResourceMixin, Generic[ListParamsT, Resourc
         Returns:
             dict: The populated filters.
         """
-        # Convert to BaseListParams for type safety
-        list_params = BaseListParams(**params)
+        # Convert to BaseSearchParams for type safety
+        list_params = BaseSearchParams(**params)
         filters = cls._populate_base_filters(list_params)
 
         # Add pagination-specific filters
@@ -743,85 +736,6 @@ class PagedListResourceMixin(BaseListResourceMixin, Generic[ListParamsT, Resourc
             filters["pageSize"] = params["page_size"]
 
         return filters
-
-
-class PlainListResourceMixin(BaseListResourceMixin, Generic[ListParamsT, ResourceT]):
-    """Mixin for listing resources without pagination.
-
-    This mixin provides a simple list method that returns all resources
-    without pagination. It's useful for resources that don't support
-    pagination or when you need all items at once.
-
-    Attributes:
-        LIST_METHOD: str: The HTTP method for listing.
-        LIST_ITEMS_KEY: str: The key for the response items.
-    """
-
-    LIST_METHOD: str = "get"
-    LIST_ITEMS_KEY: str = "items"
-
-    @classmethod
-    def list(cls: type, **kwargs: Unpack[ListParamsT]) -> List[ResourceT]:
-        """
-        List all resources without pagination.
-
-        Args:
-            kwargs: The keyword arguments.
-
-        Returns:
-            List[ResourceT]: List of BaseResource instances
-        """
-        # Get context and path
-        context, resource_path, _ = cls._get_context_and_path(**kwargs)
-
-        # Build filters
-        params_dict = dict(kwargs)
-        filters = cls._populate_plain_filters(params_dict)  # type: ignore[attr-defined]
-
-        # Make request
-        list_method = getattr(cls, "LIST_METHOD", "get")
-        response = context.client.request(list_method, resource_path, params=filters)
-        return cls._build_plain_list(response, context)  # type: ignore[attr-defined]
-
-    @classmethod
-    def _build_plain_list(
-        cls: type, response: "Any", context: "Aixplain"
-    ) -> List[ResourceT]:
-        """
-        Build a list of resources from the response.
-        Accepts either a requests.Response or already-decoded list/dict.
-        """
-        if hasattr(response, "json"):
-            json_data = response.json()
-        else:
-            json_data = response
-
-        items = json_data
-        list_items_key = getattr(cls, "LIST_ITEMS_KEY", "items")
-        if (
-            list_items_key
-            and isinstance(json_data, dict)
-            and list_items_key in json_data
-        ):
-            items = json_data[list_items_key]
-
-        # Build resources using shared method
-        return cls._build_resources(items, context)
-
-    @classmethod
-    def _populate_plain_filters(cls: type, params: dict) -> dict:
-        """
-        Populate the filters for plain listing.
-
-        Args:
-            params: dict: The parameters to populate.
-
-        Returns:
-            dict: The populated filters.
-        """
-        # Convert to BaseListParams for type safety
-        list_params = BaseListParams(**params)
-        return cls._populate_base_filters(list_params)
 
 
 class GetResourceMixin(BaseMixin, Generic[GetParamsT, ResourceT]):

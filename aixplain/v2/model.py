@@ -6,9 +6,9 @@ from dataclasses_json import dataclass_json, config
 from dataclasses import dataclass, field
 
 from .resource import (
-    BaseListParams,
+    BaseSearchParams,
     BaseResource,
-    PagedListResourceMixin,
+    SearchResourceMixin,
     GetResourceMixin,
     BaseGetParams,
     Page,
@@ -317,7 +317,7 @@ class SupplierInfo:
     code: Optional[str] = None
 
 
-class ModelListParams(BaseListParams):
+class ModelSearchParams(BaseSearchParams):
     functions: NotRequired[List[str]]
     suppliers: NotRequired[Union[str, Supplier, List[Union[str, Supplier]]]]
     source_languages: NotRequired[Union[Language, List[Language]]]
@@ -342,7 +342,7 @@ class ModelRunParams(BaseRunParams):
 @dataclass
 class Model(
     BaseResource,
-    PagedListResourceMixin[ModelListParams, "Model"],
+    SearchResourceMixin[ModelSearchParams, "Model"],
     GetResourceMixin[BaseGetParams, "Model"],
     RunnableResourceMixin[ModelRunParams, Result],
 ):
@@ -434,11 +434,28 @@ class Model(
         return super().get(id, **kwargs)
 
     @classmethod
-    def list(
+    def search(
         cls: type["Model"],
-        **kwargs: Unpack[ModelListParams],
+        query: Optional[str] = None,
+        **kwargs: Unpack[ModelSearchParams],
     ) -> Page["Model"]:
-        return super().list(**kwargs)
+        """
+        Search models with optional query and filtering.
+        
+        Args:
+            query: Optional search query string
+            **kwargs: Additional search parameters (functions, suppliers, etc.)
+            
+        Returns:
+            Page of models matching the search criteria
+        """
+        # If query is provided, add it to kwargs
+        if query is not None:
+            kwargs["query"] = query
+            
+        return super().search(**kwargs)
+
+
 
     def run(self, **kwargs: Unpack[ModelRunParams]) -> Result:
         """Run the model with dynamic parameter validation and default handling."""

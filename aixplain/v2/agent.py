@@ -8,10 +8,10 @@ from aixplain.enums import AssetStatus, ResponseStatus
 
 from .resource import (
     BaseResource,
-    PagedListResourceMixin,
+    SearchResourceMixin,
     GetResourceMixin,
     DeleteResourceMixin,
-    BaseListParams,
+    BaseSearchParams,
     BaseGetParams,
     BaseDeleteParams,
     BaseRunParams,
@@ -71,7 +71,7 @@ class AgentRunResult(BaseResult):
 @dataclass
 class Agent(
     BaseResource,
-    PagedListResourceMixin[BaseListParams, "Agent"],
+    SearchResourceMixin[BaseSearchParams, "Agent"],
     GetResourceMixin[BaseGetParams, "Agent"],
     DeleteResourceMixin[BaseDeleteParams, "Agent"],
     RunnableResourceMixin[AgentRunParams, AgentRunResult],
@@ -197,8 +197,28 @@ class Agent(
         return super().get(id, **kwargs)
 
     @classmethod
-    def list(cls: type["Agent"], **kwargs: Unpack[BaseListParams]) -> "Page[Agent]":
-        return super().list(**kwargs)
+    def search(
+        cls: type["Agent"], 
+        query: Optional[str] = None,
+        **kwargs: Unpack[BaseSearchParams]
+    ) -> "Page[Agent]":
+        """
+        Search agents with optional query and filtering.
+        
+        Args:
+            query: Optional search query string
+            **kwargs: Additional search parameters (ownership, status, etc.)
+            
+        Returns:
+            Page of agents matching the search criteria
+        """
+        # If query is provided, add it to kwargs
+        if query is not None:
+            kwargs["query"] = query
+            
+        return super().search(**kwargs)
+
+
 
     def build_save_payload(self, **kwargs: Any) -> dict:
         """
