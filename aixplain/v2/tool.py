@@ -10,7 +10,7 @@ from .resource import (
     DeleteResult,
 )
 from .model import Model, ModelRunParams
-from .integration import Integration, Action, Input
+from .integration import Integration, Action, Input, ActionMixin
 
 
 @dataclass_json
@@ -23,7 +23,7 @@ class ToolResult(Result):
 
 @dataclass_json
 @dataclass
-class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult]):
+class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMixin):
     """Resource for tools.
 
     This class represents a tool resource that matches the backend structure.
@@ -89,14 +89,6 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult]):
             self.function_type = self.integration.function_type
             self.validate_allowed_actions()
             self.parameters = self.get_parameters()
-
-    def list_actions(self) -> List[Action]:
-        """List available actions for the tool."""
-        return self.integration.list_actions()
-
-    def list_inputs(self, *actions: str) -> List[Action]:
-        """List available inputs for the tool."""
-        return self.integration.list_inputs(*actions)
 
     def validate_allowed_actions(self) -> None:
         if self.allowed_actions:

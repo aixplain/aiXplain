@@ -360,7 +360,57 @@ class IntegrationListParams(BaseListParams):
     pass
 
 
-class Integration(Model):
+
+
+class ActionMixin:
+
+    def list_actions(self) -> List[Action]:
+        """List available actions for the integration."""
+        run_url = self.build_run_url()
+        response = self.context.client.request(
+            "post", run_url, json={"action": "LIST_ACTIONS", "data": {}}
+        )
+
+        # Handle the response data
+        if "data" not in response:
+            return []
+
+        actions = []
+        for action_data in response["data"]:
+            try:
+                # Handle case where action_data might be a string or other format
+                if isinstance(action_data, dict):
+                    actions.append(Action.from_dict(action_data))
+                else:
+                    # Skip invalid action data
+                    continue
+            except Exception:
+                # Skip invalid action data
+                continue
+
+        return actions
+
+    def list_inputs(self, *actions: str) -> List[Action]:
+        """List available inputs for the integration."""
+        run_url = self.build_run_url()
+        response = self.context.client.request(
+            "post",
+            run_url,
+            json={"action": "LIST_INPUTS", "data": {"actions": actions}},
+        )
+
+        # Handle the response data
+        if "data" not in response:
+            return []
+
+        actions = []
+        for input_data in response["data"]:
+            actions.append(Action.from_dict(input_data))
+
+        return actions
+
+
+class Integration(Model, ActionMixin):
     """Resource for integrations.
 
     Integrations are a subtype of models with Function.CONNECTOR.
@@ -490,51 +540,6 @@ class Integration(Model):
     def run(self, **kwargs: Any) -> IntegrationResult:
         """Run the integration with validation."""
         return super().run(**kwargs)
-
-    def list_actions(self) -> List[Action]:
-        """List available actions for the integration."""
-        run_url = self.build_run_url()
-        response = self.context.client.request(
-            "post", run_url, json={"action": "LIST_ACTIONS", "data": {}}
-        )
-
-        # Handle the response data
-        if "data" not in response:
-            return []
-
-        actions = []
-        for action_data in response["data"]:
-            try:
-                # Handle case where action_data might be a string or other format
-                if isinstance(action_data, dict):
-                    actions.append(Action.from_dict(action_data))
-                else:
-                    # Skip invalid action data
-                    continue
-            except Exception:
-                # Skip invalid action data
-                continue
-
-        return actions
-
-    def list_inputs(self, *actions: str) -> List[Action]:
-        """List available inputs for the integration."""
-        run_url = self.build_run_url()
-        response = self.context.client.request(
-            "post",
-            run_url,
-            json={"action": "LIST_INPUTS", "data": {"actions": actions}},
-        )
-
-        # Handle the response data
-        if "data" not in response:
-            return []
-
-        actions = []
-        for input_data in response["data"]:
-            actions.append(Action.from_dict(input_data))
-
-        return actions
 
     def connect(self, **kwargs: Any) -> "Tool":
         """Connect the integration."""
