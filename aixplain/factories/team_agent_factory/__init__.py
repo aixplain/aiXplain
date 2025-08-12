@@ -193,9 +193,8 @@ class TeamAgentFactory:
             "supplier": supplier,
             "version": version,
             "status": "draft",
-            "tools": [],
-            "instructions": instructions,
             "tools": tools,
+            "role": instructions,
         }
         # Store the LLM objects directly in the payload for build_team_agent
         internal_payload = payload.copy()

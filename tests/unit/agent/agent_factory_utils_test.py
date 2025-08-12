@@ -224,7 +224,7 @@ def test_build_tool_success_cases(tool_dict, expected_type, expected_attrs, mock
                 "id": "test_agent",
                 "name": "Test Agent",
                 "description": "Test Description",
-                "instructions": "Test Instructions",
+                "role": "Test Instructions",
                 "teamId": "test_team",
                 "version": "1.0",
                 "cost": 10.0,

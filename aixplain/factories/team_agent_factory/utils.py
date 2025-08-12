@@ -82,7 +82,7 @@ def build_team_agent(payload: Dict, agents: List[Agent] = None, api_key: Text = 
         name=payload.get("name", ""),
         agents=payload_agents,
         description=payload.get("description", ""),
-        instructions=payload.get("instructions", None),
+        instructions=payload.get("role", None),
         supplier=payload.get("teamId", None),
         version=payload.get("version", None),
         cost=payload.get("cost", None),

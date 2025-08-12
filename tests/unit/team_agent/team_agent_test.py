@@ -160,7 +160,7 @@ def test_create_team_agent(mock_model_factory_get):
             "id": "123",
             "name": "Test Agent(-)",
             "description": "Test Agent Description",
-            "instructions": "Test Agent Instructions",
+            "role": "Test Agent Role",
             "teamId": "123",
             "version": "1.0",
             "status": "onboarded",
