@@ -38,11 +38,10 @@ class FunctionType(Enum):
         UTILITY (str): Utility function type.
         METRIC (str): Metric/evaluation function type.
         SEARCH (str): Search function type.
-        INTEGRATION (str): Integration connector function type.
-        CONNECTION (str): Connection function type.
+        INTEGRATION (str): Integration connector function type. # i.e. slack
+        CONNECTION (str): Connection function type. # slack - action
         MCP_CONNECTION (str): MCP connection function type.
-        MCPSERVER (str): MCP server function type.
-        MCPSERVERSAS (str): MCP server sas function type
+        MCPSERVER (str): MCP server is for on-prem solution. It should be treated like a model. # ONPREM_MCP_MODEL
     """
     AI = "ai"
     SEGMENTOR = "segmentor"
@@ -54,4 +53,3 @@ class FunctionType(Enum):
     CONNECTION = "connection"
     MCP_CONNECTION = "mcpconnection"
     MCPSERVER = "mcpserver"
-    MCPSERVERSAS = "mcpserversas"
