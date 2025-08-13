@@ -23,6 +23,7 @@ import inspect
 from enum import Enum
 from typing import Dict, Optional, Text, Union, Callable
 
+import textwrap
 from pydantic import field_validator
 
 from aixplain.modules.agent.model_with_params import ModelWithParams
@@ -82,15 +83,14 @@ def validate_policy_callable(policy_func: Callable) -> bool:
 
 def callable_to_code_string(policy_func: Callable) -> str:
     """Convert a callable policy function to a code string for serialization."""
-    if not callable(policy_func):
-        raise ValueError("Policy must be a callable function")
-
-    # Get the source code of the function
     try:
-        source_code = inspect.getsource(policy_func)
-        # Dedent the source code to remove leading whitespace
-        import textwrap
+        source_code = get_policy_source(policy_func)
+        if source_code is None:
+            # If we can't get the source code, create a minimal representation
+            sig = inspect.signature(policy_func)
+            return f"def process_response{str(sig)}:\n    # Function source not available\n    pass"
 
+        # Dedent the source code to remove leading whitespace
         source_code = textwrap.dedent(source_code)
         return source_code
     except (OSError, TypeError):
@@ -101,9 +101,6 @@ def callable_to_code_string(policy_func: Callable) -> str:
 
 def code_string_to_callable(code_string: str) -> Callable:
     """Convert a code string back to a callable function for deserialization."""
-    if not isinstance(code_string, str):
-        raise ValueError("Code string must be a string")
-
     try:
         # Create a namespace to execute the code
         namespace = {
@@ -223,6 +220,9 @@ def code_string_to_callable(code_string: str) -> Callable:
 
         func = namespace["process_response"]
 
+        # Store the original source code as an attribute for later retrieval
+        func._source_code = code_string
+
         # Validate the function
         if not validate_policy_callable(func):
             raise ValueError("Deserialized function does not meet the required constraints")
@@ -230,6 +230,27 @@ def code_string_to_callable(code_string: str) -> Callable:
         return func
     except Exception as e:
         raise ValueError(f"Failed to deserialize code string to callable: {e}")
+
+
+def get_policy_source(func: Callable) -> Optional[str]:
+    """Get the source code of a policy function.
+
+    This function tries to retrieve the source code of a policy function.
+    It first checks if the function has a stored _source_code attribute (for functions
+    created via code_string_to_callable), then falls back to inspect.getsource().
+
+    Args:
+        func: The function to get source code for
+
+    Returns:
+        The source code string if available, None otherwise
+    """
+    if hasattr(func, "_source_code"):
+        return func._source_code
+    try:
+        return inspect.getsource(func)
+    except (OSError, TypeError):
+        return None
 
 
 class Inspector(ModelWithParams):
@@ -281,8 +302,8 @@ class Inspector(ModelWithParams):
         if callable(self.policy):
             data["policy"] = callable_to_code_string(self.policy)
             data["policy_type"] = "callable"
-        else:
-            data["policy"] = self.policy.value if hasattr(self.policy, "value") else str(self.policy)
+        elif isinstance(self.policy, InspectorPolicy):
+            data["policy"] = self.policy.value
             data["policy_type"] = "enum"
 
         return data
