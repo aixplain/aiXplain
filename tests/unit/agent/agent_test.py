@@ -18,21 +18,21 @@ from aixplain.modules.agent.agent_response_data import AgentResponseData
 
 
 def test_fail_no_data_query():
-    agent = Agent("123", "Test Agent(-)", "Sample Description", instructions="Test Agent Role")
+    agent = Agent("123", "Test Agent(-)", "Sample Description", instructions="Test Agent Instructions")
     with pytest.raises(Exception) as exc_info:
         agent.run_async()
     assert str(exc_info.value) == "Either 'data' or 'query' must be provided."
 
 
 def test_fail_query_must_be_provided():
-    agent = Agent("123", "Test Agent", "Sample Description", instructions="Test Agent Role")
+    agent = Agent("123", "Test Agent", "Sample Description", instructions="Test Agent Instructions")
     with pytest.raises(Exception) as exc_info:
         agent.run_async(data={})
     assert str(exc_info.value) == "When providing a dictionary, 'query' must be provided."
 
 
 def test_fail_query_as_text_when_content_not_empty():
-    agent = Agent("123", "Test Agent", "Sample Description", instructions="Test Agent Role")
+    agent = Agent("123", "Test Agent", "Sample Description", instructions="Test Agent Instructions")
     with pytest.raises(Exception) as exc_info:
         agent.run_async(
             data={"query": "https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.wav"},
@@ -45,7 +45,7 @@ def test_fail_query_as_text_when_content_not_empty():
 
 
 def test_fail_content_exceed_maximum():
-    agent = Agent("123", "Test Agent", "Sample Description", instructions="Test Agent Role")
+    agent = Agent("123", "Test Agent", "Sample Description", instructions="Test Agent Instructions")
     with pytest.raises(Exception) as exc_info:
         agent.run_async(
             data={"query": "Transcribe the audios:"},
@@ -60,14 +60,14 @@ def test_fail_content_exceed_maximum():
 
 
 def test_fail_key_not_found():
-    agent = Agent("123", "Test Agent", "Sample Description", instructions="Test Agent Role")
+    agent = Agent("123", "Test Agent", "Sample Description", instructions="Test Agent Instructions")
     with pytest.raises(Exception) as exc_info:
         agent.run_async(data={"query": "Translate the text: {{input1}}"}, content={"input2": "Hello, how are you?"})
     assert str(exc_info.value) == "Key 'input2' not found in query."
 
 
 def test_success_query_content():
-    agent = Agent("123", "Test Agent(-)", "Sample Description", instructions="Test Agent Role")
+    agent = Agent("123", "Test Agent(-)", "Sample Description", instructions="Test Agent Instructions")
     with requests_mock.Mocker() as mock:
         url = agent.url
         headers = {"x-api-key": config.TEAM_API_KEY, "Content-Type": "application/json"}
@@ -90,7 +90,7 @@ def test_invalid_pipelinetool(mocker):
         AgentFactory.create(
             name="Test",
             description="Test Description",
-            instructions="Test Role",
+            instructions="Test Instructions",
             tools=[PipelineTool(pipeline="309851793", description="Test")],
             llm_id="6646261c6eb563165658bbb1",
         )
@@ -139,7 +139,7 @@ def test_create_agent(mock_model_factory_get):
                 "id": "123",
                 "name": "Test Agent(-)",
                 "description": "Test Agent Description",
-                "role": "Test Agent Role",
+                "instructions": "Test Agent Instruction",
                 "teamId": "123",
                 "version": "1.0",
                 "status": "draft",
@@ -186,7 +186,7 @@ def test_create_agent(mock_model_factory_get):
             agent = AgentFactory.create(
                 name="Test Agent(-)",
                 description="Test Agent Description",
-                instructions="Test Agent Role",
+                instructions="Test Agent Instructions",
                 llm_id="6646261c6eb563165658bbb1",
                 tools=[
                     AgentFactory.create_model_tool(
@@ -203,7 +203,7 @@ def test_create_agent(mock_model_factory_get):
 
     assert agent.name == ref_response["name"]
     assert agent.description == ref_response["description"]
-    assert agent.instructions == ref_response["role"]
+    assert agent.instructions == ref_response["instructions"]
     assert agent.llm_id == ref_response["llmId"]
     assert agent.tools[0].function.value == ref_response["assets"][0]["function"]
     assert agent.tools[0].description == ref_response["assets"][0]["description"]
@@ -220,7 +220,7 @@ def test_to_dict():
         id="",
         name="Test Agent(-)",
         description="Test Agent Description",
-        instructions="Test Agent Role",
+        instructions="Test Agent Instructions",
         llm_id="6646261c6eb563165658bbb1",
         tools=[AgentFactory.create_model_tool(function="text-generation")],
         api_key="test_api_key",
@@ -231,7 +231,7 @@ def test_to_dict():
     assert agent_json["id"] == ""
     assert agent_json["name"] == "Test Agent(-)"
     assert agent_json["description"] == "Test Agent Description"
-    assert agent_json["role"] == "Test Agent Role"
+    assert agent_json["instructions"] == "Test Agent Instructions"
     assert agent_json["llmId"] == "6646261c6eb563165658bbb1"
     assert agent_json["assets"][0]["function"] == "text-generation"
     assert agent_json["assets"][0]["type"] == "model"
@@ -252,7 +252,7 @@ def test_update_success(mock_model_factory_get):
         id="123",
         name="Test Agent(-)",
         description="Test Agent Description",
-        instructions="Test Agent Role",
+        instructions="Test Agent Instructions",
         llm_id="6646261c6eb563165658bbb1",
         tools=[AgentFactory.create_model_tool(function="text-generation")],
     )
@@ -264,7 +264,7 @@ def test_update_success(mock_model_factory_get):
             "id": "123",
             "name": "Test Agent(-)",
             "description": "Test Agent Description",
-            "role": "Test Agent Role",
+            "instructions": "Test Agent Instructions",
             "teamId": "123",
             "version": "1.0",
             "status": "onboarded",
@@ -305,7 +305,7 @@ def test_update_success(mock_model_factory_get):
     assert agent.id == ref_response["id"]
     assert agent.name == ref_response["name"]
     assert agent.description == ref_response["description"]
-    assert agent.instructions == ref_response["role"]
+    assert agent.instructions == ref_response["instructions"]
     assert agent.llm_id == ref_response["llmId"]
     assert agent.tools[0].function.value == ref_response["assets"][0]["function"]
 
@@ -324,7 +324,7 @@ def test_save_success(mock_model_factory_get):
         id="123",
         name="Test Agent(-)",
         description="Test Agent Description",
-        instructions="Test Agent Role",
+        instructions="Test Agent Instructions",
         llm_id="6646261c6eb563165658bbb1",
         tools=[AgentFactory.create_model_tool(function="text-generation")],
     )
@@ -336,7 +336,7 @@ def test_save_success(mock_model_factory_get):
             "id": "123",
             "name": "Test Agent(-)",
             "description": "Test Agent Description",
-            "role": "Test Agent Role",
+            "instructions": "Test Agent Instructions",
             "teamId": "123",
             "version": "1.0",
             "status": "onboarded",
@@ -382,13 +382,13 @@ def test_save_success(mock_model_factory_get):
     assert agent.id == ref_response["id"]
     assert agent.name == ref_response["name"]
     assert agent.description == ref_response["description"]
-    assert agent.instructions == ref_response["role"]
+    assert agent.instructions == ref_response["instructions"]
     assert agent.llm_id == ref_response["llmId"]
     assert agent.tools[0].function.value == ref_response["assets"][0]["function"]
 
 
 def test_run_success():
-    agent = Agent("123", "Test Agent(-)", "Sample Description", instructions="Test Agent Role")
+    agent = Agent("123", "Test Agent(-)", "Sample Description", instructions="Test Agent Instructions")
     url = urljoin(config.BACKEND_URL, f"sdk/agents/{agent.id}/run")
     agent.url = url
     with requests_mock.Mocker() as mock:
@@ -440,7 +440,7 @@ def test_agent_api_key_propagation():
         id="123",
         name="Test Agent",
         description="Test Description",
-        instructions="Test Agent Role",
+        instructions="Test Agent Instructions",
         tools=[tool],
         api_key=custom_api_key,
     )
@@ -454,7 +454,7 @@ def test_agent_api_key_propagation():
 def test_agent_default_api_key():
     """Test that the default api_key is used when none is provided"""
     tool = AgentFactory.create_model_tool(function="text-generation")
-    agent = Agent(id="123", name="Test Agent", description="Test Description", instructions="Test Agent Role", tools=[tool])
+    agent = Agent(id="123", name="Test Agent", description="Test Description", instructions="Test Agent Instructions", tools=[tool])
 
     # Check that the agent has the default api_key
     assert agent.api_key == config.TEAM_API_KEY
@@ -503,7 +503,7 @@ def test_agent_factory_create_without_instructions():
                 "id": "123",
                 "name": "Test Agent",
                 "description": "Test Agent Description",
-                "role": "Test Agent Description",  # Should fallback to description
+                "instructions": "Test Agent Description",  # Should fallback to description
                 "teamId": "123",
                 "version": "1.0",
                 "status": "draft",
@@ -543,8 +543,8 @@ def test_agent_factory_create_without_instructions():
             sent_request = mock.request_history[0]
             sent_payload = sent_request.json()
 
-            # The role should be set to description when instructions is None
-            assert sent_payload["role"] == "Test Agent Description"
+            # The Instructions should be set to description when instructions is None
+            assert sent_payload["instructions"] == "Test Agent Description"
             assert sent_payload["description"] == "Test Agent Description"
 
 
@@ -556,8 +556,8 @@ def test_agent_to_dict_payload_without_instructions():
     # Get the payload
     payload = agent.to_dict()
 
-    # Check that role falls back to description when instructions is None
-    assert payload["role"] == "Test Description"  # Should fallback to description
+    # Check that Instructions falls back to description when instructions is None
+    assert payload["instructions"] == "Test Description"  # Should fallback to description
     assert payload["description"] == "Test Description"
     assert agent.instructions is None
 
@@ -570,8 +570,8 @@ def test_agent_to_dict_payload_with_instructions():
     # Get the payload
     payload = agent.to_dict()
 
-    # Check that role uses instructions when provided
-    assert payload["role"] == "Custom Instructions"
+    # Check that Instructions uses instructions when provided
+    assert payload["instructions"] == "Custom Instructions"
     assert payload["description"] == "Test Description"
     assert agent.instructions == "Custom Instructions"
 
@@ -606,7 +606,7 @@ def test_agent_factory_create_with_explicit_none_instructions():
                 "id": "123",
                 "name": "Test Agent",
                 "description": "Test Agent Description",
-                "role": "Test Agent Description",  # Should fallback to description
+                "instructions": "Test Agent Description",  # Should fallback to description
                 "teamId": "123",
                 "version": "1.0",
                 "status": "draft",
@@ -644,8 +644,8 @@ def test_agent_factory_create_with_explicit_none_instructions():
             sent_request = mock.request_history[0]
             sent_payload = sent_request.json()
 
-            # The role should be set to description when instructions is None
-            assert sent_payload["role"] == "Test Agent Description"
+            # The Instructions should be set to description when instructions is None
+            assert sent_payload["instructions"] == "Test Agent Description"
             assert sent_payload["description"] == "Test Agent Description"
 
 
@@ -664,7 +664,7 @@ def test_agent_multiple_tools_api_key():
         id="123",
         name="Test Agent",
         description="Test Description",
-        instructions="Test Agent Role",
+        instructions="Test Agent Instructions",
         tools=tools,
         api_key=custom_api_key,
     )
@@ -678,7 +678,7 @@ def test_agent_api_key_in_requests():
     """Test that the api_key is properly used in API requests"""
     custom_api_key = "custom_test_key"
     agent = Agent(
-        id="123", name="Test Agent", description="Test Description", instructions="Test Agent Role", api_key=custom_api_key
+        id="123", name="Test Agent", description="Test Description", instructions="Test Agent Instructions", api_key=custom_api_key
     )
 
     with requests_mock.Mocker() as mock:
@@ -1270,27 +1270,30 @@ def test_agent_serialization_completeness():
     agent_dict = agent.to_dict()
 
     required_fields = {
-        "id",
+        "llmId",
+        "version",
+        "instructions",
+        "api_key",
+        "supplier",
+        "outputFormat",
+        "status",
         "name",
         "description",
-        "role",
-        "assets",
-        "supplier",
-        "version",
-        "llmId",
-        "status",
-        "tasks",
-        "tools",
         "cost",
-        "api_key",
+        "tools",
+        "assets",
+        "tasks",
+        "expectedOutput",
+        "id",
     }
+
     assert set(agent_dict.keys()) == required_fields
 
     # Verify field values
     assert agent_dict["id"] == "test-agent-123"
     assert agent_dict["name"] == "Test Agent"
     assert agent_dict["description"] == "A test agent for validation"
-    assert agent_dict["role"] == "You are a helpful test agent"
+    assert agent_dict["instructions"] == "You are a helpful test agent"
     assert agent_dict["llmId"] == "6646261c6eb563165658bbb1"
     assert agent_dict["api_key"] == "test-api-key"
     assert agent_dict["supplier"] == "aixplain"
@@ -1300,6 +1303,8 @@ def test_agent_serialization_completeness():
     assert isinstance(agent_dict["assets"], list)
     assert isinstance(agent_dict["tasks"], list)
     assert len(agent_dict["tasks"]) == 2
+    assert agent_dict["outputFormat"] == "text"
+    assert agent_dict["expectedOutput"] is None
 
     # Verify task serialization
     task_dict = agent_dict["tasks"][0]
@@ -1334,21 +1339,21 @@ def test_agent_serialization_with_llm():
     assert llm_tool["parameters"] == [{"name": "temperature", "value": 0.7}]
 
 
-def test_agent_serialization_role_fallback():
-    """Test Agent to_dict role field fallback behavior."""
+def test_agent_serialization_instructions_fallback():
+    """Test Agent to_dict instructions field fallback behavior."""
     # Test with instructions provided
     agent_with_instructions = Agent(
         id="test1", name="Test Agent 1", description="Test description", instructions="Custom instructions"
     )
 
     dict1 = agent_with_instructions.to_dict()
-    assert dict1["role"] == "Custom instructions"
+    assert dict1["instructions"] == "Custom instructions"
 
     # Test without instructions (should fall back to description)
     agent_without_instructions = Agent(id="test2", name="Test Agent 2", description="Test description")
 
     dict2 = agent_without_instructions.to_dict()
-    assert dict2["role"] == "Test description"
+    assert dict2["instructions"] == "Test description"
 
 
 @pytest.mark.parametrize(

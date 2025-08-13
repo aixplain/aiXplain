@@ -25,6 +25,7 @@ import logging
 import re
 import time
 import traceback
+from datetime import datetime
 
 from aixplain.utils.file_utils import _request_with_retry
 from aixplain.enums import Function, Supplier, AssetStatus, StorageType, ResponseStatus
@@ -34,7 +35,7 @@ from aixplain.modules.agent.output_format import OutputFormat
 from aixplain.modules.agent.tool import Tool
 from aixplain.modules.agent.agent_response import AgentResponse
 from aixplain.modules.agent.agent_response_data import AgentResponseData
-from aixplain.modules.agent.utils import process_variables
+from aixplain.modules.agent.utils import process_variables, validate_history
 from pydantic import BaseModel
 from typing import Dict, List, Text, Optional, Union
 from urllib.parse import urljoin
@@ -69,6 +70,9 @@ class Agent(Model, DeployableMixin[Tool]):
         api_key (str): Authentication key for API access.
         cost (Dict, optional): Pricing information for using the Agent. Defaults to None.
         is_valid (bool): Whether the Agent's configuration is valid.
+        cost (Dict, optional): model price. Defaults to None.
+        output_format (OutputFormat): default output format for agent responses.
+        expected_output (Union[BaseModel, Text, dict], optional): expected output. Defaults to None.
     """
 
     is_valid: bool
@@ -88,6 +92,8 @@ class Agent(Model, DeployableMixin[Tool]):
         cost: Optional[Dict] = None,
         status: AssetStatus = AssetStatus.DRAFT,
         tasks: List[AgentTask] = [],
+        output_format: OutputFormat = OutputFormat.TEXT,
+        expected_output: Optional[Union[BaseModel, Text, dict]] = None,
         **additional_info,
     ) -> None:
         """Initialize a new Agent instance.
@@ -114,11 +120,9 @@ class Agent(Model, DeployableMixin[Tool]):
                 Defaults to AssetStatus.DRAFT.
             tasks (List[AgentTask], optional): List of tasks the Agent can perform.
                 Defaults to empty list.
+            output_format (OutputFormat, optional): default output format for agent responses. Defaults to OutputFormat.TEXT.
+            expected_output (Union[BaseModel, Text, dict], optional): expected output. Defaults to None.
             **additional_info: Additional configuration parameters.
-
-        Note:
-            The Agent must be validated before use. Invalid configurations will be
-            flagged and may prevent the Agent from running.
         """
         super().__init__(id, name, description, api_key, supplier, version, cost=cost)
         self.instructions = instructions
@@ -135,6 +139,8 @@ class Agent(Model, DeployableMixin[Tool]):
                 status = AssetStatus.DRAFT
         self.status = status
         self.tasks = tasks
+        self.output_format = output_format
+        self.expected_output = expected_output
         self.is_valid = True
 
     def _validate(self) -> None:
@@ -204,6 +210,50 @@ class Agent(Model, DeployableMixin[Tool]):
                 logging.warning(f"Agent Validation Error: {e}")
                 logging.warning("You won't be able to run the Agent until the issues are handled manually.")
         return self.is_valid
+    
+    def generate_session_id(self, history: list = None) -> str:
+        if history:
+            validate_history(history)
+        timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+        session_id = f"{self.id}_{timestamp}"
+
+        if not history:
+            return session_id
+
+        try:
+            validate_history(history)
+            headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}
+
+            payload = {
+                "id": self.id,
+                "query": "/",
+                "sessionId": session_id,
+                "history": history,
+                "executionParams": {
+                    "maxTokens": 2048,
+                    "maxIterations": 10,
+                    "outputFormat": OutputFormat.TEXT.value,
+                    "expectedOutput": None,
+                },
+                "allowHistoryAndSessionId": True 
+            }
+
+            r = _request_with_retry("post", self.url, headers=headers, data=json.dumps(payload))
+            resp = r.json()
+            poll_url = resp.get("data")
+
+            result = self.sync_poll(poll_url, name="model_process", timeout=300, wait_time=0.5)
+
+            if result.get("status") == ResponseStatus.SUCCESS:
+                return session_id
+            else:
+                logging.error(f"Session {session_id} initialization failed: {result}")
+                return session_id
+
+        except Exception as e:
+            logging.error(f"Failed to initialize session {session_id}: {e}")
+            return session_id
+
 
     def run(
         self,
@@ -218,7 +268,7 @@ class Agent(Model, DeployableMixin[Tool]):
         content: Optional[Union[Dict[Text, Text], List[Text]]] = None,
         max_tokens: int = 4096,
         max_iterations: int = 3,
-        output_format: OutputFormat = OutputFormat.TEXT,
+        output_format: Optional[OutputFormat] = None,
         expected_output: Optional[Union[BaseModel, Text, dict]] = None,
     ) -> AgentResponse:
         """Runs an agent call.
@@ -235,12 +285,20 @@ class Agent(Model, DeployableMixin[Tool]):
             content (Union[Dict[Text, Text], List[Text]], optional): Content inputs to be processed according to the query. Defaults to None.
             max_tokens (int, optional): maximum number of tokens which can be generated by the agent. Defaults to 2048.
             max_iterations (int, optional): maximum number of iterations between the agent and the tools. Defaults to 10.
-            output_format (OutputFormat, optional): response format. Defaults to TEXT.
+            output_format (OutputFormat, optional): response format. If not provided, uses the format set during initialization.
             expected_output (Union[BaseModel, Text, dict], optional): expected output. Defaults to None.
         Returns:
             Dict: parsed output from model
         """
         start = time.time()
+        if session_id is not None and history is not None:
+            raise ValueError("Provide either `session_id` or `history`, not both.")
+
+        if session_id is not None:
+            if not session_id.startswith(f"{self.id}_"):
+                raise ValueError(f"Session ID '{session_id}' does not belong to this Agent.")
+        if history:
+            validate_history(history)
         result_data = {}
         try:
             response = self.run_async(
@@ -306,7 +364,7 @@ class Agent(Model, DeployableMixin[Tool]):
         content: Optional[Union[Dict[Text, Text], List[Text]]] = None,
         max_tokens: int = 2048,
         max_iterations: int = 10,
-        output_format: OutputFormat = OutputFormat.TEXT,
+        output_format: Optional[OutputFormat] = None,
         expected_output: Optional[Union[BaseModel, Text, dict]] = None,
     ) -> AgentResponse:
         """Runs asynchronously an agent call.
@@ -321,11 +379,22 @@ class Agent(Model, DeployableMixin[Tool]):
             content (Union[Dict[Text, Text], List[Text]], optional): Content inputs to be processed according to the query. Defaults to None.
             max_tokens (int, optional): maximum number of tokens which can be generated by the agent. Defaults to 2048.
             max_iterations (int, optional): maximum number of iterations between the agent and the tools. Defaults to 10.
-            output_format (OutputFormat, optional): response format. Defaults to TEXT.
+            output_format (OutputFormat, optional): response format. If not provided, uses the format set during initialization.
             expected_output (Union[BaseModel, Text, dict], optional): expected output. Defaults to None.
         Returns:
             dict: polling URL in response
         """
+
+        if session_id is not None and history is not None:
+            raise ValueError("Provide either `session_id` or `history`, not both.")
+
+        if session_id is not None:
+            if not session_id.startswith(f"{self.id}_"):
+                raise ValueError(f"Session ID '{session_id}' does not belong to this Agent.")
+            
+        if history:
+            validate_history(history)
+
         from aixplain.factories.file_factory import FileFactory
 
         if not self.is_valid:
@@ -369,9 +438,14 @@ class Agent(Model, DeployableMixin[Tool]):
 
         # build query
         input_data = process_variables(query, data, parameters, self.instructions)
-
+        if expected_output is None:
+            expected_output = self.expected_output
         if expected_output is not None and issubclass(expected_output, BaseModel):
             expected_output = expected_output.model_json_schema()
+        # Use instance output_format if none provided
+        if output_format is None:
+            output_format = self.output_format
+
         if isinstance(output_format, OutputFormat):
             output_format = output_format.value
 
@@ -387,7 +461,6 @@ class Agent(Model, DeployableMixin[Tool]):
                 "expectedOutput": expected_output,
             },
         }
-
         payload.update(parameters)
         payload = json.dumps(payload)
 
@@ -418,7 +491,7 @@ class Agent(Model, DeployableMixin[Tool]):
             "name": self.name,
             "assets": [build_tool_payload(tool) for tool in self.tools],
             "description": self.description,
-            "role": self.instructions or self.description,
+            "instructions": self.instructions or self.description,
             "supplier": (self.supplier.value["code"] if isinstance(self.supplier, Supplier) else self.supplier),
             "version": self.version,
             "llmId": self.llm_id if self.llm is None else self.llm.id,
@@ -435,6 +508,8 @@ class Agent(Model, DeployableMixin[Tool]):
             else [],
             "cost": self.cost,
             "api_key": self.api_key,
+            "outputFormat": self.output_format.value,
+            "expectedOutput": self.expected_output,
         }
 
     @classmethod
@@ -509,6 +584,8 @@ class Agent(Model, DeployableMixin[Tool]):
             cost=data.get("cost"),
             status=status,
             tasks=tasks,
+            output_format=OutputFormat(data.get("outputFormat", OutputFormat.TEXT)),
+            expected_output=data.get("expectedOutput"),
         )
 
     def delete(self) -> None:
