@@ -25,6 +25,16 @@ from enum import Enum
 
 
 class SortBy(Enum):
+    """Enumeration of possible sorting criteria.
+
+    This enum defines the different criteria that can be used to sort assets,
+    including creation date, price, and popularity.
+
+    Attributes:
+        CREATION_DATE (str): Sort by creation date.
+        PRICE (str): Sort by normalized price.
+        POPULARITY (str): Sort by total number of subscriptions.
+    """
     CREATION_DATE = "createdAt"
     PRICE = "normalizedPrice"
     POPULARITY = "totalSubscribed"

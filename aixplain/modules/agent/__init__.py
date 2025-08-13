@@ -46,19 +46,30 @@ from aixplain.modules.mixins import DeployableMixin
 
 
 class Agent(Model, DeployableMixin[Tool]):
-    """Advanced AI system capable of performing tasks by leveraging specialized software tools and resources from aiXplain marketplace.
+    """An advanced AI system that performs tasks using specialized tools from the aiXplain marketplace.
+
+    This class represents an AI agent that can understand natural language instructions,
+    use various tools and models, and execute complex tasks. It combines a large language
+    model (LLM) with specialized tools to provide comprehensive task-solving capabilities.
 
     Attributes:
-        id (Text): ID of the Agent
-        name (Text): Name of the Agent
-        tools (List[Union[Tool, Model]]): List of tools that the Agent uses.
-        description (Text, optional): description of the Agent. Defaults to "".
-        instructions (Text): instructions of the Agent.
-        llm_id (Text): large language model. Defaults to GPT-4o (6646261c6eb563165658bbb1).
-        supplier (Text): Supplier of the Agent.
-        version (Text): Version of the Agent.
-        backend_url (str): URL of the backend.
-        api_key (str): The TEAM API key used for authentication.
+        id (Text): ID of the Agent.
+        name (Text): Name of the Agent.
+        tools (List[Union[Tool, Model]]): Collection of tools and models the Agent can use.
+        description (Text, optional): Detailed description of the Agent's capabilities.
+            Defaults to "".
+        instructions (Text): System instructions/prompt defining the Agent's behavior.
+        llm_id (Text): ID of the large language model. Defaults to GPT-4o
+            (6646261c6eb563165658bbb1).
+        llm (Optional[LLM]): The LLM instance used by the Agent.
+        supplier (Text): The provider/creator of the Agent.
+        version (Text): Version identifier of the Agent.
+        status (AssetStatus): Current status of the Agent (DRAFT or ONBOARDED).
+        tasks (List[AgentTask]): List of tasks the Agent can perform.
+        backend_url (str): URL endpoint for the backend API.
+        api_key (str): Authentication key for API access.
+        cost (Dict, optional): Pricing information for using the Agent. Defaults to None.
+        is_valid (bool): Whether the Agent's configuration is valid.
         cost (Dict, optional): model price. Defaults to None.
         output_format (OutputFormat): default output format for agent responses.
         expected_output (Union[BaseModel, Text, dict], optional): expected output. Defaults to None.
@@ -85,23 +96,33 @@ class Agent(Model, DeployableMixin[Tool]):
         expected_output: Optional[Union[BaseModel, Text, dict]] = None,
         **additional_info,
     ) -> None:
-        """Create an Agent with the necessary information.
+        """Initialize a new Agent instance.
 
         Args:
-            id (Text): ID of the Agent
-            name (Text): Name of the Agent
-            description (Text): description of the Agent.
-            instructions (Text): role of the Agent.
-            tools (List[Union[Tool, Model]]): List of tools that the Agent uses.
-            llm_id (Text, optional): large language model ID. Defaults to GPT-4o (6646261c6eb563165658bbb1).
-            llm (LLM, optional): large language model object. Defaults to None.
-            supplier (Text): Supplier of the Agent.
-            version (Text): Version of the Agent.
-            backend_url (str): URL of the backend.
-            api_key (str): The TEAM API key used for authentication.
-            cost (Dict, optional): model price. Defaults to None.
+            id (Text): ID of the Agent.
+            name (Text): Name of the Agent.
+            description (Text): Detailed description of the Agent's capabilities.
+            instructions (Optional[Text], optional): System instructions/prompt defining
+                the Agent's behavior. Defaults to None.
+            tools (List[Union[Tool, Model]], optional): Collection of tools and models
+                the Agent can use. Defaults to empty list.
+            llm_id (Text, optional): ID of the large language model. Defaults to GPT-4o
+                (6646261c6eb563165658bbb1).
+            llm (Optional[LLM], optional): The LLM instance to use. If provided, takes
+                precedence over llm_id. Defaults to None.
+            api_key (Optional[Text], optional): Authentication key for API access.
+                Defaults to config.TEAM_API_KEY.
+            supplier (Union[Dict, Text, Supplier, int], optional): The provider/creator
+                of the Agent. Defaults to "aiXplain".
+            version (Optional[Text], optional): Version identifier. Defaults to None.
+            cost (Optional[Dict], optional): Pricing information. Defaults to None.
+            status (AssetStatus, optional): Current status of the Agent.
+                Defaults to AssetStatus.DRAFT.
+            tasks (List[AgentTask], optional): List of tasks the Agent can perform.
+                Defaults to empty list.
             output_format (OutputFormat, optional): default output format for agent responses. Defaults to OutputFormat.TEXT.
             expected_output (Union[BaseModel, Text, dict], optional): expected output. Defaults to None.
+            **additional_info: Additional configuration parameters.
         """
         super().__init__(id, name, description, api_key, supplier, version, cost=cost)
         self.instructions = instructions
@@ -123,7 +144,17 @@ class Agent(Model, DeployableMixin[Tool]):
         self.is_valid = True
 
     def _validate(self) -> None:
-        """Validate the Agent."""
+        """Perform internal validation of the Agent's configuration.
+
+        This method checks:
+        1. Name contains only valid characters
+        2. LLM is a text generation model
+        3. Tool names are unique
+        4. No nested Agents are used
+
+        Raises:
+            AssertionError: If any validation check fails.
+        """
         from aixplain.utils.llm_utils import get_llm_instance
 
         # validate name
@@ -153,7 +184,21 @@ class Agent(Model, DeployableMixin[Tool]):
             )
 
     def validate(self, raise_exception: bool = False) -> bool:
-        """Validate the Agent."""
+        """Validate the Agent's configuration and mark its validity status.
+
+        This method runs all validation checks and updates the is_valid flag.
+        If validation fails, it can either raise an exception or log warnings.
+
+        Args:
+            raise_exception (bool, optional): Whether to raise exceptions on validation
+                failures. If False, failures are logged as warnings. Defaults to False.
+
+        Returns:
+            bool: True if validation passed, False otherwise.
+
+        Raises:
+            Exception: If validation fails and raise_exception is True.
+        """
         try:
             self._validate()
             self.is_valid = True
@@ -544,7 +589,18 @@ class Agent(Model, DeployableMixin[Tool]):
         )
 
     def delete(self) -> None:
-        """Delete Agent service"""
+        """Delete this Agent from the aiXplain platform.
+
+        This method attempts to delete the Agent. The operation will fail if the
+        Agent is being used by any team agents.
+
+        Raises:
+            Exception: If deletion fails, with detailed error messages for different
+                failure scenarios:
+                - Agent is in use by accessible team agents (lists team agent IDs)
+                - Agent is in use by inaccessible team agents
+                - Other deletion errors (with HTTP status code)
+        """
         try:
             url = urljoin(config.BACKEND_URL, f"sdk/agents/{self.id}")
             headers = {
@@ -596,7 +652,19 @@ class Agent(Model, DeployableMixin[Tool]):
             raise Exception(message)
 
     def update(self) -> None:
-        """Update agent."""
+        """Update the Agent's configuration on the aiXplain platform.
+
+        This method validates and updates the Agent's configuration. It is deprecated
+        in favor of the save() method.
+
+        Raises:
+            Exception: If validation fails or if there are errors during the update.
+            DeprecationWarning: This method is deprecated, use save() instead.
+
+        Note:
+            This method is deprecated and will be removed in a future version.
+            Please use save() instead.
+        """
         import warnings
         import inspect
 
@@ -631,8 +699,20 @@ class Agent(Model, DeployableMixin[Tool]):
             raise Exception(error_msg)
 
     def save(self) -> None:
-        """Save the Agent."""
+        """Save the Agent's current configuration to the aiXplain platform.
+
+        This method validates and saves any changes made to the Agent's configuration.
+        It is the preferred method for updating an Agent's settings.
+
+        Raises:
+            Exception: If validation fails or if there are errors during the save operation.
+        """
         self.update()
 
-    def __repr__(self):
+    def __repr__(self) -> str:
+        """Return a string representation of the Agent.
+
+        Returns:
+            str: A string in the format "Agent: <name> (id=<id>)".
+        """
         return f"Agent: {self.name} (id={self.id})"

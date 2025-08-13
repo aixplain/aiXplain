@@ -50,11 +50,26 @@ from pydantic import BaseModel
 
 
 class InspectorTarget(str, Enum):
+    """Target stages for inspector validation in the team agent pipeline.
+
+    This enumeration defines the stages where inspectors can be applied to
+    validate and ensure quality of the team agent's operation.
+
+    Attributes:
+        INPUT: Validates the input data before processing.
+        STEPS: Validates intermediate steps during processing.
+        OUTPUT: Validates the final output before returning.
+    """
     INPUT = "input"
     STEPS = "steps"
     OUTPUT = "output"
 
     def __str__(self):
+        """Return the string value of the enum member.
+
+        Returns:
+            str: The string value associated with the enum member.
+        """
         return self._value_
 
 
@@ -402,7 +417,24 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             raise Exception(f"{message}")
 
     def _serialize_agent(self, agent, idx: int) -> Dict:
-        """Serialize an agent for the to_dict method."""
+        """Serialize an agent for the to_dict method.
+
+        This internal method converts an agent object into a dictionary format
+        suitable for serialization, including its base properties and any
+        additional data from the agent's own to_dict method.
+
+        Args:
+            agent: The agent object to serialize.
+            idx (int): The index position of the agent in the team.
+
+        Returns:
+            Dict: A dictionary containing the serialized agent data with:
+                - assetId: The agent's ID
+                - number: The agent's index position
+                - type: Always "AGENT"
+                - label: Always "AGENT"
+                - Additional fields from agent.to_dict() if available
+        """
         base_dict = {"assetId": agent.id, "number": idx, "type": "AGENT", "label": "AGENT"}
 
         # Try to get additional data from agent's to_dict method
@@ -425,6 +457,29 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         return base_dict
 
     def to_dict(self) -> Dict:
+        """Convert the TeamAgent instance to a dictionary representation.
+
+        This method serializes the TeamAgent and all its components (agents,
+        inspectors, LLMs, etc.) into a dictionary format suitable for storage
+        or transmission.
+
+        Returns:
+            Dict: A dictionary containing:
+                - id (str): The team agent's ID
+                - name (str): The team agent's name
+                - agents (List[Dict]): Serialized list of agents
+                - links (List): Empty list (reserved for future use)
+                - description (str): The team agent's description
+                - llmId (str): ID of the main language model
+                - supervisorId (str): ID of the supervisor language model
+                - plannerId (str): ID of the planner model (if use_mentalist)
+                - inspectors (List[Dict]): Serialized list of inspectors
+                - inspectorTargets (List[str]): List of inspector target stages
+                - supplier (str): The supplier code
+                - version (str): The version number
+                - status (str): The current status
+                - role (str): The team agent's instructions
+        """
         if self.use_mentalist:
             planner_id = self.mentalist_llm.id if self.mentalist_llm else self.llm_id
         else:
@@ -571,6 +626,28 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             agent.validate(raise_exception=True)
 
     def validate(self, raise_exception: bool = False) -> bool:
+        """Validate the TeamAgent configuration.
+
+        This method checks the validity of the TeamAgent's configuration,
+        including name format, LLM compatibility, and agent validity.
+
+        Args:
+            raise_exception (bool, optional): If True, raises exceptions for
+                validation failures. If False, logs warnings. Defaults to False.
+
+        Returns:
+            bool: True if validation succeeds, False otherwise.
+
+        Raises:
+            Exception: If raise_exception is True and validation fails, with
+                details about the specific validation error.
+
+        Note:
+            - The team agent cannot be run until all validation issues are fixed
+            - Name must contain only alphanumeric chars, spaces, hyphens, brackets
+            - LLM must be a text generation model
+            - All agents must pass their own validation
+        """
         try:
             self._validate()
             self.is_valid = True
@@ -585,7 +662,24 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         return self.is_valid
 
     def update(self) -> None:
-        """Update the Team Agent."""
+        """Update the TeamAgent in the backend.
+
+        This method validates and updates the TeamAgent's configuration in the
+        backend system. It is deprecated in favor of the save() method.
+
+        Raises:
+            Exception: If validation fails or if the update request fails.
+                Specific error messages will indicate:
+                - Validation failures with details
+                - HTTP errors with status codes
+                - General update errors requiring admin attention
+
+        Note:
+            - This method is deprecated, use save() instead
+            - Performs validation before attempting update
+            - Requires valid team API key for authentication
+            - Returns a new TeamAgent instance if successful
+        """
         import warnings
         import inspect
 
@@ -624,4 +718,9 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         self.update()
 
     def __repr__(self):
+        """Return a string representation of the TeamAgent.
+
+        Returns:
+            str: A string in the format "TeamAgent: <name> (id=<id>)".
+        """
         return f"TeamAgent: {self.name} (id={self.id})"

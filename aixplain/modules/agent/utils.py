@@ -5,6 +5,24 @@ import re
 def process_variables(
     query: Union[Text, Dict], data: Union[Dict, Text], parameters: Dict, agent_description: Union[Text, None]
 ) -> Text:
+    """Process variables in an agent's description and input data.
+
+    This function validates and processes variables in an agent's description and
+    input data, ensuring that all required variables are present and properly
+    formatted.
+
+    Args:
+        query (Union[Text, Dict]): The input data provided to the agent.
+        data (Union[Dict, Text]): The data to be processed.
+        parameters (Dict): The parameters available to the agent.
+        agent_description (Union[Text, None]): The description of the agent.
+
+    Returns:
+        Text: The processed input data with all required variables included.
+
+    Raises:
+        AssertionError: If a required variable is not found in the data or parameters.
+    """
     from aixplain.factories.file_factory import FileFactory
 
     if isinstance(query, dict):

@@ -38,6 +38,19 @@ from typing import List, Optional, Dict, Any
 
 @dataclass
 class FunctionMetadata:
+    """Metadata container for function information.
+
+    This class holds metadata about a function including its identifier, name,
+    description, parameters, outputs, and additional metadata.
+
+    Attributes:
+        id (str): ID of the function.
+        name (str): Name of the function.
+        description (Optional[str]): Description of what the function does.
+        params (List[Dict[str, Any]]): List of parameter specifications.
+        output (List[Dict[str, Any]]): List of output specifications.
+        metadata (Dict[str, Any]): Additional metadata about the function.
+    """
     id: str
     name: str
     description: Optional[str] = None
@@ -46,6 +59,11 @@ class FunctionMetadata:
     metadata: Dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict:
+        """Convert the function metadata to a dictionary.
+
+        Returns:
+            dict: Dictionary representation of the function metadata.
+        """
         return {
             "id": self.id,
             "name": self.name,
@@ -56,7 +74,15 @@ class FunctionMetadata:
         }
 
     @classmethod
-    def from_dict(cls, data: dict):
+    def from_dict(cls, data: dict) -> "FunctionMetadata":
+        """Create a FunctionMetadata instance from a dictionary.
+
+        Args:
+            data (dict): Dictionary containing function metadata.
+
+        Returns:
+            FunctionMetadata: New instance created from the dictionary data.
+        """
         return cls(
             id=data.get("id"),
             name=data.get("name"),
@@ -67,7 +93,21 @@ class FunctionMetadata:
         )
 
 
-def load_functions():
+def load_functions() -> Tuple[Enum, Dict]:
+    """Load function definitions from the backend or cache.
+
+    This function attempts to load function definitions from the cache first.
+    If the cache is invalid or doesn't exist, it fetches the data from the
+    backend API.
+
+    Returns:
+        Tuple[Function, Dict]: A tuple containing:
+            - Function: Dynamically created Function enum class
+            - Dict: Dictionary mapping function IDs to their input/output specifications
+
+    Raises:
+        Exception: If functions cannot be loaded due to invalid API key or other errors.
+    """
     api_key = config.TEAM_API_KEY
     backend_url = config.BACKEND_URL
 
@@ -93,6 +133,24 @@ def load_functions():
         cache.add_list(function_objects)
 
     class Function(str, Enum):
+        """Dynamic Function Enum class that represents available aiXplain functions.
+
+        This class is dynamically created based on the available function definitions
+        from the aiXplain backend. Each enum value represents a function and provides
+        methods to access its parameters and specifications.
+
+        The class inherits from both str and Enum to allow string operations while
+        maintaining enum functionality.
+
+        Attributes:
+            _value_ (str): The underlying string value (function ID).
+            _parameters (Optional[FunctionParameters]): Cached parameters object for the function.
+
+        Methods:
+            get_input_output_params(): Get dictionaries of input and output parameter specifications.
+            get_parameters(): Get or create a FunctionParameters object for parameter management.
+        """
+
         def __new__(cls, value):
             obj = str.__new__(cls, value)
             obj._value_ = value

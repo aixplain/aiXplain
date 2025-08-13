@@ -29,15 +29,25 @@ from urllib.parse import urljoin, urlparse
 from pandas import DataFrame
 
 
-def save_file(download_url: Text, download_file_path: Optional[Any] = None) -> Any:
-    """Download and save file from given URL
+def save_file(download_url: Text, download_file_path: Optional[Union[str, Path]] = None) -> Union[str, Path]:
+    """Download and save a file from a given URL.
+
+    This function downloads a file from the specified URL and saves it either
+    to a specified path or to a generated path in the 'aiXplain' directory.
 
     Args:
-        download_url (Text): URL of file to download
-        download_file_path (Any, optional): File path to save downloaded file. If None then generates a folder 'aiXplain' in current working directory. Defaults to None.
+        download_url (Text): URL of the file to download.
+        download_file_path (Optional[Union[str, Path]], optional): Path where the
+            downloaded file should be saved. If None, generates a folder 'aiXplain'
+            in the current working directory and saves the file there with a UUID
+            name. Defaults to None.
 
     Returns:
-        Text: Path where file was downloaded
+        Union[str, Path]: Path where the file was downloaded.
+
+    Note:
+        If download_file_path is None, the file will be saved with a UUID name
+        and the original file extension in the 'aiXplain' directory.
     """
     if download_file_path is None:
         save_dir = os.getcwd()
@@ -51,7 +61,26 @@ def save_file(download_url: Text, download_file_path: Optional[Any] = None) -> A
     return download_file_path
 
 
-def download_data(url_link, local_filename=None):
+def download_data(url_link: str, local_filename: Optional[str] = None) -> str:
+    """Download a file from a URL with streaming support.
+
+    This function downloads a file from the specified URL using streaming to
+    handle large files efficiently. The file is downloaded in chunks to
+    minimize memory usage.
+
+    Args:
+        url_link (str): URL of the file to download.
+        local_filename (Optional[str], optional): Local path where the file
+            should be saved. If None, uses the last part of the URL as the
+            filename. Defaults to None.
+
+    Returns:
+        str: Path to the downloaded file.
+
+    Raises:
+        requests.exceptions.RequestException: If the download fails or the
+            server returns an error status.
+    """
     if local_filename is None:
         local_filename = url_link.split("/")[-1]
     with requests.get(url_link, stream=True) as r:
@@ -74,24 +103,42 @@ def upload_data(
     content_encoding: Optional[Text] = None,
     nattempts: int = 2,
     return_download_link: bool = False,
-):
-    """Upload files to S3 with pre-signed URLs
+) -> str:
+    """Upload a file to S3 using pre-signed URLs with retry support.
+
+    This function handles file uploads to S3 by first obtaining a pre-signed URL
+    from the aiXplain backend and then using it to upload the file. It supports
+    both temporary and permanent storage with optional metadata like tags and
+    license information.
 
     Args:
-        file_name (Union[Text, Path]): local path of file to be uploaded
-        tags (List[Text], optional): tags of the file
-        license (License, optional): the license for the file
-        is_temp (bool): specify if the file that will be upload is a temporary file
-        content_type (Text, optional): Type of content. Defaults to "text/csv".
-        content_encoding (Text, optional): Content encoding. Defaults to None.
-        nattempts (int, optional): Number of attempts for diminish the risk of exceptions. Defaults to 2.
-        return_download_link (bool, optional): If True, the function will return the download link instead of the presigned url. Defaults to False.
-
-    Reference:
-        https://python.plainenglish.io/upload-files-to-aws-s3-using-pre-signed-urls-in-python-d3c2fcab1b41
+        file_name (Union[Text, Path]): Local path of the file to upload.
+        tags (Optional[List[Text]], optional): List of tags to associate with
+            the file. Only used when is_temp is False. Defaults to None.
+        license (Optional[License], optional): License to associate with the file.
+            Only used when is_temp is False. Defaults to None.
+        is_temp (bool, optional): Whether to upload as a temporary file.
+            Temporary files have different handling and URL generation.
+            Defaults to True.
+        content_type (Text, optional): MIME type of the content being uploaded.
+            Defaults to "text/csv".
+        content_encoding (Optional[Text], optional): Content encoding of the file
+            (e.g., 'gzip'). Defaults to None.
+        nattempts (int, optional): Number of retry attempts for upload failures.
+            Defaults to 2.
+        return_download_link (bool, optional): If True, returns a direct download
+            URL instead of the S3 path. Defaults to False.
 
     Returns:
-        URL: s3 path
+        str: Either an S3 path (s3://bucket/key) or a download URL, depending
+            on return_download_link parameter.
+
+    Raises:
+        Exception: If the upload fails after all retry attempts.
+
+    Note:
+        The function will automatically retry failed uploads up to nattempts
+        times before raising an exception.
     """
     try:
         # Get pre-signed URL
@@ -158,15 +205,41 @@ def upload_data(
 
 
 def s3_to_csv(
-    s3_url: Text, aws_credentials: Optional[Dict[Text, Text]] = {"AWS_ACCESS_KEY_ID": None, "AWS_SECRET_ACCESS_KEY": None}
-) -> Text:
-    """Convert s3 url to a csv file and download the file in `download_path`
+    s3_url: Text,
+    aws_credentials: Optional[Dict[Text, Text]] = {"AWS_ACCESS_KEY_ID": None, "AWS_SECRET_ACCESS_KEY": None}
+) -> str:
+    """Convert S3 directory contents to a CSV file with file listings.
+
+    This function takes an S3 URL and creates a CSV file containing listings
+    of all files in that location. It handles both single files and directories,
+    with special handling for directory structures.
 
     Args:
-        s3_url (Text): s3 url
+        s3_url (Text): S3 URL in the format 's3://bucket-name/path'.
+        aws_credentials (Optional[Dict[Text, Text]], optional): AWS credentials
+            dictionary with 'AWS_ACCESS_KEY_ID' and 'AWS_SECRET_ACCESS_KEY'.
+            If not provided or values are None, uses environment variables.
+            Defaults to {"AWS_ACCESS_KEY_ID": None, "AWS_SECRET_ACCESS_KEY": None}.
 
     Returns:
-        Path: path to csv file
+        str: Path to the generated CSV file. The file contains listings of
+            all files found in the S3 location.
+
+    Raises:
+        Exception: If:
+            - boto3 is not installed
+            - Invalid S3 URL format
+            - AWS credentials are missing
+            - Bucket doesn't exist
+            - No files found
+            - Files are at bucket root
+            - Directory structure is invalid (unequal file counts or mismatched names)
+
+    Note:
+        - The function requires the boto3 package to be installed
+        - The generated CSV will have a UUID as filename
+        - For directory structures, all subdirectories must have the same
+          number of files with matching prefixes
     """
     try:
         import boto3

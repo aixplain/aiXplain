@@ -35,24 +35,30 @@ from aixplain.utils.request_utils import _request_with_retry
 
 
 class Finetune(Asset):
-    """FineTune is a powerful tool for fine-tuning machine learning models and using your own datasets for specific tasks.
+    """A tool for fine-tuning machine learning models using custom datasets.
+
+    This class provides functionality to customize pre-trained models for specific tasks
+    by fine-tuning them on user-provided datasets. It handles the configuration of
+    training parameters, data splitting, and job execution.
 
     Attributes:
-        name (Text): Name of the FineTune.
-        dataset_list (List[Dataset]): List of Datasets to be used for fine-tuning.
-        model (Model): Model to be fine-tuned.
-        cost (Cost): Cost of the FineTune.
-        id (Text): ID of the FineTune.
-        description (Text): Description of the FineTune.
-        supplier (Text): Supplier of the FineTune.
-        version (Text): Version of the FineTune.
-        train_percentage (float): Percentage of training samples.
-        dev_percentage (float): Percentage of development samples.
-        prompt_template (Text): Fine-tuning prompt_template.
-        hyperparameters (Hyperparameters): Hyperparameters for fine-tuning.
-        additional_info (dict): Additional information to be saved with the FineTune.
-        backend_url (str): URL of the backend.
-        api_key (str): The TEAM API key used for authentication.
+        name (Text): Name of the fine-tuning job.
+        dataset_list (List[Dataset]): List of datasets to use for fine-tuning.
+        model (Model): The base model to be fine-tuned.
+        cost (FinetuneCost): Cost information for the fine-tuning job.
+        id (Text): ID of the fine-tuning job.
+        description (Text): Detailed description of the fine-tuning purpose.
+        supplier (Text): Provider/creator of the fine-tuned model.
+        version (Text): Version identifier of the fine-tuning job.
+        train_percentage (float): Percentage of data to use for training.
+        dev_percentage (float): Percentage of data to use for validation.
+        prompt_template (Text): Template for formatting training examples, using
+            <<COLUMN_NAME>> to reference dataset columns.
+        hyperparameters (Hyperparameters): Configuration for the fine-tuning process.
+        additional_info (dict): Extra metadata for the fine-tuning job.
+        backend_url (str): URL endpoint for the backend API.
+        api_key (str): Authentication key for API access.
+        aixplain_key (str): aiXplain-specific API key.
     """
 
     def __init__(
@@ -71,22 +77,29 @@ class Finetune(Asset):
         hyperparameters: Optional[Hyperparameters] = None,
         **additional_info,
     ) -> None:
-        """Create a FineTune with the necessary information.
+        """Initialize a new Finetune instance.
 
         Args:
-            name (Text): Name of the FineTune.
-            dataset_list (List[Dataset]): List of Datasets to be used for fine-tuning.
-            model (Model): Model to be fine-tuned.
-            cost (Cost): Cost of the FineTune.
-            id (Text, optional): ID of the FineTune. Defaults to "".
-            description (Text, optional): Description of the FineTune. Defaults to "".
-            supplier (Text, optional): Supplier of the FineTune. Defaults to "aiXplain".
-            version (Text, optional): Version of the FineTune. Defaults to "1.0".
-            train_percentage (float, optional): Percentage of training samples. Defaults to 100.
-            dev_percentage (float, optional): Percentage of development samples. Defaults to 0.
-            prompt_template (Text, optional): Fine-tuning prompt_template. Should reference columns in the dataset using format <<COLUMN_NAME>>. Defaults to None.
-            hyperparameters (Hyperparameters, optional): Hyperparameters for fine-tuning. Defaults to None.
-            **additional_info: Additional information to be saved with the FineTune.
+            name (Text): Name of the fine-tuning job.
+            dataset_list (List[Dataset]): List of datasets to use for fine-tuning.
+            model (Model): The base model to be fine-tuned.
+            cost (FinetuneCost): Cost information for the fine-tuning job.
+            id (Text, optional): ID of the job. Defaults to "".
+            description (Text, optional): Detailed description of the fine-tuning
+                purpose. Defaults to "".
+            supplier (Text, optional): Provider/creator of the fine-tuned model.
+                Defaults to "aiXplain".
+            version (Text, optional): Version identifier. Defaults to "1.0".
+            train_percentage (float, optional): Percentage of data to use for
+                training. Defaults to 100.
+            dev_percentage (float, optional): Percentage of data to use for
+                validation. Defaults to 0.
+            prompt_template (Text, optional): Template for formatting training
+                examples. Use <<COLUMN_NAME>> to reference dataset columns.
+                Defaults to None.
+            hyperparameters (Hyperparameters, optional): Configuration for the
+                fine-tuning process. Defaults to None.
+            **additional_info: Extra metadata for the fine-tuning job.
         """
         super().__init__(id, name, description, supplier, version)
         self.model = model
@@ -102,10 +115,18 @@ class Finetune(Asset):
         self.aixplain_key = config.AIXPLAIN_API_KEY
 
     def start(self) -> Model:
-        """Start the Finetune job.
+        """Start the fine-tuning job on the backend.
+
+        This method submits the fine-tuning configuration to the backend and initiates
+        the training process. It handles the creation of the training payload,
+        including dataset splits and hyperparameters.
 
         Returns:
-            Model: The model object representing the Finetune job.
+            Model: The model object representing the fine-tuning job. Returns None
+                if the job submission fails.
+
+        Raises:
+            Exception: If there are errors in the API request or response handling.
         """
         payload = {}
         try:

@@ -40,6 +40,14 @@ from aixplain.modules.agent.output_format import OutputFormat
 
 
 class TeamAgentFactory:
+    """Factory class for creating and managing team agents.
+
+    This class provides functionality for creating new team agents, retrieving existing
+    team agents, and managing team agent configurations in the aiXplain platform.
+    Team agents can be composed of multiple individual agents, LLMs, and inspectors
+    working together to accomplish complex tasks.
+    """
+
     @classmethod
     def create(
         cls,
@@ -250,7 +258,26 @@ class TeamAgentFactory:
 
     @classmethod
     def create_from_dict(cls, dict: Dict) -> TeamAgent:
-        """Create a team agent from a dictionary."""
+        """Create a team agent from a dictionary representation.
+
+        This method instantiates a TeamAgent object from a dictionary containing
+        the agent's configuration.
+
+        Args:
+            dict (Dict): Dictionary containing team agent configuration including:
+                - id: Team agent identifier
+                - name: Team agent name
+                - agents: List of agent configurations
+                - llm: Optional LLM configuration
+                - supervisor_llm: Optional supervisor LLM configuration
+                - mentalist_llm: Optional mentalist LLM configuration
+
+        Returns:
+            TeamAgent: Instantiated team agent with validated configuration.
+
+        Raises:
+            Exception: If validation fails or required fields are missing.
+        """
         team_agent = TeamAgent.from_dict(dict)
         team_agent.validate(raise_exception=True)
         team_agent.url = urljoin(config.BACKEND_URL, f"sdk/agent-communities/{team_agent.id}/run")
@@ -258,7 +285,22 @@ class TeamAgentFactory:
 
     @classmethod
     def list(cls) -> Dict:
-        """List all agents available in the platform."""
+        """List all team agents available in the platform.
+
+        This method retrieves all team agents accessible to the current user,
+        using the configured API key.
+
+        Returns:
+            Dict: Response containing:
+                - results (List[TeamAgent]): List of team agent objects
+                - page_total (int): Total items in current page
+                - page_number (int): Current page number (always 0)
+                - total (int): Total number of team agents
+
+        Raises:
+            Exception: If the request fails or returns an error, including cases
+                where authentication fails or the service is unavailable.
+        """
         url = urljoin(config.BACKEND_URL, "sdk/agent-communities")
         headers = {"x-api-key": config.TEAM_API_KEY, "Content-Type": "application/json"}
 
@@ -290,7 +332,26 @@ class TeamAgentFactory:
 
     @classmethod
     def get(cls, agent_id: Text, api_key: Optional[Text] = None) -> TeamAgent:
-        """Get agent by id."""
+        """Retrieve a team agent by its ID.
+
+        This method fetches a specific team agent from the platform using its
+        unique identifier.
+
+        Args:
+            agent_id (Text): Unique identifier of the team agent to retrieve.
+            api_key (Optional[Text], optional): API key for authentication.
+                Defaults to None, using the configured TEAM_API_KEY.
+
+        Returns:
+            TeamAgent: Retrieved team agent with its full configuration.
+
+        Raises:
+            Exception: If:
+                - Team agent ID is invalid
+                - Authentication fails
+                - Service is unavailable
+                - Other API errors occur
+        """
         url = urljoin(config.BACKEND_URL, f"sdk/agent-communities/{agent_id}")
         api_key = api_key if api_key is not None else config.TEAM_API_KEY
         headers = {"x-api-key": api_key, "Content-Type": "application/json"}
