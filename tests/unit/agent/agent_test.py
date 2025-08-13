@@ -231,7 +231,7 @@ def test_to_dict():
     assert agent_json["id"] == ""
     assert agent_json["name"] == "Test Agent(-)"
     assert agent_json["description"] == "Test Agent Description"
-    assert agent_json["instructions"] == "Test Agent Instructions"
+    assert agent_json["instructions"] == "Test Agent Role"
     assert agent_json["llmId"] == "6646261c6eb563165658bbb1"
     assert agent_json["assets"][0]["function"] == "text-generation"
     assert agent_json["assets"][0]["type"] == "model"
@@ -264,7 +264,7 @@ def test_update_success(mock_model_factory_get):
             "id": "123",
             "name": "Test Agent(-)",
             "description": "Test Agent Description",
-            "instructions": "Test Agent Instructions",
+            "instructions": "Test Agent Role",
             "teamId": "123",
             "version": "1.0",
             "status": "onboarded",
@@ -336,7 +336,7 @@ def test_save_success(mock_model_factory_get):
             "id": "123",
             "name": "Test Agent(-)",
             "description": "Test Agent Description",
-            "instructions": "Test Agent Instructions",
+            "instructions": "Test Agent Role",
             "teamId": "123",
             "version": "1.0",
             "status": "onboarded",
@@ -1272,7 +1272,7 @@ def test_agent_serialization_completeness():
     required_fields = {
         "llmId",
         "version",
-        "role",
+        "instructions",
         "api_key",
         "supplier",
         "outputFormat",
@@ -1293,7 +1293,7 @@ def test_agent_serialization_completeness():
     assert agent_dict["id"] == "test-agent-123"
     assert agent_dict["name"] == "Test Agent"
     assert agent_dict["description"] == "A test agent for validation"
-    assert agent_dict["role"] == "You are a helpful test agent"
+    assert agent_dict["instructions"] == "You are a helpful test agent"
     assert agent_dict["llmId"] == "6646261c6eb563165658bbb1"
     assert agent_dict["api_key"] == "test-api-key"
     assert agent_dict["supplier"] == "aixplain"
@@ -1339,21 +1339,21 @@ def test_agent_serialization_with_llm():
     assert llm_tool["parameters"] == [{"name": "temperature", "value": 0.7}]
 
 
-def test_agent_serialization_role_fallback():
-    """Test Agent to_dict role field fallback behavior."""
+def test_agent_serialization_instructions_fallback():
+    """Test Agent to_dict instructions field fallback behavior."""
     # Test with instructions provided
     agent_with_instructions = Agent(
         id="test1", name="Test Agent 1", description="Test description", instructions="Custom instructions"
     )
 
     dict1 = agent_with_instructions.to_dict()
-    assert dict1["role"] == "Custom instructions"
+    assert dict1["instructions"] == "Custom instructions"
 
     # Test without instructions (should fall back to description)
     agent_without_instructions = Agent(id="test2", name="Test Agent 2", description="Test description")
 
     dict2 = agent_without_instructions.to_dict()
-    assert dict2["role"] == "Test description"
+    assert dict2["instructions"] == "Test description"
 
 
 @pytest.mark.parametrize(
