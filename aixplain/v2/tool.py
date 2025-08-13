@@ -55,7 +55,6 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
         default=Integration.AuthenticationScheme.NO_AUTH,
         metadata=dj_config(exclude=lambda x: True),
     )
-    parameters: Optional[List[dict]] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         if not self.id:
@@ -84,8 +83,7 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
             self.supplier = self.integration.supplier
             self.function = self.integration.function
             self.function_type = self.integration.function_type
-            self.validate_allowed_actions()
-            self.parameters = self.get_parameters()
+
 
     def validate_allowed_actions(self) -> None:
         if self.allowed_actions:
@@ -103,69 +101,64 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
 
     def get_parameters(self) -> List[dict]:
         """Get parameters for the tool in the format expected by agent saving.
-        
+
         This method includes both static backend values and dynamically set values
         from the ActionInputsProxy instances, ensuring agents get the current
         configured action inputs.
         """
+        self.validate_allowed_actions()
+
         parameters = []
-        
+
         # Get all actions at once to avoid multiple API calls
         actions = self.list_inputs(*self.allowed_actions)
-        
+
         for action in actions:
             # Convert action inputs to the expected parameter format
             action_inputs = {}
-            
+
             # Get the current action proxy to access dynamically set values
             action_proxy = None
-            try:
-                action_proxy = self.actions[action.name or action.slug or ""]
-            except (ValueError, KeyError):
-                # If action proxy not available, fall back to static values
-                pass
-            
+            action_name = action.name or action.slug or ""
+            if action_name:
+                try:
+                    action_proxy = self.actions[action_name]
+                except (ValueError, KeyError):
+                    # If we can't get the action proxy, skip this action
+                    continue
+
             for input_param in action.inputs:
-                input_code = input_param.code
+                input_code = input_param.code or input_param.name.lower().replace(" ", "_")
                 
-                # Try to get the current value from the action proxy first
+                # Get the current value from the action proxy if available
                 current_value = None
                 if action_proxy:
-                    try:
-                        # Use the proxy's get method which handles validation and errors gracefully
-                        current_value = action_proxy.get(input_code)
-                    except (KeyError, AttributeError):
-                        # If proxy access fails, fall back to static values
-                        pass
+                    current_value = action_proxy.get(input_code)
                 
-                # Fall back to static values if no dynamic value is set
-                if current_value is None:
-                    current_value = (
-                        input_param.value[0]
-                        if input_param.value
-                        else (
-                            input_param.defaultValue[0]
-                            if input_param.defaultValue
-                            else None
-                        )
-                    )
-                
+                # Fall back to backend default if no current value
+                if current_value is None and input_param.defaultValue:
+                    current_value = input_param.defaultValue[0] if input_param.defaultValue else None
+
                 action_inputs[input_code] = {
                     "name": input_param.name,
                     "value": current_value,
                     "required": input_param.required,
                     "datatype": input_param.datatype,
+                    "allowMulti": input_param.allowMulti,
+                    "supportsVariables": input_param.supportsVariables,
+                    "fixed": input_param.fixed,
                     "description": input_param.description,
                 }
 
             parameters.append(
                 {
                     "code": action.slug,
-                    "name": action.name,
-                    "description": action.description,
+                    "name": action_name,
+                    "description": action.description or "",
                     "inputs": action_inputs,
                 }
             )
+
         return parameters
 
     def _validate_params(self, **kwargs: Any) -> List[str]:
@@ -173,6 +166,8 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
         errors = super()._validate_params(**kwargs)
         if "action" not in kwargs:
             errors.append("action is required")
+
+        self.validate_allowed_actions()
 
         action = kwargs["action"]
         if action not in self.allowed_actions:
@@ -198,48 +193,37 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
 
     def _merge_with_dynamic_attrs(self, **kwargs) -> dict:
         """Override to handle tool-specific parameter merging.
-        
+
         Tools don't have the standard 'inputs' attribute like models do,
         so we need to handle parameter merging differently.
         """
         # Start with current tool parameters
         merged = {}
-        
+
         # For tools, we need to get the current action input values from the actions
         if hasattr(self, 'actions') and self.allowed_actions:
             # Get the first allowed action (or use the one specified in kwargs)
             action_name = kwargs.get('action', self.allowed_actions[0])
-            
+
             try:
                 # Get the action proxy to access current input values
                 action_proxy = self.actions[action_name]
                 
-                # Extract all current input values from the action proxy
-                data_params = {}
+                # Extract all current input values
                 for input_code in action_proxy.keys():
-                    try:
-                        value = action_proxy[input_code]
-                        if value is not None:  # Only include non-None values
-                            data_params[input_code] = value
-                    except (KeyError, AttributeError):
-                        # Skip inputs that can't be accessed
-                        continue
-                
-                # Structure the parameters correctly for tools:
-                # - 'action' field contains the action name
-                # - 'data' field contains the action input parameters
-                merged['action'] = action_name
-                if data_params:
-                    merged['data'] = data_params
+                    value = action_proxy.get(input_code)
+                    if value is not None:
+                        merged[input_code] = value
                         
-            except (ValueError, KeyError):
-                # If we can't get the action proxy, continue without action inputs
+            except (ValueError, KeyError) as e:
+                # If we can't get the action proxy, just continue with empty merged
                 pass
-        
-        # Override with explicitly provided parameters
+
+        # Add any additional kwargs
         merged.update(kwargs)
-        
-        # Filter out None values - they represent unset parameters that shouldn't be sent to the API
-        filtered_merged = {k: v for k, v in merged.items() if v is not None}
-        
-        return filtered_merged
+
+        # Ensure the action parameter is preserved
+        if 'action' in kwargs:
+            merged['action'] = kwargs['action']
+
+        return merged

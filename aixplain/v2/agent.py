@@ -227,6 +227,10 @@ class Agent(
         payload = self.to_dict()
         payload["assets"] = payload.pop("tools")
         payload["tools"] = [{"type": "llm", "description": "main", "parameters": []}]
+
+        for i, tool in enumerate(self.tools):
+            payload['assets'][i]['parameters'] = tool.get_parameters()
+
         return payload
 
     def build_run_payload(self, **kwargs: Unpack[AgentRunParams]) -> dict:
