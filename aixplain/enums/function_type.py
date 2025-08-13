@@ -42,6 +42,7 @@ class FunctionType(Enum):
         CONNECTION (str): Connection function type.
         MCP_CONNECTION (str): MCP connection function type.
         MCPSERVER (str): MCP server function type.
+        MCPSERVERSAS (str): MCP server sas function type
     """
     AI = "ai"
     SEGMENTOR = "segmentor"
