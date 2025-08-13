@@ -24,9 +24,10 @@ from enum import Enum
 from typing import Dict, Optional, Text, Union, Callable
 
 import textwrap
-from pydantic import field_validator
+from pydantic import BaseModel, field_validator
 
 from aixplain.modules.agent.model_with_params import ModelWithParams
+from aixplain.modules.model.response import ModelResponse
 
 
 AUTO_DEFAULT_MODEL_ID = "67fd9e2bef0365783d06e2f0"  # GPT-4.1 Nano
@@ -40,6 +41,16 @@ class InspectorAction(str, Enum):
     CONTINUE = "continue"
     RERUN = "rerun"
     ABORT = "abort"
+
+
+class InspectorOutput(BaseModel):
+    """
+    Inspector's output.
+    """
+
+    critiques: Text
+    content_edited: Text
+    action: InspectorAction
 
 
 class InspectorAuto(str, Enum):
@@ -69,13 +80,13 @@ def validate_policy_callable(policy_func: Callable) -> bool:
     sig = inspect.signature(policy_func)
     params = list(sig.parameters.keys())
 
-    # Check arguments
+    # Check arguments - should have exactly 2 parameters: model_response and input_content
     if len(params) != 2 or params[0] != "model_response" or params[1] != "input_content":
         return False
 
-    # Check return type annotation
+    # Check return type annotation - should return InspectorOutput
     return_annotation = sig.return_annotation
-    if return_annotation != InspectorAction:
+    if return_annotation != InspectorOutput:
         return False
 
     return True
@@ -105,6 +116,8 @@ def code_string_to_callable(code_string: str) -> Callable:
         # Create a namespace to execute the code
         namespace = {
             "InspectorAction": InspectorAction,
+            "InspectorOutput": InspectorOutput,
+            "ModelResponse": ModelResponse,
             "str": str,
             "int": int,
             "float": float,
