@@ -95,10 +95,11 @@ class ActionInputsProxy:
         self._set_input_value(key, value)
 
     def __contains__(self, key: str) -> bool:
+        """Check if input parameter exists: 'channels' in inputs"""
         try:
-            self._get_input_info(key)
-            return True
-        except KeyError:
+            self._ensure_inputs_fetched()
+            return key in self._inputs
+        except (ValueError, KeyError):
             return False
 
     def __len__(self) -> int:
@@ -152,13 +153,9 @@ class ActionInputsProxy:
         self._ensure_inputs_fetched()
         return [(name, info["value"]) for name, info in self._inputs.items()]
 
-    def get_input_codes(self) -> list:
-        """Get a list of all available input parameter codes."""
-        return self.keys()
-
-    def get_all_inputs(self) -> dict:
-        """Get all current input values."""
-        return dict(self.items())
+    # Remove redundant wrapper methods - these just duplicate existing functionality
+    # def get_input_codes(self) -> list:  # Just calls self.keys()
+    # def get_all_inputs(self) -> dict:  # Just calls dict(self.items())
 
     def reset_input(self, input_code: str):
         """Reset an input parameter to its backend default value."""
@@ -173,7 +170,7 @@ class ActionInputsProxy:
 
     def __repr__(self):
         self._ensure_inputs_fetched()
-        return f"ActionInputsProxy(action='{self._action_name}', inputs={self.get_all_inputs()})"
+        return f"ActionInputsProxy(action='{self._action_name}', inputs={dict(self.items())})"
 
 
 @dataclass_json
@@ -368,7 +365,7 @@ class ActionMixin:
             except KeyError as e:
                 raise KeyError(
                     f"Input parameter {e} not found for action '{action_name}'. "
-                    f"Available inputs: {action_proxy.get_input_codes()}"
+                    f"Available inputs: {list(action_proxy.keys())}"
                 )
             except Exception as e:
                 raise ValueError(
@@ -385,42 +382,46 @@ class ActionsProxy:
     def __init__(self, container):
         self._container = container
         self._actions_cache = {}
+        self._available_actions_cache = None
+        self._actions_cache_timestamp = None
+
+    def _get_available_actions(self):
+        """Get available actions with caching to avoid redundant API calls."""
+        if self._available_actions_cache is None:
+            self._available_actions_cache = self._container.list_actions()
+        return self._available_actions_cache
+
+    def _resolve_action_name(self, action_name: str) -> str:
+        """Resolve the actual backend action name from user input."""
+        normalized_name = action_name.lower()
+        available_actions = self._get_available_actions()
+        
+        # Look for exact match first
+        for action in available_actions:
+            if action.name and action.name.lower() == normalized_name:
+                return action.name
+            if action.slug and action.slug.lower() == normalized_name:
+                return action.slug
+        
+        # If no match found, use the original name as fallback
+        return action_name
 
     def __getitem__(self, action_name: str):
         """Get an action with its inputs proxy: actions['SLACK_SEND_MESSAGE'] or actions['slack_send_message']
         
         Converts action name to lowercase for consistent lookup.
         """
-        # Convert action name to lowercase for consistent lookup
         normalized_name = action_name.lower()
         
         if normalized_name not in self._actions_cache:
-            # Create an action object and get its inputs proxy
-            # For backend calls, we need to determine the actual action name
-            # Let's try to find it from available actions first
-            available_actions = self._container.list_actions()
-            actual_action_name = None
+            # Resolve the actual backend action name
+            actual_action_name = self._resolve_action_name(action_name)
             
-            # Look for exact match first
-            for action in available_actions:
-                if action.name and action.name.lower() == normalized_name:
-                    actual_action_name = action.name
-                    break
-            
-            # If no exact match, try to find by slug
-            if not actual_action_name:
-                for action in available_actions:
-                    if action.slug and action.slug.lower() == normalized_name:
-                        actual_action_name = action.slug
-                        break
-            
-            # If still no match, use the original name as fallback
-            if not actual_action_name:
-                actual_action_name = action_name
-            
+            # Create action object and get its inputs proxy
             action = Action(name=actual_action_name)
             proxy = action.get_inputs_proxy(self._container)
-            # Store the proxy in cache - errors will be raised when inputs are first accessed
+            
+            # Store the proxy in cache
             self._actions_cache[normalized_name] = proxy
 
         return self._actions_cache[normalized_name]
@@ -450,12 +451,13 @@ class ActionsProxy:
 
     def get_available_actions(self) -> List[str]:
         """Get a list of available action names."""
-        actions = self._container.list_actions()
-        return [action.name for action in actions if action.name]
+        available_actions = self._get_available_actions()
+        return [action.name for action in available_actions if action.name]
 
     def refresh_cache(self):
         """Clear the actions cache to force re-fetching."""
         self._actions_cache.clear()
+        self._available_actions_cache = None
 
 
 class Integration(Model, ActionMixin):
