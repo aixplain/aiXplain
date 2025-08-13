@@ -177,6 +177,112 @@ def test_inspector_model_validate_with_callable():
     assert inspector.policy("test", "input") == InspectorAction.ABORT
 
 
+def test_code_string_to_callable_preserves_source_code():
+    """Test that code_string_to_callable preserves the original source code as _source_code attribute"""
+    code_string = """def process_response(model_response: str, input_content: str) -> InspectorAction:
+    if "error" in model_response.lower():
+        return InspectorAction.ABORT
+    elif "warning" in model_response.lower():
+        return InspectorAction.RERUN
+    return InspectorAction.CONTINUE"""
+
+    func = code_string_to_callable(code_string)
+
+    # Verify the function has the _source_code attribute
+    assert hasattr(func, "_source_code")
+    assert func._source_code == code_string
+
+    # Verify the function works correctly
+    assert func("This is an error message", "input") == InspectorAction.ABORT
+    assert func("This is a warning message", "input") == InspectorAction.RERUN
+    assert func("This is a normal message", "input") == InspectorAction.CONTINUE
+
+
+def test_get_policy_source_with_original_function():
+    """Test get_policy_source with an original function (should use inspect.getsource)"""
+    from aixplain.modules.team_agent.inspector import get_policy_source
+
+    def process_response(model_response: str, input_content: str) -> InspectorAction:
+        if "error" in model_response.lower():
+            return InspectorAction.ABORT
+        return InspectorAction.CONTINUE
+
+    source = get_policy_source(process_response)
+    assert source is not None
+    assert "def process_response" in source
+    assert "InspectorAction.ABORT" in source
+
+
+def test_get_policy_source_with_deserialized_function():
+    """Test get_policy_source with a deserialized function (should use _source_code attribute)"""
+    from aixplain.modules.team_agent.inspector import get_policy_source
+
+    code_string = """def process_response(model_response: str, input_content: str) -> InspectorAction:
+    if "error" in model_response.lower():
+        return InspectorAction.ABORT
+    return InspectorAction.CONTINUE"""
+
+    func = code_string_to_callable(code_string)
+
+    # Verify get_policy_source works with the deserialized function
+    source = get_policy_source(func)
+    assert source is not None
+    assert source == code_string
+
+
+def test_get_policy_source_fallback():
+    """Test get_policy_source fallback when neither approach works"""
+    from aixplain.modules.team_agent.inspector import get_policy_source
+
+    # Create a function without source code info by using exec()
+    # This simulates a function created dynamically where inspect.getsource() would fail
+    namespace = {}
+    exec("def dynamic_func(x, y): return InspectorAction.CONTINUE", namespace)
+    func = namespace["dynamic_func"]
+
+    # Remove any potential source code attributes
+    if hasattr(func, "_source_code"):
+        delattr(func, "_source_code")
+
+    source = get_policy_source(func)
+    assert source is None
+
+
+def test_inspector_roundtrip_serialization_preserves_source_code():
+    """Test that Inspector round-trip serialization preserves source code"""
+
+    def process_response(model_response: str, input_content: str) -> InspectorAction:
+        if "error" in model_response.lower():
+            return InspectorAction.ABORT
+        elif "warning" in model_response.lower():
+            return InspectorAction.RERUN
+        return InspectorAction.CONTINUE
+
+    # Create inspector with callable policy
+    inspector = Inspector(
+        name="test_inspector",
+        model_id="test_model_id",
+        policy=process_response,
+    )
+
+    # Serialize to dict
+    inspector_dict = inspector.model_dump()
+    assert inspector_dict["policy_type"] == "callable"
+    assert isinstance(inspector_dict["policy"], str)
+
+    # Deserialize from dict
+    inspector_copy = Inspector.model_validate(inspector_dict)
+    assert callable(inspector_copy.policy)
+    assert inspector_copy.policy.__name__ == "process_response"
+
+    # Verify the deserialized function has source code and works correctly
+    assert hasattr(inspector_copy.policy, "_source_code")
+    assert "def process_response" in inspector_copy.policy._source_code
+    assert inspector_copy.policy("This is an error message", "input") == InspectorAction.ABORT
+    assert inspector_copy.policy("This is a warning message", "input") == InspectorAction.RERUN
+    assert inspector_copy.policy("This is a normal message", "input") == InspectorAction.CONTINUE
+
+
 def test_inspector_model_validate_with_enum():
     """Test that Inspector.model_validate properly deserializes enum policies"""
     inspector_data = {

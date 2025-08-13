@@ -587,7 +587,7 @@ def test_team_agent_with_input_adaptive_inspector(run_input_map, delete_agents_a
 
 @pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory, v2.TeamAgent])
 def test_team_agent_with_callable_policy_comprehensive(run_input_map, delete_agents_and_team_agents, TeamAgentFactory):
-    """Comprehensive test of callable policy functionality"""
+    """Comprehensive test of callable policy functionality with team agent integration"""
     assert delete_agents_and_team_agents
 
     agents = create_agents_from_input_map(run_input_map)
@@ -628,27 +628,23 @@ def test_team_agent_with_callable_policy_comprehensive(run_input_map, delete_age
     assert team_agent is not None
     assert team_agent.status == AssetStatus.DRAFT
 
-    # Test 5: Verify serialization works
-    team_agent_dict = team_agent.to_dict()
-    assert "inspectors" in team_agent_dict
-    assert len(team_agent_dict["inspectors"]) == 1
-
-    inspector_data = team_agent_dict["inspectors"][0]
-    assert inspector_data["name"] == "callable_inspector"
-    assert inspector_data["policy_type"] == "callable"
-    assert "def process_response" in inspector_data["policy"]
-
-    # Test 6: Deploy team agent (backend will fall back to ADAPTIVE policy)
+    # Test 5: Deploy team agent (backend properly handles callable policies)
     team_agent.deploy()
     team_agent = TeamAgentFactory.get(team_agent.id)
     assert team_agent is not None
     assert team_agent.status == AssetStatus.ONBOARDED
 
-    # Test 7: Verify backend fallback behavior
+    # Test 6: Verify backend properly handles callable policies
     assert len(team_agent.inspectors) == 1
     backend_inspector = team_agent.inspectors[0]
     assert backend_inspector.name == "callable_inspector"
-    # Backend falls back to ADAPTIVE policy for callable policies
-    assert backend_inspector.policy == InspectorPolicy.ADAPTIVE
+    # Backend should properly handle callable policies, not fall back to ADAPTIVE
+    assert callable(backend_inspector.policy)
+    assert backend_inspector.policy.__name__ == "process_response"
+
+    # Verify the backend-preserved callable policy still works correctly
+    assert backend_inspector.policy("This is an error message", "input") == InspectorAction.ABORT
+    assert backend_inspector.policy("This is a warning message", "input") == InspectorAction.RERUN
+    assert backend_inspector.policy("This is a normal message", "input") == InspectorAction.CONTINUE
 
     team_agent.delete()
