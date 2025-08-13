@@ -85,7 +85,7 @@ def test_to_dict():
                 id="",
                 name="Test Agent(-)",
                 description="Test Agent Description",
-                instructions="Test Agent Role",
+                instructions="Test Agent Instructions",
                 llm_id="6646261c6eb563165658bbb1",
                 tools=[ModelTool(function="text-generation")],
             )
@@ -181,7 +181,7 @@ def test_create_team_agent(mock_model_factory_get):
         agent = AgentFactory.create(
             name="Test Agent(-)",
             description="Test Agent Description",
-            instructions="Test Agent Role",
+            instructions="Test Agent Instructions",
             llm_id="6646261c6eb563165658bbb1",
             tools=[ModelTool(model="6646261c6eb563165658bbb1")],
         )
@@ -259,7 +259,7 @@ def test_fail_inspector_without_mentalist():
                     id="123",
                     name="Test Agent(-)",
                     description="Test Agent Description",
-                    instructions="Test Agent Role",
+                    instructions="Test Agent Instructions",
                     llm_id="6646261c6eb563165658bbb1",
                     tools=[ModelTool(function="text-generation")],
                 )
@@ -287,7 +287,7 @@ def test_fail_invalid_inspector_target():
                     id="123",
                     name="Test Agent(-)",
                     description="Test Agent Description",
-                    instructions="Test Agent Role",
+                    instructions="Test Agent Instructions",
                     llm_id="6646261c6eb563165658bbb1",
                     tools=[ModelTool(function="text-generation")],
                 )
@@ -315,7 +315,7 @@ def test_build_team_agent(mocker):
         id="agent1",
         name="Test Agent 1",
         description="Test Agent Description",
-        instructions="Test Agent Role",
+        instructions="Test Agent Instructions",
         llm_id="6646261c6eb563165658bbb1",
         tools=[ModelTool(model="6646261c6eb563165658bbb1")],
         tasks=[
@@ -332,7 +332,7 @@ def test_build_team_agent(mocker):
         id="agent2",
         name="Test Agent 2",
         description="Test Agent Description",
-        instructions="Test Agent Role",
+        instructions="Test Agent Instructions",
         llm_id="6646261c6eb563165658bbb1",
         tools=[ModelTool(model="6646261c6eb563165658bbb1")],
         tasks=[
@@ -587,7 +587,7 @@ def test_update_success(mock_model_factory_get):
                 id="agent123",
                 name="Test Agent(-)",
                 description="Test Agent Description",
-                instructions="Test Agent Role",
+                instructions="Test Agent Instructions",
                 llm_id="6646261c6eb563165658bbb1",
                 tools=[ModelTool(model="6646261c6eb563165658bbb1")],
             )
@@ -662,7 +662,7 @@ def test_save_success(mock_model_factory_get):
                 id="agent123",
                 name="Test Agent(-)",
                 description="Test Agent Description",
-                instructions="Test Agent Role",
+                instructions="Test Agent Instructions",
                 llm_id="6646261c6eb563165658bbb1",
                 tools=[ModelTool(model="6646261c6eb563165658bbb1")],
             )
