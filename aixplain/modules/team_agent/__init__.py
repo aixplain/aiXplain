@@ -443,7 +443,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             "supplier": self.supplier.value["code"] if isinstance(self.supplier, Supplier) else self.supplier,
             "version": self.version,
             "status": self.status.value,
-            "role": self.instructions,
+            "instructions": self.instructions,
             "outputFormat": self.output_format.value,
             "expectedOutput": self.expected_output,
         }

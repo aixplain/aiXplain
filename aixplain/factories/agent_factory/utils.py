@@ -178,7 +178,7 @@ def build_agent(payload: Dict, tools: List[Tool] = None, api_key: Text = config.
         name=payload.get("name", ""),
         tools=payload_tools,
         description=payload.get("description", ""),
-        instructions=payload.get("role"),
+        instructions=payload.get("instructions"),
         supplier=payload.get("teamId", None),
         version=payload.get("version", None),
         cost=payload.get("cost", None),
