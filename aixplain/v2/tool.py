@@ -203,31 +203,26 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
         """
         # Start with current tool parameters
         merged = {}
+        action_name = kwargs.get("action")
+        if not action_name and len(self.allowed_actions) == 1:
+            action_name = self.allowed_actions[0]
+        
+        if not action_name:
+            raise ValueError("No action provided")
 
-        # For tools, we need to get the current action input values from the actions
-        if hasattr(self, "actions") and self.allowed_actions:
-            # Get the first allowed action (or use the one specified in kwargs)
-            action_name = kwargs.get("action", self.allowed_actions[0])
+        action_proxy = self.actions[action_name]
 
-            try:
-                # Get the action proxy to access current input values
-                action_proxy = self.actions[action_name]
+        # Extract all current input values
+        for input_code in action_proxy.keys():
+            value = action_proxy.get(input_code)
+            if value is not None:
+                merged[input_code] = value
 
-                # Extract all current input values
-                for input_code in action_proxy.keys():
-                    value = action_proxy.get(input_code)
-                    if value is not None:
-                        merged[input_code] = value
-
-            except (ValueError, KeyError) as e:
-                # If we can't get the action proxy, just continue with empty merged
-                pass
-
-        # Add any additional kwargs
-        merged.update(kwargs)
-
-        # Ensure the action parameter is preserved
-        if "action" in kwargs:
-            merged["action"] = kwargs["action"]
-
-        return merged
+        kwargs.setdefault("data", {})
+        return {
+            "action": action_name,
+            "data": {
+                **merged,
+                **kwargs["data"],
+            },
+        }
