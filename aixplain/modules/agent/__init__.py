@@ -181,23 +181,6 @@ class Agent(Model, DeployableMixin[Tool]):
             raise Exception(
                 f"Agent Creation Error - Duplicate tool names found: {', '.join(duplicates)}. Make sure all tool names are unique."
             )
-            tool_name = tool.name
-            tool_names.append(tool_name)
-
-        if len(tool_names) != len(set(tool_names)):
-            duplicates = set([name for name in tool_names if tool_names.count(name) > 1])
-            raise Exception(
-                f"Agent Creation Error - Duplicate tool names found: {', '.join(duplicates)}. Make sure all tool names are unique."
-            )
-
-            tool_name = tool.name
-            tool_names.append(tool_name)
-
-        if len(tool_names) != len(set(tool_names)):
-            duplicates = set([name for name in tool_names if tool_names.count(name) > 1])
-            raise Exception(
-                f"Agent Creation Error - Duplicate tool names found: {', '.join(duplicates)}. Make sure all tool names are unique."
-            )
 
     def validate(self, raise_exception: bool = False) -> bool:
         """Validate the Agent's configuration and mark its validity status.
@@ -625,16 +608,13 @@ class Agent(Model, DeployableMixin[Tool]):
                 "Content-Type": "application/json",
             }
             logging.debug(f"Start service for DELETE Agent  - {url} - {headers}")
-            logging.debug(f"Start service for DELETE Agent  - {url} - {headers}")
             r = _request_with_retry("delete", url, headers=headers)
-            logging.debug(f"Result of request for DELETE Agent - {r.status_code}")
             logging.debug(f"Result of request for DELETE Agent - {r.status_code}")
             if r.status_code != 200:
                 raise Exception()
         except Exception:
             try:
                 response_json = r.json()
-                error_message = response_json.get("message", "").strip("{{}}")
                 error_message = response_json.get("message", "").strip("{{}}")
 
                 if r.status_code == 403 and error_message == "err.agent_is_in_use":
@@ -666,9 +646,7 @@ class Agent(Model, DeployableMixin[Tool]):
                         )
                 else:
                     message = f"Agent Deletion Error (HTTP {r.status_code}): " f"{error_message}."
-                    message = f"Agent Deletion Error (HTTP {r.status_code}): " f"{error_message}."
             except ValueError:
-                message = f"Agent Deletion Error (HTTP {r.status_code}): " "There was an error in deleting the agent."
                 message = f"Agent Deletion Error (HTTP {r.status_code}): " "There was an error in deleting the agent."
             logging.error(message)
             raise Exception(message)
