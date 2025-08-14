@@ -2,6 +2,7 @@ from enum import Enum
 from aixplain.enums import FunctionType  # noqa: F401
 
 
+
 class RouteType(str, Enum):
     CHECK_TYPE = "checkType"
     CHECK_VALUE = "checkValue"
