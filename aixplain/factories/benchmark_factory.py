@@ -296,7 +296,6 @@ class BenchmarkFactory:
                 "Content-Type": "application/json",
             }
             model_list_without_parms, model_list_with_parms = cls._reformat_model_list(model_list)
-            model_list_without_parms, model_list_with_parms = cls._reformat_model_list(model_list)
             payload = {
                 "name": name,
                 "datasets": [dataset.id for dataset in dataset_list],
