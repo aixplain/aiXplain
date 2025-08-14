@@ -19,6 +19,55 @@ from .resource import (
 from .enums import Function, Supplier, Language, AssetStatus
 
 
+@dataclass_json
+@dataclass
+class Message:
+    """Message structure from the API response."""
+
+    role: str
+    content: str
+    refusal: Optional[str] = None
+    annotations: List[Any] = field(default_factory=list)
+
+
+@dataclass_json
+@dataclass
+class Detail:
+    """Detail structure from the API response."""
+
+    index: int
+    message: Message
+    logprobs: Optional[Any] = None
+    finish_reason: Optional[str] = field(
+        default=None, metadata=config(field_name="finish_reason")
+    )
+
+
+@dataclass_json
+@dataclass
+class Usage:
+    """Usage structure from the API response."""
+
+    prompt_tokens: int = field(metadata=config(field_name="prompt_tokens"))
+    completion_tokens: int = field(metadata=config(field_name="completion_tokens"))
+    total_tokens: int = field(metadata=config(field_name="total_tokens"))
+
+
+@dataclass_json
+@dataclass
+class ModelResult(Result):
+    """Result for model runs with specific fields from the backend response."""
+    
+    details: Optional[List[Detail]] = None
+    run_time: Optional[float] = field(
+        default=None, metadata=config(field_name="runTime")
+    )
+    used_credits: Optional[float] = field(
+        default=None, metadata=config(field_name="usedCredits")
+    )
+    usage: Optional[Usage] = None
+
+
 class ParameterProxy:
     """Proxy object that provides both dict-like and dot notation access to model parameters."""
 
@@ -309,7 +358,7 @@ class Pricing:
 
 @dataclass_json
 @dataclass
-class SupplierInfo:
+class VendorInfo:
     """Supplier information structure from the API response."""
 
     id: Optional[Union[str, int]] = None
@@ -319,7 +368,7 @@ class SupplierInfo:
 
 class ModelSearchParams(BaseSearchParams):
     functions: NotRequired[List[str]]
-    suppliers: NotRequired[Union[str, Supplier, List[Union[str, Supplier]]]]
+    vendors: NotRequired[Union[str, Supplier, List[Union[str, Supplier]]]]
     source_languages: NotRequired[Union[Language, List[Language]]]
     target_languages: NotRequired[Union[Language, List[Language]]]
     is_finetunable: NotRequired[bool]
@@ -344,26 +393,21 @@ class Model(
     BaseResource,
     SearchResourceMixin[ModelSearchParams, "Model"],
     GetResourceMixin[BaseGetParams, "Model"],
-    RunnableResourceMixin[ModelRunParams, Result],
+    RunnableResourceMixin[ModelRunParams, ModelResult],
 ):
     """Resource for models."""
 
     RESOURCE_PATH = "v2/models"
+    RESPONSE_CLASS = ModelResult
 
     # Core fields from BaseResource (id, name, description)
     service_name: Optional[str] = field(
         default=None, metadata=config(field_name="serviceName")
     )
     status: Optional[AssetStatus] = None
-    hosted_by: Optional[str] = field(
-        default=None, metadata=config(field_name="hostedBy")
-    )
-    developed_by: Optional[str] = field(
-        default=None, metadata=config(field_name="developedBy")
-    )
-
-    # Supplier and function fields with proper decoders
-    supplier: Optional[SupplierInfo] = None
+    host: Optional[str] = None
+    developer: Optional[str] = None
+    vendor: Optional[VendorInfo] = None
     function: Optional[Function] = field(
         default=None,
         metadata=config(
@@ -441,23 +485,21 @@ class Model(
     ) -> Page["Model"]:
         """
         Search models with optional query and filtering.
-        
+
         Args:
             query: Optional search query string
             **kwargs: Additional search parameters (functions, suppliers, etc.)
-            
+
         Returns:
             Page of models matching the search criteria
         """
         # If query is provided, add it to kwargs
         if query is not None:
             kwargs["query"] = query
-            
+
         return super().search(**kwargs)
 
-
-
-    def run(self, **kwargs: Unpack[ModelRunParams]) -> Result:
+    def run(self, **kwargs: Unpack[ModelRunParams]) -> ModelResult:
         """Run the model with dynamic parameter validation and default handling."""
         # Merge dynamic attributes with provided kwargs
         effective_params = self._merge_with_dynamic_attrs(**kwargs)
@@ -583,8 +625,8 @@ class Model(
                 filters["functions"] = [{"field": value, "dir": 1}]
 
         # suppliers - should be array of strings
-        if params.get("suppliers") is not None:
-            suppliers = params["suppliers"]
+        if params.get("vendors") is not None:
+            suppliers = params["vendors"]
             if isinstance(suppliers, list):
                 filters["suppliers"] = [
                     (
@@ -623,6 +665,52 @@ class Model(
                 else:
                     status_value = str(status)
                 filters["status"] = [status_value]
+
+        # source_languages - should be array of language codes
+        if params.get("source_languages") is not None:
+            source_langs = params["source_languages"]
+            if isinstance(source_langs, list):
+                filters["sourceLanguages"] = [
+                    (
+                        lang.value
+                        if hasattr(lang, "value") and isinstance(lang.value, str)
+                        else str(lang)
+                    )
+                    for lang in source_langs
+                ]
+            else:
+                lang_value = (
+                    source_langs.value
+                    if hasattr(source_langs, "value")
+                    and isinstance(source_langs.value, str)
+                    else str(source_langs)
+                )
+                filters["sourceLanguages"] = [lang_value]
+
+        # target_languages - should be array of language codes
+        if params.get("target_languages") is not None:
+            target_langs = params["target_languages"]
+            if isinstance(target_langs, list):
+                filters["targetLanguages"] = [
+                    (
+                        lang.value
+                        if hasattr(lang, "value") and isinstance(lang.value, str)
+                        else str(lang)
+                    )
+                    for lang in target_langs
+                ]
+            else:
+                lang_value = (
+                    target_langs.value
+                    if hasattr(target_langs, "value")
+                    and isinstance(target_langs.value, str)
+                    else str(target_langs)
+                )
+                filters["targetLanguages"] = [lang_value]
+
+        # is_finetunable - boolean filter
+        if params.get("is_finetunable") is not None:
+            filters["isFinetunable"] = params["is_finetunable"]
 
         # sort - should be array of objects with field and dir
         if params.get("sort_by") is not None or params.get("sort_order") is not None:

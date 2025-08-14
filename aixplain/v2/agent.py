@@ -15,7 +15,7 @@ from .resource import (
     BaseGetParams,
     BaseDeleteParams,
     BaseRunParams,
-    BaseResult,
+    Result,
     RunnableResourceMixin,
     Page,
 )
@@ -50,7 +50,7 @@ class AgentResponseData:
 
 @dataclass_json
 @dataclass
-class AgentRunResult(BaseResult):
+class AgentRunResult(Result):
     """Result from running an agent."""
 
     data: Optional[Union[AgentResponseData, Text]] = None
@@ -60,9 +60,6 @@ class AgentRunResult(BaseResult):
     request_id: Optional[Text] = field(
         default=None, metadata=config(field_name="requestId")
     )
-    status: Optional[ResponseStatus] = ResponseStatus.IN_PROGRESS
-    completed: Optional[bool] = False
-    error_message: Optional[Text] = None
     used_credits: float = 0.0
     run_time: float = 0.0
 
@@ -198,27 +195,25 @@ class Agent(
 
     @classmethod
     def search(
-        cls: type["Agent"], 
+        cls: type["Agent"],
         query: Optional[str] = None,
-        **kwargs: Unpack[BaseSearchParams]
+        **kwargs: Unpack[BaseSearchParams],
     ) -> "Page[Agent]":
         """
         Search agents with optional query and filtering.
-        
+
         Args:
             query: Optional search query string
             **kwargs: Additional search parameters (ownership, status, etc.)
-            
+
         Returns:
             Page of agents matching the search criteria
         """
         # If query is provided, add it to kwargs
         if query is not None:
             kwargs["query"] = query
-            
+
         return super().search(**kwargs)
-
-
 
     def build_save_payload(self, **kwargs: Any) -> dict:
         """
@@ -229,7 +224,7 @@ class Agent(
         payload["tools"] = [{"type": "llm", "description": "main", "parameters": []}]
 
         for i, tool in enumerate(self.tools):
-            payload['assets'][i]['parameters'] = tool.get_parameters()
+            payload["assets"][i]["parameters"] = tool.get_parameters()
 
         return payload
 

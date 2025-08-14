@@ -439,65 +439,53 @@ class BaseRunParams(BaseParams):
 @dataclass_json
 @dataclass
 class BaseResult:
-    """Base class for running results."""
+    """Abstract base class for running results.
 
+    This class provides a minimal interface that concrete result classes
+    should implement. Subclasses are responsible for defining their own
+    fields and handling their specific data structures.
+    """
+
+    # Abstract interface - subclasses must implement these
     status: str
     completed: bool
-    error_message: Optional[str] = None
-    url: Optional[str] = None
-    result: Optional[Any] = None
-    supplier_error: Optional[str] = None
-    data: Optional[Any] = None
-    _raw_data: Optional[dict] = field(default=None, repr=False)
-    # Store all raw response data
-
-    def __init__(self, **kwargs):
-        """Initialize with any fields from API response."""
-        # Extract known fields
-        self.status = kwargs.get("status", ResponseStatus.IN_PROGRESS.value)
-        self.completed = kwargs.get("completed", False)
-        self.error_message = kwargs.get("error_message")
-        self.url = kwargs.get("url")
-        self.result = kwargs.get("result")
-        self.supplier_error = kwargs.get("supplier_error")
-        self.data = kwargs.get("data")
-
-        # Store all raw data for flexible access
-        self._raw_data = kwargs
-
-    def __getattr__(self, name: str) -> Any:
-        """Allow access to any field from the raw response data."""
-        if self._raw_data and name in self._raw_data:
-            return self._raw_data[name]
-        raise AttributeError(
-            f"'{self.__class__.__name__}' object has no attribute '{name}'"
-        )
-
-    @classmethod
-    def from_dict(cls: type, data: dict) -> "BaseResult":
-        """Create a BaseResult instance from a dictionary."""
-        return cls(**data)
 
 
 @dataclass_json
 @dataclass
 class Result(BaseResult):
-    """Default implementation of running results."""
+    """Default implementation of running results with common fields."""
 
-    pass
+    status: str
+    completed: bool
+    error_message: Optional[str] = field(
+        default=None, metadata=config(field_name="errorMessage")
+    )
+    url: Optional[str] = None
+    result: Optional[Any] = None
+    supplier_error: Optional[str] = field(
+        default=None, metadata=config(field_name="supplierError")
+    )
+    data: Optional[Any] = None
+    _raw_data: Optional[dict] = field(default=None, repr=False)
+
+    def __getattr__(self, name: str) -> Any:
+        """Allow access to any field from the raw response data."""
+        if hasattr(self, "_raw_data") and self._raw_data and name in self._raw_data:
+            return self._raw_data[name]
+        raise AttributeError(
+            f"'{self.__class__.__name__}' object has no attribute '{name}'"
+        )
 
 
 @dataclass_json
 @dataclass
-class DeleteResult(BaseResult):
-    """Default implementation of delete results."""
+class DeleteResult(Result):
+    """Result for delete operations."""
 
-    deleted_id: Optional[str] = None
-
-    def __init__(self, **kwargs):
-        """Initialize with any fields from API response."""
-        super().__init__(**kwargs)
-        self.deleted_id = kwargs.get("deleted_id")
+    deleted_id: Optional[str] = field(
+        default=None, metadata=config(field_name="deletedId")
+    )
 
 
 # Standardized type variables with proper bounds
@@ -639,9 +627,7 @@ class SearchResourceMixin(BaseMixin, Generic[SearchParamsT, ResourceT]):
         context, resource_path, custom_path = cls._get_context_and_path(**kwargs)
 
         # Build path and filters
-        paginate_path = cls._populate_path(
-            resource_path, custom_path
-        )
+        paginate_path = cls._populate_path(resource_path, custom_path)
         params_dict = dict(kwargs)
         filters = cls._populate_filters(params_dict)
 
@@ -649,13 +635,7 @@ class SearchResourceMixin(BaseMixin, Generic[SearchParamsT, ResourceT]):
         paginate_method = getattr(cls, "PAGINATE_METHOD", "post")
         response = context.client.request(paginate_method, paginate_path, json=filters)
 
-        return cls._build_page(
-            response, context, **kwargs
-        )
-
-
-
-
+        return cls._build_page(response, context, **kwargs)
 
     @classmethod
     def _build_page(
@@ -1007,20 +987,14 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
                 }
             )
         else:
-            # Direct response case - include original response data
-            filtered_response = {
-                "status": response.get("status", "IN_PROGRESS"),
-                "completed": response.get("completed", False),
-                "error_message": response.get("error_message"),
-                "url": response.get("url"),
-                "result": response.get("result"),
-                "supplier_error": response.get("supplier_error"),
-                "supplierError": response.get(
-                    "supplierError"
-                ),  # Include camelCase version
-                "data": response.get("data"),
-                "_raw_data": response,  # Include original response data
-            }
+            # Direct response case - pass the entire response to let dataclass_json handle field mapping
+            # Check for failed status and raise appropriate error
+            status = response.get("status", "IN_PROGRESS")
+            if status == "FAILED":
+                raise create_operation_failed_error(response)
+
+            response_class = getattr(self, "RESPONSE_CLASS", Result)
+            return response_class.from_dict(response)
 
             # Check for failed status and raise appropriate error
             status = response.get("status", "IN_PROGRESS")

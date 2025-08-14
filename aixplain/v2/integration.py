@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json, config
 from functools import cached_property
 
-from .resource import BaseSearchParams, BaseResult
+from .resource import BaseSearchParams, Result
 from .model import Model
 from .enums import AuthenticationScheme
 
@@ -34,20 +34,26 @@ class ActionInputsProxy:
     def _fetch_action_inputs(self):
         """Fetch action input specifications from the backend."""
         actions = self._container.list_inputs(self._action_name)
-        
+
         if not actions:
-            raise ValueError(f"Action '{self._action_name}' not found or has no input parameters defined.")
+            raise ValueError(
+                f"Action '{self._action_name}' not found or has no input parameters defined."
+            )
 
         action = actions[0]
         if not action.inputs:
-            raise ValueError(f"Action '{self._action_name}' found but has no input parameters defined.")
+            raise ValueError(
+                f"Action '{self._action_name}' found but has no input parameters defined."
+            )
 
         # Setup inputs with defaults
         for input_param in action.inputs:
             input_code = input_param.code or input_param.name.lower().replace(" ", "_")
             self._inputs[input_code] = {
-                "value": input_param.defaultValue[0] if input_param.defaultValue else None,
-                "input": input_param
+                "value": (
+                    input_param.defaultValue[0] if input_param.defaultValue else None
+                ),
+                "input": input_param,
             }
 
     def _get_input_info(self, key: str):
@@ -61,29 +67,29 @@ class ActionInputsProxy:
         """Set input value with validation."""
         input_info = self._get_input_info(key)
         input_param = input_info["input"]
-        
+
         if not self._validate_input_type(value, input_param.datatype):
             raise ValueError(
                 f"Invalid value type for input '{key}'. "
                 f"Expected {input_param.datatype}, got {type(value).__name__}"
             )
-        
+
         input_info["value"] = value
 
     def _validate_input_type(self, value, expected_type: str) -> bool:
         """Validate input type based on the input definition."""
         if value is None or expected_type is None:
             return True
-        
+
         type_map = {
             "string": str,
             "integer": int,
             "number": (int, float),
             "boolean": bool,
             "array": list,
-            "object": dict
+            "object": dict,
         }
-        
+
         expected = type_map.get(expected_type)
         return expected and isinstance(value, expected)
 
@@ -118,7 +124,7 @@ class ActionInputsProxy:
             raise AttributeError(f"Input parameter '{name}' not found") from e
 
     def __setattr__(self, name: str, value):
-        if name.startswith('_'):
+        if name.startswith("_"):
             super().__setattr__(name, value)
         else:
             try:
@@ -161,7 +167,9 @@ class ActionInputsProxy:
         """Reset an input parameter to its backend default value."""
         input_info = self._get_input_info(input_code)
         input_param = input_info["input"]
-        input_info["value"] = input_param.defaultValue[0] if input_param.defaultValue else None
+        input_info["value"] = (
+            input_param.defaultValue[0] if input_param.defaultValue else None
+        )
 
     def reset_all_inputs(self):
         """Reset all input parameters to their backend default values."""
@@ -231,7 +239,9 @@ class ToolId:
     id: str
 
 
-class IntegrationResult(BaseResult):
+@dataclass_json
+@dataclass
+class IntegrationResult(Result):
     """Result for connection operations.
 
     The backend returns the connection ID in data.id.
@@ -306,10 +316,10 @@ class ActionMixin:
 
     def set_inputs(self, inputs_dict: Dict[str, Dict[str, Any]]) -> None:
         """Set multiple action inputs in bulk using a dictionary tree structure.
-        
+
         This method allows you to set inputs for multiple actions at once.
         Action names are automatically converted to lowercase for consistent lookup.
-        
+
         Args:
             inputs_dict: Dictionary in the format:
                 {
@@ -323,7 +333,7 @@ class ActionMixin:
                         ...
                     }
                 }
-        
+
         Example:
             tool.set_inputs({
                 'slack_send_message': {  # Will work regardless of case
@@ -341,7 +351,7 @@ class ActionMixin:
                     'file': 'document.pdf'
                 }
             })
-        
+
         Raises:
             ValueError: If an action name is not found or invalid
             KeyError: If an input parameter is not found for an action
@@ -352,13 +362,13 @@ class ActionMixin:
                     f"Input values for action '{action_name}' must be a dictionary, "
                     f"got {type(input_values).__name__}"
                 )
-            
+
             # Get the action proxy - the actions proxy will handle case conversion
             try:
                 action_proxy = self.actions[action_name]
             except ValueError as e:
                 raise ValueError(f"Action '{action_name}' not found: {e}")
-            
+
             # Set all inputs for this action
             try:
                 action_proxy.update(**input_values)
@@ -395,32 +405,32 @@ class ActionsProxy:
         """Resolve the actual backend action name from user input."""
         normalized_name = action_name.lower()
         available_actions = self._get_available_actions()
-        
+
         # Look for exact match first
         for action in available_actions:
             if action.name and action.name.lower() == normalized_name:
                 return action.name
             if action.slug and action.slug.lower() == normalized_name:
                 return action.slug
-        
+
         # If no match found, use the original name as fallback
         return action_name
 
     def __getitem__(self, action_name: str):
         """Get an action with its inputs proxy: actions['SLACK_SEND_MESSAGE'] or actions['slack_send_message']
-        
+
         Converts action name to lowercase for consistent lookup.
         """
         normalized_name = action_name.lower()
-        
+
         if normalized_name not in self._actions_cache:
             # Resolve the actual backend action name
             actual_action_name = self._resolve_action_name(action_name)
-            
+
             # Create action object and get its inputs proxy
             action = Action(name=actual_action_name)
             proxy = action.get_inputs_proxy(self._container)
-            
+
             # Store the proxy in cache
             self._actions_cache[normalized_name] = proxy
 
@@ -428,7 +438,7 @@ class ActionsProxy:
 
     def __getattr__(self, attr_name: str):
         """Get an action with its inputs proxy using attribute notation: actions.slack_send_message
-        
+
         Converts attribute name to lowercase for consistent lookup.
         """
         try:
