@@ -10,9 +10,31 @@ from typing import Optional, Text
 
 
 class ModelGetterMixin:
+    """Mixin class providing model retrieval functionality.
+
+    This mixin provides methods for retrieving model instances from the backend,
+    with support for caching to improve performance.
+    """
     @classmethod
     def get(cls, model_id: Text, api_key: Optional[Text] = None, use_cache: bool = False) -> Model:
-        """Create a 'Model' object from model id"""
+        """Retrieve a model instance by its ID.
+
+        This method attempts to retrieve a model from the cache if enabled,
+        falling back to fetching from the backend if necessary.
+
+        Args:
+            model_id (Text): ID of the model to retrieve.
+            api_key (Optional[Text], optional): API key for authentication.
+                Defaults to None, using the configured TEAM_API_KEY.
+            use_cache (bool, optional): Whether to attempt retrieving from cache.
+                Defaults to False.
+
+        Returns:
+            Model: Retrieved model instance.
+
+        Raises:
+            Exception: If the model cannot be retrieved or doesn't exist.
+        """
         model_id = model_id.replace("/", "%2F")
         cache = AssetCache(Model)
 
@@ -44,6 +66,22 @@ class ModelGetterMixin:
 
     @classmethod
     def _fetch_model_by_id(cls, model_id: Text, api_key: Optional[Text] = None) -> Model:
+        """Fetch a model directly from the backend by its ID.
+
+        This internal method handles the direct API communication to retrieve
+        a model's details from the backend.
+
+        Args:
+            model_id (Text): ID of the model to fetch.
+            api_key (Optional[Text], optional): API key for authentication.
+                Defaults to None, using the configured TEAM_API_KEY.
+
+        Returns:
+            Model: Fetched model instance.
+
+        Raises:
+            Exception: If the API request fails or returns an error.
+        """
         resp = None
         try:
             url = urljoin(cls.backend_url, f"sdk/models/{model_id}")

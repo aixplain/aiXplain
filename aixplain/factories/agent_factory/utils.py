@@ -44,9 +44,9 @@ def build_tool_payload(tool: Union[Tool, Model]):
             "id": tool.id,
             "name": tool.name,
             "description": tool.description,
-            "supplier": tool.supplier.value["code"] if isinstance(tool.supplier, Supplier) else tool.supplier,
+            "supplier": (tool.supplier.value["code"] if isinstance(tool.supplier, Supplier) else tool.supplier),
             "parameters": parameters,
-            "function": tool.function if hasattr(tool, "function") and tool.function is not None else None,
+            "function": (tool.function if hasattr(tool, "function") and tool.function is not None else None),
             "type": "model",
             "version": tool.version if hasattr(tool, "version") else None,
             "assetId": tool.id,
@@ -117,7 +117,19 @@ def build_tool(tool: Dict):
 
 
 def build_llm(payload: Dict, api_key: Text = config.TEAM_API_KEY) -> LLM:
-    """Build a LLM from a dictionary."""
+    """Build a Large Language Model (LLM) instance from a dictionary configuration.
+
+    This function attempts to create an LLM instance either from a cached LLM object
+    in the payload or by creating a new instance using the provided configuration.
+
+    Args:
+        payload (Dict): Dictionary containing LLM configuration and possibly a cached
+            LLM object.
+        api_key (Text, optional): API key for authentication. Defaults to config.TEAM_API_KEY.
+
+    Returns:
+        LLM: Instantiated LLM object with configured parameters.
+    """
     # Get LLM from tools if present
     llm = None
     # First check if we have the LLM object
@@ -143,7 +155,10 @@ def build_llm(payload: Dict, api_key: Text = config.TEAM_API_KEY) -> LLM:
                     # Convert parameters list to dictionary format expected by ModelParameters
                     params_dict = {}
                     for param in tool["parameters"]:
-                        params_dict[param["name"]] = {"required": False, "value": param["value"]}
+                        params_dict[param["name"]] = {
+                            "required": False,
+                            "value": param["value"],
+                        }
                     # Create ModelParameters and set it on the LLM
                     from aixplain.modules.model.model_parameters import ModelParameters
 
@@ -153,7 +168,25 @@ def build_llm(payload: Dict, api_key: Text = config.TEAM_API_KEY) -> LLM:
 
 
 def build_agent(payload: Dict, tools: List[Tool] = None, api_key: Text = config.TEAM_API_KEY) -> Agent:
-    """Instantiate a new agent in the platform."""
+    """Build an agent instance from a dictionary configuration.
+
+    This function creates an agent with its associated tools, LLM, and tasks based
+    on the provided configuration.
+
+    Args:
+        payload (Dict): Dictionary containing agent configuration including tools,
+            LLM settings, and tasks.
+        tools (List[Tool], optional): List of pre-configured tools to use. If None,
+            tools will be built from the payload. Defaults to None.
+        api_key (Text, optional): API key for authentication. Defaults to config.TEAM_API_KEY.
+
+    Returns:
+        Agent: Instantiated agent object with configured tools, LLM, and tasks.
+
+    Raises:
+        ValueError: If a tool type is not supported.
+        AssertionError: If tool configuration is invalid.
+    """
     tools_dict = payload["assets"]
     payload_tools = tools
     if payload_tools is None:
@@ -178,7 +211,7 @@ def build_agent(payload: Dict, tools: List[Tool] = None, api_key: Text = config.
         name=payload.get("name", ""),
         tools=payload_tools,
         description=payload.get("description", ""),
-        instructions=payload.get("role"),
+        instructions=payload.get("instructions"),
         supplier=payload.get("teamId", None),
         version=payload.get("version", None),
         cost=payload.get("cost", None),

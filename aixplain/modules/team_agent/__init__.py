@@ -29,6 +29,7 @@ import re
 from enum import Enum
 from typing import Dict, List, Text, Optional, Union, Any
 from urllib.parse import urljoin
+from datetime import datetime
 
 from aixplain.enums import ResponseStatus
 from aixplain.enums.function import Function
@@ -41,7 +42,7 @@ from aixplain.modules.agent import Agent, OutputFormat
 from aixplain.modules.agent.agent_response import AgentResponse
 from aixplain.modules.agent.agent_response_data import AgentResponseData
 from aixplain.modules.agent.evolve_param import EvolveParam, validate_evolve_param
-from aixplain.modules.agent.utils import process_variables
+from aixplain.modules.agent.utils import process_variables, validate_history
 from aixplain.modules.team_agent.inspector import Inspector
 from aixplain.modules.team_agent.evolver_response_data import EvolverResponseData
 from aixplain.utils import config
@@ -52,11 +53,27 @@ from pydantic import BaseModel
 
 
 class InspectorTarget(str, Enum):
+    """Target stages for inspector validation in the team agent pipeline.
+
+    This enumeration defines the stages where inspectors can be applied to
+    validate and ensure quality of the team agent's operation.
+
+    Attributes:
+        INPUT: Validates the input data before processing.
+        STEPS: Validates intermediate steps during processing.
+        OUTPUT: Validates the final output before returning.
+    """
+
     INPUT = "input"
     STEPS = "steps"
     OUTPUT = "output"
 
     def __str__(self):
+        """Return the string value of the enum member.
+
+        Returns:
+            str: The string value associated with the enum member.
+        """
         return self._value_
 
 
@@ -103,6 +120,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         expected_output: Optional[Union[BaseModel, Text, dict]] = None,
         **additional_info,
     ) -> None:
+
         super().__init__(id, name, description, api_key, supplier, version, cost=cost)
         self.additional_info = additional_info
         self.agents = agents
@@ -125,6 +143,46 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         self.is_valid = True
         self.output_format = output_format
         self.expected_output = expected_output
+
+    def generate_session_id(self, history: list = None) -> str:
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        session_id = f"{self.id}_{timestamp}"
+
+        if not history:
+            return session_id
+
+        try:
+            validate_history(history)
+            headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}
+
+            payload = {
+                "id": self.id,
+                "query": "/",
+                "sessionId": session_id,
+                "history": history,
+                "executionParams": {
+                    "maxTokens": 2048,
+                    "maxIterations": 30,
+                    "outputFormat": OutputFormat.TEXT.value,
+                    "expectedOutput": None,
+                },
+                "allowHistoryAndSessionId": True,
+            }
+
+            r = _request_with_retry("post", self.url, headers=headers, data=json.dumps(payload))
+            resp = r.json()
+            poll_url = resp.get("data")
+
+            result = self.sync_poll(poll_url, name="model_process", timeout=300, wait_time=0.5)
+
+            if result.get("status") == ResponseStatus.SUCCESS:
+                return session_id
+            else:
+                logging.error(f"Team session init failed for {session_id}: {result}")
+                return session_id
+        except Exception as e:
+            logging.error(f"Failed to initialize team session {session_id}: {e}")
+            return session_id
 
     def run(
         self,
@@ -162,6 +220,15 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             AgentResponse: parsed output from model
         """
         start = time.time()
+        result_data = {}
+        if session_id is not None and history is not None:
+            raise ValueError("Provide either `session_id` or `history`, not both.")
+
+        if session_id is not None:
+            if not session_id.startswith(f"{self.id}_"):
+                raise ValueError(f"Session ID '{session_id}' does not belong to this Agent.")
+        if history:
+            validate_history(history)
         try:
             response = self.run_async(
                 data=data,
@@ -240,6 +307,16 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         Returns:
             AgentResponse: polling URL in response
         """
+        if session_id is not None and history is not None:
+            raise ValueError("Provide either `session_id` or `history`, not both.")
+
+        if session_id is not None:
+            if not session_id.startswith(f"{self.id}_"):
+                raise ValueError(f"Session ID '{session_id}' does not belong to this Agent.")
+
+        if history:
+            validate_history(history)
+
         from aixplain.factories.file_factory import FileFactory
 
         # Validate and normalize evolve parameters using the base model
@@ -401,7 +478,24 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             raise Exception(f"{message}")
 
     def _serialize_agent(self, agent, idx: int) -> Dict:
-        """Serialize an agent for the to_dict method."""
+        """Serialize an agent for the to_dict method.
+
+        This internal method converts an agent object into a dictionary format
+        suitable for serialization, including its base properties and any
+        additional data from the agent's own to_dict method.
+
+        Args:
+            agent: The agent object to serialize.
+            idx (int): The index position of the agent in the team.
+
+        Returns:
+            Dict: A dictionary containing the serialized agent data with:
+                - assetId: The agent's ID
+                - number: The agent's index position
+                - type: Always "AGENT"
+                - label: Always "AGENT"
+                - Additional fields from agent.to_dict() if available
+        """
         base_dict = {"assetId": agent.id, "number": idx, "type": "AGENT", "label": "AGENT"}
 
         # Try to get additional data from agent's to_dict method
@@ -424,6 +518,29 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         return base_dict
 
     def to_dict(self) -> Dict:
+        """Convert the TeamAgent instance to a dictionary representation.
+
+        This method serializes the TeamAgent and all its components (agents,
+        inspectors, LLMs, etc.) into a dictionary format suitable for storage
+        or transmission.
+
+        Returns:
+            Dict: A dictionary containing:
+                - id (str): The team agent's ID
+                - name (str): The team agent's name
+                - agents (List[Dict]): Serialized list of agents
+                - links (List): Empty list (reserved for future use)
+                - description (str): The team agent's description
+                - llmId (str): ID of the main language model
+                - supervisorId (str): ID of the supervisor language model
+                - plannerId (str): ID of the planner model (if use_mentalist)
+                - inspectors (List[Dict]): Serialized list of inspectors
+                - inspectorTargets (List[str]): List of inspector target stages
+                - supplier (str): The supplier code
+                - version (str): The version number
+                - status (str): The current status
+                - role (str): The team agent's instructions
+        """
         if self.use_mentalist:
             planner_id = self.mentalist_llm.id if self.mentalist_llm else self.llm_id
         else:
@@ -442,7 +559,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             "supplier": (self.supplier.value["code"] if isinstance(self.supplier, Supplier) else self.supplier),
             "version": self.version,
             "status": self.status.value,
-            "role": self.instructions,
+            "instructions": self.instructions,
             "outputFormat": self.output_format.value,
             "expectedOutput": self.expected_output,
         }
@@ -570,6 +687,28 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             agent.validate(raise_exception=True)
 
     def validate(self, raise_exception: bool = False) -> bool:
+        """Validate the TeamAgent configuration.
+
+        This method checks the validity of the TeamAgent's configuration,
+        including name format, LLM compatibility, and agent validity.
+
+        Args:
+            raise_exception (bool, optional): If True, raises exceptions for
+                validation failures. If False, logs warnings. Defaults to False.
+
+        Returns:
+            bool: True if validation succeeds, False otherwise.
+
+        Raises:
+            Exception: If raise_exception is True and validation fails, with
+                details about the specific validation error.
+
+        Note:
+            - The team agent cannot be run until all validation issues are fixed
+            - Name must contain only alphanumeric chars, spaces, hyphens, brackets
+            - LLM must be a text generation model
+            - All agents must pass their own validation
+        """
         try:
             self._validate()
             self.is_valid = True
@@ -584,7 +723,24 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         return self.is_valid
 
     def update(self) -> None:
-        """Update the Team Agent."""
+        """Update the TeamAgent in the backend.
+
+        This method validates and updates the TeamAgent's configuration in the
+        backend system. It is deprecated in favor of the save() method.
+
+        Raises:
+            Exception: If validation fails or if the update request fails.
+                Specific error messages will indicate:
+                - Validation failures with details
+                - HTTP errors with status codes
+                - General update errors requiring admin attention
+
+        Note:
+            - This method is deprecated, use save() instead
+            - Performs validation before attempting update
+            - Requires valid team API key for authentication
+            - Returns a new TeamAgent instance if successful
+        """
         import warnings
         import inspect
 
@@ -618,7 +774,16 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             error_msg = f"Team Agent Update Error (HTTP {r.status_code}): {resp}"
             raise Exception(error_msg)
 
+    def save(self) -> None:
+        """Save the Agent."""
+        self.update()
+
     def __repr__(self):
+        """Return a string representation of the TeamAgent.
+
+        Returns:
+            str: A string in the format "TeamAgent: <name> (id=<id>)".
+        """
         return f"TeamAgent: {self.name} (id={self.id})"
 
     def evolve_async(

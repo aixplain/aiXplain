@@ -25,9 +25,24 @@ from enum import Enum
 
 
 class StorageType(Enum):
+    """Enumeration of possible storage types.
+
+    This enum defines the different types of storage that can be used to store
+    assets, including text, URL, and file.
+
+    Attributes:
+        TEXT (str): Text storage type.
+        URL (str): URL storage type.
+        FILE (str): File storage type.
+    """
     TEXT = "text"
     URL = "url"
     FILE = "file"
 
     def __str__(self):
+        """Return the string representation of the storage type.
+
+        Returns:
+            str: The storage type value as a string.
+        """
         return self._value_

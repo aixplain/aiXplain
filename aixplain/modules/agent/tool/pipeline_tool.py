@@ -28,11 +28,18 @@ from aixplain.enums import AssetStatus
 
 
 class PipelineTool(Tool):
-    """Specialized software or resource designed to assist the AI in executing specific tasks or functions based on user commands.
+    """A tool that wraps aiXplain pipelines to execute complex workflows based on user commands.
+
+    This class provides an interface for using aiXplain pipelines as tools, allowing them
+    to be integrated into agent workflows. It handles pipeline validation, status management,
+    and execution.
 
     Attributes:
-        description (Text): description of the tool
-        pipeline (Union[Text, Pipeline]): pipeline
+        description (Text): A description of what the pipeline tool does.
+        pipeline (Union[Text, Pipeline]): The pipeline to execute, either as a Pipeline instance
+            or a pipeline ID string.
+        status (AssetStatus): The current status of the pipeline tool.
+        name (Text): The name of the tool, defaults to pipeline name if not provided.
     """
 
     def __init__(
@@ -42,11 +49,18 @@ class PipelineTool(Tool):
         name: Optional[Text] = None,
         **additional_info,
     ) -> None:
-        """Specialized software or resource designed to assist the AI in executing specific tasks or functions based on user commands.
+        """Initialize a new PipelineTool instance.
 
         Args:
-            description (Text): description of the tool
-            pipeline (Union[Text, Pipeline]): pipeline
+            description (Text): A description of what the pipeline tool does.
+            pipeline (Union[Text, Pipeline]): The pipeline to execute, either as a Pipeline instance
+                or a pipeline ID string.
+            name (Optional[Text], optional): The name of the tool. If not provided, will use
+                the pipeline's name. Defaults to None.
+            **additional_info: Additional keyword arguments for tool configuration.
+
+        Raises:
+            Exception: If the specified pipeline doesn't exist or is inaccessible.
         """
         name = name or ""
         super().__init__(name=name, description=description, **additional_info)
@@ -57,6 +71,16 @@ class PipelineTool(Tool):
         self.validate()
 
     def to_dict(self):
+        """Convert the tool instance to a dictionary representation.
+
+        Returns:
+            dict: A dictionary containing the tool's configuration with keys:
+                - assetId: The pipeline ID
+                - name: The tool's name
+                - description: The tool's description
+                - type: Always "pipeline"
+                - status: The tool's status
+        """
         return {
             "assetId": self.pipeline,
             "name": self.name,
@@ -66,9 +90,24 @@ class PipelineTool(Tool):
         }
 
     def __repr__(self) -> Text:
+        """Return a string representation of the tool.
+
+        Returns:
+            Text: A string in the format "PipelineTool(name=<name>, pipeline=<pipeline>)".
+        """
         return f"PipelineTool(name={self.name}, pipeline={self.pipeline})"
 
     def validate(self):
+        """Validate the pipeline tool's configuration.
+
+        This method performs several checks:
+        1. Verifies the pipeline exists and is accessible
+        2. Sets the tool name to the pipeline name if not provided
+        3. Updates the tool status to match the pipeline status
+
+        Raises:
+            Exception: If the pipeline doesn't exist or is inaccessible.
+        """
         from aixplain.factories.pipeline_factory import PipelineFactory
 
         if isinstance(self.pipeline, Pipeline):
@@ -86,4 +125,9 @@ class PipelineTool(Tool):
         self.status = pipeline_obj.status
 
     def deploy(self):
+        """Deploy the pipeline tool.
+
+        This is a placeholder method as pipeline tools are managed through the aiXplain platform
+        and don't require explicit deployment.
+        """
         pass

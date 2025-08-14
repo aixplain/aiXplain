@@ -7,6 +7,19 @@ from typing import Dict, List, Optional, Text, Union
 
 
 class APIKeyLimits:
+    """Rate limits configuration for an API key.
+
+    This class defines the rate limits that can be applied either globally
+    to an API key or specifically to a model.
+
+    Attributes:
+        token_per_minute (int): Maximum number of tokens allowed per minute.
+        token_per_day (int): Maximum number of tokens allowed per day.
+        request_per_minute (int): Maximum number of requests allowed per minute.
+        request_per_day (int): Maximum number of requests allowed per day.
+        model (Optional[Model]): The model these limits apply to, if any.
+    """
+
     def __init__(
         self,
         token_per_minute: int,
@@ -15,6 +28,16 @@ class APIKeyLimits:
         request_per_day: int,
         model: Optional[Union[Text, Model]] = None,
     ):
+        """Initialize an APIKeyLimits instance.
+
+        Args:
+            token_per_minute (int): Maximum number of tokens per minute.
+            token_per_day (int): Maximum number of tokens per day.
+            request_per_minute (int): Maximum number of requests per minute.
+            request_per_day (int): Maximum number of requests per day.
+            model (Optional[Union[Text, Model]], optional): The model to apply
+                limits to. Can be a model ID or Model instance. Defaults to None.
+        """
         self.token_per_minute = token_per_minute
         self.token_per_day = token_per_day
         self.request_per_minute = request_per_minute
@@ -55,6 +78,23 @@ class APIKeyUsageLimit:
 
 
 class APIKey:
+    """An API key for accessing aiXplain services.
+
+    This class represents an API key with its associated limits, budget,
+    and access controls. It can have both global rate limits and
+    model-specific rate limits.
+
+    Attributes:
+        id (int): The ID of this API key.
+        name (Text): A descriptive name for the API key.
+        budget (Optional[float]): Maximum spending limit, if any.
+        global_limits (Optional[APIKeyLimits]): Rate limits applied globally.
+        asset_limits (List[APIKeyLimits]): Rate limits for specific models.
+        expires_at (Optional[datetime]): Expiration date and time.
+        access_key (Optional[Text]): The actual API key value.
+        is_admin (bool): Whether this is an admin API key.
+    """
+
     def __init__(
         self,
         name: Text,
@@ -66,6 +106,32 @@ class APIKey:
         access_key: Optional[Text] = None,
         is_admin: bool = False,
     ):
+        """Initialize an APIKey instance.
+
+        Args:
+            name (Text): A descriptive name for the API key.
+            expires_at (Optional[Union[datetime, Text]], optional): When the key
+                expires. Can be a datetime or ISO format string. Defaults to None.
+            budget (Optional[float], optional): Maximum spending limit.
+                Defaults to None.
+            asset_limits (List[APIKeyLimits], optional): Rate limits for specific
+                models. Defaults to empty list.
+            global_limits (Optional[Union[Dict, APIKeyLimits]], optional): Global
+                rate limits. Can be a dict with tpm/tpd/rpm/rpd keys or an
+                APIKeyLimits instance. Defaults to None.
+            id (int, optional): Unique identifier. Defaults to empty string.
+            access_key (Optional[Text], optional): The actual API key value.
+                Defaults to None.
+            is_admin (bool, optional): Whether this is an admin key.
+                Defaults to False.
+
+        Note:
+            The global_limits dict format should have these keys:
+            - tpm: tokens per minute
+            - tpd: tokens per day
+            - rpm: requests per minute
+            - rpd: requests per day
+        """
         self.id = id
         self.name = name
         self.budget = budget
@@ -93,7 +159,23 @@ class APIKey:
         self.validate()
 
     def validate(self) -> None:
-        """Validate the APIKey object"""
+        """Validate the APIKey configuration.
+
+        This method checks that all rate limits are non-negative and that
+        referenced models exist and are valid.
+
+        Raises:
+            AssertionError: If any of these conditions are not met:
+                - Budget is negative
+                - Global rate limits are negative
+                - Asset-specific rate limits are negative
+            Exception: If a referenced model ID is not a valid aiXplain model.
+
+        Note:
+            - For asset limits, both the model reference and limits are checked
+            - Models can be specified by ID or Model instance
+            - Model IDs are resolved to Model instances during validation
+        """
         from aixplain.factories import ModelFactory
 
         if self.budget is not None:
@@ -117,7 +199,29 @@ class APIKey:
                     raise Exception(f"Asset {asset_limit.model} is not a valid aiXplain model.")
 
     def to_dict(self) -> Dict:
-        """Convert the APIKey object to a dictionary"""
+        """Convert the APIKey instance to a dictionary representation.
+
+        This method serializes the APIKey and its associated limits into a
+        format suitable for API requests or storage.
+
+        Returns:
+            Dict: A dictionary containing:
+                - id (int): The API key's ID
+                - name (Text): The API key's name
+                - budget (Optional[float]): The spending limit
+                - assetsLimits (List[Dict]): Model-specific limits with:
+                    - tpm: tokens per minute
+                    - tpd: tokens per day
+                    - rpm: requests per minute
+                    - rpd: requests per day
+                    - assetId: model ID
+                - expiresAt (Optional[Text]): ISO format expiration date
+                - globalLimits (Optional[Dict]): Global limits with tpm/tpd/rpm/rpd
+
+        Note:
+            - Datetime objects are converted to ISO format strings
+            - Model instances are referenced by their ID
+        """
         payload = {
             "id": self.id,
             "name": self.name,
@@ -150,7 +254,23 @@ class APIKey:
         return payload
 
     def delete(self) -> None:
-        """Delete an API key by its ID"""
+        """Delete this API key from the system.
+
+        This method permanently removes the API key from the aiXplain platform.
+        The operation cannot be undone.
+
+        Raises:
+            Exception: If deletion fails, which can happen if:
+                - The API key doesn't exist
+                - The user doesn't have permission to delete it
+                - The API request fails
+                - The server returns a non-200 status code
+
+        Note:
+            - This operation is permanent and cannot be undone
+            - Only the API key owner can delete it
+            - Uses the team API key for authentication
+        """
         try:
             url = f"{config.BACKEND_URL}/sdk/api-keys/{self.id}"
             headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
@@ -164,7 +284,35 @@ class APIKey:
             raise Exception(f"{message}")
 
     def get_usage(self, asset_id: Optional[Text] = None) -> APIKeyUsageLimit:
-        """Get the usage limits of an API key"""
+        """Get current usage statistics for this API key.
+
+        This method retrieves the current usage counts and limits for the API key,
+        either globally or for a specific model.
+
+        Args:
+            asset_id (Optional[Text], optional): The model ID to get usage for.
+                If None, returns usage for all models. Defaults to None.
+
+        Returns:
+            APIKeyUsageLimit: A list of usage statistics objects containing:
+                - daily_request_count: Number of requests made today
+                - daily_request_limit: Maximum requests allowed per day
+                - daily_token_count: Number of tokens used today
+                - daily_token_limit: Maximum tokens allowed per day
+                - model: The model ID these stats apply to (None for global)
+
+        Raises:
+            Exception: If the request fails, which can happen if:
+                - The API key doesn't exist
+                - The user doesn't have permission to view usage
+                - The API request fails
+                - The server returns an error response
+
+        Note:
+            - Uses the team API key for authentication
+            - Counts reset at the start of each day
+            - Filtered by asset_id if provided
+        """
         try:
             url = f"{config.BACKEND_URL}/sdk/api-keys/{self.id}/usage-limits"
             headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
@@ -192,7 +340,26 @@ class APIKey:
             raise Exception(f"API Key Usage Error: Failed to get usage. Error: {str(resp)}")
 
     def __set_limit(self, limit: int, model: Optional[Union[Text, Model]], limit_type: Text) -> None:
-        """Set a limit for an API key"""
+        """Internal method to set a rate limit value.
+
+        This method updates either a global limit or a model-specific limit
+        with the provided value.
+
+        Args:
+            limit (int): The new limit value to set.
+            model (Optional[Union[Text, Model]]): The model to set limit for.
+                If None, sets a global limit.
+            limit_type (Text): The type of limit to set (e.g., "token_per_day").
+
+        Raises:
+            Exception: If trying to set a limit for a model that isn't
+                configured in this API key's asset_limits.
+
+        Note:
+            - Model can be specified by ID or Model instance
+            - For global limits, model should be None
+            - limit_type must match an attribute name in APIKeyLimits
+        """
         if model is None:
             setattr(self.global_limits, limit_type, limit)
         else:
@@ -208,17 +375,77 @@ class APIKey:
                 raise Exception(f"Limit for Model {model} not found in the API key.")
 
     def set_token_per_day(self, token_per_day: int, model: Optional[Union[Text, Model]] = None) -> None:
-        """Set the token per day limit of an API key"""
+        """Set the daily token limit for this API key.
+
+        Args:
+            token_per_day (int): Maximum number of tokens allowed per day.
+            model (Optional[Union[Text, Model]], optional): The model to set
+                limit for. If None, sets global limit. Defaults to None.
+
+        Raises:
+            Exception: If the model isn't configured in this API key's
+                asset_limits.
+
+        Note:
+            - Model can be specified by ID or Model instance
+            - For global limits, model should be None
+            - The new limit takes effect immediately
+        """
         self.__set_limit(token_per_day, model, "token_per_day")
 
     def set_token_per_minute(self, token_per_minute: int, model: Optional[Union[Text, Model]] = None) -> None:
-        """Set the token per minute limit of an API key"""
+        """Set the per-minute token limit for this API key.
+
+        Args:
+            token_per_minute (int): Maximum number of tokens allowed per minute.
+            model (Optional[Union[Text, Model]], optional): The model to set
+                limit for. If None, sets global limit. Defaults to None.
+
+        Raises:
+            Exception: If the model isn't configured in this API key's
+                asset_limits.
+
+        Note:
+            - Model can be specified by ID or Model instance
+            - For global limits, model should be None
+            - The new limit takes effect immediately
+        """
         self.__set_limit(token_per_minute, model, "token_per_minute")
 
     def set_request_per_day(self, request_per_day: int, model: Optional[Union[Text, Model]] = None) -> None:
-        """Set the request per day limit of an API key"""
+        """Set the daily request limit for this API key.
+
+        Args:
+            request_per_day (int): Maximum number of requests allowed per day.
+            model (Optional[Union[Text, Model]], optional): The model to set
+                limit for. If None, sets global limit. Defaults to None.
+
+        Raises:
+            Exception: If the model isn't configured in this API key's
+                asset_limits.
+
+        Note:
+            - Model can be specified by ID or Model instance
+            - For global limits, model should be None
+            - The new limit takes effect immediately
+        """
         self.__set_limit(request_per_day, model, "request_per_day")
 
     def set_request_per_minute(self, request_per_minute: int, model: Optional[Union[Text, Model]] = None) -> None:
-        """Set the request per minute limit of an API key"""
+        """Set the per-minute request limit for this API key.
+
+        Args:
+            request_per_minute (int): Maximum number of requests allowed per minute.
+            model (Optional[Union[Text, Model]], optional): The model to set
+                limit for. If None, sets global limit. Defaults to None.
+
+        Raises:
+            Exception: If the model isn't configured in this API key's
+                asset_limits.
+
+        Note:
+            - Model can be specified by ID or Model instance
+            - For global limits, model should be None
+            - The new limit takes effect immediately
+        """
         self.__set_limit(request_per_minute, model, "request_per_minute")

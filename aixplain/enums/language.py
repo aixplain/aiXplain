@@ -32,6 +32,18 @@ from typing import List, Dict, Any, Optional
 
 @dataclass
 class LanguageMetadata:
+    """Metadata container for language information.
+
+    This class holds metadata about a language including its identifier, value,
+    label, dialects, and supported scripts.
+
+    Attributes:
+        id (str): ID of the language.
+        value (str): Language code or value.
+        label (str): Label for the language.
+        dialects (List[Dict[str, str]]): List of dialect specifications.
+        scripts (List[Any]): List of supported scripts for the language.
+    """
     id: str
     value: str
     label: str
@@ -39,6 +51,11 @@ class LanguageMetadata:
     scripts: List[Any] = field(default_factory=list)
 
     def to_dict(self) -> dict:
+        """Convert the language metadata to a dictionary.
+
+        Returns:
+            dict: Dictionary representation of the language metadata.
+        """
         return {
             "id": self.id,
             "value": self.value,
@@ -48,7 +65,15 @@ class LanguageMetadata:
         }
 
     @classmethod
-    def from_dict(cls, data: dict):
+    def from_dict(cls, data: dict) -> "LanguageMetadata":
+        """Create a LanguageMetadata instance from a dictionary.
+
+        Args:
+            data (dict): Dictionary containing language metadata.
+
+        Returns:
+            LanguageMetadata: New instance created from the dictionary data.
+        """
         return cls(
             id=data.get("id"),
             value=data.get("value"),
@@ -57,7 +82,20 @@ class LanguageMetadata:
             scripts=data.get("scripts", []),
         )
 
-def load_languages():
+def load_languages() -> Enum:
+    """Load language definitions from the backend or cache.
+
+    This function attempts to load language definitions from the cache first.
+    If the cache is invalid or doesn't exist, it fetches the data from the
+    backend API. It creates a dynamic Enum class containing all available
+    languages and their dialects.
+
+    Returns:
+        Enum: Dynamically created Language enum class with language codes and dialects.
+
+    Raises:
+        Exception: If languages cannot be loaded due to invalid API key or other errors.
+    """
     api_key = config.TEAM_API_KEY
     backend_url = config.BACKEND_URL
 
