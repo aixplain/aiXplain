@@ -590,7 +590,7 @@ class Agent(Model, DeployableMixin[Tool]):
             id=data["id"],
             name=data["name"],
             description=data["description"],
-            instructions=data.get("role"),
+            instructions=data.get("instructions"),
             tools=tools,
             llm_id=data.get("llmId", "6646261c6eb563165658bbb1"),
             llm=llm,

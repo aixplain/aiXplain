@@ -31,7 +31,7 @@ def build_team_agent(payload: Dict, agents: List[Agent] = None, api_key: Text = 
             - name: Team agent name
             - agents: List of agent configurations
             - description: Optional description
-            - role: Optional instructions
+            - instructions: Optional instructions
             - teamId: Optional supplier information
             - version: Optional version
             - cost: Optional cost information
@@ -204,11 +204,11 @@ def build_team_agent_from_yaml(yaml_code: str, llm_id: str, api_key: str, team_i
     # Parse agents
     for agent_entry in agents_data:
         for agent_name, agent_info in agent_entry.items():
-            agent_role = agent_info["role"]
+            agent_instructions = agent_info["instructions"]
             agent_goal = agent_info["goal"]
             agent_backstory = agent_info["backstory"]
 
-            description = f"You are an expert {agent_role}. {agent_backstory} Your primary goal is to {agent_goal}. Use your expertise to ensure the success of your tasks."
+            description = f"You are an expert {agent_instructions}. {agent_backstory} Your primary goal is to {agent_goal}. Use your expertise to ensure the success of your tasks."
             agent_name = agent_name.replace("_", " ")
             agent_name = f"{agent_name} agent" if not agent_name.endswith(" agent") else agent_name
             agent_obj = Agent(

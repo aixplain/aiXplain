@@ -92,7 +92,7 @@ def from_yaml(
     for agent_entry in agents_data:
         # Handle different YAML structures
         if isinstance(agent_entry, dict):
-            # Case 1: Standard structure - {agent_name: {role: ..., goal: ..., backstory: ...}}
+            # Case 1: Standard structure - {agent_name: {instructions: ..., goal: ..., backstory: ...}}
             for agent_name, agent_info in agent_entry.items():
                 # Check if agent_info is a list (malformed YAML structure)
                 if isinstance(agent_info, list):
@@ -100,11 +100,11 @@ def from_yaml(
                     # This happens when YAML has unquoted keys that create nested structures
                     continue
                 elif isinstance(agent_info, dict):
-                    agent_role = agent_info["role"]
+                    agent_instructions = agent_info["instructions"]
                     agent_goal = agent_info["goal"]
                     agent_backstory = agent_info["backstory"]
 
-                    description = f"## ROLE\n{agent_role}\n\n## GOAL\n{agent_goal}\n\n## BACKSTORY\n{agent_backstory}"
+                    description = f"## ROLE\n{agent_instructions}\n\n## GOAL\n{agent_goal}\n\n## BACKSTORY\n{agent_backstory}"
                     agent_obj = AgentFactory.create(
                         name=agent_name.replace("_", " "),
                         description=description,
@@ -120,11 +120,13 @@ def from_yaml(
                 if isinstance(item, dict):
                     for agent_name, agent_info in item.items():
                         if isinstance(agent_info, dict):
-                            agent_role = agent_info["role"]
+                            agent_instructions = agent_info["instructions"]
                             agent_goal = agent_info["goal"]
                             agent_backstory = agent_info["backstory"]
 
-                            description = f"## ROLE\n{agent_role}\n\n## GOAL\n{agent_goal}\n\n## BACKSTORY\n{agent_backstory}"
+                            description = (
+                                f"## ROLE\n{agent_instructions}\n\n## GOAL\n{agent_goal}\n\n## BACKSTORY\n{agent_backstory}"
+                            )
                             agent_tools = generate_tools_from_str(agent_info.get("tools", []))
                             agent_obj = AgentFactory.create(
                                 name=agent_name.replace("_", " "),

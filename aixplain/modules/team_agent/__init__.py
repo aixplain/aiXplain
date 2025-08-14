@@ -539,7 +539,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                 - supplier (str): The supplier code
                 - version (str): The version number
                 - status (str): The current status
-                - role (str): The team agent's instructions
+                - instructions (str): The team agent's instructions
         """
         if self.use_mentalist:
             planner_id = self.mentalist_llm.id if self.mentalist_llm else self.llm_id
@@ -660,7 +660,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             version=data.get("version"),
             use_mentalist=use_mentalist,
             status=status,
-            instructions=data.get("role"),
+            instructions=data.get("instructions"),
             inspectors=inspectors,
             inspector_targets=inspector_targets,
             output_format=OutputFormat(data.get("outputFormat", OutputFormat.TEXT)),
