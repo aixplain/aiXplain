@@ -222,6 +222,16 @@ class Agent(
             self.status = AssetStatus.DRAFT
         else:
             self.status = AssetStatus.ONBOARDED
+
+        # if not all(t.status == AssetStatus.ONBOARDED for t in self.tools):
+        #     raise ValueError(
+        #         "All tools must be onboarded before saving the agent."
+        #     )
+        # if not all(t.status == AssetStatus.ONBOARDED for t in self.subagents):
+        #     raise ValueError(
+        #         "All subagents must be onboarded before saving the agent."
+        #     )
+
         return None  # Continue with normal operation
 
     @classmethod
