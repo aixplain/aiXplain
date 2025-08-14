@@ -203,25 +203,26 @@ def build_team_agent_from_yaml(yaml_code: str, llm_id: str, api_key: str, team_i
 
     # Parse agents
     for agent_entry in agents_data:
-        for agent_name, agent_info in agent_entry.items():
-            agent_instructions = agent_info["instructions"]
-            agent_goal = agent_info["goal"]
-            agent_backstory = agent_info["backstory"]
+        agent_name = list(agent_entry.keys())[0]
+        agent_info = agent_entry[agent_name]
+        agent_instructions = agent_info["instructions"]
+        agent_goal = agent_info["goal"]
+        agent_backstory = agent_info["backstory"]
 
-            description = f"You are an expert {agent_instructions}. {agent_backstory} Your primary goal is to {agent_goal}. Use your expertise to ensure the success of your tasks."
-            agent_name = agent_name.replace("_", " ")
-            agent_name = f"{agent_name} agent" if not agent_name.endswith(" agent") else agent_name
-            agent_obj = Agent(
-                id="",
-                name=agent_name,
-                description=description,
-                instructions=description,
-                tasks=[],  # Tasks will be assigned later
-                tools=[parse_tool_from_yaml(tool) for tool in agent_info.get("tools", []) if tool != "language_model"],
-                llmId=llm_id,
-            )
-            agents_mapping[agent_name] = agent_obj
-            agent_objs.append(agent_obj)
+        description = f"You are an expert {agent_instructions}. {agent_backstory} Your primary goal is to {agent_goal}. Use your expertise to ensure the success of your tasks."
+        agent_name = agent_name.replace("_", " ")
+        agent_name = f"{agent_name} agent" if not agent_name.endswith(" agent") else agent_name
+        agent_obj = Agent(
+            id="",
+            name=agent_name,
+            description=description,
+            instructions=description,
+            tasks=[],  # Tasks will be assigned later
+            tools=[parse_tool_from_yaml(tool) for tool in agent_info.get("tools", []) if tool != "language_model"],
+            llmId=llm_id,
+        )
+        agents_mapping[agent_name] = agent_obj
+        agent_objs.append(agent_obj)
 
     # Parse tasks and assign them to the corresponding agents
     for task in tasks_data:
