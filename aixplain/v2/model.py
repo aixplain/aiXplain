@@ -57,7 +57,7 @@ class Usage:
 @dataclass
 class ModelResult(Result):
     """Result for model runs with specific fields from the backend response."""
-    
+
     details: Optional[List[Detail]] = None
     run_time: Optional[float] = field(
         default=None, metadata=config(field_name="runTime")

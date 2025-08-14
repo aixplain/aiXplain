@@ -84,7 +84,6 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
             self.function = self.integration.function
             self.function_type = self.integration.function_type
 
-
     def validate_allowed_actions(self) -> None:
         if self.allowed_actions:
             assert (
@@ -128,16 +127,22 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
                     continue
 
             for input_param in action.inputs:
-                input_code = input_param.code or input_param.name.lower().replace(" ", "_")
-                
+                input_code = input_param.code or input_param.name.lower().replace(
+                    " ", "_"
+                )
+
                 # Get the current value from the action proxy if available
                 current_value = None
                 if action_proxy:
                     current_value = action_proxy.get(input_code)
-                
+
                 # Fall back to backend default if no current value
                 if current_value is None and input_param.defaultValue:
-                    current_value = input_param.defaultValue[0] if input_param.defaultValue else None
+                    current_value = (
+                        input_param.defaultValue[0]
+                        if input_param.defaultValue
+                        else None
+                    )
 
                 action_inputs[input_code] = {
                     "name": input_param.name,
@@ -201,20 +206,20 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
         merged = {}
 
         # For tools, we need to get the current action input values from the actions
-        if hasattr(self, 'actions') and self.allowed_actions:
+        if hasattr(self, "actions") and self.allowed_actions:
             # Get the first allowed action (or use the one specified in kwargs)
-            action_name = kwargs.get('action', self.allowed_actions[0])
+            action_name = kwargs.get("action", self.allowed_actions[0])
 
             try:
                 # Get the action proxy to access current input values
                 action_proxy = self.actions[action_name]
-                
+
                 # Extract all current input values
                 for input_code in action_proxy.keys():
                     value = action_proxy.get(input_code)
                     if value is not None:
                         merged[input_code] = value
-                        
+
             except (ValueError, KeyError) as e:
                 # If we can't get the action proxy, just continue with empty merged
                 pass
@@ -223,7 +228,7 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
         merged.update(kwargs)
 
         # Ensure the action parameter is preserved
-        if 'action' in kwargs:
-            merged['action'] = kwargs['action']
+        if "action" in kwargs:
+            merged["action"] = kwargs["action"]
 
         return merged

@@ -110,22 +110,22 @@ class Utility(
 
     @classmethod
     def search(
-        cls: type["Utility"], 
+        cls: type["Utility"],
         query: Optional[str] = None,
-        **kwargs: Unpack[UtilitySearchParams]
+        **kwargs: Unpack[UtilitySearchParams],
     ) -> "Page[Utility]":
         """
         Search utilities with optional query and filtering.
-        
+
         Args:
             query: Optional search query string
             **kwargs: Additional search parameters (function, status, etc.)
-            
+
         Returns:
             Page of utilities matching the search criteria
         """
         # If query is provided, add it to kwargs
         if query is not None:
             kwargs["query"] = query
-            
+
         return super().search(**kwargs)

@@ -95,7 +95,7 @@ class Agent(
     RESPONSE_CLASS = AgentRunResult
 
     # Core fields from Swagger
-    role: Optional[str] = None
+    instructions: Optional[str] = None
     status: str = ""
     team_id: Optional[int] = field(default=None, metadata=config(field_name="teamId"))
     llm_id: str = field(default=LLM_ID, metadata=config(field_name="llmId"))
@@ -221,6 +221,7 @@ class Agent(
         """
         payload = self.to_dict()
         payload["assets"] = payload.pop("tools")
+        payload["role"] = payload.pop("instructions")
         payload["tools"] = [{"type": "llm", "description": "main", "parameters": []}]
 
         for i, tool in enumerate(self.tools):
