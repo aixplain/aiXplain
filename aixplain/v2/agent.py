@@ -4,7 +4,7 @@ from typing_extensions import Unpack, NotRequired
 from dataclasses_json import dataclass_json, config
 
 from aixplain.enums import AssetStatus, ResponseStatus
-
+from aixplain.v2.model import Model
 
 from .resource import (
     BaseResource,
@@ -104,7 +104,7 @@ class Agent(
 
     RESOURCE_PATH = "v2/agents"
 
-    LLM_ID = "669a63646eb56306647e1091"
+    DEFAULT_LLM = "669a63646eb56306647e1091"
     SUPPLIER = "aiXplain"
 
     RESPONSE_CLASS = AgentRunResult
@@ -114,11 +114,17 @@ class Agent(
     instructions: Optional[str] = None
     status: AssetStatus = AssetStatus.DRAFT
     team_id: Optional[int] = field(default=None, metadata=config(field_name="teamId"))
-    llm_id: str = field(default=LLM_ID, metadata=config(field_name="llmId"))
+    llm: Union[str, "Model"] = field(
+        default=DEFAULT_LLM, metadata=config(field_name="llmId")
+    )
 
     # Asset and tool fields
-    assets: Optional[List[Dict[str, Any]]] = field(default_factory=list)
-    tools: Optional[List[Dict[str, Any]]] = field(default_factory=list)
+    assets: Optional[List[Dict[str, Any]]] = field(
+        default_factory=list, metadata=config(field_name="tools")
+    )
+    tools: Optional[List[Dict[str, Any]]] = field(
+        default_factory=list, metadata=config(field_name="assets")
+    )
 
     # Inspector and supervisor fields
     inspectorId: Optional[str] = field(
@@ -133,7 +139,9 @@ class Agent(
 
     # Task fields
     tasks: Optional[List[Task]] = field(default_factory=list)
-    subagents: Optional[List[Union[str, "Agent"]]] = field(default_factory=list)
+    subagents: Optional[List[Union[str, "Agent"]]] = field(
+        default_factory=list, metadata=config(field_name="agents")
+    )
 
     # Output and execution fields
     outputFormat: Optional[str] = field(
@@ -164,6 +172,9 @@ class Agent(
         self.subagents = [
             agent if isinstance(agent, str) else agent.id for agent in self.subagents
         ]
+        self.assets = [{"type": "llm", "description": "main", "parameters": []}]
+        if isinstance(self.llm, Model):
+            self.llm = self.llm.id
         if self.subagents and (self.tasks or self.tools):
             raise ValueError(
                 "Team agents cannot have tasks or tools. Please remove the tasks or tools and try again."
@@ -244,13 +255,8 @@ class Agent(
         Build the payload for the save action.
         """
         payload = self.to_dict()
-        payload["assets"] = payload.pop("tools")
-        payload["agents"] = payload.pop("subagents")
-        payload["tools"] = [{"type": "llm", "description": "main", "parameters": []}]
-
         for i, tool in enumerate(self.tools):
             payload["assets"][i]["parameters"] = tool.get_parameters()
-
         return payload
 
     def build_run_payload(self, **kwargs: Unpack[AgentRunParams]) -> dict:

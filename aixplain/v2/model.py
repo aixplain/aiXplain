@@ -68,7 +68,7 @@ class ModelResult(Result):
     usage: Optional[Usage] = None
 
 
-class ParameterProxy:
+class InputsProxy:
     """Proxy object that provides both dict-like and dot notation access to model parameters."""
 
     def __init__(self, model):
@@ -276,7 +276,7 @@ class ParameterProxy:
 
     def __repr__(self):
         params = self.get_all_parameters()
-        return f"ParameterProxy({params})"
+        return f"InputsProxy({params})"
 
 
 def find_supplier_by_id(supplier_id: Union[str, int]) -> Optional[Supplier]:
@@ -455,7 +455,7 @@ class Model(
     def __post_init__(self):
         """Initialize dynamic attributes based on backend parameters."""
         # Initialize the inputs proxy
-        self.inputs = ParameterProxy(self)
+        self.inputs = InputsProxy(self)
 
     def __setattr__(self, name: str, value):
         """Handle bulk assignment to inputs."""

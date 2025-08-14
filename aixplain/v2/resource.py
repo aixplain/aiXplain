@@ -191,6 +191,44 @@ class BaseResource:
     name: Optional[str] = None
     description: Optional[str] = None
 
+    def _ensure_id_exists(self) -> None:
+        """
+        Ensure the resource has a valid ID for operations that require it.
+
+        Raises:
+            ValidationError: If the resource doesn't have a valid ID
+        """
+        if not self.id:
+            if hasattr(self, "_saved_state") and self._saved_state is None:
+                raise ValidationError(
+                    "Resource has not been saved yet. "
+                    "Call .save() first to create the resource."
+                )
+            else:
+                raise ValidationError(
+                    "Resource has been deleted or is invalid. "
+                    "Resource ID is missing."
+                )
+
+    def _ensure_valid_state(self, operation_name: str) -> None:
+        """
+        Ensure the resource is in a valid state for operations.
+
+        Args:
+            operation_name: str: The name of the operation being performed
+
+        Raises:
+            ValidationError: If the resource is not in a valid state
+        """
+        # Check if resource has been deleted
+        if self.is_deleted:
+            raise ValidationError(
+                f"Cannot {operation_name}: Resource has been deleted."
+            )
+
+        # Check if resource has a valid ID
+        self._ensure_id_exists()
+
     def _get_serializable_state(self) -> dict:
         """
         Get the current state of the resource as a serializable dictionary.
@@ -227,6 +265,16 @@ class BaseResource:
             bool: True if the resource has been modified, False otherwise
         """
         return self._is_state_changed()
+
+    @property
+    def is_deleted(self) -> bool:
+        """
+        Check if the resource has been deleted.
+
+        Returns:
+            bool: True if the resource has been deleted, False otherwise
+        """
+        return getattr(self, "_deleted", False)
 
     def _update_saved_state(self) -> None:
         """
@@ -339,8 +387,7 @@ class BaseResource:
             "Subclasses of 'BaseResource' must " "specify 'RESOURCE_PATH'"
         )
 
-        if not self.id:
-            raise ValidationError("Action call requires an 'id' attribute")
+        self._ensure_valid_state("perform action")
 
         method = method or "GET"
         path = f"{self.RESOURCE_PATH}/{self.encoded_id}"
@@ -366,8 +413,7 @@ class BaseResource:
         Returns:
             The URL-encoded resource ID, or empty string if no ID exists
         """
-        if not self.id:
-            raise ValidationError("Encoded ID requires an 'id' attribute")
+        self._ensure_id_exists()
 
         return encode_resource_id(self.id)
 
@@ -787,8 +833,7 @@ class DeleteResourceMixin(BaseMixin, Generic[DeleteParamsT, DeleteResultT]):
             "Subclasses of 'BaseResource' must " "specify 'RESOURCE_PATH'"
         )
 
-        if not self.id:
-            raise ValidationError("Delete call requires an 'id' attribute")
+        self._ensure_valid_state("delete")
 
         resource_path = kwargs.pop("resource_path", None) or getattr(
             self, "RESOURCE_PATH", ""
@@ -886,8 +931,7 @@ class DeleteResourceMixin(BaseMixin, Generic[DeleteParamsT, DeleteResultT]):
         Returns:
             DeleteResultT: The result of the delete operation
         """
-        if not self.id:
-            raise ValidationError("Delete call requires an 'id' attribute")
+        self._ensure_valid_state("delete")
 
         # Build the delete URL
         delete_url = self.build_delete_url(**kwargs)
@@ -899,8 +943,9 @@ class DeleteResourceMixin(BaseMixin, Generic[DeleteParamsT, DeleteResultT]):
         return self.handle_delete_response(response, **kwargs)
 
     def mark_as_deleted(self) -> None:
-        """Mark the resource as deleted by clearing its ID."""
+        """Mark the resource as deleted by clearing its ID and setting deletion flag."""
         self.id = None
+        self._deleted = True
 
 
 class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
@@ -934,8 +979,7 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
             "Subclasses of 'BaseResource' must " "specify 'RESOURCE_PATH'"
         )
 
-        if not self.id:
-            raise ValidationError("Run call requires an 'id' attribute")
+        self._ensure_valid_state("run")
 
         run_action_path = getattr(self, "RUN_ACTION_PATH", None)
         path = f"{self.RESOURCE_PATH}/{self.encoded_id}"
