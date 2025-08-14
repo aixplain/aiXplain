@@ -68,6 +68,7 @@ def build_connector_params(**kwargs) -> BaseAuthenticationParams:
     name = kwargs.get("name")
     connector_id = kwargs.get("connector_id")
     return BaseAuthenticationParams(name=name, connector_id=connector_id)
+    return BaseAuthenticationParams(name=name, connector_id=connector_id)
 
 
 class Integration(Model):

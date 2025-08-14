@@ -37,6 +37,7 @@ def process_variables(
         input_data = {"input": FileFactory.to_link(query)}
 
     variables = re.findall(r"(?<!{){([^}]+)}(?!})", agent_description or "")
+    variables = re.findall(r"(?<!{){([^}]+)}(?!})", agent_description or "")
     for variable in variables:
         if isinstance(data, dict):
             assert (

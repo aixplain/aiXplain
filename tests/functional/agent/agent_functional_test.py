@@ -239,6 +239,10 @@ def test_delete_agent_in_use(delete_agents_and_team_agents, AgentFactory):
         r"Error: Agent cannot be deleted\.\nReason: This agent is currently used by one or more team agents\.\n\nteam_agent_id: [a-f0-9]{24}\. To proceed, remove the agent from all team agents before deletion\.",
         str(exc_info.value),
     )
+    assert re.match(
+        r"Error: Agent cannot be deleted\.\nReason: This agent is currently used by one or more team agents\.\n\nteam_agent_id: [a-f0-9]{24}\. To proceed, remove the agent from all team agents before deletion\.",
+        str(exc_info.value),
+    )
 
 
 @pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
@@ -307,6 +311,7 @@ def test_update_tools_of_agent(run_input_map, delete_agents_and_team_agents, Age
                 "supplier": "Microsoft",
                 "function": "translation",
                 "query": "Translate: 'Olá, como vai você?'",
+                "query": "Translate: 'Olá, como vai você?'",
                 "description": "Translation tool with target language",
                 "expected_tool_input": "targetlanguage",
             },
@@ -338,6 +343,7 @@ def test_specific_model_parameters_e2e(tool_config, delete_agents_and_team_agent
     # Create and run agent
     agent = AgentFactory.create(
         name="Test Parameter Agent",
+        description="Test agent with parameterized tools. You MUST use a tool for the tasks. Do not directly answer the question.",
         description="Test agent with parameterized tools. You MUST use a tool for the tasks. Do not directly answer the question.",
         tools=[tool],
         llm_id="6646261c6eb563165658bbb1",  # Using LLM ID from test data
@@ -731,6 +737,7 @@ def test_run_agent_with_expected_output():
 def test_agent_with_action_tool():
     from aixplain.modules.model.integration import AuthenticationSchema
 
+    connector = ModelFactory.get("686432941223092cb4294d3f")
     connector = ModelFactory.get("686432941223092cb4294d3f")
     # connect
     response = connector.connect(

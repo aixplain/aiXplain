@@ -197,9 +197,6 @@ class BenchmarkFactory:
             raise Exception("Please use at least one metric")
         if len(payload["model"]) == 0 and payload.get("models", None) is None:
             raise Exception("Please use at least one model")
-            raise Exception("Please use at least one metric")
-        if len(payload["model"]) == 0 and payload.get("models", None) is None:
-            raise Exception("Please use at least one model")
         clean_metrics_info = {}
         for metric_info in payload["metrics"]:
             metric_id = metric_info["id"]
