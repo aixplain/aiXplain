@@ -66,6 +66,21 @@ class AgentRunResult(Result):
 
 @dataclass_json
 @dataclass
+class Task:
+    name: str
+    description: Optional[str] = None
+    expectedOutput: Optional[str] = ""
+    dependencies: List[Union[str, "Task"]] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        self.dependencies = [
+            dependency if isinstance(dependency, str) else dependency.name
+            for dependency in self.dependencies
+        ]
+
+
+@dataclass_json
+@dataclass
 class Agent(
     BaseResource,
     SearchResourceMixin[BaseSearchParams, "Agent"],
@@ -93,10 +108,11 @@ class Agent(
     SUPPLIER = "aiXplain"
 
     RESPONSE_CLASS = AgentRunResult
+    Task = Task
 
     # Core fields from Swagger
     instructions: Optional[str] = None
-    status: str = ""
+    status: AssetStatus = AssetStatus.DRAFT
     team_id: Optional[int] = field(default=None, metadata=config(field_name="teamId"))
     llm_id: str = field(default=LLM_ID, metadata=config(field_name="llmId"))
 
@@ -116,7 +132,8 @@ class Agent(
     )
 
     # Task fields
-    tasks: Optional[List[Dict[str, Any]]] = field(default_factory=list)
+    tasks: Optional[List[Task]] = field(default_factory=list)
+    agents: Optional[List[Union[str, "Agent"]]] = field(default_factory=list)
 
     # Output and execution fields
     outputFormat: Optional[str] = field(
@@ -143,7 +160,10 @@ class Agent(
         )
 
     def __post_init__(self) -> None:
-        self.status = self.status or AssetStatus.DRAFT
+        self.tasks = [Task.from_dict(task) for task in self.tasks]
+        self.agents = [
+            agent if isinstance(agent, str) else agent.id for agent in self.agents
+        ]
 
     def before_run(
         self, *args: Any, **kwargs: Unpack[AgentRunParams]
@@ -221,7 +241,6 @@ class Agent(
         """
         payload = self.to_dict()
         payload["assets"] = payload.pop("tools")
-        payload["role"] = payload.pop("instructions")
         payload["tools"] = [{"type": "llm", "description": "main", "parameters": []}]
 
         for i, tool in enumerate(self.tools):
