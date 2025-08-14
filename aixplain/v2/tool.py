@@ -80,7 +80,6 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
                 authScheme=self.auth_scheme, data=self.config
             )
             self.id = self.asset_id = connection.id
-            self.supplier = self.integration.supplier
             self.function = self.integration.function
             self.function_type = self.integration.function_type
 
