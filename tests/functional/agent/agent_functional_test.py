@@ -98,7 +98,7 @@ def test_end2end(run_input_map, delete_agents_and_team_agents, AgentFactory):
     assert response["completed"] is True
     assert response["status"].lower() == "success"
     assert "data" in response
-    assert response["data"]["session_id"] is not None
+    assert response["data"]["session_id"] is None
     assert response["data"]["output"] is not None
     agent.delete()
 
@@ -520,7 +520,7 @@ def test_instructions(delete_agents_and_team_agents, AgentFactory):
     assert response["completed"] is True
     assert response["status"].lower() == "success"
     assert "data" in response
-    assert response["data"]["session_id"] is not None
+    assert response["data"]["session_id"] is None
     assert response["data"]["output"] is not None
     assert "aixplain" in response["data"]["output"].lower()
     agent.delete()
@@ -767,10 +767,15 @@ def test_agent_with_action_tool():
 
 
 def test_agent_with_mcp_tool():
-    connector = ModelFactory.get("68549a33ba00e44f357896f1")
+    from aixplain.modules.model.integration import AuthenticationSchema
+
+    connector = ModelFactory.get("686eb9cd26480723d0634d3e")
     # connect
     response = connector.connect(
-        data="https://mcp.zapier.com/api/mcp/s/OTJiMjVlYjEtMGE4YS00OTVjLWIwMGYtZDJjOGVkNTc4NjFkOjI0MTNjNzg5LWZlNGMtNDZmNC05MDhmLWM0MGRlNDU4ZmU1NA==/mcp"
+        authentication_schema=AuthenticationSchema.API_KEY,
+        data={
+            "url": "https://mcp.zapier.com/api/mcp/s/OTJiMjVlYjEtMGE4YS00OTVjLWIwMGYtZDJjOGVkNTc4NjFkOjI0MTNjNzg5LWZlNGMtNDZmNC05MDhmLWM0MGRlNDU4ZmU1NA==/mcp"
+        },
     )
     connection_id = response.data["id"]
     connection = ModelFactory.get(connection_id)
