@@ -133,7 +133,7 @@ class Agent(
 
     # Task fields
     tasks: Optional[List[Task]] = field(default_factory=list)
-    agents: Optional[List[Union[str, "Agent"]]] = field(default_factory=list)
+    subagents: Optional[List[Union[str, "Agent"]]] = field(default_factory=list)
 
     # Output and execution fields
     outputFormat: Optional[str] = field(
@@ -161,9 +161,13 @@ class Agent(
 
     def __post_init__(self) -> None:
         self.tasks = [Task.from_dict(task) for task in self.tasks]
-        self.agents = [
-            agent if isinstance(agent, str) else agent.id for agent in self.agents
+        self.subagents = [
+            agent if isinstance(agent, str) else agent.id for agent in self.subagents
         ]
+        if self.subagents and (self.tasks or self.tools):
+            raise ValueError(
+                "Team agents cannot have tasks or tools. Please remove the tasks or tools and try again."
+            )
 
     def before_run(
         self, *args: Any, **kwargs: Unpack[AgentRunParams]
@@ -241,6 +245,7 @@ class Agent(
         """
         payload = self.to_dict()
         payload["assets"] = payload.pop("tools")
+        payload["agents"] = payload.pop("subagents")
         payload["tools"] = [{"type": "llm", "description": "main", "parameters": []}]
 
         for i, tool in enumerate(self.tools):
