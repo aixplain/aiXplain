@@ -264,5 +264,5 @@ def build_team_agent_from_yaml(yaml_code: str, llm_id: str, api_key: str, team_i
         llm_id=llm_id,
         api_key=api_key,
         use_mentalist=True,
-        use_inspector=False,
+        inspectors=[],
     )

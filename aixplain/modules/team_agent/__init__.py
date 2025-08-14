@@ -881,7 +881,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             end = time.time()
             result = self.sync_poll(poll_url, name="evolve_process", timeout=600)
             result_data = result.data
-            current_code = result_data.get("current_code")
+            current_code = result_data.get("current_code") if isinstance(result_data, dict) else result_data.current_code
             if current_code is not None:
                 if evolve_parameters.evolve_type == EvolveType.TEAM_TUNING:
                     result_data["evolved_agent"] = from_yaml(
