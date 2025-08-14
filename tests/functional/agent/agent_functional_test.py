@@ -587,7 +587,6 @@ def test_agent_with_pipeline_tool(delete_agents_and_team_agents, AgentFactory):
 
     for pipeline in PipelineFactory.list(query="Hello Pipeline")["results"]:
         pipeline.delete()
-
     pipeline = PipelineFactory.init("Hello Pipeline")
     input_node = pipeline.input()
     input_node.label = "TextInput"
@@ -734,11 +733,15 @@ def test_agent_with_action_tool():
 
     connector = ModelFactory.get("686432941223092cb4294d3f")
     # connect
-    response = connector.connect(authentication_schema=AuthenticationSchema.BEARER_TOKEN, data={"token": os.getenv("SLACK_TOKEN")})
+    response = connector.connect(
+        authentication_schema=AuthenticationSchema.BEARER_TOKEN, data={"token": os.getenv("SLACK_TOKEN")}
+    )
     connection_id = response.data["id"]
 
     connection = ModelFactory.get(connection_id)
-    connection.action_scope = [action for action in connection.actions if action.code == "SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL"]
+    connection.action_scope = [
+        action for action in connection.actions if action.code == "SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL"
+    ]
 
     agent = AgentFactory.create(
         name="Test Agent",
@@ -757,7 +760,9 @@ def test_agent_with_action_tool():
     assert response is not None
     assert response["status"].lower() == "success"
     assert "helsinki" in response.data.output.lower()
-    assert "SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL" in [step["tool"] for step in response.data.intermediate_steps[0]["tool_steps"]]
+    assert "SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL" in [
+        step["tool"] for step in response.data.intermediate_steps[0]["tool_steps"]
+    ]
     connection.delete()
 
 

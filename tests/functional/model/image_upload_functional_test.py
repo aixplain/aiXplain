@@ -4,7 +4,6 @@ import json
 from aixplain.factories.model_factory import ModelFactory
 from tests.test_utils import delete_asset, delete_service_account
 from aixplain.utils import config
-import docker
 import pytest
 
 
@@ -29,7 +28,14 @@ def test_create_asset_repo():
     output_modality = mock_register_payload["output_modality"]
     documentation_url = mock_register_payload["documentation_url"]
     response = ModelFactory.create_asset_repo(
-        name, description, function, source_language, input_modality, output_modality, documentation_url, config.TEAM_API_KEY
+        name,
+        description,
+        function,
+        source_language,
+        input_modality,
+        output_modality,
+        documentation_url,
+        config.TEAM_API_KEY,
     )
     response_dict = dict(response)
     assert "id" in response_dict.keys()

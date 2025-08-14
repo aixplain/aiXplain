@@ -60,6 +60,7 @@ class InspectorTarget(str, Enum):
         STEPS: Validates intermediate steps during processing.
         OUTPUT: Validates the final output before returning.
     """
+
     INPUT = "input"
     STEPS = "steps"
     OUTPUT = "output"
@@ -116,6 +117,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         expected_output: Optional[Union[BaseModel, Text, dict]] = None,
         **additional_info,
     ) -> None:
+
         super().__init__(id, name, description, api_key, supplier, version, cost=cost)
         self.additional_info = additional_info
         self.agents = agents

@@ -53,7 +53,6 @@ class PythonInterpreterTool(Tool):
         super().__init__(name="Python Interpreter", description=description, **additional_info)
         self.status = AssetStatus.ONBOARDED  # TODO: change to DRAFT when we have a way to onboard the tool
 
-        
     def to_dict(self):
         """Convert the tool instance to a dictionary representation.
 

@@ -44,9 +44,9 @@ def build_tool_payload(tool: Union[Tool, Model]):
             "id": tool.id,
             "name": tool.name,
             "description": tool.description,
-            "supplier": tool.supplier.value["code"] if isinstance(tool.supplier, Supplier) else tool.supplier,
+            "supplier": (tool.supplier.value["code"] if isinstance(tool.supplier, Supplier) else tool.supplier),
             "parameters": parameters,
-            "function": tool.function if hasattr(tool, "function") and tool.function is not None else None,
+            "function": (tool.function if hasattr(tool, "function") and tool.function is not None else None),
             "type": "model",
             "version": tool.version if hasattr(tool, "version") else None,
             "assetId": tool.id,
@@ -155,7 +155,10 @@ def build_llm(payload: Dict, api_key: Text = config.TEAM_API_KEY) -> LLM:
                     # Convert parameters list to dictionary format expected by ModelParameters
                     params_dict = {}
                     for param in tool["parameters"]:
-                        params_dict[param["name"]] = {"required": False, "value": param["value"]}
+                        params_dict[param["name"]] = {
+                            "required": False,
+                            "value": param["value"],
+                        }
                     # Create ModelParameters and set it on the LLM
                     from aixplain.modules.model.model_parameters import ModelParameters
 

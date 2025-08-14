@@ -534,7 +534,7 @@ class Model(Asset):
             message = "Model Deletion Error: Make sure the model exists and you are the owner."
             logging.error(message)
             raise Exception(f"{message}")
-    
+
     def add_additional_info_for_benchmark(self, display_name: str, configuration: Dict) -> None:
         """Add benchmark-specific information to the model.
 
@@ -588,4 +588,3 @@ class Model(Asset):
             model_params=data.get("model_params"),
             **data.get("additional_info", {}),
         )
-

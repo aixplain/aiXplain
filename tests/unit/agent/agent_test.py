@@ -18,21 +18,36 @@ from aixplain.modules.agent.agent_response_data import AgentResponseData
 
 
 def test_fail_no_data_query():
-    agent = Agent("123", "Test Agent(-)", "Sample Description", instructions="Test Agent Instructions")
+    agent = Agent(
+        "123",
+        "Test Agent(-)",
+        "Sample Description",
+        instructions="Test Agent Instructions",
+    )
     with pytest.raises(Exception) as exc_info:
         agent.run_async()
     assert str(exc_info.value) == "Either 'data' or 'query' must be provided."
 
 
 def test_fail_query_must_be_provided():
-    agent = Agent("123", "Test Agent", "Sample Description", instructions="Test Agent Instructions")
+    agent = Agent(
+        "123",
+        "Test Agent",
+        "Sample Description",
+        instructions="Test Agent Instructions",
+    )
     with pytest.raises(Exception) as exc_info:
         agent.run_async(data={})
     assert str(exc_info.value) == "When providing a dictionary, 'query' must be provided."
 
 
 def test_fail_query_as_text_when_content_not_empty():
-    agent = Agent("123", "Test Agent", "Sample Description", instructions="Test Agent Instructions")
+    agent = Agent(
+        "123",
+        "Test Agent",
+        "Sample Description",
+        instructions="Test Agent Instructions",
+    )
     with pytest.raises(Exception) as exc_info:
         agent.run_async(
             data={"query": "https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.wav"},
@@ -45,7 +60,12 @@ def test_fail_query_as_text_when_content_not_empty():
 
 
 def test_fail_content_exceed_maximum():
-    agent = Agent("123", "Test Agent", "Sample Description", instructions="Test Agent Instructions")
+    agent = Agent(
+        "123",
+        "Test Agent",
+        "Sample Description",
+        instructions="Test Agent Instructions",
+    )
     with pytest.raises(Exception) as exc_info:
         agent.run_async(
             data={"query": "Transcribe the audios:"},
@@ -60,21 +80,37 @@ def test_fail_content_exceed_maximum():
 
 
 def test_fail_key_not_found():
-    agent = Agent("123", "Test Agent", "Sample Description", instructions="Test Agent Instructions")
+    agent = Agent(
+        "123",
+        "Test Agent",
+        "Sample Description",
+        instructions="Test Agent Instructions",
+    )
     with pytest.raises(Exception) as exc_info:
-        agent.run_async(data={"query": "Translate the text: {{input1}}"}, content={"input2": "Hello, how are you?"})
+        agent.run_async(
+            data={"query": "Translate the text: {{input1}}"},
+            content={"input2": "Hello, how are you?"},
+        )
     assert str(exc_info.value) == "Key 'input2' not found in query."
 
 
 def test_success_query_content():
-    agent = Agent("123", "Test Agent(-)", "Sample Description", instructions="Test Agent Instructions")
+    agent = Agent(
+        "123",
+        "Test Agent(-)",
+        "Sample Description",
+        instructions="Test Agent Instructions",
+    )
     with requests_mock.Mocker() as mock:
         url = agent.url
         headers = {"x-api-key": config.TEAM_API_KEY, "Content-Type": "application/json"}
         ref_response = {"data": "Hello, how are you?", "status": "IN_PROGRESS"}
         mock.post(url, headers=headers, json=ref_response)
 
-        response = agent.run_async(data={"query": "Translate the text: {{input1}}"}, content={"input1": "Hello, how are you?"})
+        response = agent.run_async(
+            data={"query": "Translate the text: {{input1}}"},
+            content={"input1": "Hello, how are you?"},
+        )
     assert isinstance(response, AgentResponse)
     assert response["status"] == ref_response["status"]
     assert isinstance(response.data, AgentResponseData)
@@ -84,7 +120,11 @@ def test_success_query_content():
 def test_invalid_pipelinetool(mocker):
     mocker.patch(
         "aixplain.factories.model_factory.ModelFactory.get",
-        return_value=Model(id="6646261c6eb563165658bbb1", name="Test Model", function=Function.TEXT_GENERATION),
+        return_value=Model(
+            id="6646261c6eb563165658bbb1",
+            name="Test Model",
+            function=Function.TEXT_GENERATION,
+        ),
     )
     with pytest.raises(Exception) as exc_info:
         AgentFactory.create(
@@ -105,7 +145,13 @@ def test_invalid_llm_id():
 
 def test_invalid_agent_name():
     with pytest.raises(Exception) as exc_info:
-        AgentFactory.create(name="[Test]", description="", instructions="", tools=[], llm_id="6646261c6eb563165658bbb1")
+        AgentFactory.create(
+            name="[Test]",
+            description="",
+            instructions="",
+            tools=[],
+            llm_id="6646261c6eb563165658bbb1",
+        )
     assert str(exc_info.value) == (
         "Agent Creation Error: Agent name contains invalid characters. "
         "Only alphanumeric characters, spaces, hyphens, and brackets are allowed."
@@ -118,7 +164,10 @@ def test_create_agent(mock_model_factory_get):
 
     # Mock the model factory response
     mock_model = Model(
-        id="6646261c6eb563165658bbb1", name="Test LLM", description="Test LLM Description", function=Function.TEXT_GENERATION
+        id="6646261c6eb563165658bbb1",
+        name="Test LLM",
+        description="Test LLM Description",
+        function=Function.TEXT_GENERATION,
     )
     mock_model_factory_get.return_value = mock_model
 
@@ -133,7 +182,10 @@ def test_create_agent(mock_model_factory_get):
             ),
         ):
             url = urljoin(config.BACKEND_URL, "sdk/agents")
-            headers = {"x-api-key": config.TEAM_API_KEY, "Content-Type": "application/json"}
+            headers = {
+                "x-api-key": config.TEAM_API_KEY,
+                "Content-Type": "application/json",
+            }
 
             ref_response = {
                 "id": "123",
@@ -190,7 +242,9 @@ def test_create_agent(mock_model_factory_get):
                 llm_id="6646261c6eb563165658bbb1",
                 tools=[
                     AgentFactory.create_model_tool(
-                        supplier=Supplier.OPENAI, function="text-generation", description="Test Tool"
+                        supplier=Supplier.OPENAI,
+                        function="text-generation",
+                        description="Test Tool",
                     ),
                     AgentFactory.create_custom_python_code_tool(
                         code="def main(query: str) -> str:\n    return 'Hello, how are you?'",
@@ -244,7 +298,10 @@ def test_update_success(mock_model_factory_get):
 
     # Mock the model factory response
     mock_model = Model(
-        id="6646261c6eb563165658bbb1", name="Test LLM", description="Test LLM Description", function=Function.TEXT_GENERATION
+        id="6646261c6eb563165658bbb1",
+        name="Test LLM",
+        description="Test LLM Description",
+        function=Function.TEXT_GENERATION,
     )
     mock_model_factory_get.return_value = mock_model
 
@@ -316,7 +373,10 @@ def test_save_success(mock_model_factory_get):
 
     # Mock the model factory response
     mock_model = Model(
-        id="6646261c6eb563165658bbb1", name="Test LLM", description="Test LLM Description", function=Function.TEXT_GENERATION
+        id="6646261c6eb563165658bbb1",
+        name="Test LLM",
+        description="Test LLM Description",
+        function=Function.TEXT_GENERATION,
     )
     mock_model_factory_get.return_value = mock_model
 
@@ -388,17 +448,27 @@ def test_save_success(mock_model_factory_get):
 
 
 def test_run_success():
-    agent = Agent("123", "Test Agent(-)", "Sample Description", instructions="Test Agent Instructions")
+    agent = Agent(
+        "123",
+        "Test Agent(-)",
+        "Sample Description",
+        instructions="Test Agent Instructions",
+    )
     url = urljoin(config.BACKEND_URL, f"sdk/agents/{agent.id}/run")
     agent.url = url
     with requests_mock.Mocker() as mock:
-        headers = {"x-api-key": config.AIXPLAIN_API_KEY, "Content-Type": "application/json"}
+        headers = {
+            "x-api-key": config.AIXPLAIN_API_KEY,
+            "Content-Type": "application/json",
+        }
 
         ref_response = {"data": "www.aixplain.com", "status": "IN_PROGRESS"}
         mock.post(url, headers=headers, json=ref_response)
 
         response = agent.run_async(
-            data={"query": "Hello, how are you?"}, max_iterations=10, output_format=OutputFormat.MARKDOWN
+            data={"query": "Hello, how are you?"},
+            max_iterations=10,
+            output_format=OutputFormat.MARKDOWN,
         )
     assert isinstance(response, AgentResponse)
     assert response["status"] == "IN_PROGRESS"
@@ -406,7 +476,18 @@ def test_run_success():
 
 
 def test_run_variable_error():
-    agent = Agent("123", "Test Agent", "Agent description", instructions="Translate the input data into {target_language}")
+    agent = Agent(
+        "123",
+        "Test Agent",
+        "Agent description",
+        instructions="Translate the input data into {target_language}",
+    )
+    agent = Agent(
+        "123",
+        "Test Agent",
+        "Agent description",
+        instructions="Translate the input data into {target_language}",
+    )
     with pytest.raises(Exception) as exc_info:
         agent.run_async(data={"query": "Hello, how are you?"}, output_format=OutputFormat.MARKDOWN)
     assert str(exc_info.value) == (
@@ -428,7 +509,11 @@ def test_process_variables():
 
 def test_fail_utilities_without_model():
     with pytest.raises(Exception) as exc_info:
-        AgentFactory.create(name="Test", tools=[ModelTool(function=Function.UTILITIES)], llm_id="6646261c6eb563165658bbb1")
+        AgentFactory.create(
+            name="Test",
+            tools=[ModelTool(function=Function.UTILITIES)],
+            llm_id="6646261c6eb563165658bbb1",
+        )
     assert str(exc_info.value) == "Agent Creation Error: Utility function must be used with an associated model."
 
 
@@ -454,7 +539,13 @@ def test_agent_api_key_propagation():
 def test_agent_default_api_key():
     """Test that the default api_key is used when none is provided"""
     tool = AgentFactory.create_model_tool(function="text-generation")
-    agent = Agent(id="123", name="Test Agent", description="Test Description", instructions="Test Agent Instructions", tools=[tool])
+    agent = Agent(
+        id="123",
+        name="Test Agent",
+        description="Test Description",
+        instructions="Test Agent Instructions",
+        tools=[tool],
+    )
 
     # Check that the agent has the default api_key
     assert agent.api_key == config.TEAM_API_KEY
@@ -565,7 +656,12 @@ def test_agent_to_dict_payload_without_instructions():
 def test_agent_to_dict_payload_with_instructions():
     """Test Agent.to_dict() payload when instructions is provided"""
     # Create agent with instructions
-    agent = Agent(id="123", name="Test Agent", description="Test Description", instructions="Custom Instructions")
+    agent = Agent(
+        id="123",
+        name="Test Agent",
+        description="Test Description",
+        instructions="Custom Instructions",
+    )
 
     # Get the payload
     payload = agent.to_dict()
@@ -656,7 +752,9 @@ def test_agent_multiple_tools_api_key():
         AgentFactory.create_model_tool(function="text-generation"),
         AgentFactory.create_python_interpreter_tool(),
         AgentFactory.create_custom_python_code_tool(
-            code="def main(query: str) -> str:\n    return 'Hello'", description="Test Tool", name="Test Tool"
+            code="def main(query: str) -> str:\n    return 'Hello'",
+            description="Test Tool",
+            name="Test Tool",
         ),
     ]
 
@@ -678,7 +776,11 @@ def test_agent_api_key_in_requests():
     """Test that the api_key is properly used in API requests"""
     custom_api_key = "custom_test_key"
     agent = Agent(
-        id="123", name="Test Agent", description="Test Description", instructions="Test Agent Instructions", api_key=custom_api_key
+        id="123",
+        name="Test Agent",
+        description="Test Description",
+        instructions="Test Agent Instructions",
+        api_key=custom_api_key,
     )
 
     with requests_mock.Mocker() as mock:
@@ -715,7 +817,11 @@ def test_agent_response():
 
     response = AgentResponse(
         data=AgentResponseData(
-            input="input", output="output", intermediate_steps=[], execution_stats={}, session_id="session_id"
+            input="input",
+            output="output",
+            intermediate_steps=[],
+            execution_stats={},
+            session_id="session_id",
         ),
         status="SUCCESS",
         url="test_url",
@@ -749,7 +855,12 @@ def test_custom_python_code_tool_initialization(mocker):
     """Test basic initialization of CustomPythonCodeTool"""
     mocker.patch(
         "aixplain.modules.model.utils.parse_code_decorated",
-        return_value=("def main(query: str) -> str:\n    return 'Hello'", [], "Test description", "HelloWorld"),
+        return_value=(
+            "def main(query: str) -> str:\n    return 'Hello'",
+            [],
+            "Test description",
+            "HelloWorld",
+        ),
     )
 
     code = "def main(query: str) -> str:\n    return 'Hello'"
@@ -765,7 +876,12 @@ def test_custom_python_code_tool_to_dict(mocker):
     """Test the to_dict method of CustomPythonCodeTool"""
     mocker.patch(
         "aixplain.modules.model.utils.parse_code_decorated",
-        return_value=("def main(query: str) -> str:\n    return 'Hello'", [], "Test description", "HelloWorld"),
+        return_value=(
+            "def main(query: str) -> str:\n    return 'Hello'",
+            [],
+            "Test description",
+            "HelloWorld",
+        ),
     )
     code = "def main(query: str) -> str:\n    return 'Hello'"
     description = "Test description"
@@ -801,7 +917,12 @@ def test_custom_python_code_tool_validation_missing_description(mocker):
     """Test validation fails when description is missing"""
     mocker.patch(
         "aixplain.modules.model.utils.parse_code_decorated",
-        return_value=("def main(query: str) -> str:\n    return 'Hello'", [], "", "HelloWorld"),
+        return_value=(
+            "def main(query: str) -> str:\n    return 'Hello'",
+            [],
+            "",
+            "HelloWorld",
+        ),
     )
 
     code = "def main(query: str) -> str:\n    return 'Hello'"
@@ -814,7 +935,12 @@ def test_custom_python_code_tool_validation_missing_code():
     """Test validation fails when code is missing"""
     with patch(
         "aixplain.modules.model.utils.parse_code",
-        return_value=("", [], "Parsed description", "test_name"),  # code  # inputs  # description  # name
+        return_value=(
+            "",
+            [],
+            "Parsed description",
+            "test_name",
+        ),  # code  # inputs  # description  # name
     ):
         with pytest.raises(AssertionError) as exc_info:
             CustomPythonCodeTool(code="", description="Test description")
@@ -827,7 +953,10 @@ def test_create_agent_with_model_instance(mock_model_factory_get):
     from aixplain.modules.model.model_parameters import ModelParameters
 
     # Create model parameters
-    model_params = {"temperature": {"required": True}, "max_tokens": {"required": False}}
+    model_params = {
+        "temperature": {"required": True},
+        "max_tokens": {"required": False},
+    }
 
     # Create a Model instance to pass as a tool
     model_tool = Model(
@@ -928,9 +1057,15 @@ def test_create_agent_with_mixed_tools(mock_model_factory_get):
     from aixplain.modules.model.model_parameters import ModelParameters
 
     # Create model parameters for different models
-    text_gen_params = {"temperature": {"required": True}, "max_tokens": {"required": False}}
+    text_gen_params = {
+        "temperature": {"required": True},
+        "max_tokens": {"required": False},
+    }
 
-    classification_params = {"threshold": {"required": True}, "labels": {"required": True}}
+    classification_params = {
+        "threshold": {"required": True},
+        "labels": {"required": True},
+    }
 
     # Create a Model instance for the first tool
     model_tool = Model(
@@ -1079,13 +1214,17 @@ def test_create_model_tool_with_text_supplier(supplier_input, expected_supplier,
     if should_fail:
         with pytest.raises(Exception) as exc_info:
             tool = AgentFactory.create_model_tool(
-                function=Function.TEXT_GENERATION, supplier=supplier_input, description="Test Tool"
+                function=Function.TEXT_GENERATION,
+                supplier=supplier_input,
+                description="Test Tool",
             )
         assert supplier_input in str(exc_info.value)
     else:
         # Create ModelTool with supplier as text
         tool = AgentFactory.create_model_tool(
-            function=Function.TEXT_GENERATION, supplier=supplier_input, description="Test Tool"
+            function=Function.TEXT_GENERATION,
+            supplier=supplier_input,
+            description="Test Tool",
         )
 
         # Verify the tool was created correctly
@@ -1100,7 +1239,11 @@ def test_agent_response_repr():
     from aixplain.modules.agent.agent_response import AgentResponse, AgentResponseData
 
     # Test case 1: Basic representation
-    response = AgentResponse(status=ResponseStatus.SUCCESS, data=AgentResponseData(input="test input"), completed=True)
+    response = AgentResponse(
+        status=ResponseStatus.SUCCESS,
+        data=AgentResponseData(input="test input"),
+        completed=True,
+    )
     repr_str = repr(response)
 
     # Verify the representation starts with "AgentResponse("
@@ -1180,7 +1323,11 @@ def test_create_agent_with_duplicate_tool_names(mocker):
     tool1 = ModelTool(model="123", name="Test Model")
     tool2 = ModelTool(model="123", name="Test Model")
     with pytest.raises(Exception) as exc_info:
-        AgentFactory.create(name="Test Agent", description="Test Agent Description", tools=[tool1, tool2])
+        AgentFactory.create(
+            name="Test Agent",
+            description="Test Agent Description",
+            tools=[tool1, tool2],
+        )
     assert "Agent Creation Error - Duplicate tool names found: Test Model. Make sure all tool names are unique." in str(
         exc_info.value
     )
@@ -1222,8 +1369,16 @@ def test_agent_task_serialization_with_task_dependencies():
     from aixplain.modules.agent.agent_task import AgentTask
 
     # Create dependency tasks
-    dep_task1 = AgentTask(name="Dependency Task 1", description="First dependency", expected_output="Dep output 1")
-    dep_task2 = AgentTask(name="Dependency Task 2", description="Second dependency", expected_output="Dep output 2")
+    dep_task1 = AgentTask(
+        name="Dependency Task 1",
+        description="First dependency",
+        expected_output="Dep output 1",
+    )
+    dep_task2 = AgentTask(
+        name="Dependency Task 2",
+        description="Second dependency",
+        expected_output="Dep output 2",
+    )
 
     # Create main task with AgentTask dependencies
     main_task = AgentTask(
@@ -1235,11 +1390,19 @@ def test_agent_task_serialization_with_task_dependencies():
 
     # Test to_dict - should convert AgentTask dependencies to names
     task_dict = main_task.to_dict()
-    assert task_dict["dependencies"] == ["Dependency Task 1", "Dependency Task 2", "string_dependency"]
+    assert task_dict["dependencies"] == [
+        "Dependency Task 1",
+        "Dependency Task 2",
+        "string_dependency",
+    ]
 
     # Test from_dict - dependencies will be strings
     reconstructed_task = AgentTask.from_dict(task_dict)
-    assert reconstructed_task.dependencies == ["Dependency Task 1", "Dependency Task 2", "string_dependency"]
+    assert reconstructed_task.dependencies == [
+        "Dependency Task 1",
+        "Dependency Task 2",
+        "string_dependency",
+    ]
 
 
 def test_agent_serialization_completeness():
@@ -1248,7 +1411,12 @@ def test_agent_serialization_completeness():
 
     # Create test tasks
     task1 = AgentTask(name="Task 1", description="First task", expected_output="Output 1")
-    task2 = AgentTask(name="Task 2", description="Second task", expected_output="Output 2", dependencies=["Task 1"])
+    task2 = AgentTask(
+        name="Task 2",
+        description="Second task",
+        expected_output="Output 2",
+        dependencies=["Task 1"],
+    )
 
     # Create test agent with comprehensive data
     agent = Agent(
@@ -1324,7 +1492,13 @@ def test_agent_serialization_with_llm():
     mock_parameters.to_list.return_value = [{"name": "temperature", "value": 0.7}]
     mock_llm.get_parameters.return_value = mock_parameters
 
-    agent = Agent(id="test-agent", name="Test Agent", description="Test description", llm=mock_llm, llm_id="fallback-llm-id")
+    agent = Agent(
+        id="test-agent",
+        name="Test Agent",
+        description="Test description",
+        llm=mock_llm,
+        llm_id="fallback-llm-id",
+    )
 
     agent_dict = agent.to_dict()
 
@@ -1343,7 +1517,10 @@ def test_agent_serialization_instructions_fallback():
     """Test Agent to_dict instructions field fallback behavior."""
     # Test with instructions provided
     agent_with_instructions = Agent(
-        id="test1", name="Test Agent 1", description="Test description", instructions="Custom instructions"
+        id="test1",
+        name="Test Agent 1",
+        description="Test description",
+        instructions="Custom instructions",
     )
 
     dict1 = agent_with_instructions.to_dict()
@@ -1366,7 +1543,12 @@ def test_agent_serialization_instructions_fallback():
 )
 def test_agent_serialization_status_enum(status_input, expected_output):
     """Test Agent to_dict properly serializes AssetStatus enum."""
-    agent = Agent(id="test-agent", name="Test Agent", description="Test description", status=status_input)
+    agent = Agent(
+        id="test-agent",
+        name="Test Agent",
+        description="Test description",
+        status=status_input,
+    )
 
     agent_dict = agent.to_dict()
     assert agent_dict["status"] == expected_output

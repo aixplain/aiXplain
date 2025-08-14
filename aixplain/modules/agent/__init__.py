@@ -173,8 +173,16 @@ class Agent(Model, DeployableMixin[Tool]):
                 tool_name = tool.name
             elif isinstance(tool, Model):
                 assert not isinstance(tool, Agent), "Agent cannot contain another Agent."
-
                 tool_name = tool.name
+            tool_names.append(tool_name)
+
+        if len(tool_names) != len(set(tool_names)):
+            duplicates = set([name for name in tool_names if tool_names.count(name) > 1])
+            raise Exception(
+                f"Agent Creation Error - Duplicate tool names found: {', '.join(duplicates)}. Make sure all tool names are unique."
+            )
+
+            tool_name = tool.name
             tool_names.append(tool_name)
 
         if len(tool_names) != len(set(tool_names)):
@@ -210,11 +218,11 @@ class Agent(Model, DeployableMixin[Tool]):
                 logging.warning(f"Agent Validation Error: {e}")
                 logging.warning("You won't be able to run the Agent until the issues are handled manually.")
         return self.is_valid
-    
+
     def generate_session_id(self, history: list = None) -> str:
         if history:
             validate_history(history)
-        timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
         session_id = f"{self.id}_{timestamp}"
 
         if not history:
@@ -235,7 +243,7 @@ class Agent(Model, DeployableMixin[Tool]):
                     "outputFormat": OutputFormat.TEXT.value,
                     "expectedOutput": None,
                 },
-                "allowHistoryAndSessionId": True 
+                "allowHistoryAndSessionId": True,
             }
 
             r = _request_with_retry("post", self.url, headers=headers, data=json.dumps(payload))
@@ -253,7 +261,6 @@ class Agent(Model, DeployableMixin[Tool]):
         except Exception as e:
             logging.error(f"Failed to initialize session {session_id}: {e}")
             return session_id
-
 
     def run(
         self,
@@ -391,7 +398,7 @@ class Agent(Model, DeployableMixin[Tool]):
         if session_id is not None:
             if not session_id.startswith(f"{self.id}_"):
                 raise ValueError(f"Session ID '{session_id}' does not belong to this Agent.")
-            
+
         if history:
             validate_history(history)
 
@@ -497,15 +504,17 @@ class Agent(Model, DeployableMixin[Tool]):
             "llmId": self.llm_id if self.llm is None else self.llm.id,
             "status": self.status.value,
             "tasks": [task.to_dict() for task in self.tasks],
-            "tools": [
-                {
-                    "type": "llm",
-                    "description": "main",
-                    "parameters": self.llm.get_parameters().to_list() if self.llm.get_parameters() else None,
-                }
-            ]
-            if self.llm is not None
-            else [],
+            "tools": (
+                [
+                    {
+                        "type": "llm",
+                        "description": "main",
+                        "parameters": (self.llm.get_parameters().to_list() if self.llm.get_parameters() else None),
+                    }
+                ]
+                if self.llm is not None
+                else []
+            ),
             "cost": self.cost,
             "api_key": self.api_key,
             "outputFormat": self.output_format.value,

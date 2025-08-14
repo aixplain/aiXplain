@@ -3,7 +3,10 @@ import re
 
 
 def process_variables(
-    query: Union[Text, Dict], data: Union[Dict, Text], parameters: Dict, agent_description: Union[Text, None]
+    query: Union[Text, Dict],
+    data: Union[Dict, Text],
+    parameters: Dict,
+    agent_description: Union[Text, None],
 ) -> Text:
     """Process variables in an agent's description and input data.
 
@@ -60,8 +63,7 @@ def validate_history(history):
             "Example: [{'role': 'user', 'content': 'Hello'}, {'role': 'assistant', 'content': 'Hi there!'}]"
         )
 
-
-    allowed_roles = {"user", "assistant"} 
+    allowed_roles = {"user", "assistant"}
 
     for i, item in enumerate(history):
         if not isinstance(item, dict):

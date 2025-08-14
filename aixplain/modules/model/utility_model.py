@@ -45,6 +45,7 @@ class BaseUtilityModelParams(BaseModel):
         description (Optional[Text]): A description of what the utility model does.
             Defaults to None.
     """
+
     name: Text
     code: Union[Text, Callable]
     description: Optional[Text] = None

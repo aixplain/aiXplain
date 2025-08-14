@@ -77,7 +77,10 @@ class BenchmarkFactory:
         """
         url = urljoin(cls.backend_url, f"sdk/benchmarks/{benchmark_id}/jobs")
 
-        headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+        headers = {
+            "Authorization": f"Token {config.TEAM_API_KEY}",
+            "Content-Type": "application/json",
+        }
         r = _request_with_retry("get", url, headers=headers)
         resp = r.json()
         job_list = [cls._create_benchmark_job_from_response(job_info) for job_info in resp]
@@ -105,7 +108,14 @@ class BenchmarkFactory:
         dataset_list = [DatasetFactory().get(dataset_id) for dataset_id in response["datasets"]]
         metric_list = [MetricFactory().get(metric_info["id"]) for metric_info in response["metrics"]]
         job_list = cls._get_benchmark_jobs_from_benchmark_id(response["id"])
-        return Benchmark(response["id"], response["name"], dataset_list, model_list, metric_list, job_list)
+        return Benchmark(
+            response["id"],
+            response["name"],
+            dataset_list,
+            model_list,
+            metric_list,
+            job_list,
+        )
 
     @classmethod
     def get(cls, benchmark_id: str) -> Benchmark:
@@ -129,7 +139,10 @@ class BenchmarkFactory:
         resp = None
         try:
             url = urljoin(cls.backend_url, f"sdk/benchmarks/{benchmark_id}")
-            headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+            headers = {
+                "Authorization": f"Token {config.TEAM_API_KEY}",
+                "Content-Type": "application/json",
+            }
             logging.info(f"Start service for GET Benchmark  - {url} - {headers}")
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()
@@ -167,7 +180,10 @@ class BenchmarkFactory:
             Exception: If the job ID is invalid or the request fails.
         """
         url = urljoin(cls.backend_url, f"sdk/benchmarks/jobs/{job_id}")
-        headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+        headers = {
+            "Authorization": f"Token {config.TEAM_API_KEY}",
+            "Content-Type": "application/json",
+        }
         r = _request_with_retry("get", url, headers=headers)
         resp = r.json()
         benchmarkJob = cls._create_benchmark_job_from_response(resp)
@@ -178,6 +194,9 @@ class BenchmarkFactory:
         if len(payload["datasets"]) != 1:
             raise Exception("Please use exactly one dataset")
         if len(payload["metrics"]) == 0:
+            raise Exception("Please use at least one metric")
+        if len(payload["model"]) == 0 and payload.get("models", None) is None:
+            raise Exception("Please use at least one model")
             raise Exception("Please use at least one metric")
         if len(payload["model"]) == 0 and payload.get("models", None) is None:
             raise Exception("Please use at least one model")
@@ -195,7 +214,7 @@ class BenchmarkFactory:
             {"id": metric_id, "configurations": metric_config} for metric_id, metric_config in clean_metrics_info.items()
         ]
         return payload
-    
+
     @classmethod
     def _reformat_model_list(cls, model_list: List[Model]) -> Tuple[List[Any], List[Any]]:
         """Reformat a list of models for the benchmark creation API.
@@ -218,7 +237,13 @@ class BenchmarkFactory:
         model_list_without_parms, model_list_with_parms = [], []
         for model in model_list:
             if "displayName" in model.additional_info:
-                model_list_with_parms.append({"id": model.id, "displayName": model.additional_info["displayName"], "configurations": json.dumps(model.additional_info["configuration"])})
+                model_list_with_parms.append(
+                    {
+                        "id": model.id,
+                        "displayName": model.additional_info["displayName"],
+                        "configurations": json.dumps(model.additional_info["configuration"]),
+                    }
+                )
             else:
                 model_list_without_parms.append(model.id)
         if len(model_list_with_parms) > 0:
@@ -228,9 +253,14 @@ class BenchmarkFactory:
             model_list_with_parms = None
         return model_list_without_parms, model_list_with_parms
 
-
     @classmethod
-    def create(cls, name: str, dataset_list: List[Dataset], model_list: List[Model], metric_list: List[Metric]) -> Benchmark:
+    def create(
+        cls,
+        name: str,
+        dataset_list: List[Dataset],
+        model_list: List[Model],
+        metric_list: List[Metric],
+    ) -> Benchmark:
         """Create a new benchmark configuration.
 
         This method creates a new benchmark that can be used to evaluate and compare
@@ -261,17 +291,24 @@ class BenchmarkFactory:
         payload = {}
         try:
             url = urljoin(cls.backend_url, "sdk/benchmarks")
-            headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+            headers = {
+                "Authorization": f"Token {config.TEAM_API_KEY}",
+                "Content-Type": "application/json",
+            }
+            model_list_without_parms, model_list_with_parms = cls._reformat_model_list(model_list)
             model_list_without_parms, model_list_with_parms = cls._reformat_model_list(model_list)
             payload = {
                 "name": name,
                 "datasets": [dataset.id for dataset in dataset_list],
                 "metrics": [{"id": metric.id, "configurations": metric.normalization_options} for metric in metric_list],
                 "model": model_list_without_parms,
+                "model": model_list_without_parms,
                 "shapScores": [],
                 "humanEvaluationReport": False,
                 "automodeTraining": False,
             }
+            if model_list_with_parms is not None:
+                payload["models"] = model_list_with_parms
             if model_list_with_parms is not None:
                 payload["models"] = model_list_with_parms
             clean_payload = cls._validate_create_benchmark_payload(payload)
@@ -314,7 +351,10 @@ class BenchmarkFactory:
         """
         try:
             url = urljoin(cls.backend_url, "sdk/benchmarks/normalization-options")
-            headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+            headers = {
+                "Authorization": f"Token {config.TEAM_API_KEY}",
+                "Content-Type": "application/json",
+            }
             payload = json.dumps({"metricId": metric.id, "modelIds": [model.id]})
             r = _request_with_retry("post", url, headers=headers, data=payload)
             resp = r.json()
@@ -351,6 +391,7 @@ class BenchmarkFactory:
         Raises:
             Exception: If the job ID is invalid or the request fails.
         """
+
         def __get_model_name(model_id):
             model = ModelFactory.get(model_id)
             supplier = str(model.supplier)
