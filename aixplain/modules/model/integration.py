@@ -7,6 +7,7 @@ from enum import Enum
 from pydantic import BaseModel
 import json
 
+
 class AuthenticationSchema(Enum):
     """Enumeration of supported authentication schemes for integrations.
 
@@ -21,13 +22,15 @@ class AuthenticationSchema(Enum):
         BASIC (str): Basic authentication scheme (username/password).
         NO_AUTH (str): No authentication required.
     """
+
     BEARER_TOKEN = "BEARER_TOKEN"
     OAUTH1 = "OAUTH1"
     OAUTH2 = "OAUTH2"
     API_KEY = "API_KEY"
     BASIC = "BASIC"
     NO_AUTH = "NO_AUTH"
-    
+
+
 class BaseAuthenticationParams(BaseModel):
     """Base model for authentication parameters used in integrations.
 
@@ -38,8 +41,10 @@ class BaseAuthenticationParams(BaseModel):
         name (Optional[Text]): Optional name for the connection. Defaults to None.
         connector_id (Optional[Text]): Optional ID of the connector. Defaults to None.
     """
+
     name: Optional[Text] = None
     connector_id: Optional[Text] = None
+
 
 def build_connector_params(**kwargs) -> BaseAuthenticationParams:
     """Build authentication parameters for a connector from keyword arguments.
@@ -115,11 +120,17 @@ class Integration(Model):
         )
         self.url = config.MODELS_RUN_URL
         self.backend_url = config.BACKEND_URL
-        self.authentication_methods = json.loads([item for item in additional_info['attributes'] if item['name'] == 'auth_schemes'][0]['code'])
+        self.authentication_methods = json.loads(
+            [item for item in additional_info["attributes"] if item["name"] == "auth_schemes"][0]["code"]
+        )
 
-
-
-    def connect(self, authentication_schema: AuthenticationSchema, args: Optional[BaseAuthenticationParams] = None, data: Optional[Dict] = None, **kwargs) -> ModelResponse:
+    def connect(
+        self,
+        authentication_schema: AuthenticationSchema,
+        args: Optional[BaseAuthenticationParams] = None,
+        data: Optional[Dict] = None,
+        **kwargs,
+    ) -> ModelResponse:
         """Connect to the integration using the specified authentication scheme.
 
         This method establishes a connection to the integration service using the provided
@@ -176,23 +187,38 @@ class Integration(Model):
             return self.run({"data": data})
 
         if args is None:
-            args = build_connector_params(**kwargs) 
+            args = build_connector_params(**kwargs)
 
         if authentication_schema.value not in self.authentication_methods:
-            raise ValueError(f"Authentication schema {authentication_schema.value} is not supported for this integration. Supported authentication methods: {self.authentication_methods}")
-        
+            raise ValueError(
+                f"Authentication schema {authentication_schema.value} is not supported for this integration. Supported authentication methods: {self.authentication_methods}"
+            )
+
         if data is None:
             data = {}
-            
-        if authentication_schema not in [AuthenticationSchema.OAUTH2, AuthenticationSchema.OAUTH1]:
-            required_params = json.loads([item for item in self.additional_info['attributes'] if item['name'] == authentication_schema.value + "-inputs"][0]['code'])
-            required_params_names = [param['name'] for param in required_params]
+
+        if authentication_schema not in [
+            AuthenticationSchema.OAUTH2,
+            AuthenticationSchema.OAUTH1,
+        ]:
+            required_params = json.loads(
+                [
+                    item
+                    for item in self.additional_info["attributes"]
+                    if item["name"] == authentication_schema.value + "-inputs"
+                ][0]["code"]
+            )
+            required_params_names = [param["name"] for param in required_params]
             for param in required_params_names:
                 if param not in data:
                     if len(required_params_names) == 1:
-                        raise ValueError(f"Parameter '{param}' is required for {self.name} {authentication_schema.value} authentication. Please provide the parameter in the data dictionary.")
+                        raise ValueError(
+                            f"Parameter '{param}' is required for {self.name} {authentication_schema.value} authentication. Please provide the parameter in the data dictionary."
+                        )
                     else:
-                        raise ValueError(f"Parameters {required_params_names} are required for {self.name} {authentication_schema.value} authentication. Please provide the parameters in the data dictionary.")
+                        raise ValueError(
+                            f"Parameters {required_params_names} are required for {self.name} {authentication_schema.value} authentication. Please provide the parameters in the data dictionary."
+                        )
             return self.run(
                 {
                     "name": args.name,
@@ -212,7 +238,6 @@ class Integration(Model):
                     f"Before using the tool, please visit the following URL to complete the connection: {response.data['redirectURL']}"
                 )
             return response
-
 
     def __repr__(self):
         """Return a string representation of the Integration instance.

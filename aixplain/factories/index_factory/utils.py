@@ -17,6 +17,7 @@ class BaseIndexParams(BaseModel, ABC):
         name (Text): Name of the index.
         description (Optional[Text]): Description of the index. Defaults to "".
     """
+
     model_config = ConfigDict(use_enum_values=True)
     name: Text
     description: Optional[Text] = ""
@@ -53,10 +54,11 @@ class BaseIndexParamsWithEmbeddingModel(BaseIndexParams, ABC):
         embedding_size (Optional[int]): Size of the embeddings to generate.
             Defaults to None.
     """
+
     embedding_model: Optional[Union[EmbeddingModel, str]] = EmbeddingModel.OPENAI_ADA002
     embedding_size: Optional[int] = None
 
-    @field_validator('embedding_model')
+    @field_validator("embedding_model")
     def validate_embedding_model(cls, model_id) -> str:
         """Validate that the provided model is a text embedding model.
 
@@ -75,7 +77,6 @@ class BaseIndexParamsWithEmbeddingModel(BaseIndexParams, ABC):
         else:
             raise ValueError("This is not an embedding model")
 
-
     def to_dict(self) -> Dict:
         """Convert the parameters to a dictionary format.
 
@@ -93,9 +94,6 @@ class BaseIndexParamsWithEmbeddingModel(BaseIndexParams, ABC):
             data["additional_params"] = {"embedding_size": data.pop("embedding_size")}
         return data
 
-    
-
-
 
 class VectaraParams(BaseIndexParams):
     """Parameters for creating a Vectara index.
@@ -105,6 +103,7 @@ class VectaraParams(BaseIndexParams):
     Attributes:
         _id (ClassVar[str]): Static model ID for Vectara index type.
     """
+
     _id: ClassVar[str] = IndexStores.VECTARA.get_model_id()
 
     @property
@@ -125,6 +124,7 @@ class ZeroEntropyParams(BaseIndexParams):
     Attributes:
         _id (ClassVar[str]): Static model ID for Zero Entropy index type.
     """
+
     _id: ClassVar[str] = IndexStores.ZERO_ENTROPY.get_model_id()
 
     @property
@@ -146,6 +146,7 @@ class AirParams(BaseIndexParamsWithEmbeddingModel):
     Attributes:
         _id (ClassVar[str]): Static model ID for AIR index type.
     """
+
     _id: ClassVar[str] = IndexStores.AIR.get_model_id()
 
     @property
@@ -168,6 +169,7 @@ class GraphRAGParams(BaseIndexParamsWithEmbeddingModel):
         _id (ClassVar[str]): Static model ID for GraphRAG index type.
         llm (Optional[Text]): ID of the LLM to use for generation. Defaults to None.
     """
+
     _id: ClassVar[str] = IndexStores.GRAPHRAG.get_model_id()
     llm: Optional[Text] = None
 
@@ -179,8 +181,3 @@ class GraphRAGParams(BaseIndexParamsWithEmbeddingModel):
             str: The GraphRAG model ID.
         """
         return self._id
-
-
-
-
-

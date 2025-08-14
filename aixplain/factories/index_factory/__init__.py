@@ -23,15 +23,21 @@ Description:
 
 from aixplain.modules.model.index_model import IndexModel
 from aixplain.factories import ModelFactory
-from aixplain.enums import Function, ResponseStatus, SortBy, SortOrder, OwnershipType, Supplier, IndexStores, EmbeddingModel
+from aixplain.enums import (
+    Function,
+    ResponseStatus,
+    SortBy,
+    SortOrder,
+    OwnershipType,
+    Supplier,
+    IndexStores,
+    EmbeddingModel,
+)
 from typing import Text, Union, List, Tuple, Optional, TypeVar, Generic
 from aixplain.factories.index_factory.utils import BaseIndexParams
 
 T = TypeVar("T", bound=BaseIndexParams)
 
-import os
-from aixplain.utils.file_utils import _request_with_retry
-from urllib.parse import urljoin
 
 def validate_embedding_model(model_id: Union[EmbeddingModel, str]) -> bool:
     """Validate that a model is a text embedding model.
@@ -59,6 +65,7 @@ class IndexFactory(ModelFactory, Generic[T]):
         T (TypeVar): Type variable bound to BaseIndexParams, representing
             the specific index parameters type.
     """
+
     @classmethod
     def create(
         cls,
@@ -111,6 +118,7 @@ class IndexFactory(ModelFactory, Generic[T]):
             assert (
                 name is not None and description is not None and embedding_model is not None
             ), "Index Factory Exception: name, description, and embedding_model must be provided when params is not"
+
             if validate_embedding_model(embedding_model):
                 data = {
                     "data": name,
@@ -118,6 +126,7 @@ class IndexFactory(ModelFactory, Generic[T]):
                     "model": embedding_model,
                 }
         model = cls.get(model_id)
+
         response = model.run(data=data)
         if response.status == ResponseStatus.SUCCESS:
             model_id = response.data

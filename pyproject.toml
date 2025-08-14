@@ -10,7 +10,7 @@ namespaces = true
 
 [project]
 name = "aiXplain"
-version = "0.2.34rc1"
+version = "0.2.34"
 description = "aiXplain SDK adds AI functions to software."
 readme = "README.md"
 requires-python = ">=3.5, <4"
@@ -37,6 +37,8 @@ classifiers = [
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
@@ -46,7 +48,7 @@ classifiers = [
 dependencies = [
     "requests>=2.1.0", 
     "tqdm>=4.1.0", 
-    "pandas>=1.2.1", 
+    "pandas>=2.0.0", 
     "python-dotenv>=1.0.0", 
     "validators>=0.20.0", 
     "filetype>=1.2.0",

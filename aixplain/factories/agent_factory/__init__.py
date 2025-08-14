@@ -54,6 +54,7 @@ class AgentFactory:
     This class provides class methods for creating various types of agents and tools,
     as well as managing existing agents in the platform.
     """
+
     @classmethod
     def create(
         cls,
@@ -112,7 +113,10 @@ class AgentFactory:
             "Note: In upcoming releases, `llm` will become a required parameter.",
             UserWarning,
         )
-        from aixplain.factories.agent_factory.utils import build_agent, build_tool_payload
+        from aixplain.factories.agent_factory.utils import (
+            build_agent,
+            build_tool_payload,
+        )
 
         agent = None
         url = urljoin(config.BACKEND_URL, "sdk/agents")
@@ -142,7 +146,7 @@ class AgentFactory:
                 {
                     "type": "llm",
                     "description": "main",
-                    "parameters": llm.get_parameters().to_list() if llm.get_parameters() else None,
+                    "parameters": (llm.get_parameters().to_list() if llm.get_parameters() else None),
                 }
             )
             payload["llmId"] = llm.id
@@ -203,7 +207,11 @@ class AgentFactory:
 
     @classmethod
     def create_task(
-        cls, name: Text, description: Text, expected_output: Text, dependencies: Optional[List[Text]] = None
+        cls,
+        name: Text,
+        description: Text,
+        expected_output: Text,
+        dependencies: Optional[List[Text]] = None,
     ) -> AgentTask:
         """Create a new task for an agent.
 
@@ -217,7 +225,12 @@ class AgentFactory:
         Returns:
             AgentTask: Created task object.
         """
-        return AgentTask(name=name, description=description, expected_output=expected_output, dependencies=dependencies)
+        return AgentTask(
+            name=name,
+            description=description,
+            expected_output=expected_output,
+            dependencies=dependencies,
+        )
 
     @classmethod
     def create_model_tool(
@@ -251,17 +264,28 @@ class AgentFactory:
         if supplier is not None:
             if isinstance(supplier, str):
                 for supplier_ in Supplier:
-                    if supplier.lower() in [supplier_.value["code"].lower(), supplier_.value["name"].lower()]:
+                    if supplier.lower() in [
+                        supplier_.value["code"].lower(),
+                        supplier_.value["name"].lower(),
+                    ]:
                         supplier = supplier_
                         break
             assert isinstance(supplier, Supplier), f"Supplier {supplier} is not a valid supplier"
         return ModelTool(
-            function=function, supplier=supplier, model=model, name=name, description=description, parameters=parameters
+            function=function,
+            supplier=supplier,
+            model=model,
+            name=name,
+            description=description,
+            parameters=parameters,
         )
 
     @classmethod
     def create_pipeline_tool(
-        cls, description: Text, pipeline: Union[Pipeline, Text], name: Optional[Text] = None
+        cls,
+        description: Text,
+        pipeline: Union[Pipeline, Text],
+        name: Optional[Text] = None,
     ) -> PipelineTool:
         """Create a new pipeline tool for use with an agent.
 
@@ -471,7 +495,12 @@ class AgentFactory:
             logging.info(f"Response for GET List Agents - Page Total: {page_total} / Total: {total}")
             for agent in results:
                 agents.append(build_agent(agent))
-            return {"results": agents, "page_total": page_total, "page_number": 0, "total": total}
+            return {
+                "results": agents,
+                "page_total": page_total,
+                "page_number": 0,
+                "total": total,
+            }
         else:
             error_msg = "Agent Listing Error: Please contact the administrators."
             if isinstance(resp, dict) and "message" in resp:
@@ -486,7 +515,7 @@ class AgentFactory:
 
         Args:
             agent_id (Text): ID of the agent to retrieve.
-            api_key (Optional[Text], optional): API key for authentication. 
+            api_key (Optional[Text], optional): API key for authentication.
                 Defaults to None, using the configured TEAM_API_KEY.
 
         Returns:

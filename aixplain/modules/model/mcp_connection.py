@@ -22,7 +22,13 @@ class ConnectAction:
     code: Optional[Text] = None
     inputs: Optional[Dict] = None
 
-    def __init__(self, name: Text, description: Text, code: Optional[Text] = None, inputs: Optional[Dict] = None):
+    def __init__(
+        self,
+        name: Text,
+        description: Text,
+        code: Optional[Text] = None,
+        inputs: Optional[Dict] = None,
+    ):
         """Initialize a new ConnectAction instance.
 
         Args:
@@ -116,7 +122,11 @@ class MCPConnection(ConnectionTool):
         response = Model.run(self, {"action": "LIST_TOOLS", "data": " "})
         if response.status == ResponseStatus.SUCCESS:
             return [
-                ConnectAction(name=action["name"], description=action["description"], code=action["name"])
+                ConnectAction(
+                    name=action["name"],
+                    description=action["description"],
+                    code=action["name"],
+                )
                 for action in response.data
             ]
         raise Exception(

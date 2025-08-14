@@ -1,6 +1,7 @@
 from enum import Enum
 from aixplain.enums import FunctionType
 
+
 class RouteType(str, Enum):
     CHECK_TYPE = "checkType"
     CHECK_VALUE = "checkValue"
@@ -28,6 +29,7 @@ class NodeType(str, Enum):
 
 class AssetType(str, Enum):
     MODEL = "MODEL"
+
 
 class ParamType:
     INPUT = "INPUT"

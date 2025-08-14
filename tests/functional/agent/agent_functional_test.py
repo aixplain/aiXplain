@@ -587,7 +587,6 @@ def test_agent_with_pipeline_tool(delete_agents_and_team_agents, AgentFactory):
 
     for pipeline in PipelineFactory.list(query="Hello Pipeline")["results"]:
         pipeline.delete()
-
     pipeline = PipelineFactory.init("Hello Pipeline")
     input_node = pipeline.input()
     input_node.label = "TextInput"

@@ -22,7 +22,13 @@ class ConnectAction:
     code: Optional[Text] = None
     inputs: Optional[Dict] = None
 
-    def __init__(self, name: Text, description: Text, code: Optional[Text] = None, inputs: Optional[Dict] = None):
+    def __init__(
+        self,
+        name: Text,
+        description: Text,
+        code: Optional[Text] = None,
+        inputs: Optional[Dict] = None,
+    ):
         """Initialize a new ConnectAction instance.
 
         Args:
@@ -111,7 +117,11 @@ class ConnectionTool(Model):
         response = super().run({"action": "LIST_ACTIONS", "data": " "})
         if response.status == ResponseStatus.SUCCESS:
             return [
-                ConnectAction(name=action["displayName"], description=action["description"], code=action["name"])
+                ConnectAction(
+                    name=action["displayName"],
+                    description=action["description"],
+                    code=action["name"],
+                )
                 for action in response.data
             ]
         raise Exception(
