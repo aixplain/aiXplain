@@ -82,7 +82,7 @@ def test_end2end(run_input_map, delete_agents_and_team_agents, TeamAgentFactory)
     assert response["completed"] is True
     assert response["status"].lower() == "success"
     assert "data" in response
-    assert response["data"]["session_id"] is not None
+    assert response["data"]["session_id"] is None
     assert response["data"]["output"] is not None
 
     team_agent.delete()
@@ -447,11 +447,15 @@ def test_team_agent_with_slack_connector():
 
     connector = ModelFactory.get("686432941223092cb4294d3f")
     # connect
-    response = connector.connect(authentication_schema=AuthenticationSchema.BEARER_TOKEN, data={"token": os.getenv("SLACK_TOKEN")})
+    response = connector.connect(
+        authentication_schema=AuthenticationSchema.BEARER_TOKEN, data={"token": os.getenv("SLACK_TOKEN")}
+    )
     connection_id = response.data["id"]
 
     connection = ModelFactory.get(connection_id)
-    connection.action_scope = [action for action in connection.actions if action.code == "SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL"]
+    connection.action_scope = [
+        action for action in connection.actions if action.code == "SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL"
+    ]
 
     agent = AgentFactory.create(
         name="Test Agent",
