@@ -124,7 +124,7 @@ def call_run_endpoint(url: Text, api_key: Text, payload: Dict) -> Dict:
     return response
 
 
-def parse_code(code: Union[Text, Callable]) -> Tuple[Text, List, Text, Text]:
+def parse_code(code: Union[Text, Callable], api_key: Optional[Text] = None) -> Tuple[Text, List, Text, Text]:
     """Parse and process code for utility model creation.
 
     This function takes code input in various forms (callable, file path, URL, or
@@ -230,12 +230,12 @@ def parse_code(code: Union[Text, Callable]) -> Tuple[Text, List, Text, Text]:
     local_path = str(uuid4())
     with open(local_path, "w") as f:
         f.write(str_code)
-    code = FileFactory.upload(local_path=local_path, is_temp=True)
+    code = FileFactory.upload(local_path=local_path, is_temp=True, api_key=api_key)
     os.remove(local_path)
     return code, inputs, description, name
 
 
-def parse_code_decorated(code: Union[Text, Callable]) -> Tuple[Text, List, Text, Text]:
+def parse_code_decorated(code: Union[Text, Callable], api_key: Optional[Text] = None) -> Tuple[Text, List, Text, Text]:
     """Parse and process code that may be decorated with @utility_tool.
 
     This function handles code that may be decorated with the @utility_tool
@@ -453,7 +453,7 @@ def parse_code_decorated(code: Union[Text, Callable]) -> Tuple[Text, List, Text,
     local_path = str(uuid4())
     with open(local_path, "w") as f:
         f.write(str_code)
-    code = FileFactory.upload(local_path=local_path, is_temp=True)
+    code = FileFactory.upload(local_path=local_path, is_temp=True, api_key=api_key)
     os.remove(local_path)
 
     return code, inputs, description, name

@@ -2,10 +2,10 @@ import pytest
 from unittest.mock import patch, Mock
 from aixplain.v2.resource import (
     BaseResource,
-    ListResourceMixin,
-    BareListParams,
+    SearchResourceMixin,
+    BaseSearchParams,
     GetResourceMixin,
-    BareGetParams,
+    BaseGetParams,
 )
 
 
@@ -55,8 +55,8 @@ def test_base_resource_action():
     )
 
 
-def test_base_resource_list():
-    class FixtureResource(BaseResource, ListResourceMixin[BareListParams, "FixtureResource"]):
+def test_base_resource_search():
+    class FixtureResource(BaseResource, SearchResourceMixin[BaseSearchParams, "FixtureResource"]):
         RESOURCE_PATH = "demo"
         context = Mock(
             client=Mock(
@@ -64,7 +64,7 @@ def test_base_resource_list():
                     return_value=Mock(
                         json=Mock(
                             return_value={
-                                "items": [
+                                "results": [
                                     {"id": "123", "name": "test"},
                                     {"id": "456", "name": "test2"},
                                 ],
@@ -77,7 +77,7 @@ def test_base_resource_list():
             )
         )
 
-    page = FixtureResource.list()
+    page = FixtureResource.search()
 
     assert page.total == 2
     assert page.page_number == 0
@@ -98,7 +98,7 @@ def test_base_resource_list():
     )
     FixtureResource.context.client.request.reset_mock()
 
-    page = FixtureResource.list(
+    page = FixtureResource.search(
         page_number=1,
         page_size=20,
         query="test",
@@ -122,7 +122,7 @@ def test_base_resource_list():
 
 
 def test_base_resource_get():
-    class FixtureResource(BaseResource, GetResourceMixin[BareGetParams, "FixtureResource"]):
+    class FixtureResource(BaseResource, GetResourceMixin[BaseGetParams, "FixtureResource"]):
         RESOURCE_PATH = "demo"
         context = Mock(client=Mock(get_obj=Mock(return_value={"id": "123", "name": "test"})))
 
