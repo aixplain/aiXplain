@@ -1,7 +1,9 @@
+import warnings
 from typing import Union, List, Optional, Any
 from typing_extensions import Unpack
 from dataclasses_json import dataclass_json, config as dj_config
 from dataclasses import dataclass, field
+from functools import cached_property
 
 from .resource import (
     Result,
@@ -76,12 +78,25 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
                     self.integration, Integration
                 ), "Integration must be an Integration object or a string"
 
-            connection = self.integration.connect(
+
+    def _create(self, resource_path: str, payload: dict) -> None:
+        """Create the tool."""
+        if not self.integration:
+            raise ValueError("Integration is required to create a tool")
+
+        connection = self.integration.connect(
                 authScheme=self.auth_scheme, data=self.config
             )
-            self.id = self.asset_id = connection.id
-            self.function = self.integration.function
-            self.function_type = self.integration.function_type
+        # Dynamically map all attributes from connection to tool if they are None
+        for attr_name in self.__dataclass_fields__:
+            if not getattr(self, attr_name) and getattr(connection, attr_name, None):
+                setattr(self, attr_name, getattr(connection, attr_name))
+
+        # we are saving again because we need to also sync local state with backend
+        # self.save()
+
+    def _update(self, resource_path: str, payload: dict) -> None:
+        raise NotImplementedError("Updating a tool is not supported yet")
 
     def validate_allowed_actions(self) -> None:
         if self.allowed_actions:

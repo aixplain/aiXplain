@@ -317,6 +317,19 @@ class BaseResource:
             return self.to_dict()
         return {}
 
+    def _create(self, resource_path: str, payload: dict) -> None:
+        """Create the resource."""
+        result = self.context.client.request(
+            "post", f"{resource_path}", json=payload
+        )
+        self.id = result["id"]
+    
+    def _update(self, resource_path: str, payload: dict) -> None:
+        """Update the resource."""
+        self.context.client.request(
+            "put", f"{resource_path}/{self.encoded_id}", json=payload
+        )
+
     @with_hooks
     def save(self, *args: Any, **kwargs: Any) -> "BaseResource":
         """Save the resource.
@@ -333,17 +346,12 @@ class BaseResource:
 
         # Execute the save operation
         if self.id:
-            result = self.context.client.request(
-                "put", f"{resource_path}/{self.encoded_id}", json=payload
-            )
+            self._update(resource_path, payload)
         else:
-            result = self.context.client.request(
-                "post", f"{resource_path}", json=payload
-            )
+            self._create(resource_path, payload)
 
-        # Update state on success
-        self.id = result["id"]
         self._update_saved_state()
+
         return self
 
     def _action(
