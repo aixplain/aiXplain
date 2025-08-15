@@ -191,13 +191,19 @@ class BaseResource:
     name: Optional[str] = None
     description: Optional[str] = None
 
-    def _ensure_id_exists(self) -> None:
+    def _ensure_valid_state(self) -> None:
         """
-        Ensure the resource has a valid ID for operations that require it.
+        Ensure the resource is in a valid state for operations.
 
         Raises:
-            ValidationError: If the resource doesn't have a valid ID
+            ValidationError: If the resource is not in a valid state
         """
+        # Check if resource has been deleted
+        if self.is_deleted:
+            raise ValidationError(
+                "Resource has been deleted and cannot be used for operations."
+            )
+
         if not self.id:
             if hasattr(self, "_saved_state") and self._saved_state is None:
                 raise ValidationError(
@@ -209,25 +215,6 @@ class BaseResource:
                     "Resource has been deleted or is invalid. "
                     "Resource ID is missing."
                 )
-
-    def _ensure_valid_state(self, operation_name: str) -> None:
-        """
-        Ensure the resource is in a valid state for operations.
-
-        Args:
-            operation_name: str: The name of the operation being performed
-
-        Raises:
-            ValidationError: If the resource is not in a valid state
-        """
-        # Check if resource has been deleted
-        if self.is_deleted:
-            raise ValidationError(
-                f"Cannot {operation_name}: Resource has been deleted."
-            )
-
-        # Check if resource has a valid ID
-        self._ensure_id_exists()
 
     def _get_serializable_state(self) -> dict:
         """
@@ -387,7 +374,7 @@ class BaseResource:
             "Subclasses of 'BaseResource' must " "specify 'RESOURCE_PATH'"
         )
 
-        self._ensure_valid_state("perform action")
+        self._ensure_valid_state()
 
         method = method or "GET"
         path = f"{self.RESOURCE_PATH}/{self.encoded_id}"
@@ -413,7 +400,7 @@ class BaseResource:
         Returns:
             The URL-encoded resource ID, or empty string if no ID exists
         """
-        self._ensure_id_exists()
+        self._ensure_valid_state()
 
         return encode_resource_id(self.id)
 
@@ -833,7 +820,7 @@ class DeleteResourceMixin(BaseMixin, Generic[DeleteParamsT, DeleteResultT]):
             "Subclasses of 'BaseResource' must " "specify 'RESOURCE_PATH'"
         )
 
-        self._ensure_valid_state("delete")
+        self._ensure_valid_state()
 
         resource_path = kwargs.pop("resource_path", None) or getattr(
             self, "RESOURCE_PATH", ""
@@ -931,7 +918,7 @@ class DeleteResourceMixin(BaseMixin, Generic[DeleteParamsT, DeleteResultT]):
         Returns:
             DeleteResultT: The result of the delete operation
         """
-        self._ensure_valid_state("delete")
+        self._ensure_valid_state()
 
         # Build the delete URL
         delete_url = self.build_delete_url(**kwargs)
@@ -979,7 +966,7 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
             "Subclasses of 'BaseResource' must " "specify 'RESOURCE_PATH'"
         )
 
-        self._ensure_valid_state("run")
+        self._ensure_valid_state()
 
         run_action_path = getattr(self, "RUN_ACTION_PATH", None)
         path = f"{self.RESOURCE_PATH}/{self.encoded_id}"
@@ -1039,14 +1026,6 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
 
             response_class = getattr(self, "RESPONSE_CLASS", Result)
             return response_class.from_dict(response)
-
-            # Check for failed status and raise appropriate error
-            status = response.get("status", "IN_PROGRESS")
-            if status == "FAILED":
-                raise create_operation_failed_error(response)
-
-            response_class = getattr(self, "RESPONSE_CLASS", Result)
-            return response_class.from_dict(filtered_response)
 
     # Optional hook methods - only implement what you need
     def before_run(self, *args: Any, **kwargs: Unpack[RunParamsT]) -> Optional[ResultT]:

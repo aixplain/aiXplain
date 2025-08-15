@@ -206,7 +206,7 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
         action_name = kwargs.get("action")
         if not action_name and len(self.allowed_actions) == 1:
             action_name = self.allowed_actions[0]
-        
+
         if not action_name:
             raise ValueError("No action provided")
 

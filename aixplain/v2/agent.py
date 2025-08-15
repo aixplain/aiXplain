@@ -68,8 +68,8 @@ class AgentRunResult(Result):
 @dataclass
 class Task:
     name: str
-    description: Optional[str] = None
-    expectedOutput: Optional[str] = ""
+    instructions: Optional[str] = field(metadata=config(field_name="description"))
+    expected_output: Optional[str] = field(metadata=config(field_name="expectedOutput"))
     dependencies: List[Union[str, "Task"]] = field(default_factory=list)
 
     def __post_init__(self) -> None:
@@ -179,6 +179,13 @@ class Agent(
             raise ValueError(
                 "Team agents cannot have tasks or tools. Please remove the tasks or tools and try again."
             )
+
+    def mark_as_deleted(self) -> None:
+        """Mark the agent as deleted by setting status to DELETED and calling parent method."""
+        from .enums import AssetStatus
+
+        self.status = AssetStatus.DELETED
+        super().mark_as_deleted()
 
     def before_run(
         self, *args: Any, **kwargs: Unpack[AgentRunParams]

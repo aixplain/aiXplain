@@ -469,6 +469,13 @@ class Model(
     def build_run_url(self, **kwargs: Unpack[ModelRunParams]) -> str:
         return f"{self.context.model_url}/{self.id}"
 
+    def mark_as_deleted(self) -> None:
+        """Mark the model as deleted by setting status to DELETED and calling parent method."""
+        from .enums import AssetStatus
+
+        self.status = AssetStatus.DELETED
+        super().mark_as_deleted()
+
     @classmethod
     def get(
         cls: type["Model"],
