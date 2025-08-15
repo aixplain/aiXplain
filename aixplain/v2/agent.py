@@ -257,10 +257,7 @@ class Agent(
                     raise ValueError(
                         "Expected output must be a valid JSON string or dict or pydantic model"
                     )
-        elif self.output_format == OutputFormat.MARKDOWN.value:
-            if not isinstance(self.expected_output, str):
-                raise ValueError("Expected output must be a string")
-        elif self.output_format == OutputFormat.TEXT.value:
+        elif self.output_format in [OutputFormat.MARKDOWN.value, OutputFormat.TEXT.value]:
             if not isinstance(self.expected_output, str):
                 raise ValueError("Expected output must be a string")
 
