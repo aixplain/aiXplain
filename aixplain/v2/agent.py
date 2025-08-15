@@ -1,7 +1,11 @@
+import json
+from enum import Enum
 from dataclasses import dataclass, field
 from typing import List, Optional, Any, Dict, Union, Text
 from typing_extensions import Unpack, NotRequired
 from dataclasses_json import dataclass_json, config
+
+from pydantic import BaseModel
 
 from aixplain.enums import AssetStatus, ResponseStatus
 from aixplain.v2.model import Model
@@ -19,6 +23,12 @@ from .resource import (
     RunnableResourceMixin,
     Page,
 )
+
+
+class OutputFormat(str, Enum):
+    MARKDOWN = "markdown"
+    TEXT = "text"
+    JSON = "json"
 
 
 class AgentRunParams(BaseRunParams):
@@ -63,9 +73,6 @@ class AgentRunResult(Result):
     url: Optional[str] = None
     result: Optional[Any] = None
     supplier_error: Optional[str] = None
-
-
-
 
 
 @dataclass_json
@@ -113,6 +120,7 @@ class Agent(
 
     RESPONSE_CLASS = AgentRunResult
     Task = Task
+    OutputFormat = OutputFormat
 
     # Core fields from Swagger
     instructions: Optional[str] = None
@@ -131,13 +139,13 @@ class Agent(
     )
 
     # Inspector and supervisor fields
-    inspectorId: Optional[str] = field(
+    inspector_id: Optional[str] = field(
         default=None, metadata=config(field_name="inspectorId")
     )
-    supervisorId: Optional[str] = field(
+    supervisor_id: Optional[str] = field(
         default=None, metadata=config(field_name="supervisorId")
     )
-    plannerId: Optional[str] = field(
+    planner_id: Optional[str] = field(
         default=None, metadata=config(field_name="plannerId")
     )
 
@@ -148,18 +156,30 @@ class Agent(
     )
 
     # Output and execution fields
-    outputFormat: Optional[str] = field(
-        default="text", metadata=config(field_name="outputFormat")
+    output_format: Optional[Union[str, OutputFormat]] = field(
+        default=OutputFormat.TEXT.value, metadata=config(field_name="outputFormat")
     )
-    expectedOutput: Optional[Any] = None
+    expected_output: Optional[Union[str, dict, BaseModel]] = field(
+        default="", metadata=config(field_name="expectedOutput")
+    )
 
     # Metadata fields
-    createdAt: Optional[str] = None
-    updatedAt: Optional[str] = None
-    inspectorTargets: Optional[List[Any]] = field(default_factory=list)
-    maxInspectors: Optional[int] = None
+    created_at: Optional[str] = field(
+        default=None, metadata=config(field_name="createdAt")
+    )
+    updated_at: Optional[str] = field(
+        default=None, metadata=config(field_name="updatedAt")
+    )
+    inspector_targets: Optional[List[Any]] = field(
+        default_factory=list, metadata=config(field_name="inspectorTargets")
+    )
+    max_inspectors: Optional[int] = field(
+        default=None, metadata=config(field_name="maxInspectors")
+    )
     inspectors: Optional[List[Any]] = field(default_factory=list)
-    resourceInfo: Optional[Dict[str, Any]] = field(default_factory=dict)
+    resource_info: Optional[Dict[str, Any]] = field(
+        default_factory=dict, metadata=config(field_name="resourceInfo")
+    )
 
     def __repr__(self) -> str:
         """
@@ -177,6 +197,9 @@ class Agent(
             agent if isinstance(agent, str) else agent.id for agent in self.subagents
         ]
         self.assets = [{"type": "llm", "description": "main", "parameters": []}]
+        if isinstance(self.output_format, OutputFormat):
+            self.output_format = self.output_format.value
+
         if isinstance(self.llm, Model):
             self.llm = self.llm.id
         if self.subagents and (self.tasks or self.tools):
@@ -223,6 +246,24 @@ class Agent(
             args = args[1:]
         return super().run(*args, **kwargs)
 
+    def _validate_expected_output(self) -> None:
+        if self.output_format == OutputFormat.JSON.value:
+            if not isinstance(self.expected_output, (str, dict, BaseModel)):
+                raise ValueError("Expected output must be a valid JSON object")
+            if isinstance(self.expected_output, str):
+                try:
+                    json.loads(self.expected_output)
+                except json.JSONDecodeError:
+                    raise ValueError(
+                        "Expected output must be a valid JSON string or dict or pydantic model"
+                    )
+        elif self.output_format == OutputFormat.MARKDOWN.value:
+            if not isinstance(self.expected_output, str):
+                raise ValueError("Expected output must be a string")
+        elif self.output_format == OutputFormat.TEXT.value:
+            if not isinstance(self.expected_output, str):
+                raise ValueError("Expected output must be a string")
+
     def before_save(self, *args: Any, **kwargs: Any) -> Optional[dict]:
         """
         Callback to be called before the resource is saved.
@@ -233,6 +274,10 @@ class Agent(
             self.status = AssetStatus.DRAFT
         else:
             self.status = AssetStatus.ONBOARDED
+
+        # validate expected output as per output format
+        # json should be a valid json string or dict or pydantic model
+        self._validate_expected_output()
 
         # if not all(t.status == AssetStatus.ONBOARDED for t in self.tools):
         #     raise ValueError(
@@ -290,7 +335,7 @@ class Agent(
         # Set default values for executionParams if not provided
         if not execution_params:
             execution_params = {
-                "outputFormat": self.outputFormat or "text",
+                "outputFormat": self.output_format,
                 "maxTokens": 2048,
                 "maxIterations": 30,
                 "maxTime": 300,

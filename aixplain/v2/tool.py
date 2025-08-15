@@ -78,15 +78,14 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
                     self.integration, Integration
                 ), "Integration must be an Integration object or a string"
 
-
     def _create(self, resource_path: str, payload: dict) -> None:
         """Create the tool."""
         if not self.integration:
             raise ValueError("Integration is required to create a tool")
 
         connection = self.integration.connect(
-                authScheme=self.auth_scheme, data=self.config
-            )
+            authScheme=self.auth_scheme, data=self.config
+        )
         # Dynamically map all attributes from connection to tool if they are None
         for attr_name in self.__dataclass_fields__:
             if not getattr(self, attr_name) and getattr(connection, attr_name, None):

@@ -319,11 +319,9 @@ class BaseResource:
 
     def _create(self, resource_path: str, payload: dict) -> None:
         """Create the resource."""
-        result = self.context.client.request(
-            "post", f"{resource_path}", json=payload
-        )
+        result = self.context.client.request("post", f"{resource_path}", json=payload)
         self.id = result["id"]
-    
+
     def _update(self, resource_path: str, payload: dict) -> None:
         """Update the resource."""
         self.context.client.request(
@@ -1108,6 +1106,9 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
         Returns:
             Response instance from the configured RESPONSE_CLASS
         """
+
+        self._ensure_valid_state()
+
         payload = self.build_run_payload(**kwargs)
 
         # Build the run URL using the extensible method
