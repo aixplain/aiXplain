@@ -82,7 +82,7 @@ class Aixplain:
             "set the TEAM_API_KEY environment variable."
         )
 
-        self.base_url = backend_url or os.getenv("BACKEND_URL") or self.BACKEND_URL
+        self.backend_url = backend_url or os.getenv("BACKEND_URL") or self.BACKEND_URL
         self.pipeline_url = (
             pipeline_url or os.getenv("PIPELINES_RUN_URL") or self.PIPELINES_RUN_URL
         )
@@ -94,7 +94,7 @@ class Aixplain:
     def init_client(self) -> None:
         """Initialize the client."""
         self.client = AixplainClient(
-            base_url=self.base_url,
+            base_url=self.backend_url,
             team_api_key=self.api_key,
         )
 
