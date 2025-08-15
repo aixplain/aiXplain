@@ -19,7 +19,7 @@ Note:
 """
 
 import logging
-from typing import Dict, Optional, Text, Union
+from typing import Dict, Optional, Text, Union, Callable
 from urllib.parse import urljoin
 
 from aixplain.enums.asset_status import AssetStatus
@@ -48,7 +48,7 @@ class InspectorFactory:
         name: Text,
         model: Union[Text, Model],
         model_config: Optional[Dict] = None,
-        policy: InspectorPolicy = InspectorPolicy.ADAPTIVE,  # default: doing something dynamically
+        policy: Union[InspectorPolicy, Callable] = InspectorPolicy.ADAPTIVE,  # default: doing something dynamically
     ) -> Inspector:
         """Create a new inspector agent from an onboarded model.
 
@@ -62,11 +62,10 @@ class InspectorFactory:
                 to use for the inspector.
             model_config (Optional[Dict], optional): Configuration parameters for
                 the inspector model (e.g., prompts, thresholds). Defaults to None.
-            policy (InspectorPolicy, optional): Action to take upon negative feedback:
-                - WARN: Log warning but continue execution
-                - ABORT: Stop execution on negative feedback
-                - ADAPTIVE: Dynamically decide based on context
-                Defaults to InspectorPolicy.ADAPTIVE.
+            policy: Action to take upon negative feedback (WARN/ABORT/ADAPTIVE)
+                or a callable function. If callable, must have name "process_response",
+                arguments "model_response" and "input_content" (both strings), and
+                return InspectorAction. Defaults to ADAPTIVE.
 
         Returns:
             Inspector: Created and configured inspector agent.
@@ -124,7 +123,7 @@ class InspectorFactory:
         cls,
         auto: InspectorAuto,
         name: Optional[Text] = None,
-        policy: InspectorPolicy = InspectorPolicy.ADAPTIVE,
+        policy: Union[InspectorPolicy, Callable] = InspectorPolicy.ADAPTIVE,
     ) -> Inspector:
         """Create a new inspector agent using automatic configuration.
 
@@ -136,11 +135,10 @@ class InspectorFactory:
             auto (InspectorAuto): Pre-configured automatic inspector instance.
             name (Optional[Text], optional): Name for the inspector. If not provided,
                 uses the name from the auto configuration. Defaults to None.
-            policy (InspectorPolicy, optional): Action to take upon negative feedback:
-                - WARN: Log warning but continue execution
-                - ABORT: Stop execution on negative feedback
-                - ADAPTIVE: Dynamically decide based on context
-                Defaults to InspectorPolicy.ADAPTIVE.
+            policy: Action to take upon negative feedback (WARN/ABORT/ADAPTIVE)
+                or a callable function. If callable, must have name "process_response",
+                arguments "model_response" and "input_content" (both strings), and
+                return InspectorAction. Defaults to ADAPTIVE.
 
         Returns:
             Inspector: Created and configured inspector agent using automatic
