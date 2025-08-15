@@ -7,7 +7,6 @@ from enum import Enum
 from pydantic import BaseModel
 import json
 
-
 class AuthenticationSchema(Enum):
     """Enumeration of supported authentication schemes for integrations.
 
@@ -23,12 +22,14 @@ class AuthenticationSchema(Enum):
         NO_AUTH (str): No authentication required.
     """
 
+
     BEARER_TOKEN = "BEARER_TOKEN"
     OAUTH1 = "OAUTH1"
     OAUTH2 = "OAUTH2"
     API_KEY = "API_KEY"
     BASIC = "BASIC"
     NO_AUTH = "NO_AUTH"
+
 
 
 class BaseAuthenticationParams(BaseModel):
@@ -65,6 +66,7 @@ def build_connector_params(**kwargs) -> BaseAuthenticationParams:
         >>> print(params.name)
         'My Connection'
     """
+
     name = kwargs.get("name")
     connector_id = kwargs.get("connector_id")
     return BaseAuthenticationParams(name=name, connector_id=connector_id)
@@ -133,6 +135,7 @@ class Integration(Model):
     ) -> ModelResponse:
         """Connect to the integration using the specified authentication scheme.
 
+
         This method establishes a connection to the integration service using the provided
         authentication method and credentials. The required parameters vary depending on
         the authentication scheme being used.
@@ -190,6 +193,7 @@ class Integration(Model):
             args = build_connector_params(**kwargs)
 
         if authentication_schema.value not in self.authentication_methods:
+
             raise ValueError(
                 f"Authentication schema {authentication_schema.value} is not supported for this integration. Supported authentication methods: {self.authentication_methods}"
             )
@@ -219,6 +223,7 @@ class Integration(Model):
                         raise ValueError(
                             f"Parameters {required_params_names} are required for {self.name} {authentication_schema.value} authentication. Please provide the parameters in the data dictionary."
                         )
+
             return self.run(
                 {
                     "name": args.name,
@@ -238,6 +243,10 @@ class Integration(Model):
                     f"Before using the tool, please visit the following URL to complete the connection: {response.data['redirectURL']}"
                 )
             return response
+        else:
+            raise ValueError(f"Invalid authentication schema: {authentication_schema}")
+
+
 
     def __repr__(self):
         """Return a string representation of the Integration instance.

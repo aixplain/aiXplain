@@ -87,6 +87,7 @@ class ConnectionTool(Model):
         assert (
             function_type == FunctionType.CONNECTION or function_type == FunctionType.MCP_CONNECTION
         ), "Connection only supports connection function"
+
         super().__init__(
             id=id,
             name=name,

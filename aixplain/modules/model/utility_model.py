@@ -387,7 +387,6 @@ class UtilityModel(Model, DeployableMixin):
             message = f"Utility Model Deletion Error: {response}"
             logging.error(message)
             raise Exception(f"{message}")
-
     def __repr__(self):
         """Return a string representation of the UtilityModel instance.
 

@@ -38,7 +38,6 @@ from aixplain.factories.index_factory.utils import BaseIndexParams
 
 T = TypeVar("T", bound=BaseIndexParams)
 
-
 def validate_embedding_model(model_id: Union[EmbeddingModel, str]) -> bool:
     """Validate that a model is a text embedding model.
 
@@ -49,6 +48,11 @@ def validate_embedding_model(model_id: Union[EmbeddingModel, str]) -> bool:
     Returns:
         bool: True if the model is a text embedding model, False otherwise.
     """
+    model = ModelFactory.get(model_id)
+    return model.function == Function.TEXT_EMBEDDING
+
+
+def validate_embedding_model(model_id) -> bool:
     model = ModelFactory.get(model_id)
     return model.function == Function.TEXT_EMBEDDING
 
@@ -71,7 +75,9 @@ class IndexFactory(ModelFactory, Generic[T]):
         cls,
         name: Optional[Text] = None,
         description: Optional[Text] = None,
+
         embedding_model: Union[EmbeddingModel, str] = EmbeddingModel.OPENAI_ADA002,
+
         params: Optional[T] = None,
         **kwargs,
     ) -> IndexModel:

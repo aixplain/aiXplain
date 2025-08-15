@@ -1,3 +1,4 @@
+
 from pydantic import BaseModel, ConfigDict, field_validator
 from typing import Text, Optional, ClassVar, Dict, Union
 from aixplain.enums import IndexStores, EmbeddingModel
@@ -55,6 +56,7 @@ class BaseIndexParamsWithEmbeddingModel(BaseIndexParams, ABC):
             Defaults to None.
     """
 
+
     embedding_model: Optional[Union[EmbeddingModel, str]] = EmbeddingModel.OPENAI_ADA002
     embedding_size: Optional[int] = None
 
@@ -94,7 +96,6 @@ class BaseIndexParamsWithEmbeddingModel(BaseIndexParams, ABC):
             data["additional_params"] = {"embedding_size": data.pop("embedding_size")}
         return data
 
-
 class VectaraParams(BaseIndexParams):
     """Parameters for creating a Vectara index.
 
@@ -103,6 +104,7 @@ class VectaraParams(BaseIndexParams):
     Attributes:
         _id (ClassVar[str]): Static model ID for Vectara index type.
     """
+
 
     _id: ClassVar[str] = IndexStores.VECTARA.get_model_id()
 
@@ -180,4 +182,5 @@ class GraphRAGParams(BaseIndexParamsWithEmbeddingModel):
         Returns:
             str: The GraphRAG model ID.
         """
+
         return self._id

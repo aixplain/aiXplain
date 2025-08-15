@@ -38,6 +38,7 @@ def save_to_cache(cache_file: str, data: dict, lock_file: str) -> None:
         - Logs an error if saving fails but doesn't raise an exception
         - The data is saved with a timestamp for expiration checking
     """
+
     try:
         os.makedirs(os.path.dirname(cache_file), exist_ok=True)
         with FileLock(lock_file):

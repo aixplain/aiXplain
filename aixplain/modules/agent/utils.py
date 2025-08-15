@@ -26,6 +26,7 @@ def process_variables(
     Raises:
         AssertionError: If a required variable is not found in the data or parameters.
     """
+
     from aixplain.factories.file_factory import FileFactory
 
     if isinstance(query, dict):

@@ -200,6 +200,7 @@ class BenchmarkFactory:
             raise Exception("Please use at least one metric")
         if len(payload["model"]) == 0 and payload.get("models", None) is None:
             raise Exception("Please use at least one model")
+
         clean_metrics_info = {}
         for metric_info in payload["metrics"]:
             metric_id = metric_info["id"]
@@ -214,6 +215,31 @@ class BenchmarkFactory:
             {"id": metric_id, "configurations": metric_config} for metric_id, metric_config in clean_metrics_info.items()
         ]
         return payload
+    
+    @classmethod
+    def _reformat_model_list(cls, model_list: List[Model]) -> Tuple[List[Any], List[Any]]:
+        """Reformat the model list to be used in the create benchmark API
+
+        Args:
+            model_list (List[Model]): List of models to be used in the benchmark
+
+        Returns:
+            Tuple[List[Any], List[Any]]: Reformatted model lists
+
+        """
+        model_list_without_parms, model_list_with_parms = [], []
+        for model in model_list:
+            if "displayName" in model.additional_info:
+                model_list_with_parms.append({"id": model.id, "displayName": model.additional_info["displayName"], "configurations": json.dumps(model.additional_info["configuration"])})
+            else:
+                model_list_without_parms.append(model.id)
+        if len(model_list_with_parms) > 0:
+            if len(model_list_without_parms) > 0:
+                raise Exception("Please provide addditional info for all models or for none of the models")
+        else:
+            model_list_with_parms = None
+        return model_list_without_parms, model_list_with_parms
+
 
     @classmethod
     def _reformat_model_list(cls, model_list: List[Model]) -> Tuple[List[Any], List[Any]]:
@@ -295,12 +321,12 @@ class BenchmarkFactory:
                 "Authorization": f"Token {config.TEAM_API_KEY}",
                 "Content-Type": "application/json",
             }
+
             model_list_without_parms, model_list_with_parms = cls._reformat_model_list(model_list)
             payload = {
                 "name": name,
                 "datasets": [dataset.id for dataset in dataset_list],
                 "metrics": [{"id": metric.id, "configurations": metric.normalization_options} for metric in metric_list],
-                "model": model_list_without_parms,
                 "model": model_list_without_parms,
                 "shapScores": [],
                 "humanEvaluationReport": False,
@@ -310,6 +336,7 @@ class BenchmarkFactory:
                 payload["models"] = model_list_with_parms
             if model_list_with_parms is not None:
                 payload["models"] = model_list_with_parms
+
             clean_payload = cls._validate_create_benchmark_payload(payload)
             payload = json.dumps(clean_payload)
             r = _request_with_retry("post", url, headers=headers, data=payload)

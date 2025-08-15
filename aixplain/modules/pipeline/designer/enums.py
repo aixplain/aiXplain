@@ -6,7 +6,6 @@ class RouteType(str, Enum):
     CHECK_TYPE = "checkType"
     CHECK_VALUE = "checkValue"
 
-
 class Operation(str, Enum):
     GREATER_THAN = "greaterThan"
     GREATER_THAN_OR_EQUAL = "greaterThanOrEqual"
@@ -29,7 +28,6 @@ class NodeType(str, Enum):
 
 class AssetType(str, Enum):
     MODEL = "MODEL"
-
 
 class ParamType:
     INPUT = "INPUT"
