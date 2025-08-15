@@ -5,6 +5,11 @@ from aixplain.modules.model import Model
 
 
 class ModelListMixin:
+    """Mixin class providing model listing functionality.
+
+    This mixin provides methods for retrieving lists of models with various
+    filtering and sorting options.
+    """
     @classmethod
     def list(
         cls,
@@ -21,24 +26,50 @@ class ModelListMixin:
         page_size: int = 20,
         model_ids: Optional[List[Text]] = None,
         api_key: Optional[Text] = None,
-    ) -> List[Model]:
-        """Gets the first k given models based on the provided task and language filters
+    ) -> dict:
+        """List and filter available models with pagination support.
+
+        This method provides comprehensive filtering capabilities for retrieving
+        models. It supports two modes:
+        1. Filtering by model IDs (exclusive of other filters)
+        2. Filtering by various criteria (function, language, etc.)
 
         Args:
-            query (Optional[Text], optional): query filter. Defaults to "".
-            function (Function): function filter.
-            source_languages (Optional[Union[Language, List[Language]]], optional): language filter of input data. Defaults to None.
-            target_languages (Optional[Union[Language, List[Language]]], optional): language filter of output data. Defaults to None.
-            is_finetunable (Optional[bool], optional): can be finetuned or not. Defaults to None.
-            ownership (Optional[Tuple[OwnershipType, List[OwnershipType]]], optional): Ownership filters (e.g. SUBSCRIBED, OWNER). Defaults to None.
-            sort_by (Optional[SortBy], optional): sort the retrived models by a specific attribute,
-            page_number (int, optional): page number. Defaults to 0.
-            page_size (int, optional): page size. Defaults to 20.
-            model_ids (Optional[List[Text]], optional): model ids to filter. Defaults to None.
-            api_key (Optional[Text], optional): Team API key. Defaults to None.
+            query (Optional[Text], optional): Search query to filter models.
+                Defaults to "".
+            function (Optional[Function], optional): Filter by model function/task.
+                Defaults to None.
+            suppliers (Optional[Union[Supplier, List[Supplier]]], optional): Filter by
+                supplier(s). Defaults to None.
+            source_languages (Optional[Union[Language, List[Language]]], optional):
+                Filter by input language(s). Defaults to None.
+            target_languages (Optional[Union[Language, List[Language]]], optional):
+                Filter by output language(s). Defaults to None.
+            is_finetunable (Optional[bool], optional): Filter by fine-tuning capability.
+                Defaults to None.
+            ownership (Optional[Tuple[OwnershipType, List[OwnershipType]]], optional):
+                Filter by ownership type (e.g., SUBSCRIBED, OWNER). Defaults to None.
+            sort_by (Optional[SortBy], optional): Attribute to sort results by.
+                Defaults to None.
+            sort_order (SortOrder, optional): Sort direction (ascending/descending).
+                Defaults to SortOrder.ASCENDING.
+            page_number (int, optional): Page number for pagination. Defaults to 0.
+            page_size (int, optional): Number of results per page. Defaults to 20.
+            model_ids (Optional[List[Text]], optional): List of specific model IDs to retrieve.
+                If provided, other filters are ignored. Defaults to None.
+            api_key (Optional[Text], optional): API key for authentication.
+                Defaults to None, using the configured TEAM_API_KEY.
 
         Returns:
-            List[Model]: List of models based on given filters
+            dict: Dictionary containing:
+                - results (List[Model]): List of models matching the criteria
+                - page_total (int): Number of models in current page
+                - page_number (int): Current page number
+                - total (int): Total number of models matching the criteria
+
+        Raises:
+            AssertionError: If model_ids is provided with other filters, or if
+                page_size is less than the number of requested model_ids.
         """
         if model_ids is not None:
             assert len(model_ids) > 0, "Please provide at least one model id"

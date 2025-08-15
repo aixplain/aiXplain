@@ -28,9 +28,17 @@ from aixplain.utils import config
 
 
 class AssetFactory:
+    """Base class for asset factories.
+
+    This class provides a common interface for creating and retrieving assets
+    from the aiXplain platform. Subclasses should implement the abstract methods
+    to define specific asset types.
+
+    Attributes:
+        backend_url (str): Base URL for the aiXplain backend API.
+    """
 
     backend_url = config.BACKEND_URL
-
     @abstractmethod
     def get(self, asset_id: Text) -> Asset:
         """Create a 'Asset' object from id

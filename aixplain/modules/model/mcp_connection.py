@@ -5,18 +5,51 @@ from typing import Text, Optional, Union, Dict, List
 
 
 class ConnectAction:
+    """A class representing an action that can be performed by an MCP connection.
+
+    This class defines the structure of a connection action with its name, description,
+    code, and input parameters.
+
+    Attributes:
+        name (Text): The display name of the action.
+        description (Text): A detailed description of what the action does.
+        code (Optional[Text]): The internal code/identifier for the action. Defaults to None.
+        inputs (Optional[Dict]): The input parameters required by the action. Defaults to None.
+    """
+
     name: Text
     description: Text
     code: Optional[Text] = None
     inputs: Optional[Dict] = None
 
-    def __init__(self, name: Text, description: Text, code: Optional[Text] = None, inputs: Optional[Dict] = None):
+    def __init__(
+        self,
+        name: Text,
+        description: Text,
+        code: Optional[Text] = None,
+        inputs: Optional[Dict] = None,
+    ):
+        """Initialize a new ConnectAction instance.
+
+        Args:
+            name (Text): The display name of the action.
+            description (Text): A detailed description of what the action does.
+            code (Optional[Text], optional): The internal code/identifier for the action.
+                Defaults to None.
+            inputs (Optional[Dict], optional): The input parameters required by the action.
+                Defaults to None.
+        """
         self.name = name
         self.description = description
         self.code = code
         self.inputs = inputs
 
     def __repr__(self):
+        """Return a string representation of the ConnectAction instance.
+
+        Returns:
+            str: A string in the format "Action(code=<code>, name=<name>)".
+        """
         return f"Action(code={self.code}, name={self.name})"
 
 
@@ -38,20 +71,25 @@ class MCPConnection(ConnectionTool):
         function_type: Optional[FunctionType] = FunctionType.CONNECTION,
         **additional_info,
     ) -> None:
-        """Connection Init
+        """Initialize a new MCPConnection instance.
 
         Args:
-            id (Text): ID of the Model
-            name (Text): Name of the Model
-            description (Text, optional): description of the model. Defaults to "".
-            api_key (Text, optional): API key of the Model. Defaults to None.
-            supplier (Union[Dict, Text, Supplier, int], optional): supplier of the asset. Defaults to "aiXplain".
-            version (Text, optional): version of the model. Defaults to "1.0".
-            function (Function, optional): model AI function. Defaults to None.
-            is_subscribed (bool, optional): Is the user subscribed. Defaults to False.
-            cost (Dict, optional): model price. Defaults to None.
-            scope (Text, optional): action scope of the connection. Defaults to None.
-            **additional_info: Any additional Model info to be saved
+            id (Text): ID of the MCP Connection.
+            name (Text): Name of the MCP Connection.
+            description (Text, optional): Description of the Connection. Defaults to "".
+            api_key (Text, optional): API key for the Connection. Defaults to None.
+            supplier (Union[Dict, Text, Supplier, int], optional): Supplier of the Connection.
+                Defaults to "aiXplain".
+            version (Text, optional): Version of the Connection. Defaults to "1.0".
+            function (Function, optional): Function of the Connection. Defaults to None.
+            is_subscribed (bool, optional): Whether the user is subscribed. Defaults to False.
+            cost (Dict, optional): Cost of the Connection. Defaults to None.
+            function_type (FunctionType, optional): Type of the function. Must be
+                FunctionType.MCP_CONNECTION. Defaults to FunctionType.CONNECTION.
+            **additional_info: Any additional Connection info to be saved.
+
+        Raises:
+            AssertionError: If function_type is not FunctionType.MCP_CONNECTION.
         """
         assert function_type == FunctionType.MCP_CONNECTION, "Connection only supports mcp connection function"
         super().__init__(
@@ -69,10 +107,26 @@ class MCPConnection(ConnectionTool):
         )
 
     def _get_actions(self):
+        """Retrieve the list of available tools for this MCP connection.
+
+        This internal method fetches the list of tools that can be used with this
+        connection by calling the LIST_TOOLS action.
+
+        Returns:
+            List[ConnectAction]: A list of available tools, each represented as a
+                ConnectAction object.
+
+        Raises:
+            Exception: If the tools cannot be retrieved from the server.
+        """
         response = Model.run(self, {"action": "LIST_TOOLS", "data": " "})
         if response.status == ResponseStatus.SUCCESS:
             return [
-                ConnectAction(name=action["name"], description=action["description"], code=action["name"])
+                ConnectAction(
+                    name=action["name"],
+                    description=action["description"],
+                    code=action["name"],
+                )
                 for action in response.data
             ]
         raise Exception(
@@ -80,6 +134,23 @@ class MCPConnection(ConnectionTool):
         )
 
     def get_action_inputs(self, action: Union[ConnectAction, Text]):
+        """Retrieve the input parameters required for a specific tool.
+
+        This method fetches the input parameters that are required to use a specific
+        tool. If the action object already has its inputs cached, returns those
+        instead of making a server request.
+
+        Args:
+            action (Union[ConnectAction, Text]): The tool to get inputs for, either as
+                a ConnectAction object or as a string code.
+
+        Returns:
+            Dict: A dictionary mapping input parameter codes to their specifications.
+
+        Raises:
+            Exception: If the inputs cannot be retrieved from the server or if the
+                response cannot be parsed.
+        """
         if action.inputs:
             return action.inputs
 

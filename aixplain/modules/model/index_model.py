@@ -14,6 +14,21 @@ from aixplain.utils.file_utils import _request_with_retry
 
 
 class IndexFilterOperator(Enum):
+    """Enumeration of operators available for filtering index records.
+
+    This enum defines the comparison operators that can be used when creating
+    filters for searching and retrieving records from an index.
+
+    Attributes:
+        EQUALS (str): Equality operator ("==")
+        NOT_EQUALS (str): Inequality operator ("!=")
+        CONTAINS (str): Membership test operator ("in")
+        NOT_CONTAINS (str): Negative membership test operator ("not in")
+        GREATER_THAN (str): Greater than operator (">")
+        LESS_THAN (str): Less than operator ("<")
+        GREATER_THAN_OR_EQUALS (str): Greater than or equal to operator (">=")
+        LESS_THAN_OR_EQUALS (str): Less than or equal to operator ("<=")
+    """
     EQUALS = "=="
     NOT_EQUALS = "!="
     CONTAINS = "in"
@@ -25,16 +40,40 @@ class IndexFilterOperator(Enum):
 
 
 class IndexFilter:
+    """A class representing a filter for querying index records.
+
+    This class defines a filter that can be used to search or retrieve records from an index
+    based on specific field values and comparison operators.
+
+    Attributes:
+        field (str): The name of the field to filter on.
+        value (str): The value to compare against.
+        operator (Union[IndexFilterOperator, str]): The comparison operator to use.
+    """
+
     field: str
     value: str
     operator: Union[IndexFilterOperator, str]
 
     def __init__(self, field: str, value: str, operator: Union[IndexFilterOperator, str]):
+        """Initialize a new IndexFilter instance.
+
+        Args:
+            field (str): The name of the field to filter on.
+            value (str): The value to compare against.
+            operator (Union[IndexFilterOperator, str]): The comparison operator to use.
+        """
         self.field = field
         self.value = value
         self.operator = operator
 
     def to_dict(self):
+        """Convert the filter to a dictionary representation.
+
+        Returns:
+            dict: A dictionary containing the filter's field, value, and operator.
+                The operator is converted to its string value if it's an IndexFilterOperator.
+        """
         return {
             "field": self.field,
             "value": self.value,
@@ -43,6 +82,19 @@ class IndexFilter:
 
 
 class Splitter:
+    """A class for configuring how documents should be split during indexing.
+
+    This class provides options for splitting documents into smaller chunks before
+    they are indexed, which can be useful for large documents or for specific
+    search requirements.
+
+    Attributes:
+        split (bool): Whether to split the documents or not.
+        split_by (SplittingOptions): The method to use for splitting (e.g., by word, sentence).
+        split_length (int): The length of each split chunk.
+        split_overlap (int): The number of overlapping units between consecutive chunks.
+    """
+
     def __init__(
         self,
         split: bool = False,
@@ -50,6 +102,16 @@ class Splitter:
         split_length: int = 1,
         split_overlap: int = 0,
     ):
+        """Initialize a new Splitter instance.
+
+        Args:
+            split (bool, optional): Whether to split the documents. Defaults to False.
+            split_by (SplittingOptions, optional): The method to use for splitting.
+                Defaults to SplittingOptions.WORD.
+            split_length (int, optional): The length of each split chunk. Defaults to 1.
+            split_overlap (int, optional): The number of overlapping units between
+                consecutive chunks. Defaults to 0.
+        """
         self.split = split
         self.split_by = split_by
         self.split_length = split_length
@@ -72,20 +134,24 @@ class IndexModel(Model):
         function_type: Optional[FunctionType] = FunctionType.SEARCH,
         **additional_info,
     ) -> None:
-        """Index Init
+        """Initialize a new IndexModel instance.
 
         Args:
-            id (Text): ID of the Model
-            name (Text): Name of the Model
-            description (Text, optional): description of the model. Defaults to "".
-            api_key (Text, optional): API key of the Model. Defaults to None.
-            supplier (Union[Dict, Text, Supplier, int], optional): supplier of the asset. Defaults to "aiXplain".
-            version (Text, optional): version of the model. Defaults to "1.0".
-            function (Function, optional): model AI function. Defaults to None.
-            is_subscribed (bool, optional): Is the user subscribed. Defaults to False.
-            cost (Dict, optional): model price. Defaults to None.
-            embedding_model (Union[EmbeddingModel, str], optional): embedding model. Defaults to None.
-            **additional_info: Any additional Model info to be saved
+            id (Text): ID of the Index Model.
+            name (Text): Name of the Index Model.
+            description (Text, optional): Description of the Index Model. Defaults to "".
+            api_key (Text, optional): API key of the Index Model. Defaults to None.
+            supplier (Union[Dict, Text, Supplier, int], optional): Supplier of the Index Model. Defaults to "aiXplain".
+            version (Text, optional): Version of the Index Model. Defaults to "1.0".
+            function (Function, optional): Function of the Index Model. Must be Function.SEARCH.
+            is_subscribed (bool, optional): Whether the user is subscribed. Defaults to False.
+            cost (Dict, optional): Cost of the Index Model. Defaults to None.
+            embedding_model (Union[EmbeddingModel, str], optional): Model used for embedding documents. Defaults to None.
+            function_type (FunctionType, optional): Type of the function. Defaults to FunctionType.SEARCH.
+            **additional_info: Any additional Index Model info to be saved.
+
+        Raises:
+            AssertionError: If function is not Function.SEARCH.
         """
         assert function == Function.SEARCH, "Index only supports search function"
         super().__init__(
@@ -117,6 +183,15 @@ class IndexModel(Model):
                 self.embedding_size = None
 
     def to_dict(self) -> Dict:
+        """Convert the IndexModel instance to a dictionary representation.
+
+        Returns:
+            Dict: A dictionary containing the model's attributes, including:
+                - All attributes from the parent Model class
+                - embedding_model: The model used for embedding documents
+                - embedding_size: The size of the embeddings produced
+                - collection_type: The type of collection derived from the version
+        """
         data = super().to_dict()
         data["embedding_model"] = self.embedding_model
         data["embedding_size"] = self.embedding_size
@@ -198,6 +273,18 @@ class IndexModel(Model):
         raise Exception(f"Failed to upsert documents: {response.error_message}")
 
     def count(self) -> float:
+        """Get the total number of documents in the index.
+
+        Returns:
+            float: The number of documents in the index.
+
+        Raises:
+            Exception: If the count operation fails.
+
+        Example:
+            >>> index_model.count()
+            42
+        """
         data = {"action": "count", "data": ""}
         response = self.run(data=data)
         if response.status == "SUCCESS":

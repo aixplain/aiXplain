@@ -26,6 +26,32 @@ from typing import Text
 
 
 class AssetStatus(Text, Enum):
+    """Enumeration of possible status values for an asset in the aiXplain system.
+
+    This enum defines all possible states that an asset can be in throughout its lifecycle,
+    from creation to deletion. Each enum value corresponds to a specific state in the
+    asset's lifecycle.
+
+    Attributes:
+        DRAFT (str): Initial state for a newly created asset.
+        HIDDEN (str): Asset is hidden from public view.
+        SCHEDULED (str): Asset is scheduled for processing.
+        ONBOARDING (str): Asset is in the process of being onboarded.
+        ONBOARDED (str): Asset has been successfully onboarded.
+        PENDING (str): Asset is waiting for processing.
+        FAILED (str): Asset processing has failed.
+        TRAINING (str): Asset is currently in training.
+        REJECTED (str): Asset has been rejected.
+        ENABLING (str): Asset is in the process of being enabled.
+        DELETING (str): Asset is in the process of being deleted.
+        DISABLED (str): Asset has been disabled.
+        DELETED (str): Asset has been deleted.
+        IN_PROGRESS (str): Asset is currently being processed.
+        COMPLETED (str): Asset has completed processing.
+        CANCELING (str): Asset operation is being canceled.
+        CANCELED (str): Asset operation has been canceled.
+        DEPRECATED_DRAFT (str): Draft state that has been deprecated.
+    """
     DRAFT = "draft"
     HIDDEN = "hidden"
     SCHEDULED = "scheduled"
