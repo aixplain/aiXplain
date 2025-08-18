@@ -186,10 +186,50 @@ def parse_tool_from_yaml(tool: str) -> ModelTool:
         raise Exception(f"Tool {tool} in yaml not found.")
 
 
+import yaml
+
+
+def is_yaml_formatted(text):
+    """
+    Check if a string is valid YAML format with additional validation.
+
+    Args:
+        text (str): The string to check
+
+    Returns:
+        bool: True if valid YAML, False otherwise
+    """
+    if not text or not isinstance(text, str):
+        return False
+
+    # Strip whitespace
+    text = text.strip()
+
+    # Empty string is valid YAML
+    if not text:
+        return True
+
+    try:
+        parsed = yaml.safe_load(text)
+
+        # If it's just a plain string without YAML structure,
+        # we might want to consider it as non-YAML
+        # This is optional depending on your requirements
+        if isinstance(parsed, str) and "\n" not in text and ":" not in text:
+            return False
+
+        return True
+    except yaml.YAMLError:
+        return False
+
+
 def build_team_agent_from_yaml(yaml_code: str, llm_id: str, api_key: str, team_id: Optional[str] = None) -> TeamAgent:
     import yaml
     from aixplain.factories import AgentFactory, TeamAgentFactory
 
+    # check if it is a yaml or just as string
+    if not is_yaml_formatted(yaml_code):
+        return None
     team_config = yaml.safe_load(yaml_code)
 
     agents_data = team_config["agents"]

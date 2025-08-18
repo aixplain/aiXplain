@@ -431,8 +431,18 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             resp_data = resp.get("data") or {}
             used_credits = resp_data.get("usedCredits", 0.0)
             run_time = resp_data.get("runTime", 0.0)
+            evolve_type = resp_data.get("evolve_type", EvolveType.TEAM_TUNING.value)
             if "evolved_agent" in resp_data and status == ResponseStatus.SUCCESS:
-                resp_data = EvolverResponseData.from_dict(resp_data, llm_id=self.llm_id, api_key=self.api_key)
+                if evolve_type == EvolveType.INSTRUCTION_TUNING.value:
+                    # return this class as it is but replace its description and instructions
+                    evolved_agent = self
+                    current_code = resp_data.get("current_code", "")
+                    evolved_agent.description = current_code
+                    evolved_agent.instructions = current_code
+                    evolved_agent.update()
+                    resp_data["evolved_agent"] = evolved_agent
+                else:
+                    resp_data = EvolverResponseData.from_dict(resp_data, llm_id=self.llm_id, api_key=self.api_key)
             else:
                 resp_data = AgentResponseData(
                     input=resp_data.get("input"),
@@ -442,7 +452,9 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                     execution_stats=resp_data.get("executionStats"),
                 )
         except Exception as e:
-            logging.error(f"Single Poll for Team Agent: Error of polling for {name}: {e}")
+            import traceback
+
+            logging.error(f"Single Poll for Team Agent: Error of polling for {name}: {e}, traceback: {traceback.format_exc()}")
             status = ResponseStatus.FAILED
             error_message = str(e)
         finally:
