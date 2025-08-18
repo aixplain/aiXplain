@@ -902,6 +902,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                     )
                 elif evolve_parameters.evolve_type == EvolveType.INSTRUCTION_TUNING:
                     self.instructions = result_data["current_code"]
+                    self.description = result_data["current_code"]
                     self.update()
                     result_data["evolved_agent"] = self
                 else:
