@@ -145,13 +145,13 @@ class TeamAgentFactory:
             try:
                 return get_llm_instance(llm_id, api_key=api_key)
             except Exception:
-                raise Exception(f"TeamAgent Onboarding Error: LLM {llm_id} does not exist for {llm_type}. To resolve this, set the following LLM parameters to a valid LLM object or LLM ID: llm, supervisor_llm, mentalist_llm.")
+                raise Exception(
+                    f"TeamAgent Onboarding Error: LLM {llm_id} does not exist for {llm_type}. To resolve this, set the following LLM parameters to a valid LLM object or LLM ID: llm, supervisor_llm, mentalist_llm."
+                )
 
-        def _setup_llm_and_tool(llm_param: Optional[Union[LLM, Text]], 
-                              default_id: Text, 
-                              llm_type: str, 
-                              description: str,
-                              tools: List[Dict]) -> LLM:
+        def _setup_llm_and_tool(
+            llm_param: Optional[Union[LLM, Text]], default_id: Text, llm_type: str, description: str, tools: List[Dict]
+        ) -> LLM:
             """Helper to set up an LLM and add its tool configuration."""
             llm_instance = None
             # Set up LLM
@@ -159,21 +159,25 @@ class TeamAgentFactory:
                 llm_instance = _get_llm_safely(default_id, llm_type)
             else:
                 llm_instance = _get_llm_safely(llm_param, llm_type) if isinstance(llm_param, str) else llm_param
-            
+
             # Add tool configuration
             if llm_instance is not None:
-                tools.append({
-                    "type": "llm",
-                    "description": description,
-                    "parameters": llm_instance.get_parameters().to_list() if llm_instance.get_parameters() else None,
-                })
+                tools.append(
+                    {
+                        "type": "llm",
+                        "description": description,
+                        "parameters": llm_instance.get_parameters().to_list() if llm_instance.get_parameters() else None,
+                    }
+                )
             return llm_instance, tools
 
         # Set up LLMs and their tools
         tools = []
         llm, tools = _setup_llm_and_tool(llm, llm_id, "Main LLM", "main", tools)
         supervisor_llm, tools = _setup_llm_and_tool(supervisor_llm, llm_id, "Supervisor LLM", "supervisor", tools)
-        mentalist_llm, tools = _setup_llm_and_tool(mentalist_llm, llm_id, "Mentalist LLM", "mentalist", tools) if use_mentalist else None
+        mentalist_llm, tools = (
+            _setup_llm_and_tool(mentalist_llm, llm_id, "Mentalist LLM", "mentalist", tools) if use_mentalist else (None, [])
+        )
 
         team_agent = None
         url = urljoin(config.BACKEND_URL, "sdk/agent-communities")
@@ -201,9 +205,8 @@ class TeamAgentFactory:
             "supplier": supplier,
             "version": version,
             "status": "draft",
-            "tools": [],
-            "instructions": instructions,
             "tools": tools,
+            "instructions": instructions,
         }
         # Store the LLM objects directly in the payload for build_team_agent
         internal_payload = payload.copy()
