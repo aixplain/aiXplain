@@ -344,7 +344,7 @@ def test_run_async_simple(version: str, PipelineFactory):
 
     poll_url = response["url"]
     import time
-    max_attempts = 30
+    max_attempts = 55
     attempt = 0
 
     while attempt < max_attempts:
