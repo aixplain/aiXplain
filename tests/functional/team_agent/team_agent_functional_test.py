@@ -124,7 +124,10 @@ def test_fail_non_existent_llm(run_input_map, TeamAgentFactory):
             llm_id="non_existent_llm",
             agents=agents,
         )
-    assert str(exc_info.value) == "Large Language Model with ID 'non_existent_llm' not found."
+    assert (
+        str(exc_info.value)
+        == "TeamAgent Onboarding Error: LLM non_existent_llm does not exist for Main LLM. To resolve this, set the following LLM parameters to a valid LLM object or LLM ID: llm, supervisor_llm, mentalist_llm."
+    )
 
 
 @pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory, v2.TeamAgent])
