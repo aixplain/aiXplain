@@ -203,7 +203,7 @@ Learn more at [aiXplain Pricing](https://aixplain.com/pricing/).
 - **Documentation:** [docs.aixplain.com](https://docs.aixplain.com)
 - **Example agents**: [https://github.com/aixplain/cookbook](https://github.com/aixplain/cookbook)
 - **Learn how to build agents**: [https://academy.aixplain.com/student-registration/](https://academy.aixplain.com/student-registration/)
-- **Meet us in Discord:** [discord.gg/aixplain](https://www.google.com/search?q=https://discord.gg/aixplain)
+- **Meet us in Discord:** [discord.gg/aixplain](https://discord.gg/aixplain)
 - **Talk with our team:** [care@aixplain.com](mailto:care@aixplain.com)
 
 ---
