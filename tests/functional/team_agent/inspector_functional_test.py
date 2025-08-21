@@ -1,5 +1,7 @@
 """
 Functional tests for team agents with inspectors.
+
+WARNING: This feature is currently in private beta.
 """
 
 from dotenv import load_dotenv
