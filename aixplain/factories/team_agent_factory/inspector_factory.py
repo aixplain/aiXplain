@@ -4,6 +4,8 @@ This module provides functionality for creating inspector agents that can valida
 and monitor team agent operations. Inspectors can be created from existing models
 or using automatic configurations.
 
+WARNING: This feature is currently in private beta.
+
 Example:
     Create an inspector from a model with adaptive policy::
 
