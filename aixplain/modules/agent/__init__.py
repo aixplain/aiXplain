@@ -25,6 +25,7 @@ import logging
 import re
 import time
 import traceback
+from datetime import datetime
 
 from aixplain.utils.file_utils import _request_with_retry
 from aixplain.enums import Function, Supplier, AssetStatus, StorageType, ResponseStatus
@@ -34,7 +35,7 @@ from aixplain.modules.agent.output_format import OutputFormat
 from aixplain.modules.agent.tool import Tool
 from aixplain.modules.agent.agent_response import AgentResponse
 from aixplain.modules.agent.agent_response_data import AgentResponseData
-from aixplain.modules.agent.utils import process_variables
+from aixplain.modules.agent.utils import process_variables, validate_history
 from pydantic import BaseModel
 from typing import Dict, List, Text, Optional, Union
 from urllib.parse import urljoin
@@ -46,20 +47,33 @@ import warnings
 
 
 class Agent(Model, DeployableMixin[Tool]):
-    """Advanced AI system capable of performing tasks by leveraging specialized software tools and resources from aiXplain marketplace.
+    """An advanced AI system that performs tasks using specialized tools from the aiXplain marketplace.
+
+    This class represents an AI agent that can understand natural language instructions,
+    use various tools and models, and execute complex tasks. It combines a large language
+    model (LLM) with specialized tools to provide comprehensive task-solving capabilities.
 
     Attributes:
-        id (Text): ID of the Agent
-        name (Text): Name of the Agent
-        tools (List[Union[Tool, Model]]): List of tools that the Agent uses.
-        description (Text, optional): description of the Agent. Defaults to "".
-        instructions (Text): instructions of the Agent.
-        llm_id (Text): large language model. Defaults to GPT-4o (6646261c6eb563165658bbb1).
-        supplier (Text): Supplier of the Agent.
-        version (Text): Version of the Agent.
-        backend_url (str): URL of the backend.
-        api_key (str): The TEAM API key used for authentication.
+        id (Text): ID of the Agent.
+        name (Text): Name of the Agent.
+        tools (List[Union[Tool, Model]]): Collection of tools and models the Agent can use.
+        description (Text, optional): Detailed description of the Agent's capabilities.
+            Defaults to "".
+        instructions (Text): System instructions/prompt defining the Agent's behavior.
+        llm_id (Text): ID of the large language model. Defaults to GPT-4o
+            (6646261c6eb563165658bbb1).
+        llm (Optional[LLM]): The LLM instance used by the Agent.
+        supplier (Text): The provider/creator of the Agent.
+        version (Text): Version identifier of the Agent.
+        status (AssetStatus): Current status of the Agent (DRAFT or ONBOARDED).
+        tasks (List[AgentTask]): List of tasks the Agent can perform.
+        backend_url (str): URL endpoint for the backend API.
+        api_key (str): Authentication key for API access.
+        cost (Dict, optional): Pricing information for using the Agent. Defaults to None.
+        is_valid (bool): Whether the Agent's configuration is valid.
         cost (Dict, optional): model price. Defaults to None.
+        output_format (OutputFormat): default output format for agent responses.
+        expected_output (Union[BaseModel, Text, dict], optional): expected output. Defaults to None.
     """
 
     is_valid: bool
@@ -80,23 +94,37 @@ class Agent(Model, DeployableMixin[Tool]):
         status: AssetStatus = AssetStatus.DRAFT,
         tasks: List[AgentTask] = [],
         workflow_tasks: List[WorkflowTask] = [],
+        output_format: OutputFormat = OutputFormat.TEXT,
+        expected_output: Optional[Union[BaseModel, Text, dict]] = None,
         **additional_info,
     ) -> None:
-        """Create an Agent with the necessary information.
+        """Initialize a new Agent instance.
 
         Args:
-            id (Text): ID of the Agent
-            name (Text): Name of the Agent
-            description (Text): description of the Agent.
-            instructions (Text): role of the Agent.
-            tools (List[Union[Tool, Model]]): List of tools that the Agent uses.
-            llm_id (Text, optional): large language model ID. Defaults to GPT-4o (6646261c6eb563165658bbb1).
-            llm (LLM, optional): large language model object. Defaults to None.
-            supplier (Text): Supplier of the Agent.
-            version (Text): Version of the Agent.
-            backend_url (str): URL of the backend.
-            api_key (str): The TEAM API key used for authentication.
-            cost (Dict, optional): model price. Defaults to None.
+            id (Text): ID of the Agent.
+            name (Text): Name of the Agent.
+            description (Text): Detailed description of the Agent's capabilities.
+            instructions (Optional[Text], optional): System instructions/prompt defining
+                the Agent's behavior. Defaults to None.
+            tools (List[Union[Tool, Model]], optional): Collection of tools and models
+                the Agent can use. Defaults to empty list.
+            llm_id (Text, optional): ID of the large language model. Defaults to GPT-4o
+                (6646261c6eb563165658bbb1).
+            llm (Optional[LLM], optional): The LLM instance to use. If provided, takes
+                precedence over llm_id. Defaults to None.
+            api_key (Optional[Text], optional): Authentication key for API access.
+                Defaults to config.TEAM_API_KEY.
+            supplier (Union[Dict, Text, Supplier, int], optional): The provider/creator
+                of the Agent. Defaults to "aiXplain".
+            version (Optional[Text], optional): Version identifier. Defaults to None.
+            cost (Optional[Dict], optional): Pricing information. Defaults to None.
+            status (AssetStatus, optional): Current status of the Agent.
+                Defaults to AssetStatus.DRAFT.
+            tasks (List[AgentTask], optional): List of tasks the Agent can perform.
+                Defaults to empty list.
+            output_format (OutputFormat, optional): default output format for agent responses. Defaults to OutputFormat.TEXT.
+            expected_output (Union[BaseModel, Text, dict], optional): expected output. Defaults to None.
+            **additional_info: Additional configuration parameters.
         """
         super().__init__(id, name, description, api_key, supplier, version, cost=cost)
         self.instructions = instructions
@@ -122,10 +150,22 @@ class Agent(Model, DeployableMixin[Tool]):
         else:
             self.workflow_tasks = workflow_tasks
         self.tasks = self.workflow_tasks
+        self.output_format = output_format
+        self.expected_output = expected_output
         self.is_valid = True
 
     def _validate(self) -> None:
-        """Validate the Agent."""
+        """Perform internal validation of the Agent's configuration.
+
+        This method checks:
+        1. Name contains only valid characters
+        2. LLM is a text generation model
+        3. Tool names are unique
+        4. No nested Agents are used
+
+        Raises:
+            AssertionError: If any validation check fails.
+        """
         from aixplain.utils.llm_utils import get_llm_instance
 
         # validate name
@@ -144,7 +184,6 @@ class Agent(Model, DeployableMixin[Tool]):
                 tool_name = tool.name
             elif isinstance(tool, Model):
                 assert not isinstance(tool, Agent), "Agent cannot contain another Agent."
-
                 tool_name = tool.name
             tool_names.append(tool_name)
 
@@ -154,8 +193,31 @@ class Agent(Model, DeployableMixin[Tool]):
                 f"Agent Creation Error - Duplicate tool names found: {', '.join(duplicates)}. Make sure all tool names are unique."
             )
 
+            tool_name = tool.name
+            tool_names.append(tool_name)
+
+        if len(tool_names) != len(set(tool_names)):
+            duplicates = set([name for name in tool_names if tool_names.count(name) > 1])
+            raise Exception(
+                f"Agent Creation Error - Duplicate tool names found: {', '.join(duplicates)}. Make sure all tool names are unique."
+            )
+
     def validate(self, raise_exception: bool = False) -> bool:
-        """Validate the Agent."""
+        """Validate the Agent's configuration and mark its validity status.
+
+        This method runs all validation checks and updates the is_valid flag.
+        If validation fails, it can either raise an exception or log warnings.
+
+        Args:
+            raise_exception (bool, optional): Whether to raise exceptions on validation
+                failures. If False, failures are logged as warnings. Defaults to False.
+
+        Returns:
+            bool: True if validation passed, False otherwise.
+
+        Raises:
+            Exception: If validation fails and raise_exception is True.
+        """
         try:
             self._validate()
             self.is_valid = True
@@ -168,6 +230,49 @@ class Agent(Model, DeployableMixin[Tool]):
                 logging.warning("You won't be able to run the Agent until the issues are handled manually.")
         return self.is_valid
 
+    def generate_session_id(self, history: list = None) -> str:
+        if history:
+            validate_history(history)
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        session_id = f"{self.id}_{timestamp}"
+
+        if not history:
+            return session_id
+
+        try:
+            validate_history(history)
+            headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}
+
+            payload = {
+                "id": self.id,
+                "query": "/",
+                "sessionId": session_id,
+                "history": history,
+                "executionParams": {
+                    "maxTokens": 2048,
+                    "maxIterations": 10,
+                    "outputFormat": OutputFormat.TEXT.value,
+                    "expectedOutput": None,
+                },
+                "allowHistoryAndSessionId": True,
+            }
+
+            r = _request_with_retry("post", self.url, headers=headers, data=json.dumps(payload))
+            resp = r.json()
+            poll_url = resp.get("data")
+
+            result = self.sync_poll(poll_url, name="model_process", timeout=300, wait_time=0.5)
+
+            if result.get("status") == ResponseStatus.SUCCESS:
+                return session_id
+            else:
+                logging.error(f"Session {session_id} initialization failed: {result}")
+                return session_id
+
+        except Exception as e:
+            logging.error(f"Failed to initialize session {session_id}: {e}")
+            return session_id
+
     def run(
         self,
         data: Optional[Union[Dict, Text]] = None,
@@ -179,9 +284,9 @@ class Agent(Model, DeployableMixin[Tool]):
         parameters: Dict = {},
         wait_time: float = 0.5,
         content: Optional[Union[Dict[Text, Text], List[Text]]] = None,
-        max_tokens: int = 2048,
-        max_iterations: int = 10,
-        output_format: OutputFormat = OutputFormat.TEXT,
+        max_tokens: int = 4096,
+        max_iterations: int = 3,
+        output_format: Optional[OutputFormat] = None,
         expected_output: Optional[Union[BaseModel, Text, dict]] = None,
     ) -> AgentResponse:
         """Runs an agent call.
@@ -198,12 +303,20 @@ class Agent(Model, DeployableMixin[Tool]):
             content (Union[Dict[Text, Text], List[Text]], optional): Content inputs to be processed according to the query. Defaults to None.
             max_tokens (int, optional): maximum number of tokens which can be generated by the agent. Defaults to 2048.
             max_iterations (int, optional): maximum number of iterations between the agent and the tools. Defaults to 10.
-            output_format (OutputFormat, optional): response format. Defaults to TEXT.
+            output_format (OutputFormat, optional): response format. If not provided, uses the format set during initialization.
             expected_output (Union[BaseModel, Text, dict], optional): expected output. Defaults to None.
         Returns:
             Dict: parsed output from model
         """
         start = time.time()
+        if session_id is not None and history is not None:
+            raise ValueError("Provide either `session_id` or `history`, not both.")
+
+        if session_id is not None:
+            if not session_id.startswith(f"{self.id}_"):
+                raise ValueError(f"Session ID '{session_id}' does not belong to this Agent.")
+        if history:
+            validate_history(history)
         result_data = {}
         try:
             response = self.run_async(
@@ -269,7 +382,7 @@ class Agent(Model, DeployableMixin[Tool]):
         content: Optional[Union[Dict[Text, Text], List[Text]]] = None,
         max_tokens: int = 2048,
         max_iterations: int = 10,
-        output_format: OutputFormat = OutputFormat.TEXT,
+        output_format: Optional[OutputFormat] = None,
         expected_output: Optional[Union[BaseModel, Text, dict]] = None,
     ) -> AgentResponse:
         """Runs asynchronously an agent call.
@@ -284,11 +397,22 @@ class Agent(Model, DeployableMixin[Tool]):
             content (Union[Dict[Text, Text], List[Text]], optional): Content inputs to be processed according to the query. Defaults to None.
             max_tokens (int, optional): maximum number of tokens which can be generated by the agent. Defaults to 2048.
             max_iterations (int, optional): maximum number of iterations between the agent and the tools. Defaults to 10.
-            output_format (OutputFormat, optional): response format. Defaults to TEXT.
+            output_format (OutputFormat, optional): response format. If not provided, uses the format set during initialization.
             expected_output (Union[BaseModel, Text, dict], optional): expected output. Defaults to None.
         Returns:
             dict: polling URL in response
         """
+
+        if session_id is not None and history is not None:
+            raise ValueError("Provide either `session_id` or `history`, not both.")
+
+        if session_id is not None:
+            if not session_id.startswith(f"{self.id}_"):
+                raise ValueError(f"Session ID '{session_id}' does not belong to this Agent.")
+
+        if history:
+            validate_history(history)
+
         from aixplain.factories.file_factory import FileFactory
 
         if not self.is_valid:
@@ -332,9 +456,14 @@ class Agent(Model, DeployableMixin[Tool]):
 
         # build query
         input_data = process_variables(query, data, parameters, self.instructions)
-
+        if expected_output is None:
+            expected_output = self.expected_output
         if expected_output is not None and issubclass(expected_output, BaseModel):
             expected_output = expected_output.model_json_schema()
+        # Use instance output_format if none provided
+        if output_format is None:
+            output_format = self.output_format
+
         if isinstance(output_format, OutputFormat):
             output_format = output_format.value
 
@@ -350,7 +479,6 @@ class Agent(Model, DeployableMixin[Tool]):
                 "expectedOutput": expected_output,
             },
         }
-
         payload.update(parameters)
         payload = json.dumps(payload)
 
@@ -381,25 +509,118 @@ class Agent(Model, DeployableMixin[Tool]):
             "name": self.name,
             "assets": [build_tool_payload(tool) for tool in self.tools],
             "description": self.description,
-            "role": self.instructions or self.description,
+            "instructions": self.instructions or self.description,
             "supplier": (self.supplier.value["code"] if isinstance(self.supplier, Supplier) else self.supplier),
             "version": self.version,
             "llmId": self.llm_id if self.llm is None else self.llm.id,
             "status": self.status.value,
-            "workflow_tasks": [task.to_dict() for task in self.workflow_tasks],
-            "tools": [
-                {
-                    "type": "llm",
-                    "description": "main",
-                    "parameters": self.llm.get_parameters().to_list() if self.llm.get_parameters() else None,
-                }
-            ]
-            if self.llm is not None
-            else [],
+            "tasks": [task.to_dict() for task in self.workflow_tasks],
+            "tools": (
+                [
+                    {
+                        "type": "llm",
+                        "description": "main",
+                        "parameters": (self.llm.get_parameters().to_list() if self.llm.get_parameters() else None),
+                    }
+                ]
+                if self.llm is not None
+                else []
+            ),
+            "cost": self.cost,
+            "api_key": self.api_key,
+            "outputFormat": self.output_format.value,
+            "expectedOutput": self.expected_output,
         }
 
+    @classmethod
+    def from_dict(cls, data: Dict) -> "Agent":
+        """Create an Agent instance from a dictionary representation.
+
+        Args:
+            data: Dictionary containing Agent parameters
+
+        Returns:
+            Agent instance
+        """
+        from aixplain.factories.agent_factory.utils import build_tool
+        from aixplain.enums import AssetStatus
+        from aixplain.modules.agent_task import WorkflowTask
+
+        # Extract tools from assets using proper tool building
+        tools = []
+        if "assets" in data:
+            for asset_data in data["assets"]:
+                try:
+                    tool = build_tool(asset_data)
+                    tools.append(tool)
+                except Exception as e:
+                    # Log warning but continue processing other tools
+                    import logging
+
+                    logging.warning(f"Failed to build tool from asset data: {e}")
+
+        # Extract tasks using from_dict method
+        workflow_tasks = []
+        if "tasks" in data:
+            for task_data in data["tasks"]:
+                workflow_tasks.append(WorkflowTask.from_dict(task_data))
+
+        # Extract LLM from tools section (main LLM info)
+        llm = None
+        if "tools" in data and data["tools"]:
+            llm_tool = next((tool for tool in data["tools"] if tool.get("type") == "llm"), None)
+            if llm_tool and llm_tool.get("parameters"):
+                # Reconstruct LLM from parameters if available
+                from aixplain.factories.model_factory import ModelFactory
+
+                try:
+                    llm = ModelFactory.get(data.get("llmId", "6646261c6eb563165658bbb1"))
+                    if llm_tool.get("parameters"):
+                        # Apply stored parameters to LLM
+                        llm.set_parameters(llm_tool["parameters"])
+                except Exception:
+                    # If LLM loading fails, llm remains None and llm_id will be used
+                    pass
+
+        # Extract status
+        status = AssetStatus.DRAFT
+        if "status" in data:
+            if isinstance(data["status"], str):
+                status = AssetStatus(data["status"])
+            else:
+                status = data["status"]
+
+        return cls(
+            id=data["id"],
+            name=data["name"],
+            description=data["description"],
+            instructions=data.get("role"),
+            tools=tools,
+            llm_id=data.get("llmId", "6646261c6eb563165658bbb1"),
+            llm=llm,
+            api_key=data.get("api_key"),
+            supplier=data.get("supplier", "aiXplain"),
+            version=data.get("version"),
+            cost=data.get("cost"),
+            status=status,
+            workflow_tasks=workflow_tasks,
+            output_format=OutputFormat(data.get("outputFormat", OutputFormat.TEXT)),
+            expected_output=data.get("expectedOutput"),
+        )
+
     def delete(self) -> None:
-        """Delete Agent service"""
+        """Delete this Agent from the aiXplain platform.
+
+        This method attempts to delete the Agent. The operation will fail if the
+        Agent is being used by any team agents.
+
+        Raises:
+            Exception: If deletion fails, with detailed error messages for different
+                failure scenarios:
+                - Agent is in use by accessible team agents (lists team agent IDs)
+                - Agent is in use by inaccessible team agents
+                - Other deletion errors (with HTTP status code)
+        """
         try:
             url = urljoin(config.BACKEND_URL, f"sdk/agents/{self.id}")
             headers = {
@@ -451,7 +672,19 @@ class Agent(Model, DeployableMixin[Tool]):
             raise Exception(message)
 
     def update(self) -> None:
-        """Update agent."""
+        """Update the Agent's configuration on the aiXplain platform.
+
+        This method validates and updates the Agent's configuration. It is deprecated
+        in favor of the save() method.
+
+        Raises:
+            Exception: If validation fails or if there are errors during the update.
+            DeprecationWarning: This method is deprecated, use save() instead.
+
+        Note:
+            This method is deprecated and will be removed in a future version.
+            Please use save() instead.
+        """
         import warnings
         import inspect
 
@@ -486,8 +719,20 @@ class Agent(Model, DeployableMixin[Tool]):
             raise Exception(error_msg)
 
     def save(self) -> None:
-        """Save the Agent."""
+        """Save the Agent's current configuration to the aiXplain platform.
+
+        This method validates and saves any changes made to the Agent's configuration.
+        It is the preferred method for updating an Agent's settings.
+
+        Raises:
+            Exception: If validation fails or if there are errors during the save operation.
+        """
         self.update()
 
-    def __repr__(self):
+    def __repr__(self) -> str:
+        """Return a string representation of the Agent.
+
+        Returns:
+            str: A string in the format "Agent: <name> (id=<id>)".
+        """
         return f"Agent: {self.name} (id={self.id})"

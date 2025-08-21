@@ -4,6 +4,11 @@ from uuid import uuid4
 
 
 class Record:
+    """A class representing a record in an index.
+
+    This class defines the structure of a record with its value, type, ID, URI,
+    and attributes.
+    """
     def __init__(
         self,
         value: str = "",
@@ -12,6 +17,15 @@ class Record:
         uri: str = "",
         attributes: dict = {},
     ):
+        """Initialize a new Record instance.
+
+        Args:
+            value (str): The value of the record.
+            value_type (DataType): The type of the value.
+            id (Optional[str]): The ID of the record. Defaults to a random UUID.
+            uri (str): The URI of the record.
+            attributes (dict): The attributes of the record.
+        """
         self.value = value
         self.value_type = value_type
         self.id = id if id is not None else str(uuid4())
@@ -19,6 +33,11 @@ class Record:
         self.attributes = attributes
 
     def to_dict(self):
+        """Convert the record to a dictionary.
+
+        Returns:
+            dict: A dictionary containing the record's value, type, ID, URI, and attributes.
+        """
         return {
             "data": self.value,
             "dataType": str(self.value_type),
@@ -28,7 +47,11 @@ class Record:
         }
 
     def validate(self):
-        """Validate the record"""
+        """Validate the record.
+
+        Raises:
+            AssertionError: If the value type is invalid or if the URI is required for image records.
+        """
         from aixplain.factories import FileFactory
         from aixplain.modules.model.utils import is_supported_image_type
 

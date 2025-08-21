@@ -7,19 +7,64 @@ from enum import Enum
 from pydantic import BaseModel
 import json
 
+
 class AuthenticationSchema(Enum):
+    """Enumeration of supported authentication schemes for integrations.
+
+    This enum defines the various authentication methods that can be used
+    when connecting to external services through integrations.
+
+    Attributes:
+        BEARER_TOKEN (str): Bearer token authentication scheme.
+        OAUTH1 (str): OAuth 1.0 authentication scheme.
+        OAUTH2 (str): OAuth 2.0 authentication scheme.
+        API_KEY (str): API key authentication scheme.
+        BASIC (str): Basic authentication scheme (username/password).
+        NO_AUTH (str): No authentication required.
+    """
+
     BEARER_TOKEN = "BEARER_TOKEN"
     OAUTH1 = "OAUTH1"
     OAUTH2 = "OAUTH2"
     API_KEY = "API_KEY"
     BASIC = "BASIC"
     NO_AUTH = "NO_AUTH"
-    
+
+
 class BaseAuthenticationParams(BaseModel):
+    """Base model for authentication parameters used in integrations.
+
+    This class defines the common parameters that are used across different
+    authentication schemes when connecting to external services.
+
+    Attributes:
+        name (Optional[Text]): Optional name for the connection. Defaults to None.
+        connector_id (Optional[Text]): Optional ID of the connector. Defaults to None.
+    """
+
     name: Optional[Text] = None
     connector_id: Optional[Text] = None
 
+
 def build_connector_params(**kwargs) -> BaseAuthenticationParams:
+    """Build authentication parameters for a connector from keyword arguments.
+
+    This function creates a BaseAuthenticationParams instance from the provided
+    keyword arguments, extracting the name and connector_id if present.
+
+    Args:
+        **kwargs: Arbitrary keyword arguments. Supported keys:
+            - name (Optional[Text]): Name for the connection
+            - connector_id (Optional[Text]): ID of the connector
+
+    Returns:
+        BaseAuthenticationParams: An instance containing the extracted parameters.
+
+    Example:
+        >>> params = build_connector_params(name="My Connection", connector_id="123")
+        >>> print(params.name)
+        'My Connection'
+    """
     name = kwargs.get("name")
     connector_id = kwargs.get("connector_id")
     return BaseAuthenticationParams(name=name, connector_id=connector_id)
@@ -40,19 +85,24 @@ class Integration(Model):
         function_type: Optional[FunctionType] = FunctionType.INTEGRATION,
         **additional_info,
     ) -> None:
-        """Integration Init
+        """Initialize a new Integration instance.
 
         Args:
-            id (Text): ID of the Model
-            name (Text): Name of the Model
-            description (Text, optional): description of the model. Defaults to "".
-            api_key (Text, optional): API key of the Model. Defaults to None.
-            supplier (Union[Dict, Text, Supplier, int], optional): supplier of the asset. Defaults to "aiXplain".
-            version (Text, optional): version of the model. Defaults to "1.0".
-            function (Function, optional): model AI function. Defaults to None.
-            is_subscribed (bool, optional): Is the user subscribed. Defaults to False.
-            cost (Dict, optional): model price. Defaults to None.
-            **additional_info: Any additional Model info to be saved
+            id (Text): ID of the Integration.
+            name (Text): Name of the Integration.
+            description (Text, optional): Description of the Integration. Defaults to "".
+            api_key (Text, optional): API key for the Integration. Defaults to None.
+            supplier (Union[Dict, Text, Supplier, int], optional): Supplier of the Integration. Defaults to "aiXplain".
+            version (Text, optional): Version of the Integration. Defaults to "1.0".
+            function (Function, optional): Function of the Integration. Defaults to None.
+            is_subscribed (bool, optional): Whether the user is subscribed. Defaults to False.
+            cost (Dict, optional): Cost of the Integration. Defaults to None.
+            function_type (FunctionType, optional): Type of the function. Must be FunctionType.INTEGRATION.
+                Defaults to FunctionType.INTEGRATION.
+            **additional_info: Any additional Integration info to be saved.
+
+        Raises:
+            AssertionError: If function_type is not FunctionType.INTEGRATION.
         """
         assert function_type == FunctionType.INTEGRATION, "Integration only supports connector function"
         super().__init__(
@@ -70,51 +120,105 @@ class Integration(Model):
         )
         self.url = config.MODELS_RUN_URL
         self.backend_url = config.BACKEND_URL
-        self.authentication_methods = json.loads([item for item in additional_info['attributes'] if item['name'] == 'auth_schemes'][0]['code'])
+        self.authentication_methods = json.loads(
+            [item for item in additional_info["attributes"] if item["name"] == "auth_schemes"][0]["code"]
+        )
 
+    def connect(
+        self,
+        authentication_schema: AuthenticationSchema,
+        args: Optional[BaseAuthenticationParams] = None,
+        data: Optional[Dict] = None,
+        **kwargs,
+    ) -> ModelResponse:
+        """Connect to the integration using the specified authentication scheme.
 
-    def connect(self, authentication_schema: AuthenticationSchema, args: Optional[BaseAuthenticationParams] = None, data: Optional[Dict] = None, **kwargs) -> ModelResponse:
-        """Connect to the integration
+        This method establishes a connection to the integration service using the provided
+        authentication method and credentials. The required parameters vary depending on
+        the authentication scheme being used.
 
-        Examples:
-            - For Bearer Token Authentication:
-                >>> integration.connect(BearerAuthenticationSchema(name="My Connection", token="1234567890"))
-                >>> integration.connect(BearerAuthenticationSchema(token="1234567890"))
-                >>> integration.connect(token="1234567890")
-            - For OAuth Authentication:
-                >>> integration.connect(OAuthAuthenticationSchema(name="My Connection", client_id="1234567890", client_secret="1234567890"))
-                >>> integration.connect(OAuthAuthenticationSchema(client_id="1234567890", client_secret="1234567890"))
-                >>> integration.connect(client_id="1234567890", client_secret="1234567890")
-            - For OAuth2 Authentication:
-                >>> integration.connect(OAuth2AuthenticationSchema(name="My Connection"))
-                >>> integration.connect()
-                Make sure to click on the redirect url to complete the connection.
+        Args:
+            authentication_schema (AuthenticationSchema): The authentication scheme to use
+                (e.g., BEARER_TOKEN, OAUTH1, OAUTH2, API_KEY, BASIC, NO_AUTH).
+            args (Optional[BaseAuthenticationParams], optional): Common connection parameters.
+                If not provided, will be built from kwargs. Defaults to None.
+            data (Optional[Dict], optional): Authentication-specific parameters required by
+                the chosen authentication scheme. Defaults to None.
+            **kwargs: Additional keyword arguments used to build BaseAuthenticationParams
+                if args is not provided. Supported keys:
+                - name (str): Name for the connection
+                - connector_id (str): ID of the connector
 
         Returns:
-            id: Connection ID (retrieve it with ModelFactory.get(id))
-            redirectUrl: Redirect URL to complete the connection (only for OAuth2)
+            ModelResponse: A response object containing:
+                - data (Dict): Contains connection details including:
+                    - id (str): Connection ID (can be used with ModelFactory.get(id))
+                    - redirectURL (str, optional): URL to complete OAuth authentication
+                      (only for OAuth1/OAuth2)
+
+        Raises:
+            ValueError: If the authentication schema is not supported by this integration
+                or if required parameters are missing from the data dictionary.
+
+        Examples:
+            Using Bearer Token authentication:
+                >>> integration.connect(
+                ...     AuthenticationSchema.BEARER_TOKEN,
+                ...     data={"token": "1234567890"},
+                ...     name="My Connection"
+                ... )
+
+            Using OAuth2 authentication:
+                >>> response = integration.connect(
+                ...     AuthenticationSchema.OAUTH2,
+                ...     name="My Connection"
+                ... )
+                >>> # For OAuth2, you'll need to visit the redirectURL to complete auth
+                >>> print(response.data.get("redirectURL"))
+
+            Using API Key authentication:
+                >>> integration.connect(
+                ...     AuthenticationSchema.API_KEY,
+                ...     data={"api_key": "your-api-key"},
+                ...     name="My Connection"
+                ... )
         """
         if self.id == "686eb9cd26480723d0634d3e":
-            return self.run({"data": kwargs.get("data")})
+            return self.run({"data": data})
 
         if args is None:
             args = build_connector_params(**kwargs)
 
         if authentication_schema.value not in self.authentication_methods:
-            raise ValueError(f"Authentication schema {authentication_schema.value} is not supported for this integration. Supported authentication methods: {self.authentication_methods}")
-        
+            raise ValueError(
+                f"Authentication schema {authentication_schema.value} is not supported for this integration. Supported authentication methods: {self.authentication_methods}"
+            )
+
         if data is None:
             data = {}
-            
-        if authentication_schema not in [AuthenticationSchema.OAUTH2, AuthenticationSchema.OAUTH1, AuthenticationSchema.NO_AUTH]:
-            required_params = json.loads([item for item in self.additional_info['attributes'] if item['name'] == authentication_schema.value + "-inputs"][0]['code'])
-            required_params_names = [param['name'] for param in required_params]
+
+        if authentication_schema not in [
+            AuthenticationSchema.OAUTH2,
+            AuthenticationSchema.OAUTH1,
+        ]:
+            required_params = json.loads(
+                [
+                    item
+                    for item in self.additional_info["attributes"]
+                    if item["name"] == authentication_schema.value + "-inputs"
+                ][0]["code"]
+            )
+            required_params_names = [param["name"] for param in required_params]
             for param in required_params_names:
                 if param not in data:
                     if len(required_params_names) == 1:
-                        raise ValueError(f"Parameter '{param}' is required for {self.name} {authentication_schema.value} authentication. Please provide the parameter in the data dictionary.")
+                        raise ValueError(
+                            f"Parameter '{param}' is required for {self.name} {authentication_schema.value} authentication. Please provide the parameter in the data dictionary."
+                        )
                     else:
-                        raise ValueError(f"Parameters {required_params_names} are required for {self.name} {authentication_schema.value} authentication. Please provide the parameters in the data dictionary.")
+                        raise ValueError(
+                            f"Parameters {required_params_names} are required for {self.name} {authentication_schema.value} authentication. Please provide the parameters in the data dictionary."
+                        )
             return self.run(
                 {
                     "name": args.name,
@@ -135,8 +239,13 @@ class Integration(Model):
                 )
             return response
 
-
     def __repr__(self):
+        """Return a string representation of the Integration instance.
+
+        Returns:
+            str: A string in the format "Integration: <name> by <supplier> (id=<id>)".
+                If supplier is a dictionary, uses supplier['name'], otherwise uses supplier directly.
+        """
         try:
             return f"Integration: {self.name} by {self.supplier['name']} (id={self.id})"
         except Exception:

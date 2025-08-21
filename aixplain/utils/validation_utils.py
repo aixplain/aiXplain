@@ -8,7 +8,19 @@ from aixplain.enums.data_type import DataType
 from aixplain.enums import DataSubtype
 
 
-def _is_split(dsubtype: Union[Text, DataSubtype]):
+def _is_split(dsubtype: Union[Text, DataSubtype]) -> bool:
+    """Check if a data subtype represents a split.
+
+    Args:
+        dsubtype (Union[Text, DataSubtype]): The data subtype to check. Can be
+            either a string or a DataSubtype enum value.
+
+    Returns:
+        bool: True if the subtype represents a split, False otherwise.
+
+    Note:
+        The comparison is case-insensitive.
+    """
     return str(dsubtype).lower() == "split"
 
 
@@ -23,17 +35,50 @@ def dataset_onboarding_validation(
     split_rate: Optional[List[float]] = None,
     s3_link: Optional[str] = None,
 ) -> None:
-    """Dataset Onboard Validation
+    """Validate dataset parameters before onboarding.
+
+    This function performs comprehensive validation of dataset parameters to ensure
+    they meet the requirements for onboarding. It checks:
+    - Input/output data type compatibility with the specified function
+    - Presence of required input data
+    - Validity of dataset splitting configuration
+    - Presence of content data source
+
     Args:
-        input_schema (List[Union[Dict, MetaData]]): metadata of inputs
-        output_schema (List[Union[Dict, MetaData]]): metadata of outputs
-        function (Function): dataset function
-        input_ref_data (Dict[Text, Any], optional): reference to input data which is already in the platform. Defaults to {}.
-        metadata_schema (List[Union[Dict, MetaData]], optional): metadata of metadata information of the dataset. Defaults to [].
-        content_path (Union[Union[Text, Path], List[Union[Text, Path]]]): path to files which contain the data content
-        split_labels: (Optional[List[Text]]): The delimiters according which to split the dataset
-        split_rate: (Optional[List[float]]): the rate of spliting the dataset
-        s3_link (Optional[str]): s3 url to files or directories
+        input_schema (List[Union[Dict, MetaData]]): Metadata describing the input
+            data structure and types.
+        output_schema (List[Union[Dict, MetaData]]): Metadata describing the output
+            data structure and types.
+        function (Function): The function type that this dataset is designed for
+            (e.g., translation, transcription).
+        input_ref_data (Dict[Text, Any], optional): References to existing input
+            data in the platform. Defaults to {}.
+        metadata_schema (List[Union[Dict, MetaData]], optional): Additional metadata
+            describing the dataset. Defaults to [].
+        content_path (Union[Union[Text, Path], List[Union[Text, Path]]], optional):
+            Path(s) to local files containing the data. Defaults to [].
+        split_labels (Optional[List[Text]], optional): Labels for dataset splits
+            (e.g., ["train", "test"]). Must be provided with split_rate.
+            Defaults to None.
+        split_rate (Optional[List[float]], optional): Proportions for dataset splits
+            (e.g., [0.8, 0.2]). Must sum to 1.0 and match split_labels length.
+            Defaults to None.
+        s3_link (Optional[str], optional): S3 URL to data files or directories.
+            Alternative to content_path. Defaults to None.
+
+    Raises:
+        AssertionError: If any validation fails:
+            - No input data specified
+            - Incompatible input/output types for function
+            - Invalid split configuration
+            - No content source provided
+            - Multiple split metadata entries
+            - Invalid split metadata type
+            - Mismatched split labels and rates
+
+    Note:
+        Either content_path or s3_link must be provided. If using splits,
+        both split_labels and split_rate must be provided.
     """
 
     metadata_spliting_schema = list(filter(lambda md: str(md.dsubtype) == "split", metadata_schema))

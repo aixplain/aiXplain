@@ -12,13 +12,46 @@ from aixplain.modules.team_agent.inspector import Inspector
 from aixplain.factories.agent_factory import AgentFactory
 from aixplain.factories.model_factory import ModelFactory
 from aixplain.modules.model.model_parameters import ModelParameters
-
+from aixplain.modules.agent.output_format import OutputFormat
 
 GPT_4o_ID = "6646261c6eb563165658bbb1"
 
 
 def build_team_agent(payload: Dict, agents: List[Agent] = None, api_key: Text = config.TEAM_API_KEY) -> TeamAgent:
-    """Instantiate a new team agent in the platform."""
+    """Build a TeamAgent instance from configuration payload.
+
+    This function creates a TeamAgent instance from a configuration payload,
+    handling the setup of agents, LLMs, inspectors, and task dependencies.
+
+    Args:
+        payload (Dict): Configuration dictionary containing:
+            - id: Optional team agent ID
+            - name: Team agent name
+            - agents: List of agent configurations
+            - description: Optional description
+            - role: Optional instructions
+            - teamId: Optional supplier information
+            - version: Optional version
+            - cost: Optional cost information
+            - llmId: LLM model ID (defaults to GPT-4)
+            - plannerId: Optional planner model ID
+            - inspectors: Optional list of inspector configurations
+            - inspectorTargets: Optional list of inspection targets
+            - status: Team agent status
+            - tools: Optional list of tool configurations
+        agents (List[Agent], optional): Pre-instantiated agent objects. If not
+            provided, agents will be instantiated from IDs in the payload.
+            Defaults to None.
+        api_key (Text, optional): API key for authentication. Defaults to
+            config.TEAM_API_KEY.
+
+    Returns:
+        TeamAgent: Configured team agent instance with all components initialized.
+
+    Raises:
+        Exception: If a task dependency referenced in an agent's configuration
+            cannot be found.
+    """
     agents_dict = payload["agents"]
     payload_agents = agents
     if payload_agents is None:
@@ -34,9 +67,21 @@ def build_team_agent(payload: Dict, agents: List[Agent] = None, api_key: Text = 
                 continue
 
     # Ensure custom classes are instantiated: for compatibility with backend return format
-    inspectors = [
-        inspector if isinstance(inspector, Inspector) else Inspector(**inspector) for inspector in payload.get("inspectors", [])
-    ]
+    inspectors = []
+    for inspector_data in payload.get("inspectors", []):
+        try:
+            if isinstance(inspector_data, Inspector):
+                inspectors.append(inspector_data)
+            else:
+                # Handle both old format and new format with policy_type
+                if hasattr(Inspector, "model_validate"):
+                    inspectors.append(Inspector.model_validate(inspector_data))
+                else:
+                    inspectors.append(Inspector(**inspector_data))
+        except Exception as e:
+            logging.warning(f"Failed to create inspector from data: {e}")
+            continue
+
     inspector_targets = [InspectorTarget(target.lower()) for target in payload.get("inspectorTargets", [])]
 
     # Get LLMs from tools if present
@@ -82,7 +127,7 @@ def build_team_agent(payload: Dict, agents: List[Agent] = None, api_key: Text = 
         name=payload.get("name", ""),
         agents=payload_agents,
         description=payload.get("description", ""),
-        instructions=payload.get("role", None),
+        instructions=payload.get("instructions", None),
         supplier=payload.get("teamId", None),
         version=payload.get("version", None),
         cost=payload.get("cost", None),
@@ -94,6 +139,8 @@ def build_team_agent(payload: Dict, agents: List[Agent] = None, api_key: Text = 
         inspector_targets=inspector_targets,
         api_key=api_key,
         status=AssetStatus(payload["status"]),
+        output_format=OutputFormat(payload.get("outputFormat", OutputFormat.TEXT)),
+        expected_output=payload.get("expectedOutput", None),
     )
     team_agent.url = urljoin(config.BACKEND_URL, f"sdk/agent-communities/{team_agent.id}/run")
 

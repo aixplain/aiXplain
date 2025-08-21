@@ -48,17 +48,37 @@ from warnings import warn
 
 
 class CorpusFactory(AssetFactory):
+    """Factory class for creating and managing corpora in the aiXplain platform.
+
+    This class provides functionality for creating, retrieving, and managing
+    corpora, which are collections of data assets used for training and
+    evaluating AI models.
+
+    Attributes:
+        backend_url (str): Base URL for the aiXplain backend API.
+    """
     backend_url = config.BACKEND_URL
 
     @classmethod
     def __from_response(cls, response: Dict) -> Corpus:
-        """Converts Json response to 'Corpus' object
+        """Convert API response into a Corpus object.
+
+        This method creates a Corpus object from an API response, handling the
+        conversion of languages, data types, functions, and other attributes.
 
         Args:
-            response (dict): Json from API
+            response (Dict): API response containing:
+                - id: Corpus identifier
+                - name: Corpus name
+                - description: Corpus description
+                - data: List of data asset configurations
+                - suggestedFunction: List of function identifiers
+                - license: License configuration
+                - status: Onboarding status
+                - segmentsCount: Number of segments
 
         Returns:
-            Dataset: Coverted 'Dataset' object
+            Corpus: Instantiated corpus object with all components loaded.
         """
         data = []
         for d in response["data"]:
@@ -106,13 +126,22 @@ class CorpusFactory(AssetFactory):
 
     @classmethod
     def get(cls, corpus_id: Text) -> Corpus:
-        """Create a 'Corpus' object from corpus id
+        """Retrieve a corpus by its ID.
+
+        This method fetches a corpus and all its associated data assets from
+        the platform.
 
         Args:
-            corpus_id (Text): Corpus ID of required corpus.
+            corpus_id (Text): Unique identifier of the corpus to retrieve.
 
         Returns:
-            Corpus: Created 'Corpus' object
+            Corpus: Retrieved corpus object with all data assets loaded.
+
+        Raises:
+            Exception: If:
+                - Corpus ID is invalid
+                - Authentication fails
+                - Service is unavailable
         """
         try:
             url = urljoin(cls.backend_url, f"sdk/corpora/{corpus_id}/overview")
@@ -154,19 +183,39 @@ class CorpusFactory(AssetFactory):
         page_number: int = 0,
         page_size: int = 20,
     ) -> Dict:
-        """Corpus Listing
+        """List and filter corpora with pagination support.
+
+        This method provides comprehensive filtering and pagination capabilities
+        for retrieving corpora from the aiXplain platform.
 
         Args:
-            query (Optional[Text], optional): search query. Defaults to None.
-            function (Optional[Function], optional): function filter. Defaults to None.
-            language (Optional[Union[Language, List[Language]]], optional): language filter. Defaults to None.
-            data_type (Optional[DataType], optional): data type filter. Defaults to None.
-            license (Optional[License], optional): license filter. Defaults to None.
-            page_number (int, optional): page number. Defaults to 0.
-            page_size (int, optional): page size. Defaults to 20.
+            query (Optional[Text], optional): Search query to filter corpora by name
+                or description. Defaults to None.
+            function (Optional[Function], optional): Filter by AI function type.
+                Defaults to None.
+            language (Optional[Union[Language, List[Language]]], optional): Filter by
+                language(s). Can be single language or list. Defaults to None.
+            data_type (Optional[DataType], optional): Filter by data type.
+                Defaults to None.
+            license (Optional[License], optional): Filter by license type.
+                Defaults to None.
+            page_number (int, optional): Zero-based page number. Defaults to 0.
+            page_size (int, optional): Number of items per page (1-100).
+                Defaults to 20.
 
         Returns:
-            Dict: list of corpora in agreement with the filters, page number, page total and total elements
+            Dict: Response containing:
+                - results (List[Corpus]): List of corpus objects
+                - page_total (int): Total items in current page
+                - page_number (int): Current page number
+                - total (int): Total number of items across all pages
+
+        Raises:
+            Exception: If:
+                - page_size is not between 1 and 100
+                - Request fails
+                - Service is unavailable
+            AssertionError: If page_size is invalid.
         """
         url = urljoin(cls.backend_url, "sdk/corpora/paginate")
 
@@ -229,15 +278,24 @@ class CorpusFactory(AssetFactory):
     def get_assets_from_page(
         cls, page_number: int = 1, task: Optional[Function] = None, language: Optional[Text] = None
     ) -> List[Corpus]:
-        """Get the list of corpora from a given page. Additional task and language filters can be also be provided
+        """Retrieve a paginated list of corpora with optional filters.
+
+        Note:
+            This method is deprecated. Use list() instead.
 
         Args:
-            page_number (int, optional): Page from which corpora are to be listed. Defaults to 1.
-            task (Function, optional): Task of listed corpora. Defaults to None.
-            language (Text, optional): language of listed corpora. Defaults to None.
+            page_number (int, optional): One-based page number. Defaults to 1.
+            task (Optional[Function], optional): Filter by AI task/function.
+                Defaults to None.
+            language (Optional[Text], optional): Filter by language code.
+                Defaults to None.
 
         Returns:
-            List[Corpus]: List of corpora based on given filters
+            List[Corpus]: List of corpus objects matching the filters.
+
+        Deprecated:
+            Use list() method instead for more comprehensive filtering and
+            pagination capabilities.
         """
         warn(
             'This method will be deprecated in the next versions of the SDK. Use "list" instead.',
@@ -263,23 +321,45 @@ class CorpusFactory(AssetFactory):
         error_handler: ErrorHandler = ErrorHandler.SKIP,
         api_key: Optional[Text] = None,
     ) -> Dict:
-        """Asynchronous call to Upload a corpus to the user's dashboard.
+        """Create a new corpus from data files.
+
+        This method asynchronously uploads and processes data files to create a new
+        corpus in the user's dashboard. The data files are processed according to
+        the provided schema and combined with any referenced existing data.
 
         Args:
-            name (Text): corpus name
-            description (Text): corpus description
-            license (License): corpus license
-            content_path (Union[Union[Text, Path], List[Union[Text, Path]]]): path to .csv files containing the data
-            schema (List[Union[Dict, MetaData]]): meta data
-            ref_data (Optional[List[Union[Text, Data]]], optional): referencing data which already exists and should be part of the corpus. Defaults to [].
-            tags (Optional[List[Text]], optional): tags that explain the corpus. Defaults to [].
-            functions (Optional[List[Function]], optional): AI functions for which the corpus may be used. Defaults to [].
-            privacy (Optional[Privacy], optional): visibility of the corpus. Defaults to Privacy.PRIVATE.
-            error_handler (ErrorHandler, optional): how to handle failed rows in the data asset. Defaults to ErrorHandler.SKIP.
-            api_key (Optional[Text]): team api key. Defaults to None.
+            name (Text): Name for the new corpus.
+            description (Text): Description of the corpus's contents and purpose.
+            license (License): License type for the corpus.
+            content_path (Union[Union[Text, Path], List[Union[Text, Path]]]): Path(s)
+                to CSV files containing the data. Can be single path or list.
+            schema (List[Union[Dict, MetaData]]): Metadata configurations defining
+                how to process the data files.
+            ref_data (List[Any], optional): References to existing data assets to
+                include in the corpus. Can be Data objects or IDs. Defaults to [].
+            tags (List[Text], optional): Tags describing the corpus content.
+                Defaults to [].
+            functions (List[Function], optional): AI functions this corpus is
+                suitable for. Defaults to [].
+            privacy (Privacy, optional): Visibility setting for the corpus.
+                Defaults to Privacy.PRIVATE.
+            error_handler (ErrorHandler, optional): Strategy for handling data
+                processing errors. Defaults to ErrorHandler.SKIP.
+            api_key (Optional[Text], optional): API key for authentication.
+                Defaults to None, using the configured TEAM_API_KEY.
 
         Returns:
-            Dict: response dict
+            Dict: Response containing:
+                - status: Current processing status
+                - asset_id: ID of the created corpus
+
+        Raises:
+            Exception: If:
+                - No schema or reference data provided
+                - Referenced data asset doesn't exist
+                - Reserved column names are used
+                - Data rows are misaligned
+                - Processing or upload fails
         """
         folder, return_dict = None, {}
         # check team key

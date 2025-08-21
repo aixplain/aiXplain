@@ -32,6 +32,18 @@ from dataclasses import dataclass
 
 @dataclass
 class LicenseMetadata:
+    """Metadata container for license information.
+
+    This class holds metadata about a license including its identifier, name,
+    description, URL, and custom URL settings.
+
+    Attributes:
+        id (str): ID of the license.
+        name (str): Name of the license.
+        description (str): Description of the license terms.
+        url (str): URL to the license text or details.
+        allowCustomUrl (bool): Whether custom URLs are allowed for this license.
+    """
     id: str
     name: str
     description: str
@@ -39,6 +51,11 @@ class LicenseMetadata:
     allowCustomUrl: bool
 
     def to_dict(self) -> dict:
+        """Convert the license metadata to a dictionary.
+
+        Returns:
+            dict: Dictionary representation of the license metadata.
+        """
         return {
             "id": self.id,
             "name": self.name,
@@ -48,7 +65,15 @@ class LicenseMetadata:
         }
 
     @classmethod
-    def from_dict(cls, data: dict):
+    def from_dict(cls, data: dict) -> "LicenseMetadata":
+        """Create a LicenseMetadata instance from a dictionary.
+
+        Args:
+            data (dict): Dictionary containing license metadata.
+
+        Returns:
+            LicenseMetadata: New instance created from the dictionary data.
+        """
         return cls(
             id=data.get("id"),
             name=data.get("name"),
@@ -58,8 +83,20 @@ class LicenseMetadata:
         )
 
 
-def load_licenses():
+def load_licenses() -> Enum:
+    """Load license definitions from the backend or cache.
 
+    This function attempts to load license definitions from the cache first.
+    If the cache is invalid or doesn't exist, it fetches the data from the
+    backend API. It creates a dynamic Enum class containing all available
+    licenses.
+
+    Returns:
+        Enum: Dynamically created License enum class with license identifiers.
+
+    Raises:
+        Exception: If licenses cannot be loaded due to invalid API key or other errors.
+    """
     try:
         api_key = config.TEAM_API_KEY
         backend_url = config.BACKEND_URL

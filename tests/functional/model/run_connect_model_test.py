@@ -14,7 +14,10 @@ def test_run_connect_model():
     assert connector.id == "67eff5c0e05614297caeef98"
     assert connector.name == "Slack"
 
-    response = connector.connect(authentication_schema=AuthenticationSchema.BEARER, token=os.getenv("SLACK_TOKEN"))
+    response = connector.connect(
+        authentication_schema=AuthenticationSchema.BEARER,
+        token=os.getenv("SLACK_TOKEN"),
+    )
     assert response.status == ResponseStatus.SUCCESS
     assert "id" in response.data
     connection_id = response.data["id"]
@@ -37,6 +40,7 @@ def test_run_mcp_connect_model():
 
     assert isinstance(connector, Integration)
     assert connector.id == "686eb9cd26480723d0634d3e"
+
     assert connector.name == ""
 
     url = "https://mcp.zapier.com/api/mcp/s/OTJiMjVlYjEtMGE4YS00OTVjLWIwMGYtZDJjOGVkNTc4NjFkOjI0MTNjNzg5LWZlNGMtNDZmNC05MDhmLWM0MGRlNDU4ZmU1NA=="

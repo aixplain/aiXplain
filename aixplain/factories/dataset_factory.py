@@ -52,23 +52,44 @@ from uuid import uuid4
 
 
 class DatasetFactory(AssetFactory):
-    """A static class for creating and exploring Dataset Objects.
+    """Factory class for creating and managing datasets in the aiXplain platform.
+
+    This class provides functionality for creating, retrieving, and managing
+    datasets, which are structured collections of data assets used for training,
+    evaluating, and benchmarking AI models. Datasets can include input data,
+    target data, hypotheses, and metadata.
 
     Attributes:
-        backend_url (str): The URL for the backend.
+        backend_url (str): Base URL for the aiXplain backend API.
     """
 
     backend_url = config.BACKEND_URL
 
     @classmethod
     def __from_response(cls, response: Dict) -> Dataset:
-        """Converts response Json to 'Dataset' object
+        """Convert API response into a Dataset object.
+
+        This method creates a Dataset object from an API response, handling the
+        conversion of data assets, languages, functions, and other attributes.
+        It processes input data, hypotheses, metadata, and target data separately.
 
         Args:
-            response (dict): Json from API
+            response (Dict): API response containing:
+                - id: Dataset identifier
+                - name: Dataset name
+                - description: Dataset description
+                - data: List of data asset configurations
+                - input: Input data configurations
+                - hypotheses: Optional hypotheses configurations
+                - metadata: Metadata configurations
+                - output: Output/target data configurations
+                - function: Function identifier
+                - license: License configuration
+                - status: Onboarding status
+                - segmentsCount: Optional number of segments
 
         Returns:
-            Dataset: Coverted 'Dataset' object
+            Dataset: Instantiated dataset object with all components loaded.
         """
         # process data
         data = {}
@@ -154,13 +175,22 @@ class DatasetFactory(AssetFactory):
 
     @classmethod
     def get(cls, dataset_id: Text) -> Dataset:
-        """Create a 'Dataset' object from dataset id
+        """Retrieve a dataset by its ID.
+
+        This method fetches a dataset and all its associated data assets from
+        the platform.
 
         Args:
-            dataset_id (Text): Dataset ID of required dataset.
+            dataset_id (Text): Unique identifier of the dataset to retrieve.
 
         Returns:
-            Dataset: Created 'Dataset' object
+            Dataset: Retrieved dataset object with all components loaded.
+
+        Raises:
+            Exception: If:
+                - Dataset ID is invalid
+                - Authentication fails
+                - Service is unavailable
         """
         try:
             url = urljoin(cls.backend_url, f"sdk/datasets/{dataset_id}/overview")
@@ -195,21 +225,45 @@ class DatasetFactory(AssetFactory):
         page_number: int = 0,
         page_size: int = 20,
     ) -> Dict:
-        """Listing Datasets
+        """List and filter datasets with pagination support.
+
+        This method provides comprehensive filtering and pagination capabilities
+        for retrieving datasets from the aiXplain platform.
 
         Args:
-            query (Optional[Text], optional): search query. Defaults to None.
-            function (Optional[Function], optional): function filter. Defaults to None.
-            source_languages (Optional[Union[Language, List[Language]]], optional): language filter of input data. Defaults to None.
-            target_languages (Optional[Union[Language, List[Language]]], optional): language filter of output data. Defaults to None.
-            data_type (Optional[DataType], optional): data type filter. Defaults to None.
-            license (Optional[License], optional): license filter. Defaults to None.
-            is_referenceless (Optional[bool], optional): has reference filter. Defaults to None.
-            page_number (int, optional): page number. Defaults to 0.
-            page_size (int, optional): page size. Defaults to 20.
+            query (Optional[Text], optional): Search query to filter datasets by name
+                or description. Defaults to None.
+            function (Optional[Function], optional): Filter by AI function type.
+                Defaults to None.
+            source_languages (Optional[Union[Language, List[Language]]], optional):
+                Filter by input data language(s). Can be single language or list.
+                Defaults to None.
+            target_languages (Optional[Union[Language, List[Language]]], optional):
+                Filter by output data language(s). Can be single language or list.
+                Defaults to None.
+            data_type (Optional[DataType], optional): Filter by data type.
+                Defaults to None.
+            license (Optional[License], optional): Filter by license type.
+                Defaults to None.
+            is_referenceless (Optional[bool], optional): Filter by whether dataset
+                has references. Defaults to None.
+            page_number (int, optional): Zero-based page number. Defaults to 0.
+            page_size (int, optional): Number of items per page (1-100).
+                Defaults to 20.
 
         Returns:
-            Dict: list of datasets in agreement with the filters, page number, page total and total elements
+            Dict: Response containing:
+                - results (List[Dataset]): List of dataset objects
+                - page_total (int): Total items in current page
+                - page_number (int): Current page number
+                - total (int): Total number of items across all pages
+
+        Raises:
+            Exception: If:
+                - page_size is not between 1 and 100
+                - Request fails
+                - Service is unavailable
+            AssertionError: If page_size is invalid.
         """
         url = urljoin(cls.backend_url, "sdk/datasets/paginate")
 
@@ -298,30 +352,66 @@ class DatasetFactory(AssetFactory):
         aws_credentials: Optional[Dict[Text, Text]] = {"AWS_ACCESS_KEY_ID": None, "AWS_SECRET_ACCESS_KEY": None},
         api_key: Optional[Text] = None,
     ) -> Dict:
-        """Dataset Onboard
+        """Create a new dataset from data files and references.
+
+        This method processes data files and existing data assets to create a new
+        dataset in the platform. It supports various data types, multiple input and
+        output configurations, and optional data splitting.
 
         Args:
-            name (Text): dataset name
-            description (Text): dataset description
-            license (License): dataset license
-            function (Function): dataset function
-            input_schema (List[Union[Dict, MetaData]]): metadata of inputs
-            output_schema (List[Union[Dict, MetaData]]): metadata of outputs
-            hypotheses_schema (List[Union[Dict, MetaData]], optional): schema of the hypotheses to the references. Defaults to [].
-            metadata_schema (List[Union[Dict, MetaData]], optional): metadata of metadata information of the dataset. Defaults to [].
-            content_path (Union[Union[Text, Path], List[Union[Text, Path]]]): path to files which contain the data content
-            input_ref_data (Dict[Text, Any], optional): reference to input data which is already in the platform. Defaults to {}.
-            output_ref_data (Dict[Text, List[Any]], optional): reference to output data which is already in the platform. Defaults to {}.
-            hypotheses_ref_data (Dict[Text, Any], optional): hypotheses which are already in the platform. Defaults to {}.
-            meta_ref_data (Dict[Text, Any], optional): metadata which is already in the platform. Defaults to {}.
-            tags (List[Text], optional): datasets description tags. Defaults to [].
-            privacy (Privacy, optional): dataset privacy. Defaults to Privacy.PRIVATE.
-            error_handler (ErrorHandler, optional): how to handle failed rows in the data asset. Defaults to ErrorHandler.SKIP.
-            s3_link (Optional[Text]): s3 url to files or directories
-            aws_credentials (Optional[Dict[Text, Text]]) : credentials for AWS and it should contains these two keys `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`
-            api_key (Optional[Text]): team api key. Defaults to None.
+            name (Text): Name for the new dataset.
+            description (Text): Description of the dataset's contents and purpose.
+            license (License): License type for the dataset.
+            function (Function): AI function this dataset is suitable for.
+            input_schema (List[Union[Dict, MetaData]]): Metadata configurations for
+                input data processing.
+            output_schema (List[Union[Dict, MetaData]], optional): Metadata configs
+                for output/target data. Defaults to [].
+            hypotheses_schema (List[Union[Dict, MetaData]], optional): Metadata
+                configs for hypothesis data. Defaults to [].
+            metadata_schema (List[Union[Dict, MetaData]], optional): Additional
+                metadata configurations. Defaults to [].
+            content_path (Union[Union[Text, Path], List[Union[Text, Path]]], optional):
+                Path(s) to data files. Can be single path or list. Defaults to [].
+            input_ref_data (Dict[Text, Any], optional): References to existing
+                input data assets. Defaults to {}.
+            output_ref_data (Dict[Text, List[Any]], optional): References to
+                existing output data assets. Defaults to {}.
+            hypotheses_ref_data (Dict[Text, Any], optional): References to
+                existing hypothesis data. Defaults to {}.
+            meta_ref_data (Dict[Text, Any], optional): References to existing
+                metadata assets. Defaults to {}.
+            tags (List[Text], optional): Tags describing the dataset.
+                Defaults to [].
+            privacy (Privacy, optional): Visibility setting.
+                Defaults to Privacy.PRIVATE.
+            split_labels (Optional[List[Text]], optional): Labels for dataset
+                splits (e.g., ["train", "test"]). Defaults to None.
+            split_rate (Optional[List[float]], optional): Ratios for dataset
+                splits (must sum to 1). Defaults to None.
+            error_handler (ErrorHandler, optional): Strategy for handling data
+                processing errors. Defaults to ErrorHandler.SKIP.
+            s3_link (Optional[Text], optional): S3 URL for data files.
+                Defaults to None.
+            aws_credentials (Optional[Dict[Text, Text]], optional): AWS credentials
+                with access_key_id and secret_access_key. Defaults to None values.
+            api_key (Optional[Text], optional): API key for authentication.
+                Defaults to None, using the configured TEAM_API_KEY.
+
         Returns:
-            Dict: dataset onboard status
+            Dict: Response containing:
+                - status: Current processing status
+                - asset_id: ID of the created dataset
+
+        Raises:
+            Exception: If:
+                - No input data is provided
+                - Referenced data asset doesn't exist
+                - Reserved column names are used
+                - Data rows are misaligned
+                - Split configuration is invalid
+                - Processing or upload fails
+            AssertionError: If split configuration is invalid.
         """
 
         for lmd in (hypotheses_schema, input_schema, output_schema, metadata_schema):

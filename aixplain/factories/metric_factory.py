@@ -31,23 +31,27 @@ from urllib.parse import urljoin
 
 
 class MetricFactory:
-    """A static class for creating and exploring Metric Objects.
+    """A static factory class for creating and managing Metric objects.
+
+    This class provides functionality to create, retrieve, and list Metric objects
+    through the backend API. It includes methods for fetching individual metrics
+    by ID and listing metrics with various filtering options.
 
     Attributes:
-        backend_url (str): The URL for the backend.
+        backend_url (str): The URL endpoint for the backend API.
     """
 
     backend_url = config.BACKEND_URL
 
     @classmethod
     def _create_metric_from_response(cls, response: Dict) -> Metric:
-        """Converts response Json to 'Metric' object
+        """Converts response JSON to a Metric object.
 
         Args:
-            response (Dict): Json from API
+            response (Dict): JSON response from the API containing metric data.
 
         Returns:
-            Metric: Coverted 'Metric' object
+            Metric: A new Metric object created from the response data.
         """
         return Metric(
             id=response["id"],
@@ -61,13 +65,16 @@ class MetricFactory:
 
     @classmethod
     def get(cls, metric_id: Text) -> Metric:
-        """Create a 'Metric' object from metric id
+        """Create a Metric object from a metric ID.
 
         Args:
-            model_id (Text): Model ID of required metric.
+            metric_id (Text): The unique identifier of the metric to retrieve.
 
         Returns:
-            Metric: Created 'Metric' object
+            Metric: The retrieved Metric object.
+
+        Raises:
+            Exception: If the metric creation fails, with status code and error message.
         """
 
         resp, status_code = None, 200
@@ -98,17 +105,24 @@ class MetricFactory:
         page_number: int = 0,
         page_size: int = 20,
     ) -> List[Metric]:
-        """Get list of supported metrics for the given filters
+        """Get a list of supported metrics based on the given filters.
 
         Args:
-            model_id (Text, optional): ID of model for which metric is to be used. Defaults to None.
-            is_source_required (bool, optional): Should the metric use source. Defaults to None.
-            is_reference_required (bool, optional): Should the metric use reference. Defaults to None.
-            page_number (int, optional): page number. Defaults to 0.
-            page_size (int, optional): page size. Defaults to 20.
+            model_id (Text, optional): ID of model for which metrics are to be used. Defaults to None.
+            is_source_required (bool, optional): Filter metrics that require source input. Defaults to None.
+            is_reference_required (bool, optional): Filter metrics that require reference input. Defaults to None.
+            page_number (int, optional): Page number for pagination. Defaults to 0.
+            page_size (int, optional): Number of items per page. Defaults to 20.
 
         Returns:
-            List[Metric]: List of supported metrics
+            Dict: A dictionary containing:
+                - results (List[Metric]): List of filtered metrics
+                - page_total (int): Number of items in the current page
+                - page_number (int): Current page number
+                - total (int): Total number of items matching the filters
+
+        Raises:
+            Exception: If there is an error retrieving the metrics list.
         """
         try:
             url = urljoin(cls.backend_url, "sdk/metrics")
