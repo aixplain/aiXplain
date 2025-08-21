@@ -274,7 +274,7 @@ class Agent(Model, DeployableMixin[Tool]):
         wait_time: float = 0.5,
         content: Optional[Union[Dict[Text, Text], List[Text]]] = None,
         max_tokens: int = 4096,
-        max_iterations: int = 3,
+        max_iterations: int = 5,
         output_format: Optional[OutputFormat] = None,
         expected_output: Optional[Union[BaseModel, Text, dict]] = None,
     ) -> AgentResponse:
@@ -307,6 +307,8 @@ class Agent(Model, DeployableMixin[Tool]):
         if history:
             validate_history(history)
         result_data = {}
+        if len(self.tasks) > 0:
+            max_iterations = 30
         try:
             response = self.run_async(
                 data=data,
@@ -370,7 +372,7 @@ class Agent(Model, DeployableMixin[Tool]):
         parameters: Dict = {},
         content: Optional[Union[Dict[Text, Text], List[Text]]] = None,
         max_tokens: int = 2048,
-        max_iterations: int = 10,
+        max_iterations: int = 5,
         output_format: Optional[OutputFormat] = None,
         expected_output: Optional[Union[BaseModel, Text, dict]] = None,
     ) -> AgentResponse:
