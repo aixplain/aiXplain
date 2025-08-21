@@ -64,7 +64,12 @@ def test_end2end(run_input_map, delete_agents_and_team_agents, TeamAgentFactory)
 
     agents = create_agents_from_input_map(run_input_map)
     team_agent = create_team_agent(
-        TeamAgentFactory, agents, run_input_map, use_mentalist=True, inspectors=[], inspector_targets=None
+        TeamAgentFactory,
+        agents,
+        run_input_map,
+        use_mentalist=True,
+        inspectors=[],
+        inspector_targets=None,
     )
 
     assert team_agent is not None
@@ -97,7 +102,12 @@ def test_draft_team_agent_update(run_input_map, TeamAgentFactory):
 
     agents = create_agents_from_input_map(run_input_map, deploy=False)
     team_agent = create_team_agent(
-        TeamAgentFactory, agents, run_input_map, use_mentalist=True, inspectors=[], inspector_targets=None
+        TeamAgentFactory,
+        agents,
+        run_input_map,
+        use_mentalist=True,
+        inspectors=[],
+        inspector_targets=None,
     )
 
     team_agent_name = str(uuid4()).replace("-", "")
@@ -136,7 +146,12 @@ def test_add_remove_agents_from_team_agent(run_input_map, delete_agents_and_team
 
     agents = create_agents_from_input_map(run_input_map, deploy=False)
     team_agent = create_team_agent(
-        TeamAgentFactory, agents, run_input_map, use_mentalist=True, inspectors=[], inspector_targets=None
+        TeamAgentFactory,
+        agents,
+        run_input_map,
+        use_mentalist=True,
+        inspectors=[],
+        inspector_targets=None,
     )
 
     assert team_agent is not None
@@ -224,7 +239,9 @@ def test_team_agent_with_parameterized_agents(run_input_map, delete_agents_and_t
     function_params.targetlanguage = "pt"
     function_params.sourcelanguage = "en"
     translation_tool = AgentFactory.create_model_tool(
-        function=translation_function, description="Translation tool with source language", supplier="microsoft"
+        function=translation_function,
+        description="Translation tool with source language",
+        supplier="microsoft",
     )
 
     translation_agent = AgentFactory.create(
@@ -412,7 +429,11 @@ def test_run_team_agent_with_expected_output():
     )
 
     # Run the team agent
-    response = team_agent.run("Who have more than 30 years old?", output_format=OutputFormat.JSON, expected_output=Response)
+    response = team_agent.run(
+        "Who have more than 30 years old?",
+        output_format=OutputFormat.JSON,
+        expected_output=Response,
+    )
 
     # Verify response basics
     assert response is not None
@@ -451,7 +472,8 @@ def test_team_agent_with_slack_connector():
     connector = ModelFactory.get("686432941223092cb4294d3f")
     # connect
     response = connector.connect(
-        authentication_schema=AuthenticationSchema.BEARER_TOKEN, data={"token": os.getenv("SLACK_TOKEN")}
+        authentication_schema=AuthenticationSchema.BEARER_TOKEN,
+        data={"token": os.getenv("SLACK_TOKEN")},
     )
     connection_id = response.data["id"]
 
