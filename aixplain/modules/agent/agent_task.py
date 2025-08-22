@@ -1,7 +1,7 @@
 from typing import List, Optional, Text, Union
 
 
-class AgentTask:
+class WorkflowTask:
     """A task definition for an AI agent to execute.
 
     This class represents a task that can be assigned to an agent, including its
@@ -11,23 +11,24 @@ class AgentTask:
         name (Text): The unique identifier/name of the task.
         description (Text): Detailed description of what the task should accomplish.
         expected_output (Text): Description of the expected output format or content.
-        dependencies (Optional[List[Union[Text, AgentTask]]]): List of tasks or task
+        dependencies (Optional[List[Union[Text, WorkflowTask]]]): List of tasks or task
             names that must be completed before this task. Defaults to None.
     """
+
     def __init__(
         self,
         name: Text,
         description: Text,
         expected_output: Text,
-        dependencies: Optional[List[Union[Text, "AgentTask"]]] = None,
+        dependencies: Optional[List[Union[Text, "WorkflowTask"]]] = None,
     ):
-        """Initialize a new AgentTask instance.
+        """Initialize a new WorkflowTask instance.
 
         Args:
             name (Text): The unique identifier/name of the task.
             description (Text): Detailed description of what the task should accomplish.
             expected_output (Text): Description of the expected output format or content.
-            dependencies (Optional[List[Union[Text, AgentTask]]], optional): List of
+            dependencies (Optional[List[Union[Text, WorkflowTask]]], optional): List of
                 tasks or task names that must be completed before this task.
                 Defaults to None.
         """
@@ -39,7 +40,7 @@ class AgentTask:
     def to_dict(self) -> dict:
         """Convert the task to a dictionary representation.
 
-        This method serializes the task data, converting any AgentTask dependencies
+        This method serializes the task data, converting any WorkflowTask dependencies
         to their name strings.
 
         Returns:
@@ -49,7 +50,7 @@ class AgentTask:
                 - expectedOutput: The expected output description
                 - dependencies: List of dependency names or None
         """
-        agent_task_dict = {
+        workflow_task_dict = {
             "name": self.name,
             "description": self.description,
             "expectedOutput": self.expected_output,
@@ -57,20 +58,20 @@ class AgentTask:
         }
 
         if self.dependencies:
-            for i, dependency in enumerate(agent_task_dict["dependencies"]):
-                if isinstance(dependency, AgentTask):
-                    agent_task_dict["dependencies"][i] = dependency.name
-        return agent_task_dict
+            for i, dependency in enumerate(workflow_task_dict["dependencies"]):
+                if isinstance(dependency, WorkflowTask):
+                    workflow_task_dict["dependencies"][i] = dependency.name
+        return workflow_task_dict
 
     @classmethod
-    def from_dict(cls, data: dict) -> "AgentTask":
-        """Create an AgentTask instance from a dictionary representation.
+    def from_dict(cls, data: dict) -> "WorkflowTask":
+        """Create an WorkflowTask instance from a dictionary representation.
 
         Args:
-            data: Dictionary containing AgentTask parameters
+            data: Dictionary containing WorkflowTask parameters
 
         Returns:
-            AgentTask instance
+            WorkflowTask instance
         """
         return cls(
             name=data["name"],
@@ -78,3 +79,17 @@ class AgentTask:
             expected_output=data["expectedOutput"],
             dependencies=data.get("dependencies", None),
         )
+
+
+# !this is a backward compatibility for the AgentTask class
+# it will be removed in the future
+class AgentTask(WorkflowTask):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def to_dict(self):
+        return super().to_dict()
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "AgentTask":
+        return super().from_dict(data)
