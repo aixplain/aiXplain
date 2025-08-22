@@ -196,6 +196,45 @@ class Pipeline(Asset, DeployableMixin):
         response_version: Text = "v2",
         **kwargs,
     ) -> Union[Dict, PipelineResponse]:
+        """Run the pipeline synchronously and wait for results.
+
+        This method executes the pipeline with the provided input data and waits
+        for completion. It handles both direct data input and data assets, with
+        support for polling and timeout.
+
+        Args:
+            data (Union[Text, Dict]): The input data for the pipeline. Can be:
+                - A string (file path, URL, or raw data)
+                - A dictionary mapping node labels to input data
+            data_asset (Optional[Union[Text, Dict]], optional): Data asset(s) to
+                process. Can be a single asset ID or a dict mapping node labels
+                to asset IDs. Defaults to None.
+            name (Text, optional): Identifier for this pipeline run. Used for
+                logging. Defaults to "pipeline_process".
+            timeout (float, optional): Maximum time in seconds to wait for
+                completion. Defaults to 20000.0.
+            wait_time (float, optional): Initial time in seconds between polling
+                attempts. May increase over time. Defaults to 1.0.
+            version (Optional[Text], optional): Specific pipeline version to run.
+                Defaults to None.
+            response_version (Text, optional): Response format version ("v1" or
+                "v2"). Defaults to "v2".
+            **kwargs: Additional keyword arguments passed to the pipeline.
+
+        Returns:
+            Union[Dict, PipelineResponse]: If response_version is:
+                - "v1": Dictionary with status, error (if any), and elapsed time
+                - "v2": PipelineResponse object with structured response data
+
+        Raises:
+            Exception: If the pipeline execution fails, times out, or encounters
+                errors during polling.
+
+        Note:
+            - The method starts with run_async and then polls for completion
+            - wait_time may increase up to 60 seconds between polling attempts
+            - For v2 responses, use PipelineResponse methods to access results
+        """
         start = time.time()
         try:
             response = self.run_async(data, data_asset=data_asset, name=name, version=version, **kwargs)
@@ -256,14 +295,38 @@ class Pipeline(Asset, DeployableMixin):
         data: Union[Text, Dict],
         data_asset: Optional[Union[Text, Dict]] = None,
     ) -> Dict:
-        """Prepare pipeline execution payload, validating the input data
+        """Prepare and validate the pipeline execution payload.
+
+        This internal method processes input data and data assets into a format
+        suitable for pipeline execution. It handles various input formats and
+        performs validation of data assets.
 
         Args:
-            data (Union[Text, Dict]): input data
-            data_asset (Optional[Union[Text, Dict]], optional): input data asset. Defaults to None.
+            data (Union[Text, Dict]): The input data to process. Can be:
+                - A string (file path, URL, or raw data)
+                - A dictionary mapping node labels to input data
+            data_asset (Optional[Union[Text, Dict]], optional): Data asset(s) to
+                process. Can be:
+                - A single asset ID (string)
+                - A dictionary mapping node labels to asset IDs
+                Defaults to None.
 
         Returns:
-            Dict: pipeline execution payload
+            Dict: A formatted payload containing:
+                - data: List of node inputs with values and IDs
+                - dataAsset (if applicable): Asset references with corpus/dataset IDs
+
+        Raises:
+            Exception: In various cases:
+                - If data and data_asset format mismatch
+                - If specified data asset doesn't exist
+                - If specified data isn't found in the data asset
+                - If data format is invalid
+
+        Note:
+            - For data assets, validates both asset existence and data presence
+            - Handles both single-input and multi-input scenarios
+            - Automatically uploads local files to temporary storage
         """
         from aixplain.factories import (
             CorpusFactory,
@@ -509,7 +572,23 @@ class Pipeline(Asset, DeployableMixin):
             raise Exception(e)
 
     def delete(self) -> None:
-        """Delete Dataset service"""
+        """Delete this pipeline from the platform.
+
+        This method permanently removes the pipeline from the aiXplain platform.
+        The operation cannot be undone.
+
+        Raises:
+            Exception: If deletion fails, which can happen if:
+                - The pipeline doesn't exist
+                - The user doesn't have permission to delete it
+                - The API request fails
+                - The server returns a non-200 status code
+
+        Note:
+            - This operation is permanent and cannot be undone
+            - Only the pipeline owner can delete it
+            - Uses the team API key for authentication
+        """
         try:
             url = urljoin(config.BACKEND_URL, f"sdk/pipelines/{self.id}")
             headers = {
@@ -601,4 +680,9 @@ class Pipeline(Asset, DeployableMixin):
             raise Exception(f"Error deploying because of backend error: {e}") from e
 
     def __repr__(self):
+        """Return a string representation of the Pipeline instance.
+
+        Returns:
+            str: A string in the format "Pipeline: <name> (id=<id>)".
+        """
         return f"Pipeline: {self.name} (id={self.id})"

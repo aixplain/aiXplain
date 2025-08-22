@@ -37,24 +37,37 @@ from warnings import warn
 
 
 class PipelineFactory:
-    """A static class for creating and exploring Pipeline Objects.
+    """Factory class for creating, managing, and exploring pipeline objects.
+
+    This class provides functionality for creating new pipelines, retrieving existing
+    pipelines, and managing pipeline configurations in the aiXplain platform.
 
     Attributes:
-        backend_url (str): The URL for the backend.
+        backend_url (str): Base URL for the aiXplain backend API.
     """
 
     backend_url = config.BACKEND_URL
 
     @classmethod
     def get(cls, pipeline_id: Text, api_key: Optional[Text] = None) -> Pipeline:
-        """Create a 'Pipeline' object from pipeline id
+        """Retrieve a pipeline by its ID.
+
+        This method fetches an existing pipeline from the aiXplain platform using
+        its unique identifier.
 
         Args:
-            pipeline_id (Text): Pipeline ID of required pipeline.
-            api_key (Optional[Text], optional): Pipeline API key. Defaults to None.
+            pipeline_id (Text): Unique identifier of the pipeline to retrieve.
+            api_key (Optional[Text], optional): API key for authentication.
+                Defaults to None, using the configured TEAM_API_KEY.
 
         Returns:
-            Pipeline: Created 'Pipeline' object
+            Pipeline: Retrieved pipeline object with its configuration and architecture.
+
+        Raises:
+            Exception: If the pipeline cannot be retrieved, including cases where:
+                - Pipeline ID is invalid
+                - Network error occurs
+                - Authentication fails
         """
         resp = None
         try:
@@ -110,12 +123,21 @@ class PipelineFactory:
 
     @classmethod
     def get_assets_from_page(cls, page_number: int) -> List[Pipeline]:
-        """Get the list of pipelines from a given page
+        """Retrieve a paginated list of pipelines.
+
+        This method fetches a page of pipelines from the aiXplain platform.
+        Each page contains up to 10 pipelines.
 
         Args:
-            page_number (int): Page from which pipelines are to be listed
+            page_number (int): Zero-based page number to retrieve.
+
         Returns:
-            List[Pipeline]: List of pipelines based on given filters
+            List[Pipeline]: List of pipeline objects on the specified page.
+                Returns an empty list if an error occurs or no pipelines are found.
+
+        Note:
+            This method is primarily used internally by get_first_k_assets.
+            For more control over pipeline listing, use the list method instead.
         """
         try:
             url = urljoin(cls.backend_url, f"sdk/pipelines/?pageNumber={page_number}")
@@ -137,12 +159,21 @@ class PipelineFactory:
 
     @classmethod
     def get_first_k_assets(cls, k: int) -> List[Pipeline]:
-        """Gets the first k given pipelines based on the provided task and language filters
+        """Retrieve the first K pipelines from the platform.
+
+        This method fetches up to K pipelines by making multiple paginated requests
+        as needed (10 pipelines per page).
 
         Args:
-            k (int): Number of pipelines to get
+            k (int): Number of pipelines to retrieve. Must be positive.
+
         Returns:
-            List[Pipeline]: List of pipelines based on given filters
+            List[Pipeline]: List of up to K pipeline objects.
+                Returns an empty list if an error occurs.
+
+        Note:
+            For more control over pipeline listing, use the list method instead.
+            This method is maintained for backwards compatibility.
         """
         try:
             pipeline_list = []
@@ -168,6 +199,41 @@ class PipelineFactory:
         page_size: int = 20,
         drafts_only: bool = False,
     ) -> Dict:
+        """List and filter pipelines with pagination support.
+
+        This method provides comprehensive filtering and pagination capabilities
+        for retrieving pipelines from the aiXplain platform.
+
+        Args:
+            query (Optional[Text], optional): Search query to filter pipelines by name
+                or description. Defaults to None.
+            functions (Optional[Union[Function, List[Function]]], optional): Filter by
+                function type(s). Defaults to None.
+            suppliers (Optional[Union[Supplier, List[Supplier]]], optional): Filter by
+                supplier(s). Defaults to None.
+            models (Optional[Union[Model, List[Model]]], optional): Filter by specific
+                model(s) used in pipelines. Defaults to None.
+            input_data_types (Optional[Union[DataType, List[DataType]]], optional):
+                Filter by input data type(s). Defaults to None.
+            output_data_types (Optional[Union[DataType, List[DataType]]], optional):
+                Filter by output data type(s). Defaults to None.
+            page_number (int, optional): Zero-based page number. Defaults to 0.
+            page_size (int, optional): Number of items per page (1-100).
+                Defaults to 20.
+            drafts_only (bool, optional): If True, only return draft pipelines.
+                Defaults to False.
+
+        Returns:
+            Dict: Response containing:
+                - results (List[Pipeline]): List of pipeline objects
+                - page_total (int): Total items in current page
+                - page_number (int): Current page number
+                - total (int): Total number of items across all pages
+
+        Raises:
+            Exception: If the request fails or if page_size is invalid.
+            AssertionError: If page_size is not between 1 and 100.
+        """
 
         url = urljoin(cls.backend_url, "sdk/pipelines/paginate")
 
@@ -243,14 +309,18 @@ class PipelineFactory:
 
     @classmethod
     def init(cls, name: Text, api_key: Optional[Text] = None) -> Pipeline:
-        """Initialize a new Pipeline
+        """Initialize a new empty pipeline.
+
+        This method creates a new pipeline instance with no nodes or links,
+        ready for configuration.
 
         Args:
-            name (Text): Pipeline Name
-            api_key (Optional[Text], optional): Team API Key to create the Pipeline. Defaults to None.
+            name (Text): Name of the pipeline.
+            api_key (Optional[Text], optional): API key for authentication.
+                Defaults to None, using the configured TEAM_API_KEY.
 
         Returns:
-            Pipeline: instance of the new pipeline
+            Pipeline: New pipeline instance with empty configuration.
         """
         if api_key is None:
             api_key = config.TEAM_API_KEY
@@ -270,18 +340,29 @@ class PipelineFactory:
         pipeline: Union[Text, Dict],
         api_key: Optional[Text] = None,
     ) -> Pipeline:
-        """Draft Pipeline Creation
+        """Create a new draft pipeline.
+
+        This method creates a new pipeline in draft status from a configuration
+        provided either as a Python dictionary or a JSON file.
 
         Args:
-            name (Text): Pipeline Name
-            pipeline (Union[Text, Dict]): Pipeline as a Python dictionary or in a JSON file
-            api_key (Optional[Text], optional): Team API Key to create the Pipeline. Defaults to None.
-
-        Raises:
-            Exception: Currently just the creation of draft pipelines are supported
+            name (Text): Name of the pipeline.
+            pipeline (Union[Text, Dict]): Pipeline configuration either as:
+                - Dict: Python dictionary containing nodes and links
+                - Text: Path to a JSON file containing the configuration
+            api_key (Optional[Text], optional): API key for authentication.
+                Defaults to None, using the configured TEAM_API_KEY.
 
         Returns:
-            Pipeline: instance of the new pipeline
+            Pipeline: Created pipeline instance in draft status.
+
+        Raises:
+            Exception: If:
+                - JSON file path is invalid
+                - File extension is not .json
+                - Pipeline creation request fails
+                - Pipeline configuration is invalid
+            AssertionError: If the pipeline file doesn't exist or isn't a JSON file.
         """
         try:
             if isinstance(pipeline, str) is True:

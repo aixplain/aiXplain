@@ -1,4 +1,5 @@
 from typing import List, Union, Type, TYPE_CHECKING, Optional
+from enum import Enum
 
 from aixplain.modules import Model
 from aixplain.enums import DataType, Function
@@ -142,7 +143,11 @@ class AssetNode(Node[TI, TO], LinkableMixin, OutputableMixin):
         obj["supplier"] = self.supplier
         obj["version"] = self.version
         obj["assetType"] = self.assetType
-        obj["functionType"] = self.functionType
+        # Handle functionType as enum or string
+        if isinstance(self.functionType, Enum):
+            obj["functionType"] = self.functionType.value
+        else:
+            obj["functionType"] = self.functionType
         obj["type"] = self.type
         return obj
 

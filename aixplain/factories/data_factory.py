@@ -36,23 +36,38 @@ from urllib.parse import urljoin
 
 
 class DataFactory(AssetFactory):
-    """A static class for creating and exploring Dataset Objects.
+    """Factory class for creating and managing data assets.
+
+    This class provides functionality for creating, retrieving, and managing
+    data assets in the aiXplain platform. Data assets represent individual
+    pieces of data (e.g., text, audio) that can be used in corpora or
+    directly with models.
 
     Attributes:
-        backend_url (str): The URL for the backend.
+        backend_url (str): Base URL for the aiXplain backend API.
     """
 
     backend_url = config.BACKEND_URL
 
     @classmethod
     def __from_response(cls, response: Dict) -> Data:
-        """Converts Json response to 'Data' object
+        """Convert API response into a Data object.
+
+        This method creates a Data object from an API response, handling the
+        conversion of languages, data types, and other attributes.
 
         Args:
-            response (dict): Json from API
+            response (Dict): API response containing:
+                - id: Data asset identifier
+                - name: Data asset name
+                - dataType: Type of data (e.g., text, audio)
+                - dataSubtype: Subtype of data
+                - metadata: Dictionary containing language configurations
+                - status: Onboarding status
+                - segmentsCount: Optional number of segments
 
         Returns:
-            Data: Converted 'Data' object
+            Data: Instantiated data asset object with all attributes set.
         """
         languages = []
         if "languages" in response["metadata"]:
@@ -78,13 +93,22 @@ class DataFactory(AssetFactory):
 
     @classmethod
     def get(cls, data_id: Text) -> Data:
-        """Create a 'Data' object from dataset id
+        """Retrieve a data asset by its ID.
+
+        This method fetches a data asset from the platform using its unique
+        identifier.
 
         Args:
-            data_id (Text): Data ID of required dataset.
+            data_id (Text): Unique identifier of the data asset to retrieve.
 
         Returns:
-            Data: Created 'Data' object
+            Data: Retrieved data asset object with its configuration.
+
+        Raises:
+            Exception: If:
+                - Data asset ID is invalid or not found
+                - Authentication fails
+                - Service is unavailable
         """
         url = urljoin(cls.backend_url, f"sdk/data/{data_id}/overview")
 

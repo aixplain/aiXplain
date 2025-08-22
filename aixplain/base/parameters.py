@@ -4,14 +4,33 @@ from dataclasses import dataclass
 
 @dataclass
 class Parameter:
+    """A class representing a single parameter with its properties.
+
+    Attributes:
+        name (str): The name of the parameter.
+        required (bool): Whether the parameter is required or optional.
+        value (Optional[Any]): The value of the parameter. Defaults to None.
+    """
     name: str
     required: bool
     value: Optional[Any] = None
 
 
 class BaseParameters:
+    """A base class for managing a collection of parameters.
+
+    This class provides functionality to store, access, and manipulate parameters
+    in a structured way. Parameters can be accessed using attribute syntax or
+    dictionary-style access.
+
+    Attributes:
+        parameters (Dict[str, Parameter]): Dictionary storing Parameter objects.
+    """
     def __init__(self) -> None:
-        """Initialize base parameters class"""
+        """Initialize the BaseParameters class.
+
+        The initialization creates an empty dictionary to store parameters.
+        """
         self.parameters: Dict[str, Parameter] = {}
 
     def get_parameter(self, name: str) -> Optional[Parameter]:
@@ -34,10 +53,14 @@ class BaseParameters:
         return {param.name: {"required": param.required, "value": param.value} for param in self.parameters.values()}
 
     def to_list(self) -> List[str]:
-        """Convert parameters back to list format.
+        """Convert parameters to a list format.
+
+        This method creates a list of dictionaries containing the name and value
+        of each parameter that has a value set.
 
         Returns:
-            List[str]: List representation of parameters
+            List[str]: A list of dictionaries, each containing 'name' and 'value'
+                keys for parameters that have values set.
         """
         return [{"name": param.name, "value": param.value} for param in self.parameters.values() if param.value is not None]
 
@@ -59,11 +82,18 @@ class BaseParameters:
         return "\n".join(lines)
 
     def __setattr__(self, name: str, value: Any) -> None:
-        """Allow setting parameters using attribute syntax (e.g., params.text = "Hello").
+        """Allow setting parameters using attribute syntax.
+
+        This special method enables setting parameter values using attribute syntax
+        (e.g., params.text = "Hello"). It only works for parameters that have been
+        previously defined.
 
         Args:
-            name (str): Name of the parameter
-            value (Any): Value to set for the parameter
+            name (str): Name of the parameter to set.
+            value (Any): Value to assign to the parameter.
+
+        Raises:
+            AttributeError: If attempting to set a parameter that hasn't been defined.
         """
         if name == "parameters":  # Allow setting the parameters dict normally
             super().__setattr__(name, value)
@@ -75,16 +105,20 @@ class BaseParameters:
             raise AttributeError(f"Parameter '{name}' is not defined")
 
     def __getattr__(self, name: str) -> Any:
-        """Allow getting parameter values using attribute syntax (e.g., params.text).
+        """Allow getting parameter values using attribute syntax.
+
+        This special method enables accessing parameter values using attribute syntax
+        (e.g., params.text). It only works for parameters that have been previously
+        defined.
 
         Args:
-            name (str): Name of the parameter
+            name (str): Name of the parameter to access.
 
         Returns:
-            Any: Value of the parameter
+            Any: The value of the requested parameter.
 
         Raises:
-            AttributeError: If parameter is not defined
+            AttributeError: If attempting to access a parameter that hasn't been defined.
         """
         if name in self.parameters:
             return self.parameters[name].value

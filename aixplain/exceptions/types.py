@@ -3,7 +3,17 @@ from typing import Optional, Dict, Any
 
 
 class ErrorSeverity(str, Enum):
-    """Severity levels for errors."""
+    """Enumeration of error severity levels in the aiXplain system.
+
+    This enum defines the different levels of severity that can be assigned to
+    errors, ranging from informational messages to critical system errors.
+
+    Attributes:
+        INFO (str): Informational message, not an actual error.
+        WARNING (str): Warning that doesn't prevent operation completion.
+        ERROR (str): Error condition that prevents operation completion.
+        CRITICAL (str): Severe error that might affect system stability.
+    """
 
     INFO = "info"  # Informational, not an error
     WARNING = "warning"  # Warning, operation can continue
@@ -12,7 +22,23 @@ class ErrorSeverity(str, Enum):
 
 
 class ErrorCategory(Enum):
-    """Categorizes errors by their domain."""
+    """Enumeration of error categories in the aiXplain system.
+
+    This enum defines the different domains or areas where errors can occur,
+    helping to classify and organize error handling.
+
+    Attributes:
+        AUTHENTICATION (str): Authentication and authorization errors.
+        VALIDATION (str): Input validation errors.
+        RESOURCE (str): Resource availability and access errors.
+        BILLING (str): Billing and payment-related errors.
+        SUPPLIER (str): External supplier and third-party service errors.
+        NETWORK (str): Network connectivity errors.
+        SERVICE (str): Service availability errors.
+        INTERNAL (str): Internal system errors.
+        AGENT (str): Agent-specific errors.
+        UNKNOWN (str): Uncategorized or unclassified errors.
+    """
 
     AUTHENTICATION = "authentication"  # API keys, permissions
     VALIDATION = "validation"  # Input validation
@@ -59,12 +85,31 @@ class ErrorCode(str, Enum):
     AX_SVC_ERROR = "AX-SVC-1000"  # General service error. Use when a specific aiXplain service or endpoint is unavailable or malfunctioning (e.g., service downtime, internal component failure.
     AX_INT_ERROR = "AX-INT-1000"  # General internal error. Use for unexpected server-side errors that are not covered by other categories. This often indicates a bug or an issue within the aiXplain platform itself.
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """Return the string representation of the error code.
+
+        Returns:
+            str: The error code value as a string.
+        """
         return self.value
 
 
 class AixplainBaseException(Exception):
-    """Base exception class for all aiXplain exceptions."""
+    """Base exception class for all aiXplain exceptions.
+
+    This class serves as the foundation for all custom exceptions in the aiXplain
+    system. It provides structured error information including categorization,
+    severity, and additional context.
+
+    Attributes:
+        message (str): Error message.
+        category (ErrorCategory): Category of the error.
+        severity (ErrorSeverity): Severity level of the error.
+        status_code (Optional[int]): HTTP status code if applicable.
+        details (Dict[str, Any]): Additional error context and details.
+        retry_recommended (bool): Whether retrying the operation might succeed.
+        error_code (Optional[ErrorCode]): Standardized error code.
+    """
 
     def __init__(
         self,
@@ -85,12 +130,24 @@ class AixplainBaseException(Exception):
         self.error_code = error_code
         super().__init__(self.message)
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """Return a string representation of the exception.
+
+        Returns:
+            str: Formatted string containing the exception class name,
+                error code (if present), and error message.
+        """
         error_code_str = f" [{self.error_code}]" if self.error_code else ""
         return f"{self.__class__.__name__}{error_code_str}: {self.message}"
 
     def to_dict(self) -> Dict[str, Any]:
-        """Convert exception to dictionary for serialization."""
+        """Convert the exception to a dictionary for serialization.
+
+        Returns:
+            Dict[str, Any]: Dictionary containing all exception attributes
+                including message, category, severity, status code, details,
+                retry recommendation, and error code.
+        """
         return {
             "message": self.message,
             "category": self.category.value,

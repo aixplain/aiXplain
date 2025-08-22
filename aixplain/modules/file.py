@@ -29,6 +29,18 @@ from typing import Optional, Text, Union
 
 
 class File:
+    """A class representing a file in the aiXplain platform.
+
+    This class provides functionality for managing files, which are used to store
+    data samples in the platform. It supports various file types, compression formats,
+    and data splits.
+
+    Attributes:
+        path (Union[Text, pathlib.Path]): File path
+        extension (Union[Text, FileType]): File extension (e.g. CSV, TXT, etc.)
+        data_split (Optional[DataSplit]): Data split of the file.
+        compression (Optional[Text]): Compression extension (e.g., .gz).
+    """
     def __init__(
         self,
         path: Union[Text, pathlib.Path],
@@ -36,10 +48,7 @@ class File:
         data_split: Optional[DataSplit] = None,
         compression: Optional[Text] = None,
     ) -> None:
-        """File Class
-
-        Description:
-            File where samples of a data is stored in
+        """Initialize a new File instance.
 
         Args:
             path (Union[Text, pathlib.Path]): File path
