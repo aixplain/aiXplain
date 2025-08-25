@@ -12,7 +12,7 @@ load_dotenv()
 import pytest
 
 from aixplain import aixplain_v2 as v2
-from aixplain.factories import AgentFactory, TeamAgentFactory
+from aixplain.factories import AgentFactory, TeamAgentFactory, ModelFactory
 from aixplain.enums.asset_status import AssetStatus
 from aixplain.modules.team_agent import InspectorTarget
 from aixplain.modules.team_agent.inspector import Inspector, InspectorPolicy, InspectorAction, InspectorOutput
@@ -738,4 +738,71 @@ def test_inspector_action_verification(run_input_map, delete_agents_and_team_age
     response_generator_steps = [step for step in steps if "response_generator" in step.get("agent", "").lower()]
     assert len(response_generator_steps) == 1, "Response generator should run exactly once after ABORT"
 
+    team_agent.delete()
+
+
+@pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory, v2.TeamAgent])
+def test_team_agent_with_utility_inspector(run_input_map, delete_agents_and_team_agents, TeamAgentFactory):
+    """Test team agent with a Utility model as inspector"""
+    assert delete_agents_and_team_agents
+
+    agents = create_agents_from_input_map(run_input_map)
+
+    def lowercase_inspector(content: str) -> bool:
+        if content.islower():
+            return ""
+        else:
+            return "Content is not all lowercase. There are uppercase characters in the content."
+
+    utility_model = ModelFactory.create_utility_model(
+        name="Lowercase Inspector Test",
+        description="Inspect the content of the response. If the content is not all lowercase, provide feedback.'",
+        code=lowercase_inspector,
+    )
+    utility_model.deploy()
+
+    utility_model_id = utility_model.id
+    inspector = Inspector(
+        name="utility_inspector",
+        model_id=utility_model_id,
+        policy=InspectorPolicy.WARN,
+    )
+
+    # Create team agent with steps inspector
+    team_agent = create_team_agent(
+        TeamAgentFactory,
+        agents,
+        run_input_map,
+        use_mentalist=True,
+        inspectors=[inspector],
+        inspector_targets=[InspectorTarget.STEPS],
+    )
+
+    assert team_agent is not None
+    assert team_agent.status == AssetStatus.DRAFT
+
+    # deploy team agent
+    team_agent.deploy()
+    team_agent = TeamAgentFactory.get(team_agent.id)
+    assert team_agent is not None
+    assert team_agent.status == AssetStatus.ONBOARDED
+
+    # Run the team agent
+    response = team_agent.run(data=run_input_map["query"])
+
+    assert response is not None
+    assert response["completed"] is True
+    assert response["status"].lower() == "success"
+
+    # Check for inspector steps
+    if "intermediate_steps" in response["data"]:
+        steps = response["data"]["intermediate_steps"]
+        verify_inspector_steps(steps, ["utility_inspector"], [InspectorTarget.STEPS])
+        verify_response_generator(steps)
+
+        # Verify inspector runs and execution continues
+        inspector_steps = [step for step in steps if "utility_inspector" in step.get("agent", "").lower()]
+        assert len(inspector_steps) > 0, "Utility inspector should run at least once"
+
+    utility_model.delete()
     team_agent.delete()
