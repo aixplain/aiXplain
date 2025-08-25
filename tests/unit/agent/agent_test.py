@@ -24,6 +24,7 @@ def test_fail_no_data_query():
         "Sample Description",
         instructions="Test Agent Instructions",
     )
+
     with pytest.raises(Exception) as exc_info:
         agent.run_async()
     assert str(exc_info.value) == "Either 'data' or 'query' must be provided."
@@ -36,6 +37,7 @@ def test_fail_query_must_be_provided():
         "Sample Description",
         instructions="Test Agent Instructions",
     )
+
     with pytest.raises(Exception) as exc_info:
         agent.run_async(data={})
     assert str(exc_info.value) == "When providing a dictionary, 'query' must be provided."
@@ -48,6 +50,7 @@ def test_fail_query_as_text_when_content_not_empty():
         "Sample Description",
         instructions="Test Agent Instructions",
     )
+
     with pytest.raises(Exception) as exc_info:
         agent.run_async(
             data={"query": "https://aixplain-platform-assets.s3.amazonaws.com/samples/en/CPAC1x2.wav"},

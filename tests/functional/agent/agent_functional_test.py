@@ -411,7 +411,6 @@ def test_sql_tool(delete_agents_and_team_agents, AgentFactory):
         if agent:
             agent.delete()
 
-
 @pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
 def test_sql_tool_with_csv(delete_agents_and_team_agents, AgentFactory):
     assert delete_agents_and_team_agents
@@ -733,6 +732,7 @@ def test_agent_with_action_tool():
 
     connector = ModelFactory.get("686432941223092cb4294d3f")
     # connect
+
     response = connector.connect(
         authentication_schema=AuthenticationSchema.BEARER_TOKEN, data={"token": os.getenv("SLACK_TOKEN")}
     )
@@ -742,6 +742,7 @@ def test_agent_with_action_tool():
     connection.action_scope = [
         action for action in connection.actions if action.code == "SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL"
     ]
+
 
     agent = AgentFactory.create(
         name="Test Agent",
@@ -763,6 +764,7 @@ def test_agent_with_action_tool():
     assert "SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL" in [
         step["tool"] for step in response.data.intermediate_steps[0]["tool_steps"]
     ]
+
     connection.delete()
 
 
@@ -776,6 +778,7 @@ def test_agent_with_mcp_tool():
         data={
             "url": "https://mcp.zapier.com/api/mcp/s/OTJiMjVlYjEtMGE4YS00OTVjLWIwMGYtZDJjOGVkNTc4NjFkOjI0MTNjNzg5LWZlNGMtNDZmNC05MDhmLWM0MGRlNDU4ZmU1NA==/mcp"
         },
+
     )
     connection_id = response.data["id"]
     connection = ModelFactory.get(connection_id)

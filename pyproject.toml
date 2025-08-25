@@ -20,6 +20,7 @@ authors = [
   {email = "hadi@aixplain.com"},
   {email = "kadir.pekel@aixplain.com"},
   {email = "aina.abushaban@aixplain.com"}
+
 ]
 classifiers = [
     "Development Status :: 2 - Pre-Alpha",

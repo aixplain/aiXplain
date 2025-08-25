@@ -39,6 +39,7 @@ class ConnectAction:
             inputs (Optional[Dict], optional): The input parameters required by the action.
                 Defaults to None.
         """
+
         self.name = name
         self.description = description
         self.code = code
@@ -90,6 +91,7 @@ class MCPConnection(ConnectionTool):
 
         Raises:
             AssertionError: If function_type is not FunctionType.MCP_CONNECTION.
+
         """
         assert function_type == FunctionType.MCP_CONNECTION, "Connection only supports mcp connection function"
         super().__init__(
@@ -127,6 +129,7 @@ class MCPConnection(ConnectionTool):
                     description=action["description"],
                     code=action["name"],
                 )
+
                 for action in response.data
             ]
         raise Exception(
@@ -134,6 +137,7 @@ class MCPConnection(ConnectionTool):
         )
 
     def get_action_inputs(self, action: Union[ConnectAction, Text]):
+
         """Retrieve the input parameters required for a specific tool.
 
         This method fetches the input parameters that are required to use a specific
@@ -150,7 +154,7 @@ class MCPConnection(ConnectionTool):
         Raises:
             Exception: If the inputs cannot be retrieved from the server or if the
                 response cannot be parsed.
-        """
+
         if action.inputs:
             return action.inputs
 
