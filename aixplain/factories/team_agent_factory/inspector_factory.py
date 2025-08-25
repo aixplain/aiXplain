@@ -31,7 +31,7 @@ from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
 
 
-INSPECTOR_SUPPORTED_FUNCTIONS = [Function.GUARDRAILS, Function.TEXT_GENERATION]
+INSPECTOR_SUPPORTED_FUNCTIONS = [Function.GUARDRAILS, Function.TEXT_GENERATION, Function.UTILITIES]
 
 
 class InspectorFactory:
