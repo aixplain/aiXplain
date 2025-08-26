@@ -31,7 +31,7 @@ from aixplain.utils.file_utils import _request_with_retry
 from aixplain.enums import Function, Supplier, AssetStatus, StorageType, ResponseStatus
 from aixplain.enums.evolve_type import EvolveType
 from aixplain.modules.model import Model
-from aixplain.modules.agent.agent_task import AgentTask
+from aixplain.modules.agent.agent_task import WorkflowTask, AgentTask
 from aixplain.modules.agent.output_format import OutputFormat
 from aixplain.modules.agent.tool import Tool
 from aixplain.modules.agent.agent_response import AgentResponse
@@ -45,6 +45,7 @@ from aixplain.modules.model.llm_model import LLM
 
 from aixplain.utils import config
 from aixplain.modules.mixins import DeployableMixin
+import warnings
 
 
 class Agent(Model, DeployableMixin[Tool]):
@@ -94,6 +95,7 @@ class Agent(Model, DeployableMixin[Tool]):
         cost: Optional[Dict] = None,
         status: AssetStatus = AssetStatus.DRAFT,
         tasks: List[AgentTask] = [],
+        workflow_tasks: List[WorkflowTask] = [],
         output_format: OutputFormat = OutputFormat.TEXT,
         expected_output: Optional[Union[BaseModel, Text, dict]] = None,
         **additional_info,
@@ -140,7 +142,16 @@ class Agent(Model, DeployableMixin[Tool]):
             except Exception:
                 status = AssetStatus.DRAFT
         self.status = status
-        self.tasks = tasks
+        if tasks:
+            warnings.warn(
+                "The 'tasks' parameter is deprecated and will be removed in a future version. " "Use 'workflow_tasks' instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            self.workflow_tasks = tasks
+        else:
+            self.workflow_tasks = workflow_tasks
+        self.tasks = self.workflow_tasks
         self.output_format = output_format
         self.expected_output = expected_output
         self.is_valid = True
@@ -510,7 +521,7 @@ class Agent(Model, DeployableMixin[Tool]):
             "version": self.version,
             "llmId": self.llm_id if self.llm is None else self.llm.id,
             "status": self.status.value,
-            "tasks": [task.to_dict() for task in self.tasks],
+            "tasks": [task.to_dict() for task in self.workflow_tasks],
             "tools": (
                 [
                     {
@@ -540,7 +551,7 @@ class Agent(Model, DeployableMixin[Tool]):
         """
         from aixplain.factories.agent_factory.utils import build_tool
         from aixplain.enums import AssetStatus
-        from aixplain.modules.agent_task import AgentTask
+        from aixplain.modules.agent_task import WorkflowTask
 
         # Extract tools from assets using proper tool building
         tools = []
@@ -556,10 +567,10 @@ class Agent(Model, DeployableMixin[Tool]):
                     logging.warning(f"Failed to build tool from asset data: {e}")
 
         # Extract tasks using from_dict method
-        tasks = []
+        workflow_tasks = []
         if "tasks" in data:
             for task_data in data["tasks"]:
-                tasks.append(AgentTask.from_dict(task_data))
+                workflow_tasks.append(WorkflowTask.from_dict(task_data))
 
         # Extract LLM from tools section (main LLM info)
         llm = None
@@ -599,7 +610,7 @@ class Agent(Model, DeployableMixin[Tool]):
             version=data.get("version"),
             cost=data.get("cost"),
             status=status,
-            tasks=tasks,
+            workflow_tasks=workflow_tasks,
             output_format=OutputFormat(data.get("outputFormat", OutputFormat.TEXT)),
             expected_output=data.get("expectedOutput"),
         )

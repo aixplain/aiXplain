@@ -611,7 +611,9 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         if "inspectors" in data:
             for inspector_data in data["inspectors"]:
                 try:
-                    if hasattr(Inspector, "model_validate"):
+                    if isinstance(inspector_data, Inspector):
+                        inspectors.append(inspector_data)
+                    elif hasattr(Inspector, "model_validate"):
                         inspectors.append(Inspector.model_validate(inspector_data))
                     else:
                         inspectors.append(Inspector(**inspector_data))
@@ -619,6 +621,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                     import logging
 
                     logging.warning(f"Failed to create inspector from data: {e}")
+                    continue
 
         # Extract inspector targets
         inspector_targets = [InspectorTarget.STEPS]  # default
