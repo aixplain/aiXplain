@@ -1,4 +1,4 @@
-from typing import List, Text, Union
+from typing import List, Text, Union, Optional
 
 
 class WorkflowTask:
