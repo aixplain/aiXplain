@@ -81,7 +81,7 @@ class AgentFactory:
 
         Args:
             name (Text): name of the agent
-            description (Text): description of the agent role.
+            description (Text): description of the agent instructions.
             instructions (Text): instructions of the agent.
             llm (Optional[Union[LLM, Text]], optional): LLM instance to use as an object or as an ID.
             llm_id (Optional[Text], optional): ID of LLM to use if no LLM instance provided. Defaults to None.

@@ -29,6 +29,7 @@ from datetime import datetime
 
 from aixplain.utils.file_utils import _request_with_retry
 from aixplain.enums import Function, Supplier, AssetStatus, StorageType, ResponseStatus
+from aixplain.enums.evolve_type import EvolveType
 from aixplain.modules.model import Model
 from aixplain.modules.agent.agent_task import WorkflowTask, AgentTask
 from aixplain.modules.agent.output_format import OutputFormat
@@ -37,7 +38,8 @@ from aixplain.modules.agent.agent_response import AgentResponse
 from aixplain.modules.agent.agent_response_data import AgentResponseData
 from aixplain.modules.agent.utils import process_variables, validate_history
 from pydantic import BaseModel
-from typing import Dict, List, Text, Optional, Union
+from typing import Dict, List, Text, Optional, Union, Any
+from aixplain.modules.agent.evolve_param import EvolveParam, validate_evolve_param
 from urllib.parse import urljoin
 from aixplain.modules.model.llm_model import LLM
 
@@ -384,6 +386,7 @@ class Agent(Model, DeployableMixin[Tool]):
         max_iterations: int = 10,
         output_format: Optional[OutputFormat] = None,
         expected_output: Optional[Union[BaseModel, Text, dict]] = None,
+        evolve: Union[Dict[str, Any], EvolveParam, None] = None,
     ) -> AgentResponse:
         """Runs asynchronously an agent call.
 
@@ -399,6 +402,8 @@ class Agent(Model, DeployableMixin[Tool]):
             max_iterations (int, optional): maximum number of iterations between the agent and the tools. Defaults to 10.
             output_format (OutputFormat, optional): response format. If not provided, uses the format set during initialization.
             expected_output (Union[BaseModel, Text, dict], optional): expected output. Defaults to None.
+            output_format (ResponseFormat, optional): response format. Defaults to TEXT.
+            evolve (Union[Dict[str, Any], EvolveParam, None], optional): evolve the agent configuration. Can be a dictionary, EvolveParam instance, or None.
         Returns:
             dict: polling URL in response
         """
@@ -415,8 +420,9 @@ class Agent(Model, DeployableMixin[Tool]):
 
         from aixplain.factories.file_factory import FileFactory
 
-        if not self.is_valid:
-            raise Exception("Agent is not valid. Please validate the agent before running.")
+        # Validate and normalize evolve parameters using the base model
+        evolve_param = validate_evolve_param(evolve)
+        evolve_dict = evolve_param.to_dict()
 
         if output_format == OutputFormat.JSON:
             assert expected_output is not None and (
@@ -478,6 +484,7 @@ class Agent(Model, DeployableMixin[Tool]):
                 "outputFormat": output_format,
                 "expectedOutput": expected_output,
             },
+            "evolve": json.dumps(evolve_dict),
         }
         payload.update(parameters)
         payload = json.dumps(payload)
@@ -594,7 +601,7 @@ class Agent(Model, DeployableMixin[Tool]):
             id=data["id"],
             name=data["name"],
             description=data["description"],
-            instructions=data.get("role"),
+            instructions=data.get("instructions"),
             tools=tools,
             llm_id=data.get("llmId", "6646261c6eb563165658bbb1"),
             llm=llm,
@@ -736,3 +743,128 @@ class Agent(Model, DeployableMixin[Tool]):
             str: A string in the format "Agent: <name> (id=<id>)".
         """
         return f"Agent: {self.name} (id={self.id})"
+
+    def evolve_async(
+        self,
+        evolve_type: Union[EvolveType, str] = EvolveType.TEAM_TUNING,
+        max_successful_generations: int = 3,
+        max_failed_generation_retries: int = 3,
+        recursion_limit: int = 50,
+        max_non_improving_generations: Optional[int] = 2,
+        evolver_llm: Optional[Union[Text, LLM]] = None,
+    ) -> AgentResponse:
+        """Asynchronously evolve the Agent and return a polling URL in the AgentResponse.
+
+        Args:
+            evolve_type (Union[EvolveType, str]): Type of evolution (TEAM_TUNING or INSTRUCTION_TUNING). Defaults to TEAM_TUNING.
+            max_successful_generations (int): Maximum number of successful generations to evolve. Defaults to 3.
+            max_failed_generation_retries (int): Maximum retry attempts for failed generations. Defaults to 3.
+            recursion_limit (int): Limit for recursive operations. Defaults to 50.
+            max_non_improving_generations (Optional[int]): Stop condition parameter for non-improving generations. Defaults to 2, can be None.
+            evolver_llm (Optional[Union[Text, LLM]]): LLM to use for evolution. Can be an LLM ID string or LLM object. Defaults to None.
+
+        Returns:
+            AgentResponse: Response containing polling URL and status.
+        """
+        from aixplain.utils.evolve_utils import create_evolver_llm_dict
+
+        query = "<placeholder query>"
+
+        # Create EvolveParam from individual parameters
+        evolve_parameters = EvolveParam(
+            to_evolve=True,
+            evolve_type=evolve_type,
+            max_generations=max_successful_generations,
+            max_retries=max_failed_generation_retries,
+            recursion_limit=recursion_limit,
+            max_iterations_without_improvement=max_non_improving_generations,
+            evolver_llm=create_evolver_llm_dict(evolver_llm),
+        )
+
+        return self.run_async(query=query, evolve=evolve_parameters)
+
+    def evolve(
+        self,
+        evolve_type: Union[EvolveType, str] = EvolveType.TEAM_TUNING,
+        max_successful_generations: int = 3,
+        max_failed_generation_retries: int = 3,
+        recursion_limit: int = 50,
+        max_non_improving_generations: Optional[int] = 2,
+        evolver_llm: Optional[Union[Text, LLM]] = None,
+    ) -> AgentResponse:
+        """Synchronously evolve the Agent and poll for the result.
+
+        Args:
+            evolve_type (Union[EvolveType, str]): Type of evolution (TEAM_TUNING or INSTRUCTION_TUNING). Defaults to TEAM_TUNING.
+            max_successful_generations (int): Maximum number of successful generations to evolve. Defaults to 3.
+            max_failed_generation_retries (int): Maximum retry attempts for failed generations. Defaults to 3.
+            recursion_limit (int): Limit for recursive operations. Defaults to 50.
+            max_non_improving_generations (Optional[int]): Stop condition parameter for non-improving generations. Defaults to 2, can be None.
+            evolver_llm (Optional[Union[Text, LLM]]): LLM to use for evolution. Can be an LLM ID string or LLM object. Defaults to None.
+
+        Returns:
+            AgentResponse: Final response from the evolution process.
+        """
+        from aixplain.utils.evolve_utils import from_yaml, create_evolver_llm_dict
+
+        # Create EvolveParam from individual parameters
+        evolve_parameters = EvolveParam(
+            to_evolve=True,
+            evolve_type=evolve_type,
+            max_generations=max_successful_generations,
+            max_retries=max_failed_generation_retries,
+            recursion_limit=recursion_limit,
+            max_iterations_without_improvement=max_non_improving_generations,
+            evolver_llm=create_evolver_llm_dict(evolver_llm),
+        )
+
+        start = time.time()
+        try:
+            logging.info(f"Evolve started with parameters: {evolve_parameters}")
+            logging.info("It might take a while...")
+            response = self.evolve_async(
+                evolve_type=evolve_type,
+                max_successful_generations=max_successful_generations,
+                max_failed_generation_retries=max_failed_generation_retries,
+                recursion_limit=recursion_limit,
+                max_non_improving_generations=max_non_improving_generations,
+                evolver_llm=evolver_llm,
+            )
+            if response["status"] == ResponseStatus.FAILED:
+                end = time.time()
+                response["elapsed_time"] = end - start
+                return response
+            poll_url = response["url"]
+            end = time.time()
+            result = self.sync_poll(poll_url, name="evolve_process", timeout=600)
+            result_data = result.data
+
+            if "current_code" in result_data and result_data["current_code"] is not None:
+                if evolve_parameters.evolve_type == EvolveType.TEAM_TUNING:
+                    result_data["evolved_agent"] = from_yaml(
+                        result_data["current_code"],
+                        self.llm_id,
+                    )
+                elif evolve_parameters.evolve_type == EvolveType.INSTRUCTION_TUNING:
+                    self.instructions = result_data["current_code"]
+                    self.update()
+                    result_data["evolved_agent"] = self
+                else:
+                    raise ValueError(
+                        "evolve_parameters.evolve_type must be one of the following: TEAM_TUNING, INSTRUCTION_TUNING"
+                    )
+            return AgentResponse(
+                status=ResponseStatus.SUCCESS,
+                completed=True,
+                data=result_data,
+                used_credits=getattr(result, "used_credits", 0.0),
+                run_time=getattr(result, "run_time", end - start),
+            )
+        except Exception as e:
+            logging.error(f"Agent Evolve: Error in evolving: {e}")
+            end = time.time()
+            return AgentResponse(
+                status=ResponseStatus.FAILED,
+                completed=False,
+                error_message="No response from the service.",
+            )
