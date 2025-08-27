@@ -58,10 +58,14 @@ def create_model_from_response(response: Dict) -> Model:
     additional_kwargs = {}
     attributes = response.get("attributes", None)
     if attributes:
-        embedding_model = next((item.get("code") for item in attributes if item.get("name") == "embeddingmodel" and "code" in item), None)
+        embedding_model = next(
+            (item.get("code") for item in attributes if item.get("name") == "embeddingmodel" and "code" in item), None
+        )
         if embedding_model:
             additional_kwargs["embedding_model"] = embedding_model
-        embedding_size = next((item.get("value") for item in attributes if item.get("name") == "embeddingSize" and "value" in item), None)
+        embedding_size = next(
+            (item.get("value") for item in attributes if item.get("name") == "embeddingSize" and "value" in item), None
+        )
         if embedding_size:
             additional_kwargs["embedding_size"] = embedding_size
 
@@ -87,7 +91,7 @@ def create_model_from_response(response: Dict) -> Model:
         ModelClass = IndexModel
     elif function_type == FunctionType.INTEGRATION:
         ModelClass = Integration
-    elif function_type == FunctionType.CONNECTION :
+    elif function_type == FunctionType.CONNECTION:
         ModelClass = ConnectionTool
     elif function_type == FunctionType.MCP_CONNECTION:
         ModelClass = MCPConnection
@@ -297,11 +301,51 @@ def get_model_from_ids(model_ids: List[str], api_key: Optional[str] = None) -> L
         raise Exception(f"{message}")
     if 200 <= r.status_code < 300:
         models = []
-        for item in resp["items"]:
-            item["api_key"] = config.TEAM_API_KEY
-            if api_key is not None:
-                item["api_key"] = api_key
-            models.append(create_model_from_response(item))
+
+        def process_items(items):
+            """Helper function to process model items and add API key"""
+            for item in items:
+                item["api_key"] = config.TEAM_API_KEY
+                if api_key is not None:
+                    item["api_key"] = api_key
+                models.append(create_model_from_response(item))
+
+        # Check if pagination is needed ( pageNumber: 0 indicates pagination required)
+        if resp.get("pageNumber") == 0:
+            # Handle paginated response - need to fetch all pages
+            page_number = 0
+            total_fetched = 0
+
+            while True:
+                # Make request for current page
+                paginated_url = urljoin(config.BACKEND_URL, f"sdk/models?ids={','.join(model_ids)}&pageNumber={page_number}")
+                logging.info(f"Fetching page {page_number} - {paginated_url}")
+                page_r = _request_with_retry("get", paginated_url, headers=headers)
+                page_resp = page_r.json()
+
+                if not (200 <= page_r.status_code < 300):
+                    error_message = f"Model GET Error: Failed to retrieve models page {page_number}. Status Code: {page_r.status_code}. Error: {page_resp}"
+                    logging.error(error_message)
+                    raise Exception(error_message)
+
+                # Process items from current page
+                page_items = page_resp.get("items", [])
+                if not page_items:
+                    break
+
+                process_items(page_items)
+                total_fetched += len(page_items)
+
+                # Check if we have more pages
+                total_items = page_resp.get("total", 0)
+                if total_fetched >= total_items:
+                    break
+
+                page_number += 1
+        else:
+            # Handle non-paginated response (original logic)
+            process_items(resp["items"])
+
         return models
     else:
         error_message = f"Model GET Error: Failed to retrieve models {model_ids}. Status Code: {r.status_code}. Error: {resp}"
