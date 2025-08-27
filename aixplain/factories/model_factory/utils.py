@@ -311,10 +311,13 @@ def get_model_from_ids(model_ids: List[str], api_key: Optional[str] = None) -> L
                 models.append(create_model_from_response(item))
 
         # Check if pagination is needed ( pageNumber: 0 indicates pagination required)
-        if resp.get("pageNumber") == 0:
+        if "pageTotal" in resp:
             # Handle paginated response - need to fetch all pages
-            page_number = 0
-            total_fetched = 0
+            page_number = 1
+            total_fetched = resp.get("pageTotal", 0)
+            page_items = resp.get("items", [])
+            total_items = resp.get("total", 0)
+            process_items(page_items)
 
             while True:
                 # Make request for current page
@@ -336,8 +339,6 @@ def get_model_from_ids(model_ids: List[str], api_key: Optional[str] = None) -> L
                 process_items(page_items)
                 total_fetched += len(page_items)
 
-                # Check if we have more pages
-                total_items = page_resp.get("total", 0)
                 if total_fetched >= total_items:
                     break
 
