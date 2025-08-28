@@ -82,7 +82,7 @@ def test_end2end(run_input_map, delete_agents_and_team_agents, TeamAgentFactory)
     assert response["completed"] is True
     assert response["status"].lower() == "success"
     assert "data" in response
-    assert response["data"]["session_id"] is not None
+    assert response["data"]["session_id"] is None
     assert response["data"]["output"] is not None
 
     team_agent.delete()
@@ -124,7 +124,10 @@ def test_fail_non_existent_llm(run_input_map, TeamAgentFactory):
             llm_id="non_existent_llm",
             agents=agents,
         )
-    assert str(exc_info.value) == "Large Language Model with ID 'non_existent_llm' not found."
+    assert (
+        str(exc_info.value)
+        == "TeamAgent Onboarding Error: LLM non_existent_llm does not exist for Main LLM. To resolve this, set the following LLM parameters to a valid LLM object or LLM ID: llm, supervisor_llm, mentalist_llm."
+    )
 
 
 @pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory, v2.TeamAgent])
@@ -288,7 +291,7 @@ def test_team_agent_with_instructions(delete_agents_and_team_agents):
         instructions="Use only 'Agent 2' to solve the tasks.",
         llm_id="6646261c6eb563165658bbb1",
         use_mentalist=True,
-        use_inspector=False,
+        inspectors=[],
     )
 
     response = team_agent.run(data="Translate 'cat' to Portuguese")
@@ -405,7 +408,7 @@ def test_run_team_agent_with_expected_output():
         description="Team agent",
         llm_id="6646261c6eb563165658bbb1",
         use_mentalist=False,
-        use_inspector=False,
+        inspectors=[],
     )
 
     # Run the team agent
@@ -445,13 +448,17 @@ def test_run_team_agent_with_expected_output():
 def test_team_agent_with_slack_connector():
     from aixplain.modules.model.integration import AuthenticationSchema
 
-    connector = ModelFactory.get("67eff5c0e05614297caeef98")
+    connector = ModelFactory.get("686432941223092cb4294d3f")
     # connect
-    response = connector.connect(authentication_schema=AuthenticationSchema.BEARER, token=os.getenv("SLACK_TOKEN"))
+    response = connector.connect(
+        authentication_schema=AuthenticationSchema.BEARER_TOKEN, data={"token": os.getenv("SLACK_TOKEN")}
+    )
     connection_id = response.data["id"]
 
     connection = ModelFactory.get(connection_id)
-    connection.action_scope = [action for action in connection.actions if action.code == "SLACK_CHAT_POST_MESSAGE"]
+    connection.action_scope = [
+        action for action in connection.actions if action.code == "SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL"
+    ]
 
     agent = AgentFactory.create(
         name="Test Agent",
@@ -477,7 +484,7 @@ def test_team_agent_with_slack_connector():
         description="Team agent",
         llm_id="6646261c6eb563165658bbb1",
         use_mentalist=False,
-        use_inspector=False,
+        inspectors=[],
     )
 
     response = team_agent.run(

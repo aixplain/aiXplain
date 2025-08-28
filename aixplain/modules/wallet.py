@@ -23,12 +23,23 @@ Description:
 
 
 class Wallet:
+    """A class representing a wallet for managing credit balances.
+
+    This class provides functionality for managing credit balances in a wallet,
+    including total, reserved, and available balances. It is used to track and
+    manage credit resources in the aiXplain platform.
+
+    Attributes:
+        total_balance (float): Total credit balance in the wallet.
+        reserved_balance (float): Reserved credit balance in the wallet.
+        available_balance (float): Available balance (total - reserved).
+    """
     def __init__(self, total_balance: float, reserved_balance: float):
-        """
+        """Initialize a new Wallet instance.
+
         Args:
-            total_balance (float): total credit balance
-            reserved_balance (float): reserved credit balance
-            available_balance (float): available balance (total - credit)
+            total_balance (float): Total credit balance in the wallet.
+            reserved_balance (float): Reserved credit balance in the wallet.
         """
         self.total_balance = total_balance
         self.reserved_balance = reserved_balance

@@ -26,9 +26,24 @@ from typing import Text
 
 
 class ResponseStatus(Text, Enum):
+    """Enumeration of possible response status values.
+
+    This enum defines the different statuses that a response can be in, including
+    in progress, success, and failure.
+
+    Attributes:
+        IN_PROGRESS (str): Response is in progress.
+        SUCCESS (str): Response was successful.
+        FAILED (str): Response failed.
+    """
     IN_PROGRESS = "IN_PROGRESS"
     SUCCESS = "SUCCESS"
     FAILED = "FAILED"
 
     def __str__(self):
+        """Return the string representation of the response status.
+
+        Returns:
+            str: The response status value as a string.
+        """
         return self.value

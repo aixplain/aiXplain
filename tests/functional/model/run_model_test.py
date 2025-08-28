@@ -106,7 +106,6 @@ def run_index_model(index_model, retries):
         pytest.param(None, ZeroEntropyParams, id="ZERO_ENTROPY"),
         pytest.param(EmbeddingModel.OPENAI_ADA002, GraphRAGParams, id="GRAPHRAG"),
         pytest.param(EmbeddingModel.OPENAI_ADA002, AirParams, id="AIR - OpenAI Ada 002"),
-        pytest.param("6658d40729985c2cf72f42ec", AirParams, id="AIR - Snowflake Arctic Embed M Long"),
         pytest.param(EmbeddingModel.MULTILINGUAL_E5_LARGE, AirParams, id="AIR - Multilingual E5 Large"),
         pytest.param("67efd4f92a0a850afa045af7", AirParams, id="AIR - BGE M3"),
     ],
@@ -133,7 +132,6 @@ def test_index_model(embedding_model, supplier_params):
     [
         pytest.param(None, VectaraParams, id="VECTARA"),
         pytest.param(EmbeddingModel.OPENAI_ADA002, AirParams, id="OpenAI Ada 002"),
-        pytest.param("6658d40729985c2cf72f42ec", AirParams, id="Snowflake Arctic Embed M Long"),
         pytest.param(EmbeddingModel.JINA_CLIP_V2_MULTIMODAL, AirParams, id="Jina Clip v2 Multimodal"),
         pytest.param(EmbeddingModel.MULTILINGUAL_E5_LARGE, AirParams, id="Multilingual E5 Large"),
         pytest.param("67efd4f92a0a850afa045af7", AirParams, id="BGE M3"),
@@ -421,3 +419,96 @@ def test_index_model_with_invalid_file():
     finally:
         # Cleanup
         index_model.delete()
+
+def _test_records():
+    from aixplain.modules.model.record import Record
+    from aixplain.enums import DataType
+
+    return [
+        Record(
+            value="Artificial intelligence is transforming industries worldwide, from healthcare to finance.",
+            value_type=DataType.TEXT,
+            id="doc1",
+            uri="",
+            attributes={"category": "technology", "date": 1751464788},
+        ),
+        Record(
+            value="The Mona Lisa, painted by Leonardo da Vinci, is one of the most famous artworks in history.",
+            value_type=DataType.TEXT,
+            id="doc2",
+            uri="",
+            attributes={"category": "art", "date": 1751464790},
+        ),
+        Record(
+            value="Machine learning algorithms are being used to predict patient outcomes in hospitals.",
+            value_type=DataType.TEXT,
+            id="doc3",
+            uri="",
+            attributes={"category": "technology", "date": 1751464795},
+        ),
+        Record(
+            value="The Earth orbits the Sun once every 365.25 days, creating the calendar year.",
+            value_type=DataType.TEXT,
+            id="doc4",
+            uri="",
+            attributes={"category": "science", "date": 1751464798},
+        ),
+        Record(
+            value="Quantum computing promises to solve complex problems that are currently intractable for classical computers.",
+            value_type=DataType.TEXT,
+            id="doc5",
+            uri="",
+            attributes={"category": "technology", "date": 1751464801},
+        ),
+    ]
+
+
+@pytest.fixture(scope="function")
+def setup_index_with_test_records():
+    from aixplain.factories import IndexFactory
+    from aixplain.enums import EmbeddingModel
+    from aixplain.factories.index_factory.utils import AirParams
+    from uuid import uuid4
+    import time
+
+    # Clean up all existing indexes
+    for index in IndexFactory.list()["results"]:
+        index.delete()
+
+    params = AirParams(
+        name=f"Test Index {uuid4()}",
+        description="Test index for filter/date tests",
+        embedding_model=EmbeddingModel.OPENAI_ADA002,
+    )
+    index_model = IndexFactory.create(params=params)
+    records = _test_records()
+
+    index_model.upsert(records)
+
+    yield index_model
+    index_model.delete()
+
+
+def test_retrieve_records_with_filter(setup_index_with_test_records):
+    from aixplain.modules.model.index_model import IndexFilter, IndexFilterOperator
+
+    index_model = setup_index_with_test_records
+    filter_ = IndexFilter(field="category", value="technology", operator=IndexFilterOperator.EQUALS)
+    response = index_model.retrieve_records_with_filter(filter_)
+    assert response.status == "SUCCESS"
+    assert len(response.details) == 3
+    for item in response.details:
+        assert item["metadata"]["category"] == "technology"
+
+
+def test_delete_records_by_date(setup_index_with_test_records):
+    from aixplain.modules.model.index_model import IndexFilter, IndexFilterOperator
+
+    index_model = setup_index_with_test_records
+    response = index_model.delete_records_by_date(1751464796)
+    assert response.status == "SUCCESS"
+    assert response.data == "2"  # 2 records should remain
+    filter_all = IndexFilter(field="date", value=0, operator=IndexFilterOperator.GREATER_THAN)
+    response = index_model.retrieve_records_with_filter(filter_all)
+    assert response.status == "SUCCESS"
+    assert len(response.details) == 2

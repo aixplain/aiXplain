@@ -1,4 +1,5 @@
 from enum import Enum
+from aixplain.enums import FunctionType  # noqa: F401
 
 
 class RouteType(str, Enum):
@@ -28,14 +29,6 @@ class NodeType(str, Enum):
 
 class AssetType(str, Enum):
     MODEL = "MODEL"
-
-
-class FunctionType(str, Enum):
-    AI = "ai"
-    SEGMENTOR = "segmentor"
-    RECONSTRUCTOR = "reconstructor"
-    UTILITY = "utility"
-    METRIC = "metric"
 
 
 class ParamType:

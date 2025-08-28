@@ -5,6 +5,7 @@ from aixplain.modules.model.llm_model import LLM
 from aixplain.modules.model.index_model import IndexModel
 from aixplain.modules.model.integration import Integration
 from aixplain.modules.model.connection import ConnectionTool
+from aixplain.modules.model.mcp_connection import MCPConnection
 from aixplain.modules.model.utility_model import UtilityModel
 from aixplain.modules.model.utility_model import UtilityModelInput
 from aixplain.enums import DataType, Function, FunctionType, Language, OwnershipType, Supplier, SortBy, SortOrder, AssetStatus
@@ -17,13 +18,29 @@ import requests
 
 
 def create_model_from_response(response: Dict) -> Model:
-    """Converts response Json to 'Model' object
+    """Convert API response JSON into appropriate Model object.
+
+    This function creates the correct type of Model object (Model, LLM, IndexModel,
+    Integration, ConnectionTool, MCPConnection, or UtilityModel) based on the
+    function type and parameters in the response.
 
     Args:
-        response (Dict): Json from API
+        response (Dict): API response containing model information including:
+            - id: Model identifier
+            - name: Model name
+            - function: Function type information
+            - params: Model parameters
+            - api_key: Optional API key
+            - attributes: Optional model attributes
+            - code: Optional model code
+            - version: Optional version information
 
     Returns:
-        Model: Coverted 'Model' object
+        Model: Instantiated model object of the appropriate subclass based on
+        the function type.
+
+    Raises:
+        Exception: If required code is not found for UtilityModel.
     """
     if "api_key" not in response:
         response["api_key"] = config.TEAM_API_KEY
@@ -41,10 +58,14 @@ def create_model_from_response(response: Dict) -> Model:
     additional_kwargs = {}
     attributes = response.get("attributes", None)
     if attributes:
-        embedding_model = next((item["code"] for item in attributes if item["name"] == "embeddingmodel"), None)
+        embedding_model = next(
+            (item.get("code") for item in attributes if item.get("name") == "embeddingmodel" and "code" in item), None
+        )
         if embedding_model:
             additional_kwargs["embedding_model"] = embedding_model
-        embedding_size = next((item["value"] for item in attributes if item["name"] == "embeddingSize"), None)
+        embedding_size = next(
+            (item.get("value") for item in attributes if item.get("name") == "embeddingSize" and "value" in item), None
+        )
         if embedding_size:
             additional_kwargs["embedding_size"] = embedding_size
 
@@ -72,6 +93,8 @@ def create_model_from_response(response: Dict) -> Model:
         ModelClass = Integration
     elif function_type == FunctionType.CONNECTION:
         ModelClass = ConnectionTool
+    elif function_type == FunctionType.MCP_CONNECTION:
+        ModelClass = MCPConnection
     elif function == Function.UTILITIES:
         ModelClass = UtilityModel
         inputs = [
@@ -118,6 +141,7 @@ def create_model_from_response(response: Dict) -> Model:
         supports_streaming=response.get("supportsStreaming", False),
         status=status,
         function_type=function_type,
+        attributes=attributes,
         **additional_kwargs,
     )
 
@@ -136,6 +160,41 @@ def get_assets_from_page(
     sort_order: SortOrder = SortOrder.ASCENDING,
     api_key: Optional[str] = None,
 ) -> List[Model]:
+    """Retrieve a paginated list of models with specified filters.
+
+    This function fetches a page of models from the aiXplain platform, applying
+    various filters such as function type, suppliers, languages, and ownership.
+
+    Args:
+        query: Search query string to filter models.
+        page_number (int): Page number to retrieve (0-based).
+        page_size (int): Number of models per page.
+        function (Function): Function type to filter models by.
+        suppliers (Union[Supplier, List[Supplier]]): Single supplier or list of
+            suppliers to filter models by.
+        source_languages (Union[Language, List[Language]]): Source language(s)
+            supported by the models.
+        target_languages (Union[Language, List[Language]]): Target language(s)
+            for translation models.
+        is_finetunable (bool, optional): Filter for fine-tunable models.
+            Defaults to None.
+        ownership (Optional[Tuple[OwnershipType, List[OwnershipType]]], optional):
+            Filter by model ownership type. Defaults to None.
+        sort_by (Optional[SortBy], optional): Field to sort results by.
+            Defaults to None.
+        sort_order (SortOrder, optional): Sort direction (ascending/descending).
+            Defaults to SortOrder.ASCENDING.
+        api_key (Optional[str], optional): API key for authentication.
+            Defaults to None, using the configured TEAM_API_KEY.
+
+    Returns:
+        Tuple[List[Model], int]: A tuple containing:
+            - List of Model objects matching the filters
+            - Total number of models matching the filters
+
+    Raises:
+        Exception: If the API request fails or returns an error.
+    """
     try:
         url = urljoin(config.BACKEND_URL, "sdk/models/paginate")
         filter_params = {"q": query, "pageNumber": page_number, "pageSize": page_size}
@@ -201,6 +260,25 @@ def get_assets_from_page(
 
 
 def get_model_from_ids(model_ids: List[str], api_key: Optional[str] = None) -> List[Model]:
+    """Retrieve multiple models by their IDs.
+
+    This function fetches multiple models from the aiXplain platform in a single
+    request using their unique identifiers.
+
+    Args:
+        model_ids (List[str]): List of model IDs to retrieve.
+        api_key (Optional[str], optional): API key for authentication.
+            Defaults to None, using the configured TEAM_API_KEY.
+
+    Returns:
+        List[Model]: List of Model objects corresponding to the provided IDs.
+            Each model will be instantiated as the appropriate subclass based
+            on its function type.
+
+    Raises:
+        Exception: If the API request fails or returns an error, including
+            cases where models are not found or access is denied.
+    """
     from aixplain.factories.model_factory.utils import create_model_from_response
 
     resp = None
@@ -223,11 +301,52 @@ def get_model_from_ids(model_ids: List[str], api_key: Optional[str] = None) -> L
         raise Exception(f"{message}")
     if 200 <= r.status_code < 300:
         models = []
-        for item in resp["items"]:
-            item["api_key"] = config.TEAM_API_KEY
-            if api_key is not None:
-                item["api_key"] = api_key
-            models.append(create_model_from_response(item))
+
+        def process_items(items):
+            """Helper function to process model items and add API key"""
+            for item in items:
+                item["api_key"] = config.TEAM_API_KEY
+                if api_key is not None:
+                    item["api_key"] = api_key
+                models.append(create_model_from_response(item))
+
+        # Check if pagination is needed ( pageNumber: 0 indicates pagination required)
+        if "pageTotal" in resp:
+            # Handle paginated response - need to fetch all pages
+            page_number = 1
+            total_fetched = resp.get("pageTotal", 0)
+            page_items = resp.get("items", [])
+            total_items = resp.get("total", 0)
+            process_items(page_items)
+
+            while True:
+                # Make request for current page
+                paginated_url = urljoin(config.BACKEND_URL, f"sdk/models?ids={','.join(model_ids)}&pageNumber={page_number}")
+                logging.info(f"Fetching page {page_number} - {paginated_url}")
+                page_r = _request_with_retry("get", paginated_url, headers=headers)
+                page_resp = page_r.json()
+
+                if not (200 <= page_r.status_code < 300):
+                    error_message = f"Model GET Error: Failed to retrieve models page {page_number}. Status Code: {page_r.status_code}. Error: {page_resp}"
+                    logging.error(error_message)
+                    raise Exception(error_message)
+
+                # Process items from current page
+                page_items = page_resp.get("items", [])
+                if not page_items:
+                    break
+
+                process_items(page_items)
+                total_fetched += len(page_items)
+
+                if total_fetched >= total_items:
+                    break
+
+                page_number += 1
+        else:
+            # Handle non-paginated response (original logic)
+            process_items(resp["items"])
+
         return models
     else:
         error_message = f"Model GET Error: Failed to retrieve models {model_ids}. Status Code: {r.status_code}. Error: {resp}"
