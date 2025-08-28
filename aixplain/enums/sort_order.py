@@ -25,5 +25,14 @@ from enum import Enum
 
 
 class SortOrder(Enum):
+    """Enumeration of possible sorting orders.
+
+    This enum defines the different directions that can be used to sort assets,
+    including ascending and descending order.
+
+    Attributes:
+        ASCENDING (int): Sort in ascending order.
+        DESCENDING (int): Sort in descending order.
+    """
     ASCENDING = 1
     DESCENDING = -1

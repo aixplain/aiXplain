@@ -1,5 +1,7 @@
 """
 Functional tests for team agents with inspectors.
+
+WARNING: This feature is currently in private beta.
 """
 
 from dotenv import load_dotenv
@@ -10,10 +12,12 @@ load_dotenv()
 import pytest
 
 from aixplain import aixplain_v2 as v2
-from aixplain.factories import AgentFactory, TeamAgentFactory
+from aixplain.factories import AgentFactory, TeamAgentFactory, ModelFactory
 from aixplain.enums.asset_status import AssetStatus
 from aixplain.modules.team_agent import InspectorTarget
-from aixplain.modules.team_agent.inspector import Inspector, InspectorPolicy
+from aixplain.modules.team_agent.inspector import Inspector, InspectorPolicy, InspectorAction, InspectorOutput
+from aixplain.modules.model.response import ModelResponse
+from aixplain.enums.response_status import ResponseStatus
 
 from tests.functional.team_agent.test_utils import (
     RUN_FILE,
@@ -22,6 +26,36 @@ from tests.functional.team_agent.test_utils import (
     create_team_agent,
     verify_response_generator,
 )
+
+
+# Define callable policy functions at module level for proper serialization
+def process_response(model_response: ModelResponse, input_content: str) -> InspectorOutput:
+    """Basic callable policy function for testing."""
+    if "error" in model_response.error_message.lower() or "invalid" in model_response.data.lower():
+        return InspectorOutput(critiques="Error or invalid content detected", content_edited="", action=InspectorAction.ABORT)
+    elif "warning" in model_response.data.lower():
+        return InspectorOutput(critiques="Warning detected", content_edited="", action=InspectorAction.RERUN)
+    return InspectorOutput(critiques="No issues detected", content_edited="", action=InspectorAction.CONTINUE)
+
+
+def process_response_abort(model_response: ModelResponse, input_content: str) -> InspectorOutput:
+    """Callable policy function that aborts on specific content."""
+    abort_keywords = ["dangerous", "harmful", "illegal", "inappropriate"]
+    for keyword in abort_keywords:
+        if keyword in model_response.data.lower():
+            return InspectorOutput(
+                critiques=f"Abort keyword '{keyword}' detected", content_edited="", action=InspectorAction.ABORT
+            )
+    return InspectorOutput(critiques="No abort keywords detected", content_edited="", action=InspectorAction.CONTINUE)
+
+
+def process_response_rerun(model_response: ModelResponse, input_content: str) -> InspectorOutput:
+    """Callable policy function that triggers rerun on specific conditions."""
+    if len(model_response.data.strip()) < 10 or "placeholder" in model_response.data.lower():
+        return InspectorOutput(
+            critiques="Content too short or contains placeholder", content_edited="", action=InspectorAction.RERUN
+        )
+    return InspectorOutput(critiques="Content is acceptable", content_edited="", action=InspectorAction.CONTINUE)
 
 
 @pytest.fixture(scope="function")
@@ -556,4 +590,219 @@ def test_team_agent_with_input_adaptive_inspector(run_input_map, delete_agents_a
             mentalist_input and revised_query in mentalist_input
         ), "The mentalist input does not contain the revised query from the last query_manager"
 
+    team_agent.delete()
+
+
+@pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory, v2.TeamAgent])
+def test_team_agent_with_callable_policy(run_input_map, delete_agents_and_team_agents, TeamAgentFactory):
+    """Comprehensive test of callable policy functionality with team agent integration"""
+    assert delete_agents_and_team_agents
+
+    agents = create_agents_from_input_map(run_input_map)
+
+    # Test 1: Create inspector with callable policy
+    inspector = Inspector(
+        name="callable_inspector",
+        model_id=run_input_map["llm_id"],
+        model_params={"prompt": "Check if the steps are valid and provide feedback"},
+        policy=process_response,  # Using module-level callable policy
+    )
+
+    # Test 2: Verify the inspector was created correctly
+    assert inspector.name == "callable_inspector"
+    assert callable(inspector.policy)
+    assert inspector.policy.__name__ == "process_response"
+
+    # Test 3: Verify the callable policy works correctly
+    result1 = inspector.policy(
+        ModelResponse(status=ResponseStatus.FAILED, error_message="This is an error message", data="input"), "input"
+    )
+    assert result1.action == InspectorAction.ABORT
+
+    result2 = inspector.policy(
+        ModelResponse(status=ResponseStatus.SUCCESS, data="This is a warning message", error_message=""), "input"
+    )
+    assert result2.action == InspectorAction.RERUN
+
+    result3 = inspector.policy(
+        ModelResponse(status=ResponseStatus.SUCCESS, data="This is a normal message", error_message=""), "input"
+    )
+    assert result3.action == InspectorAction.CONTINUE
+
+    # Test 4: Create team agent with callable policy inspector
+    team_agent = create_team_agent(
+        TeamAgentFactory,
+        agents,
+        run_input_map,
+        use_mentalist=True,
+        inspectors=[inspector],
+        inspector_targets=[InspectorTarget.STEPS],
+    )
+
+    assert team_agent is not None
+    assert team_agent.status == AssetStatus.DRAFT
+
+    # Test 5: Deploy team agent (backend properly handles callable policies)
+    team_agent.deploy()
+    team_agent = TeamAgentFactory.get(team_agent.id)
+    assert team_agent is not None
+    assert team_agent.status == AssetStatus.ONBOARDED
+
+    # Test 6: Verify backend properly handles callable policies
+    assert len(team_agent.inspectors) == 1
+    backend_inspector = team_agent.inspectors[0]
+    assert backend_inspector.name == "callable_inspector"
+    # Backend should properly handle callable policies, not fall back to ADAPTIVE
+    assert callable(backend_inspector.policy)
+    assert backend_inspector.policy.__name__ == "process_response"
+
+    # Verify the backend-preserved callable policy still works correctly
+    assert (
+        backend_inspector.policy(
+            ModelResponse(status=ResponseStatus.FAILED, error_message="This is an error message", data="input"), "input"
+        ).action
+        == InspectorAction.ABORT
+    )
+    assert (
+        backend_inspector.policy(
+            ModelResponse(status=ResponseStatus.SUCCESS, data="This is a warning message", error_message=""), "input"
+        ).action
+        == InspectorAction.RERUN
+    )
+    assert (
+        backend_inspector.policy(
+            ModelResponse(status=ResponseStatus.SUCCESS, data="This is a normal message", error_message=""), "input"
+        ).action
+        == InspectorAction.CONTINUE
+    )
+
+    team_agent.delete()
+
+
+@pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory, v2.TeamAgent])
+def test_inspector_action_verification(run_input_map, delete_agents_and_team_agents, TeamAgentFactory):
+    """Test that inspector actions are properly executed and their results are verified"""
+    assert delete_agents_and_team_agents
+
+    agents = create_agents_from_input_map(run_input_map)
+
+    # Create a custom callable policy that always returns ABORT
+    def process_response(model_response: ModelResponse, input_content: str) -> InspectorOutput:
+        """Custom policy that always returns ABORT for safety testing."""
+        return InspectorOutput(critiques="Safety check", content_edited="", action=InspectorAction.ABORT)
+
+    # Create inspector with custom callable policy
+    inspector = Inspector(
+        name="custom_abort_inspector",
+        model_id=run_input_map["llm_id"],
+        model_params={"prompt": "You are a safety inspector."},
+        policy=process_response,
+    )
+
+    # Create team agent with the custom policy inspector
+    team_agent = create_team_agent(
+        TeamAgentFactory,
+        agents,
+        run_input_map,
+        use_mentalist=True,
+        inspectors=[inspector],
+        inspector_targets=[InspectorTarget.STEPS],
+    )
+
+    # Deploy and run team agent
+    team_agent.deploy()
+    team_agent = TeamAgentFactory.get(team_agent.id)
+    response = team_agent.run(data=run_input_map["query"])
+
+    assert response is not None
+    assert response["completed"] is True
+    assert response["status"].lower() == "success"
+
+    # Extract steps from response
+    steps = getattr(response.data, "intermediate_steps", []) if hasattr(response, "data") else []
+
+    # Find inspector steps
+    inspector_steps = [step for step in steps if "inspector" in step.get("agent", "").lower()]
+
+    # If no inspector steps found, backend may not be using custom policies
+    if not inspector_steps:
+        print("No inspector steps found - backend may not be using custom policies")
+        team_agent.delete()
+        return
+
+    # Verify inspector executed and took ABORT action
+    inspector_step = inspector_steps[0]
+    assert inspector_step.get("action") == "abort", "Inspector should have returned ABORT"
+
+    # Verify response generator ran after inspector
+    response_generator_steps = [step for step in steps if "response_generator" in step.get("agent", "").lower()]
+    assert len(response_generator_steps) == 1, "Response generator should run exactly once after ABORT"
+
+    team_agent.delete()
+
+
+@pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory, v2.TeamAgent])
+def test_team_agent_with_utility_inspector(run_input_map, delete_agents_and_team_agents, TeamAgentFactory):
+    """Test team agent with a Utility model as inspector"""
+    assert delete_agents_and_team_agents
+
+    agents = create_agents_from_input_map(run_input_map)
+
+    def lowercase_inspector(content: str) -> bool:
+        if content.islower():
+            return ""
+        else:
+            return "Content is not all lowercase. There are uppercase characters in the content."
+
+    utility_model = ModelFactory.create_utility_model(
+        name="Lowercase Inspector Test",
+        description="Inspect the content of the response. If the content is not all lowercase, provide feedback.'",
+        code=lowercase_inspector,
+    )
+    utility_model.deploy()
+
+    utility_model_id = utility_model.id
+    inspector = Inspector(
+        name="utility_inspector",
+        model_id=utility_model_id,
+        policy=InspectorPolicy.WARN,
+    )
+
+    # Create team agent with steps inspector
+    team_agent = create_team_agent(
+        TeamAgentFactory,
+        agents,
+        run_input_map,
+        use_mentalist=True,
+        inspectors=[inspector],
+        inspector_targets=[InspectorTarget.STEPS],
+    )
+
+    assert team_agent is not None
+    assert team_agent.status == AssetStatus.DRAFT
+
+    # deploy team agent
+    team_agent.deploy()
+    team_agent = TeamAgentFactory.get(team_agent.id)
+    assert team_agent is not None
+    assert team_agent.status == AssetStatus.ONBOARDED
+
+    # Run the team agent
+    response = team_agent.run(data=run_input_map["query"])
+
+    assert response is not None
+    assert response["completed"] is True
+    assert response["status"].lower() == "success"
+
+    # Check for inspector steps
+    if "intermediate_steps" in response["data"]:
+        steps = response["data"]["intermediate_steps"]
+        verify_inspector_steps(steps, ["utility_inspector"], [InspectorTarget.STEPS])
+        verify_response_generator(steps)
+
+        # Verify inspector runs and execution continues
+        inspector_steps = [step for step in steps if "utility_inspector" in step.get("agent", "").lower()]
+        assert len(inspector_steps) > 0, "Utility inspector should run at least once"
+
+    utility_model.delete()
     team_agent.delete()

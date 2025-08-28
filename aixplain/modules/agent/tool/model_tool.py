@@ -52,12 +52,19 @@ def set_tool_name(function: Function, supplier: Supplier = None, model: Model = 
 
 
 class ModelTool(Tool):
-    """Specialized software or resource designed to assist the AI in executing specific tasks or functions based on user commands.
+    """A tool that wraps AI models to execute specific tasks or functions based on user commands.
+
+    This class provides a standardized interface for working with various AI models,
+    allowing them to be used as tools in the aiXplain platform. It handles model
+    configuration, validation, and parameter management.
 
     Attributes:
-        function (Optional[Function]): task that the tool performs.
-        supplier (Optional[Supplier]): Preferred supplier to perform the task.
-        model (Optional[Text]): Model function.
+        function (Optional[Function]): The task that the tool performs.
+        supplier (Optional[Supplier]): The preferred supplier to perform the task.
+        model (Optional[Union[Text, Model]]): The model ID or Model instance.
+        model_object (Optional[Model]): The actual Model instance for parameter access.
+        parameters (Optional[Dict]): Configuration parameters for the model.
+        status (AssetStatus): The current status of the tool.
     """
 
     def __init__(
@@ -70,15 +77,24 @@ class ModelTool(Tool):
         parameters: Optional[Dict] = None,
         **additional_info,
     ) -> None:
-        """Specialized software or resource designed to assist the AI in executing specific tasks or functions based on user commands.
+        """Initialize a new ModelTool instance.
 
         Args:
-            function (Optional[Union[Function, Text]]): task that the tool performs. Defaults to None.
-            supplier (Optional[Union[Dict, Supplier]]): Preferred supplier to perform the task. Defaults to None. Defaults to None.
-            model (Optional[Union[Text, Model]]): Model function. Defaults to None.
-            name (Optional[Text]): Name of the tool. Defaults to None.
-            description (Text): Description of the tool. Defaults to "".
-            parameters (Optional[Dict]): Parameters of the tool. Defaults to None.
+            function (Optional[Union[Function, Text]], optional): The task that the tool performs. Can be a Function enum
+                or a string that will be converted to a Function. Defaults to None.
+            supplier (Optional[Union[Dict, Supplier]], optional): The preferred supplier to perform the task.
+                Can be a Supplier enum or a dictionary with supplier information. Defaults to None.
+            model (Optional[Union[Text, Model]], optional): The model to use, either as a Model instance
+                or a model ID string. Defaults to None.
+            name (Optional[Text], optional): The name of the tool. If not provided, will be generated
+                from function, supplier, and model. Defaults to None.
+            description (Text, optional): A description of the tool's functionality. If not provided,
+                will be taken from model or function description. Defaults to "".
+            parameters (Optional[Dict], optional): Configuration parameters for the model. Defaults to None.
+            **additional_info: Additional keyword arguments for tool configuration.
+
+        Raises:
+            Exception: If the specified model doesn't exist or is inaccessible.
         """
         name = name or ""
         super().__init__(name=name, description=description, **additional_info)
@@ -107,7 +123,23 @@ class ModelTool(Tool):
         self.validate()
 
     def to_dict(self) -> Dict:
-        """Converts the tool to a dictionary."""
+        """Convert the tool instance to a dictionary representation.
+
+        This method handles the conversion of complex attributes like supplier and model
+        into their serializable forms.
+
+        Returns:
+            Dict: A dictionary containing the tool's configuration with keys:
+                - function: The function value or None
+                - type: Always "model"
+                - name: The tool's name
+                - description: The tool's description
+                - supplier: The supplier code or None
+                - version: The tool's version or None
+                - assetId: The model's ID
+                - parameters: The tool's parameters
+                - status: The tool's status
+        """
         supplier = self.supplier
         if supplier is not None:
             if isinstance(supplier, dict):
@@ -183,6 +215,12 @@ class ModelTool(Tool):
 
 
     def get_parameters(self) -> Dict:
+        """Get the tool's parameters, either from explicit settings or the model object.
+
+        Returns:
+            Dict: The tool's parameters. If no explicit parameters were set and a model
+            object exists with model_params, returns those parameters as a list.
+        """
         # If parameters were not explicitly provided, get them from the model
         if (
             self.parameters is None
@@ -194,6 +232,18 @@ class ModelTool(Tool):
         return self.parameters
 
     def _get_model(self, model_id: Text = None):
+        """Retrieve a Model instance by its ID.
+
+        Args:
+            model_id (Text, optional): The ID of the model to retrieve. If not provided,
+                uses the tool's model ID. Defaults to None.
+
+        Returns:
+            Model: The retrieved Model instance.
+
+        Raises:
+            Exception: If the model cannot be retrieved or accessed.
+        """
         from aixplain.factories.model_factory import ModelFactory
 
         model_id = model_id or self.model
@@ -255,9 +305,20 @@ class ModelTool(Tool):
         return received_parameters
 
     def __repr__(self) -> Text:
+        """Return a string representation of the tool.
+
+        Returns:
+            Text: A string in the format "ModelTool(name=<name>, function=<function>,
+                supplier=<supplier>, model=<model>)".
+        """
         supplier_str = self.supplier.value if self.supplier is not None else None
         model_str = self.model.id if self.model is not None else None
         return f"ModelTool(name={self.name}, function={self.function}, supplier={supplier_str}, model={model_str})"
 
     def deploy(self):
+        """Deploy the model tool.
+
+        This is a placeholder method as model tools are managed through the aiXplain platform
+        and don't require explicit deployment.
+        """
         pass

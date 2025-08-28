@@ -67,20 +67,24 @@ class LLM(Model):
         function_type: Optional[FunctionType] = FunctionType.AI,
         **additional_info,
     ) -> None:
-        """LLM Init
+        """Initialize a new LLM instance.
 
         Args:
-            id (Text): ID of the Model
-            name (Text): Name of the Model
-            description (Text, optional): description of the model. Defaults to "".
-            api_key (Text, optional): API key of the Model. Defaults to None.
-            supplier (Union[Dict, Text, Supplier, int], optional): supplier of the asset. Defaults to "aiXplain".
-            version (Text, optional): version of the model. Defaults to "1.0".
-            function (Function, optional): model AI function. Defaults to None.
-            is_subscribed (bool, optional): Is the user subscribed. Defaults to False.
-            cost (Dict, optional): model price. Defaults to None.
-            function_type (FunctionType, optional): type of the function. Defaults to FunctionType.AI.
-            **additional_info: Any additional Model info to be saved
+            id (Text): ID of the LLM model.
+            name (Text): Name of the LLM model.
+            description (Text, optional): Description of the model. Defaults to "".
+            api_key (Text, optional): API key for the model. Defaults to None.
+            supplier (Union[Dict, Text, Supplier, int], optional): Supplier of the model. Defaults to "aiXplain".
+            version (Text, optional): Version of the model. Defaults to "1.0".
+            function (Function, optional): Model's AI function. Must be Function.TEXT_GENERATION.
+            is_subscribed (bool, optional): Whether the user is subscribed. Defaults to False.
+            cost (Dict, optional): Cost of the model. Defaults to None.
+            temperature (float, optional): Default temperature for text generation. Defaults to 0.001.
+            function_type (FunctionType, optional): Type of the function. Defaults to FunctionType.AI.
+            **additional_info: Any additional model info to be saved.
+
+        Raises:
+            AssertionError: If function is not Function.TEXT_GENERATION.
         """
         assert function == Function.TEXT_GENERATION, "LLM only supports large language models (i.e. text generation function)"
         super().__init__(
@@ -115,23 +119,42 @@ class LLM(Model):
         wait_time: float = 0.5,
         stream: bool = False,
     ) -> Union[ModelResponse, ModelResponseStreamer]:
-        """Synchronously running a Large Language Model (LLM) model.
+        """Run the LLM model synchronously to generate text.
+
+        This method runs the LLM model to generate text based on the provided input.
+        It supports both single-turn and conversational interactions, with options
+        for streaming responses.
 
         Args:
-            data (Union[Text, Dict]): Text to LLM or last user utterance of a conversation.
-            context (Optional[Text], optional): System message. Defaults to None.
-            prompt (Optional[Text], optional): Prompt Message which comes on the left side of the last utterance. Defaults to None.
-            history (Optional[List[Dict]], optional): Conversation history in OpenAI format ([{ "role": "assistant", "content": "Hello, world!"}]). Defaults to None.
-            temperature (Optional[float], optional): LLM temperature. Defaults to None.
-            max_tokens (int, optional): Maximum Generation Tokens. Defaults to 128.
-            top_p (float, optional): Top P. Defaults to 1.0.
-            name (Text, optional): ID given to a call. Defaults to "model_process".
-            timeout (float, optional): total polling time. Defaults to 300.
-            parameters (Dict, optional): optional parameters to the model. Defaults to None.
-            wait_time (float, optional): wait time in seconds between polling calls. Defaults to 0.5.
-            stream (bool, optional): whether the model supports streaming. Defaults to False.
+            data (Text): The input text or last user utterance for text generation.
+            context (Optional[Text], optional): System message or context for the model.
+                Defaults to None.
+            prompt (Optional[Text], optional): Prompt template or prefix to prepend to
+                the input. Defaults to None.
+            history (Optional[List[Dict]], optional): Conversation history in OpenAI format
+                (e.g., [{"role": "assistant", "content": "Hello!"}, ...]). Defaults to None.
+            temperature (Optional[float], optional): Sampling temperature for text generation.
+                Higher values make output more random. If None, uses the model's default.
+                Defaults to None.
+            max_tokens (int, optional): Maximum number of tokens to generate.
+                Defaults to 128.
+            top_p (float, optional): Nucleus sampling parameter. Only tokens with cumulative
+                probability < top_p are considered. Defaults to 1.0.
+            name (Text, optional): Identifier for this model run. Useful for logging.
+                Defaults to "model_process".
+            timeout (float, optional): Maximum time in seconds to wait for completion.
+                Defaults to 300.
+            parameters (Optional[Dict], optional): Additional model-specific parameters.
+                Defaults to None.
+            wait_time (float, optional): Time in seconds between polling attempts.
+                Defaults to 0.5.
+            stream (bool, optional): Whether to stream the model's output tokens.
+                Defaults to False.
+
         Returns:
-            Union[ModelResponse, ModelStreamer]: parsed output from model
+            Union[ModelResponse, ModelResponseStreamer]: If stream=False, returns a ModelResponse
+                containing the complete generated text and metadata. If stream=True, returns
+                a ModelResponseStreamer that yields tokens as they're generated.
         """
         start = time.time()
         parameters = parameters or {}
@@ -191,21 +214,41 @@ class LLM(Model):
         name: Text = "model_process",
         parameters: Optional[Dict] = None,
     ) -> ModelResponse:
-        """Runs asynchronously a model call.
+        """Run the LLM model asynchronously to generate text.
+
+        This method starts an asynchronous text generation task and returns immediately
+        with a response containing a polling URL. The actual result can be retrieved
+        later using the polling URL.
 
         Args:
-            data (Union[Text, Dict]): Text to LLM or last user utterance of a conversation.
-            context (Optional[Text], optional): System message. Defaults to None.
-            prompt (Optional[Text], optional): Prompt Message which comes on the left side of the last utterance. Defaults to None.
-            history (Optional[List[Dict]], optional): Conversation history in OpenAI format ([{ "role": "assistant", "content": "Hello, world!"}]). Defaults to None.
-            temperature (Optional[float], optional): LLM temperature. Defaults to None.
-            max_tokens (int, optional): Maximum Generation Tokens. Defaults to 128.
-            top_p (float, optional): Top P. Defaults to 1.0.
-            name (Text, optional): ID given to a call. Defaults to "model_process".
-            parameters (Dict, optional): optional parameters to the model. Defaults to None.
+            data (Text): The input text or last user utterance for text generation.
+            context (Optional[Text], optional): System message or context for the model.
+                Defaults to None.
+            prompt (Optional[Text], optional): Prompt template or prefix to prepend to
+                the input. Defaults to None.
+            history (Optional[List[Dict]], optional): Conversation history in OpenAI format
+                (e.g., [{"role": "assistant", "content": "Hello!"}, ...]). Defaults to None.
+            temperature (Optional[float], optional): Sampling temperature for text generation.
+                Higher values make output more random. If None, uses the model's default.
+                Defaults to None.
+            max_tokens (int, optional): Maximum number of tokens to generate.
+                Defaults to 128.
+            top_p (float, optional): Nucleus sampling parameter. Only tokens with cumulative
+                probability < top_p are considered. Defaults to 1.0.
+            name (Text, optional): Identifier for this model run. Useful for logging.
+                Defaults to "model_process".
+            parameters (Optional[Dict], optional): Additional model-specific parameters.
+                Defaults to None.
 
         Returns:
-            dict: polling URL in response
+            ModelResponse: A response object containing:
+                - status (ResponseStatus): Status of the request (e.g., IN_PROGRESS)
+                - url (str): URL to poll for the final result
+                - data (str): Empty string (result not available yet)
+                - details (Dict): Additional response details
+                - completed (bool): False (task not completed yet)
+                - error_message (str): Error message if request failed
+                Other fields may be present depending on the response.
         """
         url = f"{self.url}/{self.id}"
         logging.debug(f"Model Run Async: Start service for {name} - {url}")

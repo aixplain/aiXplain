@@ -25,6 +25,18 @@ from enum import Enum
 
 
 class SplittingOptions(str, Enum):
+    """Enumeration of possible splitting options.
+
+    This enum defines the different ways that text can be split into chunks,
+    including by word, sentence, passage, page, and line.
+
+    Attributes:
+        WORD (str): Split by word.
+        SENTENCE (str): Split by sentence.
+        PASSAGE (str): Split by passage.
+        PAGE (str): Split by page.
+        LINE (str): Split by line.
+    """
     WORD = "word"
     SENTENCE = "sentence"
     PASSAGE = "passage"
@@ -32,4 +44,9 @@ class SplittingOptions(str, Enum):
     LINE = "line"
 
     def __str__(self):
+        """Return the string representation of the splitting option.
+
+        Returns:
+            str: The splitting option value as a string.
+        """
         return self._value_

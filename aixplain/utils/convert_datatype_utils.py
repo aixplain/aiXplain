@@ -25,6 +25,12 @@ def dict_to_metadata(metadatas: List[Union[Dict, MetaData]]) -> None:
     Args:
         metadatas (List[Union[Dict, MetaData]], optional): metadata of metadata information of the dataset.
 
+    Returns:
+        None
+
+    Raises:
+        TypeError: If one or more elements in the metadata_schema are not well-structured
+
     """
     try:
         for i in range(len(metadatas)):

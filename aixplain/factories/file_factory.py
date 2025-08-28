@@ -37,6 +37,14 @@ MB_300 = 314572800
 
 
 class FileFactory:
+    """Factory class for managing file uploads and storage in the aiXplain platform.
+
+    This class provides functionality for uploading files to S3 storage,
+    checking storage types, and managing file links. It supports various file
+    types with different size limits and handles both temporary and permanent
+    storage.
+    """
+
     @classmethod
     def upload(
         cls,
@@ -46,21 +54,39 @@ class FileFactory:
         is_temp: bool = True,
         return_download_link: bool = False,
     ) -> Text:
-        """
-        Uploads a file to an S3 bucket.
+        """Upload a file to the aiXplain S3 storage.
+
+        This method uploads a file to S3 storage with size limits based on file type:
+            - Audio: 50MB
+            - Application: 25MB
+            - Video: 300MB
+            - Image: 25MB
+            - Database: 300MB
+            - Other: 50MB
 
         Args:
-            local_path (Text): The local path of the file to upload.
-            tags (List[Text], optional): tags of the file
-            license (License, optional): the license for the file
-            is_temp (bool): specify if the file that will be upload is a temporary file
-            return_download_link (bool): specify if the function should return the download link of the file or the S3 path
+            local_path (Text): Path to the file to upload.
+            tags (Optional[List[Text]], optional): Tags to associate with the file.
+                Defaults to None.
+            license (Optional[License], optional): License type for the file.
+                Required for non-temporary files. Defaults to None.
+            is_temp (bool, optional): Whether this is a temporary upload.
+                Defaults to True.
+            return_download_link (bool, optional): Whether to return a download
+                link instead of S3 path. Only valid for temporary files.
+                Defaults to False.
+
         Returns:
-            Text: The S3 path where the file was uploaded.
+            Text: Either:
+                - S3 path where the file was uploaded (if return_download_link=False)
+                - Download URL for the file (if return_download_link=True)
 
         Raises:
-            FileNotFoundError: If the local file is not found.
-            Exception: If the file size exceeds the maximum allowed size.
+            FileNotFoundError: If the local file doesn't exist.
+            Exception: If:
+                - File size exceeds the type-specific limit
+                - Requesting download link for non-temporary file
+            AssertionError: If requesting download link for non-temporary file.
         """
         if is_temp is False:
             assert (
@@ -109,13 +135,19 @@ class FileFactory:
 
     @classmethod
     def check_storage_type(cls, input_link: Any) -> StorageType:
-        """Check whether a path is a URL (s3 link or HTTP link), a file or a textual content
+        """Determine the storage type of a given input.
+
+        This method checks whether the input is a local file path, a URL
+        (including S3 and HTTP/HTTPS links), or raw text content.
 
         Args:
-            input_link (Any): path to be checked
+            input_link (Any): Input to check. Can be a file path, URL, or text.
 
         Returns:
-            StorageType: URL, TEXT or FILE
+            StorageType: Storage type enum value:
+                - StorageType.FILE: Local file path
+                - StorageType.URL: S3 or HTTP/HTTPS URL
+                - StorageType.TEXT: Raw text content
         """
         if os.path.exists(input_link) is True and os.path.isfile(input_link) is True:
             return StorageType.FILE
@@ -131,13 +163,21 @@ class FileFactory:
 
     @classmethod
     def to_link(cls, data: Union[Text, Dict], **kwargs) -> Union[Text, Dict]:
-        """If user input data is a local file, upload to aiXplain platform
+        """Convert local file paths to aiXplain platform links.
+
+        This method checks if the input contains local file paths and uploads
+        them to the platform, replacing the paths with the resulting URLs.
+        Other types of input (URLs, text) are left unchanged.
 
         Args:
-            data (Union[Text, Dict]): input data
+            data (Union[Text, Dict]): Input data to process. Can be:
+                - Text: Single file path, URL, or text content
+                - Dict: Dictionary with string values that may be file paths
+            **kwargs: Additional arguments passed to upload() method.
 
         Returns:
-            Union[Text, Dict]: input links/texts
+            Union[Text, Dict]: Processed input where any local file paths have
+            been replaced with platform URLs. Structure matches input type.
         """
         if isinstance(data, dict):
             for key in data:
@@ -153,20 +193,29 @@ class FileFactory:
     def create(
         cls, local_path: Text, tags: Optional[List[Text]] = None, license: Optional[License] = None, is_temp: bool = False
     ) -> Text:
-        """
-        Uploads a file to an S3 bucket.
+        """Create a permanent or temporary file asset in the platform.
+
+        This method is similar to upload() but with a focus on creating file
+        assets. For permanent assets (is_temp=False), a license is required.
 
         Args:
-            local_path (Text): The local path of the file to upload.
-            tags (List[Text], optional): tags of the file
-            license (License, optional): the license for the file
-            is_temp (bool): specify if the file that will be upload is a temporary file
+            local_path (Text): Path to the file to upload.
+            tags (Optional[List[Text]], optional): Tags to associate with the file.
+                Defaults to None.
+            license (Optional[License], optional): License type for the file.
+                Required for non-temporary files. Defaults to None.
+            is_temp (bool, optional): Whether this is a temporary upload.
+                Defaults to False.
+
         Returns:
-            Text: The S3 path where the file was uploaded.
+            Text: Either:
+                - S3 path for permanent files (is_temp=False)
+                - Download URL for temporary files (is_temp=True)
 
         Raises:
-            FileNotFoundError: If the local file is not found.
-            Exception: If the file size exceeds the maximum allowed size.
+            FileNotFoundError: If the local file doesn't exist.
+            Exception: If file size exceeds the type-specific limit.
+            AssertionError: If license is not provided for non-temporary files.
         """
         assert (
             license is not None if is_temp is False else True

@@ -25,6 +25,21 @@ from enum import Enum
 
 
 class DataSubtype(Enum):
+    """Enumeration of data subtypes for categorizing and organizing data.
+
+    This enum defines various subtypes that can be used to further categorize
+    data points within the system, particularly useful for demographic and
+    content-based categorization.
+
+    Attributes:
+        AGE (str): Age category subtype.
+        GENDER (str): Gender category subtype.
+        INTERVAL (str): Time interval subtype.
+        OTHER (str): Miscellaneous/other subtype.
+        RACE (str): Race/ethnicity category subtype.
+        SPLIT (str): Data split category subtype.
+        TOPIC (str): Content topic subtype.
+    """
     AGE = "age"
     GENDER = "gender"
     INTERVAL = "interval"
@@ -33,5 +48,10 @@ class DataSubtype(Enum):
     SPLIT = "split"
     TOPIC = "topic"
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """Return the string representation of the data subtype.
+
+        Returns:
+            str: The data subtype value as a string.
+        """
         return self._value_

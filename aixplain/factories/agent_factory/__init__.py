@@ -28,7 +28,8 @@ import os
 
 from aixplain.enums.function import Function
 from aixplain.enums.supplier import Supplier
-from aixplain.modules.agent import Agent, AgentTask, Tool
+from aixplain.modules.agent import Agent, Tool, WorkflowTask
+from aixplain.modules.agent.output_format import OutputFormat
 from aixplain.modules.agent.tool.model_tool import ModelTool
 from aixplain.modules.agent.tool.pipeline_tool import PipelineTool
 from aixplain.modules.agent.tool.python_interpreter_tool import PythonInterpreterTool
@@ -41,13 +42,19 @@ from aixplain.modules.model.llm_model import LLM
 from aixplain.modules.pipeline import Pipeline
 from aixplain.utils import config
 from typing import Callable, Dict, List, Optional, Text, Union
-
+from pydantic import BaseModel
 from aixplain.utils.request_utils import _request_with_retry
 from urllib.parse import urljoin
 from aixplain.enums import DatabaseSourceType
 
 
 class AgentFactory:
+    """Factory class for creating and managing agents in the aiXplain system.
+
+    This class provides class methods for creating various types of agents and tools,
+    as well as managing existing agents in the platform.
+    """
+
     @classmethod
     def create(
         cls,
@@ -60,7 +67,10 @@ class AgentFactory:
         api_key: Text = config.TEAM_API_KEY,
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
         version: Optional[Text] = None,
-        tasks: List[AgentTask] = [],
+        tasks: List[WorkflowTask] = None,
+        workflow_tasks: List[WorkflowTask] = [],
+        output_format: Optional[OutputFormat] = None,
+        expected_output: Optional[Union[BaseModel, Text, dict]] = None,
     ) -> Agent:
         """Create a new agent in the platform.
 
@@ -71,16 +81,17 @@ class AgentFactory:
 
         Args:
             name (Text): name of the agent
-            description (Text): description of the agent role.
-            instructions (Text): role of the agent.
+            description (Text): description of the agent instructions.
+            instructions (Text): instructions of the agent.
             llm (Optional[Union[LLM, Text]], optional): LLM instance to use as an object or as an ID.
             llm_id (Optional[Text], optional): ID of LLM to use if no LLM instance provided. Defaults to None.
             tools (List[Union[Tool, Model]], optional): list of tool for the agent. Defaults to [].
             api_key (Text, optional): team/user API key. Defaults to config.TEAM_API_KEY.
             supplier (Union[Dict, Text, Supplier, int], optional): owner of the agent. Defaults to "aiXplain".
             version (Optional[Text], optional): version of the agent. Defaults to None.
-            tasks (List[AgentTask], optional): list of tasks for the agent. Defaults to [].
-
+            workflow_tasks (List[WorkflowTask], optional): list of tasks for the agent. Defaults to [].
+            output_format (OutputFormat, optional): default output format for agent responses. Defaults to OutputFormat.TEXT.
+            expected_output (Union[BaseModel, Text, dict], optional): expected output. Defaults to None.
         Returns:
             Agent: created Agent
         """
@@ -92,20 +103,21 @@ class AgentFactory:
             # Use default GPT-4o if no LLM specified
             llm = get_llm_instance("669a63646eb56306647e1091", api_key=api_key)
 
-        if instructions is None:
-            warnings.warn(
-                "Use `instructions` to define the **system prompt**. "
-                "Use `description` to provide a **short summary** of the agent for metadata and dashboard display. "
-                "Note: In upcoming releases, `instructions` will become a required parameter.",
-                UserWarning,
-            )
+        if output_format == OutputFormat.JSON:
+            assert expected_output is not None and (
+                issubclass(expected_output, BaseModel) or isinstance(expected_output, dict)
+            ), "'expected_output' must be a Pydantic BaseModel or a JSON object when 'output_format' is JSON."
+
         warnings.warn(
             "Use `llm` to define the large language model (aixplain.modules.model.llm_model.LLM) to be used as agent. "
             "Use `llm_id` to provide the model ID of the large language model to be used as agent. "
             "Note: In upcoming releases, `llm` will become a required parameter.",
             UserWarning,
         )
-        from aixplain.factories.agent_factory.utils import build_agent, build_tool_payload
+        from aixplain.factories.agent_factory.utils import (
+            build_agent,
+            build_tool_payload,
+        )
 
         agent = None
         url = urljoin(config.BACKEND_URL, "sdk/agents")
@@ -116,16 +128,26 @@ class AgentFactory:
         elif isinstance(supplier, Supplier):
             supplier = supplier.value["code"]
 
+        if tasks is not None:
+            warnings.warn(
+                "The 'tasks' parameter is deprecated and will be removed in a future version. " "Use 'workflow_tasks' instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            workflow_tasks = tasks if workflow_tasks is None else workflow_tasks
+
+        workflow_tasks = workflow_tasks or []
+
         payload = {
             "name": name,
             "assets": [build_tool_payload(tool) for tool in tools],
             "description": description,
-            "role": instructions or description,
+            "instructions": instructions or description,
             "supplier": supplier,
             "version": version,
             "llmId": llm_id,
             "status": "draft",
-            "tasks": [task.to_dict() for task in tasks],
+            "tasks": [task.to_dict() for task in workflow_tasks],
             "tools": [],
         }
 
@@ -135,13 +157,19 @@ class AgentFactory:
                 {
                     "type": "llm",
                     "description": "main",
-                    "parameters": llm.get_parameters().to_list() if llm.get_parameters() else None,
+                    "parameters": (llm.get_parameters().to_list() if llm.get_parameters() else None),
                 }
             )
             payload["llmId"] = llm.id
             # Store the LLM object in payload to avoid recreating it
             payload["llm"] = llm
 
+        if expected_output:
+            payload["expectedOutput"] = expected_output
+        if output_format:
+            if isinstance(output_format, OutputFormat):
+                output_format = output_format.value
+            payload["outputFormat"] = output_format
         agent = build_agent(payload=payload, tools=tools, api_key=api_key)
         agent.validate(raise_exception=True)
         response = "Unspecified error"
@@ -171,10 +199,47 @@ class AgentFactory:
         return agent
 
     @classmethod
-    def create_task(
-        cls, name: Text, description: Text, expected_output: Text, dependencies: Optional[List[Text]] = None
-    ) -> AgentTask:
-        return AgentTask(name=name, description=description, expected_output=expected_output, dependencies=dependencies)
+    def create_from_dict(cls, dict: Dict) -> Agent:
+        """Create an agent instance from a dictionary representation.
+
+        Args:
+            dict (Dict): Dictionary containing agent configuration and properties.
+
+        Returns:
+            Agent: Instantiated agent object with properties from the dictionary.
+
+        Raises:
+            Exception: If agent validation fails or required properties are missing.
+        """
+        agent = Agent.from_dict(dict)
+        agent.validate(raise_exception=True)
+        agent.url = urljoin(config.BACKEND_URL, f"sdk/agents/{agent.id}/run")
+        return agent
+
+    @classmethod
+    def create_workflow_task(
+        cls,
+        name: Text,
+        description: Text,
+        expected_output: Text,
+        dependencies: Optional[List[Text]] = None,
+    ) -> WorkflowTask:
+        return WorkflowTask(
+            name=name,
+            description=description,
+            expected_output=expected_output,
+            dependencies=dependencies,
+        )
+
+    @classmethod
+    def create_task(cls, *args, **kwargs):
+        warnings.warn(
+            "The 'create_task' method is deprecated and will be removed in a future version. "
+            "Use 'create_workflow_task' instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return cls.create_workflow_task(*args, **kwargs)
 
     @classmethod
     def create_model_tool(
@@ -186,38 +251,88 @@ class AgentFactory:
         parameters: Optional[Dict] = None,
         name: Optional[Text] = None,
     ) -> ModelTool:
-        """Create a new model tool."""
+        """Create a new model tool for use with an agent.
+
+        Args:
+            model (Optional[Union[Model, Text]], optional): Model instance or ID. Defaults to None.
+            function (Optional[Union[Function, Text]], optional): Function enum or ID. Defaults to None.
+            supplier (Optional[Union[Supplier, Text]], optional): Supplier enum or name. Defaults to None.
+            description (Text, optional): Description of the tool. Defaults to "".
+            parameters (Optional[Dict], optional): Tool parameters. Defaults to None.
+            name (Optional[Text], optional): Name of the tool. Defaults to None.
+
+        Returns:
+            ModelTool: Created model tool object.
+
+        Raises:
+            AssertionError: If the supplier is not valid.
+        """
         if function is not None and isinstance(function, str):
             function = Function(function)
 
         if supplier is not None:
             if isinstance(supplier, str):
                 for supplier_ in Supplier:
-                    if supplier.lower() in [supplier_.value["code"].lower(), supplier_.value["name"].lower()]:
+                    if supplier.lower() in [
+                        supplier_.value["code"].lower(),
+                        supplier_.value["name"].lower(),
+                    ]:
                         supplier = supplier_
                         break
             assert isinstance(supplier, Supplier), f"Supplier {supplier} is not a valid supplier"
         return ModelTool(
-            function=function, supplier=supplier, model=model, name=name, description=description, parameters=parameters
+            function=function,
+            supplier=supplier,
+            model=model,
+            name=name,
+            description=description,
+            parameters=parameters,
         )
 
     @classmethod
     def create_pipeline_tool(
-        cls, description: Text, pipeline: Union[Pipeline, Text], name: Optional[Text] = None
+        cls,
+        description: Text,
+        pipeline: Union[Pipeline, Text],
+        name: Optional[Text] = None,
     ) -> PipelineTool:
-        """Create a new pipeline tool."""
+        """Create a new pipeline tool for use with an agent.
+
+        Args:
+            description (Text): Description of what the pipeline tool does.
+            pipeline (Union[Pipeline, Text]): Pipeline instance or pipeline ID.
+            name (Optional[Text], optional): Name of the tool. Defaults to None.
+
+        Returns:
+            PipelineTool: Created pipeline tool object.
+        """
         return PipelineTool(description=description, pipeline=pipeline, name=name)
 
     @classmethod
     def create_python_interpreter_tool(cls) -> PythonInterpreterTool:
-        """Create a new python interpreter tool."""
+        """Create a new Python interpreter tool for use with an agent.
+
+        This tool allows the agent to execute Python code in a controlled environment.
+
+        Returns:
+            PythonInterpreterTool: Created Python interpreter tool object.
+        """
         return PythonInterpreterTool()
 
     @classmethod
     def create_custom_python_code_tool(
         cls, code: Union[Text, Callable], name: Text, description: Text = ""
     ) -> CustomPythonCodeTool:
-        """Create a new custom python code tool."""
+        """Create a new custom Python code tool for use with an agent.
+
+        Args:
+            code (Union[Text, Callable]): Python code as string or callable function.
+            name (Text): Name of the tool.
+            description (Text, optional): Description of what the tool does. Defaults to "".
+
+        Returns:
+            CustomPythonCodeTool: Created custom Python code tool object.
+        """
         return CustomPythonCodeTool(name=name, description=description, code=code)
 
     @classmethod
@@ -355,7 +470,18 @@ class AgentFactory:
 
     @classmethod
     def list(cls) -> Dict:
-        """List all agents available in the platform."""
+        """List all agents available in the platform.
+
+        Returns:
+            Dict: Dictionary containing:
+                - results (List[Agent]): List of available agents.
+                - page_total (int): Number of agents in current page.
+                - page_number (int): Current page number.
+                - total (int): Total number of agents.
+
+        Raises:
+            Exception: If there is an error listing the agents.
+        """
         from aixplain.factories.agent_factory.utils import build_agent
 
         url = urljoin(config.BACKEND_URL, "sdk/agents")
@@ -378,7 +504,12 @@ class AgentFactory:
             logging.info(f"Response for GET List Agents - Page Total: {page_total} / Total: {total}")
             for agent in results:
                 agents.append(build_agent(agent))
-            return {"results": agents, "page_total": page_total, "page_number": 0, "total": total}
+            return {
+                "results": agents,
+                "page_total": page_total,
+                "page_number": 0,
+                "total": total,
+            }
         else:
             error_msg = "Agent Listing Error: Please contact the administrators."
             if isinstance(resp, dict) and "message" in resp:
@@ -389,7 +520,19 @@ class AgentFactory:
 
     @classmethod
     def get(cls, agent_id: Text, api_key: Optional[Text] = None) -> Agent:
-        """Get agent by id."""
+        """Retrieve an agent by its ID.
+
+        Args:
+            agent_id (Text): ID of the agent to retrieve.
+            api_key (Optional[Text], optional): API key for authentication.
+                Defaults to None, using the configured TEAM_API_KEY.
+
+        Returns:
+            Agent: Retrieved agent object.
+
+        Raises:
+            Exception: If the agent cannot be retrieved or doesn't exist.
+        """
         from aixplain.factories.agent_factory.utils import build_agent
 
         url = urljoin(config.BACKEND_URL, f"sdk/agents/{agent_id}")
