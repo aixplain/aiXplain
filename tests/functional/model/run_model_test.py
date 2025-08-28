@@ -324,8 +324,8 @@ def test_index_model_air_with_splitter(embedding_model, supplier_params):
     index_model.delete()
 
 
-def test_index_model_with_file():
-    """Testing Index Model with local file input"""
+def test_index_model_with_txt_file():
+    """Testing Index Model with local txt file input"""
     from aixplain.factories import IndexFactory
     from uuid import uuid4
     from aixplain.factories.index_factory.utils import AirParams

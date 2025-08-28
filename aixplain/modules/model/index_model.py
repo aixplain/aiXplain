@@ -12,9 +12,7 @@ from typing import List
 from aixplain.enums.splitting_options import SplittingOptions
 import os
 
-from urllib.parse import urljoin
-from aixplain.utils.file_utils import _request_with_retry
-
+DOCLING_MODEL_ID = "677bee6c6eb56331f9192a91"
 
 class IndexFilterOperator(Enum):
     """Enumeration of operators available for filtering index records.
@@ -341,8 +339,20 @@ class IndexModel(Model):
         raise Exception(f"Failed to delete record: {response.error_message}")
 
     def prepare_record_from_file(self, file_path: str, file_id: str = None) -> Record:
-        """
-        Prepare a record from a file.
+        """Prepare a record from a file.
+
+        Args:
+            file_path (str): The path to the file to be processed.
+            file_id (str, optional): The ID to assign to the record. If not provided, a unique ID is generated.
+
+        Returns:
+            Record: A Record object containing the file's content and metadata.
+
+        Raises:
+            Exception: If the file cannot be parsed.
+
+        Example:
+            >>> record = index_model.prepare_record_from_file("/path/to/file.txt")
         """
         response = self.parse_file(file_path)
         file_name = file_path.split("/")[-1]
@@ -352,8 +362,19 @@ class IndexModel(Model):
 
     @staticmethod
     def parse_file(file_path: str) -> ModelResponse:
-        """
-        Parse a file using the Docling model.
+        """Parse a file using the Docling model.
+
+        Args:
+            file_path (str): The path to the file to be parsed.
+
+        Returns:
+            ModelResponse: The response containing the parsed file content.
+
+        Raises:
+            Exception: If the file does not exist or cannot be parsed.
+
+        Example:
+            >>> response = IndexModel.parse_file("/path/to/file.pdf")
         """
         if not os.path.exists(file_path):
             raise Exception(f"File {file_path} does not exist")
@@ -366,8 +387,7 @@ class IndexModel(Model):
         try:
             from aixplain.factories import ModelFactory
 
-            docling_model_id = "677bee6c6eb56331f9192a91"
-            model = ModelFactory.get(docling_model_id)
+            model = ModelFactory.get(DOCLING_MODEL_ID)
             response = model.run(file_path)
             if not response.data:
                 warnings.warn(f"File {file_path} is empty")
