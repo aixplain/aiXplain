@@ -94,6 +94,7 @@ def run_index_model(index_model, retries):
         except Exception:
             time.sleep(180)
 
+    time.sleep(2)
     response = index_model.search("Berlin")
     assert str(response.status) == "SUCCESS"
     assert "germany" in response.data.lower()
@@ -172,6 +173,7 @@ def test_index_model_with_filter(embedding_model, supplier_params):
         except Exception:
             time.sleep(180)
 
+    time.sleep(2)
     assert index_model.count() == 2
     response = index_model.search(
         "", filters=[IndexFilter(field="category", value="world", operator=IndexFilterOperator.EQUALS)]
@@ -264,11 +266,13 @@ def test_index_model_air_with_image():
 
     index_model.upsert(records)
 
+    time.sleep(2)
     response = index_model.search("beach")
     assert str(response.status) == "SUCCESS"
     second_record = response.details[1]["metadata"]["uri"]
     assert "hurricane" in second_record.lower()
 
+    time.sleep(2)
     response = index_model.search("people")
     assert str(response.status) == "SUCCESS"
     first_record = response.details[0]["data"]
@@ -312,6 +316,7 @@ def test_index_model_air_with_splitter(embedding_model, supplier_params):
     )
     response = index_model.count()
     assert response == 6
+    time.sleep(2)
     response = index_model.search("berlin")
     assert str(response.status) == "SUCCESS"
     assert "berlin" in response.data.lower()
