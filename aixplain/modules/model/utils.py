@@ -2,9 +2,80 @@ __author__ = "thiagocastroferreira"
 
 import json
 import logging
+import ast
+import inspect
 from aixplain.utils.file_utils import _request_with_retry
 from typing import Callable, Dict, List, Text, Tuple, Union, Optional
 from aixplain.exceptions import get_error_from_status_code
+
+
+def _extract_function_parameters(func: Callable) -> List[Tuple[str, str]]:
+    """
+    Extract function parameters using AST parsing for robust handling of multiline functions.
+
+    Args:
+        func: The function to extract parameters from
+
+    Returns:
+        List of tuples containing (parameter_name, parameter_type)
+    """
+    try:
+        # Use inspect.signature for the most reliable approach
+        sig = inspect.signature(func)
+        parameters = []
+
+        for param_name, param in sig.parameters.items():
+            # Extract type annotation
+            if param.annotation != inspect.Parameter.empty:
+                # Handle complex type annotations
+                if hasattr(param.annotation, "__name__"):
+                    param_type = param.annotation.__name__
+                else:
+                    param_type = str(param.annotation)
+            else:
+                raise ValueError(f"Parameter '{param_name}' missing type annotation")
+
+            parameters.append((param_name, param_type))
+
+        return parameters
+
+    except Exception as e:
+        # Fallback to AST parsing if inspect fails
+        try:
+            source = inspect.getsource(func)
+            tree = ast.parse(source)
+
+            # Find the function definition
+            func_def = None
+            for node in ast.walk(tree):
+                if isinstance(node, ast.FunctionDef) and node.name == func.__name__:
+                    func_def = node
+                    break
+
+            if not func_def:
+                raise ValueError(f"Could not find function definition for {func.__name__}")
+
+            parameters = []
+            for arg in func_def.args.args:
+                param_name = arg.arg
+
+                # Extract type annotation
+                if arg.annotation:
+                    if isinstance(arg.annotation, ast.Name):
+                        param_type = arg.annotation.id
+                    elif isinstance(arg.annotation, ast.Constant):
+                        param_type = str(arg.annotation.value)
+                    else:
+                        param_type = ast.unparse(arg.annotation)
+                else:
+                    raise ValueError(f"Parameter '{param_name}' missing type annotation")
+
+                parameters.append((param_name, param_type))
+
+            return parameters
+
+        except Exception as ast_error:
+            raise ValueError(f"Failed to extract parameters: {e}. AST fallback also failed: {ast_error}")
 
 
 def build_payload(data: Union[Text, Dict], parameters: Optional[Dict] = None, stream: Optional[bool] = None):
@@ -330,20 +401,12 @@ def parse_code_decorated(code: Union[Text, Callable]) -> Tuple[Text, List, Text,
         str_code = inspect.getsource(code)
         description = code.__doc__.strip() if code.__doc__ else ""
         name = code.__name__
-        # Try to infer parameters
-        params_match = re.search(r"def\s+\w+\s*\((.*?)\)\s*(?:->.*?)?:", str_code)
-        parameters = params_match.group(1).split(",") if params_match else []
 
-        for input in parameters:
-            if not input:
-                continue
-            assert (
-                len(input.split(":")) > 1
-            ), "Utility Model Error: Input type is required. For instance def main(a: int, b: int) -> int:"
-            input_name, input_type = input.split(":")
-            input_name = input_name.strip()
-            input_type = input_type.split("=")[0].strip()
+        # Extract parameters using AST for robust parsing
+        parameters = _extract_function_parameters(code)
+        inputs = []
 
+        for input_name, input_type in parameters:
             if input_type in ["int", "float"]:
                 input_type = "number"
                 inputs.append(
