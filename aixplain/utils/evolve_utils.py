@@ -7,31 +7,31 @@ from aixplain.modules.model.llm_model import LLM
 from aixplain.factories import AgentFactory, TeamAgentFactory
 
 
-def create_evolver_llm_dict(evolver_llm: Optional[Union[Text, LLM]]) -> Optional[Dict[str, Any]]:
-    """Create a dictionary representation of an evolver LLM for evolution parameters.
+def create_llm_dict(llm: Optional[Union[Text, LLM]]) -> Optional[Dict[str, Any]]:
+    """Create a dictionary representation of an LLM for evolution parameters.
 
     Args:
-        evolver_llm: Either an LLM ID string or an LLM object instance.
+        llm: Either an LLM ID string or an LLM object instance.
 
     Returns:
-        Dictionary with LLM information if evolver_llm is provided, None otherwise.
+        Dictionary with LLM information if llm is provided, None otherwise.
     """
-    if evolver_llm is None:
+    if llm is None:
         return None
 
-    if isinstance(evolver_llm, LLM):
+    if isinstance(llm, LLM):
         return {
-            "id": evolver_llm.id,
-            "name": evolver_llm.name,
-            "description": evolver_llm.description,
-            "supplier": evolver_llm.supplier,
-            "version": evolver_llm.version,
-            "function": evolver_llm.function,
-            "parameters": (evolver_llm.get_parameters().to_list() if evolver_llm.get_parameters() else None),
-            "temperature": getattr(evolver_llm, "temperature", None),
+            "id": llm.id,
+            "name": llm.name,
+            "description": llm.description,
+            "supplier": llm.supplier,
+            "version": llm.version,
+            "function": llm.function,
+            "parameters": (llm.get_parameters().to_list() if llm.get_parameters() else None),
+            "temperature": getattr(llm, "temperature", None),
         }
     else:
-        return {"id": evolver_llm}
+        return {"id": llm}
 
 
 def generate_tools_from_str(tools: list) -> list:

@@ -32,21 +32,21 @@ class EvolveParam:
     Attributes:
         to_evolve (bool): Whether to enable evolution. Defaults to False.
         evolve_type (Optional[EvolveType]): Type of evolve.
-        max_generations (int): Maximum number of generations.
-        max_retries (int): Maximum number of retries.
-        recursion_limit (int): Maximum number of recursion.
-        max_iterations_without_improvement (int): Maximum number of iterations without improvement.
-        evolver_llm (Optional[Dict[str, Any]]): Evolver LLM configuration with all parameters.
+        max_successful_generations (int): Maximum number of successful generations.
+        max_failed_generation_retries (int): Maximum number of failed generation retries.
+        max_iterations (int): Maximum number of iterations.
+        max_non_improving_generations (Optional[int]): Maximum number of non-improving generations.
+        llm (Optional[Dict[str, Any]]): LLM configuration with all parameters.
         additional_params (Optional[Dict[str, Any]]): Additional parameters.
     """
 
     to_evolve: bool = False
     evolve_type: Optional[EvolveType] = EvolveType.TEAM_TUNING
-    max_generations: int = 3
-    max_retries: int = 3
-    recursion_limit: int = 50
-    max_iterations_without_improvement: Optional[int] = 2
-    evolver_llm: Optional[Dict[str, Any]] = None
+    max_successful_generations: int = 3
+    max_failed_generation_retries: int = 3
+    max_iterations: int = 50
+    max_non_improving_generations: Optional[int] = 2
+    llm: Optional[Dict[str, Any]] = None
     additional_params: Optional[Dict[str, Any]] = field(default_factory=dict)
 
     def __post_init__(self):
@@ -74,29 +74,34 @@ class EvolveParam:
             if not isinstance(self.additional_params, dict):
                 raise ValueError("additional_params must be a dictionary")
 
-        if self.max_generations is not None:
-            if not isinstance(self.max_generations, int):
-                raise ValueError("max_generations must be an integer")
-            if self.max_generations <= 0:
-                raise ValueError("max_generations must be positive")
+        if self.max_successful_generations is not None:
+            if not isinstance(self.max_successful_generations, int):
+                raise ValueError("max_successful_generations must be an integer")
+            if self.max_successful_generations <= 0:
+                raise ValueError("max_successful_generations must be positive")
 
-        if self.max_retries is not None:
-            if not isinstance(self.max_retries, int):
-                raise ValueError("max_retries must be an integer")
-            if self.max_retries <= 0:
-                raise ValueError("max_retries must be positive")
+        if self.max_failed_generation_retries is not None:
+            if not isinstance(self.max_failed_generation_retries, int):
+                raise ValueError("max_failed_generation_retries must be an integer")
+            if self.max_failed_generation_retries <= 0:
+                raise ValueError("max_failed_generation_retries must be positive")
 
-        if self.recursion_limit is not None:
-            if not isinstance(self.recursion_limit, int):
-                raise ValueError("recursion_limit must be an integer")
-            if self.recursion_limit <= 0:
-                raise ValueError("recursion_limit must be positive")
+        if self.max_iterations is not None:
+            if not isinstance(self.max_iterations, int):
+                raise ValueError("max_iterations must be an integer")
+            if self.max_iterations <= 0:
+                raise ValueError("max_iterations must be positive")
 
-        if self.max_iterations_without_improvement is not None:
-            if not isinstance(self.max_iterations_without_improvement, int):
-                raise ValueError("max_iterations_without_improvement must be an integer or None")
-            if self.max_iterations_without_improvement <= 0:
-                raise ValueError("max_iterations_without_improvement must be positive or None")
+        if self.max_non_improving_generations is not None:
+            if not isinstance(self.max_non_improving_generations, int):
+                raise ValueError("max_non_improving_generations must be an integer or None")
+            if self.max_non_improving_generations <= 0:
+                raise ValueError("max_non_improving_generations must be positive or None")
+
+        # Add validation for llm parameter
+        if self.llm is not None:
+            if not isinstance(self.llm, dict):
+                raise ValueError("llm must be a dictionary or None")
 
     @classmethod
     def from_dict(cls, data: Union[Dict[str, Any], None]) -> "EvolveParam":
@@ -121,11 +126,11 @@ class EvolveParam:
         known_params = {
             "to_evolve": data.get("toEvolve", data.get("to_evolve", False)),
             "evolve_type": data.get("evolve_type"),
-            "max_generations": data.get("max_generations"),
-            "max_retries": data.get("max_retries"),
-            "recursion_limit": data.get("recursion_limit"),
-            "max_iterations_without_improvement": data.get("max_iterations_without_improvement"),
-            "evolver_llm": data.get("evolver_llm"),
+            "max_successful_generations": data.get("max_successful_generations"),
+            "max_failed_generation_retries": data.get("max_failed_generation_retries"),
+            "max_iterations": data.get("max_iterations"),
+            "max_non_improving_generations": data.get("max_non_improving_generations"),
+            "llm": data.get("llm"),
             "additional_params": data.get("additional_params"),
         }
 
@@ -141,11 +146,11 @@ class EvolveParam:
                 "toEvolve",
                 "to_evolve",
                 "evolve_type",
-                "max_generations",
-                "max_retries",
-                "recursion_limit",
-                "max_iterations_without_improvement",
-                "evolver_llm",
+                "max_successful_generations",
+                "max_failed_generation_retries",
+                "max_iterations",
+                "max_non_improving_generations",
+                "llm",
                 "additional_params",
             ]
         }
@@ -165,16 +170,16 @@ class EvolveParam:
         # Add optional parameters if they are set
         if self.evolve_type is not None:
             result["evolve_type"] = self.evolve_type
-        if self.max_generations is not None:
-            result["max_generations"] = self.max_generations
-        if self.max_retries is not None:
-            result["max_retries"] = self.max_retries
-        if self.recursion_limit is not None:
-            result["recursion_limit"] = self.recursion_limit
-        # Always include max_iterations_without_improvement, even if None
-        result["max_iterations_without_improvement"] = self.max_iterations_without_improvement
-        if self.evolver_llm is not None:
-            result["evolver_llm"] = self.evolver_llm
+        if self.max_successful_generations is not None:
+            result["max_successful_generations"] = self.max_successful_generations
+        if self.max_failed_generation_retries is not None:
+            result["max_failed_generation_retries"] = self.max_failed_generation_retries
+        if self.max_iterations is not None:
+            result["max_iterations"] = self.max_iterations
+        # Always include max_non_improving_generations, even if None
+        result["max_non_improving_generations"] = self.max_non_improving_generations
+        if self.llm is not None:
+            result["llm"] = self.llm
         if self.additional_params is not None:
             result.update(self.additional_params)
 
@@ -200,15 +205,23 @@ class EvolveParam:
         return EvolveParam(
             to_evolve=other.to_evolve if other.to_evolve else self.to_evolve,
             evolve_type=(other.evolve_type if other.evolve_type is not None else self.evolve_type),
-            max_generations=(other.max_generations if other.max_generations is not None else self.max_generations),
-            max_retries=(other.max_retries if other.max_retries is not None else self.max_retries),
-            recursion_limit=(other.recursion_limit if other.recursion_limit is not None else self.recursion_limit),
-            max_iterations_without_improvement=(
-                other.max_iterations_without_improvement
-                if other.max_iterations_without_improvement is not None
-                else self.max_iterations_without_improvement
+            max_successful_generations=(
+                other.max_successful_generations
+                if other.max_successful_generations is not None
+                else self.max_successful_generations
             ),
-            evolver_llm=(other.evolver_llm if other.evolver_llm is not None else self.evolver_llm),
+            max_failed_generation_retries=(
+                other.max_failed_generation_retries
+                if other.max_failed_generation_retries is not None
+                else self.max_failed_generation_retries
+            ),
+            max_iterations=(other.max_iterations if other.max_iterations is not None else self.max_iterations),
+            max_non_improving_generations=(
+                other.max_non_improving_generations
+                if other.max_non_improving_generations is not None
+                else self.max_non_improving_generations
+            ),
+            llm=(other.llm if other.llm is not None else self.llm),
             additional_params=merged_additional,
         )
 
@@ -217,11 +230,11 @@ class EvolveParam:
             f"EvolveParam("
             f"to_evolve={self.to_evolve}, "
             f"evolve_type={self.evolve_type}, "
-            f"max_generations={self.max_generations}, "
-            f"max_retries={self.max_retries}, "
-            f"recursion_limit={self.recursion_limit}, "
-            f"max_iterations_without_improvement={self.max_iterations_without_improvement}, "
-            f"evolver_llm={self.evolver_llm}, "
+            f"max_successful_generations={self.max_successful_generations}, "
+            f"max_failed_generation_retries={self.max_failed_generation_retries}, "
+            f"max_iterations={self.max_iterations}, "
+            f"max_non_improving_generations={self.max_non_improving_generations}, "
+            f"llm={self.llm}, "
             f"additional_params={self.additional_params})"
         )
 

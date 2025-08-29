@@ -1,5 +1,5 @@
 """
-Unit tests for Agent evolve functionality with evolver_llm parameter
+Unit tests for Agent evolve functionality with llm parameter
 """
 
 import pytest
@@ -43,8 +43,8 @@ class TestAgentEvolve:
 
         return llm
 
-    def test_evolve_async_with_evolver_llm_string(self, mock_agent):
-        """Test evolve_async with evolver_llm as string ID"""
+    def test_evolve_async_with_llm_string(self, mock_agent):
+        """Test evolve_async with llm as string ID"""
         from aixplain.modules.agent import Agent
 
         # Create a real Agent instance but mock its methods
@@ -67,21 +67,21 @@ class TestAgentEvolve:
         )
 
         with patch.object(agent, "run_async", return_value=mock_response) as mock_run_async:
-            result = agent.evolve_async(evolver_llm="custom_llm_id_123")
+            result = agent.evolve_async(llm="custom_llm_id_123")
 
             # Verify run_async was called with correct evolve parameter
             mock_run_async.assert_called_once()
             call_args = mock_run_async.call_args
 
-            # Check that evolve parameter contains evolver_llm
+            # Check that evolve parameter contains llm
             evolve_param = call_args[1]["evolve"]
             assert isinstance(evolve_param, EvolveParam)
-            assert evolve_param.evolver_llm == {"id": "custom_llm_id_123"}
+            assert evolve_param.llm == {"id": "custom_llm_id_123"}
 
             assert result == mock_response
 
-    def test_evolve_async_with_evolver_llm_object(self, mock_agent, mock_llm):
-        """Test evolve_async with evolver_llm as LLM object"""
+    def test_evolve_async_with_llm_object(self, mock_agent, mock_llm):
+        """Test evolve_async with llm as LLM object"""
         from aixplain.modules.agent import Agent
 
         # Create a real Agent instance but mock its methods
@@ -104,13 +104,13 @@ class TestAgentEvolve:
         )
 
         with patch.object(agent, "run_async", return_value=mock_response) as mock_run_async:
-            result = agent.evolve_async(evolver_llm=mock_llm)
+            result = agent.evolve_async(llm=mock_llm)
 
             # Verify run_async was called with correct evolve parameter
             mock_run_async.assert_called_once()
             call_args = mock_run_async.call_args
 
-            # Check that evolve parameter contains evolver_llm
+            # Check that evolve parameter contains llm
             evolve_param = call_args[1]["evolve"]
             assert isinstance(evolve_param, EvolveParam)
 
@@ -124,12 +124,12 @@ class TestAgentEvolve:
                 "parameters": [{"name": "temperature", "type": "float"}],
                 "temperature": 0.7,
             }
-            assert evolve_param.evolver_llm == expected_llm_dict
+            assert evolve_param.llm == expected_llm_dict
 
             assert result == mock_response
 
-    def test_evolve_async_without_evolver_llm(self, mock_agent):
-        """Test evolve_async without evolver_llm parameter"""
+    def test_evolve_async_without_llm(self, mock_agent):
+        """Test evolve_async without llm parameter"""
         from aixplain.modules.agent import Agent
 
         # Create a real Agent instance but mock its methods
@@ -158,15 +158,15 @@ class TestAgentEvolve:
             mock_run_async.assert_called_once()
             call_args = mock_run_async.call_args
 
-            # Check that evolve parameter has evolver_llm as None
+            # Check that evolve parameter has llm as None
             evolve_param = call_args[1]["evolve"]
             assert isinstance(evolve_param, EvolveParam)
-            assert evolve_param.evolver_llm is None
+            assert evolve_param.llm is None
 
             assert result == mock_response
 
     def test_evolve_with_custom_parameters(self, mock_agent):
-        """Test evolve with custom parameters including evolver_llm"""
+        """Test evolve with custom parameters including llm"""
         from aixplain.modules.agent import Agent
 
         # Create a real Agent instance but mock its methods
@@ -193,9 +193,9 @@ class TestAgentEvolve:
                 evolve_type=EvolveType.TEAM_TUNING,
                 max_successful_generations=5,
                 max_failed_generation_retries=3,
-                recursion_limit=40,
+                max_iterations=40,
                 max_non_improving_generations=3,
-                evolver_llm="custom_evolver_llm_id",
+                llm="custom_llm_id",
             )
 
             # Verify evolve_async was called with correct parameters
@@ -203,9 +203,9 @@ class TestAgentEvolve:
                 evolve_type=EvolveType.TEAM_TUNING,
                 max_successful_generations=5,
                 max_failed_generation_retries=3,
-                recursion_limit=40,
+                max_iterations=40,
                 max_non_improving_generations=3,
-                evolver_llm="custom_evolver_llm_id",
+                llm="custom_llm_id",
             )
 
             # Verify sync_poll was called
