@@ -3,29 +3,29 @@ Unit tests for evolver LLM utility functions
 """
 
 from unittest.mock import Mock
-from aixplain.utils.evolve_utils import create_evolver_llm_dict
+from aixplain.utils.evolve_utils import create_llm_dict
 from aixplain.modules.model.llm_model import LLM
 from aixplain.enums import Function, Supplier
 
 
-class TestCreateEvolverLLMDict:
-    """Test class for create_evolver_llm_dict functionality"""
+class TestCreateLLMDict:
+    """Test class for create_llm_dict functionality"""
 
-    def test_create_evolver_llm_dict_with_none(self):
-        """Test create_evolver_llm_dict with None input"""
-        result = create_evolver_llm_dict(None)
+    def test_create_llm_dict_with_none(self):
+        """Test create_llm_dict with None input"""
+        result = create_llm_dict(None)
         assert result is None
 
-    def test_create_evolver_llm_dict_with_string_id(self):
-        """Test create_evolver_llm_dict with LLM ID string"""
+    def test_create_llm_dict_with_string_id(self):
+        """Test create_llm_dict with LLM ID string"""
         llm_id = "test_llm_id_123"
-        result = create_evolver_llm_dict(llm_id)
+        result = create_llm_dict(llm_id)
 
         expected = {"id": llm_id}
         assert result == expected
 
-    def test_create_evolver_llm_dict_with_llm_object(self):
-        """Test create_evolver_llm_dict with LLM object"""
+    def test_create_llm_dict_with_llm_object(self):
+        """Test create_llm_dict with LLM object"""
         # Create a mock LLM object
         mock_llm = Mock(spec=LLM)
         mock_llm.id = "llm_id_456"
@@ -44,7 +44,7 @@ class TestCreateEvolverLLMDict:
         ]
         mock_llm.get_parameters.return_value = mock_parameters
 
-        result = create_evolver_llm_dict(mock_llm)
+        result = create_llm_dict(mock_llm)
 
         expected = {
             "id": "llm_id_456",
@@ -61,8 +61,8 @@ class TestCreateEvolverLLMDict:
         }
         assert result == expected
 
-    def test_create_evolver_llm_dict_with_llm_object_no_parameters(self):
-        """Test create_evolver_llm_dict with LLM object that has no parameters"""
+    def test_create_llm_dict_with_llm_object_no_parameters(self):
+        """Test create_llm_dict with LLM object that has no parameters"""
         # Create a mock LLM object
         mock_llm = Mock(spec=LLM)
         mock_llm.id = "llm_id_789"
@@ -76,7 +76,7 @@ class TestCreateEvolverLLMDict:
         # Mock get_parameters to return None
         mock_llm.get_parameters.return_value = None
 
-        result = create_evolver_llm_dict(mock_llm)
+        result = create_llm_dict(mock_llm)
 
         expected = {
             "id": "llm_id_789",
@@ -90,8 +90,8 @@ class TestCreateEvolverLLMDict:
         }
         assert result == expected
 
-    def test_create_evolver_llm_dict_with_llm_object_no_temperature(self):
-        """Test create_evolver_llm_dict with LLM object that has no temperature attribute"""
+    def test_create_llm_dict_with_llm_object_no_temperature(self):
+        """Test create_llm_dict with LLM object that has no temperature attribute"""
         # Create a mock LLM object without temperature
         mock_llm = Mock(spec=LLM)
         mock_llm.id = "llm_id_999"
@@ -107,7 +107,7 @@ class TestCreateEvolverLLMDict:
         # Mock get_parameters to return None
         mock_llm.get_parameters.return_value = None
 
-        result = create_evolver_llm_dict(mock_llm)
+        result = create_llm_dict(mock_llm)
 
         expected = {
             "id": "llm_id_999",
@@ -121,9 +121,9 @@ class TestCreateEvolverLLMDict:
         }
         assert result == expected
 
-    def test_create_evolver_llm_dict_with_empty_string(self):
-        """Test create_evolver_llm_dict with empty string"""
-        result = create_evolver_llm_dict("")
+    def test_create_llm_dict_with_empty_string(self):
+        """Test create_llm_dict with empty string"""
+        result = create_llm_dict("")
 
         expected = {"id": ""}
         assert result == expected

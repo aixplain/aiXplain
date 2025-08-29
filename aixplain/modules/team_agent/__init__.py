@@ -806,9 +806,9 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         evolve_type: Union[EvolveType, str] = EvolveType.TEAM_TUNING,
         max_successful_generations: int = 3,
         max_failed_generation_retries: int = 3,
-        recursion_limit: int = 50,
+        max_iterations: int = 50,
         max_non_improving_generations: Optional[int] = 2,
-        evolver_llm: Optional[Union[Text, LLM]] = None,
+        llm: Optional[Union[Text, LLM]] = None,
     ) -> AgentResponse:
         """Asynchronously evolve the Team Agent and return a polling URL in the AgentResponse.
 
@@ -816,26 +816,26 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             evolve_type (Union[EvolveType, str]): Type of evolution (TEAM_TUNING or INSTRUCTION_TUNING). Defaults to TEAM_TUNING.
             max_successful_generations (int): Maximum number of successful generations to evolve. Defaults to 3.
             max_failed_generation_retries (int): Maximum retry attempts for failed generations. Defaults to 3.
-            recursion_limit (int): Limit for recursive operations. Defaults to 50.
+            max_iterations (int): Maximum number of iterations. Defaults to 50.
             max_non_improving_generations (Optional[int]): Stop condition parameter for non-improving generations. Defaults to 2, can be None.
-            evolver_llm (Optional[Union[Text, LLM]]): LLM to use for evolution. Can be an LLM ID string or LLM object. Defaults to None.
+            llm (Optional[Union[Text, LLM]]): LLM to use for evolution. Can be an LLM ID string or LLM object. Defaults to None.
 
         Returns:
             AgentResponse: Response containing polling URL and status.
         """
-        from aixplain.utils.evolve_utils import create_evolver_llm_dict
+        from aixplain.utils.evolve_utils import create_llm_dict
 
         query = "<placeholder query>"
 
-        # Create EvolveParam from individual parameters (map new names to old keys)
+        # Create EvolveParam from individual parameters
         evolve_parameters = EvolveParam(
             to_evolve=True,
             evolve_type=evolve_type,
-            max_generations=max_successful_generations,
-            max_retries=max_failed_generation_retries,
-            recursion_limit=recursion_limit,
-            max_iterations_without_improvement=max_non_improving_generations,
-            evolver_llm=create_evolver_llm_dict(evolver_llm),
+            max_successful_generations=max_successful_generations,
+            max_failed_generation_retries=max_failed_generation_retries,
+            max_iterations=max_iterations,
+            max_non_improving_generations=max_non_improving_generations,
+            llm=create_llm_dict(llm),
         )
 
         response = self.run_async(query=query, evolve=evolve_parameters)
@@ -846,9 +846,9 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         evolve_type: Union[EvolveType, str] = EvolveType.TEAM_TUNING,
         max_successful_generations: int = 3,
         max_failed_generation_retries: int = 3,
-        recursion_limit: int = 50,
+        max_iterations: int = 50,
         max_non_improving_generations: Optional[int] = 2,
-        evolver_llm: Optional[Union[Text, LLM]] = None,
+        llm: Optional[Union[Text, LLM]] = None,
     ) -> AgentResponse:
         """Synchronously evolve the Team Agent and poll for the result.
 
@@ -856,25 +856,25 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             evolve_type (Union[EvolveType, str]): Type of evolution (TEAM_TUNING or INSTRUCTION_TUNING). Defaults to TEAM_TUNING.
             max_successful_generations (int): Maximum number of successful generations to evolve. Defaults to 3.
             max_failed_generation_retries (int): Maximum retry attempts for failed generations. Defaults to 3.
-            recursion_limit (int): Limit for recursive operations. Defaults to 50.
+            max_iterations (int): Maximum number of iterations. Defaults to 50.
             max_non_improving_generations (Optional[int]): Stop condition parameter for non-improving generations. Defaults to 2, can be None.
-            evolver_llm (Optional[Union[Text, LLM]]): LLM to use for evolution. Can be an LLM ID string or LLM object. Defaults to None.
+            llm (Optional[Union[Text, LLM]]): LLM to use for evolution. Can be an LLM ID string or LLM object. Defaults to None.
 
         Returns:
             AgentResponse: Final response from the evolution process.
         """
         from aixplain.enums import EvolveType
-        from aixplain.utils.evolve_utils import from_yaml, create_evolver_llm_dict
+        from aixplain.utils.evolve_utils import from_yaml, create_llm_dict
 
-        # Create EvolveParam from individual parameters (map new names to old keys)
+        # Create EvolveParam from individual parameters
         evolve_parameters = EvolveParam(
             to_evolve=True,
             evolve_type=evolve_type,
-            max_generations=max_successful_generations,
-            max_retries=max_failed_generation_retries,
-            recursion_limit=recursion_limit,
-            max_iterations_without_improvement=max_non_improving_generations,
-            evolver_llm=create_evolver_llm_dict(evolver_llm),
+            max_successful_generations=max_successful_generations,
+            max_failed_generation_retries=max_failed_generation_retries,
+            max_iterations=max_iterations,
+            max_non_improving_generations=max_non_improving_generations,
+            llm=create_llm_dict(llm),
         )
         start = time.time()
         try:
@@ -884,9 +884,9 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                 evolve_type=evolve_type,
                 max_successful_generations=max_successful_generations,
                 max_failed_generation_retries=max_failed_generation_retries,
-                recursion_limit=recursion_limit,
+                max_iterations=max_iterations,
                 max_non_improving_generations=max_non_improving_generations,
-                evolver_llm=evolver_llm,
+                llm=llm,
             )
             if response["status"] == ResponseStatus.FAILED:
                 end = time.time()

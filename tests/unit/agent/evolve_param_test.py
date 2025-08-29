@@ -20,11 +20,11 @@ class TestEvolveParam:
         assert default_param is not None
         assert default_param.to_evolve is False
         assert default_param.evolve_type == EvolveType.TEAM_TUNING
-        assert default_param.max_generations == 3
-        assert default_param.max_retries == 3
-        assert default_param.recursion_limit == 50
-        assert default_param.max_iterations_without_improvement == 2
-        assert default_param.evolver_llm is None
+        assert default_param.max_successful_generations == 3
+        assert default_param.max_failed_generation_retries == 3
+        assert default_param.max_iterations == 50
+        assert default_param.max_non_improving_generations == 2
+        assert default_param.llm is None
         assert default_param.additional_params == {}
 
         # Test to_dict method
@@ -36,65 +36,65 @@ class TestEvolveParam:
         """Test EvolveParam custom initialization"""
         custom_param = EvolveParam(
             to_evolve=True,
-            max_generations=5,
-            max_retries=2,
-            recursion_limit=30,
-            max_iterations_without_improvement=4,
+            max_successful_generations=5,
+            max_failed_generation_retries=2,
+            max_iterations=30,
+            max_non_improving_generations=4,
             evolve_type=EvolveType.TEAM_TUNING,
-            evolver_llm={"id": "test_llm_id", "name": "Test LLM"},
+            llm={"id": "test_llm_id", "name": "Test LLM"},
             additional_params={"customParam": "custom_value"},
         )
 
         assert custom_param.to_evolve is True
-        assert custom_param.max_generations == 5
-        assert custom_param.max_retries == 2
-        assert custom_param.recursion_limit == 30
-        assert custom_param.max_iterations_without_improvement == 4
+        assert custom_param.max_successful_generations == 5
+        assert custom_param.max_failed_generation_retries == 2
+        assert custom_param.max_iterations == 30
+        assert custom_param.max_non_improving_generations == 4
         assert custom_param.evolve_type == EvolveType.TEAM_TUNING
-        assert custom_param.evolver_llm == {"id": "test_llm_id", "name": "Test LLM"}
+        assert custom_param.llm == {"id": "test_llm_id", "name": "Test LLM"}
         assert custom_param.additional_params == {"customParam": "custom_value"}
 
         # Test to_dict method
         result_dict = custom_param.to_dict()
         assert result_dict["toEvolve"] is True
-        assert result_dict["max_generations"] == 5
-        assert result_dict["max_retries"] == 2
-        assert result_dict["recursion_limit"] == 30
-        assert result_dict["max_iterations_without_improvement"] == 4
+        assert result_dict["max_successful_generations"] == 5
+        assert result_dict["max_failed_generation_retries"] == 2
+        assert result_dict["max_iterations"] == 30
+        assert result_dict["max_non_improving_generations"] == 4
         assert result_dict["evolve_type"] == EvolveType.TEAM_TUNING
-        assert result_dict["evolver_llm"] == {"id": "test_llm_id", "name": "Test LLM"}
+        assert result_dict["llm"] == {"id": "test_llm_id", "name": "Test LLM"}
         assert result_dict["customParam"] == "custom_value"
 
     def test_from_dict_with_api_format(self):
         """Test EvolveParam from_dict() with API format"""
         api_dict = {
             "toEvolve": True,
-            "max_generations": 10,
-            "max_retries": 4,
-            "recursion_limit": 40,
-            "max_iterations_without_improvement": 5,
+            "max_successful_generations": 10,
+            "max_failed_generation_retries": 4,
+            "max_iterations": 40,
+            "max_non_improving_generations": 5,
             "evolve_type": EvolveType.TEAM_TUNING,
-            "evolver_llm": {"id": "api_llm_id", "name": "API LLM"},
+            "llm": {"id": "api_llm_id", "name": "API LLM"},
             "customParam": "custom_value",
         }
 
         from_dict_param = EvolveParam.from_dict(api_dict)
 
         assert from_dict_param.to_evolve is True
-        assert from_dict_param.max_generations == 10
-        assert from_dict_param.max_retries == 4
-        assert from_dict_param.recursion_limit == 40
-        assert from_dict_param.max_iterations_without_improvement == 5
+        assert from_dict_param.max_successful_generations == 10
+        assert from_dict_param.max_failed_generation_retries == 4
+        assert from_dict_param.max_iterations == 40
+        assert from_dict_param.max_non_improving_generations == 5
         assert from_dict_param.evolve_type == EvolveType.TEAM_TUNING
-        assert from_dict_param.evolver_llm == {"id": "api_llm_id", "name": "API LLM"}
+        assert from_dict_param.llm == {"id": "api_llm_id", "name": "API LLM"}
 
         # Test round-trip conversion
         result_dict = from_dict_param.to_dict()
         assert result_dict["toEvolve"] is True
-        assert result_dict["max_generations"] == 10
-        assert result_dict["max_retries"] == 4
-        assert result_dict["recursion_limit"] == 40
-        assert result_dict["max_iterations_without_improvement"] == 5
+        assert result_dict["max_successful_generations"] == 10
+        assert result_dict["max_failed_generation_retries"] == 4
+        assert result_dict["max_iterations"] == 40
+        assert result_dict["max_non_improving_generations"] == 5
 
     def test_validate_evolve_param_with_none(self):
         """Test validate_evolve_param() with None input"""
@@ -109,27 +109,27 @@ class TestEvolveParam:
 
     def test_validate_evolve_param_with_dict(self):
         """Test validate_evolve_param() with dictionary input"""
-        input_dict = {"toEvolve": True, "max_generations": 5}
+        input_dict = {"toEvolve": True, "max_successful_generations": 5}
         validated_dict = validate_evolve_param(input_dict)
 
         assert isinstance(validated_dict, EvolveParam)
         assert validated_dict.to_evolve is True
-        assert validated_dict.max_generations == 5
+        assert validated_dict.max_successful_generations == 5
 
         result_dict = validated_dict.to_dict()
         assert result_dict["toEvolve"] is True
-        assert result_dict["max_generations"] == 5
+        assert result_dict["max_successful_generations"] == 5
 
     def test_validate_evolve_param_with_instance(self):
         """Test validate_evolve_param() with EvolveParam instance"""
         custom_param = EvolveParam(
             to_evolve=True,
-            max_generations=5,
-            max_retries=2,
-            recursion_limit=30,
-            max_iterations_without_improvement=4,
+            max_successful_generations=5,
+            max_failed_generation_retries=2,
+            max_iterations=30,
+            max_non_improving_generations=4,
             evolve_type=EvolveType.TEAM_TUNING,
-            evolver_llm={"id": "instance_llm_id"},
+            llm={"id": "instance_llm_id"},
             additional_params={"customParam": "custom_value"},
         )
 
@@ -137,13 +137,13 @@ class TestEvolveParam:
 
         assert validated_instance is custom_param  # Should return the same instance
         assert validated_instance.to_evolve is True
-        assert validated_instance.max_generations == 5
-        assert validated_instance.max_retries == 2
+        assert validated_instance.max_successful_generations == 5
+        assert validated_instance.max_failed_generation_retries == 2
 
-    def test_invalid_max_generations_raises_error(self):
-        """Test that invalid max_generations raises ValueError"""
-        with pytest.raises(ValueError, match="max_generations must be positive"):
-            EvolveParam(max_generations=0)  # max_generations <= 0 should fail
+    def test_invalid_max_successful_generations_raises_error(self):
+        """Test that invalid max_successful_generations raises ValueError"""
+        with pytest.raises(ValueError, match="max_successful_generations must be positive"):
+            EvolveParam(max_successful_generations=0)  # max_successful_generations <= 0 should fail
 
     def test_validate_evolve_param_missing_to_evolve_key(self):
         """Test that missing toEvolve key raises ValueError"""
@@ -168,19 +168,19 @@ class TestEvolveParam:
 
     def test_merge_with_dict(self):
         """Test merging with a dictionary"""
-        base_param = EvolveParam(to_evolve=False, max_generations=3, additional_params={"base": "value"})
+        base_param = EvolveParam(to_evolve=False, max_successful_generations=3, additional_params={"base": "value"})
         merge_dict = {
             "toEvolve": True,
-            "max_generations": 5,
-            "evolver_llm": {"id": "merged_llm_id"},
+            "max_successful_generations": 5,
+            "llm": {"id": "merged_llm_id"},
             "customParam": "custom_value",
         }
 
         merged = base_param.merge(merge_dict)
 
         assert merged.to_evolve is True
-        assert merged.max_generations == 5
-        assert merged.evolver_llm == {"id": "merged_llm_id"}
+        assert merged.max_successful_generations == 5
+        assert merged.llm == {"id": "merged_llm_id"}
         assert merged.additional_params == {
             "base": "value",
             "customParam": "custom_value",
