@@ -130,8 +130,8 @@ def test_evolver_with_custom_llm_id(team_agent):
     """Test evolver functionality with custom LLM ID"""
     custom_llm_id = "6646261c6eb563165658bbb1"  # GPT-4o ID
 
-    # Test with evolver_llm parameter
-    response = team_agent.evolve_async(evolver_llm=custom_llm_id)
+    # Test with llm parameter
+    response = team_agent.evolve_async(llm=custom_llm_id)
 
     assert response is not None
     assert "url" in response or response.get("url") is not None
