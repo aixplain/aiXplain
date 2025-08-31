@@ -29,7 +29,6 @@ class EvolverResponseData:
 
         yaml_code = data.get("current_code", "")
         evolved_team_agent = build_team_agent_from_yaml(yaml_code=yaml_code, llm_id=llm_id, api_key=api_key)
-
         return cls(
             evolved_agent=evolved_team_agent,
             current_code=yaml_code,

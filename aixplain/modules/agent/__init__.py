@@ -551,7 +551,7 @@ class Agent(Model, DeployableMixin[Tool]):
         """
         from aixplain.factories.agent_factory.utils import build_tool
         from aixplain.enums import AssetStatus
-        from aixplain.modules.agent_task import WorkflowTask
+        from aixplain.modules.agent import WorkflowTask
 
         # Extract tools from assets using proper tool building
         tools = []
@@ -805,7 +805,8 @@ class Agent(Model, DeployableMixin[Tool]):
         Returns:
             AgentResponse: Final response from the evolution process.
         """
-        from aixplain.utils.evolve_utils import from_yaml, create_llm_dict
+        from aixplain.utils.evolve_utils import create_llm_dict
+        from aixplain.factories.team_agent_factory.utils import build_team_agent_from_yaml
 
         # Create EvolveParam from individual parameters
         evolve_parameters = EvolveParam(
@@ -841,9 +842,11 @@ class Agent(Model, DeployableMixin[Tool]):
 
             if "current_code" in result_data and result_data["current_code"] is not None:
                 if evolve_parameters.evolve_type == EvolveType.TEAM_TUNING:
-                    result_data["evolved_agent"] = from_yaml(
+                    result_data["evolved_agent"] = build_team_agent_from_yaml(
                         result_data["current_code"],
                         self.llm_id,
+                        self.api_key,
+                        self.id,
                     )
                 elif evolve_parameters.evolve_type == EvolveType.INSTRUCTION_TUNING:
                     self.instructions = result_data["current_code"]

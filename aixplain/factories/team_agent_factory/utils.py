@@ -244,11 +244,13 @@ def build_team_agent_from_yaml(yaml_code: str, llm_id: str, api_key: str, team_i
         return None
     team_config = yaml.safe_load(yaml_code)
 
-    agents_data = team_config["agents"]
+    agents_data = team_config.get("agents", [])
     tasks_data = team_config.get("tasks", [])
-    system_data = team_config["system"] if "system" in team_config else {"query": "", "name": "Test Team"}
-    team_name = system_data["name"]
-
+    system_data = team_config.get("system", {"query": "", "name": "Test Team"})
+    team_name = system_data.get("name", "")
+    team_description = system_data.get("description", "")
+    team_instructions = system_data.get("instructions", "")
+    llm = ModelFactory.get(llm_id)
     # Create agent mapping by name for easier task assignment
     agents_mapping = {}
     agent_objs = []
@@ -257,21 +259,18 @@ def build_team_agent_from_yaml(yaml_code: str, llm_id: str, api_key: str, team_i
     for agent_entry in agents_data:
         agent_name = list(agent_entry.keys())[0]
         agent_info = agent_entry[agent_name]
-        agent_instructions = agent_info["instructions"]
-        agent_goal = agent_info["goal"]
-        agent_backstory = agent_info["backstory"]
-
-        description = f"You are an expert {agent_instructions}. {agent_backstory} Your primary goal is to {agent_goal}. Use your expertise to ensure the success of your tasks."
+        agent_instructions = agent_info.get("instructions", "")
+        agent_description = agent_info["description"]
         agent_name = agent_name.replace("_", " ")
         agent_name = f"{agent_name} agent" if not agent_name.endswith(" agent") else agent_name
         agent_obj = Agent(
             id="",
             name=agent_name,
-            description=description,
-            instructions=description,
+            description=agent_description,
+            instructions=agent_instructions,
             tasks=[],  # Tasks will be assigned later
             tools=[parse_tool_from_yaml(tool) for tool in agent_info.get("tools", []) if tool != "language_model"],
-            llmId=llm_id,
+            llm=llm,
         )
         agents_mapping[agent_name] = agent_obj
         agent_objs.append(agent_obj)
@@ -279,16 +278,16 @@ def build_team_agent_from_yaml(yaml_code: str, llm_id: str, api_key: str, team_i
     # Parse tasks and assign them to the corresponding agents
     for task in tasks_data:
         for task_name, task_info in task.items():
-            description = task_info["description"]
-            expected_output = task_info["expected_output"]
+            task_description = task_info.get("description", "")
+            expected_output = task_info.get("expected_output", "")
             dependencies = task_info.get("dependencies", [])
-            agent_name = task_info["agent"]
+            agent_name = task_info.get("agent", "")
             agent_name = agent_name.replace("_", " ")
             agent_name = f"{agent_name} agent" if not agent_name.endswith(" agent") else agent_name
 
             task_obj = AgentTask(
                 name=task_name,
-                description=description,
+                description=task_description,
                 expected_output=expected_output,
                 dependencies=dependencies,
             )
@@ -303,17 +302,18 @@ def build_team_agent_from_yaml(yaml_code: str, llm_id: str, api_key: str, team_i
     for i, agent in enumerate(agent_objs):
         agent_objs[i] = AgentFactory.create(
             name=agent.name,
-            description=agent.instructions,
+            description=agent.description,
             instructions=agent.instructions,
             tools=agent.tools,
-            llm_id=llm_id,
+            llm=llm,
             tasks=agent.tasks,
         )
-
     return TeamAgentFactory.create(
         name=team_name,
+        description=team_description,
+        instructions=team_instructions,
         agents=agent_objs,
-        llm_id=llm_id,
+        llm=llm,
         api_key=api_key,
         use_mentalist=True,
         inspectors=[],
