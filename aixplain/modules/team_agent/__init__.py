@@ -438,7 +438,6 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                     evolved_agent = self
                     current_code = resp_data.get("current_code", "")
                     evolved_agent.description = current_code
-                    evolved_agent.instructions = current_code
                     evolved_agent.update()
                     resp_data["evolved_agent"] = evolved_agent
                 else:
@@ -586,10 +585,10 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         Returns:
             TeamAgent instance
         """
-        from aixplain.factories.agent_factory import AgentFactory
         from aixplain.factories.model_factory import ModelFactory
         from aixplain.enums import AssetStatus
         from aixplain.modules.team_agent import Inspector, InspectorTarget
+        from aixplain.modules.agent import Agent
 
         # Extract agents from agents list using proper agent loading
         agents = []
@@ -598,14 +597,15 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                 if "assetId" in agent_data:
                     try:
                         # Load agent using AgentFactory
-                        agent = AgentFactory.get(agent_data["assetId"])
+                        agent = Agent.from_dict(agent_data)
                         agents.append(agent)
                     except Exception as e:
                         # Log warning but continue processing other agents
                         import logging
 
                         logging.warning(f"Failed to load agent {agent_data['assetId']}: {e}")
-
+                else:
+                    agents.append(Agent.from_dict(agent_data))
         # Extract inspectors using proper model validation
         inspectors = []
         if "inspectors" in data:
@@ -864,7 +864,8 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             AgentResponse: Final response from the evolution process.
         """
         from aixplain.enums import EvolveType
-        from aixplain.utils.evolve_utils import from_yaml, create_llm_dict
+        from aixplain.utils.evolve_utils import create_llm_dict
+        from aixplain.factories.team_agent_factory.utils import build_team_agent_from_yaml
 
         # Create EvolveParam from individual parameters
         evolve_parameters = EvolveParam(
@@ -899,9 +900,11 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             current_code = result_data.get("current_code") if isinstance(result_data, dict) else result_data.current_code
             if current_code is not None:
                 if evolve_parameters.evolve_type == EvolveType.TEAM_TUNING:
-                    result_data["evolved_agent"] = from_yaml(
+                    result_data["evolved_agent"] = build_team_agent_from_yaml(
                         result_data["current_code"],
                         self.llm_id,
+                        self.api_key,
+                        self.id,
                     )
                 elif evolve_parameters.evolve_type == EvolveType.INSTRUCTION_TUNING:
                     self.instructions = result_data["current_code"]
