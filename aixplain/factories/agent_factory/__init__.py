@@ -134,7 +134,7 @@ class AgentFactory:
                 DeprecationWarning,
                 stacklevel=2,
             )
-            workflow_tasks = tasks if workflow_tasks is None else workflow_tasks
+            workflow_tasks = tasks if workflow_tasks is None or workflow_tasks == [] else workflow_tasks
 
         workflow_tasks = workflow_tasks or []
 
