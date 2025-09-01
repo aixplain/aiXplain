@@ -803,13 +803,13 @@ def test_create_agent_task():
     assert task.name == "Test Task"
     assert task.description == "Test Description"
     assert task.expected_output == "Test Output"
-    assert task.dependencies is None
+    assert task.dependencies == []
 
     task_dict = task.to_dict()
     assert task_dict["name"] == "Test Task"
     assert task_dict["description"] == "Test Description"
     assert task_dict["expectedOutput"] == "Test Output"
-    assert task_dict["dependencies"] is None
+    assert task_dict["dependencies"] == []
 
 
 def test_agent_response():
