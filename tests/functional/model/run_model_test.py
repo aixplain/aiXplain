@@ -11,7 +11,9 @@ from pathlib import Path
 from aixplain.factories.index_factory.utils import AirParams, VectaraParams, GraphRAGParams, ZeroEntropyParams
 import time
 import os
+import json
 
+CACHE_FOLDER = ".cache"
 
 def pytest_generate_tests(metafunc):
     if "llm_model" in metafunc.fixturenames:
@@ -88,7 +90,7 @@ def run_index_model(index_model, retries):
                 [Record(value="Berlin is the capital of Germany.", value_type="text", uri="", id="1", attributes={})]
             )
             break
-        except Exception as e:
+        except Exception:
             time.sleep(180)
 
     response = index_model.search("Berlin")
@@ -142,9 +144,6 @@ def test_index_model_with_filter(embedding_model, supplier_params):
     from aixplain.modules.model.record import Record
     from aixplain.factories import IndexFactory
     from aixplain.modules.model.index_model import IndexFilter, IndexFilterOperator
-
-    for index in IndexFactory.list()["results"]:
-        index.delete()
 
     params = supplier_params(name=str(uuid4()), description=str(uuid4()))
     if embedding_model is not None:
@@ -212,7 +211,7 @@ def test_aixplain_model_cache_creation():
 
     # Instantiate the Model (replace this with a real model ID from your env)
     model_id = "6239efa4822d7a13b8e20454"  # Translate from Punjabi to Portuguese (Brazil)
-    _ = Model(id=model_id)
+    _ = ModelFactory.get(model_id)
 
     # Assert the cache file was created
     assert os.path.exists(cache_file), "Expected cache file was not created."
@@ -229,9 +228,6 @@ def test_index_model_air_with_image():
     from aixplain.modules.model.record import Record
     from uuid import uuid4
     from aixplain.factories.index_factory.utils import AirParams
-
-    for index in IndexFactory.list()["results"]:
-        index.delete()
 
     params = AirParams(
         name=f"Image Index {uuid4()}", description="Index for images", embedding_model=EmbeddingModel.JINA_CLIP_V2_MULTIMODAL
@@ -305,9 +301,6 @@ def test_index_model_air_with_splitter(embedding_model, supplier_params):
     from aixplain.modules.model.index_model import Splitter
     from aixplain.enums.splitting_options import SplittingOptions
 
-    for index in IndexFactory.list()["results"]:
-        index.delete()
-
     params = supplier_params(
         name=f"Splitter Index {uuid4()}", description="Index for splitter", embedding_model=embedding_model
     )
@@ -322,6 +315,103 @@ def test_index_model_air_with_splitter(embedding_model, supplier_params):
     assert str(response.status) == "SUCCESS"
     assert "berlin" in response.data.lower()
     index_model.delete()
+
+
+def test_index_model_with_txt_file():
+    """Testing Index Model with local txt file input"""
+    from aixplain.factories import IndexFactory
+    from uuid import uuid4
+    from aixplain.factories.index_factory.utils import AirParams
+    from pathlib import Path
+
+    # Create test file path
+    test_file_path = Path(__file__).parent / "data" / "test_input.txt"
+
+    # Create index with OpenAI Ada 002 for text processing
+    params = AirParams(
+        name=f"File Index {uuid4()}", description="Index for file processing", embedding_model=EmbeddingModel.OPENAI_ADA002
+    )
+    index_model = IndexFactory.create(params=params)
+
+    try:
+        # Upsert the file
+        response = index_model.upsert(str(test_file_path))
+        assert str(response.status) == "SUCCESS"
+
+        # Verify the content was indexed
+        response = index_model.search("demo")
+        assert str(response.status) == "SUCCESS"
+        assert "🤖" in response.data, "Robot emoji should be present in the response"
+
+        # Verify count
+        assert index_model.count() > 0
+
+    finally:
+        # Cleanup
+        index_model.delete()
+
+
+def test_index_model_with_pdf_file():
+    """Testing Index Model with PDF file input"""
+    from aixplain.factories import IndexFactory
+    from uuid import uuid4
+    from aixplain.factories.index_factory.utils import AirParams
+    from pathlib import Path
+
+    # Create test file path
+    test_file_path = Path(__file__).parent / "data" / "test_file_parser_input.pdf"
+
+    # Create index with OpenAI Ada 002 for text processing
+    params = AirParams(
+        name=f"PDF Index {uuid4()}", description="Index for PDF processing", embedding_model=EmbeddingModel.OPENAI_ADA002
+    )
+    index_model = IndexFactory.create(params=params)
+
+    try:
+        # Upsert the PDF file
+        response = index_model.upsert(str(test_file_path))
+        assert str(response.status) == "SUCCESS"
+
+        # Verify the content was indexed
+        response = index_model.search("document")
+        assert str(response.status) == "SUCCESS"
+        assert len(response.data) > 0
+
+        # Verify count
+        assert index_model.count() > 0
+
+    finally:
+        # Cleanup
+        index_model.delete()
+
+
+def test_index_model_with_invalid_file():
+    """Testing Index Model with invalid file input"""
+    from aixplain.factories import IndexFactory
+    from uuid import uuid4
+    from aixplain.factories.index_factory.utils import AirParams
+    from pathlib import Path
+
+    # Create non-existent file path
+    test_file_path = Path(__file__).parent / "data" / "nonexistent.pdf"
+
+    # Create index with OpenAI Ada 002 for text processing
+    params = AirParams(
+        name=f"Invalid File Index {uuid4()}",
+        description="Index for invalid file testing",
+        embedding_model=EmbeddingModel.OPENAI_ADA002,
+    )
+    index_model = IndexFactory.create(params=params)
+
+    try:
+        # Attempt to upsert non-existent file
+        with pytest.raises(Exception) as e:
+            index_model.upsert(str(test_file_path))
+        assert "does not exist" in str(e.value)
+
+    finally:
+        # Cleanup
+        index_model.delete()
 
 
 def _test_records():
@@ -373,11 +463,6 @@ def setup_index_with_test_records():
     from aixplain.enums import EmbeddingModel
     from aixplain.factories.index_factory.utils import AirParams
     from uuid import uuid4
-    import time
-
-    # Clean up all existing indexes
-    for index in IndexFactory.list()["results"]:
-        index.delete()
 
     params = AirParams(
         name=f"Test Index {uuid4()}",

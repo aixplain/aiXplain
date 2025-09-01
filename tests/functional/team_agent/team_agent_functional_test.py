@@ -308,7 +308,7 @@ def test_team_agent_with_instructions(delete_agents_and_team_agents):
         instructions="Use only 'Agent 2' to solve the tasks.",
         llm_id="6646261c6eb563165658bbb1",
         use_mentalist=True,
-        use_inspector=False,
+        inspectors=[],
     )
 
     response = team_agent.run(data="Translate 'cat' to Portuguese")
@@ -425,7 +425,7 @@ def test_run_team_agent_with_expected_output():
         description="Team agent",
         llm_id="6646261c6eb563165658bbb1",
         use_mentalist=False,
-        use_inspector=False,
+        inspectors=[],
     )
 
     # Run the team agent
@@ -506,7 +506,7 @@ def test_team_agent_with_slack_connector():
         description="Team agent",
         llm_id="6646261c6eb563165658bbb1",
         use_mentalist=False,
-        use_inspector=False,
+        inspectors=[],
     )
 
     response = team_agent.run(
