@@ -17,6 +17,7 @@ from aixplain.modules.model.model_parameters import ModelParameters
 from aixplain.modules.agent.output_format import OutputFormat
 
 GPT_4o_ID = "6646261c6eb563165658bbb1"
+SUPPORTED_TOOLS = ["llm", "website_search", "website_scrape", "website_crawl", "serper_search"]
 
 
 def build_team_agent(payload: Dict, agents: List[Agent] = None, api_key: Text = config.TEAM_API_KEY) -> TeamAgent:
@@ -269,7 +270,7 @@ def build_team_agent_from_yaml(yaml_code: str, llm_id: str, api_key: str, team_i
             description=agent_description,
             instructions=agent_instructions,
             tasks=[],  # Tasks will be assigned later
-            tools=[parse_tool_from_yaml(tool) for tool in agent_info.get("tools", []) if tool != "language_model"],
+            tools=[parse_tool_from_yaml(tool) for tool in agent_info.get("tools", []) if tool in SUPPORTED_TOOLS],
             llm=llm,
         )
         agents_mapping[agent_name] = agent_obj
