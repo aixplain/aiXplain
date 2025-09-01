@@ -20,7 +20,7 @@ class WorkflowTask:
         name: Text,
         description: Text,
         expected_output: Text,
-        dependencies: Optional[List[Union[Text, "WorkflowTask"]]] = None,
+        dependencies: Optional[List[Union[Text, "WorkflowTask"]]] = [],
     ):
         """Initialize a new WorkflowTask instance.
 

@@ -222,7 +222,7 @@ class AgentFactory:
         name: Text,
         description: Text,
         expected_output: Text,
-        dependencies: Optional[List[Text]] = None,
+        dependencies: Optional[List[Text]] = [],
     ) -> WorkflowTask:
         return WorkflowTask(
             name=name,
