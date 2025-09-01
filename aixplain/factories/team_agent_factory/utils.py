@@ -275,7 +275,10 @@ def build_team_agent_from_yaml(yaml_code: str, llm_id: str, api_key: str, team_i
         agents_mapping[agent_name] = agent_obj
         agent_objs.append(agent_obj)
 
-    # Parse tasks and assign them to the corresponding agents
+    # Create task collections for each agent (clean approach)
+    agent_tasks = {agent_name: [] for agent_name in agents_mapping.keys()}
+
+    # Parse tasks and collect them by agent
     for task in tasks_data:
         for task_name, task_info in task.items():
             task_description = task_info.get("description", "")
@@ -292,21 +295,25 @@ def build_team_agent_from_yaml(yaml_code: str, llm_id: str, api_key: str, team_i
                 dependencies=dependencies,
             )
 
-            # Assign the task to the corresponding agent
-            if agent_name in agents_mapping:
-                agent = agents_mapping[agent_name]
-                agent.tasks.append(task_obj)
+            # Add task to the corresponding agent's collection
+            if agent_name in agent_tasks:
+                # Check for duplicates within this build
+                existing_task_names = [task.name for task in agent_tasks[agent_name]]
+                if task_name not in existing_task_names:
+                    agent_tasks[agent_name].append(task_obj)
             else:
                 raise Exception(f"Agent '{agent_name}' referenced in tasks not found.")
 
+    # Create agents with their respective task collections
     for i, agent in enumerate(agent_objs):
+        agent_name = agent.name
         agent_objs[i] = AgentFactory.create(
             name=agent.name,
             description=agent.description,
             instructions=agent.instructions,
             tools=agent.tools,
             llm=llm,
-            tasks=agent.tasks,
+            tasks=agent_tasks.get(agent_name, []),  # Use collected tasks
         )
     return TeamAgentFactory.create(
         name=team_name,
