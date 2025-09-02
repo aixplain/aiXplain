@@ -197,9 +197,6 @@ class BenchmarkFactory:
             raise Exception("Please use at least one metric")
         if len(payload["model"]) == 0 and payload.get("models", None) is None:
             raise Exception("Please use at least one model")
-            raise Exception("Please use at least one metric")
-        if len(payload["model"]) == 0 and payload.get("models", None) is None:
-            raise Exception("Please use at least one model")
         clean_metrics_info = {}
         for metric_info in payload["metrics"]:
             metric_id = metric_info["id"]
@@ -301,13 +298,10 @@ class BenchmarkFactory:
                 "datasets": [dataset.id for dataset in dataset_list],
                 "metrics": [{"id": metric.id, "configurations": metric.normalization_options} for metric in metric_list],
                 "model": model_list_without_parms,
-                "model": model_list_without_parms,
                 "shapScores": [],
                 "humanEvaluationReport": False,
                 "automodeTraining": False,
             }
-            if model_list_with_parms is not None:
-                payload["models"] = model_list_with_parms
             if model_list_with_parms is not None:
                 payload["models"] = model_list_with_parms
             clean_payload = cls._validate_create_benchmark_payload(payload)

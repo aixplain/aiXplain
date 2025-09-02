@@ -327,7 +327,11 @@ def test_specific_model_parameters_e2e(tool_config, delete_agents_and_team_agent
         function = Function(tool_config["function"])
         function_params = function.get_parameters()
         function_params.sourcelanguage = "pt"
-        tool = AgentFactory.create_model_tool(function=function, description=tool_config["description"], supplier="microsoft")
+        tool = AgentFactory.create_model_tool(
+            function=function,
+            description=tool_config["description"],
+            supplier="microsoft",
+        )
 
     # Verify tool parameters
     params = tool.get_parameters()
@@ -536,7 +540,13 @@ def test_agent_with_utility_tool(delete_agents_and_team_agents, AgentFactory):
     @utility_tool(
         name="vowel_remover",
         description="Remove all vowels from a given string",
-        inputs=[UtilityModelInput(name="text", description="String from which to remove vowels", type=DataType.TEXT)],
+        inputs=[
+            UtilityModelInput(
+                name="text",
+                description="String from which to remove vowels",
+                type=DataType.TEXT,
+            )
+        ],
     )
     def vowel_remover(text: str):
         """Remove vowels from strings"""
@@ -549,8 +559,16 @@ def test_agent_with_utility_tool(delete_agents_and_team_agents, AgentFactory):
         name="concat_strings",
         description="Concatenate two strings into one",
         inputs=[
-            UtilityModelInput(name="string1", description="First string to concatenate", type=DataType.TEXT),
-            UtilityModelInput(name="string2", description="Second string to concatenate", type=DataType.TEXT),
+            UtilityModelInput(
+                name="string1",
+                description="First string to concatenate",
+                type=DataType.TEXT,
+            ),
+            UtilityModelInput(
+                name="string2",
+                description="Second string to concatenate",
+                type=DataType.TEXT,
+            ),
         ],
     )
     def concat_strings(string1: str, string2: str):
@@ -603,7 +621,8 @@ def test_agent_with_pipeline_tool(delete_agents_and_team_agents, AgentFactory):
         description="Return the text given.",
         tools=[
             AgentFactory.create_pipeline_tool(
-                pipeline=pipeline.id, description="You are a tool that responds users query with only 'Hello'."
+                pipeline=pipeline.id,
+                description="You are a tool that responds users query with only 'Hello'.",
             ),
         ],
         llm_id="6646261c6eb563165658bbb1",
@@ -695,7 +714,11 @@ def test_run_agent_with_expected_output():
         llm_id="6646261c6eb563165658bbb1",
     )
     # Run the agent
-    response = agent.run("Who have more than 30 years old?", output_format=OutputFormat.JSON, expected_output=Response)
+    response = agent.run(
+        "Who have more than 30 years old?",
+        output_format=OutputFormat.JSON,
+        expected_output=Response,
+    )
 
     # Verify response basics
     assert response is not None
@@ -734,7 +757,8 @@ def test_agent_with_action_tool():
     connector = ModelFactory.get("686432941223092cb4294d3f")
     # connect
     response = connector.connect(
-        authentication_schema=AuthenticationSchema.BEARER_TOKEN, data={"token": os.getenv("SLACK_TOKEN")}
+        authentication_schema=AuthenticationSchema.BEARER_TOKEN,
+        data={"token": os.getenv("SLACK_TOKEN")},
     )
     connection_id = response.data["id"]
 
