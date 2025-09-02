@@ -230,11 +230,11 @@ class IndexModel(Model):
         }
         return self.run(data=data)
 
-    def upsert(self, documents: List[Record] | str, splitter: Optional[Splitter] = None) -> ModelResponse:
+    def upsert(self, documents: Union[List[Record], str], splitter: Optional[Splitter] = None) -> ModelResponse:
         """Upsert documents into the index
 
         Args:
-            documents (List[Record] | str): List of documents to be upserted or a file path
+            documents (Union[List[Record], str]): List of documents to be upserted or a file path
             splitter (Splitter, optional): Splitter to be applied. Defaults to None.
 
         Returns:
