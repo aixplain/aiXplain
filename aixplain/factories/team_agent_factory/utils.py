@@ -100,7 +100,14 @@ def build_team_agent(payload: Dict, agents: List[Agent] = None, api_key: Text = 
     elif "tools" in payload:
         for tool in payload["tools"]:
             if tool["type"] == "llm":
-                llm = ModelFactory.get(payload["llmId"], api_key=api_key)
+                try:
+                    llm = ModelFactory.get(payload["llmId"], api_key=api_key)
+                except Exception:
+                    logging.warning(
+                        f"LLM {payload['llmId']} not found. Make sure it exists or you have access to it. "
+                        "If you think this is an error, please contact the administrators."
+                    )
+                    continue
                 # Set parameters from the tool
                 if "parameters" in tool:
                     # Apply all parameters directly to the LLM properties

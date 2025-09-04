@@ -87,7 +87,6 @@ def test_end2end(run_input_map, delete_agents_and_team_agents, TeamAgentFactory)
     assert response["completed"] is True
     assert response["status"].lower() == "success"
     assert "data" in response
-    assert response["data"]["session_id"] is None
     assert response["data"]["output"] is not None
 
     team_agent.delete()

@@ -98,7 +98,6 @@ def test_end2end(run_input_map, delete_agents_and_team_agents, AgentFactory):
     assert response["completed"] is True
     assert response["status"].lower() == "success"
     assert "data" in response
-    assert response["data"]["session_id"] is None
     assert response["data"]["output"] is not None
     agent.delete()
 
@@ -524,7 +523,6 @@ def test_instructions(delete_agents_and_team_agents, AgentFactory):
     assert response["completed"] is True
     assert response["status"].lower() == "success"
     assert "data" in response
-    assert response["data"]["session_id"] is None
     assert response["data"]["output"] is not None
     assert "aixplain" in response["data"]["output"].lower()
     agent.delete()

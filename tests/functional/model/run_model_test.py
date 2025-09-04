@@ -21,7 +21,7 @@ def pytest_generate_tests(metafunc):
         models = ModelFactory.list(function=Function.TEXT_GENERATION)["results"]
 
         predefined_models = []
-        for predefined_model in ["Groq Llama 3 70B", "GPT-4o"]:
+        for predefined_model in ["GPT-4.1 Mini", "GPT-4o"]:
             predefined_models.extend(
                 [
                     m
