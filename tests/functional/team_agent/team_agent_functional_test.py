@@ -40,17 +40,15 @@ from tests.functional.team_agent.test_utils import (
 
 @pytest.fixture(scope="function")
 def delete_agents_and_team_agents():
-    for team_agent in TeamAgentFactory.list()["results"]:
-        team_agent.delete()
-    for agent in AgentFactory.list()["results"]:
-        agent.delete()
+    from tests.test_deletion_utils import safe_delete_all_agents_and_team_agents
+    
+    # Clean up before test
+    safe_delete_all_agents_and_team_agents()
 
     yield True
 
-    for team_agent in TeamAgentFactory.list()["results"]:
-        team_agent.delete()
-    for agent in AgentFactory.list()["results"]:
-        agent.delete()
+    # Clean up after test
+    safe_delete_all_agents_and_team_agents()
 
 
 @pytest.fixture(scope="module", params=read_data(RUN_FILE))
@@ -94,10 +92,8 @@ def test_end2end(run_input_map, delete_agents_and_team_agents, TeamAgentFactory)
 
 @pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory, v2.TeamAgent])
 def test_draft_team_agent_update(run_input_map, TeamAgentFactory):
-    for team in TeamAgentFactory.list()["results"]:
-        team.delete()
-    for agent in AgentFactory.list()["results"]:
-        agent.delete()
+    from tests.test_deletion_utils import safe_delete_all_agents_and_team_agents
+    safe_delete_all_agents_and_team_agents()
 
     agents = create_agents_from_input_map(run_input_map, deploy=False)
     team_agent = create_team_agent(
@@ -119,10 +115,8 @@ def test_draft_team_agent_update(run_input_map, TeamAgentFactory):
 
 @pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory, v2.TeamAgent])
 def test_fail_non_existent_llm(run_input_map, TeamAgentFactory):
-    for team in TeamAgentFactory.list()["results"]:
-        team.delete()
-    for agent in AgentFactory.list()["results"]:
-        agent.delete()
+    from tests.test_deletion_utils import safe_delete_all_agents_and_team_agents
+    safe_delete_all_agents_and_team_agents()
 
     agents = create_agents_from_input_map(run_input_map, deploy=False)
 
