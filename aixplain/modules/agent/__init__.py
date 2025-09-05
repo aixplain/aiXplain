@@ -175,7 +175,7 @@ class Agent(Model, DeployableMixin[Tool]):
             re.match(r"^[a-zA-Z0-9 \-\(\)]*$", self.name) is not None
         ), "Agent Creation Error: Agent name contains invalid characters. Only alphanumeric characters, spaces, hyphens, and brackets are allowed."
 
-        llm = get_llm_instance(self.llm_id, api_key=self.api_key)
+        llm = get_llm_instance(self.llm_id, api_key=self.api_key, use_cache=True)
 
         assert llm.function == Function.TEXT_GENERATION, "Large Language Model must be a text generation model."
 

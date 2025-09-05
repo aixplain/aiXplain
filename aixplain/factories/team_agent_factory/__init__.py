@@ -334,14 +334,15 @@ class TeamAgentFactory:
             raise Exception(error_msg)
 
     @classmethod
-    def get(cls, agent_id: Text, api_key: Optional[Text] = None) -> TeamAgent:
-        """Retrieve a team agent by its ID.
+    def get(cls, agent_id: Optional[Text] = None, name: Optional[Text] = None, api_key: Optional[Text] = None) -> TeamAgent:
+        """Retrieve a team agent by its ID or name.
 
         This method fetches a specific team agent from the platform using its
-        unique identifier.
+        unique identifier or name.
 
         Args:
-            agent_id (Text): Unique identifier of the team agent to retrieve.
+            agent_id (Optional[Text], optional): Unique identifier of the team agent to retrieve.
+            name (Optional[Text], optional): Name of the team agent to retrieve.
             api_key (Optional[Text], optional): API key for authentication.
                 Defaults to None, using the configured TEAM_API_KEY.
 
@@ -350,15 +351,25 @@ class TeamAgentFactory:
 
         Raises:
             Exception: If:
-                - Team agent ID is invalid
+                - Team agent ID/name is invalid
                 - Authentication fails
                 - Service is unavailable
                 - Other API errors occur
+            ValueError: If neither agent_id nor name is provided, or if both are provided.
         """
-        url = urljoin(config.BACKEND_URL, f"sdk/agent-communities/{agent_id}")
+        # Validate that exactly one parameter is provided
+        if not (agent_id or name) or (agent_id and name):
+            raise ValueError("Must provide exactly one of 'agent_id' or 'name'")
+
+        # Construct URL based on parameter type
+        if agent_id:
+            url = urljoin(config.BACKEND_URL, f"sdk/agent-communities/{agent_id}")
+        else:  # name is provided
+            url = urljoin(config.BACKEND_URL, f"sdk/agent-communities/by-name/{name}")
+
         api_key = api_key if api_key is not None else config.TEAM_API_KEY
         headers = {"x-api-key": api_key, "Content-Type": "application/json"}
-        logging.info(f"Start service for GET Team Agent  - {url} - {headers}")
+        logging.info(f"Start service for GET Team Agent - {url} - {headers}")
         try:
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()

@@ -693,7 +693,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         ), "Team Agent Creation Error: Team name contains invalid characters. Only alphanumeric characters, spaces, hyphens, and brackets are allowed."
 
         try:
-            llm = get_llm_instance(self.llm_id)
+            llm = get_llm_instance(self.llm_id, use_cache=True)
             assert llm.function == Function.TEXT_GENERATION, "Large Language Model must be a text generation model."
         except Exception:
             raise Exception(f"Large Language Model with ID '{self.llm_id}' not found.")

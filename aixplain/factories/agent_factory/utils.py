@@ -140,7 +140,7 @@ def build_llm(payload: Dict, api_key: Text = config.TEAM_API_KEY) -> LLM:
         for tool in payload["tools"]:
             if tool["type"] == "llm" and tool["description"] == "main":
 
-                llm = get_llm_instance(payload["llmId"], api_key=api_key)
+                llm = get_llm_instance(payload["llmId"], api_key=api_key, use_cache=True)
                 # Set parameters from the tool
                 if "parameters" in tool:
                     # Apply all parameters directly to the LLM properties
@@ -191,18 +191,34 @@ def build_agent(payload: Dict, tools: List[Tool] = None, api_key: Text = config.
     payload_tools = tools
     if payload_tools is None:
         payload_tools = []
-        for tool in tools_dict:
+        # Use parallel tool building with ThreadPoolExecutor for better performance
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        
+        def build_tool_safe(tool_data):
+            """Build a single tool with error handling"""
             try:
-                payload_tools.append(build_tool(tool))
+                return build_tool(tool_data)
             except (ValueError, AssertionError) as e:
                 logging.warning(str(e))
-                continue
+                return None
             except Exception:
                 logging.warning(
-                    f"Tool {tool['assetId']} is not available. Make sure it exists or you have access to it. "
+                    f"Tool {tool_data['assetId']} is not available. Make sure it exists or you have access to it. "
                     "If you think this is an error, please contact the administrators."
                 )
-                continue
+                return None
+        
+        # Build all tools in parallel (only if there are tools to build)
+        if len(tools_dict) > 0:
+            with ThreadPoolExecutor(max_workers=min(len(tools_dict), 10)) as executor:
+                # Submit all tool build tasks
+                future_to_tool = {executor.submit(build_tool_safe, tool): tool for tool in tools_dict}
+                
+                # Collect results as they complete
+                for future in as_completed(future_to_tool):
+                    tool_result = future.result()
+                    if tool_result is not None:
+                        payload_tools.append(tool_result)
 
     llm = build_llm(payload, api_key)
 

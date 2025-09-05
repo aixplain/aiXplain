@@ -59,15 +59,31 @@ def build_team_agent(payload: Dict, agents: List[Agent] = None, api_key: Text = 
     payload_agents = agents
     if payload_agents is None:
         payload_agents = []
-        for i, agent in enumerate(agents_dict):
+        # Use parallel agent fetching with ThreadPoolExecutor for better performance
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        
+        def fetch_agent(agent_data):
+            """Fetch a single agent by ID with error handling"""
             try:
-                payload_agents.append(AgentFactory.get(agent["assetId"]))
-            except Exception:
+                return AgentFactory.get(agent_data["assetId"])
+            except Exception as e:
                 logging.warning(
-                    f"Agent {agent['assetId']} not found. Make sure it exists or you have access to it. "
-                    "If you think this is an error, please contact the administrators."
+                    f"Agent {agent_data['assetId']} not found. Make sure it exists or you have access to it. "
+                    "If you think this is an error, please contact the administrators. Error: {e}"
                 )
-                continue
+                return None
+        
+        # Fetch all agents in parallel (only if there are agents to fetch)
+        if len(agents_dict) > 0:
+            with ThreadPoolExecutor(max_workers=min(len(agents_dict), 10)) as executor:
+                # Submit all agent fetch tasks
+                future_to_agent = {executor.submit(fetch_agent, agent): agent for agent in agents_dict}
+                
+                # Collect results as they complete
+                for future in as_completed(future_to_agent):
+                    agent_result = future.result()
+                    if agent_result is not None:
+                        payload_agents.append(agent_result)
 
     # Ensure custom classes are instantiated: for compatibility with backend return format
     inspectors = []
@@ -90,6 +106,15 @@ def build_team_agent(payload: Dict, agents: List[Agent] = None, api_key: Text = 
     # Get LLMs from tools if present
     supervisor_llm = None
     mentalist_llm = None
+    
+    # Cache for models to avoid duplicate fetching of the same model ID
+    model_cache = {}
+    
+    def get_cached_model(model_id: str) -> any:
+        """Get model from cache or fetch if not cached"""
+        if model_id not in model_cache:
+            model_cache[model_id] = ModelFactory.get(model_id, api_key=api_key, use_cache=True)
+        return model_cache[model_id]
 
     # First check if we have direct LLM objects in the payload
     if "supervisor_llm" in payload:
@@ -100,14 +125,8 @@ def build_team_agent(payload: Dict, agents: List[Agent] = None, api_key: Text = 
     elif "tools" in payload:
         for tool in payload["tools"]:
             if tool["type"] == "llm":
-                try:
-                    llm = ModelFactory.get(payload["llmId"], api_key=api_key)
-                except Exception:
-                    logging.warning(
-                        f"LLM {payload['llmId']} not found. Make sure it exists or you have access to it. "
-                        "If you think this is an error, please contact the administrators."
-                    )
-                    continue
+                # Use cached model fetching to avoid duplicate API calls
+                llm = get_cached_model(payload["llmId"])
                 # Set parameters from the tool
                 if "parameters" in tool:
                     # Apply all parameters directly to the LLM properties
@@ -258,7 +277,7 @@ def build_team_agent_from_yaml(yaml_code: str, llm_id: str, api_key: str, team_i
     team_name = system_data.get("name", "")
     team_description = system_data.get("description", "")
     team_instructions = system_data.get("instructions", "")
-    llm = ModelFactory.get(llm_id)
+    llm = ModelFactory.get(llm_id, use_cache=True)
     # Create agent mapping by name for easier task assignment
     agents_mapping = {}
     agent_objs = []
