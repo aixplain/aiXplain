@@ -98,10 +98,10 @@ class AgentFactory:
         from aixplain.utils.llm_utils import get_llm_instance
 
         if llm is None and llm_id is not None:
-            llm = get_llm_instance(llm_id, api_key=api_key)
+            llm = get_llm_instance(llm_id, api_key=api_key, use_cache=True)
         elif llm is None:
             # Use default GPT-4o if no LLM specified
-            llm = get_llm_instance("669a63646eb56306647e1091", api_key=api_key)
+            llm = get_llm_instance("669a63646eb56306647e1091", api_key=api_key, use_cache=True)
 
         if output_format == OutputFormat.JSON:
             assert expected_output is not None and (
@@ -152,7 +152,7 @@ class AgentFactory:
         }
 
         if llm is not None:
-            llm = get_llm_instance(llm, api_key=api_key) if isinstance(llm, str) else llm
+            llm = get_llm_instance(llm, api_key=api_key, use_cache=True) if isinstance(llm, str) else llm
             payload["tools"].append(
                 {
                     "type": "llm",
