@@ -30,14 +30,38 @@ from urllib.parse import urljoin
 import re
 
 
-def clean_name(name):
+def clean_name(name: str) -> str:
+    """Clean a supplier name by replacing spaces and special characters with underscores.
+
+    This function takes a supplier name and performs the following transformations:
+    1. Replaces spaces and hyphens with underscores.
+    2. Removes any non-alphanumeric characters.
+    3. Removes any leading numbers.
+
+    Args:
+        name (str): The supplier name to clean.
+
+    Returns:
+        str: The cleaned supplier name.
+    """
     cleaned_name = re.sub(r"[ -]+", "_", name)
     cleaned_name = re.sub(r"[^a-zA-Z0-9_]", "", cleaned_name)
     cleaned_name = re.sub(r"^\d+", "", cleaned_name)
     return cleaned_name.upper()
 
 
-def load_suppliers():
+def load_suppliers() -> Enum:
+    """Load suppliers from the backend or cache.
+
+    This function fetches supplier information from the backend API and creates
+    an Enum class with supplier names as keys.
+
+    Returns:
+        Enum: An Enum class with supplier names as keys.
+
+    Raises:
+        Exception: If suppliers cannot be loaded due to invalid API key or other errors.
+    """
     api_key = config.TEAM_API_KEY
     backend_url = config.BACKEND_URL
 

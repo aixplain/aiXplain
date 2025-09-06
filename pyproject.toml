@@ -10,15 +10,16 @@ namespaces = true
 
 [project]
 name = "aiXplain"
-version = "0.2.26"
+version = "0.2.35rc1"
 description = "aiXplain SDK adds AI functions to software."
 readme = "README.md"
-requires-python = ">=3.5, <4"
+requires-python = ">=3.9, <4"
 license = { text = "Apache License, Version 2.0: http://www.apache.org/licenses/LICENSE-2.0" }
 authors = [
-  {email = "thiago.ferreira@aixplain.com"},
-  {email = "krishna.durai@aixplain.com"},
-  {email = "lucas.pavanelli@aixplain.com"}
+  {email = "ahmet@aixplain.com"},
+  {email = "hadi@aixplain.com"},
+  {email = "kadir.pekel@aixplain.com"},
+  {email = "aina.abushaban@aixplain.com"}
 ]
 classifiers = [
     "Development Status :: 2 - Pre-Alpha",
@@ -29,13 +30,11 @@ classifiers = [
     "Operating System :: OS Independent",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.5",
-    "Programming Language :: Python :: 3.6",
-    "Programming Language :: Python :: 3.7",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
@@ -45,7 +44,7 @@ classifiers = [
 dependencies = [
     "requests>=2.1.0", 
     "tqdm>=4.1.0", 
-    "pandas>=1.2.1", 
+    "pandas>=2.0.0",
     "python-dotenv>=1.0.0", 
     "validators>=0.20.0", 
     "filetype>=1.2.0",
@@ -67,7 +66,7 @@ aixplain = "aixplain.cli_groups:run_cli"
 
 [project.optional-dependencies]
 model-builder = [
-    "model-interfaces~=0.0.1"
+    "model-interfaces~=0.0.2"
 ]
 test = [
     "pytest>=6.1.0",

@@ -31,6 +31,28 @@ from typing import List, Optional, Text, Any
 
 
 class Data:
+    """A class representing a collection of data samples of the same type and genre.
+
+    This class provides functionality for managing data in the aiXplain platform,
+    supporting various data types, languages, and storage formats. It can handle
+    both structured (e.g., CSV) and unstructured data files.
+
+    Attributes:
+        id (Text): ID of the data collection.
+        name (Text): Name of the data collection.
+        dtype (DataType): Type of data (e.g., text, audio, image).
+        privacy (Privacy): Privacy settings for the data.
+        onboard_status (OnboardStatus): Current onboarding status.
+        data_column (Optional[Any]): Column identifier where data is stored in structured files.
+        start_column (Optional[Any]): Column identifier for start indexes in structured files.
+        end_column (Optional[Any]): Column identifier for end indexes in structured files.
+        files (List[File]): List of files containing the data instances.
+        languages (List[Language]): List of languages present in the data.
+        dsubtype (DataSubtype): Subtype categorization of the data.
+        length (Optional[int]): Number of samples/rows in the data collection.
+        kwargs (dict): Additional keyword arguments for extensibility.
+    """
+
     def __init__(
         self,
         id: Text,
@@ -47,24 +69,29 @@ class Data:
         length: Optional[int] = None,
         **kwargs
     ) -> None:
-        """Data Class.
-
-        Description:
-            Data consists of a list of samples of same type and genre.
+        """Initialize a new Data instance.
 
         Args:
-            id (Text): Data ID
-            name (Text): Data Name
-            dtype (DataType): Data Type
-            privacy (Privacy): Privacy of data
-            onboard_status (OnboardStatus): onboard status
-            data_column (Optional[Any], optional): Column index/name where the data is on a structured file (e.g. CSV). Defaults to None.
-            start_column (Optional[Any], optional): Column index/name where the start indexes is on a structured file (e.g. CSV). Defaults to None.
-            end_column (Optional[Any], optional): Column index/name where the end indexes is on a structured file (e.g. CSV). Defaults to None.
-            files (List[File], optional): List of files where the data instances are stored. Defaults to [].
-            languages (List[Language], optional): List of languages which the data consists of. Defaults to [].
-            dsubtype (DataSubtype, optional): Data subtype (e.g., age, topic, race, split, etc.), used in datasets metadata. Defaults to Other.
-            length (Optional[int], optional): Number of rows in the Data. Defaults to None.
+            id (Text): ID of the data collection.
+            name (Text): Name of the data collection.
+            dtype (DataType): Type of data (e.g., text, audio, image).
+            privacy (Privacy): Privacy settings for the data.
+            onboard_status (OnboardStatus): Current onboarding status of the data.
+            data_column (Optional[Any], optional): Column identifier where data is stored in
+                structured files (e.g., CSV). If None, defaults to the value of name.
+            start_column (Optional[Any], optional): Column identifier where start indexes are
+                stored in structured files. Defaults to None.
+            end_column (Optional[Any], optional): Column identifier where end indexes are
+                stored in structured files. Defaults to None.
+            files (List[File], optional): List of files containing the data instances.
+                Defaults to empty list.
+            languages (List[Language], optional): List of languages present in the data.
+                Can be provided as Language enums or language codes. Defaults to empty list.
+            dsubtype (DataSubtype, optional): Subtype categorization of the data
+                (e.g., age, topic, race, split). Defaults to DataSubtype.OTHER.
+            length (Optional[int], optional): Number of samples/rows in the data collection.
+                Defaults to None.
+            **kwargs: Additional keyword arguments for extensibility.
         """
         self.id = id
         self.name = name

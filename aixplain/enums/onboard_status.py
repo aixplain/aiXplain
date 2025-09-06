@@ -25,6 +25,17 @@ from enum import Enum
 
 
 class OnboardStatus(Enum):
+    """Enumeration of possible onboarding status values.
+
+    This enum defines all possible states that an onboarding process can be in,
+    from initial onboarding to completed or failed states.
+
+    Attributes:
+        ONBOARDING (str): Initial onboarding state.
+        ONBOARDED (str): Successful onboarding state.
+        FAILED (str): Failed onboarding state.
+        DELETED (str): Deleted onboarding state.
+    """
     ONBOARDING = "onboarding"
     ONBOARDED = "onboarded"
     FAILED = "failed"

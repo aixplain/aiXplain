@@ -22,7 +22,19 @@ AUDIO_MAX_SIZE = 50000000
 IMAGE_TEXT_MAX_SIZE = 25000000
 
 
-def compress_folder(folder_path: str):
+def compress_folder(folder_path: str) -> str:
+    """Compress a folder into a gzipped tar archive.
+
+    This function takes a folder and creates a compressed tar archive (.tgz)
+    containing all files in the folder. The archive is created in the same
+    directory as the input folder.
+
+    Args:
+        folder_path (str): Path to the folder to be compressed.
+
+    Returns:
+        str: Path to the created .tgz archive file.
+    """
     with tarfile.open(folder_path + ".tgz", "w:gz") as tar:
         for name in os.listdir(folder_path):
             tar.add(os.path.join(folder_path, name))
@@ -30,21 +42,44 @@ def compress_folder(folder_path: str):
 
 
 def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 100) -> Tuple[List[File], int, int, int, int]:
-    """Process a list of local media files, compress and upload them to pre-signed URLs in S3
+    """Process media files and prepare them for upload to S3 with batch processing.
 
-    Explanation:
-        Each media on "paths" is processed. If the media is in a public link, this link is added into an index CSV file.
-        If the media is in a local path, it will be copied into a local folder and its path will be added to the index CSV file.
-        The medias are processed in batches such that at each "batch_size" medias, the index CSV file is uploaded into a pre-signed URL in s3 and reset.
-        If the medias are stored locally, the local folder is compressed into a .tgz file and also uploaded into S3.
+    This function handles the processing and uploading of media files (audio, image, etc.)
+    to S3. It supports both local files and public URLs, processes them in batches,
+    and creates index files to track the media locations and any interval information.
+
+    The process works as follows:
+    1. For each media file in the input paths:
+       - If it's a public URL: Add the URL to an index CSV file
+       - If it's a local file: Copy to a temporary folder and add path to index
+    2. After every batch_size files:
+       - For local files: Compress the folder into .tgz and upload to S3
+       - Create and upload an index CSV file with paths and metadata
+       - Reset for the next batch
 
     Args:
-        metadata (MetaData): meta data of the asset
-        paths (List): list of paths to local files
-        folder (Path): local folder to save compressed files before upload them to s3.
+        metadata (MetaData): Metadata object containing information about the media type,
+            storage type, and column mappings.
+        paths (List): List of paths to CSV files containing media information.
+        folder (Path): Local folder path where temporary files and compressed archives
+            will be stored during processing.
+        batch_size (int, optional): Number of media files to process in each batch.
+            Defaults to 100.
 
     Returns:
-        Tuple[List[File], int, int, int]: list of s3 links; data, start and end columns index, and number of rows
+        Tuple[List[File], int, int, int, int]: A tuple containing:
+            - List[File]: List of File objects pointing to uploaded index files in S3
+            - int: Index of the data column in the index CSV
+            - int: Index of the start column for intervals (-1 if not used)
+            - int: Index of the end column for intervals (-1 if not used)
+            - int: Total number of media files processed
+
+    Raises:
+        Exception: If:
+            - Input files are not found
+            - Required columns are missing
+            - File size limits are exceeded (50MB for audio, 25MB for others)
+            - Invalid interval configurations are detected
     """
     if metadata.dtype != DataType.LABEL:
         assert (

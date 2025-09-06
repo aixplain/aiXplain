@@ -9,10 +9,10 @@ def _request_with_retry(method: Text, url: Text, **params) -> requests.Response:
     Args:
         method (Text): HTTP method, such as 'GET' or 'HEAD'.
         url (Text): The URL of the resource to fetch.
-        **params: Params to pass to request function
+        **params: Params to pass to request function.
 
     Returns:
-        requests.Response: Response object of the request
+        requests.Response: Response object of the request.
     """
     session = requests.Session()
     retries = Retry(total=5, backoff_factor=0.1, status_forcelist=[500, 502, 503, 504])
