@@ -372,9 +372,7 @@ def parse_code_decorated(code: Union[Text, Callable]) -> Tuple[Text, List, Text,
         description = (
             getattr(code, "_tool_description", None)
             if hasattr(code, "_tool_description")
-            else code.__doc__.strip()
-            if code.__doc__
-            else ""
+            else code.__doc__.strip() if code.__doc__ else ""
         )
         name = getattr(code, "_tool_name", None) if hasattr(code, "_tool_name") else ""
         if hasattr(code, "_tool_inputs") and code._tool_inputs != []:

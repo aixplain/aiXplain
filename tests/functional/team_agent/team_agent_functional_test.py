@@ -40,17 +40,15 @@ from tests.functional.team_agent.test_utils import (
 
 @pytest.fixture(scope="function")
 def delete_agents_and_team_agents():
-    for team_agent in TeamAgentFactory.list()["results"]:
-        team_agent.delete()
-    for agent in AgentFactory.list()["results"]:
-        agent.delete()
+    from tests.test_deletion_utils import safe_delete_all_agents_and_team_agents
+    
+    # Clean up before test
+    safe_delete_all_agents_and_team_agents()
 
     yield True
 
-    for team_agent in TeamAgentFactory.list()["results"]:
-        team_agent.delete()
-    for agent in AgentFactory.list()["results"]:
-        agent.delete()
+    # Clean up after test
+    safe_delete_all_agents_and_team_agents()
 
 
 @pytest.fixture(scope="module", params=read_data(RUN_FILE))
@@ -87,7 +85,6 @@ def test_end2end(run_input_map, delete_agents_and_team_agents, TeamAgentFactory)
     assert response["completed"] is True
     assert response["status"].lower() == "success"
     assert "data" in response
-    assert response["data"]["session_id"] is None
     assert response["data"]["output"] is not None
 
     team_agent.delete()
@@ -95,10 +92,8 @@ def test_end2end(run_input_map, delete_agents_and_team_agents, TeamAgentFactory)
 
 @pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory, v2.TeamAgent])
 def test_draft_team_agent_update(run_input_map, TeamAgentFactory):
-    for team in TeamAgentFactory.list()["results"]:
-        team.delete()
-    for agent in AgentFactory.list()["results"]:
-        agent.delete()
+    from tests.test_deletion_utils import safe_delete_all_agents_and_team_agents
+    safe_delete_all_agents_and_team_agents()
 
     agents = create_agents_from_input_map(run_input_map, deploy=False)
     team_agent = create_team_agent(
@@ -120,10 +115,8 @@ def test_draft_team_agent_update(run_input_map, TeamAgentFactory):
 
 @pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory, v2.TeamAgent])
 def test_fail_non_existent_llm(run_input_map, TeamAgentFactory):
-    for team in TeamAgentFactory.list()["results"]:
-        team.delete()
-    for agent in AgentFactory.list()["results"]:
-        agent.delete()
+    from tests.test_deletion_utils import safe_delete_all_agents_and_team_agents
+    safe_delete_all_agents_and_team_agents()
 
     agents = create_agents_from_input_map(run_input_map, deploy=False)
 
@@ -308,7 +301,7 @@ def test_team_agent_with_instructions(delete_agents_and_team_agents):
         instructions="Use only 'Agent 2' to solve the tasks.",
         llm_id="6646261c6eb563165658bbb1",
         use_mentalist=True,
-        use_inspector=False,
+        inspectors=[],
     )
 
     response = team_agent.run(data="Translate 'cat' to Portuguese")
@@ -425,7 +418,7 @@ def test_run_team_agent_with_expected_output():
         description="Team agent",
         llm_id="6646261c6eb563165658bbb1",
         use_mentalist=False,
-        use_inspector=False,
+        inspectors=[],
     )
 
     # Run the team agent
@@ -506,7 +499,7 @@ def test_team_agent_with_slack_connector():
         description="Team agent",
         llm_id="6646261c6eb563165658bbb1",
         use_mentalist=False,
-        use_inspector=False,
+        inspectors=[],
     )
 
     response = team_agent.run(

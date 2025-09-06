@@ -15,14 +15,13 @@ import json
 
 CACHE_FOLDER = ".cache"
 
-
 def pytest_generate_tests(metafunc):
     if "llm_model" in metafunc.fixturenames:
         four_weeks_ago = datetime.now(timezone.utc) - timedelta(weeks=4)
         models = ModelFactory.list(function=Function.TEXT_GENERATION)["results"]
 
         predefined_models = []
-        for predefined_model in ["Groq Llama 3 70B", "GPT-4o"]:
+        for predefined_model in ["GPT-4.1 Mini", "GPT-4o"]:
             predefined_models.extend(
                 [
                     m
@@ -321,6 +320,103 @@ def test_index_model_air_with_splitter(embedding_model, supplier_params):
     assert str(response.status) == "SUCCESS"
     assert "berlin" in response.data.lower()
     index_model.delete()
+
+
+def test_index_model_with_txt_file():
+    """Testing Index Model with local txt file input"""
+    from aixplain.factories import IndexFactory
+    from uuid import uuid4
+    from aixplain.factories.index_factory.utils import AirParams
+    from pathlib import Path
+
+    # Create test file path
+    test_file_path = Path(__file__).parent / "data" / "test_input.txt"
+
+    # Create index with OpenAI Ada 002 for text processing
+    params = AirParams(
+        name=f"File Index {uuid4()}", description="Index for file processing", embedding_model=EmbeddingModel.OPENAI_ADA002
+    )
+    index_model = IndexFactory.create(params=params)
+
+    try:
+        # Upsert the file
+        response = index_model.upsert(str(test_file_path))
+        assert str(response.status) == "SUCCESS"
+
+        # Verify the content was indexed
+        response = index_model.search("demo")
+        assert str(response.status) == "SUCCESS"
+        assert "🤖" in response.data, "Robot emoji should be present in the response"
+
+        # Verify count
+        assert index_model.count() > 0
+
+    finally:
+        # Cleanup
+        index_model.delete()
+
+
+def test_index_model_with_pdf_file():
+    """Testing Index Model with PDF file input"""
+    from aixplain.factories import IndexFactory
+    from uuid import uuid4
+    from aixplain.factories.index_factory.utils import AirParams
+    from pathlib import Path
+
+    # Create test file path
+    test_file_path = Path(__file__).parent / "data" / "test_file_parser_input.pdf"
+
+    # Create index with OpenAI Ada 002 for text processing
+    params = AirParams(
+        name=f"PDF Index {uuid4()}", description="Index for PDF processing", embedding_model=EmbeddingModel.OPENAI_ADA002
+    )
+    index_model = IndexFactory.create(params=params)
+
+    try:
+        # Upsert the PDF file
+        response = index_model.upsert(str(test_file_path))
+        assert str(response.status) == "SUCCESS"
+
+        # Verify the content was indexed
+        response = index_model.search("document")
+        assert str(response.status) == "SUCCESS"
+        assert len(response.data) > 0
+
+        # Verify count
+        assert index_model.count() > 0
+
+    finally:
+        # Cleanup
+        index_model.delete()
+
+
+def test_index_model_with_invalid_file():
+    """Testing Index Model with invalid file input"""
+    from aixplain.factories import IndexFactory
+    from uuid import uuid4
+    from aixplain.factories.index_factory.utils import AirParams
+    from pathlib import Path
+
+    # Create non-existent file path
+    test_file_path = Path(__file__).parent / "data" / "nonexistent.pdf"
+
+    # Create index with OpenAI Ada 002 for text processing
+    params = AirParams(
+        name=f"Invalid File Index {uuid4()}",
+        description="Index for invalid file testing",
+        embedding_model=EmbeddingModel.OPENAI_ADA002,
+    )
+    index_model = IndexFactory.create(params=params)
+
+    try:
+        # Attempt to upsert non-existent file
+        with pytest.raises(Exception) as e:
+            index_model.upsert(str(test_file_path))
+        assert "does not exist" in str(e.value)
+
+    finally:
+        # Cleanup
+        index_model.delete()
 
 
 def _test_records():
