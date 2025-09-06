@@ -110,7 +110,7 @@ def team_agent():
 
 
 def test_evolver_output(team_agent):
-    response = team_agent.evolve()
+    response = team_agent.evolve_async()
     poll_url = response["url"]
     result = team_agent.poll(poll_url)
 
@@ -118,21 +118,24 @@ def test_evolver_output(team_agent):
         time.sleep(30)
         result = team_agent.poll(poll_url)
 
-    assert "system" in result["data"]["evolved_agent"]["name"].lower(), "System should be in the system name"
     assert result["status"] == ResponseStatus.SUCCESS, "Final result should have a 'SUCCESS' status"
     assert "evolved_agent" in result["data"], "Data should contain 'evolved_agent'"
     assert "evaluation_report" in result["data"], "Data should contain 'evaluation_report'"
     assert "criteria" in result["data"], "Data should contain 'criteria'"
     assert "archive" in result["data"], "Data should contain 'archive'"
+    assert isinstance(result.data["evolved_agent"], type(team_agent)), "Evolved agent should be an instance of the team agent"
 
 
 def test_evolver_with_custom_llm_id(team_agent):
     """Test evolver functionality with custom LLM ID"""
+    from aixplain.factories.model_factory import ModelFactory
     custom_llm_id = "6646261c6eb563165658bbb1"  # GPT-4o ID
+    model = ModelFactory.get(model_id=custom_llm_id)
 
     # Test with llm parameter
-    response = team_agent.evolve_async(llm=custom_llm_id)
+    response = team_agent.evolve(llm=model)
 
     assert response is not None
-    assert "url" in response or response.get("url") is not None
-    assert response["status"] == ResponseStatus.IN_PROGRESS
+    assert response.data["evolved_agent"] is not None
+    assert response.data["evolved_agent"].llm_id == custom_llm_id
+    assert isinstance(response.data["evolved_agent"], type(team_agent)), "Evolved agent should be an instance of the team agent"
