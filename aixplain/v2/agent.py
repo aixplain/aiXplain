@@ -71,10 +71,10 @@ class Agent(
         return AgentFactory.list(**kwargs)
 
     @classmethod
-    def get(cls, id: str, **kwargs: Unpack[BareGetParams]) -> "Agent":
+    def get(cls, id: Optional[str] = None, name: Optional[str] = None, **kwargs: Unpack[BareGetParams]) -> "Agent":
         from aixplain.factories import AgentFactory
 
-        return AgentFactory.get(agent_id=id)
+        return AgentFactory.get(agent_id=id, name=name)
 
     @classmethod
     def create(cls, *args, **kwargs: Unpack[AgentCreateParams]) -> "Agent":
