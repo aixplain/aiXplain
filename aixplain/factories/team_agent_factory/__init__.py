@@ -323,7 +323,12 @@ class TeamAgentFactory:
             total = len(results)
             logging.info(f"Response for GET List Agents - Page Total: {page_total} / Total: {total}")
             for agent in results:
-                agents.append(build_team_agent(agent))
+                try:
+                    team_agent_ = build_team_agent(agent)
+                    agents.append(team_agent_)
+                except Exception:
+                    logging.warning(f"There was an error building the team agent {agent['name']}. Skipping...")
+                    continue
             return {"results": agents, "page_total": page_total, "page_number": 0, "total": total}
         else:
             error_msg = "Agent Listing Error: Please contact the administrators."
