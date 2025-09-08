@@ -503,7 +503,11 @@ class AgentFactory:
             total = len(results)
             logging.info(f"Response for GET List Agents - Page Total: {page_total} / Total: {total}")
             for agent in results:
-                agents.append(build_agent(agent))
+                try:
+                    agents.append(build_agent(agent))
+                except Exception:
+                    logging.warning(f"There was an error building the agent {agent['name']}. Skipping...")
+                    continue
             return {
                 "results": agents,
                 "page_total": page_total,
