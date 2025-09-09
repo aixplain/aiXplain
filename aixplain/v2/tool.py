@@ -188,7 +188,7 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
         self.validate_allowed_actions()
 
         action = kwargs["action"]
-        if action not in self.allowed_actions:
+        if self.allowed_actions and action not in self.allowed_actions:
             errors.append(f"Action {action} is not allowed for this tool")
 
         return errors
