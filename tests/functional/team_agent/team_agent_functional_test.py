@@ -114,6 +114,76 @@ def test_draft_team_agent_update(run_input_map, TeamAgentFactory):
 
 
 @pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory, v2.TeamAgent])
+def test_nested_deployment_chain(delete_agents_and_team_agents, TeamAgentFactory):
+    """Test that deploying a team agent properly deploys all nested components (tools -> agents -> team)"""
+    assert delete_agents_and_team_agents
+
+    # Create first agent with translation tool (in DRAFT state)
+    translation_function = Function.TRANSLATION
+    function_params = translation_function.get_parameters()
+    function_params.targetlanguage = "es"
+    function_params.sourcelanguage = "en"
+    translation_tool = AgentFactory.create_model_tool(
+        function=translation_function,
+        description="Translation tool from English to Spanish",
+        supplier="microsoft",
+    )
+
+    translation_agent = AgentFactory.create(
+        name="Translation Agent",
+        description="Agent for translation",
+        instructions="Translate text from English to Spanish",
+        llm_id="6646261c6eb563165658bbb1",
+        tools=[translation_tool],
+    )
+    assert translation_agent.status == AssetStatus.DRAFT
+    # Create second agent with text generation tool (in DRAFT state)
+    text_gen_tool = AgentFactory.create_model_tool(
+        function=Function.TEXT_GENERATION,
+        description="Text generation tool",
+        supplier="openai",
+    )
+
+    text_gen_agent = AgentFactory.create(
+        name="Text Generation Agent",
+        description="Agent for text generation",
+        instructions="Generate creative text based on input",
+        llm_id="6646261c6eb563165658bbb1",
+        tools=[text_gen_tool],
+    )
+    assert text_gen_agent.status == AssetStatus.DRAFT
+
+    # Create team agent with both agents (in DRAFT state)
+    team_agent = TeamAgentFactory.create(
+        name="Multi-Function Team",
+        description="Team that can translate and generate text",
+        agents=[translation_agent, text_gen_agent],
+        llm_id="6646261c6eb563165658bbb1",
+    )
+    assert team_agent.status == AssetStatus.DRAFT
+    for agent in team_agent.agents:
+        assert agent.status == AssetStatus.DRAFT
+
+    # Deploy team agent - this should trigger deployment of all nested components
+    team_agent.deploy()
+
+    # Verify team agent is deployed
+    team_agent = TeamAgentFactory.get(team_agent.id)
+    assert team_agent.status == AssetStatus.ONBOARDED
+
+    # Verify all agents are deployed
+    for agent in team_agent.agents:
+        agent_obj = AgentFactory.get(agent.id)
+        assert agent_obj.status == AssetStatus.ONBOARDED
+        # Verify all tools are deployed
+        for tool in agent_obj.tools:
+            assert tool.status == AssetStatus.ONBOARDED
+
+    # Clean up
+    team_agent.delete()
+
+
+@pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory, v2.TeamAgent])
 def test_fail_non_existent_llm(run_input_map, TeamAgentFactory):
     from tests.test_deletion_utils import safe_delete_all_agents_and_team_agents
     safe_delete_all_agents_and_team_agents()
@@ -511,3 +581,77 @@ def test_team_agent_with_slack_connector():
     team_agent.delete()
     agent.delete()
     connection.delete()
+
+
+@pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory, v2.TeamAgent])
+def test_multiple_teams_with_shared_deployed_agent(delete_agents_and_team_agents, TeamAgentFactory):
+    """Test that multiple team agents can share the same deployed agent without name conflicts"""
+    assert delete_agents_and_team_agents
+
+    # Create and deploy a shared agent first
+    translation_tool = AgentFactory.create_model_tool(
+        function=Function.TRANSLATION,
+        description="Translation tool from English to Spanish",
+        supplier="microsoft",
+    )
+
+    shared_agent = AgentFactory.create(
+        name="Shared Translation Agent",
+        description="Agent for translation shared between teams",
+        instructions="Translate text from English to Spanish",
+        llm_id="6646261c6eb563165658bbb1",
+        tools=[translation_tool],
+    )
+
+    # Deploy the shared agent first
+    shared_agent.deploy()
+    shared_agent = AgentFactory.get(shared_agent.id)
+    assert shared_agent.status == AssetStatus.ONBOARDED
+
+    # Create first team agent with the shared agent
+    team_agent_1 = TeamAgentFactory.create(
+        name="Team Agent 1",
+        description="First team using shared agent",
+        agents=[shared_agent],
+        llm_id="6646261c6eb563165658bbb1",
+    )
+    assert team_agent_1.status == AssetStatus.DRAFT
+
+    # Deploy first team agent - should succeed without trying to redeploy the shared agent
+    team_agent_1.deploy()
+    team_agent_1 = TeamAgentFactory.get(team_agent_1.id)
+    assert team_agent_1.status == AssetStatus.ONBOARDED
+
+    # Create second team agent with the same shared agent
+    team_agent_2 = TeamAgentFactory.create(
+        name="Team Agent 2",
+        description="Second team using shared agent",
+        agents=[shared_agent],
+        llm_id="6646261c6eb563165658bbb1",
+    )
+    assert team_agent_2.status == AssetStatus.DRAFT
+
+    # Deploy second team agent - should succeed without trying to redeploy the shared agent
+    # This should NOT throw a name_already_exists error
+    team_agent_2.deploy()
+    team_agent_2 = TeamAgentFactory.get(team_agent_2.id)
+    assert team_agent_2.status == AssetStatus.ONBOARDED
+
+    # Verify both team agents are deployed and functional
+    response_1 = team_agent_1.run(data="Hello world")
+    assert response_1 is not None
+    assert response_1["completed"] is True
+    assert response_1["status"].lower() == "success"
+
+    response_2 = team_agent_2.run(data="Hello world")
+    assert response_2 is not None
+    assert response_2["completed"] is True
+    assert response_2["status"].lower() == "success"
+
+    # Verify the shared agent is still deployed and accessible
+    shared_agent_refreshed = AgentFactory.get(shared_agent.id)
+    assert shared_agent_refreshed.status == AssetStatus.ONBOARDED
+
+    # Clean up
+    team_agent_1.delete()
+    team_agent_2.delete()
