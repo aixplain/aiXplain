@@ -28,6 +28,7 @@
             "api-reference/python/aixplain/enums/database_source",
             "api-reference/python/aixplain/enums/embedding_model",
             "api-reference/python/aixplain/enums/error_handler",
+            "api-reference/python/aixplain/enums/evolve_type",
             "api-reference/python/aixplain/enums/file_type",
             "api-reference/python/aixplain/enums/function",
             "api-reference/python/aixplain/enums/function_type",
@@ -160,6 +161,7 @@
                 "api-reference/python/aixplain/modules/agent/agent_response",
                 "api-reference/python/aixplain/modules/agent/agent_response_data",
                 "api-reference/python/aixplain/modules/agent/agent_task",
+                "api-reference/python/aixplain/modules/agent/evolve_param",
                 "api-reference/python/aixplain/modules/agent/model_with_params",
                 "api-reference/python/aixplain/modules/agent/output_format",
                 "api-reference/python/aixplain/modules/agent/utils"
@@ -222,6 +224,7 @@
             {
               "items": [
                 "api-reference/python/aixplain/modules/team_agent/init",
+                "api-reference/python/aixplain/modules/team_agent/evolver_response_data",
                 "api-reference/python/aixplain/modules/team_agent/inspector"
               ],
               "label": "aixplain.modules.team_agent",
@@ -269,6 +272,7 @@
             "api-reference/python/aixplain/utils/cache_utils",
             "api-reference/python/aixplain/utils/config",
             "api-reference/python/aixplain/utils/convert_datatype_utils",
+            "api-reference/python/aixplain/utils/evolve_utils",
             "api-reference/python/aixplain/utils/file_utils",
             "api-reference/python/aixplain/utils/llm_utils",
             "api-reference/python/aixplain/utils/request_utils",

@@ -3,10 +3,10 @@ sidebar_label: agent_task
 title: aixplain.modules.agent.agent_task
 ---
 
-### AgentTask Objects
+### WorkflowTask Objects
 
 ```python
-class AgentTask()
+class WorkflowTask()
 ```
 
 [[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/agent_task.py#L4)
@@ -21,7 +21,7 @@ description, expected output, and any dependencies on other tasks.
 - `name` _Text_ - The unique identifier/name of the task.
 - `description` _Text_ - Detailed description of what the task should accomplish.
 - `expected_output` _Text_ - Description of the expected output format or content.
-- `dependencies` _Optional[List[Union[Text, AgentTask]]]_ - List of tasks or task
+- `dependencies` _Optional[List[Union[Text, WorkflowTask]]]_ - List of tasks or task
   names that must be completed before this task. Defaults to None.
 
 #### \_\_init\_\_
@@ -30,19 +30,19 @@ description, expected output, and any dependencies on other tasks.
 def __init__(name: Text,
              description: Text,
              expected_output: Text,
-             dependencies: Optional[List[Union[Text, "AgentTask"]]] = None)
+             dependencies: Optional[List[Union[Text, "WorkflowTask"]]] = [])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/agent_task.py#L17)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/agent_task.py#L18)
 
-Initialize a new AgentTask instance.
+Initialize a new WorkflowTask instance.
 
 **Arguments**:
 
 - `name` _Text_ - The unique identifier/name of the task.
 - `description` _Text_ - Detailed description of what the task should accomplish.
 - `expected_output` _Text_ - Description of the expected output format or content.
-- `dependencies` _Optional[List[Union[Text, AgentTask]]], optional_ - List of
+- `dependencies` _Optional[List[Union[Text, WorkflowTask]]], optional_ - List of
   tasks or task names that must be completed before this task.
   Defaults to None.
 
@@ -52,11 +52,11 @@ Initialize a new AgentTask instance.
 def to_dict() -> dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/agent_task.py#L39)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/agent_task.py#L40)
 
 Convert the task to a dictionary representation.
 
-This method serializes the task data, converting any AgentTask dependencies
+This method serializes the task data, converting any WorkflowTask dependencies
 to their name strings.
 
 **Returns**:
@@ -71,19 +71,19 @@ to their name strings.
 
 ```python
 @classmethod
-def from_dict(cls, data: dict) -> "AgentTask"
+def from_dict(cls, data: dict) -> "WorkflowTask"
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/agent_task.py#L66)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/agent_task.py#L67)
 
-Create an AgentTask instance from a dictionary representation.
+Create an WorkflowTask instance from a dictionary representation.
 
 **Arguments**:
 
-- `data` - Dictionary containing AgentTask parameters
+- `data` - Dictionary containing WorkflowTask parameters
   
 
 **Returns**:
 
-  AgentTask instance
+  WorkflowTask instance
 

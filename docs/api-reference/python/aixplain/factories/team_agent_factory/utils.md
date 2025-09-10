@@ -11,7 +11,7 @@ def build_team_agent(payload: Dict,
                      api_key: Text = config.TEAM_API_KEY) -> TeamAgent
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/team_agent_factory/utils.py#L20)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/team_agent_factory/utils.py#L23)
 
 Build a TeamAgent instance from configuration payload.
 
@@ -25,7 +25,7 @@ handling the setup of agents, LLMs, inspectors, and task dependencies.
   - name: Team agent name
   - agents: List of agent configurations
   - description: Optional description
-  - role: Optional instructions
+  - instructions: Optional instructions
   - teamId: Optional supplier information
   - version: Optional version
   - cost: Optional cost information
@@ -51,4 +51,23 @@ handling the setup of agents, LLMs, inspectors, and task dependencies.
 
 - `Exception` - If a task dependency referenced in an agent&#x27;s configuration
   cannot be found.
+
+#### is\_yaml\_formatted
+
+```python
+def is_yaml_formatted(text)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/team_agent_factory/utils.py#L212)
+
+Check if a string is valid YAML format with additional validation.
+
+**Arguments**:
+
+- `text` _str_ - The string to check
+  
+
+**Returns**:
+
+- `bool` - True if valid YAML, False otherwise
 

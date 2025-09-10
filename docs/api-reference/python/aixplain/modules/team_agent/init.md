@@ -30,7 +30,7 @@ Description:
 class InspectorTarget(str, Enum)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/team_agent/__init__.py#L52)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/team_agent/__init__.py#L55)
 
 Target stages for inspector validation in the team agent pipeline.
 
@@ -49,7 +49,7 @@ validate and ensure quality of the team agent&#x27;s operation.
 def __str__()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/team_agent/__init__.py#L68)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/team_agent/__init__.py#L71)
 
 Return the string value of the enum member.
 
@@ -63,7 +63,7 @@ Return the string value of the enum member.
 class TeamAgent(Model, DeployableMixin[Agent])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/team_agent/__init__.py#L77)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/team_agent/__init__.py#L80)
 
 Advanced AI system capable of using multiple agents to perform a variety of tasks.
 
@@ -102,7 +102,7 @@ def run(
 ) -> AgentResponse
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/team_agent/__init__.py#L183)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/team_agent/__init__.py#L187)
 
 Runs a team agent call.
 
@@ -130,21 +130,22 @@ Runs a team agent call.
 
 ```python
 def run_async(
-    data: Optional[Union[Dict, Text]] = None,
-    query: Optional[Text] = None,
-    session_id: Optional[Text] = None,
-    history: Optional[List[Dict]] = None,
-    name: Text = "model_process",
-    parameters: Dict = {},
-    content: Optional[Union[Dict[Text, Text], List[Text]]] = None,
-    max_tokens: int = 2048,
-    max_iterations: int = 30,
-    output_format: Optional[OutputFormat] = None,
-    expected_output: Optional[Union[BaseModel, Text, dict]] = None
-) -> AgentResponse
+        data: Optional[Union[Dict, Text]] = None,
+        query: Optional[Text] = None,
+        session_id: Optional[Text] = None,
+        history: Optional[List[Dict]] = None,
+        name: Text = "model_process",
+        parameters: Dict = {},
+        content: Optional[Union[Dict[Text, Text], List[Text]]] = None,
+        max_tokens: int = 2048,
+        max_iterations: int = 30,
+        output_format: Optional[OutputFormat] = None,
+        expected_output: Optional[Union[BaseModel, Text, dict]] = None,
+        evolve: Union[Dict[str, Any], EvolveParam,
+                      None] = None) -> AgentResponse
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/team_agent/__init__.py#L273)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/team_agent/__init__.py#L277)
 
 Runs asynchronously a Team Agent call.
 
@@ -161,10 +162,11 @@ Runs asynchronously a Team Agent call.
 - `max_iterations` _int, optional_ - maximum number of iterations between the agents. Defaults to 30.
 - `output_format` _OutputFormat, optional_ - response format. If not provided, uses the format set during initialization.
 - `query`0 _Union[BaseModel, Text, dict], optional_ - expected output. Defaults to None.
+- `query`1 _Union[Dict[str, Any], EvolveParam, None], optional_ - evolve the team agent configuration. Can be a dictionary, EvolveParam instance, or None.
 
 **Returns**:
 
-- `query`1 - polling URL in response
+- `query`2 - polling URL in response
 
 #### delete
 
@@ -172,7 +174,7 @@ Runs asynchronously a Team Agent call.
 def delete() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/team_agent/__init__.py#L402)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/team_agent/__init__.py#L472)
 
 Delete Corpus service
 
@@ -182,7 +184,7 @@ Delete Corpus service
 def to_dict() -> Dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/team_agent/__init__.py#L461)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/team_agent/__init__.py#L531)
 
 Convert the TeamAgent instance to a dictionary representation.
 
@@ -206,7 +208,7 @@ or transmission.
   - supplier (str): The supplier code
   - version (str): The version number
   - status (str): The current status
-  - role (str): The team agent&#x27;s instructions
+  - instructions (str): The team agent&#x27;s instructions
 
 #### from\_dict
 
@@ -215,7 +217,7 @@ or transmission.
 def from_dict(cls, data: Dict) -> "TeamAgent"
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/team_agent/__init__.py#L509)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/team_agent/__init__.py#L579)
 
 Create a TeamAgent instance from a dictionary representation.
 
@@ -234,7 +236,7 @@ Create a TeamAgent instance from a dictionary representation.
 def validate(raise_exception: bool = False) -> bool
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/team_agent/__init__.py#L630)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/team_agent/__init__.py#L704)
 
 Validate the TeamAgent configuration.
 
@@ -271,7 +273,7 @@ including name format, LLM compatibility, and agent validity.
 def update() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/team_agent/__init__.py#L666)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/team_agent/__init__.py#L740)
 
 Update the TeamAgent in the backend.
 
@@ -300,7 +302,7 @@ backend system. It is deprecated in favor of the save() method.
 def save() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/team_agent/__init__.py#L718)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/team_agent/__init__.py#L792)
 
 Save the Agent.
 
@@ -310,11 +312,69 @@ Save the Agent.
 def __repr__()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/team_agent/__init__.py#L722)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/team_agent/__init__.py#L796)
 
 Return a string representation of the TeamAgent.
 
 **Returns**:
 
 - `str` - A string in the format &quot;TeamAgent: &lt;name&gt; (id=&lt;id&gt;)&quot;.
+
+#### evolve\_async
+
+```python
+def evolve_async(evolve_type: Union[EvolveType, str] = EvolveType.TEAM_TUNING,
+                 max_successful_generations: int = 3,
+                 max_failed_generation_retries: int = 3,
+                 max_iterations: int = 50,
+                 max_non_improving_generations: Optional[int] = 2,
+                 llm: Optional[Union[Text, LLM]] = None) -> AgentResponse
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/team_agent/__init__.py#L804)
+
+Asynchronously evolve the Team Agent and return a polling URL in the AgentResponse.
+
+**Arguments**:
+
+- `evolve_type` _Union[EvolveType, str]_ - Type of evolution (TEAM_TUNING or INSTRUCTION_TUNING). Defaults to TEAM_TUNING.
+- `max_successful_generations` _int_ - Maximum number of successful generations to evolve. Defaults to 3.
+- `max_failed_generation_retries` _int_ - Maximum retry attempts for failed generations. Defaults to 3.
+- `max_iterations` _int_ - Maximum number of iterations. Defaults to 50.
+- `max_non_improving_generations` _Optional[int]_ - Stop condition parameter for non-improving generations. Defaults to 2, can be None.
+- `llm` _Optional[Union[Text, LLM]]_ - LLM to use for evolution. Can be an LLM ID string or LLM object. Defaults to None.
+  
+
+**Returns**:
+
+- `AgentResponse` - Response containing polling URL and status.
+
+#### evolve
+
+```python
+def evolve(evolve_type: Union[EvolveType, str] = EvolveType.TEAM_TUNING,
+           max_successful_generations: int = 3,
+           max_failed_generation_retries: int = 3,
+           max_iterations: int = 50,
+           max_non_improving_generations: Optional[int] = 2,
+           llm: Optional[Union[Text, LLM]] = None) -> AgentResponse
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/team_agent/__init__.py#L844)
+
+Synchronously evolve the Team Agent and poll for the result.
+
+**Arguments**:
+
+- `evolve_type` _Union[EvolveType, str]_ - Type of evolution (TEAM_TUNING or INSTRUCTION_TUNING). Defaults to TEAM_TUNING.
+- `max_successful_generations` _int_ - Maximum number of successful generations to evolve. Defaults to 3.
+- `max_failed_generation_retries` _int_ - Maximum retry attempts for failed generations. Defaults to 3.
+- `max_iterations` _int_ - Maximum number of iterations. Defaults to 50.
+- `max_non_improving_generations` _Optional[int]_ - Stop condition parameter for non-improving generations. Defaults to 2, can be None.
+- `llm` _Optional[Union[Text, LLM]]_ - LLM to use for evolution. Can be an LLM ID string or LLM object. Defaults to None.
+  
+
+**Returns**:
+
+- `AgentResponse` - Final response from the evolution process.
 

@@ -30,7 +30,7 @@ Description:
 class Agent(Model, DeployableMixin[Tool])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/__init__.py#L48)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/__init__.py#L51)
 
 An advanced AI system that performs tasks using specialized tools from the aiXplain marketplace.
 
@@ -77,12 +77,13 @@ def __init__(id: Text,
              cost: Optional[Dict] = None,
              status: AssetStatus = AssetStatus.DRAFT,
              tasks: List[AgentTask] = [],
+             workflow_tasks: List[WorkflowTask] = [],
              output_format: OutputFormat = OutputFormat.TEXT,
              expected_output: Optional[Union[BaseModel, Text, dict]] = None,
              **additional_info) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/__init__.py#L80)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/__init__.py#L83)
 
 Initialize a new Agent instance.
 
@@ -119,7 +120,7 @@ Initialize a new Agent instance.
 def validate(raise_exception: bool = False) -> bool
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/__init__.py#L194)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/__init__.py#L207)
 
 Validate the Agent&#x27;s configuration and mark its validity status.
 
@@ -161,7 +162,7 @@ def run(
 ) -> AgentResponse
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/__init__.py#L265)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/__init__.py#L278)
 
 Runs an agent call.
 
@@ -189,21 +190,22 @@ Runs an agent call.
 
 ```python
 def run_async(
-    data: Optional[Union[Dict, Text]] = None,
-    query: Optional[Text] = None,
-    session_id: Optional[Text] = None,
-    history: Optional[List[Dict]] = None,
-    name: Text = "model_process",
-    parameters: Dict = {},
-    content: Optional[Union[Dict[Text, Text], List[Text]]] = None,
-    max_tokens: int = 2048,
-    max_iterations: int = 5,
-    output_format: Optional[OutputFormat] = None,
-    expected_output: Optional[Union[BaseModel, Text, dict]] = None
-) -> AgentResponse
+        data: Optional[Union[Dict, Text]] = None,
+        query: Optional[Text] = None,
+        session_id: Optional[Text] = None,
+        history: Optional[List[Dict]] = None,
+        name: Text = "model_process",
+        parameters: Dict = {},
+        content: Optional[Union[Dict[Text, Text], List[Text]]] = None,
+        max_tokens: int = 2048,
+        max_iterations: int = 5,
+        output_format: Optional[OutputFormat] = None,
+        expected_output: Optional[Union[BaseModel, Text, dict]] = None,
+        evolve: Union[Dict[str, Any], EvolveParam,
+                      None] = None) -> AgentResponse
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/__init__.py#L365)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/__init__.py#L378)
 
 Runs asynchronously an agent call.
 
@@ -220,10 +222,12 @@ Runs asynchronously an agent call.
 - `max_iterations` _int, optional_ - maximum number of iterations between the agent and the tools. Defaults to 10.
 - `output_format` _OutputFormat, optional_ - response format. If not provided, uses the format set during initialization.
 - `query`0 _Union[BaseModel, Text, dict], optional_ - expected output. Defaults to None.
+- `output_format` _ResponseFormat, optional_ - response format. Defaults to TEXT.
+- `query`2 _Union[Dict[str, Any], EvolveParam, None], optional_ - evolve the agent configuration. Can be a dictionary, EvolveParam instance, or None.
 
 **Returns**:
 
-- `query`1 - polling URL in response
+- `query`3 - polling URL in response
 
 #### from\_dict
 
@@ -232,7 +236,7 @@ Runs asynchronously an agent call.
 def from_dict(cls, data: Dict) -> "Agent"
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/__init__.py#L527)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/__init__.py#L545)
 
 Create an Agent instance from a dictionary representation.
 
@@ -251,7 +255,7 @@ Create an Agent instance from a dictionary representation.
 def delete() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/__init__.py#L602)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/__init__.py#L620)
 
 Delete this Agent from the aiXplain platform.
 
@@ -272,7 +276,7 @@ Agent is being used by any team agents.
 def update() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/__init__.py#L665)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/__init__.py#L683)
 
 Update the Agent&#x27;s configuration on the aiXplain platform.
 
@@ -296,7 +300,7 @@ in favor of the save() method.
 def save() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/__init__.py#L712)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/__init__.py#L730)
 
 Save the Agent&#x27;s current configuration to the aiXplain platform.
 
@@ -313,11 +317,69 @@ It is the preferred method for updating an Agent&#x27;s settings.
 def __repr__() -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/__init__.py#L723)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/__init__.py#L741)
 
 Return a string representation of the Agent.
 
 **Returns**:
 
 - `str` - A string in the format &quot;Agent: &lt;name&gt; (id=&lt;id&gt;)&quot;.
+
+#### evolve\_async
+
+```python
+def evolve_async(evolve_type: Union[EvolveType, str] = EvolveType.TEAM_TUNING,
+                 max_successful_generations: int = 3,
+                 max_failed_generation_retries: int = 3,
+                 max_iterations: int = 50,
+                 max_non_improving_generations: Optional[int] = 2,
+                 llm: Optional[Union[Text, LLM]] = None) -> AgentResponse
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/__init__.py#L749)
+
+Asynchronously evolve the Agent and return a polling URL in the AgentResponse.
+
+**Arguments**:
+
+- `evolve_type` _Union[EvolveType, str]_ - Type of evolution (TEAM_TUNING or INSTRUCTION_TUNING). Defaults to TEAM_TUNING.
+- `max_successful_generations` _int_ - Maximum number of successful generations to evolve. Defaults to 3.
+- `max_failed_generation_retries` _int_ - Maximum retry attempts for failed generations. Defaults to 3.
+- `max_iterations` _int_ - Maximum number of iterations. Defaults to 50.
+- `max_non_improving_generations` _Optional[int]_ - Stop condition parameter for non-improving generations. Defaults to 2, can be None.
+- `llm` _Optional[Union[Text, LLM]]_ - LLM to use for evolution. Can be an LLM ID string or LLM object. Defaults to None.
+  
+
+**Returns**:
+
+- `AgentResponse` - Response containing polling URL and status.
+
+#### evolve
+
+```python
+def evolve(evolve_type: Union[EvolveType, str] = EvolveType.TEAM_TUNING,
+           max_successful_generations: int = 3,
+           max_failed_generation_retries: int = 3,
+           max_iterations: int = 50,
+           max_non_improving_generations: Optional[int] = 2,
+           llm: Optional[Union[Text, LLM]] = None) -> AgentResponse
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/__init__.py#L788)
+
+Synchronously evolve the Agent and poll for the result.
+
+**Arguments**:
+
+- `evolve_type` _Union[EvolveType, str]_ - Type of evolution (TEAM_TUNING or INSTRUCTION_TUNING). Defaults to TEAM_TUNING.
+- `max_successful_generations` _int_ - Maximum number of successful generations to evolve. Defaults to 3.
+- `max_failed_generation_retries` _int_ - Maximum retry attempts for failed generations. Defaults to 3.
+- `max_iterations` _int_ - Maximum number of iterations. Defaults to 50.
+- `max_non_improving_generations` _Optional[int]_ - Stop condition parameter for non-improving generations. Defaults to 2, can be None.
+- `llm` _Optional[Union[Text, LLM]]_ - LLM to use for evolution. Can be an LLM ID string or LLM object. Defaults to None.
+  
+
+**Returns**:
+
+- `AgentResponse` - Final response from the evolution process.
 
