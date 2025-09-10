@@ -74,3 +74,9 @@ test = [
     "requests-mock>=1.11.0",
     "pytest-mock>=3.10.0"
 ]
+
+[tool.ruff.lint]
+select = ["D"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
