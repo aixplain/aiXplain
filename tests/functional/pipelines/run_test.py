@@ -328,3 +328,30 @@ def test_run_failure(version: str, PipelineFactory):
     )
 
     assert response["status"] == ResponseStatus.FAILED
+
+
+@pytest.mark.parametrize("version", ["2.0", "3.0"])
+@pytest.mark.parametrize("PipelineFactory", [PipelineFactory, v2.Pipeline])
+def test_run_async_simple(version: str, PipelineFactory):
+    """Test simple async pipeline execution with polling"""
+    pipeline = PipelineFactory.list(query="SingleNodePipeline")["results"][0]
+
+    # Start async execution
+    response = pipeline.run_async(data="Translate this simple text", **{"version": version})
+
+    poll_url = response["url"]
+    import time
+
+    max_attempts = 55
+    attempt = 0
+
+    while attempt < max_attempts:
+        poll_response = pipeline.poll(poll_url)
+        if hasattr(poll_response, "completed") and poll_response.completed:
+            break
+        elif isinstance(poll_response, dict) and poll_response.get("completed", False):
+            break
+        time.sleep(1)
+        attempt += 1
+
+    assert poll_response.status == ResponseStatus.SUCCESS

@@ -22,7 +22,7 @@ Description:
 """
 
 import logging
-from typing import Dict, List, Text
+from typing import Dict, List, Text, Any, Tuple
 import json
 from aixplain.enums.supplier import Supplier
 from aixplain.modules import Dataset, Metric, Model
@@ -37,39 +37,50 @@ from urllib.parse import urljoin
 
 
 class BenchmarkFactory:
-    """A static class for creating and managing the Benchmarking experience.
+    """Factory class for creating and managing benchmarks in the aiXplain platform.
+
+    This class provides functionality for creating benchmarks, managing benchmark jobs,
+    retrieving results, and configuring normalization options. Benchmarks can be used
+    to evaluate and compare multiple models using specified datasets and metrics.
 
     Attributes:
-        backend_url (str): The URL for the backend.
+        backend_url (str): Base URL for the aiXplain backend API.
     """
 
     backend_url = config.BACKEND_URL
 
     @classmethod
     def _create_benchmark_job_from_response(cls, response: Dict) -> BenchmarkJob:
-        """Converts response Json to 'BenchmarkJob' object
+        """Convert API response into a BenchmarkJob object.
 
         Args:
-            response (Dict): Json from API
+            response (Dict): API response containing:
+                - jobId: Unique job identifier
+                - status: Current job status
+                - benchmark: Dictionary containing benchmark information
 
         Returns:
-            BenchmarkJob: Coverted 'BenchmarkJob' object
+            BenchmarkJob: Instantiated benchmark job object.
         """
         return BenchmarkJob(response["jobId"], response["status"], response["benchmark"]["id"])
 
     @classmethod
     def _get_benchmark_jobs_from_benchmark_id(cls, benchmark_id: Text) -> List[BenchmarkJob]:
-        """Get list of benchmark jobs from benchmark id
+        """Retrieve all jobs associated with a benchmark.
 
         Args:
-            benchmark_id (Text): ID of benchmark
+            benchmark_id (Text): Unique identifier of the benchmark.
 
         Returns:
-            List[BenchmarkJob]: List of associated benchmark jobs
+            List[BenchmarkJob]: List of benchmark job objects associated with
+                the specified benchmark.
         """
         url = urljoin(cls.backend_url, f"sdk/benchmarks/{benchmark_id}/jobs")
 
-        headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+        headers = {
+            "Authorization": f"Token {config.TEAM_API_KEY}",
+            "Content-Type": "application/json",
+        }
         r = _request_with_retry("get", url, headers=headers)
         resp = r.json()
         job_list = [cls._create_benchmark_job_from_response(job_info) for job_info in resp]
@@ -77,34 +88,61 @@ class BenchmarkFactory:
 
     @classmethod
     def _create_benchmark_from_response(cls, response: Dict) -> Benchmark:
-        """Converts response Json to 'Benchmark' object
+        """Convert API response into a Benchmark object.
+
+        This method creates a Benchmark object by fetching and instantiating all
+        associated models, datasets, metrics, and jobs.
 
         Args:
-            response (Dict): Json from API
+            response (Dict): API response containing:
+                - id: Benchmark identifier
+                - name: Benchmark name
+                - model: List of model configurations
+                - datasets: List of dataset IDs
+                - metrics: List of metric configurations
 
         Returns:
-            Benchmark: Coverted 'Benchmark' object
+            Benchmark: Instantiated benchmark object with all components loaded.
         """
         model_list = [ModelFactory().get(model_info["id"]) for model_info in response["model"]]
         dataset_list = [DatasetFactory().get(dataset_id) for dataset_id in response["datasets"]]
         metric_list = [MetricFactory().get(metric_info["id"]) for metric_info in response["metrics"]]
         job_list = cls._get_benchmark_jobs_from_benchmark_id(response["id"])
-        return Benchmark(response["id"], response["name"], dataset_list, model_list, metric_list, job_list)
+        return Benchmark(
+            response["id"],
+            response["name"],
+            dataset_list,
+            model_list,
+            metric_list,
+            job_list,
+        )
 
     @classmethod
     def get(cls, benchmark_id: str) -> Benchmark:
-        """Create a 'Benchmark' object from Benchmark id
+        """Retrieve a benchmark by its ID.
+
+        This method fetches a benchmark and all its associated components
+        (models, datasets, metrics, jobs) from the platform.
 
         Args:
-            benchmark_id (Text): Benchmark ID of required Benchmark.
+            benchmark_id (str): Unique identifier of the benchmark to retrieve.
 
         Returns:
-            Benchmark: Created 'Benchmark' object
+            Benchmark: Retrieved benchmark object with all components loaded.
+
+        Raises:
+            Exception: If:
+                - Benchmark ID is invalid
+                - Authentication fails
+                - Service is unavailable
         """
         resp = None
         try:
             url = urljoin(cls.backend_url, f"sdk/benchmarks/{benchmark_id}")
-            headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+            headers = {
+                "Authorization": f"Token {config.TEAM_API_KEY}",
+                "Content-Type": "application/json",
+            }
             logging.info(f"Start service for GET Benchmark  - {url} - {headers}")
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()
@@ -130,16 +168,22 @@ class BenchmarkFactory:
 
     @classmethod
     def get_job(cls, job_id: Text) -> BenchmarkJob:
-        """Create a 'BenchmarkJob' object from job id
+        """Retrieve a benchmark job by its ID.
 
         Args:
-            job_id (Text): ID of the required BenchmarkJob.
+            job_id (Text): Unique identifier of the benchmark job to retrieve.
 
         Returns:
-            BenchmarkJob: Created 'BenchmarkJob' object
+            BenchmarkJob: Retrieved benchmark job object with its current status.
+
+        Raises:
+            Exception: If the job ID is invalid or the request fails.
         """
         url = urljoin(cls.backend_url, f"sdk/benchmarks/jobs/{job_id}")
-        headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+        headers = {
+            "Authorization": f"Token {config.TEAM_API_KEY}",
+            "Content-Type": "application/json",
+        }
         r = _request_with_retry("get", url, headers=headers)
         resp = r.json()
         benchmarkJob = cls._create_benchmark_job_from_response(resp)
@@ -150,9 +194,9 @@ class BenchmarkFactory:
         if len(payload["datasets"]) != 1:
             raise Exception("Please use exactly one dataset")
         if len(payload["metrics"]) == 0:
-            raise Exception("Please use exactly one metric")
-        if len(payload["model"]) == 0:
-            raise Exception("Please use exactly one model")
+            raise Exception("Please use at least one metric")
+        if len(payload["model"]) == 0 and payload.get("models", None) is None:
+            raise Exception("Please use at least one model")
         clean_metrics_info = {}
         for metric_info in payload["metrics"]:
             metric_id = metric_info["id"]
@@ -169,32 +213,97 @@ class BenchmarkFactory:
         return payload
 
     @classmethod
-    def create(cls, name: str, dataset_list: List[Dataset], model_list: List[Model], metric_list: List[Metric]) -> Benchmark:
-        """Creates a benchmark based on the information provided like name, dataset list, model list and score list.
-        Note: This only creates a benchmark. It needs to run seperately using start_benchmark_job.
+    def _reformat_model_list(cls, model_list: List[Model]) -> Tuple[List[Any], List[Any]]:
+        """Reformat a list of models for the benchmark creation API.
+
+        This method separates models into two lists based on whether they have
+        additional configuration information.
 
         Args:
-            name (str): Unique Name of benchmark
-            dataset_list (List[Dataset]): List of Datasets to be used for benchmarking
-            model_list (List[Model]): List of Models to be used for benchmarking
-            metric_list (List[Metric]): List of Metrics to be used for benchmarking
+            model_list (List[Model]): List of models to be used in the benchmark.
 
         Returns:
-            Benchmark: _description_
+            Tuple[List[Any], List[Any]]: A tuple containing:
+                - List of model IDs for models without additional parameters
+                - List of model configurations for models with parameters, or None
+                  if no models have parameters
+
+        Raises:
+            Exception: If some models have additional info and others don't.
+        """
+        model_list_without_parms, model_list_with_parms = [], []
+        for model in model_list:
+            if "displayName" in model.additional_info:
+                model_list_with_parms.append(
+                    {
+                        "id": model.id,
+                        "displayName": model.additional_info["displayName"],
+                        "configurations": json.dumps(model.additional_info["configuration"]),
+                    }
+                )
+            else:
+                model_list_without_parms.append(model.id)
+        if len(model_list_with_parms) > 0:
+            if len(model_list_without_parms) > 0:
+                raise Exception("Please provide additional info for all models or for none of the models")
+        else:
+            model_list_with_parms = None
+        return model_list_without_parms, model_list_with_parms
+
+    @classmethod
+    def create(
+        cls,
+        name: str,
+        dataset_list: List[Dataset],
+        model_list: List[Model],
+        metric_list: List[Metric],
+    ) -> Benchmark:
+        """Create a new benchmark configuration.
+
+        This method creates a new benchmark that can be used to evaluate and compare
+        multiple models using specified datasets and metrics. Note that this only
+        creates the benchmark configuration - you need to run it separately using
+        start_benchmark_job.
+
+        Args:
+            name (str): Unique name for the benchmark.
+            dataset_list (List[Dataset]): List of datasets to use for evaluation.
+                Currently only supports a single dataset.
+            model_list (List[Model]): List of models to evaluate. All models must
+                either have additional configuration info or none should have it.
+            metric_list (List[Metric]): List of metrics to use for evaluation.
+                Must provide at least one metric.
+
+        Returns:
+            Benchmark: Created benchmark object ready for execution.
+
+        Raises:
+            Exception: If:
+                - No dataset is provided or multiple datasets are provided
+                - No metrics are provided
+                - No models are provided
+                - Model configuration is inconsistent
+                - Request fails or returns an error
         """
         payload = {}
         try:
             url = urljoin(cls.backend_url, "sdk/benchmarks")
-            headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+            headers = {
+                "Authorization": f"Token {config.TEAM_API_KEY}",
+                "Content-Type": "application/json",
+            }
+            model_list_without_parms, model_list_with_parms = cls._reformat_model_list(model_list)
             payload = {
                 "name": name,
                 "datasets": [dataset.id for dataset in dataset_list],
-                "model": [model.id for model in model_list],
                 "metrics": [{"id": metric.id, "configurations": metric.normalization_options} for metric in metric_list],
+                "model": model_list_without_parms,
                 "shapScores": [],
                 "humanEvaluationReport": False,
                 "automodeTraining": False,
             }
+            if model_list_with_parms is not None:
+                payload["models"] = model_list_with_parms
             clean_payload = cls._validate_create_benchmark_payload(payload)
             payload = json.dumps(clean_payload)
             r = _request_with_retry("post", url, headers=headers, data=payload)
@@ -215,18 +324,30 @@ class BenchmarkFactory:
 
     @classmethod
     def list_normalization_options(cls, metric: Metric, model: Model) -> List[str]:
-        """Get list of supported normalization options for a metric and model to be used in benchmarking
+        """List supported normalization options for a metric-model pair.
+
+        This method retrieves the list of normalization options that can be used
+        when evaluating a specific model with a specific metric in a benchmark.
 
         Args:
-            metric (Metric): Metric for which normalization options are to be listed
-            model(Model): Model to be used in benchmarking
+            metric (Metric): Metric to get normalization options for.
+            model (Model): Model to check compatibility with.
 
         Returns:
-            List[str]: List of supported normalization options
+            List[str]: List of supported normalization option identifiers.
+
+        Raises:
+            Exception: If:
+                - Metric or model is invalid
+                - Request fails
+                - Service is unavailable
         """
         try:
             url = urljoin(cls.backend_url, "sdk/benchmarks/normalization-options")
-            headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+            headers = {
+                "Authorization": f"Token {config.TEAM_API_KEY}",
+                "Content-Type": "application/json",
+            }
             payload = json.dumps({"metricId": metric.id, "modelIds": [model.id]})
             r = _request_with_retry("post", url, headers=headers, data=payload)
             resp = r.json()
@@ -246,7 +367,24 @@ class BenchmarkFactory:
             raise Exception(error_message)
 
     @classmethod
-    def get_benchmark_job_scores(cls, job_id):
+    def get_benchmark_job_scores(cls, job_id: Text) -> Any:
+        """Retrieve and format benchmark job scores.
+
+        This method fetches the scores from a benchmark job and formats them into
+        a pandas DataFrame, with model names properly formatted to include supplier
+        and version information.
+
+        Args:
+            job_id (Text): Unique identifier of the benchmark job.
+
+        Returns:
+            pandas.DataFrame: DataFrame containing benchmark scores with formatted
+                model names.
+
+        Raises:
+            Exception: If the job ID is invalid or the request fails.
+        """
+
         def __get_model_name(model_id):
             model = ModelFactory.get(model_id)
             supplier = str(model.supplier)

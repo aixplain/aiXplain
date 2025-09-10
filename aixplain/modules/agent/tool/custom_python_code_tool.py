@@ -25,16 +25,36 @@ from typing import Text, Union, Callable, Optional
 from aixplain.modules.agent.tool import Tool
 import logging
 from aixplain.enums import AssetStatus
-from aixplain.enums.code_interpeter import CodeInterpreterModel
+from aixplain.enums.code_interpreter import CodeInterpreterModel
 
 
 class CustomPythonCodeTool(Tool):
-    """Custom Python Code Tool"""
+    """A tool for executing custom Python code in the aiXplain platform.
+
+    This tool allows users to define and execute custom Python functions or code snippets
+    as part of their workflow. It supports both direct code input and callable functions.
+
+    Attributes:
+        code (Union[Text, Callable]): The Python code to execute, either as a string or callable.
+        id (str): The identifier for the code interpreter model.
+        status (AssetStatus): The current status of the tool (DRAFT or ONBOARDED).
+    """
 
     def __init__(
         self, code: Union[Text, Callable], description: Text = "", name: Optional[Text] = None, **additional_info
     ) -> None:
-        """Custom Python Code Tool"""
+        """Initialize a new CustomPythonCodeTool instance.
+
+        Args:
+            code (Union[Text, Callable]): The Python code to execute, either as a string or callable function.
+            description (Text, optional): Description of what the code does. Defaults to "".
+            name (Optional[Text], optional): Name of the tool. Defaults to None.
+            **additional_info: Additional keyword arguments for tool configuration.
+
+        Note:
+            If description or name are not provided, they may be automatically extracted
+            from the code's docstring if available.
+        """
         super().__init__(name=name or "", description=description, **additional_info)
         self.code = code
         self.status = AssetStatus.ONBOARDED  # TODO: change to DRAFT when we have a way to onboard the tool
@@ -43,6 +63,17 @@ class CustomPythonCodeTool(Tool):
         self.validate()
 
     def to_dict(self):
+        """Convert the tool instance to a dictionary representation.
+
+        Returns:
+            dict: A dictionary containing the tool's configuration with keys:
+                - id: The tool's identifier
+                - name: The tool's name
+                - description: The tool's description
+                - type: Always "utility"
+                - utility: Always "custom_python_code"
+                - utilityCode: The Python code to execute
+        """
         return {
             "id": self.id,
             "name": self.name,
@@ -53,6 +84,17 @@ class CustomPythonCodeTool(Tool):
         }
 
     def validate(self):
+        """Validate the tool's configuration and code.
+
+        This method performs several checks:
+        1. Parses and validates the Python code if it's not an S3 URL
+        2. Extracts description and name from code's docstring if not provided
+        3. Ensures all required fields (description, code, name) are non-empty
+        4. Verifies the tool status is either DRAFT or ONBOARDED
+
+        Raises:
+            AssertionError: If any validation check fails, with a descriptive error message.
+        """
         from aixplain.modules.model.utils import parse_code_decorated
 
         if not str(self.code).startswith("s3://"):
@@ -79,7 +121,17 @@ class CustomPythonCodeTool(Tool):
         ], "Custom Python Code Tool Error: Status must be DRAFT or ONBOARDED"
 
     def __repr__(self) -> Text:
+        """Return a string representation of the tool.
+
+        Returns:
+            Text: A string in the format "CustomPythonCodeTool(name=<tool_name>)".
+        """
         return f"CustomPythonCodeTool(name={self.name})"
 
     def deploy(self):
+        """Deploy the custom Python code tool.
+
+        This is a placeholder method as custom Python code tools are automatically
+        deployed when created.
+        """
         pass

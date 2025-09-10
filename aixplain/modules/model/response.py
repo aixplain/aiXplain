@@ -4,7 +4,12 @@ from aixplain.exceptions.types import ErrorCode
 
 
 class ModelResponse:
-    """ModelResponse class to store the response of the model run."""
+    """ModelResponse class to store the response of the model run.
+    
+    This class provides a structured way to store and manage the response from model runs.
+    It includes fields for status, data, details, completion status, error messages,
+    usage information, and additional metadata.
+    """
 
     def __init__(
         self,
@@ -20,6 +25,21 @@ class ModelResponse:
         error_code: Optional[ErrorCode] = None,
         **kwargs,
     ):
+        """Initialize a new ModelResponse instance.
+
+        Args:
+            status (ResponseStatus): The status of the response.
+            data (Text): The data returned by the model.
+            details (Optional[Union[Dict, List]]): Additional details about the response.
+            completed (bool): Whether the response is complete.
+            error_message (Text): The error message if the response is not successful.
+            used_credits (float): The amount of credits used for the response.
+            run_time (float): The time taken to generate the response.
+            usage (Optional[Dict]): Usage information about the response.
+            url (Optional[Text]): The URL of the response.
+            error_code (Optional[ErrorCode]): The error code if the response is not successful.
+            **kwargs: Additional keyword arguments.
+        """
         self.status = status
         self.data = data
         self.details = details
@@ -37,6 +57,17 @@ class ModelResponse:
         self.additional_fields = kwargs
 
     def __getitem__(self, key: Text) -> Any:
+        """Get an item from the ModelResponse.
+
+        Args:
+            key (Text): The key to get the value for.
+
+        Returns:
+            Any: The value associated with the key.
+
+        Raises:
+            KeyError: If the key is not found in the ModelResponse.
+        """
         if key in self.__dict__:
             return self.__dict__[key]
         elif self.additional_fields and key in self.additional_fields:
@@ -48,12 +79,30 @@ class ModelResponse:
         raise KeyError(f"Key '{key}' not found in ModelResponse.")
 
     def get(self, key: Text, default: Optional[Any] = None) -> Any:
+        """Get an item from the ModelResponse with a default value.
+
+        Args:
+            key (Text): The key to get the value for.
+            default (Optional[Any]): The default value to return if the key is not found.
+
+        Returns:
+            Any: The value associated with the key or the default value if the key is not found.
+        """
         try:
             return self[key]
         except KeyError:
             return default
 
     def __setitem__(self, key: Text, value: Any) -> None:
+        """Set an item in the ModelResponse.
+
+        Args:
+            key (Text): The key to set the value for.
+            value (Any): The value to set.
+
+        Raises:
+            KeyError: If the key is not found in the ModelResponse.
+        """
         if key in self.__dict__:
             self.__dict__[key] = value
         elif self.additional_fields and key in self.additional_fields:
@@ -66,6 +115,11 @@ class ModelResponse:
             raise KeyError(f"Key '{key}' not found in ModelResponse.")
 
     def __repr__(self) -> str:
+        """Return a string representation of the ModelResponse.
+
+        Returns:
+            str: A string representation of the ModelResponse.
+        """
         fields = []
         if self.status:
             fields.append(f"status={self.status}")
@@ -92,6 +146,14 @@ class ModelResponse:
         return f"ModelResponse({', '.join(fields)})"
 
     def __contains__(self, key: Text) -> bool:
+        """Check if a key is in the ModelResponse.
+
+        Args:
+            key (Text): The key to check for.
+
+        Returns:
+            bool: True if the key is in the ModelResponse, False otherwise.
+        """
         try:
             self[key]
             return True
@@ -99,6 +161,11 @@ class ModelResponse:
             return False
 
     def to_dict(self) -> Dict[Text, Any]:
+        """Convert the ModelResponse to a dictionary.
+
+        Returns:
+            Dict[Text, Any]: A dictionary representation of the ModelResponse.
+        """
         base_dict = {
             "status": self.status,
             "data": self.data,

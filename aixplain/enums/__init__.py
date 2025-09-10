@@ -20,4 +20,5 @@ from .embedding_model import EmbeddingModel
 from .asset_status import AssetStatus
 from .index_stores import IndexStores
 from .function_type import FunctionType
-from .code_interpeter import CodeInterpreterModel
+from .evolve_type import EvolveType
+from .code_interpreter import CodeInterpreterModel

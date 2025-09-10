@@ -10,7 +10,7 @@ from aixplain.modules.agent.tool.python_interpreter_tool import PythonInterprete
 from aixplain.modules.agent.tool.custom_python_code_tool import CustomPythonCodeTool
 from aixplain.modules.agent.tool.sql_tool import SQLTool
 from aixplain.modules.agent import Agent
-from aixplain.modules.agent.agent_task import AgentTask
+from aixplain.modules.agent.agent_task import WorkflowTask
 from aixplain.factories import ModelFactory, PipelineFactory
 import os
 
@@ -50,7 +50,13 @@ def mock_tools():
     "tool_dict,expected_error",
     [
         pytest.param(
-            {"type": "model", "supplier": "aixplain", "version": "1.0", "assetId": "test_model", "description": "Test model"},
+            {
+                "type": "model",
+                "supplier": "aixplain",
+                "version": "1.0",
+                "assetId": "test_model",
+                "description": "Test model",
+            },
             "Function is required for model tools",
             id="missing_function",
         ),
@@ -124,19 +130,30 @@ def test_build_tool_error_cases(tool_dict, expected_error):
             id="model_tool_with_params",
         ),
         pytest.param(
-            {"type": "pipeline", "description": "Test pipeline", "assetId": "test_pipeline"},
+            {
+                "type": "pipeline",
+                "description": "Test pipeline",
+                "assetId": "test_pipeline",
+            },
             PipelineTool,
             {"description": "Test pipeline", "pipeline": "test_pipeline"},
             id="pipeline_tool",
         ),
         pytest.param(
-            {"type": "utility", "description": "Test utility", "utilityCode": "print('Hello World')"},
+            {
+                "type": "utility",
+                "description": "Test utility",
+                "utilityCode": "print('Hello World')",
+            },
             CustomPythonCodeTool,
             {"description": "Test utility", "code": "print('Hello World')"},
             id="custom_python_tool",
         ),
         pytest.param(
-            {"type": "utility", "description": "Test utility"}, PythonInterpreterTool, {}, id="python_interpreter_tool"
+            {"type": "utility", "description": "Test utility"},
+            PythonInterpreterTool,
+            {},
+            id="python_interpreter_tool",
         ),
         pytest.param(
             {
@@ -186,8 +203,6 @@ def test_build_tool_error_cases(tool_dict, expected_error):
         ),
     ],
 )
-
-
 def test_build_tool_success_cases(tool_dict, expected_type, expected_attrs, mock_model, mocker):
     """Test successful tool creation with various configurations."""
     mocker.patch.object(ModelFactory, "get", return_value=mock_model)
@@ -195,13 +210,24 @@ def test_build_tool_success_cases(tool_dict, expected_type, expected_attrs, mock
         "aixplain.modules.model.utils.parse_code_decorated",
         return_value=("print('Hello World')", [], "Test description", "test_name"),
     )
-    mocker.patch("os.path.exists", lambda path: True if path == "test_db.db" else os.path.exists(path))
-    mocker.patch("aixplain.factories.file_factory.FileFactory.upload", return_value="s3://mocked-file-path/test_db.db")
+    mocker.patch(
+        "os.path.exists",
+        lambda path: True if path == "test_db.db" else os.path.exists(path),
+    )
+    mocker.patch(
+        "aixplain.factories.file_factory.FileFactory.upload",
+        return_value="s3://mocked-file-path/test_db.db",
+    )
     if tool_dict["type"] == "pipeline":
         mocker.patch.object(
             PipelineFactory,
             "get",
-            return_value=Pipeline(id=tool_dict["assetId"], description=tool_dict["description"], name="Pipeline", api_key=""),
+            return_value=Pipeline(
+                id=tool_dict["assetId"],
+                description=tool_dict["description"],
+                name="Pipeline",
+                api_key="",
+            ),
         )
 
     tool = build_tool(tool_dict)
@@ -224,7 +250,7 @@ def test_build_tool_success_cases(tool_dict, expected_type, expected_attrs, mock
                 "id": "test_agent",
                 "name": "Test Agent",
                 "description": "Test Description",
-                "role": "Test Instructions",
+                "instructions": "Test Instructions",
                 "teamId": "test_team",
                 "version": "1.0",
                 "cost": 10.0,
@@ -273,7 +299,11 @@ def test_build_tool_success_cases(tool_dict, expected_type, expected_attrs, mock
                         "description": "Test model",
                         "function": "speech-recognition",
                     },
-                    {"type": "pipeline", "description": "Test pipeline", "assetId": "test_pipeline"},
+                    {
+                        "type": "pipeline",
+                        "description": "Test pipeline",
+                        "assetId": "test_pipeline",
+                    },
                 ],
             },
             {
@@ -286,8 +316,6 @@ def test_build_tool_success_cases(tool_dict, expected_type, expected_attrs, mock
         ),
     ],
 )
-
-
 def test_build_agent_success_cases(payload, expected_attrs, mock_tools, mocker):
     """Test successful agent creation with various configurations."""
     mocker.patch.object(
@@ -301,9 +329,9 @@ def test_build_agent_success_cases(payload, expected_attrs, mock_tools, mocker):
 
     for attr, value in expected_attrs.items():
         if attr == "tasks":
-            assert len(agent.tasks) == len(value)
-            for task, expected_task in zip(agent.tasks, value):
-                assert isinstance(task, AgentTask)
+            assert len(agent.workflow_tasks) == len(value)
+            for task, expected_task in zip(agent.workflow_tasks, value):
+                assert isinstance(task, WorkflowTask)
                 for task_attr, task_value in expected_task.items():
                     assert getattr(task, task_attr) == task_value
         elif attr == "tools":
@@ -322,7 +350,13 @@ def test_build_agent_success_cases(payload, expected_attrs, mock_tools, mocker):
                 "id": "test_agent",
                 "name": "Test Agent",
                 "status": "onboarded",
-                "assets": [{"type": "invalid_type", "description": "Test tool", "assetId": "invalid_asset"}],
+                "assets": [
+                    {
+                        "type": "invalid_type",
+                        "description": "Test tool",
+                        "assetId": "invalid_asset",
+                    }
+                ],
             },
             "Agent Creation Error: Tool type not supported",
             id="invalid_tool_type",
@@ -369,7 +403,13 @@ def test_build_agent_success_cases(payload, expected_attrs, mock_tools, mocker):
                 "id": "test_agent",
                 "name": "Test Agent",
                 "status": "onboarded",
-                "assets": [{"type": "model", "assetId": "test_model", "function": "speech-recognition"}],
+                "assets": [
+                    {
+                        "type": "model",
+                        "assetId": "test_model",
+                        "function": "speech-recognition",
+                    }
+                ],
             },
             "Tool test_model is not available. Make sure it exists or you have access to it. If you think this is an error, please contact the administrators.",
             id="generic_error",

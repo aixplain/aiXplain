@@ -25,6 +25,24 @@ from enum import Enum
 
 
 class FunctionType(Enum):
+    """Enumeration of function types in the aiXplain system.
+
+    This enum defines the different types of functions and services available
+    in the system, including AI models, data processing utilities, and
+    integration components.
+
+    Attributes:
+        AI (str): Artificial Intelligence function type.
+        SEGMENTOR (str): Data segmentation function type.
+        RECONSTRUCTOR (str): Data reconstruction function type.
+        UTILITY (str): Utility function type.
+        METRIC (str): Metric/evaluation function type.
+        SEARCH (str): Search function type.
+        INTEGRATION (str): Integration connector function type. # i.e. slack
+        CONNECTION (str): Connection function type. # slack - action
+        MCP_CONNECTION (str): MCP connection function type.
+        MCPSERVER (str): MCP server is for on-prem solution. It should be treated like a model. # ONPREM_MCP_MODEL
+    """
     AI = "ai"
     SEGMENTOR = "segmentor"
     RECONSTRUCTOR = "reconstructor"
@@ -33,4 +51,5 @@ class FunctionType(Enum):
     SEARCH = "search"
     INTEGRATION = "connector"
     CONNECTION = "connection"
-    MCPSERVER = 'mcpserver'
+    MCP_CONNECTION = "mcpconnection"
+    MCPSERVER = "mcpserver"

@@ -35,9 +35,19 @@ from aixplain.factories.team_agent_factory.utils import build_team_agent
 from aixplain.utils.request_utils import _request_with_retry
 from aixplain.modules.model.llm_model import LLM
 from aixplain.utils.llm_utils import get_llm_instance
+from pydantic import BaseModel
+from aixplain.modules.agent.output_format import OutputFormat
 
 
 class TeamAgentFactory:
+    """Factory class for creating and managing team agents.
+
+    This class provides functionality for creating new team agents, retrieving existing
+    team agents, and managing team agent configurations in the aiXplain platform.
+    Team agents can be composed of multiple individual agents, LLMs, and inspectors
+    working together to accomplish complex tasks.
+    """
+
     @classmethod
     def create(
         cls,
@@ -55,6 +65,8 @@ class TeamAgentFactory:
         inspectors: List[Inspector] = [],
         inspector_targets: List[Union[InspectorTarget, Text]] = [InspectorTarget.STEPS],
         instructions: Optional[Text] = None,
+        output_format: Optional[OutputFormat] = None,
+        expected_output: Optional[Union[BaseModel, Text, dict]] = None,
         **kwargs,
     ) -> TeamAgent:
         """Create a new team agent in the platform.
@@ -75,7 +87,8 @@ class TeamAgentFactory:
             inspector_targets: Which stages to be inspected during an execution of the team agent. (steps, output)
             use_mentalist_and_inspector: Whether to use the mentalist and inspector agents. (legacy)
             instructions: The instructions to guide the team agent (i.e. appended in the prompt of the team agent).
-
+            output_format: The output format to be used for the team agent.
+            expected_output: The expected output to be used for the team agent.
         Returns:
             A new team agent instance.
         """
@@ -90,6 +103,12 @@ class TeamAgentFactory:
             logging.warning("TeamAgent Onboarding Warning: num_inspectors is no longer supported. Use inspectors instead.")
 
         assert len(agents) > 0, "TeamAgent Onboarding Error: At least one agent must be provided."
+
+        if output_format == OutputFormat.JSON:
+            assert expected_output is not None and (
+                issubclass(expected_output, BaseModel) or isinstance(expected_output, dict)
+            ), "'expected_output' must be a Pydantic BaseModel or a JSON object when 'output_format' is JSON."
+
         agent_list = []
         for agent in agents:
             if isinstance(agent, Text) is True:
@@ -121,17 +140,44 @@ class TeamAgentFactory:
         else:
             inspector_targets = []
 
-        mentalist_llm_id = llm_id if use_mentalist else None
+        def _get_llm_safely(llm_id: str, llm_type: str) -> LLM:
+            """Helper to safely get an LLM instance with consistent error handling."""
+            try:
+                return get_llm_instance(llm_id, api_key=api_key)
+            except Exception:
+                raise Exception(
+                    f"TeamAgent Onboarding Error: LLM {llm_id} does not exist for {llm_type}. To resolve this, set the following LLM parameters to a valid LLM object or LLM ID: llm, supervisor_llm, mentalist_llm."
+                )
 
-        # Set up LLMs
-        if llm is None:
-            llm = get_llm_instance(llm_id, api_key=api_key)
+        def _setup_llm_and_tool(
+            llm_param: Optional[Union[LLM, Text]], default_id: Text, llm_type: str, description: str, tools: List[Dict]
+        ) -> LLM:
+            """Helper to set up an LLM and add its tool configuration."""
+            llm_instance = None
+            # Set up LLM
+            if llm_param is None:
+                llm_instance = _get_llm_safely(default_id, llm_type)
+            else:
+                llm_instance = _get_llm_safely(llm_param, llm_type) if isinstance(llm_param, str) else llm_param
 
-        if supervisor_llm is None:
-            supervisor_llm = get_llm_instance(llm_id, api_key=api_key)
+            # Add tool configuration
+            if llm_instance is not None:
+                tools.append(
+                    {
+                        "type": "llm",
+                        "description": description,
+                        "parameters": llm_instance.get_parameters().to_list() if llm_instance.get_parameters() else None,
+                    }
+                )
+            return llm_instance, tools
 
-        if use_mentalist and mentalist_llm is None:
-            mentalist_llm = get_llm_instance(mentalist_llm_id or "669a63646eb56306647e1091", api_key=api_key)
+        # Set up LLMs and their tools
+        tools = []
+        llm, tools = _setup_llm_and_tool(llm, llm_id, "Main LLM", "main", tools)
+        supervisor_llm, tools = _setup_llm_and_tool(supervisor_llm, llm_id, "Supervisor LLM", "supervisor", tools)
+        mentalist_llm, tools = (
+            _setup_llm_and_tool(mentalist_llm, llm_id, "Mentalist LLM", "mentalist", tools) if use_mentalist else (None, [])
+        )
 
         team_agent = None
         url = urljoin(config.BACKEND_URL, "sdk/agent-communities")
@@ -151,53 +197,17 @@ class TeamAgentFactory:
             "agents": agent_payload_list,
             "links": [],
             "description": description,
-            "llmId": llm.id if llm else llm_id,
-            "supervisorId": supervisor_llm.id if supervisor_llm else llm_id,
-            "plannerId": mentalist_llm.id if mentalist_llm else mentalist_llm_id,
+            "llmId": llm.id,
+            "supervisorId": supervisor_llm.id,
+            "plannerId": mentalist_llm.id if use_mentalist else None,
             "inspectors": inspectors,
             "inspectorTargets": inspector_targets,
             "supplier": supplier,
             "version": version,
             "status": "draft",
-            "tools": [],
-            "role": instructions,
+            "tools": tools,
+            "instructions": instructions,
         }
-
-        # Add LLM tools to the payload
-        if llm is not None:
-            llm = get_llm_instance(llm, api_key=api_key) if isinstance(llm, str) else llm
-            payload["tools"].append(
-                {
-                    "type": "llm",
-                    "description": "main",
-                    "parameters": llm.get_parameters().to_list() if llm.get_parameters() else None,
-                }
-            )
-
-        if supervisor_llm is not None:
-            supervisor_llm = (
-                get_llm_instance(supervisor_llm, api_key=api_key) if isinstance(supervisor_llm, str) else supervisor_llm
-            )
-            payload["tools"].append(
-                {
-                    "type": "llm",
-                    "description": "supervisor",
-                    "parameters": supervisor_llm.get_parameters().to_list() if supervisor_llm.get_parameters() else None,
-                }
-            )
-
-        if mentalist_llm is not None:
-            mentalist_llm = (
-                get_llm_instance(mentalist_llm, api_key=api_key) if isinstance(mentalist_llm, str) else mentalist_llm
-            )
-            payload["tools"].append(
-                {
-                    "type": "llm",
-                    "description": "mentalist",
-                    "parameters": mentalist_llm.get_parameters().to_list() if mentalist_llm.get_parameters() else None,
-                }
-            )
-
         # Store the LLM objects directly in the payload for build_team_agent
         internal_payload = payload.copy()
         if llm is not None:
@@ -206,6 +216,12 @@ class TeamAgentFactory:
             internal_payload["supervisor_llm"] = supervisor_llm
         if mentalist_llm is not None:
             internal_payload["mentalist_llm"] = mentalist_llm
+        if expected_output:
+            payload["expectedOutput"] = expected_output
+        if output_format:
+            if isinstance(output_format, OutputFormat):
+                output_format = output_format.value
+            payload["outputFormat"] = output_format
 
         team_agent = build_team_agent(payload=internal_payload, agents=agent_list, api_key=api_key)
         team_agent.validate(raise_exception=True)
@@ -244,8 +260,50 @@ class TeamAgentFactory:
         return team_agent
 
     @classmethod
+    def create_from_dict(cls, dict: Dict) -> TeamAgent:
+        """Create a team agent from a dictionary representation.
+
+        This method instantiates a TeamAgent object from a dictionary containing
+        the agent's configuration.
+
+        Args:
+            dict (Dict): Dictionary containing team agent configuration including:
+                - id: Team agent identifier
+                - name: Team agent name
+                - agents: List of agent configurations
+                - llm: Optional LLM configuration
+                - supervisor_llm: Optional supervisor LLM configuration
+                - mentalist_llm: Optional mentalist LLM configuration
+
+        Returns:
+            TeamAgent: Instantiated team agent with validated configuration.
+
+        Raises:
+            Exception: If validation fails or required fields are missing.
+        """
+        team_agent = TeamAgent.from_dict(dict)
+        team_agent.validate(raise_exception=True)
+        team_agent.url = urljoin(config.BACKEND_URL, f"sdk/agent-communities/{team_agent.id}/run")
+        return team_agent
+
+    @classmethod
     def list(cls) -> Dict:
-        """List all agents available in the platform."""
+        """List all team agents available in the platform.
+
+        This method retrieves all team agents accessible to the current user,
+        using the configured API key.
+
+        Returns:
+            Dict: Response containing:
+                - results (List[TeamAgent]): List of team agent objects
+                - page_total (int): Total items in current page
+                - page_number (int): Current page number (always 0)
+                - total (int): Total number of team agents
+
+        Raises:
+            Exception: If the request fails or returns an error, including cases
+                where authentication fails or the service is unavailable.
+        """
         url = urljoin(config.BACKEND_URL, "sdk/agent-communities")
         headers = {"x-api-key": config.TEAM_API_KEY, "Content-Type": "application/json"}
 
@@ -265,7 +323,12 @@ class TeamAgentFactory:
             total = len(results)
             logging.info(f"Response for GET List Agents - Page Total: {page_total} / Total: {total}")
             for agent in results:
-                agents.append(build_team_agent(agent))
+                try:
+                    team_agent_ = build_team_agent(agent)
+                    agents.append(team_agent_)
+                except Exception:
+                    logging.warning(f"There was an error building the team agent {agent['name']}. Skipping...")
+                    continue
             return {"results": agents, "page_total": page_total, "page_number": 0, "total": total}
         else:
             error_msg = "Agent Listing Error: Please contact the administrators."
@@ -276,12 +339,42 @@ class TeamAgentFactory:
             raise Exception(error_msg)
 
     @classmethod
-    def get(cls, agent_id: Text, api_key: Optional[Text] = None) -> TeamAgent:
-        """Get agent by id."""
-        url = urljoin(config.BACKEND_URL, f"sdk/agent-communities/{agent_id}")
+    def get(cls, agent_id: Optional[Text] = None, name: Optional[Text] = None, api_key: Optional[Text] = None) -> TeamAgent:
+        """Retrieve a team agent by its ID or name.
+
+        This method fetches a specific team agent from the platform using its
+        unique identifier or name.
+
+        Args:
+            agent_id (Optional[Text], optional): Unique identifier of the team agent to retrieve.
+            name (Optional[Text], optional): Name of the team agent to retrieve.
+            api_key (Optional[Text], optional): API key for authentication.
+                Defaults to None, using the configured TEAM_API_KEY.
+
+        Returns:
+            TeamAgent: Retrieved team agent with its full configuration.
+
+        Raises:
+            Exception: If:
+                - Team agent ID/name is invalid
+                - Authentication fails
+                - Service is unavailable
+                - Other API errors occur
+            ValueError: If neither agent_id nor name is provided, or if both are provided.
+        """
+        # Validate that exactly one parameter is provided
+        if not (agent_id or name) or (agent_id and name):
+            raise ValueError("Must provide exactly one of 'agent_id' or 'name'")
+
+        # Construct URL based on parameter type
+        if agent_id:
+            url = urljoin(config.BACKEND_URL, f"sdk/agent-communities/{agent_id}")
+        else:  # name is provided
+            url = urljoin(config.BACKEND_URL, f"sdk/agent-communities/by-name/{name}")
+
         api_key = api_key if api_key is not None else config.TEAM_API_KEY
         headers = {"x-api-key": api_key, "Content-Type": "application/json"}
-        logging.info(f"Start service for GET Team Agent  - {url} - {headers}")
+        logging.info(f"Start service for GET Team Agent - {url} - {headers}")
         try:
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()

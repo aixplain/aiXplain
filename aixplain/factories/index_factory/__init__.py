@@ -23,32 +23,49 @@ Description:
 
 from aixplain.modules.model.index_model import IndexModel
 from aixplain.factories import ModelFactory
-from aixplain.enums import Function, ResponseStatus, SortBy, SortOrder, OwnershipType, Supplier, IndexStores, EmbeddingModel
+from aixplain.enums import (
+    Function,
+    ResponseStatus,
+    SortBy,
+    SortOrder,
+    OwnershipType,
+    Supplier,
+    IndexStores,
+    EmbeddingModel,
+)
 from typing import Text, Union, List, Tuple, Optional, TypeVar, Generic
 from aixplain.factories.index_factory.utils import BaseIndexParams
 
 T = TypeVar("T", bound=BaseIndexParams)
 
-import os
-from aixplain.utils.file_utils import _request_with_retry
-from urllib.parse import urljoin
 
-def validate_embedding_model(model_id) -> bool:
-        model = ModelFactory.get(model_id)
-        return model.function == Function.TEXT_EMBEDDING
+def validate_embedding_model(model_id: Union[EmbeddingModel, str]) -> bool:
+    """Validate that a model is a text embedding model.
 
+    Args:
+        model_id (Union[EmbeddingModel, str]): The model ID or EmbeddingModel enum
+            value to validate.
 
-def validate_embedding_model(model_id) -> bool:
-    model = ModelFactory.get(model_id)
-    return model.function == Function.TEXT_EMBEDDING
-
-
-def validate_embedding_model(model_id) -> bool:
+    Returns:
+        bool: True if the model is a text embedding model, False otherwise.
+    """
     model = ModelFactory.get(model_id)
     return model.function == Function.TEXT_EMBEDDING
 
 
 class IndexFactory(ModelFactory, Generic[T]):
+    """Factory class for creating and managing index collections.
+
+    This class extends ModelFactory to provide specialized functionality for
+    managing index collections, which are used for efficient data retrieval
+    and searching. It supports various index types through the generic
+    parameter T.
+
+    Attributes:
+        T (TypeVar): Type variable bound to BaseIndexParams, representing
+            the specific index parameters type.
+    """
+
     @classmethod
     def create(
         cls,
@@ -58,7 +75,31 @@ class IndexFactory(ModelFactory, Generic[T]):
         params: Optional[T] = None,
         **kwargs,
     ) -> IndexModel:
-        """Create a new index collection"""
+        """Create a new index collection for efficient data retrieval.
+
+        This method supports two ways of creating an index:
+        1. Using individual parameters (name, description, embedding_model) - Deprecated
+        2. Using a params object of type T (recommended)
+
+        Args:
+            name (Optional[Text], optional): Name of the index collection.
+                Deprecated, use params instead. Defaults to None.
+            description (Optional[Text], optional): Description of the index collection.
+                Deprecated, use params instead. Defaults to None.
+            embedding_model (Union[EmbeddingModel, str], optional): Model to use for text embeddings.
+                Deprecated, use params instead. Defaults to EmbeddingModel.OPENAI_ADA002.
+            params (Optional[T], optional): Index parameters object. This is the
+                recommended way to create an index. Defaults to None.
+            **kwargs: Additional keyword arguments.
+
+        Returns:
+            IndexModel: Created index collection model.
+
+        Raises:
+            AssertionError: If neither params nor all legacy parameters are provided,
+                or if both params and legacy parameters are provided.
+            Exception: If index creation fails.
+        """
         import warnings
 
         warnings.warn(
@@ -77,6 +118,7 @@ class IndexFactory(ModelFactory, Generic[T]):
             assert (
                 name is not None and description is not None and embedding_model is not None
             ), "Index Factory Exception: name, description, and embedding_model must be provided when params is not"
+
             if validate_embedding_model(embedding_model):
                 data = {
                     "data": name,
@@ -84,6 +126,7 @@ class IndexFactory(ModelFactory, Generic[T]):
                     "model": embedding_model,
                 }
         model = cls.get(model_id)
+
         response = model.run(data=data)
         if response.status == ResponseStatus.SUCCESS:
             model_id = response.data
@@ -106,7 +149,25 @@ class IndexFactory(ModelFactory, Generic[T]):
         page_number: int = 0,
         page_size: int = 20,
     ) -> List[IndexModel]:
-        """List all indexes"""
+        """List available index collections with optional filtering and sorting.
+
+        Args:
+            query (Optional[Text], optional): Search query to filter indexes.
+                Defaults to "".
+            suppliers (Optional[Union[Supplier, List[Supplier]]], optional): Filter by
+                supplier(s). Defaults to None.
+            ownership (Optional[Tuple[OwnershipType, List[OwnershipType]]], optional):
+                Filter by ownership type. Defaults to None.
+            sort_by (Optional[SortBy], optional): Field to sort results by.
+                Defaults to None.
+            sort_order (SortOrder, optional): Sort direction (ascending/descending).
+                Defaults to SortOrder.ASCENDING.
+            page_number (int, optional): Page number for pagination. Defaults to 0.
+            page_size (int, optional): Number of results per page. Defaults to 20.
+
+        Returns:
+            List[IndexModel]: List of index models matching the specified criteria.
+        """
         return super().list(
             function=Function.SEARCH,
             query=query,

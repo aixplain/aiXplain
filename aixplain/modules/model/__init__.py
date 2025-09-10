@@ -39,26 +39,33 @@ from aixplain.enums import AssetStatus
 
 
 class Model(Asset):
-    """This is ready-to-use AI model. This model can be run in both synchronous and asynchronous manner.
+    """A ready-to-use AI model that can be executed synchronously or asynchronously.
+
+    This class represents a deployable AI model in the aiXplain platform. It provides
+    functionality for model execution, parameter management, and status tracking.
+    Models can be run with both synchronous and asynchronous APIs, and some models
+    support streaming responses.
 
     Attributes:
-        id (Text): ID of the Model
-        name (Text): Name of the Model
-        description (Text, optional): description of the model. Defaults to "".
-        api_key (Text, optional): API key of the Model. Defaults to None.
-        url (Text, optional): endpoint of the model. Defaults to config.MODELS_RUN_URL.
-        supplier (Union[Dict, Text, Supplier, int], optional): supplier of the asset. Defaults to "aiXplain".
-        version (Text, optional): version of the model. Defaults to "1.0".
-        function (Function, optional): model AI function. Defaults to None.
-        url (str): URL to run the model.
-        backend_url (str): URL of the backend.
-        pricing (Dict, optional): model price. Defaults to None.
-        **additional_info: Any additional Model info to be saved
-        input_params (ModelParameters, optional): input parameters for the function.
-        output_params (Dict, optional): output parameters for the function.
-        model_params (ModelParameters, optional): parameters for the function.
-        supports_streaming (bool, optional): whether the model supports streaming. Defaults to False.
-        function_type (FunctionType, optional): type of the function. Defaults to FunctionType.AI.
+        id (Text): ID of the model.
+        name (Text): Name of the model.
+        description (Text): Detailed description of the model's functionality.
+        api_key (Text): Authentication key for API access.
+        url (Text): Endpoint URL for model execution.
+        supplier (Union[Dict, Text, Supplier, int]): Provider/creator of the model.
+        version (Text): Version identifier of the model.
+        function (Function): The AI function this model performs.
+        backend_url (str): Base URL for the backend API.
+        cost (Dict): Pricing information for model usage.
+        input_params (ModelParameters): Parameters accepted by the model.
+        output_params (Dict): Description of model outputs.
+        model_params (ModelParameters): Configuration parameters for model behavior.
+        supports_streaming (bool): Whether the model supports streaming responses.
+        function_type (FunctionType): Category of function (AI, UTILITY, etc.).
+        is_subscribed (bool): Whether the user has an active subscription.
+        created_at (datetime): When the model was created.
+        status (AssetStatus): Current status of the model.
+        additional_info (dict): Additional model metadata.
     """
 
     def __init__(
@@ -81,25 +88,38 @@ class Model(Asset):
         function_type: Optional[FunctionType] = FunctionType.AI,
         **additional_info,
     ) -> None:
-        """Model Init
+        """Initialize a new Model instance.
 
         Args:
-            id (Text): ID of the Model
-            name (Text): Name of the Model
-            description (Text, optional): description of the model. Defaults to "".
-            api_key (Text, optional): API key of the Model. Defaults to None.
-            supplier (Union[Dict, Text, Supplier, int], optional): supplier of the asset. Defaults to "aiXplain".
-            version (Text, optional): version of the model. Defaults to "1.0".
-            function (Text, optional): model AI function. Defaults to None.
-            is_subscribed (bool, optional): Is the user subscribed. Defaults to False.
-            cost (Dict, optional): model price. Defaults to None.
-            input_params (Dict, optional): input parameters for the function.
-            output_params (Dict, optional): output parameters for the function.
-            model_params (Dict, optional): parameters for the function.
-            supports_streaming (bool, optional): whether the model supports streaming. Defaults to False.
-            status (AssetStatus, optional): status of the model. Defaults to None.
-            function_type (FunctionType, optional): type of the function. Defaults to FunctionType.AI.
-            **additional_info: Any additional Model info to be saved
+            id (Text): ID of the Model.
+            name (Text, optional): Name of the Model. Defaults to "".
+            description (Text, optional): Description of the Model. Defaults to "".
+            api_key (Text, optional): Authentication key for API access.
+                Defaults to config.TEAM_API_KEY.
+            supplier (Union[Dict, Text, Supplier, int], optional): Provider/creator
+                of the model. Defaults to "aiXplain".
+            version (Text, optional): Version identifier of the model. Defaults to None.
+            function (Function, optional): The AI function this model performs.
+                Defaults to None.
+            is_subscribed (bool, optional): Whether the user has an active
+                subscription. Defaults to False.
+            cost (Dict, optional): Pricing information for model usage.
+                Defaults to None.
+            created_at (Optional[datetime], optional): When the model was created.
+                Defaults to None.
+            input_params (Dict, optional): Parameters accepted by the model.
+                Defaults to None.
+            output_params (Dict, optional): Description of model outputs.
+                Defaults to None.
+            model_params (Dict, optional): Configuration parameters for model
+                behavior. Defaults to None.
+            supports_streaming (bool, optional): Whether the model supports streaming
+                responses. Defaults to False.
+            status (AssetStatus, optional): Current status of the model.
+                Defaults to AssetStatus.ONBOARDED.
+            function_type (FunctionType, optional): Category of function.
+                Defaults to FunctionType.AI.
+            **additional_info: Additional model metadata.
         """
         super().__init__(id, name, description, supplier, version, cost=cost)
         self.api_key = api_key
@@ -122,10 +142,20 @@ class Model(Asset):
         self.status = status
 
     def to_dict(self) -> Dict:
-        """Get the model info as a Dictionary
+        """Convert the model instance to a dictionary representation.
 
         Returns:
-            Dict: Model Information
+            Dict: A dictionary containing the model's configuration with keys:
+                - id: Unique identifier
+                - name: Model name
+                - description: Model description
+                - supplier: Model provider
+                - additional_info: Extra metadata (excluding None/empty values)
+                - input_params: Input parameter configuration
+                - output_params: Output parameter configuration
+                - model_params: Model behavior parameters
+                - function: AI function type
+                - status: Current model status
         """
         clean_additional_info = {k: v for k, v in self.additional_info.items() if v not in [None, [], {}]}
         return {
@@ -141,12 +171,23 @@ class Model(Asset):
             "status": self.status,
         }
 
-    def get_parameters(self) -> ModelParameters:
+    def get_parameters(self) -> Optional[ModelParameters]:
+        """Get the model's configuration parameters.
+
+        Returns:
+            Optional[ModelParameters]: The model's parameter configuration if set,
+                None otherwise.
+        """
         if self.model_params:
             return self.model_params
         return None
 
-    def __repr__(self):
+    def __repr__(self) -> str:
+        """Return a string representation of the model.
+
+        Returns:
+            str: A string in the format "Model: <name> by <supplier> (id=<id>)".
+        """
         try:
             return f"Model: {self.name} by {self.supplier['name']} (id={self.id})"
         except Exception:
@@ -159,16 +200,27 @@ class Model(Asset):
         wait_time: float = 0.5,
         timeout: float = 300,
     ) -> ModelResponse:
-        """Keeps polling the platform to check whether an asynchronous call is done.
+        """Poll the platform until an asynchronous operation completes or times out.
+
+        This method repeatedly checks the status of an asynchronous operation,
+        implementing exponential backoff for the polling interval.
 
         Args:
-            poll_url (Text): polling URL
-            name (Text, optional): ID given to a call. Defaults to "model_process".
-            wait_time (float, optional): wait time in seconds between polling calls. Defaults to 0.5.
-            timeout (float, optional): total polling time. Defaults to 300.
+            poll_url (Text): URL to poll for operation status.
+            name (Text, optional): Identifier for the operation for logging.
+                Defaults to "model_process".
+            wait_time (float, optional): Initial wait time in seconds between polls.
+                Will increase exponentially up to 60 seconds. Defaults to 0.5.
+            timeout (float, optional): Maximum total time to poll in seconds.
+                Defaults to 300.
 
         Returns:
-            Dict: response obtained by polling call
+            ModelResponse: The final response from the operation. If polling times
+                out or fails, returns a failed response with appropriate error message.
+
+        Note:
+            The minimum wait time between polls is 0.2 seconds. The wait time
+            increases by 10% after each poll up to a maximum of 60 seconds.
         """
         logging.info(f"Polling for Model: Start polling for {name}")
         start, end = time.time(), time.time()
@@ -208,14 +260,20 @@ class Model(Asset):
         return response_body
 
     def poll(self, poll_url: Text, name: Text = "model_process") -> ModelResponse:
-        """Poll the platform to check whether an asynchronous call is done.
+        """Make a single poll request to check operation status.
 
         Args:
-            poll_url (Text): polling
-            name (Text, optional): ID given to a call. Defaults to "model_process".
+            poll_url (Text): URL to poll for operation status.
+            name (Text, optional): Identifier for the operation for logging.
+                Defaults to "model_process".
 
         Returns:
-            Dict: response obtained by polling call
+            ModelResponse: The current status of the operation. Contains completion
+                status, any results or errors, and usage statistics.
+
+        Note:
+            This is a low-level method used by sync_poll. Most users should use
+            sync_poll instead for complete operation handling.
         """
         headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}
         r = _request_with_retry("get", poll_url, headers=headers)
@@ -256,6 +314,19 @@ class Model(Asset):
         data: Union[Text, Dict],
         parameters: Optional[Dict] = None,
     ) -> ModelResponseStreamer:
+        """Execute the model with streaming response.
+
+        Args:
+            data (Union[Text, Dict]): The input data for the model.
+            parameters (Optional[Dict], optional): Additional parameters for model
+                execution. Defaults to None.
+
+        Returns:
+            ModelResponseStreamer: A streamer object that yields response chunks.
+
+        Raises:
+            AssertionError: If the model doesn't support streaming.
+        """
         assert self.supports_streaming, f"Model '{self.name} ({self.id})' does not support streaming"
         payload = build_payload(data=data, parameters=parameters, stream=True)
         url = f"{self.url}/{self.id}".replace("api/v1/execute", "api/v2/execute")
@@ -273,17 +344,32 @@ class Model(Asset):
         wait_time: float = 0.5,
         stream: bool = False,
     ) -> Union[ModelResponse, ModelResponseStreamer]:
-        """Runs a model call.
+        """Execute the model and wait for results.
+
+        This method handles both synchronous and streaming execution modes. For
+        asynchronous operations, it polls until completion or timeout.
 
         Args:
-            data (Union[Text, Dict]): link to the input data
-            name (Text, optional): ID given to a call. Defaults to "model_process".
-            timeout (float, optional): total polling time. Defaults to 300.
-            parameters (Dict, optional): optional parameters to the model. Defaults to None.
-            wait_time (float, optional): wait time in seconds between polling calls. Defaults to 0.5.
-            stream (bool, optional): whether the model supports streaming. Defaults to False.
+            data (Union[Text, Dict]): The input data for the model.
+            name (Text, optional): Identifier for the operation for logging.
+                Defaults to "model_process".
+            timeout (float, optional): Maximum time to wait for completion in seconds.
+                Defaults to 300.
+            parameters (Dict, optional): Additional parameters for model execution.
+                Defaults to None.
+            wait_time (float, optional): Initial wait time between polls in seconds.
+                Defaults to 0.5.
+            stream (bool, optional): Whether to use streaming mode. Requires model
+                support. Defaults to False.
+
         Returns:
-            Union[ModelResponse, ModelStreamer]: parsed output from model
+            Union[ModelResponse, ModelResponseStreamer]: The model's response. For
+                streaming mode, returns a streamer object. For regular mode,
+                returns a response object with results or error information.
+
+        Note:
+            If the model execution becomes asynchronous, this method will poll
+            for completion using sync_poll with the specified timeout and wait_time.
         """
         if stream:
             return self.run_stream(data=data, parameters=parameters)
@@ -325,15 +411,24 @@ class Model(Asset):
         name: Text = "model_process",
         parameters: Optional[Dict] = None,
     ) -> ModelResponse:
-        """Runs asynchronously a model call.
+        """Start asynchronous model execution.
+
+        This method initiates model execution but doesn't wait for completion.
+        Use sync_poll to check the operation status later.
 
         Args:
-            data (Union[Text, Dict]): link to the input data
-            name (Text, optional): ID given to a call. Defaults to "model_process".
-            parameters (Dict, optional): optional parameters to the model. Defaults to None.
+            data (Union[Text, Dict]): The input data for the model.
+            name (Text, optional): Identifier for the operation for logging.
+                Defaults to "model_process".
+            parameters (Dict, optional): Additional parameters for model execution.
+                Defaults to None.
 
         Returns:
-            dict: polling URL in response
+            ModelResponse: Initial response containing:
+                - status: Current operation status
+                - url: URL for polling operation status
+                - error_message: Any immediate errors
+                - other response metadata
         """
         url = f"{self.url}/{self.id}"
         payload = build_payload(data=data, parameters=parameters)
@@ -417,7 +512,14 @@ class Model(Asset):
             logging.exception(error_message)
 
     def delete(self) -> None:
-        """Delete Model service"""
+        """Delete this model from the aiXplain platform.
+
+        This method attempts to delete the model from the platform. It will fail
+        if the user doesn't have appropriate permissions.
+
+        Raises:
+            Exception: If deletion fails or if the user doesn't have permission.
+        """
         try:
             url = urljoin(self.backend_url, f"sdk/models/{self.id}")
             headers = {
@@ -433,8 +535,43 @@ class Model(Asset):
             logging.error(message)
             raise Exception(f"{message}")
 
+    def add_additional_info_for_benchmark(self, display_name: str, configuration: Dict) -> None:
+        """Add benchmark-specific information to the model.
+
+        This method updates the model's additional_info with benchmark-related
+        metadata.
+
+        Args:
+            display_name (str): Name for display in benchmarks.
+            configuration (Dict): Model configuration settings for benchmarking.
+        """
+        self.additional_info["displayName"] = display_name
+        self.additional_info["configuration"] = configuration
+
     @classmethod
     def from_dict(cls, data: Dict) -> "Model":
+        """Create a Model instance from a dictionary representation.
+
+        Args:
+            data (Dict): Dictionary containing model configuration with keys:
+                - id: Model identifier
+                - name: Model name
+                - description: Model description
+                - api_key: API key for authentication
+                - supplier: Model provider information
+                - version: Model version
+                - function: AI function type
+                - is_subscribed: Subscription status
+                - cost: Pricing information
+                - created_at: Creation timestamp (ISO format)
+                - input_params: Input parameter configuration
+                - output_params: Output parameter configuration
+                - model_params: Model behavior parameters
+                - additional_info: Extra metadata
+
+        Returns:
+            Model: A new Model instance populated with the dictionary data.
+        """
         return cls(
             id=data.get("id", ""),
             name=data.get("name", ""),

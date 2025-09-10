@@ -14,6 +14,7 @@ from aixplain.modules.agent.tool.pipeline_tool import PipelineTool
 from aixplain.modules.agent.tool.python_interpreter_tool import PythonInterpreterTool
 from aixplain.modules.agent.tool.custom_python_code_tool import CustomPythonCodeTool
 from aixplain.modules.agent.tool.sql_tool import SQLTool
+from aixplain.modules.agent.output_format import OutputFormat
 from aixplain.modules.model import Model
 from aixplain.modules.model.connection import ConnectionTool
 from typing import Dict, Text, List, Union
@@ -43,9 +44,9 @@ def build_tool_payload(tool: Union[Tool, Model]):
             "id": tool.id,
             "name": tool.name,
             "description": tool.description,
-            "supplier": tool.supplier.value["code"] if isinstance(tool.supplier, Supplier) else tool.supplier,
+            "supplier": (tool.supplier.value["code"] if isinstance(tool.supplier, Supplier) else tool.supplier),
             "parameters": parameters,
-            "function": tool.function if hasattr(tool, "function") and tool.function is not None else None,
+            "function": (tool.function if hasattr(tool, "function") and tool.function is not None else None),
             "type": "model",
             "version": tool.version if hasattr(tool, "version") else None,
             "assetId": tool.id,
@@ -116,7 +117,19 @@ def build_tool(tool: Dict):
 
 
 def build_llm(payload: Dict, api_key: Text = config.TEAM_API_KEY) -> LLM:
-    """Build a LLM from a dictionary."""
+    """Build a Large Language Model (LLM) instance from a dictionary configuration.
+
+    This function attempts to create an LLM instance either from a cached LLM object
+    in the payload or by creating a new instance using the provided configuration.
+
+    Args:
+        payload (Dict): Dictionary containing LLM configuration and possibly a cached
+            LLM object.
+        api_key (Text, optional): API key for authentication. Defaults to config.TEAM_API_KEY.
+
+    Returns:
+        LLM: Instantiated LLM object with configured parameters.
+    """
     # Get LLM from tools if present
     llm = None
     # First check if we have the LLM object
@@ -127,7 +140,7 @@ def build_llm(payload: Dict, api_key: Text = config.TEAM_API_KEY) -> LLM:
         for tool in payload["tools"]:
             if tool["type"] == "llm" and tool["description"] == "main":
 
-                llm = get_llm_instance(payload["llmId"], api_key=api_key)
+                llm = get_llm_instance(payload["llmId"], api_key=api_key, use_cache=True)
                 # Set parameters from the tool
                 if "parameters" in tool:
                     # Apply all parameters directly to the LLM properties
@@ -142,7 +155,10 @@ def build_llm(payload: Dict, api_key: Text = config.TEAM_API_KEY) -> LLM:
                     # Convert parameters list to dictionary format expected by ModelParameters
                     params_dict = {}
                     for param in tool["parameters"]:
-                        params_dict[param["name"]] = {"required": False, "value": param["value"]}
+                        params_dict[param["name"]] = {
+                            "required": False,
+                            "value": param["value"],
+                        }
                     # Create ModelParameters and set it on the LLM
                     from aixplain.modules.model.model_parameters import ModelParameters
 
@@ -152,23 +168,57 @@ def build_llm(payload: Dict, api_key: Text = config.TEAM_API_KEY) -> LLM:
 
 
 def build_agent(payload: Dict, tools: List[Tool] = None, api_key: Text = config.TEAM_API_KEY) -> Agent:
-    """Instantiate a new agent in the platform."""
+    """Build an agent instance from a dictionary configuration.
+
+    This function creates an agent with its associated tools, LLM, and tasks based
+    on the provided configuration.
+
+    Args:
+        payload (Dict): Dictionary containing agent configuration including tools,
+            LLM settings, and tasks.
+        tools (List[Tool], optional): List of pre-configured tools to use. If None,
+            tools will be built from the payload. Defaults to None.
+        api_key (Text, optional): API key for authentication. Defaults to config.TEAM_API_KEY.
+
+    Returns:
+        Agent: Instantiated agent object with configured tools, LLM, and tasks.
+
+    Raises:
+        ValueError: If a tool type is not supported.
+        AssertionError: If tool configuration is invalid.
+    """
     tools_dict = payload["assets"]
     payload_tools = tools
     if payload_tools is None:
         payload_tools = []
-        for tool in tools_dict:
+        # Use parallel tool building with ThreadPoolExecutor for better performance
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        
+        def build_tool_safe(tool_data):
+            """Build a single tool with error handling"""
             try:
-                payload_tools.append(build_tool(tool))
+                return build_tool(tool_data)
             except (ValueError, AssertionError) as e:
                 logging.warning(str(e))
-                continue
+                return None
             except Exception:
                 logging.warning(
-                    f"Tool {tool['assetId']} is not available. Make sure it exists or you have access to it. "
+                    f"Tool {tool_data['assetId']} is not available. Make sure it exists or you have access to it. "
                     "If you think this is an error, please contact the administrators."
                 )
-                continue
+                return None
+        
+        # Build all tools in parallel (only if there are tools to build)
+        if len(tools_dict) > 0:
+            with ThreadPoolExecutor(max_workers=min(len(tools_dict), 10)) as executor:
+                # Submit all tool build tasks
+                future_to_tool = {executor.submit(build_tool_safe, tool): tool for tool in tools_dict}
+                
+                # Collect results as they complete
+                for future in as_completed(future_to_tool):
+                    tool_result = future.result()
+                    if tool_result is not None:
+                        payload_tools.append(tool_result)
 
     llm = build_llm(payload, api_key)
 
@@ -177,7 +227,7 @@ def build_agent(payload: Dict, tools: List[Tool] = None, api_key: Text = config.
         name=payload.get("name", ""),
         tools=payload_tools,
         description=payload.get("description", ""),
-        instructions=payload.get("role", ""),
+        instructions=payload.get("instructions"),
         supplier=payload.get("teamId", None),
         version=payload.get("version", None),
         cost=payload.get("cost", None),
@@ -185,6 +235,8 @@ def build_agent(payload: Dict, tools: List[Tool] = None, api_key: Text = config.
         llm=llm,
         api_key=api_key,
         status=AssetStatus(payload["status"]),
+        output_format=OutputFormat(payload.get("outputFormat", OutputFormat.TEXT)),
+        expected_output=payload.get("expectedOutput", None),
         tasks=[
             AgentTask(
                 name=task["name"],

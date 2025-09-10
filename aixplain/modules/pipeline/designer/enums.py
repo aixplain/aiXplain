@@ -1,5 +1,6 @@
 from enum import Enum
-from aixplain.enums import FunctionType
+from aixplain.enums import FunctionType  # noqa: F401
+
 
 class RouteType(str, Enum):
     CHECK_TYPE = "checkType"
@@ -28,6 +29,7 @@ class NodeType(str, Enum):
 
 class AssetType(str, Enum):
     MODEL = "MODEL"
+
 
 class ParamType:
     INPUT = "INPUT"

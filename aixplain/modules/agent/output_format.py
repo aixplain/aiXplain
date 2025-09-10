@@ -26,6 +26,16 @@ from typing import Text
 
 
 class OutputFormat(Text, Enum):
+    """Enum representing different output formats for AI agent responses.
+
+    This enum defines the possible output formats that can be used by AI agents.
+    Each format is represented by a string constant.
+
+    Attributes:
+        MARKDOWN (Text): Markdown format for formatted text output.
+        TEXT (Text): Plain text output.
+        JSON (Text): JSON format for structured data output.
+    """
     MARKDOWN = "markdown"
     TEXT = "text"
     JSON = "json"
