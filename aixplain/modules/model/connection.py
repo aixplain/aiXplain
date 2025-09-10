@@ -1,3 +1,23 @@
+"""Copyright 2025 The aiXplain SDK authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+Author: Ahmet Gündüz
+Date: September 10th 2025
+Description:
+    Connection Tool Class.
+"""
+
 from aixplain.enums import Function, Supplier, FunctionType, ResponseStatus
 from aixplain.modules.model import Model
 from aixplain.utils import config
@@ -52,6 +72,15 @@ class ConnectAction:
 
 
 class ConnectionTool(Model):
+    """A class representing a connection tool.
+
+    This class defines the structure of a connection tool with its actions and action scope.
+
+    Attributes:
+        actions (List[ConnectAction]): A list of available actions for this connection.
+        action_scope (Optional[List[ConnectAction]]): The scope of actions for this connection.
+    """
+
     actions: List[ConnectAction]
     action_scope: Optional[List[ConnectAction]] = None
 
@@ -84,9 +113,9 @@ class ConnectionTool(Model):
             function_type (FunctionType, optional): Type of the Connection. Defaults to FunctionType.CONNECTION.
             **additional_info: Any additional Connection info to be saved
         """
-        assert (
-            function_type == FunctionType.CONNECTION or function_type == FunctionType.MCP_CONNECTION
-        ), "Connection only supports connection function"
+        assert function_type == FunctionType.CONNECTION or function_type == FunctionType.MCP_CONNECTION, (
+            "Connection only supports connection function"
+        )
         super().__init__(
             id=id,
             name=name,
@@ -188,9 +217,9 @@ class ConnectionTool(Model):
         Raises:
             AssertionError: If the action scope is not set or is empty.
         """
-        assert (
-            self.action_scope is not None and len(self.action_scope) > 0
-        ), f"Please set the scope of actions for the connection '{self.id}'."
+        assert self.action_scope is not None and len(self.action_scope) > 0, (
+            f"Please set the scope of actions for the connection '{self.id}'."
+        )
         response = [
             {
                 "code": action.code,
@@ -209,3 +238,11 @@ class ConnectionTool(Model):
             str: A string in the format "ConnectionTool(id=<id>, name=<name>)".
         """
         return f"ConnectionTool(id={self.id}, name={self.name})"
+
+    def deploy(self):
+        """Deploy the connection tool.
+
+        This is a placeholder method as connection tools are managed through the aiXplain platform
+        and don't require explicit deployment.
+        """
+        pass
