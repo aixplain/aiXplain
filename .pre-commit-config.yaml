@@ -31,3 +31,10 @@ repos:
       - id: flake8
         args: # arguments to configure flake8
           - --ignore=E402,E501,E203,W503
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.12.12
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
