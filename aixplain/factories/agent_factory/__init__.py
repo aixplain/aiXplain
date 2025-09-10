@@ -63,12 +63,12 @@ class AgentFactory:
         instructions: Optional[Text] = None,
         llm: Optional[Union[LLM, Text]] = None,
         llm_id: Optional[Text] = None,
-        tools: List[Union[Tool, Model]] = [],
+        tools: Optional[List[Union[Tool, Model]]] = None,
         api_key: Text = config.TEAM_API_KEY,
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
         version: Optional[Text] = None,
         tasks: List[WorkflowTask] = None,
-        workflow_tasks: List[WorkflowTask] = [],
+        workflow_tasks: Optional[List[WorkflowTask]] = None,
         output_format: Optional[OutputFormat] = None,
         expected_output: Optional[Union[BaseModel, Text, dict]] = None,
     ) -> Agent:
@@ -95,6 +95,8 @@ class AgentFactory:
         Returns:
             Agent: created Agent
         """
+        tools = [] if tools is None else list(tools)
+        workflow_tasks = [] if workflow_tasks is None else list(workflow_tasks)
         from aixplain.utils.llm_utils import get_llm_instance
 
         if llm is None and llm_id is not None:
@@ -222,8 +224,9 @@ class AgentFactory:
         name: Text,
         description: Text,
         expected_output: Text,
-        dependencies: Optional[List[Text]] = [],
+        dependencies: Optional[List[Text]] = None,
     ) -> WorkflowTask:
+        dependencies = [] if dependencies is None else list(dependencies)
         return WorkflowTask(
             name=name,
             description=description,
