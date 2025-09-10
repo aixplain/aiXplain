@@ -1,7 +1,11 @@
 import pytest
+import json
 from typing import Any, Callable
 
 from dotenv import load_dotenv
+
+from aixplain.factories import AgentFactory, TeamAgentFactory
+
 
 # Load environment variables once for all tests
 load_dotenv(override=True)
@@ -17,6 +21,28 @@ SDK_VERSIONS = [SDK_VERSION_V1, SDK_VERSION_V2]
 PIPELINE_VERSION_2_0 = "2.0"
 PIPELINE_VERSION_3_0 = "3.0"
 PIPELINE_VERSIONS = [PIPELINE_VERSION_2_0, PIPELINE_VERSION_3_0]
+RUN_FILE = "tests/functional/agent/data/agent_test_end2end.json"
+
+def read_data(data_path):
+    return json.load(open(data_path, "r"))
+
+@pytest.fixture(scope="module", params=read_data(RUN_FILE))
+def run_input_map(request):
+    return request.param
+
+@pytest.fixture(scope="function")
+def delete_agents_and_team_agents():
+    for team_agent in TeamAgentFactory.list()["results"]:
+        team_agent.delete()
+    for agent in AgentFactory.list()["results"]:
+        agent.delete()
+
+    yield True
+
+    for team_agent in TeamAgentFactory.list()["results"]:
+        team_agent.delete()
+    for agent in AgentFactory.list()["results"]:
+        agent.delete()
 
 
 def pytest_addoption(parser: pytest.Parser):
