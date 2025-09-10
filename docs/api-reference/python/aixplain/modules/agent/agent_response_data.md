@@ -108,7 +108,7 @@ Convert the response data to a dictionary representation.
 def __getitem__(key: str) -> Any
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/agent_response_data.py#L98)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/agent_response_data.py#L101)
 
 Get an attribute value using dictionary-style access.
 
@@ -127,7 +127,7 @@ Get an attribute value using dictionary-style access.
 def __setitem__(key: str, value: Any) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/agent_response_data.py#L109)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/agent_response_data.py#L112)
 
 Set an attribute value using dictionary-style access.
 
@@ -147,7 +147,7 @@ Set an attribute value using dictionary-style access.
 def __repr__() -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/agent_response_data.py#L124)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/agent_response_data.py#L127)
 
 Return a string representation of the response data.
 
@@ -161,7 +161,7 @@ Return a string representation of the response data.
 def __contains__(key: Text) -> bool
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/agent_response_data.py#L140)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/agent_response_data.py#L143)
 
 Check if an attribute exists using &#x27;in&#x27; operator.
 
