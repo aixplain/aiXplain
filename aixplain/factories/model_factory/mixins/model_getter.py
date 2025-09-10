@@ -1,3 +1,9 @@
+"""Model getter mixin providing model retrieval functionality.
+
+This module contains the ModelGetterMixin class which provides methods for retrieving
+model instances from the backend by ID or name, with support for caching.
+"""
+
 import logging
 
 from aixplain.factories.model_factory.utils import create_model_from_response
@@ -15,15 +21,23 @@ class ModelGetterMixin:
     This mixin provides methods for retrieving model instances from the backend,
     with support for caching to improve performance.
     """
+
     @classmethod
-    def get(cls, model_id: Text, api_key: Optional[Text] = None, use_cache: bool = False) -> Model:
-        """Retrieve a model instance by its ID.
+    def get(
+        cls,
+        model_id: Optional[Text] = None,
+        name: Optional[Text] = None,
+        api_key: Optional[Text] = None,
+        use_cache: bool = False,
+    ) -> Model:
+        """Retrieve a model instance by its ID or name.
 
         This method attempts to retrieve a model from the cache if enabled,
         falling back to fetching from the backend if necessary.
 
         Args:
-            model_id (Text): ID of the model to retrieve.
+            model_id (Optional[Text], optional): ID of the model to retrieve.
+            name (Optional[Text], optional): Name of the model to retrieve.
             api_key (Optional[Text], optional): API key for authentication.
                 Defaults to None, using the configured TEAM_API_KEY.
             use_cache (bool, optional): Whether to attempt retrieving from cache.
@@ -34,7 +48,17 @@ class ModelGetterMixin:
 
         Raises:
             Exception: If the model cannot be retrieved or doesn't exist.
+            ValueError: If neither model_id nor name is provided, or if both are provided.
         """
+        # Validate that exactly one parameter is provided
+        if not (model_id or name) or (model_id and name):
+            raise ValueError("Must provide exactly one of 'model_id' or 'name'")
+
+        # If name is provided, fetch by name (caching not supported for name-based queries)
+        if name:
+            return cls._fetch_model_by_name(name, api_key)
+
+        # Continue with existing ID-based logic
         model_id = model_id.replace("/", "%2F")
         cache = AssetCache(Model)
 
@@ -63,6 +87,58 @@ class ModelGetterMixin:
         model = cls._fetch_model_by_id(model_id, api_key)
         cache.add(model)
         return model
+
+    @classmethod
+    def _fetch_model_by_name(cls, name: Text, api_key: Optional[Text] = None) -> Model:
+        """Fetch a model directly from the backend by its name.
+
+        This internal method handles the direct API communication to retrieve
+        a model's details from the backend using the model's name.
+
+        Args:
+            name (Text): Name of the model to fetch.
+            api_key (Optional[Text], optional): API key for authentication.
+                Defaults to None, using the configured TEAM_API_KEY.
+
+        Returns:
+            Model: Fetched model instance.
+
+        Raises:
+            Exception: If the API request fails or returns an error.
+        """
+        resp = None
+        try:
+            url = urljoin(cls.backend_url, f"sdk/models/by-name/{name}")
+            headers = {
+                "Authorization": f"Token {api_key or config.TEAM_API_KEY}",
+                "Content-Type": "application/json",
+            }
+            logging.info(f"Start service for GET Model by name - {url} - {headers}")
+            r = _request_with_retry("get", url, headers=headers)
+            resp = r.json()
+        except Exception:
+            if resp and "statusCode" in resp:
+                status_code = resp["statusCode"]
+                message = f"Model Get by Name: Status {status_code} - {resp['message']}"
+            else:
+                message = "Model Get by Name: Unspecified Error"
+            logging.error(message)
+            raise Exception(message)
+
+        if 200 <= r.status_code < 300:
+            resp["api_key"] = config.TEAM_API_KEY
+            if api_key is not None:
+                resp["api_key"] = api_key
+
+            model = create_model_from_response(resp)
+            logging.info(f"Model Get by Name: Model {name} instantiated.")
+            return model
+        else:
+            error_message = (
+                f"Model GET by Name Error: Failed to retrieve model {name}. Status Code: {r.status_code}. Error: {resp}"
+            )
+            logging.error(error_message)
+            raise Exception(error_message)
 
     @classmethod
     def _fetch_model_by_id(cls, model_id: Text, api_key: Optional[Text] = None) -> Model:
@@ -110,6 +186,8 @@ class ModelGetterMixin:
             logging.info(f"Model Creation: Model {model_id} instantiated.")
             return model
         else:
-            error_message = f"Model GET Error: Failed to retrieve model {model_id}. Status Code: {r.status_code}. Error: {resp}"
+            error_message = (
+                f"Model GET Error: Failed to retrieve model {model_id}. Status Code: {r.status_code}. Error: {resp}"
+            )
             logging.error(error_message)
             raise Exception(error_message)
