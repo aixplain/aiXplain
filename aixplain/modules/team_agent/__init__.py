@@ -27,7 +27,7 @@ import time
 import traceback
 import re
 from enum import Enum
-from typing import Dict, List, Text, Optional, Union
+from typing import Dict, List, Text, Optional, Union, Any
 from urllib.parse import urljoin
 from datetime import datetime
 
@@ -36,12 +36,15 @@ from aixplain.enums.function import Function
 from aixplain.enums.supplier import Supplier
 from aixplain.enums.asset_status import AssetStatus
 from aixplain.enums.storage_type import StorageType
+from aixplain.enums.evolve_type import EvolveType
 from aixplain.modules.model import Model
 from aixplain.modules.agent import Agent, OutputFormat
 from aixplain.modules.agent.agent_response import AgentResponse
 from aixplain.modules.agent.agent_response_data import AgentResponseData
+from aixplain.modules.agent.evolve_param import EvolveParam, validate_evolve_param
 from aixplain.modules.agent.utils import process_variables, validate_history
 from aixplain.modules.team_agent.inspector import Inspector
+from aixplain.modules.team_agent.evolver_response_data import EvolverResponseData
 from aixplain.utils import config
 from aixplain.utils.request_utils import _request_with_retry
 from aixplain.modules.model.llm_model import LLM
@@ -123,6 +126,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         self.agents = agents
         self.llm_id = llm_id
         self.llm = llm
+        self.api_key = api_key
         self.use_mentalist = use_mentalist
         self.inspectors = inspectors
         self.inspector_targets = inspector_targets
@@ -213,7 +217,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             output_format (OutputFormat, optional): response format. If not provided, uses the format set during initialization.
             expected_output (Union[BaseModel, Text, dict], optional): expected output. Defaults to None.
         Returns:
-            Dict: parsed output from model
+            AgentResponse: parsed output from model
         """
         start = time.time()
         result_data = {}
@@ -283,6 +287,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         max_iterations: int = 30,
         output_format: Optional[OutputFormat] = None,
         expected_output: Optional[Union[BaseModel, Text, dict]] = None,
+        evolve: Union[Dict[str, Any], EvolveParam, None] = None,
     ) -> AgentResponse:
         """Runs asynchronously a Team Agent call.
 
@@ -298,8 +303,9 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             max_iterations (int, optional): maximum number of iterations between the agents. Defaults to 30.
             output_format (OutputFormat, optional): response format. If not provided, uses the format set during initialization.
             expected_output (Union[BaseModel, Text, dict], optional): expected output. Defaults to None.
+            evolve (Union[Dict[str, Any], EvolveParam, None], optional): evolve the team agent configuration. Can be a dictionary, EvolveParam instance, or None.
         Returns:
-            dict: polling URL in response
+            AgentResponse: polling URL in response
         """
         if session_id is not None and history is not None:
             raise ValueError("Provide either `session_id` or `history`, not both.")
@@ -312,6 +318,10 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             validate_history(history)
 
         from aixplain.factories.file_factory import FileFactory
+
+        # Validate and normalize evolve parameters using the base model
+        evolve_param = validate_evolve_param(evolve)
+        evolve_dict = evolve_param.to_dict()
 
         if not self.is_valid:
             raise Exception("Team Agent is not valid. Please validate the team agent before running.")
@@ -371,6 +381,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                 "outputFormat": output_format,
                 "expectedOutput": expected_output,
             },
+            "evolve": json.dumps(evolve_dict),
         }
         payload.update(parameters)
         payload = json.dumps(payload)
@@ -384,7 +395,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             logging.info(f"Result of request for {name} - {r.status_code} - {resp}")
 
             poll_url = resp["data"]
-            return AgentResponse(
+            response = AgentResponse(
                 status=ResponseStatus.IN_PROGRESS,
                 url=poll_url,
                 data=AgentResponseData(input=input_data),
@@ -394,10 +405,69 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         except Exception:
             msg = f"Error in request for {name} - {traceback.format_exc()}"
             logging.error(f"Team Agent Run Async: Error in running for {name}: {resp}")
-            return AgentResponse(
-                status=ResponseStatus.FAILED,
-                error=msg,
+            if resp is not None:
+                response = AgentResponse(
+                    status=ResponseStatus.FAILED,
+                    error=msg,
+                )
+        return response
+
+    def poll(self, poll_url: Text, name: Text = "model_process") -> AgentResponse:
+        used_credits, run_time = 0.0, 0.0
+        resp, error_message, status = None, None, ResponseStatus.SUCCESS
+        headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}
+        r = _request_with_retry("get", poll_url, headers=headers)
+        try:
+            resp = r.json()
+            if resp["completed"] is True:
+                status = ResponseStatus(resp.get("status", "FAILED"))
+                if "error_message" in resp or "supplierError" in resp:
+                    status = ResponseStatus.FAILED
+                    error_message = resp.get("error_message")
+            else:
+                status = ResponseStatus.IN_PROGRESS
+            logging.debug(f"Single Poll for Team Agent: Status of polling for {name}: {resp}")
+
+            resp_data = resp.get("data") or {}
+            used_credits = resp_data.get("usedCredits", 0.0)
+            run_time = resp_data.get("runTime", 0.0)
+            evolve_type = resp_data.get("evolve_type", EvolveType.TEAM_TUNING.value)
+            if "evolved_agent" in resp_data and status == ResponseStatus.SUCCESS:
+                if evolve_type == EvolveType.INSTRUCTION_TUNING.value:
+                    # return this class as it is but replace its description and instructions
+                    evolved_agent = self
+                    current_code = resp_data.get("current_code", "")
+                    evolved_agent.description = current_code
+                    evolved_agent.update()
+                    resp_data["evolved_agent"] = evolved_agent
+                else:
+                    resp_data = EvolverResponseData.from_dict(resp_data, llm_id=self.llm_id, api_key=self.api_key)
+            else:
+                resp_data = AgentResponseData(
+                    input=resp_data.get("input"),
+                    output=resp_data.get("output"),
+                    session_id=resp_data.get("session_id"),
+                    intermediate_steps=resp_data.get("intermediate_steps"),
+                    execution_stats=resp_data.get("executionStats"),
+                )
+        except Exception as e:
+            import traceback
+
+            logging.error(f"Single Poll for Team Agent: Error of polling for {name}: {e}, traceback: {traceback.format_exc()}")
+            status = ResponseStatus.FAILED
+            error_message = str(e)
+        finally:
+            response = AgentResponse(
+                status=status,
+                data=resp_data,
+                details=resp.get("details", {}),
+                completed=resp.get("completed", False),
+                used_credits=used_credits,
+                run_time=run_time,
+                usage=resp.get("usage", None),
+                error_message=error_message,
             )
+        return response
 
     def delete(self) -> None:
         """Delete Corpus service"""
@@ -480,7 +550,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                 - supplier (str): The supplier code
                 - version (str): The version number
                 - status (str): The current status
-                - role (str): The team agent's instructions
+                - instructions (str): The team agent's instructions
         """
         if self.use_mentalist:
             planner_id = self.mentalist_llm.id if self.mentalist_llm else self.llm_id
@@ -493,11 +563,11 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             "links": [],
             "description": self.description,
             "llmId": self.llm.id if self.llm else self.llm_id,
-            "supervisorId": self.supervisor_llm.id if self.supervisor_llm else self.llm_id,
+            "supervisorId": (self.supervisor_llm.id if self.supervisor_llm else self.llm_id),
             "plannerId": planner_id,
             "inspectors": [inspector.model_dump(by_alias=True) for inspector in self.inspectors],
             "inspectorTargets": [target.value for target in self.inspector_targets],
-            "supplier": self.supplier.value["code"] if isinstance(self.supplier, Supplier) else self.supplier,
+            "supplier": (self.supplier.value["code"] if isinstance(self.supplier, Supplier) else self.supplier),
             "version": self.version,
             "status": self.status.value,
             "instructions": self.instructions,
@@ -515,10 +585,10 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         Returns:
             TeamAgent instance
         """
-        from aixplain.factories.agent_factory import AgentFactory
         from aixplain.factories.model_factory import ModelFactory
         from aixplain.enums import AssetStatus
         from aixplain.modules.team_agent import Inspector, InspectorTarget
+        from aixplain.modules.agent import Agent
 
         # Extract agents from agents list using proper agent loading
         agents = []
@@ -527,20 +597,23 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                 if "assetId" in agent_data:
                     try:
                         # Load agent using AgentFactory
-                        agent = AgentFactory.get(agent_data["assetId"])
+                        agent = Agent.from_dict(agent_data)
                         agents.append(agent)
                     except Exception as e:
                         # Log warning but continue processing other agents
                         import logging
 
                         logging.warning(f"Failed to load agent {agent_data['assetId']}: {e}")
-
+                else:
+                    agents.append(Agent.from_dict(agent_data))
         # Extract inspectors using proper model validation
         inspectors = []
         if "inspectors" in data:
             for inspector_data in data["inspectors"]:
                 try:
-                    if hasattr(Inspector, "model_validate"):
+                    if isinstance(inspector_data, Inspector):
+                        inspectors.append(inspector_data)
+                    elif hasattr(Inspector, "model_validate"):
                         inspectors.append(Inspector.model_validate(inspector_data))
                     else:
                         inspectors.append(Inspector(**inspector_data))
@@ -548,6 +621,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                     import logging
 
                     logging.warning(f"Failed to create inspector from data: {e}")
+                    continue
 
         # Extract inspector targets
         inspector_targets = [InspectorTarget.STEPS]  # default
@@ -601,7 +675,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             version=data.get("version"),
             use_mentalist=use_mentalist,
             status=status,
-            instructions=data.get("role"),
+            instructions=data.get("instructions"),
             inspectors=inspectors,
             inspector_targets=inspector_targets,
             output_format=OutputFormat(data.get("outputFormat", OutputFormat.TEXT)),
@@ -619,7 +693,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         ), "Team Agent Creation Error: Team name contains invalid characters. Only alphanumeric characters, spaces, hyphens, and brackets are allowed."
 
         try:
-            llm = get_llm_instance(self.llm_id)
+            llm = get_llm_instance(self.llm_id, use_cache=True)
             assert llm.function == Function.TEXT_GENERATION, "Large Language Model must be a text generation model."
         except Exception:
             raise Exception(f"Large Language Model with ID '{self.llm_id}' not found.")
@@ -726,3 +800,133 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             str: A string in the format "TeamAgent: <name> (id=<id>)".
         """
         return f"TeamAgent: {self.name} (id={self.id})"
+
+    def evolve_async(
+        self,
+        evolve_type: Union[EvolveType, str] = EvolveType.TEAM_TUNING,
+        max_successful_generations: int = 3,
+        max_failed_generation_retries: int = 3,
+        max_iterations: int = 50,
+        max_non_improving_generations: Optional[int] = 2,
+        llm: Optional[Union[Text, LLM]] = None,
+    ) -> AgentResponse:
+        """Asynchronously evolve the Team Agent and return a polling URL in the AgentResponse.
+
+        Args:
+            evolve_type (Union[EvolveType, str]): Type of evolution (TEAM_TUNING or INSTRUCTION_TUNING). Defaults to TEAM_TUNING.
+            max_successful_generations (int): Maximum number of successful generations to evolve. Defaults to 3.
+            max_failed_generation_retries (int): Maximum retry attempts for failed generations. Defaults to 3.
+            max_iterations (int): Maximum number of iterations. Defaults to 50.
+            max_non_improving_generations (Optional[int]): Stop condition parameter for non-improving generations. Defaults to 2, can be None.
+            llm (Optional[Union[Text, LLM]]): LLM to use for evolution. Can be an LLM ID string or LLM object. Defaults to None.
+
+        Returns:
+            AgentResponse: Response containing polling URL and status.
+        """
+        from aixplain.utils.evolve_utils import create_llm_dict
+
+        query = "<placeholder query>"
+
+        # Create EvolveParam from individual parameters
+        evolve_parameters = EvolveParam(
+            to_evolve=True,
+            evolve_type=evolve_type,
+            max_successful_generations=max_successful_generations,
+            max_failed_generation_retries=max_failed_generation_retries,
+            max_iterations=max_iterations,
+            max_non_improving_generations=max_non_improving_generations,
+            llm=create_llm_dict(llm),
+        )
+
+        response = self.run_async(query=query, evolve=evolve_parameters)
+        return response
+
+    def evolve(
+        self,
+        evolve_type: Union[EvolveType, str] = EvolveType.TEAM_TUNING,
+        max_successful_generations: int = 3,
+        max_failed_generation_retries: int = 3,
+        max_iterations: int = 50,
+        max_non_improving_generations: Optional[int] = 2,
+        llm: Optional[Union[Text, LLM]] = None,
+    ) -> AgentResponse:
+        """Synchronously evolve the Team Agent and poll for the result.
+
+        Args:
+            evolve_type (Union[EvolveType, str]): Type of evolution (TEAM_TUNING or INSTRUCTION_TUNING). Defaults to TEAM_TUNING.
+            max_successful_generations (int): Maximum number of successful generations to evolve. Defaults to 3.
+            max_failed_generation_retries (int): Maximum retry attempts for failed generations. Defaults to 3.
+            max_iterations (int): Maximum number of iterations. Defaults to 50.
+            max_non_improving_generations (Optional[int]): Stop condition parameter for non-improving generations. Defaults to 2, can be None.
+            llm (Optional[Union[Text, LLM]]): LLM to use for evolution. Can be an LLM ID string or LLM object. Defaults to None.
+
+        Returns:
+            AgentResponse: Final response from the evolution process.
+        """
+        from aixplain.enums import EvolveType
+        from aixplain.utils.evolve_utils import create_llm_dict
+        from aixplain.factories.team_agent_factory.utils import build_team_agent_from_yaml
+
+        # Create EvolveParam from individual parameters
+        evolve_parameters = EvolveParam(
+            to_evolve=True,
+            evolve_type=evolve_type,
+            max_successful_generations=max_successful_generations,
+            max_failed_generation_retries=max_failed_generation_retries,
+            max_iterations=max_iterations,
+            max_non_improving_generations=max_non_improving_generations,
+            llm=create_llm_dict(llm),
+        )
+        start = time.time()
+        try:
+            logging.info(f"Evolve started with parameters: {evolve_parameters}")
+            logging.info("It might take a while...")
+            response = self.evolve_async(
+                evolve_type=evolve_type,
+                max_successful_generations=max_successful_generations,
+                max_failed_generation_retries=max_failed_generation_retries,
+                max_iterations=max_iterations,
+                max_non_improving_generations=max_non_improving_generations,
+                llm=llm,
+            )
+            if response["status"] == ResponseStatus.FAILED:
+                end = time.time()
+                response["elapsed_time"] = end - start
+                return response
+            poll_url = response["url"]
+            end = time.time()
+            result = self.sync_poll(poll_url, name="evolve_process", timeout=600)
+            result_data = result.data
+            current_code = result_data.get("current_code") if isinstance(result_data, dict) else result_data.current_code
+            if current_code is not None:
+                if evolve_parameters.evolve_type == EvolveType.TEAM_TUNING:
+                    result_data["evolved_agent"] = build_team_agent_from_yaml(
+                        result_data["current_code"],
+                        self.llm_id,
+                        self.api_key,
+                        self.id,
+                    )
+                elif evolve_parameters.evolve_type == EvolveType.INSTRUCTION_TUNING:
+                    self.instructions = result_data["current_code"]
+                    self.description = result_data["current_code"]
+                    self.update()
+                    result_data["evolved_agent"] = self
+                else:
+                    raise ValueError(
+                        "evolve_parameters.evolve_type must be one of the following: TEAM_TUNING, INSTRUCTION_TUNING"
+                    )
+            return AgentResponse(
+                status=ResponseStatus.SUCCESS,
+                completed=True,
+                data=result_data,
+                used_credits=getattr(result, "used_credits", 0.0),
+                run_time=getattr(result, "run_time", end - start),
+            )
+        except Exception as e:
+            logging.error(f"Team Agent Evolve: Error in evolving: {e}")
+            end = time.time()
+            return AgentResponse(
+                status=ResponseStatus.FAILED,
+                completed=False,
+                error_message="No response from the service.",
+            )

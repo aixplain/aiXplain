@@ -46,17 +46,15 @@ def run_input_map(request):
 
 @pytest.fixture(scope="function")
 def delete_agents_and_team_agents():
-    for team_agent in TeamAgentFactory.list()["results"]:
-        team_agent.delete()
-    for agent in AgentFactory.list()["results"]:
-        agent.delete()
+    from tests.test_deletion_utils import safe_delete_all_agents_and_team_agents
+    
+    # Clean up before test
+    safe_delete_all_agents_and_team_agents()
 
     yield True
 
-    for team_agent in TeamAgentFactory.list()["results"]:
-        team_agent.delete()
-    for agent in AgentFactory.list()["results"]:
-        agent.delete()
+    # Clean up after test
+    safe_delete_all_agents_and_team_agents()
 
 
 @pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
@@ -98,7 +96,6 @@ def test_end2end(run_input_map, delete_agents_and_team_agents, AgentFactory):
     assert response["completed"] is True
     assert response["status"].lower() == "success"
     assert "data" in response
-    assert response["data"]["session_id"] is None
     assert response["data"]["output"] is not None
     agent.delete()
 

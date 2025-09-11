@@ -1,3 +1,6 @@
+import os
+import warnings
+from uuid import uuid4
 from aixplain.enums import EmbeddingModel, Function, Supplier, ResponseStatus, StorageType, FunctionType
 from aixplain.modules.model import Model
 from aixplain.utils import config
@@ -9,9 +12,7 @@ from typing import List
 from aixplain.enums.splitting_options import SplittingOptions
 import os
 
-from urllib.parse import urljoin
-from aixplain.utils.file_utils import _request_with_retry
-
+DOCLING_MODEL_ID = "677bee6c6eb56331f9192a91"
 
 class IndexFilterOperator(Enum):
     """Enumeration of operators available for filtering index records.
@@ -177,8 +178,6 @@ class IndexModel(Model):
                 model = ModelFactory.get(embedding_model)
                 self.embedding_size = model.additional_info["embedding_size"]
             except Exception as e:
-                import warnings
-
                 warnings.warn(f"Failed to get embedding size for embedding model {embedding_model}: {e}")
                 self.embedding_size = None
 
@@ -231,11 +230,11 @@ class IndexModel(Model):
         }
         return self.run(data=data)
 
-    def upsert(self, documents: List[Record], splitter: Optional[Splitter] = None) -> ModelResponse:
+    def upsert(self, documents: Union[List[Record], str], splitter: Optional[Splitter] = None) -> ModelResponse:
         """Upsert documents into the index
 
         Args:
-            documents (List[Record]): List of documents to be upserted
+            documents (Union[List[Record], str]): List of documents to be upserted or a file path
             splitter (Splitter, optional): Splitter to be applied. Defaults to None.
 
         Returns:
@@ -244,8 +243,12 @@ class IndexModel(Model):
         Examples:
             index_model.upsert([Record(value="Hello, world!", value_type="text", uri="", id="1", attributes={})])
             index_model.upsert([Record(value="Hello, world!", value_type="text", uri="", id="1", attributes={})], splitter=Splitter(split=True, split_by=SplittingOptions.WORD, split_length=1, split_overlap=0))
+            index_model.upsert("my_file.pdf")
+            index_model.upsert("my_file.pdf", splitter=Splitter(split=True, split_by=SplittingOptions.WORD, split_length=400, split_overlap=50))
             Splitter in the above example is optional and can be used to split the documents into smaller chunks.
         """
+        if isinstance(documents, str):
+            documents = [self.prepare_record_from_file(documents)]
         # Validate documents
         for doc in documents:
             doc.validate()
@@ -272,7 +275,7 @@ class IndexModel(Model):
             return response
         raise Exception(f"Failed to upsert documents: {response.error_message}")
 
-    def count(self) -> float:
+    def count(self) -> int:
         """Get the total number of documents in the index.
 
         Returns:
@@ -334,6 +337,63 @@ class IndexModel(Model):
         if response.status == "SUCCESS":
             return response
         raise Exception(f"Failed to delete record: {response.error_message}")
+
+    def prepare_record_from_file(self, file_path: str, file_id: str = None) -> Record:
+        """Prepare a record from a file.
+
+        Args:
+            file_path (str): The path to the file to be processed.
+            file_id (str, optional): The ID to assign to the record. If not provided, a unique ID is generated.
+
+        Returns:
+            Record: A Record object containing the file's content and metadata.
+
+        Raises:
+            Exception: If the file cannot be parsed.
+
+        Example:
+            >>> record = index_model.prepare_record_from_file("/path/to/file.txt")
+        """
+        response = self.parse_file(file_path)
+        file_name = file_path.split("/")[-1]
+        if not file_id:
+            file_id = file_name + "_" + str(uuid4())
+        return Record(value=response.data, value_type="text", id=file_id, attributes={"file_name": file_name})
+
+    @staticmethod
+    def parse_file(file_path: str) -> ModelResponse:
+        """Parse a file using the Docling model.
+
+        Args:
+            file_path (str): The path to the file to be parsed.
+
+        Returns:
+            ModelResponse: The response containing the parsed file content.
+
+        Raises:
+            Exception: If the file does not exist or cannot be parsed.
+
+        Example:
+            >>> response = IndexModel.parse_file("/path/to/file.pdf")
+        """
+        if not os.path.exists(file_path):
+            raise Exception(f"File {file_path} does not exist")
+        if file_path.endswith(".txt"):
+            with open(file_path, "r") as file:
+                data = file.read()
+            if not data:
+                warnings.warn(f"File {file_path} is empty")
+            return ModelResponse(status=ResponseStatus.SUCCESS, data=data, completed=True)
+        try:
+            from aixplain.factories import ModelFactory
+
+            model = ModelFactory.get(DOCLING_MODEL_ID)
+            response = model.run(file_path)
+            if not response.data:
+                warnings.warn(f"File {file_path} is empty")
+            return response
+        except Exception as e:
+            raise Exception(f"Failed to parse file: {e}")
 
     def retrieve_records_with_filter(self, filter: IndexFilter) -> ModelResponse:
         """

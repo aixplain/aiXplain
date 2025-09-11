@@ -1,8 +1,8 @@
 [
     {
         "agent_name": "TEST Translation agent", 
-        "llm_id": "669a63646eb56306647e1091",
-        "llm_name": "GPT-4o Mini",
+        "llm_id": "67fd9ddfef0365783d06e2ef",
+        "llm_name": "GPT-4.1 Mini",
         "query": "Who is the president of Brazil right now? Translate to pt",
         "model_tools": [
             {

@@ -95,6 +95,9 @@ class AgentResponseData:
             "critiques": self.critiques,
         }
 
+    def get(self, key: str, default: Optional[Any] = None) -> Any:
+        return getattr(self, key, default)
+
     def __getitem__(self, key: str) -> Any:
         """Get an attribute value using dictionary-style access.
 
