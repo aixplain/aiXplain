@@ -1,6 +1,8 @@
-__author__ = "aiXplain"
+"""SQL tool for aiXplain SDK agents.
 
-"""
+This module provides a tool that allows agents to execute SQL queries
+against databases and CSV files.
+
 Copyright 2024 The aiXplain SDK authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,6 +22,9 @@ Date: May 16th 2024
 Description:
     Agentification Class
 """
+
+__author__ = "aiXplain"
+
 import os
 import warnings
 import validators
@@ -28,23 +33,23 @@ import numpy as np
 from typing import Text, Optional, Dict, List, Union
 import sqlite3
 from aixplain.enums import AssetStatus
-from aixplain.modules.agent.tool import Tool
+from aixplain.modules.agent.tool import DeployableTool
 
 
 class SQLToolError(Exception):
-    """Base exception for SQL Tool errors"""
+    """Base exception for SQL Tool errors."""
 
     pass
 
 
 class CSVError(SQLToolError):
-    """Exception for CSV-related errors"""
+    """Exception for CSV-related errors."""
 
     pass
 
 
 class DatabaseError(SQLToolError):
-    """Exception for database-related errors"""
+    """Exception for database-related errors."""
 
     pass
 
@@ -221,7 +226,9 @@ def create_database_from_csv(csv_path: str, database_path: str, table_name: str 
         # Clean column names and track changes
         original_columns = df.columns.tolist()
         cleaned_columns = [clean_column_name(col) for col in original_columns]
-        changed_columns = [(orig, cleaned) for orig, cleaned in zip(original_columns, cleaned_columns) if orig != cleaned]
+        changed_columns = [
+            (orig, cleaned) for orig, cleaned in zip(original_columns, cleaned_columns) if orig != cleaned
+        ]
 
         if changed_columns:
             changes = ", ".join([f"'{orig}' to '{cleaned}'" for orig, cleaned in changed_columns])
@@ -333,7 +340,7 @@ def get_table_names_from_schema(schema: str) -> List[str]:
     return table_names
 
 
-class SQLTool(Tool):
+class SQLTool(DeployableTool):
     """A tool for executing SQL commands in an SQLite database.
 
     This tool provides an interface for interacting with SQLite databases, including
@@ -381,7 +388,6 @@ class SQLTool(Tool):
         Raises:
             SQLToolError: If required parameters are missing or invalid.
         """
-
         super().__init__(name=name, description=description, **additional_info)
 
         self.database = database
@@ -440,9 +446,9 @@ class SQLTool(Tool):
         # Handle database validation
         if not (
             str(self.database).startswith("s3://")
-            or str(self.database).startswith("http://")  # noqa: W503
-            or str(self.database).startswith("https://")  # noqa: W503
-            or validators.url(self.database)  # noqa: W503
+            or str(self.database).startswith("http://")
+            or str(self.database).startswith("https://")
+            or validators.url(self.database)
         ):
             if not os.path.exists(self.database):
                 raise SQLToolError(f"Database '{self.database}' does not exist")

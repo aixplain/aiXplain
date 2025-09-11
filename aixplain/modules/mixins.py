@@ -1,4 +1,5 @@
-"""
+"""Mixins for common functionality across different asset types.
+
 Copyright 2024 The aiXplain SDK authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,9 +19,11 @@ Date: November 25th 2024
 Description:
     Mixins for common functionality across different asset types
 """
+
 from abc import ABC
 from typing import TypeVar, Generic
 from aixplain.enums import AssetStatus
+from aixplain.exceptions import AlreadyDeployedError
 
 T = TypeVar("T")
 
@@ -46,11 +49,12 @@ class DeployableMixin(ABC, Generic[T]):
             items (Optional[List[T]], optional): List of items to validate (e.g. tools for Agent, agents for TeamAgent)
 
         Raises:
+            AlreadyDeployedError: If the asset is already deployed
             ValueError: If the asset is not ready to be deployed
         """
         asset_type = self.__class__.__name__
         if self.status == AssetStatus.ONBOARDED:
-            raise ValueError(f"{asset_type} is already deployed.")
+            raise AlreadyDeployedError(f"{asset_type} is already deployed.")
 
         if self.status != AssetStatus.DRAFT:
             raise ValueError(f"{asset_type} must be in DRAFT status to be deployed.")
@@ -62,24 +66,36 @@ class DeployableMixin(ABC, Generic[T]):
         Classes that need special deployment handling should override this method.
 
         Raises:
+            AlreadyDeployedError: If the asset is already deployed
             ValueError: If the asset is not ready to be deployed
         """
         self._validate_deployment_readiness()
         previous_status = self.status
         try:
+            # Deploy tools if present
             if hasattr(self, "tools"):
-                [tool.deploy() for tool in self.tools]
-            if hasattr(self, "agents"):
-                undeployed_agents = [agent for agent in self.agents if agent.status != AssetStatus.ONBOARDED]
-                if undeployed_agents:
-                    names = ", ".join(str(agent) for agent in undeployed_agents)
-                    if names:
-                        raise ValueError(
-                            f"Agents not deployed: {names}. "
-                            "Deploy them with `<agent>.deploy()` before running this command."
-                        )
+                for tool in self.tools:
+                    if hasattr(tool, "deploy"):
+                        try:
+                            tool.deploy()
+                        except AlreadyDeployedError:
+                            # Skip tools that are already deployed
+                            pass
+                        except Exception as e:
+                            raise Exception(f"Error deploying tool {tool.name}: {e}") from e
 
-                            
+            # Deploy agents if present (for TeamAgent)
+            if hasattr(self, "agents"):
+                for agent in self.agents:
+                    if hasattr(agent, "deploy"):
+                        try:
+                            agent.deploy()
+                        except AlreadyDeployedError:
+                            # Skip agents that are already deployed
+                            pass
+                        except Exception as e:
+                            raise Exception(f"Error deploying agent {agent.name}: {e}") from e
+
             self.status = AssetStatus.ONBOARDED
             self.update()
         except Exception as e:

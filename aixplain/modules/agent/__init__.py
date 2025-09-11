@@ -1,6 +1,8 @@
-__author__ = "aiXplain"
+"""Agent module for aiXplain SDK.
 
-"""
+This module provides the Agent class and related functionality for creating and managing
+AI agents that can execute tasks using various tools and models.
+
 Copyright 2024 The aiXplain SDK authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,6 +22,8 @@ Date: May 16th 2024
 Description:
     Agentification Class
 """
+
+__author__ = "aiXplain"
 import json
 import logging
 import re
@@ -33,7 +37,7 @@ from aixplain.enums.evolve_type import EvolveType
 from aixplain.modules.model import Model
 from aixplain.modules.agent.agent_task import WorkflowTask, AgentTask
 from aixplain.modules.agent.output_format import OutputFormat
-from aixplain.modules.agent.tool import Tool
+from aixplain.modules.agent.tool import Tool, DeployableTool
 from aixplain.modules.agent.agent_response import AgentResponse
 from aixplain.modules.agent.agent_response_data import AgentResponseData
 from aixplain.modules.agent.utils import process_variables, validate_history
@@ -48,7 +52,7 @@ from aixplain.modules.mixins import DeployableMixin
 import warnings
 
 
-class Agent(Model, DeployableMixin[Tool]):
+class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
     """An advanced AI system that performs tasks using specialized tools from the aiXplain marketplace.
 
     This class represents an AI agent that can understand natural language instructions,
@@ -124,6 +128,8 @@ class Agent(Model, DeployableMixin[Tool]):
                 Defaults to AssetStatus.DRAFT.
             tasks (List[AgentTask], optional): List of tasks the Agent can perform.
                 Defaults to empty list.
+            workflow_tasks (List[WorkflowTask], optional): List of workflow tasks
+                the Agent can execute. Defaults to empty list.
             output_format (OutputFormat, optional): default output format for agent responses. Defaults to OutputFormat.TEXT.
             expected_output (Union[BaseModel, Text, dict], optional): expected output. Defaults to None.
             **additional_info: Additional configuration parameters.
@@ -144,7 +150,8 @@ class Agent(Model, DeployableMixin[Tool]):
         self.status = status
         if tasks:
             warnings.warn(
-                "The 'tasks' parameter is deprecated and will be removed in a future version. " "Use 'workflow_tasks' instead.",
+                "The 'tasks' parameter is deprecated and will be removed in a future version. "
+                "Use 'workflow_tasks' instead.",
                 DeprecationWarning,
                 stacklevel=2,
             )
@@ -171,9 +178,9 @@ class Agent(Model, DeployableMixin[Tool]):
         from aixplain.utils.llm_utils import get_llm_instance
 
         # validate name
-        assert (
-            re.match(r"^[a-zA-Z0-9 \-\(\)]*$", self.name) is not None
-        ), "Agent Creation Error: Agent name contains invalid characters. Only alphanumeric characters, spaces, hyphens, and brackets are allowed."
+        assert re.match(r"^[a-zA-Z0-9 \-\(\)]*$", self.name) is not None, (
+            "Agent Creation Error: Agent name contains invalid characters. Only alphanumeric characters, spaces, hyphens, and brackets are allowed."
+        )
 
         llm = get_llm_instance(self.llm_id, api_key=self.api_key)
 
@@ -233,6 +240,14 @@ class Agent(Model, DeployableMixin[Tool]):
         return self.is_valid
 
     def generate_session_id(self, history: list = None) -> str:
+        """Generate a unique session ID for agent conversations.
+
+        Args:
+            history (list, optional): Previous conversation history. Defaults to None.
+
+        Returns:
+            str: A unique session identifier based on timestamp and random components.
+        """
         if history:
             validate_history(history)
         timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
@@ -307,6 +322,7 @@ class Agent(Model, DeployableMixin[Tool]):
             max_iterations (int, optional): maximum number of iterations between the agent and the tools. Defaults to 10.
             output_format (OutputFormat, optional): response format. If not provided, uses the format set during initialization.
             expected_output (Union[BaseModel, Text, dict], optional): expected output. Defaults to None.
+
         Returns:
             Dict: parsed output from model
         """
@@ -406,10 +422,10 @@ class Agent(Model, DeployableMixin[Tool]):
             expected_output (Union[BaseModel, Text, dict], optional): expected output. Defaults to None.
             output_format (ResponseFormat, optional): response format. Defaults to TEXT.
             evolve (Union[Dict[str, Any], EvolveParam, None], optional): evolve the agent configuration. Can be a dictionary, EvolveParam instance, or None.
+
         Returns:
             dict: polling URL in response
         """
-
         if session_id is not None and history is not None:
             raise ValueError("Provide either `session_id` or `history`, not both.")
 
@@ -434,7 +450,9 @@ class Agent(Model, DeployableMixin[Tool]):
         assert data is not None or query is not None, "Either 'data' or 'query' must be provided."
         if data is not None:
             if isinstance(data, dict):
-                assert "query" in data and data["query"] is not None, "When providing a dictionary, 'query' must be provided."
+                assert "query" in data and data["query"] is not None, (
+                    "When providing a dictionary, 'query' must be provided."
+                )
                 query = data.get("query")
                 if session_id is None:
                     session_id = data.get("session_id")
@@ -447,7 +465,9 @@ class Agent(Model, DeployableMixin[Tool]):
 
         # process content inputs
         if content is not None:
-            assert FileFactory.check_storage_type(query) == StorageType.TEXT, "When providing 'content', query must be text."
+            assert FileFactory.check_storage_type(query) == StorageType.TEXT, (
+                "When providing 'content', query must be text."
+            )
 
             if isinstance(content, list):
                 assert len(content) <= 3, "The maximum number of content inputs is 3."
@@ -511,6 +531,11 @@ class Agent(Model, DeployableMixin[Tool]):
             )
 
     def to_dict(self) -> Dict:
+        """Convert the Agent instance to a dictionary representation.
+
+        Returns:
+            Dict: Dictionary containing the agent's configuration and metadata.
+        """
         from aixplain.factories.agent_factory.utils import build_tool_payload
 
         return {
@@ -674,9 +699,9 @@ class Agent(Model, DeployableMixin[Tool]):
                             "referencing it."
                         )
                 else:
-                    message = f"Agent Deletion Error (HTTP {r.status_code}): " f"{error_message}."
+                    message = f"Agent Deletion Error (HTTP {r.status_code}): {error_message}."
             except ValueError:
-                message = f"Agent Deletion Error (HTTP {r.status_code}): " "There was an error in deleting the agent."
+                message = f"Agent Deletion Error (HTTP {r.status_code}): There was an error in deleting the agent."
             logging.error(message)
             raise Exception(message)
 
@@ -701,7 +726,7 @@ class Agent(Model, DeployableMixin[Tool]):
         stack = inspect.stack()
         if len(stack) > 2 and stack[1].function != "save":
             warnings.warn(
-                "update() is deprecated and will be removed in a future version. " "Please use save() instead.",
+                "update() is deprecated and will be removed in a future version. Please use save() instead.",
                 DeprecationWarning,
                 stacklevel=2,
             )
