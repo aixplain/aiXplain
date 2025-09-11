@@ -149,7 +149,7 @@ def test_create_team_agent(mock_model_factory_get):
             "function": {"id": "text-generation"},
             "supplier": "openai",
             "version": {"id": "1.0"},
-            "status": "onboarded",
+            "status": "draft",
             "pricing": {"currency": "USD", "value": 0.0},
         }
         mock.get(url, headers=headers, json=model_ref_response)
@@ -163,7 +163,7 @@ def test_create_team_agent(mock_model_factory_get):
             "instructions": "Test Agent Instructions",
             "teamId": "123",
             "version": "1.0",
-            "status": "onboarded",
+            "status": "draft",
             "llmId": "6646261c6eb563165658bbb1",
             "pricing": {"currency": "USD", "value": 0.0},
             "assets": [
@@ -215,8 +215,6 @@ def test_create_team_agent(mock_model_factory_get):
             llm_id="6646261c6eb563165658bbb1",
             description="TEST Multi agent",
             use_mentalist=True,
-            # TODO: inspectors=[Inspector(name="Test Inspector", model_id="6646261c6eb563165658bbb1", model_params={"prompt": "Test Prompt"}, policy=InspectorPolicy.ADAPTIVE)],
-            # TODO: inspector_targets=[InspectorTarget.STEPS, InspectorTarget.OUTPUT],
         )
         assert team_agent.id is not None
         assert team_agent.name == team_ref_response["name"]
@@ -227,27 +225,24 @@ def test_create_team_agent(mock_model_factory_get):
         assert len(team_agent.agents) == 1
         assert team_agent.agents[0].id == team_ref_response["agents"][0]["assetId"]
 
-        url = urljoin(config.BACKEND_URL, f"sdk/agent-communities/{team_agent.id}")
-        team_ref_response = {
-            "id": "team_agent_123",
-            "name": "TEST Multi agent(-)",
-            "status": "onboarded",
-            "teamId": 645,
-            "description": "TEST Multi agent",
-            "llmId": "6646261c6eb563165658bbb1",
-            "assets": [],
-            "agents": [{"assetId": "123", "type": "AGENT", "number": 0, "label": "AGENT"}],
-            "links": [],
-            "plannerId": "6646261c6eb563165658bbb1",
-            "inspectorId": "6646261c6eb563165658bbb1",
-            "supervisorId": "6646261c6eb563165658bbb1",
-            "createdAt": "2024-10-28T19:30:25.344Z",
-            "updatedAt": "2024-10-28T19:30:25.344Z",
-        }
-        mock.put(url, headers=headers, json=team_ref_response)
+        # Mock deployment responses
+        # Mock agent deployment
+        url = urljoin(config.BACKEND_URL, f"sdk/agents/{agent.id}")
+        deployed_agent_response = ref_response.copy()
+        deployed_agent_response["status"] = "onboarded"
+        mock.put(url, headers=headers, json=deployed_agent_response)
+        mock.get(url, headers=headers, json=deployed_agent_response)
 
+        # Mock team agent deployment
+        url = urljoin(config.BACKEND_URL, f"sdk/agent-communities/{team_agent.id}")
+        deployed_team_response = team_ref_response.copy()
+        deployed_team_response["status"] = "onboarded"
+        mock.put(url, headers=headers, json=deployed_team_response)
+
+        # Deploy and verify
         team_agent.deploy()
-        assert team_agent.status.value == "onboarded"
+        assert team_agent.status == AssetStatus.ONBOARDED
+        assert team_agent.agents[0].status == AssetStatus.ONBOARDED
 
 
 def test_fail_inspector_without_mentalist():
@@ -389,6 +384,39 @@ def test_deploy_team_agent():
     assert team_agent.status == AssetStatus.ONBOARDED
     team_agent.update.assert_called_once()
 
+def test_deploy_team_agent_with_nested_agents():
+    """Test that deploying a team agent properly deploys its nested agents."""
+    # Create mock agents
+    mock_agent1 = Mock()
+    mock_agent1.id = "agent-1"
+    mock_agent1.name = "Test Agent 1"
+    mock_agent1.status = AssetStatus.DRAFT
+    mock_agent1.deploy = Mock()
+
+    mock_agent2 = Mock()
+    mock_agent2.id = "agent-2"
+    mock_agent2.name = "Test Agent 2"
+    mock_agent2.status = AssetStatus.DRAFT
+    mock_agent2.deploy = Mock()
+
+    # Create the team agent
+    team_agent = TeamAgent(
+        id="team-agent-id", name="Test Team Agent", agents=[mock_agent1, mock_agent2], status=AssetStatus.DRAFT
+    )
+
+    # Mock the update method
+    team_agent.update = Mock()
+
+    # Deploy the team agent
+    team_agent.deploy()
+
+    # Verify that each agent's deploy method was called
+    mock_agent1.deploy.assert_called_once()
+    mock_agent2.deploy.assert_called_once()
+
+    # Verify that status was updated and update was called
+    assert team_agent.status == AssetStatus.ONBOARDED
+    team_agent.update.assert_called_once()
 
 def test_team_agent_serialization_completeness():
     """Test that TeamAgent to_dict includes all necessary fields."""

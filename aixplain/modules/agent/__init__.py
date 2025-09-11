@@ -182,7 +182,7 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
             "Agent Creation Error: Agent name contains invalid characters. Only alphanumeric characters, spaces, hyphens, and brackets are allowed."
         )
 
-        llm = get_llm_instance(self.llm_id, api_key=self.api_key)
+        llm = get_llm_instance(self.llm_id, api_key=self.api_key, use_cache=True)
 
         assert llm.function == Function.TEXT_GENERATION, "Large Language Model must be a text generation model."
 

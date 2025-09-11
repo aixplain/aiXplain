@@ -102,7 +102,7 @@ def process_response_rerun(
 @pytest.fixture(scope="function")
 def delete_agents_and_team_agents():
     from tests.test_deletion_utils import safe_delete_all_agents_and_team_agents
-
+    
     # Clean up before test
     safe_delete_all_agents_and_team_agents()
 
@@ -501,34 +501,18 @@ def test_team_agent_with_multiple_inspector_targets(
         verify_response_generator(steps)
 
         # Critiques should be present and non-empty in the inspector step's 'thought'
-        steps_inspector_steps = [
-            step for step in steps if "steps_inspector" in step.get("agent", "").lower()
-        ]
-        output_inspector_steps = [
-            step
-            for step in steps
-            if "output_inspector" in step.get("agent", "").lower()
-        ]
-        assert (
-            len(steps_inspector_steps) >= 1
-        ), "There should be one steps inspector step"
-        assert (
-            "critiques" in steps_inspector_steps[0]["thought"].lower()
-        ), "No critiques found in steps inspector step"
-        assert (
-            len(output_inspector_steps) >= 1
-        ), "There should be one output inspector step"
-        assert (
-            "critiques" in output_inspector_steps[0]["thought"].lower()
-        ), "No critiques found in output inspector step"
+        steps_inspector_steps = [step for step in steps if "steps_inspector" in step.get("agent", "").lower()]
+        output_inspector_steps = [step for step in steps if "output_inspector" in step.get("agent", "").lower()]
+        assert len(steps_inspector_steps) >= 1, "There should be one steps inspector step"
+        assert "critiques" in steps_inspector_steps[0]["thought"].lower(), "No critiques found in steps inspector step"
+        assert len(output_inspector_steps) >= 1, "There should be one output inspector step"
+        assert "critiques" in output_inspector_steps[0]["thought"].lower(), "No critiques found in output inspector step"
 
     team_agent.delete()
 
 
 @pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory, v2.TeamAgent])
-def test_team_agent_with_steps_inspector(
-    run_input_map, delete_agents_and_team_agents, TeamAgentFactory
-):
+def test_team_agent_with_steps_inspector(run_input_map, delete_agents_and_team_agents, TeamAgentFactory):
     """Test team agent with steps inspector that runs before any steps are executed"""
     assert delete_agents_and_team_agents
 
@@ -575,20 +559,13 @@ def test_team_agent_with_steps_inspector(
         verify_response_generator(steps)
 
         # Verify inspector runs and execution continues
-        inspector_steps = [
-            step for step in steps if "steps_inspector" in step.get("agent", "").lower()
-        ]
+        inspector_steps = [step for step in steps if "steps_inspector" in step.get("agent", "").lower()]
         assert len(inspector_steps) > 0, "Steps inspector should run at least once"
-        assert (
-            "critiques" in inspector_steps[0]["thought"].lower()
-        ), "No critiques found in steps inspector step"
+        assert "critiques" in inspector_steps[0]["thought"].lower(), "No critiques found in steps inspector step"
     team_agent.delete()
-
-
+    
 @pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory, v2.TeamAgent])
-def test_team_agent_with_input_inspector(
-    run_input_map, delete_agents_and_team_agents, TeamAgentFactory
-):
+def test_team_agent_with_input_inspector(run_input_map, delete_agents_and_team_agents, TeamAgentFactory):
     """Test team agent with input inspector that runs before any steps are executed"""
     assert delete_agents_and_team_agents
 

@@ -15,7 +15,21 @@ from aixplain.exceptions.types import (
     NetworkError,
     ServiceError,
     InternalError,
+    AlreadyDeployedError,
 )
+
+__all__ = [
+    "AixplainBaseException",
+    "AuthenticationError",
+    "ValidationError",
+    "ResourceError",
+    "BillingError",
+    "SupplierError",
+    "NetworkError",
+    "ServiceError",
+    "InternalError",
+    "AlreadyDeployedError",
+]
 
 
 def get_error_from_status_code(status_code: int, error_details: str = None) -> AixplainBaseException:
