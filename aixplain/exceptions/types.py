@@ -275,3 +275,17 @@ class InternalError(AixplainBaseException):
             error_code=ErrorCode.AX_INT_ERROR,
             **kwargs,
         )
+
+
+class AlreadyDeployedError(AixplainBaseException):
+    """Raised when an asset is already deployed."""
+
+    def __init__(self, message: str, **kwargs):
+        super().__init__(
+            message=message,
+            category=ErrorCategory.INTERNAL,
+            severity=ErrorSeverity.ERROR,
+            retry_recommended=kwargs.pop("retry_recommended", False),
+            error_code=ErrorCode.AX_INT_ERROR,
+            **kwargs,
+        )

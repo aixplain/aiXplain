@@ -247,7 +247,7 @@ class ModelTool(Tool):
         from aixplain.factories.model_factory import ModelFactory
 
         model_id = model_id or self.model
-        return ModelFactory.get(model_id, api_key=self.api_key)
+        return ModelFactory.get(model_id, api_key=self.api_key, use_cache=True)
 
     def validate_parameters(self, received_parameters: Optional[List[Dict]] = None) -> Optional[List[Dict]]:
         """Validates and formats the parameters for the tool.

@@ -4,6 +4,10 @@ import time
 import logging
 from filelock import FileLock
 
+logging.getLogger("filelock").setLevel(logging.INFO)
+
+logger = logging.getLogger(__name__)
+
 CACHE_FOLDER = ".cache"
 CACHE_FILE = f"{CACHE_FOLDER}/cache.json"
 LOCK_FILE = f"{CACHE_FILE}.lock"
@@ -38,13 +42,18 @@ def save_to_cache(cache_file: str, data: dict, lock_file: str) -> None:
         - Logs an error if saving fails but doesn't raise an exception
         - The data is saved with a timestamp for expiration checking
     """
+    logger.info(f"Attempting to save cache to {cache_file}")
     try:
         os.makedirs(os.path.dirname(cache_file), exist_ok=True)
+        logger.info(f"Cache directory created/verified: {os.path.dirname(cache_file)}")
+
         with FileLock(lock_file):
+            logger.info(f"Acquired file lock: {lock_file}")
             with open(cache_file, "w") as f:
                 json.dump({"timestamp": time.time(), "data": data}, f)
+            logger.info(f"Successfully saved cache to {cache_file}")
     except Exception as e:
-        logging.error(f"Failed to save cache to {cache_file}: {e}")
+        logger.error(f"Failed to save cache to {cache_file}: {e}")
 
 
 def load_from_cache(cache_file: str, lock_file: str) -> dict:
@@ -66,12 +75,28 @@ def load_from_cache(cache_file: str, lock_file: str) -> dict:
         - Returns None if the cached data has expired based on CACHE_EXPIRY_TIME
         - Uses thread-safe file locking for reading
     """
-    if os.path.exists(cache_file):
+    logger.info(f"Attempting to load cache from {cache_file}")
+
+    if not os.path.exists(cache_file):
+        logger.info(f"Cache file does not exist: {cache_file}")
+        return None
+
+    try:
         with FileLock(lock_file):
+            logger.info(f"Acquired file lock for reading: {lock_file}")
             with open(cache_file, "r") as f:
                 cache_data = json.load(f)
-                if time.time() - cache_data["timestamp"] < int(get_cache_expiry()):
+                cache_age = time.time() - cache_data["timestamp"]
+                expiry_time = int(get_cache_expiry())
+
+                logger.info(f"Cache age: {cache_age:.2f}s, expiry threshold: {expiry_time}s")
+
+                if cache_age < expiry_time:
+                    logger.info(f"Successfully loaded valid cache from {cache_file}")
                     return cache_data["data"]
                 else:
+                    logger.info(f"Cache expired (age: {cache_age:.2f}s > {expiry_time}s): {cache_file}")
                     return None
-    return None
+    except Exception as e:
+        logger.error(f"Failed to load cache from {cache_file}: {e}")
+        return None
