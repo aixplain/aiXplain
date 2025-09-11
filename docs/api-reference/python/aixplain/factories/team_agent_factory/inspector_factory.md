@@ -46,11 +46,12 @@ monitor team agent operations, providing feedback and enforcing policies.
 ```python
 @classmethod
 def create_from_model(
-        cls,
-        name: Text,
-        model: Union[Text, Model],
-        model_config: Optional[Dict] = None,
-        policy: InspectorPolicy = InspectorPolicy.ADAPTIVE) -> Inspector
+    cls,
+    name: Text,
+    model: Union[Text, Model],
+    model_config: Optional[Dict] = None,
+    policy: Union[InspectorPolicy, Callable] = InspectorPolicy.ADAPTIVE
+) -> Inspector
 ```
 
 [[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/team_agent_factory/inspector_factory.py#L48)
@@ -68,11 +69,10 @@ onboarded to the platform. The model must be of a supported function type
   to use for the inspector.
 - `model_config` _Optional[Dict], optional_ - Configuration parameters for
   the inspector model (e.g., prompts, thresholds). Defaults to None.
-- `policy` _InspectorPolicy, optional_ - Action to take upon negative feedback:
-  - WARN: Log warning but continue execution
-  - ABORT: Stop execution on negative feedback
-  - ADAPTIVE: Dynamically decide based on context
-  Defaults to InspectorPolicy.ADAPTIVE.
+- `policy` - Action to take upon negative feedback (WARN/ABORT/ADAPTIVE)
+  or a callable function. If callable, must have name &quot;process_response&quot;,
+  arguments &quot;model_response&quot; and &quot;input_content&quot; (both strings), and
+  return InspectorAction. Defaults to ADAPTIVE.
   
 
 **Returns**:
@@ -93,13 +93,14 @@ onboarded to the platform. The model must be of a supported function type
 ```python
 @classmethod
 def create_auto(
-        cls,
-        auto: InspectorAuto,
-        name: Optional[Text] = None,
-        policy: InspectorPolicy = InspectorPolicy.ADAPTIVE) -> Inspector
+    cls,
+    auto: InspectorAuto,
+    name: Optional[Text] = None,
+    policy: Union[InspectorPolicy, Callable] = InspectorPolicy.ADAPTIVE
+) -> Inspector
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/team_agent_factory/inspector_factory.py#L125)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/team_agent_factory/inspector_factory.py#L124)
 
 Create a new inspector agent using automatic configuration.
 
@@ -112,11 +113,10 @@ a specific model.
 - `auto` _InspectorAuto_ - Pre-configured automatic inspector instance.
 - `name` _Optional[Text], optional_ - Name for the inspector. If not provided,
   uses the name from the auto configuration. Defaults to None.
-- `policy` _InspectorPolicy, optional_ - Action to take upon negative feedback:
-  - WARN: Log warning but continue execution
-  - ABORT: Stop execution on negative feedback
-  - ADAPTIVE: Dynamically decide based on context
-  Defaults to InspectorPolicy.ADAPTIVE.
+- `policy` - Action to take upon negative feedback (WARN/ABORT/ADAPTIVE)
+  or a callable function. If callable, must have name &quot;process_response&quot;,
+  arguments &quot;model_response&quot; and &quot;input_content&quot; (both strings), and
+  return InspectorAction. Defaults to ADAPTIVE.
   
 
 **Returns**:

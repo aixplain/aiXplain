@@ -9,7 +9,7 @@ title: aixplain.modules.model.index_model
 class IndexFilterOperator(Enum)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/index_model.py#L16)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/index_model.py#L17)
 
 Enumeration of operators available for filtering index records.
 
@@ -33,7 +33,7 @@ filters for searching and retrieving records from an index.
 class IndexFilter()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/index_model.py#L42)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/index_model.py#L43)
 
 A class representing a filter for querying index records.
 
@@ -53,7 +53,7 @@ def __init__(field: str, value: str, operator: Union[IndexFilterOperator,
                                                      str])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/index_model.py#L58)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/index_model.py#L59)
 
 Initialize a new IndexFilter instance.
 
@@ -69,7 +69,7 @@ Initialize a new IndexFilter instance.
 def to_dict()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/index_model.py#L70)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/index_model.py#L71)
 
 Convert the filter to a dictionary representation.
 
@@ -84,7 +84,7 @@ Convert the filter to a dictionary representation.
 class Splitter()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/index_model.py#L84)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/index_model.py#L85)
 
 A class for configuring how documents should be split during indexing.
 
@@ -108,7 +108,7 @@ def __init__(split: bool = False,
              split_overlap: int = 0)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/index_model.py#L98)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/index_model.py#L99)
 
 Initialize a new Splitter instance.
 
@@ -127,7 +127,7 @@ Initialize a new Splitter instance.
 class IndexModel(Model)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/index_model.py#L121)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/index_model.py#L122)
 
 #### \_\_init\_\_
 
@@ -146,7 +146,7 @@ def __init__(id: Text,
              **additional_info) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/index_model.py#L122)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/index_model.py#L123)
 
 Initialize a new IndexModel instance.
 
@@ -176,7 +176,7 @@ Initialize a new IndexModel instance.
 def to_dict() -> Dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/index_model.py#L185)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/index_model.py#L184)
 
 Convert the IndexModel instance to a dictionary representation.
 
@@ -196,7 +196,7 @@ def search(query: str,
            filters: List[IndexFilter] = []) -> ModelResponse
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/index_model.py#L201)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/index_model.py#L200)
 
 Search for documents in the index
 
@@ -220,17 +220,17 @@ Search for documents in the index
 #### upsert
 
 ```python
-def upsert(documents: List[Record],
+def upsert(documents: Union[List[Record], str],
            splitter: Optional[Splitter] = None) -> ModelResponse
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/index_model.py#L234)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/index_model.py#L233)
 
 Upsert documents into the index
 
 **Arguments**:
 
-- `documents` _List[Record]_ - List of documents to be upserted
+- `documents` _Union[List[Record], str]_ - List of documents to be upserted or a file path
 - `splitter` _Splitter, optional_ - Splitter to be applied. Defaults to None.
   
 
@@ -243,15 +243,17 @@ Upsert documents into the index
 
   index_model.upsert([Record(value=&quot;Hello, world!&quot;, value_type=&quot;text&quot;, uri=&quot;&quot;, id=&quot;1&quot;, attributes=\{})])
   index_model.upsert([Record(value=&quot;Hello, world!&quot;, value_type=&quot;text&quot;, uri=&quot;&quot;, id=&quot;1&quot;, attributes=\{})], splitter=Splitter(split=True, split_by=SplittingOptions.WORD, split_length=1, split_overlap=0))
+  index_model.upsert(&quot;my_file.pdf&quot;)
+  index_model.upsert(&quot;my_file.pdf&quot;, splitter=Splitter(split=True, split_by=SplittingOptions.WORD, split_length=400, split_overlap=50))
   Splitter in the above example is optional and can be used to split the documents into smaller chunks.
 
 #### count
 
 ```python
-def count() -> float
+def count() -> int
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/index_model.py#L275)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/index_model.py#L278)
 
 Get the total number of documents in the index.
 
@@ -276,7 +278,7 @@ Get the total number of documents in the index.
 def get_record(record_id: Text) -> ModelResponse
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/index_model.py#L294)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/index_model.py#L297)
 
 Get a document from the index.
 
@@ -305,7 +307,7 @@ Get a document from the index.
 def delete_record(record_id: Text) -> ModelResponse
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/index_model.py#L316)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/index_model.py#L319)
 
 Delete a document from the index.
 
@@ -328,13 +330,73 @@ Delete a document from the index.
 
   &gt;&gt;&gt; index_model.delete_record(&quot;123&quot;)
 
+#### prepare\_record\_from\_file
+
+```python
+def prepare_record_from_file(file_path: str, file_id: str = None) -> Record
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/index_model.py#L341)
+
+Prepare a record from a file.
+
+**Arguments**:
+
+- `file_path` _str_ - The path to the file to be processed.
+- `file_id` _str, optional_ - The ID to assign to the record. If not provided, a unique ID is generated.
+  
+
+**Returns**:
+
+- `Record` - A Record object containing the file&#x27;s content and metadata.
+  
+
+**Raises**:
+
+- `Exception` - If the file cannot be parsed.
+  
+
+**Example**:
+
+  &gt;&gt;&gt; record = index_model.prepare_record_from_file(&quot;/path/to/file.txt&quot;)
+
+#### parse\_file
+
+```python
+@staticmethod
+def parse_file(file_path: str) -> ModelResponse
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/index_model.py#L364)
+
+Parse a file using the Docling model.
+
+**Arguments**:
+
+- `file_path` _str_ - The path to the file to be parsed.
+  
+
+**Returns**:
+
+- `ModelResponse` - The response containing the parsed file content.
+  
+
+**Raises**:
+
+- `Exception` - If the file does not exist or cannot be parsed.
+  
+
+**Example**:
+
+  &gt;&gt;&gt; response = IndexModel.parse_file(&quot;/path/to/file.pdf&quot;)
+
 #### retrieve\_records\_with\_filter
 
 ```python
 def retrieve_records_with_filter(filter: IndexFilter) -> ModelResponse
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/index_model.py#L338)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/index_model.py#L398)
 
 Retrieve records from the index that match the given filter.
 
@@ -365,7 +427,7 @@ Retrieve records from the index that match the given filter.
 def delete_records_by_date(date: float) -> ModelResponse
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/index_model.py#L362)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/index_model.py#L422)
 
 Delete records from the index that match the given date.
 

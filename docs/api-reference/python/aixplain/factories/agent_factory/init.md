@@ -52,7 +52,8 @@ def create(
         api_key: Text = config.TEAM_API_KEY,
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
         version: Optional[Text] = None,
-        tasks: List[AgentTask] = [],
+        tasks: List[WorkflowTask] = None,
+        workflow_tasks: List[WorkflowTask] = [],
         output_format: Optional[OutputFormat] = None,
         expected_output: Optional[Union[BaseModel, Text,
                                         dict]] = None) -> Agent
@@ -72,7 +73,7 @@ Create a new agent in the platform.
 **Arguments**:
 
 - `name` _Text_ - name of the agent
-- `description` _Text_ - description of the agent role.
+- `description` _Text_ - description of the agent instructions.
 - `instructions` _Text_ - instructions of the agent.
 - `llm` _Optional[Union[LLM, Text]], optional_ - LLM instance to use as an object or as an ID.
 - `llm_id` _Optional[Text], optional_ - ID of LLM to use if no LLM instance provided. Defaults to None.
@@ -80,7 +81,7 @@ Create a new agent in the platform.
 - `api_key` _Text, optional_ - team/user API key. Defaults to config.TEAM_API_KEY.
 - `supplier` _Union[Dict, Text, Supplier, int], optional_ - owner of the agent. Defaults to &quot;aiXplain&quot;.
 - `version` _Optional[Text], optional_ - version of the agent. Defaults to None.
-- `tasks` _List[AgentTask], optional_ - list of tasks for the agent. Defaults to [].
+- `workflow_tasks` _List[WorkflowTask], optional_ - list of tasks for the agent. Defaults to [].
 - `description`0 _OutputFormat, optional_ - default output format for agent responses. Defaults to OutputFormat.TEXT.
 - `description`1 _Union[BaseModel, Text, dict], optional_ - expected output. Defaults to None.
 
@@ -95,7 +96,7 @@ Create a new agent in the platform.
 def create_from_dict(cls, dict: Dict) -> Agent
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/agent_factory/__init__.py#L191)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/agent_factory/__init__.py#L202)
 
 Create an agent instance from a dictionary representation.
 
@@ -113,34 +114,6 @@ Create an agent instance from a dictionary representation.
 
 - `Exception` - If agent validation fails or required properties are missing.
 
-#### create\_task
-
-```python
-@classmethod
-def create_task(cls,
-                name: Text,
-                description: Text,
-                expected_output: Text,
-                dependencies: Optional[List[Text]] = None) -> AgentTask
-```
-
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/agent_factory/__init__.py#L209)
-
-Create a new task for an agent.
-
-**Arguments**:
-
-- `name` _Text_ - Name of the task.
-- `description` _Text_ - Description of what the task should accomplish.
-- `expected_output` _Text_ - Description of the expected output format.
-- `dependencies` _Optional[List[Text]], optional_ - List of task names that must
-  complete before this task can start. Defaults to None.
-  
-
-**Returns**:
-
-- `AgentTask` - Created task object.
-
 #### create\_model\_tool
 
 ```python
@@ -154,7 +127,7 @@ def create_model_tool(cls,
                       name: Optional[Text] = None) -> ModelTool
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/agent_factory/__init__.py#L236)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/agent_factory/__init__.py#L245)
 
 Create a new model tool for use with an agent.
 
@@ -187,7 +160,7 @@ def create_pipeline_tool(cls,
                          name: Optional[Text] = None) -> PipelineTool
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/agent_factory/__init__.py#L284)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/agent_factory/__init__.py#L293)
 
 Create a new pipeline tool for use with an agent.
 
@@ -209,7 +182,7 @@ Create a new pipeline tool for use with an agent.
 def create_python_interpreter_tool(cls) -> PythonInterpreterTool
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/agent_factory/__init__.py#L303)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/agent_factory/__init__.py#L312)
 
 Create a new Python interpreter tool for use with an agent.
 
@@ -230,7 +203,7 @@ def create_custom_python_code_tool(
         description: Text = "") -> CustomPythonCodeTool
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/agent_factory/__init__.py#L314)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/agent_factory/__init__.py#L323)
 
 Create a new custom Python code tool for use with an agent.
 
@@ -259,7 +232,7 @@ def create_sql_tool(cls,
                     enable_commit: bool = False) -> SQLTool
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/agent_factory/__init__.py#L330)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/agent_factory/__init__.py#L339)
 
 Create a new SQL tool
 
@@ -303,7 +276,7 @@ Create a new SQL tool
 def list(cls) -> Dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/agent_factory/__init__.py#L463)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/agent_factory/__init__.py#L472)
 
 List all agents available in the platform.
 
@@ -327,7 +300,7 @@ List all agents available in the platform.
 def get(cls, agent_id: Text, api_key: Optional[Text] = None) -> Agent
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/agent_factory/__init__.py#L513)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/agent_factory/__init__.py#L522)
 
 Retrieve an agent by its ID.
 
