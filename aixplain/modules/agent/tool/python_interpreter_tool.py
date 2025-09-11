@@ -1,6 +1,8 @@
-__author__ = "aiXplain"
+"""Python interpreter tool for aiXplain SDK agents.
 
-"""
+This module provides a tool that allows agents to execute Python code
+using an interpreter in a controlled environment.
+
 Copyright 2024 The aiXplain SDK authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,6 +22,8 @@ Date: May 16th 2024
 Description:
     Agentification Class
 """
+
+__author__ = "aiXplain"
 
 from aixplain.modules.agent.tool import Tool
 from aixplain.enums import AssetStatus
@@ -83,11 +87,3 @@ class PythonInterpreterTool(Tool):
             Text: A string in the format "PythonInterpreterTool()".
         """
         return "PythonInterpreterTool()"
-
-    def deploy(self):
-        """Deploy the Python interpreter tool.
-
-        This is a placeholder method as the Python interpreter tool is automatically
-        available and doesn't require explicit deployment.
-        """
-        pass

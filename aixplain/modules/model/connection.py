@@ -238,11 +238,3 @@ class ConnectionTool(Model):
             str: A string in the format "ConnectionTool(id=<id>, name=<name>)".
         """
         return f"ConnectionTool(id={self.id}, name={self.name})"
-
-    def deploy(self):
-        """Deploy the connection tool.
-
-        This is a placeholder method as connection tools are managed through the aiXplain platform
-        and don't require explicit deployment.
-        """
-        pass

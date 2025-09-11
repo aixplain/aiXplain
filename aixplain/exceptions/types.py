@@ -1,3 +1,5 @@
+"""Exception types and error handling for the aiXplain SDK."""
+
 from enum import Enum
 from typing import Optional, Dict, Any
 
@@ -121,6 +123,17 @@ class AixplainBaseException(Exception):
         retry_recommended: bool = False,
         error_code: Optional[ErrorCode] = None,
     ):
+        """Initialize the base exception with structured error information.
+
+        Args:
+            message: Error message describing the issue.
+            category: Category of the error (default: UNKNOWN).
+            severity: Severity level of the error (default: ERROR).
+            status_code: HTTP status code if applicable.
+            details: Additional error context and details.
+            retry_recommended: Whether retrying the operation might succeed.
+            error_code: Standardized error code for the exception.
+        """
         self.message = message
         self.category = category
         self.severity = severity
@@ -163,6 +176,12 @@ class AuthenticationError(AixplainBaseException):
     """Raised when authentication fails."""
 
     def __init__(self, message: str, **kwargs):
+        """Initialize authentication error.
+
+        Args:
+            message: Error message describing the authentication issue.
+            **kwargs: Additional keyword arguments passed to parent class.
+        """
         super().__init__(
             message=message,
             category=ErrorCategory.AUTHENTICATION,
@@ -177,6 +196,12 @@ class ValidationError(AixplainBaseException):
     """Raised when input validation fails."""
 
     def __init__(self, message: str, **kwargs):
+        """Initialize validation error.
+
+        Args:
+            message: Error message describing the validation issue.
+            **kwargs: Additional keyword arguments passed to parent class.
+        """
         super().__init__(
             message=message,
             category=ErrorCategory.VALIDATION,
@@ -187,10 +212,34 @@ class ValidationError(AixplainBaseException):
         )
 
 
+class AlreadyDeployedError(AixplainBaseException):
+    """Raised when attempting to deploy an asset that is already deployed."""
+
+    def __init__(self, message: str, **kwargs):
+        """Initialize already deployed error.
+
+        Args:
+            message: Error message describing the deployment state conflict.
+            **kwargs: Additional keyword arguments passed to parent class.
+        """
+        super().__init__(
+            message=message,
+            retry_recommended=kwargs.pop("retry_recommended", False),
+            error_code=ErrorCode.AX_VAL_ERROR,
+            **kwargs,
+        )
+
+
 class ResourceError(AixplainBaseException):
     """Raised when a resource is unavailable."""
 
     def __init__(self, message: str, **kwargs):
+        """Initialize resource error.
+
+        Args:
+            message: Error message describing the resource issue.
+            **kwargs: Additional keyword arguments passed to parent class.
+        """
         super().__init__(
             message=message,
             category=ErrorCategory.RESOURCE,
@@ -205,6 +254,12 @@ class BillingError(AixplainBaseException):
     """Raised when there are billing issues."""
 
     def __init__(self, message: str, **kwargs):
+        """Initialize billing error.
+
+        Args:
+            message: Error message describing the billing issue.
+            **kwargs: Additional keyword arguments passed to parent class.
+        """
         super().__init__(
             message=message,
             category=ErrorCategory.BILLING,
@@ -219,6 +274,12 @@ class SupplierError(AixplainBaseException):
     """Raised when there are issues with external suppliers."""
 
     def __init__(self, message: str, **kwargs):
+        """Initialize supplier error.
+
+        Args:
+            message: Error message describing the supplier issue.
+            **kwargs: Additional keyword arguments passed to parent class.
+        """
         super().__init__(
             message=message,
             category=ErrorCategory.SUPPLIER,
@@ -233,6 +294,12 @@ class NetworkError(AixplainBaseException):
     """Raised when there are network connectivity issues."""
 
     def __init__(self, message: str, **kwargs):
+        """Initialize network error.
+
+        Args:
+            message: Error message describing the network issue.
+            **kwargs: Additional keyword arguments passed to parent class.
+        """
         super().__init__(
             message=message,
             category=ErrorCategory.NETWORK,
@@ -247,6 +314,12 @@ class ServiceError(AixplainBaseException):
     """Raised when a service is unavailable."""
 
     def __init__(self, message: str, **kwargs):
+        """Initialize service error.
+
+        Args:
+            message: Error message describing the service issue.
+            **kwargs: Additional keyword arguments passed to parent class.
+        """
         super().__init__(
             message=message,
             category=ErrorCategory.SERVICE,
@@ -261,6 +334,12 @@ class InternalError(AixplainBaseException):
     """Raised when there is an internal system error."""
 
     def __init__(self, message: str, **kwargs):
+        """Initialize internal error.
+
+        Args:
+            message: Error message describing the internal issue.
+            **kwargs: Additional keyword arguments passed to parent class.
+        """
         # Server errors (5xx) should generally be retryable
         status_code = kwargs.get("status_code")
         retry_recommended = kwargs.pop("retry_recommended", False)
