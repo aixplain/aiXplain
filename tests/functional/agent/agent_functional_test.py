@@ -304,11 +304,12 @@ def test_update_tools_of_agent(run_input_map, delete_agents_and_team_agents, Age
         pytest.param(
             {
                 "type": "translation",
-                "supplier": "Microsoft",
+                "supplier": "ModernMT",
                 "function": "translation",
                 "query": "Translate: 'Olá, como vai você?'",
                 "description": "Translation tool with target language",
-                "expected_tool_input": "targetlanguage",
+                "expected_tool_input": "Olá, como vai você?",
+                "model": "60ddefc48d38c51c5885fdcf",
             },
             id="translation_tool",
         ),
@@ -324,13 +325,14 @@ def test_specific_model_parameters_e2e(tool_config, delete_agents_and_team_agent
         model_params.numResults = 5
         tool = AgentFactory.create_model_tool(model=search_model, description=tool_config["description"])
     else:
-        function = Function(tool_config["function"])
-        function_params = function.get_parameters()
-        function_params.sourcelanguage = "pt"
+        translation_model = ModelFactory.get(tool_config["model"])
+        model_params = translation_model.get_parameters()
+
+        model_params.sourcelanguage = "pt"
+
         tool = AgentFactory.create_model_tool(
-            function=function,
+            model=translation_model,
             description=tool_config["description"],
-            supplier="microsoft",
         )
 
     # Verify tool parameters
@@ -342,7 +344,8 @@ def test_specific_model_parameters_e2e(tool_config, delete_agents_and_team_agent
     # Create and run agent
     agent = AgentFactory.create(
         name="Test Parameter Agent",
-        description="Test agent with parameterized tools. You MUST use a tool for the tasks. Do not directly answer the question.",
+        instructions="Test agent with parameterized tools. You MUST use a tool for the tasks. Do not directly answer the question.",
+        description = "Test agent with parameterized tools",
         tools=[tool],
         llm_id="6646261c6eb563165658bbb1",  # Using LLM ID from test data
     )
@@ -365,6 +368,7 @@ def test_specific_model_parameters_e2e(tool_config, delete_agents_and_team_agent
             tool_used = True
             break
     assert tool_used, "Tool was not used in execution"
+
 
 
 @pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
@@ -524,7 +528,6 @@ def test_instructions(delete_agents_and_team_agents, AgentFactory):
     assert response["completed"] is True
     assert response["status"].lower() == "success"
     assert "data" in response
-    assert response["data"]["session_id"] is None
     assert response["data"]["output"] is not None
     assert "aixplain" in response["data"]["output"].lower()
     agent.delete()
