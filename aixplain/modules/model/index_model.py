@@ -14,6 +14,7 @@ import os
 
 DOCLING_MODEL_ID = "677bee6c6eb56331f9192a91"
 
+
 class IndexFilterOperator(Enum):
     """Enumeration of operators available for filtering index records.
 
@@ -30,6 +31,7 @@ class IndexFilterOperator(Enum):
         GREATER_THAN_OR_EQUALS (str): Greater than or equal to operator (">=")
         LESS_THAN_OR_EQUALS (str): Less than or equal to operator ("<=")
     """
+
     EQUALS = "=="
     NOT_EQUALS = "!="
     CONTAINS = "in"
@@ -197,7 +199,9 @@ class IndexModel(Model):
         data["collection_type"] = self.version.split("-", 1)[0]
         return data
 
-    def search(self, query: str, top_k: int = 10, filters: List[IndexFilter] = []) -> ModelResponse:
+    def search(
+        self, query: str, top_k: int = 10, filters: List[IndexFilter] = [], score_threshold: float = 0.0
+    ) -> ModelResponse:
         """Search for documents in the index
 
         Args:
@@ -226,7 +230,7 @@ class IndexModel(Model):
             "data": query or uri,
             "dataType": value_type,
             "filters": [filter.to_dict() for filter in filters],
-            "payload": {"uri": uri, "value_type": value_type, "top_k": top_k},
+            "payload": {"uri": uri, "value_type": value_type, "top_k": top_k, "score_threshold": score_threshold},
         }
         return self.run(data=data)
 
@@ -295,8 +299,7 @@ class IndexModel(Model):
         raise Exception(f"Failed to count documents: {response.error_message}")
 
     def get_record(self, record_id: Text) -> ModelResponse:
-        """
-        Get a document from the index.
+        """Get a document from the index.
 
         Args:
             record_id (Text): ID of the document to retrieve.
@@ -317,8 +320,7 @@ class IndexModel(Model):
         raise Exception(f"Failed to get record: {response.error_message}")
 
     def delete_record(self, record_id: Text) -> ModelResponse:
-        """
-        Delete a document from the index.
+        """Delete a document from the index.
 
         Args:
             record_id (Text): ID of the document to delete.
@@ -396,8 +398,7 @@ class IndexModel(Model):
             raise Exception(f"Failed to parse file: {e}")
 
     def retrieve_records_with_filter(self, filter: IndexFilter) -> ModelResponse:
-        """
-        Retrieve records from the index that match the given filter.
+        """Retrieve records from the index that match the given filter.
 
         Args:
             filter (IndexFilter): The filter criteria to apply when retrieving records.
@@ -420,8 +421,7 @@ class IndexModel(Model):
         raise Exception(f"Failed to retrieve records with filter: {response.error_message}")
 
     def delete_records_by_date(self, date: float) -> ModelResponse:
-        """
-        Delete records from the index that match the given date.
+        """Delete records from the index that match the given date.
 
         Args:
             date (float): The date (as a timestamp) to match records for deletion.
