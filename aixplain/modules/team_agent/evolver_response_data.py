@@ -97,7 +97,6 @@ class EvolverResponseData:
         }
 
     def __getitem__(self, key: str) -> Any:
-
         """Get an attribute value using dictionary-style access.
 
         Args:
