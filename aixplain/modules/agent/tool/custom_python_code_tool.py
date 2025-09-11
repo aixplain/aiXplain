@@ -1,6 +1,8 @@
-__author__ = "aiXplain"
+"""Custom Python code tool for aiXplain SDK agents.
 
-"""
+This module provides a tool that allows agents to execute custom Python code
+in a controlled environment.
+
 Copyright 2024 The aiXplain SDK authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,6 +22,8 @@ Date: May 16th 2024
 Description:
     Agentification Class
 """
+
+__author__ = "aiXplain"
 
 from typing import Text, Union, Callable, Optional
 from aixplain.modules.agent.tool import Tool
@@ -110,9 +114,9 @@ class CustomPythonCodeTool(Tool):
         if name and name.strip() != "":
             self.name = name
 
-        assert (
-            self.description and self.description.strip() != ""
-        ), "Custom Python Code Tool Error: Tool description is required"
+        assert self.description and self.description.strip() != "", (
+            "Custom Python Code Tool Error: Tool description is required"
+        )
         assert self.code and self.code.strip() != "", "Custom Python Code Tool Error: Code is required"
         assert self.name and self.name.strip() != "", "Custom Python Code Tool Error: Name is required"
         assert self.status in [
@@ -127,11 +131,3 @@ class CustomPythonCodeTool(Tool):
             Text: A string in the format "CustomPythonCodeTool(name=<tool_name>)".
         """
         return f"CustomPythonCodeTool(name={self.name})"
-
-    def deploy(self):
-        """Deploy the custom Python code tool.
-
-        This is a placeholder method as custom Python code tools are automatically
-        deployed when created.
-        """
-        pass
