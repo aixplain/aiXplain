@@ -399,6 +399,7 @@ class Model(
 
     RESOURCE_PATH = "v2/models"
     RESPONSE_CLASS = ModelResult
+    TOOL_TYPE = "model"
 
     # Core fields from BaseResource (id, name, description)
     service_name: Optional[str] = field(
@@ -618,25 +619,8 @@ class Model(
             >>> model = aix.Model.get("some-model-id")
             >>> agent = aix.Agent(..., tools=[model.as_tool()])
         """
-        # Get current parameter values
-        parameters = None
-        if self.params:
-            parameters = []
-            for param in self.params:
-                param_value = self.inputs.get(param.name)
-                if param_value is not None:
-                    parameters.append(
-                        {
-                            "name": param.name,
-                            "value": param_value,
-                            "required": param.required,
-                            "datatype": param.data_type,
-                            "allowMulti": param.multiple_values,
-                            "supportsVariables": False,  # Default value
-                            "fixed": param.is_fixed,
-                            "description": "",  # Default empty description
-                        }
-                    )
+        # Get current parameter values using get_parameters()
+        parameters = self.get_parameters()
 
         # Get supplier code
         supplier_code = "aixplain"  # Default supplier
@@ -664,10 +648,35 @@ class Model(
             "supplier": supplier_code,
             "parameters": parameters,
             "function": function_type,
-            "type": "model",
+            "type": self.TOOL_TYPE,
             "version": version,
             "assetId": self.id,
         }
+
+    def get_parameters(self) -> List[dict]:
+        """Get current parameter values for this model.
+
+        Returns:
+            List[dict]: List of parameter dictionaries with current values
+        """
+        parameters = []
+        if self.params:
+            for param in self.params:
+                param_value = self.inputs.get(param.name)
+                if param_value is not None:
+                    parameters.append(
+                        {
+                            "name": param.name,
+                            "value": param_value,
+                            "required": param.required,
+                            "datatype": param.data_type,
+                            "allowMulti": param.multiple_values,
+                            "supportsVariables": False,  # Default value
+                            "fixed": param.is_fixed,
+                            "description": "",  # Default empty description
+                        }
+                    )
+        return parameters
 
     @classmethod
     def _populate_filters(cls, params: dict) -> dict:
