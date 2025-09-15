@@ -257,7 +257,10 @@ class Agent(
                     raise ValueError(
                         "Expected output must be a valid JSON string or dict or pydantic model"
                     )
-        elif self.output_format in [OutputFormat.MARKDOWN.value, OutputFormat.TEXT.value]:
+        elif self.output_format in [
+            OutputFormat.MARKDOWN.value,
+            OutputFormat.TEXT.value,
+        ]:
             if not isinstance(self.expected_output, str):
                 raise ValueError("Expected output must be a string")
 
@@ -319,7 +322,16 @@ class Agent(
         """
         payload = self.to_dict()
         for i, tool in enumerate(self.tools):
-            payload["assets"][i]["parameters"] = tool.get_parameters()
+            # Handle both tool objects and tool dictionaries
+            if hasattr(tool, "get_parameters"):
+                # Tool object with get_parameters method
+                payload["assets"][i]["parameters"] = tool.get_parameters()
+            elif isinstance(tool, dict) and "parameters" in tool:
+                # Tool dictionary (from as_tool() method)
+                payload["assets"][i]["parameters"] = tool["parameters"]
+            else:
+                # Fallback: no parameters
+                payload["assets"][i]["parameters"] = None
         return payload
 
     def build_run_payload(self, **kwargs: Unpack[AgentRunParams]) -> dict:

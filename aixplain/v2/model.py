@@ -595,6 +595,80 @@ class Model(
             # For unknown types, accept any value
             return True
 
+    def as_tool(self) -> dict:
+        """Serialize this model as a tool for agent creation.
+
+        This method converts the model into a dictionary format that can be used
+        as a tool when creating agents. The format matches what the agent factory
+        expects for model tools.
+
+        Returns:
+            dict: A dictionary representing this model as a tool with the following structure:
+                - id: The model's ID
+                - name: The model's name
+                - description: The model's description
+                - supplier: The supplier code
+                - parameters: Current parameter values
+                - function: The model's function type
+                - type: Always "model"
+                - version: The model's version
+                - assetId: The model's ID (same as id)
+
+        Example:
+            >>> model = aix.Model.get("some-model-id")
+            >>> agent = aix.Agent(..., tools=[model.as_tool()])
+        """
+        # Get current parameter values
+        parameters = None
+        if self.params:
+            parameters = []
+            for param in self.params:
+                param_value = self.inputs.get(param.name)
+                if param_value is not None:
+                    parameters.append(
+                        {
+                            "name": param.name,
+                            "value": param_value,
+                            "required": param.required,
+                            "datatype": param.data_type,
+                            "allowMulti": param.multiple_values,
+                            "supportsVariables": False,  # Default value
+                            "fixed": param.is_fixed,
+                            "description": "",  # Default empty description
+                        }
+                    )
+
+        # Get supplier code
+        supplier_code = "aixplain"  # Default supplier
+        if self.vendor and self.vendor.code:
+            supplier_code = self.vendor.code
+
+        # Get function type
+        function_type = None
+        if self.function:
+            function_type = (
+                self.function.value
+                if hasattr(self.function, "value")
+                else str(self.function)
+            )
+
+        # Get version
+        version = None
+        if self.version and self.version.id:
+            version = self.version.id
+
+        return {
+            "id": self.id,
+            "name": self.name,
+            "description": self.description or "",
+            "supplier": supplier_code,
+            "parameters": parameters,
+            "function": function_type,
+            "type": "model",
+            "version": version,
+            "assetId": self.id,
+        }
+
     @classmethod
     def _populate_filters(cls, params: dict) -> dict:
         """
