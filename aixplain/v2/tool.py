@@ -3,7 +3,6 @@ from typing import Union, List, Optional, Any
 from typing_extensions import Unpack
 from dataclasses_json import dataclass_json, config as dj_config
 from dataclasses import dataclass, field
-from functools import cached_property
 
 from .resource import (
     Result,
@@ -12,7 +11,7 @@ from .resource import (
     DeleteResult,
 )
 from .model import Model, ModelRunParams
-from .integration import Integration, Action, Input, ActionMixin
+from .integration import Integration, Action, ActionMixin, Input
 
 
 @dataclass_json
@@ -78,6 +77,26 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
                 assert isinstance(
                     self.integration, Integration
                 ), "Integration must be an Integration object or a string"
+
+    # override list_actions to check if actions are available
+    def list_actions(self) -> List[Action]:
+        try:
+            return super().list_actions()
+        except Exception as e:
+            warnings.warn(
+                f"Error listing actions: {e}. Using integration.list_actions() instead."
+            )
+            return self.integration.list_actions()
+
+    # override list_inputs to check if inputs are available
+    def list_inputs(self, *actions: str) -> List[Input]:
+        try:
+            return super().list_inputs(*actions)
+        except Exception as e:
+            warnings.warn(
+                f"Error listing inputs: {e}. Using integration.list_inputs() instead."
+            )
+            return self.integration.list_inputs(*actions)
 
     def _create(self, resource_path: str, payload: dict) -> None:
         """Create the tool."""

@@ -483,6 +483,11 @@ class Integration(Model, ActionMixin):
     # Make AuthenticationScheme accessible
     AuthenticationScheme = AuthenticationScheme
 
+    # Integration-specific fields
+    actions_available: Optional[bool] = field(
+        default=None, metadata=config(field_name="actionsAvailable")
+    )
+
     # Integration-specific properties
     @property
     def auth_schemes(self) -> List[str]:
@@ -491,7 +496,8 @@ class Integration(Model, ActionMixin):
             return []
 
         auth_schemes_attr = next(
-            (attr for attr in self.attributes if attr.name == "auth_schemes"), None
+            (attr for attr in self.attributes if attr.name == "auth_schemes"),
+            None,
         )
 
         if not auth_schemes_attr:
