@@ -17,6 +17,7 @@ from .resource import (
     Result,
 )
 from .enums import Function, Supplier, Language, AssetStatus
+from .mixins import ToolableMixin, ToolDict
 
 
 @dataclass_json
@@ -394,12 +395,12 @@ class Model(
     SearchResourceMixin[ModelSearchParams, "Model"],
     GetResourceMixin[BaseGetParams, "Model"],
     RunnableResourceMixin[ModelRunParams, ModelResult],
+    ToolableMixin,
 ):
     """Resource for models."""
 
     RESOURCE_PATH = "v2/models"
     RESPONSE_CLASS = ModelResult
-    TOOL_TYPE = "model"
 
     # Core fields from BaseResource (id, name, description)
     service_name: Optional[str] = field(
@@ -596,7 +597,7 @@ class Model(
             # For unknown types, accept any value
             return True
 
-    def as_tool(self) -> dict:
+    def as_tool(self) -> ToolDict:
         """Serialize this model as a tool for agent creation.
 
         This method converts the model into a dictionary format that can be used
@@ -636,10 +637,15 @@ class Model(
                 else str(self.function)
             )
 
-        # Get version
+        # Get version - handle Version objects properly
         version = None
-        if self.version and self.version.id:
-            version = self.version.id
+        if self.version:
+            if hasattr(self.version, "id") and self.version.id:
+                version = self.version.id
+            elif isinstance(self.version, dict) and "id" in self.version:
+                version = self.version["id"]
+            elif isinstance(self.version, str):
+                version = self.version
 
         return {
             "id": self.id,
@@ -648,7 +654,7 @@ class Model(
             "supplier": supplier_code,
             "parameters": parameters,
             "function": function_type,
-            "type": self.TOOL_TYPE,
+            "type": "model",
             "version": version,
             "assetId": self.id,
         }

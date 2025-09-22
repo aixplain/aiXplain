@@ -7,8 +7,9 @@ from dataclasses_json import dataclass_json, config
 
 from pydantic import BaseModel
 
-from aixplain.enums import AssetStatus, ResponseStatus
+from aixplain.enums import AssetStatus
 from aixplain.v2.model import Model
+from aixplain.v2.mixins import ToolableMixin
 
 from .resource import (
     BaseResource,
@@ -321,17 +322,22 @@ class Agent(
         Build the payload for the save action.
         """
         payload = self.to_dict()
-        for i, tool in enumerate(self.tools):
-            # Handle both tool objects and tool dictionaries
-            if hasattr(tool, "get_parameters"):
-                # Tool object with get_parameters method
-                payload["assets"][i]["parameters"] = tool.get_parameters()
-            elif isinstance(tool, dict) and "parameters" in tool:
-                # Tool dictionary (from as_tool() method)
-                payload["assets"][i]["parameters"] = tool["parameters"]
-            else:
-                # Fallback: no parameters
-                payload["assets"][i]["parameters"] = None
+
+        # Convert tools intelligently based on their type
+        converted_assets = []
+        if self.tools:
+            for tool in self.tools:
+                if isinstance(tool, ToolableMixin):
+                    # Non-tool objects (like Models) that can act as tools
+                    converted_assets.append(tool.as_tool())
+                else:
+                    raise ValueError(
+                        "A tool in the agent must be a Tool, Model or ToolableMixin instance."
+                    )
+
+        # Update the payload with converted assets
+        payload["assets"] = converted_assets
+
         return payload
 
     def build_run_payload(self, **kwargs: Unpack[AgentRunParams]) -> dict:

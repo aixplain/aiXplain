@@ -34,7 +34,6 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
 
     RESOURCE_PATH = "v2/tools"
     RESPONSE_CLASS = ToolResult
-    TOOL_TYPE = "tool"
     DEFAULT_INTEGRATION_ID = "686432941223092cb4294d3f"  # Script integration
 
     # Tool-specific fields
