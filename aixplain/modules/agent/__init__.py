@@ -46,6 +46,7 @@ from typing import Dict, List, Text, Optional, Union, Any
 from aixplain.modules.agent.evolve_param import EvolveParam, validate_evolve_param
 from urllib.parse import urljoin
 from aixplain.modules.model.llm_model import LLM
+from aixplain.utils.convert_datatype_utils import normalize_expected_output
 
 from aixplain.utils import config
 from aixplain.modules.mixins import DeployableMixin
@@ -488,6 +489,7 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
             expected_output = self.expected_output
         if expected_output is not None and issubclass(expected_output, BaseModel):
             expected_output = expected_output.model_json_schema()
+        expected_output = normalize_expected_output(expected_output)
         # Use instance output_format if none provided
         if output_format is None:
             output_format = self.output_format

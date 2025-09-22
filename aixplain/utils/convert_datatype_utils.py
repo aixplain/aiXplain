@@ -16,7 +16,8 @@ limitations under the License.
 
 from typing import Union, Dict, List
 from aixplain.modules.metadata import MetaData
-
+import json
+from pydantic import BaseModel
 
 def dict_to_metadata(metadatas: List[Union[Dict, MetaData]]) -> None:
 
@@ -38,3 +39,17 @@ def dict_to_metadata(metadatas: List[Union[Dict, MetaData]]) -> None:
                 metadatas[i] = MetaData(**metadatas[i])
     except TypeError:
         raise TypeError(f"Data Asset Onboarding Error: One or more elements in the metadata_schema are not well-structured")
+
+
+
+def normalize_expected_output(obj):
+    if isinstance(obj, type) and issubclass(obj, BaseModel):
+        return obj.model_json_schema() if hasattr(obj, "model_json_schema") else obj.schema()
+
+    if isinstance(obj, BaseModel):
+        return json.loads(obj.model_dump_json()) if hasattr(obj, "model_dump_json") else json.loads(obj.json())
+
+    if isinstance(obj, (dict, str)) or obj is None:
+        return obj
+
+    return json.loads(json.dumps(obj))
