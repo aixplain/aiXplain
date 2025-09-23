@@ -79,9 +79,7 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
 
     def check_actions_available(self) -> None:
         if not self.integration.actions_available and not self.id:
-            raise ValueError(
-                "Actions are only available for this tool unless you save it."
-            )
+            raise ValueError("ERROR! Tool MUST be saved first.")
 
     # override list_actions to check if actions are available
     def list_actions(self) -> List[Action]:

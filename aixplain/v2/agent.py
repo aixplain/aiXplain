@@ -280,6 +280,10 @@ class Agent(
         # json should be a valid json string or dict or pydantic model
         self._validate_expected_output()
 
+        # Convert Pydantic BaseModel to dict for serialization
+        if isinstance(self.expected_output, BaseModel):
+            self.expected_output = self.expected_output.model_dump()
+
         # if not all(t.status == AssetStatus.ONBOARDED for t in self.tools):
         #     raise ValueError(
         #         "All tools must be onboarded before saving the agent."

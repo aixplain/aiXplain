@@ -260,6 +260,7 @@ class ActionMixin:
 
     def list_actions(self) -> List[Action]:
         """List available actions for the integration."""
+
         run_url = self.build_run_url()
         response = self.context.client.request(
             "post", run_url, json={"action": "LIST_ACTIONS", "data": {}}
@@ -535,7 +536,11 @@ class Integration(Model, ActionMixin):
         errors = super()._validate_params(**kwargs)
 
         auth_scheme = kwargs["authScheme"]
-        if auth_scheme not in self.auth_schemes:
+        # Convert enum to string value for comparison
+        auth_scheme_value = (
+            auth_scheme.value if hasattr(auth_scheme, "value") else str(auth_scheme)
+        )
+        if auth_scheme_value not in self.auth_schemes:
             errors.append(
                 f"Invalid auth_scheme '{auth_scheme}'. "
                 f"Available schemes: {self.auth_schemes}"
