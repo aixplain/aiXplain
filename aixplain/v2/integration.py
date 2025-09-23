@@ -258,8 +258,15 @@ class IntegrationSearchParams(BaseSearchParams):
 
 class ActionMixin:
 
+    # Integration-specific fields
+    actions_available: Optional[bool] = field(
+        default=None, metadata=config(field_name="actionsAvailable")
+    )
+
     def list_actions(self) -> List[Action]:
         """List available actions for the integration."""
+        if not self.actions_available:
+            return []
 
         run_url = self.build_run_url()
         response = self.context.client.request(
@@ -483,11 +490,6 @@ class Integration(Model, ActionMixin):
 
     # Make AuthenticationScheme accessible
     AuthenticationScheme = AuthenticationScheme
-
-    # Integration-specific fields
-    actions_available: Optional[bool] = field(
-        default=None, metadata=config(field_name="actionsAvailable")
-    )
 
     # Integration-specific properties
     @property
