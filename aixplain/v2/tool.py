@@ -77,8 +77,15 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
                     self.integration, Integration
                 ), "Integration must be an Integration object or a string"
 
+    def check_actions_available(self) -> None:
+        if not self.integration.actions_available and not self.id:
+            raise ValueError(
+                "Actions are only available for this tool unless you save it."
+            )
+
     # override list_actions to check if actions are available
     def list_actions(self) -> List[Action]:
+        self.check_actions_available()
         try:
             return super().list_actions()
         except Exception as e:
@@ -89,6 +96,7 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
 
     # override list_inputs to check if inputs are available
     def list_inputs(self, *actions: str) -> List[Input]:
+        self.check_actions_available()
         try:
             return super().list_inputs(*actions)
         except Exception as e:
