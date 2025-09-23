@@ -180,13 +180,15 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
         from aixplain.utils.llm_utils import get_llm_instance
 
         # validate name
-        assert re.match(r"^[a-zA-Z0-9 \-\(\)]*$", self.name) is not None, (
-            "Agent Creation Error: Agent name contains invalid characters. Only alphanumeric characters, spaces, hyphens, and brackets are allowed."
-        )
+        assert (
+            re.match(r"^[a-zA-Z0-9 \-\(\)]*$", self.name) is not None
+        ), "Agent Creation Error: Agent name contains invalid characters. Only alphanumeric characters, spaces, hyphens, and brackets are allowed."
 
         llm = get_llm_instance(self.llm_id, api_key=self.api_key, use_cache=True)
 
-        assert llm.function == Function.TEXT_GENERATION, "Large Language Model must be a text generation model."
+        assert (
+            llm.function == Function.TEXT_GENERATION
+        ), "Large Language Model must be a text generation model."
 
         tool_names = []
         for tool in self.tools:
@@ -194,12 +196,16 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
             if isinstance(tool, Tool):
                 tool_name = tool.name
             elif isinstance(tool, Model):
-                assert not isinstance(tool, Agent), "Agent cannot contain another Agent."
+                assert not isinstance(
+                    tool, Agent
+                ), "Agent cannot contain another Agent."
                 tool_name = tool.name
             tool_names.append(tool_name)
 
         if len(tool_names) != len(set(tool_names)):
-            duplicates = set([name for name in tool_names if tool_names.count(name) > 1])
+            duplicates = set(
+                [name for name in tool_names if tool_names.count(name) > 1]
+            )
             raise Exception(
                 f"Agent Creation Error - Duplicate tool names found: {', '.join(duplicates)}. Make sure all tool names are unique."
             )
@@ -208,7 +214,9 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
             tool_names.append(tool_name)
 
         if len(tool_names) != len(set(tool_names)):
-            duplicates = set([name for name in tool_names if tool_names.count(name) > 1])
+            duplicates = set(
+                [name for name in tool_names if tool_names.count(name) > 1]
+            )
             raise Exception(
                 f"Agent Creation Error - Duplicate tool names found: {', '.join(duplicates)}. Make sure all tool names are unique."
             )
@@ -238,7 +246,9 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
                 raise e
             else:
                 logging.warning(f"Agent Validation Error: {e}")
-                logging.warning("You won't be able to run the Agent until the issues are handled manually.")
+                logging.warning(
+                    "You won't be able to run the Agent until the issues are handled manually."
+                )
         return self.is_valid
 
     def generate_session_id(self, history: list = None) -> str:
@@ -276,11 +286,15 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
                 "allowHistoryAndSessionId": True,
             }
 
-            r = _request_with_retry("post", self.url, headers=headers, data=json.dumps(payload))
+            r = _request_with_retry(
+                "post", self.url, headers=headers, data=json.dumps(payload)
+            )
             resp = r.json()
             poll_url = resp.get("data")
 
-            result = self.sync_poll(poll_url, name="model_process", timeout=300, wait_time=0.5)
+            result = self.sync_poll(
+                poll_url, name="model_process", timeout=300, wait_time=0.5
+            )
 
             if result.get("status") == ResponseStatus.SUCCESS:
                 return session_id
@@ -638,7 +652,9 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
 
         if session_id is not None:
             if not session_id.startswith(f"{self.id}_"):
-                raise ValueError(f"Session ID '{session_id}' does not belong to this Agent.")
+                raise ValueError(
+                    f"Session ID '{session_id}' does not belong to this Agent."
+                )
         if history:
             validate_history(history)
         result_data = {}
@@ -666,10 +682,17 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
             poll_url = response["url"]
             end = time.time()
             result = self.sync_poll(
+<<<<<<< HEAD
                 poll_url, name=name, timeout=timeout, wait_time=wait_time, progress_verbosity=progress_verbosity
             )
             if result.status == ResponseStatus.FAILED:
                 raise Exception("Model failed to run with error: " + result.error_message)
+=======
+                poll_url, name=name, timeout=timeout, wait_time=wait_time
+            )
+            # if result.status == ResponseStatus.FAILED:
+            #    raise Exception("Model failed to run with error: " + result.error_message)
+>>>>>>> 26c77f5 (ENG-2537 auto save sub agents and tools)
             result_data = result.get("data") or {}
             return AgentResponse(
                 status=ResponseStatus.SUCCESS,
@@ -742,7 +765,9 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
 
         if session_id is not None:
             if not session_id.startswith(f"{self.id}_"):
-                raise ValueError(f"Session ID '{session_id}' does not belong to this Agent.")
+                raise ValueError(
+                    f"Session ID '{session_id}' does not belong to this Agent."
+                )
 
         if history:
             validate_history(history)
@@ -755,16 +780,18 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
 
         if output_format == OutputFormat.JSON:
             assert expected_output is not None and (
-                (inspect.isclass(expected_output) and issubclass(expected_output, BaseModel))
+                issubclass(expected_output, BaseModel)
                 or isinstance(expected_output, dict)
             ), "Expected output must be a Pydantic BaseModel or a JSON object when output format is JSON."
 
-        assert data is not None or query is not None, "Either 'data' or 'query' must be provided."
+        assert (
+            data is not None or query is not None
+        ), "Either 'data' or 'query' must be provided."
         if data is not None:
             if isinstance(data, dict):
-                assert "query" in data and data["query"] is not None, (
-                    "When providing a dictionary, 'query' must be provided."
-                )
+                assert (
+                    "query" in data and data["query"] is not None
+                ), "When providing a dictionary, 'query' must be provided."
                 query = data.get("query")
                 if session_id is None:
                     session_id = data.get("session_id")
@@ -777,9 +804,9 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
 
         # process content inputs
         if content is not None:
-            assert FileFactory.check_storage_type(query) == StorageType.TEXT, (
-                "When providing 'content', query must be text."
-            )
+            assert (
+                FileFactory.check_storage_type(query) == StorageType.TEXT
+            ), "When providing 'content', query must be text."
 
             if isinstance(content, list):
                 assert len(content) <= 3, "The maximum number of content inputs is 3."
@@ -788,7 +815,9 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
                     query += f"\n{input_link}"
             elif isinstance(content, dict):
                 for key, value in content.items():
-                    assert "{{" + key + "}}" in query, f"Key '{key}' not found in query."
+                    assert (
+                        "{{" + key + "}}" in query
+                    ), f"Key '{key}' not found in query."
                     value = FileFactory.to_link(value)
                     query = query.replace("{{" + key + "}}", f"'{value}'")
 
@@ -814,8 +843,16 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
             "sessionId": session_id,
             "history": history,
             "executionParams": {
-                "maxTokens": (parameters["max_tokens"] if "max_tokens" in parameters else max_tokens),
-                "maxIterations": (parameters["max_iterations"] if "max_iterations" in parameters else max_iterations),
+                "maxTokens": (
+                    parameters["max_tokens"]
+                    if "max_tokens" in parameters
+                    else max_tokens
+                ),
+                "maxIterations": (
+                    parameters["max_iterations"]
+                    if "max_iterations" in parameters
+                    else max_iterations
+                ),
                 "outputFormat": output_format,
                 "expectedOutput": expected_output,
             },
@@ -859,7 +896,11 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
             "assets": [build_tool_payload(tool) for tool in self.tools],
             "description": self.description,
             "instructions": self.instructions or self.description,
-            "supplier": (self.supplier.value["code"] if isinstance(self.supplier, Supplier) else self.supplier),
+            "supplier": (
+                self.supplier.value["code"]
+                if isinstance(self.supplier, Supplier)
+                else self.supplier
+            ),
             "version": self.version,
             "llmId": self.llm_id if self.llm is None else self.llm.id,
             "status": self.status.value,
@@ -869,7 +910,11 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
                     {
                         "type": "llm",
                         "description": "main",
-                        "parameters": (self.llm.get_parameters().to_list() if self.llm.get_parameters() else None),
+                        "parameters": (
+                            self.llm.get_parameters().to_list()
+                            if self.llm.get_parameters()
+                            else None
+                        ),
                     }
                 ]
                 if self.llm is not None
@@ -917,13 +962,17 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
         # Extract LLM from tools section (main LLM info)
         llm = None
         if "tools" in data and data["tools"]:
-            llm_tool = next((tool for tool in data["tools"] if tool.get("type") == "llm"), None)
+            llm_tool = next(
+                (tool for tool in data["tools"] if tool.get("type") == "llm"), None
+            )
             if llm_tool and llm_tool.get("parameters"):
                 # Reconstruct LLM from parameters if available
                 from aixplain.factories.model_factory import ModelFactory
 
                 try:
-                    llm = ModelFactory.get(data.get("llmId", "6646261c6eb563165658bbb1"))
+                    llm = ModelFactory.get(
+                        data.get("llmId", "6646261c6eb563165658bbb1")
+                    )
                     if llm_tool.get("parameters"):
                         # Apply stored parameters to LLM
                         llm.set_parameters(llm_tool["parameters"])
@@ -991,7 +1040,11 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
                     from aixplain.factories.team_agent_factory import TeamAgentFactory
 
                     team_agents = TeamAgentFactory.list()["results"]
-                    using_team_agents = [ta for ta in team_agents if any(agent.id == self.id for agent in ta.agents)]
+                    using_team_agents = [
+                        ta
+                        for ta in team_agents
+                        if any(agent.id == self.id for agent in ta.agents)
+                    ]
 
                     if using_team_agents:
                         # Scenario 1: User has access to team agents
@@ -1014,7 +1067,9 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
                             "referencing it."
                         )
                 else:
-                    message = f"Agent Deletion Error (HTTP {r.status_code}): {error_message}."
+                    message = (
+                        f"Agent Deletion Error (HTTP {r.status_code}): {error_message}."
+                    )
             except ValueError:
                 message = f"Agent Deletion Error (HTTP {r.status_code}): There was an error in deleting the agent."
             logging.error(message)
@@ -1053,7 +1108,9 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
 
         payload = self.to_dict()
 
-        logging.debug(f"Start service for PUT Update Agent  - {url} - {headers} - {json.dumps(payload)}")
+        logging.debug(
+            f"Start service for PUT Update Agent  - {url} - {headers} - {json.dumps(payload)}"
+        )
         resp = "No specified error."
         try:
             r = _request_with_retry("put", url, headers=headers, json=payload)
@@ -1148,7 +1205,9 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
             AgentResponse: Final response from the evolution process.
         """
         from aixplain.utils.evolve_utils import create_llm_dict
-        from aixplain.factories.team_agent_factory.utils import build_team_agent_from_yaml
+        from aixplain.factories.team_agent_factory.utils import (
+            build_team_agent_from_yaml,
+        )
 
         # Create EvolveParam from individual parameters
         evolve_parameters = EvolveParam(
@@ -1182,7 +1241,10 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
             result = self.sync_poll(poll_url, name="evolve_process", timeout=600)
             result_data = result.data
 
-            if "current_code" in result_data and result_data["current_code"] is not None:
+            if (
+                "current_code" in result_data
+                and result_data["current_code"] is not None
+            ):
                 if evolve_parameters.evolve_type == EvolveType.TEAM_TUNING:
                     result_data["evolved_agent"] = build_team_agent_from_yaml(
                         result_data["current_code"],
