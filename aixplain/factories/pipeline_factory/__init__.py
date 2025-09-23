@@ -198,6 +198,7 @@ class PipelineFactory:
         page_number: int = 0,
         page_size: int = 20,
         drafts_only: bool = False,
+        api_key: Optional[Text] = None,
     ) -> Dict:
         """List and filter pipelines with pagination support.
 
@@ -237,8 +238,9 @@ class PipelineFactory:
 
         url = urljoin(cls.backend_url, "sdk/pipelines/paginate")
 
+        api_key = api_key or config.TEAM_API_KEY
         headers = {
-            "Authorization": f"Token {config.TEAM_API_KEY}",
+            "Authorization": f"Token {api_key}",
             "Content-Type": "application/json",
         }
 

@@ -1,183 +1,370 @@
-from typing_extensions import (
-    Unpack,
-    List,
-    Union,
-    TYPE_CHECKING,
-    Callable,
-    NotRequired,
-    Optional,
-)
+import json
+from enum import Enum
+from dataclasses import dataclass, field
+from typing import List, Optional, Any, Dict, Union, Text
+from typing_extensions import Unpack, NotRequired
+from dataclasses_json import dataclass_json, config
+
+from pydantic import BaseModel
+
+from aixplain.enums import AssetStatus
+from aixplain.v2.model import Model
+from aixplain.v2.mixins import ToolableMixin
 
 from .resource import (
     BaseResource,
-    ListResourceMixin,
+    SearchResourceMixin,
     GetResourceMixin,
-    BareListParams,
-    BareGetParams,
-    BaseCreateParams,
+    DeleteResourceMixin,
+    BaseSearchParams,
+    BaseGetParams,
+    BaseDeleteParams,
+    BaseRunParams,
+    Result,
+    RunnableResourceMixin,
     Page,
 )
 
-if TYPE_CHECKING:
-    from aixplain.modules.agent.tool import Tool
-    from aixplain.modules.agent.utils import Supplier
-    from aixplain.modules.model import Model
-    from aixplain.modules.pipeline import Pipeline
-    from aixplain.modules.agent.tool.pipeline_tool import PipelineTool
-    from aixplain.modules.agent.tool.python_interpreter_tool import (
-        PythonInterpreterTool,
-    )
-    from aixplain.modules.agent.tool.custom_python_code_tool import CustomPythonCodeTool
-    from aixplain.modules.agent.tool.sql_tool import SQLTool
-from .enums import Function
+
+class OutputFormat(str, Enum):
+    MARKDOWN = "markdown"
+    TEXT = "text"
+    JSON = "json"
 
 
-class AgentCreateParams(BaseCreateParams):
+class AgentRunParams(BaseRunParams):
+    """Parameters for running an agent."""
+
+    sessionId: NotRequired[Optional[Text]]
+    query: NotRequired[Optional[Union[Dict, Text]]]
+    allowHistoryAndSessionId: NotRequired[Optional[bool]]
+    tasks: NotRequired[Optional[List[Any]]]
+    prompt: NotRequired[Optional[Text]]
+    history: NotRequired[Optional[List[Dict]]]
+    executionParams: NotRequired[Optional[Dict[str, Any]]]
+    criteria: NotRequired[Optional[Text]]
+    evolve: NotRequired[Optional[Text]]
+    inspectors: NotRequired[Optional[List[Dict]]]
+
+
+@dataclass_json
+@dataclass
+class AgentResponseData:
+    """Data structure for agent response."""
+
+    input: Optional[Any] = None
+    output: Optional[Any] = None
+    intermediate_steps: Optional[List[Dict[str, Any]]] = field(default_factory=list)
+    execution_stats: Optional[Dict[str, Any]] = None
+    critiques: Optional[str] = ""
+
+
+@dataclass_json
+@dataclass
+class AgentRunResult(Result):
+    """Result from running an agent."""
+
+    data: Optional[Union[AgentResponseData, Text]] = None
+    session_id: Optional[Text] = None
+    request_id: Optional[Text] = None
+    used_credits: float = 0.0
+    run_time: float = 0.0
+    completed: Optional[bool] = None
+    error_message: Optional[str] = None
+    url: Optional[str] = None
+    result: Optional[Any] = None
+    supplier_error: Optional[str] = None
+
+
+@dataclass_json
+@dataclass
+class Task:
     name: str
-    description: str
-    llm_id: NotRequired[str]
-    tools: NotRequired[List["Tool"]]
-    api_key: NotRequired[str]
-    supplier: NotRequired[Union[dict, str, "Supplier", int]]
-    version: NotRequired[str]
+    instructions: Optional[str] = field(metadata=config(field_name="description"))
+    expected_output: Optional[str] = field(metadata=config(field_name="expectedOutput"))
+    dependencies: List[Union[str, "Task"]] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        self.dependencies = [
+            dependency if isinstance(dependency, str) else dependency.name
+            for dependency in self.dependencies
+        ]
 
 
+@dataclass_json
+@dataclass
 class Agent(
     BaseResource,
-    ListResourceMixin[BareListParams, "Agent"],
-    GetResourceMixin[BareGetParams, "Agent"],
+    SearchResourceMixin[BaseSearchParams, "Agent"],
+    GetResourceMixin[BaseGetParams, "Agent"],
+    DeleteResourceMixin[BaseDeleteParams, "Agent"],
+    RunnableResourceMixin[AgentRunParams, AgentRunResult],
 ):
-    """Resource for agents.
+    """
+    Agent resource class.
 
-    Attributes:
-        RESOURCE_PATH: str: The resource path.
-        PAGINATE_PATH: None: The path for pagination.
-        PAGINATE_METHOD: str: The method for pagination.
-        PAGINATE_ITEMS_KEY: None: The key for the response.
+    Note: There are some discrepancies between the Swagger documentation for creation
+    and what the server returns when retrieving agents:
+
+    - Server GET responses often omit: role, inspectorId, supervisorId, plannerId, tasks, tools
+    - Server GET responses may omit 'name' field in assets
+    - Some fields documented in Swagger may not be implemented server-side yet
+
+    This structure accommodates both creation (with all documented fields) and
+    retrieval (with potentially incomplete data from server).
     """
 
-    RESOURCE_PATH = "sdk/agents"
-    PAGINATE_PATH = None
-    PAGINATE_METHOD = "get"
-    PAGINATE_ITEMS_KEY = None
+    RESOURCE_PATH = "v2/agents"
 
-    LLM_ID = "669a63646eb56306647e1091"
+    DEFAULT_LLM = "669a63646eb56306647e1091"
     SUPPLIER = "aiXplain"
 
-    @classmethod
-    def list(cls, **kwargs: Unpack[BareListParams]) -> Page["Agent"]:
-        from aixplain.factories import AgentFactory
+    RESPONSE_CLASS = AgentRunResult
+    Task = Task
+    OutputFormat = OutputFormat
 
-        return AgentFactory.list(**kwargs)
+    # Core fields from Swagger
+    instructions: Optional[str] = None
+    status: AssetStatus = AssetStatus.DRAFT
+    team_id: Optional[int] = field(default=None, metadata=config(field_name="teamId"))
+    llm: Union[str, "Model"] = field(
+        default=DEFAULT_LLM, metadata=config(field_name="llmId")
+    )
 
-    @classmethod
-    def get(cls, id: Optional[str] = None, name: Optional[str] = None, **kwargs: Unpack[BareGetParams]) -> "Agent":
-        from aixplain.factories import AgentFactory
+    # Asset and tool fields
+    assets: Optional[List[Dict[str, Any]]] = field(
+        default_factory=list, metadata=config(field_name="tools")
+    )
+    tools: Optional[List[Dict[str, Any]]] = field(
+        default_factory=list, metadata=config(field_name="assets")
+    )
 
-        return AgentFactory.get(agent_id=id, name=name)
+    # Inspector and supervisor fields
+    inspector_id: Optional[str] = field(
+        default=None, metadata=config(field_name="inspectorId")
+    )
+    supervisor_id: Optional[str] = field(
+        default=None, metadata=config(field_name="supervisorId")
+    )
+    planner_id: Optional[str] = field(
+        default=None, metadata=config(field_name="plannerId")
+    )
 
-    @classmethod
-    def create(cls, *args, **kwargs: Unpack[AgentCreateParams]) -> "Agent":
-        from aixplain.factories import AgentFactory
-        from aixplain.utils import config
+    # Task fields
+    tasks: Optional[List[Task]] = field(default_factory=list)
+    subagents: Optional[List[Union[str, "Agent"]]] = field(
+        default_factory=list, metadata=config(field_name="agents")
+    )
 
-        kwargs.setdefault("llm_id", cls.LLM_ID)
-        kwargs.setdefault("api_key", config.TEAM_API_KEY)
-        kwargs.setdefault("supplier", cls.SUPPLIER)
-        kwargs.setdefault("tools", [])
+    # Output and execution fields
+    output_format: Optional[Union[str, OutputFormat]] = field(
+        default=OutputFormat.TEXT.value, metadata=config(field_name="outputFormat")
+    )
+    expected_output: Optional[Union[str, dict, BaseModel]] = field(
+        default="", metadata=config(field_name="expectedOutput")
+    )
 
-        return AgentFactory.create(*args, **kwargs)
+    # Metadata fields
+    created_at: Optional[str] = field(
+        default=None, metadata=config(field_name="createdAt")
+    )
+    updated_at: Optional[str] = field(
+        default=None, metadata=config(field_name="updatedAt")
+    )
+    inspector_targets: Optional[List[Any]] = field(
+        default_factory=list, metadata=config(field_name="inspectorTargets")
+    )
+    max_inspectors: Optional[int] = field(
+        default=None, metadata=config(field_name="maxInspectors")
+    )
+    inspectors: Optional[List[Any]] = field(default_factory=list)
+    resource_info: Optional[Dict[str, Any]] = field(
+        default_factory=dict, metadata=config(field_name="resourceInfo")
+    )
 
-    @classmethod
-    def create_model_tool(
-        cls,
-        model: Union["Model", str] = None,
-        function: Union[Function, str] = None,
-        supplier: Union["Supplier", str] = None,
-        description: str = "",
-        name: Optional[str] = None,
-    ):
-        from aixplain.factories import AgentFactory
-
-        return AgentFactory.create_model_tool(
-            model=model, function=function, supplier=supplier, description=description, name=name
+    def __repr__(self) -> str:
+        """
+        Override dataclass __repr__ to show only id, name, and description.
+        """
+        return (
+            f"{self.__class__.__name__}"
+            f"(id={self.id}, name={self.name}, "
+            f"description={self.description})"
         )
 
+    def __post_init__(self) -> None:
+        self.tasks = [Task.from_dict(task) for task in self.tasks]
+        self.subagents = [
+            agent if isinstance(agent, str) else agent.id for agent in self.subagents
+        ]
+        self.assets = [{"type": "llm", "description": "main", "parameters": []}]
+        if isinstance(self.output_format, OutputFormat):
+            self.output_format = self.output_format.value
+
+        if isinstance(self.llm, Model):
+            self.llm = self.llm.id
+        if self.subagents and (self.tasks or self.tools):
+            raise ValueError(
+                "Team agents cannot have tasks or tools. Please remove the tasks or tools and try again."
+            )
+
+    def mark_as_deleted(self) -> None:
+        """Mark the agent as deleted by setting status to DELETED and calling parent method."""
+        from .enums import AssetStatus
+
+        self.status = AssetStatus.DELETED
+        super().mark_as_deleted()
+
+    def before_run(
+        self, *args: Any, **kwargs: Unpack[AgentRunParams]
+    ) -> Optional[AgentRunResult]:
+        # If the agent is draft or not set, and it is modified,
+        # implicitly save it as draft
+        if self.status in [AssetStatus.DRAFT, None]:
+            if self.is_modified:
+                self.save(as_draft=True)
+        elif self.status == AssetStatus.ONBOARDED:
+            if self.is_modified:
+                raise ValueError(
+                    "Agent is onboarded and cannot be modified unless you "
+                    "explicitly save it."
+                )
+        return None  # Continue with normal operation
+
+    def after_run(
+        self,
+        result: Union[AgentRunResult, Exception],
+        *args: Any,
+        **kwargs: Unpack[AgentRunParams],
+    ) -> Optional[AgentRunResult]:
+        # Could implement caching, logging, or custom result transformation
+        # here
+        return None  # Return original result
+
+    def run(self, *args: Any, **kwargs: Unpack[AgentRunParams]) -> AgentRunResult:
+        if len(args) > 0:
+            kwargs["query"] = args[0]
+            args = args[1:]
+        return super().run(*args, **kwargs)
+
+    def _validate_expected_output(self) -> None:
+        if self.output_format == OutputFormat.JSON.value:
+            if not isinstance(self.expected_output, (str, dict, BaseModel)):
+                raise ValueError("Expected output must be a valid JSON object")
+            if isinstance(self.expected_output, str):
+                try:
+                    json.loads(self.expected_output)
+                except json.JSONDecodeError:
+                    raise ValueError(
+                        "Expected output must be a valid JSON string or dict or pydantic model"
+                    )
+        elif self.output_format in [
+            OutputFormat.MARKDOWN.value,
+            OutputFormat.TEXT.value,
+        ]:
+            if not isinstance(self.expected_output, str):
+                raise ValueError("Expected output must be a string")
+
+    def before_save(self, *args: Any, **kwargs: Any) -> Optional[dict]:
+        """
+        Callback to be called before the resource is saved.
+        Handles status transitions based on save type.
+        """
+        as_draft = kwargs.pop("as_draft", False)
+        if as_draft:
+            self.status = AssetStatus.DRAFT
+        else:
+            self.status = AssetStatus.ONBOARDED
+
+        # validate expected output as per output format
+        # json should be a valid json string or dict or pydantic model
+        self._validate_expected_output()
+
+        # if not all(t.status == AssetStatus.ONBOARDED for t in self.tools):
+        #     raise ValueError(
+        #         "All tools must be onboarded before saving the agent."
+        #     )
+        # if not all(t.status == AssetStatus.ONBOARDED for t in self.subagents):
+        #     raise ValueError(
+        #         "All subagents must be onboarded before saving the agent."
+        #     )
+
+        return None  # Continue with normal operation
+
     @classmethod
-    def create_pipeline_tool(
-        cls, description: str, pipeline: Union["Pipeline", str], name: Optional[str] = None
-    ) -> "PipelineTool":
-        """Create a new pipeline tool."""
-        from aixplain.factories import AgentFactory
-
-        return AgentFactory.create_pipeline_tool(description=description, pipeline=pipeline, name=name)
+    def get(cls: type["Agent"], id: str, **kwargs: Unpack[BaseGetParams]) -> "Agent":
+        return super().get(id, **kwargs)
 
     @classmethod
-    def create_python_interpreter_tool(cls) -> "PythonInterpreterTool":
-        """Create a new python interpreter tool."""
-        from aixplain.factories import AgentFactory
-
-        return AgentFactory.create_python_interpreter_tool()
-
-    @classmethod
-    def create_custom_python_code_tool(
-        cls, code: Union[str, Callable], name: str, description: str = ""
-    ) -> "CustomPythonCodeTool":
-        """Create a new custom python code tool."""
-        from aixplain.factories import AgentFactory
-
-        return AgentFactory.create_custom_python_code_tool(code=code, name=name, description=description)
-
-    @classmethod
-    def create_sql_tool(
-        cls,
-        name: str,
-        description: str,
-        source: str,
-        source_type: str,
-        schema: Optional[str] = None,
-        tables: Optional[List[str]] = None,
-        enable_commit: bool = False,
-    ) -> "SQLTool":
-        """Create a new SQL tool.
+    def search(
+        cls: type["Agent"],
+        query: Optional[str] = None,
+        **kwargs: Unpack[BaseSearchParams],
+    ) -> "Page[Agent]":
+        """
+        Search agents with optional query and filtering.
 
         Args:
-            description (str): description of the database tool
-            source (Union[str, Dict]): database source - can be a connection string or dictionary with connection details
-            source_type (str): type of source (sqlite, csv)
-            schema (Optional[str], optional): database schema description
-            tables (Optional[List[str]], optional): table names to work with (optional)
-            enable_commit (bool, optional): enable to modify the database (optional)
+            query: Optional search query string
+            **kwargs: Additional search parameters (ownership, status, etc.)
 
         Returns:
-            SQLTool: created SQLTool
-
-        Examples:
-            # SQLite - Simple
-            sql_tool = Agent.create_sql_tool(
-                description="My SQLite Tool",
-                source="/path/to/database.sqlite",
-                source_type="sqlite",
-                tables=["users", "products"]
-            )
-
-            # CSV - Simple
-            sql_tool = Agent.create_sql_tool(
-                description="My CSV Tool",
-                source="/path/to/data.csv",
-                source_type="csv",
-                tables=["data"]
-            )
-
+            Page of agents matching the search criteria
         """
-        from aixplain.factories import AgentFactory
+        # If query is provided, add it to kwargs
+        if query is not None:
+            kwargs["query"] = query
 
-        return AgentFactory.create_sql_tool(
-            name=name,
-            description=description,
-            source=source,
-            source_type=source_type,
-            schema=schema,
-            tables=tables,
-            enable_commit=enable_commit,
-        )
+        return super().search(**kwargs)
+
+    def build_save_payload(self, **kwargs: Any) -> dict:
+        """
+        Build the payload for the save action.
+        """
+        payload = self.to_dict()
+
+        # Convert tools intelligently based on their type
+        converted_assets = []
+        if self.tools:
+            for tool in self.tools:
+                if isinstance(tool, ToolableMixin):
+                    # Non-tool objects (like Models) that can act as tools
+                    converted_assets.append(tool.as_tool())
+                else:
+                    raise ValueError(
+                        "A tool in the agent must be a Tool, Model or ToolableMixin instance."
+                    )
+
+        # Update the payload with converted assets
+        payload["assets"] = converted_assets
+
+        return payload
+
+    def build_run_payload(self, **kwargs: Unpack[AgentRunParams]) -> dict:
+        """
+        Build the payload for the run action.
+        """
+        # Extract executionParams if provided, otherwise use defaults
+        execution_params = kwargs.pop("executionParams", {})
+
+        # Set default values for executionParams if not provided
+        if not execution_params:
+            execution_params = {
+                "outputFormat": self.output_format,
+                "maxTokens": 2048,
+                "maxIterations": 30,
+                "maxTime": 300,
+            }
+
+        # Build the payload according to Swagger specification
+        payload = {
+            "id": self.id,
+            "executionParams": execution_params,
+        }
+
+        # Add all other parameters from kwargs
+        for key, value in kwargs.items():
+            if value is not None:  # Only include non-None values
+                payload[key] = value
+
+        return payload
