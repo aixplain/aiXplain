@@ -1,6 +1,8 @@
-__author__ = "aiXplain"
+"""Agent module for aiXplain SDK.
 
-"""
+This module provides the Agent class and related functionality for creating and managing
+AI agents that can execute tasks using various tools and models.
+
 Copyright 2024 The aiXplain SDK authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,6 +22,8 @@ Date: May 16th 2024
 Description:
     Agentification Class
 """
+
+__author__ = "aiXplain"
 import json
 import logging
 import re
@@ -29,23 +33,26 @@ from datetime import datetime
 
 from aixplain.utils.file_utils import _request_with_retry
 from aixplain.enums import Function, Supplier, AssetStatus, StorageType, ResponseStatus
+from aixplain.enums.evolve_type import EvolveType
 from aixplain.modules.model import Model
-from aixplain.modules.agent.agent_task import AgentTask
+from aixplain.modules.agent.agent_task import WorkflowTask, AgentTask
 from aixplain.modules.agent.output_format import OutputFormat
-from aixplain.modules.agent.tool import Tool
+from aixplain.modules.agent.tool import Tool, DeployableTool
 from aixplain.modules.agent.agent_response import AgentResponse
 from aixplain.modules.agent.agent_response_data import AgentResponseData
 from aixplain.modules.agent.utils import process_variables, validate_history
 from pydantic import BaseModel
-from typing import Dict, List, Text, Optional, Union
+from typing import Dict, List, Text, Optional, Union, Any
+from aixplain.modules.agent.evolve_param import EvolveParam, validate_evolve_param
 from urllib.parse import urljoin
 from aixplain.modules.model.llm_model import LLM
 
 from aixplain.utils import config
 from aixplain.modules.mixins import DeployableMixin
+import warnings
 
 
-class Agent(Model, DeployableMixin[Tool]):
+class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
     """An advanced AI system that performs tasks using specialized tools from the aiXplain marketplace.
 
     This class represents an AI agent that can understand natural language instructions,
@@ -92,6 +99,7 @@ class Agent(Model, DeployableMixin[Tool]):
         cost: Optional[Dict] = None,
         status: AssetStatus = AssetStatus.DRAFT,
         tasks: List[AgentTask] = [],
+        workflow_tasks: List[WorkflowTask] = [],
         output_format: OutputFormat = OutputFormat.TEXT,
         expected_output: Optional[Union[BaseModel, Text, dict]] = None,
         **additional_info,
@@ -120,6 +128,8 @@ class Agent(Model, DeployableMixin[Tool]):
                 Defaults to AssetStatus.DRAFT.
             tasks (List[AgentTask], optional): List of tasks the Agent can perform.
                 Defaults to empty list.
+            workflow_tasks (List[WorkflowTask], optional): List of workflow tasks
+                the Agent can execute. Defaults to empty list.
             output_format (OutputFormat, optional): default output format for agent responses. Defaults to OutputFormat.TEXT.
             expected_output (Union[BaseModel, Text, dict], optional): expected output. Defaults to None.
             **additional_info: Additional configuration parameters.
@@ -138,7 +148,17 @@ class Agent(Model, DeployableMixin[Tool]):
             except Exception:
                 status = AssetStatus.DRAFT
         self.status = status
-        self.tasks = tasks
+        if tasks:
+            warnings.warn(
+                "The 'tasks' parameter is deprecated and will be removed in a future version. "
+                "Use 'workflow_tasks' instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            self.workflow_tasks = tasks
+        else:
+            self.workflow_tasks = workflow_tasks
+        self.tasks = self.workflow_tasks
         self.output_format = output_format
         self.expected_output = expected_output
         self.is_valid = True
@@ -158,11 +178,11 @@ class Agent(Model, DeployableMixin[Tool]):
         from aixplain.utils.llm_utils import get_llm_instance
 
         # validate name
-        assert (
-            re.match(r"^[a-zA-Z0-9 \-\(\)]*$", self.name) is not None
-        ), "Agent Creation Error: Agent name contains invalid characters. Only alphanumeric characters, spaces, hyphens, and brackets are allowed."
+        assert re.match(r"^[a-zA-Z0-9 \-\(\)]*$", self.name) is not None, (
+            "Agent Creation Error: Agent name contains invalid characters. Only alphanumeric characters, spaces, hyphens, and brackets are allowed."
+        )
 
-        llm = get_llm_instance(self.llm_id, api_key=self.api_key)
+        llm = get_llm_instance(self.llm_id, api_key=self.api_key, use_cache=True)
 
         assert llm.function == Function.TEXT_GENERATION, "Large Language Model must be a text generation model."
 
@@ -220,6 +240,14 @@ class Agent(Model, DeployableMixin[Tool]):
         return self.is_valid
 
     def generate_session_id(self, history: list = None) -> str:
+        """Generate a unique session ID for agent conversations.
+
+        Args:
+            history (list, optional): Previous conversation history. Defaults to None.
+
+        Returns:
+            str: A unique session identifier based on timestamp and random components.
+        """
         if history:
             validate_history(history)
         timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
@@ -274,7 +302,7 @@ class Agent(Model, DeployableMixin[Tool]):
         wait_time: float = 0.5,
         content: Optional[Union[Dict[Text, Text], List[Text]]] = None,
         max_tokens: int = 4096,
-        max_iterations: int = 3,
+        max_iterations: int = 5,
         output_format: Optional[OutputFormat] = None,
         expected_output: Optional[Union[BaseModel, Text, dict]] = None,
     ) -> AgentResponse:
@@ -294,6 +322,7 @@ class Agent(Model, DeployableMixin[Tool]):
             max_iterations (int, optional): maximum number of iterations between the agent and the tools. Defaults to 10.
             output_format (OutputFormat, optional): response format. If not provided, uses the format set during initialization.
             expected_output (Union[BaseModel, Text, dict], optional): expected output. Defaults to None.
+
         Returns:
             Dict: parsed output from model
         """
@@ -307,6 +336,8 @@ class Agent(Model, DeployableMixin[Tool]):
         if history:
             validate_history(history)
         result_data = {}
+        if len(self.tasks) > 0:
+            max_iterations = 30
         try:
             response = self.run_async(
                 data=data,
@@ -370,9 +401,10 @@ class Agent(Model, DeployableMixin[Tool]):
         parameters: Dict = {},
         content: Optional[Union[Dict[Text, Text], List[Text]]] = None,
         max_tokens: int = 2048,
-        max_iterations: int = 10,
+        max_iterations: int = 5,
         output_format: Optional[OutputFormat] = None,
         expected_output: Optional[Union[BaseModel, Text, dict]] = None,
+        evolve: Union[Dict[str, Any], EvolveParam, None] = None,
     ) -> AgentResponse:
         """Runs asynchronously an agent call.
 
@@ -388,10 +420,12 @@ class Agent(Model, DeployableMixin[Tool]):
             max_iterations (int, optional): maximum number of iterations between the agent and the tools. Defaults to 10.
             output_format (OutputFormat, optional): response format. If not provided, uses the format set during initialization.
             expected_output (Union[BaseModel, Text, dict], optional): expected output. Defaults to None.
+            output_format (ResponseFormat, optional): response format. Defaults to TEXT.
+            evolve (Union[Dict[str, Any], EvolveParam, None], optional): evolve the agent configuration. Can be a dictionary, EvolveParam instance, or None.
+
         Returns:
             dict: polling URL in response
         """
-
         if session_id is not None and history is not None:
             raise ValueError("Provide either `session_id` or `history`, not both.")
 
@@ -404,8 +438,9 @@ class Agent(Model, DeployableMixin[Tool]):
 
         from aixplain.factories.file_factory import FileFactory
 
-        if not self.is_valid:
-            raise Exception("Agent is not valid. Please validate the agent before running.")
+        # Validate and normalize evolve parameters using the base model
+        evolve_param = validate_evolve_param(evolve)
+        evolve_dict = evolve_param.to_dict()
 
         if output_format == OutputFormat.JSON:
             assert expected_output is not None and (
@@ -415,7 +450,9 @@ class Agent(Model, DeployableMixin[Tool]):
         assert data is not None or query is not None, "Either 'data' or 'query' must be provided."
         if data is not None:
             if isinstance(data, dict):
-                assert "query" in data and data["query"] is not None, "When providing a dictionary, 'query' must be provided."
+                assert "query" in data and data["query"] is not None, (
+                    "When providing a dictionary, 'query' must be provided."
+                )
                 query = data.get("query")
                 if session_id is None:
                     session_id = data.get("session_id")
@@ -428,7 +465,9 @@ class Agent(Model, DeployableMixin[Tool]):
 
         # process content inputs
         if content is not None:
-            assert FileFactory.check_storage_type(query) == StorageType.TEXT, "When providing 'content', query must be text."
+            assert FileFactory.check_storage_type(query) == StorageType.TEXT, (
+                "When providing 'content', query must be text."
+            )
 
             if isinstance(content, list):
                 assert len(content) <= 3, "The maximum number of content inputs is 3."
@@ -467,6 +506,7 @@ class Agent(Model, DeployableMixin[Tool]):
                 "outputFormat": output_format,
                 "expectedOutput": expected_output,
             },
+            "evolve": json.dumps(evolve_dict),
         }
         payload.update(parameters)
         payload = json.dumps(payload)
@@ -491,6 +531,11 @@ class Agent(Model, DeployableMixin[Tool]):
             )
 
     def to_dict(self) -> Dict:
+        """Convert the Agent instance to a dictionary representation.
+
+        Returns:
+            Dict: Dictionary containing the agent's configuration and metadata.
+        """
         from aixplain.factories.agent_factory.utils import build_tool_payload
 
         return {
@@ -503,7 +548,7 @@ class Agent(Model, DeployableMixin[Tool]):
             "version": self.version,
             "llmId": self.llm_id if self.llm is None else self.llm.id,
             "status": self.status.value,
-            "tasks": [task.to_dict() for task in self.tasks],
+            "tasks": [task.to_dict() for task in self.workflow_tasks],
             "tools": (
                 [
                     {
@@ -533,7 +578,7 @@ class Agent(Model, DeployableMixin[Tool]):
         """
         from aixplain.factories.agent_factory.utils import build_tool
         from aixplain.enums import AssetStatus
-        from aixplain.modules.agent_task import AgentTask
+        from aixplain.modules.agent import WorkflowTask
 
         # Extract tools from assets using proper tool building
         tools = []
@@ -549,10 +594,10 @@ class Agent(Model, DeployableMixin[Tool]):
                     logging.warning(f"Failed to build tool from asset data: {e}")
 
         # Extract tasks using from_dict method
-        tasks = []
+        workflow_tasks = []
         if "tasks" in data:
             for task_data in data["tasks"]:
-                tasks.append(AgentTask.from_dict(task_data))
+                workflow_tasks.append(WorkflowTask.from_dict(task_data))
 
         # Extract LLM from tools section (main LLM info)
         llm = None
@@ -583,7 +628,7 @@ class Agent(Model, DeployableMixin[Tool]):
             id=data["id"],
             name=data["name"],
             description=data["description"],
-            instructions=data.get("role"),
+            instructions=data.get("instructions"),
             tools=tools,
             llm_id=data.get("llmId", "6646261c6eb563165658bbb1"),
             llm=llm,
@@ -592,7 +637,7 @@ class Agent(Model, DeployableMixin[Tool]):
             version=data.get("version"),
             cost=data.get("cost"),
             status=status,
-            tasks=tasks,
+            workflow_tasks=workflow_tasks,
             output_format=OutputFormat(data.get("outputFormat", OutputFormat.TEXT)),
             expected_output=data.get("expectedOutput"),
         )
@@ -654,9 +699,9 @@ class Agent(Model, DeployableMixin[Tool]):
                             "referencing it."
                         )
                 else:
-                    message = f"Agent Deletion Error (HTTP {r.status_code}): " f"{error_message}."
+                    message = f"Agent Deletion Error (HTTP {r.status_code}): {error_message}."
             except ValueError:
-                message = f"Agent Deletion Error (HTTP {r.status_code}): " "There was an error in deleting the agent."
+                message = f"Agent Deletion Error (HTTP {r.status_code}): There was an error in deleting the agent."
             logging.error(message)
             raise Exception(message)
 
@@ -681,7 +726,7 @@ class Agent(Model, DeployableMixin[Tool]):
         stack = inspect.stack()
         if len(stack) > 2 and stack[1].function != "save":
             warnings.warn(
-                "update() is deprecated and will be removed in a future version. " "Please use save() instead.",
+                "update() is deprecated and will be removed in a future version. Please use save() instead.",
                 DeprecationWarning,
                 stacklevel=2,
             )
@@ -725,3 +770,131 @@ class Agent(Model, DeployableMixin[Tool]):
             str: A string in the format "Agent: <name> (id=<id>)".
         """
         return f"Agent: {self.name} (id={self.id})"
+
+    def evolve_async(
+        self,
+        evolve_type: Union[EvolveType, str] = EvolveType.TEAM_TUNING,
+        max_successful_generations: int = 3,
+        max_failed_generation_retries: int = 3,
+        max_iterations: int = 50,
+        max_non_improving_generations: Optional[int] = 2,
+        llm: Optional[Union[Text, LLM]] = None,
+    ) -> AgentResponse:
+        """Asynchronously evolve the Agent and return a polling URL in the AgentResponse.
+
+        Args:
+            evolve_type (Union[EvolveType, str]): Type of evolution (TEAM_TUNING or INSTRUCTION_TUNING). Defaults to TEAM_TUNING.
+            max_successful_generations (int): Maximum number of successful generations to evolve. Defaults to 3.
+            max_failed_generation_retries (int): Maximum retry attempts for failed generations. Defaults to 3.
+            max_iterations (int): Maximum number of iterations. Defaults to 50.
+            max_non_improving_generations (Optional[int]): Stop condition parameter for non-improving generations. Defaults to 2, can be None.
+            llm (Optional[Union[Text, LLM]]): LLM to use for evolution. Can be an LLM ID string or LLM object. Defaults to None.
+
+        Returns:
+            AgentResponse: Response containing polling URL and status.
+        """
+        from aixplain.utils.evolve_utils import create_llm_dict
+
+        query = "<placeholder query>"
+
+        # Create EvolveParam from individual parameters
+        evolve_parameters = EvolveParam(
+            to_evolve=True,
+            evolve_type=evolve_type,
+            max_successful_generations=max_successful_generations,
+            max_failed_generation_retries=max_failed_generation_retries,
+            max_iterations=max_iterations,
+            max_non_improving_generations=max_non_improving_generations,
+            llm=create_llm_dict(llm),
+        )
+
+        return self.run_async(query=query, evolve=evolve_parameters)
+
+    def evolve(
+        self,
+        evolve_type: Union[EvolveType, str] = EvolveType.TEAM_TUNING,
+        max_successful_generations: int = 3,
+        max_failed_generation_retries: int = 3,
+        max_iterations: int = 50,
+        max_non_improving_generations: Optional[int] = 2,
+        llm: Optional[Union[Text, LLM]] = None,
+    ) -> AgentResponse:
+        """Synchronously evolve the Agent and poll for the result.
+
+        Args:
+            evolve_type (Union[EvolveType, str]): Type of evolution (TEAM_TUNING or INSTRUCTION_TUNING). Defaults to TEAM_TUNING.
+            max_successful_generations (int): Maximum number of successful generations to evolve. Defaults to 3.
+            max_failed_generation_retries (int): Maximum retry attempts for failed generations. Defaults to 3.
+            max_iterations (int): Maximum number of iterations. Defaults to 50.
+            max_non_improving_generations (Optional[int]): Stop condition parameter for non-improving generations. Defaults to 2, can be None.
+            llm (Optional[Union[Text, LLM]]): LLM to use for evolution. Can be an LLM ID string or LLM object. Defaults to None.
+
+        Returns:
+            AgentResponse: Final response from the evolution process.
+        """
+        from aixplain.utils.evolve_utils import create_llm_dict
+        from aixplain.factories.team_agent_factory.utils import build_team_agent_from_yaml
+
+        # Create EvolveParam from individual parameters
+        evolve_parameters = EvolveParam(
+            to_evolve=True,
+            evolve_type=evolve_type,
+            max_successful_generations=max_successful_generations,
+            max_failed_generation_retries=max_failed_generation_retries,
+            max_iterations=max_iterations,
+            max_non_improving_generations=max_non_improving_generations,
+            llm=create_llm_dict(llm),
+        )
+
+        start = time.time()
+        try:
+            logging.info(f"Evolve started with parameters: {evolve_parameters}")
+            logging.info("It might take a while...")
+            response = self.evolve_async(
+                evolve_type=evolve_type,
+                max_successful_generations=max_successful_generations,
+                max_failed_generation_retries=max_failed_generation_retries,
+                max_iterations=max_iterations,
+                max_non_improving_generations=max_non_improving_generations,
+                llm=llm,
+            )
+            if response["status"] == ResponseStatus.FAILED:
+                end = time.time()
+                response["elapsed_time"] = end - start
+                return response
+            poll_url = response["url"]
+            end = time.time()
+            result = self.sync_poll(poll_url, name="evolve_process", timeout=600)
+            result_data = result.data
+
+            if "current_code" in result_data and result_data["current_code"] is not None:
+                if evolve_parameters.evolve_type == EvolveType.TEAM_TUNING:
+                    result_data["evolved_agent"] = build_team_agent_from_yaml(
+                        result_data["current_code"],
+                        self.llm_id,
+                        self.api_key,
+                        self.id,
+                    )
+                elif evolve_parameters.evolve_type == EvolveType.INSTRUCTION_TUNING:
+                    self.instructions = result_data["current_code"]
+                    self.update()
+                    result_data["evolved_agent"] = self
+                else:
+                    raise ValueError(
+                        "evolve_parameters.evolve_type must be one of the following: TEAM_TUNING, INSTRUCTION_TUNING"
+                    )
+            return AgentResponse(
+                status=ResponseStatus.SUCCESS,
+                completed=True,
+                data=result_data,
+                used_credits=getattr(result, "used_credits", 0.0),
+                run_time=getattr(result, "run_time", end - start),
+            )
+        except Exception as e:
+            logging.error(f"Agent Evolve: Error in evolving: {e}")
+            end = time.time()
+            return AgentResponse(
+                status=ResponseStatus.FAILED,
+                completed=False,
+                error_message="No response from the service.",
+            )

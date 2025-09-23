@@ -28,7 +28,7 @@ import os
 
 from aixplain.enums.function import Function
 from aixplain.enums.supplier import Supplier
-from aixplain.modules.agent import Agent, AgentTask, Tool
+from aixplain.modules.agent import Agent, Tool, WorkflowTask
 from aixplain.modules.agent.output_format import OutputFormat
 from aixplain.modules.agent.tool.model_tool import ModelTool
 from aixplain.modules.agent.tool.pipeline_tool import PipelineTool
@@ -63,11 +63,12 @@ class AgentFactory:
         instructions: Optional[Text] = None,
         llm: Optional[Union[LLM, Text]] = None,
         llm_id: Optional[Text] = None,
-        tools: List[Union[Tool, Model]] = [],
+        tools: Optional[List[Union[Tool, Model]]] = None,
         api_key: Text = config.TEAM_API_KEY,
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
         version: Optional[Text] = None,
-        tasks: List[AgentTask] = [],
+        tasks: List[WorkflowTask] = None,
+        workflow_tasks: Optional[List[WorkflowTask]] = None,
         output_format: Optional[OutputFormat] = None,
         expected_output: Optional[Union[BaseModel, Text, dict]] = None,
     ) -> Agent:
@@ -80,7 +81,7 @@ class AgentFactory:
 
         Args:
             name (Text): name of the agent
-            description (Text): description of the agent role.
+            description (Text): description of the agent instructions.
             instructions (Text): instructions of the agent.
             llm (Optional[Union[LLM, Text]], optional): LLM instance to use as an object or as an ID.
             llm_id (Optional[Text], optional): ID of LLM to use if no LLM instance provided. Defaults to None.
@@ -88,19 +89,21 @@ class AgentFactory:
             api_key (Text, optional): team/user API key. Defaults to config.TEAM_API_KEY.
             supplier (Union[Dict, Text, Supplier, int], optional): owner of the agent. Defaults to "aiXplain".
             version (Optional[Text], optional): version of the agent. Defaults to None.
-            tasks (List[AgentTask], optional): list of tasks for the agent. Defaults to [].
+            workflow_tasks (List[WorkflowTask], optional): list of tasks for the agent. Defaults to [].
             output_format (OutputFormat, optional): default output format for agent responses. Defaults to OutputFormat.TEXT.
             expected_output (Union[BaseModel, Text, dict], optional): expected output. Defaults to None.
         Returns:
             Agent: created Agent
         """
+        tools = [] if tools is None else list(tools)
+        workflow_tasks = [] if workflow_tasks is None else list(workflow_tasks)
         from aixplain.utils.llm_utils import get_llm_instance
 
         if llm is None and llm_id is not None:
-            llm = get_llm_instance(llm_id, api_key=api_key)
+            llm = get_llm_instance(llm_id, api_key=api_key, use_cache=True)
         elif llm is None:
             # Use default GPT-4o if no LLM specified
-            llm = get_llm_instance("669a63646eb56306647e1091", api_key=api_key)
+            llm = get_llm_instance("669a63646eb56306647e1091", api_key=api_key, use_cache=True)
 
         if output_format == OutputFormat.JSON:
             assert expected_output is not None and (
@@ -127,6 +130,16 @@ class AgentFactory:
         elif isinstance(supplier, Supplier):
             supplier = supplier.value["code"]
 
+        if tasks is not None:
+            warnings.warn(
+                "The 'tasks' parameter is deprecated and will be removed in a future version. " "Use 'workflow_tasks' instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            workflow_tasks = tasks if workflow_tasks is None or workflow_tasks == [] else workflow_tasks
+
+        workflow_tasks = workflow_tasks or []
+
         payload = {
             "name": name,
             "assets": [build_tool_payload(tool) for tool in tools],
@@ -136,12 +149,12 @@ class AgentFactory:
             "version": version,
             "llmId": llm_id,
             "status": "draft",
-            "tasks": [task.to_dict() for task in tasks],
+            "tasks": [task.to_dict() for task in workflow_tasks],
             "tools": [],
         }
 
         if llm is not None:
-            llm = get_llm_instance(llm, api_key=api_key) if isinstance(llm, str) else llm
+            llm = get_llm_instance(llm, api_key=api_key, use_cache=True) if isinstance(llm, str) else llm
             payload["tools"].append(
                 {
                     "type": "llm",
@@ -206,31 +219,30 @@ class AgentFactory:
         return agent
 
     @classmethod
-    def create_task(
+    def create_workflow_task(
         cls,
         name: Text,
         description: Text,
         expected_output: Text,
         dependencies: Optional[List[Text]] = None,
-    ) -> AgentTask:
-        """Create a new task for an agent.
-
-        Args:
-            name (Text): Name of the task.
-            description (Text): Description of what the task should accomplish.
-            expected_output (Text): Description of the expected output format.
-            dependencies (Optional[List[Text]], optional): List of task names that must
-                complete before this task can start. Defaults to None.
-
-        Returns:
-            AgentTask: Created task object.
-        """
-        return AgentTask(
+    ) -> WorkflowTask:
+        dependencies = [] if dependencies is None else list(dependencies)
+        return WorkflowTask(
             name=name,
             description=description,
             expected_output=expected_output,
             dependencies=dependencies,
         )
+
+    @classmethod
+    def create_task(cls, *args, **kwargs):
+        warnings.warn(
+            "The 'create_task' method is deprecated and will be removed in a future version. "
+            "Use 'create_workflow_task' instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return cls.create_workflow_task(*args, **kwargs)
 
     @classmethod
     def create_model_tool(
@@ -494,7 +506,11 @@ class AgentFactory:
             total = len(results)
             logging.info(f"Response for GET List Agents - Page Total: {page_total} / Total: {total}")
             for agent in results:
-                agents.append(build_agent(agent))
+                try:
+                    agents.append(build_agent(agent))
+                except Exception:
+                    logging.warning(f"There was an error building the agent {agent['name']}. Skipping...")
+                    continue
             return {
                 "results": agents,
                 "page_total": page_total,
@@ -510,11 +526,12 @@ class AgentFactory:
             raise Exception(error_msg)
 
     @classmethod
-    def get(cls, agent_id: Text, api_key: Optional[Text] = None) -> Agent:
-        """Retrieve an agent by its ID.
+    def get(cls, agent_id: Optional[Text] = None, name: Optional[Text] = None, api_key: Optional[Text] = None) -> Agent:
+        """Retrieve an agent by its ID or name.
 
         Args:
-            agent_id (Text): ID of the agent to retrieve.
+            agent_id (Optional[Text], optional): ID of the agent to retrieve.
+            name (Optional[Text], optional): Name of the agent to retrieve.
             api_key (Optional[Text], optional): API key for authentication.
                 Defaults to None, using the configured TEAM_API_KEY.
 
@@ -523,14 +540,23 @@ class AgentFactory:
 
         Raises:
             Exception: If the agent cannot be retrieved or doesn't exist.
+            ValueError: If neither agent_id nor name is provided, or if both are provided.
         """
         from aixplain.factories.agent_factory.utils import build_agent
 
-        url = urljoin(config.BACKEND_URL, f"sdk/agents/{agent_id}")
+        # Validate that exactly one parameter is provided
+        if not (agent_id or name) or (agent_id and name):
+            raise ValueError("Must provide exactly one of 'agent_id' or 'name'")
+
+        # Construct URL based on parameter type
+        if agent_id:
+            url = urljoin(config.BACKEND_URL, f"sdk/agents/{agent_id}")
+        else:  # name is provided
+            url = urljoin(config.BACKEND_URL, f"sdk/agents/by-name/{name}")
 
         api_key = api_key if api_key is not None else config.TEAM_API_KEY
         headers = {"x-api-key": api_key, "Content-Type": "application/json"}
-        logging.info(f"Start service for GET Agent  - {url} - {headers}")
+        logging.info(f"Start service for GET Agent - {url} - {headers}")
         r = _request_with_retry("get", url, headers=headers)
         resp = r.json()
         if 200 <= r.status_code < 300:

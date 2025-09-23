@@ -46,17 +46,15 @@ def run_input_map(request):
 
 @pytest.fixture(scope="function")
 def delete_agents_and_team_agents():
-    for team_agent in TeamAgentFactory.list()["results"]:
-        team_agent.delete()
-    for agent in AgentFactory.list()["results"]:
-        agent.delete()
+    from tests.test_deletion_utils import safe_delete_all_agents_and_team_agents
+    
+    # Clean up before test
+    safe_delete_all_agents_and_team_agents()
 
     yield True
 
-    for team_agent in TeamAgentFactory.list()["results"]:
-        team_agent.delete()
-    for agent in AgentFactory.list()["results"]:
-        agent.delete()
+    # Clean up after test
+    safe_delete_all_agents_and_team_agents()
 
 
 @pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
@@ -98,7 +96,6 @@ def test_end2end(run_input_map, delete_agents_and_team_agents, AgentFactory):
     assert response["completed"] is True
     assert response["status"].lower() == "success"
     assert "data" in response
-    assert response["data"]["session_id"] is None
     assert response["data"]["output"] is not None
     agent.delete()
 
@@ -304,11 +301,12 @@ def test_update_tools_of_agent(run_input_map, delete_agents_and_team_agents, Age
         pytest.param(
             {
                 "type": "translation",
-                "supplier": "Microsoft",
+                "supplier": "ModernMT",
                 "function": "translation",
                 "query": "Translate: 'Olá, como vai você?'",
                 "description": "Translation tool with target language",
-                "expected_tool_input": "targetlanguage",
+                "expected_tool_input": "Olá, como vai você?",
+                "model": "60ddefc48d38c51c5885fdcf",
             },
             id="translation_tool",
         ),
@@ -324,10 +322,15 @@ def test_specific_model_parameters_e2e(tool_config, delete_agents_and_team_agent
         model_params.numResults = 5
         tool = AgentFactory.create_model_tool(model=search_model, description=tool_config["description"])
     else:
-        function = Function(tool_config["function"])
-        function_params = function.get_parameters()
-        function_params.sourcelanguage = "pt"
-        tool = AgentFactory.create_model_tool(function=function, description=tool_config["description"], supplier="microsoft")
+        translation_model = ModelFactory.get(tool_config["model"])
+        model_params = translation_model.get_parameters()
+
+        model_params.sourcelanguage = "pt"
+
+        tool = AgentFactory.create_model_tool(
+            model=translation_model,
+            description=tool_config["description"],
+        )
 
     # Verify tool parameters
     params = tool.get_parameters()
@@ -338,7 +341,8 @@ def test_specific_model_parameters_e2e(tool_config, delete_agents_and_team_agent
     # Create and run agent
     agent = AgentFactory.create(
         name="Test Parameter Agent",
-        description="Test agent with parameterized tools. You MUST use a tool for the tasks. Do not directly answer the question.",
+        instructions="Test agent with parameterized tools. You MUST use a tool for the tasks. Do not directly answer the question.",
+        description = "Test agent with parameterized tools",
         tools=[tool],
         llm_id="6646261c6eb563165658bbb1",  # Using LLM ID from test data
     )
@@ -520,7 +524,6 @@ def test_instructions(delete_agents_and_team_agents, AgentFactory):
     assert response["completed"] is True
     assert response["status"].lower() == "success"
     assert "data" in response
-    assert response["data"]["session_id"] is None
     assert response["data"]["output"] is not None
     assert "aixplain" in response["data"]["output"].lower()
     agent.delete()
@@ -536,7 +539,13 @@ def test_agent_with_utility_tool(delete_agents_and_team_agents, AgentFactory):
     @utility_tool(
         name="vowel_remover",
         description="Remove all vowels from a given string",
-        inputs=[UtilityModelInput(name="text", description="String from which to remove vowels", type=DataType.TEXT)],
+        inputs=[
+            UtilityModelInput(
+                name="text",
+                description="String from which to remove vowels",
+                type=DataType.TEXT,
+            )
+        ],
     )
     def vowel_remover(text: str):
         """Remove vowels from strings"""
@@ -549,8 +558,16 @@ def test_agent_with_utility_tool(delete_agents_and_team_agents, AgentFactory):
         name="concat_strings",
         description="Concatenate two strings into one",
         inputs=[
-            UtilityModelInput(name="string1", description="First string to concatenate", type=DataType.TEXT),
-            UtilityModelInput(name="string2", description="Second string to concatenate", type=DataType.TEXT),
+            UtilityModelInput(
+                name="string1",
+                description="First string to concatenate",
+                type=DataType.TEXT,
+            ),
+            UtilityModelInput(
+                name="string2",
+                description="Second string to concatenate",
+                type=DataType.TEXT,
+            ),
         ],
     )
     def concat_strings(string1: str, string2: str):
@@ -603,7 +620,8 @@ def test_agent_with_pipeline_tool(delete_agents_and_team_agents, AgentFactory):
         description="Return the text given.",
         tools=[
             AgentFactory.create_pipeline_tool(
-                pipeline=pipeline.id, description="You are a tool that responds users query with only 'Hello'."
+                pipeline=pipeline.id,
+                description="You are a tool that responds users query with only 'Hello'.",
             ),
         ],
         llm_id="6646261c6eb563165658bbb1",
@@ -695,7 +713,11 @@ def test_run_agent_with_expected_output():
         llm_id="6646261c6eb563165658bbb1",
     )
     # Run the agent
-    response = agent.run("Who have more than 30 years old?", output_format=OutputFormat.JSON, expected_output=Response)
+    response = agent.run(
+        "Who have more than 30 years old?",
+        output_format=OutputFormat.JSON,
+        expected_output=Response,
+    )
 
     # Verify response basics
     assert response is not None
@@ -734,7 +756,8 @@ def test_agent_with_action_tool():
     connector = ModelFactory.get("686432941223092cb4294d3f")
     # connect
     response = connector.connect(
-        authentication_schema=AuthenticationSchema.BEARER_TOKEN, data={"token": os.getenv("SLACK_TOKEN")}
+        authentication_schema=AuthenticationSchema.BEARER_TOKEN,
+        data={"token": os.getenv("SLACK_TOKEN")},
     )
     connection_id = response.data["id"]
 

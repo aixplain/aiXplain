@@ -1,4 +1,7 @@
 """Pre-defined agent for inspecting the data flow within a team agent.
+WARNING: This feature is currently in private beta.
+
+WARNING: This feature is currently in private beta.
 
 Example usage:
 

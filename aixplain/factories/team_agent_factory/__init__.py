@@ -145,13 +145,13 @@ class TeamAgentFactory:
             try:
                 return get_llm_instance(llm_id, api_key=api_key)
             except Exception:
-                raise Exception(f"TeamAgent Onboarding Error: LLM {llm_id} does not exist for {llm_type}. To resolve this, set the following LLM parameters to a valid LLM object or LLM ID: llm, supervisor_llm, mentalist_llm.")
+                raise Exception(
+                    f"TeamAgent Onboarding Error: LLM {llm_id} does not exist for {llm_type}. To resolve this, set the following LLM parameters to a valid LLM object or LLM ID: llm, supervisor_llm, mentalist_llm."
+                )
 
-        def _setup_llm_and_tool(llm_param: Optional[Union[LLM, Text]], 
-                              default_id: Text, 
-                              llm_type: str, 
-                              description: str,
-                              tools: List[Dict]) -> LLM:
+        def _setup_llm_and_tool(
+            llm_param: Optional[Union[LLM, Text]], default_id: Text, llm_type: str, description: str, tools: List[Dict]
+        ) -> LLM:
             """Helper to set up an LLM and add its tool configuration."""
             llm_instance = None
             # Set up LLM
@@ -159,21 +159,25 @@ class TeamAgentFactory:
                 llm_instance = _get_llm_safely(default_id, llm_type)
             else:
                 llm_instance = _get_llm_safely(llm_param, llm_type) if isinstance(llm_param, str) else llm_param
-            
+
             # Add tool configuration
             if llm_instance is not None:
-                tools.append({
-                    "type": "llm",
-                    "description": description,
-                    "parameters": llm_instance.get_parameters().to_list() if llm_instance.get_parameters() else None,
-                })
+                tools.append(
+                    {
+                        "type": "llm",
+                        "description": description,
+                        "parameters": llm_instance.get_parameters().to_list() if llm_instance.get_parameters() else None,
+                    }
+                )
             return llm_instance, tools
 
         # Set up LLMs and their tools
         tools = []
         llm, tools = _setup_llm_and_tool(llm, llm_id, "Main LLM", "main", tools)
         supervisor_llm, tools = _setup_llm_and_tool(supervisor_llm, llm_id, "Supervisor LLM", "supervisor", tools)
-        mentalist_llm, tools = _setup_llm_and_tool(mentalist_llm, llm_id, "Mentalist LLM", "mentalist", tools) if use_mentalist else None
+        mentalist_llm, tools = (
+            _setup_llm_and_tool(mentalist_llm, llm_id, "Mentalist LLM", "mentalist", tools) if use_mentalist else (None, [])
+        )
 
         team_agent = None
         url = urljoin(config.BACKEND_URL, "sdk/agent-communities")
@@ -201,9 +205,8 @@ class TeamAgentFactory:
             "supplier": supplier,
             "version": version,
             "status": "draft",
-            "tools": [],
-            "instructions": instructions,
             "tools": tools,
+            "instructions": instructions,
         }
         # Store the LLM objects directly in the payload for build_team_agent
         internal_payload = payload.copy()
@@ -320,7 +323,12 @@ class TeamAgentFactory:
             total = len(results)
             logging.info(f"Response for GET List Agents - Page Total: {page_total} / Total: {total}")
             for agent in results:
-                agents.append(build_team_agent(agent))
+                try:
+                    team_agent_ = build_team_agent(agent)
+                    agents.append(team_agent_)
+                except Exception:
+                    logging.warning(f"There was an error building the team agent {agent['name']}. Skipping...")
+                    continue
             return {"results": agents, "page_total": page_total, "page_number": 0, "total": total}
         else:
             error_msg = "Agent Listing Error: Please contact the administrators."
@@ -331,14 +339,15 @@ class TeamAgentFactory:
             raise Exception(error_msg)
 
     @classmethod
-    def get(cls, agent_id: Text, api_key: Optional[Text] = None) -> TeamAgent:
-        """Retrieve a team agent by its ID.
+    def get(cls, agent_id: Optional[Text] = None, name: Optional[Text] = None, api_key: Optional[Text] = None) -> TeamAgent:
+        """Retrieve a team agent by its ID or name.
 
         This method fetches a specific team agent from the platform using its
-        unique identifier.
+        unique identifier or name.
 
         Args:
-            agent_id (Text): Unique identifier of the team agent to retrieve.
+            agent_id (Optional[Text], optional): Unique identifier of the team agent to retrieve.
+            name (Optional[Text], optional): Name of the team agent to retrieve.
             api_key (Optional[Text], optional): API key for authentication.
                 Defaults to None, using the configured TEAM_API_KEY.
 
@@ -347,15 +356,25 @@ class TeamAgentFactory:
 
         Raises:
             Exception: If:
-                - Team agent ID is invalid
+                - Team agent ID/name is invalid
                 - Authentication fails
                 - Service is unavailable
                 - Other API errors occur
+            ValueError: If neither agent_id nor name is provided, or if both are provided.
         """
-        url = urljoin(config.BACKEND_URL, f"sdk/agent-communities/{agent_id}")
+        # Validate that exactly one parameter is provided
+        if not (agent_id or name) or (agent_id and name):
+            raise ValueError("Must provide exactly one of 'agent_id' or 'name'")
+
+        # Construct URL based on parameter type
+        if agent_id:
+            url = urljoin(config.BACKEND_URL, f"sdk/agent-communities/{agent_id}")
+        else:  # name is provided
+            url = urljoin(config.BACKEND_URL, f"sdk/agent-communities/by-name/{name}")
+
         api_key = api_key if api_key is not None else config.TEAM_API_KEY
         headers = {"x-api-key": api_key, "Content-Type": "application/json"}
-        logging.info(f"Start service for GET Team Agent  - {url} - {headers}")
+        logging.info(f"Start service for GET Team Agent - {url} - {headers}")
         try:
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()

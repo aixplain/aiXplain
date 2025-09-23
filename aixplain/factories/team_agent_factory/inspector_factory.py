@@ -4,6 +4,8 @@ This module provides functionality for creating inspector agents that can valida
 and monitor team agent operations. Inspectors can be created from existing models
 or using automatic configurations.
 
+WARNING: This feature is currently in private beta.
+
 Example:
     Create an inspector from a model with adaptive policy::
 
@@ -31,7 +33,7 @@ from aixplain.utils import config
 from aixplain.utils.file_utils import _request_with_retry
 
 
-INSPECTOR_SUPPORTED_FUNCTIONS = [Function.GUARDRAILS, Function.TEXT_GENERATION]
+INSPECTOR_SUPPORTED_FUNCTIONS = [Function.GUARDRAILS, Function.TEXT_GENERATION, Function.UTILITIES]
 
 
 class InspectorFactory:

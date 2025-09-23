@@ -1,3 +1,5 @@
+"""Core module for aiXplain v2 API."""
+
 import os
 from typing import Optional, TypeVar
 from .client import AixplainClient

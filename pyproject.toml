@@ -10,7 +10,7 @@ namespaces = true
 
 [project]
 name = "aiXplain"
-version = "0.2.34"
+version = "0.2.35"
 description = "aiXplain SDK adds AI functions to software."
 readme = "README.md"
 requires-python = ">=3.10, <4"
@@ -42,7 +42,7 @@ classifiers = [
 dependencies = [
     "requests>=2.1.0", 
     "tqdm>=4.1.0", 
-    "pandas>=2.0.0", 
+    "pandas>=2.0.0",
     "python-dotenv>=1.0.0", 
     "validators>=0.20.0", 
     "filetype>=1.2.0",
@@ -72,3 +72,4 @@ test = [
     "requests-mock>=1.11.0",
     "pytest-mock>=3.10.0"
 ]
+
