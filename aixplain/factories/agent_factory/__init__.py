@@ -34,6 +34,7 @@ from aixplain.modules.agent.tool.model_tool import ModelTool
 from aixplain.modules.agent.tool.pipeline_tool import PipelineTool
 from aixplain.modules.agent.tool.python_interpreter_tool import PythonInterpreterTool
 from aixplain.modules.agent.tool.custom_python_code_tool import CustomPythonCodeTool
+from aixplain.utils.convert_datatype_utils import normalize_expected_output
 from aixplain.modules.agent.tool.sql_tool import (
     SQLTool,
 )
@@ -167,7 +168,8 @@ class AgentFactory:
             payload["llm"] = llm
 
         if expected_output:
-            payload["expectedOutput"] = expected_output
+            payload["expectedOutput"] = normalize_expected_output(expected_output)
+
         if output_format:
             if isinstance(output_format, OutputFormat):
                 output_format = output_format.value

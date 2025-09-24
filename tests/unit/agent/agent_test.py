@@ -15,7 +15,8 @@ from unittest.mock import patch
 from aixplain.enums import Function, Supplier
 from aixplain.modules.agent.agent_response import AgentResponse
 from aixplain.modules.agent.agent_response_data import AgentResponseData
-
+from pydantic import BaseModel
+import json
 
 def test_fail_no_data_query():
     agent = Agent(
@@ -1552,3 +1553,61 @@ def test_agent_serialization_status_enum(status_input, expected_output):
 
     agent_dict = agent.to_dict()
     assert agent_dict["status"] == expected_output
+
+
+
+class _EOUser(BaseModel):
+    id: int
+    name: str = "alice"
+
+def _schema_for(cls):
+    return cls.model_json_schema() if hasattr(cls, "model_json_schema") else cls.schema()
+
+
+def test_run_normalizes_expected_output_pydantic_class_in_execution_params():
+    agent = Agent(
+        id="eo-agent-norm-1",
+        name="EO Agent",
+        description="ensure expected_output is normalized",
+        expected_output=_EOUser, 
+    )
+
+    run_url = urljoin(config.BACKEND_URL, f"sdk/agents/{agent.id}/run")
+    agent.url = run_url
+
+    with requests_mock.Mocker() as mock:
+        headers = {"x-api-key": config.AIXPLAIN_API_KEY, "Content-Type": "application/json"}
+        mock.post(run_url, headers=headers, json={"data": "dummy", "status": "IN_PROGRESS"})
+
+        agent.run_async(data={"query": "hi"})
+
+        sent = mock.last_request.json()
+        assert "executionParams" in sent
+        assert "expectedOutput" in sent["executionParams"]
+
+        eo = sent["executionParams"]["expectedOutput"]
+        assert isinstance(eo, dict), "expectedOutput must be a JSON-serializable dict"
+        assert eo == _schema_for(_EOUser), "expectedOutput schema doesn't match model schema"
+
+
+def test_run_normalizes_expected_output_tuple_to_list_in_execution_params():
+    agent = Agent(
+        id="eo-agent-norm-2",
+        name="EO Agent 2",
+        description="tuple normalization",
+        expected_output=(1, 2, 3),
+    )
+
+    run_url = urljoin(config.BACKEND_URL, f"sdk/agents/{agent.id}/run")
+    agent.url = run_url
+
+    with requests_mock.Mocker() as mock:
+        headers = {"x-api-key": config.AIXPLAIN_API_KEY, "Content-Type": "application/json"}
+        mock.post(run_url, headers=headers, json={"data": "dummy", "status": "IN_PROGRESS"})
+
+        agent.run_async(data={"query": "hi"})
+
+        sent = mock.last_request.json()
+        assert "executionParams" in sent
+        assert "expectedOutput" in sent["executionParams"]
+        assert sent["executionParams"]["expectedOutput"] == [1, 2, 3], "tuple should normalize to list"
