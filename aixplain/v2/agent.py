@@ -1,13 +1,15 @@
 import json
+import logging
+from datetime import datetime
 from enum import Enum
 from dataclasses import dataclass, field
-from typing import List, Optional, Any, Dict, Union, Text
-from typing_extensions import Unpack, NotRequired
+from typing import List, Optional, Any, Dict, Union, Text, Literal
+from typing_extensions import Unpack, NotRequired, TypedDict
 from dataclasses_json import dataclass_json, config
 
 from pydantic import BaseModel
 
-from aixplain.enums import AssetStatus
+from aixplain.enums import AssetStatus, ResponseStatus
 from aixplain.v2.model import Model
 from aixplain.v2.mixins import ToolableMixin
 
@@ -26,6 +28,78 @@ from .resource import (
 )
 
 
+# Type definitions for conversation history
+class ConversationMessage(TypedDict):
+    """Type definition for a conversation message in agent history.
+
+    Attributes:
+        role: The role of the message sender, either 'user' or 'assistant'
+        content: The text content of the message
+    """
+
+    role: Literal["user", "assistant"]
+    content: str
+
+
+def validate_history(history: List[Dict[str, Any]]) -> bool:
+    """
+    Validates conversation history for agent sessions.
+
+    This function ensures that the history is properly formatted for agent conversations,
+    with each message containing the required 'role' and 'content' fields and proper types.
+
+    Args:
+        history: List of message dictionaries to validate
+
+    Returns:
+        bool: True if validation passes
+
+    Raises:
+        ValueError: If validation fails with detailed error messages
+
+    Example:
+        >>> history = [
+        ...     {"role": "user", "content": "Hello"},
+        ...     {"role": "assistant", "content": "Hi there!"}
+        ... ]
+        >>> validate_history(history)  # Returns True
+    """
+    if not isinstance(history, list):
+        raise ValueError(
+            "History must be a list of message dictionaries. "
+            "Example: [{'role': 'user', 'content': 'Hello'}, {'role': 'assistant', 'content': 'Hi there!'}]"
+        )
+
+    allowed_roles = {"user", "assistant"}
+
+    for i, item in enumerate(history):
+        if not isinstance(item, dict):
+            raise ValueError(
+                f"History item at index {i} is not a dict: {item}. "
+                "Each item must be a dictionary like: {'role': 'user', 'content': 'Hello'}"
+            )
+
+        if "role" not in item or "content" not in item:
+            raise ValueError(
+                f"History item at index {i} is missing 'role' or 'content': {item}. "
+                "Example of a valid message: {'role': 'assistant', 'content': 'Hi there!'}"
+            )
+
+        if item["role"] not in allowed_roles:
+            raise ValueError(
+                f"Invalid role '{item['role']}' at index {i}. Allowed roles: {allowed_roles}. "
+                "Example: {'role': 'user', 'content': 'Tell me a joke'}"
+            )
+
+        if not isinstance(item["content"], str):
+            raise ValueError(
+                f"'content' at index {i} must be a string. Got: {type(item['content'])}. "
+                "Example: {'role': 'assistant', 'content': 'Sure! Here's one...'}"
+            )
+
+    return True
+
+
 class OutputFormat(str, Enum):
     MARKDOWN = "markdown"
     TEXT = "text"
@@ -40,7 +114,7 @@ class AgentRunParams(BaseRunParams):
     allowHistoryAndSessionId: NotRequired[Optional[bool]]
     tasks: NotRequired[Optional[List[Any]]]
     prompt: NotRequired[Optional[Text]]
-    history: NotRequired[Optional[List[Dict]]]
+    history: NotRequired[Optional[List[ConversationMessage]]]
     executionParams: NotRequired[Optional[Dict[str, Any]]]
     criteria: NotRequired[Optional[Text]]
     evolve: NotRequired[Optional[Text]]
@@ -245,6 +319,11 @@ class Agent(
         if len(args) > 0:
             kwargs["query"] = args[0]
             args = args[1:]
+
+        # Handle session_id parameter name compatibility (snake_case -> camelCase)
+        if "session_id" in kwargs and "sessionId" not in kwargs:
+            kwargs["sessionId"] = kwargs.pop("session_id")
+
         return super().run(*args, **kwargs)
 
     def _validate_expected_output(self) -> None:
@@ -372,3 +451,76 @@ class Agent(
                 payload[key] = value
 
         return payload
+
+    def generate_session_id(
+        self, history: Optional[List[ConversationMessage]] = None
+    ) -> str:
+        """Generate a unique session ID for agent conversations.
+
+        This method creates a unique session identifier based on the agent ID and current timestamp.
+        If conversation history is provided, it attempts to initialize the session on the server
+        to enable context-aware conversations.
+
+        Args:
+            history (Optional[List[Dict]], optional): Previous conversation history.
+                Each dict should contain 'role' (either 'user' or 'assistant') and 'content' keys.
+                Defaults to None.
+
+        Returns:
+            str: A unique session identifier in the format "{agent_id}_{timestamp}".
+
+        Raises:
+            ValueError: If the history format is invalid.
+
+        Example:
+            >>> agent = Agent.get("my_agent_id")
+            >>> session_id = agent.generate_session_id()
+            >>> # Or with history
+            >>> history = [
+            ...     {"role": "user", "content": "Hello"},
+            ...     {"role": "assistant", "content": "Hi there!"}
+            ... ]
+            >>> session_id = agent.generate_session_id(history=history)
+        """
+        if history:
+            validate_history(history)
+
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        session_id = f"{self.id}_{timestamp}"
+
+        if not history:
+            return session_id
+
+        try:
+            # Use the existing run infrastructure to initialize the session
+            result = self.run_async(
+                query="/",
+                sessionId=session_id,
+                history=history,
+                executionParams={
+                    "maxTokens": 2048,
+                    "maxIterations": 10,
+                    "outputFormat": OutputFormat.TEXT.value,
+                    "expectedOutput": None,
+                },
+                allowHistoryAndSessionId=True,
+            )
+
+            # If we got a polling URL, poll for completion
+            if result.url and not result.completed:
+                final_result = self.sync_poll(result.url, timeout=300, wait_time=0.5)
+
+                if final_result.status == ResponseStatus.SUCCESS:
+                    return session_id
+                else:
+                    logging.error(
+                        f"Session {session_id} initialization failed: {final_result}"
+                    )
+                    return session_id
+            else:
+                # Direct completion or no polling needed
+                return session_id
+
+        except Exception as e:
+            logging.error(f"Failed to initialize session {session_id}: {e}")
+            return session_id
