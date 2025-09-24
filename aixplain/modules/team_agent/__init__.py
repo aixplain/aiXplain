@@ -361,11 +361,9 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}
 
         # build query
-        input_data = process_variables(query, data, parameters, self.description)
         if expected_output is None:
             expected_output = self.expected_output
-        if expected_output is not None and issubclass(expected_output, BaseModel):
-            expected_output = expected_output.model_json_schema()
+        input_data = process_variables(query, data, parameters, self.description)
         expected_output = normalize_expected_output(expected_output)
         if output_format is None:
             output_format = self.output_format
