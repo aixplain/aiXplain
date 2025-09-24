@@ -328,8 +328,16 @@ class Agent(
 
     def _validate_expected_output(self) -> None:
         if self.output_format == OutputFormat.JSON.value:
-            if not isinstance(self.expected_output, (str, dict, BaseModel)):
-                raise ValueError("Expected output must be a valid JSON object")
+            # Check if expected_output is a valid JSON type
+            is_valid = isinstance(self.expected_output, (str, dict, BaseModel)) or (
+                isinstance(self.expected_output, type)
+                and issubclass(self.expected_output, BaseModel)
+            )
+            if not is_valid:
+                raise ValueError(
+                    "Expected output must be a valid JSON object, dict, string, or Pydantic BaseModel class/instance"
+                )
+
             if isinstance(self.expected_output, str):
                 try:
                     json.loads(self.expected_output)
@@ -359,9 +367,8 @@ class Agent(
         # json should be a valid json string or dict or pydantic model
         self._validate_expected_output()
 
-        # Convert Pydantic BaseModel to dict for serialization
-        if isinstance(self.expected_output, BaseModel):
-            self.expected_output = self.expected_output.model_dump()
+        # Note: BaseModel conversion is handled in build_run_payload, not during save
+        # This preserves the original BaseModel class/instance for agent definition
 
         # if not all(t.status == AssetStatus.ONBOARDED for t in self.tools):
         #     raise ValueError(
@@ -421,6 +428,19 @@ class Agent(
         # Update the payload with converted assets
         payload["assets"] = converted_assets
 
+        # Handle BaseModel expected_output for save operation
+        # We don't send expected_output in the save payload - it's runtime-only
+        if "expectedOutput" in payload:
+            expected_output = payload["expectedOutput"]
+            if isinstance(expected_output, type) and issubclass(
+                expected_output, BaseModel
+            ):
+                # Remove BaseModel classes from save payload - they're not stored server-side
+                payload.pop("expectedOutput")
+            elif isinstance(expected_output, BaseModel):
+                # Convert BaseModel instance to dict for save
+                payload["expectedOutput"] = expected_output.model_dump()
+
         return payload
 
     def build_run_payload(self, **kwargs: Unpack[AgentRunParams]) -> dict:
@@ -438,6 +458,21 @@ class Agent(
                 "maxIterations": 30,
                 "maxTime": 300,
             }
+
+        # Handle BaseModel conversion for expectedOutput (following legacy pattern)
+        # Use agent's expected_output if none provided in executionParams
+        if "expectedOutput" not in execution_params:
+            execution_params["expectedOutput"] = self.expected_output
+
+        expected_output = execution_params["expectedOutput"]
+        if (
+            expected_output is not None
+            and isinstance(expected_output, type)
+            and issubclass(expected_output, BaseModel)
+        ):
+            execution_params["expectedOutput"] = expected_output.model_json_schema()
+        elif isinstance(expected_output, BaseModel):
+            execution_params["expectedOutput"] = expected_output.model_dump()
 
         # Build the payload according to Swagger specification
         payload = {
