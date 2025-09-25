@@ -45,6 +45,7 @@ from aixplain.modules.agent.evolve_param import EvolveParam, validate_evolve_par
 from aixplain.modules.agent.utils import process_variables, validate_history
 from aixplain.modules.team_agent.inspector import Inspector
 from aixplain.modules.team_agent.evolver_response_data import EvolverResponseData
+from aixplain.utils.convert_datatype_utils import normalize_expected_output
 from aixplain.utils import config
 from aixplain.utils.request_utils import _request_with_retry
 from aixplain.modules.model.llm_model import LLM
@@ -360,11 +361,10 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}
 
         # build query
-        input_data = process_variables(query, data, parameters, self.description)
         if expected_output is None:
             expected_output = self.expected_output
-        if expected_output is not None and issubclass(expected_output, BaseModel):
-            expected_output = expected_output.model_json_schema()
+        input_data = process_variables(query, data, parameters, self.description)
+        expected_output = normalize_expected_output(expected_output)
         if output_format is None:
             output_format = self.output_format
         if isinstance(output_format, OutputFormat):

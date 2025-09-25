@@ -1,3 +1,5 @@
+"""Tests for team agent evolver functionality."""
+
 import pytest
 from aixplain.enums.function import Function
 from aixplain.enums.supplier import Supplier
@@ -5,6 +7,7 @@ from aixplain.enums import ResponseStatus
 from aixplain.factories.agent_factory import AgentFactory
 from aixplain.factories.team_agent_factory import TeamAgentFactory
 import time
+import uuid
 
 
 team_dict = {
@@ -18,7 +21,8 @@ team_dict = {
             "agent_name": "Text Translation agent",
             "llm_id": "6646261c6eb563165658bbb1",
             "llm_name": "GPT4o",
-            "description": "## ROLE\nText Translator\n\n## GOAL\nTranslate the text supplied into the users desired language.\n\n## BACKSTORY\nYou are a text translation agent. You will be provided a text in the source language and expected to translate in the target language.",
+            "description": "Text Translator",
+            "instructions": "You are a text translation agent. You will be provided a text in the source language and expected to translate in the target language.",
             "tasks": [
                 {
                     "name": "Text translation",
@@ -32,7 +36,8 @@ team_dict = {
             "agent_name": "Test Speech Synthesis agent",
             "llm_id": "6646261c6eb563165658bbb1",
             "llm_name": "GPT4o",
-            "description": "## ROLE\nSpeech Synthesizer\n\n## GOAL\nTranscribe the translated text into speech.\n\n## BACKSTORY\nYou are a speech synthesizing agent. You will be provided a text to synthesize into audio and return the audio link.",
+            "description": "Speech Synthesizer",
+            "instructions": "You are a speech synthesizing agent. You will be provided a text to synthesize into audio and return the audio link.",
             "tasks": [
                 {
                     "name": "Speech synthesis",
@@ -48,6 +53,7 @@ team_dict = {
 
 
 def parse_tools(tools_info):
+    """Parse tool information into AgentFactory model tools."""
     tools = []
     for tool in tools_info:
         function_enum = Function[tool["function"].upper().replace(" ", "_")]
@@ -57,6 +63,7 @@ def parse_tools(tools_info):
 
 
 def build_team_agent_from_json(team_config: dict):
+    """Build a team agent from JSON configuration."""
     agents_data = team_config["agents"]
     tasks_data = team_config.get("tasks", [])
 
@@ -64,6 +71,7 @@ def build_team_agent_from_json(team_config: dict):
     for agent_entry in agents_data:
         agent_name = agent_entry["agent_name"]
         agent_description = agent_entry["description"]
+        agent_instructions = agent_entry["instructions"]
         agent_llm_id = agent_entry.get("llm_id", None)
 
         agent_tasks = []
@@ -88,8 +96,9 @@ def build_team_agent_from_json(team_config: dict):
         agent_obj = AgentFactory.create(
             name=agent_name.replace("_", " "),
             description=agent_description,
+            instructions=agent_instructions,
             tools=agent_tools,
-            tasks=agent_tasks,
+            workflow_tasks=agent_tasks,
             llm_id=agent_llm_id,
         )
         agent_objs.append(agent_obj)
@@ -104,12 +113,40 @@ def build_team_agent_from_json(team_config: dict):
     )
 
 
+@pytest.fixture(scope="function")
+def delete_agents_and_team_agents():
+    """Fixture to clean up agents and team agents before and after tests."""
+    from tests.test_deletion_utils import safe_delete_all_agents_and_team_agents
+
+    # Clean up before test
+    safe_delete_all_agents_and_team_agents()
+
+    yield True
+
+    # Clean up after test
+    safe_delete_all_agents_and_team_agents()
+
+
 @pytest.fixture
-def team_agent():
-    return build_team_agent_from_json(team_dict)
+def team_agent(delete_agents_and_team_agents):
+    """Create a team agent with unique names to avoid conflicts."""
+    assert delete_agents_and_team_agents
+    # Create unique names to avoid conflicts
+    unique_suffix = str(uuid.uuid4())[:8]
+    team_config = team_dict.copy()
+    team_config["team_agent_name"] = f"Test Text Speech Team {unique_suffix}"
+
+    # Update agent names to be unique as well
+    agents = team_config["agents"].copy()
+    for agent in agents:
+        agent["agent_name"] = f"{agent['agent_name']} {unique_suffix}"
+    team_config["agents"] = agents
+
+    return build_team_agent_from_json(team_config)
 
 
 def test_evolver_output(team_agent):
+    """Test that evolver produces expected output structure."""
     response = team_agent.evolve_async()
     poll_url = response["url"]
     result = team_agent.poll(poll_url)
@@ -123,12 +160,15 @@ def test_evolver_output(team_agent):
     assert "evaluation_report" in result["data"], "Data should contain 'evaluation_report'"
     assert "criteria" in result["data"], "Data should contain 'criteria'"
     assert "archive" in result["data"], "Data should contain 'archive'"
-    assert isinstance(result.data["evolved_agent"], type(team_agent)), "Evolved agent should be an instance of the team agent"
+    assert isinstance(result.data["evolved_agent"], type(team_agent)), (
+        "Evolved agent should be an instance of the team agent"
+    )
 
 
 def test_evolver_with_custom_llm_id(team_agent):
-    """Test evolver functionality with custom LLM ID"""
+    """Test evolver functionality with custom LLM ID."""
     from aixplain.factories.model_factory import ModelFactory
+
     custom_llm_id = "6646261c6eb563165658bbb1"  # GPT-4o ID
     model = ModelFactory.get(model_id=custom_llm_id)
 
@@ -138,4 +178,6 @@ def test_evolver_with_custom_llm_id(team_agent):
     assert response is not None
     assert response.data["evolved_agent"] is not None
     assert response.data["evolved_agent"].llm_id == custom_llm_id
-    assert isinstance(response.data["evolved_agent"], type(team_agent)), "Evolved agent should be an instance of the team agent"
+    assert isinstance(response.data["evolved_agent"], type(team_agent)), (
+        "Evolved agent should be an instance of the team agent"
+    )
