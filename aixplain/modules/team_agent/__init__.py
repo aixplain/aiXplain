@@ -200,6 +200,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         max_iterations: int = 30,
         output_format: Optional[OutputFormat] = None,
         expected_output: Optional[Union[BaseModel, Text, dict]] = None,
+        trace_request: bool = False,
     ) -> AgentResponse:
         """Runs a team agent call.
 
@@ -217,6 +218,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             max_iterations (int, optional): maximum number of iterations between the agents. Defaults to 30.
             output_format (OutputFormat, optional): response format. If not provided, uses the format set during initialization.
             expected_output (Union[BaseModel, Text, dict], optional): expected output. Defaults to None.
+            trace_request (bool, optional): return the request id for tracing the request. Defaults to False.
         Returns:
             AgentResponse: parsed output from model
         """
@@ -243,6 +245,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                 max_iterations=max_iterations,
                 output_format=output_format,
                 expected_output=expected_output,
+                trace_request=trace_request,
             )
             if response["status"] == ResponseStatus.FAILED:
                 end = time.time()
@@ -289,6 +292,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         output_format: Optional[OutputFormat] = None,
         expected_output: Optional[Union[BaseModel, Text, dict]] = None,
         evolve: Union[Dict[str, Any], EvolveParam, None] = None,
+        trace_request: bool = False,
     ) -> AgentResponse:
         """Runs asynchronously a Team Agent call.
 
@@ -305,6 +309,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             output_format (OutputFormat, optional): response format. If not provided, uses the format set during initialization.
             expected_output (Union[BaseModel, Text, dict], optional): expected output. Defaults to None.
             evolve (Union[Dict[str, Any], EvolveParam, None], optional): evolve the team agent configuration. Can be a dictionary, EvolveParam instance, or None.
+            trace_request (bool, optional): return the request id for tracing the request. Defaults to False.
         Returns:
             AgentResponse: polling URL in response
         """
@@ -393,7 +398,8 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         try:
             resp = r.json()
             logging.info(f"Result of request for {name} - {r.status_code} - {resp}")
-
+            if trace_request:
+                logging.info(f"Team Agent Run Async: Trace request id: {resp.get('requestId')}")
             poll_url = resp["data"]
             response = AgentResponse(
                 status=ResponseStatus.IN_PROGRESS,

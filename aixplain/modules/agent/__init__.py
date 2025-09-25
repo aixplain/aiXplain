@@ -306,6 +306,7 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
         max_iterations: int = 5,
         output_format: Optional[OutputFormat] = None,
         expected_output: Optional[Union[BaseModel, Text, dict]] = None,
+        trace_request: bool = False,
     ) -> AgentResponse:
         """Runs an agent call.
 
@@ -323,7 +324,7 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
             max_iterations (int, optional): maximum number of iterations between the agent and the tools. Defaults to 10.
             output_format (OutputFormat, optional): response format. If not provided, uses the format set during initialization.
             expected_output (Union[BaseModel, Text, dict], optional): expected output. Defaults to None.
-
+            trace_request (bool, optional): return the request id for tracing the request. Defaults to False.
         Returns:
             Dict: parsed output from model
         """
@@ -352,6 +353,7 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
                 max_iterations=max_iterations,
                 output_format=output_format,
                 expected_output=expected_output,
+                trace_request=trace_request,
             )
             if response["status"] == ResponseStatus.FAILED:
                 end = time.time()
@@ -406,6 +408,7 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
         output_format: Optional[OutputFormat] = None,
         expected_output: Optional[Union[BaseModel, Text, dict]] = None,
         evolve: Union[Dict[str, Any], EvolveParam, None] = None,
+        trace_request: bool = False,
     ) -> AgentResponse:
         """Runs asynchronously an agent call.
 
@@ -423,7 +426,7 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
             expected_output (Union[BaseModel, Text, dict], optional): expected output. Defaults to None.
             output_format (ResponseFormat, optional): response format. Defaults to TEXT.
             evolve (Union[Dict[str, Any], EvolveParam, None], optional): evolve the agent configuration. Can be a dictionary, EvolveParam instance, or None.
-
+            trace_request (bool, optional): return the request id for tracing the request. Defaults to False.
         Returns:
             dict: polling URL in response
         """
@@ -516,6 +519,8 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
         try:
             r = _request_with_retry("post", self.url, headers=headers, data=payload)
             resp = r.json()
+            if trace_request:
+                logging.info(f"Agent Run Async: Trace request id: {resp.get('requestId')}")
             poll_url = resp.get("data")
             return AgentResponse(
                 status=ResponseStatus.IN_PROGRESS,
