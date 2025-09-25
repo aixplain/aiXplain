@@ -1,0 +1,38 @@
+{
+    "single_reference":{
+        "hypothesis": [
+            "The dog is meowing.",
+            "The cat is crying.",
+            "The toddler is barking."
+        ],
+        "reference": [
+            "The dog is barking.",
+            "The cat is meowing.",
+            "The toddler is crying."
+        ]
+    },
+    "multi_reference": {
+        "hypothesis": [
+            "the car hit the wall", 
+            "it was a huge crash.", 
+            "The wall was broken."
+        ],
+        "reference": [
+            ["The car hit the wall.", "The car has hit the wall."],
+            ["It was a big crash!!", "It was a huge damage!!"],
+            ["The wall got broken", "The wall was broken."]
+        ]
+    },
+    "empty_hypothesis": {
+        "hypothesis": [
+            "", 
+            "", 
+            ""
+        ],
+        "reference": [
+            ["The car hit the wall.", "The car has hit the wall."],
+            ["It was a big crash!!", "It was a huge damage!!"],
+            ["The wall got broken", "The wall was broken."]
+        ]
+    }
+}
