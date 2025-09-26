@@ -60,7 +60,9 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
     def __post_init__(self) -> None:
         if not self.id:
             if self.integration is None:
-                code = self.code or self.config.pop("code", None)
+                code = self.code or (
+                    self.config.pop("code", None) if self.config else None
+                )
                 assert code is not None, "Code is required to create a (script) Tool"
                 # Use default integration ID for utility tools
                 self.integration = self.context.Integration.get(

@@ -22,6 +22,7 @@ from typing import (
 )
 from typing_extensions import Unpack
 from functools import wraps
+from copy import deepcopy
 
 
 from .enums import OwnershipType, SortBy, SortOrder, ResponseStatus
@@ -330,15 +331,31 @@ class BaseResource:
 
     @with_hooks
     def save(self, *args: Any, **kwargs: Any) -> "BaseResource":
-        """Save the resource.
+        """Save the resource with attribute shortcuts.
 
-        If the resource has an ID, it will be updated, otherwise it will be
-        created.
+        This generic implementation provides consistent save behavior across all resources:
+        - Supports attribute shortcuts: resource.save(name="new_name", description="...")
+        - Lets the backend handle validation (name uniqueness, ID existence, etc.)
+        - If the resource has an ID, it will be updated, otherwise it will be created.
+
+        Args:
+            id: Optional[str] - Set resource ID before saving
+            name: Optional[str] - Set resource name before saving
+            description: Optional[str] - Set resource description before saving
+            **kwargs: Other attributes to set before saving
+
+        Returns:
+            BaseResource: The saved resource instance
+
+        Raises:
+            Backend validation errors as appropriate
         """
         resource_path = kwargs.pop("resource_path", self.RESOURCE_PATH)
 
+        # Set attributes from kwargs before saving
         for key, value in kwargs.items():
-            setattr(self, key, value)
+            if hasattr(self, key):
+                setattr(self, key, value)
 
         payload = self.build_save_payload(**kwargs)
 
@@ -351,6 +368,38 @@ class BaseResource:
         self._update_saved_state()
 
         return self
+
+    @with_hooks
+    def clone(self, **kwargs: Any) -> "BaseResource":
+        """Clone the resource and return a copy with id=None.
+
+        This generic implementation provides consistent clone behavior across all resources:
+        - Creates deep copy of the resource
+        - Resets id=None and _saved_state=None
+        - Supports attribute shortcuts: resource.clone(name="new_name", version="2.0")
+        - Uses hook system for subclass-specific logic (status handling, etc.)
+
+        Args:
+            name: Optional[str] - Set name on cloned resource
+            description: Optional[str] - Set description on cloned resource
+            **kwargs: Other attributes to set on cloned resource
+
+        Returns:
+            BaseResource: New resource instance with id=None
+        """
+        # Create deep copy of the resource
+        cloned = deepcopy(self)
+
+        # Reset ID and saved state for new asset
+        cloned.id = None
+        cloned._saved_state = None
+
+        # Set attributes from kwargs
+        for key, value in kwargs.items():
+            if hasattr(cloned, key):
+                setattr(cloned, key, value)
+
+        return cloned
 
     def _action(
         self,

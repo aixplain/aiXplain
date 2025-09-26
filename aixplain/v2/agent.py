@@ -387,6 +387,17 @@ class Agent(
 
         return None  # Continue with normal operation
 
+    def after_clone(
+        self, result: Union["Agent", Exception], **kwargs: Any
+    ) -> Optional["Agent"]:
+        """
+        Callback called after the agent is cloned.
+        Sets the cloned agent's status to DRAFT.
+        """
+        if isinstance(result, Agent):
+            result.status = AssetStatus.DRAFT
+        return None  # Return None to use the original result
+
     @classmethod
     def get(cls: type["Agent"], id: str, **kwargs: Unpack[BaseGetParams]) -> "Agent":
         return super().get(id, **kwargs)
