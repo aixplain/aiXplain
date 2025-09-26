@@ -327,6 +327,10 @@ class Agent(
         return super().run(*args, **kwargs)
 
     def _validate_expected_output(self) -> None:
+        # Skip validation if expected_output is None (it's optional)
+        if self.expected_output is None:
+            return
+
         if self.output_format == OutputFormat.JSON.value:
             # Check if expected_output is a valid JSON type
             is_valid = isinstance(self.expected_output, (str, dict, BaseModel)) or (
@@ -350,7 +354,9 @@ class Agent(
             OutputFormat.TEXT.value,
         ]:
             if not isinstance(self.expected_output, str):
-                raise ValueError("Expected output must be a string")
+                raise ValueError(
+                    "Expected output must be a string for TEXT/MARKDOWN formats"
+                )
 
     def before_save(self, *args: Any, **kwargs: Any) -> Optional[dict]:
         """
