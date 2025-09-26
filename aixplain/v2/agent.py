@@ -471,7 +471,14 @@ class Agent(
             execution_params["expectedOutput"] = self.expected_output
 
         expected_output = execution_params["expectedOutput"]
+
+        # For non-JSON formats, don't send empty string expected_output
         if (
+            execution_params.get("outputFormat") in ["text", "markdown"]
+            and expected_output == ""
+        ):
+            execution_params["expectedOutput"] = None
+        elif (
             expected_output is not None
             and isinstance(expected_output, type)
             and issubclass(expected_output, BaseModel)
