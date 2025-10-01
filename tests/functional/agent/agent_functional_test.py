@@ -32,30 +32,6 @@ import pytest
 
 from aixplain import aixplain_v2 as v2
 
-RUN_FILE = "tests/functional/agent/data/agent_test_end2end.json"
-
-
-def read_data(data_path):
-    return json.load(open(data_path, "r"))
-
-
-@pytest.fixture(scope="module", params=read_data(RUN_FILE))
-def run_input_map(request):
-    return request.param
-
-
-@pytest.fixture(scope="function")
-def delete_agents_and_team_agents():
-    from tests.test_deletion_utils import safe_delete_all_agents_and_team_agents
-    
-    # Clean up before test
-    safe_delete_all_agents_and_team_agents()
-
-    yield True
-
-    # Clean up after test
-    safe_delete_all_agents_and_team_agents()
-
 
 @pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
 def test_end2end(run_input_map, delete_agents_and_team_agents, AgentFactory):
@@ -88,7 +64,6 @@ def test_end2end(run_input_map, delete_agents_and_team_agents, AgentFactory):
     # deploy agent
     agent.deploy()
     assert agent.status == AssetStatus.ONBOARDED
-
     agent = AgentFactory.get(agent.id)
     assert agent is not None
     response = agent.run(data=run_input_map["query"])
