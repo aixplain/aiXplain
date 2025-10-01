@@ -174,19 +174,7 @@ class Agent(
     DeleteResourceMixin[BaseDeleteParams, "Agent"],
     RunnableResourceMixin[AgentRunParams, AgentRunResult],
 ):
-    """
-    Agent resource class.
-
-    Note: There are some discrepancies between the Swagger documentation for creation
-    and what the server returns when retrieving agents:
-
-    - Server GET responses often omit: role, inspectorId, supervisorId, plannerId, tasks, tools
-    - Server GET responses may omit 'name' field in assets
-    - Some fields documented in Swagger may not be implemented server-side yet
-
-    This structure accommodates both creation (with all documented fields) and
-    retrieval (with potentially incomplete data from server).
-    """
+    """Agent resource class."""
 
     RESOURCE_PATH = "v2/agents"
 
@@ -303,7 +291,7 @@ class Agent(
                     "Agent is onboarded and cannot be modified unless you "
                     "explicitly save it."
                 )
-        return None  # Continue with normal operation
+        return None
 
     def after_run(
         self,
@@ -358,6 +346,108 @@ class Agent(
                     "Expected output must be a string for TEXT/MARKDOWN formats"
                 )
 
+    def save(self, *args: Any, **kwargs: Any) -> "Agent":
+        """Save the agent with dependency management.
+
+        This method extends the base save functionality to handle saving of dependent
+        tools and subagents before the agent itself is saved.
+
+        Args:
+            save_tools: bool - If True, save all unsaved tools before saving agent (default: False)
+            save_subagents: bool - If True, save all unsaved subagents before saving agent (default: False)
+            as_draft: bool - If True, save agent as draft status (default: False)
+            **kwargs: Other attributes to set before saving
+
+        Returns:
+            Agent: The saved agent instance
+
+        Raises:
+            ValueError: If tools or subagents are not saved and save_tools/save_subagents is False
+        """
+        save_tools = kwargs.pop("save_tools", False)
+        save_subagents = kwargs.pop("save_subagents", False)
+
+        # Save tools if requested
+        if save_tools and self.tools:
+            self._save_tools()
+
+        # Save subagents if requested
+        if save_subagents and self.subagents:
+            self._save_subagents()
+
+        # Validate that all dependencies are saved before proceeding
+        self._validate_dependencies()
+
+        # Call the parent save method
+        return super().save(*args, **kwargs)
+
+    def _save_tools(self) -> None:
+        """Save all unsaved tools."""
+        if not self.tools:
+            return
+
+        failed_tools = []
+        for i, tool in enumerate(self.tools):
+            # Check if tool is a resource object with save method
+            if hasattr(tool, "save") and hasattr(tool, "id"):
+                if not tool.id:  # Tool is not saved yet
+                    try:
+                        tool.save()
+                    except Exception as e:
+                        failed_tools.append(
+                            (i, getattr(tool, "name", f"tool_{i}"), str(e))
+                        )
+
+        if failed_tools:
+            error_details = "; ".join(
+                [f"{name}: {error}" for _, name, error in failed_tools]
+            )
+            raise ValueError(
+                f"Failed to save {len(failed_tools)} tool(s): {error_details}"
+            )
+
+    def _save_subagents(self) -> None:
+        """Save all unsaved subagents."""
+        if not self.subagents:
+            return
+
+        failed_subagents = []
+        for i, subagent_id in enumerate(self.subagents):
+            # If subagent_id is None, it means the subagent was unsaved
+            if subagent_id is None:
+                raise ValueError(
+                    f"Subagent at index {i} is not saved. "
+                    "Use agent.save(save_subagents=True) to automatically save subagents."
+                )
+
+        if failed_subagents:
+            error_details = "; ".join(
+                [f"{name}: {error}" for _, name, error in failed_subagents]
+            )
+            raise ValueError(
+                f"Failed to save {len(failed_subagents)} subagent(s): {error_details}"
+            )
+
+    def _validate_dependencies(self) -> None:
+        """Validate that all tools and subagents are saved."""
+        # Check tools
+        if self.tools:
+            for tool in self.tools:
+                if hasattr(tool, "id") and not tool.id:
+                    raise ValueError(
+                        f"Tool '{getattr(tool, 'name', 'unnamed')}' must be saved before saving the agent. "
+                        "Use agent.save(save_tools=True) to automatically save tools."
+                    )
+
+        # Check subagents
+        if self.subagents:
+            for i, subagent_id in enumerate(self.subagents):
+                if subagent_id is None:
+                    raise ValueError(
+                        f"Subagent at index {i} must be saved before saving the agent. "
+                        "Use agent.save(save_subagents=True) to automatically save subagents."
+                    )
+
     def before_save(self, *args: Any, **kwargs: Any) -> Optional[dict]:
         """
         Callback to be called before the resource is saved.
@@ -369,23 +459,9 @@ class Agent(
         else:
             self.status = AssetStatus.ONBOARDED
 
-        # validate expected output as per output format
-        # json should be a valid json string or dict or pydantic model
         self._validate_expected_output()
 
-        # Note: BaseModel conversion is handled in build_run_payload, not during save
-        # This preserves the original BaseModel class/instance for agent definition
-
-        # if not all(t.status == AssetStatus.ONBOARDED for t in self.tools):
-        #     raise ValueError(
-        #         "All tools must be onboarded before saving the agent."
-        #     )
-        # if not all(t.status == AssetStatus.ONBOARDED for t in self.subagents):
-        #     raise ValueError(
-        #         "All subagents must be onboarded before saving the agent."
-        #     )
-
-        return None  # Continue with normal operation
+        return None
 
     def after_clone(
         self, result: Union["Agent", Exception], **kwargs: Any
@@ -396,11 +472,7 @@ class Agent(
         """
         if isinstance(result, Agent):
             result.status = AssetStatus.DRAFT
-        return None  # Return None to use the original result
-
-    @classmethod
-    def get(cls: type["Agent"], id: str, **kwargs: Unpack[BaseGetParams]) -> "Agent":
-        return super().get(id, **kwargs)
+        return None
 
     @classmethod
     def search(
