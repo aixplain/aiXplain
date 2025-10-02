@@ -256,9 +256,18 @@ class Agent(
 
     def __post_init__(self) -> None:
         self.tasks = [Task.from_dict(task) for task in self.tasks]
-        self.subagents = [
-            agent if isinstance(agent, str) else agent.id for agent in self.subagents
-        ]
+
+        # Store original subagent objects for saving, convert to IDs for storage
+        self._original_subagents = []
+        converted_subagents = []
+        for agent in self.subagents:
+            if isinstance(agent, str):
+                self._original_subagents.append(None)  # Already an ID
+                converted_subagents.append(agent)
+            else:
+                self._original_subagents.append(agent)  # Store original object
+                converted_subagents.append(agent.id)
+        self.subagents = converted_subagents
         self.assets = [{"type": "llm", "description": "main", "parameters": []}]
         if isinstance(self.output_format, OutputFormat):
             self.output_format = self.output_format.value
@@ -371,7 +380,7 @@ class Agent(
         if save_tools and self.tools:
             self._save_tools()
 
-        # Save subagents if requested
+        # Save subagents if requested (automatically saves their tools too)
         if save_subagents and self.subagents:
             self._save_subagents()
 
@@ -408,17 +417,27 @@ class Agent(
 
     def _save_subagents(self) -> None:
         """Save all unsaved subagents."""
-        if not self.subagents:
+        if not hasattr(self, "_original_subagents") or not self._original_subagents:
             return
 
         failed_subagents = []
-        for i, subagent_id in enumerate(self.subagents):
-            # If subagent_id is None, it means the subagent was unsaved
-            if subagent_id is None:
-                raise ValueError(
-                    f"Subagent at index {i} is not saved. "
-                    "Use agent.save(save_subagents=True) to automatically save subagents."
-                )
+        for i in range(len(self.subagents)):
+            original_subagent = self._original_subagents[i]
+            # If original_subagent is None, it was already an ID string
+            if original_subagent is None:
+                continue
+            # Check if original_subagent is an Agent object with save method
+            if hasattr(original_subagent, "save") and hasattr(original_subagent, "id"):
+                if not original_subagent.id:  # Subagent is not saved yet
+                    try:
+                        original_subagent.save(save_tools=True)
+                        # Update the subagents list with the new ID
+                        self.subagents[i] = original_subagent.id
+                    except Exception as e:
+                        subagent_name = getattr(
+                            original_subagent, "name", f"subagent_{i}"
+                        )
+                        failed_subagents.append((i, subagent_name, str(e)))
 
         if failed_subagents:
             error_details = "; ".join(
@@ -440,11 +459,16 @@ class Agent(
                     )
 
         # Check subagents
-        if self.subagents:
-            for i, subagent_id in enumerate(self.subagents):
-                if subagent_id is None:
+        if hasattr(self, "_original_subagents") and self._original_subagents:
+            for i, original_subagent in enumerate(self._original_subagents):
+                # If original_subagent is None, it was already an ID string
+                if original_subagent is None:
+                    continue
+                # If original_subagent is an Agent object, check if it has an ID
+                if hasattr(original_subagent, "id") and not original_subagent.id:
+                    subagent_name = getattr(original_subagent, "name", "unnamed")
                     raise ValueError(
-                        f"Subagent at index {i} must be saved before saving the agent. "
+                        f"Subagent '{subagent_name}' must be saved before saving the agent. "
                         "Use agent.save(save_subagents=True) to automatically save subagents."
                     )
 
