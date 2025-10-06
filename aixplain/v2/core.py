@@ -1,3 +1,5 @@
+"""Core module for aiXplain v2 API."""
+
 import os
 from typing import TypeVar
 from .client import AixplainClient
@@ -98,8 +100,8 @@ class Aixplain:
     PIPELINES_RUN_URL = "https://platform-api.aixplain.com/assets/pipeline/execution/run"
 
     def __new__(cls, *args, **kwargs):
-        """
-        Singleton pattern for the Aixplain class.
+        """Singleton pattern for the Aixplain class.
+
         Otherwise, the environment variables will be overwritten in multiple instances.
 
         TODO: This should be removed once the factory classes are removed.
@@ -124,10 +126,16 @@ class Aixplain:
             pipeline_url: str: The URL for the pipeline.
             model_url: str: The URL for the model.
         """
-        self.api_key = api_key or os.getenv("TEAM_API_KEY")
-        assert (
-            self.api_key
-        ), "API key is required. You should either pass it as an argument or set the TEAM_API_KEY environment variable."
+        # Use centralized API key validation logic
+        from aixplain.utils.config import (
+            check_api_keys_available,
+            TEAM_API_KEY,
+            AIXPLAIN_API_KEY,
+        )
+
+        self.api_key = api_key or TEAM_API_KEY or AIXPLAIN_API_KEY
+        if not self.api_key:
+            check_api_keys_available()  # This will raise the proper centralized error message
 
         self.base_url = backend_url or os.getenv("BACKEND_URL") or self.BACKEND_URL
         self.pipeline_url = pipeline_url or os.getenv("PIPELINES_RUN_URL") or self.PIPELINES_RUN_URL

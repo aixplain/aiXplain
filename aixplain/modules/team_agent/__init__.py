@@ -45,6 +45,7 @@ from aixplain.modules.agent.evolve_param import EvolveParam, validate_evolve_par
 from aixplain.modules.agent.utils import process_variables, validate_history
 from aixplain.modules.team_agent.inspector import Inspector
 from aixplain.modules.team_agent.evolver_response_data import EvolverResponseData
+from aixplain.utils.convert_datatype_utils import normalize_expected_output
 from aixplain.utils import config
 from aixplain.utils.request_utils import _request_with_retry
 from aixplain.modules.model.llm_model import LLM
@@ -199,6 +200,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         max_iterations: int = 30,
         output_format: Optional[OutputFormat] = None,
         expected_output: Optional[Union[BaseModel, Text, dict]] = None,
+        trace_request: bool = False,
     ) -> AgentResponse:
         """Runs a team agent call.
 
@@ -216,6 +218,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             max_iterations (int, optional): maximum number of iterations between the agents. Defaults to 30.
             output_format (OutputFormat, optional): response format. If not provided, uses the format set during initialization.
             expected_output (Union[BaseModel, Text, dict], optional): expected output. Defaults to None.
+            trace_request (bool, optional): return the request id for tracing the request. Defaults to False.
         Returns:
             AgentResponse: parsed output from model
         """
@@ -242,6 +245,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                 max_iterations=max_iterations,
                 output_format=output_format,
                 expected_output=expected_output,
+                trace_request=trace_request,
             )
             if response["status"] == ResponseStatus.FAILED:
                 end = time.time()
@@ -288,6 +292,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         output_format: Optional[OutputFormat] = None,
         expected_output: Optional[Union[BaseModel, Text, dict]] = None,
         evolve: Union[Dict[str, Any], EvolveParam, None] = None,
+        trace_request: bool = False,
     ) -> AgentResponse:
         """Runs asynchronously a Team Agent call.
 
@@ -304,6 +309,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             output_format (OutputFormat, optional): response format. If not provided, uses the format set during initialization.
             expected_output (Union[BaseModel, Text, dict], optional): expected output. Defaults to None.
             evolve (Union[Dict[str, Any], EvolveParam, None], optional): evolve the team agent configuration. Can be a dictionary, EvolveParam instance, or None.
+            trace_request (bool, optional): return the request id for tracing the request. Defaults to False.
         Returns:
             AgentResponse: polling URL in response
         """
@@ -360,11 +366,10 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}
 
         # build query
-        input_data = process_variables(query, data, parameters, self.description)
         if expected_output is None:
             expected_output = self.expected_output
-        if expected_output is not None and issubclass(expected_output, BaseModel):
-            expected_output = expected_output.model_json_schema()
+        input_data = process_variables(query, data, parameters, self.description)
+        expected_output = normalize_expected_output(expected_output)
         if output_format is None:
             output_format = self.output_format
         if isinstance(output_format, OutputFormat):
@@ -393,7 +398,8 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         try:
             resp = r.json()
             logging.info(f"Result of request for {name} - {r.status_code} - {resp}")
-
+            if trace_request:
+                logging.info(f"Team Agent Run Async: Trace request id: {resp.get('requestId')}")
             poll_url = resp["data"]
             response = AgentResponse(
                 status=ResponseStatus.IN_PROGRESS,

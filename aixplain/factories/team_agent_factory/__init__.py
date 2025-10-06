@@ -32,6 +32,7 @@ from aixplain.modules.team_agent import TeamAgent, InspectorTarget
 from aixplain.modules.team_agent.inspector import Inspector
 from aixplain.utils import config
 from aixplain.factories.team_agent_factory.utils import build_team_agent
+from aixplain.utils.convert_datatype_utils import normalize_expected_output
 from aixplain.utils.request_utils import _request_with_retry
 from aixplain.modules.model.llm_model import LLM
 from aixplain.utils.llm_utils import get_llm_instance
@@ -217,7 +218,7 @@ class TeamAgentFactory:
         if mentalist_llm is not None:
             internal_payload["mentalist_llm"] = mentalist_llm
         if expected_output:
-            payload["expectedOutput"] = expected_output
+            payload["expectedOutput"] = normalize_expected_output(expected_output)
         if output_format:
             if isinstance(output_format, OutputFormat):
                 output_format = output_format.value
