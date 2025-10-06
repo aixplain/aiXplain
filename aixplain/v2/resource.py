@@ -498,9 +498,10 @@ class BaseGetParams(BaseParams):
 
     Attributes:
         id: str: The resource ID.
+        host: str: The host URL for the request (optional).
     """
 
-    pass
+    host: NotRequired[str]
 
 
 class BaseDeleteParams(BaseParams):
@@ -810,12 +811,15 @@ class GetResourceMixin(BaseMixin, Generic[GetParamsT, ResourceT]):
     """Mixin for getting a resource."""
 
     @classmethod
-    def get(cls: type, id: Any, **kwargs: Unpack[GetParamsT]) -> ResourceT:
+    def get(
+        cls: type, id: Any, host: Optional[str] = None, **kwargs: Unpack[GetParamsT]
+    ) -> ResourceT:
         """
         Retrieve a single resource by its ID (or other get parameters).
 
         Args:
             id: Any: The ID of the resource to get.
+            host: str, optional: The host parameter to pass to the backend (default: None).
             kwargs: Get parameters to pass to the request.
 
         Returns:
@@ -833,6 +837,11 @@ class GetResourceMixin(BaseMixin, Generic[GetParamsT, ResourceT]):
 
         encoded_id = encode_resource_id(id)
         path = f"{resource_path}/{encoded_id}"
+
+        # Add host parameter as query parameter if provided
+        if host is not None:
+            kwargs["params"] = {"host": host}
+
         obj = context.client.get(path, **kwargs)
 
         if isinstance(cls, HasFromDict):
