@@ -228,6 +228,18 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
 
         return errors
 
+    def before_run(
+        self, *args: Any, **kwargs: Unpack[ModelRunParams]
+    ) -> Optional[ToolResult]:
+        """Validate tool state before running."""
+        # Check if tool is saved before running
+        if not self.id:
+            raise ValueError(
+                f"Tool '{getattr(self, 'name', 'unnamed')}' must be saved before running. "
+                "Use tool.save() to save the tool first."
+            )
+        return None
+
     def run(self, *args: Any, **kwargs: Unpack[ModelRunParams]) -> ToolResult:
         """Run the tool."""
         if len(args) > 0:
