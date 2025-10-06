@@ -359,11 +359,10 @@ class Agent(
         """Save the agent with dependency management.
 
         This method extends the base save functionality to handle saving of dependent
-        tools and subagents before the agent itself is saved.
+        child components before the agent itself is saved.
 
         Args:
-            save_tools: bool - If True, save all unsaved tools before saving agent (default: False)
-            save_subagents: bool - If True, save all unsaved subagents before saving agent (default: False)
+            save_subcomponents: bool - If True, recursively save all unsaved child components (default: False)
             as_draft: bool - If True, save agent as draft status (default: False)
             **kwargs: Other attributes to set before saving
 
@@ -371,18 +370,13 @@ class Agent(
             Agent: The saved agent instance
 
         Raises:
-            ValueError: If tools or subagents are not saved and save_tools/save_subagents is False
+            ValueError: If child components are not saved and save_subcomponents is False
         """
-        save_tools = kwargs.pop("save_tools", False)
-        save_subagents = kwargs.pop("save_subagents", False)
+        save_subcomponents = kwargs.pop("save_subcomponents", False)
 
-        # Save tools if requested
-        if save_tools and self.tools:
-            self._save_tools()
-
-        # Save subagents if requested (automatically saves their tools too)
-        if save_subagents and self.subagents:
-            self._save_subagents()
+        # Save all child components recursively if requested
+        if save_subcomponents:
+            self._save_subcomponents()
 
         # Validate that all dependencies are saved before proceeding
         self._validate_dependencies()
@@ -390,87 +384,79 @@ class Agent(
         # Call the parent save method
         return super().save(*args, **kwargs)
 
-    def _save_tools(self) -> None:
-        """Save all unsaved tools."""
-        if not self.tools:
-            return
+    def _save_subcomponents(self) -> None:
+        """Recursively save all unsaved child components."""
+        failed_components = []
 
-        failed_tools = []
-        for i, tool in enumerate(self.tools):
-            # Check if tool is a resource object with save method
-            if hasattr(tool, "save") and hasattr(tool, "id"):
-                if not tool.id:  # Tool is not saved yet
+        # Save tools
+        if self.tools:
+            for i, tool in enumerate(self.tools):
+                if hasattr(tool, "save") and hasattr(tool, "id") and not tool.id:
                     try:
                         tool.save()
                     except Exception as e:
-                        failed_tools.append(
-                            (i, getattr(tool, "name", f"tool_{i}"), str(e))
-                        )
+                        tool_name = getattr(tool, "name", f"tool_{i}")
+                        failed_components.append(("tool", tool_name, str(e)))
 
-        if failed_tools:
-            error_details = "; ".join(
-                [f"{name}: {error}" for _, name, error in failed_tools]
-            )
-            raise ValueError(
-                f"Failed to save {len(failed_tools)} tool(s): {error_details}"
-            )
-
-    def _save_subagents(self) -> None:
-        """Save all unsaved subagents."""
-        if not hasattr(self, "_original_subagents") or not self._original_subagents:
-            return
-
-        failed_subagents = []
-        for i in range(len(self.subagents)):
-            original_subagent = self._original_subagents[i]
-            # If original_subagent is None, it was already an ID string
-            if original_subagent is None:
-                continue
-            # Check if original_subagent is an Agent object with save method
-            if hasattr(original_subagent, "save") and hasattr(original_subagent, "id"):
-                if not original_subagent.id:  # Subagent is not saved yet
+        # Save subagents (recursively)
+        if hasattr(self, "_original_subagents") and self._original_subagents:
+            for i in range(len(self.subagents)):
+                original_subagent = self._original_subagents[i]
+                if original_subagent is None:  # Already an ID string
+                    continue
+                if (
+                    hasattr(original_subagent, "save")
+                    and hasattr(original_subagent, "id")
+                    and not original_subagent.id
+                ):
                     try:
-                        original_subagent.save(save_tools=True)
+                        # Recursively save subagent and its components
+                        original_subagent.save(save_subcomponents=True)
                         # Update the subagents list with the new ID
                         self.subagents[i] = original_subagent.id
                     except Exception as e:
                         subagent_name = getattr(
                             original_subagent, "name", f"subagent_{i}"
                         )
-                        failed_subagents.append((i, subagent_name, str(e)))
+                        failed_components.append(("subagent", subagent_name, str(e)))
 
-        if failed_subagents:
+        if failed_components:
             error_details = "; ".join(
-                [f"{name}: {error}" for _, name, error in failed_subagents]
+                [
+                    f"{comp_type} '{name}': {error}"
+                    for comp_type, name, error in failed_components
+                ]
             )
             raise ValueError(
-                f"Failed to save {len(failed_subagents)} subagent(s): {error_details}"
+                f"Failed to save {len(failed_components)} component(s): {error_details}"
             )
 
     def _validate_dependencies(self) -> None:
-        """Validate that all tools and subagents are saved."""
+        """Validate that all child components are saved."""
+        unsaved_components = []
+
         # Check tools
         if self.tools:
             for tool in self.tools:
                 if hasattr(tool, "id") and not tool.id:
-                    raise ValueError(
-                        f"Tool '{getattr(tool, 'name', 'unnamed')}' must be saved before saving the agent. "
-                        "Use agent.save(save_tools=True) to automatically save tools."
-                    )
+                    tool_name = getattr(tool, "name", "unnamed")
+                    unsaved_components.append(f"tool '{tool_name}'")
 
         # Check subagents
         if hasattr(self, "_original_subagents") and self._original_subagents:
             for i, original_subagent in enumerate(self._original_subagents):
-                # If original_subagent is None, it was already an ID string
-                if original_subagent is None:
+                if original_subagent is None:  # Already an ID string
                     continue
-                # If original_subagent is an Agent object, check if it has an ID
                 if hasattr(original_subagent, "id") and not original_subagent.id:
                     subagent_name = getattr(original_subagent, "name", "unnamed")
-                    raise ValueError(
-                        f"Subagent '{subagent_name}' must be saved before saving the agent. "
-                        "Use agent.save(save_subagents=True) to automatically save subagents."
-                    )
+                    unsaved_components.append(f"subagent '{subagent_name}'")
+
+        if unsaved_components:
+            components_list = ", ".join(unsaved_components)
+            raise ValueError(
+                f"Component(s) {components_list} must be saved before saving the agent. "
+                "Use agent.save(save_subcomponents=True) to automatically save all child components."
+            )
 
     def before_save(self, *args: Any, **kwargs: Any) -> Optional[dict]:
         """
