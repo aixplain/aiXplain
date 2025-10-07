@@ -118,6 +118,7 @@ class LLM(Model):
         parameters: Optional[Dict] = None,
         wait_time: float = 0.5,
         stream: bool = False,
+        response_format: Optional[Text] = None,
     ) -> Union[ModelResponse, ModelResponseStreamer]:
         """Run the LLM model synchronously to generate text.
 
@@ -150,6 +151,8 @@ class LLM(Model):
                 Defaults to 0.5.
             stream (bool, optional): Whether to stream the model's output tokens.
                 Defaults to False.
+            response_format (Optional[Union[str, dict, BaseModel]], optional): 
+                Specifies the desired output structure or format of the model’s response. 
 
         Returns:
             Union[ModelResponse, ModelResponseStreamer]: If stream=False, returns a ModelResponse
@@ -169,6 +172,7 @@ class LLM(Model):
         parameters.setdefault("temperature", temperature if temperature is not None else self.temperature)
         parameters.setdefault("max_tokens", max_tokens)
         parameters.setdefault("top_p", top_p)
+        parameters.setdefault("response_format", response_format)
 
         if stream:
             return self.run_stream(data=data, parameters=parameters)
@@ -213,6 +217,7 @@ class LLM(Model):
         top_p: float = 1.0,
         name: Text = "model_process",
         parameters: Optional[Dict] = None,
+        response_format: Optional[Text] = None,
     ) -> ModelResponse:
         """Run the LLM model asynchronously to generate text.
 
@@ -264,6 +269,7 @@ class LLM(Model):
         parameters.setdefault("temperature", temperature if temperature is not None else self.temperature)
         parameters.setdefault("max_tokens", max_tokens)
         parameters.setdefault("top_p", top_p)
+        parameters.setdefault("response_format", response_format)
         payload = build_payload(data=data, parameters=parameters)
         response = call_run_endpoint(payload=payload, url=url, api_key=self.api_key)
         return ModelResponse(
