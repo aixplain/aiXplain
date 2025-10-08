@@ -122,7 +122,7 @@ def test_python_interpreter_tool(delete_agents_and_team_agents, AgentFactory):
     assert len(response["data"]["intermediate_steps"]) > 0
     intermediate_step = response["data"]["intermediate_steps"][0]
     assert len(intermediate_step["tool_steps"]) > 0
-    assert intermediate_step["tool_steps"][0]["tool"] == "Custom Code Tool"
+    assert intermediate_step["tool_steps"][0]["tool"] == "Python Code Interpreter Tool"
     agent.delete()
 
 
