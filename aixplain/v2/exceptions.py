@@ -1,17 +1,21 @@
 """
-Simplified error hierarchy for v2 resource system.
+Unified error hierarchy for v2 system.
 
-This module provides a minimal set of error types for consistent
-error handling across v2 resources.
+This module provides a comprehensive set of error types for consistent
+error handling across all v2 components.
 """
 
-from typing import Optional, Any, Dict
+from typing import Optional, Any, Dict, Union, List
 
 
 class AixplainV2Error(Exception):
     """Base exception for all v2 errors."""
 
-    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None) -> None:
+    def __init__(
+        self, message: Union[str, List[str]], details: Optional[Dict[str, Any]] = None
+    ) -> None:
+        if isinstance(message, list):
+            message = "\n".join(message)
         self.message = message
         self.details = details or {}
         super().__init__(self.message)
@@ -28,14 +32,21 @@ class APIError(AixplainV2Error):
 
     def __init__(
         self,
-        message: str,
+        message: Union[str, List[str]],
         status_code: int = 0,
         response_data: Optional[Dict[str, Any]] = None,
+        error: Optional[str] = None,
     ) -> None:
         self.status_code = status_code
         self.response_data = response_data or {}
+        self.error = error or message if isinstance(message, str) else str(message)
         super().__init__(
-            message, {"status_code": status_code, "response_data": response_data}
+            message,
+            {
+                "status_code": status_code,
+                "response_data": response_data,
+                "error": self.error,
+            },
         )
 
 
@@ -47,6 +58,12 @@ class ValidationError(AixplainV2Error):
 
 class TimeoutError(AixplainV2Error):
     """Raised when operations timeout."""
+
+    pass
+
+
+class FileUploadError(AixplainV2Error):
+    """Raised when file upload operations fail."""
 
     pass
 
@@ -68,5 +85,8 @@ def create_operation_failed_error(response: Dict[str, Any]) -> APIError:
         error_msg = "Operation failed"
 
     return APIError(
-        f"Operation failed: {error_msg}", status_code=0, response_data=response
+        f"Operation failed: {error_msg}",
+        status_code=response.get("statusCode", 0),
+        response_data=response,
+        error=error_msg,
     )

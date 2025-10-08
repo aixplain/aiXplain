@@ -537,7 +537,7 @@ class Integration(Model, ActionMixin):
         # Call parent validation first
         errors = super()._validate_params(**kwargs)
 
-        auth_scheme = kwargs["authScheme"]
+        auth_scheme = kwargs.get("authScheme")
         # Convert enum to string value for comparison
         auth_scheme_value = (
             auth_scheme.value if hasattr(auth_scheme, "value") else str(auth_scheme)

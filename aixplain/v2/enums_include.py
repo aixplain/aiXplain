@@ -1,14 +1,14 @@
-# This is a compatibility layer for v2 modules
-# All enums are now centralized in aixplain.enums
-# This file redirects imports to maintain backward compatibility
+# This is an auto generated module. PLEASE DO NOT EDIT
+# This module provides compatibility imports from legacy enums for v2
 
+# Import all enums from legacy system for compatibility
 from aixplain.enums import (
     AssetStatus,
-    DataSplit,
-    DataSubtype,
-    DataType,
     ErrorHandler,
     FileType,
+    Function,
+    Language,
+    License,
     OnboardStatus,
     OwnershipType,
     Privacy,
@@ -16,15 +16,20 @@ from aixplain.enums import (
     SortBy,
     SortOrder,
     StorageType,
+    Supplier,
+    FunctionType,
+    EvolveType,
+    CodeInterpreterModel,
 )
 
+# Re-export for compatibility
 __all__ = [
     "AssetStatus",
-    "DataSplit",
-    "DataSubtype",
-    "DataType",
     "ErrorHandler",
     "FileType",
+    "Function",
+    "Language",
+    "License",
     "OnboardStatus",
     "OwnershipType",
     "Privacy",
@@ -32,4 +37,8 @@ __all__ = [
     "SortBy",
     "SortOrder",
     "StorageType",
+    "Supplier",
+    "FunctionType",
+    "EvolveType",
+    "CodeInterpreterModel",
 ]

@@ -1,0 +1,141 @@
+"""Simple Resource class for file handling and S3 uploads."""
+
+import os
+from typing import Optional, Union
+from dataclasses import dataclass, field
+from dataclasses_json import dataclass_json, config
+
+from .resource import (
+    BaseResource,
+    GetResourceMixin,
+    SearchResourceMixin,
+    BaseGetParams,
+    BaseSearchParams,
+)
+from .upload_utils import FileUploader
+from .enums import FileType
+
+
+@dataclass_json
+@dataclass
+class ResourceGetParams:
+    """Parameters for getting resources."""
+
+    api_key: Optional[str] = None
+    resource_path: Optional[str] = None
+
+
+@dataclass_json
+@dataclass
+class Resource(
+    BaseResource,
+    GetResourceMixin[ResourceGetParams, "Resource"],
+    SearchResourceMixin[BaseSearchParams, "Resource"],
+):
+    """Simple resource class for file handling and S3 uploads.
+
+    This class provides the basic functionality needed for the requirements:
+    - File path handling
+    - S3 upload via save()
+    - URL access after upload
+    """
+
+    RESOURCE_PATH = (
+        "sdk/pipelines"  # Use pipelines endpoint (working for file resources)
+    )
+
+    # File-related fields
+    file_path: Optional[str] = field(
+        default=None, metadata=config(field_name="filePath")
+    )
+    s3_url: Optional[str] = field(default=None, metadata=config(field_name="s3Url"))
+    file_type: Optional[FileType] = field(
+        default=None, metadata=config(field_name="fileType")
+    )
+
+    def __post_init__(self):
+        """Initialize the resource."""
+        # If file_path is provided, detect file type
+        if self.file_path and not self.file_type:
+            self.file_type = self._detect_file_type()
+
+    def _detect_file_type(self) -> FileType:
+        """Detect file type from file path."""
+        if not self.file_path:
+            return FileType.OTHER
+
+        _, ext = os.path.splitext(self.file_path.lower())
+
+        if ext == ".csv":
+            return FileType.CSV
+        elif ext == ".json":
+            return FileType.JSON
+        elif ext == ".txt":
+            return FileType.TXT
+        elif ext == ".pdf":
+            return FileType.PDF
+        elif ext in [".mp3", ".wav", ".flac", ".m4a"]:
+            return FileType.AUDIO
+        elif ext in [".jpg", ".jpeg", ".png", ".gif", ".bmp"]:
+            return FileType.IMAGE
+        elif ext in [".db", ".sqlite", ".sqlite3"]:
+            return FileType.DATABASE
+        else:
+            return FileType.OTHER
+
+    def build_save_payload(self, **kwargs) -> dict:
+        """Build the payload for saving the resource."""
+        payload = super().build_save_payload(**kwargs)
+
+        # Add file-specific fields
+        if self.file_path:
+            payload["filePath"] = self.file_path
+        if self.s3_url:
+            payload["s3Url"] = self.s3_url
+        if self.file_type:
+            payload["fileType"] = self.file_type.value
+
+        return payload
+
+    def save(self, **kwargs) -> "Resource":
+        """Save the resource, uploading file to S3 if needed."""
+        # If we have a file_path but no s3_url, upload the file first
+        if self.file_path and not self.s3_url:
+            self._upload_file()
+
+        # For file resources, we don't save to backend - just upload to S3
+        # The legacy system doesn't have a Resource management endpoint
+        return self
+
+    def _upload_file(self) -> None:
+        """Upload the file to S3 and set the s3_url."""
+        if not self.file_path or not os.path.exists(self.file_path):
+            raise ValueError(f"File not found: {self.file_path}")
+
+        # Use the file uploader with context's API key and backend URL
+        uploader = FileUploader(
+            api_key=self.context.client.team_api_key,
+            backend_url=self.context.backend_url,
+        )
+        result = uploader.upload(self.file_path)
+
+        # Set the S3 URL (result is already the URL string)
+        self.s3_url = result
+
+    @property
+    def url(self) -> Optional[str]:
+        """Get the S3 URL of the uploaded file."""
+        return self.s3_url
+
+    @classmethod
+    def create_from_file(cls, file_path: str, **kwargs) -> "Resource":
+        """Create a resource from a file path."""
+        return cls(file_path=file_path, **kwargs)
+
+    def __init__(self, file_path: Optional[str] = None, **kwargs):
+        """Initialize the resource with file path."""
+        super().__init__(**kwargs)
+        if file_path:
+            self.file_path = file_path
+            if not self.file_type:
+                self.file_type = self._detect_file_type()

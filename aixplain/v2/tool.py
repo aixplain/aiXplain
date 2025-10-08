@@ -114,23 +114,121 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
             return self.integration.list_inputs(*actions)
 
     def _create(self, resource_path: str, payload: dict) -> None:
-        """Create the tool."""
+        """Create the tool by connecting to the integration."""
         if not self.integration:
             raise ValueError("Integration is required to create a tool")
 
-        connection = self.integration.connect(
-            authScheme=self.auth_scheme, data=self.config
-        )
-        # Dynamically map all attributes from connection to tool if they are None
+        # Connect to the integration - this creates the tool on the backend
+        # For integrations without auth schemes, don't pass authScheme at all
+        if self.integration.auth_schemes:
+            connection = self.integration.connect(
+                authScheme=self.auth_scheme, data=self.config
+            )
+        else:
+            # SQLite integration doesn't expect authScheme parameter
+            connection = self.integration.connect(data=self.config)
+        self.id = connection.id
+
+        # Map attributes from connection to tool if they are None
         for attr_name in self.__dataclass_fields__:
             if not getattr(self, attr_name) and getattr(connection, attr_name, None):
                 setattr(self, attr_name, getattr(connection, attr_name))
 
-        # we are saving again because we need to also sync local state with backend
-        # self.save()
-
     def _update(self, resource_path: str, payload: dict) -> None:
         raise NotImplementedError("Updating a tool is not supported yet")
+
+    def upsert(
+        self,
+        data: Union[List[dict], List[str], dict, str, "Resource"] = None,
+        resource: Optional["Resource"] = None,
+        index_column: Optional[str] = None,
+        metadata_columns: Optional[List[str]] = None,
+        id_column: Optional[str] = None,
+        split_by: Optional[str] = None,
+        **kwargs,
+    ) -> "Tool":
+        """Upsert data into the tool (for indexing functionality).
+
+        Args:
+            data: Data to upsert. Can be:
+                - str: A single string
+                - List[str]: A list of strings
+                - dict: A single dictionary (e.g., {"id": "1", "data": "text"})
+                - List[dict]: A list of dictionaries
+                - Resource: A Resource object (for file-based indexing)
+            resource: Resource object (alternative to data parameter)
+            index_column: The column to use for indexing (defaults to "data").
+            metadata_columns: List of columns to store as metadata.
+            id_column: The column to use as the ID (defaults to "id").
+            split_by: How to split the text (e.g., "sentence", "paragraph").
+            **kwargs: Additional parameters for the upsert operation.
+
+        Returns:
+            Tool: The tool instance for chaining.
+        """
+        # Handle Resource object
+        if resource is not None:
+            # Use the resource for indexing
+            payload = {
+                "resource": (
+                    resource.id if hasattr(resource, "id") and resource.id else resource
+                ),
+                "action": "upsert",
+            }
+        elif data is not None:
+            # Format data for upsert
+            formatted_data = self._format_data_for_upsert(data, index_column, id_column)
+            payload = {"data": formatted_data, "action": "upsert"}
+        else:
+            raise ValueError("Either 'data' or 'resource' parameter must be provided")
+
+        # Add optional parameters
+        if index_column:
+            payload["index_column"] = index_column
+        if metadata_columns:
+            payload["metadata_columns"] = metadata_columns
+        if id_column:
+            payload["id_column"] = id_column
+        if split_by:
+            payload["split_by"] = split_by
+
+        # Add any additional kwargs
+        payload.update(kwargs)
+
+        # Run the upsert operation
+        self.run(**payload)
+        return self
+
+    def _format_data_for_upsert(
+        self,
+        data: Union[List[dict], List[str], dict, str],
+        index_column: Optional[str] = None,
+        id_column: Optional[str] = None,
+    ) -> List[dict]:
+        """Format data for upsert operation."""
+        index_col = index_column or "data"
+        id_col = id_column or "id"
+
+        # Handle single string
+        if isinstance(data, str):
+            return [{id_col: "1", index_col: data}]
+
+        # Handle single dict
+        if isinstance(data, dict):
+            return [data]
+
+        # Handle list of strings
+        if isinstance(data, list) and data and isinstance(data[0], str):
+            return [
+                {id_col: str(i + 1), index_col: item} for i, item in enumerate(data)
+            ]
+
+        # Handle list of dicts (already formatted)
+        if isinstance(data, list) and data and isinstance(data[0], dict):
+            return data
+
+        # Fallback
+        return []
 
     def validate_allowed_actions(self) -> None:
         if self.allowed_actions:

@@ -1,6 +1,5 @@
 import requests
 import logging
-import pprint
 from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json, config
 from urllib.parse import quote
@@ -12,7 +11,6 @@ from typing import (
     Generic,
     Any,
     Optional,
-    Dict,
     TYPE_CHECKING,
     NotRequired,
     Protocol,
@@ -25,7 +23,7 @@ from functools import wraps
 from copy import deepcopy
 
 
-from .enums import OwnershipType, SortBy, SortOrder, ResponseStatus
+from .enums import OwnershipType, SortBy, SortOrder
 from .exceptions import (
     ResourceError,
     ValidationError,
@@ -609,7 +607,9 @@ class Page(Generic[ResourceT]):
         self.total = total
 
     def __repr__(self) -> str:
-        return pprint.pformat(self.__dict__, depth=2, indent=2)
+        import json
+
+        return json.dumps(self.__dict__, indent=2, default=str)
 
     def __getitem__(self, key: str):
         return getattr(self, key)

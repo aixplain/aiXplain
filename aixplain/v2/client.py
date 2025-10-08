@@ -4,31 +4,14 @@ import requests
 from requests.adapters import HTTPAdapter, Retry
 from urllib.parse import urljoin
 
+from .exceptions import APIError
+
 logger = logging.getLogger(__name__)
 
 
 DEFAULT_RETRY_TOTAL = 5
 DEFAULT_RETRY_BACKOFF_FACTOR = 0.1
 DEFAULT_RETRY_STATUS_FORCELIST = [500, 502, 503, 504]
-
-
-class AixplainError(Exception):
-
-    message: str
-    error: str
-    status_code: int
-
-    """Exception raised for errors in the Aixplain API."""
-
-    def __init__(
-        self, message: Union[str, List[str]], error: str, status_code: int
-    ) -> None:
-        if isinstance(message, list):
-            message = "\n".join(message)
-        self.message = message
-        self.error = error
-        self.status_code = status_code
-        super().__init__(self.message)
 
 
 def create_retry_session(
@@ -132,9 +115,7 @@ class AixplainClient:
             url = path
         else:
             url = urljoin(self.base_url, path)
-        print(url, kwargs)
         response = self.session.request(method=method, url=url, **kwargs)
-        print(response.text)
         if not response.ok:
             error_obj = None
             try:
@@ -143,13 +124,16 @@ class AixplainClient:
                 logger.error(f"Error parsing error response: {e}")
 
             if error_obj:
-                raise AixplainError(
+                raise APIError(
                     error_obj.get("message", error_obj.get("error", response.text)),
-                    error_obj.get("error", response.text),
-                    error_obj.get("statusCode", response.status_code),
+                    status_code=error_obj.get("statusCode", response.status_code),
+                    response_data=error_obj,
+                    error=error_obj.get("error", response.text),
                 )
             else:
-                raise AixplainError(response.text, response.text, response.status_code)
+                raise APIError(
+                    response.text, status_code=response.status_code, error=response.text
+                )
 
         return response
 

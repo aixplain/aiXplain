@@ -2,12 +2,14 @@
 
 import os
 from typing import Optional, TypeVar
+
 from .client import AixplainClient
 from .model import Model
 from .agent import Agent
 from .utility import Utility
 from .tool import Tool
 from .integration import Integration
+from .file import Resource
 from . import enums
 
 
@@ -16,6 +18,7 @@ AgentType = TypeVar("AgentType", bound=Agent)
 UtilityType = TypeVar("UtilityType", bound=Utility)
 ToolType = TypeVar("ToolType", bound=Tool)
 IntegrationType = TypeVar("IntegrationType", bound=Integration)
+ResourceType = TypeVar("ResourceType", bound=Resource)
 
 
 class Aixplain:
@@ -36,6 +39,7 @@ class Aixplain:
     Utility: UtilityType = None
     Tool: ToolType = None
     Integration: IntegrationType = None
+    Resource: ResourceType = None
 
     Function = enums.Function
     Supplier = enums.Supplier
@@ -43,9 +47,6 @@ class Aixplain:
     License = enums.License
 
     AssetStatus = enums.AssetStatus
-    DataSplit = enums.DataSplit
-    DataSubtype = enums.DataSubtype
-    DataType = enums.DataType
     ErrorHandler = enums.ErrorHandler
     FileType = enums.FileType
     OnboardStatus = enums.OnboardStatus
@@ -111,3 +112,4 @@ class Aixplain:
         self.Utility = type("Utility", (Utility,), {"context": self})
         self.Tool = type("Tool", (Tool,), {"context": self})
         self.Integration = type("Integration", (Integration,), {"context": self})
+        self.Resource = type("Resource", (Resource,), {"context": self})

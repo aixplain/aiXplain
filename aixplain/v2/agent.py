@@ -3,15 +3,15 @@ import logging
 from datetime import datetime
 from enum import Enum
 from dataclasses import dataclass, field
-from typing import List, Optional, Any, Dict, Union, Text, Literal
-from typing_extensions import Unpack, NotRequired, TypedDict
+from typing import List, Optional, Any, Dict, Union, Text
+from typing_extensions import Unpack, NotRequired, TypedDict, Literal
 from dataclasses_json import dataclass_json, config
 
 from pydantic import BaseModel
 
-from aixplain.enums import AssetStatus, ResponseStatus
-from aixplain.v2.model import Model
-from aixplain.v2.mixins import ToolableMixin
+from .enums import AssetStatus, ResponseStatus
+from .model import Model
+from .mixins import ToolableMixin
 
 from .resource import (
     BaseResource,
