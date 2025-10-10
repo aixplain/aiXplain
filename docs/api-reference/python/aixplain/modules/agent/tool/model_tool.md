@@ -3,7 +3,10 @@ sidebar_label: model_tool
 title: aixplain.modules.agent.tool.model_tool
 ---
 
-#### \_\_author\_\_
+Model tool for aiXplain SDK agents.
+
+This module provides a tool that allows agents to interact with AI models
+and execute model-based tasks.
 
 Copyright 2024 The aiXplain SDK authors
 
@@ -32,7 +35,7 @@ def set_tool_name(function: Function,
                   model: Model = None) -> Text
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/tool/model_tool.py#L30)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/tool/model_tool.py#L35)
 
 Sets the name of the tool based on the function, supplier, and model.
 
@@ -53,7 +56,7 @@ Sets the name of the tool based on the function, supplier, and model.
 class ModelTool(Tool)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/tool/model_tool.py#L54)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/tool/model_tool.py#L59)
 
 A tool that wraps AI models to execute specific tasks or functions based on user commands.
 
@@ -82,7 +85,7 @@ def __init__(function: Optional[Union[Function, Text]] = None,
              **additional_info) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/tool/model_tool.py#L70)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/tool/model_tool.py#L75)
 
 Initialize a new ModelTool instance.
 
@@ -112,7 +115,7 @@ Initialize a new ModelTool instance.
 def to_dict() -> Dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/tool/model_tool.py#L125)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/tool/model_tool.py#L130)
 
 Convert the tool instance to a dictionary representation.
 
@@ -138,7 +141,7 @@ into their serializable forms.
 def validate() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/tool/model_tool.py#L164)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/tool/model_tool.py#L169)
 
 Validates the tool.
 
@@ -157,7 +160,7 @@ Validates the tool.
 def get_parameters() -> Dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/tool/model_tool.py#L217)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/tool/model_tool.py#L223)
 
 Get the tool&#x27;s parameters, either from explicit settings or the model object.
 
@@ -174,7 +177,7 @@ def validate_parameters(
 ) -> Optional[List[Dict]]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/tool/model_tool.py#L252)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/tool/model_tool.py#L258)
 
 Validates and formats the parameters for the tool.
 
@@ -198,7 +201,7 @@ Validates and formats the parameters for the tool.
 def __repr__() -> Text
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/tool/model_tool.py#L307)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/tool/model_tool.py#L315)
 
 Return a string representation of the tool.
 
@@ -206,17 +209,4 @@ Return a string representation of the tool.
 
 - `Text` - A string in the format &quot;ModelTool(name=&lt;name&gt;, function=&lt;function&gt;,
   supplier=&lt;supplier&gt;, model=&lt;model&gt;)&quot;.
-
-#### deploy
-
-```python
-def deploy()
-```
-
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/tool/model_tool.py#L318)
-
-Deploy the model tool.
-
-This is a placeholder method as model tools are managed through the aiXplain platform
-and don&#x27;t require explicit deployment.
 

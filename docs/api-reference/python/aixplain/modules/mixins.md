@@ -3,6 +3,8 @@ sidebar_label: mixins
 title: aixplain.modules.mixins
 ---
 
+Mixins for common functionality across different asset types.
+
 Copyright 2024 The aiXplain SDK authors
 
 Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -28,7 +30,7 @@ Description:
 class DeployableMixin(ABC, Generic[T])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/mixins.py#L28)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/mixins.py#L31)
 
 A mixin that provides common deployment-related functionality for assets.
 
@@ -47,7 +49,7 @@ Classes that inherit from this mixin should:
 def deploy() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/mixins.py#L58)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/mixins.py#L62)
 
 Deploy the asset.
 
@@ -56,5 +58,6 @@ Classes that need special deployment handling should override this method.
 
 **Raises**:
 
+- `AlreadyDeployedError` - If the asset is already deployed
 - `ValueError` - If the asset is not ready to be deployed
 

@@ -3,7 +3,10 @@ sidebar_label: pipeline_tool
 title: aixplain.modules.agent.tool.pipeline_tool
 ---
 
-#### \_\_author\_\_
+Pipeline tool for aiXplain SDK agents.
+
+This module provides a tool that allows agents to execute AI pipelines
+and chain multiple AI operations together.
 
 Copyright 2024 The aiXplain SDK authors
 
@@ -30,7 +33,7 @@ Description:
 class PipelineTool(Tool)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/tool/pipeline_tool.py#L30)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/tool/pipeline_tool.py#L35)
 
 A tool that wraps aiXplain pipelines to execute complex workflows based on user commands.
 
@@ -55,7 +58,7 @@ def __init__(description: Text,
              **additional_info) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/tool/pipeline_tool.py#L45)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/tool/pipeline_tool.py#L50)
 
 Initialize a new PipelineTool instance.
 
@@ -79,7 +82,7 @@ Initialize a new PipelineTool instance.
 def to_dict()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/tool/pipeline_tool.py#L73)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/tool/pipeline_tool.py#L78)
 
 Convert the tool instance to a dictionary representation.
 
@@ -98,7 +101,7 @@ Convert the tool instance to a dictionary representation.
 def __repr__() -> Text
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/tool/pipeline_tool.py#L92)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/tool/pipeline_tool.py#L97)
 
 Return a string representation of the tool.
 
@@ -112,7 +115,7 @@ Return a string representation of the tool.
 def validate()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/tool/pipeline_tool.py#L100)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/tool/pipeline_tool.py#L105)
 
 Validate the pipeline tool&#x27;s configuration.
 
@@ -124,17 +127,4 @@ This method performs several checks:
 **Raises**:
 
 - `Exception` - If the pipeline doesn&#x27;t exist or is inaccessible.
-
-#### deploy
-
-```python
-def deploy()
-```
-
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/tool/pipeline_tool.py#L127)
-
-Deploy the pipeline tool.
-
-This is a placeholder method as pipeline tools are managed through the aiXplain platform
-and don&#x27;t require explicit deployment.
 
