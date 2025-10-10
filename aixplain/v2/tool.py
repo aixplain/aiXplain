@@ -118,9 +118,14 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
         if not self.integration:
             raise ValueError("Integration is required to create a tool")
 
-        # Pass config parameters directly to the integration
-        connect_kwargs = {"authScheme": self.auth_scheme}
-        connect_kwargs.update(self.config)
+        if not self.auth_scheme or self.auth_scheme.value == "NO_AUTH":
+            connect_kwargs = self.config.copy()
+        else:
+            connect_kwargs = {
+                "authScheme": self.auth_scheme,
+                "data": self.config.copy(),
+            }
+
         connection = self.integration.connect(**connect_kwargs)
 
         self.id = connection.id

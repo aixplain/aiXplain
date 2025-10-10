@@ -1089,6 +1089,14 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
                 raise create_operation_failed_error(response)
 
             response_class = getattr(self, "RESPONSE_CLASS", Result)
+
+            # Handle case where data is a string (tool ID) - wrap it in expected structure
+            if "data" in response and isinstance(response["data"], str):
+                # Create a copy of response and wrap the string ID
+                wrapped_response = response.copy()
+                wrapped_response["data"] = {"id": response["data"]}
+                return response_class.from_dict(wrapped_response)
+
             return response_class.from_dict(response)
 
     # Optional hook methods - only implement what you need
