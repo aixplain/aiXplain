@@ -52,6 +52,7 @@ class Resource(
     file_type: Optional[FileType] = field(
         default=None, metadata=config(field_name="fileType")
     )
+    is_temp: bool = field(default=True, metadata=config(field_name="isTemp"))
 
     def __post_init__(self):
         """Initialize the resource."""
@@ -97,8 +98,17 @@ class Resource(
 
         return payload
 
-    def save(self, **kwargs) -> "Resource":
-        """Save the resource, uploading file to S3 if needed."""
+    def save(self, is_temp: Optional[bool] = None, **kwargs) -> "Resource":
+        """Save the resource, uploading file to S3 if needed.
+
+        Args:
+            is_temp: Whether this is a temporary upload. If None, uses the resource's is_temp setting.
+            **kwargs: Additional parameters for saving.
+        """
+        # Update is_temp if provided
+        if is_temp is not None:
+            self.is_temp = is_temp
+
         # If we have a file_path but no s3_url, upload the file first
         if self.file_path and not self.s3_url:
             self._upload_file()
@@ -117,25 +127,42 @@ class Resource(
             api_key=self.context.client.team_api_key,
             backend_url=self.context.backend_url,
         )
-        result = uploader.upload(self.file_path)
+        result = uploader.upload(
+            self.file_path, is_temp=self.is_temp, return_download_link=True
+        )
 
-        # Set the S3 URL (result is already the URL string)
+        # Set the presigned/public URL (result is the download link)
         self.s3_url = result
 
     @property
     def url(self) -> Optional[str]:
-        """Get the S3 URL of the uploaded file."""
+        """Get the presigned/public URL of the uploaded file."""
         return self.s3_url
 
     @classmethod
-    def create_from_file(cls, file_path: str, **kwargs) -> "Resource":
-        """Create a resource from a file path."""
-        return cls(file_path=file_path, **kwargs)
+    def create_from_file(
+        cls, file_path: str, is_temp: bool = True, **kwargs
+    ) -> "Resource":
+        """Create a resource from a file path.
 
-    def __init__(self, file_path: Optional[str] = None, **kwargs):
-        """Initialize the resource with file path."""
+        Args:
+            file_path: Path to the file to upload.
+            is_temp: Whether this is a temporary upload (default: True).
+            **kwargs: Additional parameters for initialization.
+        """
+        return cls(file_path=file_path, is_temp=is_temp, **kwargs)
+
+    def __init__(self, file_path: Optional[str] = None, is_temp: bool = True, **kwargs):
+        """Initialize the resource with file path.
+
+        Args:
+            file_path: Path to the file to upload.
+            is_temp: Whether this is a temporary upload (default: True).
+            **kwargs: Additional parameters for initialization.
+        """
         super().__init__(**kwargs)
         if file_path:
             self.file_path = file_path
             if not self.file_type:
                 self.file_type = self._detect_file_type()
+        self.is_temp = is_temp

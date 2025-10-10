@@ -118,15 +118,11 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
         if not self.integration:
             raise ValueError("Integration is required to create a tool")
 
-        # Connect to the integration - this creates the tool on the backend
-        # For integrations without auth schemes, don't pass authScheme at all
-        if self.integration.auth_schemes:
-            connection = self.integration.connect(
-                authScheme=self.auth_scheme, data=self.config
-            )
-        else:
-            # SQLite integration doesn't expect authScheme parameter
-            connection = self.integration.connect(data=self.config)
+        # Pass config parameters directly to the integration
+        connect_kwargs = {"authScheme": self.auth_scheme}
+        connect_kwargs.update(self.config)
+        connection = self.integration.connect(**connect_kwargs)
+
         self.id = connection.id
 
         # Map attributes from connection to tool if they are None

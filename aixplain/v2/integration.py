@@ -537,12 +537,17 @@ class Integration(Model, ActionMixin):
         # Call parent validation first
         errors = super()._validate_params(**kwargs)
 
-        auth_scheme = kwargs.get("authScheme")
+        auth_scheme = kwargs.pop("authScheme")
         # Convert enum to string value for comparison
         auth_scheme_value = (
             auth_scheme.value if hasattr(auth_scheme, "value") else str(auth_scheme)
         )
-        if auth_scheme_value not in self.auth_schemes:
+
+        if auth_scheme_value == "NO_AUTH":
+            auth_scheme_value = None
+            auth_scheme = None
+
+        if auth_scheme_value and auth_scheme_value not in self.auth_schemes:
             errors.append(
                 f"Invalid auth_scheme '{auth_scheme}'. "
                 f"Available schemes: {self.auth_schemes}"
