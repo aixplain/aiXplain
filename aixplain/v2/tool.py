@@ -379,10 +379,26 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
                 merged[input_code] = value
 
         kwargs.setdefault("data", {})
-        return {
-            "action": action_name,
-            "data": {
-                **merged,
-                **kwargs["data"],
-            },
-        }
+
+        # Handle both string and dict data
+        if isinstance(kwargs["data"], str):
+            # For string data (like AIXplain Search), pass it directly
+            # Include all other parameters (like dataType) in the request
+            result = {
+                "action": action_name,
+                "data": kwargs["data"],
+            }
+            # Add all other parameters except 'data' and 'action'
+            for key, value in kwargs.items():
+                if key not in ["data", "action"]:
+                    result[key] = value
+            return result
+        else:
+            # For dict data, merge with merged parameters
+            return {
+                "action": action_name,
+                "data": {
+                    **merged,
+                    **kwargs["data"],
+                },
+            }
