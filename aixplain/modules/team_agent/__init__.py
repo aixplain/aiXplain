@@ -298,7 +298,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                         # Pad to clear previous content and write with carriage return
                         msg = msg.ljust(150)
                         sys.stdout.write("\r" + msg)
-                        sys.stdout.flush()
+                        # sys.stdout.flush()
 
                 end = time.time()
                 if completed is False:
@@ -317,7 +317,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         # Clear progress line if shown
         if show_progress:
             sys.stdout.write("\r" + " " * 150 + "\r")
-            sys.stdout.flush()
+            # sys.stdout.flush()
 
         if response_body["completed"] is True:
             logging.debug(f"Polling for Team Agent: Final status of polling for {name}: {response_body}")

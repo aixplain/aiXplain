@@ -355,7 +355,7 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
                         # Pad to clear previous content and write with carriage return
                         msg = msg.ljust(120)
                         sys.stdout.write("\r" + msg)
-                        sys.stdout.flush()
+                        # sys.stdout.flush()
 
                 end = time.time()
                 if completed is False:
@@ -374,7 +374,7 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
         # Clear progress line if shown
         if show_progress:
             sys.stdout.write("\r" + " " * 120 + "\r")
-            sys.stdout.flush()
+            # sys.stdout.flush()
 
         if response_body["completed"] is True:
             logging.debug(f"Polling for Agent: Final status of polling for {name}: {response_body}")
