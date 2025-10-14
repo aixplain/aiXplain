@@ -159,10 +159,11 @@ class Task:
     dependencies: List[Union[str, "Task"]] = field(default_factory=list)
 
     def __post_init__(self) -> None:
-        self.dependencies = [
-            dependency if isinstance(dependency, str) else dependency.name
-            for dependency in self.dependencies
-        ]
+        if self.dependencies:
+            self.dependencies = [
+                dependency if isinstance(dependency, str) else dependency.name
+                for dependency in self.dependencies
+            ]
 
 
 @dataclass_json
@@ -274,10 +275,11 @@ class Agent(
 
         if isinstance(self.llm, Model):
             self.llm = self.llm.id
-        if self.subagents and (self.tasks or self.tools):
-            raise ValueError(
-                "Team agents cannot have tasks or tools. Please remove the tasks or tools and try again."
-            )
+        # TODO: Re-enable this validation after backend data consistency is fixed
+        # if self.subagents and (self.tasks or self.tools):
+        #     raise ValueError(
+        #         "Team agents cannot have tasks or tools. Please remove the tasks or tools and try again."
+        #     )
 
     def mark_as_deleted(self) -> None:
         """Mark the agent as deleted by setting status to DELETED and calling parent method."""
@@ -289,6 +291,10 @@ class Agent(
     def before_run(
         self, *args: Any, **kwargs: Unpack[AgentRunParams]
     ) -> Optional[AgentRunResult]:
+        # First, validate that all dependencies are saved before allowing run
+        # This prevents auto-saving from masking the validation issue
+        self._validate_run_dependencies()
+
         # If the agent is draft or not set, and it is modified,
         # implicitly save it as draft
         if self.status in [AssetStatus.DRAFT, None]:
@@ -429,6 +435,44 @@ class Agent(
             )
             raise ValueError(
                 f"Failed to save {len(failed_components)} component(s): {error_details}"
+            )
+
+    def _validate_run_dependencies(self) -> None:
+        """Validate that all child components are saved before running."""
+        unsaved_components = []
+
+        # Check tools
+        if self.tools:
+            for tool in self.tools:
+                if hasattr(tool, "id") and not tool.id:
+                    tool_name = getattr(tool, "name", "unnamed")
+                    unsaved_components.append(f"tool '{tool_name}'")
+
+        # Check subagents - handle both _original_subagents and direct subagents list
+        if self.subagents:
+            for i, subagent in enumerate(self.subagents):
+                # If it's an Agent object (not a string ID), check if it's saved
+                if hasattr(subagent, "id") and hasattr(subagent, "name"):
+                    if not subagent.id:
+                        subagent_name = getattr(subagent, "name", "unnamed")
+                        unsaved_components.append(f"subagent '{subagent_name}'")
+                # Also check _original_subagents if available (for backward compatibility)
+                elif (
+                    hasattr(self, "_original_subagents")
+                    and i < len(self._original_subagents)
+                    and self._original_subagents[i] is not None
+                ):
+                    original_subagent = self._original_subagents[i]
+                    if hasattr(original_subagent, "id") and not original_subagent.id:
+                        subagent_name = getattr(original_subagent, "name", "unnamed")
+                        unsaved_components.append(f"subagent '{subagent_name}'")
+
+        if unsaved_components:
+            components_list = ", ".join(unsaved_components)
+            raise ValueError(
+                f"Component(s) {components_list} must be saved before running the agent. "
+                "Use agent.save(save_subcomponents=True) to automatically save all child components, "
+                "or save each component individually before running."
             )
 
     def _validate_dependencies(self) -> None:
