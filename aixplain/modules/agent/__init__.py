@@ -24,6 +24,7 @@ Description:
 """
 
 __author__ = "aiXplain"
+import inspect
 import json
 import logging
 import re
@@ -291,6 +292,102 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
             logging.error(f"Failed to initialize session {session_id}: {e}")
             return session_id
 
+    def sync_poll(
+        self,
+        poll_url: Text,
+        name: Text = "model_process",
+        wait_time: float = 0.5,
+        timeout: float = 300,
+        show_progress: bool = False,
+    ) -> "AgentResponse":
+        """Poll the platform until agent execution completes or times out.
+
+        Args:
+            poll_url (Text): URL to poll for operation status.
+            name (Text, optional): Identifier for the operation. Defaults to "model_process".
+            wait_time (float, optional): Initial wait time in seconds between polls. Defaults to 0.5.
+            timeout (float, optional): Maximum total time to poll in seconds. Defaults to 300.
+            show_progress (bool, optional): Display real-time progress updates. Defaults to False.
+
+        Returns:
+            AgentResponse: The final response from the agent execution.
+        """
+        import sys
+        import os
+
+        logging.info(f"Polling for Agent: Start polling for {name}")
+        start, end = time.time(), time.time()
+        wait_time = max(wait_time, 0.2)
+        completed = False
+        response_body = AgentResponse(status=ResponseStatus.FAILED, completed=False)
+
+        while not completed and (end - start) < timeout:
+            try:
+                response_body = self.poll(poll_url, name=name)
+                completed = response_body["completed"]
+
+                # Display progress inline if enabled
+                if show_progress and not completed:
+                    progress = response_body.get("progress")
+                    if progress:
+                        stage = progress.get("stage", "working")
+                        tool = progress.get("tool")
+                        runtime = progress.get("runtime", 0)
+                        success = progress.get("success")
+                        reason = progress.get("reason", "")
+
+                        # Build status message
+                        if tool:
+                            status_icon = "✓" if success else "✗" if success is False else "⏳"
+                            msg = f"🤖 Agent: {stage.replace('_', ' ').title()} | Tool: {tool} {status_icon}"
+                            if runtime > 0:
+                                msg += f" ({runtime:.2f}s)"
+                            if reason:
+                                # Truncate reason if too long
+                                reason_display = reason[:30] + "..." if len(reason) > 30 else reason
+                                msg += f" | {reason_display}"
+                        else:
+                            msg = f"🤖 Agent: {stage.replace('_', ' ').title()}..."
+                            if reason:
+                                reason_display = reason[:40] + "..." if len(reason) > 40 else reason
+                                msg += f" | {reason_display}"
+
+                        # Pad to clear previous content and write with carriage return
+                        msg = msg.ljust(120)
+                        sys.stdout.write("\r" + msg)
+                        sys.stdout.flush()
+
+                end = time.time()
+                if completed is False:
+                    time.sleep(wait_time)
+                    if wait_time < 60:
+                        wait_time *= 1.1
+            except Exception as e:
+                response_body = AgentResponse(
+                    status=ResponseStatus.FAILED,
+                    completed=False,
+                    error_message="No response from the service.",
+                )
+                logging.error(f"Polling for Agent: polling for {name}: {e}")
+                break
+
+        # Clear progress line if shown
+        if show_progress:
+            sys.stdout.write("\r" + " " * 120 + "\r")
+            sys.stdout.flush()
+
+        if response_body["completed"] is True:
+            logging.debug(f"Polling for Agent: Final status of polling for {name}: {response_body}")
+        else:
+            response_body = AgentResponse(
+                status=ResponseStatus.FAILED,
+                completed=False,
+                error_message="No response from the service.",
+            )
+            logging.error(f"Polling for Agent: Final status of polling for {name}: No response in {timeout} seconds")
+
+        return response_body
+
     def run(
         self,
         data: Optional[Union[Dict, Text]] = None,
@@ -307,6 +404,7 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
         output_format: Optional[OutputFormat] = None,
         expected_output: Optional[Union[BaseModel, Text, dict]] = None,
         trace_request: bool = False,
+        show_progress: bool = False,
     ) -> AgentResponse:
         """Runs an agent call.
 
@@ -325,6 +423,8 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
             output_format (OutputFormat, optional): response format. If not provided, uses the format set during initialization.
             expected_output (Union[BaseModel, Text, dict], optional): expected output. Defaults to None.
             trace_request (bool, optional): return the request id for tracing the request. Defaults to False.
+            show_progress (bool, optional): show real-time progress updates during execution. Defaults to False.
+
         Returns:
             Dict: parsed output from model
         """
@@ -361,7 +461,9 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
                 return response
             poll_url = response["url"]
             end = time.time()
-            result = self.sync_poll(poll_url, name=name, timeout=timeout, wait_time=wait_time)
+            result = self.sync_poll(
+                poll_url, name=name, timeout=timeout, wait_time=wait_time, show_progress=show_progress
+            )
             # if result.status == ResponseStatus.FAILED:
             #    raise Exception("Model failed to run with error: " + result.error_message)
             result_data = result.get("data") or {}
@@ -427,6 +529,7 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
             output_format (ResponseFormat, optional): response format. Defaults to TEXT.
             evolve (Union[Dict[str, Any], EvolveParam, None], optional): evolve the agent configuration. Can be a dictionary, EvolveParam instance, or None.
             trace_request (bool, optional): return the request id for tracing the request. Defaults to False.
+
         Returns:
             dict: polling URL in response
         """
@@ -448,7 +551,8 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
 
         if output_format == OutputFormat.JSON:
             assert expected_output is not None and (
-                issubclass(expected_output, BaseModel) or isinstance(expected_output, dict)
+                (inspect.isclass(expected_output) and issubclass(expected_output, BaseModel))
+                or isinstance(expected_output, dict)
             ), "Expected output must be a Pydantic BaseModel or a JSON object when output format is JSON."
 
         assert data is not None or query is not None, "Either 'data' or 'query' must be provided."
@@ -490,7 +594,7 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
         input_data = process_variables(query, data, parameters, self.instructions)
         if expected_output is None:
             expected_output = self.expected_output
-        if expected_output is not None and issubclass(expected_output, BaseModel):
+        if expected_output is not None and inspect.isclass(expected_output) and issubclass(expected_output, BaseModel):
             expected_output = expected_output.model_json_schema()
         expected_output = normalize_expected_output(expected_output)
         # Use instance output_format if none provided
