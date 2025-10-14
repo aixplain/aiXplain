@@ -240,9 +240,6 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         Returns:
             AgentResponse: The final response from the team agent execution.
         """
-        import sys
-        import os
-
         logging.info(f"Polling for Team Agent: Start polling for {name}")
         start, end = time.time(), time.time()
         wait_time = max(wait_time, 0.2)
@@ -266,6 +263,8 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                         current_step = progress.get("current_step", 0)
                         total_steps = progress.get("total_steps", 0)
                         reason = progress.get("reason", "")
+                        tool_input = progress.get("tool_input", "")
+                        tool_output = progress.get("tool_output", "")
 
                         # Build status message
                         msg = "👥 Team:"
@@ -280,25 +279,27 @@ class TeamAgent(Model, DeployableMixin[Agent]):
 
                         # Add agent and stage info
                         if agent_name:
-                            msg += f" | {agent_name[:20]}"
+                            msg += f" | {agent_name}"
                         msg += f" | {stage.replace('_', ' ').title()}"
 
                         # Add tool info
                         if tool:
                             status_icon = "✓" if success else "✗" if success is False else "⏳"
-                            msg += f" | {tool[:15]} {status_icon}"
+                            msg += f" | {tool} {status_icon}"
                             if runtime > 0:
                                 msg += f" ({runtime:.1f}s)"
 
                         # Add reason if available
                         if reason:
-                            reason_display = reason[:25] + "..." if len(reason) > 25 else reason
-                            msg += f" | {reason_display}"
+                            msg += f" | Reason: {reason}"
 
-                        # Pad to clear previous content and write with carriage return
-                        msg = msg.ljust(150)
-                        sys.stdout.write("\r" + msg)
-                        # sys.stdout.flush()
+                        # Add tool input/output if available
+                        if tool_input:
+                            msg += f" | Input: {tool_input}"
+                        if tool_output:
+                            msg += f" | Output: {tool_output}"
+
+                        print(msg)
 
                 end = time.time()
                 if completed is False:
@@ -313,11 +314,6 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                 )
                 logging.error(f"Polling for Team Agent: polling for {name}: {e}")
                 break
-
-        # Clear progress line if shown
-        if show_progress:
-            sys.stdout.write("\r" + " " * 150 + "\r")
-            # sys.stdout.flush()
 
         if response_body["completed"] is True:
             logging.debug(f"Polling for Team Agent: Final status of polling for {name}: {response_body}")

@@ -312,9 +312,6 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
         Returns:
             AgentResponse: The final response from the agent execution.
         """
-        import sys
-        import os
-
         logging.info(f"Polling for Agent: Start polling for {name}")
         start, end = time.time(), time.time()
         wait_time = max(wait_time, 0.2)
@@ -335,6 +332,8 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
                         runtime = progress.get("runtime", 0)
                         success = progress.get("success")
                         reason = progress.get("reason", "")
+                        tool_input = progress.get("tool_input", "")
+                        tool_output = progress.get("tool_output", "")
 
                         # Build status message
                         if tool:
@@ -343,19 +342,17 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
                             if runtime > 0:
                                 msg += f" ({runtime:.2f}s)"
                             if reason:
-                                # Truncate reason if too long
-                                reason_display = reason[:30] + "..." if len(reason) > 30 else reason
-                                msg += f" | {reason_display}"
+                                msg += f" | Reason: {reason}"
+                            if tool_input:
+                                msg += f" | Input: {tool_input}"
+                            if tool_output:
+                                msg += f" | Output: {tool_output}"
                         else:
                             msg = f"🤖 Agent: {stage.replace('_', ' ').title()}..."
                             if reason:
-                                reason_display = reason[:40] + "..." if len(reason) > 40 else reason
-                                msg += f" | {reason_display}"
+                                msg += f" | Reason: {reason}"
 
-                        # Pad to clear previous content and write with carriage return
-                        msg = msg.ljust(120)
-                        sys.stdout.write("\r" + msg)
-                        # sys.stdout.flush()
+                        print(msg)
 
                 end = time.time()
                 if completed is False:
@@ -370,11 +367,6 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
                 )
                 logging.error(f"Polling for Agent: polling for {name}: {e}")
                 break
-
-        # Clear progress line if shown
-        if show_progress:
-            sys.stdout.write("\r" + " " * 120 + "\r")
-            # sys.stdout.flush()
 
         if response_body["completed"] is True:
             logging.debug(f"Polling for Agent: Final status of polling for {name}: {response_body}")
