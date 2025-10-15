@@ -369,8 +369,13 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
                 break
 
         if response_body["completed"] is True:
+            if show_progress:
+                elapsed_time = end - start
+                print(f"🤖 Agent: ✓ Completed successfully ({elapsed_time:.1f}s total)", flush=True)
             logging.debug(f"Polling for Agent: Final status of polling for {name}: {response_body}")
         else:
+            if show_progress:
+                print(f"🤖 Agent: ✗ Timeout - No response after {timeout}s", flush=True)
             response_body = AgentResponse(
                 status=ResponseStatus.FAILED,
                 completed=False,
