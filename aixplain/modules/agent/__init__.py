@@ -352,7 +352,7 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
                             if reason:
                                 msg += f" | Reason: {reason}"
 
-                        print(msg)
+                        print(msg, flush=True)
 
                 end = time.time()
                 if completed is False:

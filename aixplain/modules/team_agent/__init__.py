@@ -299,7 +299,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                         if tool_output:
                             msg += f" | Output: {tool_output}"
 
-                        print(msg)
+                        print(msg, flush=True)
 
                 end = time.time()
                 if completed is False:
