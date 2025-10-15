@@ -38,6 +38,7 @@ class Function(str, Enum):
     SPEECH_RECOGNITION = "SPEECH_RECOGNITION"
     IMAGE_CLASSIFICATION = "IMAGE_CLASSIFICATION"
     OBJECT_DETECTION = "OBJECT_DETECTION"
+    UTILITIES = "utilities"  # Add the missing utilities function
 
 
 class Language(str, Enum):
