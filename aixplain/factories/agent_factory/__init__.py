@@ -49,6 +49,10 @@ from urllib.parse import urljoin
 from aixplain.enums import DatabaseSourceType
 
 
+def to_literal_text(x):
+    s = json.dumps(x, ensure_ascii=False, indent=2) if isinstance(x, (dict, list)) else str(x)
+    return s.replace("{", "{{").replace("}", "}}")
+
 class AgentFactory:
     """Factory class for creating and managing agents in the aiXplain system.
 
@@ -144,8 +148,8 @@ class AgentFactory:
         payload = {
             "name": name,
             "assets": [build_tool_payload(tool) for tool in tools],
-            "description": description,
-            "instructions": instructions or description,
+            "description": to_literal_text(description),
+            "instructions": to_literal_text(instructions) or description,
             "supplier": supplier,
             "version": version,
             "llmId": llm_id,
