@@ -571,6 +571,25 @@ class Agent(
         # Update the payload with converted assets
         payload["assets"] = converted_assets
 
+        # Handle Inspector objects serialization
+        if "inspectors" in payload and payload["inspectors"]:
+            # Import Inspector here to avoid circular imports
+            from aixplain.modules.team_agent.inspector import Inspector
+
+            serialized_inspectors = []
+            for inspector in payload["inspectors"]:
+                if isinstance(inspector, Inspector):
+                    # Use Inspector's model_dump method which handles callable policy serialization
+                    serialized_inspectors.append(inspector.model_dump(by_alias=True))
+                elif isinstance(inspector, dict):
+                    # Already serialized
+                    serialized_inspectors.append(inspector)
+                else:
+                    raise ValueError(
+                        f"Inspector must be Inspector instance or dict, got {type(inspector)}"
+                    )
+            payload["inspectors"] = serialized_inspectors
+
         # Handle BaseModel expected_output for save operation
         # We don't send expected_output in the save payload - it's runtime-only
         if "expectedOutput" in payload:
