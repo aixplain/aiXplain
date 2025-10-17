@@ -4,6 +4,15 @@ from .agent import Agent
 from .tool import Tool
 from .file import Resource
 from .upload_utils import FileUploader, upload_file, validate_file_for_upload
+from .inspector import (
+    Inspector,
+    InspectorTarget,
+    InspectorAction,
+    InspectorPolicy,
+    InspectorAuto,
+    InspectorOutput,
+    ModelResponse,
+)
 from .exceptions import (
     AixplainV2Error,
     ResourceError,
@@ -42,6 +51,15 @@ __all__ = [
     "FileUploader",
     "upload_file",
     "validate_file_for_upload",
+    # Inspector classes
+    "Inspector",
+    "InspectorTarget",
+    "InspectorAction",
+    "InspectorPolicy",
+    "InspectorAuto",
+    "InspectorOutput",
+    "ModelResponse",
+    # Exceptions
     "AixplainV2Error",
     "ResourceError",
     "APIError",

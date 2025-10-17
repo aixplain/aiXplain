@@ -554,7 +554,31 @@ class Agent(
         """
         Build the payload for the save action.
         """
+        # Import Inspector from v2 module
+        from .inspector import Inspector
+
+        # Pre-serialize inspectors before to_dict() to avoid dataclass_json issues
+        original_inspectors = self.inspectors
+        if self.inspectors:
+            serialized_inspectors = []
+            for inspector in self.inspectors:
+                if isinstance(inspector, Inspector):
+                    # Use Inspector's to_dict method which handles callable policy serialization
+                    serialized_inspectors.append(inspector.to_dict())
+                elif isinstance(inspector, dict):
+                    # Already serialized
+                    serialized_inspectors.append(inspector)
+                else:
+                    raise ValueError(
+                        f"Inspector must be Inspector instance or dict, got {type(inspector)}"
+                    )
+            self.inspectors = serialized_inspectors
+
+        # Now call to_dict() with inspectors already serialized
         payload = self.to_dict()
+
+        # Restore original inspectors
+        self.inspectors = original_inspectors
 
         # Convert tools intelligently based on their type
         converted_assets = []
@@ -570,25 +594,6 @@ class Agent(
 
         # Update the payload with converted assets
         payload["assets"] = converted_assets
-
-        # Handle Inspector objects serialization
-        if "inspectors" in payload and payload["inspectors"]:
-            # Import Inspector here to avoid circular imports
-            from aixplain.modules.team_agent.inspector import Inspector
-
-            serialized_inspectors = []
-            for inspector in payload["inspectors"]:
-                if isinstance(inspector, Inspector):
-                    # Use Inspector's model_dump method which handles callable policy serialization
-                    serialized_inspectors.append(inspector.model_dump(by_alias=True))
-                elif isinstance(inspector, dict):
-                    # Already serialized
-                    serialized_inspectors.append(inspector)
-                else:
-                    raise ValueError(
-                        f"Inspector must be Inspector instance or dict, got {type(inspector)}"
-                    )
-            payload["inspectors"] = serialized_inspectors
 
         # Handle BaseModel expected_output for save operation
         # We don't send expected_output in the save payload - it's runtime-only
