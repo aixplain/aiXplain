@@ -292,13 +292,168 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
             logging.error(f"Failed to initialize session {session_id}: {e}")
             return session_id
 
+    def _normalize_progress_data(self, progress: Dict) -> Dict:
+        """Normalize progress data from camelCase to snake_case.
+
+        Args:
+            progress (Dict): Progress data from backend (may use camelCase)
+
+        Returns:
+            Dict: Normalized progress data with snake_case keys
+        """
+        if not progress:
+            return progress
+
+        # Map camelCase to snake_case for known fields
+        normalized = {}
+        key_mapping = {
+            "toolInput": "tool_input",
+            "toolOutput": "tool_output",
+            "currentStep": "current_step",
+            "totalSteps": "total_steps",
+        }
+
+        for key, value in progress.items():
+            # Use mapped key if available, otherwise keep original
+            normalized_key = key_mapping.get(key, key)
+            normalized[normalized_key] = value
+
+        return normalized
+
+    def _format_agent_progress(
+        self,
+        progress: Dict,
+        verbosity: Optional[str] = "full",
+    ) -> Optional[str]:
+        """Format agent progress message based on verbosity level.
+
+        Args:
+            progress (Dict): Progress data from polling response
+            verbosity (Optional[str]): "full", "compact", or None (disables output)
+
+        Returns:
+            Optional[str]: Formatted message or None
+        """
+        if verbosity is None:
+            return None
+
+        stage = progress.get("stage", "working")
+        tool = progress.get("tool")
+        runtime = progress.get("runtime", 0)
+        success = progress.get("success")
+        reason = progress.get("reason", "")
+        tool_input = progress.get("tool_input", "")
+        tool_output = progress.get("tool_output", "")
+
+        # Determine status icon
+        if success is True:
+            status_icon = "✓"
+        elif success is False:
+            status_icon = "✗"
+        else:
+            status_icon = "⏳"
+
+        agent_name = self.name
+
+        if verbosity == "compact":
+            # Compact mode: minimal info
+            if tool:
+                msg = f"⚙️  {agent_name} | {tool} | {status_icon}"
+                if success is True and tool_output:
+                    output_str = str(tool_output)[:200]
+                    msg += f" {output_str}"
+                    msg += "..." if len(str(tool_output)) > 200 else ""
+            else:
+                stage_name = stage.replace("_", " ").title()
+                msg = f"🤖  {agent_name} | {status_icon} {stage_name}"
+        else:
+            # Full verbosity: detailed info
+            if tool:
+                msg = f"⚙️  {agent_name} | {tool} | {status_icon}"
+
+                if runtime > 0 and success is not None:
+                    msg += f" ({runtime:.1f} s)"
+
+                if tool_input:
+                    msg += f" | Input: {tool_input}"
+
+                if tool_output:
+                    msg += f" | Output: {tool_output}"
+
+                if reason:
+                    msg += f" | Reason: {reason}"
+            else:
+                stage_name = stage.replace("_", " ").title()
+                msg = f"🤖  {agent_name} | {status_icon} {stage_name}"
+                if reason:
+                    msg += f" | {reason}"
+
+        return msg
+
+    def _format_completion_message(
+        self,
+        elapsed_time: float,
+        response_body: "AgentResponse",
+        timed_out: bool = False,
+        timeout: float = 300,
+        verbosity: Optional[str] = "full",
+    ) -> str:
+        """Format completion message with metrics.
+
+        Args:
+            elapsed_time (float): Total elapsed time in seconds
+            response_body (AgentResponse): Final response
+            timed_out (bool): Whether the operation timed out
+            timeout (float): Timeout value if timed out
+            verbosity (Optional[str]): "full" or "compact"
+
+        Returns:
+            str: Formatted completion message
+        """
+        if timed_out:
+            return f"✅ Done | ✗ Timeout - No response after {timeout}s"
+
+        # Collect metrics from execution_stats if available
+        total_api_calls = 0
+        total_credits = 0.0
+        runtime = elapsed_time
+
+        # Try to get execution_stats from response data
+        if hasattr(response_body, "data") and response_body.data:
+            if hasattr(response_body.data, "execution_stats"):
+                exec_stats = response_body.data.execution_stats
+                if isinstance(exec_stats, dict):
+                    total_api_calls = exec_stats.get("api_calls", 0)
+                    total_credits = exec_stats.get("credits", 0.0)
+                    runtime = exec_stats.get("runtime", elapsed_time)
+
+        # Fallback to old method if execution_stats not available
+        if total_api_calls == 0 and hasattr(response_body, "usage") and isinstance(response_body.usage, dict):
+            total_api_calls = response_body.usage.get("api_calls", 0)
+        if total_credits == 0.0 and hasattr(response_body, "used_credits") and response_body.used_credits:
+            total_credits = response_body.used_credits
+
+        # Build single-line completion message with metrics
+        if verbosity == "compact":
+            msg = f"✅ Done | ({runtime:.1f} s total"
+        else:
+            msg = f"✅ Done | Completed successfully ({runtime:.1f} s total"
+
+        # Always show API calls and credits
+        if total_api_calls > 0:
+            msg += f" | {total_api_calls} API calls"
+        msg += f" | ${total_credits:.4f}"
+        msg += ")"
+
+        return msg
+
     def sync_poll(
         self,
         poll_url: Text,
         name: Text = "model_process",
         wait_time: float = 0.5,
         timeout: float = 300,
-        show_progress: bool = False,
+        progress_verbosity: Optional[str] = "compact",
     ) -> "AgentResponse":
         """Poll the platform until agent execution completes or times out.
 
@@ -307,7 +462,7 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
             name (Text, optional): Identifier for the operation. Defaults to "model_process".
             wait_time (float, optional): Initial wait time in seconds between polls. Defaults to 0.5.
             timeout (float, optional): Maximum total time to poll in seconds. Defaults to 300.
-            show_progress (bool, optional): Display real-time progress updates. Defaults to False.
+            progress_verbosity (Optional[str], optional): Progress display mode - "full" (detailed), "compact" (brief), or None (no progress). Defaults to "compact".
 
         Returns:
             AgentResponse: The final response from the agent execution.
@@ -317,6 +472,7 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
         wait_time = max(wait_time, 0.2)
         completed = False
         response_body = AgentResponse(status=ResponseStatus.FAILED, completed=False)
+        last_message = None  # Track last message to avoid duplicates
 
         while not completed and (end - start) < timeout:
             try:
@@ -324,35 +480,15 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
                 completed = response_body["completed"]
 
                 # Display progress inline if enabled
-                if show_progress and not completed:
+                if progress_verbosity and not completed:
                     progress = response_body.get("progress")
                     if progress:
-                        stage = progress.get("stage", "working")
-                        tool = progress.get("tool")
-                        runtime = progress.get("runtime", 0)
-                        success = progress.get("success")
-                        reason = progress.get("reason", "")
-                        tool_input = progress.get("tool_input", "")
-                        tool_output = progress.get("tool_output", "")
-
-                        # Build status message
-                        if tool:
-                            status_icon = "✓" if success else "✗" if success is False else "⏳"
-                            msg = f"🤖 Agent: {stage.replace('_', ' ').title()} | Tool: {tool} {status_icon}"
-                            if runtime > 0:
-                                msg += f" ({runtime:.2f}s)"
-                            if reason:
-                                msg += f" | Reason: {reason}"
-                            if tool_input:
-                                msg += f" | Input: {tool_input}"
-                            if tool_output:
-                                msg += f" | Output: {tool_output}"
-                        else:
-                            msg = f"🤖 Agent: {stage.replace('_', ' ').title()}..."
-                            if reason:
-                                msg += f" | Reason: {reason}"
-
-                        print(msg, flush=True)
+                        # Normalize camelCase to snake_case
+                        progress = self._normalize_progress_data(progress)
+                        msg = self._format_agent_progress(progress, progress_verbosity)
+                        if msg and msg != last_message:
+                            print(msg, flush=True)
+                            last_message = msg
 
                 end = time.time()
                 if completed is False:
@@ -368,14 +504,18 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
                 logging.error(f"Polling for Agent: polling for {name}: {e}")
                 break
 
+        # Display completion message
+        if progress_verbosity:
+            elapsed_time = end - start
+            timed_out = response_body["completed"] is not True
+            completion_msg = self._format_completion_message(
+                elapsed_time, response_body, timed_out, timeout, progress_verbosity
+            )
+            print(completion_msg, flush=True)
+
         if response_body["completed"] is True:
-            if show_progress:
-                elapsed_time = end - start
-                print(f"🤖 Agent: ✓ Completed successfully ({elapsed_time:.1f}s total)", flush=True)
             logging.debug(f"Polling for Agent: Final status of polling for {name}: {response_body}")
         else:
-            if show_progress:
-                print(f"🤖 Agent: ✗ Timeout - No response after {timeout}s", flush=True)
             response_body = AgentResponse(
                 status=ResponseStatus.FAILED,
                 completed=False,
@@ -401,7 +541,7 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
         output_format: Optional[OutputFormat] = None,
         expected_output: Optional[Union[BaseModel, Text, dict]] = None,
         trace_request: bool = False,
-        show_progress: bool = False,
+        progress_verbosity: Optional[str] = "compact",
     ) -> AgentResponse:
         """Runs an agent call.
 
@@ -420,7 +560,7 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
             output_format (OutputFormat, optional): response format. If not provided, uses the format set during initialization.
             expected_output (Union[BaseModel, Text, dict], optional): expected output. Defaults to None.
             trace_request (bool, optional): return the request id for tracing the request. Defaults to False.
-            show_progress (bool, optional): show real-time progress updates during execution. Defaults to False.
+            progress_verbosity (Optional[str], optional): Progress display mode - "full" (detailed), "compact" (brief), or None (no progress). Defaults to "compact".
 
         Returns:
             Dict: parsed output from model
@@ -459,7 +599,7 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
             poll_url = response["url"]
             end = time.time()
             result = self.sync_poll(
-                poll_url, name=name, timeout=timeout, wait_time=wait_time, show_progress=show_progress
+                poll_url, name=name, timeout=timeout, wait_time=wait_time, progress_verbosity=progress_verbosity
             )
             # if result.status == ResponseStatus.FAILED:
             #    raise Exception("Model failed to run with error: " + result.error_message)
