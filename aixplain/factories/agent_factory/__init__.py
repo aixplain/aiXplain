@@ -126,9 +126,7 @@ class AgentFactory:
             ), "'expected_output' must be a Pydantic BaseModel or a JSON object when 'output_format' is JSON."
 
         warnings.warn(
-            "Use `llm` to define the large language model (aixplain.modules.model.llm_model.LLM) to be used as agent. "
-            "Use `llm_id` to provide the model ID of the large language model to be used as agent. "
-            "Note: In upcoming releases, `llm` will become a required parameter.",
+            "Deprecating 'llm_id', use `llm` to define the large language model in agents.",
             UserWarning,
         )
         from aixplain.factories.agent_factory.utils import (
