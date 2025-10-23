@@ -285,16 +285,27 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         else:
             status_icon = "⏳"
 
+        # Capitalize system agent names for better display
+        if agent_name:
+            system_agents = {
+                "orchestrator": "Orchestrator",
+                "mentalist": "Mentalist",
+                "response_generator": "Response Generator",
+            }
+            display_agent_name = system_agents.get(agent_name.lower(), agent_name)
+        else:
+            display_agent_name = None
+
         # Determine emoji and context
         if stage in ["planning", "mentalist"]:
             emoji = "🤖"
             context = "Mentalist"
-        elif agent_name and tool:
+        elif display_agent_name and tool:
             emoji = "⚙️"
-            context = f"{agent_name} | {tool}"
-        elif agent_name:
+            context = f"{display_agent_name} | {tool}"
+        elif display_agent_name:
             emoji = "🤖"
-            context = agent_name
+            context = display_agent_name
         else:
             emoji = "🤖"
             context = self.name
