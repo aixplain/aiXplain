@@ -382,7 +382,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         # Always show API calls and credits
         if total_api_calls > 0:
             msg += f" | {total_api_calls} API calls"
-        msg += f" | ${total_credits:.4f}"
+        msg += f" | ${total_credits}"
         msg += ")"
 
         return msg
@@ -423,8 +423,6 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                 if progress_verbosity and not completed:
                     progress = response_body.get("progress")
                     if progress:
-                        # Normalize camelCase to snake_case
-                        progress = self._normalize_progress_data(progress)
                         msg = self._format_team_progress(progress, progress_verbosity)
                         if msg and msg != last_message:
                             print(msg, flush=True)
@@ -764,6 +762,11 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             status = ResponseStatus.FAILED
             error_message = str(e)
         finally:
+            # Normalize progress data from camelCase to snake_case
+            progress_data = resp.get("progress") if resp else None
+            if progress_data:
+                progress_data = self._normalize_progress_data(progress_data)
+
             response = AgentResponse(
                 status=status,
                 data=resp_data,
@@ -773,7 +776,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                 run_time=run_time,
                 usage=resp.get("usage", None),
                 error_message=error_message,
-                progress=resp.get("progress") if resp else None,
+                progress=progress_data,
             )
         return response
 

@@ -320,6 +320,27 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
 
         return normalized
 
+    def poll(self, poll_url: Text, name: Text = "model_process") -> "AgentResponse":
+        """Override poll to normalize progress data from camelCase to snake_case.
+
+        Args:
+            poll_url (Text): URL to poll for operation status.
+            name (Text, optional): Identifier for the operation. Defaults to "model_process".
+
+        Returns:
+            AgentResponse: Response with normalized progress data.
+        """
+        # Call parent poll method
+        response = super().poll(poll_url, name)
+
+        # Normalize progress data if present
+        if hasattr(response, "progress") and response.progress:
+            response.progress = self._normalize_progress_data(response.progress)
+        elif isinstance(response, dict) and response.get("progress"):
+            response["progress"] = self._normalize_progress_data(response["progress"])
+
+        return response
+
     def _format_agent_progress(
         self,
         progress: Dict,
@@ -442,7 +463,7 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
         # Always show API calls and credits
         if total_api_calls > 0:
             msg += f" | {total_api_calls} API calls"
-        msg += f" | ${total_credits:.4f}"
+        msg += f" | ${total_credits}"
         msg += ")"
 
         return msg
@@ -483,8 +504,6 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
                 if progress_verbosity and not completed:
                     progress = response_body.get("progress")
                     if progress:
-                        # Normalize camelCase to snake_case
-                        progress = self._normalize_progress_data(progress)
                         msg = self._format_agent_progress(progress, progress_verbosity)
                         if msg and msg != last_message:
                             print(msg, flush=True)
