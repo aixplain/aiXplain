@@ -358,20 +358,39 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         total_credits = 0.0
         runtime = elapsed_time
 
-        # Try to get execution_stats from response data
+        # Extract data dict (handle tuple or direct object)
+        data_dict = None
         if hasattr(response_body, "data") and response_body.data:
-            if hasattr(response_body.data, "execution_stats"):
-                exec_stats = response_body.data.execution_stats
-                if isinstance(exec_stats, dict):
+            if isinstance(response_body.data, tuple) and len(response_body.data) > 0:
+                # Data is a tuple, get first element
+                data_dict = response_body.data[0] if isinstance(response_body.data[0], dict) else None
+            elif isinstance(response_body.data, dict):
+                # Data is already a dict
+                data_dict = response_body.data
+            elif hasattr(response_body.data, "executionStats") or hasattr(response_body.data, "execution_stats"):
+                # Data is an object with attributes
+                exec_stats = getattr(response_body.data, "executionStats", None) or getattr(
+                    response_body.data, "execution_stats", None
+                )
+                if exec_stats and isinstance(exec_stats, dict):
                     total_api_calls = exec_stats.get("api_calls", 0)
                     total_credits = exec_stats.get("credits", 0.0)
                     runtime = exec_stats.get("runtime", elapsed_time)
 
-        # Fallback to old method if execution_stats not available
-        if total_api_calls == 0 and hasattr(response_body, "usage") and isinstance(response_body.usage, dict):
-            total_api_calls = response_body.usage.get("api_calls", 0)
-        if total_credits == 0.0 and hasattr(response_body, "used_credits") and response_body.used_credits:
-            total_credits = response_body.used_credits
+        # Try to get metrics from data dict (camelCase fields from backend)
+        if data_dict and isinstance(data_dict, dict):
+            # Check executionStats first
+            exec_stats = data_dict.get("executionStats")
+            if exec_stats and isinstance(exec_stats, dict):
+                total_api_calls = exec_stats.get("api_calls", 0)
+                total_credits = exec_stats.get("credits", 0.0)
+                runtime = exec_stats.get("runtime", elapsed_time)
+
+            # Fallback: check top-level fields (usedCredits, runTime)
+            if total_credits == 0.0:
+                total_credits = data_dict.get("usedCredits", 0.0)
+            if runtime == elapsed_time:
+                runtime = data_dict.get("runTime", elapsed_time)
 
         # Build single-line completion message with metrics
         if verbosity == "compact":
