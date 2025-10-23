@@ -268,6 +268,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         stage = progress.get("stage", "working")
         agent_name = progress.get("agent")
         tool = progress.get("tool")
+        message = progress.get("message", "")
         runtime = progress.get("runtime", 0)
         success = progress.get("success")
         current_step = progress.get("current_step", 0)
@@ -305,7 +306,10 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             if current_step and total_steps:
                 msg += f" [{current_step}/{total_steps}]"
 
-            if success is True and tool_output:
+            # Show message if available (common for planning/orchestration stages)
+            if message and not tool_output:
+                msg += f" {message[:100]}"
+            elif success is True and tool_output:
                 output_str = str(tool_output)[:200]
                 msg += f" {output_str}"
                 msg += "..." if len(output_str) > 200 else ""
@@ -327,6 +331,9 @@ class TeamAgent(Model, DeployableMixin[Agent]):
 
             if reason:
                 msg += f" | Reason: {reason}"
+            elif message:
+                # Show message if reason is not available (common for planning/orchestration)
+                msg += f" | {message}"
 
         return msg
 
