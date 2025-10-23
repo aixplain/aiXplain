@@ -1,6 +1,8 @@
-__author__ = "aiXplain"
+"""Team Agent module for aiXplain SDK.
 
-"""
+This module provides the TeamAgent class and related functionality for creating and managing
+multi-agent teams that can collaborate on complex tasks.
+
 Copyright 2024 The aiXplain SDK authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,6 +22,8 @@ Date: August 15th 2024
 Description:
     Team Agent Class
 """
+
+__author__ = "aiXplain"
 
 import json
 import logging
@@ -121,7 +125,30 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         expected_output: Optional[Union[BaseModel, Text, dict]] = None,
         **additional_info,
     ) -> None:
+        """Initialize a TeamAgent instance.
 
+        Args:
+            id (Text): Unique identifier for the team agent.
+            name (Text): Name of the team agent.
+            agents (List[Agent], optional): List of agents in the team. Defaults to [].
+            description (Text, optional): Description of the team agent. Defaults to "".
+            llm_id (Text, optional): ID of the language model. Defaults to "6646261c6eb563165658bbb1".
+            llm (Optional[LLM], optional): LLM instance. Defaults to None.
+            supervisor_llm (Optional[LLM], optional): Supervisor LLM instance. Defaults to None.
+            mentalist_llm (Optional[LLM], optional): Mentalist/Planner LLM instance. Defaults to None.
+            api_key (Optional[Text], optional): API key. Defaults to config.TEAM_API_KEY.
+            supplier (Union[Dict, Text, Supplier, int], optional): Supplier. Defaults to "aiXplain".
+            version (Optional[Text], optional): Version. Defaults to None.
+            cost (Optional[Dict], optional): Cost information. Defaults to None.
+            use_mentalist (bool, optional): Whether to use mentalist/planner. Defaults to True.
+            inspectors (List[Inspector], optional): List of inspectors. Defaults to [].
+            inspector_targets (List[InspectorTarget], optional): Inspector targets. Defaults to [InspectorTarget.STEPS].
+            status (AssetStatus, optional): Status of the team agent. Defaults to AssetStatus.DRAFT.
+            instructions (Optional[Text], optional): Instructions for the team agent. Defaults to None.
+            output_format (OutputFormat, optional): Output format. Defaults to OutputFormat.TEXT.
+            expected_output (Optional[Union[BaseModel, Text, dict]], optional): Expected output format. Defaults to None.
+            **additional_info: Additional keyword arguments.
+        """
         super().__init__(id, name, description, api_key, supplier, version, cost=cost)
         self.additional_info = additional_info
         self.agents = agents
@@ -146,6 +173,14 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         self.expected_output = expected_output
 
     def generate_session_id(self, history: list = None) -> str:
+        """Generate a new session ID for the team agent.
+
+        Args:
+            history (list, optional): Chat history to initialize the session with. Defaults to None.
+
+        Returns:
+            str: The generated session ID in format "{team_agent_id}_{timestamp}".
+        """
         timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
         session_id = f"{self.id}_{timestamp}"
 
@@ -185,6 +220,288 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             logging.error(f"Failed to initialize team session {session_id}: {e}")
             return session_id
 
+    def _normalize_progress_data(self, progress: Dict) -> Dict:
+        """Normalize progress data from camelCase to snake_case.
+
+        Args:
+            progress (Dict): Progress data from backend (may use camelCase)
+
+        Returns:
+            Dict: Normalized progress data with snake_case keys
+        """
+        if not progress:
+            return progress
+
+        # Map camelCase to snake_case for known fields
+        normalized = {}
+        key_mapping = {
+            "toolInput": "tool_input",
+            "toolOutput": "tool_output",
+            "currentStep": "current_step",
+            "totalSteps": "total_steps",
+        }
+
+        for key, value in progress.items():
+            # Use mapped key if available, otherwise keep original
+            normalized_key = key_mapping.get(key, key)
+            normalized[normalized_key] = value
+
+        return normalized
+
+    def _format_team_progress(
+        self,
+        progress: Dict,
+        verbosity: Optional[str] = "full",
+    ) -> Optional[str]:
+        """Format team agent progress message based on verbosity level.
+
+        Args:
+            progress (Dict): Progress data from polling response
+            verbosity (Optional[str]): "full", "compact", or None (disables output)
+
+        Returns:
+            Optional[str]: Formatted message or None
+        """
+        if verbosity is None:
+            return None
+
+        stage = progress.get("stage", "working")
+        agent_name = progress.get("agent")
+        tool = progress.get("tool")
+        message = progress.get("message", "")
+        runtime = progress.get("runtime", 0)
+        success = progress.get("success")
+        current_step = progress.get("current_step", 0)
+        total_steps = progress.get("total_steps", 0)
+        reason = progress.get("reason", "")
+        tool_input = progress.get("tool_input", "")
+        tool_output = progress.get("tool_output", "")
+
+        # Determine status icon
+        if success is True:
+            status_icon = "✓"
+        elif success is False:
+            status_icon = "✗"
+        else:
+            status_icon = "⏳"
+
+        # Capitalize system agent names for better display
+        if agent_name:
+            system_agents = {
+                "orchestrator": "Orchestrator",
+                "mentalist": "Mentalist",
+                "response_generator": "Response Generator",
+            }
+            display_agent_name = system_agents.get(agent_name.lower(), agent_name)
+        else:
+            display_agent_name = None
+
+        # Determine emoji and context
+        if stage in ["planning", "mentalist"]:
+            emoji = "🤖"
+            context = "Mentalist"
+        elif display_agent_name and tool:
+            emoji = "⚙️"
+            context = f"{display_agent_name} | {tool}"
+        elif display_agent_name:
+            emoji = "🤖"
+            context = display_agent_name
+        else:
+            emoji = "🤖"
+            context = self.name
+
+        if verbosity == "compact":
+            # Compact mode: minimal info
+            msg = f"{emoji}  {context} | {status_icon}"
+
+            if current_step and total_steps:
+                msg += f" [{current_step}/{total_steps}]"
+
+            # Show message if available (common for planning/orchestration stages)
+            if message and not tool_output:
+                msg += f" {message[:100]}"
+            elif success is True and tool_output:
+                output_str = str(tool_output)[:200]
+                msg += f" {output_str}"
+                msg += "..." if len(output_str) > 200 else ""
+        else:
+            # Full verbosity: detailed info
+            msg = f"{emoji}  {context} | {status_icon}"
+
+            if runtime > 0 and success is not None:
+                msg += f" ({runtime:.1f} s)"
+
+            if current_step and total_steps:
+                msg += f" | Step {current_step}/{total_steps}"
+
+            if tool_input:
+                msg += f" | Input: {tool_input}"
+
+            if tool_output:
+                msg += f" | Output: {tool_output}"
+
+            if reason:
+                msg += f" | Reason: {reason}"
+            elif message:
+                # Show message if reason is not available (common for planning/orchestration)
+                msg += f" | {message}"
+
+        return msg
+
+    def _format_completion_message(
+        self,
+        elapsed_time: float,
+        response_body: AgentResponse,
+        timed_out: bool = False,
+        timeout: float = 300,
+        verbosity: Optional[str] = "full",
+    ) -> str:
+        """Format completion message with metrics.
+
+        Args:
+            elapsed_time (float): Total elapsed time in seconds
+            response_body (AgentResponse): Final response
+            timed_out (bool): Whether the operation timed out
+            timeout (float): Timeout value if timed out
+            verbosity (Optional[str]): "full" or "compact"
+
+        Returns:
+            str: Formatted completion message
+        """
+        if timed_out:
+            return f"✅ Done | ✗ Timeout - No response after {timeout}s"
+
+        # Collect metrics from execution_stats if available
+        total_api_calls = 0
+        total_credits = 0.0
+        runtime = elapsed_time
+
+        # Extract data dict (handle tuple or direct object)
+        data_dict = None
+        if hasattr(response_body, "data") and response_body.data:
+            if isinstance(response_body.data, tuple) and len(response_body.data) > 0:
+                # Data is a tuple, get first element
+                data_dict = response_body.data[0] if isinstance(response_body.data[0], dict) else None
+            elif isinstance(response_body.data, dict):
+                # Data is already a dict
+                data_dict = response_body.data
+            elif hasattr(response_body.data, "executionStats") or hasattr(response_body.data, "execution_stats"):
+                # Data is an object with attributes
+                exec_stats = getattr(response_body.data, "executionStats", None) or getattr(
+                    response_body.data, "execution_stats", None
+                )
+                if exec_stats and isinstance(exec_stats, dict):
+                    total_api_calls = exec_stats.get("api_calls", 0)
+                    total_credits = exec_stats.get("credits", 0.0)
+                    runtime = exec_stats.get("runtime", elapsed_time)
+
+        # Try to get metrics from data dict (camelCase fields from backend)
+        if data_dict and isinstance(data_dict, dict):
+            # Check executionStats first
+            exec_stats = data_dict.get("executionStats")
+            if exec_stats and isinstance(exec_stats, dict):
+                total_api_calls = exec_stats.get("api_calls", 0)
+                total_credits = exec_stats.get("credits", 0.0)
+                runtime = exec_stats.get("runtime", elapsed_time)
+
+            # Fallback: check top-level fields (usedCredits, runTime)
+            if total_credits == 0.0:
+                total_credits = data_dict.get("usedCredits", 0.0)
+            if runtime == elapsed_time:
+                runtime = data_dict.get("runTime", elapsed_time)
+
+        # Build single-line completion message with metrics
+        if verbosity == "compact":
+            msg = f"✅ Done | ({runtime:.1f} s total"
+        else:
+            msg = f"✅ Done | Completed successfully ({runtime:.1f} s total"
+
+        # Always show API calls and credits
+        if total_api_calls > 0:
+            msg += f" | {total_api_calls} API calls"
+        msg += f" | ${total_credits}"
+        msg += ")"
+
+        return msg
+
+    def sync_poll(
+        self,
+        poll_url: Text,
+        name: Text = "model_process",
+        wait_time: float = 0.5,
+        timeout: float = 300,
+        progress_verbosity: Optional[str] = "compact",
+    ) -> AgentResponse:
+        """Poll the platform until team agent execution completes or times out.
+
+        Args:
+            poll_url (Text): URL to poll for operation status.
+            name (Text, optional): Identifier for the operation. Defaults to "model_process".
+            wait_time (float, optional): Initial wait time in seconds between polls. Defaults to 0.5.
+            timeout (float, optional): Maximum total time to poll in seconds. Defaults to 300.
+            progress_verbosity (Optional[str], optional): Progress display mode - "full" (detailed), "compact" (brief), or None (no progress). Defaults to "compact".
+
+        Returns:
+            AgentResponse: The final response from the team agent execution.
+        """
+        logging.info(f"Polling for Team Agent: Start polling for {name}")
+        start, end = time.time(), time.time()
+        wait_time = max(wait_time, 0.2)
+        completed = False
+        response_body = AgentResponse(status=ResponseStatus.FAILED, completed=False)
+        last_message = None  # Track last message to avoid duplicates
+
+        while not completed and (end - start) < timeout:
+            try:
+                response_body = self.poll(poll_url, name=name)
+                completed = response_body["completed"]
+
+                # Display progress inline if enabled
+                if progress_verbosity and not completed:
+                    progress = response_body.get("progress")
+                    if progress:
+                        msg = self._format_team_progress(progress, progress_verbosity)
+                        if msg and msg != last_message:
+                            print(msg, flush=True)
+                            last_message = msg
+
+                end = time.time()
+                if completed is False:
+                    time.sleep(wait_time)
+                    if wait_time < 60:
+                        wait_time *= 1.1
+            except Exception as e:
+                response_body = AgentResponse(
+                    status=ResponseStatus.FAILED,
+                    completed=False,
+                    error_message="No response from the service.",
+                )
+                logging.error(f"Polling for Team Agent: polling for {name}: {e}")
+                break
+
+        # Display completion message
+        if progress_verbosity:
+            elapsed_time = end - start
+            timed_out = response_body["completed"] is not True
+            completion_msg = self._format_completion_message(
+                elapsed_time, response_body, timed_out, timeout, progress_verbosity
+            )
+            print(completion_msg, flush=True)
+
+        if response_body["completed"] is True:
+            logging.debug(f"Polling for Team Agent: Final status of polling for {name}: {response_body}")
+        else:
+            response_body = AgentResponse(
+                status=ResponseStatus.FAILED,
+                completed=False,
+                error_message="No response from the service.",
+            )
+            logging.error(
+                f"Polling for Team Agent: Final status of polling for {name}: No response in {timeout} seconds"
+            )
+
+        return response_body
+
     def run(
         self,
         data: Optional[Union[Dict, Text]] = None,
@@ -201,6 +518,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         output_format: Optional[OutputFormat] = None,
         expected_output: Optional[Union[BaseModel, Text, dict]] = None,
         trace_request: bool = False,
+        progress_verbosity: Optional[str] = "compact",
     ) -> AgentResponse:
         """Runs a team agent call.
 
@@ -219,6 +537,8 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             output_format (OutputFormat, optional): response format. If not provided, uses the format set during initialization.
             expected_output (Union[BaseModel, Text, dict], optional): expected output. Defaults to None.
             trace_request (bool, optional): return the request id for tracing the request. Defaults to False.
+            progress_verbosity (Optional[str], optional): Progress display mode - "full" (detailed), "compact" (brief), or None (no progress). Defaults to "compact".
+
         Returns:
             AgentResponse: parsed output from model
         """
@@ -253,7 +573,9 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                 return response
             poll_url = response["url"]
             end = time.time()
-            result = self.sync_poll(poll_url, name=name, timeout=timeout, wait_time=wait_time)
+            result = self.sync_poll(
+                poll_url, name=name, timeout=timeout, wait_time=wait_time, progress_verbosity=progress_verbosity
+            )
             result_data = result.data
             return AgentResponse(
                 status=ResponseStatus.SUCCESS,
@@ -310,6 +632,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             expected_output (Union[BaseModel, Text, dict], optional): expected output. Defaults to None.
             evolve (Union[Dict[str, Any], EvolveParam, None], optional): evolve the team agent configuration. Can be a dictionary, EvolveParam instance, or None.
             trace_request (bool, optional): return the request id for tracing the request. Defaults to False.
+
         Returns:
             AgentResponse: polling URL in response
         """
@@ -335,7 +658,9 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         assert data is not None or query is not None, "Either 'data' or 'query' must be provided."
         if data is not None:
             if isinstance(data, dict):
-                assert "query" in data and data["query"] is not None, "When providing a dictionary, 'query' must be provided."
+                assert "query" in data and data["query"] is not None, (
+                    "When providing a dictionary, 'query' must be provided."
+                )
                 if session_id is None:
                     session_id = data.pop("session_id", None)
                 if history is None:
@@ -348,9 +673,9 @@ class TeamAgent(Model, DeployableMixin[Agent]):
 
         # process content inputs
         if content is not None:
-            assert (
-                isinstance(query, str) and FileFactory.check_storage_type(query) == StorageType.TEXT
-            ), "When providing 'content', query must be text."
+            assert isinstance(query, str) and FileFactory.check_storage_type(query) == StorageType.TEXT, (
+                "When providing 'content', query must be text."
+            )
 
             if isinstance(content, list):
                 assert len(content) <= 3, "The maximum number of content inputs is 3."
@@ -419,6 +744,15 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         return response
 
     def poll(self, poll_url: Text, name: Text = "model_process") -> AgentResponse:
+        """Poll once for team agent execution status.
+
+        Args:
+            poll_url (Text): URL to poll for status.
+            name (Text, optional): Identifier for the operation. Defaults to "model_process".
+
+        Returns:
+            AgentResponse: Response containing status, data, and progress information.
+        """
         used_credits, run_time = 0.0, 0.0
         resp, error_message, status = None, None, ResponseStatus.SUCCESS
         headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}
@@ -459,10 +793,17 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         except Exception as e:
             import traceback
 
-            logging.error(f"Single Poll for Team Agent: Error of polling for {name}: {e}, traceback: {traceback.format_exc()}")
+            logging.error(
+                f"Single Poll for Team Agent: Error of polling for {name}: {e}, traceback: {traceback.format_exc()}"
+            )
             status = ResponseStatus.FAILED
             error_message = str(e)
         finally:
+            # Normalize progress data from camelCase to snake_case
+            progress_data = resp.get("progress") if resp else None
+            if progress_data:
+                progress_data = self._normalize_progress_data(progress_data)
+
             response = AgentResponse(
                 status=status,
                 data=resp_data,
@@ -472,11 +813,12 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                 run_time=run_time,
                 usage=resp.get("usage", None),
                 error_message=error_message,
+                progress=progress_data,
             )
         return response
 
     def delete(self) -> None:
-        """Delete Corpus service"""
+        """Deletes Team Agent."""
         try:
             url = urljoin(config.BACKEND_URL, f"sdk/agent-communities/{self.id}")
             headers = {
@@ -488,9 +830,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             if r.status_code != 200:
                 raise Exception()
         except Exception:
-            message = (
-                f"Team Agent Deletion Error (HTTP {r.status_code}): Make sure the Team Agent exists and you are the owner."
-            )
+            message = f"Team Agent Deletion Error (HTTP {r.status_code}): Make sure the Team Agent exists and you are the owner."
             logging.error(message)
             raise Exception(f"{message}")
 
@@ -694,9 +1034,9 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         """Validate the Team."""
 
         # validate name
-        assert (
-            re.match(r"^[a-zA-Z0-9 \-\(\)]*$", self.name) is not None
-        ), "Team Agent Creation Error: Team name contains invalid characters. Only alphanumeric characters, spaces, hyphens, and brackets are allowed."
+        assert re.match(r"^[a-zA-Z0-9 \-\(\)]*$", self.name) is not None, (
+            "Team Agent Creation Error: Team name contains invalid characters. Only alphanumeric characters, spaces, hyphens, and brackets are allowed."
+        )
 
         try:
             llm = get_llm_instance(self.llm_id, use_cache=True)
@@ -769,7 +1109,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         stack = inspect.stack()
         if len(stack) > 2 and stack[1].function != "save":
             warnings.warn(
-                "update() is deprecated and will be removed in a future version. " "Please use save() instead.",
+                "update() is deprecated and will be removed in a future version. Please use save() instead.",
                 DeprecationWarning,
                 stacklevel=2,
             )
@@ -903,7 +1243,9 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             end = time.time()
             result = self.sync_poll(poll_url, name="evolve_process", timeout=600)
             result_data = result.data
-            current_code = result_data.get("current_code") if isinstance(result_data, dict) else result_data.current_code
+            current_code = (
+                result_data.get("current_code") if isinstance(result_data, dict) else result_data.current_code
+            )
             if current_code is not None:
                 if evolve_parameters.evolve_type == EvolveType.TEAM_TUNING:
                     result_data["evolved_agent"] = build_team_agent_from_yaml(
