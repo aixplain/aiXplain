@@ -325,6 +325,7 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
             output_format (OutputFormat, optional): response format. If not provided, uses the format set during initialization.
             expected_output (Union[BaseModel, Text, dict], optional): expected output. Defaults to None.
             trace_request (bool, optional): return the request id for tracing the request. Defaults to False.
+
         Returns:
             Dict: parsed output from model
         """
@@ -427,6 +428,7 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
             output_format (ResponseFormat, optional): response format. Defaults to TEXT.
             evolve (Union[Dict[str, Any], EvolveParam, None], optional): evolve the agent configuration. Can be a dictionary, EvolveParam instance, or None.
             trace_request (bool, optional): return the request id for tracing the request. Defaults to False.
+
         Returns:
             dict: polling URL in response
         """
@@ -490,7 +492,7 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
         input_data = process_variables(query, data, parameters, self.instructions)
         if expected_output is None:
             expected_output = self.expected_output
-        if expected_output is not None and issubclass(expected_output, BaseModel):
+        if expected_output is not None and isinstance(expected_output, type) and issubclass(expected_output, BaseModel):
             expected_output = expected_output.model_json_schema()
         expected_output = normalize_expected_output(expected_output)
         # Use instance output_format if none provided
