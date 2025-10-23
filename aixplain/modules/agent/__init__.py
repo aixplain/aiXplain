@@ -770,7 +770,7 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
         input_data = process_variables(query, data, parameters, self.instructions)
         if expected_output is None:
             expected_output = self.expected_output
-        if expected_output is not None and inspect.isclass(expected_output) and issubclass(expected_output, BaseModel):
+        if expected_output is not None and isinstance(expected_output, type) and issubclass(expected_output, BaseModel):
             expected_output = expected_output.model_json_schema()
         expected_output = normalize_expected_output(expected_output)
         # Use instance output_format if none provided
