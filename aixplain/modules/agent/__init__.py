@@ -333,11 +333,12 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
         # Call parent poll method
         response = super().poll(poll_url, name)
 
-        # Normalize progress data if present
-        if hasattr(response, "progress") and response.progress:
-            response.progress = self._normalize_progress_data(response.progress)
-        elif isinstance(response, dict) and response.get("progress"):
-            response["progress"] = self._normalize_progress_data(response["progress"])
+        # Normalize progress data if present (stored in additional_fields)
+        if hasattr(response, "additional_fields") and isinstance(response.additional_fields, dict):
+            if "progress" in response.additional_fields and response.additional_fields["progress"]:
+                response.additional_fields["progress"] = self._normalize_progress_data(
+                    response.additional_fields["progress"]
+                )
 
         return response
 
