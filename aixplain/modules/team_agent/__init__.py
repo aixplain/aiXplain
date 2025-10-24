@@ -269,7 +269,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         agent_name = progress.get("agent")
         tool = progress.get("tool")
         message = progress.get("message", "")
-        runtime = progress.get("runtime", 0)
+        runtime = progress.get("runtime")
         success = progress.get("success")
         current_step = progress.get("current_step", 0)
         total_steps = progress.get("total_steps", 0)
@@ -328,7 +328,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             # Full verbosity: detailed info
             msg = f"{emoji}  {context} | {status_icon}"
 
-            if runtime > 0 and success is not None:
+            if runtime is not None and runtime > 0 and success is not None:
                 msg += f" ({runtime:.1f} s)"
 
             if current_step and total_steps:
