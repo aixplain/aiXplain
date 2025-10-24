@@ -361,7 +361,7 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
 
         stage = progress.get("stage", "working")
         tool = progress.get("tool")
-        runtime = progress.get("runtime", 0)
+        runtime = progress.get("runtime")
         success = progress.get("success")
         reason = progress.get("reason", "")
         tool_input = progress.get("tool_input", "")
@@ -393,7 +393,7 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
             if tool:
                 msg = f"⚙️  {agent_name} | {tool} | {status_icon}"
 
-                if runtime > 0 and success is not None:
+                if runtime is not None and runtime > 0 and success is not None:
                     msg += f" ({runtime:.1f} s)"
 
                 if tool_input:
