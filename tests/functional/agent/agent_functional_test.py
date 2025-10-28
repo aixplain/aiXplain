@@ -510,7 +510,7 @@ def test_instructions(delete_agents_and_team_agents, AgentFactory):
     agent = AgentFactory.create(
         name="Test Agent",
         description="Test description",
-        instructions="Always respond with '{magic_word}' does not matter what you are prompted for.",
+        instructions="Always respond with 'aixplain' does not matter what you are prompted for.",
         llm_id="6646261c6eb563165658bbb1",
         tools=[],
     )
@@ -519,7 +519,7 @@ def test_instructions(delete_agents_and_team_agents, AgentFactory):
 
     agent = AgentFactory.get(agent.id)
     assert agent is not None
-    response = agent.run(data={"magic_word": "aixplain", "query": "What is the capital of France?"})
+    response = agent.run(data={"query": "What is the capital of France?"})
     assert response is not None
     assert response["completed"] is True
     assert response["status"].lower() == "success"
