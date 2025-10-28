@@ -538,8 +538,6 @@ def test_team_agent_with_slack_connector():
         authentication_schema=AuthenticationSchema.BEARER_TOKEN,
         data={"token": os.getenv("SLACK_TOKEN")},
     )
-    import pprint
-    pprint.pprint(response)
 
     connection_id = response.data["id"]
 
