@@ -34,7 +34,7 @@ Description:
 def list_host_machines(api_key: Optional[Text] = None) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/cli/model_factory_cli.py#L32)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/factories/cli/model_factory_cli.py#L32)
 
 List available host machines for model deployment.
 
@@ -64,7 +64,7 @@ the results in YAML format.
 def list_functions(verbose: bool, api_key: Optional[Text] = None) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/cli/model_factory_cli.py#L53)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/factories/cli/model_factory_cli.py#L53)
 
 List available functions for model deployment.
 
@@ -94,7 +94,7 @@ operations that models can perform.
 def list_gpus(api_key: Optional[Text] = None) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/cli/model_factory_cli.py#L76)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/factories/cli/model_factory_cli.py#L76)
 
 List available GPUs for model deployment.
 
@@ -144,7 +144,7 @@ def create_asset_repo(name: Text,
                       api_key: Optional[Text] = None) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/cli/model_factory_cli.py#L106)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/factories/cli/model_factory_cli.py#L106)
 
 Create a new asset repository for a model.
 
@@ -179,7 +179,7 @@ and configurations.
 def asset_repo_login(api_key: Optional[Text] = None) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/cli/model_factory_cli.py#L145)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/factories/cli/model_factory_cli.py#L145)
 
 Get login credentials for the asset repository.
 
@@ -219,7 +219,7 @@ def onboard_model(model_id: Text,
                   api_key: Optional[Text] = None) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/cli/model_factory_cli.py#L170)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/factories/cli/model_factory_cli.py#L170)
 
 Onboard a model image for deployment.
 
@@ -263,7 +263,7 @@ def deploy_huggingface_model(name: Text,
                              api_key: Optional[Text] = None) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/cli/model_factory_cli.py#L201)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/factories/cli/model_factory_cli.py#L201)
 
 Deploy a model from Hugging Face Hub.
 
@@ -296,7 +296,7 @@ def get_huggingface_model_status(model_id: Text,
                                  api_key: Optional[Text] = None) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/cli/model_factory_cli.py#L232)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/factories/cli/model_factory_cli.py#L232)
 
 Check the deployment status of a Hugging Face model.
 

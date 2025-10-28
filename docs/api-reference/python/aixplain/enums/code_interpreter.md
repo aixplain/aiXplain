@@ -9,7 +9,7 @@ title: aixplain.enums.code_interpreter
 class CodeInterpreterModel(str, Enum)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/enums/code_interpreter.py#L4)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/enums/code_interpreter.py#L4)
 
 Enumeration of available Code Interpreter model identifiers.
 
@@ -27,7 +27,7 @@ be used for code interpretation tasks.
 def __str__() -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/enums/code_interpreter.py#L17)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/enums/code_interpreter.py#L17)
 
 Return the string representation of the model ID.
 

@@ -30,7 +30,7 @@ Description:
 class DatabaseSourceType(Enum)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/enums/database_source.py#L27)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/enums/database_source.py#L27)
 
 Enumeration of supported database source types.
 
@@ -50,7 +50,7 @@ for data storage and retrieval in the system.
 def from_string(cls, source_type: str) -> "DatabaseSourceType"
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/enums/database_source.py#L44)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/enums/database_source.py#L44)
 
 Convert string to DatabaseSourceType enum
 

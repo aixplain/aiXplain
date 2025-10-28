@@ -9,7 +9,7 @@ title: aixplain.v2.script
 class Script(BaseResource)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/script.py#L4)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/v2/script.py#L4)
 
 #### upload
 
@@ -18,7 +18,7 @@ class Script(BaseResource)
 def upload(cls, script_path: str) -> "Script"
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/script.py#L6)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/v2/script.py#L6)
 
 Upload a script to the server.
 

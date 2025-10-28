@@ -10,7 +10,7 @@ title: aixplain.modules.pipeline.response
 class PipelineResponse()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/response.py#L7)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/response.py#L7)
 
 A response object for pipeline operations.
 
@@ -37,7 +37,7 @@ def __init__(status: ResponseStatus,
              **kwargs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/response.py#L22)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/response.py#L22)
 
 Initialize a new PipelineResponse instance.
 
@@ -60,7 +60,7 @@ Initialize a new PipelineResponse instance.
 def __getattr__(key: str) -> Any
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/response.py#L52)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/response.py#L52)
 
 Get an attribute from additional_fields if it exists.
 
@@ -88,7 +88,7 @@ nor found through the __mro__ chain).
 def get(key: str, default: Any = None) -> Any
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/response.py#L73)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/response.py#L73)
 
 Get an attribute value with a default if not found.
 
@@ -109,7 +109,7 @@ Get an attribute value with a default if not found.
 def __getitem__(key: str) -> Any
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/response.py#L86)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/response.py#L86)
 
 Get an attribute value using dictionary-style access.
 
@@ -136,7 +136,7 @@ This method enables dictionary-style access to attributes
 def __repr__() -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/response.py#L103)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/response.py#L103)
 
 Return a string representation of the PipelineResponse.
 
@@ -151,7 +151,7 @@ Return a string representation of the PipelineResponse.
 def __contains__(key: str) -> bool
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/response.py#L123)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/response.py#L123)
 
 Check if an attribute exists using &#x27;in&#x27; operator.
 

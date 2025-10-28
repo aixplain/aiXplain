@@ -10,7 +10,7 @@ class ObjectDetection(AssetNode[ObjectDetectionInputs,
                                 ObjectDetectionOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L28)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L28)
 
 Object Detection is a computer vision technology that identifies and locates
 objects within an image, typically by drawing bounding boxes around the
@@ -25,7 +25,7 @@ detected objects and classifying them into predefined categories.
 class TextEmbedding(AssetNode[TextEmbeddingInputs, TextEmbeddingOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L68)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L68)
 
 Text embedding is a process that converts text into numerical vectors,
 capturing the semantic meaning and contextual relationships of words or
@@ -42,7 +42,7 @@ class SemanticSegmentation(AssetNode[SemanticSegmentationInputs,
                                      SemanticSegmentationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L103)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L103)
 
 Semantic segmentation is a computer vision process that involves classifying
 each pixel in an image into a predefined category, effectively partitioning the
@@ -59,7 +59,7 @@ class ReferencelessAudioGenerationMetric(
                    ReferencelessAudioGenerationMetricOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L141)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L141)
 
 The Referenceless Audio Generation Metric is a tool designed to evaluate the
 quality of generated audio content without the need for a reference or original
@@ -75,7 +75,7 @@ class ScriptExecution(AssetNode[ScriptExecutionInputs,
                                 ScriptExecutionOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L177)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L177)
 
 Script Execution refers to the process of running a set of programmed
 instructions or code within a computing environment, enabling the automated
@@ -91,7 +91,7 @@ class ImageImpainting(AssetNode[ImageImpaintingInputs,
                                 ImageImpaintingOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L211)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L211)
 
 Image inpainting is a process that involves filling in missing or damaged parts
 of an image in a way that is visually coherent and seamlessly blends with the
@@ -107,7 +107,7 @@ the image to its original or intended appearance.
 class ImageEmbedding(AssetNode[ImageEmbeddingInputs, ImageEmbeddingOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L248)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L248)
 
 Image Embedding is a process that transforms an image into a fixed-dimensional
 vector representation, capturing its essential features and enabling efficient
@@ -124,7 +124,7 @@ class MetricAggregation(BaseMetric[MetricAggregationInputs,
                                    MetricAggregationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L283)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L283)
 
 Metric Aggregation is a function that computes and summarizes numerical data by
 applying statistical operations, such as averaging, summing, or finding the
@@ -141,7 +141,7 @@ class SpeechTranslation(AssetNode[SpeechTranslationInputs,
                                   SpeechTranslationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L328)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L328)
 
 Speech Translation is a technology that converts spoken language in real-time
 from one language to another, enabling seamless communication between speakers
@@ -157,7 +157,7 @@ class DepthEstimation(AssetNode[DepthEstimationInputs,
                                 DepthEstimationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L364)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L364)
 
 Depth estimation is a computational process that determines the distance of
 objects from a viewpoint, typically using visual data from cameras or sensors
@@ -172,7 +172,7 @@ to create a three-dimensional understanding of a scene.
 class NoiseRemoval(AssetNode[NoiseRemovalInputs, NoiseRemovalOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L398)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L398)
 
 Noise Removal is a process that involves identifying and eliminating unwanted
 random variations or disturbances from an audio signal to enhance the clarity
@@ -187,7 +187,7 @@ and quality of the underlying information.
 class Diacritization(AssetNode[DiacritizationInputs, DiacritizationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L438)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L438)
 
 Adds diacritical marks to text, essential for languages where meaning can
 change based on diacritics.
@@ -202,7 +202,7 @@ class AudioTranscriptAnalysis(AssetNode[AudioTranscriptAnalysisInputs,
                                         AudioTranscriptAnalysisOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L479)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L479)
 
 Analyzes transcribed audio data for insights, patterns, or specific information
 extraction.
@@ -217,7 +217,7 @@ class ExtractAudioFromVideo(AssetNode[ExtractAudioFromVideoInputs,
                                       ExtractAudioFromVideoOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L512)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L512)
 
 Isolates and extracts audio tracks from video files, aiding in audio analysis
 or transcription tasks.
@@ -232,7 +232,7 @@ class AudioReconstruction(BaseReconstructor[AudioReconstructionInputs,
                                             AudioReconstructionOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L545)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L545)
 
 Audio Reconstruction is the process of restoring or recreating audio signals
 from incomplete, damaged, or degraded recordings to achieve a high-quality,
@@ -248,7 +248,7 @@ class ClassificationMetric(BaseMetric[ClassificationMetricInputs,
                                       ClassificationMetricOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L587)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L587)
 
 A Classification Metric is a quantitative measure used to evaluate the quality
 and effectiveness of classification models.
@@ -263,7 +263,7 @@ class TextGenerationMetric(BaseMetric[TextGenerationMetricInputs,
                                       TextGenerationMetricOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L626)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L626)
 
 A Text Generation Metric is a quantitative measure used to evaluate the quality
 and effectiveness of text produced by natural language processing models, often
@@ -280,7 +280,7 @@ class TextSpamDetection(AssetNode[TextSpamDetectionInputs,
                                   TextSpamDetectionOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L667)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L667)
 
 Identifies and filters out unwanted or irrelevant text content, ideal for
 moderating user-generated content or ensuring quality in communication
@@ -296,7 +296,7 @@ class TextToImageGeneration(AssetNode[TextToImageGenerationInputs,
                                       TextToImageGenerationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L701)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L701)
 
 Creates a visual representation based on textual input, turning descriptions
 into pictorial forms. Used in creative processes and content generation.
@@ -310,7 +310,7 @@ into pictorial forms. Used in creative processes and content generation.
 class VoiceCloning(AssetNode[VoiceCloningInputs, VoiceCloningOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L746)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L746)
 
 Replicates a person&#x27;s voice based on a sample, allowing for the generation of
 speech in that person&#x27;s tone and style. Used cautiously due to ethical
@@ -326,7 +326,7 @@ class TextSegmenation(AssetNode[TextSegmenationInputs,
                                 TextSegmenationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L782)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L782)
 
 Text Segmentation is the process of dividing a continuous text into meaningful
 units, such as words, sentences, or topics, to facilitate easier analysis and
@@ -342,7 +342,7 @@ class BenchmarkScoringMt(AssetNode[BenchmarkScoringMtInputs,
                                    BenchmarkScoringMtOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L820)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L820)
 
 Benchmark Scoring MT is a function designed to evaluate and score machine
 translation systems by comparing their output against a set of predefined
@@ -358,7 +358,7 @@ class ImageManipulation(AssetNode[ImageManipulationInputs,
                                   ImageManipulationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L856)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L856)
 
 Image Manipulation refers to the process of altering or enhancing digital
 images using various techniques and tools to achieve desired visual effects,
@@ -374,7 +374,7 @@ class NamedEntityRecognition(AssetNode[NamedEntityRecognitionInputs,
                                        NamedEntityRecognitionOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L898)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L898)
 
 Identifies and classifies named entities (e.g., persons, organizations,
 locations) within text. Useful for information extraction, content tagging, and
@@ -391,7 +391,7 @@ class OffensiveLanguageIdentification(
                   OffensiveLanguageIdentificationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L938)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L938)
 
 Detects language or phrases that might be considered offensive, aiding in
 content moderation and creating respectful user interactions.
@@ -405,7 +405,7 @@ content moderation and creating respectful user interactions.
 class Search(AssetNode[SearchInputs, SearchOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L971)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L971)
 
 An algorithm that identifies and returns data or items that match particular
 keywords or conditions from a dataset. A fundamental tool for databases and
@@ -421,7 +421,7 @@ class SentimentAnalysis(AssetNode[SentimentAnalysisInputs,
                                   SentimentAnalysisOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L1011)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L1011)
 
 Determines the sentiment or emotion (e.g., positive, negative, neutral) of a
 piece of text, aiding in understanding user feedback or market sentiment.
@@ -436,7 +436,7 @@ class ImageColorization(AssetNode[ImageColorizationInputs,
                                   ImageColorizationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L1044)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L1044)
 
 Image colorization is a process that involves adding color to grayscale images,
 transforming them from black-and-white to full-color representations, often
@@ -453,7 +453,7 @@ class SpeechClassification(AssetNode[SpeechClassificationInputs,
                                      SpeechClassificationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L1085)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L1085)
 
 Categorizes audio clips based on their content, aiding in content organization
 and targeted actions.
@@ -468,7 +468,7 @@ class DialectDetection(AssetNode[DialectDetectionInputs,
                                  DialectDetectionOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L1120)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L1120)
 
 Identifies specific dialects within a language, aiding in localized content
 creation or user experience personalization.
@@ -483,7 +483,7 @@ class VideoLabelDetection(AssetNode[VideoLabelDetectionInputs,
                                     VideoLabelDetectionOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L1155)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L1155)
 
 Identifies and tags objects, scenes, or activities within a video. Useful for
 content indexing and recommendation systems.
@@ -498,7 +498,7 @@ class SpeechSynthesis(AssetNode[SpeechSynthesisInputs,
                                 SpeechSynthesisOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L1200)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L1200)
 
 Generates human-like speech from written text. Ideal for text-to-speech
 applications, audiobooks, and voice assistants.
@@ -512,7 +512,7 @@ applications, audiobooks, and voice assistants.
 class SplitOnSilence(AssetNode[SplitOnSilenceInputs, SplitOnSilenceOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L1233)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L1233)
 
 The &quot;Split On Silence&quot; function divides an audio recording into separate
 segments based on periods of silence, allowing for easier editing and analysis
@@ -528,7 +528,7 @@ class ExpressionDetection(AssetNode[ExpressionDetectionInputs,
                                     ExpressionDetectionOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L1267)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L1267)
 
 Expression Detection is the process of identifying and analyzing facial
 expressions to interpret emotions or intentions using AI and computer vision
@@ -544,7 +544,7 @@ class AutoMaskGeneration(AssetNode[AutoMaskGenerationInputs,
                                    AutoMaskGenerationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L1301)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L1301)
 
 Auto-mask generation refers to the automated process of creating masks in image
 processing or computer vision, typically for segmentation tasks. A mask is a
@@ -562,7 +562,7 @@ class DocumentImageParsing(AssetNode[DocumentImageParsingInputs,
                                      DocumentImageParsingOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L1337)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L1337)
 
 Document Image Parsing is the process of analyzing and converting scanned or
 photographed images of documents into structured, machine-readable formats by
@@ -577,7 +577,7 @@ identifying and extracting text, layout, and other relevant information.
 class EntityLinking(AssetNode[EntityLinkingInputs, EntityLinkingOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L1375)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L1375)
 
 Associates identified entities in the text with specific entries in a knowledge
 base or database.
@@ -593,7 +593,7 @@ class ReferencelessTextGenerationMetricDefault(
                    ReferencelessTextGenerationMetricDefaultOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L1412)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L1412)
 
 The Referenceless Text Generation Metric Default is a function designed to
 evaluate the quality of generated text without relying on reference texts for
@@ -608,7 +608,7 @@ comparison.
 class FillTextMask(AssetNode[FillTextMaskInputs, FillTextMaskOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L1454)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L1454)
 
 Completes missing parts of a text based on the context, ideal for content
 generation or data augmentation tasks.
@@ -623,7 +623,7 @@ class SubtitlingTranslation(AssetNode[SubtitlingTranslationInputs,
                                       SubtitlingTranslationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L1495)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L1495)
 
 Converts the text of subtitles from one language to another, ensuring context
 and cultural nuances are maintained. Essential for global content distribution.
@@ -638,7 +638,7 @@ class InstanceSegmentation(AssetNode[InstanceSegmentationInputs,
                                      InstanceSegmentationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L1528)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L1528)
 
 Instance segmentation is a computer vision task that involves detecting and
 delineating each distinct object within an image, assigning a unique label and
@@ -655,7 +655,7 @@ class VisemeGeneration(AssetNode[VisemeGenerationInputs,
                                  VisemeGenerationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L1569)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L1569)
 
 Viseme Generation is the process of creating visual representations of
 phonemes, which are the distinct units of sound in speech, to synchronize lip
@@ -671,7 +671,7 @@ class AudioGenerationMetric(BaseMetric[AudioGenerationMetricInputs,
                                        AudioGenerationMetricOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L1609)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L1609)
 
 The Audio Generation Metric is a quantitative measure used to evaluate the
 quality, accuracy, and overall performance of audio generated by artificial
@@ -688,7 +688,7 @@ class VideoUnderstanding(AssetNode[VideoUnderstandingInputs,
                                    VideoUnderstandingOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L1652)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L1652)
 
 Video Understanding is the process of analyzing and interpreting video content
 to extract meaningful information, such as identifying objects, actions,
@@ -704,7 +704,7 @@ class TextNormalization(AssetNode[TextNormalizationInputs,
                                   TextNormalizationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L1690)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L1690)
 
 Converts unstructured or non-standard textual data into a more readable and
 uniform format, dealing with abbreviations, numerals, and other non-standard
@@ -720,7 +720,7 @@ class AsrQualityEstimation(AssetNode[AsrQualityEstimationInputs,
                                      AsrQualityEstimationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L1726)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L1726)
 
 ASR Quality Estimation is a process that evaluates the accuracy and reliability
 of automatic speech recognition systems by analyzing their performance in
@@ -736,7 +736,7 @@ class VoiceActivityDetection(BaseSegmentor[VoiceActivityDetectionInputs,
                                            VoiceActivityDetectionOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L1770)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L1770)
 
 Determines when a person is speaking in an audio clip. It&#x27;s an essential
 preprocessing step for other audio-related tasks.
@@ -752,7 +752,7 @@ class SpeechNonSpeechClassification(
                   SpeechNonSpeechClassificationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L1809)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L1809)
 
 Differentiates between speech and non-speech audio segments. Great for editing
 software and transcription services to exclude irrelevant audio.
@@ -767,7 +767,7 @@ class AudioTranscriptImprovement(AssetNode[AudioTranscriptImprovementInputs,
                                            AudioTranscriptImprovementOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L1852)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L1852)
 
 Refines and corrects transcriptions generated from audio data, improving
 readability and accuracy.
@@ -782,7 +782,7 @@ class TextContentModeration(AssetNode[TextContentModerationInputs,
                                       TextContentModerationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L1891)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L1891)
 
 Scans and identifies potentially harmful, offensive, or inappropriate textual
 content, ensuring safer user environments.
@@ -797,7 +797,7 @@ class EmotionDetection(AssetNode[EmotionDetectionInputs,
                                  EmotionDetectionOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L1930)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L1930)
 
 Identifies human emotions from text or audio, enhancing user experience in
 chatbots or customer feedback analysis.
@@ -812,7 +812,7 @@ class AudioForcedAlignment(AssetNode[AudioForcedAlignmentInputs,
                                      AudioForcedAlignmentOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L1973)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L1973)
 
 Synchronizes phonetic and phonological text with the corresponding segments in
 an audio file. Useful in linguistic research and detailed transcription tasks.
@@ -827,7 +827,7 @@ class VideoContentModeration(AssetNode[VideoContentModerationInputs,
                                        VideoContentModerationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L2008)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L2008)
 
 Automatically reviews video content to detect and possibly remove inappropriate
 or harmful material. Essential for user-generated content platforms.
@@ -842,7 +842,7 @@ class ImageLabelDetection(AssetNode[ImageLabelDetectionInputs,
                                     ImageLabelDetectionOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L2043)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L2043)
 
 Identifies objects, themes, or topics within images, useful for image
 categorization, search, and recommendation systems.
@@ -857,7 +857,7 @@ class VideoForcedAlignment(AssetNode[VideoForcedAlignmentInputs,
                                      VideoForcedAlignmentOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L2086)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L2086)
 
 Aligns the transcription of spoken content in a video with its corresponding
 timecodes, facilitating subtitle creation.
@@ -871,7 +871,7 @@ timecodes, facilitating subtitle creation.
 class TextGeneration(AssetNode[TextGenerationInputs, TextGenerationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L2127)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L2127)
 
 Creates coherent and contextually relevant textual content based on prompts or
 certain parameters. Useful for chatbots, content creation, and data
@@ -887,7 +887,7 @@ class TextClassification(AssetNode[TextClassificationInputs,
                                    TextClassificationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L2167)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L2167)
 
 Categorizes text into predefined groups or topics, facilitating content
 organization and targeted actions.
@@ -902,7 +902,7 @@ class SpeechEmbedding(AssetNode[SpeechEmbeddingInputs,
                                 SpeechEmbeddingOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L2206)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L2206)
 
 Transforms spoken content into a fixed-size vector in a high-dimensional space
 that captures the content&#x27;s essence. Facilitates tasks like speech recognition
@@ -918,7 +918,7 @@ class TopicClassification(AssetNode[TopicClassificationInputs,
                                     TopicClassificationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L2246)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L2246)
 
 Assigns categories or topics to a piece of text based on its content,
 facilitating content organization and retrieval.
@@ -932,7 +932,7 @@ facilitating content organization and retrieval.
 class Translation(AssetNode[TranslationInputs, TranslationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L2293)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L2293)
 
 Converts text from one language to another while maintaining the original
 message&#x27;s essence and context. Crucial for global communication.
@@ -947,7 +947,7 @@ class SpeechRecognition(AssetNode[SpeechRecognitionInputs,
                                   SpeechRecognitionOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L2334)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L2334)
 
 Converts spoken language into written text. Useful for transcription services,
 voice assistants, and applications requiring voice-to-text capabilities.
@@ -961,7 +961,7 @@ voice assistants, and applications requiring voice-to-text capabilities.
 class Subtitling(AssetNode[SubtitlingInputs, SubtitlingOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L2377)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L2377)
 
 Generates accurate subtitles for videos, enhancing accessibility for diverse
 audiences.
@@ -976,7 +976,7 @@ class ImageCaptioning(AssetNode[ImageCaptioningInputs,
                                 ImageCaptioningOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L2410)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L2410)
 
 Image Captioning is a process that involves generating a textual description of
 an image, typically using machine learning models to analyze the visual content
@@ -994,7 +994,7 @@ class AudioLanguageIdentification(AssetNode[AudioLanguageIdentificationInputs,
                                   )
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L2445)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L2445)
 
 Audio Language Identification is a process that involves analyzing an audio
 recording to determine the language being spoken.
@@ -1008,7 +1008,7 @@ recording to determine the language being spoken.
 class VideoEmbedding(AssetNode[VideoEmbeddingInputs, VideoEmbeddingOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L2480)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L2480)
 
 Video Embedding is a process that transforms video content into a fixed-
 dimensional vector representation, capturing essential features and patterns to
@@ -1024,7 +1024,7 @@ class AsrAgeClassification(AssetNode[AsrAgeClassificationInputs,
                                      AsrAgeClassificationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L2514)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L2514)
 
 The ASR Age Classification function is designed to analyze audio recordings of
 speech to determine the speaker&#x27;s age group by leveraging automatic speech
@@ -1040,7 +1040,7 @@ class AudioIntentDetection(AssetNode[AudioIntentDetectionInputs,
                                      AudioIntentDetectionOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L2548)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L2548)
 
 Audio Intent Detection is a process that involves analyzing audio signals to
 identify and interpret the underlying intentions or purposes behind spoken
@@ -1057,7 +1057,7 @@ class LanguageIdentification(AssetNode[LanguageIdentificationInputs,
                                        LanguageIdentificationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L2583)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L2583)
 
 Detects the language in which a given text is written, aiding in multilingual
 platforms or content localization.
@@ -1071,7 +1071,7 @@ platforms or content localization.
 class Ocr(AssetNode[OcrInputs, OcrOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L2618)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L2618)
 
 Converts images of typed, handwritten, or printed text into machine-encoded
 text. Used in digitizing printed texts for data retrieval.
@@ -1086,7 +1086,7 @@ class AsrGenderClassification(AssetNode[AsrGenderClassificationInputs,
                                         AsrGenderClassificationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L2651)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L2651)
 
 The ASR Gender Classification function analyzes audio recordings to determine
 and classify the speaker&#x27;s gender based on their voice characteristics.
@@ -1102,7 +1102,7 @@ class LanguageIdentificationAudio(AssetNode[LanguageIdentificationAudioInputs,
                                   )
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L2684)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L2684)
 
 The Language Identification Audio function analyzes audio input to determine
 and identify the language being spoken.
@@ -1116,7 +1116,7 @@ and identify the language being spoken.
 class BaseModel(AssetNode[BaseModelInputs, BaseModelOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L2719)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L2719)
 
 The Base-Model function serves as a foundational framework designed to provide
 essential features and capabilities upon which more specialized or advanced
@@ -1131,7 +1131,7 @@ models can be built and customized.
 class Loglikelihood(AssetNode[LoglikelihoodInputs, LoglikelihoodOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L2753)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L2753)
 
 The Log Likelihood function measures the probability of observing the given
 data under a specific statistical model by taking the natural logarithm of the
@@ -1148,7 +1148,7 @@ class ImageToVideoGeneration(AssetNode[ImageToVideoGenerationInputs,
                                        ImageToVideoGenerationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L2790)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L2790)
 
 The Image To Video Generation function transforms a series of static images
 into a cohesive, dynamic video sequence, often incorporating transitions,
@@ -1165,7 +1165,7 @@ class PartOfSpeechTagging(AssetNode[PartOfSpeechTaggingInputs,
                                     PartOfSpeechTaggingOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L2827)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L2827)
 
 Part of Speech Tagging is a natural language processing task that involves
 assigning each word in a sentence its corresponding part of speech, such as
@@ -1182,7 +1182,7 @@ class BenchmarkScoringAsr(AssetNode[BenchmarkScoringAsrInputs,
                                     BenchmarkScoringAsrOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L2866)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L2866)
 
 Benchmark Scoring ASR is a function that evaluates and compares the performance
 of automatic speech recognition systems by analyzing their accuracy, speed, and
@@ -1198,7 +1198,7 @@ class VisualQuestionAnswering(AssetNode[VisualQuestionAnsweringInputs,
                                         VisualQuestionAnsweringOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L2904)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L2904)
 
 Visual Question Answering (VQA) is a task in artificial intelligence that
 involves analyzing an image and providing accurate, contextually relevant
@@ -1215,7 +1215,7 @@ class DocumentInformationExtraction(
                   DocumentInformationExtractionOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L2938)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L2938)
 
 Document Information Extraction is the process of automatically identifying,
 extracting, and structuring relevant data from unstructured or semi-structured
@@ -1232,7 +1232,7 @@ class VideoGeneration(AssetNode[VideoGenerationInputs,
                                 VideoGenerationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L2973)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L2973)
 
 Produces video content based on specific inputs or datasets. Can be used for
 simulations, animations, or even deepfake detection.
@@ -1248,7 +1248,7 @@ class MultiClassImageClassification(
                   MultiClassImageClassificationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L3006)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L3006)
 
 Multi Class Image Classification is a machine learning task where an algorithm
 is trained to categorize images into one of several predefined classes or
@@ -1263,7 +1263,7 @@ categories based on their visual content.
 class StyleTransfer(AssetNode[StyleTransferInputs, StyleTransferOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L3040)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L3040)
 
 Style Transfer is a technique in artificial intelligence that applies the
 visual style of one image (such as the brushstrokes of a famous painting) to
@@ -1281,7 +1281,7 @@ class MultiClassTextClassification(
                   MultiClassTextClassificationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L3077)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L3077)
 
 Multi Class Text Classification is a natural language processing task that
 involves categorizing a given text into one of several predefined classes or
@@ -1297,7 +1297,7 @@ class IntentClassification(AssetNode[IntentClassificationInputs,
                                      IntentClassificationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L3113)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L3113)
 
 Intent Classification is a natural language processing task that involves
 analyzing and categorizing user text input to determine the underlying purpose
@@ -1315,7 +1315,7 @@ class MultiLabelTextClassification(
                   MultiLabelTextClassificationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L3150)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L3150)
 
 Multi Label Text Classification is a natural language processing task where a
 given text is analyzed and assigned multiple relevant labels or categories from
@@ -1332,7 +1332,7 @@ class TextReconstruction(BaseReconstructor[TextReconstructionInputs,
                                            TextReconstructionOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L3185)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L3185)
 
 Text Reconstruction is a process that involves piecing together fragmented or
 incomplete text data to restore it to its original, coherent form.
@@ -1346,7 +1346,7 @@ incomplete text data to restore it to its original, coherent form.
 class FactChecking(AssetNode[FactCheckingInputs, FactCheckingOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L3220)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L3220)
 
 Fact Checking is the process of verifying the accuracy and truthfulness of
 information, statements, or claims by cross-referencing with reliable sources
@@ -1362,7 +1362,7 @@ class InverseTextNormalization(AssetNode[InverseTextNormalizationInputs,
                                          InverseTextNormalizationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L3254)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L3254)
 
 Inverse Text Normalization is the process of converting spoken or written
 language in its normalized form, such as numbers, dates, and abbreviations,
@@ -1377,7 +1377,7 @@ back into their original, more complex or detailed textual representations.
 class TextToAudio(AssetNode[TextToAudioInputs, TextToAudioOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L3290)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L3290)
 
 The Text to Audio function converts written text into spoken words, allowing
 users to listen to the content instead of reading it.
@@ -1392,7 +1392,7 @@ class ImageCompression(AssetNode[ImageCompressionInputs,
                                  ImageCompressionOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L3325)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L3325)
 
 Reduces the size of image files without significantly compromising their visual
 quality. Useful for optimizing storage and improving webpage load times.
@@ -1408,7 +1408,7 @@ class MultilingualSpeechRecognition(
                   MultilingualSpeechRecognitionOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L3360)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L3360)
 
 Multilingual Speech Recognition is a technology that enables the automatic
 transcription of spoken language into text across multiple languages, allowing
@@ -1425,7 +1425,7 @@ class TextGenerationMetricDefault(
                    TextGenerationMetricDefaultOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L3400)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L3400)
 
 The &quot;Text Generation Metric Default&quot; function provides a standard set of
 evaluation metrics for assessing the quality and performance of text generation
@@ -1442,7 +1442,7 @@ class ReferencelessTextGenerationMetric(
                    ReferencelessTextGenerationMetricOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L3438)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L3438)
 
 The Referenceless Text Generation Metric is a method for evaluating the quality
 of generated text without requiring a reference text for comparison, often
@@ -1459,7 +1459,7 @@ class AudioEmotionDetection(AssetNode[AudioEmotionDetectionInputs,
                                       AudioEmotionDetectionOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L3475)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L3475)
 
 Audio Emotion Detection is a technology that analyzes vocal characteristics and
 patterns in audio recordings to identify and classify the emotional state of
@@ -1475,7 +1475,7 @@ class KeywordSpotting(AssetNode[KeywordSpottingInputs,
                                 KeywordSpottingOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L3509)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L3509)
 
 Keyword Spotting is a function that enables the detection and identification of
 specific words or phrases within a stream of audio, often used in voice-
@@ -1491,7 +1491,7 @@ class TextSummarization(AssetNode[TextSummarizationInputs,
                                   TextSummarizationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L3549)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L3549)
 
 Extracts the main points from a larger body of text, producing a concise
 summary without losing the primary message.
@@ -1506,7 +1506,7 @@ class SplitOnLinebreak(BaseSegmentor[SplitOnLinebreakInputs,
                                      SplitOnLinebreakOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L3584)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L3584)
 
 The &quot;Split On Linebreak&quot; function divides a given string into a list of
 substrings, using linebreaks (newline characters) as the points of separation.
@@ -1521,7 +1521,7 @@ class OtherMultipurpose(AssetNode[OtherMultipurposeInputs,
                                   OtherMultipurposeOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L3619)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L3619)
 
 The &quot;Other (Multipurpose)&quot; function serves as a versatile category designed to
 accommodate a wide range of tasks and activities that do not fit neatly into
@@ -1538,7 +1538,7 @@ class SpeakerDiarizationAudio(BaseSegmentor[SpeakerDiarizationAudioInputs,
                                             SpeakerDiarizationAudioOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L3662)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L3662)
 
 Identifies individual speakers and their respective speech segments within an
 audio clip. Ideal for multi-speaker recordings or conference calls.
@@ -1553,7 +1553,7 @@ class ImageContentModeration(AssetNode[ImageContentModerationInputs,
                                        ImageContentModerationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L3697)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L3697)
 
 Detects and filters out inappropriate or harmful images, essential for
 platforms with user-generated visual content.
@@ -1568,7 +1568,7 @@ class TextDenormalization(AssetNode[TextDenormalizationInputs,
                                     TextDenormalizationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L3738)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L3738)
 
 Converts standardized or normalized text into its original, often more
 readable, form. Useful in natural language generation tasks.
@@ -1583,7 +1583,7 @@ class SpeakerDiarizationVideo(AssetNode[SpeakerDiarizationVideoInputs,
                                         SpeakerDiarizationVideoOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L3777)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L3777)
 
 Segments a video based on different speakers, identifying when each individual
 speaks. Useful for transcriptions and understanding multi-person conversations.
@@ -1598,7 +1598,7 @@ class TextToVideoGeneration(AssetNode[TextToVideoGenerationInputs,
                                       TextToVideoGenerationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L3812)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L3812)
 
 Text To Video Generation is a process that converts written descriptions or
 scripts into dynamic, visual video content using advanced algorithms and
@@ -1613,7 +1613,7 @@ artificial intelligence.
 class Pipeline(DefaultPipeline)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L3830)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L3830)
 
 #### object\_detection
 
@@ -1622,7 +1622,7 @@ def object_detection(asset_id: Union[str, asset.Asset], *args,
                      **kwargs) -> ObjectDetection
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L3831)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L3831)
 
 Object Detection is a computer vision technology that identifies and locates
 objects within an image, typically by drawing bounding boxes around the
@@ -1635,7 +1635,7 @@ def text_embedding(asset_id: Union[str, asset.Asset], *args,
                    **kwargs) -> TextEmbedding
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L3839)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L3839)
 
 Text embedding is a process that converts text into numerical vectors,
 capturing the semantic meaning and contextual relationships of words or
@@ -1649,7 +1649,7 @@ def semantic_segmentation(asset_id: Union[str, asset.Asset], *args,
                           **kwargs) -> SemanticSegmentation
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L3848)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L3848)
 
 Semantic segmentation is a computer vision process that involves classifying
 each pixel in an image into a predefined category, effectively partitioning the
@@ -1663,7 +1663,7 @@ def referenceless_audio_generation_metric(
         **kwargs) -> ReferencelessAudioGenerationMetric
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L3856)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L3856)
 
 The Referenceless Audio Generation Metric is a tool designed to evaluate the
 quality of generated audio content without the need for a reference or original
@@ -1676,7 +1676,7 @@ def script_execution(asset_id: Union[str, asset.Asset], *args,
                      **kwargs) -> ScriptExecution
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L3866)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L3866)
 
 Script Execution refers to the process of running a set of programmed
 instructions or code within a computing environment, enabling the automated
@@ -1689,7 +1689,7 @@ def image_impainting(asset_id: Union[str, asset.Asset], *args,
                      **kwargs) -> ImageImpainting
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L3874)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L3874)
 
 Image inpainting is a process that involves filling in missing or damaged parts
 of an image in a way that is visually coherent and seamlessly blends with the
@@ -1703,7 +1703,7 @@ def image_embedding(asset_id: Union[str, asset.Asset], *args,
                     **kwargs) -> ImageEmbedding
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L3883)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L3883)
 
 Image Embedding is a process that transforms an image into a fixed-dimensional
 vector representation, capturing its essential features and enabling efficient
@@ -1717,7 +1717,7 @@ def metric_aggregation(asset_id: Union[str, asset.Asset], *args,
                        **kwargs) -> MetricAggregation
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L3892)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L3892)
 
 Metric Aggregation is a function that computes and summarizes numerical data by
 applying statistical operations, such as averaging, summing, or finding the
@@ -1731,7 +1731,7 @@ def speech_translation(asset_id: Union[str, asset.Asset], *args,
                        **kwargs) -> SpeechTranslation
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L3901)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L3901)
 
 Speech Translation is a technology that converts spoken language in real-time
 from one language to another, enabling seamless communication between speakers
@@ -1744,7 +1744,7 @@ def depth_estimation(asset_id: Union[str, asset.Asset], *args,
                      **kwargs) -> DepthEstimation
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L3909)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L3909)
 
 Depth estimation is a computational process that determines the distance of
 objects from a viewpoint, typically using visual data from cameras or sensors
@@ -1757,7 +1757,7 @@ def noise_removal(asset_id: Union[str, asset.Asset], *args,
                   **kwargs) -> NoiseRemoval
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L3917)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L3917)
 
 Noise Removal is a process that involves identifying and eliminating unwanted
 random variations or disturbances from an audio signal to enhance the clarity
@@ -1770,7 +1770,7 @@ def diacritization(asset_id: Union[str, asset.Asset], *args,
                    **kwargs) -> Diacritization
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L3925)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L3925)
 
 Adds diacritical marks to text, essential for languages where meaning can
 change based on diacritics.
@@ -1782,7 +1782,7 @@ def audio_transcript_analysis(asset_id: Union[str, asset.Asset], *args,
                               **kwargs) -> AudioTranscriptAnalysis
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L3932)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L3932)
 
 Analyzes transcribed audio data for insights, patterns, or specific information
 extraction.
@@ -1794,7 +1794,7 @@ def extract_audio_from_video(asset_id: Union[str, asset.Asset], *args,
                              **kwargs) -> ExtractAudioFromVideo
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L3939)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L3939)
 
 Isolates and extracts audio tracks from video files, aiding in audio analysis
 or transcription tasks.
@@ -1806,7 +1806,7 @@ def audio_reconstruction(asset_id: Union[str, asset.Asset], *args,
                          **kwargs) -> AudioReconstruction
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L3946)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L3946)
 
 Audio Reconstruction is the process of restoring or recreating audio signals
 from incomplete, damaged, or degraded recordings to achieve a high-quality,
@@ -1819,7 +1819,7 @@ def classification_metric(asset_id: Union[str, asset.Asset], *args,
                           **kwargs) -> ClassificationMetric
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L3954)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L3954)
 
 A Classification Metric is a quantitative measure used to evaluate the quality
 and effectiveness of classification models.
@@ -1831,7 +1831,7 @@ def text_generation_metric(asset_id: Union[str, asset.Asset], *args,
                            **kwargs) -> TextGenerationMetric
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L3961)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L3961)
 
 A Text Generation Metric is a quantitative measure used to evaluate the quality
 and effectiveness of text produced by natural language processing models, often
@@ -1845,7 +1845,7 @@ def text_spam_detection(asset_id: Union[str, asset.Asset], *args,
                         **kwargs) -> TextSpamDetection
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L3970)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L3970)
 
 Identifies and filters out unwanted or irrelevant text content, ideal for
 moderating user-generated content or ensuring quality in communication
@@ -1858,7 +1858,7 @@ def text_to_image_generation(asset_id: Union[str, asset.Asset], *args,
                              **kwargs) -> TextToImageGeneration
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L3978)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L3978)
 
 Creates a visual representation based on textual input, turning descriptions
 into pictorial forms. Used in creative processes and content generation.
@@ -1870,7 +1870,7 @@ def voice_cloning(asset_id: Union[str, asset.Asset], *args,
                   **kwargs) -> VoiceCloning
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L3985)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L3985)
 
 Replicates a person&#x27;s voice based on a sample, allowing for the generation of
 speech in that person&#x27;s tone and style. Used cautiously due to ethical
@@ -1883,7 +1883,7 @@ def text_segmenation(asset_id: Union[str, asset.Asset], *args,
                      **kwargs) -> TextSegmenation
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L3993)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L3993)
 
 Text Segmentation is the process of dividing a continuous text into meaningful
 units, such as words, sentences, or topics, to facilitate easier analysis and
@@ -1896,7 +1896,7 @@ def benchmark_scoring_mt(asset_id: Union[str, asset.Asset], *args,
                          **kwargs) -> BenchmarkScoringMt
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4001)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4001)
 
 Benchmark Scoring MT is a function designed to evaluate and score machine
 translation systems by comparing their output against a set of predefined
@@ -1909,7 +1909,7 @@ def image_manipulation(asset_id: Union[str, asset.Asset], *args,
                        **kwargs) -> ImageManipulation
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4009)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4009)
 
 Image Manipulation refers to the process of altering or enhancing digital
 images using various techniques and tools to achieve desired visual effects,
@@ -1922,7 +1922,7 @@ def named_entity_recognition(asset_id: Union[str, asset.Asset], *args,
                              **kwargs) -> NamedEntityRecognition
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4017)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4017)
 
 Identifies and classifies named entities (e.g., persons, organizations,
 locations) within text. Useful for information extraction, content tagging, and
@@ -1936,7 +1936,7 @@ def offensive_language_identification(
         **kwargs) -> OffensiveLanguageIdentification
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4025)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4025)
 
 Detects language or phrases that might be considered offensive, aiding in
 content moderation and creating respectful user interactions.
@@ -1947,7 +1947,7 @@ content moderation and creating respectful user interactions.
 def search(asset_id: Union[str, asset.Asset], *args, **kwargs) -> Search
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4034)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4034)
 
 An algorithm that identifies and returns data or items that match particular
 keywords or conditions from a dataset. A fundamental tool for databases and
@@ -1960,7 +1960,7 @@ def sentiment_analysis(asset_id: Union[str, asset.Asset], *args,
                        **kwargs) -> SentimentAnalysis
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4042)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4042)
 
 Determines the sentiment or emotion (e.g., positive, negative, neutral) of a
 piece of text, aiding in understanding user feedback or market sentiment.
@@ -1972,7 +1972,7 @@ def image_colorization(asset_id: Union[str, asset.Asset], *args,
                        **kwargs) -> ImageColorization
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4049)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4049)
 
 Image colorization is a process that involves adding color to grayscale images,
 transforming them from black-and-white to full-color representations, often
@@ -1986,7 +1986,7 @@ def speech_classification(asset_id: Union[str, asset.Asset], *args,
                           **kwargs) -> SpeechClassification
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4058)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4058)
 
 Categorizes audio clips based on their content, aiding in content organization
 and targeted actions.
@@ -1998,7 +1998,7 @@ def dialect_detection(asset_id: Union[str, asset.Asset], *args,
                       **kwargs) -> DialectDetection
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4065)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4065)
 
 Identifies specific dialects within a language, aiding in localized content
 creation or user experience personalization.
@@ -2010,7 +2010,7 @@ def video_label_detection(asset_id: Union[str, asset.Asset], *args,
                           **kwargs) -> VideoLabelDetection
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4072)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4072)
 
 Identifies and tags objects, scenes, or activities within a video. Useful for
 content indexing and recommendation systems.
@@ -2022,7 +2022,7 @@ def speech_synthesis(asset_id: Union[str, asset.Asset], *args,
                      **kwargs) -> SpeechSynthesis
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4079)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4079)
 
 Generates human-like speech from written text. Ideal for text-to-speech
 applications, audiobooks, and voice assistants.
@@ -2034,7 +2034,7 @@ def split_on_silence(asset_id: Union[str, asset.Asset], *args,
                      **kwargs) -> SplitOnSilence
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4086)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4086)
 
 The &quot;Split On Silence&quot; function divides an audio recording into separate
 segments based on periods of silence, allowing for easier editing and analysis
@@ -2047,7 +2047,7 @@ def expression_detection(asset_id: Union[str, asset.Asset], *args,
                          **kwargs) -> ExpressionDetection
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4094)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4094)
 
 Expression Detection is the process of identifying and analyzing facial
 expressions to interpret emotions or intentions using AI and computer vision
@@ -2060,7 +2060,7 @@ def auto_mask_generation(asset_id: Union[str, asset.Asset], *args,
                          **kwargs) -> AutoMaskGeneration
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4102)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4102)
 
 Auto-mask generation refers to the automated process of creating masks in image
 processing or computer vision, typically for segmentation tasks. A mask is a
@@ -2075,7 +2075,7 @@ def document_image_parsing(asset_id: Union[str, asset.Asset], *args,
                            **kwargs) -> DocumentImageParsing
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4112)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4112)
 
 Document Image Parsing is the process of analyzing and converting scanned or
 photographed images of documents into structured, machine-readable formats by
@@ -2088,7 +2088,7 @@ def entity_linking(asset_id: Union[str, asset.Asset], *args,
                    **kwargs) -> EntityLinking
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4120)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4120)
 
 Associates identified entities in the text with specific entries in a knowledge
 base or database.
@@ -2101,7 +2101,7 @@ def referenceless_text_generation_metric_default(
         **kwargs) -> ReferencelessTextGenerationMetricDefault
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4127)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4127)
 
 The Referenceless Text Generation Metric Default is a function designed to
 evaluate the quality of generated text without relying on reference texts for
@@ -2114,7 +2114,7 @@ def fill_text_mask(asset_id: Union[str, asset.Asset], *args,
                    **kwargs) -> FillTextMask
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4137)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4137)
 
 Completes missing parts of a text based on the context, ideal for content
 generation or data augmentation tasks.
@@ -2126,7 +2126,7 @@ def subtitling_translation(asset_id: Union[str, asset.Asset], *args,
                            **kwargs) -> SubtitlingTranslation
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4144)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4144)
 
 Converts the text of subtitles from one language to another, ensuring context
 and cultural nuances are maintained. Essential for global content distribution.
@@ -2138,7 +2138,7 @@ def instance_segmentation(asset_id: Union[str, asset.Asset], *args,
                           **kwargs) -> InstanceSegmentation
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4151)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4151)
 
 Instance segmentation is a computer vision task that involves detecting and
 delineating each distinct object within an image, assigning a unique label and
@@ -2152,7 +2152,7 @@ def viseme_generation(asset_id: Union[str, asset.Asset], *args,
                       **kwargs) -> VisemeGeneration
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4160)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4160)
 
 Viseme Generation is the process of creating visual representations of
 phonemes, which are the distinct units of sound in speech, to synchronize lip
@@ -2165,7 +2165,7 @@ def audio_generation_metric(asset_id: Union[str, asset.Asset], *args,
                             **kwargs) -> AudioGenerationMetric
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4168)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4168)
 
 The Audio Generation Metric is a quantitative measure used to evaluate the
 quality, accuracy, and overall performance of audio generated by artificial
@@ -2179,7 +2179,7 @@ def video_understanding(asset_id: Union[str, asset.Asset], *args,
                         **kwargs) -> VideoUnderstanding
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4177)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4177)
 
 Video Understanding is the process of analyzing and interpreting video content
 to extract meaningful information, such as identifying objects, actions,
@@ -2192,7 +2192,7 @@ def text_normalization(asset_id: Union[str, asset.Asset], *args,
                        **kwargs) -> TextNormalization
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4185)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4185)
 
 Converts unstructured or non-standard textual data into a more readable and
 uniform format, dealing with abbreviations, numerals, and other non-standard
@@ -2205,7 +2205,7 @@ def asr_quality_estimation(asset_id: Union[str, asset.Asset], *args,
                            **kwargs) -> AsrQualityEstimation
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4193)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4193)
 
 ASR Quality Estimation is a process that evaluates the accuracy and reliability
 of automatic speech recognition systems by analyzing their performance in
@@ -2218,7 +2218,7 @@ def voice_activity_detection(asset_id: Union[str, asset.Asset], *args,
                              **kwargs) -> VoiceActivityDetection
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4201)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4201)
 
 Determines when a person is speaking in an audio clip. It&#x27;s an essential
 preprocessing step for other audio-related tasks.
@@ -2231,7 +2231,7 @@ def speech_non_speech_classification(
         **kwargs) -> SpeechNonSpeechClassification
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4208)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4208)
 
 Differentiates between speech and non-speech audio segments. Great for editing
 software and transcription services to exclude irrelevant audio.
@@ -2243,7 +2243,7 @@ def audio_transcript_improvement(asset_id: Union[str, asset.Asset], *args,
                                  **kwargs) -> AudioTranscriptImprovement
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4217)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4217)
 
 Refines and corrects transcriptions generated from audio data, improving
 readability and accuracy.
@@ -2255,7 +2255,7 @@ def text_content_moderation(asset_id: Union[str, asset.Asset], *args,
                             **kwargs) -> TextContentModeration
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4224)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4224)
 
 Scans and identifies potentially harmful, offensive, or inappropriate textual
 content, ensuring safer user environments.
@@ -2267,7 +2267,7 @@ def emotion_detection(asset_id: Union[str, asset.Asset], *args,
                       **kwargs) -> EmotionDetection
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4231)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4231)
 
 Identifies human emotions from text or audio, enhancing user experience in
 chatbots or customer feedback analysis.
@@ -2279,7 +2279,7 @@ def audio_forced_alignment(asset_id: Union[str, asset.Asset], *args,
                            **kwargs) -> AudioForcedAlignment
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4238)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4238)
 
 Synchronizes phonetic and phonological text with the corresponding segments in
 an audio file. Useful in linguistic research and detailed transcription tasks.
@@ -2291,7 +2291,7 @@ def video_content_moderation(asset_id: Union[str, asset.Asset], *args,
                              **kwargs) -> VideoContentModeration
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4245)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4245)
 
 Automatically reviews video content to detect and possibly remove inappropriate
 or harmful material. Essential for user-generated content platforms.
@@ -2303,7 +2303,7 @@ def image_label_detection(asset_id: Union[str, asset.Asset], *args,
                           **kwargs) -> ImageLabelDetection
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4252)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4252)
 
 Identifies objects, themes, or topics within images, useful for image
 categorization, search, and recommendation systems.
@@ -2315,7 +2315,7 @@ def video_forced_alignment(asset_id: Union[str, asset.Asset], *args,
                            **kwargs) -> VideoForcedAlignment
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4259)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4259)
 
 Aligns the transcription of spoken content in a video with its corresponding
 timecodes, facilitating subtitle creation.
@@ -2327,7 +2327,7 @@ def text_generation(asset_id: Union[str, asset.Asset], *args,
                     **kwargs) -> TextGeneration
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4266)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4266)
 
 Creates coherent and contextually relevant textual content based on prompts or
 certain parameters. Useful for chatbots, content creation, and data
@@ -2340,7 +2340,7 @@ def text_classification(asset_id: Union[str, asset.Asset], *args,
                         **kwargs) -> TextClassification
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4274)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4274)
 
 Categorizes text into predefined groups or topics, facilitating content
 organization and targeted actions.
@@ -2352,7 +2352,7 @@ def speech_embedding(asset_id: Union[str, asset.Asset], *args,
                      **kwargs) -> SpeechEmbedding
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4281)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4281)
 
 Transforms spoken content into a fixed-size vector in a high-dimensional space
 that captures the content&#x27;s essence. Facilitates tasks like speech recognition
@@ -2365,7 +2365,7 @@ def topic_classification(asset_id: Union[str, asset.Asset], *args,
                          **kwargs) -> TopicClassification
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4289)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4289)
 
 Assigns categories or topics to a piece of text based on its content,
 facilitating content organization and retrieval.
@@ -2377,7 +2377,7 @@ def translation(asset_id: Union[str, asset.Asset], *args,
                 **kwargs) -> Translation
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4296)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4296)
 
 Converts text from one language to another while maintaining the original
 message&#x27;s essence and context. Crucial for global communication.
@@ -2389,7 +2389,7 @@ def speech_recognition(asset_id: Union[str, asset.Asset], *args,
                        **kwargs) -> SpeechRecognition
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4303)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4303)
 
 Converts spoken language into written text. Useful for transcription services,
 voice assistants, and applications requiring voice-to-text capabilities.
@@ -2401,7 +2401,7 @@ def subtitling(asset_id: Union[str, asset.Asset], *args,
                **kwargs) -> Subtitling
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4310)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4310)
 
 Generates accurate subtitles for videos, enhancing accessibility for diverse
 audiences.
@@ -2413,7 +2413,7 @@ def image_captioning(asset_id: Union[str, asset.Asset], *args,
                      **kwargs) -> ImageCaptioning
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4317)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4317)
 
 Image Captioning is a process that involves generating a textual description of
 an image, typically using machine learning models to analyze the visual content
@@ -2427,7 +2427,7 @@ def audio_language_identification(asset_id: Union[str, asset.Asset], *args,
                                   **kwargs) -> AudioLanguageIdentification
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4326)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4326)
 
 Audio Language Identification is a process that involves analyzing an audio
 recording to determine the language being spoken.
@@ -2439,7 +2439,7 @@ def video_embedding(asset_id: Union[str, asset.Asset], *args,
                     **kwargs) -> VideoEmbedding
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4333)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4333)
 
 Video Embedding is a process that transforms video content into a fixed-
 dimensional vector representation, capturing essential features and patterns to
@@ -2452,7 +2452,7 @@ def asr_age_classification(asset_id: Union[str, asset.Asset], *args,
                            **kwargs) -> AsrAgeClassification
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4341)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4341)
 
 The ASR Age Classification function is designed to analyze audio recordings of
 speech to determine the speaker&#x27;s age group by leveraging automatic speech
@@ -2465,7 +2465,7 @@ def audio_intent_detection(asset_id: Union[str, asset.Asset], *args,
                            **kwargs) -> AudioIntentDetection
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4349)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4349)
 
 Audio Intent Detection is a process that involves analyzing audio signals to
 identify and interpret the underlying intentions or purposes behind spoken
@@ -2479,7 +2479,7 @@ def language_identification(asset_id: Union[str, asset.Asset], *args,
                             **kwargs) -> LanguageIdentification
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4358)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4358)
 
 Detects the language in which a given text is written, aiding in multilingual
 platforms or content localization.
@@ -2490,7 +2490,7 @@ platforms or content localization.
 def ocr(asset_id: Union[str, asset.Asset], *args, **kwargs) -> Ocr
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4365)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4365)
 
 Converts images of typed, handwritten, or printed text into machine-encoded
 text. Used in digitizing printed texts for data retrieval.
@@ -2502,7 +2502,7 @@ def asr_gender_classification(asset_id: Union[str, asset.Asset], *args,
                               **kwargs) -> AsrGenderClassification
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4372)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4372)
 
 The ASR Gender Classification function analyzes audio recordings to determine
 and classify the speaker&#x27;s gender based on their voice characteristics.
@@ -2514,7 +2514,7 @@ def language_identification_audio(asset_id: Union[str, asset.Asset], *args,
                                   **kwargs) -> LanguageIdentificationAudio
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4379)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4379)
 
 The Language Identification Audio function analyzes audio input to determine
 and identify the language being spoken.
@@ -2526,7 +2526,7 @@ def base_model(asset_id: Union[str, asset.Asset], *args,
                **kwargs) -> BaseModel
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4386)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4386)
 
 The Base-Model function serves as a foundational framework designed to provide
 essential features and capabilities upon which more specialized or advanced
@@ -2539,7 +2539,7 @@ def loglikelihood(asset_id: Union[str, asset.Asset], *args,
                   **kwargs) -> Loglikelihood
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4394)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4394)
 
 The Log Likelihood function measures the probability of observing the given
 data under a specific statistical model by taking the natural logarithm of the
@@ -2553,7 +2553,7 @@ def image_to_video_generation(asset_id: Union[str, asset.Asset], *args,
                               **kwargs) -> ImageToVideoGeneration
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4403)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4403)
 
 The Image To Video Generation function transforms a series of static images
 into a cohesive, dynamic video sequence, often incorporating transitions,
@@ -2567,7 +2567,7 @@ def part_of_speech_tagging(asset_id: Union[str, asset.Asset], *args,
                            **kwargs) -> PartOfSpeechTagging
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4412)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4412)
 
 Part of Speech Tagging is a natural language processing task that involves
 assigning each word in a sentence its corresponding part of speech, such as
@@ -2581,7 +2581,7 @@ def benchmark_scoring_asr(asset_id: Union[str, asset.Asset], *args,
                           **kwargs) -> BenchmarkScoringAsr
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4421)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4421)
 
 Benchmark Scoring ASR is a function that evaluates and compares the performance
 of automatic speech recognition systems by analyzing their accuracy, speed, and
@@ -2594,7 +2594,7 @@ def visual_question_answering(asset_id: Union[str, asset.Asset], *args,
                               **kwargs) -> VisualQuestionAnswering
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4429)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4429)
 
 Visual Question Answering (VQA) is a task in artificial intelligence that
 involves analyzing an image and providing accurate, contextually relevant
@@ -2607,7 +2607,7 @@ def document_information_extraction(asset_id: Union[str, asset.Asset], *args,
                                     **kwargs) -> DocumentInformationExtraction
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4437)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4437)
 
 Document Information Extraction is the process of automatically identifying,
 extracting, and structuring relevant data from unstructured or semi-structured
@@ -2621,7 +2621,7 @@ def video_generation(asset_id: Union[str, asset.Asset], *args,
                      **kwargs) -> VideoGeneration
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4448)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4448)
 
 Produces video content based on specific inputs or datasets. Can be used for
 simulations, animations, or even deepfake detection.
@@ -2634,7 +2634,7 @@ def multi_class_image_classification(
         **kwargs) -> MultiClassImageClassification
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4455)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4455)
 
 Multi Class Image Classification is a machine learning task where an algorithm
 is trained to categorize images into one of several predefined classes or
@@ -2647,7 +2647,7 @@ def style_transfer(asset_id: Union[str, asset.Asset], *args,
                    **kwargs) -> StyleTransfer
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4465)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4465)
 
 Style Transfer is a technique in artificial intelligence that applies the
 visual style of one image (such as the brushstrokes of a famous painting) to
@@ -2661,7 +2661,7 @@ def multi_class_text_classification(asset_id: Union[str, asset.Asset], *args,
                                     **kwargs) -> MultiClassTextClassification
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4474)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4474)
 
 Multi Class Text Classification is a natural language processing task that
 involves categorizing a given text into one of several predefined classes or
@@ -2674,7 +2674,7 @@ def intent_classification(asset_id: Union[str, asset.Asset], *args,
                           **kwargs) -> IntentClassification
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4484)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4484)
 
 Intent Classification is a natural language processing task that involves
 analyzing and categorizing user text input to determine the underlying purpose
@@ -2688,7 +2688,7 @@ def multi_label_text_classification(asset_id: Union[str, asset.Asset], *args,
                                     **kwargs) -> MultiLabelTextClassification
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4493)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4493)
 
 Multi Label Text Classification is a natural language processing task where a
 given text is analyzed and assigned multiple relevant labels or categories from
@@ -2702,7 +2702,7 @@ def text_reconstruction(asset_id: Union[str, asset.Asset], *args,
                         **kwargs) -> TextReconstruction
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4504)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4504)
 
 Text Reconstruction is a process that involves piecing together fragmented or
 incomplete text data to restore it to its original, coherent form.
@@ -2714,7 +2714,7 @@ def fact_checking(asset_id: Union[str, asset.Asset], *args,
                   **kwargs) -> FactChecking
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4511)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4511)
 
 Fact Checking is the process of verifying the accuracy and truthfulness of
 information, statements, or claims by cross-referencing with reliable sources
@@ -2727,7 +2727,7 @@ def inverse_text_normalization(asset_id: Union[str, asset.Asset], *args,
                                **kwargs) -> InverseTextNormalization
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4519)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4519)
 
 Inverse Text Normalization is the process of converting spoken or written
 language in its normalized form, such as numbers, dates, and abbreviations,
@@ -2740,7 +2740,7 @@ def text_to_audio(asset_id: Union[str, asset.Asset], *args,
                   **kwargs) -> TextToAudio
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4527)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4527)
 
 The Text to Audio function converts written text into spoken words, allowing
 users to listen to the content instead of reading it.
@@ -2752,7 +2752,7 @@ def image_compression(asset_id: Union[str, asset.Asset], *args,
                       **kwargs) -> ImageCompression
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4534)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4534)
 
 Reduces the size of image files without significantly compromising their visual
 quality. Useful for optimizing storage and improving webpage load times.
@@ -2764,7 +2764,7 @@ def multilingual_speech_recognition(asset_id: Union[str, asset.Asset], *args,
                                     **kwargs) -> MultilingualSpeechRecognition
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4541)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4541)
 
 Multilingual Speech Recognition is a technology that enables the automatic
 transcription of spoken language into text across multiple languages, allowing
@@ -2777,7 +2777,7 @@ def text_generation_metric_default(asset_id: Union[str, asset.Asset], *args,
                                    **kwargs) -> TextGenerationMetricDefault
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4551)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4551)
 
 The &quot;Text Generation Metric Default&quot; function provides a standard set of
 evaluation metrics for assessing the quality and performance of text generation
@@ -2791,7 +2791,7 @@ def referenceless_text_generation_metric(
         **kwargs) -> ReferencelessTextGenerationMetric
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4559)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4559)
 
 The Referenceless Text Generation Metric is a method for evaluating the quality
 of generated text without requiring a reference text for comparison, often
@@ -2805,7 +2805,7 @@ def audio_emotion_detection(asset_id: Union[str, asset.Asset], *args,
                             **kwargs) -> AudioEmotionDetection
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4570)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4570)
 
 Audio Emotion Detection is a technology that analyzes vocal characteristics and
 patterns in audio recordings to identify and classify the emotional state of
@@ -2818,7 +2818,7 @@ def keyword_spotting(asset_id: Union[str, asset.Asset], *args,
                      **kwargs) -> KeywordSpotting
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4578)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4578)
 
 Keyword Spotting is a function that enables the detection and identification of
 specific words or phrases within a stream of audio, often used in voice-
@@ -2831,7 +2831,7 @@ def text_summarization(asset_id: Union[str, asset.Asset], *args,
                        **kwargs) -> TextSummarization
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4586)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4586)
 
 Extracts the main points from a larger body of text, producing a concise
 summary without losing the primary message.
@@ -2843,7 +2843,7 @@ def split_on_linebreak(asset_id: Union[str, asset.Asset], *args,
                        **kwargs) -> SplitOnLinebreak
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4593)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4593)
 
 The &quot;Split On Linebreak&quot; function divides a given string into a list of
 substrings, using linebreaks (newline characters) as the points of separation.
@@ -2855,7 +2855,7 @@ def other__multipurpose_(asset_id: Union[str, asset.Asset], *args,
                          **kwargs) -> OtherMultipurpose
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4600)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4600)
 
 The &quot;Other (Multipurpose)&quot; function serves as a versatile category designed to
 accommodate a wide range of tasks and activities that do not fit neatly into
@@ -2869,7 +2869,7 @@ def speaker_diarization_audio(asset_id: Union[str, asset.Asset], *args,
                               **kwargs) -> SpeakerDiarizationAudio
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4609)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4609)
 
 Identifies individual speakers and their respective speech segments within an
 audio clip. Ideal for multi-speaker recordings or conference calls.
@@ -2881,7 +2881,7 @@ def image_content_moderation(asset_id: Union[str, asset.Asset], *args,
                              **kwargs) -> ImageContentModeration
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4616)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4616)
 
 Detects and filters out inappropriate or harmful images, essential for
 platforms with user-generated visual content.
@@ -2893,7 +2893,7 @@ def text_denormalization(asset_id: Union[str, asset.Asset], *args,
                          **kwargs) -> TextDenormalization
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4623)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4623)
 
 Converts standardized or normalized text into its original, often more
 readable, form. Useful in natural language generation tasks.
@@ -2905,7 +2905,7 @@ def speaker_diarization_video(asset_id: Union[str, asset.Asset], *args,
                               **kwargs) -> SpeakerDiarizationVideo
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4630)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4630)
 
 Segments a video based on different speakers, identifying when each individual
 speaks. Useful for transcriptions and understanding multi-person conversations.
@@ -2917,7 +2917,7 @@ def text_to_video_generation(asset_id: Union[str, asset.Asset], *args,
                              **kwargs) -> TextToVideoGeneration
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/pipeline.py#L4637)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/pipeline.py#L4637)
 
 Text To Video Generation is a process that converts written descriptions or
 scripts into dynamic, visual video content using advanced algorithms and

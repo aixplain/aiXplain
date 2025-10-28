@@ -9,7 +9,7 @@ title: aixplain.modules.model.integration
 class AuthenticationSchema(Enum)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/integration.py#L11)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/model/integration.py#L11)
 
 Enumeration of supported authentication schemes for integrations.
 
@@ -31,7 +31,7 @@ when connecting to external services through integrations.
 class BaseAuthenticationParams(BaseModel)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/integration.py#L34)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/model/integration.py#L34)
 
 Base model for authentication parameters used in integrations.
 
@@ -49,7 +49,7 @@ authentication schemes when connecting to external services.
 def build_connector_params(**kwargs) -> BaseAuthenticationParams
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/integration.py#L49)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/model/integration.py#L49)
 
 Build authentication parameters for a connector from keyword arguments.
 
@@ -80,7 +80,7 @@ keyword arguments, extracting the name and connector_id if present.
 class Integration(Model)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/integration.py#L73)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/model/integration.py#L73)
 
 #### \_\_init\_\_
 
@@ -98,7 +98,7 @@ def __init__(id: Text,
              **additional_info) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/integration.py#L74)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/model/integration.py#L74)
 
 Initialize a new Integration instance.
 
@@ -131,7 +131,7 @@ def connect(authentication_schema: AuthenticationSchema,
             **kwargs) -> ModelResponse
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/integration.py#L127)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/model/integration.py#L127)
 
 Connect to the integration using the specified authentication scheme.
 
@@ -198,7 +198,7 @@ the authentication scheme being used.
 def __repr__()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/integration.py#L242)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/model/integration.py#L242)
 
 Return a string representation of the Integration instance.
 

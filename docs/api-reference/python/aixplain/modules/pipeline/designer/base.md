@@ -9,7 +9,7 @@ title: aixplain.modules.pipeline.designer.base
 class Param(Serializable)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/designer/base.py#L28)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/designer/base.py#L28)
 
 Param class, this class will be used to create the parameters of the node.
 
@@ -19,7 +19,7 @@ Param class, this class will be used to create the parameters of the node.
 def attach_to(node: "Node") -> "Param"
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/designer/base.py#L58)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/designer/base.py#L58)
 
 Attach the param to the node.
 
@@ -37,7 +37,7 @@ the param
 def link(to_param: "Param") -> "Param"
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/designer/base.py#L75)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/designer/base.py#L75)
 
 Link the output of the param to the input of another param.
 
@@ -55,7 +55,7 @@ the param
 def back_link(from_param: "Param") -> "Param"
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/designer/base.py#L86)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/designer/base.py#L86)
 
 Link the input of the param to the output of another param.
 
@@ -73,7 +73,7 @@ the param
 class Link(Serializable)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/designer/base.py#L121)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/designer/base.py#L121)
 
 Link class, this class will be used to link the output of the node to the
 input of another node.
@@ -84,7 +84,7 @@ input of another node.
 def attach_to(pipeline: "DesignerPipeline")
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/designer/base.py#L204)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/designer/base.py#L204)
 
 Attach the link to the pipeline.
 
@@ -98,7 +98,7 @@ Attach the link to the pipeline.
 class ParamProxy(Serializable)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/designer/base.py#L236)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/designer/base.py#L236)
 
 #### special\_prompt\_handling
 
@@ -106,7 +106,7 @@ class ParamProxy(Serializable)
 def special_prompt_handling(code: str, value: str) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/designer/base.py#L285)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/designer/base.py#L285)
 
 This method will handle the special prompt handling for asset nodes
 having `text-generation` function type.
@@ -117,7 +117,7 @@ having `text-generation` function type.
 class Node(Generic[TI, TO], Serializable)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/designer/base.py#L357)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/designer/base.py#L357)
 
 Node class is the base class for all the nodes in the pipeline. This class
 will be used to create the nodes and link them together.
@@ -128,7 +128,7 @@ will be used to create the nodes and link them together.
 def attach_to(pipeline: "DesignerPipeline")
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/designer/base.py#L390)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/designer/base.py#L390)
 
 Attach the node to the pipeline.
 

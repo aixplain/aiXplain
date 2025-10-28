@@ -30,7 +30,7 @@ Description:
 class DataType(str, Enum)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/enums/data_type.py#L27)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/enums/data_type.py#L27)
 
 Enumeration of supported data types in the aiXplain system.
 
@@ -57,7 +57,7 @@ including various media types and basic data types.
 def __str__() -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/enums/data_type.py#L58)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/enums/data_type.py#L58)
 
 Return the string representation of the data type.
 

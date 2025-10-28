@@ -9,7 +9,7 @@ title: aixplain.modules.model.record
 class Record()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/record.py#L6)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/model/record.py#L6)
 
 A class representing a record in an index.
 
@@ -26,7 +26,7 @@ def __init__(value: str = "",
              attributes: dict = {})
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/record.py#L12)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/model/record.py#L12)
 
 Initialize a new Record instance.
 
@@ -44,7 +44,7 @@ Initialize a new Record instance.
 def to_dict()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/record.py#L35)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/model/record.py#L35)
 
 Convert the record to a dictionary.
 
@@ -58,7 +58,7 @@ Convert the record to a dictionary.
 def validate()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/record.py#L49)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/model/record.py#L49)
 
 Validate the record.
 

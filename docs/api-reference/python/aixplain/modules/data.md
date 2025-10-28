@@ -30,7 +30,7 @@ Description:
 class Data()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/data.py#L33)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/data.py#L33)
 
 A class representing a collection of data samples of the same type and genre.
 
@@ -72,7 +72,7 @@ def __init__(id: Text,
              **kwargs) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/data.py#L56)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/data.py#L56)
 
 Initialize a new Data instance.
 

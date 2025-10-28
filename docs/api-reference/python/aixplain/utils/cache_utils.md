@@ -9,7 +9,7 @@ title: aixplain.utils.cache_utils
 def get_cache_expiry() -> int
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/utils/cache_utils.py#L13)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/utils/cache_utils.py#L17)
 
 Get the cache expiration duration in seconds.
 
@@ -26,7 +26,7 @@ environment variable. If not set, falls back to the default CACHE_DURATION.
 def save_to_cache(cache_file: str, data: dict, lock_file: str) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/utils/cache_utils.py#L25)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/utils/cache_utils.py#L29)
 
 Save data to a cache file with thread-safe file locking.
 
@@ -52,7 +52,7 @@ timestamp. It uses file locking to ensure thread safety during writing.
 def load_from_cache(cache_file: str, lock_file: str) -> dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/utils/cache_utils.py#L50)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/utils/cache_utils.py#L59)
 
 Load data from a cache file with expiration checking.
 

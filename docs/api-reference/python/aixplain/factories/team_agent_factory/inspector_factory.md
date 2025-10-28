@@ -33,7 +33,7 @@ WARNING: This feature is currently in private beta.
 class InspectorFactory()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/team_agent_factory/inspector_factory.py#L39)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/factories/team_agent_factory/inspector_factory.py#L39)
 
 Factory class for creating and configuring inspector agents.
 
@@ -54,7 +54,7 @@ def create_from_model(
 ) -> Inspector
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/team_agent_factory/inspector_factory.py#L48)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/factories/team_agent_factory/inspector_factory.py#L48)
 
 Create a new inspector agent from an onboarded model.
 
@@ -100,7 +100,7 @@ def create_auto(
 ) -> Inspector
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/team_agent_factory/inspector_factory.py#L124)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/factories/team_agent_factory/inspector_factory.py#L124)
 
 Create a new inspector agent using automatic configuration.
 

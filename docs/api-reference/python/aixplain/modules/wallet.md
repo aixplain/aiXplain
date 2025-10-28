@@ -30,7 +30,7 @@ Description:
 class Wallet()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/wallet.py#L25)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/wallet.py#L25)
 
 A class representing a wallet for managing credit balances.
 
@@ -50,7 +50,7 @@ manage credit resources in the aiXplain platform.
 def __init__(total_balance: float, reserved_balance: float)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/wallet.py#L37)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/wallet.py#L37)
 
 Initialize a new Wallet instance.
 

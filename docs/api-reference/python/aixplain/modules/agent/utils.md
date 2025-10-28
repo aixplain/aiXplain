@@ -11,7 +11,7 @@ def process_variables(query: Union[Text, Dict], data: Union[Dict, Text],
                       agent_description: Union[Text, None]) -> Text
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/utils.py#L5)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/agent/utils.py#L5)
 
 Process variables in an agent&#x27;s description and input data.
 
@@ -42,7 +42,7 @@ formatted.
 def validate_history(history)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/utils.py#L55)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/agent/utils.py#L55)
 
 Validates that `history` is a list of dicts, each with &#x27;role&#x27; and &#x27;content&#x27; keys.
 Raises a ValueError if validation fails.

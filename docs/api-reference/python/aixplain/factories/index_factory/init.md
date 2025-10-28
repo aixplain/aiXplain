@@ -30,7 +30,7 @@ Description:
 def validate_embedding_model(model_id: Union[EmbeddingModel, str]) -> bool
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/index_factory/__init__.py#L42)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/factories/index_factory/__init__.py#L42)
 
 Validate that a model is a text embedding model.
 
@@ -50,7 +50,7 @@ Validate that a model is a text embedding model.
 class IndexFactory(ModelFactory, Generic[T])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/index_factory/__init__.py#L56)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/factories/index_factory/__init__.py#L56)
 
 Factory class for creating and managing index collections.
 
@@ -77,7 +77,7 @@ def create(cls,
            **kwargs) -> IndexModel
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/index_factory/__init__.py#L70)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/factories/index_factory/__init__.py#L70)
 
 Create a new index collection for efficient data retrieval.
 
@@ -123,7 +123,7 @@ def list(cls,
          page_size: int = 20) -> List[IndexModel]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/index_factory/__init__.py#L142)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/factories/index_factory/__init__.py#L142)
 
 List available index collections with optional filtering and sorting.
 

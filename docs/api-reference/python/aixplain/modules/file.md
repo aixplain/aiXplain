@@ -30,7 +30,7 @@ Description:
 class File()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/file.py#L31)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/file.py#L31)
 
 A class representing a file in the aiXplain platform.
 
@@ -54,7 +54,7 @@ def __init__(path: Union[Text, pathlib.Path],
              compression: Optional[Text] = None) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/file.py#L44)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/file.py#L44)
 
 Initialize a new File instance.
 

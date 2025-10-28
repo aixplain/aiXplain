@@ -30,7 +30,7 @@ Description:
 class DataSubtype(Enum)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/enums/data_subtype.py#L27)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/enums/data_subtype.py#L27)
 
 Enumeration of data subtypes for categorizing and organizing data.
 
@@ -54,7 +54,7 @@ content-based categorization.
 def __str__() -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/enums/data_subtype.py#L51)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/enums/data_subtype.py#L51)
 
 Return the string representation of the data subtype.
 

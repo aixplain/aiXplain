@@ -9,7 +9,7 @@ title: aixplain.modules.pipeline.designer.pipeline
 class DesignerPipeline(Serializable)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/designer/pipeline.py#L26)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/designer/pipeline.py#L26)
 
 #### add\_node
 
@@ -17,7 +17,7 @@ class DesignerPipeline(Serializable)
 def add_node(node: Node)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/designer/pipeline.py#L35)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/designer/pipeline.py#L35)
 
 Add a node to the current pipeline.
 
@@ -38,7 +38,7 @@ the node
 def add_nodes(*nodes: Node) -> List[Node]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/designer/pipeline.py#L47)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/designer/pipeline.py#L47)
 
 Add multiple nodes to the current pipeline.
 
@@ -56,7 +56,7 @@ the nodes
 def add_link(link: Link) -> Link
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/designer/pipeline.py#L56)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/designer/pipeline.py#L56)
 
 Add a link to the current pipeline.
 
@@ -74,7 +74,7 @@ the link
 def serialize() -> dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/designer/pipeline.py#L64)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/designer/pipeline.py#L64)
 
 Serialize the pipeline to a dictionary. This method will serialize the
 
@@ -90,7 +90,7 @@ the pipeline as a dictionary
 def validate_nodes()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/designer/pipeline.py#L89)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/designer/pipeline.py#L89)
 
 Validate the linkage of the pipeline. This method will validate the
 
@@ -109,7 +109,7 @@ linkage of the pipeline by applying the following checks:
 def is_param_linked(node, param)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/designer/pipeline.py#L129)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/designer/pipeline.py#L129)
 
 Check if the param is linked to another node. This method will check
 
@@ -130,7 +130,7 @@ True if the param is linked, False otherwise
 def is_param_set(node, param)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/designer/pipeline.py#L143)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/designer/pipeline.py#L143)
 
 Check if the param is set. This method will check if the param is set
 
@@ -151,7 +151,7 @@ True if the param is set, False otherwise
 def special_prompt_validation(node: Node)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/designer/pipeline.py#L153)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/designer/pipeline.py#L153)
 
 This method will handle the special rule for asset nodes having
 
@@ -172,7 +172,7 @@ then the `text` param is not required but the prompt param are.
 def validate_params()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/designer/pipeline.py#L171)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/designer/pipeline.py#L171)
 
 This method will check if all required params are either set or linked
 
@@ -186,7 +186,7 @@ This method will check if all required params are either set or linked
 def validate()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/designer/pipeline.py#L183)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/designer/pipeline.py#L183)
 
 Validate the pipeline. This method will validate the pipeline by
 
@@ -206,7 +206,7 @@ Any other validation checks can be added here.
 def get_link(from_node: int, to_node: int) -> Link
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/designer/pipeline.py#L197)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/designer/pipeline.py#L197)
 
 Get the link between two nodes. This method will return the link
 
@@ -227,7 +227,7 @@ the link
 def get_node(node_number: int) -> Node
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/designer/pipeline.py#L211)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/designer/pipeline.py#L211)
 
 Get the node by its number. This method will return the node with the
 
@@ -247,7 +247,7 @@ the node
 def auto_infer()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/designer/pipeline.py#L221)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/designer/pipeline.py#L221)
 
 Automatically infer the data types of the nodes in the pipeline.
 This method will automatically infer the data types of the nodes in the
@@ -263,7 +263,7 @@ def asset(asset_id: str,
           **kwargs) -> T
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/designer/pipeline.py#L231)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/designer/pipeline.py#L231)
 
 Shortcut to create an asset node for the current pipeline.
 
@@ -287,7 +287,7 @@ def utility(asset_id: str,
             **kwargs) -> T
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/designer/pipeline.py#L242)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/designer/pipeline.py#L242)
 
 Shortcut to create an utility nodes for the current pipeline.
 
@@ -308,7 +308,7 @@ the node
 def decision(*args, **kwargs) -> Decision
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/designer/pipeline.py#L256)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/designer/pipeline.py#L256)
 
 Shortcut to create an decision node for the current pipeline.
 
@@ -329,7 +329,7 @@ the node
 def script(*args, **kwargs) -> Script
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/designer/pipeline.py#L267)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/designer/pipeline.py#L267)
 
 Shortcut to create an script node for the current pipeline.
 
@@ -350,7 +350,7 @@ the node
 def input(*args, **kwargs) -> Input
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/designer/pipeline.py#L278)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/designer/pipeline.py#L278)
 
 Shortcut to create an input node for the current pipeline.
 
@@ -371,7 +371,7 @@ the node
 def output(*args, **kwargs) -> Output
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/designer/pipeline.py#L289)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/designer/pipeline.py#L289)
 
 Shortcut to create an output node for the current pipeline.
 
@@ -392,7 +392,7 @@ the node
 def router(routes: Tuple[DataType, Node], *args, **kwargs) -> Router
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/designer/pipeline.py#L300)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/designer/pipeline.py#L300)
 
 Shortcut to create an decision node for the current pipeline.
 
@@ -415,7 +415,7 @@ the node
 def bare_reconstructor(*args, **kwargs) -> BareReconstructor
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/designer/pipeline.py#L322)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/designer/pipeline.py#L322)
 
 Shortcut to create an reconstructor node for the current pipeline.
 
@@ -436,7 +436,7 @@ the node
 def bare_segmentor(*args, **kwargs) -> BareSegmentor
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/designer/pipeline.py#L333)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/designer/pipeline.py#L333)
 
 Shortcut to create an segmentor node for the current pipeline.
 
@@ -457,7 +457,7 @@ the node
 def metric(*args, **kwargs) -> BareMetric
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/designer/pipeline.py#L344)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/designer/pipeline.py#L344)
 
 Shortcut to create an metric node for the current pipeline.
 

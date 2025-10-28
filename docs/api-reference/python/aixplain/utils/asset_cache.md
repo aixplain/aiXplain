@@ -10,7 +10,7 @@ title: aixplain.utils.asset_cache
 class Store(Generic[T])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/utils/asset_cache.py#L24)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/utils/asset_cache.py#L25)
 
 A generic data store for cached assets with expiration time.
 
@@ -28,7 +28,7 @@ It is used internally by AssetCache to store the cached assets.
 class AssetCache(Generic[T])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/utils/asset_cache.py#L38)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/utils/asset_cache.py#L40)
 
 A modular caching system for aiXplain assets with file-based persistence.
 
@@ -59,7 +59,7 @@ expiration time.
 def __init__(cls: Type[T], cache_filename: Optional[str] = None) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/utils/asset_cache.py#L60)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/utils/asset_cache.py#L62)
 
 Initialize a new AssetCache instance.
 
@@ -76,7 +76,7 @@ Initialize a new AssetCache instance.
 def compute_expiry() -> int
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/utils/asset_cache.py#L86)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/utils/asset_cache.py#L92)
 
 Calculate the expiration timestamp for cached data.
 
@@ -100,7 +100,7 @@ plus the duration.
 def invalidate() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/utils/asset_cache.py#L113)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/utils/asset_cache.py#L116)
 
 Clear the cache and remove cache files.
 
@@ -115,7 +115,7 @@ This method:
 def load() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/utils/asset_cache.py#L128)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/utils/asset_cache.py#L134)
 
 Load cached data from the cache file.
 
@@ -138,7 +138,7 @@ the in-memory store. It performs the following:
 def save() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/utils/asset_cache.py#L174)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/utils/asset_cache.py#L182)
 
 Save the current cache state to the cache file.
 
@@ -161,7 +161,7 @@ to the cache file. It performs the following:
 def get(asset_id: str) -> Optional[T]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/utils/asset_cache.py#L207)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/utils/asset_cache.py#L231)
 
 Retrieve a cached asset by its ID.
 
@@ -180,7 +180,7 @@ Retrieve a cached asset by its ID.
 def add(asset: T) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/utils/asset_cache.py#L218)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/utils/asset_cache.py#L247)
 
 Add a single asset to the cache.
 
@@ -201,7 +201,7 @@ Add a single asset to the cache.
 def add_list(assets: List[T]) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/utils/asset_cache.py#L232)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/utils/asset_cache.py#L262)
 
 Add multiple assets to the cache at once.
 
@@ -224,7 +224,7 @@ This method replaces all existing cached assets with the new list.
 def get_all() -> List[T]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/utils/asset_cache.py#L248)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/utils/asset_cache.py#L279)
 
 Retrieve all cached assets.
 
@@ -239,7 +239,7 @@ Retrieve all cached assets.
 def has_valid_cache() -> bool
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/utils/asset_cache.py#L257)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/utils/asset_cache.py#L288)
 
 Check if the cache is valid and not expired.
 
@@ -254,7 +254,7 @@ Check if the cache is valid and not expired.
 def serialize(obj: Any) -> Any
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/utils/asset_cache.py#L266)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/utils/asset_cache.py#L302)
 
 Convert a Python object into a JSON-serializable format.
 

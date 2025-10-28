@@ -9,7 +9,7 @@ title: aixplain.enums.index_stores
 class IndexStores(Enum)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/enums/index_stores.py#L4)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/enums/index_stores.py#L4)
 
 Enumeration of available index store providers in the aiXplain system.
 
@@ -29,7 +29,7 @@ storing and retrieving indexed data, along with their identifiers.
 def __str__() -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/enums/index_stores.py#L21)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/enums/index_stores.py#L21)
 
 Return the name of the index store.
 
@@ -43,7 +43,7 @@ Return the name of the index store.
 def get_model_id() -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/enums/index_stores.py#L29)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/enums/index_stores.py#L29)
 
 Return the model ID of the index store.
 

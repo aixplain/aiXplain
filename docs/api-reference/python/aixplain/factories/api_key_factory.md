@@ -9,7 +9,7 @@ title: aixplain.factories.api_key_factory
 class APIKeyFactory()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/api_key_factory.py#L10)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/factories/api_key_factory.py#L10)
 
 Factory class for managing API keys in the aiXplain platform.
 
@@ -27,7 +27,7 @@ monitoring API keys, including their usage limits and budgets.
 def get(cls, api_key: Text) -> APIKey
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/api_key_factory.py#L22)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/factories/api_key_factory.py#L22)
 
 Retrieve an API key by its value.
 
@@ -55,7 +55,7 @@ characters of the provided key.
 def list(cls) -> List[APIKey]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/api_key_factory.py#L43)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/factories/api_key_factory.py#L43)
 
 List all API keys accessible to the current user.
 
@@ -82,7 +82,7 @@ def create(cls, name: Text, budget: int, global_limits: Union[Dict,
            expires_at: datetime) -> APIKey
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/api_key_factory.py#L85)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/factories/api_key_factory.py#L85)
 
 Create a new API key with specified limits and budget.
 
@@ -117,7 +117,7 @@ and expiration date.
 def update(cls, api_key: APIKey) -> APIKey
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/api_key_factory.py#L145)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/factories/api_key_factory.py#L145)
 
 Update an existing API key&#x27;s configuration.
 
@@ -153,7 +153,7 @@ def get_usage_limits(
         asset_id: Optional[Text] = None) -> List[APIKeyUsageLimit]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/api_key_factory.py#L194)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/factories/api_key_factory.py#L194)
 
 Retrieve current usage limits and counts for an API key.
 

@@ -9,7 +9,7 @@ title: aixplain.modules.agent.agent_task
 class WorkflowTask()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/agent_task.py#L4)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/agent/agent_task.py#L5)
 
 A task definition for an AI agent to execute.
 
@@ -33,7 +33,7 @@ def __init__(name: Text,
              dependencies: Optional[List[Union[Text, "WorkflowTask"]]] = [])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/agent_task.py#L18)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/agent/agent_task.py#L19)
 
 Initialize a new WorkflowTask instance.
 
@@ -52,7 +52,7 @@ Initialize a new WorkflowTask instance.
 def to_dict() -> dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/agent_task.py#L40)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/agent/agent_task.py#L41)
 
 Convert the task to a dictionary representation.
 
@@ -74,7 +74,7 @@ to their name strings.
 def from_dict(cls, data: dict) -> "WorkflowTask"
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/agent_task.py#L67)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/agent/agent_task.py#L68)
 
 Create an WorkflowTask instance from a dictionary representation.
 

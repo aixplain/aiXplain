@@ -3,13 +3,15 @@ sidebar_label: core
 title: aixplain.v2.core
 ---
 
+Core module for aiXplain v2 API.
+
 ### Aixplain Objects
 
 ```python
 class Aixplain()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/core.py#L37)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/v2/core.py#L39)
 
 Main class for the Aixplain API.
 
@@ -33,9 +35,10 @@ Main class for the Aixplain API.
 def __new__(cls, *args, **kwargs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/core.py#L100)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/v2/core.py#L102)
 
 Singleton pattern for the Aixplain class.
+
 Otherwise, the environment variables will be overwritten in multiple instances.
 
 TODO: This should be removed once the factory classes are removed.
@@ -49,7 +52,7 @@ def __init__(api_key: str = None,
              model_url: str = None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/core.py#L112)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/v2/core.py#L114)
 
 Initialize the Aixplain class.
 
@@ -66,7 +69,7 @@ Initialize the Aixplain class.
 def init_client()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/core.py#L140)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/v2/core.py#L148)
 
 Initialize the client.
 
@@ -76,7 +79,7 @@ Initialize the client.
 def init_env()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/core.py#L147)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/v2/core.py#L155)
 
 Initialize the environment variables.
 
@@ -88,7 +91,7 @@ This is required for the legacy use of the factory classes.
 def init_resources()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/core.py#L157)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/v2/core.py#L165)
 
 Initialize the resources.
 

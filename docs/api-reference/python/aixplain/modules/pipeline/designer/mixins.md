@@ -9,7 +9,7 @@ title: aixplain.modules.pipeline.designer.mixins
 class LinkableMixin()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/designer/mixins.py#L5)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/designer/mixins.py#L5)
 
 Linkable mixin class, this class will be used to link the output of the
 node to the input of another node.
@@ -24,7 +24,7 @@ def link(to_node: Node, from_param: Union[str, Param],
          to_param: Union[str, Param]) -> Link
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/designer/mixins.py#L14)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/designer/mixins.py#L14)
 
 Link the output of the node to the input of another node. This method
 
@@ -47,7 +47,7 @@ the link
 class RoutableMixin()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/designer/mixins.py#L39)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/designer/mixins.py#L39)
 
 Routable mixin class, this class will be used to route the input data to
 different nodes based on the input data type.
@@ -58,7 +58,7 @@ different nodes based on the input data type.
 def route(*params: Param) -> Node
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/designer/mixins.py#L45)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/designer/mixins.py#L45)
 
 Route the input data to different nodes based on the input data type.
 
@@ -79,7 +79,7 @@ the router node
 class OutputableMixin()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/designer/mixins.py#L63)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/designer/mixins.py#L63)
 
 Outputable mixin class, this class will be used to link the output of the
 node to the output node of the pipeline.
@@ -90,7 +90,7 @@ node to the output node of the pipeline.
 def use_output(param: Union[str, Param]) -> Node
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/designer/mixins.py#L69)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/designer/mixins.py#L69)
 
 Use the output of the node as the output of the pipeline.
 

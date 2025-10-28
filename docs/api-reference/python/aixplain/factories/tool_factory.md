@@ -9,7 +9,7 @@ title: aixplain.factories.tool_factory
 class ToolFactory(ModelGetterMixin, ModelListMixin)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/tool_factory.py#L17)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/factories/tool_factory.py#L17)
 
 A factory class for creating and managing various types of tools including indexes, scripts, and connections.
 
@@ -38,7 +38,7 @@ def recreate(cls,
              **kwargs) -> Model
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/tool_factory.py#L35)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/factories/tool_factory.py#L35)
 
 Recreates a tool based on an existing tool&#x27;s configuration.
 
@@ -72,7 +72,7 @@ def create(cls,
            **kwargs) -> Model
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/tool_factory.py#L65)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/factories/tool_factory.py#L65)
 
 Factory method to create indexes, script models and connections
 

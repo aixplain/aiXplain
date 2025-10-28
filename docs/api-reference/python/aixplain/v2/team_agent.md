@@ -10,7 +10,7 @@ class TeamAgent(BaseResource, ListResourceMixin[BareListParams, "TeamAgent"],
                 GetResourceMixin[BareGetParams, "TeamAgent"])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/team_agent.py#L41)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/v2/team_agent.py#L41)
 
 Resource for agents.
 

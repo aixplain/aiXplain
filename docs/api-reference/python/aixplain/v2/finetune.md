@@ -9,7 +9,7 @@ title: aixplain.v2.finetune
 class FinetuneCreateParams(BareCreateParams)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/finetune.py#L16)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/v2/finetune.py#L16)
 
 Parameters for creating a finetune.
 
@@ -30,7 +30,7 @@ class Finetune(BaseResource, CreateResourceMixin[FinetuneCreateParams,
                                                  "Finetune"])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/finetune.py#L38)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/v2/finetune.py#L38)
 
 Resource for finetunes.
 

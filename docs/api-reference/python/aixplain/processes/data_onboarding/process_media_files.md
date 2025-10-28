@@ -9,7 +9,7 @@ title: aixplain.processes.data_onboarding.process_media_files
 def compress_folder(folder_path: str) -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/processes/data_onboarding/process_media_files.py#L25)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/processes/data_onboarding/process_media_files.py#L25)
 
 Compress a folder into a gzipped tar archive.
 
@@ -35,7 +35,7 @@ def run(metadata: MetaData,
         batch_size: int = 100) -> Tuple[List[File], int, int, int, int]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/processes/data_onboarding/process_media_files.py#L44)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/processes/data_onboarding/process_media_files.py#L44)
 
 Process media files and prepare them for upload to S3 with batch processing.
 

@@ -30,7 +30,7 @@ Description:
 class Corpus(Asset)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/corpus.py#L37)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/corpus.py#L37)
 
 A class representing a general-purpose collection of data in the aiXplain platform.
 
@@ -72,7 +72,7 @@ def __init__(id: Text,
              **kwargs) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/corpus.py#L60)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/corpus.py#L60)
 
 Corpus Class.
 
@@ -100,7 +100,7 @@ Corpus is general-purpose collection of data that can be processed and used to c
 def __repr__() -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/corpus.py#L107)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/corpus.py#L107)
 
 Return a string representation of the Corpus instance.
 
@@ -114,7 +114,7 @@ Return a string representation of the Corpus instance.
 def delete() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/corpus.py#L115)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/corpus.py#L115)
 
 Delete this corpus from the aiXplain platform.
 

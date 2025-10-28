@@ -33,7 +33,7 @@ Description:
 class FinetuneStatus(object)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/finetune/status.py#L32)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/finetune/status.py#L32)
 
 Status information for a fine-tuning job.
 

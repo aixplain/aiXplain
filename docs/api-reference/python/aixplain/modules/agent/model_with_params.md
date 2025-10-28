@@ -25,7 +25,7 @@ class MyModel(ModelWithParams):
 class ModelWithParams(BaseModel, ABC)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/model_with_params.py#L25)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/agent/model_with_params.py#L25)
 
 A generic class that wraps a model with extra parameters.
 
@@ -43,7 +43,7 @@ This is an abstract base class that must be extended by specific model wrappers.
 def validate_model_id(cls, v: Text) -> Text
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/model_with_params.py#L43)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/agent/model_with_params.py#L43)
 
 Validate the model_id field.
 
@@ -70,7 +70,7 @@ This validator ensures that the model_id is not empty or whitespace-only.
 def __new__(cls, *args, **kwargs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/model_with_params.py#L62)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/agent/model_with_params.py#L62)
 
 Create a new instance of a ModelWithParams subclass.
 

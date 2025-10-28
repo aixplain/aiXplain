@@ -3,13 +3,32 @@ sidebar_label: connection
 title: aixplain.modules.model.connection
 ---
 
+Copyright 2025 The aiXplain SDK authors.
+
+Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+Author: Ahmet Gündüz
+Date: September 10th 2025
+Description:
+    Connection Tool Class.
+
 ### ConnectAction Objects
 
 ```python
 class ConnectAction()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/connection.py#L7)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/model/connection.py#L27)
 
 A class representing an action that can be performed by a connection.
 
@@ -32,7 +51,7 @@ def __init__(name: Text,
              inputs: Optional[Dict] = None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/connection.py#L25)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/model/connection.py#L45)
 
 Initialize a new ConnectAction instance.
 
@@ -49,7 +68,7 @@ Initialize a new ConnectAction instance.
 def __repr__()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/connection.py#L45)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/model/connection.py#L65)
 
 Return a string representation of the ConnectAction instance.
 
@@ -63,7 +82,16 @@ Return a string representation of the ConnectAction instance.
 class ConnectionTool(Model)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/connection.py#L54)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/model/connection.py#L74)
+
+A class representing a connection tool.
+
+This class defines the structure of a connection tool with its actions and action scope.
+
+**Attributes**:
+
+- `actions` _List[ConnectAction]_ - A list of available actions for this connection.
+- `action_scope` _Optional[List[ConnectAction]]_ - The scope of actions for this connection.
 
 #### \_\_init\_\_
 
@@ -81,7 +109,7 @@ def __init__(id: Text,
              **additional_info) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/connection.py#L58)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/model/connection.py#L87)
 
 Initialize a new ConnectionTool instance.
 
@@ -105,7 +133,7 @@ Initialize a new ConnectionTool instance.
 def get_action_inputs(action: Union[ConnectAction, Text])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/connection.py#L131)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/model/connection.py#L160)
 
 Retrieve the input parameters required for a specific action.
 
@@ -130,7 +158,7 @@ Retrieve the input parameters required for a specific action.
 def run(action: Union[ConnectAction, Text], inputs: Dict)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/connection.py#L165)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/model/connection.py#L194)
 
 Execute a specific action with the provided inputs.
 
@@ -151,7 +179,7 @@ Execute a specific action with the provided inputs.
 def get_parameters() -> List[Dict]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/connection.py#L180)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/model/connection.py#L209)
 
 Get the parameters for all actions in the current action scope.
 
@@ -172,7 +200,7 @@ Get the parameters for all actions in the current action scope.
 def __repr__()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/connection.py#L205)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/model/connection.py#L234)
 
 Return a string representation of the ConnectionTool instance.
 

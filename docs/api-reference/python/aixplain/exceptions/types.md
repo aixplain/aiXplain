@@ -3,13 +3,15 @@ sidebar_label: types
 title: aixplain.exceptions.types
 ---
 
+Exception types and error handling for the aiXplain SDK.
+
 ### ErrorSeverity Objects
 
 ```python
 class ErrorSeverity(str, Enum)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/exceptions/types.py#L5)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/exceptions/types.py#L7)
 
 Enumeration of error severity levels in the aiXplain system.
 
@@ -45,7 +47,7 @@ System stability might be compromised
 class ErrorCategory(Enum)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/exceptions/types.py#L24)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/exceptions/types.py#L26)
 
 Enumeration of error categories in the aiXplain system.
 
@@ -111,7 +113,7 @@ Uncategorized errors
 class ErrorCode(str, Enum)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/exceptions/types.py#L55)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/exceptions/types.py#L57)
 
 Standard error codes for aiXplain exceptions.
 
@@ -173,7 +175,7 @@ General internal error. Use for unexpected server-side errors that are not cover
 def __str__() -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/exceptions/types.py#L88)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/exceptions/types.py#L90)
 
 Return the string representation of the error code.
 
@@ -187,7 +189,7 @@ Return the string representation of the error code.
 class AixplainBaseException(Exception)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/exceptions/types.py#L97)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/exceptions/types.py#L99)
 
 Base exception class for all aiXplain exceptions.
 
@@ -205,13 +207,39 @@ severity, and additional context.
 - `retry_recommended` _bool_ - Whether retrying the operation might succeed.
 - `error_code` _Optional[ErrorCode]_ - Standardized error code.
 
+#### \_\_init\_\_
+
+```python
+def __init__(message: str,
+             category: ErrorCategory = ErrorCategory.UNKNOWN,
+             severity: ErrorSeverity = ErrorSeverity.ERROR,
+             status_code: Optional[int] = None,
+             details: Optional[Dict[str, Any]] = None,
+             retry_recommended: bool = False,
+             error_code: Optional[ErrorCode] = None)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/exceptions/types.py#L116)
+
+Initialize the base exception with structured error information.
+
+**Arguments**:
+
+- `message` - Error message describing the issue.
+- `category` - Category of the error (default: UNKNOWN).
+- `severity` - Severity level of the error (default: ERROR).
+- `status_code` - HTTP status code if applicable.
+- `details` - Additional error context and details.
+- `retry_recommended` - Whether retrying the operation might succeed.
+- `error_code` - Standardized error code for the exception.
+
 #### \_\_str\_\_
 
 ```python
 def __str__() -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/exceptions/types.py#L133)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/exceptions/types.py#L146)
 
 Return a string representation of the exception.
 
@@ -226,7 +254,7 @@ Return a string representation of the exception.
 def to_dict() -> Dict[str, Any]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/exceptions/types.py#L143)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/exceptions/types.py#L156)
 
 Convert the exception to a dictionary for serialization.
 
@@ -242,9 +270,24 @@ Convert the exception to a dictionary for serialization.
 class AuthenticationError(AixplainBaseException)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/exceptions/types.py#L162)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/exceptions/types.py#L175)
 
 Raised when authentication fails.
+
+#### \_\_init\_\_
+
+```python
+def __init__(message: str, **kwargs)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/exceptions/types.py#L178)
+
+Initialize authentication error.
+
+**Arguments**:
+
+- `message` - Error message describing the authentication issue.
+- `**kwargs` - Additional keyword arguments passed to parent class.
 
 ### ValidationError Objects
 
@@ -252,9 +295,49 @@ Raised when authentication fails.
 class ValidationError(AixplainBaseException)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/exceptions/types.py#L176)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/exceptions/types.py#L195)
 
 Raised when input validation fails.
+
+#### \_\_init\_\_
+
+```python
+def __init__(message: str, **kwargs)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/exceptions/types.py#L198)
+
+Initialize validation error.
+
+**Arguments**:
+
+- `message` - Error message describing the validation issue.
+- `**kwargs` - Additional keyword arguments passed to parent class.
+
+### AlreadyDeployedError Objects
+
+```python
+class AlreadyDeployedError(AixplainBaseException)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/exceptions/types.py#L215)
+
+Raised when attempting to deploy an asset that is already deployed.
+
+#### \_\_init\_\_
+
+```python
+def __init__(message: str, **kwargs)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/exceptions/types.py#L218)
+
+Initialize already deployed error.
+
+**Arguments**:
+
+- `message` - Error message describing the deployment state conflict.
+- `**kwargs` - Additional keyword arguments passed to parent class.
 
 ### ResourceError Objects
 
@@ -262,9 +345,24 @@ Raised when input validation fails.
 class ResourceError(AixplainBaseException)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/exceptions/types.py#L190)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/exceptions/types.py#L233)
 
 Raised when a resource is unavailable.
+
+#### \_\_init\_\_
+
+```python
+def __init__(message: str, **kwargs)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/exceptions/types.py#L236)
+
+Initialize resource error.
+
+**Arguments**:
+
+- `message` - Error message describing the resource issue.
+- `**kwargs` - Additional keyword arguments passed to parent class.
 
 ### BillingError Objects
 
@@ -272,9 +370,24 @@ Raised when a resource is unavailable.
 class BillingError(AixplainBaseException)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/exceptions/types.py#L204)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/exceptions/types.py#L253)
 
 Raised when there are billing issues.
+
+#### \_\_init\_\_
+
+```python
+def __init__(message: str, **kwargs)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/exceptions/types.py#L256)
+
+Initialize billing error.
+
+**Arguments**:
+
+- `message` - Error message describing the billing issue.
+- `**kwargs` - Additional keyword arguments passed to parent class.
 
 ### SupplierError Objects
 
@@ -282,9 +395,24 @@ Raised when there are billing issues.
 class SupplierError(AixplainBaseException)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/exceptions/types.py#L218)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/exceptions/types.py#L273)
 
 Raised when there are issues with external suppliers.
+
+#### \_\_init\_\_
+
+```python
+def __init__(message: str, **kwargs)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/exceptions/types.py#L276)
+
+Initialize supplier error.
+
+**Arguments**:
+
+- `message` - Error message describing the supplier issue.
+- `**kwargs` - Additional keyword arguments passed to parent class.
 
 ### NetworkError Objects
 
@@ -292,9 +420,24 @@ Raised when there are issues with external suppliers.
 class NetworkError(AixplainBaseException)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/exceptions/types.py#L232)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/exceptions/types.py#L293)
 
 Raised when there are network connectivity issues.
+
+#### \_\_init\_\_
+
+```python
+def __init__(message: str, **kwargs)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/exceptions/types.py#L296)
+
+Initialize network error.
+
+**Arguments**:
+
+- `message` - Error message describing the network issue.
+- `**kwargs` - Additional keyword arguments passed to parent class.
 
 ### ServiceError Objects
 
@@ -302,9 +445,24 @@ Raised when there are network connectivity issues.
 class ServiceError(AixplainBaseException)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/exceptions/types.py#L246)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/exceptions/types.py#L313)
 
 Raised when a service is unavailable.
+
+#### \_\_init\_\_
+
+```python
+def __init__(message: str, **kwargs)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/exceptions/types.py#L316)
+
+Initialize service error.
+
+**Arguments**:
+
+- `message` - Error message describing the service issue.
+- `**kwargs` - Additional keyword arguments passed to parent class.
 
 ### InternalError Objects
 
@@ -312,7 +470,32 @@ Raised when a service is unavailable.
 class InternalError(AixplainBaseException)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/exceptions/types.py#L260)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/exceptions/types.py#L333)
 
 Raised when there is an internal system error.
+
+#### \_\_init\_\_
+
+```python
+def __init__(message: str, **kwargs)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/exceptions/types.py#L336)
+
+Initialize internal error.
+
+**Arguments**:
+
+- `message` - Error message describing the internal issue.
+- `**kwargs` - Additional keyword arguments passed to parent class.
+
+### AlreadyDeployedError Objects
+
+```python
+class AlreadyDeployedError(AixplainBaseException)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/exceptions/types.py#L359)
+
+Raised when an asset is already deployed.
 

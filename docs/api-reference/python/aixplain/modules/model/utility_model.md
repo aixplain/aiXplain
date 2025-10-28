@@ -28,7 +28,7 @@ Description:
 class BaseUtilityModelParams(BaseModel)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/utility_model.py#L36)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/model/utility_model.py#L36)
 
 Base model for utility model parameters.
 
@@ -49,7 +49,7 @@ This class defines the basic parameters required to create or update a utility m
 class UtilityModelInput()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/utility_model.py#L55)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/model/utility_model.py#L55)
 
 A class representing an input parameter for a utility model.
 
@@ -69,7 +69,7 @@ that can be used with utility models.
 def validate()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/utility_model.py#L72)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/model/utility_model.py#L72)
 
 Validate that the input parameter has a supported data type.
 
@@ -83,7 +83,7 @@ Validate that the input parameter has a supported data type.
 def to_dict()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/utility_model.py#L81)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/model/utility_model.py#L81)
 
 Convert the input parameter to a dictionary representation.
 
@@ -102,7 +102,7 @@ def utility_tool(name: Text,
                  status=AssetStatus.DRAFT)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/utility_model.py#L92)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/model/utility_model.py#L92)
 
 Decorator for utility tool functions
 
@@ -126,7 +126,7 @@ Decorator for utility tool functions
 class UtilityModel(Model, DeployableMixin)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/utility_model.py#L134)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/model/utility_model.py#L134)
 
 Ready-to-use Utility Model.
 
@@ -170,7 +170,7 @@ def __init__(id: Text,
              **additional_info) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/utility_model.py#L157)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/model/utility_model.py#L157)
 
 Initialize a new UtilityModel instance.
 
@@ -223,7 +223,7 @@ Initialize a new UtilityModel instance.
 def validate()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/utility_model.py#L249)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/model/utility_model.py#L249)
 
 Validate the Utility Model.
 
@@ -237,7 +237,7 @@ If yes, it just does the validation on the description and inputs.
 def to_dict()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/utility_model.py#L300)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/model/utility_model.py#L300)
 
 Convert the utility model to a dictionary representation.
 
@@ -261,7 +261,7 @@ about the utility model, suitable for API requests or serialization.
 def update()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/utility_model.py#L326)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/model/utility_model.py#L326)
 
 Update the Utility Model.
 
@@ -277,7 +277,7 @@ This method validates the utility model and updates it in the backend.
 def save()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/utility_model.py#L363)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/model/utility_model.py#L363)
 
 Save the Utility Model.
 
@@ -289,7 +289,7 @@ This method updates the utility model in the backend.
 def delete()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/utility_model.py#L370)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/model/utility_model.py#L370)
 
 Delete the Utility Model.
 
@@ -301,7 +301,7 @@ This method deletes the utility model from the backend.
 def __repr__()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/utility_model.py#L391)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/model/utility_model.py#L391)
 
 Return a string representation of the UtilityModel instance.
 

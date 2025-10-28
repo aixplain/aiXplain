@@ -9,7 +9,7 @@ title: aixplain.processes.data_onboarding.process_text_files
 def process_text(content: str, storage_type: StorageType) -> Text
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/processes/data_onboarding/process_text_files.py#L18)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/processes/data_onboarding/process_text_files.py#L18)
 
 Process text content based on its storage type and location.
 
@@ -50,7 +50,7 @@ def run(metadata: MetaData,
         batch_size: int = 1000) -> Tuple[List[File], int, int]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/processes/data_onboarding/process_text_files.py#L65)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/processes/data_onboarding/process_text_files.py#L65)
 
 Process text files in batches and upload them to S3 with index tracking.
 

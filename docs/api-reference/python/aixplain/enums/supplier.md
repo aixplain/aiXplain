@@ -30,7 +30,7 @@ Description:
 def clean_name(name: str) -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/enums/supplier.py#L33)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/enums/supplier.py#L33)
 
 Clean a supplier name by replacing spaces and special characters with underscores.
 
@@ -54,7 +54,7 @@ This function takes a supplier name and performs the following transformations:
 def load_suppliers() -> Enum
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/enums/supplier.py#L53)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/enums/supplier.py#L53)
 
 Load suppliers from the backend or cache.
 

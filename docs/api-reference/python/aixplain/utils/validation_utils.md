@@ -20,7 +20,7 @@ def dataset_onboarding_validation(input_schema: List[Union[Dict, MetaData]],
                                   s3_link: Optional[str] = None) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/utils/validation_utils.py#L27)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/utils/validation_utils.py#L27)
 
 Validate dataset parameters before onboarding.
 

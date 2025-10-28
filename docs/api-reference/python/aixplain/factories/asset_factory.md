@@ -30,7 +30,7 @@ Description:
 class AssetFactory()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/asset_factory.py#L30)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/factories/asset_factory.py#L30)
 
 Base class for asset factories.
 
@@ -49,7 +49,7 @@ to define specific asset types.
 def get(asset_id: Text) -> Asset
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/asset_factory.py#L43)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/factories/asset_factory.py#L43)
 
 Create a &#x27;Asset&#x27; object from id
 

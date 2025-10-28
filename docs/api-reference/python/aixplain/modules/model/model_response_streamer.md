@@ -9,7 +9,7 @@ title: aixplain.modules.model.model_response_streamer
 class ModelResponseStreamer()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/model_response_streamer.py#L7)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/model/model_response_streamer.py#L7)
 
 A class representing a streamer for model responses.
 
@@ -23,7 +23,7 @@ and manages the response status.
 def __init__(iterator: Iterator)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/model_response_streamer.py#L15)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/model/model_response_streamer.py#L15)
 
 Initialize a new ModelResponseStreamer instance.
 
@@ -37,7 +37,7 @@ Initialize a new ModelResponseStreamer instance.
 def __next__()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/model_response_streamer.py#L24)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/model/model_response_streamer.py#L24)
 
 Return the next chunk of the response.
 
@@ -51,7 +51,7 @@ Return the next chunk of the response.
 def __iter__()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/model_response_streamer.py#L41)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/model/model_response_streamer.py#L41)
 
 Return the iterator for the ModelResponseStreamer.
 

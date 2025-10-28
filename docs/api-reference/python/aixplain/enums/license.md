@@ -31,7 +31,7 @@ Description:
 class LicenseMetadata()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/enums/license.py#L34)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/enums/license.py#L34)
 
 Metadata container for license information.
 
@@ -52,7 +52,7 @@ description, URL, and custom URL settings.
 def to_dict() -> dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/enums/license.py#L53)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/enums/license.py#L53)
 
 Convert the license metadata to a dictionary.
 
@@ -67,7 +67,7 @@ Convert the license metadata to a dictionary.
 def from_dict(cls, data: dict) -> "LicenseMetadata"
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/enums/license.py#L68)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/enums/license.py#L68)
 
 Create a LicenseMetadata instance from a dictionary.
 
@@ -86,7 +86,7 @@ Create a LicenseMetadata instance from a dictionary.
 def load_licenses() -> Enum
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/enums/license.py#L86)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/enums/license.py#L86)
 
 Load license definitions from the backend or cache.
 

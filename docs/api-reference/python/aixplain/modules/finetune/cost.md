@@ -30,7 +30,7 @@ Description:
 class FinetuneCost()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/finetune/cost.py#L27)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/finetune/cost.py#L27)
 
 A class representing the cost structure for a fine-tuning job.
 
@@ -50,7 +50,7 @@ into a dictionary format for serialization.
 def __init__(training: Dict, inference: Dict, hosting: Dict) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/finetune/cost.py#L40)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/finetune/cost.py#L40)
 
 Create a FinetuneCost object with training, inference, and hosting cost information.
 
@@ -66,7 +66,7 @@ Create a FinetuneCost object with training, inference, and hosting cost informat
 def to_dict() -> Dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/finetune/cost.py#L57)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/finetune/cost.py#L57)
 
 Convert the FinetuneCost object to a dictionary.
 

@@ -30,7 +30,7 @@ Description:
 class FinetuneFactory()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/finetune_factory/__init__.py#L40)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/factories/finetune_factory/__init__.py#L40)
 
 Factory class for creating and managing model fine-tuning operations.
 
@@ -56,7 +56,7 @@ def create(cls,
            dev_percentage: Optional[float] = 0) -> Finetune
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/finetune_factory/__init__.py#L68)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/factories/finetune_factory/__init__.py#L68)
 
 Create a new fine-tuning job with the specified configuration.
 

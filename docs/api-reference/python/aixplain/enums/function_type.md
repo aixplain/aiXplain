@@ -30,7 +30,7 @@ Description:
 class FunctionType(Enum)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/enums/function_type.py#L27)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/enums/function_type.py#L27)
 
 Enumeration of function types in the aiXplain system.
 

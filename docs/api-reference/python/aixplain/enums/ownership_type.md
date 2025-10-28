@@ -30,7 +30,7 @@ Description:
 class OwnershipType(Enum)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/enums/ownership_type.py#L27)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/enums/ownership_type.py#L27)
 
 Enumeration of possible ownership types.
 
@@ -48,7 +48,7 @@ an asset or resource, including subscribed and owned ownership.
 def __str__()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/enums/ownership_type.py#L40)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/enums/ownership_type.py#L40)
 
 Return the string representation of the ownership type.
 

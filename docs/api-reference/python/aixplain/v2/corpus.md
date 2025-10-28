@@ -9,7 +9,7 @@ title: aixplain.v2.corpus
 class CorpusListParams(BaseListParams)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/corpus.py#L34)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/v2/corpus.py#L34)
 
 Parameters for listing corpora.
 

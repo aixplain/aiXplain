@@ -30,7 +30,7 @@ Description:
 class OnboardStatus(Enum)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/enums/onboard_status.py#L27)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/enums/onboard_status.py#L27)
 
 Enumeration of possible onboarding status values.
 

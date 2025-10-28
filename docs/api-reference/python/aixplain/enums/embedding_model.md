@@ -26,7 +26,7 @@ Description:
 class EmbeddingModel(str, Enum)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/enums/embedding_model.py#L23)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/enums/embedding_model.py#L23)
 
 Enumeration of available embedding models in the aiXplain system.
 
@@ -46,7 +46,7 @@ be used to generate vector representations of data.
 def __str__() -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/enums/embedding_model.py#L40)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/enums/embedding_model.py#L40)
 
 Return the string representation of the embedding model ID.
 

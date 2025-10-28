@@ -9,7 +9,7 @@ title: aixplain.modules.finetune.hyperparameters
 class SchedulerType(Text, Enum)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/finetune/hyperparameters.py#L7)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/finetune/hyperparameters.py#L7)
 
 Enum representing different learning rate schedulers.
 
@@ -36,7 +36,7 @@ in the fine-tuning process. Each scheduler is represented by a string constant.
 class Hyperparameters(object)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/finetune/hyperparameters.py#L40)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/finetune/hyperparameters.py#L40)
 
 Configuration for the fine-tuning process.
 
@@ -61,7 +61,7 @@ rates, sequence lengths, and learning rate schedulers.
 def __post_init__()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/finetune/hyperparameters.py#L66)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/finetune/hyperparameters.py#L66)
 
 Post-initialization validation for the hyperparameters.
 

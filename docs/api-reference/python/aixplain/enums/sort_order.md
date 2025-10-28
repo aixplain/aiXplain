@@ -30,7 +30,7 @@ Description:
 class SortOrder(Enum)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/enums/sort_order.py#L27)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/enums/sort_order.py#L27)
 
 Enumeration of possible sorting orders.
 

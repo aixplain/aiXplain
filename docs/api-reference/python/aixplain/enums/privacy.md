@@ -30,7 +30,7 @@ Description:
 class Privacy(Enum)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/enums/privacy.py#L27)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/enums/privacy.py#L27)
 
 Enumeration of possible privacy levels.
 

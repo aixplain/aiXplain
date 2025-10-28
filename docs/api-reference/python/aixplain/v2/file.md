@@ -9,7 +9,7 @@ title: aixplain.v2.file
 class FileCreateParams(BaseCreateParams)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/file.py#L10)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/v2/file.py#L10)
 
 Parameters for creating a file.
 
@@ -19,7 +19,7 @@ Parameters for creating a file.
 class File(BaseResource, CreateResourceMixin[FileCreateParams, "File"])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/file.py#L19)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/v2/file.py#L19)
 
 Resource for files.
 
@@ -30,7 +30,7 @@ Resource for files.
 def create(cls, *args, **kwargs: Unpack[FileCreateParams]) -> "File"
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/file.py#L25)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/v2/file.py#L25)
 
 Create a file.
 
@@ -41,7 +41,7 @@ Create a file.
 def to_link(cls, local_path: str) -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/file.py#L36)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/v2/file.py#L36)
 
 Convert a local path to a link.
 
@@ -65,7 +65,7 @@ def upload(cls,
            is_temp: bool = True) -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/file.py#L50)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/v2/file.py#L50)
 
 Upload a file.
 
@@ -85,7 +85,7 @@ Upload a file.
 def check_storage_type(cls, upload_url: str) -> "StorageType"
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/file.py#L70)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/v2/file.py#L70)
 
 Check the storage type of a file.
 

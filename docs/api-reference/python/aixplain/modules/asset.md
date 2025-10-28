@@ -30,7 +30,7 @@ Description:
 class Asset()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/asset.py#L29)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/asset.py#L29)
 
 A class representing an aiXplain Asset.
 
@@ -62,7 +62,7 @@ def __init__(id: Text,
              cost: Optional[Union[Dict, float]] = None) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/asset.py#L47)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/asset.py#L47)
 
 Initialize a new Asset instance.
 
@@ -85,7 +85,7 @@ Initialize a new Asset instance.
 def to_dict() -> dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/asset.py#L95)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/asset.py#L95)
 
 Convert the Asset instance to a dictionary representation.
 

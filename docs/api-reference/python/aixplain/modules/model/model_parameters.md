@@ -9,7 +9,7 @@ title: aixplain.modules.model.model_parameters
 class ModelParameters(BaseParameters)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/model_parameters.py#L5)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/model/model_parameters.py#L5)
 
 #### \_\_init\_\_
 
@@ -17,7 +17,7 @@ class ModelParameters(BaseParameters)
 def __init__(input_params: Dict[str, Dict[str, Any]]) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/model_parameters.py#L6)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/model/model_parameters.py#L6)
 
 Initialize ModelParameters with input parameters dictionary.
 

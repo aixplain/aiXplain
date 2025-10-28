@@ -9,7 +9,7 @@ title: aixplain.v2.metric
 class MetricListParams(BaseListParams)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/metric.py#L13)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/v2/metric.py#L13)
 
 Parameters for listing metrics.
 
@@ -26,7 +26,7 @@ class Metric(BaseResource, ListResourceMixin[MetricListParams, "Metric"],
              GetResourceMixin[BareGetParams, "Metric"])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/metric.py#L27)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/v2/metric.py#L27)
 
 Resource for metrics.
 

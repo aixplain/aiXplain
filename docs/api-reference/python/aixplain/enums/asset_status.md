@@ -30,7 +30,7 @@ Description:
 class AssetStatus(Text, Enum)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/enums/asset_status.py#L28)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/enums/asset_status.py#L28)
 
 Enumeration of possible status values for an asset in the aiXplain system.
 

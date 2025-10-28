@@ -10,7 +10,7 @@ def build_from_response(response: Dict,
                         load_architecture: bool = False) -> Pipeline
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/pipeline_factory/utils.py#L23)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/factories/pipeline_factory/utils.py#L23)
 
 Convert API response into a Pipeline object.
 

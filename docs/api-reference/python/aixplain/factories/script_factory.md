@@ -9,7 +9,7 @@ title: aixplain.factories.script_factory
 class ScriptFactory()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/script_factory.py#L10)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/factories/script_factory.py#L10)
 
 A factory class for handling script file operations.
 
@@ -23,7 +23,7 @@ and managing their metadata.
 def upload_script(cls, script_path: str) -> Tuple[str, str]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/script_factory.py#L17)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/factories/script_factory.py#L17)
 
 Uploads a script file to the backend and returns its ID and metadata.
 

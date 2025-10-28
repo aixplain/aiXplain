@@ -9,7 +9,7 @@ title: aixplain.v2.model
 class ModelListParams(BaseListParams)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L18)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/v2/model.py#L18)
 
 Parameters for listing models.
 
@@ -28,7 +28,7 @@ class Model(BaseResource, ListResourceMixin[ModelListParams, "Model"],
             GetResourceMixin[BareGetParams, "Model"])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L36)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/v2/model.py#L36)
 
 Resource for models.
 

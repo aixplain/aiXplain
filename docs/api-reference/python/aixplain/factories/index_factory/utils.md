@@ -9,7 +9,7 @@ title: aixplain.factories.index_factory.utils
 class BaseIndexParams(BaseModel, ABC)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/index_factory/utils.py#L9)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/factories/index_factory/utils.py#L9)
 
 Abstract base class for index parameters.
 
@@ -28,7 +28,7 @@ It uses Pydantic for data validation and serialization.
 def to_dict() -> Dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/index_factory/utils.py#L25)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/factories/index_factory/utils.py#L25)
 
 Convert the parameters to a dictionary format.
 
@@ -47,7 +47,7 @@ renaming &#x27;name&#x27; to &#x27;data&#x27; in the process.
 def id() -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/index_factory/utils.py#L40)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/factories/index_factory/utils.py#L40)
 
 Abstract property that must be implemented in subclasses.
 
@@ -57,7 +57,7 @@ Abstract property that must be implemented in subclasses.
 class BaseIndexParamsWithEmbeddingModel(BaseIndexParams, ABC)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/index_factory/utils.py#L45)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/factories/index_factory/utils.py#L45)
 
 Abstract base class for index parameters that require an embedding model.
 
@@ -78,7 +78,7 @@ including model selection and embedding size settings.
 def validate_embedding_model(cls, model_id) -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/index_factory/utils.py#L62)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/factories/index_factory/utils.py#L62)
 
 Validate that the provided model is a text embedding model.
 
@@ -102,7 +102,7 @@ Validate that the provided model is a text embedding model.
 def to_dict() -> Dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/index_factory/utils.py#L80)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/factories/index_factory/utils.py#L80)
 
 Convert the parameters to a dictionary format.
 
@@ -120,7 +120,7 @@ renaming fields and restructuring as needed for the API.
 class VectaraParams(BaseIndexParams)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/index_factory/utils.py#L98)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/factories/index_factory/utils.py#L98)
 
 Parameters for creating a Vectara index.
 
@@ -137,7 +137,7 @@ This class defines the configuration for Vectara&#x27;s vector search index.
 def id() -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/index_factory/utils.py#L110)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/factories/index_factory/utils.py#L110)
 
 Get the model ID for Vectara index type.
 
@@ -151,7 +151,7 @@ Get the model ID for Vectara index type.
 class ZeroEntropyParams(BaseIndexParams)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/index_factory/utils.py#L119)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/factories/index_factory/utils.py#L119)
 
 Parameters for creating a Zero Entropy index.
 
@@ -168,7 +168,7 @@ This class defines the configuration for Zero Entropy&#x27;s vector search index
 def id() -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/index_factory/utils.py#L131)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/factories/index_factory/utils.py#L131)
 
 Get the model ID for Zero Entropy index type.
 
@@ -182,7 +182,7 @@ Get the model ID for Zero Entropy index type.
 class AirParams(BaseIndexParamsWithEmbeddingModel)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/index_factory/utils.py#L140)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/factories/index_factory/utils.py#L140)
 
 Parameters for creating an AIR (aiXplain Index and Retrieval) index.
 
@@ -200,7 +200,7 @@ including embedding model settings.
 def id() -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/index_factory/utils.py#L153)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/factories/index_factory/utils.py#L153)
 
 Get the model ID for AIR index type.
 
@@ -214,7 +214,7 @@ Get the model ID for AIR index type.
 class GraphRAGParams(BaseIndexParamsWithEmbeddingModel)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/index_factory/utils.py#L162)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/factories/index_factory/utils.py#L162)
 
 Parameters for creating a GraphRAG (Graph-based Retrieval-Augmented Generation) index.
 
@@ -233,7 +233,7 @@ including embedding model and LLM settings.
 def id() -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/index_factory/utils.py#L177)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/factories/index_factory/utils.py#L177)
 
 Get the model ID for GraphRAG index type.
 

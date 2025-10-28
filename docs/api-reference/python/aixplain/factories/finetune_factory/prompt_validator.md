@@ -9,7 +9,7 @@ title: aixplain.factories.finetune_factory.prompt_validator
 def validate_prompt(prompt: Text, dataset_list: List[Dataset]) -> Text
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/finetune_factory/prompt_validator.py#L23)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/factories/finetune_factory/prompt_validator.py#L23)
 
 Validate and normalize a prompt template against a list of datasets.
 

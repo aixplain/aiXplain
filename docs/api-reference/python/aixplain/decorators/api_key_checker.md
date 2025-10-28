@@ -3,18 +3,20 @@ sidebar_label: api_key_checker
 title: aixplain.decorators.api_key_checker
 ---
 
+API key validation decorator for aiXplain SDK.
+
 #### check\_api\_key
 
 ```python
 def check_api_key(method)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/decorators/api_key_checker.py#L4)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/decorators/api_key_checker.py#L6)
 
 Decorator to verify that an API key is set before executing the method.
 
-This decorator checks if either TEAM_API_KEY or AIXPLAIN_API_KEY is set in the
-configuration. If neither key is set, it raises an exception.
+This decorator uses the centralized API key validation logic from config.py
+to ensure consistent behavior across the entire SDK.
 
 **Arguments**:
 

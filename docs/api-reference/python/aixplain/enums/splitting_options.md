@@ -30,7 +30,7 @@ Description:
 class SplittingOptions(str, Enum)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/enums/splitting_options.py#L27)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/enums/splitting_options.py#L27)
 
 Enumeration of possible splitting options.
 
@@ -51,7 +51,7 @@ including by word, sentence, passage, page, and line.
 def __str__()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/enums/splitting_options.py#L46)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/enums/splitting_options.py#L46)
 
 Return the string representation of the splitting option.
 

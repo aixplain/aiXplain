@@ -30,7 +30,7 @@ Description:
 class OutputFormat(Text, Enum)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/output_format.py#L28)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/agent/output_format.py#L28)
 
 Enum representing different output formats for AI agent responses.
 

@@ -30,7 +30,7 @@ Description:
 class Metric(Asset)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/metric.py#L28)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/metric.py#L28)
 
 A class representing a metric for evaluating machine learning model outputs.
 
@@ -67,7 +67,7 @@ def __init__(id: Text,
              **additional_info) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/metric.py#L50)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/metric.py#L50)
 
 Initialize a new Metric instance.
 
@@ -90,7 +90,7 @@ Initialize a new Metric instance.
 def __repr__() -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/metric.py#L83)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/metric.py#L83)
 
 Return a string representation of the Metric instance.
 
@@ -104,7 +104,7 @@ Return a string representation of the Metric instance.
 def add_normalization_options(normalization_options: List[str]) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/metric.py#L91)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/metric.py#L91)
 
 Add normalization options to be used during metric computation.
 
@@ -124,7 +124,7 @@ def run(hypothesis: Optional[Union[str, List[str]]] = None,
         reference: Optional[Union[str, List[str]]] = None) -> dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/metric.py#L103)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/metric.py#L103)
 
 Run the metric to calculate scores for the provided inputs.
 

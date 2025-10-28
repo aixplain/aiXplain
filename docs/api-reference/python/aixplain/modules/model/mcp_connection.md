@@ -9,7 +9,7 @@ title: aixplain.modules.model.mcp_connection
 class ConnectAction()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/mcp_connection.py#L7)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/model/mcp_connection.py#L7)
 
 A class representing an action that can be performed by an MCP connection.
 
@@ -32,7 +32,7 @@ def __init__(name: Text,
              inputs: Optional[Dict] = None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/mcp_connection.py#L25)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/model/mcp_connection.py#L25)
 
 Initialize a new ConnectAction instance.
 
@@ -51,7 +51,7 @@ Initialize a new ConnectAction instance.
 def __repr__()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/mcp_connection.py#L47)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/model/mcp_connection.py#L47)
 
 Return a string representation of the ConnectAction instance.
 
@@ -65,7 +65,7 @@ Return a string representation of the ConnectAction instance.
 class MCPConnection(ConnectionTool)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/mcp_connection.py#L56)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/model/mcp_connection.py#L56)
 
 #### \_\_init\_\_
 
@@ -83,7 +83,7 @@ def __init__(id: Text,
              **additional_info) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/mcp_connection.py#L60)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/model/mcp_connection.py#L60)
 
 Initialize a new MCPConnection instance.
 
@@ -114,7 +114,7 @@ Initialize a new MCPConnection instance.
 def get_action_inputs(action: Union[ConnectAction, Text])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/mcp_connection.py#L136)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/model/mcp_connection.py#L136)
 
 Retrieve the input parameters required for a specific tool.
 

@@ -9,7 +9,7 @@ title: aixplain.factories.integration_factory
 class IntegrationFactory(ModelGetterMixin, ModelListMixin)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/integration_factory.py#L11)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/factories/integration_factory.py#L11)
 
 Factory class for creating and managing Integration models.
 
@@ -30,7 +30,7 @@ def get(cls,
         use_cache: bool = False) -> Integration
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/integration_factory.py#L23)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/factories/integration_factory.py#L23)
 
 Retrieves a specific Integration model by its ID.
 
@@ -65,7 +65,7 @@ def list(cls,
          api_key: Optional[Text] = None) -> List[Integration]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/integration_factory.py#L42)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/factories/integration_factory.py#L42)
 
 Lists Integration models based on the provided filters and pagination parameters.
 

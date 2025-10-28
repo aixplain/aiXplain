@@ -30,7 +30,7 @@ Description:
 class ResponseStatus(Text, Enum)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/enums/response_status.py#L28)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/enums/response_status.py#L28)
 
 Enumeration of possible response status values.
 
@@ -49,7 +49,7 @@ in progress, success, and failure.
 def __str__()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/enums/response_status.py#L43)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/enums/response_status.py#L43)
 
 Return the string representation of the response status.
 

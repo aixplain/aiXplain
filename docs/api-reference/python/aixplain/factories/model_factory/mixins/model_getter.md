@@ -9,7 +9,7 @@ title: aixplain.factories.model_factory.mixins.model_getter
 class ModelGetterMixin()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/model_factory/mixins/model_getter.py#L12)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/factories/model_factory/mixins/model_getter.py#L12)
 
 Mixin class providing model retrieval functionality.
 
@@ -26,7 +26,7 @@ def get(cls,
         use_cache: bool = False) -> Model
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/model_factory/mixins/model_getter.py#L19)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/factories/model_factory/mixins/model_getter.py#L19)
 
 Retrieve a model instance by its ID.
 

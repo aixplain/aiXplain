@@ -31,7 +31,7 @@ Description:
 class LanguageMetadata()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/enums/language.py#L34)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/enums/language.py#L34)
 
 Metadata container for language information.
 
@@ -52,7 +52,7 @@ label, dialects, and supported scripts.
 def to_dict() -> dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/enums/language.py#L53)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/enums/language.py#L53)
 
 Convert the language metadata to a dictionary.
 
@@ -67,7 +67,7 @@ Convert the language metadata to a dictionary.
 def from_dict(cls, data: dict) -> "LanguageMetadata"
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/enums/language.py#L68)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/enums/language.py#L68)
 
 Create a LanguageMetadata instance from a dictionary.
 
@@ -86,7 +86,7 @@ Create a LanguageMetadata instance from a dictionary.
 def load_languages() -> Enum
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/enums/language.py#L85)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/enums/language.py#L85)
 
 Load language definitions from the backend or cache.
 

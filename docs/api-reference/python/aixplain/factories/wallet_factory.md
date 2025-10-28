@@ -9,7 +9,7 @@ title: aixplain.factories.wallet_factory
 class WalletFactory()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/wallet_factory.py#L8)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/factories/wallet_factory.py#L8)
 
 A factory class for retrieving wallet information.
 
@@ -27,7 +27,7 @@ and reserved balance information from the backend API.
 def get(cls, api_key: Text = config.TEAM_API_KEY) -> Wallet
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/wallet_factory.py#L20)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/factories/wallet_factory.py#L20)
 
 Retrieves the current wallet information from the backend.
 

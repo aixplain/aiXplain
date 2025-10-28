@@ -9,7 +9,7 @@ title: aixplain.modules.pipeline.designer.nodes
 class AssetNode(Node[TI, TO], LinkableMixin, OutputableMixin)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/designer/nodes.py#L26)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/designer/nodes.py#L26)
 
 Asset node class, this node will be used to fetch the asset from the
 aixplain platform and use it in the pipeline.
@@ -26,7 +26,7 @@ asset function spec.
 class Input(Node[InputInputs, InputOutputs], LinkableMixin, RoutableMixin)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/designer/nodes.py#L184)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/designer/nodes.py#L184)
 
 Input node class, this node will be used to input the data to the
 pipeline.
@@ -42,7 +42,7 @@ aixplain platform and the link will be passed as the input to the node.
 class Output(Node[OutputInputs, OutputOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/designer/nodes.py#L236)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/designer/nodes.py#L236)
 
 Output node class, this node will be used to output the result of the
 pipeline.
@@ -55,7 +55,7 @@ Output nodes has only one input parameter called `output`.
 class Script(Node[TI, TO], LinkableMixin, OutputableMixin)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/designer/nodes.py#L259)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/designer/nodes.py#L259)
 
 Script node class, this node will be used to run a script on the input
 data.
@@ -69,7 +69,7 @@ the aixplain platform and the link will be passed as the input to the node.
 class Route(Serializable)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/designer/nodes.py#L299)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/designer/nodes.py#L299)
 
 Route class, this class will be used to route the input data to different
 nodes based on the input data type.
@@ -81,7 +81,7 @@ def __init__(value: DataType, path: List[Union[Node, int]],
              operation: Operation, type: RouteType, **kwargs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/designer/nodes.py#L310)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/designer/nodes.py#L310)
 
 Post init method to convert the nodes to node numbers if they are
 nodes.
@@ -92,7 +92,7 @@ nodes.
 class Router(Node[RouterInputs, RouterOutputs], LinkableMixin)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/designer/nodes.py#L352)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/designer/nodes.py#L352)
 
 Router node class, this node will be used to route the input data to
 different nodes based on the input data type.
@@ -103,7 +103,7 @@ different nodes based on the input data type.
 class Decision(Node[DecisionInputs, DecisionOutputs], LinkableMixin)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/designer/nodes.py#L391)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/designer/nodes.py#L391)
 
 Decision node class, this node will be used to make decisions based on
 the input data.
@@ -114,7 +114,7 @@ the input data.
 class BaseSegmentor(AssetNode[TI, TO])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/designer/nodes.py#L441)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/designer/nodes.py#L441)
 
 Segmentor node class, this node will be used to segment the input data
 into smaller fragments for much easier and efficient processing.
@@ -125,7 +125,7 @@ into smaller fragments for much easier and efficient processing.
 class BareSegmentor(BaseSegmentor[SegmentorInputs, SegmentorOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/designer/nodes.py#L463)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/designer/nodes.py#L463)
 
 Segmentor node class, this node will be used to segment the input data
 into smaller fragments for much easier and efficient processing.
@@ -136,7 +136,7 @@ into smaller fragments for much easier and efficient processing.
 class BaseReconstructor(AssetNode[TI, TO])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/designer/nodes.py#L475)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/designer/nodes.py#L475)
 
 Reconstructor node class, this node will be used to reconstruct the
 output of the segmented lines of execution.
@@ -148,7 +148,7 @@ class BareReconstructor(BaseReconstructor[ReconstructorInputs,
                                           ReconstructorOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/designer/nodes.py#L493)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/designer/nodes.py#L493)
 
 Reconstructor node class, this node will be used to reconstruct the
 output of the segmented lines of execution.

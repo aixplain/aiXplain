@@ -30,7 +30,7 @@ Description:
 class MetaData()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/metadata.py#L33)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/metadata.py#L33)
 
 A class representing metadata for data in the aiXplain platform.
 
@@ -70,7 +70,7 @@ def __init__(name: Text,
              **kwargs) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/metadata.py#L54)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/metadata.py#L54)
 
 Initialize a new MetaData instance.
 

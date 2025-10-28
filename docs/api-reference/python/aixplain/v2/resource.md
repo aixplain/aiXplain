@@ -9,7 +9,7 @@ title: aixplain.v2.resource
 class BaseResource()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L23)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/v2/resource.py#L23)
 
 Base class for all resources.
 
@@ -24,7 +24,7 @@ Base class for all resources.
 def __init__(obj: Union[dict, Any])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L35)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/v2/resource.py#L35)
 
 Initialize a BaseResource instance.
 
@@ -38,7 +38,7 @@ Initialize a BaseResource instance.
 def __getattr__(key: str) -> Any
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L44)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/v2/resource.py#L44)
 
 Return the value corresponding to the key from the wrapped dictionary
 if found, otherwise raise an AttributeError.
@@ -64,7 +64,7 @@ if found, otherwise raise an AttributeError.
 def save()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L65)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/v2/resource.py#L65)
 
 Save the resource.
 
@@ -76,7 +76,7 @@ If the resource has an ID, it will be updated, otherwise it will be created.
 class BaseListParams(TypedDict)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L111)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/v2/resource.py#L111)
 
 Base class for all list parameters.
 
@@ -95,7 +95,7 @@ Base class for all list parameters.
 class BaseGetParams(TypedDict)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L131)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/v2/resource.py#L131)
 
 Base class for all get parameters.
 
@@ -109,7 +109,7 @@ Base class for all get parameters.
 class BaseCreateParams(TypedDict)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L141)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/v2/resource.py#L141)
 
 Base class for all create parameters.
 
@@ -123,7 +123,7 @@ Base class for all create parameters.
 class BareCreateParams(BaseCreateParams)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L151)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/v2/resource.py#L151)
 
 Default implementation of create parameters.
 
@@ -133,7 +133,7 @@ Default implementation of create parameters.
 class BareListParams(BaseListParams)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L157)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/v2/resource.py#L157)
 
 Default implementation of list parameters.
 
@@ -143,7 +143,7 @@ Default implementation of list parameters.
 class BareGetParams(BaseGetParams)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L163)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/v2/resource.py#L163)
 
 Default implementation of get parameters.
 
@@ -153,7 +153,7 @@ Default implementation of get parameters.
 class Page(Generic[R])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L175)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/v2/resource.py#L175)
 
 Page of resources.
 
@@ -168,7 +168,7 @@ Page of resources.
 class ListResourceMixin(Generic[L, R])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L201)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/v2/resource.py#L201)
 
 Mixin for listing resources.
 
@@ -189,7 +189,7 @@ Mixin for listing resources.
 def list(cls: Type[R], **kwargs: Unpack[L]) -> Page[R]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L224)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/v2/resource.py#L224)
 
 List resources across the first n pages with optional filtering.
 
@@ -208,7 +208,7 @@ List resources across the first n pages with optional filtering.
 class GetResourceMixin(Generic[G, R])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L334)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/v2/resource.py#L334)
 
 Mixin for getting a resource.
 
@@ -219,7 +219,7 @@ Mixin for getting a resource.
 def get(cls: Type[R], id: Any, **kwargs: Unpack[G]) -> R
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L338)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/v2/resource.py#L338)
 
 Retrieve a single resource by its ID (or other get parameters).
 
@@ -244,7 +244,7 @@ Retrieve a single resource by its ID (or other get parameters).
 class CreateResourceMixin(Generic[C, R])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L359)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/v2/resource.py#L359)
 
 Mixin for creating a resource.
 
@@ -255,7 +255,7 @@ Mixin for creating a resource.
 def create(cls, *args, **kwargs: Unpack[C]) -> R
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L363)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/v2/resource.py#L363)
 
 Create a resource.
 

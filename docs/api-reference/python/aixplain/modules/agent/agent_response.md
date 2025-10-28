@@ -9,7 +9,7 @@ title: aixplain.modules.agent.agent_response
 class AgentResponse(ModelResponse)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/agent_response.py#L10)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/agent/agent_response.py#L10)
 
 A response object for agent execution results.
 
@@ -45,7 +45,7 @@ def __init__(status: ResponseStatus = ResponseStatus.FAILED,
              **kwargs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/agent_response.py#L28)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/agent/agent_response.py#L28)
 
 Initialize a new AgentResponse instance.
 
@@ -77,7 +77,7 @@ Initialize a new AgentResponse instance.
 def __getitem__(key: Text) -> Any
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/agent_response.py#L79)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/agent/agent_response.py#L79)
 
 Get a response attribute using dictionary-style access.
 
@@ -100,7 +100,7 @@ serialization when accessing the &#x27;data&#x27; key.
 def __setitem__(key: Text, value: Any) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/agent_response.py#L96)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/agent/agent_response.py#L96)
 
 Set a response attribute using dictionary-style access.
 
@@ -119,7 +119,7 @@ deserialization when setting the &#x27;data&#x27; key.
 def to_dict() -> Dict[Text, Any]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/agent_response.py#L114)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/agent/agent_response.py#L114)
 
 Convert the response to a dictionary representation.
 
@@ -137,7 +137,7 @@ serialization in the output dictionary.
 def __repr__() -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/agent_response.py#L128)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/agent/agent_response.py#L128)
 
 Return a string representation of the response.
 

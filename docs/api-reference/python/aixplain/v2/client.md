@@ -12,7 +12,7 @@ def create_retry_session(total=None,
                          **kwargs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L13)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/v2/client.py#L13)
 
 Creates a requests.Session with a specified retry strategy.
 
@@ -34,7 +34,7 @@ Creates a requests.Session with a specified retry strategy.
 class AixplainClient()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L43)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/v2/client.py#L43)
 
 #### \_\_init\_\_
 
@@ -47,7 +47,7 @@ def __init__(base_url: str,
              retry_status_forcelist=DEFAULT_RETRY_STATUS_FORCELIST)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L44)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/v2/client.py#L44)
 
 Initializes AixplainClient with authentication and retry configuration.
 
@@ -66,7 +66,7 @@ Initializes AixplainClient with authentication and retry configuration.
 def request(method: str, path: str, **kwargs: Any) -> requests.Response
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L87)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/v2/client.py#L87)
 
 Sends an HTTP request.
 
@@ -87,7 +87,7 @@ Sends an HTTP request.
 def get(path: str, **kwargs: Any) -> requests.Response
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L104)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/v2/client.py#L104)
 
 Sends an HTTP GET request.
 
@@ -107,7 +107,7 @@ Sends an HTTP GET request.
 def get_obj(path: str, **kwargs: Any) -> dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L117)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/v2/client.py#L117)
 
 Sends an HTTP GET request and returns the object.
 

@@ -30,7 +30,7 @@ Description:
 class FileType(Enum)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/enums/file_type.py#L27)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/enums/file_type.py#L27)
 
 Enumeration of supported file types in the aiXplain system.
 

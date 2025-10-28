@@ -9,7 +9,7 @@ title: aixplain.v2.pipeline
 class PipelineListParams(BareListParams)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/pipeline.py#L18)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/v2/pipeline.py#L18)
 
 Parameters for listing pipelines.
 
@@ -30,7 +30,7 @@ class Pipeline(BaseResource, ListResourceMixin[PipelineListParams, "Pipeline"],
                CreateResourceMixin[PipelineCreateParams, "Pipeline"])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/pipeline.py#L44)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/v2/pipeline.py#L44)
 
 Resource for pipelines.
 

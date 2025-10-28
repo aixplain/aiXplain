@@ -30,7 +30,7 @@ Description:
 class StorageType(Enum)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/enums/storage_type.py#L27)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/enums/storage_type.py#L27)
 
 Enumeration of possible storage types.
 
@@ -49,7 +49,7 @@ assets, including text, URL, and file.
 def __str__()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/enums/storage_type.py#L42)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/enums/storage_type.py#L42)
 
 Return the string representation of the storage type.
 

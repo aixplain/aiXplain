@@ -9,7 +9,7 @@ title: aixplain.modules.pipeline.designer.utils
 def find_prompt_params(prompt: str) -> List[str]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/designer/utils.py#L5)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/designer/utils.py#L5)
 
 This method will find the prompt parameters in the prompt string.
 

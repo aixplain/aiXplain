@@ -9,7 +9,7 @@ title: aixplain.v2.enums_include
 class ErrorHandler(str, Enum)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/enums_include.py#L54)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/v2/enums_include.py#L54)
 
 Enumeration class defining different error handler strategies.
 

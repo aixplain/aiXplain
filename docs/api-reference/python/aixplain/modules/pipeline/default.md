@@ -9,7 +9,7 @@ title: aixplain.modules.pipeline.default
 class DefaultPipeline(PipelineAsset, DesignerPipeline)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/default.py#L6)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/default.py#L6)
 
 DefaultPipeline is a subclass of PipelineAsset and DesignerPipeline.
 
@@ -19,7 +19,7 @@ DefaultPipeline is a subclass of PipelineAsset and DesignerPipeline.
 def __init__(*args, **kwargs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/default.py#L10)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/default.py#L10)
 
 Initialize the DefaultPipeline.
 
@@ -29,7 +29,7 @@ Initialize the DefaultPipeline.
 def save(*args, **kwargs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/default.py#L17)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/default.py#L17)
 
 Save the DefaultPipeline.
 
@@ -39,7 +39,7 @@ Save the DefaultPipeline.
 def to_dict() -> dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/pipeline/default.py#L25)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/pipeline/default.py#L25)
 
 Convert the DefaultPipeline to a dictionary.
 

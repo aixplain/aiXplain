@@ -11,7 +11,7 @@ def build_payload(data: Union[Text, Dict],
                   stream: Optional[bool] = None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/utils.py#L81)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/model/utils.py#L81)
 
 Build a JSON payload for API requests.
 
@@ -48,7 +48,7 @@ ensures proper JSON serialization.
 def call_run_endpoint(url: Text, api_key: Text, payload: Dict) -> Dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/utils.py#L134)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/model/utils.py#L134)
 
 Call a model execution endpoint and handle the response.
 
@@ -84,7 +84,7 @@ various response scenarios, and provides appropriate error handling.
 def parse_code(code: Union[Text, Callable]) -> Tuple[Text, List, Text, Text]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/utils.py#L198)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/model/utils.py#L198)
 
 Parse and process code for utility model creation.
 
@@ -131,7 +131,7 @@ def parse_code_decorated(
         code: Union[Text, Callable]) -> Tuple[Text, List, Text, Text]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/utils.py#L309)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/model/utils.py#L309)
 
 Parse and process code that may be decorated with @utility_tool.
 
@@ -184,7 +184,7 @@ It supports various input formats and provides robust parameter extraction.
 def is_supported_image_type(value: str) -> bool
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/utils.py#L523)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/model/utils.py#L523)
 
 Check if a file path or URL points to a supported image format.
 

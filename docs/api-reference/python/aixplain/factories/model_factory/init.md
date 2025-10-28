@@ -30,7 +30,7 @@ Description:
 class ModelFactory(ModelGetterMixin, ModelListMixin)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/model_factory/__init__.py#L33)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/factories/model_factory/__init__.py#L33)
 
 Factory class for creating, managing, and exploring models.
 
@@ -55,7 +55,7 @@ def create_utility_model(cls,
                          api_key: Optional[Text] = None) -> UtilityModel
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/model_factory/__init__.py#L47)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/factories/model_factory/__init__.py#L47)
 
 Create a new utility model for custom functionality.
 
@@ -93,7 +93,7 @@ with specified inputs and outputs.
 def list_host_machines(cls, api_key: Optional[Text] = None) -> List[Dict]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/model_factory/__init__.py#L117)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/factories/model_factory/__init__.py#L117)
 
 Lists available hosting machines for model.
 
@@ -114,7 +114,7 @@ Lists available hosting machines for model.
 def list_gpus(cls, api_key: Optional[Text] = None) -> List[List[Text]]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/model_factory/__init__.py#L143)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/factories/model_factory/__init__.py#L143)
 
 List GPU names on which you can host your language model.
 
@@ -136,7 +136,7 @@ def list_functions(cls,
                    api_key: Optional[Text] = None) -> List[Dict]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/model_factory/__init__.py#L168)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/factories/model_factory/__init__.py#L168)
 
 Lists supported model functions on platform.
 
@@ -167,7 +167,7 @@ def create_asset_repo(cls,
                       api_key: Optional[Text] = None) -> Dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/model_factory/__init__.py#L208)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/factories/model_factory/__init__.py#L208)
 
 Create a new model repository in the platform.
 
@@ -205,7 +205,7 @@ necessary infrastructure for model deployment.
 def asset_repo_login(cls, api_key: Optional[Text] = None) -> Dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/model_factory/__init__.py#L284)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/factories/model_factory/__init__.py#L284)
 
 Return login credentials for the image repository that corresponds with
 the given API_KEY.
@@ -231,7 +231,7 @@ def onboard_model(cls,
                   api_key: Optional[Text] = None) -> Dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/model_factory/__init__.py#L311)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/factories/model_factory/__init__.py#L311)
 
 Onboard a model after its image has been pushed to ECR.
 
@@ -259,7 +259,7 @@ def deploy_huggingface_model(cls,
                              api_key: Optional[Text] = None) -> Dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/model_factory/__init__.py#L352)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/factories/model_factory/__init__.py#L352)
 
 Deploy a model from Hugging Face Hub to the aiXplain platform.
 
@@ -291,7 +291,7 @@ def get_huggingface_model_status(cls,
                                  api_key: Optional[Text] = None) -> Dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/model_factory/__init__.py#L413)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/factories/model_factory/__init__.py#L413)
 
 Check the deployment status of a Hugging Face model.
 

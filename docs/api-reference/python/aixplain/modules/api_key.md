@@ -9,7 +9,7 @@ title: aixplain.modules.api_key
 class APIKeyLimits()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/api_key.py#L9)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/api_key.py#L9)
 
 Rate limits configuration for an API key.
 
@@ -34,7 +34,7 @@ def __init__(token_per_minute: int,
              model: Optional[Union[Text, Model]] = None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/api_key.py#L23)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/api_key.py#L23)
 
 Initialize an APIKeyLimits instance.
 
@@ -53,7 +53,7 @@ Initialize an APIKeyLimits instance.
 class APIKeyUsageLimit()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/api_key.py#L52)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/api_key.py#L52)
 
 #### \_\_init\_\_
 
@@ -65,7 +65,7 @@ def __init__(daily_request_count: int,
              model: Optional[Union[Text, Model]] = None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/api_key.py#L53)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/api_key.py#L53)
 
 Get the usage limits of an API key globally (model equals to None) or for a specific model.
 
@@ -83,7 +83,7 @@ Get the usage limits of an API key globally (model equals to None) or for a spec
 class APIKey()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/api_key.py#L80)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/api_key.py#L80)
 
 An API key for accessing aiXplain services.
 
@@ -115,7 +115,7 @@ def __init__(name: Text,
              is_admin: bool = False)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/api_key.py#L98)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/api_key.py#L98)
 
 Initialize an APIKey instance.
 
@@ -152,7 +152,7 @@ Initialize an APIKey instance.
 def validate() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/api_key.py#L161)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/api_key.py#L161)
 
 Validate the APIKey configuration.
 
@@ -180,7 +180,7 @@ referenced models exist and are valid.
 def to_dict() -> Dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/api_key.py#L201)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/api_key.py#L201)
 
 Convert the APIKey instance to a dictionary representation.
 
@@ -214,7 +214,7 @@ format suitable for API requests or storage.
 def delete() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/api_key.py#L256)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/api_key.py#L256)
 
 Delete this API key from the system.
 
@@ -242,7 +242,7 @@ The operation cannot be undone.
 def get_usage(asset_id: Optional[Text] = None) -> APIKeyUsageLimit
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/api_key.py#L286)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/api_key.py#L286)
 
 Get current usage statistics for this API key.
 
@@ -287,7 +287,7 @@ def set_token_per_day(token_per_day: int,
                       model: Optional[Union[Text, Model]] = None) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/api_key.py#L377)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/api_key.py#L377)
 
 Set the daily token limit for this API key.
 
@@ -317,7 +317,7 @@ def set_token_per_minute(token_per_minute: int,
                          model: Optional[Union[Text, Model]] = None) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/api_key.py#L396)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/api_key.py#L396)
 
 Set the per-minute token limit for this API key.
 
@@ -347,7 +347,7 @@ def set_request_per_day(request_per_day: int,
                         model: Optional[Union[Text, Model]] = None) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/api_key.py#L415)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/api_key.py#L415)
 
 Set the daily request limit for this API key.
 
@@ -377,7 +377,7 @@ def set_request_per_minute(request_per_minute: int,
                            model: Optional[Union[Text, Model]] = None) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/api_key.py#L434)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/development/aixplain/modules/api_key.py#L434)
 
 Set the per-minute request limit for this API key.
 
