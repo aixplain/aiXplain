@@ -24,8 +24,8 @@ jobs:
       - name: Run pydoc-markdown
         working-directory: .
         run: |
-          pydoc-markdown -c pydoc-markdown.yml
-
+          pydoc-markdown pydoc-markdown.yml
+          
       - name: Commit generated docs if changed
         uses: stefanzweifel/git-auto-commit-action@v4
         with:
