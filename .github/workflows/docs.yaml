@@ -1,0 +1,35 @@
+name: Generate API docs
+
+on:
+  push:
+    branches:
+      - development
+jobs:
+  build-docs:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: |
+          pip install pydoc-markdown
+
+      - name: Run pydoc-markdown
+        working-directory: .
+        run: |
+          pydoc-markdown -c pydoc-markdown.yml
+
+      - name: Commit generated docs if changed
+        uses: stefanzweifel/git-auto-commit-action@v4
+        with:
+          commit_message: "chore(docs): regenerate API docs"
+          file_pattern: "docs/**/*.md"
+          branch: development
+          push: true
