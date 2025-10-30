@@ -56,7 +56,7 @@ class InspectorOutput(BaseModel):
 
 class InspectorAuto(str, Enum):
     """A list of keywords for inspectors configured automatically in the backend."""
-
+    ALIGNMENT = "alignment" 
     CORRECTNESS = "correctness"
 
     def get_name(self) -> Text:

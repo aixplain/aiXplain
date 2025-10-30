@@ -1,7 +1,4 @@
-__author__ = "lucaspavanelli"
-
-"""
-Copyright 2024 The aiXplain SDK authors
+"""Copyright 2024 The aiXplain SDK authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,6 +17,8 @@ Date: June 4th 2024
 Description:
     Large Language Model Class
 """
+
+__author__ = "lucaspavanelli"
 import time
 import logging
 import traceback
@@ -63,7 +62,7 @@ class LLM(Model):
         function: Optional[Function] = None,
         is_subscribed: bool = False,
         cost: Optional[Dict] = None,
-        temperature: float = 0.001,
+        temperature: Optional[float] = None,
         function_type: Optional[FunctionType] = FunctionType.AI,
         **additional_info,
     ) -> None:
@@ -79,14 +78,16 @@ class LLM(Model):
             function (Function, optional): Model's AI function. Must be Function.TEXT_GENERATION.
             is_subscribed (bool, optional): Whether the user is subscribed. Defaults to False.
             cost (Dict, optional): Cost of the model. Defaults to None.
-            temperature (float, optional): Default temperature for text generation. Defaults to 0.001.
+            temperature (Optional[float], optional): Default temperature for text generation. Defaults to None.
             function_type (FunctionType, optional): Type of the function. Defaults to FunctionType.AI.
             **additional_info: Any additional model info to be saved.
 
         Raises:
             AssertionError: If function is not Function.TEXT_GENERATION.
         """
-        assert function == Function.TEXT_GENERATION, "LLM only supports large language models (i.e. text generation function)"
+        assert function == Function.TEXT_GENERATION, (
+            "LLM only supports large language models (i.e. text generation function)"
+        )
         super().__init__(
             id=id,
             name=name,
@@ -112,7 +113,7 @@ class LLM(Model):
         history: Optional[List[Dict]] = None,
         temperature: Optional[float] = None,
         max_tokens: int = 128,
-        top_p: float = 1.0,
+        top_p: Optional[float] = None,
         name: Text = "model_process",
         timeout: float = 300,
         parameters: Optional[Dict] = None,
@@ -139,8 +140,8 @@ class LLM(Model):
                 Defaults to None.
             max_tokens (int, optional): Maximum number of tokens to generate.
                 Defaults to 128.
-            top_p (float, optional): Nucleus sampling parameter. Only tokens with cumulative
-                probability < top_p are considered. Defaults to 1.0.
+            top_p (Optional[float], optional): Nucleus sampling parameter. Only tokens with cumulative
+                probability < top_p are considered. Defaults to None.
             name (Text, optional): Identifier for this model run. Useful for logging.
                 Defaults to "model_process".
             timeout (float, optional): Maximum time in seconds to wait for completion.
@@ -151,8 +152,8 @@ class LLM(Model):
                 Defaults to 0.5.
             stream (bool, optional): Whether to stream the model's output tokens.
                 Defaults to False.
-            response_format (Optional[Union[str, dict, BaseModel]], optional): 
-                Specifies the desired output structure or format of the model’s response. 
+            response_format (Optional[Union[str, dict, BaseModel]], optional):
+                Specifies the desired output structure or format of the model’s response.
 
         Returns:
             Union[ModelResponse, ModelResponseStreamer]: If stream=False, returns a ModelResponse
@@ -169,9 +170,12 @@ class LLM(Model):
         parameters.setdefault("context", context)
         parameters.setdefault("prompt", prompt)
         parameters.setdefault("history", history)
-        parameters.setdefault("temperature", temperature if temperature is not None else self.temperature)
+        temp_value = temperature if temperature is not None else self.temperature
+        if temp_value is not None:
+            parameters.setdefault("temperature", temp_value)
         parameters.setdefault("max_tokens", max_tokens)
-        parameters.setdefault("top_p", top_p)
+        if top_p is not None:
+            parameters.setdefault("top_p", top_p)
         parameters.setdefault("response_format", response_format)
 
         if stream:
@@ -214,7 +218,7 @@ class LLM(Model):
         history: Optional[List[Dict]] = None,
         temperature: Optional[float] = None,
         max_tokens: int = 128,
-        top_p: float = 1.0,
+        top_p: Optional[float] = None,
         name: Text = "model_process",
         parameters: Optional[Dict] = None,
         response_format: Optional[Text] = None,
@@ -238,11 +242,13 @@ class LLM(Model):
                 Defaults to None.
             max_tokens (int, optional): Maximum number of tokens to generate.
                 Defaults to 128.
-            top_p (float, optional): Nucleus sampling parameter. Only tokens with cumulative
-                probability < top_p are considered. Defaults to 1.0.
+            top_p (Optional[float], optional): Nucleus sampling parameter. Only tokens with cumulative
+                probability < top_p are considered. Defaults to None.
             name (Text, optional): Identifier for this model run. Useful for logging.
                 Defaults to "model_process".
             parameters (Optional[Dict], optional): Additional model-specific parameters.
+                Defaults to None.
+            response_format (Optional[Text], optional): Desired output format specification.
                 Defaults to None.
 
         Returns:
@@ -266,9 +272,12 @@ class LLM(Model):
         parameters.setdefault("context", context)
         parameters.setdefault("prompt", prompt)
         parameters.setdefault("history", history)
-        parameters.setdefault("temperature", temperature if temperature is not None else self.temperature)
+        temp_value = temperature if temperature is not None else self.temperature
+        if temp_value is not None:
+            parameters.setdefault("temperature", temp_value)
         parameters.setdefault("max_tokens", max_tokens)
-        parameters.setdefault("top_p", top_p)
+        if top_p is not None:
+            parameters.setdefault("top_p", top_p)
         parameters.setdefault("response_format", response_format)
         payload = build_payload(data=data, parameters=parameters)
         response = call_run_endpoint(payload=payload, url=url, api_key=self.api_key)

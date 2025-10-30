@@ -1,7 +1,4 @@
-__author__ = "lucaspavanelli"
-
-"""
-Copyright 2024 The aiXplain SDK authors
+"""Copyright 2024 The aiXplain SDK authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,6 +17,8 @@ Date: May 16th 2024
 Description:
     Agent Factory Class
 """
+
+__author__ = "lucaspavanelli"
 
 import json
 import logging
@@ -47,6 +46,19 @@ from pydantic import BaseModel
 from aixplain.utils.request_utils import _request_with_retry
 from urllib.parse import urljoin
 from aixplain.enums import DatabaseSourceType
+
+
+def to_literal_text(x):
+    """Convert value to literal text, escaping braces for string formatting.
+
+    Args:
+        x: Value to convert (dict, list, or any other type)
+
+    Returns:
+        str: Escaped string representation
+    """
+    s = json.dumps(x, ensure_ascii=False, indent=2) if isinstance(x, (dict, list)) else str(x)
+    return s.replace("{", "{{").replace("}", "}}")
 
 
 class AgentFactory:
@@ -89,6 +101,7 @@ class AgentFactory:
             api_key (Text, optional): team/user API key. Defaults to config.TEAM_API_KEY.
             supplier (Union[Dict, Text, Supplier, int], optional): owner of the agent. Defaults to "aiXplain".
             version (Optional[Text], optional): version of the agent. Defaults to None.
+            tasks (List[WorkflowTask], optional): Deprecated. Use workflow_tasks instead. Defaults to None.
             workflow_tasks (List[WorkflowTask], optional): list of tasks for the agent. Defaults to [].
             output_format (OutputFormat, optional): default output format for agent responses. Defaults to OutputFormat.TEXT.
             expected_output (Union[BaseModel, Text, dict], optional): expected output. Defaults to None.
@@ -122,8 +135,7 @@ class AgentFactory:
             ), "'expected_output' must be a Pydantic BaseModel or a JSON object when 'output_format' is JSON."
 
         warnings.warn(
-            "Use `llm` to define the large language model (aixplain.modules.model.llm_model.LLM) to be used as agent. "
-            "Note: In upcoming releases, `llm` will become a required parameter.",
+            "Deprecating 'llm_id', use `llm` to define the large language model in agents.",
             UserWarning,
         )
         from aixplain.factories.agent_factory.utils import (
@@ -142,7 +154,8 @@ class AgentFactory:
 
         if tasks is not None:
             warnings.warn(
-                "The 'tasks' parameter is deprecated and will be removed in a future version. " "Use 'workflow_tasks' instead.",
+                "The 'tasks' parameter is deprecated and will be removed in a future version. "
+                "Use 'workflow_tasks' instead.",
                 DeprecationWarning,
                 stacklevel=2,
             )
@@ -153,8 +166,8 @@ class AgentFactory:
         payload = {
             "name": name,
             "assets": [build_tool_payload(tool) for tool in tools],
-            "description": description,
-            "instructions": instructions or description,
+            "description": to_literal_text(description),
+            "instructions": to_literal_text(instructions) if instructions is not None else description,
             "supplier": supplier,
             "version": version,
             "llmId": llm_id,
@@ -237,6 +250,17 @@ class AgentFactory:
         expected_output: Text,
         dependencies: Optional[List[Text]] = None,
     ) -> WorkflowTask:
+        """Create a new workflow task for an agent.
+
+        Args:
+            name (Text): Name of the task
+            description (Text): Description of what the task does
+            expected_output (Text): Expected output format or content
+            dependencies (Optional[List[Text]], optional): List of task names this task depends on. Defaults to None.
+
+        Returns:
+            WorkflowTask: Created workflow task object
+        """
         dependencies = [] if dependencies is None else list(dependencies)
         return WorkflowTask(
             name=name,
@@ -247,6 +271,11 @@ class AgentFactory:
 
     @classmethod
     def create_task(cls, *args, **kwargs):
+        """Create a workflow task (deprecated - use create_workflow_task instead).
+
+        .. deprecated::
+            Use :meth:`create_workflow_task` instead.
+        """
         warnings.warn(
             "The 'create_task' method is deprecated and will be removed in a future version. "
             "Use 'create_workflow_task' instead.",
@@ -360,7 +389,7 @@ class AgentFactory:
         tables: Optional[List[Text]] = None,
         enable_commit: bool = False,
     ) -> SQLTool:
-        """Create a new SQL tool
+        """Create a new SQL tool.
 
         Args:
             name (Text): name of the tool
@@ -370,6 +399,7 @@ class AgentFactory:
             schema (Optional[Text], optional): database schema description
             tables (Optional[List[Text]], optional): table names to work with (optional)
             enable_commit (bool, optional): enable to modify the database (optional)
+
         Returns:
             SQLTool: created SQLTool
 
@@ -412,7 +442,9 @@ class AgentFactory:
             # Already the correct type, no conversion needed
             pass
         else:
-            raise SQLToolError(f"Source type must be either a string or DatabaseSourceType enum, got {type(source_type)}")
+            raise SQLToolError(
+                f"Source type must be either a string or DatabaseSourceType enum, got {type(source_type)}"
+            )
 
         database_path = None  # Final database path to pass to SQLTool
 
