@@ -64,6 +64,7 @@ class AgentFactory:
         description: Text,
         instructions: Optional[Text] = None,
         llm: Optional[Union[LLM, Text]] = None,
+        llm_id: Optional[Text] = None,
         tools: Optional[List[Union[Tool, Model]]] = None,
         api_key: Text = config.TEAM_API_KEY,
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
@@ -72,7 +73,6 @@ class AgentFactory:
         workflow_tasks: Optional[List[WorkflowTask]] = None,
         output_format: Optional[OutputFormat] = None,
         expected_output: Optional[Union[BaseModel, Text, dict]] = None,
-        **kwargs,
     ) -> Agent:
         """Create a new agent in the platform.
 
@@ -86,6 +86,7 @@ class AgentFactory:
             description (Text): description of the agent instructions.
             instructions (Text): instructions of the agent.
             llm (Optional[Union[LLM, Text]], optional): LLM instance to use as an object or as an ID.
+            llm_id (Optional[Text], optional): ID of LLM to use if no LLM instance provided. Defaults to None.
             tools (List[Union[Tool, Model]], optional): list of tool for the agent. Defaults to [].
             api_key (Text, optional): team/user API key. Defaults to config.TEAM_API_KEY.
             supplier (Union[Dict, Text, Supplier, int], optional): owner of the agent. Defaults to "aiXplain".
@@ -94,23 +95,13 @@ class AgentFactory:
             workflow_tasks (List[WorkflowTask], optional): list of tasks for the agent. Defaults to [].
             output_format (OutputFormat, optional): default output format for agent responses. Defaults to OutputFormat.TEXT.
             expected_output (Union[BaseModel, Text, dict], optional): expected output. Defaults to None.
-            **kwargs: Additional keyword arguments.
+
         Returns:
             Agent: created Agent
         """
         tools = [] if tools is None else list(tools)
         workflow_tasks = [] if workflow_tasks is None else list(workflow_tasks)
         from aixplain.utils.llm_utils import get_llm_instance
-
-        # Extract llm_id from kwargs if present (deprecated parameter)
-        llm_id = kwargs.get("llm_id", None)
-        if llm_id is not None:
-            warnings.warn(
-                "The 'llm_id' parameter is deprecated and will be removed in a future version. "
-                "Use the 'llm' parameter instead by passing the LLM ID or LLM instance directly.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
 
         if llm is None and llm_id is not None:
             llm = get_llm_instance(llm_id, api_key=api_key, use_cache=True)

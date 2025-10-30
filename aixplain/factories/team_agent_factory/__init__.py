@@ -23,7 +23,6 @@ Description:
 
 import json
 import logging
-import warnings
 from typing import Dict, List, Optional, Text, Union
 from urllib.parse import urljoin
 
@@ -55,12 +54,15 @@ class TeamAgentFactory:
         cls,
         name: Text,
         agents: List[Union[Text, Agent]],
+        llm_id: Text = "669a63646eb56306647e1091",
         llm: Optional[Union[LLM, Text]] = None,
         supervisor_llm: Optional[Union[LLM, Text]] = None,
+        mentalist_llm: Optional[Union[LLM, Text]] = None,
         description: Text = "",
         api_key: Text = config.TEAM_API_KEY,
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
         version: Optional[Text] = None,
+        use_mentalist: bool = True,
         inspectors: List[Inspector] = [],
         inspector_targets: List[Union[InspectorTarget, Text]] = [InspectorTarget.STEPS],
         instructions: Optional[Text] = None,
@@ -73,57 +75,24 @@ class TeamAgentFactory:
         Args:
             name: The name of the team agent.
             agents: A list of agents to be added to the team.
+            llm_id: The ID of the LLM to be used for the team agent.
             llm (Optional[Union[LLM, Text]], optional): The LLM to be used for the team agent.
             supervisor_llm (Optional[Union[LLM, Text]], optional): Main supervisor LLM. Defaults to None.
+            mentalist_llm (Optional[Union[LLM, Text]], optional): LLM for planning. Defaults to None.
             description: The description of the team agent to be displayed in the aiXplain platform.
             api_key: The API key to be used for the team agent.
             supplier: The supplier of the team agent.
             version: The version of the team agent.
+            use_mentalist: Whether to use the mentalist agent.
             inspectors: A list of inspectors to be added to the team.
             inspector_targets: Which stages to be inspected during an execution of the team agent. (steps, output)
+            use_mentalist_and_inspector: Whether to use the mentalist and inspector agents. (legacy)
             instructions: The instructions to guide the team agent (i.e. appended in the prompt of the team agent).
             output_format: The output format to be used for the team agent.
             expected_output: The expected output to be used for the team agent.
         Returns:
             A new team agent instance.
-            
-        Deprecated Args:
-            llm_id: DEPRECATED. Use 'llm' parameter instead. The ID of the LLM to be used for the team agent.
-            mentalist_llm: DEPRECATED. LLM for planning.
-            use_mentalist: DEPRECATED. Whether to use the mentalist agent.
         """
-        # Handle deprecated parameters from kwargs
-        if "llm_id" in kwargs:
-            llm_id = kwargs.pop("llm_id")
-            warnings.warn(
-                "Parameter 'llm_id' is deprecated and will be removed in a future version. "
-                "Please use 'llm' parameter instead.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-        else:
-            llm_id = "669a63646eb56306647e1091"
-        
-        if "mentalist_llm" in kwargs:
-            mentalist_llm = kwargs.pop("mentalist_llm")
-            warnings.warn(
-                "Parameter 'mentalist_llm' is deprecated and will be removed in a future version.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-        else:
-            mentalist_llm = None
-        
-        if "use_mentalist" in kwargs:
-            use_mentalist = kwargs.pop("use_mentalist")
-            warnings.warn(
-                "Parameter 'use_mentalist' is deprecated and will be removed in a future version.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-        else:
-            use_mentalist = True
-        
         # legacy params
         if "use_mentalist_and_inspector" in kwargs:
             logging.warning(
