@@ -380,3 +380,64 @@ class Inspector(ModelWithParams):
             data.pop("policy_type", None)  # Remove the type indicator
 
         return super().model_validate(data)
+
+
+class VerificationInspector(Inspector):
+    """Pre-defined inspector that checks output against the plan.
+    
+    This inspector is designed to verify that the output aligns with the intended plan
+    and provides feedback when discrepancies are found. It uses a RERUN policy by default,
+    meaning it will request re-execution when issues are detected.
+    
+    Example usage:
+        from aixplain.modules.team_agent import VerificationInspector
+        
+        # Use with default model (GPT-4o or resolved_model_id)
+        inspector = VerificationInspector()
+        
+        # Or with custom model
+        inspector = VerificationInspector(model_id="your_model_id")
+        
+        team_agent = TeamAgent(
+            name="my_team",
+            agents=agents,
+            inspectors=[VerificationInspector()],
+            inspector_targets=[InspectorTarget.STEPS]
+        )
+    """
+    
+    def __init__(self, model_id: Optional[Text] = None, **kwargs):
+        """Initialize VerificationInspector with default configuration.
+        
+        Args:
+            model_id (Optional[Text]): Model ID to use. If not provided, uses auto configuration.
+            **kwargs: Additional arguments passed to Inspector parent class.
+        """
+        from aixplain.modules.model.response import ModelResponse
+        
+        # Replicate resolved_model_id logic from old implementation
+        resolved_model_id = model_id
+        if not resolved_model_id:
+            resolved_model_id = "6646261c6eb563165658bbb1"  # GPT_4o_ID
+        
+        def process_response(model_response: ModelResponse, input_content: str) -> InspectorOutput:
+            """Default policy that always requests rerun for verification."""
+            critiques = model_response.data
+            action = InspectorAction.RERUN
+            return InspectorOutput(critiques=critiques, content_edited=input_content, action=action)
+        
+        # Exact same default inspector configuration as old implementation
+        # Note: When auto=InspectorAuto.ALIGNMENT is set, Inspector.__init__ will override
+        # model_id with AUTO_DEFAULT_MODEL_ID
+        defaults = {
+            "name": "VerificationInspector",
+            "model_id": resolved_model_id,
+            "model_params": {"prompt": "Check the output against the plan"},
+            "policy": process_response,
+            "auto": InspectorAuto.ALIGNMENT
+        }
+        
+        # Override defaults with any provided kwargs
+        defaults.update(kwargs)
+        
+        super().__init__(**defaults)
