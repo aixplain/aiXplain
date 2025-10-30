@@ -132,8 +132,6 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         expected_output: Optional[Union[BaseModel, Text, dict]] = None,
         **additional_info,
     ) -> None:
-        """Initialize a TeamAgent instance.
-
         # Handle deprecated parameters from kwargs
         if "llm_id" in additional_info:
             llm_id = additional_info.pop("llm_id")
@@ -166,20 +164,19 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         else:
             use_mentalist = True
 
+        """Initialize a TeamAgent instance.
+
         Args:
             id (Text): Unique identifier for the team agent.
             name (Text): Name of the team agent.
             agents (List[Agent], optional): List of agents in the team. Defaults to [].
             description (Text, optional): Description of the team agent. Defaults to "".
-            llm_id (Text, optional): ID of the language model. Defaults to "6646261c6eb563165658bbb1".
             llm (Optional[LLM], optional): LLM instance. Defaults to None.
             supervisor_llm (Optional[LLM], optional): Supervisor LLM instance. Defaults to None.
-            mentalist_llm (Optional[LLM], optional): Mentalist/Planner LLM instance. Defaults to None.
             api_key (Optional[Text], optional): API key. Defaults to config.TEAM_API_KEY.
             supplier (Union[Dict, Text, Supplier, int], optional): Supplier. Defaults to "aiXplain".
             version (Optional[Text], optional): Version. Defaults to None.
             cost (Optional[Dict], optional): Cost information. Defaults to None.
-            use_mentalist (bool, optional): Whether to use mentalist/planner. Defaults to True.
             inspectors (List[Inspector], optional): List of inspectors. Defaults to [].
             inspector_targets (List[InspectorTarget], optional): Inspector targets. Defaults to [InspectorTarget.STEPS].
             status (AssetStatus, optional): Status of the team agent. Defaults to AssetStatus.DRAFT.
@@ -187,6 +184,11 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             output_format (OutputFormat, optional): Output format. Defaults to OutputFormat.TEXT.
             expected_output (Optional[Union[BaseModel, Text, dict]], optional): Expected output format. Defaults to None.
             **additional_info: Additional keyword arguments.
+            
+        Deprecated Args:
+            llm_id (Text, optional): DEPRECATED. Use 'llm' parameter instead. ID of the language model. Defaults to "6646261c6eb563165658bbb1".
+            mentalist_llm (Optional[LLM], optional): DEPRECATED. Mentalist/Planner LLM instance. Defaults to None.
+            use_mentalist (bool, optional): DEPRECATED. Whether to use mentalist/planner. Defaults to True.
         """
         super().__init__(id, name, description, api_key, supplier, version, cost=cost)
         self.additional_info = additional_info
@@ -1068,19 +1070,20 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             name=data["name"],
             agents=agents,
             description=data.get("description", ""),
-            llm_id=data.get("llmId", "6646261c6eb563165658bbb1"),
             llm=llm,
             supervisor_llm=supervisor_llm,
-            mentalist_llm=mentalist_llm,
             supplier=data.get("supplier", "aiXplain"),
             version=data.get("version"),
-            use_mentalist=use_mentalist,
             status=status,
             instructions=data.get("instructions"),
             inspectors=inspectors,
             inspector_targets=inspector_targets,
             output_format=OutputFormat(data.get("outputFormat", OutputFormat.TEXT)),
             expected_output=data.get("expectedOutput"),
+            # Pass deprecated params via kwargs
+            llm_id=data.get("llmId", "6646261c6eb563165658bbb1"),
+            mentalist_llm=mentalist_llm,
+            use_mentalist=use_mentalist,
         )
 
     def _validate(self) -> None:
