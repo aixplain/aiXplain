@@ -15,6 +15,7 @@ import json
 
 CACHE_FOLDER = ".cache"
 
+
 def pytest_generate_tests(metafunc):
     if "llm_model" in metafunc.fixturenames:
         four_weeks_ago = datetime.now(timezone.utc) - timedelta(weeks=4)
@@ -41,7 +42,6 @@ def pytest_generate_tests(metafunc):
 
 def test_llm_run(llm_model):
     """Testing LLMs with history context"""
-
     assert isinstance(llm_model, LLM)
     response = llm_model.run(
         data="What is my name?",
@@ -166,7 +166,11 @@ def test_index_model_with_filter(embedding_model, supplier_params):
     for _ in range(retries):
         try:
             index_model.upsert(
-                [Record(value="The world is great", value_type="text", uri="", id="2", attributes={"category": "world"})]
+                [
+                    Record(
+                        value="The world is great", value_type="text", uri="", id="2", attributes={"category": "world"}
+                    )
+                ]
             )
             break
         except Exception:
@@ -185,7 +189,6 @@ def test_index_model_with_filter(embedding_model, supplier_params):
 
 def test_llm_run_with_file():
     """Testing LLM with local file input containing emoji"""
-
     # Create test file path
     test_file_path = Path(__file__).parent / "data" / "test_input.txt"
 
@@ -204,7 +207,6 @@ def test_llm_run_with_file():
 
 def test_aixplain_model_cache_creation():
     """Ensure AssetCache is triggered and cache is created."""
-
     cache_file = os.path.join(CACHE_FOLDER, "models.json")
 
     # Clean up cache before the test
@@ -232,7 +234,9 @@ def test_index_model_air_with_image():
     from aixplain.factories.index_factory.utils import AirParams
 
     params = AirParams(
-        name=f"Image Index {uuid4()}", description="Index for images", embedding_model=EmbeddingModel.JINA_CLIP_V2_MULTIMODAL
+        name=f"Image Index {uuid4()}",
+        description="Index for images",
+        embedding_model=EmbeddingModel.JINA_CLIP_V2_MULTIMODAL,
     )
 
     index_model = IndexFactory.create(params=params)
@@ -334,7 +338,9 @@ def test_index_model_with_txt_file():
 
     # Create index with OpenAI Ada 002 for text processing
     params = AirParams(
-        name=f"File Index {uuid4()}", description="Index for file processing", embedding_model=EmbeddingModel.OPENAI_ADA002
+        name=f"File Index {uuid4()}",
+        description="Index for file processing",
+        embedding_model=EmbeddingModel.OPENAI_ADA002,
     )
     index_model = IndexFactory.create(params=params)
 
@@ -368,7 +374,9 @@ def test_index_model_with_pdf_file():
 
     # Create index with OpenAI Ada 002 for text processing
     params = AirParams(
-        name=f"PDF Index {uuid4()}", description="Index for PDF processing", embedding_model=EmbeddingModel.OPENAI_ADA002
+        name=f"PDF Index {uuid4()}",
+        description="Index for PDF processing",
+        embedding_model=EmbeddingModel.OPENAI_ADA002,
     )
     index_model = IndexFactory.create(params=params)
 
@@ -506,3 +514,15 @@ def test_delete_records_by_date(setup_index_with_test_records):
     response = index_model.retrieve_records_with_filter(filter_all)
     assert response.status == "SUCCESS"
     assert len(response.details) == 2
+
+
+def test_index_model_with_score_threshold(setup_index_with_test_records):
+    """Testing Index Model with score threshold"""
+    index_model = setup_index_with_test_records
+    response = index_model.search("technology", score_threshold=0.0)
+    assert response.status == "SUCCESS"
+    assert len(response.details) == 5
+
+    response = index_model.search("technology", score_threshold=1.0)
+    assert response.status == "SUCCESS"
+    assert len(response.details) == 0
