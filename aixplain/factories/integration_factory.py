@@ -1,3 +1,9 @@
+"""Integration factory for creating and managing Integration models.
+
+This module provides the IntegrationFactory class which handles the creation,
+retrieval, and management of Integration models in the aiXplain platform.
+"""
+
 __author__ = "thiagocastroferreira"
 
 import aixplain.utils.config as config
@@ -17,14 +23,22 @@ class IntegrationFactory(ModelGetterMixin, ModelListMixin):
     Attributes:
         backend_url: The URL of the backend API endpoint.
     """
+
     backend_url = config.BACKEND_URL
 
     @classmethod
-    def get(cls, model_id: Text, api_key: Optional[Text] = None, use_cache: bool = False) -> Integration:
-        """Retrieves a specific Integration model by its ID.
+    def get(
+        cls,
+        model_id: Optional[Text] = None,
+        name: Optional[Text] = None,
+        api_key: Optional[Text] = None,
+        use_cache: bool = False,
+    ) -> Integration:
+        """Retrieves a specific Integration model by its ID or name.
 
         Args:
-            model_id (Text): The unique identifier of the Integration model.
+            model_id (Optional[Text], optional): The unique identifier of the Integration model.
+            name (Optional[Text], optional): The name of the Integration model.
             api_key (Optional[Text], optional): API key for authentication. Defaults to None.
             use_cache (bool, optional): Whether to use cached data. Defaults to False.
 
@@ -32,10 +46,14 @@ class IntegrationFactory(ModelGetterMixin, ModelListMixin):
             Integration: The retrieved Integration model.
 
         Raises:
-            AssertionError: If the provided ID does not correspond to an Integration model.
+            AssertionError: If the provided ID/name does not correspond to an Integration model.
+            ValueError: If neither model_id nor name is provided, or if both are provided.
         """
-        model = super().get(model_id=model_id, api_key=api_key)
-        assert isinstance(model, Integration), f"The provided ID ('{model_id}') is not from an integration model"
+        model = super().get(model_id=model_id, name=name, api_key=api_key, use_cache=use_cache)
+        identifier = model_id or name
+        assert isinstance(model, Integration), (
+            f"The provided identifier ('{identifier}') is not from an integration model"
+        )
         return model
 
     @classmethod
