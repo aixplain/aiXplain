@@ -541,6 +541,7 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
                     error_message="No response from the service.",
                 )
                 logging.error(f"Polling for Agent: polling for {name}: {e}")
+                return response_body
                 break
 
         # Display completion message
@@ -659,8 +660,8 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
             result = self.sync_poll(
                 poll_url, name=name, timeout=timeout, wait_time=wait_time, progress_verbosity=progress_verbosity
             )
-            # if result.status == ResponseStatus.FAILED:
-            #    raise Exception("Model failed to run with error: " + result.error_message)
+            if result.status == ResponseStatus.FAILED:
+               raise Exception("Model failed to run with error: " + result.error_message)
             result_data = result.get("data") or {}
             return AgentResponse(
                 status=ResponseStatus.SUCCESS,
