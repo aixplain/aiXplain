@@ -16,8 +16,6 @@ team = TeamAgent(
     name="team"
     agents=agents,
     description="team description",
-    llm_id="xyz",
-    use_mentalist=True,
     inspectors=[inspector],
 )
 """
