@@ -10,12 +10,11 @@ from aixplain.modules.agent import Agent
 from aixplain.modules.agent.agent_task import AgentTask
 from aixplain.modules.agent.tool.model_tool import ModelTool
 from aixplain.modules.team_agent import TeamAgent, InspectorTarget
-from aixplain.modules.team_agent.inspector import Inspector, InspectorAction, InspectorAuto, InspectorPolicy, InspectorOutput
+from aixplain.modules.team_agent.inspector import Inspector
 from aixplain.factories.agent_factory import AgentFactory
 from aixplain.factories.model_factory import ModelFactory
 from aixplain.modules.model.model_parameters import ModelParameters
 from aixplain.modules.agent.output_format import OutputFormat
-from aixplain.modules.model.response import ModelResponse
 
 GPT_4o_ID = "6646261c6eb563165658bbb1"
 SUPPORTED_TOOLS = ["llm", "website_search", "website_scrape", "website_crawl", "serper_search"]
@@ -155,51 +154,6 @@ def build_team_agent(payload: Dict, agents: List[Agent] = None, api_key: Text = 
                 elif tool["description"] == "mentalist":
                     mentalist_llm = llm
 
-    resolved_model_id = payload.get("llmId", None)
-    if not resolved_model_id:
-        resolved_model_id = GPT_4o_ID
-    has_quality_check = any(
-        (getattr(ins, "name", "") or "").lower() == "qualitycheckinspector"
-        for ins in inspectors
-    )
-    if not has_quality_check:
-        try:
-            def process_response(model_response: ModelResponse, input_content: str) -> InspectorOutput:
-                critiques = model_response.data
-                action = InspectorAction.RERUN
-                return InspectorOutput(critiques=critiques, content_edited=input_content, action=action)
-
-            default_inspector = Inspector(
-                name="QualityCheckInspector",
-                model_id=resolved_model_id,
-                model_params={"prompt": "Analyze content to ensure correctness of response"},
-                policy=process_response,
-                auto=InspectorAuto.ALIGNMENT
-            )
-
-            inspectors = [default_inspector] + inspectors
-            inspector_targets = payload.get("inspectorTargets", inspector_targets if 'inspector_targets' in locals() else [])
-            if isinstance(inspector_targets, (str, InspectorTarget)):
-                inspector_targets = [inspector_targets]
-            normalized = []
-            for t in inspector_targets:
-                if isinstance(t, InspectorTarget):
-                    normalized.append(t)
-                elif isinstance(t, str):
-                    try:
-                        normalized.append(InspectorTarget(t.lower()))
-                    except Exception:
-                        logging.warning(f"Ignoring unknown inspector target: {t!r}")
-                else:
-                    logging.warning(f"Ignoring inspector target with unexpected type: {type(t)}")
-
-            if InspectorTarget.STEPS not in normalized:
-                normalized.append(InspectorTarget.STEPS)
-
-            inspector_targets = normalized 
-
-        except Exception as e:
-            logging.warning(f"Failed to add default QualityCheckInspector: {e}")
 
     team_agent = TeamAgent(
         id=payload.get("id", ""),
