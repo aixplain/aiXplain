@@ -247,7 +247,7 @@ def test_add_remove_agents_from_team_agent(run_input_map, delete_agents_and_team
 def test_team_agent_tasks(delete_agents_and_team_agents):
     assert delete_agents_and_team_agents
     agent = AgentFactory.create(
-        name="Teste",
+        name="Test Sub Agent",
         description="You are a test agent that always returns the same answer",
         tools=[
             AgentFactory.create_model_tool(function=Function.TRANSLATION, supplier=Supplier.MICROSOFT),
@@ -268,13 +268,13 @@ def test_team_agent_tasks(delete_agents_and_team_agents):
     )
 
     team_agent = TeamAgentFactory.create(
-        name="Teste",
+        name="Test Multi Agent",
         agents=[agent],
         description="Teste",
     )
     response = team_agent.run(data="Translate 'teste'")
     assert response.status == "SUCCESS"
-    assert "teste" in response.data["output"]
+    assert "test" in response.data["output"]
 
 
 def test_team_agent_with_parameterized_agents(run_input_map, delete_agents_and_team_agents):
@@ -538,6 +538,7 @@ def test_team_agent_with_slack_connector():
         authentication_schema=AuthenticationSchema.BEARER_TOKEN,
         data={"token": os.getenv("SLACK_TOKEN")},
     )
+
     connection_id = response.data["id"]
 
     connection = ModelFactory.get(connection_id)
