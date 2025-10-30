@@ -24,6 +24,7 @@ Description:
 """
 
 __author__ = "aiXplain"
+import inspect
 import json
 import logging
 import re
@@ -291,6 +292,279 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
             logging.error(f"Failed to initialize session {session_id}: {e}")
             return session_id
 
+    def _normalize_progress_data(self, progress: Dict) -> Dict:
+        """Normalize progress data from camelCase to snake_case.
+
+        Args:
+            progress (Dict): Progress data from backend (may use camelCase)
+
+        Returns:
+            Dict: Normalized progress data with snake_case keys
+        """
+        if not progress:
+            return progress
+
+        # Map camelCase to snake_case for known fields
+        normalized = {}
+        key_mapping = {
+            "toolInput": "tool_input",
+            "toolOutput": "tool_output",
+            "currentStep": "current_step",
+            "totalSteps": "total_steps",
+        }
+
+        for key, value in progress.items():
+            # Use mapped key if available, otherwise keep original
+            normalized_key = key_mapping.get(key, key)
+            normalized[normalized_key] = value
+
+        return normalized
+
+    def poll(self, poll_url: Text, name: Text = "model_process") -> "AgentResponse":
+        """Override poll to normalize progress data from camelCase to snake_case.
+
+        Args:
+            poll_url (Text): URL to poll for operation status.
+            name (Text, optional): Identifier for the operation. Defaults to "model_process".
+
+        Returns:
+            AgentResponse: Response with normalized progress data.
+        """
+        # Call parent poll method
+        response = super().poll(poll_url, name)
+
+        # Normalize progress data if present (stored in additional_fields)
+        if hasattr(response, "additional_fields") and isinstance(response.additional_fields, dict):
+            if "progress" in response.additional_fields and response.additional_fields["progress"]:
+                response.additional_fields["progress"] = self._normalize_progress_data(
+                    response.additional_fields["progress"]
+                )
+
+        return response
+
+    def _format_agent_progress(
+        self,
+        progress: Dict,
+        verbosity: Optional[str] = "full",
+    ) -> Optional[str]:
+        """Format agent progress message based on verbosity level.
+
+        Args:
+            progress (Dict): Progress data from polling response
+            verbosity (Optional[str]): "full", "compact", or None (disables output)
+
+        Returns:
+            Optional[str]: Formatted message or None
+        """
+        if verbosity is None:
+            return None
+
+        stage = progress.get("stage", "working")
+        tool = progress.get("tool")
+        runtime = progress.get("runtime")
+        success = progress.get("success")
+        reason = progress.get("reason", "")
+        tool_input = progress.get("tool_input", "")
+        tool_output = progress.get("tool_output", "")
+
+        # Determine status icon
+        if success is True:
+            status_icon = "✓"
+        elif success is False:
+            status_icon = "✗"
+        else:
+            status_icon = "⏳"
+
+        agent_name = self.name
+
+        if verbosity == "compact":
+            # Compact mode: minimal info
+            if tool:
+                msg = f"⚙️  {agent_name} | {tool} | {status_icon}"
+                if success is True and tool_output:
+                    output_str = str(tool_output)[:200]
+                    msg += f" {output_str}"
+                    msg += "..." if len(str(tool_output)) > 200 else ""
+            else:
+                stage_name = stage.replace("_", " ").title()
+                msg = f"🤖  {agent_name} | {status_icon} {stage_name}"
+        else:
+            # Full verbosity: detailed info
+            if tool:
+                msg = f"⚙️  {agent_name} | {tool} | {status_icon}"
+
+                if runtime is not None and runtime > 0 and success is not None:
+                    msg += f" ({runtime:.1f} s)"
+
+                if tool_input:
+                    msg += f" | Input: {tool_input}"
+
+                if tool_output:
+                    msg += f" | Output: {tool_output}"
+
+                if reason:
+                    msg += f" | Reason: {reason}"
+            else:
+                stage_name = stage.replace("_", " ").title()
+                msg = f"🤖  {agent_name} | {status_icon} {stage_name}"
+                if reason:
+                    msg += f" | {reason}"
+
+        return msg
+
+    def _format_completion_message(
+        self,
+        elapsed_time: float,
+        response_body: "AgentResponse",
+        timed_out: bool = False,
+        timeout: float = 300,
+        verbosity: Optional[str] = "full",
+    ) -> str:
+        """Format completion message with metrics.
+
+        Args:
+            elapsed_time (float): Total elapsed time in seconds
+            response_body (AgentResponse): Final response
+            timed_out (bool): Whether the operation timed out
+            timeout (float): Timeout value if timed out
+            verbosity (Optional[str]): "full" or "compact"
+
+        Returns:
+            str: Formatted completion message
+        """
+        if timed_out:
+            return f"✅ Done | ✗ Timeout - No response after {timeout}s"
+
+        # Collect metrics from execution_stats if available
+        total_api_calls = 0
+        total_credits = 0.0
+        runtime = elapsed_time
+
+        # Extract data dict (handle tuple or direct object)
+        data_dict = None
+        if hasattr(response_body, "data") and response_body.data:
+            if isinstance(response_body.data, tuple) and len(response_body.data) > 0:
+                # Data is a tuple, get first element
+                data_dict = response_body.data[0] if isinstance(response_body.data[0], dict) else None
+            elif isinstance(response_body.data, dict):
+                # Data is already a dict
+                data_dict = response_body.data
+            elif hasattr(response_body.data, "executionStats") or hasattr(response_body.data, "execution_stats"):
+                # Data is an object with attributes
+                exec_stats = getattr(response_body.data, "executionStats", None) or getattr(
+                    response_body.data, "execution_stats", None
+                )
+                if exec_stats and isinstance(exec_stats, dict):
+                    total_api_calls = exec_stats.get("api_calls", 0)
+                    total_credits = exec_stats.get("credits", 0.0)
+                    runtime = exec_stats.get("runtime", elapsed_time)
+
+        # Try to get metrics from data dict (camelCase fields from backend)
+        if data_dict and isinstance(data_dict, dict):
+            # Check executionStats first
+            exec_stats = data_dict.get("executionStats")
+            if exec_stats and isinstance(exec_stats, dict):
+                total_api_calls = exec_stats.get("api_calls", 0)
+                total_credits = exec_stats.get("credits", 0.0)
+                runtime = exec_stats.get("runtime", elapsed_time)
+
+            # Fallback: check top-level fields (usedCredits, runTime)
+            if total_credits == 0.0:
+                total_credits = data_dict.get("usedCredits", 0.0)
+            if runtime == elapsed_time:
+                runtime = data_dict.get("runTime", elapsed_time)
+
+        # Build single-line completion message with metrics
+        if verbosity == "compact":
+            msg = f"✅ Done | ({runtime:.1f} s total"
+        else:
+            msg = f"✅ Done | Completed successfully ({runtime:.1f} s total"
+
+        # Always show API calls and credits
+        if total_api_calls > 0:
+            msg += f" | {total_api_calls} API calls"
+        msg += f" | ${total_credits}"
+        msg += ")"
+
+        return msg
+
+    def sync_poll(
+        self,
+        poll_url: Text,
+        name: Text = "model_process",
+        wait_time: float = 0.5,
+        timeout: float = 300,
+        progress_verbosity: Optional[str] = "compact",
+    ) -> "AgentResponse":
+        """Poll the platform until agent execution completes or times out.
+
+        Args:
+            poll_url (Text): URL to poll for operation status.
+            name (Text, optional): Identifier for the operation. Defaults to "model_process".
+            wait_time (float, optional): Initial wait time in seconds between polls. Defaults to 0.5.
+            timeout (float, optional): Maximum total time to poll in seconds. Defaults to 300.
+            progress_verbosity (Optional[str], optional): Progress display mode - "full" (detailed), "compact" (brief), or None (no progress). Defaults to "compact".
+
+        Returns:
+            AgentResponse: The final response from the agent execution.
+        """
+        logging.info(f"Polling for Agent: Start polling for {name}")
+        start, end = time.time(), time.time()
+        wait_time = max(wait_time, 0.2)
+        completed = False
+        response_body = AgentResponse(status=ResponseStatus.FAILED, completed=False)
+        last_message = None  # Track last message to avoid duplicates
+
+        while not completed and (end - start) < timeout:
+            try:
+                response_body = self.poll(poll_url, name=name)
+                completed = response_body["completed"]
+
+                # Display progress inline if enabled
+                if progress_verbosity and not completed:
+                    progress = response_body.get("progress")
+                    if progress:
+                        msg = self._format_agent_progress(progress, progress_verbosity)
+                        if msg and msg != last_message:
+                            print(msg, flush=True)
+                            last_message = msg
+
+                end = time.time()
+                if completed is False:
+                    time.sleep(wait_time)
+                    if wait_time < 60:
+                        wait_time *= 1.1
+            except Exception as e:
+                response_body = AgentResponse(
+                    status=ResponseStatus.FAILED,
+                    completed=False,
+                    error_message="No response from the service.",
+                )
+                logging.error(f"Polling for Agent: polling for {name}: {e}")
+                return response_body
+                break
+
+        # Display completion message
+        if progress_verbosity:
+            elapsed_time = end - start
+            timed_out = response_body["completed"] is not True
+            completion_msg = self._format_completion_message(
+                elapsed_time, response_body, timed_out, timeout, progress_verbosity
+            )
+            print(completion_msg, flush=True)
+
+        if response_body["completed"] is True:
+            logging.debug(f"Polling for Agent: Final status of polling for {name}: {response_body}")
+        else:
+            response_body = AgentResponse(
+                status=ResponseStatus.FAILED,
+                completed=False,
+                error_message="No response from the service.",
+            )
+            logging.error(f"Polling for Agent: Final status of polling for {name}: No response in {timeout} seconds")
+
+        return response_body
+
     def run(
         self,
         data: Optional[Union[Dict, Text]] = None,
@@ -304,9 +578,9 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
         content: Optional[Union[Dict[Text, Text], List[Text]]] = None,
         max_tokens: int = 4096,
         max_iterations: int = 5,
-        output_format: Optional[OutputFormat] = None,
-        expected_output: Optional[Union[BaseModel, Text, dict]] = None,
         trace_request: bool = False,
+        progress_verbosity: Optional[str] = "compact",
+        **kwargs,
     ) -> AgentResponse:
         """Runs an agent call.
 
@@ -322,14 +596,35 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
             content (Union[Dict[Text, Text], List[Text]], optional): Content inputs to be processed according to the query. Defaults to None.
             max_tokens (int, optional): maximum number of tokens which can be generated by the agent. Defaults to 2048.
             max_iterations (int, optional): maximum number of iterations between the agent and the tools. Defaults to 10.
-            output_format (OutputFormat, optional): response format. If not provided, uses the format set during initialization.
-            expected_output (Union[BaseModel, Text, dict], optional): expected output. Defaults to None.
             trace_request (bool, optional): return the request id for tracing the request. Defaults to False.
+            progress_verbosity (Optional[str], optional): Progress display mode - "full" (detailed), "compact" (brief), or None (no progress). Defaults to "compact".
+            **kwargs: Additional keyword arguments.
 
         Returns:
             Dict: parsed output from model
         """
         start = time.time()
+        
+        # Extract deprecated parameters from kwargs
+        output_format = kwargs.get("output_format", None)
+        expected_output = kwargs.get("expected_output", None)
+        
+        if output_format is not None:
+            warnings.warn(
+                "The 'output_format' parameter is deprecated and will be removed in a future version. "
+                "Set the output format during agent initialization instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        
+        if expected_output is not None:
+            warnings.warn(
+                "The 'expected_output' parameter is deprecated and will be removed in a future version. "
+                "Set the expected output during agent initialization instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        
         if session_id is not None and history is not None:
             raise ValueError("Provide either `session_id` or `history`, not both.")
 
@@ -362,9 +657,11 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
                 return response
             poll_url = response["url"]
             end = time.time()
-            result = self.sync_poll(poll_url, name=name, timeout=timeout, wait_time=wait_time)
-            # if result.status == ResponseStatus.FAILED:
-            #    raise Exception("Model failed to run with error: " + result.error_message)
+            result = self.sync_poll(
+                poll_url, name=name, timeout=timeout, wait_time=wait_time, progress_verbosity=progress_verbosity
+            )
+            if result.status == ResponseStatus.FAILED:
+               raise Exception("Model failed to run with error: " + result.error_message)
             result_data = result.get("data") or {}
             return AgentResponse(
                 status=ResponseStatus.SUCCESS,
@@ -450,7 +747,8 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
 
         if output_format == OutputFormat.JSON:
             assert expected_output is not None and (
-                issubclass(expected_output, BaseModel) or isinstance(expected_output, dict)
+                (inspect.isclass(expected_output) and issubclass(expected_output, BaseModel))
+                or isinstance(expected_output, dict)
             ), "Expected output must be a Pydantic BaseModel or a JSON object when output format is JSON."
 
         assert data is not None or query is not None, "Either 'data' or 'query' must be provided."

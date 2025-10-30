@@ -173,7 +173,8 @@ def build_team_agent(payload: Dict, agents: List[Agent] = None, api_key: Text = 
                 name="QualityCheckInspector",
                 model_id=resolved_model_id,
                 model_params={"prompt": "Analyze content to ensure correctness of response"},
-                policy=process_response
+                policy=process_response,
+                auto=InspectorAuto.ALIGNMENT
             )
 
             inspectors = [default_inspector] + inspectors
@@ -395,6 +396,6 @@ def build_team_agent_from_yaml(yaml_code: str, llm_id: str, api_key: str, team_i
         agents=agent_objs,
         llm=llm,
         api_key=api_key,
-        use_mentalist=True,
         inspectors=[],
+        use_mentalist=True,  # Deprecated parameter
     )
