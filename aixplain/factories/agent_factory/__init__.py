@@ -48,17 +48,6 @@ from urllib.parse import urljoin
 from aixplain.enums import DatabaseSourceType
 
 
-def to_literal_text(x):
-    """Convert value to literal text, escaping braces for string formatting.
-
-    Args:
-        x: Value to convert (dict, list, or any other type)
-
-    Returns:
-        str: Escaped string representation
-    """
-    s = json.dumps(x, ensure_ascii=False, indent=2) if isinstance(x, (dict, list)) else str(x)
-    return s.replace("{", "{{").replace("}", "}}")
 
 
 class AgentFactory:
@@ -157,8 +146,8 @@ class AgentFactory:
         payload = {
             "name": name,
             "assets": [build_tool_payload(tool) for tool in tools],
-            "description": to_literal_text(description),
-            "instructions": to_literal_text(instructions) if instructions is not None else description,
+            "description": description,
+            "instructions": instructions if instructions is not None else description,
             "supplier": supplier,
             "version": version,
             "llmId": llm_id,
