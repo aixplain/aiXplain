@@ -6,7 +6,7 @@ on:
       - main
       # any branch other than main, will use the test key
       - test
-  workflow_dispatch:  
+  workflow_dispatch:
 
 jobs:
   setup-and-test:
@@ -31,7 +31,8 @@ jobs:
           'finetune_v2',
           'general_assets',
           'apikey',
-          'agent_and_team_agent',
+          'agent',
+          'team_agent',
         ]
         include:
           - test-suite: 'unit'
@@ -85,7 +86,7 @@ jobs:
           - test-suite: 'team_agent'
             path: 'tests/functional/team_agent'
             timeout: 45
-          
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -95,7 +96,7 @@ jobs:
         with:
           python-version: "3.9"
           cache: 'pip'
-      
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
@@ -116,7 +117,7 @@ jobs:
           fi
           echo "SLACK_TOKEN=${{ secrets.SLACK_TOKEN }}" >> $GITHUB_ENV
           echo "HF_TOKEN=${{ secrets.HF_TOKEN }}" >> $GITHUB_ENV
-          
+
       - name: Run Tests
         timeout-minutes: ${{ matrix.timeout }}
         run: python -m pytest ${{ matrix.path }}
