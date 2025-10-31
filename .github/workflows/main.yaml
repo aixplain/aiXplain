@@ -79,9 +79,13 @@ jobs:
           - test-suite: 'apikey'
             path: 'tests/functional/apikey'
             timeout: 45
-          - test-suite: 'agent_and_team_agent'
-            path: 'tests/functional/agent tests/functional/team_agent'
+          - test-suite: 'agent'
+            path: 'tests/functional/agent'
             timeout: 45
+          - test-suite: 'team_agent'
+            path: 'tests/functional/team_agent'
+            timeout: 45
+          
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
