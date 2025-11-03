@@ -3,7 +3,10 @@ sidebar_label: python_interpreter_tool
 title: aixplain.modules.agent.tool.python_interpreter_tool
 ---
 
-#### \_\_author\_\_
+Python interpreter tool for aiXplain SDK agents.
+
+This module provides a tool that allows agents to execute Python code
+using an interpreter in a controlled environment.
 
 Copyright 2024 The aiXplain SDK authors
 
@@ -30,7 +33,7 @@ Description:
 class PythonInterpreterTool(Tool)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/tool/python_interpreter_tool.py#L30)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/tool/python_interpreter_tool.py#L34)
 
 A tool that provides a Python shell for executing Python commands.
 
@@ -50,7 +53,7 @@ and computation.
 def __init__(**additional_info) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/tool/python_interpreter_tool.py#L43)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/tool/python_interpreter_tool.py#L47)
 
 Initialize a new PythonInterpreterTool instance.
 
@@ -67,7 +70,7 @@ The tool is set to ONBOARDED status by default.
 def to_dict()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/tool/python_interpreter_tool.py#L56)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/tool/python_interpreter_tool.py#L60)
 
 Convert the tool instance to a dictionary representation.
 
@@ -84,7 +87,7 @@ Convert the tool instance to a dictionary representation.
 def validate()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/tool/python_interpreter_tool.py#L71)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/tool/python_interpreter_tool.py#L75)
 
 Validate the tool&#x27;s configuration.
 
@@ -97,24 +100,11 @@ configuration that doesn&#x27;t require validation.
 def __repr__() -> Text
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/tool/python_interpreter_tool.py#L79)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/tool/python_interpreter_tool.py#L83)
 
 Return a string representation of the tool.
 
 **Returns**:
 
 - `Text` - A string in the format &quot;PythonInterpreterTool()&quot;.
-
-#### deploy
-
-```python
-def deploy()
-```
-
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/tool/python_interpreter_tool.py#L87)
-
-Deploy the Python interpreter tool.
-
-This is a placeholder method as the Python interpreter tool is automatically
-available and doesn&#x27;t require explicit deployment.
 
