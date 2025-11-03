@@ -154,6 +154,7 @@ def build_team_agent(payload: Dict, agents: List[Agent] = None, api_key: Text = 
                 elif tool["description"] == "mentalist":
                     mentalist_llm = llm
 
+
     team_agent = TeamAgent(
         id=payload.get("id", ""),
         name=payload.get("name", ""),
@@ -349,6 +350,6 @@ def build_team_agent_from_yaml(yaml_code: str, llm_id: str, api_key: str, team_i
         agents=agent_objs,
         llm=llm,
         api_key=api_key,
-        use_mentalist=True,
         inspectors=[],
+        use_mentalist=True,  # Deprecated parameter
     )

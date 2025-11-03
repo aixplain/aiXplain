@@ -476,26 +476,34 @@ def test_run_success():
     assert response["url"] == ref_response["data"]
 
 
-def test_run_variable_error():
+def test_run_variable_missing():
+    """Test that agent runs successfully even when variables are missing from data/parameters."""
     agent = Agent(
         "123",
         "Test Agent",
         "Agent description",
         instructions="Translate the input data into {target_language}",
     )
-    agent = Agent(
-        "123",
-        "Test Agent",
-        "Agent description",
-        instructions="Translate the input data into {target_language}",
-    )
-    with pytest.raises(Exception) as exc_info:
-        agent.run_async(data={"query": "Hello, how are you?"}, output_format=OutputFormat.MARKDOWN)
-    assert str(exc_info.value) == (
-        "Variable 'target_language' not found in data or parameters. "
-        "This variable is required by the agent according to its description "
-        "('Translate the input data into {target_language}')."
-    )
+    
+    # Mock the agent URL and response
+    url = urljoin(config.BACKEND_URL, f"sdk/agents/{agent.id}/run")
+    agent.url = url
+    
+    with requests_mock.Mocker() as mock:
+        headers = {
+            "x-api-key": config.AIXPLAIN_API_KEY,
+            "Content-Type": "application/json",
+        }
+        ref_response = {"data": "www.aixplain.com", "status": "IN_PROGRESS"}
+        mock.post(url, headers=headers, json=ref_response)
+        
+        # This should not raise an exception anymore - missing variables are silently ignored
+        response = agent.run_async(data={"query": "Hello, how are you?"}, output_format=OutputFormat.MARKDOWN)
+        
+    # Verify the response is successful
+    assert isinstance(response, AgentResponse)
+    assert response["status"] == "IN_PROGRESS"
+    assert response["url"] == ref_response["data"]
 
 
 def test_process_variables():

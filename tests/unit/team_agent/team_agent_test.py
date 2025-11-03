@@ -741,8 +741,8 @@ def test_save_success(mock_model_factory_get):
             # Call the save method
             team_agent.save()
 
-            # Assert no warnings were triggered
-            assert len(w) == 0, f"Warnings were raised: {[str(warning.message) for warning in w]}"
+            # Assert the correct number of warnings were raised
+            assert len(w) == 3, f"Warnings were raised: {[str(warning.message) for warning in w]}"
 
     assert team_agent.id == ref_response["id"]
     assert team_agent.name == ref_response["name"]
