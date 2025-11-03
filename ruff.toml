@@ -20,6 +20,9 @@ select = ["D"]
 ignore = []
 extend-safe-fixes = []
 
+[lint.per-file-ignores]
+"tests/**/*.py" = ["D"]
+
 [lint.isort]
 known-first-party = ["src"]
 
