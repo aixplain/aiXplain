@@ -103,7 +103,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         instructions (Optional[Text]): Instructions to guide the team agent.
         output_format (OutputFormat): Response format. Defaults to TEXT.
         expected_output (Optional[Union[BaseModel, Text, dict]]): Expected output format.
-        
+
     Deprecated Attributes:
         llm_id (Text): DEPRECATED. Use 'llm' parameter instead. Large language model ID.
         mentalist_llm (Optional[LLM]): DEPRECATED. LLM for planning.
@@ -132,38 +132,6 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         expected_output: Optional[Union[BaseModel, Text, dict]] = None,
         **additional_info,
     ) -> None:
-        # Handle deprecated parameters from kwargs
-        if "llm_id" in additional_info:
-            llm_id = additional_info.pop("llm_id")
-            warnings.warn(
-                "Parameter 'llm_id' is deprecated and will be removed in a future version. "
-                "Please use 'llm' parameter instead.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-        else:
-            llm_id = "6646261c6eb563165658bbb1"
-        
-        if "mentalist_llm" in additional_info:
-            mentalist_llm = additional_info.pop("mentalist_llm")
-            warnings.warn(
-                "Parameter 'mentalist_llm' is deprecated and will be removed in a future version.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-        else:
-            mentalist_llm = None
-        
-        if "use_mentalist" in additional_info:
-            use_mentalist = additional_info.pop("use_mentalist")
-            warnings.warn(
-                "Parameter 'use_mentalist' is deprecated and will be removed in a future version.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-        else:
-            use_mentalist = True
-
         """Initialize a TeamAgent instance.
 
         Args:
@@ -184,12 +152,44 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             output_format (OutputFormat, optional): Output format. Defaults to OutputFormat.TEXT.
             expected_output (Optional[Union[BaseModel, Text, dict]], optional): Expected output format. Defaults to None.
             **additional_info: Additional keyword arguments.
-            
+
         Deprecated Args:
             llm_id (Text, optional): DEPRECATED. Use 'llm' parameter instead. ID of the language model. Defaults to "6646261c6eb563165658bbb1".
             mentalist_llm (Optional[LLM], optional): DEPRECATED. Mentalist/Planner LLM instance. Defaults to None.
             use_mentalist (bool, optional): DEPRECATED. Whether to use mentalist/planner. Defaults to True.
         """
+        # Handle deprecated parameters from kwargs
+        if "llm_id" in additional_info:
+            llm_id = additional_info.pop("llm_id")
+            warnings.warn(
+                "Parameter 'llm_id' is deprecated and will be removed in a future version. "
+                "Please use 'llm' parameter instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        else:
+            llm_id = "6646261c6eb563165658bbb1"
+
+        if "mentalist_llm" in additional_info:
+            mentalist_llm = additional_info.pop("mentalist_llm")
+            warnings.warn(
+                "Parameter 'mentalist_llm' is deprecated and will be removed in a future version.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        else:
+            mentalist_llm = None
+
+        if "use_mentalist" in additional_info:
+            use_mentalist = additional_info.pop("use_mentalist")
+            warnings.warn(
+                "Parameter 'use_mentalist' is deprecated and will be removed in a future version.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        else:
+            use_mentalist = True
+
         super().__init__(id, name, description, api_key, supplier, version, cost=cost)
         self.additional_info = additional_info
         self.agents = agents
@@ -368,9 +368,6 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         else:
             # Full verbosity: detailed info
             msg = f"{emoji}  {context} | {status_icon}"
-
-            if runtime is not None and runtime > 0 and success is not None:
-                msg += f" ({runtime:.1f} s)"
 
             if current_step and total_steps:
                 msg += f" | Step {current_step}/{total_steps}"
@@ -576,6 +573,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             max_iterations (int, optional): maximum number of iterations between the agents. Defaults to 30.
             trace_request (bool, optional): return the request id for tracing the request. Defaults to False.
             progress_verbosity (Optional[str], optional): Progress display mode - "full" (detailed), "compact" (brief), or None (no progress). Defaults to "compact".
+            **kwargs: Additional deprecated keyword arguments (output_format, expected_output).
 
         Returns:
             AgentResponse: parsed output from model
@@ -589,7 +587,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                 DeprecationWarning,
                 stacklevel=2,
             )
-        
+
         expected_output = kwargs.pop("expected_output", None)
         if expected_output is not None:
             warnings.warn(
@@ -598,7 +596,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                 DeprecationWarning,
                 stacklevel=2,
             )
-        
+
         start = time.time()
         result_data = {}
         if session_id is not None and history is not None:
