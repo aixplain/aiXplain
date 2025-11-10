@@ -103,7 +103,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         instructions (Optional[Text]): Instructions to guide the team agent.
         output_format (OutputFormat): Response format. Defaults to TEXT.
         expected_output (Optional[Union[BaseModel, Text, dict]]): Expected output format.
-        
+
     Deprecated Attributes:
         llm_id (Text): DEPRECATED. Use 'llm' parameter instead. Large language model ID.
         mentalist_llm (Optional[LLM]): DEPRECATED. LLM for planning.
@@ -132,6 +132,32 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         expected_output: Optional[Union[BaseModel, Text, dict]] = None,
         **additional_info,
     ) -> None:
+        """Initialize a TeamAgent instance.
+
+        Args:
+            id (Text): Unique identifier for the team agent.
+            name (Text): Name of the team agent.
+            agents (List[Agent], optional): List of agents in the team. Defaults to [].
+            description (Text, optional): Description of the team agent. Defaults to "".
+            llm (Optional[LLM], optional): LLM instance. Defaults to None.
+            supervisor_llm (Optional[LLM], optional): Supervisor LLM instance. Defaults to None.
+            api_key (Optional[Text], optional): API key. Defaults to config.TEAM_API_KEY.
+            supplier (Union[Dict, Text, Supplier, int], optional): Supplier. Defaults to "aiXplain".
+            version (Optional[Text], optional): Version. Defaults to None.
+            cost (Optional[Dict], optional): Cost information. Defaults to None.
+            inspectors (List[Inspector], optional): List of inspectors. Defaults to [].
+            inspector_targets (List[InspectorTarget], optional): Inspector targets. Defaults to [InspectorTarget.STEPS].
+            status (AssetStatus, optional): Status of the team agent. Defaults to AssetStatus.DRAFT.
+            instructions (Optional[Text], optional): Instructions for the team agent. Defaults to None.
+            output_format (OutputFormat, optional): Output format. Defaults to OutputFormat.TEXT.
+            expected_output (Optional[Union[BaseModel, Text, dict]], optional): Expected output format. Defaults to None.
+            **additional_info: Additional keyword arguments.
+
+        Deprecated Args:
+            llm_id (Text, optional): DEPRECATED. Use 'llm' parameter instead. ID of the language model. Defaults to "6646261c6eb563165658bbb1".
+            mentalist_llm (Optional[LLM], optional): DEPRECATED. Mentalist/Planner LLM instance. Defaults to None.
+            use_mentalist (bool, optional): DEPRECATED. Whether to use mentalist/planner. Defaults to True.
+        """
         # Handle deprecated parameters from kwargs
         if "llm_id" in additional_info:
             llm_id = additional_info.pop("llm_id")
@@ -143,7 +169,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             )
         else:
             llm_id = "6646261c6eb563165658bbb1"
-        
+
         if "mentalist_llm" in additional_info:
             mentalist_llm = additional_info.pop("mentalist_llm")
             warnings.warn(
@@ -153,7 +179,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             )
         else:
             mentalist_llm = None
-        
+
         if "use_mentalist" in additional_info:
             use_mentalist = additional_info.pop("use_mentalist")
             warnings.warn(
@@ -369,9 +395,6 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             # Full verbosity: detailed info
             msg = f"{emoji}  {context} | {status_icon}"
 
-            if runtime is not None and runtime > 0 and success is not None:
-                msg += f" ({runtime:.1f} s)"
-
             if current_step and total_steps:
                 msg += f" | Step {current_step}/{total_steps}"
 
@@ -576,6 +599,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             max_iterations (int, optional): maximum number of iterations between the agents. Defaults to 30.
             trace_request (bool, optional): return the request id for tracing the request. Defaults to False.
             progress_verbosity (Optional[str], optional): Progress display mode - "full" (detailed), "compact" (brief), or None (no progress). Defaults to "compact".
+            **kwargs: Additional deprecated keyword arguments (output_format, expected_output).
 
         Returns:
             AgentResponse: parsed output from model
@@ -589,7 +613,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                 DeprecationWarning,
                 stacklevel=2,
             )
-        
+
         expected_output = kwargs.pop("expected_output", None)
         if expected_output is not None:
             warnings.warn(
@@ -598,7 +622,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                 DeprecationWarning,
                 stacklevel=2,
             )
-        
+
         start = time.time()
         result_data = {}
         if session_id is not None and history is not None:

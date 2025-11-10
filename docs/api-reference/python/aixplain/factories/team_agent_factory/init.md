@@ -30,7 +30,7 @@ Description:
 class TeamAgentFactory()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/team_agent_factory/__init__.py#L42)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/team_agent_factory/__init__.py#L43)
 
 Factory class for creating and managing team agents.
 
@@ -64,7 +64,7 @@ def create(cls,
            **kwargs) -> TeamAgent
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/team_agent_factory/__init__.py#L52)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/team_agent_factory/__init__.py#L53)
 
 Create a new team agent in the platform.
 
@@ -99,7 +99,7 @@ Create a new team agent in the platform.
 def create_from_dict(cls, dict: Dict) -> TeamAgent
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/team_agent_factory/__init__.py#L263)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/team_agent_factory/__init__.py#L264)
 
 Create a team agent from a dictionary representation.
 
@@ -133,7 +133,7 @@ the agent&#x27;s configuration.
 def list(cls) -> Dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/team_agent_factory/__init__.py#L290)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/team_agent_factory/__init__.py#L291)
 
 List all team agents available in the platform.
 
@@ -158,19 +158,23 @@ using the configured API key.
 
 ```python
 @classmethod
-def get(cls, agent_id: Text, api_key: Optional[Text] = None) -> TeamAgent
+def get(cls,
+        agent_id: Optional[Text] = None,
+        name: Optional[Text] = None,
+        api_key: Optional[Text] = None) -> TeamAgent
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/team_agent_factory/__init__.py#L337)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/team_agent_factory/__init__.py#L343)
 
-Retrieve a team agent by its ID.
+Retrieve a team agent by its ID or name.
 
 This method fetches a specific team agent from the platform using its
-unique identifier.
+unique identifier or name.
 
 **Arguments**:
 
-- `agent_id` _Text_ - Unique identifier of the team agent to retrieve.
+- `agent_id` _Optional[Text], optional_ - Unique identifier of the team agent to retrieve.
+- `name` _Optional[Text], optional_ - Name of the team agent to retrieve.
 - `api_key` _Optional[Text], optional_ - API key for authentication.
   Defaults to None, using the configured TEAM_API_KEY.
   
@@ -183,8 +187,9 @@ unique identifier.
 **Raises**:
 
 - `Exception` - If:
-  - Team agent ID is invalid
+  - Team agent ID/name is invalid
   - Authentication fails
   - Service is unavailable
   - Other API errors occur
+- `ValueError` - If neither agent_id nor name is provided, or if both are provided.
 

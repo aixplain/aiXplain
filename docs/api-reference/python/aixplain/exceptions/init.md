@@ -16,14 +16,14 @@ def get_error_from_status_code(status_code: int,
                                ) -> AixplainBaseException
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/exceptions/__init__.py#L21)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/exceptions/__init__.py#L35)
 
 Map HTTP status codes to appropriate exception types.
 
 **Arguments**:
 
 - `status_code` _int_ - The HTTP status code to map.
-- `default_message` _str, optional_ - The default message to use if no specific message is available.
+- `error_details` _str, optional_ - Additional error details to include in the message.
   
 
 **Returns**:
