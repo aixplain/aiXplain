@@ -132,6 +132,16 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         expected_output: Optional[Union[BaseModel, Text, dict]] = None,
         **additional_info,
     ) -> None:
+        # Define supported kwargs
+        supported_kwargs = {"llm_id", "mentalist_llm", "use_mentalist"}
+        
+        # Validate kwargs - raise error if unsupported kwargs are provided
+        unsupported_kwargs = set(additional_info.keys()) - supported_kwargs
+        if unsupported_kwargs:
+            raise ValueError(
+                f"Unsupported keyword argument(s): {', '.join(sorted(unsupported_kwargs))}. "
+                f"Supported kwargs are: {', '.join(sorted(supported_kwargs))}."
+            )
         # Handle deprecated parameters from kwargs
         if "llm_id" in additional_info:
             llm_id = additional_info.pop("llm_id")
