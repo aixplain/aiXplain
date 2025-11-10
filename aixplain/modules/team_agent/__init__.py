@@ -190,6 +190,32 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         else:
             use_mentalist = True
 
+        """Initialize a TeamAgent instance.
+
+        Args:
+            id (Text): Unique identifier for the team agent.
+            name (Text): Name of the team agent.
+            agents (List[Agent], optional): List of agents in the team. Defaults to [].
+            description (Text, optional): Description of the team agent. Defaults to "".
+            llm (Optional[LLM], optional): LLM instance. Defaults to None.
+            supervisor_llm (Optional[LLM], optional): Supervisor LLM instance. Defaults to None.
+            api_key (Optional[Text], optional): API key. Defaults to config.TEAM_API_KEY.
+            supplier (Union[Dict, Text, Supplier, int], optional): Supplier. Defaults to "aiXplain".
+            version (Optional[Text], optional): Version. Defaults to None.
+            cost (Optional[Dict], optional): Cost information. Defaults to None.
+            inspectors (List[Inspector], optional): List of inspectors. Defaults to [].
+            inspector_targets (List[InspectorTarget], optional): Inspector targets. Defaults to [InspectorTarget.STEPS].
+            status (AssetStatus, optional): Status of the team agent. Defaults to AssetStatus.DRAFT.
+            instructions (Optional[Text], optional): Instructions for the team agent. Defaults to None.
+            output_format (OutputFormat, optional): Output format. Defaults to OutputFormat.TEXT.
+            expected_output (Optional[Union[BaseModel, Text, dict]], optional): Expected output format. Defaults to None.
+            **additional_info: Additional keyword arguments.
+            
+        Deprecated Args:
+            llm_id (Text, optional): DEPRECATED. Use 'llm' parameter instead. ID of the language model. Defaults to "6646261c6eb563165658bbb1".
+            mentalist_llm (Optional[LLM], optional): DEPRECATED. Mentalist/Planner LLM instance. Defaults to None.
+            use_mentalist (bool, optional): DEPRECATED. Whether to use mentalist/planner. Defaults to True.
+        """
         super().__init__(id, name, description, api_key, supplier, version, cost=cost)
         self.additional_info = additional_info
         self.agents = agents
