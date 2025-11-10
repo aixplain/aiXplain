@@ -393,9 +393,6 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
             if tool:
                 msg = f"⚙️  {agent_name} | {tool} | {status_icon}"
 
-                if runtime is not None and runtime > 0 and success is not None:
-                    msg += f" ({runtime:.1f} s)"
-
                 if tool_input:
                     msg += f" | Input: {tool_input}"
 
@@ -619,7 +616,7 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
         # Extract deprecated parameters from kwargs
         output_format = kwargs.get("output_format", None)
         expected_output = kwargs.get("expected_output", None)
-        
+
         if output_format is not None:
             warnings.warn(
                 "The 'output_format' parameter is deprecated and will be removed in a future version. "
@@ -627,7 +624,7 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
                 DeprecationWarning,
                 stacklevel=2,
             )
-        
+
         if expected_output is not None:
             warnings.warn(
                 "The 'expected_output' parameter is deprecated and will be removed in a future version. "
@@ -635,7 +632,7 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
                 DeprecationWarning,
                 stacklevel=2,
             )
-        
+
         if session_id is not None and history is not None:
             raise ValueError("Provide either `session_id` or `history`, not both.")
 
@@ -672,7 +669,7 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
                 poll_url, name=name, timeout=timeout, wait_time=wait_time, progress_verbosity=progress_verbosity
             )
             if result.status == ResponseStatus.FAILED:
-               raise Exception("Model failed to run with error: " + result.error_message)
+                raise Exception("Model failed to run with error: " + result.error_message)
             result_data = result.get("data") or {}
             return AgentResponse(
                 status=ResponseStatus.SUCCESS,

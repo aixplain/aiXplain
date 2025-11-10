@@ -23,7 +23,7 @@ limitations under the License.
 def dict_to_metadata(metadatas: List[Union[Dict, MetaData]]) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/utils/convert_datatype_utils.py#L21)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/utils/convert_datatype_utils.py#L22)
 
 Convert all the Dicts to MetaData
 

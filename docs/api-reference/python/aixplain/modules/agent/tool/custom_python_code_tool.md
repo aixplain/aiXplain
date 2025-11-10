@@ -3,7 +3,10 @@ sidebar_label: custom_python_code_tool
 title: aixplain.modules.agent.tool.custom_python_code_tool
 ---
 
-#### \_\_author\_\_
+Custom Python code tool for aiXplain SDK agents.
+
+This module provides a tool that allows agents to execute custom Python code
+in a controlled environment.
 
 Copyright 2024 The aiXplain SDK authors
 
@@ -30,7 +33,7 @@ Description:
 class CustomPythonCodeTool(Tool)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/tool/custom_python_code_tool.py#L31)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/tool/custom_python_code_tool.py#L35)
 
 A tool for executing custom Python code in the aiXplain platform.
 
@@ -52,7 +55,7 @@ def __init__(code: Union[Text, Callable],
              **additional_info) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/tool/custom_python_code_tool.py#L43)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/tool/custom_python_code_tool.py#L47)
 
 Initialize a new CustomPythonCodeTool instance.
 
@@ -75,7 +78,7 @@ Initialize a new CustomPythonCodeTool instance.
 def to_dict()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/tool/custom_python_code_tool.py#L65)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/tool/custom_python_code_tool.py#L69)
 
 Convert the tool instance to a dictionary representation.
 
@@ -95,7 +98,7 @@ Convert the tool instance to a dictionary representation.
 def validate()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/tool/custom_python_code_tool.py#L86)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/tool/custom_python_code_tool.py#L90)
 
 Validate the tool&#x27;s configuration and code.
 
@@ -115,24 +118,11 @@ This method performs several checks:
 def __repr__() -> Text
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/tool/custom_python_code_tool.py#L123)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/tool/custom_python_code_tool.py#L127)
 
 Return a string representation of the tool.
 
 **Returns**:
 
 - `Text` - A string in the format &quot;CustomPythonCodeTool(name=&lt;tool_name&gt;)&quot;.
-
-#### deploy
-
-```python
-def deploy()
-```
-
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/tool/custom_python_code_tool.py#L131)
-
-Deploy the custom Python code tool.
-
-This is a placeholder method as custom Python code tools are automatically
-deployed when created.
 
