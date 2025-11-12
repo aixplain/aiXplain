@@ -1,0 +1,4 @@
+[
+    {"name": "rouge", "id": "65e1d5ac95487dea3023a0b8", "hypothesis": "test", "reference": "test", "score": 1.0},
+    {"name": "overlap f1", "id": "66df3e2d6eb56336b6628171", "hypothesis": "test", "reference": "test", "score": 1.0}
+]
