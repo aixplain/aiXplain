@@ -112,7 +112,16 @@ class AgentFactory:
         tools = [] if tools is None else list(tools)
         workflow_tasks = [] if workflow_tasks is None else list(workflow_tasks)
         from aixplain.utils.llm_utils import get_llm_instance
-
+        # Define supported kwargs
+        supported_kwargs = {"llm_id"}
+        
+        # Validate kwargs - raise error if unsupported kwargs are provided
+        unsupported_kwargs = set(kwargs.keys()) - supported_kwargs
+        if unsupported_kwargs:
+            raise ValueError(
+                f"Unsupported keyword argument(s): {', '.join(sorted(unsupported_kwargs))}. "
+                f"Supported kwargs are: {', '.join(sorted(supported_kwargs))}."
+            )
         # Extract llm_id from kwargs if present (deprecated parameter)
         llm_id = kwargs.get("llm_id", None)
         if llm_id is not None:

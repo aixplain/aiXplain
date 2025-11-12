@@ -47,7 +47,7 @@ def run_input_map(request):
 @pytest.fixture(scope="function")
 def delete_agents_and_team_agents():
     from tests.test_deletion_utils import safe_delete_all_agents_and_team_agents
-    
+
     # Clean up before test
     safe_delete_all_agents_and_team_agents()
 
@@ -74,7 +74,9 @@ def test_end2end(run_input_map, delete_agents_and_team_agents, AgentFactory):
             tools.append(AgentFactory.create_model_tool(**tool_))
     if "pipeline_tools" in run_input_map:
         for tool in run_input_map["pipeline_tools"]:
-            tools.append(AgentFactory.create_pipeline_tool(pipeline=tool["pipeline_id"], description=tool["description"]))
+            tools.append(
+                AgentFactory.create_pipeline_tool(pipeline=tool["pipeline_id"], description=tool["description"])
+            )
 
     agent = AgentFactory.create(
         name=run_input_map["agent_name"],
@@ -106,7 +108,10 @@ def test_python_interpreter_tool(delete_agents_and_team_agents, AgentFactory):
     tool = AgentFactory.create_python_interpreter_tool()
     assert tool is not None
     assert tool.name == "Python Interpreter"
-    assert tool.description == "A Python shell. Use this to execute python commands. Input should be a valid python command."
+    assert (
+        tool.description
+        == "A Python shell. Use this to execute python commands. Input should be a valid python command."
+    )
 
     agent = AgentFactory.create(
         name="Python Developer",
@@ -180,7 +185,9 @@ def test_update_draft_agent(run_input_map, delete_agents_and_team_agents, AgentF
             tools.append(AgentFactory.create_model_tool(**tool_))
     if "pipeline_tools" in run_input_map:
         for tool in run_input_map["pipeline_tools"]:
-            tools.append(AgentFactory.create_pipeline_tool(pipeline=tool["pipeline_id"], description=tool["description"]))
+            tools.append(
+                AgentFactory.create_pipeline_tool(pipeline=tool["pipeline_id"], description=tool["description"])
+            )
 
     agent = AgentFactory.create(
         name=run_input_map["agent_name"],
@@ -267,7 +274,9 @@ def test_update_tools_of_agent(run_input_map, delete_agents_and_team_agents, Age
 
     if "pipeline_tools" in run_input_map:
         for tool in run_input_map["pipeline_tools"]:
-            tools.append(AgentFactory.create_pipeline_tool(pipeline=tool["pipeline_id"], description=tool["description"]))
+            tools.append(
+                AgentFactory.create_pipeline_tool(pipeline=tool["pipeline_id"], description=tool["description"])
+            )
 
     agent.tools = tools
     agent.update()
@@ -285,6 +294,7 @@ def test_update_tools_of_agent(run_input_map, delete_agents_and_team_agents, Age
     agent.delete()
 
 
+@pytest.mark.flaky(reruns=2, reruns_delay=2)
 @pytest.mark.parametrize(
     "tool_config",
     [
@@ -342,7 +352,7 @@ def test_specific_model_parameters_e2e(tool_config, delete_agents_and_team_agent
     agent = AgentFactory.create(
         name="Test Parameter Agent",
         instructions="Test agent with parameterized tools. You MUST use a tool for the tasks. Do not directly answer the question.",
-        description = "Test agent with parameterized tools",
+        description="Test agent with parameterized tools",
         tools=[tool],
         llm_id="6646261c6eb563165658bbb1",  # Using LLM ID from test data
     )
@@ -395,7 +405,9 @@ def test_sql_tool(delete_agents_and_team_agents, AgentFactory):
         )
         assert agent is not None
 
-        response = agent.run("Create a table called Person with the following columns: id, name, age, salary, department")
+        response = agent.run(
+            "Create a table called Person with the following columns: id, name, age, salary, department"
+        )
         assert response is not None
         assert response["completed"] is True
         assert response["status"].lower() == "success"

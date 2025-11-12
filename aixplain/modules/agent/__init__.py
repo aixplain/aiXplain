@@ -601,7 +601,18 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
             Dict: parsed output from model
         """
         start = time.time()
-
+        
+        # Define supported kwargs
+        supported_kwargs = {"output_format", "expected_output"}
+        
+        # Validate kwargs - raise error if unsupported kwargs are provided
+        unsupported_kwargs = set(kwargs.keys()) - supported_kwargs
+        if unsupported_kwargs:
+            raise ValueError(
+                f"Unsupported keyword argument(s): {', '.join(sorted(unsupported_kwargs))}. "
+                f"Supported kwargs are: {', '.join(sorted(supported_kwargs))}."
+            )
+        
         # Extract deprecated parameters from kwargs
         output_format = kwargs.get("output_format", None)
         expected_output = kwargs.get("expected_output", None)

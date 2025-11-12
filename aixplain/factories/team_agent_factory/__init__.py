@@ -92,6 +92,16 @@ class TeamAgentFactory:
             mentalist_llm: DEPRECATED. LLM for planning.
             use_mentalist: DEPRECATED. Whether to use the mentalist agent.
         """
+        # Define supported kwargs
+        supported_kwargs = {"llm_id", "mentalist_llm", "use_mentalist"}
+        
+        # Validate kwargs - raise error if unsupported kwargs are provided
+        unsupported_kwargs = set(kwargs.keys()) - supported_kwargs
+        if unsupported_kwargs:
+            raise ValueError(
+                f"Unsupported keyword argument(s): {', '.join(sorted(unsupported_kwargs))}. "
+                f"Supported kwargs are: {', '.join(sorted(supported_kwargs))}."
+            )
         # Handle deprecated parameters from kwargs
         if "llm_id" in kwargs:
             llm_id = kwargs.pop("llm_id")
