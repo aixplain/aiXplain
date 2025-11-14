@@ -95,7 +95,7 @@ def test_model_supplier(ModelFactory):
 @pytest.mark.parametrize(
     "model_ids,model_names",
     [
-        (("674728f51ed8e18fd8a1383f", "669a63646eb56306647e1091"), ("Yi-Large", "GPT-4o Mini")),
+        (("67be216bd8f6a65d6f74d5e9", "669a63646eb56306647e1091"), ("Anthropic Claude 3.7 Sonnet", "GPT-4o Mini")),
     ],
 )
 @pytest.mark.parametrize("ModelFactory", [ModelFactory, v2.Model])

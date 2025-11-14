@@ -25,6 +25,18 @@ from typing import Dict
 
 
 class FinetuneCost:
+    """A class representing the cost structure for a fine-tuning job.
+
+    This class encapsulates the cost information for training, inference, and hosting
+    components of a fine-tuning job. It provides methods to convert the cost data
+    into a dictionary format for serialization.
+
+    Attributes:
+        training (Dict): Dictionary containing training cost information.
+        inference (Dict): Dictionary containing inference cost information.
+        hosting (Dict): Dictionary containing hosting cost information.
+    """
+
     def __init__(
         self,
         training: Dict,

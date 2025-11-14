@@ -6,7 +6,7 @@ on:
       - main
       # any branch other than main, will use the test key
       - test
-  workflow_dispatch:  
+  workflow_dispatch:
 
 jobs:
   setup-and-test:
@@ -31,7 +31,8 @@ jobs:
           'finetune_v2',
           'general_assets',
           'apikey',
-          'agent_and_team_agent',
+          'agent',
+          'team_agent',
         ]
         include:
           - test-suite: 'unit'
@@ -79,9 +80,13 @@ jobs:
           - test-suite: 'apikey'
             path: 'tests/functional/apikey'
             timeout: 45
-          - test-suite: 'agent_and_team_agent'
-            path: 'tests/functional/agent tests/functional/team_agent'
+          - test-suite: 'agent'
+            path: 'tests/functional/agent'
             timeout: 45
+          - test-suite: 'team_agent'
+            path: 'tests/functional/team_agent'
+            timeout: 45
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -89,9 +94,9 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.8"
+          python-version: "3.9"
           cache: 'pip'
-      
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
@@ -99,7 +104,7 @@ jobs:
 
       - name: Set environment variables
         run: |
-          if [ "${{ github.ref_name }}" = "refs/heads/main" ]; then
+          if [ "${{ github.ref_name }}" = "main" ]; then
             echo "TEAM_API_KEY=${{ secrets.TEAM_API_KEY_PROD }}" >> $GITHUB_ENV
             echo "BACKEND_URL=https://platform-api.aixplain.com" >> $GITHUB_ENV
             echo "MODELS_RUN_URL=https://models.aixplain.com/api/v1/execute" >> $GITHUB_ENV
@@ -111,7 +116,8 @@ jobs:
             echo "PIPELINES_RUN_URL=https://test-platform-api.aixplain.com/assets/pipeline/execution/run" >> $GITHUB_ENV
           fi
           echo "SLACK_TOKEN=${{ secrets.SLACK_TOKEN }}" >> $GITHUB_ENV
-          
+          echo "HF_TOKEN=${{ secrets.HF_TOKEN }}" >> $GITHUB_ENV
+
       - name: Run Tests
         timeout-minutes: ${{ matrix.timeout }}
         run: python -m pytest ${{ matrix.path }}

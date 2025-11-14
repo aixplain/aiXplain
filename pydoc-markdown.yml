@@ -1,0 +1,26 @@
+# pydoc-markdown.yml   – works with 4.8.2
+loaders:
+  - type: python
+    search_path: ["./"]
+    packages: ["aixplain"]
+
+renderer:
+  type: docusaurus
+  docs_base_path: docs
+  relative_output_path: api-reference/python
+  relative_sidebar_path: api_sidebar.js
+  sidebar_top_level_label: "Python API reference"
+  markdown:
+    source_linker:
+      type: github
+      repo: aixplain/aiXplain
+      use_branch: true
+    header_level_by_type:
+      Module:   2
+      Class:    3
+      Function: 4
+      Method:   4
+
+hooks:
+  post-render:
+    - python3 post_process_docs.py
