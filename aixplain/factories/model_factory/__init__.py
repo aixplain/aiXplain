@@ -52,6 +52,7 @@ class ModelFactory(ModelGetterMixin, ModelListMixin):
         description: Optional[Text] = None,
         output_examples: Text = "",
         api_key: Optional[Text] = None,
+        **kwargs
     ) -> UtilityModel:
         """Create a new utility model for custom functionality.
 
@@ -77,7 +78,10 @@ class ModelFactory(ModelGetterMixin, ModelListMixin):
         Raises:
             Exception: If model creation fails or validation fails.
         """
-        api_key = config.TEAM_API_KEY if api_key is None else api_key
+        api_key = (
+            kwargs.get("api_key", config.TEAM_API_KEY) 
+            if api_key is None else api_key
+        )
         utility_model = UtilityModel(
             id="",
             name=name,
@@ -94,7 +98,8 @@ class ModelFactory(ModelGetterMixin, ModelListMixin):
         headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
         try:
             logging.info(
-                f"Start service for POST Utility Model - {url} - {headers} - {payload}"
+                f"Start service for POST Utility Model - {url} - {headers} - "
+                f"{payload}"
             )
             r = _request_with_retry("post", url, headers=headers, json=payload)
             resp = r.json()
@@ -105,16 +110,22 @@ class ModelFactory(ModelGetterMixin, ModelListMixin):
         if 200 <= r.status_code < 300:
             utility_model.id = resp["id"]
             logging.info(
-                f"Utility Model Creation: Model {utility_model.id} instantiated."
+                f"Utility Model Creation: Model {utility_model.id} "
+                f"instantiated."
             )
             return utility_model
         else:
-            error_message = f"Utility Model Creation: Failed to create utility model. Status Code: {r.status_code}. Error: {resp}"
+            error_message = (
+                f"Utility Model Creation: Failed to create utility model. "
+                f"Status Code: {r.status_code}. Error: {resp}"
+            )
             logging.error(error_message)
             raise Exception(error_message)
 
     @classmethod
-    def list_host_machines(cls, api_key: Optional[Text] = None) -> List[Dict]:
+    def list_host_machines(
+        cls, api_key: Optional[Text] = None, **kwargs
+    ) -> List[Dict]:
         """Lists available hosting machines for model.
 
         Args:
@@ -126,13 +137,11 @@ class ModelFactory(ModelGetterMixin, ModelListMixin):
         """
         machines_url = urljoin(config.BACKEND_URL, "sdk/hosting-machines")
         logging.debug(f"URL: {machines_url}")
-        if api_key:
-            headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
-        else:
-            headers = {
-                "x-api-key": f"{config.TEAM_API_KEY}",
-                "Content-Type": "application/json",
-            }
+        api_key = (
+            kwargs.get("api_key", config.TEAM_API_KEY) 
+            if api_key is None else api_key
+        )
+        headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
         response = _request_with_retry("get", machines_url, headers=headers)
         response_dicts = json.loads(response.text)
         for dictionary in response_dicts:
@@ -140,7 +149,9 @@ class ModelFactory(ModelGetterMixin, ModelListMixin):
         return response_dicts
 
     @classmethod
-    def list_gpus(cls, api_key: Optional[Text] = None) -> List[List[Text]]:
+    def list_gpus(
+        cls, api_key: Optional[Text] = None, **kwargs
+    ) -> List[List[Text]]:
         """List GPU names on which you can host your language model.
 
         Args:
@@ -150,23 +161,22 @@ class ModelFactory(ModelGetterMixin, ModelListMixin):
             List[List[Text]]: List of all available GPUs and their prices.
         """
         gpu_url = urljoin(config.BACKEND_URL, "sdk/model-onboarding/gpus")
-        if api_key:
-            headers = {
-                "Authorization": f"Token {api_key}",
-                "Content-Type": "application/json",
-            }
-        else:
-            headers = {
-                "Authorization": f"Token {config.TEAM_API_KEY}",
-                "Content-Type": "application/json",
-            }
+        api_key = (
+            kwargs.get("api_key", config.TEAM_API_KEY) 
+            if api_key is None else api_key
+        )
+        headers = {
+            "Authorization": f"Token {api_key}",
+            "Content-Type": "application/json",
+        }
         response = _request_with_retry("get", gpu_url, headers=headers)
         response_list = json.loads(response.text)
         return response_list
 
     @classmethod
     def list_functions(
-        cls, verbose: Optional[bool] = False, api_key: Optional[Text] = None
+        cls, verbose: Optional[bool] = False, api_key: Optional[Text] = None, 
+        **kwargs
     ) -> List[Dict]:
         """Lists supported model functions on platform.
 
@@ -181,13 +191,11 @@ class ModelFactory(ModelGetterMixin, ModelListMixin):
         """
         functions_url = urljoin(config.BACKEND_URL, "sdk/functions")
         logging.debug(f"URL: {functions_url}")
-        if api_key:
-            headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
-        else:
-            headers = {
-                "x-api-key": f"{config.TEAM_API_KEY}",
-                "Content-Type": "application/json",
-            }
+        api_key = (
+            kwargs.get("api_key", config.TEAM_API_KEY) 
+            if api_key is None else api_key
+        )
+        headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
         response = _request_with_retry("get", functions_url, headers=headers)
         response_dict = json.loads(response.text)
         if verbose:
@@ -215,6 +223,7 @@ class ModelFactory(ModelGetterMixin, ModelListMixin):
         output_modality: Text,
         documentation_url: Optional[Text] = "",
         api_key: Optional[Text] = None,
+        **kwargs
     ) -> Dict:
         """Create a new model repository in the platform.
 
@@ -241,7 +250,8 @@ class ModelFactory(ModelGetterMixin, ModelListMixin):
             AssertionError: If response status code is not 201.
         """
         # Reconcile function name to be function ID in the backend
-        function_list = cls.list_functions(True, config.TEAM_API_KEY)["items"]
+        api_key = kwargs.get("api_key", config.TEAM_API_KEY) if api_key is None else api_key
+        function_list = cls.list_functions(True, api_key)["items"]
         function_id = None
         for function_dict in function_list:
             if function_dict["name"] == function:
@@ -250,13 +260,7 @@ class ModelFactory(ModelGetterMixin, ModelListMixin):
             raise Exception(f"Invalid function name {function}")
         create_url = urljoin(config.BACKEND_URL, "sdk/models/onboard")
         logging.debug(f"URL: {create_url}")
-        if api_key:
-            headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
-        else:
-            headers = {
-                "x-api-key": f"{config.TEAM_API_KEY}",
-                "Content-Type": "application/json",
-            }
+        headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
 
         payload = {
             "model": {
@@ -281,7 +285,7 @@ class ModelFactory(ModelGetterMixin, ModelListMixin):
         return response.json()
 
     @classmethod
-    def asset_repo_login(cls, api_key: Optional[Text] = None) -> Dict:
+    def asset_repo_login(cls, api_key: Optional[Text] = None, **kwargs) -> Dict:
         """Return login credentials for the image repository that corresponds with
         the given API_KEY.
 
@@ -293,16 +297,11 @@ class ModelFactory(ModelGetterMixin, ModelListMixin):
         """
         login_url = urljoin(config.BACKEND_URL, "sdk/ecr/login")
         logging.debug(f"URL: {login_url}")
-        if api_key:
-            headers = {
-                "Authorization": f"Token {api_key}",
-                "Content-Type": "application/json",
-            }
-        else:
-            headers = {
-                "Authorization": f"Token {config.TEAM_API_KEY}",
-                "Content-Type": "application/json",
-            }
+        api_key = kwargs.get("api_key", config.TEAM_API_KEY) if api_key is None else api_key
+        headers = {
+            "Authorization": f"Token {api_key}",
+            "Content-Type": "application/json",
+        }
         response = _request_with_retry("post", login_url, headers=headers)
         response_dict = json.loads(response.text)
         return response_dict
@@ -315,6 +314,7 @@ class ModelFactory(ModelGetterMixin, ModelListMixin):
         image_hash: Text,
         host_machine: Optional[Text] = "",
         api_key: Optional[Text] = None,
+        **kwargs
     ) -> Dict:
         """Onboard a model after its image has been pushed to ECR.
 
@@ -329,13 +329,8 @@ class ModelFactory(ModelGetterMixin, ModelListMixin):
         """
         onboard_url = urljoin(config.BACKEND_URL, f"sdk/models/{model_id}/onboarding")
         logging.debug(f"URL: {onboard_url}")
-        if api_key:
-            headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
-        else:
-            headers = {
-                "x-api-key": f"{config.TEAM_API_KEY}",
-                "Content-Type": "application/json",
-            }
+        api_key = kwargs.get("api_key", config.TEAM_API_KEY) if api_key is None else api_key
+        headers = {"x-api-key": f"{api_key}", "Content-Type": "application/json"}
         payload = {"image": image_tag, "sha": image_hash, "hostMachine": host_machine}
         logging.debug(f"Body: {str(payload)}")
         response = _request_with_retry(
@@ -356,6 +351,7 @@ class ModelFactory(ModelGetterMixin, ModelListMixin):
         revision: Optional[Text] = "",
         hf_token: Optional[Text] = "",
         api_key: Optional[Text] = None,
+        **kwargs
     ) -> Dict:
         """Deploy a model from Hugging Face Hub to the aiXplain platform.
 
@@ -377,16 +373,11 @@ class ModelFactory(ModelGetterMixin, ModelListMixin):
         """
         supplier, model_name = hf_repo_id.split("/")
         deploy_url = urljoin(config.BACKEND_URL, "sdk/model-onboarding/onboard")
-        if api_key:
-            headers = {
-                "Authorization": f"Token {api_key}",
-                "Content-Type": "application/json",
-            }
-        else:
-            headers = {
-                "Authorization": f"Token {config.TEAM_API_KEY}",
-                "Content-Type": "application/json",
-            }
+        api_key = kwargs.get("api_key", config.TEAM_API_KEY) if api_key is None else api_key
+        headers = {
+            "Authorization": f"Token {api_key}",
+            "Content-Type": "application/json",
+        }
         body = {
             "model": {
                 "name": name,
@@ -411,8 +402,8 @@ class ModelFactory(ModelGetterMixin, ModelListMixin):
 
     @classmethod
     def get_huggingface_model_status(
-        cls, model_id: Text, api_key: Optional[Text] = None
-    ) -> Dict:
+        cls, model_id: Text, api_key: Optional[Text] = None, **kwargs
+    ):
         """Check the deployment status of a Hugging Face model.
 
         This method retrieves the current status and details of a deployed
@@ -431,16 +422,11 @@ class ModelFactory(ModelGetterMixin, ModelListMixin):
                 - pricing: Pricing information
         """
         status_url = urljoin(config.BACKEND_URL, f"sdk/models/{model_id}")
-        if api_key:
-            headers = {
-                "Authorization": f"Token {api_key}",
-                "Content-Type": "application/json",
-            }
-        else:
-            headers = {
-                "Authorization": f"Token {config.TEAM_API_KEY}",
-                "Content-Type": "application/json",
-            }
+        api_key = kwargs.get("api_key", config.TEAM_API_KEY) if api_key is None else api_key
+        headers = {
+            "Authorization": f"Token {api_key}",
+            "Content-Type": "application/json",
+        }
         response = _request_with_retry("get", status_url, headers=headers)
         logging.debug(response.text)
         response_dicts = json.loads(response.text)
