@@ -22,10 +22,10 @@ team = TeamAgent(
 
 import inspect
 from enum import Enum
-from typing import Dict, Optional, Text, Union, Callable
+from typing import Dict, Optional, Text, Union, Callable, Any, List
 
 import textwrap
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, Field
 
 from aixplain.modules.agent.model_with_params import ModelWithParams
 from aixplain.modules.model.response import ModelResponse
@@ -42,16 +42,55 @@ class InspectorAction(str, Enum):
     CONTINUE = "continue"
     RERUN = "rerun"
     ABORT = "abort"
+    EDIT = "edit"
 
 
-class InspectorOutput(BaseModel):
+class InspectorSeverity(str, Enum):
+    """Severity levels for inspector findings."""
+
+    CRITICAL = "critical"  
+    HIGH = "high"        
+    MEDIUM = "medium"      
+    LOW = "low"          
+    INFO = "info"       
+
+
+class InspectorActionConfig(BaseModel):
     """
-    Inspector's output.
+    Configuration for what the inspector should do when a violation is detected.
     """
 
-    critiques: Text
-    content_edited: Text
-    action: InspectorAction
+    type: InspectorAction
+    max_retries: Optional[int] = None    
+    on_exhaust: Optional[Text] = "abort"   
+    editors: Optional[List[Any]] = None      
+
+    @classmethod
+    def continue_(cls) -> "InspectorActionConfig":
+        return cls(type=InspectorAction.CONTINUE)
+
+    @classmethod
+    def abort(cls) -> "InspectorActionConfig":
+        return cls(type=InspectorAction.ABORT)
+
+    @classmethod
+    def rerun(
+        cls,
+        max_retries: int = 3,
+        on_exhaust: Text = "abort",
+    ) -> "InspectorActionConfig":
+        return cls(
+            type=InspectorAction.RERUN,
+            max_retries=max_retries,
+            on_exhaust=on_exhaust,
+        )
+
+    @classmethod
+    def edit(cls, editors: Union[Any, List[Any]]) -> "InspectorActionConfig":
+        if not isinstance(editors, list):
+            editors = [editors]
+        return cls(type=InspectorAction.EDIT, editors=editors)
+
 
 
 class InspectorAuto(str, Enum):
@@ -71,61 +110,32 @@ class InspectorAuto(str, Enum):
         return "inspector_" + self.value
 
 
-class InspectorPolicy(str, Enum):
-    """Which action to take if the inspector gives negative feedback."""
-
-    WARN = "warn"  # log only, continue execution
-    ABORT = "abort"  # stop execution
-    ADAPTIVE = "adaptive"  # adjust execution according to feedback
-
-
-def validate_policy_callable(policy_func: Callable) -> bool:
-    """Validate that the policy callable meets the required constraints."""
-    # Check function name
-    if policy_func.__name__ != "process_response":
-        return False
-
-    # Get function signature
-    sig = inspect.signature(policy_func)
-    params = list(sig.parameters.keys())
-
-    # Check arguments - should have exactly 2 parameters: model_response and input_content
-    if len(params) != 2 or params[0] != "model_response" or params[1] != "input_content":
-        return False
-
-    # Check return type annotation - should return InspectorOutput
-    return_annotation = sig.return_annotation
-    if return_annotation != InspectorOutput:
-        return False
-
-    return True
-
-
-def callable_to_code_string(policy_func: Callable) -> str:
+def callable_to_code_string(func: Callable) -> str:
     """Convert a callable policy function to a code string for serialization."""
     try:
-        source_code = get_policy_source(policy_func)
-        if source_code is None:
-            # If we can't get the source code, create a minimal representation
-            sig = inspect.signature(policy_func)
-            return f"def process_response{str(sig)}:\n    # Function source not available\n    pass"
-
-        # Dedent the source code to remove leading whitespace
+        if hasattr(func, "_source_code"):
+            source_code = func._source_code
+        else:
+            source_code = inspect.getsource(func)
         source_code = textwrap.dedent(source_code)
         return source_code
     except (OSError, TypeError):
-        # If we can't get the source code, create a minimal representation
-        sig = inspect.signature(policy_func)
-        return f"def process_response{str(sig)}:\n    # Function source not available\n    pass"
+        sig = inspect.signature(func)
+        return f"def {func.__name__}{str(sig)}:\n    # Function source not available\n    pass"
+    
 
-
-def code_string_to_callable(code_string: str) -> Callable:
+def code_string_to_callable(
+    code_string: str,
+    func_name: str,
+    validator: Optional[Callable[[Callable], bool]] = None,
+    extra_namespace: Optional[Dict[str, Any]] = None,
+) -> Callable:
     """Convert a code string back to a callable function for deserialization."""
-    try:
-        # Create a namespace to execute the code
-        namespace = {
-            "InspectorAction": InspectorAction,
-            "InspectorOutput": InspectorOutput,
+
+    # Create a namespace to execute the code
+    namespace = {
+            "InspectorActionConfig": InspectorActionConfig,
+            "ModelResponse": ModelResponse,
             "ModelResponse": ModelResponse,
             "str": str,
             "int": int,
@@ -233,46 +243,55 @@ def code_string_to_callable(code_string: str) -> Callable:
             "BaseException": BaseException,
         }
 
-        # Execute the code string in the namespace
-        exec(code_string, namespace)
+    if extra_namespace:
+        namespace.update(extra_namespace)
 
-        # Get the function from the namespace
-        if "process_response" not in namespace:
-            raise ValueError("Code string must define a function named 'process_response'")
-
-        func = namespace["process_response"]
-
-        # Store the original source code as an attribute for later retrieval
-        func._source_code = code_string
-
-        # Validate the function
-        if not validate_policy_callable(func):
-            raise ValueError("Deserialized function does not meet the required constraints")
-
-        return func
-    except Exception as e:
-        raise ValueError(f"Failed to deserialize code string to callable: {e}")
-
-
-def get_policy_source(func: Callable) -> Optional[str]:
-    """Get the source code of a policy function.
-
-    This function tries to retrieve the source code of a policy function.
-    It first checks if the function has a stored _source_code attribute (for functions
-    created via code_string_to_callable), then falls back to inspect.getsource().
-
-    Args:
-        func: The function to get source code for
-
-    Returns:
-        The source code string if available, None otherwise
-    """
-    if hasattr(func, "_source_code"):
-        return func._source_code
     try:
-        return inspect.getsource(func)
-    except (OSError, TypeError):
-        return None
+        exec(code_string, namespace)
+    except Exception as e:
+        raise ValueError(f"Failed to execute code_string for {func_name}: {e}")
+
+    if func_name not in namespace or not callable(namespace[func_name]):
+        raise ValueError(f"Code string must define a callable named '{func_name}'")
+
+    func = namespace[func_name]
+    func._source_code = code_string 
+
+    if validator and not validator(func):
+        raise ValueError(f"Deserialized callable '{func_name}' does not meet required constraints")
+
+    return func
+
+
+def validate_evaluator_callable(func: Callable) -> bool:
+    """
+    Evaluator must have signature (content: str) -> Any.
+    We keep return type flexible (bool/str/dict/etc.).
+    """
+    sig = inspect.signature(func)
+    params = list(sig.parameters.values())
+
+    if len(params) != 1:
+        return False
+    return True
+
+
+def validate_action_callable(func: Callable) -> bool:
+    """
+    Action must have signature (evaluation_result, content: str) -> InspectorActionConfig.
+    """
+    sig = inspect.signature(func)
+    params = list(sig.parameters.values())
+
+    if len(params) != 2:
+        return False
+
+    ret = sig.return_annotation
+    if ret is not inspect.Signature.empty and ret is not InspectorActionConfig:
+        return False
+
+    return True
+
 
 
 class Inspector(ModelWithParams):
@@ -282,18 +301,31 @@ class Inspector(ModelWithParams):
 
     Attributes:
         name: The name of the inspector.
-        model_id: The ID of the model to wrap.
-        model_params: The configuration for the model.
-        policy: The policy for the inspector. Can be InspectorPolicy enum or a callable function.
-               If callable, must have name "process_response", arguments "model_response" and "input_content" (both strings),
-               and return InspectorAction. Default is ADAPTIVE.
+        - description (Text):  Human-readable documentation (optional)
+        - evaluator:           What checks content:
+                               * underlying model (model_id + model_params)
+                               * OR a Python callable(content) -> bool | str | dict
+                               * OR None for "always edit"
+        - evaluator_prompt:    Extra instructions for LLM evaluators (optional)
+        - action:              What to do on issues:
+                               * InspectorActionConfig
+                               * OR callable(evaluation_result, content) -> InspectorActionConfig
+        - severity:            Severity level (critical|high|medium|low|info)
+        - auto:                Auto inspector type (ALIGNMENT|CORRECTNESS) – keeps v1 behavior
     """
 
     name: Text
-    model_params: Optional[Dict] = None
+    description: Optional[Text] = None
+    evaluator: Optional[Callable[[Text], Union[bool, Text, Dict]]] = None
+    evaluator_prompt: Optional[Text] = None
+    action: Union[InspectorActionConfig, Callable[[Any, Text], InspectorActionConfig]] = Field(
+        default_factory=InspectorActionConfig.rerun  # default RERUN(max_retries=3, on_exhaust="abort")
+    )
+    severity: Optional[InspectorSeverity] = None
     auto: Optional[InspectorAuto] = None
-    policy: Union[InspectorPolicy, Callable] = InspectorPolicy.ADAPTIVE
 
+    model_params: Optional[Dict] = None
+   
     def __init__(self, *args, **kwargs):
         """Initialize an Inspector instance.
 
@@ -301,21 +333,22 @@ class Inspector(ModelWithParams):
         automatic configuration. If auto is specified, it uses the default
         auto model ID.
 
-        Args:
-            *args: Variable length argument list passed to parent class.
-            **kwargs: Arbitrary keyword arguments. Supported keys:
-                - name (Text): The inspector's name
-                - model_id (Text): The model ID to use
-                - model_params (Dict, optional): Model configuration
-                - auto (InspectorAuto, optional): Auto configuration type
-                - policy (InspectorPolicy, optional): Inspector policy
-
-        Note:
             If auto is specified in kwargs, model_id is automatically set to
             AUTO_DEFAULT_MODEL_ID.
         """
         if kwargs.get("auto"):
             kwargs["model_id"] = AUTO_DEFAULT_MODEL_ID
+
+        if "model_id" not in kwargs or kwargs["model_id"] is None:
+            mp = kwargs.get("model_params") or {}
+            if isinstance(mp, dict):
+                mp_id = mp.get("model_id") or mp.get("modelId")
+                if mp_id:
+                    kwargs["model_id"] = mp_id
+
+        if "model_id" not in kwargs or kwargs["model_id"] is None:
+            kwargs["model_id"] = AUTO_DEFAULT_MODEL_ID
+
         super().__init__(*args, **kwargs)
 
     @field_validator("name")
@@ -336,50 +369,139 @@ class Inspector(ModelWithParams):
         if v == "":
             raise ValueError("name cannot be empty")
         return v
-
-    @field_validator("policy")
-    def validate_policy(cls, v: Union[InspectorPolicy, Callable]) -> Union[InspectorPolicy, Callable]:
+    
+    @field_validator("action")
+    def validate_action(
+        cls,
+        v: Union[InspectorActionConfig, Callable[[Any, Text], InspectorActionConfig]],
+    ) -> Union[InspectorActionConfig, Callable[[Any, Text], InspectorActionConfig]]:
+        """Ensure action is either a config or a proper callable."""
+        if isinstance(v, InspectorActionConfig):
+            return v
         if callable(v):
-            if not validate_policy_callable(v):
+            sig = inspect.signature(v)
+            params = list(sig.parameters.keys())
+            if len(params) != 2:
                 raise ValueError(
-                    "Policy callable must have name 'process_response', arguments 'model_response' and 'input_content' (both strings), and return InspectorAction"
+                    "Action callable must accept exactly two parameters: "
+                    "'evaluation_result' and 'content'"
                 )
-        elif not isinstance(v, InspectorPolicy):
-            raise ValueError(f"Policy must be InspectorPolicy enum or a valid callable function, got {type(v)}")
-        return v
+            return v
+        raise ValueError(
+            f"action must be InspectorActionConfig or a callable(evaluation_result, content), got {type(v)}"
+        )
+
 
     def model_dump(self, by_alias: bool = False, **kwargs) -> Dict:
         """Override model_dump to handle callable policy serialization."""
         data = super().model_dump(by_alias=by_alias, **kwargs)
 
-        # Handle callable policy serialization
-        if callable(self.policy):
-            data["policy"] = callable_to_code_string(self.policy)
-            data["policy_type"] = "callable"
-        elif isinstance(self.policy, InspectorPolicy):
-            data["policy"] = self.policy.value
-            data["policy_type"] = "enum"
+        # ----- evaluator -----
+        if callable(self.evaluator):
+            data["evaluator"] = callable_to_code_string(self.evaluator)
+            data["evaluator_type"] = "callable"
+        elif self.evaluator is None:
+            data["evaluator_type"] = "none"
+        else:
+            data["evaluator_type"] = "model"
+
+        # ----- action -----
+        if isinstance(self.action, InspectorActionConfig):
+            data["action"] = self.action.model_dump()
+            data["action_type"] = "config"
+        elif callable(self.action):
+            data["action"] = callable_to_code_string(self.action)
+            data["action_type"] = "callable"
 
         return data
 
     @classmethod
-    def model_validate(cls, data: Union[Dict, "Inspector"]) -> "Inspector":
-        """Override model_validate to handle callable policy deserialization."""
+    @classmethod
+    def model_validate(cls, data: Any) -> "Inspector":
         if isinstance(data, cls):
             return data
 
-        # Handle callable policy deserialization
-        if isinstance(data, dict) and data.get("policy_type") == "callable":
-            policy_code = data.get("policy")
-            if isinstance(policy_code, str):
-                try:
-                    data["policy"] = code_string_to_callable(policy_code)
-                except Exception:
-                    # If deserialization fails, fall back to default policy
-                    data["policy"] = InspectorPolicy.ADAPTIVE
-            data.pop("policy_type", None)  # Remove the type indicator
+        if isinstance(data, dict):
+            # ----- evaluator -----
+            if data.get("evaluator_type") == "callable":
+                code = data.get("evaluator")
+                if isinstance(code, str):
+                    try:
+                        data["evaluator"] = code_string_to_callable(
+                            code_string=code,
+                            func_name="evaluator_fn",       
+                            validator=validate_evaluator_callable,
+                        )
+                    except Exception:
+                        data["evaluator"] = None
+                data.pop("evaluator_type", None)
+
+            # ----- action -----
+            action_type = data.get("action_type")
+            if action_type == "config":
+                raw = data.get("action") or {}
+                data["action"] = InspectorActionConfig.model_validate(raw)
+                data.pop("action_type", None)
+            elif action_type == "callable":
+                code = data.get("action")
+                if isinstance(code, str):
+                    try:
+                        data["action"] = code_string_to_callable(
+                            code_string=code,
+                            func_name="action_fn",   
+                            validator=validate_action_callable,
+                        )
+                    except Exception:
+                        data["action"] = InspectorActionConfig.rerun()
+                data.pop("action_type", None)
+
 
         return super().model_validate(data)
+    
+    @field_validator("evaluator")
+    def validate_evaluator(cls, v):
+        if v is None:
+            return v
+
+        if not callable(v):
+            raise ValueError(f"evaluator must be callable or None, got {type(v)}")
+
+        # ensure correct function name
+        if v.__name__ != "evaluator_fn":
+            raise ValueError(
+                f"Evaluator function must be named 'evaluator_fn', got '{v.__name__}'"
+            )
+
+        if not validate_evaluator_callable(v):
+            raise ValueError(
+                "evaluator callable must accept exactly one parameter: 'content'"
+            )
+
+        return v
+
+
+    @field_validator("action")
+    def validate_action(cls, v):
+        if isinstance(v, InspectorActionConfig):
+            return v
+
+        if callable(v):
+            if v.__name__ != "action_fn":
+                raise ValueError(
+                    f"Action function must be named 'action_fn', got '{v.__name__}'"
+                )
+
+            if not validate_action_callable(v):
+                raise ValueError(
+                    "action callable must accept exactly two parameters: "
+                    "'evaluation_result' and 'content', and optionally return InspectorActionConfig."
+                )
+            return v
+
+        raise ValueError(
+            f"action must be InspectorActionConfig or a callable(evaluation_result, content), got {type(v)}"
+        )
+
 
 
 class VerificationInspector(Inspector):
@@ -413,31 +535,24 @@ class VerificationInspector(Inspector):
             model_id (Optional[Text]): Model ID to use. If not provided, uses auto configuration.
             **kwargs: Additional arguments passed to Inspector parent class.
         """
-        from aixplain.modules.model.response import ModelResponse
         
-        # Replicate resolved_model_id logic from old implementation
         resolved_model_id = model_id
         if not resolved_model_id:
-            resolved_model_id = "6646261c6eb563165658bbb1"  # GPT_4o_ID
-        
-        def process_response(model_response: ModelResponse, input_content: str) -> InspectorOutput:
-            """Default policy that always requests rerun for verification."""
-            critiques = model_response.data
-            action = InspectorAction.RERUN
-            return InspectorOutput(critiques=critiques, content_edited=input_content, action=action)
-        
-        # Exact same default inspector configuration as old implementation
-        # Note: When auto=InspectorAuto.ALIGNMENT is set, Inspector.__init__ will override
-        # model_id with AUTO_DEFAULT_MODEL_ID
+            resolved_model_id = "6646261c6eb563165658bbb1"  
+
         defaults = {
-            "name": "VerificationInspector",
+            "name": "verification_inspector",
+            "description": "Verifies that the output aligns with the intended plan.",
             "model_id": resolved_model_id,
-            "model_params": {"prompt": "Check the output against the plan"},
-            "policy": process_response,
-            "auto": InspectorAuto.ALIGNMENT
+            "model_params": {
+                "prompt": "Check the output against the given plan and return PASS or FAIL with reasons."
+            },
+            "evaluator": None, 
+            "evaluator_prompt": "Evaluate if the response strictly follows the plan.",
+            "action": InspectorActionConfig.rerun(max_retries=3, on_exhaust="continue"),
+            "severity": InspectorSeverity.MEDIUM,
+            "auto": InspectorAuto.ALIGNMENT,
         }
-        
-        # Override defaults with any provided kwargs
+
         defaults.update(kwargs)
-        
         super().__init__(**defaults)

@@ -19,6 +19,46 @@ from aixplain.modules.agent.output_format import OutputFormat
 GPT_4o_ID = "6646261c6eb563165658bbb1"
 SUPPORTED_TOOLS = ["llm", "website_search", "website_scrape", "website_crawl", "serper_search"]
 
+import textwrap
+from typing import Callable, Any, Dict
+
+import textwrap
+from typing import Callable, Any, Dict
+
+from aixplain.modules.team_agent.inspector import InspectorActionConfig  # adjust import if needed
+
+def code_string_to_callable(code_string: str) -> Callable:
+    """
+    Convert a function definition code string into a callable.
+
+    Expects something like:
+
+        def evaluator_fn(content: str) -> str:
+            ...
+
+        def action_fn(evaluation_result: Any, content: str) -> InspectorActionConfig:
+            ...
+
+    Returns the last function defined in the code string.
+    """
+    namespace: Dict[str, Any] = {
+        "Any": Any,
+        "InspectorActionConfig": InspectorActionConfig,
+    }
+
+    try:
+        exec(textwrap.dedent(code_string), namespace)
+    except Exception as e:
+        raise ValueError(f"Failed to execute code string: {e}")
+
+    funcs = [obj for obj in namespace.values() if callable(obj)]
+    if not funcs:
+        raise ValueError("No callable found in code string")
+
+    func = funcs[-1]
+    func._source_code = code_string
+    return func
+
 
 def build_team_agent(payload: Dict, agents: List[Agent] = None, api_key: Text = config.TEAM_API_KEY) -> TeamAgent:
     """Build a TeamAgent instance from configuration payload.
@@ -87,18 +127,35 @@ def build_team_agent(payload: Dict, agents: List[Agent] = None, api_key: Text = 
 
     # Ensure custom classes are instantiated: for compatibility with backend return format
     inspectors = []
-    for inspector_data in payload.get("inspectors", []):
+    for idx, inspector_data in enumerate(payload.get("inspectors", [])):
+    
         try:
+            # Case 1: Already an Inspector object
             if isinstance(inspector_data, Inspector):
                 inspectors.append(inspector_data)
+                continue
+
+            # Case 2: dict - must reconstruct
+            data = dict(inspector_data)
+            if isinstance(data.get("evaluator"), str):
+                try:
+                    data["evaluator"] = code_string_to_callable(data["evaluator"])
+                except Exception as e:
+                    data["evaluator"] = None
+
+            if isinstance(data.get("action"), str):
+                try:
+                    data["action"] = code_string_to_callable(data["action"])
+                except Exception as e:
+                    data.pop("action", None)
+
+            if hasattr(Inspector, "model_validate"):
+                inspector_obj = Inspector.model_validate(data)
             else:
-                # Handle both old format and new format with policy_type
-                if hasattr(Inspector, "model_validate"):
-                    inspectors.append(Inspector.model_validate(inspector_data))
-                else:
-                    inspectors.append(Inspector(**inspector_data))
+                inspector_obj = Inspector(**data)
+            inspectors.append(inspector_obj)
+
         except Exception as e:
-            logging.warning(f"Failed to create inspector from data: {e}")
             continue
 
     inspector_targets = [InspectorTarget(target.lower()) for target in payload.get("inspectorTargets", [])]
