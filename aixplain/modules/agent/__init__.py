@@ -682,17 +682,10 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
             poll_url = response["url"]
             end = time.time()
             result = self.sync_poll(
-<<<<<<< HEAD
                 poll_url, name=name, timeout=timeout, wait_time=wait_time, progress_verbosity=progress_verbosity
             )
             if result.status == ResponseStatus.FAILED:
                 raise Exception("Model failed to run with error: " + result.error_message)
-=======
-                poll_url, name=name, timeout=timeout, wait_time=wait_time
-            )
-            # if result.status == ResponseStatus.FAILED:
-            #    raise Exception("Model failed to run with error: " + result.error_message)
->>>>>>> 26c77f5 (ENG-2537 auto save sub agents and tools)
             result_data = result.get("data") or {}
             return AgentResponse(
                 status=ResponseStatus.SUCCESS,
