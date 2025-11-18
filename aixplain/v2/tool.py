@@ -1,3 +1,5 @@
+"""Tool resource module for managing tools and their integrations."""
+
 import warnings
 from typing import Union, List, Optional, Any
 from typing_extensions import Unpack
@@ -37,32 +39,25 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
     DEFAULT_INTEGRATION_ID = "686432941223092cb4294d3f"  # Script integration
 
     # Tool-specific fields
-    asset_id: Optional[str] = field(
-        default=None, metadata=dj_config(field_name="assetId")
-    )
-    integration: Optional[Union[Integration, str]] = field(
-        default=None, metadata=dj_config(exclude=lambda x: True)
-    )
-    config: Optional[dict] = field(
-        default=None, metadata=dj_config(exclude=lambda x: True)
-    )
-    code: Optional[str] = field(
-        default=None, metadata=dj_config(exclude=lambda x: True)
-    )
-    allowed_actions: Optional[List[str]] = field(
-        default_factory=list, metadata=dj_config(field_name="allowedActions")
-    )
+    asset_id: Optional[str] = field(default=None, metadata=dj_config(field_name="assetId"))
+    integration: Optional[Union[Integration, str]] = field(default=None, metadata=dj_config(exclude=lambda x: True))
+    config: Optional[dict] = field(default=None, metadata=dj_config(exclude=lambda x: True))
+    code: Optional[str] = field(default=None, metadata=dj_config(exclude=lambda x: True))
+    allowed_actions: Optional[List[str]] = field(default_factory=list, metadata=dj_config(field_name="allowedActions"))
     auth_scheme: Optional[Integration.AuthenticationScheme] = field(
         default=Integration.AuthenticationScheme.NO_AUTH,
         metadata=dj_config(exclude=lambda x: True),
     )
 
     def __post_init__(self) -> None:
+        """Initialize tool after dataclass creation.
+
+        Sets up default integration for utility tools if no integration is provided.
+        Validates integration type if provided.
+        """
         if not self.id:
             if self.integration is None:
-                code = self.code or (
-                    self.config.pop("code", None) if self.config else None
-                )
+                code = self.code or (self.config.pop("code", None) if self.config else None)
                 assert code is not None, "Code is required to create a (script) Tool"
                 # Use default integration ID for utility tools (store as string, will be fetched on save)
                 self.integration = self.DEFAULT_INTEGRATION_ID
@@ -76,12 +71,51 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
                     # Keep as string - will be fetched during save
                     pass
                 elif not isinstance(self.integration, Integration):
-                    raise ValueError(
-                        "Integration must be an Integration object or a string"
-                    )
+                    raise ValueError("Integration must be an Integration object or a string")
 
-    # override list_actions to check if actions are available
+    def _ensure_integration(self, required: bool = False) -> bool:
+        """Ensure integration is resolved to an Integration instance.
+
+        Args:
+            required: If True, raise ValueError if integration is missing or cannot be resolved.
+
+        Returns:
+            True if integration is available and resolved, False otherwise.
+
+        Raises:
+            ValueError: If required=True and integration is missing or cannot be resolved.
+        """
+        if not self.integration:
+            if required:
+                raise ValueError("Integration is required")
+            return False
+
+        # Resolve integration string to Integration instance if needed
+        if isinstance(self.integration, str):
+            try:
+                self.integration = self.context.Integration.get(self.integration)
+            except Exception as e:
+                if required:
+                    raise ValueError(f"Failed to resolve integration: {e}") from e
+                return False
+
+        if not isinstance(self.integration, Integration):
+            if required:
+                raise ValueError("Integration must be an Integration object or a string")
+            return False
+
+        return True
+
     def list_actions(self) -> List[Action]:
+        """List available actions for the tool.
+
+        Overrides parent method to add fallback to base integration and support
+        for utility models without real integrations.
+
+        Returns:
+            List of Action objects available for this tool. Falls back to
+            integration's list_actions() if tool's own method fails.
+        """
         try:
             actions = super().list_actions()
 
@@ -91,10 +125,8 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
 
             return actions
         except Exception as e:
-            warnings.warn(
-                f"Error listing actions: {e}. Using integration.list_actions() instead."
-            )
-            if self.integration and isinstance(self.integration, Integration):
+            warnings.warn(f"Error listing actions: {e}. Using integration.list_actions() instead.")
+            if self._ensure_integration():
                 return self.integration.list_actions()
 
             # Fallback: if this is a utility model without integration, create synthetic action
@@ -103,50 +135,44 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
 
             return []
 
-    # override list_inputs to check if inputs are available
     def list_inputs(self, *actions: str) -> List["Action"]:
+        """List available inputs for specified actions.
+
+        Overrides parent method to add fallback to base integration and support
+        for utility models without real integrations.
+
+        Args:
+            *actions: Variable number of action names to get inputs for.
+
+        Returns:
+            List of Action objects with their input specifications. Falls back to
+            integration's list_inputs() if tool's own method fails.
+        """
         try:
             inputs = super().list_inputs(*actions)
 
             # If no inputs found but this is a utility model requesting "run" action
-            if (
-                not inputs
-                and self._is_utility_model_without_integration()
-                and (not actions or "run" in actions)
-            ):
+            if not inputs and self._is_utility_model_without_integration() and (not actions or "run" in actions):
                 return [self._create_synthetic_run_action()]
 
             return inputs
         except Exception as e:
-            warnings.warn(
-                f"Error listing inputs: {e}. Using integration.list_inputs() instead."
-            )
-            if self.integration:
+            warnings.warn(f"Error listing inputs: {e}. Using integration.list_inputs() instead.")
+            if self._ensure_integration():
                 try:
                     return self.integration.list_inputs(*actions)
                 except Exception:
                     pass
 
             # Fallback: if this is a utility model, create synthetic action
-            if self._is_utility_model_without_integration() and (
-                not actions or "run" in actions
-            ):
+            if self._is_utility_model_without_integration() and (not actions or "run" in actions):
                 return [self._create_synthetic_run_action()]
 
             return []
 
     def _create(self, resource_path: str, payload: dict) -> None:
         """Create the tool by connecting to the integration."""
-        if not self.integration:
-            raise ValueError("Integration is required to create a tool")
-
-        # Resolve integration string to Integration instance if needed
-        if isinstance(self.integration, str):
-            self.integration = self.context.Integration.get(self.integration)
-
-        assert isinstance(
-            self.integration, Integration
-        ), "Integration must be an Integration object or a string"
+        self._ensure_integration(required=True)
 
         payload = {
             "authScheme": self.auth_scheme,
@@ -197,9 +223,7 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
 
         # Check if actions_available field suggests it should have actions but doesn't
         actions_available = getattr(self, "actions_available", None)
-        if hasattr(actions_available, "__class__") and "Field" in str(
-            type(actions_available)
-        ):
+        if hasattr(actions_available, "__class__") and "Field" in str(type(actions_available)):
             # Field deserialization issue - assume True for utility models
             actions_available = True
 
@@ -221,9 +245,7 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
                         allowMulti=getattr(param, "multiple_values", False),
                         supportsVariables=False,
                         fixed=getattr(param, "is_fixed", False),
-                        description=getattr(
-                            param, "description", f"Parameter {param.name}"
-                        ),
+                        description=getattr(param, "description", f"Parameter {param.name}"),
                         value=[],
                         availableOptions=getattr(param, "available_options", []),
                         defaultValue=getattr(param, "default_values", []),
@@ -239,18 +261,23 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
         )
 
     def validate_allowed_actions(self) -> None:
+        """Validate that all allowed actions are available for this tool.
+
+        Checks that:
+        - Integration is available
+        - All actions in allowed_actions list exist in the integration
+
+        Raises:
+            AssertionError: If validation fails.
+        """
         if self.allowed_actions:
-            assert (
-                self.integration is not None
-            ), "Integration is required to validate allowed actions"
+            assert self.integration is not None, "Integration is required to validate allowed actions"
 
             available_actions = [action.name for action in self.list_actions()]
-            assert (
-                available_actions is not None
-            ), "Integration must have available actions"
-            assert all(
-                action in available_actions for action in self.allowed_actions
-            ), "All allowed actions must be available"
+            assert available_actions is not None, "Integration must have available actions"
+            assert all(action in available_actions for action in self.allowed_actions), (
+                "All allowed actions must be available"
+            )
 
     def get_parameters(self) -> List[dict]:
         """Get parameters for the tool in the format expected by agent saving.
@@ -281,9 +308,7 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
                     continue
 
             for input_param in action.inputs:
-                input_code = input_param.code or input_param.name.lower().replace(
-                    " ", "_"
-                )
+                input_code = input_param.code or input_param.name.lower().replace(" ", "_")
 
                 # Get the current value from the action proxy if available
                 current_value = None
@@ -292,11 +317,7 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
 
                 # Fall back to backend default if no current value
                 if current_value is None and input_param.defaultValue:
-                    current_value = (
-                        input_param.defaultValue[0]
-                        if input_param.defaultValue
-                        else None
-                    )
+                    current_value = input_param.defaultValue[0] if input_param.defaultValue else None
 
                 action_inputs[input_code] = {
                     "name": input_param.name,
@@ -330,11 +351,7 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
         errors = []
 
         # For utility models without integration, use model validation
-        if (
-            self._is_utility_model_without_integration()
-            and "data" in kwargs
-            and isinstance(kwargs["data"], dict)
-        ):
+        if self._is_utility_model_without_integration() and "data" in kwargs and isinstance(kwargs["data"], dict):
             # Validate the parameters inside the data field
             model_kwargs = kwargs["data"]
             errors = super()._validate_params(**model_kwargs)
@@ -355,10 +372,7 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
             return errors
 
         if self.allowed_actions and action not in self.allowed_actions:
-            errors.append(
-                f"Action '{action}' is not allowed for this tool. "
-                f"Allowed actions: {self.allowed_actions}"
-            )
+            errors.append(f"Action '{action}' is not allowed for this tool. Allowed actions: {self.allowed_actions}")
             return errors
 
         # 3. Validate action inputs using ActionInputsProxy
@@ -370,7 +384,7 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
             # Use ActionInputsProxy.validate() for action input validation
             action_errors = action_proxy.validate(data)
             errors.extend(action_errors)
-        except Exception as e:
+        except Exception:
             # If we can't get action spec or validate, skip validation
             # Let the backend handle it - this is a fallback for edge cases
             pass
@@ -418,15 +432,9 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
         if self._is_utility_model_without_integration():
             # Build data dict from model parameters, excluding tool-specific params
             tool_params = {"action", "data"}
-            model_params = {
-                k: v
-                for k, v in kwargs.items()
-                if k not in tool_params and v is not None
-            }
+            model_params = {k: v for k, v in kwargs.items() if k not in tool_params and v is not None}
 
-            action_name = kwargs.get(
-                "action", "run"
-            )  # Default to "run" for utility models
+            action_name = kwargs.get("action", "run")  # Default to "run" for utility models
             return {
                 "action": action_name,
                 "data": model_params,
