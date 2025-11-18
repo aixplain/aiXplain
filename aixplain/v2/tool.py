@@ -17,7 +17,7 @@ from .integration import Integration, Action, ActionMixin
 
 
 @dataclass_json
-@dataclass
+@dataclass(repr=False)
 class ToolResult(Result):
     """Result for a tool."""
 

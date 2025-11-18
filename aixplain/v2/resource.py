@@ -2,6 +2,7 @@
 
 import requests
 import logging
+import reprlib
 from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json, config
 from urllib.parse import quote
@@ -554,7 +555,7 @@ class BaseResult:
 
 
 @dataclass_json
-@dataclass
+@dataclass(repr=False)
 class Result(BaseResult):
     """Default implementation of running results with common fields."""
 
@@ -572,6 +573,65 @@ class Result(BaseResult):
         if hasattr(self, "_raw_data") and self._raw_data and name in self._raw_data:
             return self._raw_data[name]
         raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
+
+    def __repr__(self) -> str:
+        """Return a formatted string representation with truncated data."""
+        # Configure reprlib to truncate long strings
+        repr_obj = reprlib.Repr()
+        repr_obj.maxstring = 200  # Truncate strings longer than 200 chars
+        repr_obj.maxother = 200  # Truncate other objects longer than 200 chars
+
+        def truncate_repr(value: Any) -> str:
+            """Truncate representation of a value."""
+            if value is None:
+                return "None"
+            repr_str = repr_obj.repr(value)
+            # If it's still too long, truncate further
+            if len(repr_str) > 200:
+                return repr_str[:197] + "..."
+            return repr_str
+
+        # Build the representation
+        field_parts = []
+
+        # Always show status and completed
+        field_parts.append(f"status={repr(self.status)}")
+        field_parts.append(f"completed={repr(self.completed)}")
+
+        # Show error_message if present
+        if self.error_message is not None:
+            field_parts.append(f"error_message={repr(self.error_message)}")
+
+        # Show supplier_error if present
+        if self.supplier_error is not None:
+            field_parts.append(f"supplier_error={repr(self.supplier_error)}")
+
+        # Show url if present
+        if self.url is not None:
+            field_parts.append(f"url={repr(self.url)}")
+
+        # Show result only if it's informative (not None and not empty)
+        if self.result is not None:
+            # Check if result is "informative" - not empty string, empty dict, empty list, etc.
+            is_informative = True
+            if isinstance(self.result, str) and not self.result.strip():
+                is_informative = False
+            elif isinstance(self.result, (dict, list)) and len(self.result) == 0:
+                is_informative = False
+
+            if is_informative:
+                field_parts.append(f"result={truncate_repr(self.result)}")
+
+        # Always show data, but truncated
+        if self.data is not None:
+            data_repr = truncate_repr(self.data)
+            field_parts.append(f"data={data_repr}")
+        else:
+            field_parts.append("data=None")
+
+        # Format as multi-line with indentation
+        fields_str = ",\n  ".join(field_parts)
+        return f"{self.__class__.__name__}(\n  {fields_str}\n)"
 
 
 @dataclass_json
