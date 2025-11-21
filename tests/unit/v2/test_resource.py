@@ -34,7 +34,15 @@ def test_base_resource_save():
     resource.save()
     # Check that the resource was created with the correct payload
     resource.context.client.request.assert_called_once_with(
-        "post", "", json={"id": None, "name": "test", "description": None}
+        "post",
+        "",
+        json={
+            "id": None,
+            "name": "test",
+            "description": None,
+            "assetPath": None,
+            "instanceId": None,
+        },
     )
     # Check that the ID was set from the response
     assert resource.id == "123"
@@ -45,9 +53,7 @@ def test_base_resource_save_with_id():
     resource.context = Mock()
     resource.context.client.request = Mock(return_value={"id": "123"})
     resource.save()
-    resource.context.client.request.assert_called_once_with(
-        "put", "/123", json=resource.to_dict()
-    )
+    resource.context.client.request.assert_called_once_with("put", "/123", json=resource.to_dict())
 
 
 def test_base_resource_action():
@@ -66,9 +72,7 @@ def test_base_resource_action():
 
 
 def test_base_resource_search():
-    class FixtureResource(
-        BaseResource, SearchResourceMixin[BaseSearchParams, "FixtureResource"]
-    ):
+    class FixtureResource(BaseResource, SearchResourceMixin[BaseSearchParams, "FixtureResource"]):
         RESOURCE_PATH = "demo"
         context = Mock(
             client=Mock(
@@ -134,13 +138,9 @@ def test_base_resource_search():
 
 
 def test_base_resource_get():
-    class FixtureResource(
-        BaseResource, GetResourceMixin[BaseGetParams, "FixtureResource"]
-    ):
+    class FixtureResource(BaseResource, GetResourceMixin[BaseGetParams, "FixtureResource"]):
         RESOURCE_PATH = "demo"
-        context = Mock(
-            client=Mock(get=Mock(return_value={"id": "123", "name": "test"}))
-        )
+        context = Mock(client=Mock(get=Mock(return_value={"id": "123", "name": "test"})))
 
     obj = FixtureResource.get("123")
     assert obj.id == "123"
