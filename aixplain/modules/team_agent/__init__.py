@@ -220,7 +220,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             output_format (OutputFormat, optional): Output format. Defaults to OutputFormat.TEXT.
             expected_output (Optional[Union[BaseModel, Text, dict]], optional): Expected output format. Defaults to None.
             **additional_info: Additional keyword arguments.
-            
+
         Deprecated Args:
             llm_id (Text, optional): DEPRECATED. Use 'llm' parameter instead. ID of the language model. Defaults to "6646261c6eb563165658bbb1".
             mentalist_llm (Optional[LLM], optional): DEPRECATED. Mentalist/Planner LLM instance. Defaults to None.
@@ -282,15 +282,11 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                 "allowHistoryAndSessionId": True,
             }
 
-            r = _request_with_retry(
-                "post", self.url, headers=headers, data=json.dumps(payload)
-            )
+            r = _request_with_retry("post", self.url, headers=headers, data=json.dumps(payload))
             resp = r.json()
             poll_url = resp.get("data")
 
-            result = self.sync_poll(
-                poll_url, name="model_process", timeout=300, wait_time=0.5
-            )
+            result = self.sync_poll(poll_url, name="model_process", timeout=300, wait_time=0.5)
 
             if result.get("status") == ResponseStatus.SUCCESS:
                 return session_id
@@ -459,21 +455,15 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         if hasattr(response_body, "data") and response_body.data:
             if isinstance(response_body.data, tuple) and len(response_body.data) > 0:
                 # Data is a tuple, get first element
-                data_dict = (
-                    response_body.data[0]
-                    if isinstance(response_body.data[0], dict)
-                    else None
-                )
+                data_dict = response_body.data[0] if isinstance(response_body.data[0], dict) else None
             elif isinstance(response_body.data, dict):
                 # Data is already a dict
                 data_dict = response_body.data
-            elif hasattr(response_body.data, "executionStats") or hasattr(
-                response_body.data, "execution_stats"
-            ):
+            elif hasattr(response_body.data, "executionStats") or hasattr(response_body.data, "execution_stats"):
                 # Data is an object with attributes
-                exec_stats = getattr(
-                    response_body.data, "executionStats", None
-                ) or getattr(response_body.data, "execution_stats", None)
+                exec_stats = getattr(response_body.data, "executionStats", None) or getattr(
+                    response_body.data, "execution_stats", None
+                )
                 if exec_stats and isinstance(exec_stats, dict):
                     total_api_calls = exec_stats.get("api_calls", 0)
                     total_credits = exec_stats.get("credits", 0.0)
@@ -573,9 +563,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             print(completion_msg, flush=True)
 
         if response_body["completed"] is True:
-            logging.debug(
-                f"Polling for Team Agent: Final status of polling for {name}: {response_body}"
-            )
+            logging.debug(f"Polling for Team Agent: Final status of polling for {name}: {response_body}")
         else:
             response_body = AgentResponse(
                 status=ResponseStatus.FAILED,
@@ -652,9 +640,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
 
         if session_id is not None:
             if not session_id.startswith(f"{self.id}_"):
-                raise ValueError(
-                    f"Session ID '{session_id}' does not belong to this Agent."
-                )
+                raise ValueError(f"Session ID '{session_id}' does not belong to this Agent.")
         if history:
             validate_history(history)
         try:
@@ -678,9 +664,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                 return response
             poll_url = response["url"]
             end = time.time()
-            result = self.sync_poll(
-                poll_url, name=name, timeout=timeout, wait_time=wait_time
-            )
+            result = self.sync_poll(poll_url, name=name, timeout=timeout, wait_time=wait_time)
             result_data = result.data
             return AgentResponse(
                 status=ResponseStatus.SUCCESS,
@@ -690,6 +674,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                     output=result_data.get("output"),
                     session_id=result_data.get("session_id"),
                     intermediate_steps=result_data.get("intermediate_steps"),
+                    steps=result_data.get("steps"),
                     execution_stats=result_data.get("executionStats"),
                     critiques=result_data.get("critiques", ""),
                 ),
@@ -746,9 +731,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
 
         if session_id is not None:
             if not session_id.startswith(f"{self.id}_"):
-                raise ValueError(
-                    f"Session ID '{session_id}' does not belong to this Agent."
-                )
+                raise ValueError(f"Session ID '{session_id}' does not belong to this Agent.")
 
         if history:
             validate_history(history)
@@ -760,18 +743,14 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         evolve_dict = evolve_param.to_dict()
 
         if not self.is_valid:
-            raise Exception(
-                "Team Agent is not valid. Please validate the team agent before running."
-            )
+            raise Exception("Team Agent is not valid. Please validate the team agent before running.")
 
-        assert (
-            data is not None or query is not None
-        ), "Either 'data' or 'query' must be provided."
+        assert data is not None or query is not None, "Either 'data' or 'query' must be provided."
         if data is not None:
             if isinstance(data, dict):
-                assert (
-                    "query" in data and data["query"] is not None
-                ), "When providing a dictionary, 'query' must be provided."
+                assert "query" in data and data["query"] is not None, (
+                    "When providing a dictionary, 'query' must be provided."
+                )
                 if session_id is None:
                     session_id = data.pop("session_id", None)
                 if history is None:
@@ -784,10 +763,9 @@ class TeamAgent(Model, DeployableMixin[Agent]):
 
         # process content inputs
         if content is not None:
-            assert (
-                isinstance(query, str)
-                and FileFactory.check_storage_type(query) == StorageType.TEXT
-            ), "When providing 'content', query must be text."
+            assert isinstance(query, str) and FileFactory.check_storage_type(query) == StorageType.TEXT, (
+                "When providing 'content', query must be text."
+            )
 
             if isinstance(content, list):
                 assert len(content) <= 3, "The maximum number of content inputs is 3."
@@ -796,9 +774,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                     query += f"\n{input_link}"
             elif isinstance(content, dict):
                 for key, value in content.items():
-                    assert (
-                        "{{" + key + "}}" in query
-                    ), f"Key '{key}' not found in query."
+                    assert "{{" + key + "}}" in query, f"Key '{key}' not found in query."
                     value = FileFactory.to_link(value)
                     query = query.replace("{{" + key + "}}", f"'{value}'")
 
@@ -820,16 +796,8 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             "sessionId": session_id,
             "history": history,
             "executionParams": {
-                "maxTokens": (
-                    parameters["max_tokens"]
-                    if "max_tokens" in parameters
-                    else max_tokens
-                ),
-                "maxIterations": (
-                    parameters["max_iterations"]
-                    if "max_iterations" in parameters
-                    else max_iterations
-                ),
+                "maxTokens": (parameters["max_tokens"] if "max_tokens" in parameters else max_tokens),
+                "maxIterations": (parameters["max_iterations"] if "max_iterations" in parameters else max_iterations),
                 "outputFormat": output_format,
                 "expectedOutput": expected_output,
             },
@@ -839,18 +807,14 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         payload = json.dumps(payload)
 
         r = _request_with_retry("post", self.url, headers=headers, data=payload)
-        logging.info(
-            f"Team Agent Run Async: Start service for {name} - {self.url} - {payload} - {headers}"
-        )
+        logging.info(f"Team Agent Run Async: Start service for {name} - {self.url} - {payload} - {headers}")
 
         resp = None
         try:
             resp = r.json()
             logging.info(f"Result of request for {name} - {r.status_code} - {resp}")
             if trace_request:
-                logging.info(
-                    f"Team Agent Run Async: Trace request id: {resp.get('requestId')}"
-                )
+                logging.info(f"Team Agent Run Async: Trace request id: {resp.get('requestId')}")
             poll_url = resp["data"]
             response = AgentResponse(
                 status=ResponseStatus.IN_PROGRESS,
@@ -892,9 +856,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                     error_message = resp.get("error_message")
             else:
                 status = ResponseStatus.IN_PROGRESS
-            logging.debug(
-                f"Single Poll for Team Agent: Status of polling for {name}: {resp}"
-            )
+            logging.debug(f"Single Poll for Team Agent: Status of polling for {name}: {resp}")
 
             resp_data = resp.get("data") or {}
             used_credits = resp_data.get("usedCredits", 0.0)
@@ -909,15 +871,14 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                     evolved_agent.update()
                     resp_data["evolved_agent"] = evolved_agent
                 else:
-                    resp_data = EvolverResponseData.from_dict(
-                        resp_data, llm_id=self.llm_id, api_key=self.api_key
-                    )
+                    resp_data = EvolverResponseData.from_dict(resp_data, llm_id=self.llm_id, api_key=self.api_key)
             else:
                 resp_data = AgentResponseData(
                     input=resp_data.get("input"),
                     output=resp_data.get("output"),
                     session_id=resp_data.get("session_id"),
                     intermediate_steps=resp_data.get("intermediate_steps"),
+                    steps=resp_data.get("steps"),
                     execution_stats=resp_data.get("executionStats"),
                 )
         except Exception as e:
@@ -998,9 +959,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                 if isinstance(agent_dict, dict) and hasattr(agent_dict, "items"):
                     try:
                         # Add all fields except 'id' to avoid duplication with 'assetId'
-                        additional_data = {
-                            k: v for k, v in agent_dict.items() if k not in ["id"]
-                        }
+                        additional_data = {k: v for k, v in agent_dict.items() if k not in ["id"]}
                         base_dict.update(additional_data)
                     except (TypeError, AttributeError):
                         # If items() doesn't work or iteration fails, skip the additional data
@@ -1042,26 +1001,15 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         return {
             "id": self.id,
             "name": self.name,
-            "agents": [
-                self._serialize_agent(agent, idx)
-                for idx, agent in enumerate(self.agents)
-            ],
+            "agents": [self._serialize_agent(agent, idx) for idx, agent in enumerate(self.agents)],
             "links": [],
             "description": self.description,
             "llmId": self.llm.id if self.llm else self.llm_id,
-            "supervisorId": (
-                self.supervisor_llm.id if self.supervisor_llm else self.llm_id
-            ),
+            "supervisorId": (self.supervisor_llm.id if self.supervisor_llm else self.llm_id),
             "plannerId": planner_id,
-            "inspectors": [
-                inspector.model_dump(by_alias=True) for inspector in self.inspectors
-            ],
+            "inspectors": [inspector.model_dump(by_alias=True) for inspector in self.inspectors],
             "inspectorTargets": [target.value for target in self.inspector_targets],
-            "supplier": (
-                self.supplier.value["code"]
-                if isinstance(self.supplier, Supplier)
-                else self.supplier
-            ),
+            "supplier": (self.supplier.value["code"] if isinstance(self.supplier, Supplier) else self.supplier),
             "version": self.version,
             "status": self.status.value,
             "instructions": self.instructions,
@@ -1097,9 +1045,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                         # Log warning but continue processing other agents
                         import logging
 
-                        logging.warning(
-                            f"Failed to load agent {agent_data['assetId']}: {e}"
-                        )
+                        logging.warning(f"Failed to load agent {agent_data['assetId']}: {e}")
                 else:
                     agents.append(Agent.from_dict(agent_data))
         # Extract inspectors using proper model validation
@@ -1122,9 +1068,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         # Extract inspector targets
         inspector_targets = [InspectorTarget.STEPS]  # default
         if "inspectorTargets" in data:
-            inspector_targets = [
-                InspectorTarget(target) for target in data["inspectorTargets"]
-            ]
+            inspector_targets = [InspectorTarget(target) for target in data["inspectorTargets"]]
 
         # Extract status
         status = AssetStatus.DRAFT
@@ -1187,15 +1131,13 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         """Validate the Team."""
 
         # validate name
-        assert (
-            re.match(r"^[a-zA-Z0-9 \-\(\)]*$", self.name) is not None
-        ), "Team Agent Creation Error: Team name contains invalid characters. Only alphanumeric characters, spaces, hyphens, and brackets are allowed."
+        assert re.match(r"^[a-zA-Z0-9 \-\(\)]*$", self.name) is not None, (
+            "Team Agent Creation Error: Team name contains invalid characters. Only alphanumeric characters, spaces, hyphens, and brackets are allowed."
+        )
 
         try:
             llm = get_llm_instance(self.llm_id, use_cache=True)
-            assert (
-                llm.function == Function.TEXT_GENERATION
-            ), "Large Language Model must be a text generation model."
+            assert llm.function == Function.TEXT_GENERATION, "Large Language Model must be a text generation model."
         except Exception:
             raise Exception(f"Large Language Model with ID '{self.llm_id}' not found.")
 
@@ -1234,9 +1176,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                 raise e
             else:
                 logging.warning(f"Team Agent Validation Error: {e}")
-                logging.warning(
-                    "You won't be able to run the Team Agent until the issues are handled manually."
-                )
+                logging.warning("You won't be able to run the Team Agent until the issues are handled manually.")
 
         return self.is_valid
 
@@ -1266,8 +1206,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         stack = inspect.stack()
         if len(stack) > 2 and stack[1].function != "save":
             warnings.warn(
-                "update() is deprecated and will be removed in a future version. "
-                "Please use save() instead.",
+                "update() is deprecated and will be removed in a future version. Please use save() instead.",
                 DeprecationWarning,
                 stacklevel=2,
             )
@@ -1279,17 +1218,13 @@ class TeamAgent(Model, DeployableMixin[Agent]):
 
         payload = self.to_dict()
 
-        logging.debug(
-            f"Start service for PUT Update Team Agent - {url} - {headers} - {json.dumps(payload)}"
-        )
+        logging.debug(f"Start service for PUT Update Team Agent - {url} - {headers} - {json.dumps(payload)}")
         resp = "No specified error."
         try:
             r = _request_with_retry("put", url, headers=headers, json=payload)
             resp = r.json()
         except Exception:
-            raise Exception(
-                "Team Agent Update Error: Please contact the administrators."
-            )
+            raise Exception("Team Agent Update Error: Please contact the administrators.")
 
         if 200 <= r.status_code < 300:
             return build_team_agent(resp)
@@ -1408,9 +1343,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             result = self.sync_poll(poll_url, name="evolve_process", timeout=600)
             result_data = result.data
             current_code = (
-                result_data.get("current_code")
-                if isinstance(result_data, dict)
-                else result_data.current_code
+                result_data.get("current_code") if isinstance(result_data, dict) else result_data.current_code
             )
             if current_code is not None:
                 if evolve_parameters.evolve_type == EvolveType.TEAM_TUNING:
