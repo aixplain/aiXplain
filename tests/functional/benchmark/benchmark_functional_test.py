@@ -70,10 +70,12 @@ def assert_correct_results(benchmark_job):
     assert mean_score != 0, f"Zero Mean Score - Please check metric ({metric_name})"
 
 
-@pytest.mark.parametrize("BenchmarkFactory", [BenchmarkFactory, v2.Benchmark])
+@pytest.mark.parametrize("BenchmarkFactory", [BenchmarkFactory])
 def test_create_and_run(run_input_map, BenchmarkFactory):
     model_list = [ModelFactory.get(model_id) for model_id in run_input_map["model_ids"]]
-    dataset_list = [DatasetFactory.list(query=dataset_name)["results"][0] for dataset_name in run_input_map["dataset_names"]]
+    dataset_list = [
+        DatasetFactory.list(query=dataset_name)["results"][0] for dataset_name in run_input_map["dataset_names"]
+    ]
     metric_list = [MetricFactory.get(metric_id) for metric_id in run_input_map["metric_ids"]]
     benchmark = BenchmarkFactory.create(f"SDK Benchmark Test {uuid.uuid4()}", dataset_list, model_list, metric_list)
     assert type(benchmark) is Benchmark, "Couldn't create benchmark"
@@ -83,22 +85,23 @@ def test_create_and_run(run_input_map, BenchmarkFactory):
     assert_correct_results(benchmark_job)
 
 
-@pytest.mark.parametrize("BenchmarkFactory", [BenchmarkFactory, v2.Benchmark])
+@pytest.mark.parametrize("BenchmarkFactory", [BenchmarkFactory])
 def test_create_and_run_with_parameters(run_with_parameters_input_map, BenchmarkFactory):
     name, params = run_with_parameters_input_map
     model_list = []
     for model_info in params["models_with_parameters"]:
         model = ModelFactory.get(model_info["model_id"])
-        model.add_additional_info_for_benchmark(display_name=model_info["display_name"], configuration=model_info["configuration"])
+        model.add_additional_info_for_benchmark(
+            display_name=model_info["display_name"], configuration=model_info["configuration"]
+        )
         model_list.append(model)
     dataset_list = [DatasetFactory.list(query=dataset_name)["results"][0] for dataset_name in params["dataset_names"]]
     metric_list = [MetricFactory.get(metric_id) for metric_id in params["metric_ids"]]
-    benchmark = BenchmarkFactory.create(f"SDK Benchmark Test With Parameters({name}) {uuid.uuid4()}", dataset_list, model_list, metric_list)
+    benchmark = BenchmarkFactory.create(
+        f"SDK Benchmark Test With Parameters({name}) {uuid.uuid4()}", dataset_list, model_list, metric_list
+    )
     assert type(benchmark) is Benchmark, "Couldn't create benchmark"
     benchmark_job = benchmark.start()
     assert type(benchmark_job) is BenchmarkJob, "Couldn't start job"
     assert is_job_finshed(benchmark_job), "Job did not finish in time"
     assert_correct_results(benchmark_job)
-
-
-

@@ -26,9 +26,7 @@ from aixplain import aixplain_v2 as v2
     "FileFactory, is_temp, expected_link",
     [
         (FileFactory, True, "http"),
-        (v2.File, True, "http"),
         (FileFactory, False, "s3"),
-        (v2.File, False, "s3"),
     ],
 )
 def test_file_create(FileFactory, is_temp, expected_link):

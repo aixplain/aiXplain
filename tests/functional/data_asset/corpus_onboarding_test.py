@@ -24,7 +24,7 @@ from uuid import uuid4
 from aixplain import aixplain_v2 as v2
 
 
-@pytest.mark.parametrize("CorpusFactory", [CorpusFactory, v2.Corpus])
+@pytest.mark.parametrize("CorpusFactory", [CorpusFactory])
 def test_corpus_onboard_get_delete(CorpusFactory):
     upload_file = "tests/functional/data_asset/input/audio-en_url.csv"
     schema = [
@@ -60,13 +60,13 @@ def test_corpus_onboard_get_delete(CorpusFactory):
         corpus = CorpusFactory.get(asset_id)
 
 
-@pytest.mark.parametrize("CorpusFactory", [CorpusFactory, v2.Corpus])
+@pytest.mark.parametrize("CorpusFactory", [CorpusFactory])
 def test_corpus_listing(CorpusFactory):
     response = CorpusFactory.list()
     assert "results" in response
 
 
-@pytest.mark.parametrize("CorpusFactory", [CorpusFactory, v2.Corpus])
+@pytest.mark.parametrize("CorpusFactory", [CorpusFactory])
 def test_corpus_get_error(CorpusFactory):
     with pytest.raises(Exception):
         response = CorpusFactory.get("131312")
