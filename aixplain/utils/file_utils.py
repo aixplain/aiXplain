@@ -103,7 +103,8 @@ def upload_data(
     content_encoding: Optional[Text] = None,
     nattempts: int = 2,
     return_download_link: bool = False,
-) -> str:
+    api_key: Optional[Text] = None,
+):
     """Upload a file to S3 using pre-signed URLs with retry support.
 
     This function handles file uploads to S3 by first obtaining a pre-signed URL
@@ -128,6 +129,8 @@ def upload_data(
             Defaults to 2.
         return_download_link (bool, optional): If True, returns a direct download
             URL instead of the S3 path. Defaults to False.
+        api_key (Optional[Text], optional): API key for authentication.
+            Defaults to None, using the configured TEAM_API_KEY.
 
     Returns:
         str: Either an S3 path (s3://bucket/key) or a download URL, depending
@@ -152,7 +155,7 @@ def upload_data(
                 tags = []
             payload = {"contentType": content_type, "originalName": file_name, "tags": ",".join(tags), "license": license.value}
 
-        team_key = config.TEAM_API_KEY
+        team_key = api_key or config.TEAM_API_KEY
         headers = {"Authorization": "token " + team_key}
 
         r = _request_with_retry("post", url, headers=headers, data=payload)

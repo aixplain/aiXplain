@@ -92,7 +92,7 @@ class DataFactory(AssetFactory):
         return data
 
     @classmethod
-    def get(cls, data_id: Text) -> Data:
+    def get(cls, data_id: Text, api_key: str = None) -> Data:
         """Retrieve a data asset by its ID.
 
         This method fetches a data asset from the platform using its unique
@@ -100,6 +100,7 @@ class DataFactory(AssetFactory):
 
         Args:
             data_id (Text): Unique identifier of the data asset to retrieve.
+            api_key (str): Optional API key for authentication.
 
         Returns:
             Data: Retrieved data asset object with its configuration.
@@ -111,8 +112,8 @@ class DataFactory(AssetFactory):
                 - Service is unavailable
         """
         url = urljoin(cls.backend_url, f"sdk/data/{data_id}/overview")
-
-        headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+        api_key = api_key or config.TEAM_API_KEY
+        headers = {"Authorization": f"Token {api_key}", "Content-Type": "application/json"}
         logging.info(f"Start service for GET Data  - {url} - {headers}")
         r = _request_with_retry("get", url, headers=headers)
         resp = r.json()
