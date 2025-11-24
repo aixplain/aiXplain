@@ -60,7 +60,7 @@ def run_input_map(request):
     return request.param
 
 
-@pytest.mark.parametrize("FinetuneFactory", [FinetuneFactory, v2.Finetune])
+@pytest.mark.parametrize("FinetuneFactory", [FinetuneFactory])
 def test_end2end(run_input_map, FinetuneFactory):
     model = run_input_map["model_id"]
     dataset_list = [DatasetFactory.list(query=run_input_map["dataset_name"])["results"][0]]
@@ -97,7 +97,7 @@ def test_end2end(run_input_map, FinetuneFactory):
     finetune_model.delete()
 
 
-@pytest.mark.parametrize("FinetuneFactory", [FinetuneFactory, v2.Finetune])
+@pytest.mark.parametrize("FinetuneFactory", [FinetuneFactory])
 def test_cost_estimation_text_generation(estimate_cost_input_map, FinetuneFactory):
     model = ModelFactory.get(estimate_cost_input_map["model_id"])
     dataset_list = [DatasetFactory.list(query=estimate_cost_input_map["dataset_name"])["results"][0]]

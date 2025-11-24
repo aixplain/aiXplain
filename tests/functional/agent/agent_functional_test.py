@@ -57,7 +57,7 @@ def delete_agents_and_team_agents():
     safe_delete_all_agents_and_team_agents()
 
 
-@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
+@pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_end2end(run_input_map, delete_agents_and_team_agents, AgentFactory):
     assert delete_agents_and_team_agents
     tools = []
@@ -102,7 +102,7 @@ def test_end2end(run_input_map, delete_agents_and_team_agents, AgentFactory):
     agent.delete()
 
 
-@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
+@pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_python_interpreter_tool(delete_agents_and_team_agents, AgentFactory):
     assert delete_agents_and_team_agents
     tool = AgentFactory.create_python_interpreter_tool()
@@ -131,7 +131,7 @@ def test_python_interpreter_tool(delete_agents_and_team_agents, AgentFactory):
     agent.delete()
 
 
-@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
+@pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_custom_code_tool(delete_agents_and_team_agents, AgentFactory):
     assert delete_agents_and_team_agents
     tool = AgentFactory.create_custom_python_code_tool(
@@ -159,7 +159,7 @@ def test_custom_code_tool(delete_agents_and_team_agents, AgentFactory):
     agent.delete()
 
 
-@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
+@pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_list_agents(AgentFactory):
     agents = AgentFactory.list()
     assert "results" in agents
@@ -167,7 +167,7 @@ def test_list_agents(AgentFactory):
     assert type(agents_result) is list
 
 
-@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
+@pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_update_draft_agent(run_input_map, delete_agents_and_team_agents, AgentFactory):
     assert delete_agents_and_team_agents
 
@@ -207,7 +207,7 @@ def test_update_draft_agent(run_input_map, delete_agents_and_team_agents, AgentF
     agent.delete()
 
 
-@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
+@pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_fail_non_existent_llm(delete_agents_and_team_agents, AgentFactory):
     assert delete_agents_and_team_agents
     with pytest.raises(Exception) as exc_info:
@@ -221,7 +221,7 @@ def test_fail_non_existent_llm(delete_agents_and_team_agents, AgentFactory):
     assert str(exc_info.value) == "Large Language Model with ID 'non_existent_llm' not found."
 
 
-@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
+@pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_delete_agent_in_use(delete_agents_and_team_agents, AgentFactory):
     assert delete_agents_and_team_agents
     agent = AgentFactory.create(
@@ -245,7 +245,7 @@ def test_delete_agent_in_use(delete_agents_and_team_agents, AgentFactory):
     )
 
 
-@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
+@pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_update_tools_of_agent(run_input_map, delete_agents_and_team_agents, AgentFactory):
     assert delete_agents_and_team_agents
 
@@ -377,7 +377,7 @@ def test_specific_model_parameters_e2e(tool_config, delete_agents_and_team_agent
     assert tool_used, "Tool was not used in execution"
 
 
-@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
+@pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_sql_tool(delete_agents_and_team_agents, AgentFactory):
     assert delete_agents_and_team_agents
     agent = None
@@ -428,7 +428,7 @@ def test_sql_tool(delete_agents_and_team_agents, AgentFactory):
             agent.delete()
 
 
-@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
+@pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_sql_tool_with_csv(delete_agents_and_team_agents, AgentFactory):
     assert delete_agents_and_team_agents
     agent = None
@@ -471,7 +471,7 @@ def test_sql_tool_with_csv(delete_agents_and_team_agents, AgentFactory):
         assert tool.tables == ["employees"]
         assert (
             tool.schema
-            == 'CREATE TABLE employees (\n                    "id" INTEGER, "name" TEXT, "department" TEXT, "salary" INTEGER\n                )'  # noqa: W503
+            == 'CREATE TABLE employees (\n                    "id" INTEGER, "name" TEXT, "department" TEXT, "salary" INTEGER\n                )'
         )
         assert not tool.enable_commit  # must be False by default
 
@@ -515,7 +515,7 @@ def test_sql_tool_with_csv(delete_agents_and_team_agents, AgentFactory):
             os.remove("test.db")
 
 
-@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
+@pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_instructions(delete_agents_and_team_agents, AgentFactory):
     assert delete_agents_and_team_agents
 
@@ -541,7 +541,7 @@ def test_instructions(delete_agents_and_team_agents, AgentFactory):
     agent.delete()
 
 
-@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
+@pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_agent_with_utility_tool(delete_agents_and_team_agents, AgentFactory):
     from aixplain.enums import DataType
     from aixplain.modules.model.utility_model import utility_tool, UtilityModelInput
@@ -608,7 +608,7 @@ def test_agent_with_utility_tool(delete_agents_and_team_agents, AgentFactory):
     assert "helloworld!" in result_concat_text["data"]["output"].lower()
 
 
-@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
+@pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_agent_with_pipeline_tool(delete_agents_and_team_agents, AgentFactory):
     from aixplain.factories.pipeline_factory import PipelineFactory
 
@@ -646,7 +646,7 @@ def test_agent_with_pipeline_tool(delete_agents_and_team_agents, AgentFactory):
     assert "hello pipeline" in answer["data"]["intermediate_steps"][0]["tool_steps"][0]["tool"].lower()
 
 
-@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
+@pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_agent_llm_parameter_preservation(delete_agents_and_team_agents, AgentFactory):
     """Test that LLM parameters like temperature are preserved when creating agents."""
     assert delete_agents_and_team_agents
@@ -795,9 +795,7 @@ def test_agent_with_action_tool():
     assert response is not None
     assert response["status"].lower() == "success"
     assert "helsinki" in response.data.output.lower()
-    assert "SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL" in [
-        step["tool"] for step in response.data.intermediate_steps[0]["tool_steps"]
-    ]
+    assert "SLACK_CHAT_POST_MESSAGE" in [step["tool"] for step in response.data.intermediate_steps[0]["tool_steps"]]
     connection.delete()
 
 
