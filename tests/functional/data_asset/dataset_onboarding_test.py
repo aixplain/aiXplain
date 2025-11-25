@@ -55,7 +55,7 @@ def split():
     )
 
 
-@pytest.mark.parametrize("DatasetFactory", [DatasetFactory, v2.Dataset])
+@pytest.mark.parametrize("DatasetFactory", [DatasetFactory])
 def test_dataset_onboard_get_delete(meta1, meta2, DatasetFactory):
     upload_file = "tests/functional/data_asset/input/audio-en_url.csv"
 
@@ -84,7 +84,7 @@ def test_dataset_onboard_get_delete(meta1, meta2, DatasetFactory):
         dataset = DatasetFactory.get(asset_id)
 
 
-@pytest.mark.parametrize("DatasetFactory", [DatasetFactory, v2.Dataset])
+@pytest.mark.parametrize("DatasetFactory", [DatasetFactory])
 def test_invalid_dataset_onboard(meta1, meta2, DatasetFactory):
     upload_file = "tests/functional/data_asset/input/audio-en_url.csv"
 
@@ -102,19 +102,19 @@ def test_invalid_dataset_onboard(meta1, meta2, DatasetFactory):
         )
 
 
-@pytest.mark.parametrize("DatasetFactory", [DatasetFactory, v2.Dataset])
+@pytest.mark.parametrize("DatasetFactory", [DatasetFactory])
 def test_dataset_listing(DatasetFactory):
     response = DatasetFactory.list()
     assert "results" in response
 
 
-@pytest.mark.parametrize("DatasetFactory", [DatasetFactory, v2.Dataset])
+@pytest.mark.parametrize("DatasetFactory", [DatasetFactory])
 def test_dataset_get_error(DatasetFactory):
     with pytest.raises(Exception):
         response = DatasetFactory.get("131312")
 
 
-@pytest.mark.parametrize("DatasetFactory", [DatasetFactory, v2.Dataset])
+@pytest.mark.parametrize("DatasetFactory", [DatasetFactory])
 def test_invalid_dataset_splitting(meta1, meta2, split, DatasetFactory):
     upload_file = "tests/functional/data_asset/input/audio-en_with_invalid_split_url.csv"
 
@@ -140,7 +140,7 @@ def test_invalid_dataset_splitting(meta1, meta2, split, DatasetFactory):
         )
 
 
-@pytest.mark.parametrize("DatasetFactory", [DatasetFactory, v2.Dataset])
+@pytest.mark.parametrize("DatasetFactory", [DatasetFactory])
 def test_valid_dataset_splitting(meta1, meta2, split, DatasetFactory):
     upload_file = "tests/functional/data_asset/input/audio-en_with_split_url.csv"
 

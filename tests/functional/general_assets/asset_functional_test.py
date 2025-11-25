@@ -31,25 +31,25 @@ def inputs():
         return json.load(f)
 
 
-@pytest.mark.parametrize("ModelFactory", [ModelFactory, v2.Model])
+@pytest.mark.parametrize("ModelFactory", [ModelFactory])
 def test_list_models(ModelFactory):
     models = ModelFactory.list(function=Function.TRANSLATION)
     assert models["page_total"] == len(models["results"])
 
 
-@pytest.mark.parametrize("DatasetFactory", [DatasetFactory, v2.Dataset])
+@pytest.mark.parametrize("DatasetFactory", [DatasetFactory])
 def test_list_datasets(DatasetFactory):
     datasets = DatasetFactory.list()
     assert datasets["page_total"] == len(datasets["results"])
 
 
-@pytest.mark.parametrize("MetricFactory", [MetricFactory, v2.Metric])
+@pytest.mark.parametrize("MetricFactory", [MetricFactory])
 def test_list_metrics(MetricFactory):
     metrics = MetricFactory.list()
     assert metrics["page_total"] == len(metrics["results"])
 
 
-@pytest.mark.parametrize("PipelineFactory", [PipelineFactory, v2.Pipeline])
+@pytest.mark.parametrize("PipelineFactory", [PipelineFactory])
 def test_run_pipeline(inputs, PipelineFactory):
     asset_details = inputs["pipeline"]
     pipeline = PipelineFactory.list(query=asset_details["name"])["results"][0]
@@ -58,7 +58,7 @@ def test_run_pipeline(inputs, PipelineFactory):
     assert output["completed"] and output["status"] == "SUCCESS"
 
 
-@pytest.mark.parametrize("MetricFactory", [MetricFactory, v2.Metric])
+@pytest.mark.parametrize("MetricFactory", [MetricFactory])
 def test_run_metric(inputs, MetricFactory):
     asset_details = inputs["metric"]
     metric = MetricFactory.get(asset_details["id"])
@@ -67,7 +67,7 @@ def test_run_metric(inputs, MetricFactory):
     assert output["completed"] and output["status"] == "SUCCESS"
 
 
-@pytest.mark.parametrize("ModelFactory", [ModelFactory, v2.Model])
+@pytest.mark.parametrize("ModelFactory", [ModelFactory])
 def test_run_model(inputs, ModelFactory):
     asset_details = inputs["model"]
     model = ModelFactory.get(asset_details["id"])
@@ -76,7 +76,7 @@ def test_run_model(inputs, ModelFactory):
     assert output["completed"] and output["status"] == "SUCCESS"
 
 
-@pytest.mark.parametrize("ModelFactory", [ModelFactory, v2.Model])
+@pytest.mark.parametrize("ModelFactory", [ModelFactory])
 def test_model_function(ModelFactory):
     desired_function = Function.TRANSLATION
     models = ModelFactory.list(function=desired_function)["results"]
@@ -84,7 +84,7 @@ def test_model_function(ModelFactory):
         assert model.function == desired_function
 
 
-@pytest.mark.parametrize("ModelFactory", [ModelFactory, v2.Model])
+@pytest.mark.parametrize("ModelFactory", [ModelFactory])
 def test_model_supplier(ModelFactory):
     desired_suppliers = [Supplier.GOOGLE]
     models = ModelFactory.list(suppliers=desired_suppliers, function=Function.TRANSLATION)["results"]
@@ -98,7 +98,7 @@ def test_model_supplier(ModelFactory):
         (("67be216bd8f6a65d6f74d5e9", "669a63646eb56306647e1091"), ("Anthropic Claude 3.7 Sonnet", "GPT-4o Mini")),
     ],
 )
-@pytest.mark.parametrize("ModelFactory", [ModelFactory, v2.Model])
+@pytest.mark.parametrize("ModelFactory", [ModelFactory])
 def test_model_ids(model_ids, model_names, ModelFactory):
     models = ModelFactory.list(model_ids=model_ids)["results"]
     assert len(models) == 2
@@ -106,7 +106,7 @@ def test_model_ids(model_ids, model_names, ModelFactory):
     assert sorted([model.name for model in models]) == sorted(model_names)
 
 
-@pytest.mark.parametrize("ModelFactory", [ModelFactory, v2.Model])
+@pytest.mark.parametrize("ModelFactory", [ModelFactory])
 def test_model_sort(ModelFactory):
     function = Function.TRANSLATION
     src_language = Language.Portuguese
@@ -128,14 +128,14 @@ def test_model_sort(ModelFactory):
         assert prev_model_price >= model_price
 
 
-@pytest.mark.parametrize("ModelFactory", [ModelFactory, v2.Model])
+@pytest.mark.parametrize("ModelFactory", [ModelFactory])
 def test_model_ownership(ModelFactory):
     models = ModelFactory.list(ownership=OwnershipType.SUBSCRIBED, function=Function.TRANSLATION)["results"]
     for model in models:
         assert model.is_subscribed is True
 
 
-@pytest.mark.parametrize("ModelFactory", [ModelFactory, v2.Model])
+@pytest.mark.parametrize("ModelFactory", [ModelFactory])
 def test_model_query(ModelFactory):
     query = "Mongo"
     models = ModelFactory.list(query=query, function=Function.TRANSLATION)["results"]
@@ -143,7 +143,7 @@ def test_model_query(ModelFactory):
         assert query in model.name
 
 
-@pytest.mark.parametrize("ModelFactory", [ModelFactory, v2.Model])
+@pytest.mark.parametrize("ModelFactory", [ModelFactory])
 def test_model_deletion(ModelFactory):
     """Test that a model cannot be deleted."""
     model = ModelFactory.get("640b517694bf816d35a59125")
@@ -151,14 +151,14 @@ def test_model_deletion(ModelFactory):
         model.delete()
 
 
-@pytest.mark.parametrize("ModelFactory", [ModelFactory, v2.Model])
+@pytest.mark.parametrize("ModelFactory", [ModelFactory])
 def test_llm_instantiation(ModelFactory):
     """Test that the LLM model is correctly instantiated."""
     models = ModelFactory.list(function=Function.TEXT_GENERATION)["results"]
     assert isinstance(models[0], LLM)
 
 
-@pytest.mark.parametrize("ModelFactory", [ModelFactory, v2.Model])
+@pytest.mark.parametrize("ModelFactory", [ModelFactory])
 def test_model_io(ModelFactory):
     model_id = "64aee5824d34b1221e70ac07"
     model = ModelFactory.get(model_id)

@@ -1,6 +1,10 @@
 from typing import Optional, Union, List, Tuple, Text
-from aixplain.factories.model_factory.utils import get_model_from_ids, get_assets_from_page
-from aixplain.enums import Function, Language, OwnershipType, SortBy, SortOrder, Supplier
+from aixplain.factories.model_factory.utils import (
+    get_model_from_ids, get_assets_from_page
+)
+from aixplain.enums import (
+    Function, Language, OwnershipType, SortBy, SortOrder, Supplier
+)
 from aixplain.modules.model import Model
 
 
@@ -26,7 +30,8 @@ class ModelListMixin:
         page_size: int = 20,
         model_ids: Optional[List[Text]] = None,
         api_key: Optional[Text] = None,
-    ) -> dict:
+        **kwargs
+    ) -> List[Model]:
         """List and filter available models with pagination support.
 
         This method provides comprehensive filtering capabilities for retrieving
@@ -71,6 +76,7 @@ class ModelListMixin:
             AssertionError: If model_ids is provided with other filters, or if
                 page_size is less than the number of requested model_ids.
         """
+        api_key = kwargs.get("api_key", None) if api_key is None else api_key
         if model_ids is not None:
             assert len(model_ids) > 0, "Please provide at least one model id"
             assert (
@@ -81,8 +87,14 @@ class ModelListMixin:
                 and is_finetunable is None
                 and ownership is None
                 and sort_by is None
-            ), "Cannot filter by function, suppliers, source languages, target languages, is finetunable, ownership, sort by when using model ids"
-            assert len(model_ids) <= page_size, "Page size must be greater than the number of model ids"
+            ), (
+                "Cannot filter by function, suppliers, source languages, "
+                "target languages, is finetunable, ownership, sort by when "
+                "using model ids"
+            )
+            assert (
+                len(model_ids) <= page_size
+            ), "Page size must be greater than the number of model ids"
             models, total = get_model_from_ids(model_ids, api_key), len(model_ids)
         else:
             models, total = get_assets_from_page(

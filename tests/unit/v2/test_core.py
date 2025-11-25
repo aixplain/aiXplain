@@ -1,43 +1,49 @@
 import os
 from aixplain.v2.core import Aixplain
 from aixplain.v2.model import Model
-from aixplain.v2.pipeline import Pipeline
+from aixplain.v2.tool import Tool
 from aixplain.v2.agent import Agent
 from unittest.mock import patch
 
 
 def test_aixplain_instance():
-    # mock init_env, init_client, init_resources
-    with patch.object(Aixplain, "init_env"):
-        with patch.object(Aixplain, "init_client"):
-            with patch.object(Aixplain, "init_resources"):
-                aixplain = Aixplain(api_key="test")
-                assert aixplain is not None
-                assert aixplain.api_key == "test"
-                assert aixplain.base_url == os.getenv("BACKEND_URL") or "https://platform-api.aixplain.com"
-                assert (
-                    aixplain.pipeline_url == os.getenv("PIPELINES_RUN_URL")
-                    or "https://platform-api.aixplain.com/assets/pipeline/execution/run"
-                )
-                assert aixplain.model_url == os.getenv("MODELS_RUN_URL") or "https://models.aixplain.com/api/v1/execute"
-                aixplain.init_env.assert_called_once()
-                aixplain.init_client.assert_called_once()
-                aixplain.init_resources.assert_called_once()
+    # mock init_client, init_resources
+    with patch.object(Aixplain, "init_client"):
+        with patch.object(Aixplain, "init_resources"):
+            aixplain = Aixplain(api_key="test")
+            assert aixplain is not None
+            assert aixplain.api_key == "test"
+            assert (
+                aixplain.backend_url == os.getenv("BACKEND_URL")
+                or "https://platform-api.aixplain.com"
+            )
+            assert aixplain.pipeline_url == os.getenv("PIPELINES_RUN_URL") or (
+                "https://platform-api.aixplain.com/assets/pipeline/" "execution/run"
+            )
+            assert (
+                aixplain.model_url == os.getenv("MODELS_RUN_URL")
+                or "https://models.aixplain.com/api/v2/execute"
+            )
+            aixplain.init_client.assert_called_once()
+            aixplain.init_resources.assert_called_once()
 
 
-def test_aixplain_init_env():
-    aixplain = Aixplain(
-        api_key="test",
-        backend_url="https://platform-api.aixplain.com",
-        pipeline_url="https://platform-api.aixplain.com/assets/pipeline/execution/run",
-        model_url="https://models.aixplain.com/api/v1/execute",
-    )
-    with patch.object(os, "environ", new=dict()) as mock_environ:
-        aixplain.init_env()
-        assert mock_environ["TEAM_API_KEY"] == "test"
-        assert mock_environ["BACKEND_URL"] == "https://platform-api.aixplain.com"
-        assert mock_environ["PIPELINE_URL"] == "https://platform-api.aixplain.com/assets/pipeline/execution/run"
-        assert mock_environ["MODEL_URL"] == "https://models.aixplain.com/api/v1/execute"
+def test_aixplain_environment_variables():
+    """Test that environment variables are used when no explicit values provided."""
+    with patch.dict(
+        os.environ,
+        {
+            "TEAM_API_KEY": "env_test_key",
+            "BACKEND_URL": "https://env-backend.com",
+            "PIPELINES_RUN_URL": "https://env-pipeline.com",
+            "MODELS_RUN_URL": "https://env-models.com",
+        },
+    ):
+        aixplain = Aixplain()
+        assert aixplain.api_key == "env_test_key"
+        assert aixplain.backend_url == "https://env-backend.com"
+        assert aixplain.pipeline_url == "https://env-pipeline.com"
+        assert aixplain.model_url == "https://env-models.com"
 
 
 def test_aixplain_init_client():
@@ -45,7 +51,7 @@ def test_aixplain_init_client():
     with patch("aixplain.v2.core.AixplainClient") as mock_client:
         aixplain.init_client()
         mock_client.assert_called_once_with(
-            base_url="https://platform-api.aixplain.com",
+            base_url=aixplain.backend_url,
             team_api_key="test",
         )
         assert aixplain.client is not None
@@ -56,17 +62,17 @@ def test_aixplain_init_resources():
     with patch.object(Aixplain, "init_resources"):
         aixplain.init_resources()
         assert aixplain.Model is not None
-        assert aixplain.Pipeline is not None
+        assert aixplain.Tool is not None
         assert aixplain.Agent is not None
         assert aixplain.Model.context == aixplain
-        assert aixplain.Pipeline.context == aixplain
+        assert aixplain.Tool.context == aixplain
         assert aixplain.Agent.context == aixplain
 
         assert issubclass(aixplain.Model, Model)
-        assert issubclass(aixplain.Pipeline, Pipeline)
+        assert issubclass(aixplain.Tool, Tool)
         assert issubclass(aixplain.Agent, Agent)
 
         # check if the resources are NOT the same class type
-        assert aixplain.Pipeline != Pipeline
+        assert aixplain.Tool != Tool
         assert aixplain.Model != Model
         assert aixplain.Agent != Agent
