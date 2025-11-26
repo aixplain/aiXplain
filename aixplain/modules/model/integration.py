@@ -1,3 +1,9 @@
+"""Integration module for aiXplain SDK.
+
+This module provides classes and utilities for working with external service
+integrations, including authentication schemes and connection management.
+"""
+
 import warnings
 from aixplain.enums import Function, Supplier, FunctionType
 from aixplain.modules.model import Model, ModelResponse
@@ -43,6 +49,7 @@ class BaseAuthenticationParams(BaseModel):
     """
 
     name: Optional[Text] = None
+    description: Optional[Text] = None
     connector_id: Optional[Text] = None
 
 
@@ -55,22 +62,30 @@ def build_connector_params(**kwargs) -> BaseAuthenticationParams:
     Args:
         **kwargs: Arbitrary keyword arguments. Supported keys:
             - name (Optional[Text]): Name for the connection
+            - description (Optional[Text]): Description for the connection
             - connector_id (Optional[Text]): ID of the connector
 
     Returns:
         BaseAuthenticationParams: An instance containing the extracted parameters.
 
     Example:
-        >>> params = build_connector_params(name="My Connection", connector_id="123")
+        >>> params = build_connector_params(name="My Connection", description="My Connection Description", connector_id="123")
         >>> print(params.name)
         'My Connection'
     """
     name = kwargs.get("name")
+    description = kwargs.get("description")
     connector_id = kwargs.get("connector_id")
-    return BaseAuthenticationParams(name=name, connector_id=connector_id)
+    return BaseAuthenticationParams(name=name, description=description, connector_id=connector_id)
 
 
 class Integration(Model):
+    """Integration class for managing external service integrations.
+
+    This class extends the Model class to provide functionality for connecting
+    to and interacting with external services through integrations.
+    """
+
     def __init__(
         self,
         id: Text,
@@ -165,13 +180,15 @@ class Integration(Model):
                 >>> integration.connect(
                 ...     AuthenticationSchema.BEARER_TOKEN,
                 ...     data={"token": "1234567890"},
-                ...     name="My Connection"
+                ...     name="My Connection",
+                ...     description="My Connection Description"
                 ... )
 
             Using OAuth2 authentication:
                 >>> response = integration.connect(
                 ...     AuthenticationSchema.OAUTH2,
-                ...     name="My Connection"
+                ...     name="My Connection",
+                ...     description="My Connection Description"
                 ... )
                 >>> # For OAuth2, you'll need to visit the redirectURL to complete auth
                 >>> print(response.data.get("redirectURL"))
@@ -180,7 +197,8 @@ class Integration(Model):
                 >>> integration.connect(
                 ...     AuthenticationSchema.API_KEY,
                 ...     data={"api_key": "your-api-key"},
-                ...     name="My Connection"
+                ...     name="My Connection",
+                ...     description="My Connection Description"
                 ... )
         """
         if self.id == "686eb9cd26480723d0634d3e":
@@ -222,6 +240,7 @@ class Integration(Model):
             return self.run(
                 {
                     "name": args.name,
+                    "description": args.description,
                     "authScheme": authentication_schema.value,
                     "data": data,
                 }
@@ -230,6 +249,7 @@ class Integration(Model):
             response = self.run(
                 {
                     "name": args.name,
+                    "description": args.description,
                     "authScheme": authentication_schema.value,
                 }
             )
