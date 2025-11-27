@@ -1,3 +1,5 @@
+"""Integration and action management for v2 API."""
+
 from typing import Optional, List, Any, Dict, TYPE_CHECKING
 import json
 from dataclasses import dataclass, field
@@ -20,6 +22,12 @@ class ActionInputsProxy:
     """
 
     def __init__(self, container, action_name: str):
+        """Initialize ActionInputsProxy.
+
+        Args:
+            container: The container resource (Tool or Integration) that can fetch action specs.
+            action_name: The name of the action to get inputs for.
+        """
         self._container = container
         self._action_name = action_name
         self._inputs = {}
@@ -36,23 +44,32 @@ class ActionInputsProxy:
         actions = self._container.list_inputs(self._action_name)
 
         if not actions:
+            raise ValueError(f"Action '{self._action_name}' not found or has no input parameters defined.")
+
+        # Find the action matching self._action_name exactly
+        # list_inputs may return multiple actions, so we need to find the right one
+        action = None
+        for act in actions:
+            if act.name == self._action_name:
+                action = act
+                break
+
+        if action is None:
             raise ValueError(
-                f"Action '{self._action_name}' not found or has no input parameters defined."
+                f"Action '{self._action_name}' not found in list_inputs response. "
+                f"Available actions: {[a.name for a in actions]}"
             )
 
-        action = actions[0]
+        # If action has no inputs, that's valid - just return empty inputs dict
+        # (some actions like 'count' or 'metadata' may not require inputs)
         if not action.inputs:
-            raise ValueError(
-                f"Action '{self._action_name}' found but has no input parameters defined."
-            )
+            return
 
         # Setup inputs with defaults
         for input_param in action.inputs:
             input_code = input_param.code or input_param.name.lower().replace(" ", "_")
             self._inputs[input_code] = {
-                "value": (
-                    input_param.defaultValue[0] if input_param.defaultValue else None
-                ),
+                "value": (input_param.defaultValue[0] if input_param.defaultValue else None),
                 "input": input_param,
             }
 
@@ -70,8 +87,7 @@ class ActionInputsProxy:
 
         if not self._validate_input_type(value, input_param.datatype):
             raise ValueError(
-                f"Invalid value type for input '{key}'. "
-                f"Expected {input_param.datatype}, got {type(value).__name__}"
+                f"Invalid value type for input '{key}'. Expected {input_param.datatype}, got {type(value).__name__}"
             )
 
         input_info["value"] = value
@@ -95,13 +111,15 @@ class ActionInputsProxy:
 
     # Dict-like interface
     def __getitem__(self, key: str):
+        """Get input parameter value by key."""
         return self._get_input_info(key)["value"]
 
     def __setitem__(self, key: str, value):
+        """Set input parameter value by key."""
         self._set_input_value(key, value)
 
     def __contains__(self, key: str) -> bool:
-        """Check if input parameter exists: 'channels' in inputs"""
+        """Check if input parameter exists: 'channels' in inputs."""
         try:
             self._ensure_inputs_fetched()
             return key in self._inputs
@@ -109,21 +127,25 @@ class ActionInputsProxy:
             return False
 
     def __len__(self) -> int:
+        """Return the number of input parameters."""
         self._ensure_inputs_fetched()
         return len(self._inputs)
 
     def __iter__(self):
+        """Iterate over input parameter keys."""
         self._ensure_inputs_fetched()
         return iter(self._inputs.keys())
 
     # Attribute access
     def __getattr__(self, name: str):
+        """Get input parameter value via attribute access."""
         try:
             return self[name]
         except KeyError as e:
             raise AttributeError(f"Input parameter '{name}' not found") from e
 
     def __setattr__(self, name: str, value):
+        """Set input parameter value via attribute access."""
         if name.startswith("_"):
             super().__setattr__(name, value)
         else:
@@ -134,6 +156,7 @@ class ActionInputsProxy:
 
     # Utility methods
     def get(self, key: str, default=None):
+        """Get input parameter value with default fallback."""
         try:
             return self[key]
         except KeyError:
@@ -167,9 +190,7 @@ class ActionInputsProxy:
         """Reset an input parameter to its backend default value."""
         input_info = self._get_input_info(input_code)
         input_param = input_info["input"]
-        input_info["value"] = (
-            input_param.defaultValue[0] if input_param.defaultValue else None
-        )
+        input_info["value"] = input_param.defaultValue[0] if input_param.defaultValue else None
 
     def reset_all_inputs(self):
         """Reset all input parameters to their backend default values."""
@@ -177,6 +198,7 @@ class ActionInputsProxy:
             self.reset_input(input_code)
 
     def __repr__(self):
+        """Return string representation of ActionInputsProxy."""
         self._ensure_inputs_fetched()
         return f"ActionInputsProxy(action='{self._action_name}', inputs={dict(self.items())})"
 
@@ -211,13 +233,21 @@ class Action:
     available_versions: Optional[List[str]] = None
     version: Optional[str] = None
     toolkit: Optional[Dict[str, Any]] = None
-    input_parameters: Optional[Dict[str, Any]] = None
-    output_parameters: Optional[Dict[str, Any]] = None
+    input_parameters: Optional[Dict[str, Any]] = field(default=None, metadata=config(field_name="inputParameters"))
+    output_parameters: Optional[Dict[str, Any]] = field(default=None, metadata=config(field_name="outputParameters"))
     scopes: Optional[List[str]] = None
     tags: Optional[List[str]] = None
     no_auth: Optional[bool] = None
     deprecated: Optional[Dict[str, Any]] = None
     inputs: Optional[List[Input]] = None
+
+    def __post_init__(self):
+        """Convert inputs from dicts to Input objects if needed.
+
+        Follows v2 pattern (see Agent.__post_init__ with tasks).
+        """
+        if self.inputs:
+            self.inputs = [Input.from_dict(inp) if isinstance(inp, dict) else inp for inp in self.inputs]
 
     def __repr__(self) -> str:
         """Return a string representation showing name and input parameters."""
@@ -273,11 +303,10 @@ class IntegrationSearchParams(BaseSearchParams):
 
 
 class ActionMixin:
+    """Mixin class providing action management functionality for integrations and tools."""
 
     # Integration-specific fields
-    actions_available: Optional[bool] = field(
-        default=None, metadata=config(field_name="actionsAvailable")
-    )
+    actions_available: Optional[bool] = field(default=None, metadata=config(field_name="actionsAvailable"))
 
     def list_actions(self) -> List[Action]:
         """List available actions for the integration."""
@@ -285,28 +314,12 @@ class ActionMixin:
             return []
 
         run_url = self.build_run_url()
-        response = self.context.client.request(
-            "post", run_url, json={"action": "LIST_ACTIONS", "data": {}}
-        )
+        response = self.context.client.request("post", run_url, json={"action": "LIST_ACTIONS", "data": {}})
 
-        # Handle the response data
         if "data" not in response:
             return []
 
-        actions = []
-        for action_data in response["data"]:
-            try:
-                # Handle case where action_data might be a string or other format
-                if isinstance(action_data, dict):
-                    actions.append(Action.from_dict(action_data))
-                else:
-                    # Skip invalid action data
-                    continue
-            except Exception:
-                # Skip invalid action data
-                continue
-
-        return actions
+        return [Action.from_dict(action_data) for action_data in response["data"] if isinstance(action_data, dict)]
 
     def list_inputs(self, *actions: str) -> List[Action]:
         """List available inputs for the integration."""
@@ -317,15 +330,10 @@ class ActionMixin:
             json={"action": "LIST_INPUTS", "data": {"actions": actions}},
         )
 
-        # Handle the response data
         if "data" not in response:
             return []
 
-        actions = []
-        for input_data in response["data"]:
-            actions.append(Action.from_dict(input_data))
-
-        return actions
+        return [Action.from_dict(input_data) for input_data in response["data"] if isinstance(input_data, dict)]
 
     @cached_property
     def actions(self):
@@ -383,8 +391,7 @@ class ActionMixin:
         for action_name, input_values in inputs_dict.items():
             if not isinstance(input_values, dict):
                 raise ValueError(
-                    f"Input values for action '{action_name}' must be a dictionary, "
-                    f"got {type(input_values).__name__}"
+                    f"Input values for action '{action_name}' must be a dictionary, got {type(input_values).__name__}"
                 )
 
             # Get the action proxy - the actions proxy will handle case conversion
@@ -402,9 +409,7 @@ class ActionMixin:
                     f"Available inputs: {list(action_proxy.keys())}"
                 )
             except Exception as e:
-                raise ValueError(
-                    f"Error setting inputs for action '{action_name}': {e}"
-                )
+                raise ValueError(f"Error setting inputs for action '{action_name}': {e}")
 
 
 class ActionsProxy:
@@ -414,6 +419,11 @@ class ActionsProxy:
     """
 
     def __init__(self, container):
+        """Initialize ActionsProxy.
+
+        Args:
+            container: The container resource (Tool or Integration) that provides actions.
+        """
         self._container = container
         self._actions_cache = {}
         self._available_actions_cache = None
@@ -441,7 +451,7 @@ class ActionsProxy:
         return action_name
 
     def __getitem__(self, action_name: str):
-        """Get an action with its inputs proxy: actions['SLACK_SEND_MESSAGE'] or actions['slack_send_message']
+        """Get an action with its inputs proxy: actions['SLACK_SEND_MESSAGE'] or actions['slack_send_message'].
 
         Converts action name to lowercase for consistent lookup.
         """
@@ -461,7 +471,7 @@ class ActionsProxy:
         return self._actions_cache[normalized_name]
 
     def __getattr__(self, attr_name: str):
-        """Get an action with its inputs proxy using attribute notation: actions.slack_send_message
+        """Get an action with its inputs proxy using attribute notation: actions.slack_send_message.
 
         Converts attribute name to lowercase for consistent lookup.
         """
@@ -475,7 +485,7 @@ class ActionsProxy:
             ) from e
 
     def __contains__(self, action_name: str) -> bool:
-        """Check if an action exists: 'SLACK_SEND_MESSAGE' in actions"""
+        """Check if an action exists: 'SLACK_SEND_MESSAGE' in actions."""
         try:
             # Try to access the action to see if it exists
             self[action_name]
@@ -527,9 +537,7 @@ class Integration(Model, ActionMixin):
         except (json.JSONDecodeError, TypeError):
             return []
 
-    def get_auth_inputs(
-        self, auth_scheme: Optional[str] = None
-    ) -> List[Dict[str, Any]]:
+    def get_auth_inputs(self, auth_scheme: Optional[str] = None) -> List[Dict[str, Any]]:
         """Get authentication inputs for a specific auth scheme."""
         if not self.attributes or not auth_scheme:
             return []
@@ -548,8 +556,10 @@ class Integration(Model, ActionMixin):
             return []
 
     def _validate_params(self, **kwargs) -> List[str]:
-        """Validate all provided parameters against the model's expected
-        parameters and integration-specific auth requirements."""
+        """Validate all provided parameters against the model's expected parameters.
+
+        Also validates integration-specific auth requirements.
+        """
         # Call parent validation first
         errors = super()._validate_params(**kwargs)
 
@@ -557,19 +567,14 @@ class Integration(Model, ActionMixin):
         auth_scheme_value = None
         # If auth scheme is provided, validate it
         if auth_scheme:
-            auth_scheme_value = (
-                auth_scheme.value if hasattr(auth_scheme, "value") else str(auth_scheme)
-            )
+            auth_scheme_value = auth_scheme.value if hasattr(auth_scheme, "value") else str(auth_scheme)
 
             if auth_scheme_value == "NO_AUTH":
                 auth_scheme_value = None
                 auth_scheme = None
 
             if auth_scheme_value and auth_scheme_value not in self.auth_schemes:
-                errors.append(
-                    f"Invalid auth_scheme '{auth_scheme}'. "
-                    f"Available schemes: {self.auth_schemes}"
-                )
+                errors.append(f"Invalid auth_scheme '{auth_scheme}'. Available schemes: {self.auth_schemes}")
 
         data = kwargs.get("data", {})
         data_errors = self._validate_data_params(data, auth_scheme_value)
@@ -579,11 +584,8 @@ class Integration(Model, ActionMixin):
 
         return errors
 
-    def _validate_data_params(
-        self, data: Optional[Dict[str, Any]], auth_scheme: Optional[str] = None
-    ) -> List[str]:
-        """Validate data parameter against expected auth inputs for the auth
-        scheme."""
+    def _validate_data_params(self, data: Optional[Dict[str, Any]], auth_scheme: Optional[str] = None) -> List[str]:
+        """Validate data parameter against expected auth inputs for the auth scheme."""
         errors = []
 
         # Handle None data
@@ -601,10 +603,7 @@ class Integration(Model, ActionMixin):
             required = expected_input.get("required", False)
 
             if required and input_name not in data:
-                errors.append(
-                    f"Required auth input '{input_name}' is missing for "
-                    f"auth scheme '{auth_scheme}'"
-                )
+                errors.append(f"Required auth input '{input_name}' is missing for auth scheme '{auth_scheme}'")
 
             # Validate input type if specified
             if input_name in data and "type" in expected_input:
