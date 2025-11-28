@@ -20,7 +20,6 @@ from aixplain.enums import (
 )
 
 import pytest
-from aixplain import aixplain_v2 as v2
 
 INPUTS_PATH = Path(r"tests/functional/general_assets/data/asset_run_test_data.json")
 

@@ -4,8 +4,6 @@ from datetime import datetime, timedelta, timezone
 import json
 import pytest
 
-from aixplain import aixplain_v2 as v2
-
 
 @pytest.mark.parametrize("APIKeyFactory", [APIKeyFactory])
 def test_create_api_key_from_json(APIKeyFactory):

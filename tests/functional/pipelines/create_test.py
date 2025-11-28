@@ -22,7 +22,6 @@ import pytest
 from aixplain.factories import PipelineFactory
 from aixplain.modules import Pipeline
 from uuid import uuid4
-from aixplain import aixplain_v2 as v2
 
 
 @pytest.mark.parametrize("PipelineFactory", [PipelineFactory])

@@ -11,7 +11,6 @@ from aixplain.modules.pipeline.designer import (
 from aixplain.modules import Pipeline
 from aixplain.modules.pipeline.designer import AssetNode
 from uuid import uuid4
-from aixplain import aixplain_v2 as v2
 
 
 @pytest.fixture

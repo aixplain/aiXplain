@@ -20,10 +20,18 @@ import pytest
 import time
 
 from uuid import uuid4
-from aixplain.enums import Function, Language, License, Privacy, DataSubtype, DataType, StorageType, OnboardStatus
+from aixplain.enums import (
+    Function,
+    Language,
+    License,
+    Privacy,
+    DataSubtype,
+    DataType,
+    StorageType,
+    OnboardStatus,
+)
 from aixplain.factories import DatasetFactory
 from aixplain.modules import MetaData
-from aixplain import aixplain_v2 as v2
 
 
 @pytest.fixture
@@ -42,7 +50,14 @@ def meta1():
 
 @pytest.fixture
 def meta2():
-    return [{"name": "text", "dtype": "text", "storage_type": "text", "languages": [Language.ENGLISH_UNITED_STATES]}]
+    return [
+        {
+            "name": "text",
+            "dtype": "text",
+            "storage_type": "text",
+            "languages": [Language.ENGLISH_UNITED_STATES],
+        }
+    ]
 
 
 @pytest.fixture

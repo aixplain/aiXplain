@@ -20,7 +20,6 @@ import pytest
 import os
 from aixplain.factories import DatasetFactory, PipelineFactory
 from aixplain.enums.response_status import ResponseStatus
-from aixplain import aixplain_v2 as v2
 
 
 @pytest.mark.parametrize("PipelineFactory", [PipelineFactory])
