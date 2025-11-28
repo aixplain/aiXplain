@@ -28,7 +28,6 @@ jobs:
           'finetune_v1',
           'finetune_v1_model',
           'finetune_v2',
-          'v2',
           'general_assets',
           'apikey',
           'agent',
@@ -70,9 +69,6 @@ jobs:
             timeout: 45
           - test-suite: 'finetune_v2'
             path: 'tests/functional/finetune --sdk_version v2 --sdk_version_param ModelFactory'
-            timeout: 45
-          - test-suite: 'v2'
-            path: 'tests/functional/v2'
             timeout: 45
           - test-suite: 'general_assets'
             path: 'tests/functional/general_assets'
