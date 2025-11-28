@@ -12,7 +12,6 @@ from pathlib import Path
 
 import pytest
 import logging
-from aixplain import aixplain_v2 as v2
 
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)

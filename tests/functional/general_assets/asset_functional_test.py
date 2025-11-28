@@ -20,7 +20,6 @@ from aixplain.enums import (
 )
 
 import pytest
-from aixplain import aixplain_v2 as v2
 
 INPUTS_PATH = Path(r"tests/functional/general_assets/data/asset_run_test_data.json")
 
@@ -95,7 +94,10 @@ def test_model_supplier(ModelFactory):
 @pytest.mark.parametrize(
     "model_ids,model_names",
     [
-        (("67be216bd8f6a65d6f74d5e9", "669a63646eb56306647e1091"), ("Anthropic Claude 3.7 Sonnet", "GPT-4o Mini")),
+        (
+            ("67be216bd8f6a65d6f74d5e9", "669a63646eb56306647e1091"),
+            ("Anthropic Claude 3.7 Sonnet", "GPT-4o Mini"),
+        ),
     ],
 )
 @pytest.mark.parametrize("ModelFactory", [ModelFactory])
@@ -109,8 +111,8 @@ def test_model_ids(model_ids, model_names, ModelFactory):
 @pytest.mark.parametrize("ModelFactory", [ModelFactory])
 def test_model_sort(ModelFactory):
     function = Function.TRANSLATION
-    src_language = Language.Portuguese
-    trg_language = Language.English
+    src_language = Language.PORTUGUESE
+    trg_language = Language.ENGLISH
 
     models = ModelFactory.list(
         function=function,

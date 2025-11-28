@@ -30,8 +30,6 @@ from uuid import uuid4
 
 import pytest
 
-from aixplain import aixplain_v2 as v2
-
 RUN_FILE = "tests/functional/agent/data/agent_test_end2end.json"
 
 
