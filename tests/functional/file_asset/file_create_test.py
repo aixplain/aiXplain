@@ -19,7 +19,6 @@ limitations under the License.
 import pytest
 from aixplain.enums import License
 from aixplain.factories import FileFactory
-from aixplain import aixplain_v2 as v2
 
 
 @pytest.mark.parametrize(

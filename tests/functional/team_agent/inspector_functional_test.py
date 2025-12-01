@@ -11,7 +11,6 @@ load_dotenv()
 
 import pytest
 
-from aixplain import aixplain_v2 as v2
 from aixplain.factories import AgentFactory, TeamAgentFactory, ModelFactory
 from aixplain.enums.asset_status import AssetStatus
 from aixplain.modules.team_agent import InspectorTarget
