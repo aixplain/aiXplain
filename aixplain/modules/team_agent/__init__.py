@@ -220,7 +220,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             output_format (OutputFormat, optional): Output format. Defaults to OutputFormat.TEXT.
             expected_output (Optional[Union[BaseModel, Text, dict]], optional): Expected output format. Defaults to None.
             **additional_info: Additional keyword arguments.
-            
+
         Deprecated Args:
             llm_id (Text, optional): DEPRECATED. Use 'llm' parameter instead. ID of the language model. Defaults to "6646261c6eb563165658bbb1".
             mentalist_llm (Optional[LLM], optional): DEPRECATED. Mentalist/Planner LLM instance. Defaults to None.
@@ -690,6 +690,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                     output=result_data.get("output"),
                     session_id=result_data.get("session_id"),
                     intermediate_steps=result_data.get("intermediate_steps"),
+                    steps=result_data.get("steps"),
                     execution_stats=result_data.get("executionStats"),
                     critiques=result_data.get("critiques", ""),
                 ),
@@ -918,6 +919,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                     output=resp_data.get("output"),
                     session_id=resp_data.get("session_id"),
                     intermediate_steps=resp_data.get("intermediate_steps"),
+                    steps=resp_data.get("steps"),
                     execution_stats=resp_data.get("executionStats"),
                 )
         except Exception as e:
