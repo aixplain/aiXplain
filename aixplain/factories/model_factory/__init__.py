@@ -47,7 +47,7 @@ class ModelFactory(ModelGetterMixin, ModelListMixin):
     """
 
     backend_url = config.BACKEND_URL
-    PYTHON_SANDBOX_ID = "688779d8bfb8e46c273982ca"  # Python sandbox integration ID\
+    PYTHON_SANDBOX_ID = "688779d8bfb8e46c273982ca"  # Python sandbox integration ID
 
     @classmethod
     def create_utility_model(

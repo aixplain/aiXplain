@@ -22,6 +22,7 @@ from aixplain.enums import Function, Supplier, FunctionType, ResponseStatus
 from aixplain.modules.model import Model
 from aixplain.utils import config
 from typing import Text, Optional, Union, Dict, List
+import warnings
 
 
 class ConnectAction:
@@ -212,14 +213,14 @@ class ConnectionTool(Model):
         Returns:
             List[Dict]: A list of dictionaries containing the parameters for each action
                 in the action scope. Each dictionary contains the action's code, name,
-                description, and input parameters.
-
-        Raises:
-            AssertionError: If the action scope is not set or is empty.
+                description, and input parameters. Returns an empty list if action_scope
+                is not set or is empty.
         """
-        assert self.action_scope is not None and len(self.action_scope) > 0, (
-            f"Please set the scope of actions for the connection '{self.id}'."
-        )
+        if self.action_scope is None or len(self.action_scope) == 0:
+            warnings.warn(
+                f"No action_scope is specified, all {len(self.actions)} actions included"
+            )
+            return []
         response = [
             {
                 "code": action.code,
