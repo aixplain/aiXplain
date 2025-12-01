@@ -1,7 +1,4 @@
-__author__ = "lucaspavanelli"
-
-"""
-Copyright 2024 The aiXplain SDK authors
+"""Copyright 2024 The aiXplain SDK authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -84,17 +81,26 @@ class TeamAgentFactory:
             instructions: The instructions to guide the team agent (i.e. appended in the prompt of the team agent).
             output_format: The output format to be used for the team agent.
             expected_output: The expected output to be used for the team agent.
+            **kwargs: Additional keyword arguments for backward compatibility (deprecated parameters).
+
         Returns:
             A new team agent instance.
-            
+
         Deprecated Args:
             llm_id: DEPRECATED. Use 'llm' parameter instead. The ID of the LLM to be used for the team agent.
             mentalist_llm: DEPRECATED. LLM for planning.
             use_mentalist: DEPRECATED. Whether to use the mentalist agent.
         """
         # Define supported kwargs
-        supported_kwargs = {"llm_id", "mentalist_llm", "use_mentalist"}
-        
+        supported_kwargs = {
+            "llm_id",
+            "mentalist_llm",
+            "use_mentalist",
+            "use_mentalist_and_inspector",
+            "use_inspector",
+            "num_inspectors",
+        }
+
         # Validate kwargs - raise error if unsupported kwargs are provided
         unsupported_kwargs = set(kwargs.keys()) - supported_kwargs
         if unsupported_kwargs:
@@ -113,7 +119,7 @@ class TeamAgentFactory:
             )
         else:
             llm_id = "669a63646eb56306647e1091"
-        
+
         if "mentalist_llm" in kwargs:
             mentalist_llm = kwargs.pop("mentalist_llm")
             warnings.warn(
@@ -123,7 +129,7 @@ class TeamAgentFactory:
             )
         else:
             mentalist_llm = None
-        
+
         if "use_mentalist" in kwargs:
             use_mentalist = kwargs.pop("use_mentalist")
             warnings.warn(
@@ -133,16 +139,20 @@ class TeamAgentFactory:
             )
         else:
             use_mentalist = True
-        
+
         # legacy params
         if "use_mentalist_and_inspector" in kwargs:
             logging.warning(
                 "TeamAgent Onboarding Warning: use_mentalist_and_inspector is no longer supported. Use use_mentalist and inspectors instead."
             )
         if "use_inspector" in kwargs:
-            logging.warning("TeamAgent Onboarding Warning: use_inspector is no longer supported. Use inspectors instead.")
+            logging.warning(
+                "TeamAgent Onboarding Warning: use_inspector is no longer supported. Use inspectors instead."
+            )
         if "num_inspectors" in kwargs:
-            logging.warning("TeamAgent Onboarding Warning: num_inspectors is no longer supported. Use inspectors instead.")
+            logging.warning(
+                "TeamAgent Onboarding Warning: num_inspectors is no longer supported. Use inspectors instead."
+            )
 
         assert len(agents) > 0, "TeamAgent Onboarding Error: At least one agent must be provided."
 
@@ -208,7 +218,9 @@ class TeamAgentFactory:
                     {
                         "type": "llm",
                         "description": description,
-                        "parameters": llm_instance.get_parameters().to_list() if llm_instance.get_parameters() else None,
+                        "parameters": llm_instance.get_parameters().to_list()
+                        if llm_instance.get_parameters()
+                        else None,
                     }
                 )
             return llm_instance, tools
@@ -218,7 +230,9 @@ class TeamAgentFactory:
         llm, tools = _setup_llm_and_tool(llm, llm_id, "Main LLM", "main", tools)
         supervisor_llm, tools = _setup_llm_and_tool(supervisor_llm, llm_id, "Supervisor LLM", "supervisor", tools)
         mentalist_llm, tools = (
-            _setup_llm_and_tool(mentalist_llm, llm_id, "Mentalist LLM", "mentalist", tools) if use_mentalist else (None, [])
+            _setup_llm_and_tool(mentalist_llm, llm_id, "Mentalist LLM", "mentalist", tools)
+            if use_mentalist
+            else (None, [])
         )
 
         team_agent = None
@@ -268,12 +282,10 @@ class TeamAgentFactory:
         team_agent = build_team_agent(payload=internal_payload, agents=agent_list, api_key=api_key)
         team_agent.validate(raise_exception=True)
         response = "Unspecified error"
-        inspectors=team_agent.inspectors
-        inspector_targets=team_agent.inspector_targets
+        inspectors = team_agent.inspectors
+        inspector_targets = team_agent.inspector_targets
         try:
-            payload["inspectors"] = [
-                inspector.model_dump(by_alias=True) for inspector in inspectors
-            ]
+            payload["inspectors"] = [inspector.model_dump(by_alias=True) for inspector in inspectors]
             payload["inspectorTargets"] = inspector_targets
             logging.debug(f"Start service for POST Create TeamAgent  - {url} - {headers} - {json.dumps(payload)}")
             r = _request_with_retry("post", url, headers=headers, json=payload)
@@ -384,7 +396,9 @@ class TeamAgentFactory:
             raise Exception(error_msg)
 
     @classmethod
-    def get(cls, agent_id: Optional[Text] = None, name: Optional[Text] = None, api_key: Optional[Text] = None) -> TeamAgent:
+    def get(
+        cls, agent_id: Optional[Text] = None, name: Optional[Text] = None, api_key: Optional[Text] = None
+    ) -> TeamAgent:
         """Retrieve a team agent by its ID or name.
 
         This method fetches a specific team agent from the platform using its

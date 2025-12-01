@@ -66,14 +66,3 @@ def test_get_functions():
         functions = ModelFactory.list_functions(config.TEAM_API_KEY)
     assert functions == mock_json
 
-
-@pytest.mark.skip(reason="Not currently supported.")
-def test_list_image_repo_tags():
-    model_id = "mock_id"
-    url = urljoin(config.BACKEND_URL, f"sdk/models/{model_id}/images")
-    with requests_mock.Mocker() as mock:
-        with open(Path("tests/mock_responses/list_image_repo_tags_response.json")) as f:
-            mock_json = json.load(f)
-        mock.get(url, headers=AUTH_FIXED_HEADER, json=mock_json)
-        tags = ModelFactory.list_image_repo_tags(model_id, config.TEAM_API_KEY)
-    assert tags == mock_json

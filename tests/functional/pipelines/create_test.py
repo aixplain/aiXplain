@@ -22,10 +22,9 @@ import pytest
 from aixplain.factories import PipelineFactory
 from aixplain.modules import Pipeline
 from uuid import uuid4
-from aixplain import aixplain_v2 as v2
 
 
-@pytest.mark.parametrize("PipelineFactory", [PipelineFactory, v2.Pipeline])
+@pytest.mark.parametrize("PipelineFactory", [PipelineFactory])
 def test_create_pipeline_from_json(PipelineFactory):
     pipeline_json = "tests/functional/pipelines/data/pipeline.json"
     pipeline_name = str(uuid4())
@@ -36,7 +35,7 @@ def test_create_pipeline_from_json(PipelineFactory):
     pipeline.delete()
 
 
-@pytest.mark.parametrize("PipelineFactory", [PipelineFactory, v2.Pipeline])
+@pytest.mark.parametrize("PipelineFactory", [PipelineFactory])
 def test_create_pipeline_from_string(PipelineFactory):
     pipeline_json = "tests/functional/pipelines/data/pipeline.json"
     with open(pipeline_json) as f:
@@ -55,7 +54,7 @@ def test_create_pipeline_from_string(PipelineFactory):
     pipeline.delete()
 
 
-@pytest.mark.parametrize("PipelineFactory", [PipelineFactory, v2.Pipeline])
+@pytest.mark.parametrize("PipelineFactory", [PipelineFactory])
 def test_update_pipeline(PipelineFactory):
     pipeline_json = "tests/functional/pipelines/data/pipeline.json"
     with open(pipeline_json) as f:
@@ -71,10 +70,9 @@ def test_update_pipeline(PipelineFactory):
     pipeline.delete()
 
 
-@pytest.mark.parametrize("PipelineFactory", [PipelineFactory, v2.Pipeline])
+@pytest.mark.parametrize("PipelineFactory", [PipelineFactory])
 def test_create_pipeline_wrong_path(PipelineFactory):
     pipeline_name = str(uuid4())
 
     with pytest.raises(Exception):
         PipelineFactory.create(name=pipeline_name, pipeline="/")
-

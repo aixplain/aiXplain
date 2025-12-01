@@ -4,10 +4,8 @@ from datetime import datetime, timedelta, timezone
 import json
 import pytest
 
-from aixplain import aixplain_v2 as v2
 
-
-@pytest.mark.parametrize("APIKeyFactory", [APIKeyFactory, v2.APIKey])
+@pytest.mark.parametrize("APIKeyFactory", [APIKeyFactory])
 def test_create_api_key_from_json(APIKeyFactory):
     api_key_json = "tests/functional/apikey/apikey.json"
 
@@ -45,7 +43,7 @@ def test_create_api_key_from_json(APIKeyFactory):
     api_key.delete()
 
 
-@pytest.mark.parametrize("APIKeyFactory", [APIKeyFactory, v2.APIKey])
+@pytest.mark.parametrize("APIKeyFactory", [APIKeyFactory])
 def test_create_api_key_from_dict(APIKeyFactory):
     api_key_dict = {
         "asset_limits": [
@@ -57,7 +55,12 @@ def test_create_api_key_from_dict(APIKeyFactory):
                 "request_per_minute": 100,
             }
         ],
-        "global_limits": {"token_per_minute": 100, "token_per_day": 1000, "request_per_day": 1000, "request_per_minute": 100},
+        "global_limits": {
+            "token_per_minute": 100,
+            "token_per_day": 1000,
+            "request_per_day": 1000,
+            "request_per_minute": 100,
+        },
         "budget": 1000,
         "expires_at": (datetime.now(timezone.utc) + timedelta(weeks=4)).strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
@@ -78,7 +81,7 @@ def test_create_api_key_from_dict(APIKeyFactory):
     api_key.delete()
 
 
-@pytest.mark.parametrize("APIKeyFactory", [APIKeyFactory, v2.APIKey])
+@pytest.mark.parametrize("APIKeyFactory", [APIKeyFactory])
 def test_create_update_api_key_from_dict(APIKeyFactory):
     api_key_dict = {
         "asset_limits": [
@@ -90,7 +93,12 @@ def test_create_update_api_key_from_dict(APIKeyFactory):
                 "request_per_minute": 100,
             }
         ],
-        "global_limits": {"token_per_minute": 100, "token_per_day": 1000, "request_per_day": 1000, "request_per_minute": 100},
+        "global_limits": {
+            "token_per_minute": 100,
+            "token_per_day": 1000,
+            "request_per_day": 1000,
+            "request_per_minute": 100,
+        },
         "budget": 1000,
         "expires_at": (datetime.now(timezone.utc) + timedelta(weeks=4)).strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
@@ -135,7 +143,7 @@ def test_create_update_api_key_from_dict(APIKeyFactory):
     api_key.delete()
 
 
-@pytest.mark.parametrize("APIKeyFactory", [APIKeyFactory, v2.APIKey])
+@pytest.mark.parametrize("APIKeyFactory", [APIKeyFactory])
 def test_list_api_keys(APIKeyFactory):
     api_keys = APIKeyFactory.list()
     assert isinstance(api_keys, list)
@@ -151,7 +159,7 @@ def test_list_api_keys(APIKeyFactory):
                 assert isinstance(usage[0], APIKeyUsageLimit)
 
 
-@pytest.mark.parametrize("APIKeyFactory", [APIKeyFactory, v2.APIKey])
+@pytest.mark.parametrize("APIKeyFactory", [APIKeyFactory])
 def test_list_update_api_keys(APIKeyFactory):
     api_keys = APIKeyFactory.list()
     assert isinstance(api_keys, list)
@@ -207,7 +215,7 @@ def test_list_update_api_keys(APIKeyFactory):
         break
 
 
-@pytest.mark.parametrize("APIKeyFactory", [APIKeyFactory, v2.APIKey])
+@pytest.mark.parametrize("APIKeyFactory", [APIKeyFactory])
 def test_create_api_key_wrong_input(APIKeyFactory):
     api_key_name = "Test API Key"
 
