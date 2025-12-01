@@ -678,7 +678,9 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                 return response
             poll_url = response["url"]
             end = time.time()
-            result = self.sync_poll(poll_url, name=name, timeout=timeout, wait_time=wait_time)
+            result = self.sync_poll(
+                poll_url, name=name, timeout=timeout, wait_time=wait_time
+            )
             result_data = result.data
             return AgentResponse(
                 status=ResponseStatus.SUCCESS,
