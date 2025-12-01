@@ -615,10 +615,10 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
             Dict: parsed output from model
         """
         start = time.time()
-        
+
         # Define supported kwargs
         supported_kwargs = {"output_format", "expected_output"}
-        
+
         # Validate kwargs - raise error if unsupported kwargs are provided
         unsupported_kwargs = set(kwargs.keys()) - supported_kwargs
         if unsupported_kwargs:
@@ -626,7 +626,7 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
                 f"Unsupported keyword argument(s): {', '.join(sorted(unsupported_kwargs))}. "
                 f"Supported kwargs are: {', '.join(sorted(supported_kwargs))}."
             )
-        
+
         # Extract deprecated parameters from kwargs
         output_format = kwargs.get("output_format", None)
         expected_output = kwargs.get("expected_output", None)
@@ -695,6 +695,7 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
                     output=result_data.get("output"),
                     session_id=result_data.get("session_id"),
                     intermediate_steps=result_data.get("intermediate_steps"),
+                    steps=result_data.get("steps"),
                     execution_stats=result_data.get("executionStats"),
                 ),
                 used_credits=result_data.get("usedCredits", 0.0),
@@ -711,6 +712,7 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
                     output=None,
                     session_id=session_id,
                     intermediate_steps=None,
+                    steps=None,
                     execution_stats=None,
                 ),
                 error=msg,
@@ -773,8 +775,7 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
 
         if output_format == OutputFormat.JSON:
             assert expected_output is not None and (
-                issubclass(expected_output, BaseModel)
-                or isinstance(expected_output, dict)
+                issubclass(expected_output, BaseModel) or isinstance(expected_output, dict)
             ), "Expected output must be a Pydantic BaseModel or a JSON object when output format is JSON."
 
         assert (
