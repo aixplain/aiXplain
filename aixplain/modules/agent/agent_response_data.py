@@ -1,3 +1,10 @@
+"""Agent response data.
+
+This module contains the AgentResponseData class, which is used to encapsulate the
+input, output, and execution details of an agent's response, including intermediate
+steps and execution statistics.
+"""
+
 from typing import List, Dict, Any, Optional, Text
 
 
@@ -12,15 +19,18 @@ class AgentResponseData:
         output (Optional[Any]): The final output from the agent.
         session_id (str): Identifier for the conversation session.
         intermediate_steps (List[Any]): List of steps taken during execution.
+        steps (List[Any]): Reformatted list of steps with detailed execution info.
         execution_stats (Optional[Dict[str, Any]]): Statistics about the execution.
         critiques (str): Any critiques or feedback about the execution.
     """
+
     def __init__(
         self,
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         session_id: str = "",
         intermediate_steps: Optional[List[Any]] = None,
+        steps: Optional[List[Any]] = None,
         execution_stats: Optional[Dict[str, Any]] = None,
         critiques: Optional[str] = None,
     ):
@@ -35,6 +45,8 @@ class AgentResponseData:
                 Defaults to "".
             intermediate_steps (Optional[List[Any]], optional): List of steps taken
                 during execution. Defaults to None.
+            steps (Optional[List[Any]], optional): Reformatted list of steps with
+                detailed execution info. Defaults to None.
             execution_stats (Optional[Dict[str, Any]], optional): Statistics about
                 the execution. Defaults to None.
             critiques (Optional[str], optional): Any critiques or feedback about
@@ -44,6 +56,7 @@ class AgentResponseData:
         self.output = output
         self.session_id = session_id
         self.intermediate_steps = intermediate_steps or []
+        self.steps = steps or []
         self.execution_stats = execution_stats
         self.critiques = critiques or ""
 
@@ -57,6 +70,7 @@ class AgentResponseData:
                 - output: The final output from the agent
                 - session_id: Identifier for the conversation session
                 - intermediate_steps: List of steps taken during execution
+                - steps: Reformatted list of steps with detailed execution info
                 - executionStats: Statistics about the execution
                 - critiques: Any critiques or feedback
 
@@ -68,6 +82,7 @@ class AgentResponseData:
             output=data.get("output"),
             session_id=data.get("session_id", ""),
             intermediate_steps=data.get("intermediate_steps", []),
+            steps=data.get("steps", []),
             execution_stats=data.get("executionStats"),
             critiques=data.get("critiques", ""),
         )
@@ -81,6 +96,7 @@ class AgentResponseData:
                 - output: The final output from the agent
                 - session_id: Identifier for the conversation session
                 - intermediate_steps: List of steps taken during execution
+                - steps: Reformatted list of steps with detailed execution info
                 - executionStats: Statistics about the execution
                 - execution_stats: Alias for executionStats
                 - critiques: Any critiques or feedback
@@ -90,12 +106,23 @@ class AgentResponseData:
             "output": self.output,
             "session_id": self.session_id,
             "intermediate_steps": self.intermediate_steps,
+            "steps": self.steps,
             "executionStats": self.execution_stats,
             "execution_stats": self.execution_stats,
             "critiques": self.critiques,
         }
 
     def get(self, key: str, default: Optional[Any] = None) -> Any:
+        """Get an attribute value using attribute-style access.
+
+        Args:
+            key (str): The name of the attribute to get.
+            default (Optional[Any], optional): The value to return if the attribute
+                is not found. Defaults to None.
+
+        Returns:
+            Any: The value of the attribute, or the default value if not found.
+        """
         return getattr(self, key, default)
 
     def __getitem__(self, key: str) -> Any:
@@ -136,6 +163,7 @@ class AgentResponseData:
             f"output={self.output}, "
             f"session_id='{self.session_id}', "
             f"intermediate_steps={self.intermediate_steps}, "
+            f"steps={self.steps}, "
             f"execution_stats={self.execution_stats}, "
             f"critiques='{self.critiques}')"
         )
