@@ -22,12 +22,11 @@ jobs:
           'benchmark',
           'model',
           'pipeline_2.0_v1',
-          'pipeline_2.0_v2',
           'pipeline_3.0_v1',
-          'pipeline_3.0_v2',
           'pipeline_designer',
           'pipeline_create',
           'finetune_v1',
+          'finetune_v1_model',
           'finetune_v2',
           'general_assets',
           'apikey',
@@ -53,14 +52,8 @@ jobs:
           - test-suite: 'pipeline_2.0_v1'
             path: 'tests/functional/pipelines/run_test.py --pipeline_version 2.0 --sdk_version v1 --sdk_version_param PipelineFactory'
             timeout: 45
-          - test-suite: 'pipeline_2.0_v2'
-            path: 'tests/functional/pipelines/run_test.py --pipeline_version 2.0 --sdk_version v2 --sdk_version_param PipelineFactory'
-            timeout: 45
           - test-suite: 'pipeline_3.0_v1'
             path: 'tests/functional/pipelines/run_test.py --pipeline_version 3.0 --sdk_version v1 --sdk_version_param PipelineFactory'
-            timeout: 45
-          - test-suite: 'pipeline_3.0_v2'
-            path: 'tests/functional/pipelines/run_test.py --pipeline_version 3.0 --sdk_version v2 --sdk_version_param PipelineFactory'
             timeout: 45
           - test-suite: 'pipeline_designer'
             path: 'tests/functional/pipelines/designer_test.py'
@@ -71,8 +64,11 @@ jobs:
           - test-suite: 'finetune_v1'
             path: 'tests/functional/finetune --sdk_version v1 --sdk_version_param FinetuneFactory'
             timeout: 45
+          - test-suite: 'finetune_v1_model'
+            path: 'tests/functional/finetune --sdk_version v1 --sdk_version_param ModelFactory'
+            timeout: 45
           - test-suite: 'finetune_v2'
-            path: 'tests/functional/finetune --sdk_version v2 --sdk_version_param FinetuneFactory'
+            path: 'tests/functional/finetune --sdk_version v2 --sdk_version_param ModelFactory'
             timeout: 45
           - test-suite: 'general_assets'
             path: 'tests/functional/general_assets'

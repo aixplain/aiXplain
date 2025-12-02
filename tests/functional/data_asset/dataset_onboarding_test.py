@@ -20,10 +20,18 @@ import pytest
 import time
 
 from uuid import uuid4
-from aixplain.enums import Function, Language, License, Privacy, DataSubtype, DataType, StorageType, OnboardStatus
+from aixplain.enums import (
+    Function,
+    Language,
+    License,
+    Privacy,
+    DataSubtype,
+    DataType,
+    StorageType,
+    OnboardStatus,
+)
 from aixplain.factories import DatasetFactory
 from aixplain.modules import MetaData
-from aixplain import aixplain_v2 as v2
 
 
 @pytest.fixture
@@ -35,14 +43,21 @@ def meta1():
             "storage_type": "url",
             "start_column": "audio_start_time",
             "end_column": "audio_end_time",
-            "languages": [Language.English_UNITED_STATES],
+            "languages": [Language.ENGLISH_UNITED_STATES],
         }
     ]
 
 
 @pytest.fixture
 def meta2():
-    return [{"name": "text", "dtype": "text", "storage_type": "text", "languages": [Language.English_UNITED_STATES]}]
+    return [
+        {
+            "name": "text",
+            "dtype": "text",
+            "storage_type": "text",
+            "languages": [Language.ENGLISH_UNITED_STATES],
+        }
+    ]
 
 
 @pytest.fixture
@@ -55,7 +70,7 @@ def split():
     )
 
 
-@pytest.mark.parametrize("DatasetFactory", [DatasetFactory, v2.Dataset])
+@pytest.mark.parametrize("DatasetFactory", [DatasetFactory])
 def test_dataset_onboard_get_delete(meta1, meta2, DatasetFactory):
     upload_file = "tests/functional/data_asset/input/audio-en_url.csv"
 
@@ -84,7 +99,7 @@ def test_dataset_onboard_get_delete(meta1, meta2, DatasetFactory):
         dataset = DatasetFactory.get(asset_id)
 
 
-@pytest.mark.parametrize("DatasetFactory", [DatasetFactory, v2.Dataset])
+@pytest.mark.parametrize("DatasetFactory", [DatasetFactory])
 def test_invalid_dataset_onboard(meta1, meta2, DatasetFactory):
     upload_file = "tests/functional/data_asset/input/audio-en_url.csv"
 
@@ -102,19 +117,19 @@ def test_invalid_dataset_onboard(meta1, meta2, DatasetFactory):
         )
 
 
-@pytest.mark.parametrize("DatasetFactory", [DatasetFactory, v2.Dataset])
+@pytest.mark.parametrize("DatasetFactory", [DatasetFactory])
 def test_dataset_listing(DatasetFactory):
     response = DatasetFactory.list()
     assert "results" in response
 
 
-@pytest.mark.parametrize("DatasetFactory", [DatasetFactory, v2.Dataset])
+@pytest.mark.parametrize("DatasetFactory", [DatasetFactory])
 def test_dataset_get_error(DatasetFactory):
     with pytest.raises(Exception):
         response = DatasetFactory.get("131312")
 
 
-@pytest.mark.parametrize("DatasetFactory", [DatasetFactory, v2.Dataset])
+@pytest.mark.parametrize("DatasetFactory", [DatasetFactory])
 def test_invalid_dataset_splitting(meta1, meta2, split, DatasetFactory):
     upload_file = "tests/functional/data_asset/input/audio-en_with_invalid_split_url.csv"
 
@@ -140,7 +155,7 @@ def test_invalid_dataset_splitting(meta1, meta2, split, DatasetFactory):
         )
 
 
-@pytest.mark.parametrize("DatasetFactory", [DatasetFactory, v2.Dataset])
+@pytest.mark.parametrize("DatasetFactory", [DatasetFactory])
 def test_valid_dataset_splitting(meta1, meta2, split, DatasetFactory):
     upload_file = "tests/functional/data_asset/input/audio-en_with_split_url.csv"
 
