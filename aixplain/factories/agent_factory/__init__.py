@@ -32,12 +32,12 @@ from aixplain.modules.agent.output_format import OutputFormat
 from aixplain.modules.agent.tool.model_tool import ModelTool
 from aixplain.modules.agent.tool.pipeline_tool import PipelineTool
 from aixplain.modules.agent.tool.python_interpreter_tool import PythonInterpreterTool
-from aixplain.modules.agent.tool.custom_python_code_tool import CustomPythonCodeTool
 from aixplain.utils.convert_datatype_utils import normalize_expected_output
 from aixplain.modules.agent.tool.sql_tool import (
     SQLTool,
 )
 from aixplain.modules.model import Model
+from aixplain.modules.model.connection import ConnectionTool
 from aixplain.modules.model.llm_model import LLM
 from aixplain.modules.pipeline import Pipeline
 from aixplain.utils import config
@@ -374,7 +374,7 @@ class AgentFactory:
     @classmethod
     def create_custom_python_code_tool(
         cls, code: Union[Text, Callable], name: Text, description: Text = ""
-    ) -> CustomPythonCodeTool:
+    ) -> ConnectionTool:
         """Create a new custom Python code tool for use with an agent.
 
         Args:
@@ -383,9 +383,13 @@ class AgentFactory:
             description (Text, optional): Description of what the tool does. Defaults to "".
 
         Returns:
-            CustomPythonCodeTool: Created custom Python code tool object.
+            ConnectionTool: Created connection tool object.
         """
-        return CustomPythonCodeTool(name=name, description=description, code=code)
+        from aixplain.factories import ModelFactory
+        try:
+            return ModelFactory.create_script_connection_tool(name=name, description=description, code=code)
+        except Exception as e:
+            raise Exception(f"Failed to create custom Python code tool: {e}")
 
     @classmethod
     def create_sql_tool(

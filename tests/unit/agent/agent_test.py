@@ -8,8 +8,8 @@ from aixplain.utils import config
 from aixplain.modules.agent.tool.pipeline_tool import PipelineTool
 from aixplain.modules.agent.tool.model_tool import ModelTool
 from aixplain.modules.agent.tool.python_interpreter_tool import PythonInterpreterTool
-from aixplain.modules.agent.tool.custom_python_code_tool import CustomPythonCodeTool
 from aixplain.modules.agent.utils import process_variables
+from aixplain.modules.model.connection import ConnectionTool
 from urllib.parse import urljoin
 from unittest.mock import patch
 from aixplain.enums import Function, Supplier
@@ -210,13 +210,6 @@ def test_create_agent(mock_model_factory_get):
                     {
                         "type": "utility",
                         "utility": "custom_python_code",
-                        "utilityCode": "def main(query: str) -> str:\n    return 'Hello, how are you?'",
-                        "description": "Test Tool",
-                        "name": "Test Tool",
-                    },
-                    {
-                        "type": "utility",
-                        "utility": "custom_python_code",
                         "description": "A Python shell. Use this to execute python commands. Input should be a valid python command.",
                     },
                 ],
@@ -247,11 +240,6 @@ def test_create_agent(mock_model_factory_get):
                         function="text-generation",
                         description="Test Tool",
                     ),
-                    AgentFactory.create_custom_python_code_tool(
-                        code="def main(query: str) -> str:\n    return 'Hello, how are you?'",
-                        description="Test Tool",
-                        name="Test Tool",
-                    ),
                     AgentFactory.create_python_interpreter_tool(),
                 ],
             )
@@ -264,9 +252,7 @@ def test_create_agent(mock_model_factory_get):
     assert agent.tools[0].description == ref_response["assets"][0]["description"]
     assert isinstance(agent.tools[0], ModelTool)
     assert agent.tools[1].description == ref_response["assets"][1]["description"]
-    assert isinstance(agent.tools[1], CustomPythonCodeTool)
-    assert agent.tools[2].description == ref_response["assets"][2]["description"]
-    assert isinstance(agent.tools[2], PythonInterpreterTool)
+    assert isinstance(agent.tools[1], PythonInterpreterTool)
     assert agent.status == AssetStatus.DRAFT
 
 
@@ -760,11 +746,6 @@ def test_agent_multiple_tools_api_key():
     tools = [
         AgentFactory.create_model_tool(function="text-generation"),
         AgentFactory.create_python_interpreter_tool(),
-        AgentFactory.create_custom_python_code_tool(
-            code="def main(query: str) -> str:\n    return 'Hello'",
-            description="Test Tool",
-            name="Test Tool",
-        ),
     ]
 
     agent = Agent(
@@ -858,102 +839,6 @@ def test_agent_response():
     assert response.data.input == "new_input"
     response.data.output = "new_output"
     assert response["data"]["output"] == "new_output"
-
-
-def test_custom_python_code_tool_initialization(mocker):
-    """Test basic initialization of CustomPythonCodeTool"""
-    mocker.patch(
-        "aixplain.modules.model.utils.parse_code_decorated",
-        return_value=(
-            "def main(query: str) -> str:\n    return 'Hello'",
-            [],
-            "Test description",
-            "HelloWorld",
-        ),
-    )
-
-    code = "def main(query: str) -> str:\n    return 'Hello'"
-    description = "Test description"
-    tool = CustomPythonCodeTool(code=code, description=description, name="HelloWorld")
-
-    assert tool.code == code
-    assert tool.description == description
-    assert tool.name == "HelloWorld"
-
-
-def test_custom_python_code_tool_to_dict(mocker):
-    """Test the to_dict method of CustomPythonCodeTool"""
-    mocker.patch(
-        "aixplain.modules.model.utils.parse_code_decorated",
-        return_value=(
-            "def main(query: str) -> str:\n    return 'Hello'",
-            [],
-            "Test description",
-            "HelloWorld",
-        ),
-    )
-    code = "def main(query: str) -> str:\n    return 'Hello'"
-    description = "Test description"
-    tool = CustomPythonCodeTool(code=code, description=description)
-
-    tool_dict = tool.to_dict()
-    assert tool_dict["type"] == "utility"
-    assert tool_dict["utility"] == "custom_python_code"
-    assert tool_dict["utilityCode"] == code
-    assert tool_dict["description"] == description
-
-
-def test_custom_python_code_tool_validation():
-    """Test validation of CustomPythonCodeTool"""
-    with patch(
-        "aixplain.modules.model.utils.parse_code",
-        return_value=(
-            "def main(query: str) -> str:\n    return 'Hello'",  # code
-            [],  # inputs
-            "Parsed description",  # description
-            "test_name",  # name
-        ),
-    ):
-        code = "def main(query: str) -> str:\n    return 'Hello'"
-        tool = CustomPythonCodeTool(code=code)
-        tool.validate()
-        assert tool.code == code
-        assert tool.description == "Parsed description"
-        assert tool.name == "test_name"
-
-
-def test_custom_python_code_tool_validation_missing_description(mocker):
-    """Test validation fails when description is missing"""
-    mocker.patch(
-        "aixplain.modules.model.utils.parse_code_decorated",
-        return_value=(
-            "def main(query: str) -> str:\n    return 'Hello'",
-            [],
-            "",
-            "HelloWorld",
-        ),
-    )
-
-    code = "def main(query: str) -> str:\n    return 'Hello'"
-    with pytest.raises(AssertionError) as exc_info:
-        CustomPythonCodeTool(code=code)
-    assert str(exc_info.value) == "Custom Python Code Tool Error: Tool description is required"
-
-
-def test_custom_python_code_tool_validation_missing_code():
-    """Test validation fails when code is missing"""
-    with patch(
-        "aixplain.modules.model.utils.parse_code",
-        return_value=(
-            "",
-            [],
-            "Parsed description",
-            "test_name",
-        ),  # code  # inputs  # description  # name
-    ):
-        with pytest.raises(AssertionError) as exc_info:
-            CustomPythonCodeTool(code="", description="Test description")
-        assert str(exc_info.value) == "Custom Python Code Tool Error: Code is required"
 
 
 @patch("aixplain.factories.model_factory.ModelFactory.get")
