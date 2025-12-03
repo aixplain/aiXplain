@@ -218,7 +218,7 @@ class ConnectionTool(Model):
         """
         if self.action_scope is None or len(self.action_scope) == 0:
             warnings.warn(
-                f"No action_scope is specified, all {len(self.actions)} actions included"
+                f"No action_scope is specified, by default all {len(self.actions)} actions will be included in Agent execution"
             )
             return []
         response = [
