@@ -126,7 +126,10 @@ def build_payload(data: Union[Text, Dict], parameters: Optional[Dict] = None, st
         except Exception:
             parameters["data"] = data
             payload = {"data": data}
-    payload.update(parameters)
+    if not payload: 
+        payload = parameters
+    else:
+        payload.update(parameters)
     payload = json.dumps(payload)
     return payload
 
