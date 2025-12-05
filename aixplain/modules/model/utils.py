@@ -7,7 +7,7 @@ import inspect
 from aixplain.utils.file_utils import _request_with_retry
 from typing import Callable, Dict, List, Text, Tuple, Union, Optional
 from aixplain.exceptions import get_error_from_status_code
-
+import copy
 
 def _extract_function_parameters(func: Callable) -> List[Tuple[str, str]]:
     """
@@ -126,8 +126,18 @@ def build_payload(data: Union[Text, Dict], parameters: Optional[Dict] = None, st
         except Exception:
             parameters["data"] = data
             payload = {"data": data}
-    payload.update(parameters)
-    payload = json.dumps(payload)
+    
+    try:
+        parametersTemp = copy.deepcopy(parameters)
+        if not payload: 
+            payload = parameters
+        else:
+            payload.update(parameters)
+        payload = json.dumps(payload)
+    except:
+        payload = parametersTemp
+        payload = json.dumps(payload)
+
     return payload
 
 
