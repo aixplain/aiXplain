@@ -12,7 +12,6 @@ from aixplain.modules.agent.agent_task import AgentTask
 from aixplain.modules.agent.tool.model_tool import ModelTool
 from aixplain.modules.agent.tool.pipeline_tool import PipelineTool
 from aixplain.modules.agent.tool.python_interpreter_tool import PythonInterpreterTool
-from aixplain.modules.agent.tool.custom_python_code_tool import CustomPythonCodeTool
 from aixplain.modules.agent.tool.sql_tool import SQLTool
 from aixplain.modules.agent.output_format import OutputFormat
 from aixplain.modules.model import Model
@@ -90,9 +89,6 @@ def build_tool(tool: Dict):
     elif tool["type"] == "pipeline":
         tool = PipelineTool(description=tool["description"], pipeline=tool["assetId"])
     elif tool["type"] == "utility":
-        if tool.get("utilityCode", None) is not None:
-            tool = CustomPythonCodeTool(description=tool["description"], code=tool["utilityCode"])
-        else:
             tool = PythonInterpreterTool()
     elif tool["type"] == "sql":
         name = tool.get("name", "SQLTool")
