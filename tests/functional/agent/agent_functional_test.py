@@ -139,7 +139,7 @@ def test_custom_code_tool(delete_agents_and_team_agents, AgentFactory):
     )
     assert tool is not None
     assert tool.description == "Add two strings"
-    assert tool.code.startswith("s3://")
+    assert tool.additional_info.get("code", "").startswith("s3://")
     agent = AgentFactory.create(
         name="Add Strings Agent",
         description="Add two strings. Do not directly answer. Use the tool to add the strings.",
