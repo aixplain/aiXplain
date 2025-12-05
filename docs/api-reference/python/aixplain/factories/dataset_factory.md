@@ -47,7 +47,7 @@ target data, hypotheses, and metadata.
 
 ```python
 @classmethod
-def get(cls, dataset_id: Text) -> Dataset
+def get(cls, dataset_id: Text, api_key: str = None) -> Dataset
 ```
 
 [[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/dataset_factory.py#L177)
@@ -60,6 +60,7 @@ the platform.
 **Arguments**:
 
 - `dataset_id` _Text_ - Unique identifier of the dataset to retrieve.
+- `api_key` _str, optional_ - Team API key. Defaults to None.
   
 
 **Returns**:
