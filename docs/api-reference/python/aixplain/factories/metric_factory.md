@@ -46,7 +46,7 @@ by ID and listing metrics with various filtering options.
 
 ```python
 @classmethod
-def get(cls, metric_id: Text) -> Metric
+def get(cls, metric_id: Text, api_key: str = None) -> Metric
 ```
 
 [[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/metric_factory.py#L67)
@@ -56,6 +56,7 @@ Create a Metric object from a metric ID.
 **Arguments**:
 
 - `metric_id` _Text_ - The unique identifier of the metric to retrieve.
+- `api_key` _str, optional_ - API key for authentication. Defaults to None.
   
 
 **Returns**:
@@ -76,20 +77,22 @@ def list(cls,
          is_source_required: Optional[bool] = None,
          is_reference_required: Optional[bool] = None,
          page_number: int = 0,
-         page_size: int = 20) -> List[Metric]
+         page_size: int = 20,
+         api_key: str = None) -> List[Metric]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/metric_factory.py#L100)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/metric_factory.py#L102)
 
 Get a list of supported metrics based on the given filters.
 
 **Arguments**:
 
-- `model_id` _Text, optional_ - ID of model for which metrics are to be used. Defaults to None.
-- `is_source_required` _bool, optional_ - Filter metrics that require source input. Defaults to None.
-- `is_reference_required` _bool, optional_ - Filter metrics that require reference input. Defaults to None.
-- `page_number` _int, optional_ - Page number for pagination. Defaults to 0.
-- `page_size` _int, optional_ - Number of items per page. Defaults to 20.
+- `model_id` _Text, optional_ - ID of model for which metric is to be used. Defaults to None.
+- `is_source_required` _bool, optional_ - Should the metric use source. Defaults to None.
+- `is_reference_required` _bool, optional_ - Should the metric use reference. Defaults to None.
+- `page_number` _int, optional_ - page number. Defaults to 0.
+- `page_size` _int, optional_ - page size. Defaults to 20.
+- `api_key` _str, optional_ - API key for authentication. Defaults to None.
   
 
 **Returns**:

@@ -32,6 +32,7 @@
             "api-reference/python/aixplain/enums/file_type",
             "api-reference/python/aixplain/enums/function",
             "api-reference/python/aixplain/enums/function_type",
+            "api-reference/python/aixplain/enums/generated_enums",
             "api-reference/python/aixplain/enums/index_stores",
             "api-reference/python/aixplain/enums/language",
             "api-reference/python/aixplain/enums/license",
@@ -148,7 +149,6 @@
                 {
                   "items": [
                     "api-reference/python/aixplain/modules/agent/tool/init",
-                    "api-reference/python/aixplain/modules/agent/tool/custom_python_code_tool",
                     "api-reference/python/aixplain/modules/agent/tool/model_tool",
                     "api-reference/python/aixplain/modules/agent/tool/pipeline_tool",
                     "api-reference/python/aixplain/modules/agent/tool/python_interpreter_tool",

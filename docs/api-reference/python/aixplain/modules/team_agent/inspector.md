@@ -21,8 +21,6 @@ team = TeamAgent(
     name=&quot;team&quot;
     agents=agents,
     description=&quot;team description&quot;,
-    llm_id=&quot;xyz&quot;,
-    use_mentalist=True,
     inspectors=[inspector],
 )
 
@@ -36,7 +34,7 @@ GPT-4.1 Nano
 class InspectorAction(str, Enum)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/team_agent/inspector.py#L39)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/team_agent/inspector.py#L37)
 
 Inspector&#x27;s decision on the next action.
 
@@ -46,7 +44,7 @@ Inspector&#x27;s decision on the next action.
 class InspectorOutput(BaseModel)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/team_agent/inspector.py#L49)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/team_agent/inspector.py#L47)
 
 Inspector&#x27;s output.
 
@@ -56,7 +54,7 @@ Inspector&#x27;s output.
 class InspectorAuto(str, Enum)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/team_agent/inspector.py#L59)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/team_agent/inspector.py#L57)
 
 A list of keywords for inspectors configured automatically in the backend.
 
@@ -66,7 +64,7 @@ A list of keywords for inspectors configured automatically in the backend.
 def get_name() -> Text
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/team_agent/inspector.py#L64)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/team_agent/inspector.py#L62)
 
 Get the standardized name for this inspector type.
 
@@ -83,7 +81,7 @@ the enum value with &quot;inspector_&quot;.
 class InspectorPolicy(str, Enum)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/team_agent/inspector.py#L76)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/team_agent/inspector.py#L74)
 
 Which action to take if the inspector gives negative feedback.
 
@@ -105,7 +103,7 @@ adjust execution according to feedback
 def validate_policy_callable(policy_func: Callable) -> bool
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/team_agent/inspector.py#L84)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/team_agent/inspector.py#L82)
 
 Validate that the policy callable meets the required constraints.
 
@@ -115,7 +113,7 @@ Validate that the policy callable meets the required constraints.
 def callable_to_code_string(policy_func: Callable) -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/team_agent/inspector.py#L106)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/team_agent/inspector.py#L104)
 
 Convert a callable policy function to a code string for serialization.
 
@@ -125,7 +123,7 @@ Convert a callable policy function to a code string for serialization.
 def code_string_to_callable(code_string: str) -> Callable
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/team_agent/inspector.py#L124)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/team_agent/inspector.py#L122)
 
 Convert a code string back to a callable function for deserialization.
 
@@ -135,7 +133,7 @@ Convert a code string back to a callable function for deserialization.
 def get_policy_source(func: Callable) -> Optional[str]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/team_agent/inspector.py#L259)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/team_agent/inspector.py#L257)
 
 Get the source code of a policy function.
 
@@ -158,7 +156,7 @@ created via code_string_to_callable), then falls back to inspect.getsource().
 class Inspector(ModelWithParams)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/team_agent/inspector.py#L280)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/team_agent/inspector.py#L278)
 
 Pre-defined agent for inspecting the data flow within a team agent.
 
@@ -179,7 +177,7 @@ The model should be onboarded before using it as an inspector.
 def __init__(*args, **kwargs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/team_agent/inspector.py#L299)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/team_agent/inspector.py#L297)
 
 Initialize an Inspector instance.
 
@@ -210,7 +208,7 @@ auto model ID.
 def validate_name(cls, v: Text) -> Text
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/team_agent/inspector.py#L324)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/team_agent/inspector.py#L322)
 
 Validate the inspector name field.
 
@@ -236,7 +234,7 @@ This validator ensures that the inspector&#x27;s name is not empty.
 def model_dump(by_alias: bool = False, **kwargs) -> Dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/team_agent/inspector.py#L353)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/team_agent/inspector.py#L351)
 
 Override model_dump to handle callable policy serialization.
 
@@ -247,7 +245,52 @@ Override model_dump to handle callable policy serialization.
 def model_validate(cls, data: Union[Dict, "Inspector"]) -> "Inspector"
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/team_agent/inspector.py#L368)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/team_agent/inspector.py#L366)
 
 Override model_validate to handle callable policy deserialization.
+
+### VerificationInspector Objects
+
+```python
+class VerificationInspector(Inspector)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/team_agent/inspector.py#L385)
+
+Pre-defined inspector that checks output against the plan.
+
+This inspector is designed to verify that the output aligns with the intended plan
+and provides feedback when discrepancies are found. It uses a RERUN policy by default,
+meaning it will request re-execution when issues are detected.
+
+Example usage:
+    from aixplain.modules.team_agent import VerificationInspector
+
+    # Use with default model (GPT-4o or resolved_model_id)
+    inspector = VerificationInspector()
+
+    # Or with custom model
+    inspector = VerificationInspector(model_id=&quot;your_model_id&quot;)
+
+    team_agent = TeamAgent(
+        name=&quot;my_team&quot;,
+        agents=agents,
+        inspectors=[VerificationInspector()],
+        inspector_targets=[InspectorTarget.STEPS]
+    )
+
+#### \_\_init\_\_
+
+```python
+def __init__(model_id: Optional[Text] = None, **kwargs)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/team_agent/inspector.py#L409)
+
+Initialize VerificationInspector with default configuration.
+
+**Arguments**:
+
+- `model_id` _Optional[Text]_ - Model ID to use. If not provided, uses auto configuration.
+- `**kwargs` - Additional arguments passed to Inspector parent class.
 
