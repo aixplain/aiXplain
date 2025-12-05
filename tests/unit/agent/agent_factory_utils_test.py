@@ -7,7 +7,6 @@ from aixplain.modules.pipeline import Pipeline
 from aixplain.modules.agent.tool.model_tool import ModelTool
 from aixplain.modules.agent.tool.pipeline_tool import PipelineTool
 from aixplain.modules.agent.tool.python_interpreter_tool import PythonInterpreterTool
-from aixplain.modules.agent.tool.custom_python_code_tool import CustomPythonCodeTool
 from aixplain.modules.agent.tool.sql_tool import SQLTool
 from aixplain.modules.agent import Agent
 from aixplain.modules.agent.agent_task import WorkflowTask
@@ -138,16 +137,6 @@ def test_build_tool_error_cases(tool_dict, expected_error):
             PipelineTool,
             {"description": "Test pipeline", "pipeline": "test_pipeline"},
             id="pipeline_tool",
-        ),
-        pytest.param(
-            {
-                "type": "utility",
-                "description": "Test utility",
-                "utilityCode": "print('Hello World')",
-            },
-            CustomPythonCodeTool,
-            {"description": "Test utility", "code": "print('Hello World')"},
-            id="custom_python_tool",
         ),
         pytest.param(
             {"type": "utility", "description": "Test utility"},

@@ -200,7 +200,7 @@ def create_custom_python_code_tool(
         cls,
         code: Union[Text, Callable],
         name: Text,
-        description: Text = "") -> CustomPythonCodeTool
+        description: Text = "") -> ConnectionTool
 ```
 
 [[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/agent_factory/__init__.py#L328)
@@ -216,7 +216,7 @@ Create a new custom Python code tool for use with an agent.
 
 **Returns**:
 
-- `CustomPythonCodeTool` - Created custom Python code tool object.
+- `ConnectionTool` - Created custom Python code tool object.
 
 #### create\_sql\_tool
 
