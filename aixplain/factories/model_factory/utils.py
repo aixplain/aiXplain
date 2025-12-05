@@ -1,3 +1,5 @@
+"""Utility functions for model factory operations."""
+
 import json
 import logging
 from aixplain.modules.model import Model
@@ -8,7 +10,17 @@ from aixplain.modules.model.connection import ConnectionTool
 from aixplain.modules.model.mcp_connection import MCPConnection
 from aixplain.modules.model.utility_model import UtilityModel
 from aixplain.modules.model.utility_model import UtilityModelInput
-from aixplain.enums import DataType, Function, FunctionType, Language, OwnershipType, Supplier, SortBy, SortOrder, AssetStatus
+from aixplain.enums import (
+    DataType,
+    Function,
+    FunctionType,
+    Language,
+    OwnershipType,
+    Supplier,
+    SortBy,
+    SortOrder,
+    AssetStatus,
+)
 from aixplain.utils import config
 from aixplain.utils.request_utils import _request_with_retry
 from datetime import datetime
@@ -98,7 +110,9 @@ def create_model_from_response(response: Dict) -> Model:
     elif function == Function.UTILITIES:
         ModelClass = UtilityModel
         inputs = [
-            UtilityModelInput(name=param["name"], description=param.get("description", ""), type=DataType(param["dataType"]))
+            UtilityModelInput(
+                name=param["name"], description=param.get("description", ""), type=DataType(param["dataType"])
+            )
             for param in response["params"]
         ]
         input_params = model_params
@@ -120,12 +134,20 @@ def create_model_from_response(response: Dict) -> Model:
     if "createdAt" in response and response["createdAt"]:
         created_at = datetime.fromisoformat(response["createdAt"].replace("Z", "+00:00"))
 
+    # Handle empty supplier dict by using hostedBy field as fallback
+    supplier = response.get("supplier", {})
+    if not supplier or not supplier.get("id"):
+        # Supplier field is empty, use hostedBy as fallback
+        hosted_by = response.get("hostedBy", "")
+        if hosted_by:
+            supplier = hosted_by
+
     return ModelClass(
         response["id"],
         response["name"],
         description=response.get("description", ""),
         code=code if code else "",
-        supplier=response["supplier"],
+        supplier=supplier,
         api_key=response["api_key"],
         cost=response["pricing"],
         function=function,
@@ -203,9 +225,24 @@ def get_assets_from_page(
         if function is not None:
             filter_params["functions"] = [function.value]
         if suppliers is not None:
-            if isinstance(suppliers, Supplier) is True:
+            if isinstance(suppliers, Supplier):
                 suppliers = [suppliers]
-            filter_params["suppliers"] = [supplier.value["id"] for supplier in suppliers]
+            elif not isinstance(suppliers, list):
+                suppliers = [suppliers]
+
+            supplier_codes = []
+            for supplier in suppliers:
+                if isinstance(supplier, Supplier):
+                    # It's a Supplier enum - extract the code from its value dict
+                    supplier_codes.append(supplier.value["code"])
+                elif isinstance(supplier, dict):
+                    # It's already a dict - extract code directly
+                    supplier_codes.append(supplier.get("code", supplier.get("id")))
+                elif isinstance(supplier, str):
+                    # It's a string - use it directly (could be code or ID)
+                    supplier_codes.append(supplier)
+
+            filter_params["suppliers"] = supplier_codes
         if ownership is not None:
             if isinstance(ownership, OwnershipType) is True:
                 ownership = [ownership]
@@ -240,7 +277,7 @@ def get_assets_from_page(
     except Exception as e:
         error_message = f"Listing Models: Error in getting Models on Page {page_number}: {e}"
         logging.error(error_message, exc_info=True)
-        return []
+        raise Exception(error_message)
     if 200 <= r.status_code < 300:
         logging.info(f"Listing Models: Status of getting Models on Page {page_number}: {r.status_code}")
         all_models = resp["items"]
@@ -303,7 +340,7 @@ def get_model_from_ids(model_ids: List[str], api_key: Optional[str] = None) -> L
         models = []
 
         def process_items(items):
-            """Helper function to process model items and add API key"""
+            """Helper function to process model items and add API key."""
             for item in items:
                 item["api_key"] = config.TEAM_API_KEY
                 if api_key is not None:
@@ -321,7 +358,9 @@ def get_model_from_ids(model_ids: List[str], api_key: Optional[str] = None) -> L
 
             while True:
                 # Make request for current page
-                paginated_url = urljoin(config.BACKEND_URL, f"sdk/models?ids={','.join(model_ids)}&pageNumber={page_number}")
+                paginated_url = urljoin(
+                    config.BACKEND_URL, f"sdk/models?ids={','.join(model_ids)}&pageNumber={page_number}"
+                )
                 logging.info(f"Fetching page {page_number} - {paginated_url}")
                 page_r = _request_with_retry("get", paginated_url, headers=headers)
                 page_resp = page_r.json()
@@ -349,6 +388,8 @@ def get_model_from_ids(model_ids: List[str], api_key: Optional[str] = None) -> L
 
         return models
     else:
-        error_message = f"Model GET Error: Failed to retrieve models {model_ids}. Status Code: {r.status_code}. Error: {resp}"
+        error_message = (
+            f"Model GET Error: Failed to retrieve models {model_ids}. Status Code: {r.status_code}. Error: {resp}"
+        )
         logging.error(error_message)
         raise Exception(error_message)

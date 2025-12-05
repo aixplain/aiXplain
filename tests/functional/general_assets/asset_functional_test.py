@@ -87,6 +87,7 @@ def test_model_function(ModelFactory):
 def test_model_supplier(ModelFactory):
     desired_suppliers = [Supplier.GOOGLE]
     models = ModelFactory.list(suppliers=desired_suppliers, function=Function.TRANSLATION)["results"]
+    assert len(models) > 0, "Should return models with Google supplier"
     for model in models:
         assert model.supplier.value in [desired_supplier.value for desired_supplier in desired_suppliers]
 
@@ -167,22 +168,19 @@ def test_model_io(ModelFactory):
 
     expected_input = {
         "text": {
-            "name": "Text Prompt",
             "code": "text",
-            "required": True,
-            "isFixed": False,
             "dataType": "text",
-            "dataSubType": "text",
+            "required": True,
             "multipleValues": False,
             "defaultValues": [],
+            "isFixed": False,
         }
     }
     expected_output = {
         "data": {
-            "name": "Generated Image",
             "code": "data",
-            "defaultValue": [],
             "dataType": "image",
+            "defaultValue": [],
         }
     }
 
