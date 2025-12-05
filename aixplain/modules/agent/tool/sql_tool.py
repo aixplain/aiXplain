@@ -1,6 +1,8 @@
-__author__ = "aiXplain"
+"""SQL tool for aiXplain SDK agents.
 
-"""
+This module provides a tool that allows agents to execute SQL queries
+against databases and CSV files.
+
 Copyright 2024 The aiXplain SDK authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,6 +22,9 @@ Date: May 16th 2024
 Description:
     Agentification Class
 """
+
+__author__ = "aiXplain"
+
 import os
 import warnings
 import validators
@@ -28,29 +33,42 @@ import numpy as np
 from typing import Text, Optional, Dict, List, Union
 import sqlite3
 from aixplain.enums import AssetStatus
-from aixplain.modules.agent.tool import Tool
+from aixplain.modules.agent.tool import DeployableTool
 
 
 class SQLToolError(Exception):
-    """Base exception for SQL Tool errors"""
+    """Base exception for SQL Tool errors."""
 
     pass
 
 
 class CSVError(SQLToolError):
-    """Exception for CSV-related errors"""
+    """Exception for CSV-related errors."""
 
     pass
 
 
 class DatabaseError(SQLToolError):
-    """Exception for database-related errors"""
+    """Exception for database-related errors."""
 
     pass
 
 
 def clean_column_name(col: Text) -> Text:
-    """Clean column names by replacing spaces and special characters with underscores"""
+    """Clean column names by replacing spaces and special characters with underscores.
+
+    This function makes column names SQLite-compatible by:
+    1. Converting to lowercase
+    2. Replacing special characters with underscores
+    3. Removing duplicate underscores
+    4. Adding 'col_' prefix to names starting with numbers
+
+    Args:
+        col (Text): The original column name.
+
+    Returns:
+        Text: The cleaned, SQLite-compatible column name.
+    """
     # Replace special characters with underscores
     cleaned = col.strip().lower()
     cleaned = "".join(c if c.isalnum() else "_" for c in cleaned)
@@ -68,7 +86,17 @@ def clean_column_name(col: Text) -> Text:
 
 
 def check_duplicate_columns(df: pd.DataFrame) -> None:
-    """Check for duplicate column names in DataFrame and raise CSVError if found"""
+    """Check for duplicate column names in DataFrame after cleaning.
+
+    This function checks if any column names would become duplicates after being
+    cleaned for SQLite compatibility.
+
+    Args:
+        df (pd.DataFrame): The DataFrame to check for duplicate column names.
+
+    Raises:
+        CSVError: If any cleaned column names would be duplicates.
+    """
     # Get all column names
     columns = df.columns.tolist()
     # Get cleaned column names
@@ -88,7 +116,24 @@ def check_duplicate_columns(df: pd.DataFrame) -> None:
 
 
 def infer_sqlite_type(dtype) -> Text:
-    """Infer SQLite type from pandas dtype"""
+    """Infer SQLite type from pandas dtype.
+
+    This function maps pandas data types to appropriate SQLite types:
+    - Integer types -> INTEGER
+    - Float types -> REAL
+    - Boolean types -> INTEGER
+    - Datetime types -> TIMESTAMP
+    - All others -> TEXT
+
+    Args:
+        dtype: The pandas dtype to convert.
+
+    Returns:
+        Text: The corresponding SQLite type.
+
+    Note:
+        Issues a warning when falling back to TEXT type.
+    """
     if pd.api.types.is_integer_dtype(dtype):
         return "INTEGER"
     elif pd.api.types.is_float_dtype(dtype):
@@ -103,7 +148,22 @@ def infer_sqlite_type(dtype) -> Text:
 
 
 def get_table_schema(database_path: str) -> str:
-    """Get the schema of all tables in the database"""
+    """Get the schema of all tables in the SQLite database.
+
+    This function retrieves the CREATE TABLE statements for all tables in the database.
+
+    Args:
+        database_path (str): Path to the SQLite database file.
+
+    Returns:
+        str: A string containing all table schemas, separated by newlines.
+
+    Raises:
+        DatabaseError: If the database file doesn't exist or there's an error accessing it.
+
+    Note:
+        Issues a warning if no tables are found in the database.
+    """
     if not os.path.exists(database_path):
         raise DatabaseError(f"Database file '{database_path}' does not exist")
 
@@ -128,7 +188,29 @@ def get_table_schema(database_path: str) -> str:
 
 
 def create_database_from_csv(csv_path: str, database_path: str, table_name: str = None) -> str:
-    """Create SQLite database from CSV file and return the schema"""
+    """Create SQLite database from CSV file and return the schema.
+
+    This function creates or modifies a SQLite database by importing data from a CSV file.
+    It handles column name cleaning, data type inference, and data conversion.
+
+    Args:
+        csv_path (str): Path to the CSV file to import.
+        database_path (str): Path where the SQLite database should be created/modified.
+        table_name (str, optional): Name for the table to create. If not provided,
+            uses the CSV filename (cleaned). Defaults to None.
+
+    Returns:
+        str: The schema of the created database.
+
+    Raises:
+        CSVError: If there are issues with the CSV file (doesn't exist, empty, parsing error).
+        DatabaseError: If there are issues with database creation or modification.
+
+    Note:
+        - Issues warnings for column name changes and existing database/table modifications.
+        - Automatically cleans column names for SQLite compatibility.
+        - Handles NULL values, timestamps, and numeric data types appropriately.
+    """
     if not os.path.exists(csv_path):
         raise CSVError(f"CSV file '{csv_path}' does not exist")
     if not csv_path.endswith(".csv"):
@@ -144,7 +226,9 @@ def create_database_from_csv(csv_path: str, database_path: str, table_name: str 
         # Clean column names and track changes
         original_columns = df.columns.tolist()
         cleaned_columns = [clean_column_name(col) for col in original_columns]
-        changed_columns = [(orig, cleaned) for orig, cleaned in zip(original_columns, cleaned_columns) if orig != cleaned]
+        changed_columns = [
+            (orig, cleaned) for orig, cleaned in zip(original_columns, cleaned_columns) if orig != cleaned
+        ]
 
         if changed_columns:
             changes = ", ".join([f"'{orig}' to '{cleaned}'" for orig, cleaned in changed_columns])
@@ -232,7 +316,17 @@ def create_database_from_csv(csv_path: str, database_path: str, table_name: str 
 
 
 def get_table_names_from_schema(schema: str) -> List[str]:
-    """Extract table names from schema string"""
+    """Extract table names from a database schema string.
+
+    This function parses CREATE TABLE statements to extract table names.
+
+    Args:
+        schema (str): The database schema string containing CREATE TABLE statements.
+
+    Returns:
+        List[str]: A list of table names found in the schema. Returns an empty list
+            if no tables are found or if the schema is empty.
+    """
     if not schema:
         return []
 
@@ -246,15 +340,22 @@ def get_table_names_from_schema(schema: str) -> List[str]:
     return table_names
 
 
-class SQLTool(Tool):
-    """Tool to execute SQL commands in an SQLite database.
+class SQLTool(DeployableTool):
+    """A tool for executing SQL commands in an SQLite database.
+
+    This tool provides an interface for interacting with SQLite databases, including
+    executing queries, managing schema, and handling table operations. It supports
+    both read-only and write operations based on configuration.
 
     Attributes:
-        description (Text): description of the tool
-        database (Text): database name
-        schema (Text): database schema description
-        tables (Optional[Union[List[Text], Text]]): table names to work with (optional)
-        enable_commit (bool): enable to modify the database (optional)
+        description (Text): A description of what the SQL tool does.
+        database (Text): The database URI or path.
+        schema (Text): The database schema containing table definitions.
+        tables (Optional[Union[List[Text], Text]]): List of table names that can be
+            accessed by this tool. If None, all tables are accessible.
+        enable_commit (bool): Whether write operations (INSERT, UPDATE, DELETE) are
+            allowed. If False, only read operations are permitted.
+        status (AssetStatus): The current status of the tool (DRAFT or ONBOARDED).
     """
 
     def __init__(
@@ -267,17 +368,26 @@ class SQLTool(Tool):
         enable_commit: bool = False,
         **additional_info,
     ) -> None:
-        """Tool to execute SQL query commands in an SQLite database.
+        """Initialize a new SQLTool instance.
 
         Args:
-            name (Text): name of the tool
-            description (Text): description of the tool
-            database (Text): database uri
-            schema (Optional[Text]): database schema description
-            tables (Optional[Union[List[Text], Text]]): table names to work with (optional)
-            enable_commit (bool): enable to modify the database (optional)
-        """
+            name (Text): The name of the tool.
+            description (Text): A description of what the SQL tool does.
+            database (Text): The database URI or path. Can be a local file path,
+                S3 URI, or HTTP(S) URL.
+            schema (Optional[Text], optional): The database schema containing table
+                definitions. If not provided, will be inferred from the database.
+                Defaults to None.
+            tables (Optional[Union[List[Text], Text]], optional): List of table names
+                that can be accessed by this tool. If not provided, all tables are
+                accessible. Defaults to None.
+            enable_commit (bool, optional): Whether write operations are allowed.
+                If False, only read operations are permitted. Defaults to False.
+            **additional_info: Additional keyword arguments for tool configuration.
 
+        Raises:
+            SQLToolError: If required parameters are missing or invalid.
+        """
         super().__init__(name=name, description=description, **additional_info)
 
         self.database = database
@@ -288,6 +398,19 @@ class SQLTool(Tool):
         self.validate()
 
     def to_dict(self) -> Dict[str, Text]:
+        """Convert the tool instance to a dictionary representation.
+
+        Returns:
+            Dict[str, Text]: A dictionary containing the tool's configuration with keys:
+                - name: The tool's name
+                - description: The tool's description
+                - parameters: List of parameter dictionaries containing:
+                    - database: The database URI or path
+                    - schema: The database schema
+                    - tables: Comma-separated list of table names or None
+                    - enable_commit: Whether write operations are allowed
+                - type: Always "sql"
+        """
         return {
             "name": self.name,
             "description": self.description,
@@ -301,6 +424,19 @@ class SQLTool(Tool):
         }
 
     def validate(self):
+        """Validate the SQL tool's configuration.
+
+        This method performs several checks:
+        1. Verifies required fields (description, database) are provided
+        2. Validates database path/URI format
+        3. Infers schema from database if not provided
+        4. Sets table list from schema if not provided
+        5. Uploads local database file to storage
+
+        Raises:
+            SQLToolError: If any validation check fails or if there are issues with
+                database access or file operations.
+        """
         from aixplain.factories.file_factory import FileFactory
 
         if not self.description or self.description.strip() == "":
@@ -310,9 +446,9 @@ class SQLTool(Tool):
         # Handle database validation
         if not (
             str(self.database).startswith("s3://")
-            or str(self.database).startswith("http://")  # noqa: W503
-            or str(self.database).startswith("https://")  # noqa: W503
-            or validators.url(self.database)  # noqa: W503
+            or str(self.database).startswith("http://")
+            or str(self.database).startswith("https://")
+            or validators.url(self.database)
         ):
             if not os.path.exists(self.database):
                 raise SQLToolError(f"Database '{self.database}' does not exist")
@@ -340,6 +476,18 @@ class SQLTool(Tool):
                 raise SQLToolError(f"Failed to upload database: {str(e)}")
 
     def deploy(self) -> None:
+        """Deploy the SQL tool by downloading and preparing the database.
+
+        This method handles the deployment process:
+        1. For HTTP(S) URLs: Downloads the database file
+        2. Creates a unique local filename
+        3. Uploads the database to the aiXplain platform
+        4. Cleans up temporary files
+
+        Raises:
+            requests.exceptions.RequestException: If downloading the database fails.
+            Exception: If there are issues with file operations or uploads.
+        """
         import uuid
         import requests
         from pathlib import Path

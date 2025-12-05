@@ -25,6 +25,16 @@ from enum import Enum
 
 
 class DataSplit(Enum):
+    """Enumeration of dataset split types.
+
+    This enum defines the standard dataset split types used for machine learning tasks,
+    including training, validation, and testing splits.
+
+    Attributes:
+        TRAIN (str): Training dataset split used for model training.
+        VALIDATION (str): Validation dataset split used for model tuning.
+        TEST (str): Test dataset split used for final model evaluation.
+    """
     TRAIN = "train"
     VALIDATION = "validation"
     TEST = "test"

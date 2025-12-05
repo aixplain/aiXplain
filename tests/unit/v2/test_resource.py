@@ -2,42 +2,58 @@ import pytest
 from unittest.mock import patch, Mock
 from aixplain.v2.resource import (
     BaseResource,
-    ListResourceMixin,
-    BareListParams,
+    SearchResourceMixin,
+    BaseSearchParams,
     GetResourceMixin,
-    BareGetParams,
+    BaseGetParams,
 )
 
 
 def test_base_resource():
-    resource = BaseResource(obj={"id": "123", "name": "test"})
-    assert resource._obj == {"id": "123", "name": "test"}
+    resource = BaseResource(id="123", name="test")
+    assert resource.id == "123"
+    assert resource.name == "test"
 
 
 def test_base_resource_getattr():
-    resource = BaseResource(obj={"id": "123", "name": "test"})
+    resource = BaseResource(id="123", name="test")
     assert resource.id == "123"
     assert resource.name == "test"
 
 
 def test_base_resource_getattr_not_found():
-    resource = BaseResource(obj={"id": "123", "name": "test"})
+    resource = BaseResource(id="123", name="test")
     with pytest.raises(AttributeError):
         resource.not_found
 
 
 def test_base_resource_save():
-    resource = BaseResource(obj={"name": "test"})
-    with patch("aixplain.v2.resource.BaseResource._action") as mock_action:
-        resource.save()
-        mock_action.assert_called_once_with("post", **resource._obj)
+    resource = BaseResource(name="test")
+    resource.context = Mock()
+    resource.context.client.request = Mock(return_value={"id": "123"})
+    resource.save()
+    # Check that the resource was created with the correct payload
+    resource.context.client.request.assert_called_once_with(
+        "post",
+        "",
+        json={
+            "id": None,
+            "name": "test",
+            "description": None,
+            "assetPath": None,
+            "instanceId": None,
+        },
+    )
+    # Check that the ID was set from the response
+    assert resource.id == "123"
 
 
 def test_base_resource_save_with_id():
-    resource = BaseResource(obj={"id": "123", "name": "test"})
-    with patch("aixplain.v2.resource.BaseResource._action") as mock_action:
-        resource.save()
-        mock_action.assert_called_once_with("put", ["123"], **resource._obj)
+    resource = BaseResource(id="123", name="test")
+    resource.context = Mock()
+    resource.context.client.request = Mock(return_value={"id": "123"})
+    resource.save()
+    resource.context.client.request.assert_called_once_with("put", "/123", json=resource.to_dict())
 
 
 def test_base_resource_action():
@@ -45,18 +61,18 @@ def test_base_resource_action():
         RESOURCE_PATH = "demo"
         context = Mock()
 
-    fixture_resource = FixtureResource(obj={"id": "123", "name": "test"})
+    fixture_resource = FixtureResource(id="123", name="test")
 
     fixture_resource._action("get", ["do_something"], foo="bar")
     fixture_resource.context.client.request.assert_called_once_with(
         "get",
-        "sdk/demo/123/do_something",
+        "demo/123/do_something",
         foo="bar",
     )
 
 
-def test_base_resource_list():
-    class FixtureResource(BaseResource, ListResourceMixin[BareListParams, "FixtureResource"]):
+def test_base_resource_search():
+    class FixtureResource(BaseResource, SearchResourceMixin[BaseSearchParams, "FixtureResource"]):
         RESOURCE_PATH = "demo"
         context = Mock(
             client=Mock(
@@ -64,7 +80,7 @@ def test_base_resource_list():
                     return_value=Mock(
                         json=Mock(
                             return_value={
-                                "items": [
+                                "results": [
                                     {"id": "123", "name": "test"},
                                     {"id": "456", "name": "test2"},
                                 ],
@@ -77,7 +93,7 @@ def test_base_resource_list():
             )
         )
 
-    page = FixtureResource.list()
+    page = FixtureResource.search()
 
     assert page.total == 2
     assert page.page_number == 0
@@ -98,7 +114,7 @@ def test_base_resource_list():
     )
     FixtureResource.context.client.request.reset_mock()
 
-    page = FixtureResource.list(
+    page = FixtureResource.search(
         page_number=1,
         page_size=20,
         query="test",
@@ -122,14 +138,14 @@ def test_base_resource_list():
 
 
 def test_base_resource_get():
-    class FixtureResource(BaseResource, GetResourceMixin[BareGetParams, "FixtureResource"]):
+    class FixtureResource(BaseResource, GetResourceMixin[BaseGetParams, "FixtureResource"]):
         RESOURCE_PATH = "demo"
-        context = Mock(client=Mock(get_obj=Mock(return_value={"id": "123", "name": "test"})))
+        context = Mock(client=Mock(get=Mock(return_value={"id": "123", "name": "test"})))
 
     obj = FixtureResource.get("123")
     assert obj.id == "123"
     assert obj.name == "test"
 
-    FixtureResource.context.client.get_obj.assert_called_once_with(
+    FixtureResource.context.client.get.assert_called_once_with(
         "demo/123",
     )

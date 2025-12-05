@@ -31,23 +31,27 @@ from urllib.parse import urljoin
 
 
 class MetricFactory:
-    """A static class for creating and exploring Metric Objects.
+    """A static factory class for creating and managing Metric objects.
+
+    This class provides functionality to create, retrieve, and list Metric objects
+    through the backend API. It includes methods for fetching individual metrics
+    by ID and listing metrics with various filtering options.
 
     Attributes:
-        backend_url (str): The URL for the backend.
+        backend_url (str): The URL endpoint for the backend API.
     """
 
     backend_url = config.BACKEND_URL
 
     @classmethod
     def _create_metric_from_response(cls, response: Dict) -> Metric:
-        """Converts response Json to 'Metric' object
+        """Converts response JSON to a Metric object.
 
         Args:
-            response (Dict): Json from API
+            response (Dict): JSON response from the API containing metric data.
 
         Returns:
-            Metric: Coverted 'Metric' object
+            Metric: A new Metric object created from the response data.
         """
         return Metric(
             id=response["id"],
@@ -60,20 +64,25 @@ class MetricFactory:
         )
 
     @classmethod
-    def get(cls, metric_id: Text) -> Metric:
-        """Create a 'Metric' object from metric id
+    def get(cls, metric_id: Text, api_key: str = None) -> Metric:
+        """Create a Metric object from a metric ID.
 
         Args:
-            model_id (Text): Model ID of required metric.
+            metric_id (Text): The unique identifier of the metric to retrieve.
+            api_key (str, optional): API key for authentication. Defaults to None.
 
         Returns:
-            Metric: Created 'Metric' object
+            Metric: The retrieved Metric object.
+
+        Raises:
+            Exception: If the metric creation fails, with status code and error message.
         """
 
         resp, status_code = None, 200
+        api_key = api_key or config.TEAM_API_KEY
         try:
             url = urljoin(cls.backend_url, f"sdk/metrics/{metric_id}")
-            headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+            headers = {"Authorization": f"Token {api_key}", "Content-Type": "application/json"}
             logging.info(f"Start service for GET Metric  - {url} - {headers}")
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()
@@ -97,8 +106,9 @@ class MetricFactory:
         is_reference_required: Optional[bool] = None,
         page_number: int = 0,
         page_size: int = 20,
+        api_key: str = None
     ) -> List[Metric]:
-        """Get list of supported metrics for the given filters
+        """Get a list of supported metrics based on the given filters.
 
         Args:
             model_id (Text, optional): ID of model for which metric is to be used. Defaults to None.
@@ -106,9 +116,17 @@ class MetricFactory:
             is_reference_required (bool, optional): Should the metric use reference. Defaults to None.
             page_number (int, optional): page number. Defaults to 0.
             page_size (int, optional): page size. Defaults to 20.
+            api_key (str, optional): API key for authentication. Defaults to None.
 
         Returns:
-            List[Metric]: List of supported metrics
+            Dict: A dictionary containing:
+                - results (List[Metric]): List of filtered metrics
+                - page_total (int): Number of items in the current page
+                - page_number (int): Current page number
+                - total (int): Total number of items matching the filters
+
+        Raises:
+            Exception: If there is an error retrieving the metrics list.
         """
         try:
             url = urljoin(cls.backend_url, "sdk/metrics")
@@ -119,8 +137,8 @@ class MetricFactory:
                 filter_params["sourceRequired"] = 1 if is_source_required else 0
             if is_reference_required is not None:
                 filter_params["referenceRequired"] = 1 if is_reference_required else 0
-
-            headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+            api_key = api_key or config.TEAM_API_KEY
+            headers = {"Authorization": f"Token {api_key}", "Content-Type": "application/json"}
             r = _request_with_retry("get", url, headers=headers, params=filter_params)
             resp = r.json()
             logging.info(f"Listing Metrics: Status of getting metrics: {resp}")
