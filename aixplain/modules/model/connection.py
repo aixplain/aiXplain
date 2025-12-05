@@ -181,22 +181,20 @@ class ConnectionTool(Model):
         if response.status == ResponseStatus.SUCCESS:
             try:
                 # Find the matching action in the response data
-                action_data = next(
-                    (a for a in response.data if a["name"] == action), None
-                )
+                # Handle both cases: with "name" field and without (legacy format)
+                action_data = next((a for a in response.data if a.get("name") == action), None)
+                if action_data is None:
+                    # Fall back to legacy format: use first item directly
+                    action_data = response.data[0] if response.data else None
                 if action_data is None:
                     raise Exception(f"Action '{action}' not found in response")
                 inputs = {inp["code"]: inp for inp in action_data["inputs"]}
-                action_idx = next(
-                    (i for i, a in enumerate(self.actions) if a.code == action), None
-                )
+                action_idx = next((i for i, a in enumerate(self.actions) if a.code == action), None)
                 if action_idx is not None:
                     self.actions[action_idx].inputs = inputs
                 return inputs
             except Exception as e:
-                raise Exception(
-                    f"It was not possible to get the inputs for the action {action}. Error {e}"
-                )
+                raise Exception(f"It was not possible to get the inputs for the action {action}. Error {e}")
 
     def run(self, action: Union[ConnectAction, Text], inputs: Dict):
         """Execute a specific action with the provided inputs.
