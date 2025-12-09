@@ -387,8 +387,7 @@ class AgentFactory:
         """
         from aixplain.factories import ModelFactory
         try:
-            function_name = kwargs.get("function_name", None)
-            return ModelFactory.create_script_connection_tool(name=name, description=description, code=code, function_name=function_name)
+            return ModelFactory.create_script_connection_tool(name=name, description=description, code=code, **kwargs)
         except Exception as e:
             raise Exception(f"Failed to create custom Python code tool: {e}")
 

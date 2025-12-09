@@ -170,6 +170,10 @@ class ModelFactory(ModelGetterMixin, ModelListMixin):
             kwargs.get("api_key", config.TEAM_API_KEY) 
             if api_key is None else api_key
         )
+        allowed_kwargs = ["function_name"]
+        for key, value in kwargs.items():
+            if key not in allowed_kwargs:
+                raise Exception(f"Invalid keyword argument: {key}. Allowed arguments are: {allowed_kwargs}")
         function_name = kwargs.get("function_name", None)
         # Convert code to string if it's a callable
         if isinstance(code, Callable):
