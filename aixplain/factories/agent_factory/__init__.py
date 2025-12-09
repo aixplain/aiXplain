@@ -373,7 +373,7 @@ class AgentFactory:
 
     @classmethod
     def create_custom_python_code_tool(
-        cls, code: Union[Text, Callable], name: Text, description: Text = ""
+        cls, code: Union[Text, Callable], name: Text, description: Text = "", **kwargs
     ) -> ConnectionTool:
         """Create a new custom Python code tool for use with an agent.
 
@@ -387,7 +387,8 @@ class AgentFactory:
         """
         from aixplain.factories import ModelFactory
         try:
-            return ModelFactory.create_script_connection_tool(name=name, description=description, code=code)
+            function_name = kwargs.get("function_name", None)
+            return ModelFactory.create_script_connection_tool(name=name, description=description, code=code, function_name=function_name)
         except Exception as e:
             raise Exception(f"Failed to create custom Python code tool: {e}")
 

@@ -180,17 +180,18 @@ class ModelFactory(ModelGetterMixin, ModelListMixin):
             script_content = code
             tree = ast.parse(script_content)
             function_names = [
-                node.name for node in ast.walk(tree)
+                node.name
+                for node in tree.body
                 if isinstance(node, ast.FunctionDef)
             ]
             assert len(function_names) > 0, "No functions found in the code. Please provide at least one function in your code."
             # Extract function names from code string
             if function_name is None and len(function_names) == 1:
                 function_name = function_names[0]
+            elif function_name is None and len(function_names) > 1:
+                raise Exception(f"Multiple functions found in the code: {function_names}. Please specify at least one function name using the function_name parameter.")
             elif function_name and function_name not in function_names:
                 raise Exception(f"Function name {function_name} not found in the code. Available functions provided by the code: {function_names}. Please specify a valid function name using the function_name parameter.")
-            else:
-                raise Exception(f"Multiple functions found in the code: {function_names}. Please specify at least one function name using the function_name parameter.")
         
         # Import ToolFactory locally to avoid circular import
         from aixplain.factories import ToolFactory
