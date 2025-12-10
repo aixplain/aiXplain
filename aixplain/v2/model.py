@@ -1,3 +1,5 @@
+"""Model resource for v2 API."""
+
 from __future__ import annotations
 
 from typing import Union, List, Optional, Any
@@ -39,9 +41,7 @@ class Detail:
     index: int
     message: Message
     logprobs: Optional[Any] = None
-    finish_reason: Optional[str] = field(
-        default=None, metadata=config(field_name="finish_reason")
-    )
+    finish_reason: Optional[str] = field(default=None, metadata=config(field_name="finish_reason"))
 
 
 @dataclass_json
@@ -60,12 +60,8 @@ class ModelResult(Result):
     """Result for model runs with specific fields from the backend response."""
 
     details: Optional[List[Detail]] = None
-    run_time: Optional[float] = field(
-        default=None, metadata=config(field_name="runTime")
-    )
-    used_credits: Optional[float] = field(
-        default=None, metadata=config(field_name="usedCredits")
-    )
+    run_time: Optional[float] = field(default=None, metadata=config(field_name="runTime"))
+    used_credits: Optional[float] = field(default=None, metadata=config(field_name="usedCredits"))
     usage: Optional[Usage] = None
 
 
@@ -73,6 +69,7 @@ class InputsProxy:
     """Proxy object that provides both dict-like and dot notation access to model parameters."""
 
     def __init__(self, model):
+        """Initialize InputsProxy with a model instance."""
         self._model = model
         self._dynamic_attrs = {}
         self._setup_dynamic_attributes()
@@ -99,13 +96,13 @@ class InputsProxy:
                 }
 
     def __getitem__(self, key: str):
-        """Dict-like access: inputs['temperature']"""
+        """Dict-like access: inputs['temperature']."""
         if key in self._dynamic_attrs:
             return self._dynamic_attrs[key]["value"]
         raise KeyError(f"Parameter '{key}' not found")
 
     def __setitem__(self, key: str, value):
-        """Dict-like assignment: inputs['temperature'] = 0.7"""
+        """Dict-like assignment: inputs['temperature'] = 0.7."""
         if key in self._dynamic_attrs:
             # Validate the value against the parameter definition
             param_info = self._dynamic_attrs[key]
@@ -113,8 +110,7 @@ class InputsProxy:
 
             if not self._validate_param_type(param, value):
                 raise ValueError(
-                    f"Invalid value type for parameter '{key}'. "
-                    f"Expected {param.data_type}, got {type(value).__name__}"
+                    f"Invalid value type for parameter '{key}'. Expected {param.data_type}, got {type(value).__name__}"
                 )
 
             # Store the value
@@ -123,13 +119,13 @@ class InputsProxy:
             raise KeyError(f"Parameter '{key}' not found")
 
     def __getattr__(self, name: str):
-        """Dot notation access: inputs.temperature"""
+        """Dot notation access: inputs.temperature."""
         if name in self._dynamic_attrs:
             return self._dynamic_attrs[name]["value"]
         raise AttributeError(f"Parameter '{name}' not found")
 
     def __setattr__(self, name: str, value):
-        """Dot notation assignment: inputs.temperature = 0.7"""
+        """Dot notation assignment: inputs.temperature = 0.7."""
         if name == "_model" or name == "_dynamic_attrs":
             super().__setattr__(name, value)
         elif name in self._dynamic_attrs:
@@ -139,8 +135,7 @@ class InputsProxy:
 
             if not self._validate_param_type(param, value):
                 raise ValueError(
-                    f"Invalid value type for parameter '{name}'. "
-                    f"Expected {param.data_type}, got {type(value).__name__}"
+                    f"Invalid value type for parameter '{name}'. Expected {param.data_type}, got {type(value).__name__}"
                 )
 
             # Store the value
@@ -149,37 +144,37 @@ class InputsProxy:
             raise AttributeError(f"Parameter '{name}' not found")
 
     def __contains__(self, key: str) -> bool:
-        """Check if parameter exists: 'temperature' in inputs"""
+        """Check if parameter exists: 'temperature' in inputs."""
         return key in self._dynamic_attrs
 
     def __len__(self) -> int:
-        """Number of parameters"""
+        """Number of parameters."""
         return len(self._dynamic_attrs)
 
     def __iter__(self):
-        """Iterate over parameter names"""
+        """Iterate over parameter names."""
         return iter(self._dynamic_attrs.keys())
 
     def keys(self):
-        """Get parameter names"""
+        """Get parameter names."""
         return list(self._dynamic_attrs.keys())
 
     def values(self):
-        """Get parameter values"""
+        """Get parameter values."""
         return [info["value"] for info in self._dynamic_attrs.values()]
 
     def items(self):
-        """Get parameter name-value pairs"""
+        """Get parameter name-value pairs."""
         return [(name, info["value"]) for name, info in self._dynamic_attrs.items()]
 
     def get(self, key: str, default=None):
-        """Get parameter value with default"""
+        """Get parameter value with default."""
         if key in self._dynamic_attrs:
             return self._dynamic_attrs[key]["value"]
         return default
 
     def update(self, **kwargs):
-        """Update multiple parameters at once"""
+        """Update multiple parameters at once."""
         for key, value in kwargs.items():
             if key in self._dynamic_attrs:
                 self[key] = value  # This will trigger validation
@@ -187,12 +182,12 @@ class InputsProxy:
                 raise KeyError(f"Parameter '{key}' not found")
 
     def clear(self):
-        """Reset all parameters to backend defaults"""
+        """Reset all parameters to backend defaults."""
         for param_name in self._dynamic_attrs:
             self.reset_parameter(param_name)
 
     def copy(self):
-        """Get a copy of current parameter values"""
+        """Get a copy of current parameter values."""
         return {name: info["value"] for name, info in self._dynamic_attrs.items()}
 
     def has_parameter(self, param_name: str) -> bool:
@@ -224,9 +219,7 @@ class InputsProxy:
             param = param_info["param"]
 
             if param.default_values:
-                self._dynamic_attrs[param_name]["value"] = param.default_values[0].get(
-                    "value"
-                )
+                self._dynamic_attrs[param_name]["value"] = param.default_values[0].get("value")
             else:
                 self._dynamic_attrs[param_name]["value"] = None
 
@@ -276,6 +269,7 @@ class InputsProxy:
             return True
 
     def __repr__(self):
+        """Return string representation of InputsProxy."""
         params = self.get_all_parameters()
         return f"InputsProxy({params})"
 
@@ -284,11 +278,7 @@ def find_supplier_by_id(supplier_id: Union[str, int]) -> Optional[Supplier]:
     """Find supplier enum by ID."""
     supplier_id_str = str(supplier_id)
     return next(
-        (
-            supplier
-            for supplier in Supplier
-            if supplier.value.get("id") == supplier_id_str
-        ),
+        (supplier for supplier in Supplier if supplier.value.get("id") == supplier_id_str),
         None,
     )
 
@@ -319,19 +309,11 @@ class Parameter:
     required: bool
     multiple_values: bool = field(metadata=config(field_name="multipleValues"))
     is_fixed: bool = field(metadata=config(field_name="isFixed"))
-    data_type: Optional[str] = field(
-        default=None, metadata=config(field_name="dataType")
-    )
-    data_sub_type: Optional[str] = field(
-        default=None, metadata=config(field_name="dataSubType")
-    )
+    data_type: Optional[str] = field(default=None, metadata=config(field_name="dataType"))
+    data_sub_type: Optional[str] = field(default=None, metadata=config(field_name="dataSubType"))
     values: List[Any] = field(default_factory=list)
-    default_values: List[Any] = field(
-        default_factory=list, metadata=config(field_name="defaultValues")
-    )
-    available_options: List[Any] = field(
-        default_factory=list, metadata=config(field_name="availableOptions")
-    )
+    default_values: List[Any] = field(default_factory=list, metadata=config(field_name="defaultValues"))
+    available_options: List[Any] = field(default_factory=list, metadata=config(field_name="availableOptions"))
 
 
 @dataclass_json
@@ -349,12 +331,8 @@ class Pricing:
     """Pricing structure from the API response."""
 
     price: Optional[float] = None
-    unit_type: Optional[str] = field(
-        default=None, metadata=config(field_name="unitType")
-    )
-    unit_type_scale: Optional[str] = field(
-        default=None, metadata=config(field_name="unitTypeScale")
-    )
+    unit_type: Optional[str] = field(default=None, metadata=config(field_name="unitType"))
+    unit_type_scale: Optional[str] = field(default=None, metadata=config(field_name="unitTypeScale"))
 
 
 @dataclass_json
@@ -368,6 +346,8 @@ class VendorInfo:
 
 
 class ModelSearchParams(BaseSearchParams):
+    """Search parameters for model queries."""
+
     functions: NotRequired[List[str]]
     vendors: NotRequired[Union[str, Supplier, List[Union[str, Supplier]]]]
     source_languages: NotRequired[Union[Language, List[Language]]]
@@ -403,20 +383,14 @@ class Model(
     RESPONSE_CLASS = ModelResult
 
     # Core fields from BaseResource (id, name, description)
-    service_name: Optional[str] = field(
-        default=None, metadata=config(field_name="serviceName")
-    )
+    service_name: Optional[str] = field(default=None, metadata=config(field_name="serviceName"))
     status: Optional[AssetStatus] = None
     host: Optional[str] = None
     developer: Optional[str] = None
     vendor: Optional[VendorInfo] = None
     function: Optional[Function] = field(
         default=None,
-        metadata=config(
-            decoder=lambda x: (
-                find_function_by_id(x["id"]) if isinstance(x, dict) and "id" in x else x
-            )
-        ),
+        metadata=config(decoder=lambda x: (find_function_by_id(x["id"]) if isinstance(x, dict) and "id" in x else x)),
     )
 
     # Pricing information
@@ -426,26 +400,16 @@ class Model(
     version: Optional[Version] = None
 
     # Function type and model type
-    function_type: Optional[str] = field(
-        default=None, metadata=config(field_name="functionType")
-    )
+    function_type: Optional[str] = field(default=None, metadata=config(field_name="functionType"))
     type: Optional[str] = "model"
 
     # Timestamps
-    created_at: Optional[str] = field(
-        default=None, metadata=config(field_name="createdAt")
-    )
-    updated_at: Optional[str] = field(
-        default=None, metadata=config(field_name="updatedAt")
-    )
+    created_at: Optional[str] = field(default=None, metadata=config(field_name="createdAt"))
+    updated_at: Optional[str] = field(default=None, metadata=config(field_name="updatedAt"))
 
     # Capabilities
-    supports_streaming: Optional[bool] = field(
-        default=None, metadata=config(field_name="supportsStreaming")
-    )
-    supports_byoc: Optional[bool] = field(
-        default=None, metadata=config(field_name="supportsBYOC")
-    )
+    supports_streaming: Optional[bool] = field(default=None, metadata=config(field_name="supportsStreaming"))
+    supports_byoc: Optional[bool] = field(default=None, metadata=config(field_name="supportsBYOC"))
 
     # Attributes and parameters with proper types
     attributes: Optional[List[Attribute]] = None
@@ -469,6 +433,7 @@ class Model(
             super().__setattr__(name, value)
 
     def build_run_url(self, **kwargs: Unpack[ModelRunParams]) -> str:
+        """Build the URL for running the model."""
         self._ensure_valid_state()
         return f"{self.context.model_url}/{self.id}"
 
@@ -485,6 +450,7 @@ class Model(
         id: str,
         **kwargs: Unpack[BaseGetParams],
     ) -> "Model":
+        """Get a model by ID."""
         return super().get(id, **kwargs)
 
     @classmethod
@@ -493,8 +459,7 @@ class Model(
         query: Optional[str] = None,
         **kwargs: Unpack[ModelSearchParams],
     ) -> Page["Model"]:
-        """
-        Search models with optional query and filtering.
+        """Search models with optional query and filtering.
 
         Args:
             query: Optional search query string
@@ -507,6 +472,11 @@ class Model(
         if query is not None:
             kwargs["query"] = query
 
+        # Use v1 endpoint for search as v2 endpoint doesn't fully support
+        # all filters. Also override items key since v1 endpoint uses
+        # "items" instead of "results"
+        kwargs["resource_path"] = "sdk/models"
+        kwargs["paginate_items_key"] = "items"
         return super().search(**kwargs)
 
     def run(self, **kwargs: Unpack[ModelRunParams]) -> ModelResult:
@@ -518,9 +488,7 @@ class Model(
         if self.params:
             param_errors = self._validate_params(**effective_params)
             if param_errors:
-                raise ValueError(
-                    f"Parameter validation failed: {'; '.join(param_errors)}"
-                )
+                raise ValueError(f"Parameter validation failed: {'; '.join(param_errors)}")
 
         return super().run(**effective_params)
 
@@ -545,8 +513,7 @@ class Model(
         return filtered_merged
 
     def _validate_params(self, **kwargs) -> List[str]:
-        """Validate all provided parameters against the model's expected
-        parameters."""
+        """Validate all provided parameters against the model's expected parameters."""
         if not self.params:
             return []
 
@@ -632,11 +599,7 @@ class Model(
         # Get function type
         function_type = None
         if self.function:
-            function_type = (
-                self.function.value
-                if hasattr(self.function, "value")
-                else str(self.function)
-            )
+            function_type = self.function.value if hasattr(self.function, "value") else str(self.function)
 
         # Get version - handle Version objects properly
         version = None
@@ -687,9 +650,7 @@ class Model(
 
     @classmethod
     def _populate_filters(cls, params: dict) -> dict:
-        """
-        Override to handle model-specific filter structure.
-        """
+        """Override to handle model-specific filter structure."""
         # Call parent's _populate_filters to get basic pagination and common
         # filters
         filters = super()._populate_filters(params)
@@ -703,43 +664,27 @@ class Model(
             filters["saved"] = params["saved"]
 
         # functions - accept list of strings and convert to backend shape
+        # Use v1 format: array of strings (works with sdk/models/paginate endpoint)
         if params.get("functions") is not None:
             functions_param = params["functions"]
             if isinstance(functions_param, list):
-                filters["functions"] = [
-                    {
-                        "field": (f.value if hasattr(f, "value") else str(f)),
-                        "dir": 1,
-                    }
-                    for f in functions_param
-                ]
+                filters["functions"] = [(f.value if hasattr(f, "value") else str(f)) for f in functions_param]
             else:
-                value = (
-                    functions_param.value
-                    if hasattr(functions_param, "value")
-                    else str(functions_param)
-                )
-                filters["functions"] = [{"field": value, "dir": 1}]
+                value = functions_param.value if hasattr(functions_param, "value") else str(functions_param)
+                filters["functions"] = [value]
 
         # suppliers - should be array of strings
         if params.get("vendors") is not None:
             suppliers = params["vendors"]
             if isinstance(suppliers, list):
                 filters["suppliers"] = [
-                    (
-                        s.value["code"]
-                        if hasattr(s, "value") and isinstance(s.value, dict)
-                        else str(s)
-                    )
+                    (s.value["code"] if hasattr(s, "value") and isinstance(s.value, dict) else str(s))
                     for s in suppliers
                 ]
             else:
                 supplier_value = (
                     suppliers.value["code"]
-                    if (
-                        hasattr(suppliers, "value")
-                        and isinstance(suppliers.value, dict)
-                    )
+                    if (hasattr(suppliers, "value") and isinstance(suppliers.value, dict))
                     else str(suppliers)
                 )
                 filters["suppliers"] = [supplier_value]
@@ -749,12 +694,7 @@ class Model(
             status = params["status"]
             if isinstance(status, list):
                 filters["status"] = [
-                    (
-                        s.value
-                        if (hasattr(s, "value") and isinstance(s.value, str))
-                        else str(s)
-                    )
-                    for s in status
+                    (s.value if (hasattr(s, "value") and isinstance(s.value, str)) else str(s)) for s in status
                 ]
             else:
                 if hasattr(status, "value") and isinstance(status.value, str):
@@ -768,18 +708,13 @@ class Model(
             source_langs = params["source_languages"]
             if isinstance(source_langs, list):
                 filters["sourceLanguages"] = [
-                    (
-                        lang.value
-                        if hasattr(lang, "value") and isinstance(lang.value, str)
-                        else str(lang)
-                    )
+                    (lang.value if hasattr(lang, "value") and isinstance(lang.value, str) else str(lang))
                     for lang in source_langs
                 ]
             else:
                 lang_value = (
                     source_langs.value
-                    if hasattr(source_langs, "value")
-                    and isinstance(source_langs.value, str)
+                    if hasattr(source_langs, "value") and isinstance(source_langs.value, str)
                     else str(source_langs)
                 )
                 filters["sourceLanguages"] = [lang_value]
@@ -789,25 +724,21 @@ class Model(
             target_langs = params["target_languages"]
             if isinstance(target_langs, list):
                 filters["targetLanguages"] = [
-                    (
-                        lang.value
-                        if hasattr(lang, "value") and isinstance(lang.value, str)
-                        else str(lang)
-                    )
+                    (lang.value if hasattr(lang, "value") and isinstance(lang.value, str) else str(lang))
                     for lang in target_langs
                 ]
             else:
                 lang_value = (
                     target_langs.value
-                    if hasattr(target_langs, "value")
-                    and isinstance(target_langs.value, str)
+                    if hasattr(target_langs, "value") and isinstance(target_langs.value, str)
                     else str(target_langs)
                 )
                 filters["targetLanguages"] = [lang_value]
 
         # is_finetunable - boolean filter
+        # Note: v1 API uses "isFineTunable" (capital T), v2 API uses "isFinetunable" (lowercase t)
         if params.get("is_finetunable") is not None:
-            filters["isFinetunable"] = params["is_finetunable"]
+            filters["isFineTunable"] = params["is_finetunable"]
 
         # sort - should be array of objects with field and dir
         if params.get("sort_by") is not None or params.get("sort_order") is not None:
