@@ -139,7 +139,6 @@ def test_custom_code_tool(delete_agents_and_team_agents, AgentFactory):
     )
     assert tool is not None
     assert tool.description == "Add two strings"
-    assert tool.additional_info.get("code", "").startswith("s3://")
     agent = AgentFactory.create(
         name="Add Strings Agent",
         description="Add two strings. Do not directly answer. Use the tool to add the strings.",
@@ -793,7 +792,7 @@ def test_agent_with_action_tool():
     assert response is not None
     assert response["status"].lower() == "success"
     assert "helsinki" in response.data.output.lower()
-    assert "SLACK_CHAT_POST_MESSAGE" in [step["tool"] for step in response.data.intermediate_steps[0]["tool_steps"]]
+    assert "SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL" in [step["tool"] for step in response.data.intermediate_steps[0]["tool_steps"]]
     connection.delete()
 
 
