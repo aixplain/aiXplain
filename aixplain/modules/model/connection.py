@@ -184,8 +184,9 @@ class ConnectionTool(Model):
                 action_data = next(
                     (a for a in response.data if a["name"] == action), None
                 )
-                if action_data is None:
-                    raise Exception(f"Action '{action}' not found in response")
+               if action_data is None:
+                    # Fall back to legacy format: use first item directly
+                    action_data = response.data[0] if response.data else None
                 inputs = {inp["code"]: inp for inp in action_data["inputs"]}
                 action_idx = next(
                     (i for i, a in enumerate(self.actions) if a.code == action), None
