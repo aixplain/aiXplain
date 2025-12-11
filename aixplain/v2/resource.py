@@ -1301,7 +1301,7 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
         show_progress = kwargs.get("show_progress", False)
 
         start_time = time.time()
-        wait_time = max(wait_time, 0.2)  # Minimum wait time
+        wait_time = max(wait_time, 0.2)
 
         while (time.time() - start_time) < timeout:
             try:
