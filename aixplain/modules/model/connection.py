@@ -182,7 +182,7 @@ class ConnectionTool(Model):
             try:
                 # Find the matching action in the response data
                 action_data = next(
-                    (a for a in response.data if a["name"] == action), None
+                    (a for a in response.data if a.get("name") == action), None
                 )
                 if action_data is None or "inputs" not in action_data:
                     # Fall back to legacy format: use first item directly
