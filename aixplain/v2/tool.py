@@ -452,6 +452,7 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
         action_proxy = self.actions[action_name]
 
         # Extract all current input values
+        # Actions with no inputs will have an empty keys() list, which is handled gracefully
         for input_code in action_proxy.keys():
             value = action_proxy.get(input_code)
             if value is not None:
