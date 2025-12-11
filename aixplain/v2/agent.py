@@ -468,6 +468,54 @@ class Agent(
 
         return normalized
 
+    def _get_display_agent_name(
+        self,
+        progress_agent_name: Optional[str],
+        stage: str = "",
+        tool: Optional[str] = None,
+    ) -> str:
+        """Get formatted agent name for team agents.
+
+        Returns: "Team | Subagent | Tool" for sub-agents, "Team | SystemAgent" for system agents,
+                 or just agent_name for regular agents.
+        """
+        if not progress_agent_name:
+            return self.name
+
+        # Check if team agent
+        subagents = []
+        if hasattr(self, "_original_subagents") and self._original_subagents:
+            subagents = [a for a in self._original_subagents if a is not None]
+        if not subagents:
+            return progress_agent_name
+
+        team_name = self.name
+        system_agents = {
+            "orchestrator": "Orchestrator",
+            "mentalist": "Mentalist",
+            "response_generator": "Response Generator",
+        }
+
+        # Check stage first
+        if stage in ["planning", "mentalist"]:
+            return f"{team_name} | Mentalist"
+
+        # Check system agents
+        if progress_agent_name.lower() in system_agents:
+            return f"{team_name} | {system_agents[progress_agent_name.lower()]}"
+
+        # Check sub-agents
+        for subagent in subagents:
+            if hasattr(subagent, "name") and subagent.name == progress_agent_name:
+                return f"{team_name} | {subagent.name} | {tool}" if tool else f"{team_name} | {subagent.name}"
+            elif hasattr(subagent, "id") and subagent.id == progress_agent_name:
+                name = subagent.name if hasattr(subagent, "name") else progress_agent_name
+                return f"{team_name} | {name} | {tool}" if tool else f"{team_name} | {name}"
+
+        # System agent call (unit name)
+        system_name = "Orchestrator" if ("orchestr" in stage.lower() or "formatting" in stage.lower()) else "Mentalist"
+        return f"{team_name} | {system_name}"
+
     def _format_agent_progress(
         self,
         progress: Dict[str, Any],
@@ -500,25 +548,27 @@ class Agent(
         else:
             status_icon = "⏳"
 
-        # Use agent name from progress if available (for team agents),
-        # otherwise use self.name
-        agent_name = progress.get("agent") or self.name
+        # Get formatted agent name
+        progress_agent_name = progress.get("agent")
+        display_agent = (
+            self._get_display_agent_name(progress_agent_name, stage, tool) if progress_agent_name else self.name
+        )
 
         if verbosity == "compact":
             # Compact mode: minimal info
             if tool:
-                msg = f"⚙️  {agent_name} | {tool} | {status_icon}"
+                msg = f"⚙️  {display_agent} | {status_icon}"
                 if success is True and tool_output:
                     output_str = str(tool_output)[:200]
                     msg += f" {output_str}"
                     msg += "..." if len(str(tool_output)) > 200 else ""
             else:
                 stage_name = stage.replace("_", " ").title()
-                msg = f"🤖  {agent_name} | {status_icon} {stage_name}"
+                msg = f"🤖  {display_agent} | {status_icon} {stage_name}"
         else:
             # Full verbosity: detailed info
             if tool:
-                msg = f"⚙️  {agent_name} | {tool} | {status_icon}"
+                msg = f"⚙️  {display_agent} | {status_icon}"
 
                 if tool_input:
                     msg += f" | Input: {tool_input}"
@@ -530,7 +580,7 @@ class Agent(
                     msg += f" | Reason: {reason}"
             else:
                 stage_name = stage.replace("_", " ").title()
-                msg = f"🤖  {agent_name} | {status_icon} {stage_name}"
+                msg = f"🤖  {display_agent} | {status_icon} {stage_name}"
                 if reason:
                     msg += f" | {reason}"
 
@@ -673,16 +723,16 @@ class Agent(
             return None
 
         status_icon = "✓"
-        display_agent_name = agent_name or self.name
+        display_agent_name = self._get_display_agent_name(agent_name, "", tool) if agent_name else self.name
 
         if verbosity == "compact":
             if tool:
-                msg = f"⚙️  {display_agent_name} | {tool} | {status_icon}"
+                msg = f"⚙️  {display_agent_name} | {status_icon}"
             else:
                 msg = f"🤖  {display_agent_name} | {status_icon}"
         else:
             if tool:
-                msg = f"⚙️  {display_agent_name} | {tool} | {status_icon}"
+                msg = f"⚙️  {display_agent_name} | {status_icon}"
 
                 if step_input:
                     msg += f" | Input: {step_input}"
