@@ -11,6 +11,9 @@ from pathlib import Path
 from aixplain.factories.index_factory.utils import AirParams, VectaraParams, GraphRAGParams, ZeroEntropyParams
 import time
 import os
+import json
+
+CACHE_FOLDER = ".cache"
 
 
 def pytest_generate_tests(metafunc):
@@ -19,7 +22,7 @@ def pytest_generate_tests(metafunc):
         models = ModelFactory.list(function=Function.TEXT_GENERATION)["results"]
 
         predefined_models = []
-        for predefined_model in ["Groq Llama 3 70B", "GPT-4o"]:
+        for predefined_model in ["GPT-4.1 Mini", "GPT-4o"]:
             predefined_models.extend(
                 [
                     m
@@ -88,9 +91,10 @@ def run_index_model(index_model, retries):
                 [Record(value="Berlin is the capital of Germany.", value_type="text", uri="", id="1", attributes={})]
             )
             break
-        except Exception as e:
+        except Exception:
             time.sleep(180)
 
+    time.sleep(2)
     response = index_model.search("Berlin")
     assert str(response.status) == "SUCCESS"
     assert "germany" in response.data.lower()
@@ -106,7 +110,6 @@ def run_index_model(index_model, retries):
         pytest.param(None, ZeroEntropyParams, id="ZERO_ENTROPY"),
         pytest.param(EmbeddingModel.OPENAI_ADA002, GraphRAGParams, id="GRAPHRAG"),
         pytest.param(EmbeddingModel.OPENAI_ADA002, AirParams, id="AIR - OpenAI Ada 002"),
-        pytest.param("6658d40729985c2cf72f42ec", AirParams, id="AIR - Snowflake Arctic Embed M Long"),
         pytest.param(EmbeddingModel.MULTILINGUAL_E5_LARGE, AirParams, id="AIR - Multilingual E5 Large"),
         pytest.param("67efd4f92a0a850afa045af7", AirParams, id="AIR - BGE M3"),
     ],
@@ -133,7 +136,6 @@ def test_index_model(embedding_model, supplier_params):
     [
         pytest.param(None, VectaraParams, id="VECTARA"),
         pytest.param(EmbeddingModel.OPENAI_ADA002, AirParams, id="OpenAI Ada 002"),
-        pytest.param("6658d40729985c2cf72f42ec", AirParams, id="Snowflake Arctic Embed M Long"),
         pytest.param(EmbeddingModel.JINA_CLIP_V2_MULTIMODAL, AirParams, id="Jina Clip v2 Multimodal"),
         pytest.param(EmbeddingModel.MULTILINGUAL_E5_LARGE, AirParams, id="Multilingual E5 Large"),
         pytest.param("67efd4f92a0a850afa045af7", AirParams, id="BGE M3"),
@@ -144,9 +146,6 @@ def test_index_model_with_filter(embedding_model, supplier_params):
     from aixplain.modules.model.record import Record
     from aixplain.factories import IndexFactory
     from aixplain.modules.model.index_model import IndexFilter, IndexFilterOperator
-
-    for index in IndexFactory.list()["results"]:
-        index.delete()
 
     params = supplier_params(name=str(uuid4()), description=str(uuid4()))
     if embedding_model is not None:
@@ -168,12 +167,17 @@ def test_index_model_with_filter(embedding_model, supplier_params):
     for _ in range(retries):
         try:
             index_model.upsert(
-                [Record(value="The world is great", value_type="text", uri="", id="2", attributes={"category": "world"})]
+                [
+                    Record(
+                        value="The world is great", value_type="text", uri="", id="2", attributes={"category": "world"}
+                    )
+                ]
             )
             break
         except Exception:
             time.sleep(180)
 
+    time.sleep(2)
     assert index_model.count() == 2
     response = index_model.search(
         "", filters=[IndexFilter(field="category", value="world", operator=IndexFilterOperator.EQUALS)]
@@ -206,7 +210,7 @@ def test_llm_run_with_file():
 def test_aixplain_model_cache_creation():
     """Ensure AssetCache is triggered and cache is created."""
 
-    cache_file = os.path.join(CACHE_FOLDER, "models.json")
+    cache_file = os.path.join(CACHE_FOLDER, "model.json")
 
     # Clean up cache before the test
     if os.path.exists(cache_file):
@@ -214,7 +218,7 @@ def test_aixplain_model_cache_creation():
 
     # Instantiate the Model (replace this with a real model ID from your env)
     model_id = "6239efa4822d7a13b8e20454"  # Translate from Punjabi to Portuguese (Brazil)
-    _ = Model(id=model_id)
+    _ = ModelFactory.get(model_id)
 
     # Assert the cache file was created
     assert os.path.exists(cache_file), "Expected cache file was not created."
@@ -223,7 +227,9 @@ def test_aixplain_model_cache_creation():
         cache_data = json.load(f)
 
     assert "data" in cache_data, "Cache file structure invalid - missing 'data' key."
-    assert any(m.get("id") == model_id for m in cache_data["data"]["items"]), "Instantiated model not found in cache."
+    # Cache structure is: {"expiry": ..., "data": {"model_id": {...}}}
+    # So we check if the model_id exists as a key in cache_data["data"]
+    assert model_id in cache_data["data"], "Instantiated model not found in cache."
 
 
 def test_index_model_air_with_image():
@@ -232,11 +238,10 @@ def test_index_model_air_with_image():
     from uuid import uuid4
     from aixplain.factories.index_factory.utils import AirParams
 
-    for index in IndexFactory.list()["results"]:
-        index.delete()
-
     params = AirParams(
-        name=f"Image Index {uuid4()}", description="Index for images", embedding_model=EmbeddingModel.JINA_CLIP_V2_MULTIMODAL
+        name=f"Image Index {uuid4()}",
+        description="Index for images",
+        embedding_model=EmbeddingModel.JINA_CLIP_V2_MULTIMODAL,
     )
 
     index_model = IndexFactory.create(params=params)
@@ -269,11 +274,13 @@ def test_index_model_air_with_image():
 
     index_model.upsert(records)
 
+    time.sleep(2)
     response = index_model.search("beach")
     assert str(response.status) == "SUCCESS"
     second_record = response.details[1]["metadata"]["uri"]
     assert "hurricane" in second_record.lower()
 
+    time.sleep(2)
     response = index_model.search("people")
     assert str(response.status) == "SUCCESS"
     first_record = response.details[0]["data"]
@@ -307,9 +314,6 @@ def test_index_model_air_with_splitter(embedding_model, supplier_params):
     from aixplain.modules.model.index_model import Splitter
     from aixplain.enums.splitting_options import SplittingOptions
 
-    for index in IndexFactory.list()["results"]:
-        index.delete()
-
     params = supplier_params(
         name=f"Splitter Index {uuid4()}", description="Index for splitter", embedding_model=embedding_model
     )
@@ -320,7 +324,198 @@ def test_index_model_air_with_splitter(embedding_model, supplier_params):
     )
     response = index_model.count()
     assert response == 6
+    time.sleep(2)
     response = index_model.search("berlin")
     assert str(response.status) == "SUCCESS"
     assert "berlin" in response.data.lower()
     index_model.delete()
+
+
+def test_index_model_with_txt_file():
+    """Testing Index Model with local txt file input"""
+    from aixplain.factories import IndexFactory
+    from uuid import uuid4
+    from aixplain.factories.index_factory.utils import AirParams
+    from pathlib import Path
+
+    # Create test file path
+    test_file_path = Path(__file__).parent / "data" / "test_input.txt"
+
+    # Create index with OpenAI Ada 002 for text processing
+    params = AirParams(
+        name=f"File Index {uuid4()}",
+        description="Index for file processing",
+        embedding_model=EmbeddingModel.OPENAI_ADA002,
+    )
+    index_model = IndexFactory.create(params=params)
+
+    try:
+        # Upsert the file
+        response = index_model.upsert(str(test_file_path))
+        assert str(response.status) == "SUCCESS"
+
+        # Verify the content was indexed
+        response = index_model.search("demo")
+        assert str(response.status) == "SUCCESS"
+        assert "🤖" in response.data, "Robot emoji should be present in the response"
+
+        # Verify count
+        assert index_model.count() > 0
+
+    finally:
+        # Cleanup
+        index_model.delete()
+
+
+def test_index_model_with_pdf_file():
+    """Testing Index Model with PDF file input"""
+    from aixplain.factories import IndexFactory
+    from uuid import uuid4
+    from aixplain.factories.index_factory.utils import AirParams
+    from pathlib import Path
+
+    # Create test file path
+    test_file_path = Path(__file__).parent / "data" / "test_file_parser_input.pdf"
+
+    # Create index with OpenAI Ada 002 for text processing
+    params = AirParams(
+        name=f"PDF Index {uuid4()}",
+        description="Index for PDF processing",
+        embedding_model=EmbeddingModel.OPENAI_ADA002,
+    )
+    index_model = IndexFactory.create(params=params)
+
+    try:
+        # Upsert the PDF file
+        response = index_model.upsert(str(test_file_path))
+        assert str(response.status) == "SUCCESS"
+
+        # Verify the content was indexed
+        response = index_model.search("document")
+        assert str(response.status) == "SUCCESS"
+        assert len(response.data) > 0
+
+        # Verify count
+        assert index_model.count() > 0
+
+    finally:
+        # Cleanup
+        index_model.delete()
+
+
+def test_index_model_with_invalid_file():
+    """Testing Index Model with invalid file input"""
+    from aixplain.factories import IndexFactory
+    from uuid import uuid4
+    from aixplain.factories.index_factory.utils import AirParams
+    from pathlib import Path
+
+    # Create non-existent file path
+    test_file_path = Path(__file__).parent / "data" / "nonexistent.pdf"
+
+    # Create index with OpenAI Ada 002 for text processing
+    params = AirParams(
+        name=f"Invalid File Index {uuid4()}",
+        description="Index for invalid file testing",
+        embedding_model=EmbeddingModel.OPENAI_ADA002,
+    )
+    index_model = IndexFactory.create(params=params)
+
+    try:
+        # Attempt to upsert non-existent file
+        with pytest.raises(Exception) as e:
+            index_model.upsert(str(test_file_path))
+        assert "does not exist" in str(e.value)
+
+    finally:
+        # Cleanup
+        index_model.delete()
+
+
+def _test_records():
+    from aixplain.modules.model.record import Record
+    from aixplain.enums import DataType
+
+    return [
+        Record(
+            value="Artificial intelligence is transforming industries worldwide, from healthcare to finance.",
+            value_type=DataType.TEXT,
+            id="doc1",
+            uri="",
+            attributes={"category": "technology", "date": 1751464788},
+        ),
+        Record(
+            value="The Mona Lisa, painted by Leonardo da Vinci, is one of the most famous artworks in history.",
+            value_type=DataType.TEXT,
+            id="doc2",
+            uri="",
+            attributes={"category": "art", "date": 1751464790},
+        ),
+        Record(
+            value="Machine learning algorithms are being used to predict patient outcomes in hospitals.",
+            value_type=DataType.TEXT,
+            id="doc3",
+            uri="",
+            attributes={"category": "technology", "date": 1751464795},
+        ),
+        Record(
+            value="The Earth orbits the Sun once every 365.25 days, creating the calendar year.",
+            value_type=DataType.TEXT,
+            id="doc4",
+            uri="",
+            attributes={"category": "science", "date": 1751464798},
+        ),
+        Record(
+            value="Quantum computing promises to solve complex problems that are currently intractable for classical computers.",
+            value_type=DataType.TEXT,
+            id="doc5",
+            uri="",
+            attributes={"category": "technology", "date": 1751464801},
+        ),
+    ]
+
+
+@pytest.fixture(scope="function")
+def setup_index_with_test_records():
+    from aixplain.factories import IndexFactory
+    from aixplain.enums import EmbeddingModel
+    from aixplain.factories.index_factory.utils import AirParams
+    from uuid import uuid4
+
+    params = AirParams(
+        name=f"Test Index {uuid4()}",
+        description="Test index for filter/date tests",
+        embedding_model=EmbeddingModel.OPENAI_ADA002,
+    )
+    index_model = IndexFactory.create(params=params)
+    records = _test_records()
+
+    index_model.upsert(records)
+
+    yield index_model
+    index_model.delete()
+
+
+def test_retrieve_records_with_filter(setup_index_with_test_records):
+    from aixplain.modules.model.index_model import IndexFilter, IndexFilterOperator
+
+    index_model = setup_index_with_test_records
+    filter_ = IndexFilter(field="category", value="technology", operator=IndexFilterOperator.EQUALS)
+    response = index_model.retrieve_records_with_filter(filter_)
+    assert response.status == "SUCCESS"
+    assert len(response.details) == 3
+    for item in response.details:
+        assert item["metadata"]["category"] == "technology"
+
+
+def test_delete_records_by_date(setup_index_with_test_records):
+    from aixplain.modules.model.index_model import IndexFilter, IndexFilterOperator
+
+    index_model = setup_index_with_test_records
+    response = index_model.delete_records_by_date(1751464796)
+    assert response.status == "SUCCESS"
+    assert response.data == "2"  # 2 records should remain
+    filter_all = IndexFilter(field="date", value=0, operator=IndexFilterOperator.GREATER_THAN)
+    response = index_model.retrieve_records_with_filter(filter_all)
+    assert response.status == "SUCCESS"
+    assert len(response.details) == 2

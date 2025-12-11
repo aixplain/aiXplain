@@ -30,6 +30,18 @@ from typing import Optional, Text
 @dataclass_json
 @dataclass
 class FinetuneStatus(object):
+    """Status information for a fine-tuning job.
+
+    This class encapsulates the status of a fine-tuning job, including the overall
+    status of the job, the status of the model, and various training metrics.
+
+    Attributes:
+        status (AssetStatus): Overall status of the fine-tuning job.
+        model_status (AssetStatus): Status of the fine-tuned model.
+        epoch (Optional[float]): Current training epoch.
+        training_loss (Optional[float]): Training loss at the current epoch.
+        validation_loss (Optional[float]): Validation loss at the current epoch.
+    """
     status: "AssetStatus"
     model_status: "AssetStatus"
     epoch: Optional[float] = None

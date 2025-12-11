@@ -61,13 +61,14 @@ class Benchmark(Asset):
         Args:
             id (Text): ID of the Benchmark.
             name (Text): Name of the Benchmark.
-            model_list (List[Model]): List of Models to be used for benchmarking
-            dataset_list (List[Dataset]): List of Datasets to be used for benchmarking
-            metric_list (List[Metric]): List of Metrics to be used for benchmarking
-            job_list (List[BenchmarkJob]): List of associated Benchmark Jobs
-            supplier (Text, optional): author of the Benchmark. Defaults to "aiXplain".
+            dataset_list (List[Dataset]): List of Datasets to be used for benchmarking.
+            model_list (List[Model]): List of Models to be used for benchmarking.
+            metric_list (List[Metric]): List of Metrics to be used for benchmarking.
+            job_list (List[BenchmarkJob]): List of associated Benchmark Jobs.
+            description (Text, optional): Description of the Benchmark. Defaults to "".
+            supplier (Text, optional): Author of the Benchmark. Defaults to "aiXplain".
             version (Text, optional): Benchmark version. Defaults to "1.0".
-            **additional_info: Any additional Benchmark info to be saved
+            **additional_info: Any additional Benchmark info to be saved.
         """
         super().__init__(id, name, description, supplier, version)
         self.model_list = model_list
@@ -80,13 +81,27 @@ class Benchmark(Asset):
         self.aixplain_key = config.AIXPLAIN_API_KEY
 
     def __repr__(self) -> str:
+        """Return a string representation of the Benchmark instance.
+
+        Returns:
+            str: A string in the format "<Benchmark name>".
+        """
         return f"<Benchmark {self.name}>"
 
     def start(self) -> BenchmarkJob:
-        """Starts a new benchmark job(run)  for the current benchmark
+        """Start a new benchmark job (run) for the current benchmark.
+
+        This method initiates a new benchmark job using the configured models,
+        datasets, and metrics. It communicates with the backend API to create
+        and start the job.
 
         Returns:
-            BenchmarkJob: Benchmark Job that just got started
+            BenchmarkJob: A new BenchmarkJob instance representing the started job.
+                Returns None if the job creation fails.
+
+        Raises:
+            Exception: If there's an error creating or starting the benchmark job.
+                The error is logged and None is returned.
         """
         benhchmark_id = None
         try:

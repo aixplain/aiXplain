@@ -8,8 +8,26 @@ from aixplain.utils import config
 
 
 class ScriptFactory:
+    """A factory class for handling script file operations.
+
+    This class provides functionality for uploading script files to the backend
+    and managing their metadata.
+    """
     @classmethod
     def upload_script(cls, script_path: str) -> Tuple[str, str]:
+        """Uploads a script file to the backend and returns its ID and metadata.
+
+        Args:
+            script_path (str): The file system path to the script file to be uploaded.
+
+        Returns:
+            Tuple[str, str]: A tuple containing:
+                - file_id (str): The unique identifier assigned to the uploaded file.
+                - metadata (str): JSON string containing file metadata (name and size).
+
+        Raises:
+            Exception: If the upload fails or the file cannot be accessed.
+        """
         try:
             url = f"{config.BACKEND_URL}/sdk/pipelines/script"
             headers = {"Authorization": f"Token {config.TEAM_API_KEY}"}

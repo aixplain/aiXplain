@@ -25,6 +25,24 @@ from enum import Enum
 
 
 class DataType(str, Enum):
+    """Enumeration of supported data types in the aiXplain system.
+
+    This enum defines all the data types that can be processed by the system,
+    including various media types and basic data types.
+
+    Attributes:
+        AUDIO (str): Audio data type.
+        FLOAT (str): Floating-point number data type.
+        IMAGE (str): Image data type.
+        INTEGER (str): Integer number data type.
+        LABEL (str): Label/category data type.
+        TENSOR (str): Tensor/multi-dimensional array data type.
+        TEXT (str): Text data type.
+        VIDEO (str): Video data type.
+        EMBEDDING (str): Vector embedding data type.
+        NUMBER (str): Generic number data type.
+        BOOLEAN (str): Boolean data type.
+    """
     AUDIO = "audio"
     FLOAT = "float"
     IMAGE = "image"
@@ -37,5 +55,10 @@ class DataType(str, Enum):
     NUMBER = "number"
     BOOLEAN = "boolean"
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """Return the string representation of the data type.
+
+        Returns:
+            str: The data type value as a string.
+        """
         return self._value_

@@ -16,14 +16,30 @@ from typing import List, Text, Tuple
 
 
 def process_text(content: str, storage_type: StorageType) -> Text:
-    """Process text files
+    """Process text content based on its storage type and location.
+
+    This function handles different types of text content:
+    - Local files: Reads the file content (with size validation)
+    - URLs: Marks them for non-download if they're public links
+    - Direct text: Uses the content as-is
 
     Args:
-        content (str): URL with text, local path with text or textual content
-        storage_type (StorageType): type of storage: URL, local path or textual content
+        content (str): The text content to process. Can be:
+            - A path to a local file
+            - A URL pointing to text content
+            - The actual text content
+        storage_type (StorageType): The type of storage for the content:
+            - StorageType.FILE for local files
+            - StorageType.TEXT for direct text content
+            - Other storage types for different handling
 
     Returns:
-        Text: textual content
+        Text: The processed text content. URLs may be prefixed with
+            "DONOTDOWNLOAD" if they should not be downloaded.
+
+    Raises:
+        AssertionError: If a local text file exceeds 25MB in size.
+        IOError: If there are issues reading a local file.
     """
     if storage_type == StorageType.FILE:
         # Check the size of file and assert a limit of 25 MB
@@ -47,19 +63,44 @@ def process_text(content: str, storage_type: StorageType) -> Text:
 
 
 def run(metadata: MetaData, paths: List, folder: Path, batch_size: int = 1000) -> Tuple[List[File], int, int]:
-    """Process a list of local textual files, compress and upload them to pre-signed URLs in S3
+    """Process text files in batches and upload them to S3 with index tracking.
 
-    Explanation:
-        Each text on "paths" is processed. If the text is in a public link or local file, it will be downloaded and added to an index CSV file.
-        The texts are processed in batches such that at each "batch_size" texts, the index CSV file is uploaded into a pre-signed URL in s3 and reset.
+    This function processes text files (either local or from URLs) in batches,
+    creating compressed CSV index files that track the text content and their
+    positions. The index files are then uploaded to S3.
+
+    The process works as follows:
+    1. For each input CSV file:
+       - Read the specified column containing text content/paths
+       - Process each text entry (read files, handle URLs)
+       - Add processed text to the current batch
+    2. After every batch_size entries:
+       - Create a new index CSV with the processed texts
+       - Add row indices for tracking
+       - Compress and upload the index to S3
+       - Start a new batch
 
     Args:
-        metadata (MetaData): meta data of the asset
-        paths (List): list of paths to local files
-        folder (Path): local folder to save compressed files before upload them to s3.
+        metadata (MetaData): Metadata object containing information about the text data,
+            including column names and storage type configuration.
+        paths (List): List of paths to CSV files containing the text data or
+            references to text content.
+        folder (Path): Local folder path where the generated index files will be
+            temporarily stored before upload.
+        batch_size (int, optional): Number of text entries to process in each batch.
+            Defaults to 1000.
 
     Returns:
-        Tuple[List[File], int, int]: list of s3 links, data colum index and number of rows
+        Tuple[List[File], int, int]: A tuple containing:
+            - List[File]: List of File objects pointing to uploaded index files in S3
+            - int: Index of the data column in the index CSV files
+            - int: Total number of text entries processed
+
+    Raises:
+        Exception: If:
+            - Input CSV files are not found
+            - Required columns are missing in input files
+            - Text processing fails (e.g., file size limit exceeded)
     """
     logging.debug(f'Data Asset Onboarding: Processing "{metadata.name}".')
     idx = 0
