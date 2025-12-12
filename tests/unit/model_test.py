@@ -136,7 +136,10 @@ def test_failed_poll():
             495,
             "Validation-related error: Please verify the request payload and ensure it is correct. Details: An unspecified error occurred while processing your request.",
         ),
-        (501, "Unspecified Server Error (Status 501) Details: An unspecified error occurred while processing your request."),
+        (
+            501,
+            "Unspecified Server Error (Status 501) Details: An unspecified error occurred while processing your request.",
+        ),
     ],
 )
 def test_run_async_errors(status_code, error_message):
@@ -313,7 +316,6 @@ def test_sync_poll():
     model = Model(id="mock-model-id", name="Mock Model")
 
     with patch.object(model, "poll", side_effect=[in_progress_response, in_progress_response, success_response]):
-
         response = model.sync_poll(poll_url=poll_url, name="test_poll", timeout=5)
 
         assert isinstance(response, ModelResponse)
@@ -503,7 +505,10 @@ def test_check_finetune_status_with_logs():
         success_response = {
             "finetuneStatus": AssetStatus.COMPLETED.value,
             "modelStatus": AssetStatus.COMPLETED.value,
-            "logs": [{"epoch": 1.0, "trainLoss": 0.5, "evalLoss": 0.4}, {"epoch": 2.0, "trainLoss": 0.3, "evalLoss": 0.2}],
+            "logs": [
+                {"epoch": 1.0, "trainLoss": 0.5, "evalLoss": 0.4},
+                {"epoch": 2.0, "trainLoss": 0.3, "evalLoss": 0.2},
+            ],
         }
         mock.get(url, json=success_response)
 
@@ -532,7 +537,10 @@ def test_check_finetune_status_partial_logs():
         response = {
             "finetuneStatus": AssetStatus.IN_PROGRESS.value,
             "modelStatus": AssetStatus.IN_PROGRESS.value,
-            "logs": [{"epoch": 1.0, "trainLoss": 0.5, "evalLoss": 0.4}, {"epoch": 2.0, "trainLoss": 0.3, "evalLoss": 0.2}],
+            "logs": [
+                {"epoch": 1.0, "trainLoss": 0.5, "evalLoss": 0.4},
+                {"epoch": 2.0, "trainLoss": 0.3, "evalLoss": 0.2},
+            ],
         }
         mock.get(url, json=response)
 
@@ -550,7 +558,11 @@ def test_check_finetune_status_no_logs():
         model_id = "test-id"
         url = urljoin(config.BACKEND_URL, f"sdk/finetune/{model_id}/ml-logs")
 
-        response = {"finetuneStatus": AssetStatus.IN_PROGRESS.value, "modelStatus": AssetStatus.IN_PROGRESS.value, "logs": []}
+        response = {
+            "finetuneStatus": AssetStatus.IN_PROGRESS.value,
+            "modelStatus": AssetStatus.IN_PROGRESS.value,
+            "logs": [],
+        }
         mock.get(url, json=response)
 
         model = Model(id=model_id, name="Test Model", description="")
@@ -676,11 +688,8 @@ def test_model_not_supports_streaming(mocker):
                 "params": {},
                 "version": {"id": "1.0"},
                 "attributes": [
-                    {
-                        "name": "auth_schemes",
-                        "code": '["BEARER_TOKEN", "API_KEY", "BASIC"]'
-                    },
-                ]
+                    {"name": "auth_schemes", "code": '["BEARER_TOKEN", "API_KEY", "BASIC"]'},
+                ],
             },
             Integration,
         ),
@@ -752,23 +761,11 @@ def test_create_model_from_response(payload, expected_model_class):
 def test_connector_connect(mocker, authentication_schema, name, data):
     mocker.patch("aixplain.modules.model.integration.Integration.run", return_value={"id": "test-id"})
     additional_info = {
-        'attributes': [
-            {
-                'name': 'auth_schemes',
-                'code': '["BEARER_TOKEN", "API_KEY", "BASIC"]'
-            },
-            {
-                'name': 'BEARER_TOKEN-inputs',
-                'code': '[{"name": "token"}]'
-            },
-            {
-                'name': 'API_KEY-inputs',
-                'code': '[{"name": "api_key"}]'
-            },
-            {
-                'name': 'BASIC-inputs',
-                'code': '[{"name": "username"}, {"name": "password"}]'
-            }
+        "attributes": [
+            {"name": "auth_schemes", "code": '["BEARER_TOKEN", "API_KEY", "BASIC"]'},
+            {"name": "BEARER_TOKEN-inputs", "code": '[{"name": "token"}]'},
+            {"name": "API_KEY-inputs", "code": '[{"name": "api_key"}]'},
+            {"name": "BASIC-inputs", "code": '[{"name": "username"}, {"name": "password"}]'},
         ]
     }
     connector = Integration(
@@ -779,15 +776,11 @@ def test_connector_connect(mocker, authentication_schema, name, data):
         supplier="aiXplain",
         api_key="api_key",
         version={"id": "1.0"},
-        **additional_info
+        **additional_info,
     )
     args = build_connector_params(name=name)
-    response = connector.connect(
-        authentication_schema=authentication_schema,
-        args=args,
-        data=data
-    )
-    
+    response = connector.connect(authentication_schema=authentication_schema, args=args, data=data)
+
     assert response["id"] == "test-id"
 
 
@@ -837,14 +830,24 @@ def test_tool_factory(mocker):
     from aixplain.factories import ToolFactory
     from aixplain.modules.model.utility_model import BaseUtilityModelParams
 
-    # Utility Model
+    # Mock Model.run to prevent API calls during ConnectionTool initialization
     mocker.patch(
-        "aixplain.factories.model_factory.ModelFactory.create_utility_model",
-        return_value=UtilityModel(
+        "aixplain.modules.model.Model.run",
+        return_value=ModelResponse(
+            status=ResponseStatus.SUCCESS,
+            data=[{"displayName": "test-action", "description": "test-description", "name": "test-code"}],
+        ),
+    )
+
+    # Script Connection Tool (via BaseUtilityModelParams)
+    mocker.patch(
+        "aixplain.factories.model_factory.ModelFactory.create_script_connection_tool",
+        return_value=ConnectionTool(
             id="test-id",
             name="test-name",
             function=Function.UTILITIES,
-            function_type=FunctionType.AI,
+            function_type=FunctionType.CONNECTION,
+            supplier="aiXplain",
             api_key="api_key",
             version={"id": "1.0"},
         ),
@@ -855,11 +858,11 @@ def test_tool_factory(mocker):
 
     params = BaseUtilityModelParams(name="My Script Model", description="My Script Model Description", code=add)
     tool = ToolFactory.create(params=params)
-    assert isinstance(tool, UtilityModel)
+    assert isinstance(tool, ConnectionTool)
     assert tool.id == "test-id"
     assert tool.name == "test-name"
     assert tool.function == Function.UTILITIES
-    assert tool.function_type == FunctionType.AI
+    assert tool.function_type == FunctionType.CONNECTION
     assert tool.api_key == "api_key"
     assert tool.version == {"id": "1.0"}
 
@@ -896,23 +899,11 @@ def test_tool_factory(mocker):
 
     def get_mock(id):
         additional_info = {
-            'attributes': [
-                {
-                    'name': 'auth_schemes',
-                    'code': '["BEARER_TOKEN", "API_KEY", "BASIC"]'
-                },
-                {
-                    'name': 'BEARER_TOKEN-inputs',
-                    'code': '[{"name": "token"}]'
-                },
-                {
-                    'name': 'API_KEY-inputs',
-                    'code': '[{"name": "api_key"}]'
-                },
-                {
-                    'name': 'BASIC-inputs',
-                    'code': '[{"name": "username"}, {"name": "password"}]'
-                }
+            "attributes": [
+                {"name": "auth_schemes", "code": '["BEARER_TOKEN", "API_KEY", "BASIC"]'},
+                {"name": "BEARER_TOKEN-inputs", "code": '[{"name": "token"}]'},
+                {"name": "API_KEY-inputs", "code": '[{"name": "api_key"}]'},
+                {"name": "BASIC-inputs", "code": '[{"name": "username"}, {"name": "password"}]'},
             ]
         }
         if id == "686432941223092cb4294d3f":
@@ -923,7 +914,7 @@ def test_tool_factory(mocker):
                 function_type=FunctionType.INTEGRATION,
                 api_key="api_key",
                 version={"id": "1.0"},
-                **additional_info
+                **additional_info,
             )
         elif id == "connection-id":
             return ConnectionTool(
@@ -933,11 +924,16 @@ def test_tool_factory(mocker):
                 function_type=FunctionType.CONNECTION,
                 api_key="api_key",
                 version={"id": "1.0"},
-                **additional_info
+                **additional_info,
             )
 
     mocker.patch("aixplain.factories.tool_factory.ToolFactory.get", side_effect=get_mock)
-    tool = ToolFactory.create(integration="686432941223092cb4294d3f", name="My Connector 1234", authentication_schema=AuthenticationSchema.BEARER_TOKEN, data={"token": "slack-token"})
+    tool = ToolFactory.create(
+        integration="686432941223092cb4294d3f",
+        name="My Connector 1234",
+        authentication_schema=AuthenticationSchema.BEARER_TOKEN,
+        data={"token": "slack-token"},
+    )
     assert isinstance(tool, ConnectionTool)
     assert tool.id == "connection-id"
     assert tool.name == "test-name"

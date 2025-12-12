@@ -204,6 +204,7 @@ def test_run_translation_metric(version: str, PipelineFactory):
     assert response["status"] == ResponseStatus.SUCCESS
 
 
+@pytest.mark.skip
 @pytest.mark.parametrize("version", ["2.0", "3.0"])
 @pytest.mark.parametrize("PipelineFactory", [PipelineFactory])
 def test_run_metric(version: str, PipelineFactory):

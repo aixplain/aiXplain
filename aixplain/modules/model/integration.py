@@ -141,9 +141,9 @@ class Integration(Model):
 
     def connect(
         self,
-        authentication_schema: AuthenticationSchema,
+        authentication_schema: Optional[AuthenticationSchema] = None,
         args: Optional[BaseAuthenticationParams] = None,
-        data: Optional[Dict] = None,
+        data: Optional[Union[Dict, Text]] = None,
         **kwargs,
     ) -> ModelResponse:
         """Connect to the integration using the specified authentication scheme.
@@ -153,12 +153,13 @@ class Integration(Model):
         the authentication scheme being used.
 
         Args:
-            authentication_schema (AuthenticationSchema): The authentication scheme to use
-                (e.g., BEARER_TOKEN, OAUTH1, OAUTH2, API_KEY, BASIC, NO_AUTH).
+            authentication_schema (Optional[AuthenticationSchema]): The authentication scheme to use
+                (e.g., BEARER_TOKEN, OAUTH1, OAUTH2, API_KEY, BASIC, NO_AUTH). Optional for MCP connections.
             args (Optional[BaseAuthenticationParams], optional): Common connection parameters.
                 If not provided, will be built from kwargs. Defaults to None.
-            data (Optional[Dict], optional): Authentication-specific parameters required by
-                the chosen authentication scheme. Defaults to None.
+            data (Optional[Union[Dict, Text]], optional): Authentication-specific parameters required by
+                the chosen authentication scheme. For MCP connections, can be a URL string.
+                Defaults to None.
             **kwargs: Additional keyword arguments used to build BaseAuthenticationParams
                 if args is not provided. Supported keys:
                 - name (str): Name for the connection
@@ -200,9 +201,19 @@ class Integration(Model):
                 ...     name="My Connection",
                 ...     description="My Connection Description"
                 ... )
+
+            Using MCP connection (no authentication schema required):
+                >>> response = integration.connect(data="https://mcp.example.com/api/...")
         """
         if self.id == "686eb9cd26480723d0634d3e":
-            return self.run({"data": data})
+            # MCP connections: data can be a URL string or dict
+            return self.run({"data": data} if data is not None else {"data": {}})
+
+        # For non-MCP connections, authentication_schema is required
+        if authentication_schema is None:
+            raise ValueError(
+                "authentication_schema is required for this integration. Please provide an AuthenticationSchema value."
+            )
 
         if args is None:
             args = build_connector_params(**kwargs)
