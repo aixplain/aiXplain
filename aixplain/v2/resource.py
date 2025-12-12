@@ -174,7 +174,9 @@ class BaseMixin:
         if cls.__name__.endswith("Mixin"):
             return
         if BaseMixin in cls.__mro__ and not issubclass(cls, BaseResource):
-            raise TypeError(f"{cls.__name__} must inherit from BaseResource to use resource mixins")
+            raise TypeError(
+                f"{cls.__name__} must inherit from BaseResource to use resource mixins"
+            )
 
 
 @dataclass_json
@@ -189,7 +191,9 @@ class BaseResource:
         name: str: The resource name.
     """
 
-    context: Any = field(repr=False, compare=False, metadata=config(exclude=lambda x: True), init=False)
+    context: Any = field(
+        repr=False, compare=False, metadata=config(exclude=lambda x: True), init=False
+    )
     RESOURCE_PATH: str = field(
         default="",
         repr=False,
@@ -208,8 +212,12 @@ class BaseResource:
     id: Optional[str] = None
     name: Optional[str] = None
     description: Optional[str] = None
-    asset_path: Optional[str] = field(default=None, metadata=config(field_name="assetPath"))
-    instance_id: Optional[str] = field(default=None, metadata=config(field_name="instanceId"))
+    asset_path: Optional[str] = field(
+        default=None, metadata=config(field_name="assetPath")
+    )
+    instance_id: Optional[str] = field(
+        default=None, metadata=config(field_name="instanceId")
+    )
 
     def _ensure_valid_state(self) -> None:
         """Ensure the resource is in a valid state for operations.
@@ -221,7 +229,9 @@ class BaseResource:
         resource_name = self.__class__.__name__
 
         if self.is_deleted:
-            raise ValidationError(f"{resource_name} has been deleted and cannot be used for operations.")
+            raise ValidationError(
+                f"{resource_name} has been deleted and cannot be used for operations."
+            )
 
         if not self.id:
             if hasattr(self, "_saved_state") and self._saved_state is None:
@@ -229,7 +239,9 @@ class BaseResource:
                     f"{resource_name} has not been saved yet. Call .save() first to create the resource."
                 )
             else:
-                raise ValidationError(f"{resource_name} has been deleted or is invalid. {resource_name} ID is missing.")
+                raise ValidationError(
+                    f"{resource_name} has been deleted or is invalid. {resource_name} ID is missing."
+                )
 
     def _get_serializable_state(self) -> dict:
         """Get the current state of the resource as a serializable dictionary.
@@ -298,7 +310,9 @@ class BaseResource:
         """
         return None
 
-    def after_save(self, result: Union[dict, Exception], *args: Any, **kwargs: Any) -> Optional[dict]:
+    def after_save(
+        self, result: Union[dict, Exception], *args: Any, **kwargs: Any
+    ) -> Optional[dict]:
         """Optional callback called after the resource is saved.
 
         Override this method to add custom logic after saving.
@@ -326,7 +340,9 @@ class BaseResource:
         """Create the resource."""
         result = self.context.client.request("post", f"{resource_path}", json=payload)
         # Flatten assetInfo structure before deserialization
-        result = _flatten_asset_info(dict(result)) if isinstance(result, dict) else result
+        result = (
+            _flatten_asset_info(dict(result)) if isinstance(result, dict) else result
+        )
         # Update the object from the full response
         if isinstance(self, HasFromDict):
             updated = self.from_dict(result)
@@ -340,7 +356,9 @@ class BaseResource:
 
     def _update(self, resource_path: str, payload: dict) -> None:
         """Update the resource."""
-        self.context.client.request("put", f"{resource_path}/{self.encoded_id}", json=payload)
+        self.context.client.request(
+            "put", f"{resource_path}/{self.encoded_id}", json=payload
+        )
 
     @with_hooks
     def save(self, *args: Any, **kwargs: Any) -> "BaseResource":
@@ -437,7 +455,9 @@ class BaseResource:
             ValueError: If 'RESOURCE_PATH' is not defined by the subclass or
                             'id' attribute is missing.
         """
-        assert getattr(self, "RESOURCE_PATH"), "Subclasses of 'BaseResource' must specify 'RESOURCE_PATH'"
+        assert getattr(
+            self, "RESOURCE_PATH"
+        ), "Subclasses of 'BaseResource' must specify 'RESOURCE_PATH'"
 
         self._ensure_valid_state()
 
@@ -449,9 +469,11 @@ class BaseResource:
         return self.context.client.request(method, path, **kwargs)
 
     def __repr__(self) -> str:
-        """Return a string representation using assetPath > id priority."""
-        # Priority: assetPath > instanceId > id
-        if self.asset_path:
+        """Return a string representation using instanceId > assetPath > id priority."""
+        # Priority: instanceId (full path) > assetPath > id
+        if self.instance_id:
+            return f"{self.__class__.__name__}(path={self.instance_id})"
+        elif self.asset_path:
             return f"{self.__class__.__name__}(path={self.asset_path})"
         else:
             return f"{self.__class__.__name__}(id={self.id}, name={self.name})"
@@ -565,10 +587,14 @@ class Result(BaseResult):
 
     status: str
     completed: bool
-    error_message: Optional[str] = field(default=None, metadata=config(field_name="errorMessage"))
+    error_message: Optional[str] = field(
+        default=None, metadata=config(field_name="errorMessage")
+    )
     url: Optional[str] = None
     result: Optional[Any] = None
-    supplier_error: Optional[str] = field(default=None, metadata=config(field_name="supplierError"))
+    supplier_error: Optional[str] = field(
+        default=None, metadata=config(field_name="supplierError")
+    )
     data: Optional[Any] = None
     _raw_data: Optional[dict] = field(default=None, repr=False)
 
@@ -576,7 +602,9 @@ class Result(BaseResult):
         """Allow access to any field from the raw response data."""
         if hasattr(self, "_raw_data") and self._raw_data and name in self._raw_data:
             return self._raw_data[name]
-        raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
+        raise AttributeError(
+            f"'{self.__class__.__name__}' object has no attribute '{name}'"
+        )
 
     def __repr__(self) -> str:
         """Return a formatted string representation with truncated data."""
@@ -643,7 +671,9 @@ class Result(BaseResult):
 class DeleteResult(Result):
     """Result for delete operations."""
 
-    deleted_id: Optional[str] = field(default=None, metadata=config(field_name="deletedId"))
+    deleted_id: Optional[str] = field(
+        default=None, metadata=config(field_name="deletedId")
+    )
 
 
 # Standardized type variables with proper bounds
@@ -669,7 +699,9 @@ class Page(Generic[ResourceT]):
     page_total: int
     total: int
 
-    def __init__(self, results: List[ResourceT], page_number: int, page_total: int, total: int):
+    def __init__(
+        self, results: List[ResourceT], page_number: int, page_total: int, total: int
+    ):
         """Initialize a Page instance.
 
         Args:
@@ -717,7 +749,9 @@ class SearchResourceMixin(BaseMixin, Generic[SearchParamsT, ResourceT]):
     PAGINATE_DEFAULT_PAGE_SIZE: int = 20
 
     @classmethod
-    def _get_context_and_path(cls: type, **kwargs: Any) -> Tuple["Aixplain", str, Optional[str]]:
+    def _get_context_and_path(
+        cls: type, **kwargs: Any
+    ) -> Tuple["Aixplain", str, Optional[str]]:
         """Get context and resource path for listing operations."""
         # Use dict constructor instead of TypedDict unpacking for better mypy
         # support
@@ -732,7 +766,9 @@ class SearchResourceMixin(BaseMixin, Generic[SearchParamsT, ResourceT]):
         return context, resource_path, custom_path
 
     @classmethod
-    def _build_resources(cls: type, items: List[dict], context: "Aixplain") -> List[ResourceT]:
+    def _build_resources(
+        cls: type, items: List[dict], context: "Aixplain"
+    ) -> List[ResourceT]:
         """Build resource instances from response items."""
         resources = []
         for item in items:
@@ -803,7 +839,9 @@ class SearchResourceMixin(BaseMixin, Generic[SearchParamsT, ResourceT]):
         return cls._build_page(response, context, **kwargs)
 
     @classmethod
-    def _build_page(cls: type, response: "Any", context: "Aixplain", **kwargs: Any) -> Page[ResourceT]:
+    def _build_page(
+        cls: type, response: "Any", context: "Aixplain", **kwargs: Any
+    ) -> Page[ResourceT]:
         """Build a page of resources from the response.
 
         Accepts either a requests.Response or already-decoded dict/list.
@@ -815,7 +853,9 @@ class SearchResourceMixin(BaseMixin, Generic[SearchParamsT, ResourceT]):
 
         items = json_data
         # Check for override in kwargs first, then fall back to class attribute
-        paginate_items_key = kwargs.get("paginate_items_key") or getattr(cls, "PAGINATE_ITEMS_KEY", "items")
+        paginate_items_key = kwargs.get("paginate_items_key") or getattr(
+            cls, "PAGINATE_ITEMS_KEY", "items"
+        )
         if paginate_items_key and isinstance(json_data, dict):
             items = json_data[paginate_items_key]
 
@@ -884,7 +924,9 @@ class GetResourceMixin(BaseMixin, Generic[GetParamsT, ResourceT]):
     """Mixin for getting a resource."""
 
     @classmethod
-    def get(cls: type, id: Any, host: Optional[str] = None, **kwargs: Unpack[GetParamsT]) -> ResourceT:
+    def get(
+        cls: type, id: Any, host: Optional[str] = None, **kwargs: Unpack[GetParamsT]
+    ) -> ResourceT:
         """Retrieve a single resource by its ID (or other get parameters).
 
         Args:
@@ -898,7 +940,9 @@ class GetResourceMixin(BaseMixin, Generic[GetParamsT, ResourceT]):
         Raises:
             ValueError: If 'RESOURCE_PATH' is not defined by the subclass.
         """
-        resource_path = kwargs.pop("resource_path", None) or getattr(cls, "RESOURCE_PATH", "")
+        resource_path = kwargs.pop("resource_path", None) or getattr(
+            cls, "RESOURCE_PATH", ""
+        )
         context = getattr(cls, "context", None)
         if context is None:
             raise ResourceError("Context is required for resource operations")
@@ -949,14 +993,20 @@ class DeleteResourceMixin(BaseMixin, Generic[DeleteParamsT, DeleteResultT]):
         Returns:
             str: The URL to use for the delete action
         """
-        assert getattr(self, "RESOURCE_PATH"), "Subclasses of 'BaseResource' must specify 'RESOURCE_PATH'"
+        assert getattr(
+            self, "RESOURCE_PATH"
+        ), "Subclasses of 'BaseResource' must specify 'RESOURCE_PATH'"
 
         self._ensure_valid_state()
 
-        resource_path = kwargs.pop("resource_path", None) or getattr(self, "RESOURCE_PATH", "")
+        resource_path = kwargs.pop("resource_path", None) or getattr(
+            self, "RESOURCE_PATH", ""
+        )
         return f"{resource_path}/{self.encoded_id}"
 
-    def handle_delete_response(self, response: Any, **kwargs: Unpack[DeleteParamsT]) -> DeleteResultT:
+    def handle_delete_response(
+        self, response: Any, **kwargs: Unpack[DeleteParamsT]
+    ) -> DeleteResultT:
         """Handle the response from a delete request.
 
         This method can be overridden by subclasses to handle different
@@ -993,7 +1043,9 @@ class DeleteResourceMixin(BaseMixin, Generic[DeleteParamsT, DeleteResultT]):
         return result
 
     # Optional hook methods - only implement what you need
-    def before_delete(self, *args: Any, **kwargs: Unpack[DeleteParamsT]) -> Optional[DeleteResultT]:
+    def before_delete(
+        self, *args: Any, **kwargs: Unpack[DeleteParamsT]
+    ) -> Optional[DeleteResultT]:
         """Optional callback called before the resource is deleted.
 
         Override this method to add custom logic before deleting.
@@ -1081,7 +1133,9 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
         Returns:
             str: The URL to use for the run action
         """
-        assert getattr(self, "RESOURCE_PATH"), "Subclasses of 'BaseResource' must specify 'RESOURCE_PATH'"
+        assert getattr(
+            self, "RESOURCE_PATH"
+        ), "Subclasses of 'BaseResource' must specify 'RESOURCE_PATH'"
 
         self._ensure_valid_state()
 
@@ -1092,7 +1146,9 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
 
         return path
 
-    def handle_run_response(self, response: dict, **kwargs: Unpack[RunParamsT]) -> ResultT:
+    def handle_run_response(
+        self, response: dict, **kwargs: Unpack[RunParamsT]
+    ) -> ResultT:
         """Handle the response from a run request.
 
         This method can be overridden by subclasses to handle different
@@ -1107,7 +1163,11 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
             Response instance from the configured response class
         """
         # Check for polling URL in data field (legacy format)
-        if response.get("data") and isinstance(response["data"], str) and response["data"].startswith("http"):
+        if (
+            response.get("data")
+            and isinstance(response["data"], str)
+            and response["data"].startswith("http")
+        ):
             # This is a polling URL case
             response_class = getattr(self, "RESPONSE_CLASS", Result)
             return response_class.from_dict(
@@ -1328,7 +1388,9 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
                 if result.completed:
                     if show_progress:
                         elapsed_time = time.time() - start_time
-                        logger.info(f"Operation completed successfully ({elapsed_time:.1f}s total)")
+                        logger.info(
+                            f"Operation completed successfully ({elapsed_time:.1f}s total)"
+                        )
                     return result
 
             except (APIError, ResourceError) as e:
