@@ -3,9 +3,7 @@ sidebar_label: llm_model
 title: aixplain.modules.model.llm_model
 ---
 
-#### \_\_author\_\_
-
-Copyright 2024 The aiXplain SDK authors
+Copyright 2024 The aiXplain SDK authors.
 
 Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
 you may not use this file except in compliance with the License.
@@ -30,7 +28,7 @@ Description:
 class LLM(Model)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/llm_model.py#L36)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/llm_model.py#L35)
 
 Ready-to-use LLM model. This model can be run in both synchronous and asynchronous manner.
 
@@ -62,12 +60,12 @@ def __init__(id: Text,
              function: Optional[Function] = None,
              is_subscribed: bool = False,
              cost: Optional[Dict] = None,
-             temperature: float = 0.001,
+             temperature: Optional[float] = None,
              function_type: Optional[FunctionType] = FunctionType.AI,
              **additional_info) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/llm_model.py#L55)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/llm_model.py#L54)
 
 Initialize a new LLM instance.
 
@@ -82,7 +80,7 @@ Initialize a new LLM instance.
 - `function` _Function, optional_ - Model&#x27;s AI function. Must be Function.TEXT_GENERATION.
 - `is_subscribed` _bool, optional_ - Whether the user is subscribed. Defaults to False.
 - `cost` _Dict, optional_ - Cost of the model. Defaults to None.
-- `temperature` _float, optional_ - Default temperature for text generation. Defaults to 0.001.
+- `temperature` _Optional[float], optional_ - Default temperature for text generation. Defaults to None.
 - `name`0 _FunctionType, optional_ - Type of the function. Defaults to FunctionType.AI.
 - `name`1 - Any additional model info to be saved.
   
@@ -94,21 +92,24 @@ Initialize a new LLM instance.
 #### run
 
 ```python
-def run(data: Text,
-        context: Optional[Text] = None,
-        prompt: Optional[Text] = None,
-        history: Optional[List[Dict]] = None,
-        temperature: Optional[float] = None,
-        max_tokens: int = 128,
-        top_p: float = 1.0,
-        name: Text = "model_process",
-        timeout: float = 300,
-        parameters: Optional[Dict] = None,
-        wait_time: float = 0.5,
-        stream: bool = False) -> Union[ModelResponse, ModelResponseStreamer]
+def run(
+    data: Text,
+    context: Optional[Text] = None,
+    prompt: Optional[Text] = None,
+    history: Optional[List[Dict]] = None,
+    temperature: Optional[float] = None,
+    max_tokens: int = 128,
+    top_p: Optional[float] = None,
+    name: Text = "model_process",
+    timeout: float = 300,
+    parameters: Optional[Dict] = None,
+    wait_time: float = 0.5,
+    stream: bool = False,
+    response_format: Optional[Text] = None
+) -> Union[ModelResponse, ModelResponseStreamer]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/llm_model.py#L107)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/llm_model.py#L108)
 
 Run the LLM model synchronously to generate text.
 
@@ -130,8 +131,8 @@ for streaming responses.
   Defaults to None.
 - `max_tokens` _int, optional_ - Maximum number of tokens to generate.
   Defaults to 128.
-- `top_p` _float, optional_ - Nucleus sampling parameter. Only tokens with cumulative
-  probability &lt; top_p are considered. Defaults to 1.0.
+- `top_p` _Optional[float], optional_ - Nucleus sampling parameter. Only tokens with cumulative
+  probability &lt; top_p are considered. Defaults to None.
 - `name` _Text, optional_ - Identifier for this model run. Useful for logging.
   Defaults to &quot;model_process&quot;.
 - `timeout` _float, optional_ - Maximum time in seconds to wait for completion.
@@ -142,6 +143,8 @@ for streaming responses.
   Defaults to 0.5.
 - `context`1 _bool, optional_ - Whether to stream the model&#x27;s output tokens.
   Defaults to False.
+  response_format (Optional[Union[str, dict, BaseModel]], optional):
+  Specifies the desired output structure or format of the model’s response.
   
 
 **Returns**:
@@ -159,12 +162,13 @@ def run_async(data: Text,
               history: Optional[List[Dict]] = None,
               temperature: Optional[float] = None,
               max_tokens: int = 128,
-              top_p: float = 1.0,
+              top_p: Optional[float] = None,
               name: Text = "model_process",
-              parameters: Optional[Dict] = None) -> ModelResponse
+              parameters: Optional[Dict] = None,
+              response_format: Optional[Text] = None) -> ModelResponse
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/llm_model.py#L205)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/llm_model.py#L213)
 
 Run the LLM model asynchronously to generate text.
 
@@ -186,17 +190,19 @@ later using the polling URL.
   Defaults to None.
 - `max_tokens` _int, optional_ - Maximum number of tokens to generate.
   Defaults to 128.
-- `top_p` _float, optional_ - Nucleus sampling parameter. Only tokens with cumulative
-  probability &lt; top_p are considered. Defaults to 1.0.
+- `top_p` _Optional[float], optional_ - Nucleus sampling parameter. Only tokens with cumulative
+  probability &lt; top_p are considered. Defaults to None.
 - `name` _Text, optional_ - Identifier for this model run. Useful for logging.
   Defaults to &quot;model_process&quot;.
 - `parameters` _Optional[Dict], optional_ - Additional model-specific parameters.
+  Defaults to None.
+- `response_format` _Optional[Text], optional_ - Desired output format specification.
   Defaults to None.
   
 
 **Returns**:
 
-- `ModelResponse` - A response object containing:
+- `context`0 - A response object containing:
   - status (ResponseStatus): Status of the request (e.g., IN_PROGRESS)
   - url (str): URL to poll for the final result
   - data (str): Empty string (result not available yet)
