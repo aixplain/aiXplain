@@ -46,15 +46,12 @@ to evaluate and compare multiple models using specified datasets and metrics.
 
 ```python
 @classmethod
-def get(cls, benchmark_id: str) -> Benchmark
+def get(cls, benchmark_id: str, api_key: str = None) -> Benchmark
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/benchmark_factory.py#L121)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/benchmark_factory.py#L108)
 
-Retrieve a benchmark by its ID.
-
-This method fetches a benchmark and all its associated components
-(models, datasets, metrics, jobs) from the platform.
+Create a &#x27;Benchmark&#x27; object from Benchmark id
 
 **Arguments**:
 
@@ -77,12 +74,12 @@ This method fetches a benchmark and all its associated components
 
 ```python
 @classmethod
-def get_job(cls, job_id: Text) -> BenchmarkJob
+def get_job(cls, job_id: Text, api_key: str = None) -> BenchmarkJob
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/benchmark_factory.py#L170)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/benchmark_factory.py#L152)
 
-Retrieve a benchmark job by its ID.
+Create a &#x27;BenchmarkJob&#x27; object from job id
 
 **Arguments**:
 
@@ -106,7 +103,7 @@ def create(cls, name: str, dataset_list: List[Dataset],
            model_list: List[Model], metric_list: List[Metric]) -> Benchmark
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/benchmark_factory.py#L254)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/benchmark_factory.py#L234)
 
 Create a new benchmark configuration.
 
@@ -147,7 +144,7 @@ start_benchmark_job.
 def list_normalization_options(cls, metric: Metric, model: Model) -> List[str]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/benchmark_factory.py#L326)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/benchmark_factory.py#L306)
 
 List supported normalization options for a metric-model pair.
 
@@ -179,7 +176,7 @@ when evaluating a specific model with a specific metric in a benchmark.
 def get_benchmark_job_scores(cls, job_id: Text) -> Any
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/benchmark_factory.py#L370)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/benchmark_factory.py#L350)
 
 Retrieve and format benchmark job scores.
 

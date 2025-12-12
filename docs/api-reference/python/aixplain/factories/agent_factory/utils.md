@@ -3,13 +3,15 @@ sidebar_label: utils
 title: aixplain.factories.agent_factory.utils
 ---
 
+Utils for building tools and agents.
+
 #### build\_tool\_payload
 
 ```python
 def build_tool_payload(tool: Union[Tool, Model])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/agent_factory/utils.py#L26)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/agent_factory/utils.py#L25)
 
 Build a tool payload from a tool or model object.
 
@@ -28,7 +30,7 @@ Build a tool payload from a tool or model object.
 def build_tool(tool: Dict)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/agent_factory/utils.py#L56)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/agent_factory/utils.py#L63)
 
 Build a tool from a dictionary.
 
@@ -47,7 +49,7 @@ Build a tool from a dictionary.
 def build_llm(payload: Dict, api_key: Text = config.TEAM_API_KEY) -> LLM
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/agent_factory/utils.py#L119)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/agent_factory/utils.py#L125)
 
 Build a Large Language Model (LLM) instance from a dictionary configuration.
 
@@ -73,7 +75,7 @@ def build_agent(payload: Dict,
                 api_key: Text = config.TEAM_API_KEY) -> Agent
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/agent_factory/utils.py#L170)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/agent_factory/utils.py#L175)
 
 Build an agent instance from a dictionary configuration.
 

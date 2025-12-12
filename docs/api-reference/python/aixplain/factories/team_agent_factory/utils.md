@@ -58,7 +58,7 @@ handling the setup of agents, LLMs, inspectors, and task dependencies.
 def is_yaml_formatted(text)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/team_agent_factory/utils.py#L231)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/team_agent_factory/utils.py#L232)
 
 Check if a string is valid YAML format with additional validation.
 

@@ -3,9 +3,7 @@ sidebar_label: team_agent_factory
 title: aixplain.factories.team_agent_factory
 ---
 
-#### \_\_author\_\_
-
-Copyright 2024 The aiXplain SDK authors
+Copyright 2024 The aiXplain SDK authors.
 
 Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
 you may not use this file except in compliance with the License.
@@ -30,7 +28,7 @@ Description:
 class TeamAgentFactory()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/team_agent_factory/__init__.py#L43)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/team_agent_factory/__init__.py#L41)
 
 Factory class for creating and managing team agents.
 
@@ -46,15 +44,12 @@ working together to accomplish complex tasks.
 def create(cls,
            name: Text,
            agents: List[Union[Text, Agent]],
-           llm_id: Text = "669a63646eb56306647e1091",
            llm: Optional[Union[LLM, Text]] = None,
            supervisor_llm: Optional[Union[LLM, Text]] = None,
-           mentalist_llm: Optional[Union[LLM, Text]] = None,
            description: Text = "",
            api_key: Text = config.TEAM_API_KEY,
            supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
            version: Optional[Text] = None,
-           use_mentalist: bool = True,
            inspectors: List[Inspector] = [],
            inspector_targets: List[Union[InspectorTarget,
                                          Text]] = [InspectorTarget.STEPS],
@@ -64,7 +59,7 @@ def create(cls,
            **kwargs) -> TeamAgent
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/team_agent_factory/__init__.py#L53)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/team_agent_factory/__init__.py#L51)
 
 Create a new team agent in the platform.
 
@@ -72,25 +67,28 @@ Create a new team agent in the platform.
 
 - `name` - The name of the team agent.
 - `agents` - A list of agents to be added to the team.
-- `llm_id` - The ID of the LLM to be used for the team agent.
 - `llm` _Optional[Union[LLM, Text]], optional_ - The LLM to be used for the team agent.
 - `supervisor_llm` _Optional[Union[LLM, Text]], optional_ - Main supervisor LLM. Defaults to None.
-- `mentalist_llm` _Optional[Union[LLM, Text]], optional_ - LLM for planning. Defaults to None.
 - `description` - The description of the team agent to be displayed in the aiXplain platform.
 - `api_key` - The API key to be used for the team agent.
 - `supplier` - The supplier of the team agent.
 - `version` - The version of the team agent.
-- `agents`0 - Whether to use the mentalist agent.
-- `agents`1 - A list of inspectors to be added to the team.
-- `agents`2 - Which stages to be inspected during an execution of the team agent. (steps, output)
-- `agents`3 - Whether to use the mentalist and inspector agents. (legacy)
-- `agents`4 - The instructions to guide the team agent (i.e. appended in the prompt of the team agent).
-- `agents`5 - The output format to be used for the team agent.
-- `agents`6 - The expected output to be used for the team agent.
+- `inspectors` - A list of inspectors to be added to the team.
+- `inspector_targets` - Which stages to be inspected during an execution of the team agent. (steps, output)
+- `agents`0 - The instructions to guide the team agent (i.e. appended in the prompt of the team agent).
+- `agents`1 - The output format to be used for the team agent.
+- `agents`2 - The expected output to be used for the team agent.
+- `agents`3 - Additional keyword arguments for backward compatibility (deprecated parameters).
+  
 
 **Returns**:
 
   A new team agent instance.
+  
+  Deprecated Args:
+- `agents`4 - DEPRECATED. Use &#x27;llm&#x27; parameter instead. The ID of the LLM to be used for the team agent.
+- `agents`5 - DEPRECATED. LLM for planning.
+- `agents`6 - DEPRECATED. Whether to use the mentalist agent.
 
 #### create\_from\_dict
 
@@ -99,7 +97,7 @@ Create a new team agent in the platform.
 def create_from_dict(cls, dict: Dict) -> TeamAgent
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/team_agent_factory/__init__.py#L264)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/team_agent_factory/__init__.py#L320)
 
 Create a team agent from a dictionary representation.
 
@@ -133,7 +131,7 @@ the agent&#x27;s configuration.
 def list(cls) -> Dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/team_agent_factory/__init__.py#L291)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/team_agent_factory/__init__.py#L347)
 
 List all team agents available in the platform.
 
@@ -164,7 +162,7 @@ def get(cls,
         api_key: Optional[Text] = None) -> TeamAgent
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/team_agent_factory/__init__.py#L343)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/team_agent_factory/__init__.py#L399)
 
 Retrieve a team agent by its ID or name.
 
