@@ -678,10 +678,25 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                 return response
             poll_url = response["url"]
             end = time.time()
-            result = self.sync_poll(
-                poll_url, name=name, timeout=timeout, wait_time=wait_time
-            )
-            result_data = result.data
+            result = self.sync_poll(poll_url, name=name, timeout=timeout, wait_time=wait_time)
+            result_data = result.data or {}
+            if result.status == ResponseStatus.FAILED:
+                return AgentResponse(
+                    status=ResponseStatus.FAILED,
+                    completed=False,
+                    data=AgentResponseData(
+                        input=result_data.get("input"),
+                        output=result_data.get("output"),
+                        session_id=result_data.get("session_id"),
+                        intermediate_steps=result_data.get("intermediate_steps"),
+                        steps=result_data.get("steps"),
+                        execution_stats=result_data.get("executionStats"),
+                        critiques=result_data.get("critiques", ""),
+                    ),
+                    used_credits=result_data.get("usedCredits", 0.0),
+                    run_time=result_data.get("runTime", end - start),
+                )
+
             return AgentResponse(
                 status=ResponseStatus.SUCCESS,
                 completed=True,

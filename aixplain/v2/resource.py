@@ -497,6 +497,10 @@ class BaseSearchParams(BaseParams):
         sort_order: SortOrder: The order to sort by.
         page_number: int: The page number.
         page_size: int: The page size.
+        resource_path: str: Optional custom resource path to override
+                          RESOURCE_PATH.
+        paginate_items_key: str: Optional key name for items in paginated
+                                response (overrides PAGINATE_ITEMS_KEY).
     """
 
     query: NotRequired[str]
@@ -505,6 +509,8 @@ class BaseSearchParams(BaseParams):
     sort_order: NotRequired[SortOrder]
     page_number: NotRequired[int]
     page_size: NotRequired[int]
+    resource_path: NotRequired[str]
+    paginate_items_key: NotRequired[str]
 
 
 class BaseGetParams(BaseParams):
@@ -810,7 +816,8 @@ class SearchResourceMixin(BaseMixin, Generic[SearchParamsT, ResourceT]):
             json_data = response
 
         items = json_data
-        paginate_items_key = getattr(cls, "PAGINATE_ITEMS_KEY", "items")
+        # Check for override in kwargs first, then fall back to class attribute
+        paginate_items_key = kwargs.get("paginate_items_key") or getattr(cls, "PAGINATE_ITEMS_KEY", "items")
         if paginate_items_key and isinstance(json_data, dict):
             items = json_data[paginate_items_key]
 

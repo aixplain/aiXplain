@@ -68,7 +68,11 @@ def test_end2end(run_input_map, FinetuneFactory):
     if run_input_map["required_dev"]:
         train_percentage, dev_percentage = 80, 20
     finetune = FinetuneFactory.create(
-        str(uuid.uuid4()), dataset_list, model, train_percentage=train_percentage, dev_percentage=dev_percentage
+        str(uuid.uuid4()),
+        dataset_list,
+        model,
+        train_percentage=train_percentage,
+        dev_percentage=dev_percentage,
     )
     assert type(finetune.cost) is FinetuneCost
     cost_map = finetune.cost.to_dict()
@@ -111,12 +115,34 @@ def test_cost_estimation_text_generation(estimate_cost_input_map, FinetuneFactor
 
 @pytest.mark.parametrize("ModelFactory", [ModelFactory, v2.Model])
 def test_list_finetunable_models(list_input_map, ModelFactory):
-    model_list = ModelFactory.list(
-        function=Function(list_input_map["function"]),
-        source_languages=Language(list_input_map["source_language"]) if "source_language" in list_input_map else None,
-        target_languages=Language(list_input_map["target_language"]) if "target_language" in list_input_map else None,
-        is_finetunable=True,
-    )["results"]
+    # Check if we're using v2.Model (which uses search()) or v1 ModelFactory (which uses list())
+    if ModelFactory.__name__ == "Model" and hasattr(ModelFactory, "search"):
+        # v2 API: use search() method with functions as list of strings
+        # Note: v2.Model.search() requires a context, so we use the default aixplain_v2 instance
+        # which is created at module import time
+        page = ModelFactory.search(
+            functions=[list_input_map["function"]],
+            source_languages=(
+                Language(list_input_map["source_language"]) if "source_language" in list_input_map else None
+            ),
+            target_languages=(
+                Language(list_input_map["target_language"]) if "target_language" in list_input_map else None
+            ),
+            is_finetunable=True,
+        )
+        model_list = page.results
+    else:
+        # v1 API: use list() method
+        model_list = ModelFactory.list(
+            function=Function(list_input_map["function"]),
+            source_languages=(
+                Language(list_input_map["source_language"]) if "source_language" in list_input_map else None
+            ),
+            target_languages=(
+                Language(list_input_map["target_language"]) if "target_language" in list_input_map else None
+            ),
+            is_finetunable=True,
+        )["results"]
     assert len(model_list) > 0
 
 
@@ -126,12 +152,18 @@ def test_prompt_validator(validate_prompt_input_map, ModelFactory):
     dataset_list = [DatasetFactory.list(query=validate_prompt_input_map["dataset_name"])["results"][0]]
     if validate_prompt_input_map["is_valid"]:
         finetune = FinetuneFactory.create(
-            str(uuid.uuid4()), dataset_list, model, prompt_template=validate_prompt_input_map["prompt_template"]
+            str(uuid.uuid4()),
+            dataset_list,
+            model,
+            prompt_template=validate_prompt_input_map["prompt_template"],
         )
         assert finetune is not None
     else:
         with pytest.raises(Exception) as exc_info:
             finetune = FinetuneFactory.create(
-                str(uuid.uuid4()), dataset_list, model, prompt_template=validate_prompt_input_map["prompt_template"]
+                str(uuid.uuid4()),
+                dataset_list,
+                model,
+                prompt_template=validate_prompt_input_map["prompt_template"],
             )
         assert exc_info.type is AssertionError

@@ -1,4 +1,4 @@
-__author__ = "thiagocastroferreira"
+"""Utils for building tools and agents."""
 
 import logging
 import aixplain.utils.config as config
@@ -35,11 +35,15 @@ def build_tool_payload(tool: Union[Tool, Model]):
         return tool.to_dict()
     else:
         parameters = None
+        actions = None
         if isinstance(tool, ConnectionTool):
             parameters = tool.get_parameters()
+            # Extract action codes from action_scope if it's set
+            if tool.action_scope is not None and len(tool.action_scope) > 0:
+                actions = [action.code for action in tool.action_scope]
         elif hasattr(tool, "get_parameters") and tool.get_parameters() is not None:
             parameters = tool.get_parameters().to_list()
-        return {
+        payload = {
             "id": tool.id,
             "name": tool.name,
             "description": tool.description,
@@ -50,6 +54,10 @@ def build_tool_payload(tool: Union[Tool, Model]):
             "version": tool.version if hasattr(tool, "version") else None,
             "assetId": tool.id,
         }
+        # Add actions field if it exists
+        if actions is not None:
+            payload["actions"] = actions
+        return payload
 
 
 def build_tool(tool: Dict):
@@ -77,7 +85,9 @@ def build_tool(tool: Dict):
             function = Function(function_name)
         except ValueError:
             valid_functions = [func.value for func in Function]
-            raise ValueError(f"Function {function_name} is not a valid function. The valid functions are: {valid_functions}")
+            raise ValueError(
+                f"Function {function_name} is not a valid function. The valid functions are: {valid_functions}"
+            )
         tool = ModelTool(
             function=function,
             supplier=supplier,
@@ -89,7 +99,7 @@ def build_tool(tool: Dict):
     elif tool["type"] == "pipeline":
         tool = PipelineTool(description=tool["description"], pipeline=tool["assetId"])
     elif tool["type"] == "utility":
-            tool = PythonInterpreterTool()
+        tool = PythonInterpreterTool()
     elif tool["type"] == "sql":
         name = tool.get("name", "SQLTool")
         parameters = {parameter["name"]: parameter["value"] for parameter in tool.get("parameters", [])}
@@ -135,7 +145,6 @@ def build_llm(payload: Dict, api_key: Text = config.TEAM_API_KEY) -> LLM:
     elif "tools" in payload:
         for tool in payload["tools"]:
             if tool["type"] == "llm" and tool["description"] == "main":
-
                 llm = get_llm_instance(payload["llmId"], api_key=api_key, use_cache=True)
                 # Set parameters from the tool
                 if "parameters" in tool:
@@ -189,9 +198,9 @@ def build_agent(payload: Dict, tools: List[Tool] = None, api_key: Text = config.
         payload_tools = []
         # Use parallel tool building with ThreadPoolExecutor for better performance
         from concurrent.futures import ThreadPoolExecutor, as_completed
-        
+
         def build_tool_safe(tool_data):
-            """Build a single tool with error handling"""
+            """Build a single tool with error handling."""
             try:
                 return build_tool(tool_data)
             except (ValueError, AssertionError) as e:
@@ -203,13 +212,13 @@ def build_agent(payload: Dict, tools: List[Tool] = None, api_key: Text = config.
                     "If you think this is an error, please contact the administrators."
                 )
                 return None
-        
+
         # Build all tools in parallel (only if there are tools to build)
         if len(tools_dict) > 0:
             with ThreadPoolExecutor(max_workers=min(len(tools_dict), 10)) as executor:
                 # Submit all tool build tasks
                 future_to_tool = {executor.submit(build_tool_safe, tool): tool for tool in tools_dict}
-                
+
                 # Collect results as they complete
                 for future in as_completed(future_to_tool):
                     tool_result = future.result()
