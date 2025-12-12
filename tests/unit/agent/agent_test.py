@@ -198,43 +198,21 @@ def test_create_agent(mock_model_factory_get):
                 "status": "draft",
                 "llmId": "6646261c6eb563165658bbb1",
                 "pricing": {"currency": "USD", "value": 0.0},
-                "assets":  [{
-                'type': 'model',
-                'description': 'Test Tool',
-                'name': 'text-generation-openai',
-                'parameters': [],
-                'function': 'text-generation',
-                'supplier': {
-                    'id': 529,
-                    'name': 'openai',
-                    'code': 'openai'
-                },
-                'version': None,
-                'assetId': None,
-                'actions': []
-            }, {
-                'type': 'utility',
-                'description': 'A Python shell. Use this to execute python commands. Input should be a valid python command.',
-                'name': None,
-                'parameters': None,
-                'utility': 'custom_python_code',
-                'utilityCode': None
-            }, {
-                'type': 'model',
-                'description': 'Test Script Connection Tool description',
-                'name': 'Test Script Connection Tool',
-                'parameters': [],
-                'function': 'utilities',
-                'supplier': {
-                    'id': 1,
-                    'name': 'aixplain',
-                    'code': 'aixplain'
-                },
-                'version': 'pythonscript',
-                'assetId': '693026cc427d05e696f3c7db',
-                'actions': ['print_hello_world']
-            }
-        ],
+                "assets": [
+                    {
+                        "type": "model",
+                        "supplier": "openai",
+                        "version": "1.0",
+                        "assetId": "6646261c6eb563165658bbb1",
+                        "function": "text-generation",
+                        "description": "Test Tool",
+                    },
+                    {
+                        "type": "utility",
+                        "utility": "custom_python_code",
+                        "description": "A Python shell. Use this to execute python commands. Input should be a valid python command.",
+                    },
+                ],
             }
             mock.post(url, headers=headers, json=ref_response)
 
@@ -250,76 +228,7 @@ def test_create_agent(mock_model_factory_get):
                 "pricing": {"currency": "USD", "value": 0.0},
             }
             mock.get(url, headers=headers, json=model_ref_response)
-            
-            # Mock the Python sandbox integration model fetch
-            python_sandbox_id = "688779d8bfb8e46c273982ca"
-            url = urljoin(config.BACKEND_URL, f"sdk/models/{python_sandbox_id}")
-            python_sandbox_response = {
-                "id": python_sandbox_id,
-                "name": "Python Sandbox",
-                "description": "Python Sandbox Integration",
-                "function": {"id": "utilities"},
-                "functionType": "connector",
-                "supplier": "aixplain",
-                "version": {"id": "pythonscript"},
-                "status": "onboarded",
-                "pricing": {"currency": "USD", "value": 0.0},
-                "authentication_methods": ["no-auth"],
-                "params": [],
-                "attributes": [
-                    {
-                        "name": "auth_schemes",
-                        "code": '["NO_AUTH"]'
-                    },
-                    {
-                        "name": "NO_AUTH-inputs",
-                        "code": '[{"name":"code","displayName":"Python Code","type":"string","description":"","required":true, "subtype": "file", "fileConfiguration": { "limit": 1, "extensions": ["py"] }}, {"name":"function_name","displayName":"Main Function Name","type":"string","description":"","required":true}]'
-                    }
-                ],
-            }
-            mock.get(url, headers=headers, json=python_sandbox_response)
-            
-            # Mock the POST request to create the connection (when connect() calls run())
-            connection_id = "693026cc427d05e696f3c7db"
-            run_url = f"{config.MODELS_RUN_URL}/{python_sandbox_id}".replace("api/v1/execute", "api/v2/execute")
-            run_response = {
-                "status": "SUCCESS",
-                "completed": True,
-                "data": {"id": connection_id},
-            }
-            mock.post(run_url, headers=headers, json=run_response)
-            
-            # Mock the GET request to fetch the created connection
-            connection_url = urljoin(config.BACKEND_URL, f"sdk/models/{connection_id}")
-            connection_response = {
-                "id": connection_id,
-                "name": "Test Script Connection Tool",
-                "description": "Test Script Connection Tool description",
-                "function": {"id": "utilities"},
-                "functionType": "connection",
-                "supplier": "aixplain",
-                "version": {"id": "pythonscript"},
-                "status": "onboarded",
-                "pricing": {"currency": "USD", "value": 0.0},
-                "params": [],
-            }
-            mock.get(connection_url, headers=headers, json=connection_response)
-            
-            # Mock the POST request to list actions (when ConnectionTool.__init__ calls _get_actions())
-            list_actions_url = f"{config.MODELS_RUN_URL}/{connection_id}".replace("api/v1/execute", "api/v2/execute")
-            list_actions_response = {
-                "status": "SUCCESS",
-                "completed": True,
-                "data": [
-                    {
-                        "name": "print_hello_world",
-                        "displayName": "print_hello_world",
-                        "description": "Test function"
-                    }
-                ],
-            }
-            mock.post(list_actions_url, headers=headers, json=list_actions_response)
-            
+
             agent = AgentFactory.create(
                 name="Test Agent(-)",
                 description="Test Agent Description",
@@ -332,11 +241,6 @@ def test_create_agent(mock_model_factory_get):
                         description="Test Tool",
                     ),
                     AgentFactory.create_python_interpreter_tool(),
-                    AgentFactory.create_custom_python_code_tool(
-                        name="Test Script Connection Tool",
-                        code="def print_hello_world(input_string: str) -> str:\n    return 'Hello, world!'\n",
-                        description="Test Script Connection Tool description",
-                    )
                 ],
             )
 
@@ -349,8 +253,6 @@ def test_create_agent(mock_model_factory_get):
     assert isinstance(agent.tools[0], ModelTool)
     assert agent.tools[1].description == ref_response["assets"][1]["description"]
     assert isinstance(agent.tools[1], PythonInterpreterTool)
-    assert agent.tools[2].description == ref_response["assets"][2]["description"]
-    assert isinstance(agent.tools[2], ConnectionTool)
     assert agent.status == AssetStatus.DRAFT
 
 

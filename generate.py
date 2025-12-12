@@ -1,20 +1,15 @@
-"""Generate static enum modules from backend API data."""
-
 import re
 import os
 import requests
 from urllib.parse import urljoin
 from jinja2 import Environment, BaseLoader
-from dotenv import load_dotenv
-
-load_dotenv()
 
 # Note: We don't import anything from aixplain.* here to avoid circular
 # dependency. All configuration is handled via environment variables.
 
 
 def enumify(s):
-    """Slugify a string and convert to uppercase."""
+    """Slugify a string and convert to uppercase"""
     s = re.sub(r"\s+", "_", s)
     s = re.sub(r"[-.]+", "_", s)
     s = re.sub(r"[^a-zA-Z0-9-_.]+", "", s)
@@ -28,14 +23,14 @@ def enumify(s):
 
 
 def none_to_none(value):
-    """Convert None to string 'None' for Python code generation."""
+    """Convert None to string 'None' for Python code generation"""
     if value is None:
         return "None"
     return value
 
 
 def escape_quotes(value):
-    """Escape double quotes in strings for Python code generation."""
+    """Escape double quotes in strings for Python code generation"""
     if value is None:
         return ""
     return value.replace('"', '\\"')
@@ -53,9 +48,7 @@ RECONSTRUCTOR_FUNCTIONS = ["text-reconstruction", "audio-reconstruction"]
 ENUMS_MODULE_PATH = "aixplain/enums/generated_enums.py"
 PIPELINE_MODULE_PATH = "aixplain/modules/pipeline/pipeline.py"
 
-ENUMS_MODULE_TEMPLATE = """\"\"\"Auto-generated enum module containing static values from the backend API.\"\"\"
-
-# This is an auto generated module. PLEASE DO NOT EDIT
+ENUMS_MODULE_TEMPLATE = """# This is an auto generated module. PLEASE DO NOT EDIT
 # This module contains static enums that were previously loaded dynamically
 
 from enum import Enum
@@ -63,19 +56,17 @@ from typing import Dict, Any, Tuple
 from dataclasses import dataclass
 from aixplain.base.parameters import BaseParameters, Parameter
 
-
+# Function enum with static values
 class Function(str, Enum):
-    \"\"\"Enum representing available functions in the aiXplain platform.\"\"\"
-
     {% for function in functions %}
     {{ function.id|enumify }} = "{{ function.id }}"
     {% endfor %}
 
     def get_input_output_params(self) -> Tuple[Dict, Dict]:
-        \"\"\"Get the input and output parameters for this function.
+        \"\"\"Gets the input and output parameters for this function
 
         Returns:
-            Tuple[Dict, Dict]: A tuple containing (input_params, output_params).
+            Tuple[Dict, Dict]: A tuple containing (input_params, output_params)
         \"\"\"
         function_io = FunctionInputOutput.get(self.value, None)
         if function_io is None:
@@ -89,10 +80,10 @@ class Function(str, Enum):
         return input_params, output_params
 
     def get_parameters(self) -> "FunctionParameters":
-        \"\"\"Get a FunctionParameters object for this function.
+        \"\"\"Gets a FunctionParameters object for this function
 
         Returns:
-            FunctionParameters: Object containing the function's parameters.
+            FunctionParameters: Object containing the function's parameters
         \"\"\"
         if not hasattr(self, '_parameters') or self._parameters is None:
             input_params, _ = self.get_input_output_params()
@@ -103,13 +94,13 @@ class Function(str, Enum):
 FunctionInputOutput = {
     {% for function in functions %}
     "{{ function.id }}": {
-        "input": {
+        "input": { 
             {% for param in function.params %}
             {% if param.required %}"{{ param.dataType }}"{% if not loop.last %}, {% endif %}{% endif %}
-            {% endfor %}
+            {% endfor %} 
         },
-        "output": {
-            {% for output in function.output %}"{{ output.dataType }}"{% if not loop.last %}, {% endif %}{% endfor %}
+        "output": { 
+            {% for output in function.output %}"{{ output.dataType }}"{% if not loop.last %}, {% endif %}{% endfor %} 
         },
         "spec": {
             "id": "{{ function.id }}",
@@ -142,13 +133,13 @@ FunctionInputOutput = {
 }
 
 class FunctionParameters(BaseParameters):
-    \"\"\"Class to store and manage function parameters.\"\"\"
+    \"\"\"Class to store and manage function parameters\"\"\"
 
     def __init__(self, input_params: Dict):
-        \"\"\"Initialize FunctionParameters with input parameters.
+        \"\"\"Initialize FunctionParameters with input parameters
 
         Args:
-            input_params (Dict): Dictionary of input parameters.
+            input_params (Dict): Dictionary of input parameters
         \"\"\"
         super().__init__()
         for param_code, param_config in input_params.items():
@@ -158,52 +149,43 @@ class FunctionParameters(BaseParameters):
                 value=None,
             )
 
-
+# Supplier enum with static values
 class Supplier(Enum):
-    \"\"\"Enum representing available suppliers in the aiXplain platform.\"\"\"
-
     {% for supplier in suppliers %}
     {{ supplier.code|enumify }} = {
-        "id": {{ supplier.id }},
-        "name": "{{ supplier.name }}",
+        "id": "{{ supplier.id }}", 
+        "name": "{{ supplier.name }}", 
         "code": "{{ supplier.code }}"
     }
     {% endfor %}
 
     def __str__(self):
-        \"\"\"Return the supplier name.\"\"\"
         return self.value["name"]
 
-
+# Language enum with static values
 class Language(Enum):
-    \"\"\"Enum representing available languages in the aiXplain platform.\"\"\"
-
     {% for language in languages %}
     {{ language.label|enumify }} = {
-        "language": "{{ language.value }}",
+        "language": "{{ language.value }}", 
         "dialect": ""
     }
     {% for dialect in language.dialects %}
     {{ language.label|enumify }}_{{ dialect.label|enumify }} = {
-        "language": "{{ language.value }}",
+        "language": "{{ language.value }}", 
         "dialect": "{{ dialect.value }}"
     }
     {% endfor %}
     {% endfor %}
 
-
+# License enum with static values
 class License(str, Enum):
-    \"\"\"Enum representing available licenses in the aiXplain platform.\"\"\"
-
     {% for license in licenses %}
     {{ license.name|enumify }} = "{{ license.id }}"
     {% endfor %}
 
 """
 
-PIPELINE_MODULE_TEMPLATE = """\"\"\"Auto-generated pipeline module containing node classes and Pipeline factory methods.\"\"\"
-
-# This is an auto generated module. PLEASE DO NOT EDIT
+PIPELINE_MODULE_TEMPLATE = """# This is an auto generated module. PLEASE DO NOT EDIT
 
 
 from typing import Union, Type
@@ -227,27 +209,22 @@ from aixplain.modules import asset
 {% for spec in specs %}
 
 class {{ spec.class_name }}Inputs(Inputs):
-    \"\"\"Input parameters for {{ spec.class_name }}.\"\"\"
-
 {% for input in spec.inputs %}
     {{ input.name }}: InputParam = None
 {% endfor %}
 
     def __init__(self, node=None):
-        \"\"\"Initialize {{ spec.class_name }}Inputs.\"\"\"
         super().__init__(node=node)
 {% for input in spec.inputs %}
         self.{{ input.name }} = self.create_param(
-            code="{{ input.name }}",
-            data_type=DataType.{{ input.data_type | upper }},
+            code="{{ input.name }}", 
+            data_type=DataType.{{ input.data_type | upper }}, 
             is_required={{ input.is_required }}
         )
 {% endfor %}
 
 
 class {{ spec.class_name }}Outputs(Outputs):
-    \"\"\"Output parameters for {{ spec.class_name }}.\"\"\"
-
 {% for output in spec.outputs %}
     {{ output.name }}: OutputParam = None
 {% endfor %}
@@ -256,11 +233,10 @@ class {{ spec.class_name }}Outputs(Outputs):
 {% endif %}
 
     def __init__(self, node=None):
-        \"\"\"Initialize {{ spec.class_name }}Outputs.\"\"\"
         super().__init__(node=node)
 {% for output in spec.outputs %}
         self.{{ output.name }} = self.create_param(
-            code="{{ output.name }}",
+            code="{{ output.name }}", 
             data_type=DataType.{{ output.data_type | upper }}
         )
 {% endfor %}
@@ -270,8 +246,7 @@ class {{ spec.class_name }}Outputs(Outputs):
 
 
 class {{ spec.class_name }}({{spec.base_class}}[{{ spec.class_name }}Inputs, {{ spec.class_name }}Outputs]):
-    \"\"\"{{ spec.class_name }} node.
-
+    \"\"\"
     {{ spec.description | wordwrap }}
 
     InputType: {{ spec.input_type }}
@@ -288,12 +263,10 @@ class {{ spec.class_name }}({{spec.base_class}}[{{ spec.class_name }}Inputs, {{ 
 
 
 class Pipeline(DefaultPipeline):
-    \"\"\"Pipeline class for creating and managing AI processing pipelines.\"\"\"
 
 {% for spec in specs %}
     def {{ spec.function_name }}(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> {{ spec.class_name }}:
-        \"\"\"Create a {{ spec.class_name }} node.
-
+        \"\"\"
         {{ spec.description | wordwrap }}
         \"\"\"
         return {{ spec.class_name }}(*args, asset_id=asset_id, pipeline=self, **kwargs)
@@ -303,18 +276,20 @@ class Pipeline(DefaultPipeline):
 
 
 def get_config():
-    """Get configuration from environment variables."""
+    """Get configuration from environment variables"""
     return {
-        "TEAM_API_KEY": os.getenv("TEAM_API_KEY"),
-        "BACKEND_URL": os.getenv("BACKEND_URL", "https://api.aixplain.com/"),
+        'TEAM_API_KEY': os.getenv('TEAM_API_KEY'),
+        'BACKEND_URL': os.getenv('BACKEND_URL', 'https://api.aixplain.com/'),
     }
 
 
 def api_request(path: str):
-    """Fetch functions from the backend."""
+    """
+    Fetch functions from the backend
+    """
     config = get_config()
-    api_key = config["TEAM_API_KEY"]
-    backend_url = config["BACKEND_URL"]
+    api_key = config['TEAM_API_KEY']
+    backend_url = config['BACKEND_URL']
 
     if not api_key:
         raise ValueError("TEAM_API_KEY environment variable is required")
@@ -336,27 +311,37 @@ def api_request(path: str):
 
 
 def fetch_functions():
-    """Fetch functions from the backend."""
+    """
+    Fetch functions from the backend
+    """
     return api_request("functions")["items"]
 
 
 def fetch_suppliers():
-    """Fetch suppliers from the backend."""
+    """
+    Fetch suppliers from the backend
+    """
     return api_request("suppliers")
 
 
 def fetch_languages():
-    """Fetch languages from the backend."""
+    """
+    Fetch languages from the backend
+    """
     return api_request("languages")
 
 
 def fetch_licenses():
-    """Fetch licenses from the backend."""
+    """
+    Fetch licenses from the backend
+    """
     return api_request("licenses")
 
 
 def populate_data_types(functions: list):
-    """Populate the data types."""
+    """
+    Populate the data types
+    """
     data_types = set()
     for function in functions:
         for param in function["params"]:
@@ -367,7 +352,9 @@ def populate_data_types(functions: list):
 
 
 def populate_specs(functions: list):
-    """Populate the function class specs."""
+    """
+    Populate the function class specs
+    """
     function_class_specs = []
     for function in functions:
         # Utility functions has dynamic input parameters so they are not
@@ -377,7 +364,9 @@ def populate_specs(functions: list):
 
         # slugify function name by trimming some special chars and
         # transforming it to snake case
-        function_name = function["id"].replace("-", "_").replace("(", "_").replace(")", "_")
+        function_name = (
+            function["id"].replace("-", "_").replace("(", "_").replace(")", "_")
+        )
         base_class = "AssetNode"
         is_segmentor = function["id"] in SEGMENTOR_FUNCTIONS
         is_reconstructor = function["id"] in RECONSTRUCTOR_FUNCTIONS
@@ -385,7 +374,9 @@ def populate_specs(functions: list):
             base_class = "BaseSegmentor"
         elif is_reconstructor:
             base_class = "BaseReconstructor"
-        elif "metric" in function_name.split("_"):  # TODO: Advise a better distinguisher please
+        elif "metric" in function_name.split(
+            "_"
+        ):  # noqa: Advise a better distinguisher please
             base_class = "BaseMetric"
 
         spec = {

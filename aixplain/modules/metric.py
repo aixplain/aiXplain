@@ -1,4 +1,7 @@
-"""Copyright 2022 The aiXplain SDK authors.
+__author__ = "shreyassharma"
+
+"""
+Copyright 2022 The aiXplain SDK authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,7 +23,6 @@ Description:
 
 from typing import Optional, Text, List, Union
 from aixplain.modules.asset import Asset
-from aixplain.enums import Supplier
 
 
 class Metric(Asset):
@@ -132,7 +134,7 @@ class Metric(Asset):
         model = ModelFactory.get(self.id)
         payload = {
             "function": self.function,
-            "supplier": self.supplier.value if isinstance(self.supplier, Supplier) else self.supplier,
+            "supplier": self.supplier,
             "version": self.name,
         }
         if hypothesis is not None:

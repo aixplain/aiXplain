@@ -15,7 +15,6 @@ import json
 
 CACHE_FOLDER = ".cache"
 
-
 def pytest_generate_tests(metafunc):
     if "llm_model" in metafunc.fixturenames:
         four_weeks_ago = datetime.now(timezone.utc) - timedelta(weeks=4)
@@ -167,11 +166,7 @@ def test_index_model_with_filter(embedding_model, supplier_params):
     for _ in range(retries):
         try:
             index_model.upsert(
-                [
-                    Record(
-                        value="The world is great", value_type="text", uri="", id="2", attributes={"category": "world"}
-                    )
-                ]
+                [Record(value="The world is great", value_type="text", uri="", id="2", attributes={"category": "world"})]
             )
             break
         except Exception:
@@ -210,7 +205,7 @@ def test_llm_run_with_file():
 def test_aixplain_model_cache_creation():
     """Ensure AssetCache is triggered and cache is created."""
 
-    cache_file = os.path.join(CACHE_FOLDER, "model.json")
+    cache_file = os.path.join(CACHE_FOLDER, "models.json")
 
     # Clean up cache before the test
     if os.path.exists(cache_file):
@@ -227,9 +222,7 @@ def test_aixplain_model_cache_creation():
         cache_data = json.load(f)
 
     assert "data" in cache_data, "Cache file structure invalid - missing 'data' key."
-    # Cache structure is: {"expiry": ..., "data": {"model_id": {...}}}
-    # So we check if the model_id exists as a key in cache_data["data"]
-    assert model_id in cache_data["data"], "Instantiated model not found in cache."
+    assert any(m.get("id") == model_id for m in cache_data["data"]["items"]), "Instantiated model not found in cache."
 
 
 def test_index_model_air_with_image():
@@ -239,9 +232,7 @@ def test_index_model_air_with_image():
     from aixplain.factories.index_factory.utils import AirParams
 
     params = AirParams(
-        name=f"Image Index {uuid4()}",
-        description="Index for images",
-        embedding_model=EmbeddingModel.JINA_CLIP_V2_MULTIMODAL,
+        name=f"Image Index {uuid4()}", description="Index for images", embedding_model=EmbeddingModel.JINA_CLIP_V2_MULTIMODAL
     )
 
     index_model = IndexFactory.create(params=params)
@@ -343,9 +334,7 @@ def test_index_model_with_txt_file():
 
     # Create index with OpenAI Ada 002 for text processing
     params = AirParams(
-        name=f"File Index {uuid4()}",
-        description="Index for file processing",
-        embedding_model=EmbeddingModel.OPENAI_ADA002,
+        name=f"File Index {uuid4()}", description="Index for file processing", embedding_model=EmbeddingModel.OPENAI_ADA002
     )
     index_model = IndexFactory.create(params=params)
 
@@ -379,9 +368,7 @@ def test_index_model_with_pdf_file():
 
     # Create index with OpenAI Ada 002 for text processing
     params = AirParams(
-        name=f"PDF Index {uuid4()}",
-        description="Index for PDF processing",
-        embedding_model=EmbeddingModel.OPENAI_ADA002,
+        name=f"PDF Index {uuid4()}", description="Index for PDF processing", embedding_model=EmbeddingModel.OPENAI_ADA002
     )
     index_model = IndexFactory.create(params=params)
 

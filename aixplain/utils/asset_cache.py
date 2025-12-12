@@ -1,10 +1,3 @@
-"""Asset cache utility module for aiXplain SDK.
-
-This module provides a generic caching system for aiXplain assets (Models, Pipelines,
-Agents, etc.) with file-based persistence, automatic serialization, expiration,
-and thread-safe operations.
-"""
-
 import os
 import logging
 import json
@@ -113,7 +106,7 @@ class AssetCache(Generic[T]):
         try:
             expiry = int(os.getenv("CACHE_EXPIRY_TIME", CACHE_DURATION))
         except Exception as e:
-            logger.warning(f"Failed to parse CACHE_EXPIRY_TIME: {e}, fallback to default value {CACHE_DURATION}")
+            logger.warning(f"Failed to parse CACHE_EXPIRY_TIME: {e}, " f"fallback to default value {CACHE_DURATION}")
             # remove the CACHE_EXPIRY_TIME from the environment variables
             del os.environ["CACHE_EXPIRY_TIME"]
             expiry = CACHE_DURATION
@@ -228,9 +221,7 @@ class AssetCache(Generic[T]):
                     json.dump(serializable_store, f, indent=4)
 
                     if serialization_errors > 0:
-                        logger.warning(
-                            f"Saved cache for {self.cls.__name__} with {serialization_errors} serialization errors"
-                        )
+                        logger.warning(f"Saved cache for {self.cls.__name__} with {serialization_errors} serialization errors")
                     else:
                         logger.info(f"Successfully saved cache for {self.cls.__name__} with {len(data_dict)} items")
 
@@ -282,7 +273,7 @@ class AssetCache(Generic[T]):
             adding the assets.
         """
         logger.info(f"Adding {len(assets)} {self.cls.__name__} assets to cache (replacing existing)")
-        self.store.data = {asset.id: asset.__dict__ for asset in assets}
+        self.store.data = {asset.id: asset for asset in assets}
         self.save()
 
     def get_all(self) -> List[T]:
