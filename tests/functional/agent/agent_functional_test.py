@@ -154,7 +154,7 @@ def test_custom_code_tool(delete_agents_and_team_agents, AgentFactory):
     assert response["status"].lower() == "success"
     assert "HelloWorld" in response["data"]["output"]
     agent.delete()
-
+    tool.delete()
 
 @pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_list_agents(AgentFactory):
