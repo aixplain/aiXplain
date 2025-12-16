@@ -449,14 +449,12 @@ class BaseResource:
         return self.context.client.request(method, path, **kwargs)
 
     def __repr__(self) -> str:
-        """Return a string representation using assetPath > instanceId > id priority."""
+        """Return a string representation using assetPath > id priority."""
         # Priority: assetPath > instanceId > id
         if self.asset_path:
             return f"{self.__class__.__name__}(path={self.asset_path})"
-        elif self.instance_id:
-            return f"{self.__class__.__name__}(path={self.instance_id})"
         else:
-            return f"{self.__class__.__name__}(path={self.id}, name={self.name})"
+            return f"{self.__class__.__name__}(id={self.id}, name={self.name})"
 
     def __str__(self) -> str:
         """Return string representation of the resource."""
