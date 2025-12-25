@@ -305,6 +305,11 @@ class ModelTool(Tool):
         received_param_names = {param["name"] for param in received_parameters}
 
         invalid_params = received_param_names - expected_param_names
+
+        # If action and data are expected (ConnectionTool), remove the received parameters from the invalid parameters
+        if "action" in expected_param_names and "data" in expected_param_names: 
+            invalid_params = invalid_params - received_param_names
+            
         if invalid_params:
             raise ValueError(
                 f"Invalid parameters provided: {invalid_params}. Expected parameters are: {expected_param_names}"
