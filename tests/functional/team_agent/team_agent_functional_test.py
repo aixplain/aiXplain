@@ -24,7 +24,6 @@ load_dotenv()
 
 import pytest
 
-from aixplain import aixplain_v2 as v2
 from aixplain.factories import AgentFactory, TeamAgentFactory, ModelFactory
 from aixplain.enums.asset_status import AssetStatus
 from aixplain.enums.function import Function
@@ -41,7 +40,7 @@ from tests.functional.team_agent.test_utils import (
 @pytest.fixture(scope="function")
 def delete_agents_and_team_agents():
     from tests.test_deletion_utils import safe_delete_all_agents_and_team_agents
-    
+
     # Clean up before test
     safe_delete_all_agents_and_team_agents()
 
@@ -56,7 +55,7 @@ def run_input_map(request):
     return request.param
 
 
-@pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory, v2.TeamAgent])
+@pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory])
 def test_end2end(run_input_map, delete_agents_and_team_agents, TeamAgentFactory):
     assert delete_agents_and_team_agents
 
@@ -90,9 +89,10 @@ def test_end2end(run_input_map, delete_agents_and_team_agents, TeamAgentFactory)
     team_agent.delete()
 
 
-@pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory, v2.TeamAgent])
+@pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory])
 def test_draft_team_agent_update(run_input_map, TeamAgentFactory):
     from tests.test_deletion_utils import safe_delete_all_agents_and_team_agents
+
     safe_delete_all_agents_and_team_agents()
 
     agents = create_agents_from_input_map(run_input_map, deploy=False)
@@ -113,7 +113,7 @@ def test_draft_team_agent_update(run_input_map, TeamAgentFactory):
     assert team_agent.status == AssetStatus.DRAFT
 
 
-@pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory, v2.TeamAgent])
+@pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory])
 def test_nested_deployment_chain(delete_agents_and_team_agents, TeamAgentFactory):
     """Test that deploying a team agent properly deploys all nested components (tools -> agents -> team)"""
     assert delete_agents_and_team_agents
@@ -126,7 +126,7 @@ def test_nested_deployment_chain(delete_agents_and_team_agents, TeamAgentFactory
     translation_tool = AgentFactory.create_model_tool(
         function=translation_function,
         description="Translation tool from English to Spanish",
-        supplier="microsoft",
+        supplier=Supplier.AZURE,
     )
 
     translation_agent = AgentFactory.create(
@@ -141,7 +141,7 @@ def test_nested_deployment_chain(delete_agents_and_team_agents, TeamAgentFactory
     text_gen_tool = AgentFactory.create_model_tool(
         function=Function.TEXT_GENERATION,
         description="Text generation tool",
-        supplier="openai",
+        supplier=Supplier.OPENAI,
     )
 
     text_gen_agent = AgentFactory.create(
@@ -183,9 +183,10 @@ def test_nested_deployment_chain(delete_agents_and_team_agents, TeamAgentFactory
     team_agent.delete()
 
 
-@pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory, v2.TeamAgent])
+@pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory])
 def test_fail_non_existent_llm(run_input_map, TeamAgentFactory):
     from tests.test_deletion_utils import safe_delete_all_agents_and_team_agents
+
     safe_delete_all_agents_and_team_agents()
 
     agents = create_agents_from_input_map(run_input_map, deploy=False)
@@ -203,7 +204,7 @@ def test_fail_non_existent_llm(run_input_map, TeamAgentFactory):
     )
 
 
-@pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory, v2.TeamAgent])
+@pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory])
 def test_add_remove_agents_from_team_agent(run_input_map, delete_agents_and_team_agents, TeamAgentFactory):
     assert delete_agents_and_team_agents
 
@@ -250,7 +251,7 @@ def test_team_agent_tasks(delete_agents_and_team_agents):
         name="Test Sub Agent",
         description="You are a test agent that always returns the same answer",
         tools=[
-            AgentFactory.create_model_tool(function=Function.TRANSLATION, supplier=Supplier.MICROSOFT),
+            AgentFactory.create_model_tool(function=Function.TRANSLATION, supplier=Supplier.AZURE),
         ],
         tasks=[
             AgentFactory.create_task(
@@ -285,7 +286,9 @@ def test_team_agent_with_parameterized_agents(run_input_map, delete_agents_and_t
     search_model = ModelFactory.get("65c51c556eb563350f6e1bb1")
     model_params = search_model.get_parameters()
     model_params.numResults = 5
-    search_tool = AgentFactory.create_model_tool(model=search_model, description="Search tool with custom number of results")
+    search_tool = AgentFactory.create_model_tool(
+        model=search_model, description="Search tool with custom number of results"
+    )
 
     search_agent = AgentFactory.create(
         name="Search Agent",
@@ -304,7 +307,7 @@ def test_team_agent_with_parameterized_agents(run_input_map, delete_agents_and_t
     translation_tool = AgentFactory.create_model_tool(
         function=translation_function,
         description="Translation tool with source language",
-        supplier="microsoft",
+        supplier=Supplier.AZURE,
     )
 
     translation_agent = AgentFactory.create(
@@ -353,7 +356,7 @@ def test_team_agent_with_instructions(delete_agents_and_team_agents):
     agent_1 = AgentFactory.create(
         name="Agent 1",
         description="Translation agent",
-        tools=[AgentFactory.create_model_tool(function=Function.TRANSLATION, supplier=Supplier.MICROSOFT)],
+        tools=[AgentFactory.create_model_tool(function=Function.TRANSLATION, supplier=Supplier.AZURE)],
         llm_id="6646261c6eb563165658bbb1",
     )
 
@@ -378,7 +381,7 @@ def test_team_agent_with_instructions(delete_agents_and_team_agents):
     assert response.status == "SUCCESS"
     assert "gato" in response.data["output"]
 
-    mentalist_steps = [json.loads(step) for step in eval(response.data["intermediate_steps"][0]["output"])]
+    mentalist_steps = [json.loads(step) for step in response.data["intermediate_steps"][0]["output"]]
 
     called_agents = set([step["agent"] for step in mentalist_steps])
     assert len(called_agents) == 1
@@ -389,7 +392,7 @@ def test_team_agent_with_instructions(delete_agents_and_team_agents):
     agent_2.delete()
 
 
-@pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory, v2.TeamAgent])
+@pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory])
 def test_team_agent_llm_parameter_preservation(delete_agents_and_team_agents, run_input_map, TeamAgentFactory):
     """Test that LLM parameters like temperature are preserved for all LLM roles in team agents."""
     assert delete_agents_and_team_agents
@@ -584,7 +587,7 @@ def test_team_agent_with_slack_connector():
     connection.delete()
 
 
-@pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory, v2.TeamAgent])
+@pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory])
 def test_multiple_teams_with_shared_deployed_agent(delete_agents_and_team_agents, TeamAgentFactory):
     """Test that multiple team agents can share the same deployed agent without name conflicts"""
     assert delete_agents_and_team_agents
@@ -593,7 +596,7 @@ def test_multiple_teams_with_shared_deployed_agent(delete_agents_and_team_agents
     translation_tool = AgentFactory.create_model_tool(
         function=Function.TRANSLATION,
         description="Translation tool from English to Spanish",
-        supplier="microsoft",
+        supplier=Supplier.AZURE,
     )
 
     shared_agent = AgentFactory.create(

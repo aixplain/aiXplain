@@ -22,13 +22,18 @@ Description:
 """
 import json
 import logging
+import inspect
+import ast
+import warnings
 from aixplain.modules.model.utility_model import UtilityModel, UtilityModelInput
+from aixplain.modules.model.connection import ConnectionTool
 from aixplain.enums import Function
 from aixplain.utils import config
 from aixplain.utils.request_utils import _request_with_retry
 from urllib.parse import urljoin
 from aixplain.factories.model_factory.mixins import ModelGetterMixin, ModelListMixin
 from typing import Callable, Dict, List, Optional, Text, Union
+from aixplain.modules.model.integration import AuthenticationSchema
 
 class ModelFactory(ModelGetterMixin, ModelListMixin):
     """Factory class for creating, managing, and exploring models.
@@ -42,6 +47,7 @@ class ModelFactory(ModelGetterMixin, ModelListMixin):
     """
 
     backend_url = config.BACKEND_URL
+    PYTHON_SANDBOX_ID = "688779d8bfb8e46c273982ca"  # Python sandbox integration ID
 
     @classmethod
     def create_utility_model(
@@ -55,6 +61,9 @@ class ModelFactory(ModelGetterMixin, ModelListMixin):
         **kwargs
     ) -> UtilityModel:
         """Create a new utility model for custom functionality.
+        
+        .. deprecated:: 
+            This method is deprecated. Please use :meth:`create_script_connection_tool` instead.
 
         This method creates a utility model that can execute custom code or functions
         with specified inputs and outputs.
@@ -78,6 +87,11 @@ class ModelFactory(ModelGetterMixin, ModelListMixin):
         Raises:
             Exception: If model creation fails or validation fails.
         """
+        warnings.warn(
+            "create_utility_model is deprecated. Please use create_script_connection_tool instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
         api_key = (
             kwargs.get("api_key", config.TEAM_API_KEY) 
             if api_key is None else api_key
@@ -121,6 +135,85 @@ class ModelFactory(ModelGetterMixin, ModelListMixin):
             )
             logging.error(error_message)
             raise Exception(error_message)
+
+    @classmethod
+    def create_script_connection_tool(
+        cls,
+        name: Optional[Text] = None,
+        code: Union[Text, Callable] = None,
+        description: Optional[Text] = None,
+        api_key: Optional[Text] = None,
+        **kwargs
+    ) -> ConnectionTool:
+        """Create a new script connection tool for custom functionality.
+
+        This method creates a connection tool that can execute custom code or functions
+        with specified inputs and outputs. It uses the Python sandbox integration
+        via ToolFactory.create as the underlying implementation.
+
+        Args:
+            name (Optional[Text]): Name of the connection tool.
+            code (Union[Text, Callable]): Python code as string or callable function
+                implementing the connection tool's functionality.
+            description (Optional[Text], optional): Description of what the connection tool does.
+                Defaults to None.
+            api_key (Optional[Text], optional): API key for authentication.
+                Defaults to None, using the configured TEAM_API_KEY.
+
+        Returns:
+            ConnectionTool: Created and registered connection tool instance.
+
+        Raises:
+            Exception: If model creation fails or validation fails.
+        """
+        api_key = (
+            kwargs.get("api_key", config.TEAM_API_KEY) 
+            if api_key is None else api_key
+        )
+        allowed_kwargs = ["function_name"]
+        for key, value in kwargs.items():
+            if key not in allowed_kwargs:
+                raise Exception(f"Invalid keyword argument: {key}. Allowed arguments are: {allowed_kwargs}")
+        function_name = kwargs.get("function_name", None)
+        # Convert code to string if it's a callable
+        if isinstance(code, Callable):
+            script_content = inspect.getsource(code)
+            # Extract function name from callable
+            function_name = code.__name__
+        else:
+            script_content = code
+            tree = ast.parse(script_content)
+            function_names = [
+                node.name
+                for node in tree.body
+                if isinstance(node, ast.FunctionDef)
+            ]
+            assert len(function_names) > 0, "No functions found in the code. Please provide at least one function in your code."
+            # Extract function names from code string
+            if function_name is None and len(function_names) == 1:
+                function_name = function_names[0]
+            elif function_name is None and len(function_names) > 1:
+                raise Exception(f"Multiple functions found in the code: {function_names}. Please specify at least one function name using the function_name parameter.")
+            elif function_name and function_name not in function_names:
+                raise Exception(f"Function name {function_name} not found in the code. Available functions provided by the code: {function_names}. Please specify a valid function name using the function_name parameter.")
+        
+        # Import ToolFactory locally to avoid circular import
+        from aixplain.factories import ToolFactory
+                
+        # Use ToolFactory.create with Python sandbox integration
+        try:
+            tool = ToolFactory.create(
+                integration=cls.PYTHON_SANDBOX_ID,
+                name=name,
+                description=description,
+                authentication_schema=AuthenticationSchema.NO_AUTH,
+                data={"code": script_content, "function_name": function_name},
+                api_key=api_key,
+                **kwargs
+            )
+            return tool
+        except Exception as e:
+            raise Exception(f"Failed to create script connection tool: {e}")
 
     @classmethod
     def list_host_machines(

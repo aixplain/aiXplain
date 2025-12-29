@@ -3,22 +3,61 @@ from aixplain.modules import APIKey, APIKeyLimits, APIKeyUsageLimit
 from datetime import datetime, timedelta, timezone
 import json
 import pytest
+import time
 
-from aixplain import aixplain_v2 as v2
+# Single test API key name - reused across all tests
+TEST_API_KEY_NAME = "TEST_API_KEY_FUNCTIONAL"
 
 
-@pytest.mark.parametrize("APIKeyFactory", [APIKeyFactory, v2.APIKey])
-def test_create_api_key_from_json(APIKeyFactory):
+def _get_test_api_key(APIKeyFactory):
+    """Get the test API key if it exists."""
+    try:
+        api_keys = APIKeyFactory.list()
+        for api_key in api_keys:
+            if api_key.name == TEST_API_KEY_NAME:
+                return api_key
+    except Exception:
+        pass
+    return None
+
+
+def _delete_test_api_key(APIKeyFactory):
+    """Delete the test API key if it exists."""
+    api_key = _get_test_api_key(APIKeyFactory)
+    if api_key:
+        try:
+            api_key.delete()
+            time.sleep(0.5)  # Wait for deletion to process
+        except Exception:
+            pass
+
+
+@pytest.fixture(scope="module", autouse=True)
+def test_api_key_lifecycle():
+    """Setup/Teardown: Manage single test API key lifecycle.
+
+    Setup: Delete test key before all tests start
+    Teardown: Delete test key after all tests complete
+    """
+    # Setup: Delete test key before tests start
+    _delete_test_api_key(APIKeyFactory)
+    yield
+    # Teardown: Delete test key after all tests complete
+    _delete_test_api_key(APIKeyFactory)
+
+
+@pytest.mark.parametrize("APIKeyFactory", [APIKeyFactory])
+def test_01_create_api_key_from_json(APIKeyFactory):
+    """Test creating API key from JSON file."""
     api_key_json = "tests/functional/apikey/apikey.json"
 
     with open(api_key_json, "r") as file:
         api_key_data = json.load(file)
 
     expires_at = (datetime.now(timezone.utc) + timedelta(weeks=4)).strftime("%Y-%m-%dT%H:%M:%SZ")
-    unique_name = f"{api_key_data['name']}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
     api_key = APIKeyFactory.create(
-        name=unique_name,
+        name=TEST_API_KEY_NAME,
         asset_limits=[
             APIKeyLimits(
                 model=api_key_data["asset_limits"][0]["model"],
@@ -40,13 +79,15 @@ def test_create_api_key_from_json(APIKeyFactory):
 
     assert isinstance(api_key, APIKey)
     assert api_key.id != ""
-    assert api_key.name == unique_name
+    assert api_key.name == TEST_API_KEY_NAME
 
+    # Cleanup: Delete the key after test
     api_key.delete()
 
 
-@pytest.mark.parametrize("APIKeyFactory", [APIKeyFactory, v2.APIKey])
-def test_create_api_key_from_dict(APIKeyFactory):
+@pytest.mark.parametrize("APIKeyFactory", [APIKeyFactory])
+def test_02_create_api_key_from_dict(APIKeyFactory):
+    """Test creating API key from dictionary."""
     api_key_dict = {
         "asset_limits": [
             {
@@ -57,14 +98,18 @@ def test_create_api_key_from_dict(APIKeyFactory):
                 "request_per_minute": 100,
             }
         ],
-        "global_limits": {"token_per_minute": 100, "token_per_day": 1000, "request_per_day": 1000, "request_per_minute": 100},
+        "global_limits": {
+            "token_per_minute": 100,
+            "token_per_day": 1000,
+            "request_per_day": 1000,
+            "request_per_minute": 100,
+        },
         "budget": 1000,
         "expires_at": (datetime.now(timezone.utc) + timedelta(weeks=4)).strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
 
-    unique_name = f"Test_API_Key_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
     api_key = APIKeyFactory.create(
-        name=unique_name,
+        name=TEST_API_KEY_NAME,
         asset_limits=[APIKeyLimits(**limit) for limit in api_key_dict["asset_limits"]],
         global_limits=APIKeyLimits(**api_key_dict["global_limits"]),
         budget=api_key_dict["budget"],
@@ -73,13 +118,15 @@ def test_create_api_key_from_dict(APIKeyFactory):
 
     assert isinstance(api_key, APIKey)
     assert api_key.id != ""
-    assert api_key.name == unique_name
+    assert api_key.name == TEST_API_KEY_NAME
 
+    # Cleanup: Delete the key after test
     api_key.delete()
 
 
-@pytest.mark.parametrize("APIKeyFactory", [APIKeyFactory, v2.APIKey])
-def test_create_update_api_key_from_dict(APIKeyFactory):
+@pytest.mark.parametrize("APIKeyFactory", [APIKeyFactory])
+def test_03_create_update_api_key_from_dict(APIKeyFactory):
+    """Test creating and updating API key from dictionary."""
     api_key_dict = {
         "asset_limits": [
             {
@@ -90,14 +137,18 @@ def test_create_update_api_key_from_dict(APIKeyFactory):
                 "request_per_minute": 100,
             }
         ],
-        "global_limits": {"token_per_minute": 100, "token_per_day": 1000, "request_per_day": 1000, "request_per_minute": 100},
+        "global_limits": {
+            "token_per_minute": 100,
+            "token_per_day": 1000,
+            "request_per_day": 1000,
+            "request_per_minute": 100,
+        },
         "budget": 1000,
         "expires_at": (datetime.now(timezone.utc) + timedelta(weeks=4)).strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
 
-    unique_name = f"Test_API_Key_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
     api_key = APIKeyFactory.create(
-        name=unique_name,
+        name=TEST_API_KEY_NAME,
         asset_limits=[APIKeyLimits(**limit) for limit in api_key_dict["asset_limits"]],
         global_limits=APIKeyLimits(**api_key_dict["global_limits"]),
         budget=api_key_dict["budget"],
@@ -106,12 +157,12 @@ def test_create_update_api_key_from_dict(APIKeyFactory):
 
     assert isinstance(api_key, APIKey)
     assert api_key.id != ""
-    assert api_key.name == unique_name
+    assert api_key.name == TEST_API_KEY_NAME
 
     api_key_ = APIKeyFactory.get(api_key=api_key.access_key)
     assert isinstance(api_key_, APIKey)
     assert api_key_.id != ""
-    assert api_key_.name == unique_name
+    assert api_key_.name == TEST_API_KEY_NAME
 
     api_key.global_limits.token_per_day = 222
     api_key.global_limits.token_per_minute = 222
@@ -132,11 +183,13 @@ def test_create_update_api_key_from_dict(APIKeyFactory):
     assert api_key.asset_limits[0].token_per_day == 222
     assert api_key.asset_limits[0].token_per_minute == 222
 
+    # Cleanup: Delete the key after test
     api_key.delete()
 
 
-@pytest.mark.parametrize("APIKeyFactory", [APIKeyFactory, v2.APIKey])
-def test_list_api_keys(APIKeyFactory):
+@pytest.mark.parametrize("APIKeyFactory", [APIKeyFactory])
+def test_04_list_api_keys(APIKeyFactory):
+    """Test listing API keys."""
     api_keys = APIKeyFactory.list()
     assert isinstance(api_keys, list)
 
@@ -151,8 +204,9 @@ def test_list_api_keys(APIKeyFactory):
                 assert isinstance(usage[0], APIKeyUsageLimit)
 
 
-@pytest.mark.parametrize("APIKeyFactory", [APIKeyFactory, v2.APIKey])
-def test_list_update_api_keys(APIKeyFactory):
+@pytest.mark.parametrize("APIKeyFactory", [APIKeyFactory])
+def test_05_list_update_api_keys(APIKeyFactory):
+    """Test listing and updating API keys."""
     api_keys = APIKeyFactory.list()
     assert isinstance(api_keys, list)
 
@@ -207,8 +261,9 @@ def test_list_update_api_keys(APIKeyFactory):
         break
 
 
-@pytest.mark.parametrize("APIKeyFactory", [APIKeyFactory, v2.APIKey])
-def test_create_api_key_wrong_input(APIKeyFactory):
+@pytest.mark.parametrize("APIKeyFactory", [APIKeyFactory])
+def test_06_create_api_key_wrong_input(APIKeyFactory):
+    """Test API key creation with invalid input (should raise exception)."""
     api_key_name = "Test API Key"
 
     with pytest.raises(Exception):

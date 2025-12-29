@@ -54,7 +54,7 @@ def create_custom_python_code_tool(
         cls,
         code: Union[str, Callable],
         name: str,
-        description: str = "") -> "CustomPythonCodeTool"
+        description: str = "") -> "ConnectionTool"
 ```
 
 [[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L123)

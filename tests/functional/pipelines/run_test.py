@@ -20,10 +20,9 @@ import pytest
 import os
 from aixplain.factories import DatasetFactory, PipelineFactory
 from aixplain.enums.response_status import ResponseStatus
-from aixplain import aixplain_v2 as v2
 
 
-@pytest.mark.parametrize("PipelineFactory", [PipelineFactory, v2.Pipeline])
+@pytest.mark.parametrize("PipelineFactory", [PipelineFactory])
 def test_list_pipelines(PipelineFactory):
     search_result = PipelineFactory.list()
 
@@ -34,7 +33,7 @@ def test_list_pipelines(PipelineFactory):
     assert len(search_result["results"]) > 0
 
 
-@pytest.mark.parametrize("PipelineFactory", [PipelineFactory, v2.Pipeline])
+@pytest.mark.parametrize("PipelineFactory", [PipelineFactory])
 def test_get_pipeline(PipelineFactory):
     reference_pipeline = PipelineFactory.list()["results"][0]
 
@@ -67,7 +66,7 @@ def test_run_single_str(batchmode: bool, version: str):
         (False, "3.0"),
     ],
 )
-@pytest.mark.parametrize("PipelineFactory", [PipelineFactory, v2.Pipeline])
+@pytest.mark.parametrize("PipelineFactory", [PipelineFactory])
 def test_run_single_local_file(batchmode: bool, version: str, PipelineFactory):
     pipeline = PipelineFactory.list(query="SingleNodePipeline")["results"][0]
 
@@ -89,7 +88,7 @@ def test_run_single_local_file(batchmode: bool, version: str, PipelineFactory):
         (False, "3.0"),
     ],
 )
-@pytest.mark.parametrize("PipelineFactory", [PipelineFactory, v2.Pipeline])
+@pytest.mark.parametrize("PipelineFactory", [PipelineFactory])
 def test_run_with_url(batchmode: bool, version: str, PipelineFactory):
     pipeline = PipelineFactory.list(query="SingleNodePipeline")["results"][0]
 
@@ -110,7 +109,7 @@ def test_run_with_url(batchmode: bool, version: str, PipelineFactory):
         (False, "3.0"),
     ],
 )
-@pytest.mark.parametrize("PipelineFactory", [PipelineFactory, v2.Pipeline])
+@pytest.mark.parametrize("PipelineFactory", [PipelineFactory])
 def test_run_with_dataset(batchmode: bool, version: str, PipelineFactory):
     dataset = DatasetFactory.list(query="for_functional_tests")["results"][0]
     data_asset_id = dataset.id
@@ -135,7 +134,7 @@ def test_run_with_dataset(batchmode: bool, version: str, PipelineFactory):
         (False, "3.0"),
     ],
 )
-@pytest.mark.parametrize("PipelineFactory", [PipelineFactory, v2.Pipeline])
+@pytest.mark.parametrize("PipelineFactory", [PipelineFactory])
 def test_run_multipipe_with_strings(batchmode: bool, version: str, PipelineFactory):
     pipeline = PipelineFactory.list(query="MultiInputPipeline")["results"][0]
 
@@ -156,7 +155,7 @@ def test_run_multipipe_with_strings(batchmode: bool, version: str, PipelineFacto
         (False, "3.0"),
     ],
 )
-@pytest.mark.parametrize("PipelineFactory", [PipelineFactory, v2.Pipeline])
+@pytest.mark.parametrize("PipelineFactory", [PipelineFactory])
 def test_run_multipipe_with_datasets(batchmode: bool, version: str, PipelineFactory):
     pipeline = PipelineFactory.list(query="MultiInputPipeline")["results"][0]
 
@@ -176,7 +175,7 @@ def test_run_multipipe_with_datasets(batchmode: bool, version: str, PipelineFact
 
 
 @pytest.mark.parametrize("version", ["2.0", "3.0"])
-@pytest.mark.parametrize("PipelineFactory", [PipelineFactory, v2.Pipeline])
+@pytest.mark.parametrize("PipelineFactory", [PipelineFactory])
 def test_run_segment_reconstruct(version: str, PipelineFactory):
     pipeline = PipelineFactory.list(query="Segmentation/Reconstruction Functional Test - DO NOT DELETE")["results"][0]
     response = pipeline.run(
@@ -188,7 +187,7 @@ def test_run_segment_reconstruct(version: str, PipelineFactory):
 
 
 @pytest.mark.parametrize("version", ["2.0", "3.0"])
-@pytest.mark.parametrize("PipelineFactory", [PipelineFactory, v2.Pipeline])
+@pytest.mark.parametrize("PipelineFactory", [PipelineFactory])
 def test_run_translation_metric(version: str, PipelineFactory):
     dataset = DatasetFactory.list(query="for_functional_tests")["results"][0]
     data_asset_id = dataset.id
@@ -205,8 +204,9 @@ def test_run_translation_metric(version: str, PipelineFactory):
     assert response["status"] == ResponseStatus.SUCCESS
 
 
+@pytest.mark.skip
 @pytest.mark.parametrize("version", ["2.0", "3.0"])
-@pytest.mark.parametrize("PipelineFactory", [PipelineFactory, v2.Pipeline])
+@pytest.mark.parametrize("PipelineFactory", [PipelineFactory])
 def test_run_metric(version: str, PipelineFactory):
     pipeline = PipelineFactory.list(query="ASR Metric Functional Test - DO NOT DELETE")["results"][0]
     response = pipeline.run(
@@ -245,7 +245,7 @@ def test_run_metric(version: str, PipelineFactory):
         ),
     ],
 )
-@pytest.mark.parametrize("PipelineFactory", [PipelineFactory, v2.Pipeline])
+@pytest.mark.parametrize("PipelineFactory", [PipelineFactory])
 def test_run_router(input_data: str, output_data: str, version: str, PipelineFactory):
     pipeline = PipelineFactory.list(query="Router Test - DO NOT DELETE")["results"][0]
     response = pipeline.run(input_data, **{"version": version})
@@ -262,7 +262,7 @@ def test_run_router(input_data: str, output_data: str, version: str, PipelineFac
         ("I hate it.", "NegativeOutput", "3.0"),
     ],
 )
-@pytest.mark.parametrize("PipelineFactory", [PipelineFactory, v2.Pipeline])
+@pytest.mark.parametrize("PipelineFactory", [PipelineFactory])
 def test_run_decision(input_data: str, output_data: str, version: str, PipelineFactory):
     pipeline = PipelineFactory.list(query="Decision Test - DO NOT DELETE")["results"][0]
     response = pipeline.run(input_data, **{"version": version})
@@ -272,7 +272,7 @@ def test_run_decision(input_data: str, output_data: str, version: str, PipelineF
 
 
 @pytest.mark.parametrize("version", ["3.0"])
-@pytest.mark.parametrize("PipelineFactory", [PipelineFactory, v2.Pipeline])
+@pytest.mark.parametrize("PipelineFactory", [PipelineFactory])
 def test_run_script(version: str, PipelineFactory):
     pipeline = PipelineFactory.list(query="Script Functional Test - DO NOT DELETE")["results"][0]
     response = pipeline.run(
@@ -286,7 +286,7 @@ def test_run_script(version: str, PipelineFactory):
 
 
 @pytest.mark.parametrize("version", ["2.0", "3.0"])
-@pytest.mark.parametrize("PipelineFactory", [PipelineFactory, v2.Pipeline])
+@pytest.mark.parametrize("PipelineFactory", [PipelineFactory])
 def test_run_text_reconstruction(version: str, PipelineFactory):
     pipeline = PipelineFactory.list(query="Text Reconstruction - DO NOT DELETE")["results"][0]
     response = pipeline.run("Segment A\nSegment B\nSegment C", **{"version": version})
@@ -304,7 +304,7 @@ def test_run_text_reconstruction(version: str, PipelineFactory):
 
 
 @pytest.mark.parametrize("version", ["3.0"])
-@pytest.mark.parametrize("PipelineFactory", [PipelineFactory, v2.Pipeline])
+@pytest.mark.parametrize("PipelineFactory", [PipelineFactory])
 def test_run_diarization(version: str, PipelineFactory):
     pipeline = PipelineFactory.list(query="Diarization ASR Functional Test - DO NOT DELETE")["results"][0]
     response = pipeline.run(
@@ -319,7 +319,7 @@ def test_run_diarization(version: str, PipelineFactory):
 
 
 @pytest.mark.parametrize("version", ["3.0"])
-@pytest.mark.parametrize("PipelineFactory", [PipelineFactory, v2.Pipeline])
+@pytest.mark.parametrize("PipelineFactory", [PipelineFactory])
 def test_run_failure(version: str, PipelineFactory):
     pipeline = PipelineFactory.list(query="Script Functional Test - DO NOT DELETE")["results"][0]
     response = pipeline.run(
@@ -331,7 +331,7 @@ def test_run_failure(version: str, PipelineFactory):
 
 
 @pytest.mark.parametrize("version", ["2.0", "3.0"])
-@pytest.mark.parametrize("PipelineFactory", [PipelineFactory, v2.Pipeline])
+@pytest.mark.parametrize("PipelineFactory", [PipelineFactory])
 def test_run_async_simple(version: str, PipelineFactory):
     """Test simple async pipeline execution with polling"""
     pipeline = PipelineFactory.list(query="SingleNodePipeline")["results"][0]

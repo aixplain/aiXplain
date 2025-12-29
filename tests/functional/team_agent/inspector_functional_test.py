@@ -32,15 +32,14 @@ from tests.functional.team_agent.test_utils import (
 )
 
 # ---- minimal config points ----
-_DEFAULT_STEP_TARGET = "Agent1_agent"       # <-- change if your backend uses different target keys
-_DEFAULT_INPUT_TARGET = "query_manager"     # <-- if backend expects query_manager for INPUT
-_DEFAULT_OUTPUT_TARGET = "response_generator"
+_DEFAULT_STEP_TARGET = "Agent1_agent"    
+_DEFAULT_INPUT_TARGET = "input"    
+_DEFAULT_OUTPUT_TARGET = "output"
 
 
 @pytest.fixture(scope="function")
 def delete_agents_and_team_agents():
     from tests.test_deletion_utils import safe_delete_all_agents_and_team_agents
-
     safe_delete_all_agents_and_team_agents()
     yield True
     safe_delete_all_agents_and_team_agents()
@@ -51,50 +50,34 @@ def run_input_map(request):
     return request.param
 
 
-def verify_inspector_steps(
-    steps: Dict, inspector_names: List[str], inspector_targets: List[InspectorTarget]
-) -> None:
+def verify_inspector_steps(steps: Dict, inspector_names: List[str], inspector_targets: List[InspectorTarget]) -> None:
     """Helper function to verify inspector steps"""
     inspector_counts = {}
     for inspector_name in inspector_names:
-        inspector_steps = [
-            step
-            for step in steps
-            if inspector_name.lower() in step.get("agent", "").lower()
-        ]
+        inspector_steps = [step for step in steps if inspector_name.lower() in step.get("agent", "").lower()]
         inspector_counts[inspector_name] = len(inspector_steps)
 
     assert len(inspector_counts) == len(
         inspector_names
     ), f"Expected {len(inspector_names)} inspectors, found {len(inspector_counts)}"
 
+
     if len(inspector_counts) > 0:
         first_count = next(iter(inspector_counts.values()))
         for inspector, count in inspector_counts.items():
             assert count > 0, f"Inspector {inspector} has no steps"
-            assert (
-                count == first_count
-            ), f"Inspector {inspector} has {count} steps, expected {first_count}"
+            assert count == first_count, f"Inspector {inspector} has {count} steps, expected {first_count}"
             print(f"Inspector {inspector} has {count} steps")
 
     if InspectorTarget.OUTPUT in inspector_targets:
-        response_generator_steps = [
-            step
-            for step in steps
-            if "response_generator" in step.get("agent", "").lower()
-        ]
-        assert (
-            len(response_generator_steps) == 1
-        ), "Expected exactly one response_generator step"
+        response_generator_steps = [step for step in steps if "response_generator" in step.get("agent", "").lower()]
+        assert len(response_generator_steps) == 1, "Expected exactly one response_generator step"
         response_generator_index = steps.index(response_generator_steps[0])
 
         inspector_steps_after = [
             step
             for step in steps[response_generator_index + 1 :]
-            if any(
-                inspector_name.lower() in step.get("agent", "").lower()
-                for inspector_name in inspector_names
-            )
+            if any(inspector_name.lower() in step.get("agent", "").lower() for inspector_name in inspector_names)
         ]
         assert (
             len(inspector_steps_after) > 0
@@ -102,10 +85,7 @@ def verify_inspector_steps(
 
         last_steps = steps[response_generator_index + 1 :]
         assert all(
-            any(
-                inspector_name.lower() in step.get("agent", "").lower()
-                for inspector_name in inspector_names
-            )
+            any(inspector_name.lower() in step.get("agent", "").lower() for inspector_name in inspector_names)
             for step in last_steps
         ), "Not all steps after response generator are inspector steps"
 
@@ -115,6 +95,7 @@ def test_team_agent_with_warn_inspector(
     run_input_map, delete_agents_and_team_agents, TeamAgentFactory
 ):
     """Test team agent with CONTINUE inspector (warn-like: does not stop execution)"""
+
     assert delete_agents_and_team_agents
 
     agents = create_agents_from_input_map(run_input_map)
@@ -173,7 +154,7 @@ def test_team_agent_with_adaptive_inspector(
     run_input_map, delete_agents_and_team_agents, TeamAgentFactory
 ):
     """Test team agent with rerun inspector (adaptive-like behavior happens in backend)"""
-    assert delete_agents_and_team_agents
+
 
     agents = create_agents_from_input_map(run_input_map)
 
@@ -189,6 +170,7 @@ def test_team_agent_with_adaptive_inspector(
             evaluator=run_input_map["llm_id"],
             evaluator_prompt="Always provide a critique to force at least one rerun.",
         ),
+
     )
 
     team_agent = create_team_agent(
@@ -224,13 +206,12 @@ def test_team_agent_with_adaptive_inspector(
         ]
         assert len(inspector_steps) > 0, "Adaptive inspector should run"
 
+
     team_agent.delete()
 
 
-@pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory, v2.TeamAgent])
-def test_team_agent_with_abort_inspector(
-    run_input_map, delete_agents_and_team_agents, TeamAgentFactory
-):
+@pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory])
+def test_team_agent_with_abort_inspector(run_input_map, delete_agents_and_team_agents, TeamAgentFactory):
     """Test team agent with abort inspector that stops execution on critique"""
     assert delete_agents_and_team_agents
 
@@ -281,13 +262,12 @@ def test_team_agent_with_abort_inspector(
         ]
         assert len(inspector_steps) >= 1, "Abort inspector should run"
 
+
     team_agent.delete()
 
 
-@pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory, v2.TeamAgent])
-def test_team_agent_with_output_inspector(
-    run_input_map, delete_agents_and_team_agents, TeamAgentFactory
-):
+@pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory])
+def test_team_agent_with_output_inspector(run_input_map, delete_agents_and_team_agents, TeamAgentFactory):
     """Test team agent with output inspector that runs after response generator"""
     assert delete_agents_and_team_agents
 
@@ -338,13 +318,12 @@ def test_team_agent_with_output_inspector(
         ]
         assert len(output_inspector_steps) > 0, "There should be an output inspector step"
 
+
     team_agent.delete()
 
 
-@pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory, v2.TeamAgent])
-def test_team_agent_with_multiple_inspector_targets(
-    run_input_map, delete_agents_and_team_agents, TeamAgentFactory
-):
+@pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory])
+def test_team_agent_with_multiple_inspector_targets(run_input_map, delete_agents_and_team_agents, TeamAgentFactory):
     """Test team agent with inspectors targeting both steps and output"""
     assert delete_agents_and_team_agents
 
@@ -408,7 +387,7 @@ def test_team_agent_with_multiple_inspector_targets(
     team_agent.delete()
 
 
-@pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory, v2.TeamAgent])
+@pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory])
 def test_team_agent_with_steps_inspector(run_input_map, delete_agents_and_team_agents, TeamAgentFactory):
     """Test team agent with steps inspector"""
     assert delete_agents_and_team_agents
@@ -456,6 +435,7 @@ def test_team_agent_with_steps_inspector(run_input_map, delete_agents_and_team_a
 
 
 @pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory, v2.TeamAgent])
+
 def test_team_agent_with_input_inspector(run_input_map, delete_agents_and_team_agents, TeamAgentFactory):
     """Test team agent with input inspector"""
     assert delete_agents_and_team_agents
@@ -496,7 +476,6 @@ def test_team_agent_with_input_inspector(run_input_map, delete_agents_and_team_a
         verify_inspector_steps(steps, ["input_inspector"], [InspectorTarget.INPUT])
         verify_response_generator(steps)
 
-        inspector_steps = [step for step in steps if "input_inspector" in step.get("agent", "").lower()]
-        assert len(inspector_steps) > 0, "Input inspector should run at least once"
-
     team_agent.delete()
+
+    

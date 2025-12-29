@@ -449,12 +449,10 @@ class BaseResource:
         return self.context.client.request(method, path, **kwargs)
 
     def __repr__(self) -> str:
-        """Return a string representation using assetPath > instanceId > id priority."""
+        """Return a string representation using assetPath > id priority."""
         # Priority: assetPath > instanceId > id
         if self.asset_path:
-            return f"{self.__class__.__name__}(id={self.asset_path})"
-        elif self.instance_id:
-            return f"{self.__class__.__name__}(id={self.instance_id})"
+            return f"{self.__class__.__name__}(path={self.asset_path})"
         else:
             return f"{self.__class__.__name__}(id={self.id}, name={self.name})"
 
@@ -497,6 +495,10 @@ class BaseSearchParams(BaseParams):
         sort_order: SortOrder: The order to sort by.
         page_number: int: The page number.
         page_size: int: The page size.
+        resource_path: str: Optional custom resource path to override
+                          RESOURCE_PATH.
+        paginate_items_key: str: Optional key name for items in paginated
+                                response (overrides PAGINATE_ITEMS_KEY).
     """
 
     query: NotRequired[str]
@@ -505,6 +507,8 @@ class BaseSearchParams(BaseParams):
     sort_order: NotRequired[SortOrder]
     page_number: NotRequired[int]
     page_size: NotRequired[int]
+    resource_path: NotRequired[str]
+    paginate_items_key: NotRequired[str]
 
 
 class BaseGetParams(BaseParams):
@@ -810,7 +814,8 @@ class SearchResourceMixin(BaseMixin, Generic[SearchParamsT, ResourceT]):
             json_data = response
 
         items = json_data
-        paginate_items_key = getattr(cls, "PAGINATE_ITEMS_KEY", "items")
+        # Check for override in kwargs first, then fall back to class attribute
+        paginate_items_key = kwargs.get("paginate_items_key") or getattr(cls, "PAGINATE_ITEMS_KEY", "items")
         if paginate_items_key and isinstance(json_data, dict):
             items = json_data[paginate_items_key]
 
@@ -1173,7 +1178,6 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
         """
         return None
 
-    @with_hooks
     def run(self, *args: Any, **kwargs: Unpack[RunParamsT]) -> ResultT:
         """Run the resource synchronously with automatic polling.
 
@@ -1183,13 +1187,24 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
 
         Returns:
             Response instance from the configured response class
+
+        Note:
+            The before_run hook is called via run_async(), not here, to avoid
+            double invocation since run() delegates to run_async().
         """
-        # Start async execution
+        # Start async execution (before_run hook is called inside run_async)
         result = self.run_async(**kwargs)
 
         # Check if we need to poll
         if result.url and not result.completed:
             result = self.sync_poll(result.url, **kwargs)
+
+        # Call after_run hook for synchronous completion
+        after_method = getattr(self, "after_run", None)
+        if after_method:
+            custom_result = after_method(result, **kwargs)
+            if custom_result is not None:
+                return custom_result
 
         return result
 
@@ -1202,6 +1217,13 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
         Returns:
             Response instance from the configured RESPONSE_CLASS
         """
+        # Call before_run hook to allow subclasses to prepare (e.g., auto-save drafts)
+        before_method = getattr(self, "before_run", None)
+        if before_method:
+            early_result = before_method(**kwargs)
+            if early_result is not None:
+                return early_result
+
         self._ensure_valid_state()
 
         payload = self.build_run_payload(**kwargs)

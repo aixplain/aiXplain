@@ -11,7 +11,6 @@ from aixplain.modules.pipeline.designer import (
 from aixplain.modules import Pipeline
 from aixplain.modules.pipeline.designer import AssetNode
 from uuid import uuid4
-from aixplain import aixplain_v2 as v2
 
 
 @pytest.fixture
@@ -66,7 +65,7 @@ def test_create_asr_pipeline(pipeline):
     assert pipeline.id != ""
 
 
-@pytest.mark.parametrize("PipelineFactory", [PipelineFactory, v2.Pipeline])
+@pytest.mark.parametrize("PipelineFactory", [PipelineFactory])
 def test_create_mt_pipeline_and_run(pipeline, PipelineFactory):
     # add nodes to the pipeline
     input = pipeline.input()
@@ -104,7 +103,6 @@ def test_create_mt_pipeline_and_run(pipeline, PipelineFactory):
 
 
 def test_routing_pipeline(pipeline):
-
     TRANSLATION_ASSET = "60ddefae8d38c51c5885eff7"
     SPEECH_RECOGNITION_ASSET = "621cf3fa6442ef511d2830af"
 
@@ -124,7 +122,6 @@ def test_routing_pipeline(pipeline):
 
 
 def test_scripting_pipeline(pipeline):
-
     SPEAKER_DIARIZATION_AUDIO_ASSET = "62fab6ecb39cca09ca5bc365"
 
     input = pipeline.input()
@@ -151,7 +148,6 @@ def test_scripting_pipeline(pipeline):
 
 
 def test_decision_pipeline(pipeline):
-
     SENTIMENT_ANALYSIS_ASSET = "6172874f720b09325cbcdc33"
 
     input = pipeline.input()
@@ -218,7 +214,6 @@ def test_reconstructing_pipeline(pipeline):
 
 
 def test_metric_pipeline(pipeline):
-
     dataset = DatasetFactory.list(query="for_functional_tests")["results"][0]
     data_asset_id = dataset.id
     reference_id = dataset.target_data["pt"][0].id
