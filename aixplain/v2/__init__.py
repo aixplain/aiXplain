@@ -8,10 +8,6 @@ from .inspector import (
     Inspector,
     InspectorTarget,
     InspectorAction,
-    InspectorPolicy,
-    InspectorAuto,
-    InspectorOutput,
-    ModelResponse,
 )
 from .exceptions import (
     AixplainV2Error,
@@ -55,9 +51,6 @@ __all__ = [
     "Inspector",
     "InspectorTarget",
     "InspectorAction",
-    "InspectorPolicy",
-    "InspectorAuto",
-    "InspectorOutput",
     "ModelResponse",
     # Exceptions
     "AixplainV2Error",
