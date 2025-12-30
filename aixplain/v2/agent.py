@@ -1,3 +1,5 @@
+"""Agent module for aiXplain v2 SDK."""
+
 import json
 import logging
 from datetime import datetime
@@ -42,8 +44,7 @@ class ConversationMessage(TypedDict):
 
 
 def validate_history(history: List[Dict[str, Any]]) -> bool:
-    """
-    Validates conversation history for agent sessions.
+    """Validates conversation history for agent sessions.
 
     This function ensures that the history is properly formatted for agent conversations,
     with each message containing the required 'role' and 'content' fields and proper types.
@@ -101,13 +102,32 @@ def validate_history(history: List[Dict[str, Any]]) -> bool:
 
 
 class OutputFormat(str, Enum):
+    """Output format options for agent responses."""
+
     MARKDOWN = "markdown"
     TEXT = "text"
     JSON = "json"
 
 
 class AgentRunParams(BaseRunParams):
-    """Parameters for running an agent."""
+    """Parameters for running an agent.
+
+    Attributes:
+        sessionId: Session ID for conversation continuity
+        query: The query to run
+        allowHistoryAndSessionId: Allow both history and session ID
+        tasks: List of tasks for the agent
+        prompt: Custom prompt override
+        history: Conversation history
+        executionParams: Execution parameters (maxTokens, etc.)
+        criteria: Criteria for evaluation
+        evolve: Evolution parameters
+        inspectors: Inspector configurations
+        show_progress: Enable progress display during execution
+        progress_format: Display format - "status" (single line), "logs" (timeline), "none"
+        progress_verbosity: Detail level - 1 (minimal), 2 (thoughts), 3 (full I/O)
+        progress_truncate: Whether to truncate long text in progress display
+    """
 
     sessionId: NotRequired[Optional[Text]]
     query: NotRequired[Optional[Union[Dict, Text]]]
@@ -120,6 +140,9 @@ class AgentRunParams(BaseRunParams):
     evolve: NotRequired[Optional[Text]]
     inspectors: NotRequired[Optional[List[Dict]]]
     show_progress: NotRequired[Optional[bool]]
+    progress_format: NotRequired[Optional[Text]]
+    progress_verbosity: NotRequired[Optional[int]]
+    progress_truncate: NotRequired[Optional[bool]]
 
 
 @dataclass_json
@@ -154,16 +177,18 @@ class AgentRunResult(Result):
 @dataclass_json
 @dataclass
 class Task:
+    """A task definition for agent workflows."""
+
     name: str
     instructions: Optional[str] = field(metadata=config(field_name="description"))
     expected_output: Optional[str] = field(metadata=config(field_name="expectedOutput"))
     dependencies: List[Union[str, "Task"]] = field(default_factory=list)
 
     def __post_init__(self) -> None:
+        """Initialize task dependencies after dataclass creation."""
         if self.dependencies:
             self.dependencies = [
-                dependency if isinstance(dependency, str) else dependency.name
-                for dependency in self.dependencies
+                dependency if isinstance(dependency, str) else dependency.name for dependency in self.dependencies
             ]
 
 
@@ -191,34 +216,20 @@ class Agent(
     instructions: Optional[str] = None
     status: AssetStatus = AssetStatus.DRAFT
     team_id: Optional[int] = field(default=None, metadata=config(field_name="teamId"))
-    llm: Union[str, "Model"] = field(
-        default=DEFAULT_LLM, metadata=config(field_name="llmId")
-    )
+    llm: Union[str, "Model"] = field(default=DEFAULT_LLM, metadata=config(field_name="llmId"))
 
     # Asset and tool fields
-    assets: Optional[List[Dict[str, Any]]] = field(
-        default_factory=list, metadata=config(field_name="tools")
-    )
-    tools: Optional[List[Dict[str, Any]]] = field(
-        default_factory=list, metadata=config(field_name="assets")
-    )
+    assets: Optional[List[Dict[str, Any]]] = field(default_factory=list, metadata=config(field_name="tools"))
+    tools: Optional[List[Dict[str, Any]]] = field(default_factory=list, metadata=config(field_name="assets"))
 
     # Inspector and supervisor fields
-    inspector_id: Optional[str] = field(
-        default=None, metadata=config(field_name="inspectorId")
-    )
-    supervisor_id: Optional[str] = field(
-        default=None, metadata=config(field_name="supervisorId")
-    )
-    planner_id: Optional[str] = field(
-        default=None, metadata=config(field_name="plannerId")
-    )
+    inspector_id: Optional[str] = field(default=None, metadata=config(field_name="inspectorId"))
+    supervisor_id: Optional[str] = field(default=None, metadata=config(field_name="supervisorId"))
+    planner_id: Optional[str] = field(default=None, metadata=config(field_name="plannerId"))
 
     # Task fields
     tasks: Optional[List[Task]] = field(default_factory=list)
-    subagents: Optional[List[Union[str, "Agent"]]] = field(
-        default_factory=list, metadata=config(field_name="agents")
-    )
+    subagents: Optional[List[Union[str, "Agent"]]] = field(default_factory=list, metadata=config(field_name="agents"))
 
     # Output and execution fields
     output_format: Optional[Union[str, OutputFormat]] = field(
@@ -229,24 +240,15 @@ class Agent(
     )
 
     # Metadata fields
-    created_at: Optional[str] = field(
-        default=None, metadata=config(field_name="createdAt")
-    )
-    updated_at: Optional[str] = field(
-        default=None, metadata=config(field_name="updatedAt")
-    )
-    inspector_targets: Optional[List[Any]] = field(
-        default_factory=list, metadata=config(field_name="inspectorTargets")
-    )
-    max_inspectors: Optional[int] = field(
-        default=None, metadata=config(field_name="maxInspectors")
-    )
+    created_at: Optional[str] = field(default=None, metadata=config(field_name="createdAt"))
+    updated_at: Optional[str] = field(default=None, metadata=config(field_name="updatedAt"))
+    inspector_targets: Optional[List[Any]] = field(default_factory=list, metadata=config(field_name="inspectorTargets"))
+    max_inspectors: Optional[int] = field(default=None, metadata=config(field_name="maxInspectors"))
     inspectors: Optional[List[Any]] = field(default_factory=list)
-    resource_info: Optional[Dict[str, Any]] = field(
-        default_factory=dict, metadata=config(field_name="resourceInfo")
-    )
+    resource_info: Optional[Dict[str, Any]] = field(default_factory=dict, metadata=config(field_name="resourceInfo"))
 
     def __post_init__(self) -> None:
+        """Initialize agent after dataclass creation."""
         self.tasks = [Task.from_dict(task) for task in self.tasks]
 
         # Store original subagent objects for saving, convert to IDs for storage
@@ -298,9 +300,8 @@ class Agent(
         self.status = AssetStatus.DELETED
         super().mark_as_deleted()
 
-    def before_run(
-        self, *args: Any, **kwargs: Unpack[AgentRunParams]
-    ) -> Optional[AgentRunResult]:
+    def before_run(self, *args: Any, **kwargs: Unpack[AgentRunParams]) -> Optional[AgentRunResult]:
+        """Hook called before running the agent to validate and prepare state."""
         # First, validate that all dependencies are saved before allowing run
         # This prevents auto-saving from masking the validation issue
         self._validate_run_dependencies()
@@ -312,10 +313,7 @@ class Agent(
                 self.save(as_draft=True)
         elif self.status == AssetStatus.ONBOARDED:
             if self.is_modified:
-                raise ValueError(
-                    "Agent is onboarded and cannot be modified unless you "
-                    "explicitly save it."
-                )
+                raise ValueError("Agent is onboarded and cannot be modified unless you explicitly save it.")
         return None
 
     def after_run(
@@ -324,84 +322,26 @@ class Agent(
         *args: Any,
         **kwargs: Unpack[AgentRunParams],
     ) -> Optional[AgentRunResult]:
+        """Hook called after running the agent for result transformation."""
         # Could implement caching, logging, or custom result transformation
         # here
         return None  # Return original result
 
-    def _build_progress_message(self, progress: Dict[str, Any]) -> str:
-        """
-        Build a formatted progress message from progress data.
+    def run(self, *args: Any, **kwargs: Unpack[AgentRunParams]) -> AgentRunResult:
+        """Run the agent with optional progress display.
 
         Args:
-            progress: Dictionary containing progress information
+            *args: Positional arguments (first arg is treated as query)
+            query: The query to run
+            show_progress: Enable progress display (default: False)
+            progress_format: Display format - "status", "logs", or "none" (default: "status")
+            progress_verbosity: Detail level 1-3 (default: 1)
+            progress_truncate: Truncate long text (default: True)
+            **kwargs: Additional run parameters
 
         Returns:
-            str: Formatted progress message
+            AgentRunResult: The result of the agent execution
         """
-        stage = progress.get("stage", "working")
-        tool = progress.get("tool")
-        runtime = progress.get("runtime", 0)
-        success = progress.get("success")
-        reason = progress.get("reason", "")
-        tool_input = progress.get("tool_input", "")
-        tool_output = progress.get("tool_output", "")
-
-        # Build status message
-        if tool:
-            status_icon = "✓" if success else "✗" if success is False else "⏳"
-            msg = (
-                f"🤖 Agent: {stage.replace('_', ' ').title()} | "
-                f"Tool: {tool} {status_icon}"
-            )
-            if runtime > 0:
-                msg += f" ({runtime:.2f}s)"
-            if reason:
-                msg += f" | Reason: {reason}"
-            if tool_input:
-                msg += f" | Input: {tool_input}"
-            if tool_output:
-                msg += f" | Output: {tool_output}"
-        else:
-            msg = f"🤖 Agent: {stage.replace('_', ' ').title()}..."
-            if reason:
-                msg += f" | Reason: {reason}"
-
-        return msg
-
-    def on_poll(
-        self, response: AgentRunResult, **kwargs: Unpack[AgentRunParams]
-    ) -> None:
-        """
-        Hook called after each poll to display agent execution progress.
-
-        This method displays real-time progress updates during agent execution,
-        including tool usage, execution stages, and runtime information.
-
-        Args:
-            response: The poll response containing progress information
-            **kwargs: Run parameters including show_progress flag
-        """
-        show_progress = kwargs.get("show_progress", False)
-
-        if not show_progress or response.completed:
-            return
-
-        # Access progress data from the response
-        # The response might have progress info in _raw_data or as attributes
-        progress = None
-        if hasattr(response, "_raw_data") and response._raw_data:
-            progress = response._raw_data.get("progress")
-        elif hasattr(response, "progress"):
-            progress = response.progress
-
-        if not progress:
-            return
-
-        # Build and display the progress message
-        message = self._build_progress_message(progress)
-        print(message, flush=True)
-
-    def run(self, *args: Any, **kwargs: Unpack[AgentRunParams]) -> AgentRunResult:
         if len(args) > 0:
             kwargs["query"] = args[0]
             args = args[1:]
@@ -410,7 +350,56 @@ class Agent(
         if "session_id" in kwargs and "sessionId" not in kwargs:
             kwargs["sessionId"] = kwargs.pop("session_id")
 
-        return super().run(*args, **kwargs)
+        # Extract progress display options
+        show_progress = kwargs.pop("show_progress", False)
+        progress_format = kwargs.pop("progress_format", "status")
+        progress_verbosity = kwargs.pop("progress_verbosity", 1)
+        progress_truncate = kwargs.pop("progress_truncate", True)
+
+        if not show_progress:
+            # Standard execution without progress display
+            return super().run(*args, **kwargs)
+
+        # Use AgentProgressTracker for progress display
+        from .agent_progress import AgentProgressTracker, ProgressFormat
+
+        # Call before_run hook
+        before_method = getattr(self, "before_run", None)
+        if before_method:
+            early_result = before_method(**kwargs)
+            if early_result is not None:
+                return early_result
+
+        # Start async execution
+        result = self.run_async(**kwargs)
+
+        # If we need to poll, use the progress tracker
+        if result.url and not result.completed:
+            tracker = AgentProgressTracker(
+                poll_func=lambda url: self.poll(url),
+                poll_interval=0.05,
+                max_polls=None,
+            )
+
+            # Map format string to enum
+            fmt = ProgressFormat(progress_format) if progress_format else ProgressFormat.STATUS
+
+            # Stream progress with the tracker
+            result = tracker.stream_progress(
+                url=result.url,
+                format=fmt,
+                verbosity=progress_verbosity,
+                truncate=progress_truncate,
+            )
+
+        # Call after_run hook
+        after_method = getattr(self, "after_run", None)
+        if after_method:
+            custom_result = after_method(result, **kwargs)
+            if custom_result is not None:
+                return custom_result
+
+        return result
 
     def _validate_expected_output(self) -> None:
         # Skip validation if expected_output is None (it's optional)
@@ -420,8 +409,7 @@ class Agent(
         if self.output_format == OutputFormat.JSON.value:
             # Check if expected_output is a valid JSON type
             is_valid = isinstance(self.expected_output, (str, dict, BaseModel)) or (
-                isinstance(self.expected_output, type)
-                and issubclass(self.expected_output, BaseModel)
+                isinstance(self.expected_output, type) and issubclass(self.expected_output, BaseModel)
             )
             if not is_valid:
                 raise ValueError(
@@ -432,17 +420,13 @@ class Agent(
                 try:
                     json.loads(self.expected_output)
                 except json.JSONDecodeError:
-                    raise ValueError(
-                        "Expected output must be a valid JSON string or dict or pydantic model"
-                    )
+                    raise ValueError("Expected output must be a valid JSON string or dict or pydantic model")
         elif self.output_format in [
             OutputFormat.MARKDOWN.value,
             OutputFormat.TEXT.value,
         ]:
             if not isinstance(self.expected_output, str):
-                raise ValueError(
-                    "Expected output must be a string for TEXT/MARKDOWN formats"
-                )
+                raise ValueError("Expected output must be a string for TEXT/MARKDOWN formats")
 
     def save(self, *args: Any, **kwargs: Any) -> "Agent":
         """Save the agent with dependency management.
@@ -451,6 +435,7 @@ class Agent(
         child components before the agent itself is saved.
 
         Args:
+            *args: Positional arguments passed to parent save method.
             save_subcomponents: bool - If True, recursively save all unsaved child components (default: False)
             as_draft: bool - If True, save agent as draft status (default: False)
             **kwargs: Other attributes to set before saving
@@ -493,32 +478,21 @@ class Agent(
                 original_subagent = self._original_subagents[i]
                 if original_subagent is None:  # Already an ID string
                     continue
-                if (
-                    hasattr(original_subagent, "save")
-                    and hasattr(original_subagent, "id")
-                    and not original_subagent.id
-                ):
+                if hasattr(original_subagent, "save") and hasattr(original_subagent, "id") and not original_subagent.id:
                     try:
                         # Recursively save subagent and its components
                         original_subagent.save(save_subcomponents=True)
                         # Update the subagents list with the new ID
                         self.subagents[i] = original_subagent.id
                     except Exception as e:
-                        subagent_name = getattr(
-                            original_subagent, "name", f"subagent_{i}"
-                        )
+                        subagent_name = getattr(original_subagent, "name", f"subagent_{i}")
                         failed_components.append(("subagent", subagent_name, str(e)))
 
         if failed_components:
             error_details = "; ".join(
-                [
-                    f"{comp_type} '{name}': {error}"
-                    for comp_type, name, error in failed_components
-                ]
+                [f"{comp_type} '{name}': {error}" for comp_type, name, error in failed_components]
             )
-            raise ValueError(
-                f"Failed to save {len(failed_components)} component(s): {error_details}"
-            )
+            raise ValueError(f"Failed to save {len(failed_components)} component(s): {error_details}")
 
     def _validate_run_dependencies(self) -> None:
         """Validate that all child components are saved before running."""
@@ -585,8 +559,8 @@ class Agent(
             )
 
     def before_save(self, *args: Any, **kwargs: Any) -> Optional[dict]:
-        """
-        Callback to be called before the resource is saved.
+        """Callback to be called before the resource is saved.
+
         Handles status transitions based on save type.
         """
         as_draft = kwargs.pop("as_draft", False)
@@ -599,11 +573,9 @@ class Agent(
 
         return None
 
-    def after_clone(
-        self, result: Union["Agent", Exception], **kwargs: Any
-    ) -> Optional["Agent"]:
-        """
-        Callback called after the agent is cloned.
+    def after_clone(self, result: Union["Agent", Exception], **kwargs: Any) -> Optional["Agent"]:
+        """Callback called after the agent is cloned.
+
         Sets the cloned agent's status to DRAFT.
         """
         if isinstance(result, Agent):
@@ -616,8 +588,7 @@ class Agent(
         query: Optional[str] = None,
         **kwargs: Unpack[BaseSearchParams],
     ) -> "Page[Agent]":
-        """
-        Search agents with optional query and filtering.
+        """Search agents with optional query and filtering.
 
         Args:
             query: Optional search query string
@@ -633,9 +604,7 @@ class Agent(
         return super().search(**kwargs)
 
     def build_save_payload(self, **kwargs: Any) -> dict:
-        """
-        Build the payload for the save action.
-        """
+        """Build the payload for the save action."""
         # Import Inspector from v2 module
         from .inspector import Inspector
 
@@ -651,9 +620,7 @@ class Agent(
                     # Already serialized
                     serialized_inspectors.append(inspector)
                 else:
-                    raise ValueError(
-                        f"Inspector must be Inspector instance or dict, got {type(inspector)}"
-                    )
+                    raise ValueError(f"Inspector must be Inspector instance or dict, got {type(inspector)}")
             self.inspectors = serialized_inspectors
 
         # Pre-serialize inspector_targets to strings (enum values)
@@ -686,9 +653,7 @@ class Agent(
                     # Non-tool objects (like Models) that can act as tools
                     converted_assets.append(tool.as_tool())
                 else:
-                    raise ValueError(
-                        "A tool in the agent must be a Tool, Model or ToolableMixin instance."
-                    )
+                    raise ValueError("A tool in the agent must be a Tool, Model or ToolableMixin instance.")
 
         # Update the payload with converted assets
         payload["assets"] = converted_assets
@@ -697,9 +662,7 @@ class Agent(
         # We don't send expected_output in the save payload - it's runtime-only
         if "expectedOutput" in payload:
             expected_output = payload["expectedOutput"]
-            if isinstance(expected_output, type) and issubclass(
-                expected_output, BaseModel
-            ):
+            if isinstance(expected_output, type) and issubclass(expected_output, BaseModel):
                 # Remove BaseModel classes from save payload - they're not stored server-side
                 payload.pop("expectedOutput")
             elif isinstance(expected_output, BaseModel):
@@ -709,9 +672,7 @@ class Agent(
         return payload
 
     def build_run_payload(self, **kwargs: Unpack[AgentRunParams]) -> dict:
-        """
-        Build the payload for the run action.
-        """
+        """Build the payload for the run action."""
         # Extract executionParams if provided, otherwise use defaults
         execution_params = kwargs.pop("executionParams", {})
 
@@ -732,15 +693,10 @@ class Agent(
         expected_output = execution_params["expectedOutput"]
 
         # For non-JSON formats, don't send empty string expected_output
-        if (
-            execution_params.get("outputFormat") in ["text", "markdown"]
-            and expected_output == ""
-        ):
+        if execution_params.get("outputFormat") in ["text", "markdown"] and expected_output == "":
             execution_params["expectedOutput"] = None
         elif (
-            expected_output is not None
-            and isinstance(expected_output, type)
-            and issubclass(expected_output, BaseModel)
+            expected_output is not None and isinstance(expected_output, type) and issubclass(expected_output, BaseModel)
         ):
             execution_params["expectedOutput"] = expected_output.model_json_schema()
         elif isinstance(expected_output, BaseModel):
@@ -759,9 +715,7 @@ class Agent(
 
         return payload
 
-    def generate_session_id(
-        self, history: Optional[List[ConversationMessage]] = None
-    ) -> str:
+    def generate_session_id(self, history: Optional[List[ConversationMessage]] = None) -> str:
         """Generate a unique session ID for agent conversations.
 
         This method creates a unique session identifier based on the agent ID and current timestamp.
@@ -789,7 +743,6 @@ class Agent(
             ... ]
             >>> session_id = agent.generate_session_id(history=history)
         """
-
         if not self.id:
             self.save(as_draft=True)
 
@@ -824,9 +777,7 @@ class Agent(
                 if final_result.status == ResponseStatus.SUCCESS:
                     return session_id
                 else:
-                    logging.error(
-                        f"Session {session_id} initialization failed: {final_result}"
-                    )
+                    logging.error(f"Session {session_id} initialization failed: {final_result}")
                     return session_id
             else:
                 # Direct completion or no polling needed

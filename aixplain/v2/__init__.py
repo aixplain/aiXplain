@@ -1,3 +1,5 @@
+"""aiXplain SDK v2 - Modern Python SDK for the aiXplain platform."""
+
 from .core import Aixplain
 from .utility import Utility
 from .agent import Agent
@@ -13,6 +15,7 @@ from .inspector import (
     InspectorOutput,
     ModelResponse,
 )
+from .agent_progress import AgentProgressTracker, ProgressFormat
 from .exceptions import (
     AixplainV2Error,
     ResourceError,
@@ -59,6 +62,9 @@ __all__ = [
     "InspectorAuto",
     "InspectorOutput",
     "ModelResponse",
+    # Progress tracking
+    "AgentProgressTracker",
+    "ProgressFormat",
     # Exceptions
     "AixplainV2Error",
     "ResourceError",
