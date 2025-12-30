@@ -43,6 +43,7 @@ from .enums import (
     FunctionType,
     EvolveType,
     CodeInterpreterModel,
+    SplittingOptions,
 )
 
 __all__ = [

@@ -209,10 +209,8 @@ class AgentProgressTracker:
                 try:
                     tasks = json.loads(output_data)
                 except json.JSONDecodeError:
-                    try:
-                        tasks = eval(output_data)
-                    except Exception:
-                        return None
+                    # Cannot parse as JSON, return None to fall back to default formatting
+                    return None
             else:
                 tasks = output_data
 
@@ -513,6 +511,135 @@ class AgentProgressTracker:
                 f"API {self._total_api_calls} · "
                 f"${self._total_credits:.6f}"
             )
+
+    # =========================================================================
+    # Hook-based API for integration with resource.sync_poll via on_poll hook
+    # =========================================================================
+
+    def start(
+        self,
+        format: ProgressFormat = ProgressFormat.STATUS,
+        verbosity: int = 1,
+        truncate: bool = True,
+    ) -> None:
+        """Start progress tracking (call from before_run hook).
+
+        Args:
+            format: Display format (status, logs, none)
+            verbosity: Detail level (1=minimal, 2=thoughts, 3=full I/O)
+            truncate: Whether to truncate long text
+        """
+        # Reset tracking state
+        self._seen_steps = {}
+        self._first_seen = {}
+        self._poll_count = 0
+        self._total_start_time = self._now()
+        self._total_credits = 0.0
+        self._total_api_calls = 0
+        self._printed_events = {}
+        self._printed_thoughts = {}
+        self._status_lines_count = 0
+
+        # Store display options
+        self._format = format if isinstance(format, ProgressFormat) else ProgressFormat(format)
+        self._verbosity = verbosity
+        self._truncate = truncate
+
+        # Reset threading state
+        self._stop_display.clear()
+        self._current_display_data = None
+
+        # Start display refresh thread for smooth spinner animation
+        if self._format != ProgressFormat.NONE:
+            self._display_thread = threading.Thread(target=self._display_refresh_loop, daemon=True)
+            self._display_thread.start()
+
+    def update(self, response: Any) -> None:
+        """Update progress with poll response (call from on_poll hook).
+
+        Args:
+            response: Poll response from agent execution
+        """
+        if self._format == ProgressFormat.NONE:
+            return
+
+        self._poll_count += 1
+        steps = self._parse_steps(response)
+
+        if not steps:
+            return
+
+        # Accumulate metrics from all steps
+        self._total_credits = 0.0
+        self._total_api_calls = 0
+        for idx, s in enumerate(steps):
+            sid = s.get("_progress_id")
+            if sid not in self._first_seen:
+                self._first_seen[sid] = self._now()
+            self._seen_steps[sid] = s
+
+            credits = s.get("used_credits") or s.get("usedCredits") or 0
+            if credits:
+                self._total_credits += float(credits)
+
+            api_calls = s.get("api_calls") or 0
+            if api_calls:
+                self._total_api_calls += int(api_calls)
+
+        # Update shared display data for background thread
+        with self._display_lock:
+            self._current_display_data = {"steps": steps}
+
+        # Handle logs format printing (new steps, completed steps)
+        if self._format == ProgressFormat.LOGS:
+            for idx, step in enumerate(steps):
+                sid = step.get("_progress_id")
+                prev = self._printed_events.get(sid, {})
+                has_output = step.get("output")
+                prev_has_output = prev.get("has_output", False)
+
+                # First time seeing this step
+                if sid not in self._printed_events:
+                    step_elapsed = self._now() - self._first_seen.get(sid, self._now())
+                    icon = self._get_spinner()
+                    status_line = self._format_step_line(step, idx, icon, step_elapsed, show_timing=True)
+                    print(f"\r{status_line}", end="", flush=True)
+                    self._printed_events[sid] = {
+                        "has_output": False,
+                        "status_line": status_line,
+                    }
+
+                # Step completed
+                if has_output and not prev_has_output:
+                    step_elapsed = self._now() - self._first_seen.get(sid, self._now())
+                    has_error = step.get("error") or step.get("error_message")
+                    completion_icon = "✗" if has_error else "✓"
+                    completion_line = self._format_step_line(step, idx, completion_icon, step_elapsed, show_timing=True)
+                    print(f"\r{completion_line}")
+                    self._print_step_details(step, idx)
+                    self._printed_events[sid]["has_output"] = True
+
+    def finish(self, response: Any) -> None:
+        """Finish progress tracking and print completion (call from after_run hook).
+
+        Args:
+            response: Final response from agent execution
+        """
+        # Stop display thread
+        self._stop_display.set()
+        if self._display_thread and self._display_thread.is_alive():
+            self._display_thread.join(timeout=1.0)
+
+        if self._format == ProgressFormat.NONE:
+            return
+
+        # Get final status and steps
+        status = getattr(response, "status", None)
+        status_up = (str(status) if status else "").upper()
+        steps = self._parse_steps(response)
+
+        # Print completion message
+        self._print_completion_message(status_up, steps)
 
     def stream_progress(
         self,

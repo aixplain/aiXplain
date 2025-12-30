@@ -1,4 +1,8 @@
-# V2 enums - self-contained to avoid legacy dependencies
+"""V2 enums module - self-contained to avoid legacy dependencies.
+
+This module provides all enum types used throughout the v2 SDK.
+"""
+
 from enum import Enum
 
 
@@ -195,6 +199,20 @@ class CodeInterpreterModel(str, Enum):
     CLAUDE_3_CODE_INTERPRETER = "CLAUDE_3_CODE_INTERPRETER"
 
 
+class SplittingOptions(str, Enum):
+    """Enumeration of possible splitting options for text chunking.
+
+    This enum defines the different ways that text can be split into chunks,
+    including by word, sentence, passage, page, and line.
+    """
+
+    WORD = "word"
+    SENTENCE = "sentence"
+    PASSAGE = "passage"
+    PAGE = "page"
+    LINE = "line"
+
+
 __all__ = [
     "AuthenticationScheme",
     "FileType",
@@ -214,4 +232,5 @@ __all__ = [
     "FunctionType",
     "EvolveType",
     "CodeInterpreterModel",
+    "SplittingOptions",
 ]

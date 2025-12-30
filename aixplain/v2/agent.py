@@ -247,6 +247,15 @@ class Agent(
     inspectors: Optional[List[Any]] = field(default_factory=list)
     resource_info: Optional[Dict[str, Any]] = field(default_factory=dict, metadata=config(field_name="resourceInfo"))
 
+    # Internal state for progress tracking (excluded from serialization)
+    _progress_tracker: Optional[Any] = field(
+        default=None,
+        repr=False,
+        compare=False,
+        metadata=config(exclude=lambda x: True),
+        init=False,
+    )
+
     def __post_init__(self) -> None:
         """Initialize agent after dataclass creation."""
         self.tasks = [Task.from_dict(task) for task in self.tasks]
@@ -314,7 +323,42 @@ class Agent(
         elif self.status == AssetStatus.ONBOARDED:
             if self.is_modified:
                 raise ValueError("Agent is onboarded and cannot be modified unless you explicitly save it.")
+
+        # Initialize progress tracker if show_progress is enabled
+        show_progress = kwargs.get("show_progress", False)
+        if show_progress:
+            from .agent_progress import AgentProgressTracker, ProgressFormat
+
+            progress_format = kwargs.get("progress_format", "status")
+            progress_verbosity = kwargs.get("progress_verbosity", 1)
+            progress_truncate = kwargs.get("progress_truncate", True)
+
+            fmt = ProgressFormat(progress_format) if progress_format else ProgressFormat.STATUS
+
+            self._progress_tracker = AgentProgressTracker(
+                poll_func=lambda url: self.poll(url),
+                poll_interval=0.05,
+                max_polls=None,
+            )
+            self._progress_tracker.start(
+                format=fmt,
+                verbosity=progress_verbosity,
+                truncate=progress_truncate,
+            )
+        else:
+            self._progress_tracker = None
+
         return None
+
+    def on_poll(self, response: AgentRunResult, **kwargs: Unpack[AgentRunParams]) -> None:
+        """Hook called after each poll to update progress display.
+
+        Args:
+            response: The poll response containing progress information
+            **kwargs: Run parameters including show_progress flag
+        """
+        if self._progress_tracker is not None and not response.completed:
+            self._progress_tracker.update(response)
 
     def after_run(
         self,
@@ -323,8 +367,12 @@ class Agent(
         **kwargs: Unpack[AgentRunParams],
     ) -> Optional[AgentRunResult]:
         """Hook called after running the agent for result transformation."""
-        # Could implement caching, logging, or custom result transformation
-        # here
+        # Finish progress tracking if enabled
+        if self._progress_tracker is not None:
+            if not isinstance(result, Exception):
+                self._progress_tracker.finish(result)
+            self._progress_tracker = None
+
         return None  # Return original result
 
     def run(self, *args: Any, **kwargs: Unpack[AgentRunParams]) -> AgentRunResult:
@@ -350,56 +398,7 @@ class Agent(
         if "session_id" in kwargs and "sessionId" not in kwargs:
             kwargs["sessionId"] = kwargs.pop("session_id")
 
-        # Extract progress display options
-        show_progress = kwargs.pop("show_progress", False)
-        progress_format = kwargs.pop("progress_format", "status")
-        progress_verbosity = kwargs.pop("progress_verbosity", 1)
-        progress_truncate = kwargs.pop("progress_truncate", True)
-
-        if not show_progress:
-            # Standard execution without progress display
-            return super().run(*args, **kwargs)
-
-        # Use AgentProgressTracker for progress display
-        from .agent_progress import AgentProgressTracker, ProgressFormat
-
-        # Call before_run hook
-        before_method = getattr(self, "before_run", None)
-        if before_method:
-            early_result = before_method(**kwargs)
-            if early_result is not None:
-                return early_result
-
-        # Start async execution
-        result = self.run_async(**kwargs)
-
-        # If we need to poll, use the progress tracker
-        if result.url and not result.completed:
-            tracker = AgentProgressTracker(
-                poll_func=lambda url: self.poll(url),
-                poll_interval=0.05,
-                max_polls=None,
-            )
-
-            # Map format string to enum
-            fmt = ProgressFormat(progress_format) if progress_format else ProgressFormat.STATUS
-
-            # Stream progress with the tracker
-            result = tracker.stream_progress(
-                url=result.url,
-                format=fmt,
-                verbosity=progress_verbosity,
-                truncate=progress_truncate,
-            )
-
-        # Call after_run hook
-        after_method = getattr(self, "after_run", None)
-        if after_method:
-            custom_result = after_method(result, **kwargs)
-            if custom_result is not None:
-                return custom_result
-
-        return result
+        return super().run(*args, **kwargs)
 
     def _validate_expected_output(self) -> None:
         # Skip validation if expected_output is None (it's optional)
