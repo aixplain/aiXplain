@@ -123,8 +123,8 @@ class AgentRunParams(BaseRunParams):
         criteria: Criteria for evaluation
         evolve: Evolution parameters
         inspectors: Inspector configurations
-        show_progress: Enable progress display during execution
-        progress_format: Display format - "status" (single line), "logs" (timeline), "none"
+        progress_format: Display format - "status" (single line) or "logs" (timeline).
+                        If None (default), progress tracking is disabled.
         progress_verbosity: Detail level - 1 (minimal), 2 (thoughts), 3 (full I/O)
         progress_truncate: Whether to truncate long text in progress display
     """
@@ -139,7 +139,6 @@ class AgentRunParams(BaseRunParams):
     criteria: NotRequired[Optional[Text]]
     evolve: NotRequired[Optional[Text]]
     inspectors: NotRequired[Optional[List[Dict]]]
-    show_progress: NotRequired[Optional[bool]]
     progress_format: NotRequired[Optional[Text]]
     progress_verbosity: NotRequired[Optional[int]]
     progress_truncate: NotRequired[Optional[bool]]
@@ -324,16 +323,16 @@ class Agent(
             if self.is_modified:
                 raise ValueError("Agent is onboarded and cannot be modified unless you explicitly save it.")
 
-        # Initialize progress tracker if show_progress is enabled
-        show_progress = kwargs.get("show_progress", False)
-        if show_progress:
+        # Initialize progress tracker if progress_format is provided
+        # progress_format being None (default) means no progress tracking
+        progress_format = kwargs.get("progress_format")
+        if progress_format is not None:
             from .agent_progress import AgentProgressTracker, ProgressFormat
 
-            progress_format = kwargs.get("progress_format", "status")
             progress_verbosity = kwargs.get("progress_verbosity", 1)
             progress_truncate = kwargs.get("progress_truncate", True)
 
-            fmt = ProgressFormat(progress_format) if progress_format else ProgressFormat.STATUS
+            fmt = ProgressFormat(progress_format)
 
             self._progress_tracker = AgentProgressTracker(
                 poll_func=lambda url: self.poll(url),
@@ -355,7 +354,7 @@ class Agent(
 
         Args:
             response: The poll response containing progress information
-            **kwargs: Run parameters including show_progress flag
+            **kwargs: Run parameters
         """
         if self._progress_tracker is not None and not response.completed:
             self._progress_tracker.update(response)
@@ -381,8 +380,8 @@ class Agent(
         Args:
             *args: Positional arguments (first arg is treated as query)
             query: The query to run
-            show_progress: Enable progress display (default: False)
-            progress_format: Display format - "status", "logs", or "none" (default: "status")
+            progress_format: Display format - "status" or "logs". If None (default),
+                           progress tracking is disabled.
             progress_verbosity: Detail level 1-3 (default: 1)
             progress_truncate: Truncate long text (default: True)
             **kwargs: Additional run parameters
