@@ -649,15 +649,6 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
                 stacklevel=2,
             )
 
-        # Force run_response_generation to True if output_format or expected_output is provided
-        if output_format is not None or expected_output is not None:
-            if run_response_generation is False:
-                warnings.warn(
-                    "Setting 'run_response_generation' to True because 'output_format' or 'expected_output' is provided.",
-                    UserWarning,
-                    stacklevel=2,
-                )
-            run_response_generation = True
 
         if session_id is not None and history is not None:
             raise ValueError("Provide either `session_id` or `history`, not both.")
@@ -861,15 +852,6 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
         if isinstance(output_format, OutputFormat):
             output_format = output_format.value
 
-        # Force run_response_generation to True if output_format or expected_output is provided
-        if output_format is not None or expected_output is not None:
-            if run_response_generation is False:
-                warnings.warn(
-                    "Setting 'run_response_generation' to True because 'output_format' or 'expected_output' is provided.",
-                    UserWarning,
-                    stacklevel=2,
-                )
-            run_response_generation = True
 
         payload = {
             "id": self.id,
