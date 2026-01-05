@@ -330,7 +330,7 @@ class AgentProgressTracker:
             else:
                 agent_action_part = f"{agent_name} ⧈ {unit_name}"
 
-        step_line = f"{icon} Step {step_idx:2d}"
+        step_line = f"{icon} Step {step_idx + 1:2d}"
 
         if show_timing and step_elapsed is not None:
             step_line += f" · ⏱ {self._format_elapsed(step_elapsed)}"
@@ -436,7 +436,7 @@ class AgentProgressTracker:
                         break
 
                 if duplicate_step is not None:
-                    print(f"  ∷ [see Step {duplicate_step}]")
+                    print(f"  ∷ [see Step {duplicate_step + 1}]")
                 else:
                     thought_formatted = self._format_multiline(thought, width=70)
                     thought_text = thought_formatted[2:] if thought_formatted.startswith("│ ") else thought_formatted
