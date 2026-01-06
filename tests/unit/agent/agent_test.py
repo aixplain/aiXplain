@@ -18,6 +18,7 @@ from aixplain.modules.agent.agent_response_data import AgentResponseData
 from pydantic import BaseModel
 import json
 
+
 def test_fail_no_data_query():
     agent = Agent(
         "123",
@@ -135,7 +136,10 @@ def test_invalid_pipelinetool(mocker):
             tools=[PipelineTool(pipeline="309851793", description="Test")],
             llm_id="6646261c6eb563165658bbb1",
         )
-    assert str(exc_info.value) == "Pipeline Tool Unavailable. Make sure Pipeline '309851793' exists or you have access to it."
+    assert (
+        str(exc_info.value)
+        == "Pipeline Tool Unavailable. Make sure Pipeline '309851793' exists or you have access to it."
+    )
 
 
 def test_invalid_llm_id():
@@ -198,43 +202,38 @@ def test_create_agent(mock_model_factory_get):
                 "status": "draft",
                 "llmId": "6646261c6eb563165658bbb1",
                 "pricing": {"currency": "USD", "value": 0.0},
-                "assets":  [{
-                'type': 'model',
-                'description': 'Test Tool',
-                'name': 'text-generation-openai',
-                'parameters': [],
-                'function': 'text-generation',
-                'supplier': {
-                    'id': 529,
-                    'name': 'openai',
-                    'code': 'openai'
-                },
-                'version': None,
-                'assetId': None,
-                'actions': []
-            }, {
-                'type': 'utility',
-                'description': 'A Python shell. Use this to execute python commands. Input should be a valid python command.',
-                'name': None,
-                'parameters': None,
-                'utility': 'custom_python_code',
-                'utilityCode': None
-            }, {
-                'type': 'model',
-                'description': 'Test Script Connection Tool description',
-                'name': 'Test Script Connection Tool',
-                'parameters': [],
-                'function': 'utilities',
-                'supplier': {
-                    'id': 1,
-                    'name': 'aixplain',
-                    'code': 'aixplain'
-                },
-                'version': 'pythonscript',
-                'assetId': '693026cc427d05e696f3c7db',
-                'actions': ['print_hello_world']
-            }
-        ],
+                "assets": [
+                    {
+                        "type": "model",
+                        "description": "Test Tool",
+                        "name": "text-generation-openai",
+                        "parameters": [],
+                        "function": "text-generation",
+                        "supplier": {"id": 529, "name": "openai", "code": "openai"},
+                        "version": None,
+                        "assetId": None,
+                        "actions": [],
+                    },
+                    {
+                        "type": "utility",
+                        "description": "A Python shell. Use this to execute python commands. Input should be a valid python command.",
+                        "name": None,
+                        "parameters": None,
+                        "utility": "custom_python_code",
+                        "utilityCode": None,
+                    },
+                    {
+                        "type": "model",
+                        "description": "Test Script Connection Tool description",
+                        "name": "Test Script Connection Tool",
+                        "parameters": [],
+                        "function": "utilities",
+                        "supplier": {"id": 1, "name": "aixplain", "code": "aixplain"},
+                        "version": "pythonscript",
+                        "assetId": "693026cc427d05e696f3c7db",
+                        "actions": ["print_hello_world"],
+                    },
+                ],
             }
             mock.post(url, headers=headers, json=ref_response)
 
@@ -250,7 +249,7 @@ def test_create_agent(mock_model_factory_get):
                 "pricing": {"currency": "USD", "value": 0.0},
             }
             mock.get(url, headers=headers, json=model_ref_response)
-            
+
             # Mock the Python sandbox integration model fetch
             python_sandbox_id = "688779d8bfb8e46c273982ca"
             url = urljoin(config.BACKEND_URL, f"sdk/models/{python_sandbox_id}")
@@ -267,18 +266,15 @@ def test_create_agent(mock_model_factory_get):
                 "authentication_methods": ["no-auth"],
                 "params": [],
                 "attributes": [
-                    {
-                        "name": "auth_schemes",
-                        "code": '["NO_AUTH"]'
-                    },
+                    {"name": "auth_schemes", "code": '["NO_AUTH"]'},
                     {
                         "name": "NO_AUTH-inputs",
-                        "code": '[{"name":"code","displayName":"Python Code","type":"string","description":"","required":true, "subtype": "file", "fileConfiguration": { "limit": 1, "extensions": ["py"] }}, {"name":"function_name","displayName":"Main Function Name","type":"string","description":"","required":true}]'
-                    }
+                        "code": '[{"name":"code","displayName":"Python Code","type":"string","description":"","required":true, "subtype": "file", "fileConfiguration": { "limit": 1, "extensions": ["py"] }}, {"name":"function_name","displayName":"Main Function Name","type":"string","description":"","required":true}]',
+                    },
                 ],
             }
             mock.get(url, headers=headers, json=python_sandbox_response)
-            
+
             # Mock the POST request to create the connection (when connect() calls run())
             connection_id = "693026cc427d05e696f3c7db"
             run_url = f"{config.MODELS_RUN_URL}/{python_sandbox_id}".replace("api/v1/execute", "api/v2/execute")
@@ -288,7 +284,7 @@ def test_create_agent(mock_model_factory_get):
                 "data": {"id": connection_id},
             }
             mock.post(run_url, headers=headers, json=run_response)
-            
+
             # Mock the GET request to fetch the created connection
             connection_url = urljoin(config.BACKEND_URL, f"sdk/models/{connection_id}")
             connection_response = {
@@ -304,22 +300,18 @@ def test_create_agent(mock_model_factory_get):
                 "params": [],
             }
             mock.get(connection_url, headers=headers, json=connection_response)
-            
+
             # Mock the POST request to list actions (when ConnectionTool.__init__ calls _get_actions())
             list_actions_url = f"{config.MODELS_RUN_URL}/{connection_id}".replace("api/v1/execute", "api/v2/execute")
             list_actions_response = {
                 "status": "SUCCESS",
                 "completed": True,
                 "data": [
-                    {
-                        "name": "print_hello_world",
-                        "displayName": "print_hello_world",
-                        "description": "Test function"
-                    }
+                    {"name": "print_hello_world", "displayName": "print_hello_world", "description": "Test function"}
                 ],
             }
             mock.post(list_actions_url, headers=headers, json=list_actions_response)
-            
+
             agent = AgentFactory.create(
                 name="Test Agent(-)",
                 description="Test Agent Description",
@@ -336,7 +328,7 @@ def test_create_agent(mock_model_factory_get):
                         name="Test Script Connection Tool",
                         code="def print_hello_world(input_string: str) -> str:\n    return 'Hello, world!'\n",
                         description="Test Script Connection Tool description",
-                    )
+                    ),
                 ],
             )
 
@@ -568,11 +560,11 @@ def test_run_variable_missing():
         "Agent description",
         instructions="Translate the input data into {target_language}",
     )
-    
+
     # Mock the agent URL and response
     url = urljoin(config.BACKEND_URL, f"sdk/agents/{agent.id}/run")
     agent.url = url
-    
+
     with requests_mock.Mocker() as mock:
         headers = {
             "x-api-key": config.AIXPLAIN_API_KEY,
@@ -580,10 +572,10 @@ def test_run_variable_missing():
         }
         ref_response = {"data": "www.aixplain.com", "status": "IN_PROGRESS"}
         mock.post(url, headers=headers, json=ref_response)
-        
+
         # This should not raise an exception anymore - missing variables are silently ignored
         response = agent.run_async(data={"query": "Hello, how are you?"}, output_format=OutputFormat.MARKDOWN)
-        
+
     # Verify the response is successful
     assert isinstance(response, AgentResponse)
     assert response["status"] == "IN_PROGRESS"
@@ -1546,10 +1538,10 @@ def test_agent_serialization_status_enum(status_input, expected_output):
     assert agent_dict["status"] == expected_output
 
 
-
 class _EOUser(BaseModel):
     id: int
     name: str = "alice"
+
 
 def _schema_for(cls):
     return cls.model_json_schema() if hasattr(cls, "model_json_schema") else cls.schema()
@@ -1560,7 +1552,7 @@ def test_run_normalizes_expected_output_pydantic_class_in_execution_params():
         id="eo-agent-norm-1",
         name="EO Agent",
         description="ensure expected_output is normalized",
-        expected_output=_EOUser, 
+        expected_output=_EOUser,
     )
 
     run_url = urljoin(config.BACKEND_URL, f"sdk/agents/{agent.id}/run")
@@ -1577,8 +1569,8 @@ def test_run_normalizes_expected_output_pydantic_class_in_execution_params():
         assert "expectedOutput" in sent["executionParams"]
 
         eo = sent["executionParams"]["expectedOutput"]
-        assert isinstance(eo, dict), "expectedOutput must be a JSON-serializable dict"
-        assert eo == _schema_for(_EOUser), "expectedOutput schema doesn't match model schema"
+        assert isinstance(eo, str), "expectedOutput must be a JSON string"
+        assert json.loads(eo) == _schema_for(_EOUser), "expectedOutput schema doesn't match model schema"
 
 
 def test_run_normalizes_expected_output_tuple_to_list_in_execution_params():
@@ -1601,4 +1593,4 @@ def test_run_normalizes_expected_output_tuple_to_list_in_execution_params():
         sent = mock.last_request.json()
         assert "executionParams" in sent
         assert "expectedOutput" in sent["executionParams"]
-        assert sent["executionParams"]["expectedOutput"] == [1, 2, 3], "tuple should normalize to list"
+        assert sent["executionParams"]["expectedOutput"] == "[1, 2, 3]", "tuple should normalize to JSON string"

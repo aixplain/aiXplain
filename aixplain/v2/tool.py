@@ -109,8 +109,7 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
     def list_actions(self) -> List[Action]:
         """List available actions for the tool.
 
-        Overrides parent method to add fallback to base integration and support
-        for utility models without real integrations.
+        Overrides parent method to add fallback to base integration.
 
         Returns:
             List of Action objects available for this tool. Falls back to
@@ -118,28 +117,18 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
         """
         try:
             actions = super().list_actions()
-
-            # If no actions found but this is a utility model without real integration, create synthetic "run" action
-            if not actions and self._is_utility_model_without_integration():
-                return [self._create_synthetic_run_action()]
-
             return actions
         except Exception as e:
             warnings.warn(f"Error listing actions: {e}. Using integration.list_actions() instead.")
             if self._ensure_integration():
                 return self.integration.list_actions()
 
-            # Fallback: if this is a utility model without integration, create synthetic action
-            if self._is_utility_model_without_integration():
-                return [self._create_synthetic_run_action()]
-
             return []
 
     def list_inputs(self, *actions: str) -> List["Action"]:
         """List available inputs for specified actions.
 
-        Overrides parent method to add fallback to base integration and support
-        for utility models without real integrations.
+        Overrides parent method to add fallback to base integration.
 
         Args:
             *actions: Variable number of action names to get inputs for.
@@ -150,11 +139,6 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
         """
         try:
             inputs = super().list_inputs(*actions)
-
-            # If no inputs found but this is a utility model requesting "run" action
-            if not inputs and self._is_utility_model_without_integration() and (not actions or "run" in actions):
-                return [self._create_synthetic_run_action()]
-
             return inputs
         except Exception as e:
             warnings.warn(f"Error listing inputs: {e}. Using integration.list_inputs() instead.")
@@ -163,10 +147,6 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
                     return self.integration.list_inputs(*actions)
                 except Exception:
                     pass
-
-            # Fallback: if this is a utility model, create synthetic action
-            if self._is_utility_model_without_integration() and (not actions or "run" in actions):
-                return [self._create_synthetic_run_action()]
 
             return []
 
@@ -228,37 +208,6 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
             actions_available = True
 
         return bool(actions_available)
-
-    def _create_synthetic_run_action(self) -> "Action":
-        """Create a synthetic 'run' action based on the model's parameters."""
-        from .integration import Action, Input
-
-        # Convert model parameters to action inputs
-        inputs = []
-        if self.params:
-            for param in self.params:
-                inputs.append(
-                    Input(
-                        name=param.name,
-                        required=param.required,
-                        datatype=param.data_type or "string",
-                        allowMulti=getattr(param, "multiple_values", False),
-                        supportsVariables=False,
-                        fixed=getattr(param, "is_fixed", False),
-                        description=getattr(param, "description", f"Parameter {param.name}"),
-                        value=[],
-                        availableOptions=getattr(param, "available_options", []),
-                        defaultValue=getattr(param, "default_values", []),
-                    )
-                )
-
-        return Action(
-            name="run",
-            description=f"Run the {self.name or 'utility'} model",
-            displayName="Run",
-            slug="run",
-            inputs=inputs,
-        )
 
     def validate_allowed_actions(self) -> None:
         """Validate that all allowed actions are available for this tool.
@@ -392,15 +341,8 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
         return errors
 
     def run(self, *args: Any, **kwargs: Unpack[ModelRunParams]) -> ToolResult:
-        """Run the tool.
-
-        For utility models without integration, automatically maps to "run" action if no action specified.
-        """
+        """Run the tool."""
         self._ensure_valid_state()
-
-        # Auto-set action to "run" for utility models if not specified
-        if self._is_utility_model_without_integration() and "action" not in kwargs:
-            kwargs["action"] = "run"
 
         if len(args) > 0:
             kwargs["data"] = args[0]
@@ -428,18 +370,6 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
         Tools don't have the standard 'inputs' attribute like models do,
         so we need to handle parameter merging differently.
         """
-        # For utility models without integration, use simpler parameter handling
-        if self._is_utility_model_without_integration():
-            # Build data dict from model parameters, excluding tool-specific params
-            tool_params = {"action", "data"}
-            model_params = {k: v for k, v in kwargs.items() if k not in tool_params and v is not None}
-
-            action_name = kwargs.get("action", "run")  # Default to "run" for utility models
-            return {
-                "action": action_name,
-                "data": model_params,
-            }
-
         # Original tool logic for real integration-based tools
         merged = {}
         action_name = kwargs.get("action")
