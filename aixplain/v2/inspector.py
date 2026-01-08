@@ -182,11 +182,7 @@ def validate_policy_callable(policy_func: Callable) -> bool:
     params = list(sig.parameters.keys())
 
     # Check arguments - should have exactly 2 parameters
-    if (
-        len(params) != 2
-        or params[0] != "model_response"
-        or params[1] != "input_content"
-    ):
+    if len(params) != 2 or params[0] != "model_response" or params[1] != "input_content":
         return False
 
     # Check return type annotation - should return InspectorOutput
@@ -275,9 +271,7 @@ def code_string_to_callable(code_string: str) -> Callable:
 
         # Get the function from the namespace
         if "process_response" not in namespace:
-            raise ValueError(
-                "Code string must define a function named 'process_response'"
-            )
+            raise ValueError("Code string must define a function named 'process_response'")
 
         func = namespace["process_response"]
 
@@ -286,9 +280,7 @@ def code_string_to_callable(code_string: str) -> Callable:
 
         # Validate the function
         if not validate_policy_callable(func):
-            raise ValueError(
-                "Deserialized function does not meet the required constraints"
-            )
+            raise ValueError("Deserialized function does not meet the required constraints")
 
         return func
     except Exception as e:
@@ -399,26 +391,16 @@ class Inspector:
             # It's a Model object
             self.model_id = self.model.id
             # If model has inputs configured and no model_params, extract them
-            if (
-                not self.model_params
-                and hasattr(self.model, "inputs")
-                and hasattr(self.model.inputs, "__dict__")
-            ):
+            if not self.model_params and hasattr(self.model, "inputs") and hasattr(self.model.inputs, "__dict__"):
                 # Convert model inputs to dict for model_params
-                inputs_dict = {
-                    k: v
-                    for k, v in vars(self.model.inputs).items()
-                    if not k.startswith("_")
-                }
+                inputs_dict = {k: v for k, v in vars(self.model.inputs).items() if not k.startswith("_")}
                 if inputs_dict:
                     self.model_params = inputs_dict
         elif isinstance(self.model, str):
             # It's a model ID string
             self.model_id = self.model
         else:
-            raise ValueError(
-                f"model must be a model ID (str) or Model object, got {type(self.model)}"
-            )
+            raise ValueError(f"model must be a model ID (str) or Model object, got {type(self.model)}")
 
         # If auto is set, use default model ID
         if self.auto and not self.model_id:
@@ -434,8 +416,7 @@ class Inspector:
                 )
         elif not isinstance(self.policy, InspectorPolicy):
             raise ValueError(
-                f"Policy must be InspectorPolicy enum or a valid callable function, "
-                f"got {type(self.policy)}"
+                f"Policy must be InspectorPolicy enum or a valid callable function, got {type(self.policy)}"
             )
 
     def to_dict(self, encode_json=False) -> Dict[str, Any]:
@@ -448,11 +429,7 @@ class Inspector:
             Dict[str, Any]: The inspector as a dictionary.
         """
         # Use dataclass_json's to_dict for base serialization
-        data = (
-            super().to_dict(encode_json=encode_json)
-            if hasattr(super(), "to_dict")
-            else {}
-        )
+        data = super().to_dict(encode_json=encode_json) if hasattr(super(), "to_dict") else {}
 
         # Manually construct the dict to ensure proper field names
         data = {

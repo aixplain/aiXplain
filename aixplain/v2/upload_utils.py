@@ -1,5 +1,4 @@
-"""
-File upload utilities for v2 Resource system.
+"""File upload utilities for v2 Resource system.
 
 This module provides comprehensive file upload functionality that ports the exact
 logic from the legacy FileFactory while maintaining a clean, modular architecture.
@@ -32,9 +31,7 @@ class FileValidator:
     def validate_file_exists(cls, file_path: str) -> None:
         """Validate that the file exists."""
         if not os.path.exists(file_path):
-            raise FileUploadError(
-                f'File Upload Error: local file "{file_path}" not found.'
-            )
+            raise FileUploadError(f'File Upload Error: local file "{file_path}" not found.')
 
     @classmethod
     def validate_file_size(cls, file_path: str, file_type: str) -> None:
@@ -44,8 +41,7 @@ class FileValidator:
 
         if file_size > max_size:
             raise FileUploadError(
-                f'File Upload Error: local file "{file_path}" of type "{file_type}" '
-                f"exceeds {max_size / 1048576} MB."
+                f'File Upload Error: local file "{file_path}" of type "{file_type}" exceeds {max_size / 1048576} MB.'
             )
 
     @classmethod
@@ -148,9 +144,7 @@ class PresignedUrlManager:
         }
 
     @classmethod
-    def build_perm_payload(
-        cls, content_type: str, file_path: str, tags: List[str], license: str
-    ) -> Dict[str, str]:
+    def build_perm_payload(cls, content_type: str, file_path: str, tags: List[str], license: str) -> Dict[str, str]:
         """Build payload for permanent upload request."""
         return {
             "contentType": content_type,
@@ -160,22 +154,16 @@ class PresignedUrlManager:
         }
 
     @classmethod
-    def request_presigned_url(
-        cls, url: str, payload: Dict[str, str], api_key: str
-    ) -> Dict[str, Any]:
+    def request_presigned_url(cls, url: str, payload: Dict[str, str], api_key: str) -> Dict[str, Any]:
         """Request pre-signed URL from backend."""
         headers = {"Authorization": f"token {api_key}"}
 
         try:
-            response = RequestManager.request_with_retry(
-                "post", url, headers=headers, data=payload
-            )
+            response = RequestManager.request_with_retry("post", url, headers=headers, data=payload)
             response.raise_for_status()
             return response.json()
         except Exception as e:
-            raise FileUploadError(
-                f"File Upload Error: Failed to get pre-signed URL: {e}"
-            )
+            raise FileUploadError(f"File Upload Error: Failed to get pre-signed URL: {e}")
 
 
 class S3Uploader:
@@ -190,14 +178,10 @@ class S3Uploader:
             with open(file_path, "rb") as f:
                 file_data = f.read()
 
-            response = RequestManager.request_with_retry(
-                "put", presigned_url, headers=headers, data=file_data
-            )
+            response = RequestManager.request_with_retry("put", presigned_url, headers=headers, data=file_data)
 
             if response.status_code != 200:
-                raise FileUploadError(
-                    "File Uploading Error: Failure on Uploading to S3."
-                )
+                raise FileUploadError("File Uploading Error: Failure on Uploading to S3.")
 
         except Exception as e:
             raise FileUploadError(f"File Uploading Error: {e}")
@@ -221,20 +205,14 @@ class ConfigManager:
     @classmethod
     def get_backend_url(cls, custom_url: Optional[str] = None) -> str:
         """Get backend URL from custom value or environment."""
-        return custom_url or os.getenv(
-            "BACKEND_URL", "https://platform-api.aixplain.com"
-        )
+        return custom_url or os.getenv("BACKEND_URL", "https://platform-api.aixplain.com")
 
     @classmethod
-    def get_api_key(
-        cls, custom_key: Optional[str] = None, required: bool = True
-    ) -> str:
+    def get_api_key(cls, custom_key: Optional[str] = None, required: bool = True) -> str:
         """Get API key from custom value or environment."""
         api_key = custom_key or os.getenv("TEAM_API_KEY", "")
         if not api_key and required:
-            raise FileUploadError(
-                "File Upload Error: API key is required for file uploads."
-            )
+            raise FileUploadError("File Upload Error: API key is required for file uploads.")
         return api_key
 
 
@@ -259,8 +237,7 @@ class FileUploader:
         is_temp: bool = True,
         return_download_link: bool = False,
     ) -> str:
-        """
-        Upload a file to S3 using the same logic as legacy FileFactory.
+        """Upload a file to S3 using the same logic as legacy FileFactory.
 
         Args:
             file_path: Path to the file to upload
@@ -289,20 +266,14 @@ class FileUploader:
         # Step 4: Get pre-signed URL
         if is_temp:
             url = PresignedUrlManager.get_temp_upload_url(self.backend_url)
-            payload = PresignedUrlManager.build_temp_payload(
-                content_type, os.path.basename(file_path)
-            )
+            payload = PresignedUrlManager.build_temp_payload(content_type, os.path.basename(file_path))
         else:
             url = PresignedUrlManager.get_perm_upload_url(self.backend_url)
             if tags is None:
                 tags = []
-            payload = PresignedUrlManager.build_perm_payload(
-                content_type, file_path, tags, license
-            )
+            payload = PresignedUrlManager.build_perm_payload(content_type, file_path, tags, license)
 
-        response_data = PresignedUrlManager.request_presigned_url(
-            url, payload, self.api_key
-        )
+        response_data = PresignedUrlManager.request_presigned_url(url, payload, self.api_key)
 
         # Step 5: Upload file to S3
         path = response_data["key"]
@@ -328,8 +299,7 @@ def upload_file(
     backend_url: Optional[str] = None,
     api_key: Optional[str] = None,
 ) -> str:
-    """
-    Convenience function to upload a file.
+    """Convenience function to upload a file.
 
     Args:
         file_path: Path to the file to upload
@@ -354,8 +324,7 @@ def upload_file(
 
 
 def validate_file_for_upload(file_path: str) -> Dict[str, Any]:
-    """
-    Validate a file for upload without actually uploading.
+    """Validate a file for upload without actually uploading.
 
     Args:
         file_path: Path to the file to validate
