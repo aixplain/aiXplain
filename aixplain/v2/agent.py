@@ -123,6 +123,7 @@ class AgentRunParams(BaseRunParams):
         criteria: Criteria for evaluation
         evolve: Evolution parameters
         inspectors: Inspector configurations
+        runResponseGeneration: Whether to run response generation. Defaults to True.
         progress_format: Display format - "status" (single line) or "logs" (timeline).
                         If None (default), progress tracking is disabled.
         progress_verbosity: Detail level - 1 (minimal), 2 (thoughts), 3 (full I/O)
@@ -139,6 +140,7 @@ class AgentRunParams(BaseRunParams):
     criteria: NotRequired[Optional[Text]]
     evolve: NotRequired[Optional[Text]]
     inspectors: NotRequired[Optional[List[Dict]]]
+    runResponseGeneration: NotRequired[Optional[bool]]
     progress_format: NotRequired[Optional[Text]]
     progress_verbosity: NotRequired[Optional[int]]
     progress_truncate: NotRequired[Optional[bool]]
@@ -700,10 +702,14 @@ class Agent(
         elif isinstance(expected_output, BaseModel):
             execution_params["expectedOutput"] = expected_output.model_dump()
 
+        # Handle runResponseGeneration with default value of True
+        run_response_generation = kwargs.pop("runResponseGeneration", True)
+
         # Build the payload according to Swagger specification
         payload = {
             "id": self.id,
             "executionParams": execution_params,
+            "runResponseGeneration": run_response_generation,
         }
 
         # Add all other parameters from kwargs
