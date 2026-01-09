@@ -275,10 +275,8 @@ class Agent(
         if isinstance(self.output_format, OutputFormat):
             self.output_format = self.output_format.value
 
-        if isinstance(self.llm, str):
-            self.llm = self.context.Model.get(id=self.llm)
-
-        self.tools = [self.llm]
+        if isinstance(self.llm, Model):
+            self.llm = self.llm.id
 
         # Normalize inspector_targets to support both strings and InspectorTarget enums
         if self.inspector_targets:
@@ -658,6 +656,8 @@ class Agent(
 
         # Update the payload with converted assets
         payload["tools"] = converted_assets
+
+        payload["model"] = {"id": self.llm}
 
         # Handle BaseModel expected_output for save operation
         # We don't send expected_output in the save payload - it's runtime-only
