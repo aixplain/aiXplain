@@ -153,11 +153,13 @@ def _flatten_asset_info(data: dict) -> dict:
         data: Dictionary that may contain nested assetInfo structure.
 
     Returns:
-        Dictionary with assetPath and instanceId flattened to top level.
+        Dictionary with assetName, assetPath and instanceId flattened to top level.
     """
     if isinstance(data, dict) and "assetInfo" in data:
         asset_info = data.get("assetInfo", {})
         if isinstance(asset_info, dict):
+            if "assetName" in asset_info:
+                data["assetName"] = asset_info.get("assetName")
             if "assetPath" in asset_info:
                 data["assetPath"] = asset_info.get("assetPath")
             if "instanceId" in asset_info:
@@ -208,6 +210,7 @@ class BaseResource:
     id: Optional[str] = None
     name: Optional[str] = None
     description: Optional[str] = None
+    asset_name: Optional[str] = field(default=None, metadata=config(field_name="assetName"))
     asset_path: Optional[str] = field(default=None, metadata=config(field_name="assetPath"))
     instance_id: Optional[str] = field(default=None, metadata=config(field_name="instanceId"))
 

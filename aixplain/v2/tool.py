@@ -40,6 +40,7 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
 
     # Tool-specific fields
     asset_id: Optional[str] = field(default=None, metadata=dj_config(field_name="assetId"))
+    subscriptions: Optional[Any] = field(default=None)
     integration: Optional[Union[Integration, str]] = field(default=None, metadata=dj_config(exclude=lambda x: True))
     config: Optional[dict] = field(default=None, metadata=dj_config(exclude=lambda x: True))
     code: Optional[str] = field(default=None, metadata=dj_config(exclude=lambda x: True))

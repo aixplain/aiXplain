@@ -220,8 +220,7 @@ class Agent(
     llm: Union[str, "Model"] = field(default=DEFAULT_LLM, metadata=config(field_name="llmId"))
 
     # Asset and tool fields
-    assets: Optional[List[Dict[str, Any]]] = field(default_factory=list, metadata=config(field_name="tools"))
-    tools: Optional[List[Dict[str, Any]]] = field(default_factory=list, metadata=config(field_name="assets"))
+    tools: Optional[List[Dict[str, Any]]] = field(default_factory=list, metadata=config(field_name="tools"))
 
     # Inspector and supervisor fields
     inspector_id: Optional[str] = field(default=None, metadata=config(field_name="inspectorId"))
@@ -272,12 +271,14 @@ class Agent(
                 self._original_subagents.append(agent)  # Store original object
                 converted_subagents.append(agent.id)
         self.subagents = converted_subagents
-        self.assets = [{"type": "llm", "description": "main", "parameters": []}]
+
         if isinstance(self.output_format, OutputFormat):
             self.output_format = self.output_format.value
 
-        if isinstance(self.llm, Model):
-            self.llm = self.llm.id
+        if isinstance(self.llm, str):
+            self.llm = self.context.Model.get(id=self.llm)
+
+        self.tools = [self.llm]
 
         # Normalize inspector_targets to support both strings and InspectorTarget enums
         if self.inspector_targets:
@@ -656,7 +657,7 @@ class Agent(
                     raise ValueError("A tool in the agent must be a Tool, Model or ToolableMixin instance.")
 
         # Update the payload with converted assets
-        payload["assets"] = converted_assets
+        payload["tools"] = converted_assets
 
         # Handle BaseModel expected_output for save operation
         # We don't send expected_output in the save payload - it's runtime-only
