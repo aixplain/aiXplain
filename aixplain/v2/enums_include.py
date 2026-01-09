@@ -1,5 +1,7 @@
-# This is an auto generated module. PLEASE DO NOT EDIT
-# This module provides compatibility imports from legacy enums for v2
+"""Compatibility imports for legacy enums in v2.
+
+This is an auto generated module. PLEASE DO NOT EDIT.
+"""
 
 # Import all enums from legacy system for compatibility
 from aixplain.enums import (

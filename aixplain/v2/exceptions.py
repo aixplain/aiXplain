@@ -1,5 +1,4 @@
-"""
-Unified error hierarchy for v2 system.
+"""Unified error hierarchy for v2 system.
 
 This module provides a comprehensive set of error types for consistent
 error handling across all v2 components.
@@ -11,9 +10,13 @@ from typing import Optional, Any, Dict, Union, List
 class AixplainV2Error(Exception):
     """Base exception for all v2 errors."""
 
-    def __init__(
-        self, message: Union[str, List[str]], details: Optional[Dict[str, Any]] = None
-    ) -> None:
+    def __init__(self, message: Union[str, List[str]], details: Optional[Dict[str, Any]] = None) -> None:
+        """Initialize the exception with a message and optional details.
+
+        Args:
+            message: Error message string or list of error messages.
+            details: Optional dictionary with additional error details.
+        """
         if isinstance(message, list):
             message = "\n".join(message)
         self.message = message
@@ -37,6 +40,14 @@ class APIError(AixplainV2Error):
         response_data: Optional[Dict[str, Any]] = None,
         error: Optional[str] = None,
     ) -> None:
+        """Initialize APIError with HTTP status and response details.
+
+        Args:
+            message: Error message string or list of error messages.
+            status_code: HTTP status code from the API response.
+            response_data: Optional dictionary containing the raw API response.
+            error: Optional error string override.
+        """
         self.status_code = status_code
         self.response_data = response_data or {}
         self.error = error or message if isinstance(message, str) else str(message)
