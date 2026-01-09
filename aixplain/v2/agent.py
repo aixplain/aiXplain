@@ -217,7 +217,7 @@ class Agent(
     instructions: Optional[str] = None
     status: AssetStatus = AssetStatus.DRAFT
     team_id: Optional[int] = field(default=None, metadata=config(field_name="teamId"))
-    llm: Union[str, "Model"] = field(default=DEFAULT_LLM, metadata=config(field_name="llmId"))
+    llm: Union[str, "Model"] = field(default=DEFAULT_LLM, metadata=config(exclude=lambda x: True))
 
     # Asset and tool fields
     tools: Optional[List[Dict[str, Any]]] = field(default_factory=list, metadata=config(field_name="tools"))
