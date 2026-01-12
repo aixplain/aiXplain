@@ -154,7 +154,9 @@ class AgentResponseData:
     input: Optional[Any] = None
     output: Optional[Any] = None
     intermediate_steps: Optional[List[Dict[str, Any]]] = field(default_factory=list)
-    execution_stats: Optional[Dict[str, Any]] = None
+    steps: Optional[List[Dict[str, Any]]] = field(default_factory=list)
+    session_id: Optional[str] = None
+    execution_stats: Optional[Dict[str, Any]] = field(default=None, metadata=config(field_name="executionStats"))
     critiques: Optional[str] = ""
 
 
@@ -164,15 +166,15 @@ class AgentRunResult(Result):
     """Result from running an agent."""
 
     data: Optional[Union[AgentResponseData, Text]] = None
-    session_id: Optional[Text] = None
-    request_id: Optional[Text] = None
-    used_credits: float = 0.0
-    run_time: float = 0.0
+    session_id: Optional[Text] = field(default=None, metadata=config(field_name="sessionId"))
+    request_id: Optional[Text] = field(default=None, metadata=config(field_name="requestId"))
+    used_credits: float = field(default=0.0, metadata=config(field_name="usedCredits"))
+    run_time: float = field(default=0.0, metadata=config(field_name="runTime"))
     completed: Optional[bool] = None
-    error_message: Optional[str] = None
+    error_message: Optional[str] = field(default=None, metadata=config(field_name="errorMessage"))
     url: Optional[str] = None
     result: Optional[Any] = None
-    supplier_error: Optional[str] = None
+    supplier_error: Optional[str] = field(default=None, metadata=config(field_name="supplierError"))
 
 
 @dataclass_json
@@ -659,12 +661,18 @@ class Agent(
 
         payload["model"] = {"id": self.llm}
 
-        # Convert subagent IDs to objects with id key as expected by the API
-        if payload.get("agents"):
-            payload["agents"] = [
-                {"id": agent_id, "inspectors": []} if isinstance(agent_id, str) else agent_id
-                for agent_id in payload["agents"]
-            ]
+        # Convert subagents to proper format for backend (with inspectors array)
+        # v2 API always requires agents to be an array (even empty for single agents)
+        if self.subagents:
+            payload["agents"] = [{"id": agent_id, "inspectors": []} for agent_id in self.subagents if agent_id]
+        else:
+            payload["agents"] = []
+
+        # Ensure inspectors and tasks are always arrays (v2 API requirement)
+        if payload.get("inspectors") is None:
+            payload["inspectors"] = []
+        if payload.get("tasks") is None:
+            payload["tasks"] = []
 
         # Handle BaseModel expected_output for save operation
         # We don't send expected_output in the save payload - it's runtime-only

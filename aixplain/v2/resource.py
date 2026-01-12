@@ -1265,15 +1265,20 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
 
             raise APIError(f"Polling failed: {str(e)}", 0, {"poll_url": poll_url})
 
-        # Handle polling response - it might not have all the expected fields
+        # Handle polling response - use camelCase keys (what backend sends)
+        # dataclass_json with config(field_name=...) handles mapping to snake_case
         filtered_response = {
             "status": response.get("status", "IN_PROGRESS"),
             "completed": response.get("completed", False),
-            "error_message": response.get("error_message"),
+            "errorMessage": response.get("errorMessage"),
             "url": response.get("url"),
             "result": response.get("result"),
-            "supplier_error": response.get("supplier_error"),
-            "data": response.get("data"),
+            "supplierError": response.get("supplierError"),
+            "data": response.get("data") or {},
+            "sessionId": response.get("sessionId"),
+            "usedCredits": response.get("usedCredits", 0.0),
+            "runTime": response.get("runTime", 0.0),
+            "requestId": response.get("requestId"),
         }
 
         # Check if the operation has failed and raise appropriate error
