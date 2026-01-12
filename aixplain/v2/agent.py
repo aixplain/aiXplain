@@ -183,7 +183,7 @@ class Task:
     name: str
     instructions: Optional[str] = field(metadata=config(field_name="description"))
     expected_output: Optional[str] = field(metadata=config(field_name="expectedOutput"))
-    dependencies: List[Union[str, "Task"]] = field(default_factory=list)
+    dependencies: List[Union[str, "Task"]] = field(default_factory=list, metadata=config(exclude=lambda x: not x))
 
     def __post_init__(self) -> None:
         """Initialize task dependencies after dataclass creation."""
@@ -658,6 +658,13 @@ class Agent(
         payload["tools"] = converted_assets
 
         payload["model"] = {"id": self.llm}
+
+        # Convert subagent IDs to objects with id key as expected by the API
+        if payload.get("agents"):
+            payload["agents"] = [
+                {"id": agent_id, "inspectors": []} if isinstance(agent_id, str) else agent_id
+                for agent_id in payload["agents"]
+            ]
 
         # Handle BaseModel expected_output for save operation
         # We don't send expected_output in the save payload - it's runtime-only
