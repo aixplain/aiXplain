@@ -356,6 +356,8 @@ class ModelSearchParams(BaseSearchParams):
     saved: NotRequired[bool]
     status: NotRequired[List[str]]
     q: NotRequired[str]  # Search query parameter as per Swagger spec
+    host: NotRequired[str]  # Filter by host (e.g., "openai", "aiXplain")
+    developer: NotRequired[str]  # Filter by developer (e.g., "OpenAI")
 
 
 class ModelRunParams(BaseRunParams):
@@ -459,14 +461,14 @@ class Model(
         query: Optional[str] = None,
         **kwargs: Unpack[ModelSearchParams],
     ) -> Page["Model"]:
-        """Search models with optional query and filtering.
+        """Search with optional query and filtering.
 
         Args:
             query: Optional search query string
             **kwargs: Additional search parameters (functions, suppliers, etc.)
 
         Returns:
-            Page of models matching the search criteria
+            Page of items matching the search criteria
         """
         # If query is provided, add it to kwargs
         if query is not None:
@@ -662,6 +664,14 @@ class Model(
         # Handle saved filter
         if params.get("saved") is not None:
             filters["saved"] = params["saved"]
+
+        # Handle host filter (maps to hostedBy in API)
+        if params.get("host") is not None:
+            filters["host"] = params["host"]
+
+        # Handle developer filter (maps to developedBy in API)
+        if params.get("developer") is not None:
+            filters["developer"] = params["developer"]
 
         # functions - accept list of strings and convert to backend shape
         # Use v1 format: array of strings (works with sdk/models/paginate endpoint)
