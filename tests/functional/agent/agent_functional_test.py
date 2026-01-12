@@ -762,7 +762,7 @@ def test_run_agent_with_expected_output():
 def test_agent_with_action_tool():
     from aixplain.modules.model.integration import AuthenticationSchema
 
-    connection = ModelFactory.get("69494586e51f673adef80091")
+    connection = ModelFactory.get("6880d42e2b2782f01f765361")
     connection.action_scope = [
         action for action in connection.actions if action.code == "SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL"
     ]
