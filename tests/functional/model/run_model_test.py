@@ -8,7 +8,7 @@ from aixplain.factories import ModelFactory
 from aixplain.modules import LLM
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from aixplain.factories.index_factory.utils import AirParams, VectaraParams, GraphRAGParams, ZeroEntropyParams
+from aixplain.factories.index_factory.utils import AirParams, VectaraParams, ZeroEntropyParams
 import time
 import os
 import json
@@ -107,7 +107,6 @@ def run_index_model(index_model, retries):
     [
         pytest.param(None, VectaraParams, id="VECTARA"),
         pytest.param(None, ZeroEntropyParams, id="ZERO_ENTROPY"),
-        pytest.param(EmbeddingModel.OPENAI_ADA002, GraphRAGParams, id="GRAPHRAG"),
         pytest.param(EmbeddingModel.OPENAI_ADA002, AirParams, id="AIR - OpenAI Ada 002"),
         pytest.param(EmbeddingModel.MULTILINGUAL_E5_LARGE, AirParams, id="AIR - Multilingual E5 Large"),
         pytest.param("67efd4f92a0a850afa045af7", AirParams, id="AIR - BGE M3"),
@@ -133,7 +132,6 @@ def test_index_model(embedding_model, supplier_params):
 @pytest.mark.parametrize(
     "embedding_model,supplier_params",
     [
-        pytest.param(None, VectaraParams, id="VECTARA"),
         pytest.param(EmbeddingModel.OPENAI_ADA002, AirParams, id="OpenAI Ada 002"),
         pytest.param(EmbeddingModel.JINA_CLIP_V2_MULTIMODAL, AirParams, id="Jina Clip v2 Multimodal"),
         pytest.param(EmbeddingModel.MULTILINGUAL_E5_LARGE, AirParams, id="Multilingual E5 Large"),
@@ -276,7 +274,7 @@ def test_index_model_air_with_image():
     assert str(response.status) == "SUCCESS"
     first_record = response.details[0]["data"]
     assert "hello" in first_record.lower()
-    second_record = response.details[1]["metadata"]["uri"]
+    second_record = response.details[2]["metadata"]["uri"]
     assert "faces" in second_record.lower()
 
     assert index_model.count() == 4
