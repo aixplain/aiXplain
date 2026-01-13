@@ -189,7 +189,14 @@ class BaseResource:
         name: str: The resource name.
     """
 
-    context: Any = field(repr=False, compare=False, metadata=config(exclude=lambda x: True), init=False)
+    context: Any = field(
+        default=None,  
+        repr=False,
+        compare=False,
+        metadata=config(exclude=lambda _: True),
+        init=False,
+    )
+
     RESOURCE_PATH: str = field(
         default="",
         repr=False,
@@ -324,7 +331,12 @@ class BaseResource:
 
     def _create(self, resource_path: str, payload: dict) -> None:
         """Create the resource."""
-        result = self.context.client.request("post", f"{resource_path}", json=payload)
+        from aixplain.v2 import client as v2_client
+        if v2_client is None or not hasattr(v2_client, "request"):
+            raise ValueError("aixplain.v2.client is not initialized; call the SDK init/login first.")
+
+
+        result = v2_client.request("post", f"{resource_path}", json=payload)
         # Flatten assetInfo structure before deserialization
         result = _flatten_asset_info(dict(result)) if isinstance(result, dict) else result
         # Update the object from the full response

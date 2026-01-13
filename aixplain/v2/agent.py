@@ -5,7 +5,7 @@ from enum import Enum
 from dataclasses import dataclass, field
 from typing import List, Optional, Any, Dict, Union, Text
 from typing_extensions import Unpack, NotRequired, TypedDict, Literal
-from dataclasses_json import dataclass_json, config
+from dataclasses_json import dataclass_json, config, DataClassJsonMixin
 
 from pydantic import BaseModel
 
@@ -245,6 +245,36 @@ class Agent(
     resource_info: Optional[Dict[str, Any]] = field(
         default_factory=dict, metadata=config(field_name="resourceInfo")
     )
+    def _to_serializable_dict(self) -> dict:
+        from .inspector import Inspector, InspectorTarget
+
+        payload = DataClassJsonMixin.to_dict(self)  # context is excluded in BaseResource
+
+        if self.inspectors:
+            serialized_inspectors = []
+            for inspector in self.inspectors:
+                if isinstance(inspector, Inspector):
+                    serialized_inspectors.append(inspector.to_dict())
+                elif isinstance(inspector, dict):
+                    serialized_inspectors.append(inspector)
+                else:
+                    raise ValueError(
+                        f"Inspector must be Inspector instance or dict, got {type(inspector)}"
+                    )
+            payload["inspectors"] = serialized_inspectors
+
+        if self.inspector_targets:
+            serialized_targets = []
+            for target in self.inspector_targets:
+                if isinstance(target, InspectorTarget):
+                    serialized_targets.append(target.value)
+                elif isinstance(target, str):
+                    serialized_targets.append(target)
+                else:
+                    serialized_targets.append(str(target))
+            payload["inspectorTargets"] = serialized_targets
+
+        return payload
 
     def __post_init__(self) -> None:
         self.tasks = [Task.from_dict(task) for task in self.tasks]
@@ -260,7 +290,7 @@ class Agent(
                 self._original_subagents.append(agent)  # Store original object
                 converted_subagents.append(agent.id)
         self.subagents = converted_subagents
-        self.assets = [{"type": "llm", "description": "main", "parameters": []}]
+        # self.assets = [{"type": "llm", "description": "main", "parameters": []}] This line is problematic, it gives tools a dummy value that crashes in backend
         if isinstance(self.output_format, OutputFormat):
             self.output_format = self.output_format.value
 
@@ -636,74 +666,25 @@ class Agent(
         """
         Build the payload for the save action.
         """
-        # Import Inspector from v2 module
-        from .inspector import Inspector
-
-        # Pre-serialize inspectors before to_dict() to avoid dataclass_json issues
-        original_inspectors = self.inspectors
-        if self.inspectors:
-            serialized_inspectors = []
-            for inspector in self.inspectors:
-                if isinstance(inspector, Inspector):
-                    # Use Inspector's to_dict method which handles callable policy serialization
-                    serialized_inspectors.append(inspector.to_dict())
-                elif isinstance(inspector, dict):
-                    # Already serialized
-                    serialized_inspectors.append(inspector)
-                else:
-                    raise ValueError(
-                        f"Inspector must be Inspector instance or dict, got {type(inspector)}"
-                    )
-            self.inspectors = serialized_inspectors
-
-        # Pre-serialize inspector_targets to strings (enum values)
-        from .inspector import InspectorTarget
-
-        original_inspector_targets = self.inspector_targets
-        if self.inspector_targets:
-            serialized_targets = []
-            for target in self.inspector_targets:
-                if isinstance(target, InspectorTarget):
-                    serialized_targets.append(target.value)
-                elif isinstance(target, str):
-                    serialized_targets.append(target)
-                else:
-                    serialized_targets.append(str(target))
-            self.inspector_targets = serialized_targets
-
-        # Now call to_dict() with inspectors and inspector_targets already serialized
-        payload = self.to_dict()
-
-        # Restore original values
-        self.inspectors = original_inspectors
-        self.inspector_targets = original_inspector_targets
+        payload = self._to_serializable_dict()
 
         # Convert tools intelligently based on their type
         converted_assets = []
         if self.tools:
             for tool in self.tools:
                 if isinstance(tool, ToolableMixin):
-                    # Non-tool objects (like Models) that can act as tools
                     converted_assets.append(tool.as_tool())
                 else:
                     raise ValueError(
                         "A tool in the agent must be a Tool, Model or ToolableMixin instance."
                     )
-
-        # Update the payload with converted assets
         payload["assets"] = converted_assets
 
-        # Handle BaseModel expected_output for save operation
-        # We don't send expected_output in the save payload - it's runtime-only
         if "expectedOutput" in payload:
             expected_output = payload["expectedOutput"]
-            if isinstance(expected_output, type) and issubclass(
-                expected_output, BaseModel
-            ):
-                # Remove BaseModel classes from save payload - they're not stored server-side
+            if isinstance(expected_output, type) and issubclass(expected_output, BaseModel):
                 payload.pop("expectedOutput")
             elif isinstance(expected_output, BaseModel):
-                # Convert BaseModel instance to dict for save
                 payload["expectedOutput"] = expected_output.model_dump()
 
         return payload
