@@ -449,12 +449,10 @@ class BaseResource:
         return self.context.client.request(method, path, **kwargs)
 
     def __repr__(self) -> str:
-        """Return a string representation using assetPath > instanceId > id priority."""
-        # Priority: assetPath > instanceId > id
+        """Return a string representation using assetPath > id priority."""
+        # Priority: assetPath > id (instance_id doesn't affect repr)
         if self.asset_path:
-            return f"{self.__class__.__name__}(id={self.asset_path})"
-        elif self.instance_id:
-            return f"{self.__class__.__name__}(id={self.instance_id})"
+            return f"{self.__class__.__name__}(path={self.asset_path})"
         else:
             return f"{self.__class__.__name__}(id={self.id}, name={self.name})"
 
@@ -1180,7 +1178,6 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
         """
         return None
 
-    @with_hooks
     def run(self, *args: Any, **kwargs: Unpack[RunParamsT]) -> ResultT:
         """Run the resource synchronously with automatic polling.
 
@@ -1190,13 +1187,24 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
 
         Returns:
             Response instance from the configured response class
+
+        Note:
+            The before_run hook is called via run_async(), not here, to avoid
+            double invocation since run() delegates to run_async().
         """
-        # Start async execution
+        # Start async execution (before_run hook is called inside run_async)
         result = self.run_async(**kwargs)
 
         # Check if we need to poll
         if result.url and not result.completed:
             result = self.sync_poll(result.url, **kwargs)
+
+        # Call after_run hook for synchronous completion
+        after_method = getattr(self, "after_run", None)
+        if after_method:
+            custom_result = after_method(result, **kwargs)
+            if custom_result is not None:
+                return custom_result
 
         return result
 
@@ -1209,6 +1217,13 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
         Returns:
             Response instance from the configured RESPONSE_CLASS
         """
+        # Call before_run hook to allow subclasses to prepare (e.g., auto-save drafts)
+        before_method = getattr(self, "before_run", None)
+        if before_method:
+            early_result = before_method(**kwargs)
+            if early_result is not None:
+                return early_result
+
         self._ensure_valid_state()
 
         payload = self.build_run_payload(**kwargs)

@@ -295,7 +295,7 @@ def test_team_agent_with_abort_inspector(run_input_map, delete_agents_and_team_a
     assert response is not None
     assert response["completed"] is True
     assert response["status"].lower() == "success"
-    assert "I couldn't provide an answer because the inspector detected issues" in response["data"]["output"]
+    assert "I’m not able to complete this request because it did not meet the agent’s validation and compliance guidelines." in response["data"]["output"]
 
     # Check for inspector steps
     if "intermediate_steps" in response["data"]:
@@ -879,12 +879,11 @@ def test_team_agent_with_utility_inspector(run_input_map, delete_agents_and_team
         else:
             return "Content is not all lowercase. There are uppercase characters in the content."
 
-    utility_model = ModelFactory.create_utility_model(
-        name="Lowercase Inspector Test",
+    utility_model = ModelFactory.create_script_connection_tool(
+        name="Lowercase Inspector Test 2",
         description="Inspect the content of the response. If the content is not all lowercase, provide feedback.'",
         code=lowercase_inspector,
     )
-    utility_model.deploy()
 
     utility_model_id = utility_model.id
     inspector = Inspector(

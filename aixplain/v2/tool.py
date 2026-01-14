@@ -39,11 +39,21 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
     DEFAULT_INTEGRATION_ID = "686432941223092cb4294d3f"  # Script integration
 
     # Tool-specific fields
-    asset_id: Optional[str] = field(default=None, metadata=dj_config(field_name="assetId"))
-    integration: Optional[Union[Integration, str]] = field(default=None, metadata=dj_config(exclude=lambda x: True))
-    config: Optional[dict] = field(default=None, metadata=dj_config(exclude=lambda x: True))
-    code: Optional[str] = field(default=None, metadata=dj_config(exclude=lambda x: True))
-    allowed_actions: Optional[List[str]] = field(default_factory=list, metadata=dj_config(field_name="allowedActions"))
+    asset_id: Optional[str] = field(
+        default=None, metadata=dj_config(field_name="assetId")
+    )
+    integration: Optional[Union[Integration, str]] = field(
+        default=None, metadata=dj_config(exclude=lambda x: True)
+    )
+    config: Optional[dict] = field(
+        default=None, metadata=dj_config(exclude=lambda x: True)
+    )
+    code: Optional[str] = field(
+        default=None, metadata=dj_config(exclude=lambda x: True)
+    )
+    allowed_actions: Optional[List[str]] = field(
+        default_factory=list, metadata=dj_config(field_name="allowedActions")
+    )
     auth_scheme: Optional[Integration.AuthenticationScheme] = field(
         default=Integration.AuthenticationScheme.NO_AUTH,
         metadata=dj_config(exclude=lambda x: True),
@@ -57,7 +67,9 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
         """
         if not self.id:
             if self.integration is None:
-                code = self.code or (self.config.pop("code", None) if self.config else None)
+                code = self.code or (
+                    self.config.pop("code", None) if self.config else None
+                )
                 assert code is not None, "Code is required to create a (script) Tool"
                 # Use default integration ID for utility tools (store as string, will be fetched on save)
                 self.integration = self.DEFAULT_INTEGRATION_ID
@@ -71,7 +83,9 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
                     # Keep as string - will be fetched during save
                     pass
                 elif not isinstance(self.integration, Integration):
-                    raise ValueError("Integration must be an Integration object or a string")
+                    raise ValueError(
+                        "Integration must be an Integration object or a string"
+                    )
 
     def _ensure_integration(self, required: bool = False) -> bool:
         """Ensure integration is resolved to an Integration instance.
@@ -101,7 +115,9 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
 
         if not isinstance(self.integration, Integration):
             if required:
-                raise ValueError("Integration must be an Integration object or a string")
+                raise ValueError(
+                    "Integration must be an Integration object or a string"
+                )
             return False
 
         return True
@@ -109,8 +125,7 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
     def list_actions(self) -> List[Action]:
         """List available actions for the tool.
 
-        Overrides parent method to add fallback to base integration and support
-        for utility models without real integrations.
+        Overrides parent method to add fallback to base integration.
 
         Returns:
             List of Action objects available for this tool. Falls back to
@@ -118,28 +133,20 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
         """
         try:
             actions = super().list_actions()
-
-            # If no actions found but this is a utility model without real integration, create synthetic "run" action
-            if not actions and self._is_utility_model_without_integration():
-                return [self._create_synthetic_run_action()]
-
             return actions
         except Exception as e:
-            warnings.warn(f"Error listing actions: {e}. Using integration.list_actions() instead.")
+            warnings.warn(
+                f"Error listing actions: {e}. Using integration.list_actions() instead."
+            )
             if self._ensure_integration():
                 return self.integration.list_actions()
-
-            # Fallback: if this is a utility model without integration, create synthetic action
-            if self._is_utility_model_without_integration():
-                return [self._create_synthetic_run_action()]
 
             return []
 
     def list_inputs(self, *actions: str) -> List["Action"]:
         """List available inputs for specified actions.
 
-        Overrides parent method to add fallback to base integration and support
-        for utility models without real integrations.
+        Overrides parent method to add fallback to base integration.
 
         Args:
             *actions: Variable number of action names to get inputs for.
@@ -150,23 +157,16 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
         """
         try:
             inputs = super().list_inputs(*actions)
-
-            # If no inputs found but this is a utility model requesting "run" action
-            if not inputs and self._is_utility_model_without_integration() and (not actions or "run" in actions):
-                return [self._create_synthetic_run_action()]
-
             return inputs
         except Exception as e:
-            warnings.warn(f"Error listing inputs: {e}. Using integration.list_inputs() instead.")
+            warnings.warn(
+                f"Error listing inputs: {e}. Using integration.list_inputs() instead."
+            )
             if self._ensure_integration():
                 try:
                     return self.integration.list_inputs(*actions)
                 except Exception:
                     pass
-
-            # Fallback: if this is a utility model, create synthetic action
-            if self._is_utility_model_without_integration() and (not actions or "run" in actions):
-                return [self._create_synthetic_run_action()]
 
             return []
 
@@ -223,42 +223,13 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
 
         # Check if actions_available field suggests it should have actions but doesn't
         actions_available = getattr(self, "actions_available", None)
-        if hasattr(actions_available, "__class__") and "Field" in str(type(actions_available)):
+        if hasattr(actions_available, "__class__") and "Field" in str(
+            type(actions_available)
+        ):
             # Field deserialization issue - assume True for utility models
             actions_available = True
 
         return bool(actions_available)
-
-    def _create_synthetic_run_action(self) -> "Action":
-        """Create a synthetic 'run' action based on the model's parameters."""
-        from .integration import Action, Input
-
-        # Convert model parameters to action inputs
-        inputs = []
-        if self.params:
-            for param in self.params:
-                inputs.append(
-                    Input(
-                        name=param.name,
-                        required=param.required,
-                        datatype=param.data_type or "string",
-                        allowMulti=getattr(param, "multiple_values", False),
-                        supportsVariables=False,
-                        fixed=getattr(param, "is_fixed", False),
-                        description=getattr(param, "description", f"Parameter {param.name}"),
-                        value=[],
-                        availableOptions=getattr(param, "available_options", []),
-                        defaultValue=getattr(param, "default_values", []),
-                    )
-                )
-
-        return Action(
-            name="run",
-            description=f"Run the {self.name or 'utility'} model",
-            displayName="Run",
-            slug="run",
-            inputs=inputs,
-        )
 
     def validate_allowed_actions(self) -> None:
         """Validate that all allowed actions are available for this tool.
@@ -271,13 +242,17 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
             AssertionError: If validation fails.
         """
         if self.allowed_actions:
-            assert self.integration is not None, "Integration is required to validate allowed actions"
+            assert (
+                self.integration is not None
+            ), "Integration is required to validate allowed actions"
 
             available_actions = [action.name for action in self.list_actions()]
-            assert available_actions is not None, "Integration must have available actions"
-            assert all(action in available_actions for action in self.allowed_actions), (
-                "All allowed actions must be available"
-            )
+            assert (
+                available_actions is not None
+            ), "Integration must have available actions"
+            assert all(
+                action in available_actions for action in self.allowed_actions
+            ), "All allowed actions must be available"
 
     def get_parameters(self) -> List[dict]:
         """Get parameters for the tool in the format expected by agent saving.
@@ -308,7 +283,9 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
                     continue
 
             for input_param in action.inputs:
-                input_code = input_param.code or input_param.name.lower().replace(" ", "_")
+                input_code = input_param.code or input_param.name.lower().replace(
+                    " ", "_"
+                )
 
                 # Get the current value from the action proxy if available
                 current_value = None
@@ -317,7 +294,11 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
 
                 # Fall back to backend default if no current value
                 if current_value is None and input_param.defaultValue:
-                    current_value = input_param.defaultValue[0] if input_param.defaultValue else None
+                    current_value = (
+                        input_param.defaultValue[0]
+                        if input_param.defaultValue
+                        else None
+                    )
 
                 action_inputs[input_code] = {
                     "name": input_param.name,
@@ -351,7 +332,11 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
         errors = []
 
         # For utility models without integration, use model validation
-        if self._is_utility_model_without_integration() and "data" in kwargs and isinstance(kwargs["data"], dict):
+        if (
+            self._is_utility_model_without_integration()
+            and "data" in kwargs
+            and isinstance(kwargs["data"], dict)
+        ):
             # Validate the parameters inside the data field
             model_kwargs = kwargs["data"]
             errors = super()._validate_params(**model_kwargs)
@@ -372,7 +357,9 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
             return errors
 
         if self.allowed_actions and action not in self.allowed_actions:
-            errors.append(f"Action '{action}' is not allowed for this tool. Allowed actions: {self.allowed_actions}")
+            errors.append(
+                f"Action '{action}' is not allowed for this tool. Allowed actions: {self.allowed_actions}"
+            )
             return errors
 
         # 3. Validate action inputs using ActionInputsProxy
@@ -392,15 +379,8 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
         return errors
 
     def run(self, *args: Any, **kwargs: Unpack[ModelRunParams]) -> ToolResult:
-        """Run the tool.
-
-        For utility models without integration, automatically maps to "run" action if no action specified.
-        """
+        """Run the tool."""
         self._ensure_valid_state()
-
-        # Auto-set action to "run" for utility models if not specified
-        if self._is_utility_model_without_integration() and "action" not in kwargs:
-            kwargs["action"] = "run"
 
         if len(args) > 0:
             kwargs["data"] = args[0]
@@ -428,18 +408,6 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
         Tools don't have the standard 'inputs' attribute like models do,
         so we need to handle parameter merging differently.
         """
-        # For utility models without integration, use simpler parameter handling
-        if self._is_utility_model_without_integration():
-            # Build data dict from model parameters, excluding tool-specific params
-            tool_params = {"action", "data"}
-            model_params = {k: v for k, v in kwargs.items() if k not in tool_params and v is not None}
-
-            action_name = kwargs.get("action", "run")  # Default to "run" for utility models
-            return {
-                "action": action_name,
-                "data": model_params,
-            }
-
         # Original tool logic for real integration-based tools
         merged = {}
         action_name = kwargs.get("action")

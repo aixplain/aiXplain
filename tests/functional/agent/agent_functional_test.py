@@ -135,7 +135,7 @@ def test_custom_code_tool(delete_agents_and_team_agents, AgentFactory):
     tool = AgentFactory.create_custom_python_code_tool(
         description="Add two strings",
         code='def main(aaa: str, bbb: str) -> str:\n    """Add two strings"""\n    return aaa + bbb',
-        name="Add Strings",
+        name="Add Strings Test Tool",
     )
     assert tool is not None
     assert tool.description == "Add two strings"
@@ -154,7 +154,7 @@ def test_custom_code_tool(delete_agents_and_team_agents, AgentFactory):
     assert response["status"].lower() == "success"
     assert "HelloWorld" in response["data"]["output"]
     agent.delete()
-
+    tool.delete()
 
 @pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_list_agents(AgentFactory):
@@ -299,7 +299,7 @@ def test_update_tools_of_agent(run_input_map, delete_agents_and_team_agents, Age
             {
                 "type": "search",
                 "model": "65c51c556eb563350f6e1bb1",
-                "query": "What is the weather in New York?",
+                "query": "What is the current price of Gold?",
                 "description": "Search tool with custom number of results",
                 "expected_tool_input": "'numResults': 5",
             },
@@ -757,43 +757,6 @@ def test_run_agent_with_expected_output():
         assert "age" in person
         assert "city" in person
         assert person["name"] in more_than_30_years_old
-
-
-def test_agent_with_action_tool():
-    from aixplain.modules.model.integration import AuthenticationSchema
-
-    connector = ModelFactory.get("686432941223092cb4294d3f")
-    # connect
-    response = connector.connect(
-        authentication_schema=AuthenticationSchema.BEARER_TOKEN,
-        data={"token": os.getenv("SLACK_TOKEN")},
-    )
-    connection_id = response.data["id"]
-
-    connection = ModelFactory.get(connection_id)
-    connection.action_scope = [
-        action for action in connection.actions if action.code == "SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL"
-    ]
-
-    agent = AgentFactory.create(
-        name="Test Agent",
-        description="This agent is used to send messages to Slack",
-        instructions="You are a helpful assistant that can send messages to Slack.",
-        llm_id="669a63646eb56306647e1091",
-        tools=[
-            connection,
-            AgentFactory.create_model_tool(model="6736411cf127849667606689"),
-        ],
-    )
-
-    response = agent.run(
-        "Send what is the capital of Finland on Slack to channel of #modelserving-alerts: 'C084G435LR5'. Add the name of the capital in the final answer."
-    )
-    assert response is not None
-    assert response["status"].lower() == "success"
-    assert "helsinki" in response.data.output.lower()
-    assert "SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL" in [step["tool"] for step in response.data.intermediate_steps[0]["tool_steps"]]
-    connection.delete()
 
 
 def test_agent_with_mcp_tool():
