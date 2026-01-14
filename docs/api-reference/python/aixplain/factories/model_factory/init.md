@@ -30,7 +30,7 @@ Description:
 class ModelFactory(ModelGetterMixin, ModelListMixin)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/model_factory/__init__.py#L33)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/model_factory/__init__.py#L38)
 
 Factory class for creating, managing, and exploring models.
 
@@ -42,6 +42,10 @@ model-related features.
 
 - `backend_url` _str_ - Base URL for the aiXplain backend API.
 
+#### PYTHON\_SANDBOX\_ID
+
+Python sandbox integration ID
+
 #### create\_utility\_model
 
 ```python
@@ -52,12 +56,16 @@ def create_utility_model(cls,
                          inputs: List[UtilityModelInput] = [],
                          description: Optional[Text] = None,
                          output_examples: Text = "",
-                         api_key: Optional[Text] = None) -> UtilityModel
+                         api_key: Optional[Text] = None,
+                         **kwargs) -> UtilityModel
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/model_factory/__init__.py#L47)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/model_factory/__init__.py#L53)
 
 Create a new utility model for custom functionality.
+
+.. deprecated::
+This method is deprecated. Please use :meth:`create_script_connection_tool` instead.
 
 This method creates a utility model that can execute custom code or functions
 with specified inputs and outputs.
@@ -86,14 +94,56 @@ with specified inputs and outputs.
 
 - `Exception` - If model creation fails or validation fails.
 
+#### create\_script\_connection\_tool
+
+```python
+@classmethod
+def create_script_connection_tool(cls,
+                                  name: Optional[Text] = None,
+                                  code: Union[Text, Callable] = None,
+                                  description: Optional[Text] = None,
+                                  api_key: Optional[Text] = None,
+                                  **kwargs) -> ConnectionTool
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/model_factory/__init__.py#L140)
+
+Create a new script connection tool for custom functionality.
+
+This method creates a connection tool that can execute custom code or functions
+with specified inputs and outputs. It uses the Python sandbox integration
+via ToolFactory.create as the underlying implementation.
+
+**Arguments**:
+
+- `name` _Optional[Text]_ - Name of the connection tool.
+- `code` _Union[Text, Callable]_ - Python code as string or callable function
+  implementing the connection tool&#x27;s functionality.
+- `description` _Optional[Text], optional_ - Description of what the connection tool does.
+  Defaults to None.
+- `api_key` _Optional[Text], optional_ - API key for authentication.
+  Defaults to None, using the configured TEAM_API_KEY.
+  
+
+**Returns**:
+
+- `ConnectionTool` - Created and registered connection tool instance.
+  
+
+**Raises**:
+
+- `Exception` - If model creation fails or validation fails.
+
 #### list\_host\_machines
 
 ```python
 @classmethod
-def list_host_machines(cls, api_key: Optional[Text] = None) -> List[Dict]
+def list_host_machines(cls,
+                       api_key: Optional[Text] = None,
+                       **kwargs) -> List[Dict]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/model_factory/__init__.py#L117)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/model_factory/__init__.py#L219)
 
 Lists available hosting machines for model.
 
@@ -111,10 +161,12 @@ Lists available hosting machines for model.
 
 ```python
 @classmethod
-def list_gpus(cls, api_key: Optional[Text] = None) -> List[List[Text]]
+def list_gpus(cls,
+              api_key: Optional[Text] = None,
+              **kwargs) -> List[List[Text]]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/model_factory/__init__.py#L143)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/model_factory/__init__.py#L245)
 
 List GPU names on which you can host your language model.
 
@@ -133,10 +185,11 @@ List GPU names on which you can host your language model.
 @classmethod
 def list_functions(cls,
                    verbose: Optional[bool] = False,
-                   api_key: Optional[Text] = None) -> List[Dict]
+                   api_key: Optional[Text] = None,
+                   **kwargs) -> List[Dict]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/model_factory/__init__.py#L168)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/model_factory/__init__.py#L270)
 
 Lists supported model functions on platform.
 
@@ -164,10 +217,11 @@ def create_asset_repo(cls,
                       input_modality: Text,
                       output_modality: Text,
                       documentation_url: Optional[Text] = "",
-                      api_key: Optional[Text] = None) -> Dict
+                      api_key: Optional[Text] = None,
+                      **kwargs) -> Dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/model_factory/__init__.py#L208)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/model_factory/__init__.py#L309)
 
 Create a new model repository in the platform.
 
@@ -202,10 +256,10 @@ necessary infrastructure for model deployment.
 
 ```python
 @classmethod
-def asset_repo_login(cls, api_key: Optional[Text] = None) -> Dict
+def asset_repo_login(cls, api_key: Optional[Text] = None, **kwargs) -> Dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/model_factory/__init__.py#L284)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/model_factory/__init__.py#L381)
 
 Return login credentials for the image repository that corresponds with
 the given API_KEY.
@@ -228,10 +282,11 @@ def onboard_model(cls,
                   image_tag: Text,
                   image_hash: Text,
                   host_machine: Optional[Text] = "",
-                  api_key: Optional[Text] = None) -> Dict
+                  api_key: Optional[Text] = None,
+                  **kwargs) -> Dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/model_factory/__init__.py#L311)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/model_factory/__init__.py#L403)
 
 Onboard a model after its image has been pushed to ECR.
 
@@ -256,10 +311,11 @@ def deploy_huggingface_model(cls,
                              hf_repo_id: Text,
                              revision: Optional[Text] = "",
                              hf_token: Optional[Text] = "",
-                             api_key: Optional[Text] = None) -> Dict
+                             api_key: Optional[Text] = None,
+                             **kwargs) -> Dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/model_factory/__init__.py#L352)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/model_factory/__init__.py#L440)
 
 Deploy a model from Hugging Face Hub to the aiXplain platform.
 
@@ -288,10 +344,11 @@ authentication and configuration setup.
 @classmethod
 def get_huggingface_model_status(cls,
                                  model_id: Text,
-                                 api_key: Optional[Text] = None) -> Dict
+                                 api_key: Optional[Text] = None,
+                                 **kwargs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/model_factory/__init__.py#L413)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/model_factory/__init__.py#L497)
 
 Check the deployment status of a Hugging Face model.
 
