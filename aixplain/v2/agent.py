@@ -165,16 +165,11 @@ class AgentResponseData:
 class AgentRunResult(Result):
     """Result from running an agent."""
 
-    data: Optional[Union[AgentResponseData, Text]] = None
+    data: Optional[Union[AgentResponseData, Text]] = None  # Override type from base class
     session_id: Optional[Text] = field(default=None, metadata=config(field_name="sessionId"))
     request_id: Optional[Text] = field(default=None, metadata=config(field_name="requestId"))
     used_credits: float = field(default=0.0, metadata=config(field_name="usedCredits"))
     run_time: float = field(default=0.0, metadata=config(field_name="runTime"))
-    completed: Optional[bool] = None
-    error_message: Optional[str] = field(default=None, metadata=config(field_name="errorMessage"))
-    url: Optional[str] = None
-    result: Optional[Any] = None
-    supplier_error: Optional[str] = field(default=None, metadata=config(field_name="supplierError"))
 
 
 @dataclass_json
