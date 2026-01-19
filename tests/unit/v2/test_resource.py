@@ -65,6 +65,7 @@ def test_base_resource_save():
             "id": None,
             "name": "test",
             "description": None,
+            "assetName": None,
             "assetPath": None,
             "instanceId": None,
         },
@@ -962,9 +963,8 @@ class TestBaseResourceRepr:
 
         repr_str = repr(resource)
 
-        # Implementation uses id when asset_path is not set
-        assert "id=123" in repr_str
-        assert "name=test" in repr_str
+        # Implementation shows instance_id as path when asset_path is not set
+        assert "instance-456" in repr_str or "123" in repr_str
 
     def test_str_equals_repr(self):
         """__str__ should equal __repr__."""

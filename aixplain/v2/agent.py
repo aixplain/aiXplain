@@ -154,7 +154,9 @@ class AgentResponseData:
     input: Optional[Any] = None
     output: Optional[Any] = None
     intermediate_steps: Optional[List[Dict[str, Any]]] = field(default_factory=list)
-    execution_stats: Optional[Dict[str, Any]] = None
+    steps: Optional[List[Dict[str, Any]]] = field(default_factory=list)
+    session_id: Optional[str] = None
+    execution_stats: Optional[Dict[str, Any]] = field(default=None, metadata=config(field_name="executionStats"))
     critiques: Optional[str] = ""
 
 
@@ -163,16 +165,11 @@ class AgentResponseData:
 class AgentRunResult(Result):
     """Result from running an agent."""
 
-    data: Optional[Union[AgentResponseData, Text]] = None
-    session_id: Optional[Text] = None
-    request_id: Optional[Text] = None
-    used_credits: float = 0.0
-    run_time: float = 0.0
-    completed: Optional[bool] = None
-    error_message: Optional[str] = None
-    url: Optional[str] = None
-    result: Optional[Any] = None
-    supplier_error: Optional[str] = None
+    data: Optional[Union[AgentResponseData, Text]] = None  # Override type from base class
+    session_id: Optional[Text] = field(default=None, metadata=config(field_name="sessionId"))
+    request_id: Optional[Text] = field(default=None, metadata=config(field_name="requestId"))
+    used_credits: float = field(default=0.0, metadata=config(field_name="usedCredits"))
+    run_time: float = field(default=0.0, metadata=config(field_name="runTime"))
 
 
 @dataclass_json
@@ -183,7 +180,7 @@ class Task:
     name: str
     instructions: Optional[str] = field(metadata=config(field_name="description"))
     expected_output: Optional[str] = field(metadata=config(field_name="expectedOutput"))
-    dependencies: List[Union[str, "Task"]] = field(default_factory=list)
+    dependencies: List[Union[str, "Task"]] = field(default_factory=list, metadata=config(exclude=lambda x: not x))
 
     def __post_init__(self) -> None:
         """Initialize task dependencies after dataclass creation."""
@@ -217,11 +214,10 @@ class Agent(
     instructions: Optional[str] = None
     status: AssetStatus = AssetStatus.DRAFT
     team_id: Optional[int] = field(default=None, metadata=config(field_name="teamId"))
-    llm: Union[str, "Model"] = field(default=DEFAULT_LLM, metadata=config(field_name="llmId"))
+    llm: Union[str, "Model"] = field(default=DEFAULT_LLM, metadata=config(exclude=lambda x: True))
 
     # Asset and tool fields
-    assets: Optional[List[Dict[str, Any]]] = field(default_factory=list, metadata=config(field_name="tools"))
-    tools: Optional[List[Dict[str, Any]]] = field(default_factory=list, metadata=config(field_name="assets"))
+    tools: Optional[List[Dict[str, Any]]] = field(default_factory=list, metadata=config(field_name="tools"))
 
     # Inspector and supervisor fields
     inspector_id: Optional[str] = field(default=None, metadata=config(field_name="inspectorId"))
@@ -272,7 +268,7 @@ class Agent(
                 self._original_subagents.append(agent)  # Store original object
                 converted_subagents.append(agent.id)
         self.subagents = converted_subagents
-        self.assets = [{"type": "llm", "description": "main", "parameters": []}]
+
         if isinstance(self.output_format, OutputFormat):
             self.output_format = self.output_format.value
 
@@ -656,7 +652,22 @@ class Agent(
                     raise ValueError("A tool in the agent must be a Tool, Model or ToolableMixin instance.")
 
         # Update the payload with converted assets
-        payload["assets"] = converted_assets
+        payload["tools"] = converted_assets
+
+        payload["model"] = {"id": self.llm}
+
+        # Convert subagents to proper format for backend (with inspectors array)
+        # v2 API always requires agents to be an array (even empty for single agents)
+        if self.subagents:
+            payload["agents"] = [{"id": agent_id, "inspectors": []} for agent_id in self.subagents if agent_id]
+        else:
+            payload["agents"] = []
+
+        # Ensure inspectors and tasks are always arrays (v2 API requirement)
+        if payload.get("inspectors") is None:
+            payload["inspectors"] = []
+        if payload.get("tasks") is None:
+            payload["tasks"] = []
 
         # Handle BaseModel expected_output for save operation
         # We don't send expected_output in the save payload - it's runtime-only
