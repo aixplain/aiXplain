@@ -6,6 +6,13 @@ from datetime import datetime
 from typing import Dict, List, Optional, Text, Union
 
 
+from enum import Enum
+
+class TokenType(Enum):
+    INPUT = "input"
+    OUTPUT = "output"
+    TOTAL = "total"
+
 class APIKeyLimits:
     """Rate limits configuration for an API key.
 
@@ -18,6 +25,7 @@ class APIKeyLimits:
         request_per_minute (int): Maximum number of requests allowed per minute.
         request_per_day (int): Maximum number of requests allowed per day.
         model (Optional[Model]): The model these limits apply to, if any.
+        token_type (Optional[TokenType]): Type of token limit ('input', 'output', 'total'), or None for default.
     """
 
     def __init__(
@@ -27,6 +35,7 @@ class APIKeyLimits:
         request_per_minute: int,
         request_per_day: int,
         model: Optional[Union[Text, Model]] = None,
+        token_type: Optional[TokenType] = None,
     ):
         """Initialize an APIKeyLimits instance.
 
@@ -37,12 +46,14 @@ class APIKeyLimits:
             request_per_day (int): Maximum number of requests per day.
             model (Optional[Union[Text, Model]], optional): The model to apply
                 limits to. Can be a model ID or Model instance. Defaults to None.
+            token_type (Optional[TokenType], optional): The type of token to apply the limit to. Defaults to None.
         """
         self.token_per_minute = token_per_minute
         self.token_per_day = token_per_day
         self.request_per_minute = request_per_minute
         self.request_per_day = request_per_day
         self.model = model
+        self.token_type = token_type
         if model is not None and isinstance(model, str):
             from aixplain.factories import ModelFactory
 
