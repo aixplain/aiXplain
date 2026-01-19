@@ -145,6 +145,7 @@ Initialize an APIKey instance.
   - tpd: tokens per day
   - rpm: requests per minute
   - rpd: requests per day
+  - tokenType: input/output/total
 
 #### validate
 
@@ -198,6 +199,7 @@ format suitable for API requests or storage.
   - tpd: tokens per day
   - rpm: requests per minute
   - rpd: requests per day
+  - tokenType: input/output/total
   - assetId: model ID
   - expiresAt (Optional[Text]): ISO format expiration date
   - globalLimits (Optional[Dict]): Global limits with tpm/tpd/rpm/rpd

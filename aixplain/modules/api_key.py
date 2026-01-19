@@ -153,6 +153,7 @@ class APIKey:
                 token_per_day=global_limits["tpd"],
                 request_per_minute=global_limits["rpm"],
                 request_per_day=global_limits["rpd"],
+                token_type=global_limits["tokenType"],
             )
         self.asset_limits = asset_limits
         for i, asset_limit in enumerate(self.asset_limits):
@@ -163,6 +164,7 @@ class APIKey:
                     request_per_minute=asset_limit["rpm"],
                     request_per_day=asset_limit["rpd"],
                     model=asset_limit["assetId"],
+                    token_type=global_limits["tokenType"],
                 )
         self.expires_at = expires_at
         self.access_key = access_key
@@ -225,6 +227,7 @@ class APIKey:
                     - tpd: tokens per day
                     - rpm: requests per minute
                     - rpd: requests per day
+                    - tokenType (Optional[Text]): Type of token limit ('input', 'output', 'total')
                     - assetId: model ID
                 - expiresAt (Optional[Text]): ISO format expiration date
                 - globalLimits (Optional[Dict]): Global limits with tpm/tpd/rpm/rpd
@@ -250,6 +253,7 @@ class APIKey:
                 "tpd": self.global_limits.token_per_day,
                 "rpm": self.global_limits.request_per_minute,
                 "rpd": self.global_limits.request_per_day,
+                "tokenType": self.global_limits.token_type.value if self.global_limits.token_type else None,
             }
 
         for i, asset_limit in enumerate(self.asset_limits):
@@ -260,6 +264,7 @@ class APIKey:
                     "rpm": asset_limit.request_per_minute,
                     "rpd": asset_limit.request_per_day,
                     "assetId": asset_limit.model.id,
+                    "tokenType": self.global_limits.token_type.value if self.global_limits.token_type else None,
                 }
             )
         return payload
