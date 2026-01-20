@@ -104,7 +104,7 @@ def test_run_script_connection_tool():
         return "Hello, world!"
 
     tool = ModelFactory.create_script_connection_tool(
-        name="Test Tool", code=test_function, function_name="test_function"
+        name="My Test Tool", code=test_function, function_name="test_function"
     )
     response = tool.run(inputs={}, action=tool.actions[0])
     assert response.status == ResponseStatus.SUCCESS
@@ -117,7 +117,7 @@ def test_run_script_connection_tool_with_complex_inputs():
         return f"String: {s}\nInt: {i}\nFloat: {f}\nList: {lst}\nDict: {d}"
 
     tool = ModelFactory.create_script_connection_tool(
-        name="Test Tool",
+        name="My Test Tool",
         code=test_all_types,
     )
     response = tool.run(

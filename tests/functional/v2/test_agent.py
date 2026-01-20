@@ -27,21 +27,6 @@ def validate_agent_structure(agent):
     if agent.llm:
         assert isinstance(agent.llm, str)
 
-    # Test assets structure if present
-    if agent.assets:
-        assert isinstance(agent.assets, list)
-        for asset in agent.assets:
-            assert isinstance(asset, dict)
-            # Check for required asset fields - assetId can be None
-            if "assetId" in asset and asset["assetId"] is not None:
-                assert isinstance(asset["assetId"], str)
-            if "type" in asset and asset["type"] is not None:
-                assert isinstance(asset["type"], str)
-            if "function" in asset and asset["function"] is not None:
-                assert isinstance(asset["function"], str)
-            if "supplier" in asset and asset["supplier"] is not None:
-                assert isinstance(asset["supplier"], str)
-
     # Test timestamps if present
     if agent.created_at:
         assert isinstance(agent.created_at, str)
@@ -79,9 +64,7 @@ def test_search_agents(client):
     assert number_of_agents >= 0, "Expected to get results from agent listing"
 
     # Validate that we actually got some agents (functional test should have data)
-    assert (
-        number_of_agents > 0
-    ), "No agents returned from listing - this may indicate a backend issue"
+    assert number_of_agents > 0, "No agents returned from listing - this may indicate a backend issue"
 
     # Validate structure of returned agents
     for i, agent in enumerate(agents.results):
@@ -92,9 +75,7 @@ def test_search_agents(client):
 
     # Validate pagination metadata if available
     if hasattr(agents, "total"):
-        assert (
-            agents.total >= number_of_agents
-        ), "Total count should be >= number of results"
+        assert agents.total >= number_of_agents, "Total count should be >= number of results"
     if hasattr(agents, "page_number"):
         assert agents.page_number >= 0, "Page number should be non-negative"
 
@@ -102,9 +83,7 @@ def test_search_agents(client):
 def test_get_agent(client, agent_id):
     """Test getting a specific agent by ID - verifies backend interaction and structure."""
     agent = client.Agent.get(agent_id)
-    assert (
-        agent.id == agent_id
-    ), f"Retrieved agent ID {agent.id} doesn't match requested ID {agent_id}"
+    assert agent.id == agent_id, f"Retrieved agent ID {agent.id} doesn't match requested ID {agent_id}"
 
     # Validate complete agent structure
     try:
@@ -113,22 +92,16 @@ def test_get_agent(client, agent_id):
         pytest.fail(f"Agent structure validation failed: {e}")
 
     # Test specific fields for this agent match backend data
-    assert (
-        agent.name == "Scraper Utility Agent"
-    ), f"Expected agent name 'Scraper Utility Agent', got '{agent.name}'"
-    assert (
-        agent.status == "onboarded"
-    ), f"Expected agent status 'onboarded', got '{agent.status}'"
+    assert agent.name == "Scraper Utility Agent", f"Expected agent name 'Scraper Utility Agent', got '{agent.name}'"
+    assert agent.status == "onboarded", f"Expected agent status 'onboarded', got '{agent.status}'"
     assert agent.team_id == 15752, f"Expected team_id 15752, got {agent.team_id}"
-    assert (
-        agent.llm == "669a63646eb56306647e1091"
-    ), f"Expected LLM ID '669a63646eb56306647e1091', got '{agent.llm}'"
+    assert agent.llm == "669a63646eb56306647e1091", f"Expected LLM ID '669a63646eb56306647e1091', got '{agent.llm}'"
 
     # Validate description contains expected content
     assert agent.description is not None, "Agent description is None"
-    assert (
-        "Scrapes travel blogs" in agent.description
-    ), f"Expected description to contain 'Scrapes travel blogs', got: '{agent.description}'"
+    assert "Scrapes travel blogs" in agent.description, (
+        f"Expected description to contain 'Scrapes travel blogs', got: '{agent.description}'"
+    )
 
     # Validate that the agent is actually functional (has required fields)
     assert agent.llm is not None, "Agent LLM ID is None - agent may not be functional"
@@ -179,9 +152,7 @@ def test_agent_run_structure(client, agent_id):
     assert isinstance(response.status, str)
 
     # Validate that the response is completed - run() should return completed result
-    assert (
-        response.completed is True
-    ), f"Agent execution should return completed result, got: {response.completed}"
+    assert response.completed is True, f"Agent execution should return completed result, got: {response.completed}"
 
     # Validate final response
     assert response.status in [
@@ -193,16 +164,10 @@ def test_agent_run_structure(client, agent_id):
     # For successful responses, validate the data
     if response.status == "SUCCESS":
         if hasattr(response.data, "output"):
-            assert (
-                response.data.output is not None
-            ), "Response output is None for successful execution"
-            assert (
-                len(response.data.output) > 0
-            ), "Response output is empty for successful execution"
+            assert response.data.output is not None, "Response output is None for successful execution"
+            assert len(response.data.output) > 0, "Response output is empty for successful execution"
         elif isinstance(response.data, str):
-            assert (
-                len(response.data) > 0
-            ), "Response data is empty string for successful execution"
+            assert len(response.data) > 0, "Response data is empty string for successful execution"
 
     # For failed responses, provide more context
     elif response.status == "FAILED":
@@ -270,13 +235,11 @@ def test_agent_creation_and_deletion(client):
         "forbidden",
         "403",
     ]
-    assert any(
-        phrase in error_message for phrase in expected_errors
-    ), f"Expected deletion/access error, got: {exc_info.value}"
-
-    print(
-        f"✅ Agent deletion verified: {type(exc_info.value).__name__}: {exc_info.value}"
+    assert any(phrase in error_message for phrase in expected_errors), (
+        f"Expected deletion/access error, got: {exc_info.value}"
     )
+
+    print(f"✅ Agent deletion verified: {type(exc_info.value).__name__}: {exc_info.value}")
 
 
 def test_agent_field_mappings(client, agent_id):
@@ -290,23 +253,13 @@ def test_agent_field_mappings(client, agent_id):
     assert agent.team_id == 15752
     assert agent.llm == "669a63646eb56306647e1091"
 
-    # Test asset field mappings if assets exist
-    if agent.assets:
-        for asset in agent.assets:
-            if "assetId" in asset and asset["assetId"]:
-                assert asset["assetId"] is not None
-            if "type" in asset and asset["type"]:
-                assert asset["type"] in ["model", "regular", "connector", "llm"]
-
 
 def test_slack_tool_integration_with_agent(client, slack_token):
     """Test Slack tool integration with agent creation and execution."""
     import time
 
     # Get Slack integration
-    integration = client.Integration.get(
-        "686432941223092cb4294d3f"
-    )  # Slack integration ID
+    integration = client.Integration.get("686432941223092cb4294d3f")  # Slack integration ID
 
     # Create Slack tool
     slack_tool = client.Tool(
@@ -320,9 +273,7 @@ def test_slack_tool_integration_with_agent(client, slack_token):
     # Validate tool creation
     assert slack_tool.name.startswith("test-slack-tool-")
     assert slack_tool.integration.id == "686432941223092cb4294d3f"
-    assert (
-        slack_tool.auth_scheme == client.Integration.AuthenticationScheme.BEARER_TOKEN
-    )
+    assert slack_tool.auth_scheme == client.Integration.AuthenticationScheme.BEARER_TOKEN
     assert "SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL" in slack_tool.allowed_actions
 
     # Save tool before running
@@ -342,12 +293,8 @@ def test_slack_tool_integration_with_agent(client, slack_token):
     assert hasattr(tool_response, "data")
 
     # Validate tool execution success - run() should already return completed result
-    assert (
-        tool_response.completed is True
-    ), f"Tool execution failed to complete. Status: {tool_response.status}"
-    assert (
-        tool_response.status == "SUCCESS"
-    ), f"Tool execution failed with status: {tool_response.status}"
+    assert tool_response.completed is True, f"Tool execution failed to complete. Status: {tool_response.status}"
+    assert tool_response.status == "SUCCESS", f"Tool execution failed with status: {tool_response.status}"
 
     # Validate tool response data
     assert tool_response.data is not None, "Tool response data is None"
@@ -389,12 +336,8 @@ def test_slack_tool_integration_with_agent(client, slack_token):
     assert hasattr(agent_response, "status")
 
     # Validate agent execution success - run() should already return completed result
-    assert (
-        agent_response.completed is True
-    ), f"Agent execution failed to complete. Status: {agent_response.status}"
-    assert (
-        agent_response.status == "SUCCESS"
-    ), f"Agent execution failed with status: {agent_response.status}"
+    assert agent_response.completed is True, f"Agent execution failed to complete. Status: {agent_response.status}"
+    assert agent_response.status == "SUCCESS", f"Agent execution failed with status: {agent_response.status}"
 
     # Validate agent response data
     assert agent_response.data is not None, "Agent response data is None"

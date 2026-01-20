@@ -154,10 +154,13 @@ def _flatten_asset_info(data: dict) -> dict:
 
     Returns:
         Dictionary with assetName, assetPath and instanceId flattened to top level.
+        Dictionary with assetName, assetPath and instanceId flattened to top level.
     """
     if isinstance(data, dict) and "assetInfo" in data:
         asset_info = data.get("assetInfo", {})
         if isinstance(asset_info, dict):
+            if "assetName" in asset_info:
+                data["assetName"] = asset_info.get("assetName")
             if "assetName" in asset_info:
                 data["assetName"] = asset_info.get("assetName")
             if "assetPath" in asset_info:
@@ -210,6 +213,7 @@ class BaseResource:
     id: Optional[str] = None
     name: Optional[str] = None
     description: Optional[str] = None
+    asset_name: Optional[str] = field(default=None, metadata=config(field_name="assetName"))
     asset_name: Optional[str] = field(default=None, metadata=config(field_name="assetName"))
     asset_path: Optional[str] = field(default=None, metadata=config(field_name="assetPath"))
     instance_id: Optional[str] = field(default=None, metadata=config(field_name="instanceId"))
@@ -453,6 +457,7 @@ class BaseResource:
 
     def __repr__(self) -> str:
         """Return a string representation using assetPath > id priority."""
+        # Priority: assetPath > id (instance_id doesn't affect repr)
         # Priority: assetPath > id (instance_id doesn't affect repr)
         if self.asset_path:
             return f"{self.__class__.__name__}(path={self.asset_path})"
