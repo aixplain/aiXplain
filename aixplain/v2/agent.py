@@ -2,6 +2,7 @@
 
 import json
 import logging
+import re
 from datetime import datetime
 from enum import Enum
 from dataclasses import dataclass, field
@@ -115,6 +116,7 @@ class AgentRunParams(BaseRunParams):
     Attributes:
         sessionId: Session ID for conversation continuity
         query: The query to run
+        variables: Variables to replace {variable} placeholders in instructions
         allowHistoryAndSessionId: Allow both history and session ID
         tasks: List of tasks for the agent
         prompt: Custom prompt override
@@ -132,6 +134,7 @@ class AgentRunParams(BaseRunParams):
 
     sessionId: NotRequired[Optional[Text]]
     query: NotRequired[Optional[Union[Dict, Text]]]
+    variables: NotRequired[Optional[Dict[str, Any]]]
     allowHistoryAndSessionId: NotRequired[Optional[bool]]
     tasks: NotRequired[Optional[List[Any]]]
     prompt: NotRequired[Optional[Text]]
@@ -736,12 +739,38 @@ class Agent(
         # Handle runResponseGeneration with default value of True
         run_response_generation = kwargs.pop("runResponseGeneration", True)
 
+        # Process variables for instruction placeholders (same as v1)
+        variables = kwargs.pop("variables", None) or {}
+        query = kwargs.pop("query", None)
+
+        # Build input_data dict with query and variables
+        if query is not None:
+            if isinstance(query, dict):
+                input_data = query.copy()
+            else:
+                input_data = {"input": query}
+
+            # Extract variable names from instructions using single brace pattern {var}
+            # Regex matches {var} but not {{var}} (escaped braces)
+            if self.instructions:
+                instruction_variables = re.findall(r"(?<!{){([^}]+)}(?!})", self.instructions)
+                for var_name in instruction_variables:
+                    if var_name in variables:
+                        input_data[var_name] = variables[var_name]
+
+            # Use the processed input_data as query
+            query = input_data
+
         # Build the payload according to Swagger specification
         payload = {
             "id": self.id,
             "executionParams": execution_params,
             "runResponseGeneration": run_response_generation,
         }
+
+        # Add query back if present
+        if query is not None:
+            payload["query"] = query
 
         # Add all other parameters from kwargs
         for key, value in kwargs.items():
