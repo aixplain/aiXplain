@@ -297,7 +297,7 @@ class Attribute:
     """Common attribute structure from the API response."""
 
     name: str
-    code: str
+    value: Optional[Any] = None
 
 
 @dataclass_json
@@ -476,11 +476,7 @@ class Model(
         if query is not None:
             kwargs["query"] = query
 
-        # Use v1 endpoint for search as v2 endpoint doesn't fully support
-        # all filters. Also override items key since v1 endpoint uses
-        # "items" instead of "results"
-        kwargs["resource_path"] = "sdk/models"
-        kwargs["paginate_items_key"] = "items"
+        # Use v2 endpoint - it uses "results" as the items key (default)
         return super().search(**kwargs)
 
     def run(self, **kwargs: Unpack[ModelRunParams]) -> ModelResult:
@@ -669,11 +665,11 @@ class Model(
 
         # Handle host filter (maps to hostedBy in API)
         if params.get("host") is not None:
-            filters["host"] = params["host"]
+            filters["hosts"] = [params["host"]]
 
         # Handle developer filter (maps to developedBy in API)
         if params.get("developer") is not None:
-            filters["developer"] = params["developer"]
+            filters["developers"] = [params["developer"]]
 
         # Handle path prefix filter (e.g., "openai/gpt-4")
         if params.get("path") is not None:
