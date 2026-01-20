@@ -153,7 +153,6 @@ class AgentResponseData:
 
     input: Optional[Any] = None
     output: Optional[Any] = None
-    intermediate_steps: Optional[List[Dict[str, Any]]] = field(default_factory=list)
     steps: Optional[List[Dict[str, Any]]] = field(default_factory=list)
     session_id: Optional[str] = None
     execution_stats: Optional[Dict[str, Any]] = field(default=None, metadata=config(field_name="executionStats"))
