@@ -174,6 +174,65 @@ class AgentRunResult(Result):
     result: Optional[Any] = None
     supplier_error: Optional[str] = None
 
+    # Internal reference to client context for debug() method
+    _context: Optional[Any] = field(
+        default=None,
+        repr=False,
+        compare=False,
+        metadata=config(exclude=lambda x: True),
+        init=False,
+    )
+
+    def debug(
+        self,
+        prompt: Optional[str] = None,
+        execution_id: Optional[str] = None,
+        **kwargs: Any,
+    ) -> "DebugResult":
+        """Debug this agent response using the Debugger meta-agent.
+
+        This is a convenience method for quickly analyzing agent responses
+        to identify issues, errors, or areas for improvement.
+
+        Note: This method requires the AgentRunResult to have been created
+        through an Aixplain client context. If you have a standalone result,
+        use the Debugger directly: aix.Debugger().debug_response(result)
+
+        Args:
+            prompt: Optional custom prompt to guide the debugging analysis.
+                   Examples: "Why did it take so long?", "Focus on error handling"
+            execution_id: Optional execution ID (poll ID) for the run. If not provided,
+                         it will be extracted from the response's request_id or poll URL.
+                         This allows the debugger to fetch additional logs and information.
+            **kwargs: Additional parameters to pass to the debugger.
+
+        Returns:
+            DebugResult: The debugging analysis result.
+
+        Raises:
+            ValueError: If no client context is available for debugging.
+
+        Example:
+            agent = aix.Agent.get("my_agent_id")
+            response = agent.run("Hello!")
+            debug_result = response.debug()  # Uses default prompt
+            debug_result = response.debug("Why did it take so long?")  # Custom prompt
+            debug_result = response.debug(execution_id="abc-123")  # With explicit ID
+            print(debug_result.analysis)
+        """
+        from .meta_agents import Debugger, DebugResult
+
+        if self._context is None:
+            raise ValueError(
+                "Cannot debug this response: no client context available. "
+                "Use the Debugger directly: aix.Debugger().debug_response(result)"
+            )
+
+        # Create a bound Debugger class with the context
+        BoundDebugger = type("Debugger", (Debugger,), {"context": self._context})
+        debugger = BoundDebugger()
+        return debugger.debug_response(self, prompt=prompt, execution_id=execution_id, **kwargs)
+
 
 @dataclass_json
 @dataclass
@@ -373,6 +432,10 @@ class Agent(
             if not isinstance(result, Exception):
                 self._progress_tracker.finish(result)
             self._progress_tracker = None
+
+        # Set the context on the result for debug() method support
+        if not isinstance(result, Exception):
+            result._context = self.context
 
         return None  # Return original result
 
