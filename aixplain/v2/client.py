@@ -1,3 +1,5 @@
+"""Client module for making HTTP requests to the aiXplain API."""
+
 from typing import Any, Optional, Union, List
 import logging
 import requests
@@ -20,8 +22,7 @@ def create_retry_session(
     status_forcelist: Optional[List[int]] = None,
     **kwargs: Any,
 ) -> requests.Session:
-    """
-    Creates a requests.Session with a specified retry strategy.
+    """Creates a requests.Session with a specified retry strategy.
 
     Args:
         total (int, optional): Total number of retries allowed. Defaults to 5.
@@ -50,6 +51,8 @@ def create_retry_session(
 
 
 class AixplainClient:
+    """HTTP client for aiXplain API with retry support."""
+
     def __init__(
         self,
         base_url: str,
@@ -59,8 +62,7 @@ class AixplainClient:
         retry_backoff_factor: float = DEFAULT_RETRY_BACKOFF_FACTOR,
         retry_status_forcelist: List[int] = DEFAULT_RETRY_STATUS_FORCELIST,
     ) -> None:
-        """
-        Initializes AixplainClient with authentication and retry configuration.
+        """Initializes AixplainClient with authentication and retry configuration.
 
         Args:
             base_url (str): The base URL for the API.
@@ -75,14 +77,10 @@ class AixplainClient:
         self.aixplain_api_key = aixplain_api_key
 
         if not (self.aixplain_api_key or self.team_api_key):
-            raise ValueError(
-                "Either `aixplain_api_key` or `team_api_key` should be set"
-            )
+            raise ValueError("Either `aixplain_api_key` or `team_api_key` should be set")
 
         if self.aixplain_api_key and self.team_api_key:
-            raise ValueError(
-                "Either `aixplain_api_key` or `team_api_key` should be set"
-            )
+            raise ValueError("Either `aixplain_api_key` or `team_api_key` should be set")
 
         headers = {"Content-Type": "application/json"}
         if self.aixplain_api_key:
@@ -99,8 +97,7 @@ class AixplainClient:
         self.session.headers.update(headers)
 
     def request_raw(self, method: str, path: str, **kwargs: Any) -> requests.Response:
-        """
-        Sends an HTTP request.
+        """Sends an HTTP request.
 
         Args:
             method (str): HTTP method (e.g. 'GET', 'POST')
@@ -134,15 +131,12 @@ class AixplainClient:
                     error=error_obj.get("error", response.text),
                 )
             else:
-                raise APIError(
-                    response.text, status_code=response.status_code, error=response.text
-                )
+                raise APIError(response.text, status_code=response.status_code, error=response.text)
 
         return response
 
     def request(self, method: str, path: str, **kwargs: Any) -> dict:
-        """
-        Sends an HTTP request.
+        """Sends an HTTP request.
 
         Args:
             method (str): HTTP method (e.g. 'GET', 'POST')
@@ -156,8 +150,7 @@ class AixplainClient:
         return response.json()
 
     def get(self, path: str, **kwargs: Any) -> dict:
-        """
-        Sends an HTTP GET request.
+        """Sends an HTTP GET request.
 
         Args:
             path (str): URL path

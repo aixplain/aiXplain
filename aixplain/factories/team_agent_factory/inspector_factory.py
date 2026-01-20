@@ -9,7 +9,7 @@ from typing import List, Optional, Text
 from aixplain.modules.team_agent.inspector import (
     Inspector,
     InspectorActionConfig,
-    InspectorActionType,
+    Inspectoraction_type,
     InspectorOnExhaust,
     InspectorSeverity,
 )
@@ -28,9 +28,9 @@ class InspectorFactory:
         targets: List[Text],
         description: Optional[Text] = None,
         severity: InspectorSeverity = InspectorSeverity.LOW,
-        action_type: InspectorActionType = InspectorActionType.RERUN,
-        max_retries: int = 2,
-        on_exhaust: InspectorOnExhaust = InspectorOnExhaust.CONTINUE,
+        actionType: Inspectoraction_type = Inspectoraction_type.RERUN,
+        maxRetries: int = 2,
+        onExhaust: InspectorOnExhaust = InspectorOnExhaust.CONTINUE,
     ) -> Inspector:
         """Create an LLM evaluator inspector config"""
         return Inspector(
@@ -39,9 +39,9 @@ class InspectorFactory:
             severity=severity,
             targets=targets,
             action=InspectorActionConfig(
-                action_type=action_type,
-                max_retries=max_retries,
-                on_exhaust=on_exhaust,
+                actionType=actionType,
+                maxRetries=maxRetries,
+                onExhaust=onExhaust,
                 evaluator=evaluator,
                 evaluator_prompt=evaluator_prompt,
             ),

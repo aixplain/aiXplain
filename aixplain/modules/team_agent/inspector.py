@@ -10,12 +10,14 @@ from enum import Enum
 from typing import Any, Dict, List, Optional, Text, Set
 
 from pydantic import BaseModel, Field, field_validator, model_validator
-
+from typing import Union, Callable
+import inspect
+import textwrap
 
 AUTO_DEFAULT_MODEL_ID = "67fd9e2bef0365783d06e2f0"  # GPT-4.1 Nano
 
 
-class InspectorActionType(str, Enum):
+class Inspectoraction_type(str, Enum):
     CONTINUE = "continue"
     RERUN = "rerun"
     ABORT = "abort"
@@ -36,14 +38,17 @@ class InspectorSeverity(str, Enum):
 
 
 # Keep this close to the agentification contract you pasted
-_ALLOWED_ACTIONS_BY_SEVERITY: Dict[str, Set[InspectorActionType]] = {
-    "critical": {InspectorActionType.ABORT, InspectorActionType.EDIT},
-    "high": {InspectorActionType.ABORT, InspectorActionType.EDIT},
-    "medium": {InspectorActionType.RERUN, InspectorActionType.EDIT},
-    "low": {InspectorActionType.CONTINUE, InspectorActionType.RERUN},
-    "info": {InspectorActionType.CONTINUE},
+_ALLOWED_ACTIONS_BY_SEVERITY: Dict[str, Set[Inspectoraction_type]] = {
+    "critical": {Inspectoraction_type.ABORT, Inspectoraction_type.EDIT},
+    "high": {Inspectoraction_type.ABORT, Inspectoraction_type.EDIT},
+    "medium": {Inspectoraction_type.RERUN, Inspectoraction_type.EDIT},
+    "low": {Inspectoraction_type.CONTINUE, Inspectoraction_type.RERUN},
+    "info": {Inspectoraction_type.CONTINUE},
 }
 
+
+EditFnType = Union[str, Callable[[str], str]]
+GateFnType = Union[str, Callable[[str], bool]]
 
 class InspectorActionConfig(BaseModel):
     """
@@ -58,46 +63,73 @@ class InspectorActionConfig(BaseModel):
       - edit_evaluator_fn (optional gate)
     """
 
-    action_type: InspectorActionType
+    actionType: Inspectoraction_type
 
     # RERUN-only controls
-    max_retries: Optional[int] = Field(default=None, ge=0)
-    on_exhaust: Optional[InspectorOnExhaust] = None
+    maxRetries: Optional[int] = Field(default=None, ge=0)
+    onExhaust: Optional[InspectorOnExhaust] = None
 
     evaluator: Optional[Text] = None
     evaluator_prompt: Optional[Text] = None
 
-    edit_fn: Optional[Text] = None
-    edit_evaluator_fn: Optional[Text] = None
+    edit_fn: Optional[EditFnType] = None
+    edit_evaluator_fn: Optional[GateFnType] = None
+
 
     @field_validator("evaluator_prompt")
     @classmethod
     def _validate_evaluator_prompt(cls, v: Optional[Text], info) -> Optional[Text]:
         return v
+    
+
+    def _callable_to_string(fn: Callable) -> str:
+        try:
+            src = inspect.getsource(fn)
+            return textwrap.dedent(src).strip()
+        except (OSError, IOError, TypeError):
+            # fallback: stable identifier
+            return f"{fn.__module__}.{fn.__qualname__}"
+
+    @field_validator("edit_fn", "edit_evaluator_fn", mode="before")
+    @classmethod
+    def _normalize_edit_functions(cls, v):
+        if v is None:
+            return None
+
+        if callable(v):
+            return cls._callable_to_string(v)
+
+        if isinstance(v, str):
+            return v
+
+        raise TypeError(
+            "edit_fn / edit_evaluator_fn must be a string or a callable"
+        )
+
 
     @model_validator(mode="after")
     def _validate_action_contract(self) -> "InspectorActionConfig":
-        is_edit = self.action_type == InspectorActionType.EDIT
+        is_edit = self.actionType == Inspectoraction_type.EDIT
 
         if is_edit:
             if not self.edit_fn or not str(self.edit_fn).strip():
-                raise ValueError("edit_fn is required when action_type='edit'")
+                raise ValueError("edit_fn is required when actionType='edit'")
 
             if self.evaluator is not None or self.evaluator_prompt is not None:
                 raise ValueError("EDIT action must not include evaluator/evaluator_prompt")
-            if self.max_retries is not None or self.on_exhaust is not None:
+            if self.maxRetries is not None or self.onExhaust is not None:
                 raise ValueError("EDIT action must not include max_retries/on_exhaust")
         else:
             if self.edit_fn is not None or self.edit_evaluator_fn is not None:
                 raise ValueError("Only EDIT action may include edit_fn/edit_evaluator_fn")
 
-            if self.action_type != InspectorActionType.RERUN:
-                if self.max_retries is not None or self.on_exhaust is not None:
-                    raise ValueError("max_retries/on_exhaust are only valid for action_type='rerun'")
+            if self.actionType != Inspectoraction_type.RERUN:
+                if self.maxRetries is not None or self.onExhaust is not None:
+                    raise ValueError("max_retries/on_exhaust are only valid for actionType='rerun'")
 
         return self
 
-    def to_backend_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> Dict[str, Any]:
         d = self.model_dump(exclude_none=True)
 
         if "evaluator_prompt" in d:
@@ -142,21 +174,21 @@ class Inspector(BaseModel):
         if not allowed:
             return self
 
-        if self.action.action_type not in allowed:
+        if self.action.actionType not in allowed:
             raise ValueError(
-                f"Action '{self.action.action_type.value}' is not allowed for severity '{sev}'. "
+                f"Action '{self.action.actionType.value}' is not allowed for severity '{sev}'. "
                 f"Allowed: {[a.value for a in sorted(allowed, key=lambda x: x.value)]}"
             )
         return self
 
     def model_dump(self, *args, **kwargs) -> Dict[str, Any]:
         base = super().model_dump(*args, **kwargs)
-        base["action"] = self.action.to_backend_dict()
+        base["action"] = self.action.to_dict()
         if isinstance(base.get("severity"), Enum):
             base["severity"] = base["severity"].value
         return base
 
-    def to_backend_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> Dict[str, Any]:
         return self.model_dump(exclude_none=True)
 
 
@@ -171,8 +203,8 @@ class VerificationInspector(Inspector):
         evaluator: Text,
         evaluator_prompt: Text = "Check the output against the plan",
         targets: Optional[List[Text]] = None,
-        max_retries: int = 2,
-        on_exhaust: InspectorOnExhaust = InspectorOnExhaust.CONTINUE,
+        maxRetries: int = 2,
+        onExhaust: InspectorOnExhaust = InspectorOnExhaust.CONTINUE,
         severity: InspectorSeverity = InspectorSeverity.MEDIUM,
         name: Text = "VerificationInspector",
         description: Text = "Checks output against the plan and requests rerun on mismatch",
@@ -184,9 +216,9 @@ class VerificationInspector(Inspector):
             severity=severity,
             targets=targets or [],
             action=InspectorActionConfig(
-                action_type=InspectorActionType.RERUN,
-                max_retries=max_retries,
-                on_exhaust=on_exhaust,
+                actionType=Inspectoraction_type.RERUN,
+                maxRetries=maxRetries,
+                onExhaust=onExhaust,
                 evaluator=evaluator,
                 evaluator_prompt=evaluator_prompt,
             ),

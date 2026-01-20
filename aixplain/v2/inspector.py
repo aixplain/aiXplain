@@ -46,9 +46,9 @@ class InspectorActionConfig:
     """
     Inspector action configuration (nested under Inspector.action).
     """
-    action_type: InspectorAction
-    max_retries: Optional[int] = None
-    on_exhaust: Optional[InspectorOnExhaust] = None
+    actionType: InspectorAction
+    maxRetries: Optional[int] = None
+    onExhaust: Optional[InspectorOnExhaust] = None
     evaluator: Optional[str] = None
     evaluator_prompt: Optional[str] = None  
     edit_fn: Optional[str] = None
@@ -57,14 +57,14 @@ class InspectorActionConfig:
 
     def to_dict(self) -> Dict[str, Any]:
         d: Dict[str, Any] = {
-            "action_type": self.action_type.value,
+            "actionType": self.actionType.value,
         }
-        if self.max_retries is not None:
-            if self.max_retries < 0:
+        if self.maxRetries is not None:
+            if self.maxRetries < 0:
                 raise ValueError("max_retries must be >= 0")
-            d["max_retries"] = self.max_retries
-        if self.on_exhaust is not None:
-            d["on_exhaust"] = self.on_exhaust.value
+            d["maxRetries"] = self.maxRetries
+        if self.onExhaust is not None:
+            d["onExhaust"] = self.onExhaust.value
         if self.evaluator is not None:
             d["evaluator"] = self.evaluator
         if self.evaluator_prompt is not None:
@@ -80,9 +80,9 @@ class InspectorActionConfig:
         evaluator_prompt = data.get("evaluatorPrompt", data.get("evaluator_prompt"))
 
         return cls(
-            action_type=InspectorAction(data["action_type"]),
-            max_retries=data.get("max_retries"),
-            on_exhaust=InspectorOnExhaust(data["on_exhaust"]) if data.get("on_exhaust") else None,
+            actionType=InspectorAction(data["actionType"]),
+            maxRetries=data.get("maxRetries"),
+            onExhaust=InspectorOnExhaust(data["onExhaust"]) if data.get("onExhaust") else None,
             evaluator=data.get("evaluator"),
             evaluator_prompt=evaluator_prompt,
         )

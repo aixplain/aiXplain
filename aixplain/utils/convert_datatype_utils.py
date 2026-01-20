@@ -41,15 +41,23 @@ def dict_to_metadata(metadatas: List[Union[Dict, MetaData]]) -> None:
         raise TypeError(f"Data Asset Onboarding Error: One or more elements in the metadata_schema are not well-structured")
 
 
-
 def normalize_expected_output(obj):
     if isinstance(obj, type) and issubclass(obj, BaseModel):
-        return obj.model_json_schema() if hasattr(obj, "model_json_schema") else obj.schema()
+        schema = (
+            obj.model_json_schema()
+            if hasattr(obj, "model_json_schema")
+            else obj.schema()
+        )
+        return json.dumps(schema)  
 
     if isinstance(obj, BaseModel):
-        return json.loads(obj.model_dump_json()) if hasattr(obj, "model_dump_json") else json.loads(obj.json())
+        return (
+            obj.model_dump_json() if hasattr(obj, "model_dump_json") else obj.json()
+        )  
 
     if isinstance(obj, (dict, str)) or obj is None:
-        return obj
+        return (
+            obj if isinstance(obj, str) else json.dumps(obj) if obj is not None else obj
+        )
 
-    return json.loads(json.dumps(obj))
+    return json.dumps(obj) 

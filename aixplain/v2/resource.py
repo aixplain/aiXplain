@@ -153,11 +153,13 @@ def _flatten_asset_info(data: dict) -> dict:
         data: Dictionary that may contain nested assetInfo structure.
 
     Returns:
-        Dictionary with assetPath and instanceId flattened to top level.
+        Dictionary with assetName, assetPath and instanceId flattened to top level.
     """
     if isinstance(data, dict) and "assetInfo" in data:
         asset_info = data.get("assetInfo", {})
         if isinstance(asset_info, dict):
+            if "assetName" in asset_info:
+                data["assetName"] = asset_info.get("assetName")
             if "assetPath" in asset_info:
                 data["assetPath"] = asset_info.get("assetPath")
             if "instanceId" in asset_info:
@@ -208,6 +210,7 @@ class BaseResource:
     id: Optional[str] = None
     name: Optional[str] = None
     description: Optional[str] = None
+    asset_name: Optional[str] = field(default=None, metadata=config(field_name="assetName"))
     asset_path: Optional[str] = field(default=None, metadata=config(field_name="assetPath"))
     instance_id: Optional[str] = field(default=None, metadata=config(field_name="instanceId"))
 
@@ -450,7 +453,7 @@ class BaseResource:
 
     def __repr__(self) -> str:
         """Return a string representation using assetPath > id priority."""
-        # Priority: assetPath > instanceId > id
+        # Priority: assetPath > id (instance_id doesn't affect repr)
         if self.asset_path:
             return f"{self.__class__.__name__}(path={self.asset_path})"
         else:
@@ -1231,41 +1234,31 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
         # Build the run URL using the extensible method
         run_url = self.build_run_url(**kwargs)
 
-        # Use context.client.request() with the custom URL
         response = self.context.client.request("post", run_url, json=payload)
 
         # Use the extensible response handler
         return self.handle_run_response(response, **kwargs)
+    import logging
 
     def poll(self, poll_url: str) -> ResultT:
-        """Poll for the result of an asynchronous operation.
-
-        Args:
-            poll_url: URL to poll for results
-            name: Name/ID of the process
-
-        Returns:
-            Response instance from the configured RESPONSE_CLASS
-
-        Raises:
-            APIError: If the polling request fails
-            OperationFailedError: If the operation has failed
-        """
+        """Poll for the result of an asynchronous operation."""
         try:
-            # Use context.client for all polling operations
-            # If poll_url is a full URL, urljoin will use it directly
-            # If it's a relative path, it will be joined with base_url
             response = self.context.client.get(poll_url)
         except Exception as e:
-            # Re-raise as APIError instead of silently returning failed result
             from .exceptions import APIError
 
-            raise APIError(f"Polling failed: {str(e)}", 0, {"poll_url": poll_url})
+            raise APIError(
+                f"Polling failed: {str(e)}",
+                0,
+                {"poll_url": poll_url},
+            )
 
-        # Handle polling response - it might not have all the expected fields
+        status = response.get("status", "IN_PROGRESS")
+        completed = response.get("completed", False)
+
         filtered_response = {
-            "status": response.get("status", "IN_PROGRESS"),
-            "completed": response.get("completed", False),
+            "status": status,
+            "completed": completed,
             "error_message": response.get("error_message"),
             "url": response.get("url"),
             "result": response.get("result"),
@@ -1273,17 +1266,19 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
             "data": response.get("data"),
         }
 
-        # Check if the operation has failed and raise appropriate error
-        status = response.get("status", "IN_PROGRESS")
+        # Failure handling
         if status == "FAILED":
             raise create_operation_failed_error(response)
 
         response_class = getattr(self, "RESPONSE_CLASS", Result)
-        result = response_class.from_dict(filtered_response)
 
-        # Store the complete raw response for hooks to access additional data (e.g., progress)
+        try:
+            result = response_class.from_dict(filtered_response)
+        except Exception:
+            raise
+
+        # Attach raw response
         result._raw_data = response
-
         return result
 
     def on_poll(self, response: ResultT, **kwargs: Unpack[RunParamsT]) -> None:
@@ -1321,6 +1316,7 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
         while (time.time() - start_time) < timeout:
             try:
                 result = self.poll(poll_url)
+
 
                 # Call the hook with the poll response
                 self.on_poll(result, **kwargs)
