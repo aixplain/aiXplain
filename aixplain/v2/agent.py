@@ -396,6 +396,27 @@ class Agent(
 
         return super().run(*args, **kwargs)
 
+    def run_async(self, *args: Any, **kwargs: Unpack[AgentRunParams]) -> AgentRunResult:
+        """Run the agent asynchronously.
+
+        Args:
+            *args: Positional arguments (first arg is treated as query)
+            query: The query to run
+            **kwargs: Additional run parameters
+
+        Returns:
+            AgentRunResult: The result of the agent execution
+        """
+        if len(args) > 0:
+            kwargs["query"] = args[0]
+            args = args[1:]
+
+        # Handle session_id parameter name compatibility (snake_case -> camelCase)
+        if "session_id" in kwargs and "sessionId" not in kwargs:
+            kwargs["sessionId"] = kwargs.pop("session_id")
+
+        return super().run_async(**kwargs)
+
     def _validate_expected_output(self) -> None:
         # Skip validation if expected_output is None (it's optional)
         if self.expected_output is None:
