@@ -154,13 +154,10 @@ def _flatten_asset_info(data: dict) -> dict:
 
     Returns:
         Dictionary with assetName, assetPath and instanceId flattened to top level.
-        Dictionary with assetName, assetPath and instanceId flattened to top level.
     """
     if isinstance(data, dict) and "assetInfo" in data:
         asset_info = data.get("assetInfo", {})
         if isinstance(asset_info, dict):
-            if "assetName" in asset_info:
-                data["assetName"] = asset_info.get("assetName")
             if "assetName" in asset_info:
                 data["assetName"] = asset_info.get("assetName")
             if "assetPath" in asset_info:
@@ -213,7 +210,6 @@ class BaseResource:
     id: Optional[str] = None
     name: Optional[str] = None
     description: Optional[str] = None
-    asset_name: Optional[str] = field(default=None, metadata=config(field_name="assetName"))
     asset_name: Optional[str] = field(default=None, metadata=config(field_name="assetName"))
     asset_path: Optional[str] = field(default=None, metadata=config(field_name="assetPath"))
     instance_id: Optional[str] = field(default=None, metadata=config(field_name="instanceId"))
@@ -457,7 +453,6 @@ class BaseResource:
 
     def __repr__(self) -> str:
         """Return a string representation using assetPath > id priority."""
-        # Priority: assetPath > id (instance_id doesn't affect repr)
         # Priority: assetPath > id (instance_id doesn't affect repr)
         if self.asset_path:
             return f"{self.__class__.__name__}(path={self.asset_path})"
@@ -1243,33 +1238,47 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
 
         # Use the extensible response handler
         return self.handle_run_response(response, **kwargs)
-    import logging
-
     def poll(self, poll_url: str) -> ResultT:
-        """Poll for the result of an asynchronous operation."""
+        """Poll for the result of an asynchronous operation.
+
+        Args:
+            poll_url: URL to poll for results
+            name: Name/ID of the process
+
+        Returns:
+            Response instance from the configured RESPONSE_CLASS
+
+        Raises:
+            APIError: If the polling request fails
+            OperationFailedError: If the operation has failed
+        """
         try:
+            # Use context.client for all polling operations
+            # If poll_url is a full URL, urljoin will use it directly
+            # If it's a relative path, it will be joined with base_url
             response = self.context.client.get(poll_url)
         except Exception as e:
+            # Re-raise as APIError instead of silently returning failed result
             from .exceptions import APIError
 
-            raise APIError(
-                f"Polling failed: {str(e)}",
-                0,
-                {"poll_url": poll_url},
-            )
+            raise APIError(f"Polling failed: {str(e)}", 0, {"poll_url": poll_url})
 
-        status = response.get("status", "IN_PROGRESS")
-        completed = response.get("completed", False)
-
+        # Handle polling response - use camelCase keys (what backend sends)
+        # dataclass_json with config(field_name=...) handles mapping to snake_case
         filtered_response = {
-            "status": status,
-            "completed": completed,
-            "error_message": response.get("error_message"),
+            "status": response.get("status", "IN_PROGRESS"),
+            "completed": response.get("completed", False),
+            "errorMessage": response.get("errorMessage"),
             "url": response.get("url"),
             "result": response.get("result"),
-            "supplier_error": response.get("supplier_error"),
-            "data": response.get("data"),
+            "supplierError": response.get("supplierError"),
+            "data": response.get("data") or {},
+            "sessionId": response.get("sessionId"),
+            "usedCredits": response.get("usedCredits", 0.0),
+            "runTime": response.get("runTime", 0.0),
+            "requestId": response.get("requestId"),
         }
+        status = response.get("status", "IN_PROGRESS")
 
         # Failure handling
         if status == "FAILED":
