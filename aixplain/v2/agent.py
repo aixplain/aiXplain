@@ -647,10 +647,15 @@ class Agent(
         if self.tools:
             for tool in self.tools:
                 if isinstance(tool, ToolableMixin):
-                    # Non-tool objects (like Models) that can act as tools
+                    # Tool/Model objects that implement as_tool()
                     converted_assets.append(tool.as_tool())
+                elif isinstance(tool, dict):
+                    # Already a dictionary (from API response after save, or user-provided)
+                    converted_assets.append(tool)
                 else:
-                    raise ValueError("A tool in the agent must be a Tool, Model or ToolableMixin instance.")
+                    raise ValueError(
+                        "A tool in the agent must be a Tool, Model, ToolableMixin instance, or a dictionary."
+                    )
 
         # Update the payload with converted assets
         payload["tools"] = converted_assets

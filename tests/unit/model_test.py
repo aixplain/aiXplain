@@ -621,7 +621,9 @@ def test_model_parameters_to_dict():
     params.temperature = 0.7
 
     dict_output = params.to_dict()
-    assert dict_output == {"temperature": {"required": True, "value": 0.7}}
+    assert dict_output["temperature"]["name"] == "temperature"
+    assert dict_output["temperature"]["required"] is True
+    assert dict_output["temperature"]["value"] == 0.7
 
 
 def test_model_parameters_invalid_parameter():
