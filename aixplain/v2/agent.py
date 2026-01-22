@@ -226,7 +226,7 @@ class Agent(
 
     # Task fields
     tasks: Optional[List[Task]] = field(default_factory=list)
-    agents: Optional[List[Union[str, "Agent"]]] = field(default_factory=list, metadata=config(field_name="agents"))
+    subagents: Optional[List[Union[str, "Agent"]]] = field(default_factory=list, metadata=config(field_name="agents"))
 
     # Output and execution fields
     output_format: Optional[Union[str, OutputFormat]] = field(
@@ -260,7 +260,7 @@ class Agent(
         # Store original subagent objects for saving, convert to IDs for storage
         self._original_subagents = []
         converted_subagents = []
-        for agent in self.agents:
+        for agent in self.subagents:
             if isinstance(agent, str):
                 converted_subagents.append(agent)
             elif isinstance(agent, dict) and "id" in agent:
@@ -268,7 +268,7 @@ class Agent(
             else:
                 converted_subagents.append(agent.id)
 
-        self.agents = converted_subagents
+        self.subagents = converted_subagents
 
         if isinstance(self.output_format, OutputFormat):
             self.output_format = self.output_format.value
@@ -471,7 +471,7 @@ class Agent(
 
         # Save subagents (recursively)
         if hasattr(self, "_original_subagents") and self._original_subagents:
-            for i in range(len(self.agents)):
+            for i in range(len(self.subagents)):
                 original_subagent = self._original_subagents[i]
                 if original_subagent is None:  # Already an ID string
                     continue
@@ -480,7 +480,7 @@ class Agent(
                         # Recursively save subagent and its components
                         original_subagent.save(save_subcomponents=True)
                         # Update the subagents list with the new ID
-                        self.agents[i] = original_subagent.id
+                        self.subagents[i] = original_subagent.id
                     except Exception as e:
                         subagent_name = getattr(original_subagent, "name", f"subagent_{i}")
                         failed_components.append(("subagent", subagent_name, str(e)))
@@ -502,8 +502,8 @@ class Agent(
                     unsaved_components.append(f"tool '{tool.name}'")
 
         # Check subagents - handle both _original_subagents and direct subagents list
-        if self.agents:
-            for i, subagent in enumerate(self.agents):
+        if self.subagents:
+            for i, subagent in enumerate(self.subagents):
                 # If it's an Agent object (not a string ID), check if it's saved
                 if hasattr(subagent, "id") and hasattr(subagent, "name"):
                     if not subagent.id:
