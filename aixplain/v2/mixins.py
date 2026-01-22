@@ -1,6 +1,4 @@
-"""
-Mixins for v2 API classes.
-"""
+"""Mixins for v2 API classes."""
 
 from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Optional, Literal
@@ -8,16 +6,12 @@ from typing_extensions import TypedDict
 
 
 class ParameterInput(TypedDict):
-    """
-    TypedDict for individual parameter input configuration.
-    """
+    """TypedDict for individual parameter input configuration."""
 
     name: str
     value: Optional[Any]
     required: bool
-    datatype: Literal[
-        "boolean", "string", "text", "number", "integer", "array", "object"
-    ]
+    datatype: Literal["boolean", "string", "text", "number", "integer", "array", "object"]
     allowMulti: bool
     supportsVariables: bool
     fixed: bool
@@ -25,9 +19,7 @@ class ParameterInput(TypedDict):
 
 
 class ParameterDefinition(TypedDict):
-    """
-    TypedDict for parameter definition structure.
-    """
+    """TypedDict for parameter definition structure."""
 
     code: str
     name: str
@@ -36,8 +28,7 @@ class ParameterDefinition(TypedDict):
 
 
 class ToolDict(TypedDict):
-    """
-    TypedDict defining the expected structure for tool serialization.
+    """TypedDict defining the expected structure for tool serialization.
 
     This provides type safety and documentation for the as_tool() method return value.
     """
@@ -63,8 +54,7 @@ class ToolDict(TypedDict):
 
 
 class ToolableMixin(ABC):
-    """
-    Mixin that enforces the as_tool() interface for classes that can be used as tools.
+    """Mixin that enforces the as_tool() interface for classes that can be used as tools.
 
     Any class that inherits from this mixin must implement the as_tool() method,
     which serializes the object into a format suitable for agent tool usage.
@@ -72,8 +62,7 @@ class ToolableMixin(ABC):
 
     @abstractmethod
     def as_tool(self) -> ToolDict:
-        """
-        Serialize this object as a tool for agent creation.
+        """Serialize this object as a tool for agent creation.
 
         This method converts the object into a dictionary format that can be used
         as a tool when creating agents. The format is strictly typed using ToolDict.

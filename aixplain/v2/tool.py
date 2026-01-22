@@ -39,21 +39,12 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
     DEFAULT_INTEGRATION_ID = "686432941223092cb4294d3f"  # Script integration
 
     # Tool-specific fields
-    asset_id: Optional[str] = field(
-        default=None, metadata=dj_config(field_name="assetId")
-    )
-    integration: Optional[Union[Integration, str]] = field(
-        default=None, metadata=dj_config(exclude=lambda x: True)
-    )
-    config: Optional[dict] = field(
-        default=None, metadata=dj_config(exclude=lambda x: True)
-    )
-    code: Optional[str] = field(
-        default=None, metadata=dj_config(exclude=lambda x: True)
-    )
-    allowed_actions: Optional[List[str]] = field(
-        default_factory=list, metadata=dj_config(field_name="allowedActions")
-    )
+    asset_id: Optional[str] = field(default=None, metadata=dj_config(field_name="assetId"))
+    subscriptions: Optional[Any] = field(default=None)
+    integration: Optional[Union[Integration, str]] = field(default=None, metadata=dj_config(exclude=lambda x: True))
+    config: Optional[dict] = field(default=None, metadata=dj_config(exclude=lambda x: True))
+    code: Optional[str] = field(default=None, metadata=dj_config(exclude=lambda x: True))
+    allowed_actions: Optional[List[str]] = field(default_factory=list, metadata=dj_config(field_name="allowedActions"))
     auth_scheme: Optional[Integration.AuthenticationScheme] = field(
         default=Integration.AuthenticationScheme.NO_AUTH,
         metadata=dj_config(exclude=lambda x: True),

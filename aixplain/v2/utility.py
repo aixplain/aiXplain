@@ -1,3 +1,5 @@
+"""Utility resource module for managing custom Python code utilities."""
+
 from typing import List, Any, Optional
 from typing_extensions import NotRequired, Unpack
 from dataclasses import dataclass, field
@@ -65,13 +67,12 @@ class Utility(
     utility_id: str = "custom_python_code"
 
     def __post_init__(self) -> None:
+        """Parse code and validate description for new utility instances."""
         # Only run parsing logic for new instances (no id yet)
         if not self.id:
             from aixplain.modules.model.utils import parse_code_decorated
 
-            code, inputs, description, name = parse_code_decorated(
-                self.code, self.context.api_key
-            )
+            code, inputs, description, name = parse_code_decorated(self.code, self.context.api_key)
             self.code = code
             self.inputs = inputs
             self.description = description
@@ -79,33 +80,43 @@ class Utility(
 
             # Validate description length
             if not self.description or len(self.description.strip()) <= 10:
-                current_length = (
-                    len(self.description.strip()) if self.description else 0
-                )
+                current_length = len(self.description.strip()) if self.description else 0
                 raise ValueError(
-                    f"Utility description must be more than 10 characters. "
-                    f"Current description length: {current_length}"
+                    f"Utility description must be more than 10 characters. Current description length: {current_length}"
                 )
 
             # Only save if this is a new instance (no id yet)
             self.save()
 
     def build_save_payload(self, **kwargs: Any) -> dict:
-        """
-        Build the payload for the save action.
-        """
+        """Build the payload for the save action."""
         payload = self.to_dict()
         payload["inputs"] = [input.to_dict() for input in self.inputs]
         return payload
 
     @classmethod
-    def get(
-        cls: type["Utility"], id: str, **kwargs: Unpack[BaseGetParams]
-    ) -> "Utility":
+    def get(cls: type["Utility"], id: str, **kwargs: Unpack[BaseGetParams]) -> "Utility":
+        """Get a utility by ID.
+
+        Args:
+            id: The utility ID.
+            **kwargs: Additional parameters for the get request.
+
+        Returns:
+            The retrieved Utility instance.
+        """
         return super().get(id, resource_path="sdk/models", **kwargs)
 
     @classmethod
     def run(cls: type["Utility"], **kwargs: Unpack[UtilityRunParams]) -> Result:
+        """Run the utility with provided parameters.
+
+        Args:
+            **kwargs: Run parameters including data to process.
+
+        Returns:
+            Result of the utility execution.
+        """
         return super().run(**kwargs)
 
     @classmethod
@@ -114,8 +125,7 @@ class Utility(
         query: Optional[str] = None,
         **kwargs: Unpack[UtilitySearchParams],
     ) -> "Page[Utility]":
-        """
-        Search utilities with optional query and filtering.
+        """Search utilities with optional query and filtering.
 
         Args:
             query: Optional search query string

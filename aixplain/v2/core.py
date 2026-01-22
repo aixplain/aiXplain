@@ -63,9 +63,7 @@ class Aixplain:
     BACKEND_URL = "https://platform-api.aixplain.com"
     BENCHMARKS_BACKEND_URL = "https://platform-api.aixplain.com"
     MODELS_RUN_URL = "https://models.aixplain.com/api/v2/execute"
-    PIPELINES_RUN_URL = (
-        "https://platform-api.aixplain.com/assets/pipeline/execution/run"
-    )
+    PIPELINES_RUN_URL = "https://platform-api.aixplain.com/assets/pipeline/execution/run"
 
     def __init__(
         self,
@@ -89,9 +87,7 @@ class Aixplain:
         )
 
         self.backend_url = backend_url or os.getenv("BACKEND_URL") or self.BACKEND_URL
-        self.pipeline_url = (
-            pipeline_url or os.getenv("PIPELINES_RUN_URL") or self.PIPELINES_RUN_URL
-        )
+        self.pipeline_url = pipeline_url or os.getenv("PIPELINES_RUN_URL") or self.PIPELINES_RUN_URL
         self.model_url = model_url or os.getenv("MODELS_RUN_URL") or self.MODELS_RUN_URL
 
         self.init_client()

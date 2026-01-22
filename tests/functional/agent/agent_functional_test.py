@@ -759,6 +759,35 @@ def test_run_agent_with_expected_output():
         assert person["name"] in more_than_30_years_old
 
 
+def test_agent_with_action_tool():
+    from aixplain.modules.model.integration import AuthenticationSchema
+
+    connection = ModelFactory.get("6880d42e2b2782f01f765361") 
+    connection.action_scope = [
+        action for action in connection.actions if action.code == "SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL"
+    ]
+
+    agent = AgentFactory.create(
+        name="Test Agent",
+        description="This agent is used to send messages to Slack",
+        instructions="You are a helpful assistant that can send messages to Slack.",
+        llm_id="669a63646eb56306647e1091",
+        tools=[
+            connection,
+            AgentFactory.create_model_tool(model="6736411cf127849667606689"),
+        ],
+    )
+
+    response = agent.run(
+        "Send what is the capital of Finland on Slack to channel of #modelserving-alerts: 'C084G435LR5'. Add the name of the capital in the final answer."
+    )
+    assert response is not None
+    assert response["status"].lower() == "success"
+    assert "helsinki" in response.data.output.lower()
+    assert "SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL" in [step["tool"] for step in response.data.intermediate_steps[0]["tool_steps"]]
+    connection.delete()
+
+
 def test_agent_with_mcp_tool():
     from aixplain.modules.model.integration import AuthenticationSchema
 

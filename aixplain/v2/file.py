@@ -37,13 +37,9 @@ class Resource(BaseResource):
     """
 
     # File-related fields
-    file_path: Optional[str] = field(
-        default=None, metadata=config(field_name="filePath")
-    )
+    file_path: Optional[str] = field(default=None, metadata=config(field_name="filePath"))
     s3_url: Optional[str] = field(default=None, metadata=config(field_name="s3Url"))
-    file_type: Optional[FileType] = field(
-        default=None, metadata=config(field_name="fileType")
-    )
+    file_type: Optional[FileType] = field(default=None, metadata=config(field_name="fileType"))
     is_temp: bool = field(default=True, metadata=config(field_name="isTemp"))
 
     def __post_init__(self):
@@ -119,9 +115,7 @@ class Resource(BaseResource):
             api_key=self.context.client.team_api_key,
             backend_url=self.context.backend_url,
         )
-        result = uploader.upload(
-            self.file_path, is_temp=self.is_temp, return_download_link=True
-        )
+        result = uploader.upload(self.file_path, is_temp=self.is_temp, return_download_link=True)
 
         # Set the presigned/public URL (result is the download link)
         self.s3_url = result
@@ -132,9 +126,7 @@ class Resource(BaseResource):
         return self.s3_url
 
     @classmethod
-    def create_from_file(
-        cls, file_path: str, is_temp: bool = True, **kwargs
-    ) -> "Resource":
+    def create_from_file(cls, file_path: str, is_temp: bool = True, **kwargs) -> "Resource":
         """Create a resource from a file path.
 
         Args:

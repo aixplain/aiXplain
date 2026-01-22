@@ -153,11 +153,13 @@ def _flatten_asset_info(data: dict) -> dict:
         data: Dictionary that may contain nested assetInfo structure.
 
     Returns:
-        Dictionary with assetPath and instanceId flattened to top level.
+        Dictionary with assetName, assetPath and instanceId flattened to top level.
     """
     if isinstance(data, dict) and "assetInfo" in data:
         asset_info = data.get("assetInfo", {})
         if isinstance(asset_info, dict):
+            if "assetName" in asset_info:
+                data["assetName"] = asset_info.get("assetName")
             if "assetPath" in asset_info:
                 data["assetPath"] = asset_info.get("assetPath")
             if "instanceId" in asset_info:
@@ -208,6 +210,7 @@ class BaseResource:
     id: Optional[str] = None
     name: Optional[str] = None
     description: Optional[str] = None
+    asset_name: Optional[str] = field(default=None, metadata=config(field_name="assetName"))
     asset_path: Optional[str] = field(default=None, metadata=config(field_name="assetPath"))
     instance_id: Optional[str] = field(default=None, metadata=config(field_name="instanceId"))
 
@@ -1231,12 +1234,10 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
         # Build the run URL using the extensible method
         run_url = self.build_run_url(**kwargs)
 
-        # Use context.client.request() with the custom URL
         response = self.context.client.request("post", run_url, json=payload)
 
         # Use the extensible response handler
         return self.handle_run_response(response, **kwargs)
-
     def poll(self, poll_url: str) -> ResultT:
         """Poll for the result of an asynchronous operation.
 
@@ -1262,28 +1263,36 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
 
             raise APIError(f"Polling failed: {str(e)}", 0, {"poll_url": poll_url})
 
-        # Handle polling response - it might not have all the expected fields
+        # Handle polling response - use camelCase keys (what backend sends)
+        # dataclass_json with config(field_name=...) handles mapping to snake_case
         filtered_response = {
             "status": response.get("status", "IN_PROGRESS"),
             "completed": response.get("completed", False),
-            "error_message": response.get("error_message"),
+            "errorMessage": response.get("errorMessage"),
             "url": response.get("url"),
             "result": response.get("result"),
-            "supplier_error": response.get("supplier_error"),
-            "data": response.get("data"),
+            "supplierError": response.get("supplierError"),
+            "data": response.get("data") or {},
+            "sessionId": response.get("sessionId"),
+            "usedCredits": response.get("usedCredits", 0.0),
+            "runTime": response.get("runTime", 0.0),
+            "requestId": response.get("requestId"),
         }
-
-        # Check if the operation has failed and raise appropriate error
         status = response.get("status", "IN_PROGRESS")
+
+        # Failure handling
         if status == "FAILED":
             raise create_operation_failed_error(response)
 
         response_class = getattr(self, "RESPONSE_CLASS", Result)
-        result = response_class.from_dict(filtered_response)
 
-        # Store the complete raw response for hooks to access additional data (e.g., progress)
+        try:
+            result = response_class.from_dict(filtered_response)
+        except Exception:
+            raise
+
+        # Attach raw response
         result._raw_data = response
-
         return result
 
     def on_poll(self, response: ResultT, **kwargs: Unpack[RunParamsT]) -> None:
@@ -1321,6 +1330,7 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
         while (time.time() - start_time) < timeout:
             try:
                 result = self.poll(poll_url)
+
 
                 # Call the hook with the poll response
                 self.on_poll(result, **kwargs)
