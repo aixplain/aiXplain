@@ -8,7 +8,7 @@ from aixplain.factories import TeamAgentFactory
 from aixplain.factories import AgentFactory
 from aixplain.modules.agent import Agent
 from aixplain.modules.team_agent import TeamAgent, InspectorTarget
-from aixplain.modules.team_agent.inspector import Inspector, InspectorPolicy
+from aixplain.modules.team_agent.inspector import Inspector
 from aixplain.modules.agent.tool.model_tool import ModelTool
 from aixplain.utils import config
 
@@ -50,7 +50,9 @@ def test_fail_content_exceed_maximum():
 def test_fail_key_not_found():
     team_agent = TeamAgent("123", "Test Team Agent")
     with pytest.raises(Exception) as exc_info:
-        team_agent.run_async(data={"query": "Translate the text: {{input1}}"}, content={"input2": "Hello, how are you?"})
+        team_agent.run_async(
+            data={"query": "Translate the text: {{input1}}"}, content={"input2": "Hello, how are you?"}
+        )
     assert str(exc_info.value) == "Key 'input2' not found in query."
 
 
@@ -93,14 +95,6 @@ def test_to_dict():
         description="Test Team Agent Description",
         llm_id="6646261c6eb563165658bbb1",
         use_mentalist=False,
-        inspectors=[
-            Inspector(
-                name="Test Inspector",
-                model_id="6646261c6eb563165658bbb1",
-                model_params={"prompt": "Test Prompt"},
-                policy=InspectorPolicy.ADAPTIVE,
-            )
-        ],
         inspector_targets=[InspectorTarget.STEPS, InspectorTarget.OUTPUT],
     )
 
@@ -118,11 +112,6 @@ def test_to_dict():
     assert team_agent_dict["agents"][0]["label"] == "AGENT"
 
     assert team_agent_dict["plannerId"] is None
-    assert len(team_agent_dict["inspectors"]) == 1
-    assert team_agent_dict["inspectors"][0]["name"] == "Test Inspector"
-    assert team_agent_dict["inspectors"][0]["modelId"] == "6646261c6eb563165658bbb1"
-    assert team_agent_dict["inspectors"][0]["modelParams"] == {"prompt": "Test Prompt"}
-    assert team_agent_dict["inspectors"][0]["policy"] == "adaptive"
     assert team_agent_dict["inspectorTargets"] == ["steps", "output"]
     assert len(team_agent_dict["agents"]) == 1
 
@@ -134,7 +123,10 @@ def test_create_team_agent(mock_model_factory_get):
 
     # Mock the model factory response
     mock_model = Model(
-        id="6646261c6eb563165658bbb1", name="Test LLM", description="Test LLM Description", function=Function.TEXT_GENERATION
+        id="6646261c6eb563165658bbb1",
+        name="Test LLM",
+        description="Test LLM Description",
+        function=Function.TEXT_GENERATION,
     )
     mock_model_factory_get.return_value = mock_model
 
@@ -245,63 +237,6 @@ def test_create_team_agent(mock_model_factory_get):
         assert team_agent.agents[0].status == AssetStatus.ONBOARDED
 
 
-def test_fail_inspector_without_mentalist():
-    with pytest.raises(Exception) as exc_info:
-        TeamAgentFactory.create(
-            name="Test Team Agent(-)",
-            agents=[
-                Agent(
-                    id="123",
-                    name="Test Agent(-)",
-                    description="Test Agent Description",
-                    instructions="Test Agent Instructions",
-                    llm_id="6646261c6eb563165658bbb1",
-                    tools=[ModelTool(function="text-generation")],
-                )
-            ],
-            use_mentalist=False,
-            inspectors=[
-                Inspector(
-                    name="Test Inspector",
-                    model_id="6646261c6eb563165658bbb1",
-                    model_params={"prompt": "Test Prompt"},
-                    policy=InspectorPolicy.ADAPTIVE,
-                )
-            ],
-        )
-
-    assert "you must enable Mentalist" in str(exc_info.value)
-
-
-def test_fail_invalid_inspector_target():
-    with pytest.raises(ValueError) as exc_info:
-        TeamAgentFactory.create(
-            name="Test Team Agent(-)",
-            agents=[
-                Agent(
-                    id="123",
-                    name="Test Agent(-)",
-                    description="Test Agent Description",
-                    instructions="Test Agent Instructions",
-                    llm_id="6646261c6eb563165658bbb1",
-                    tools=[ModelTool(function="text-generation")],
-                )
-            ],
-            use_mentalist=True,
-            inspectors=[
-                Inspector(
-                    name="Test Inspector",
-                    model_id="6646261c6eb563165658bbb1",
-                    model_params={"prompt": "Test Prompt"},
-                    policy=InspectorPolicy.ADAPTIVE,
-                )
-            ],
-            inspector_targets=["invalid_target"],
-        )
-
-    assert "Invalid inspector target" in str(exc_info.value)
-
-
 def test_build_team_agent(mocker):
     from aixplain.factories.team_agent_factory.utils import build_team_agent
     from aixplain.modules.agent import Agent, AgentTask
@@ -384,6 +319,7 @@ def test_deploy_team_agent():
     assert team_agent.status == AssetStatus.ONBOARDED
     team_agent.update.assert_called_once()
 
+
 def test_deploy_team_agent_with_nested_agents():
     """Test that deploying a team agent properly deploys its nested agents."""
     # Create mock agents
@@ -417,6 +353,7 @@ def test_deploy_team_agent_with_nested_agents():
     # Verify that status was updated and update was called
     assert team_agent.status == AssetStatus.ONBOARDED
     team_agent.update.assert_called_once()
+
 
 def test_team_agent_serialization_completeness():
     """Test that TeamAgent to_dict includes all necessary fields."""
@@ -569,7 +506,9 @@ def test_team_agent_serialization_mentalist_logic():
 )
 def test_team_agent_serialization_status_enum(status_input, expected_output):
     """Test TeamAgent to_dict properly serializes AssetStatus enum."""
-    team_agent = TeamAgent(id="test-team", name="Test Team", agents=[], description="Test description", status=status_input)
+    team_agent = TeamAgent(
+        id="test-team", name="Test Team", agents=[], description="Test description", status=status_input
+    )
 
     team_dict = team_agent.to_dict()
     assert team_dict["status"] == expected_output
@@ -603,7 +542,10 @@ def test_update_success(mock_model_factory_get):
 
     # Mock the model factory response
     mock_model = Model(
-        id="6646261c6eb563165658bbb1", name="Test LLM", description="Test LLM Description", function=Function.TEXT_GENERATION
+        id="6646261c6eb563165658bbb1",
+        name="Test LLM",
+        description="Test LLM Description",
+        function=Function.TEXT_GENERATION,
     )
     mock_model_factory_get.return_value = mock_model
 
@@ -678,7 +620,10 @@ def test_save_success(mock_model_factory_get):
 
     # Mock the model factory response
     mock_model = Model(
-        id="6646261c6eb563165658bbb1", name="Test LLM", description="Test LLM Description", function=Function.TEXT_GENERATION
+        id="6646261c6eb563165658bbb1",
+        name="Test LLM",
+        description="Test LLM Description",
+        function=Function.TEXT_GENERATION,
     )
     mock_model_factory_get.return_value = mock_model
 

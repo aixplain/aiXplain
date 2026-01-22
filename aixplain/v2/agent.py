@@ -264,11 +264,12 @@ class Agent(
         converted_subagents = []
         for agent in self.subagents:
             if isinstance(agent, str):
-                self._original_subagents.append(None)  # Already an ID
                 converted_subagents.append(agent)
+            elif isinstance(agent, dict) and "id" in agent:
+                converted_subagents.append(agent["id"])
             else:
-                self._original_subagents.append(agent)  # Store original object
                 converted_subagents.append(agent.id)
+
         self.subagents = converted_subagents
 
         if isinstance(self.output_format, OutputFormat):
@@ -669,28 +670,27 @@ class Agent(
         if self.tools:
             for tool in self.tools:
                 if isinstance(tool, ToolableMixin):
-                    # Non-tool objects (like Models) that can act as tools
+                    # Tool/Model objects that implement as_tool()
                     converted_assets.append(tool.as_tool())
+                elif isinstance(tool, dict):
+                    # Already a dictionary (from API response after save, or user-provided)
+                    converted_assets.append(tool)
                 else:
-                    raise ValueError("A tool in the agent must be a Tool, Model or ToolableMixin instance.")
+                    raise ValueError(
+                        "A tool in the agent must be a Tool, Model, ToolableMixin instance, or a dictionary."
+                    )
 
         # Update the payload with converted assets
         payload["tools"] = converted_assets
 
         payload["model"] = {"id": self.llm}
 
-        # Convert subagents to proper format for backend (with inspectors array)
-        # v2 API always requires agents to be an array (even empty for single agents)
-        if self.subagents:
-            payload["agents"] = [{"id": agent_id, "inspectors": []} for agent_id in self.subagents if agent_id]
-        else:
-            payload["agents"] = []
-
-        # Ensure inspectors and tasks are always arrays (v2 API requirement)
-        if payload.get("inspectors") is None:
-            payload["inspectors"] = []
-        if payload.get("tasks") is None:
-            payload["tasks"] = []
+        # Convert subagent IDs to objects with id key as expected by the API
+        if payload.get("agents"):
+            payload["agents"] = [
+                {"id": agent_id, "inspectors": []} if isinstance(agent_id, str) else agent_id
+                for agent_id in payload["agents"]
+            ]
 
         # Handle BaseModel expected_output for save operation
         # We don't send expected_output in the save payload - it's runtime-only

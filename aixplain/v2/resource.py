@@ -1234,12 +1234,10 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
         # Build the run URL using the extensible method
         run_url = self.build_run_url(**kwargs)
 
-        # Use context.client.request() with the custom URL
         response = self.context.client.request("post", run_url, json=payload)
 
         # Use the extensible response handler
         return self.handle_run_response(response, **kwargs)
-
     def poll(self, poll_url: str) -> ResultT:
         """Poll for the result of an asynchronous operation.
 
@@ -1280,18 +1278,21 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
             "runTime": response.get("runTime", 0.0),
             "requestId": response.get("requestId"),
         }
-
-        # Check if the operation has failed and raise appropriate error
         status = response.get("status", "IN_PROGRESS")
+
+        # Failure handling
         if status == "FAILED":
             raise create_operation_failed_error(response)
 
         response_class = getattr(self, "RESPONSE_CLASS", Result)
-        result = response_class.from_dict(filtered_response)
 
-        # Store the complete raw response for hooks to access additional data (e.g., progress)
+        try:
+            result = response_class.from_dict(filtered_response)
+        except Exception:
+            raise
+
+        # Attach raw response
         result._raw_data = response
-
         return result
 
     def on_poll(self, response: ResultT, **kwargs: Unpack[RunParamsT]) -> None:
@@ -1329,6 +1330,7 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
         while (time.time() - start_time) < timeout:
             try:
                 result = self.poll(poll_url)
+
 
                 # Call the hook with the poll response
                 self.on_poll(result, **kwargs)
