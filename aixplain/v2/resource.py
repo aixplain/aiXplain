@@ -153,17 +153,16 @@ def _flatten_asset_info(data: dict) -> dict:
         data: Dictionary that may contain nested assetInfo structure.
 
     Returns:
-        Dictionary with assetName, assetPath and instanceId flattened to top level.
+        Dictionary with path extracted from instanceId (or assetPath as fallback).
     """
     if isinstance(data, dict) and "assetInfo" in data:
         asset_info = data.get("assetInfo", {})
         if isinstance(asset_info, dict):
-            if "assetName" in asset_info:
-                data["assetName"] = asset_info.get("assetName")
-            if "assetPath" in asset_info:
-                data["assetPath"] = asset_info.get("assetPath")
+            # Priority: instanceId > assetPath for the path field
             if "instanceId" in asset_info:
-                data["instanceId"] = asset_info.get("instanceId")
+                data["path"] = asset_info.get("instanceId")
+            elif "assetPath" in asset_info:
+                data["path"] = asset_info.get("assetPath")
     return data
 
 
@@ -210,9 +209,7 @@ class BaseResource:
     id: Optional[str] = None
     name: Optional[str] = None
     description: Optional[str] = None
-    asset_name: Optional[str] = field(default=None, metadata=config(field_name="assetName"))
-    asset_path: Optional[str] = field(default=None, metadata=config(field_name="assetPath"))
-    instance_id: Optional[str] = field(default=None, metadata=config(field_name="instanceId"))
+    path: Optional[str] = None  # Full path e.g. "openai/whisper-large/groq"
 
     def _ensure_valid_state(self) -> None:
         """Ensure the resource is in a valid state for operations.
@@ -452,10 +449,9 @@ class BaseResource:
         return self.context.client.request(method, path, **kwargs)
 
     def __repr__(self) -> str:
-        """Return a string representation using assetPath > id priority."""
-        # Priority: assetPath > id (instance_id doesn't affect repr)
-        if self.asset_path:
-            return f"{self.__class__.__name__}(path={self.asset_path})"
+        """Return a string representation using path > id priority."""
+        if self.path:
+            return f"{self.__class__.__name__}(path={self.path})"
         else:
             return f"{self.__class__.__name__}(id={self.id}, name={self.name})"
 
@@ -1238,6 +1234,7 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
 
         # Use the extensible response handler
         return self.handle_run_response(response, **kwargs)
+
     def poll(self, poll_url: str) -> ResultT:
         """Poll for the result of an asynchronous operation.
 
@@ -1330,7 +1327,6 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
         while (time.time() - start_time) < timeout:
             try:
                 result = self.poll(poll_url)
-
 
                 # Call the hook with the poll response
                 self.on_poll(result, **kwargs)
