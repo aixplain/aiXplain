@@ -111,6 +111,7 @@ class AgentProgressTracker:
         self._printed_events: Dict[str, Dict] = {}
         self._printed_thoughts: Dict[int, str] = {}
         self._status_lines_count = 0
+        self._spinner_frames: Dict[str, int] = {}  # Per-step frame counter for sequential animation
 
         # Threading for smooth animation
         self._display_thread: Optional[threading.Thread] = None
@@ -122,6 +123,7 @@ class AgentProgressTracker:
         self._format = ProgressFormat.STATUS
         self._verbosity = 1
         self._truncate = True
+        self._time_ticks = False  # Show simplified time: seconds while running, ms when complete
 
     def _now(self) -> float:
         """Get current timestamp."""
@@ -132,6 +134,19 @@ class AgentProgressTracker:
         elapsed = self._now() - (self._total_start_time or self._now())
         frame_duration = 0.05  # 50ms per frame
         frame_index = int(elapsed / frame_duration) % len(self.SPINNER_FRAMES)
+        return self.SPINNER_FRAMES[frame_index]
+
+    def _get_spinner_for_step(self, step_id: str) -> str:
+        """Get spinner frame for a specific step with sequential animation.
+
+        This ensures frames advance in order on each call, regardless of timing.
+        Used in notebook mode where irregular poll intervals would cause
+        time-based spinners to skip frames.
+        """
+        if step_id not in self._spinner_frames:
+            self._spinner_frames[step_id] = 0
+        frame_index = self._spinner_frames[step_id]
+        self._spinner_frames[step_id] = (frame_index + 1) % len(self.SPINNER_FRAMES)
         return self.SPINNER_FRAMES[frame_index]
 
     def _parse_steps(self, response: Any) -> List[Dict]:
@@ -188,6 +203,28 @@ class AgentProgressTracker:
         s = int(seconds % 60)
         cs = int((seconds % 1) * 100)
         return f"{m:02d}:{s:02d}.{cs:02d}"
+
+    def _format_elapsed_ticks(self, seconds: Optional[float], is_complete: bool = False) -> str:
+        """Format elapsed time with tick precision.
+
+        Args:
+            seconds: Elapsed time in seconds
+            is_complete: If True, show centiseconds precision; otherwise seconds only
+
+        Returns:
+            Formatted time string (e.g., "00:05" while running, "00:05.23" when complete)
+        """
+        if seconds is None:
+            return "--:--" if is_complete else "--:--"
+        m = int(seconds // 60)
+        s = int(seconds % 60)
+        if is_complete:
+            # Centiseconds precision when complete
+            cs = int((seconds % 1) * 100)
+            return f"{m:02d}:{s:02d}.{cs:02d}"
+        else:
+            # Seconds precision while running
+            return f"{m:02d}:{s:02d}"
 
     def _format_multiline(self, text: str, width: int = 70) -> str:
         """Format text with word wrapping and pipe continuation."""
@@ -348,8 +385,18 @@ class AgentProgressTracker:
         icon: str,
         step_elapsed: Optional[float] = None,
         show_timing: bool = True,
+        is_complete: bool = False,
     ) -> str:
-        """Format the main step line with proper symbols and structure."""
+        """Format the main step line with proper symbols and structure.
+
+        Args:
+            step: Step data dictionary
+            step_idx: Step index (0-based)
+            icon: Icon to display (spinner or completion icon)
+            step_elapsed: Elapsed time for this step
+            show_timing: Whether to show timing information
+            is_complete: Whether step is complete (affects time_ticks precision)
+        """
         agent_field = step.get("agent") or step.get("agent_name") or "Unknown"
         if isinstance(agent_field, dict):
             agent_name = agent_field.get("name") or agent_field.get("id") or str(agent_field)
@@ -377,7 +424,11 @@ class AgentProgressTracker:
         step_line = f"{icon} Step {step_idx + 1:2d}"
 
         if show_timing and step_elapsed is not None:
-            step_line += f" · ⏱ {self._format_elapsed(step_elapsed)}"
+            if self._time_ticks:
+                time_str = self._format_elapsed_ticks(step_elapsed, is_complete)
+            else:
+                time_str = self._format_elapsed(step_elapsed)
+            step_line += f" · ⏱ {time_str}"
             api_calls = step.get("api_calls") or 0
             step_line += f" · API {api_calls:2d}"
             step_credits = step.get("used_credits") or step.get("usedCredits") or 0
@@ -414,9 +465,12 @@ class AgentProgressTracker:
         step_elapsed = self._now() - self._first_seen.get(active.get("_progress_id"), self._now())
 
         has_output = active.get("output")
-        icon = "✓" if has_output else self._get_spinner()
+        is_complete = bool(has_output)
+        icon = "✓" if is_complete else self._get_spinner()
 
-        status_line = self._format_step_line(active, step_num, icon, step_elapsed, show_timing=True)
+        status_line = self._format_step_line(
+            active, step_num, icon, step_elapsed, show_timing=True, is_complete=is_complete
+        )
 
         if self._verbosity >= 2:
             task = active.get("task")
@@ -456,7 +510,7 @@ class AgentProgressTracker:
             if not has_output and sid in self._printed_events:
                 step_elapsed = self._now() - self._first_seen.get(sid, self._now())
                 icon = self._get_spinner()
-                status_line = self._format_step_line(step, idx, icon, step_elapsed, show_timing=True)
+                status_line = self._format_step_line(step, idx, icon, step_elapsed, show_timing=True, is_complete=False)
                 print(f"\r{status_line}", end="", flush=True)
                 self._printed_events[sid]["status_line"] = status_line
 
@@ -565,6 +619,7 @@ class AgentProgressTracker:
         format: ProgressFormat = ProgressFormat.STATUS,
         verbosity: int = 1,
         truncate: bool = True,
+        time_ticks: bool = False,
     ) -> None:
         """Start progress tracking (call from before_run hook).
 
@@ -572,6 +627,7 @@ class AgentProgressTracker:
             format: Display format (status, logs, none)
             verbosity: Detail level (1=minimal, 2=thoughts, 3=full I/O)
             truncate: Whether to truncate long text
+            time_ticks: Show simplified time (seconds while running, ms when complete)
         """
         # Reset tracking state
         self._seen_steps = {}
@@ -583,11 +639,13 @@ class AgentProgressTracker:
         self._printed_events = {}
         self._printed_thoughts = {}
         self._status_lines_count = 0
+        self._spinner_frames = {}
 
         # Store display options
         self._format = format if isinstance(format, ProgressFormat) else ProgressFormat(format)
         self._verbosity = verbosity
         self._truncate = truncate
+        self._time_ticks = time_ticks
 
         # Reset threading state
         self._stop_display.clear()
@@ -629,15 +687,16 @@ class AgentProgressTracker:
             if sid not in self._printed_events:
                 step_elapsed = self._now() - self._first_seen.get(sid, self._now())
                 icon = self._get_spinner()
-                status_line = self._format_step_line(step, idx, icon, step_elapsed, show_timing=True)
+                status_line = self._format_step_line(step, idx, icon, step_elapsed, show_timing=True, is_complete=False)
                 print(f"\r{status_line}", end="", flush=True)
                 self._printed_events[sid] = {"has_output": False, "status_line": status_line}
 
             # In notebook mode, update spinner synchronously (no background thread)
+            # Use sequential spinner to prevent frame skipping from irregular poll intervals
             elif not has_output and self._is_notebook:
                 step_elapsed = self._now() - self._first_seen.get(sid, self._now())
-                icon = self._get_spinner()
-                status_line = self._format_step_line(step, idx, icon, step_elapsed, show_timing=True)
+                icon = self._get_spinner_for_step(sid)
+                status_line = self._format_step_line(step, idx, icon, step_elapsed, show_timing=True, is_complete=False)
                 print(f"\r{status_line}", end="", flush=True)
 
             # Step completed - show completion icon
@@ -645,7 +704,9 @@ class AgentProgressTracker:
                 step_elapsed = self._now() - self._first_seen.get(sid, self._now())
                 has_error = step.get("error") or step.get("error_message")
                 completion_icon = "✗" if has_error else "✓"
-                completion_line = self._format_step_line(step, idx, completion_icon, step_elapsed, show_timing=True)
+                completion_line = self._format_step_line(
+                    step, idx, completion_icon, step_elapsed, show_timing=True, is_complete=True
+                )
                 print(f"\r{completion_line}")
                 self._print_step_details(step, idx)
                 self._printed_events[sid]["has_output"] = True
@@ -659,10 +720,14 @@ class AgentProgressTracker:
         sid = active.get("_progress_id")
         step_num = len(steps) - 1
         has_output = active.get("output")
+        is_complete = bool(has_output)
         step_elapsed = self._now() - self._first_seen.get(sid, self._now())
 
-        icon = "✓" if has_output else self._get_spinner()
-        status_line = self._format_step_line(active, step_num, icon, step_elapsed, show_timing=True)
+        # Use sequential spinner to prevent frame skipping from irregular poll intervals
+        icon = "✓" if is_complete else self._get_spinner_for_step(sid)
+        status_line = self._format_step_line(
+            active, step_num, icon, step_elapsed, show_timing=True, is_complete=is_complete
+        )
 
         # Pad to overwrite previous longer lines
         current_len = len(status_line)
@@ -733,6 +798,7 @@ class AgentProgressTracker:
         format: ProgressFormat = ProgressFormat.STATUS,
         verbosity: int = 1,
         truncate: bool = True,
+        time_ticks: bool = False,
     ) -> Any:
         """Stream agent progress until completion (standalone polling mode).
 
@@ -745,6 +811,7 @@ class AgentProgressTracker:
             format: Display format (status, logs, none)
             verbosity: Detail level (1=minimal, 2=thoughts, 3=full I/O)
             truncate: Whether to truncate long text
+            time_ticks: Show simplified time (seconds while running, ms when complete)
 
         Returns:
             Final response from the agent
@@ -753,7 +820,7 @@ class AgentProgressTracker:
         terminal_failures = {"FAILED", "ABORTED", "CANCELLED", "ERROR"}
 
         # Initialize state using start()
-        self.start(format=format, verbosity=verbosity, truncate=truncate)
+        self.start(format=format, verbosity=verbosity, truncate=truncate, time_ticks=time_ticks)
         # Override _total_start_time to None - will be set on first steps
         self._total_start_time = None
 
