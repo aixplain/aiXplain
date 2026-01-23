@@ -621,6 +621,8 @@ def test_model_parameters_to_dict():
     params.temperature = 0.7
 
     dict_output = params.to_dict()
+    # Verify key fields are present and correct
+    assert "temperature" in dict_output
     assert dict_output["temperature"]["name"] == "temperature"
     assert dict_output["temperature"]["required"] is True
     assert dict_output["temperature"]["value"] == 0.7
