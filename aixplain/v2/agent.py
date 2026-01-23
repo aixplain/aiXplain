@@ -116,7 +116,8 @@ class AgentRunParams(BaseRunParams):
     Attributes:
         sessionId: Session ID for conversation continuity
         query: The query to run
-        variables: Variables to replace {variable} placeholders in instructions
+        variables: Variables to replace {{variable}} placeholders in instructions and description.
+            The backend performs the actual substitution.
         allowHistoryAndSessionId: Allow both history and session ID
         tasks: List of tasks for the agent
         prompt: Custom prompt override
@@ -665,6 +666,13 @@ class Agent(
         self.inspectors = original_inspectors
         self.inspector_targets = original_inspector_targets
 
+        # Convert {{var}} to {var} in instructions and description for backend compatibility (v1 format)
+        # User writes: {{language}} → Backend receives: {language}
+        if payload.get("instructions"):
+            payload["instructions"] = re.sub(r"\{\{(\w+)\}\}", r"{\1}", payload["instructions"])
+        if payload.get("description"):
+            payload["description"] = re.sub(r"\{\{(\w+)\}\}", r"{\1}", payload["description"])
+
         # Convert tools intelligently based on their type
         converted_assets = []
         if self.tools:
@@ -739,7 +747,7 @@ class Agent(
         # Handle runResponseGeneration with default value of True
         run_response_generation = kwargs.pop("runResponseGeneration", True)
 
-        # Process variables for instruction placeholders (same as v1)
+        # Process variables for instruction/description placeholders (sent to backend for substitution)
         variables = kwargs.pop("variables", None) or {}
         query = kwargs.pop("query", None)
 
@@ -750,13 +758,10 @@ class Agent(
             else:
                 input_data = {"input": query}
 
-            # Extract variable names from instructions using single brace pattern {var}
-            # Regex matches {var} but not {{var}} (escaped braces)
-            if self.instructions:
-                instruction_variables = re.findall(r"(?<!{){([^}]+)}(?!})", self.instructions)
-                for var_name in instruction_variables:
-                    if var_name in variables:
-                        input_data[var_name] = variables[var_name]
+            # Add all provided variables to input_data for backend processing (same as v1)
+            # User provides: {"persona": "good"} → Backend receives: {"persona": "good"}
+            # Backend will substitute {{persona}} placeholders in instructions/description
+            input_data.update(variables)
 
             # Use the processed input_data as query
             query = input_data
