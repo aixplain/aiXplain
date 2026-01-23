@@ -355,7 +355,9 @@ class Agent(
             response: The poll response containing progress information
             **kwargs: Run parameters
         """
-        if self._progress_tracker is not None and not response.completed:
+        # Always update progress tracker, including on final completed response
+        # This ensures the last step's completion state is displayed before finish() is called
+        if self._progress_tracker is not None:
             self._progress_tracker.update(response)
 
     def after_run(
