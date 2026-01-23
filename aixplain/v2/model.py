@@ -390,7 +390,6 @@ class Model(
     status: Optional[AssetStatus] = None
     host: Optional[str] = None
     developer: Optional[str] = None
-    path: Optional[str] = None  # Path in format "host/model-name" (e.g., "openai/gpt-4")
     vendor: Optional[VendorInfo] = None
     function: Optional[Function] = field(
         default=None,

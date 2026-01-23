@@ -58,9 +58,7 @@ class TestStateTracking:
             "name": "Test Resource",
             "description": "Test Description",
             "value": 42,
-            "assetName": None,
-            "assetPath": None,
-            "instanceId": None,
+            "path": None,
         }
 
     def test_resource_modification_detection(self):
@@ -115,9 +113,7 @@ class TestStateTracking:
             "name": "New Name",
             "description": "New Description",
             "value": 100,
-            "assetName": None,
-            "assetPath": None,
-            "instanceId": None,
+            "path": None,
         }
         assert current_state == expected_state
 
@@ -164,7 +160,7 @@ class TestStateTracking:
         assert "_saved_state" not in state
 
         # Only data fields should be included
-        expected_fields = {"id", "name", "description", "value", "assetName", "assetPath", "instanceId"}
+        expected_fields = {"id", "name", "description", "value", "path"}
         assert set(state.keys()) == expected_fields
 
     def test_empty_resource_state(self):
@@ -184,9 +180,7 @@ class TestStateTracking:
             "name": "",
             "description": "",
             "value": 0,
-            "assetName": None,
-            "assetPath": None,
-            "instanceId": None,
+            "path": None,
         }
         assert resource._saved_state == expected_state
 
