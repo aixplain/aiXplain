@@ -820,7 +820,7 @@ class AgentProgressTracker:
         terminal_failures = {"FAILED", "ABORTED", "CANCELLED", "ERROR"}
 
         # Initialize state using start()
-        self.start(format=format, verbosity=verbosity, truncate=truncate)
+        self.start(format=format, verbosity=verbosity, truncate=truncate, time_ticks=time_ticks)
         # Override _total_start_time to None - will be set on first steps
         self._total_start_time = None
 
