@@ -131,6 +131,7 @@ class AgentRunParams(BaseRunParams):
                         If None (default), progress tracking is disabled.
         progress_verbosity: Detail level - 1 (minimal), 2 (thoughts), 3 (full I/O)
         progress_truncate: Whether to truncate long text in progress display
+        progress_time_ticks: Show simplified time (seconds while running, ms when complete)
     """
 
     sessionId: NotRequired[Optional[Text]]
@@ -148,6 +149,7 @@ class AgentRunParams(BaseRunParams):
     progress_format: NotRequired[Optional[Text]]
     progress_verbosity: NotRequired[Optional[int]]
     progress_truncate: NotRequired[Optional[bool]]
+    progress_time_ticks: NotRequired[Optional[bool]]
 
 
 @dataclass_json
@@ -340,6 +342,7 @@ class Agent(
 
             progress_verbosity = kwargs.get("progress_verbosity", 1)
             progress_truncate = kwargs.get("progress_truncate", True)
+            progress_time_ticks = kwargs.get("progress_time_ticks", False)
 
             fmt = ProgressFormat(progress_format)
 
@@ -352,6 +355,7 @@ class Agent(
                 format=fmt,
                 verbosity=progress_verbosity,
                 truncate=progress_truncate,
+                time_ticks=progress_time_ticks,
             )
         else:
             self._progress_tracker = None
@@ -365,7 +369,9 @@ class Agent(
             response: The poll response containing progress information
             **kwargs: Run parameters
         """
-        if self._progress_tracker is not None and not response.completed:
+        # Always update progress tracker, including on final completed response
+        # This ensures the last step's completion state is displayed before finish() is called
+        if self._progress_tracker is not None:
             self._progress_tracker.update(response)
 
     def after_run(
@@ -393,6 +399,8 @@ class Agent(
                            progress tracking is disabled.
             progress_verbosity: Detail level 1-3 (default: 1)
             progress_truncate: Truncate long text (default: True)
+            progress_time_ticks: Show simplified time - seconds while running,
+                               milliseconds when complete (default: False)
             **kwargs: Additional run parameters
 
         Returns:
