@@ -243,6 +243,13 @@ class Agent(
     max_inspectors: Optional[int] = field(default=None, metadata=config(field_name="maxInspectors"))
     inspectors: Optional[List[Any]] = field(default_factory=list)
     resource_info: Optional[Dict[str, Any]] = field(default_factory=dict, metadata=config(field_name="resourceInfo"))
+    max_iterations: Optional[int] = field(
+        default=5, metadata=config(field_name="maxIterations")
+    )
+    max_tokens: Optional[int] = field(
+        default=2048, metadata=config(field_name="maxTokens")
+    )
+
 
     # Internal state for progress tracking (excluded from serialization)
     _progress_tracker: Optional[Any] = field(
@@ -683,13 +690,16 @@ class Agent(
         execution_params = kwargs.pop("executionParams", {})
 
         # Set default values for executionParams if not provided
-        if not execution_params:
-            execution_params = {
-                "outputFormat": self.output_format,
-                "maxTokens": 2048,
-                "maxIterations": 30,
-                "maxTime": 300,
-            }
+        defaults = {
+        "outputFormat": self.output_format,
+        "maxTokens": getattr(self, "max_tokens", 2048),
+        "maxIterations": getattr(self, "max_iterations", 5),
+        "maxTime": 300,
+        }
+
+        for k, v in defaults.items():
+            execution_params.setdefault(k, v)
+
 
         # Handle BaseModel conversion for expectedOutput (following legacy pattern)
         # Use agent's expected_output if none provided in executionParams
