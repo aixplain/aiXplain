@@ -11,6 +11,7 @@ from .tool import Tool
 from .integration import Integration
 from .file import Resource
 from .inspector import Inspector
+from .meta_agents import Debugger
 from . import enums
 
 
@@ -21,6 +22,7 @@ ToolType = TypeVar("ToolType", bound=Tool)
 IntegrationType = TypeVar("IntegrationType", bound=Integration)
 ResourceType = TypeVar("ResourceType", bound=Resource)
 InspectorType = TypeVar("InspectorType", bound=Inspector)
+DebuggerType = TypeVar("DebuggerType", bound=Debugger)
 
 
 class Aixplain:
@@ -43,6 +45,7 @@ class Aixplain:
     Integration: IntegrationType = None
     Resource: ResourceType = None
     Inspector: InspectorType = None
+    Debugger: DebuggerType = None
 
     Function = enums.Function
     Supplier = enums.Supplier
@@ -113,3 +116,4 @@ class Aixplain:
         self.Integration = type("Integration", (Integration,), {"context": self})
         self.Resource = type("Resource", (Resource,), {"context": self})
         self.Inspector = type("Inspector", (Inspector,), {"context": self})
+        self.Debugger = type("Debugger", (Debugger,), {"context": self})
