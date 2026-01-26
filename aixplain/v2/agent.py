@@ -2,6 +2,7 @@
 
 import json
 import logging
+import re
 from datetime import datetime
 from enum import Enum
 from dataclasses import dataclass, field
@@ -115,6 +116,8 @@ class AgentRunParams(BaseRunParams):
     Attributes:
         sessionId: Session ID for conversation continuity
         query: The query to run
+        variables: Variables to replace {{variable}} placeholders in instructions and description.
+            The backend performs the actual substitution.
         allowHistoryAndSessionId: Allow both history and session ID
         tasks: List of tasks for the agent
         prompt: Custom prompt override
@@ -128,10 +131,12 @@ class AgentRunParams(BaseRunParams):
                         If None (default), progress tracking is disabled.
         progress_verbosity: Detail level - 1 (minimal), 2 (thoughts), 3 (full I/O)
         progress_truncate: Whether to truncate long text in progress display
+        progress_time_ticks: Show simplified time (seconds while running, ms when complete)
     """
 
     sessionId: NotRequired[Optional[Text]]
     query: NotRequired[Optional[Union[Dict, Text]]]
+    variables: NotRequired[Optional[Dict[str, Any]]]
     allowHistoryAndSessionId: NotRequired[Optional[bool]]
     tasks: NotRequired[Optional[List[Any]]]
     prompt: NotRequired[Optional[Text]]
@@ -144,6 +149,7 @@ class AgentRunParams(BaseRunParams):
     progress_format: NotRequired[Optional[Text]]
     progress_verbosity: NotRequired[Optional[int]]
     progress_truncate: NotRequired[Optional[bool]]
+    progress_time_ticks: NotRequired[Optional[bool]]
 
 
 @dataclass_json
@@ -153,7 +159,6 @@ class AgentResponseData:
 
     input: Optional[Any] = None
     output: Optional[Any] = None
-    intermediate_steps: Optional[List[Dict[str, Any]]] = field(default_factory=list)
     steps: Optional[List[Dict[str, Any]]] = field(default_factory=list)
     session_id: Optional[str] = None
     execution_stats: Optional[Dict[str, Any]] = field(default=None, metadata=config(field_name="executionStats"))
@@ -243,6 +248,13 @@ class Agent(
     max_inspectors: Optional[int] = field(default=None, metadata=config(field_name="maxInspectors"))
     inspectors: Optional[List[Any]] = field(default_factory=list)
     resource_info: Optional[Dict[str, Any]] = field(default_factory=dict, metadata=config(field_name="resourceInfo"))
+    max_iterations: Optional[int] = field(
+        default=5, metadata=config(field_name="maxIterations")
+    )
+    max_tokens: Optional[int] = field(
+        default=2048, metadata=config(field_name="maxTokens")
+    )
+
 
     # Internal state for progress tracking (excluded from serialization)
     _progress_tracker: Optional[Any] = field(
@@ -262,11 +274,12 @@ class Agent(
         converted_subagents = []
         for agent in self.subagents:
             if isinstance(agent, str):
-                self._original_subagents.append(None)  # Already an ID
                 converted_subagents.append(agent)
+            elif isinstance(agent, dict) and "id" in agent:
+                converted_subagents.append(agent["id"])
             else:
-                self._original_subagents.append(agent)  # Store original object
                 converted_subagents.append(agent.id)
+
         self.subagents = converted_subagents
 
         if isinstance(self.output_format, OutputFormat):
@@ -329,6 +342,7 @@ class Agent(
 
             progress_verbosity = kwargs.get("progress_verbosity", 1)
             progress_truncate = kwargs.get("progress_truncate", True)
+            progress_time_ticks = kwargs.get("progress_time_ticks", False)
 
             fmt = ProgressFormat(progress_format)
 
@@ -341,6 +355,7 @@ class Agent(
                 format=fmt,
                 verbosity=progress_verbosity,
                 truncate=progress_truncate,
+                time_ticks=progress_time_ticks,
             )
         else:
             self._progress_tracker = None
@@ -354,7 +369,9 @@ class Agent(
             response: The poll response containing progress information
             **kwargs: Run parameters
         """
-        if self._progress_tracker is not None and not response.completed:
+        # Always update progress tracker, including on final completed response
+        # This ensures the last step's completion state is displayed before finish() is called
+        if self._progress_tracker is not None:
             self._progress_tracker.update(response)
 
     def after_run(
@@ -382,6 +399,8 @@ class Agent(
                            progress tracking is disabled.
             progress_verbosity: Detail level 1-3 (default: 1)
             progress_truncate: Truncate long text (default: True)
+            progress_time_ticks: Show simplified time - seconds while running,
+                               milliseconds when complete (default: False)
             **kwargs: Additional run parameters
 
         Returns:
@@ -396,6 +415,27 @@ class Agent(
             kwargs["sessionId"] = kwargs.pop("session_id")
 
         return super().run(*args, **kwargs)
+
+    def run_async(self, *args: Any, **kwargs: Unpack[AgentRunParams]) -> AgentRunResult:
+        """Run the agent asynchronously.
+
+        Args:
+            *args: Positional arguments (first arg is treated as query)
+            query: The query to run
+            **kwargs: Additional run parameters
+
+        Returns:
+            AgentRunResult: The result of the agent execution
+        """
+        if len(args) > 0:
+            kwargs["query"] = args[0]
+            args = args[1:]
+
+        # Handle session_id parameter name compatibility (snake_case -> camelCase)
+        if "session_id" in kwargs and "sessionId" not in kwargs:
+            kwargs["sessionId"] = kwargs.pop("session_id")
+
+        return super().run_async(**kwargs)
 
     def _validate_expected_output(self) -> None:
         # Skip validation if expected_output is None (it's optional)
@@ -641,33 +681,39 @@ class Agent(
         self.inspectors = original_inspectors
         self.inspector_targets = original_inspector_targets
 
+        # Convert {{var}} to {var} in instructions and description for backend compatibility (v1 format)
+        # User writes: {{language}} → Backend receives: {language}
+        if payload.get("instructions"):
+            payload["instructions"] = re.sub(r"\{\{(\w+)\}\}", r"{\1}", payload["instructions"])
+        if payload.get("description"):
+            payload["description"] = re.sub(r"\{\{(\w+)\}\}", r"{\1}", payload["description"])
+
         # Convert tools intelligently based on their type
         converted_assets = []
         if self.tools:
             for tool in self.tools:
                 if isinstance(tool, ToolableMixin):
-                    # Non-tool objects (like Models) that can act as tools
+                    # Tool/Model objects that implement as_tool()
                     converted_assets.append(tool.as_tool())
+                elif isinstance(tool, dict):
+                    # Already a dictionary (from API response after save, or user-provided)
+                    converted_assets.append(tool)
                 else:
-                    raise ValueError("A tool in the agent must be a Tool, Model or ToolableMixin instance.")
+                    raise ValueError(
+                        "A tool in the agent must be a Tool, Model, ToolableMixin instance, or a dictionary."
+                    )
 
         # Update the payload with converted assets
         payload["tools"] = converted_assets
 
         payload["model"] = {"id": self.llm}
 
-        # Convert subagents to proper format for backend (with inspectors array)
-        # v2 API always requires agents to be an array (even empty for single agents)
-        if self.subagents:
-            payload["agents"] = [{"id": agent_id, "inspectors": []} for agent_id in self.subagents if agent_id]
-        else:
-            payload["agents"] = []
-
-        # Ensure inspectors and tasks are always arrays (v2 API requirement)
-        if payload.get("inspectors") is None:
-            payload["inspectors"] = []
-        if payload.get("tasks") is None:
-            payload["tasks"] = []
+        # Convert subagent IDs to objects with id key as expected by the API
+        if payload.get("agents"):
+            payload["agents"] = [
+                {"id": agent_id, "inspectors": []} if isinstance(agent_id, str) else agent_id
+                for agent_id in payload["agents"]
+            ]
 
         # Handle BaseModel expected_output for save operation
         # We don't send expected_output in the save payload - it's runtime-only
@@ -688,13 +734,16 @@ class Agent(
         execution_params = kwargs.pop("executionParams", {})
 
         # Set default values for executionParams if not provided
-        if not execution_params:
-            execution_params = {
-                "outputFormat": self.output_format,
-                "maxTokens": 2048,
-                "maxIterations": 30,
-                "maxTime": 300,
-            }
+        defaults = {
+        "outputFormat": self.output_format,
+        "maxTokens": getattr(self, "max_tokens", 2048),
+        "maxIterations": getattr(self, "max_iterations", 5),
+        "maxTime": 300,
+        }
+
+        for k, v in defaults.items():
+            execution_params.setdefault(k, v)
+
 
         # Handle BaseModel conversion for expectedOutput (following legacy pattern)
         # Use agent's expected_output if none provided in executionParams
@@ -716,12 +765,35 @@ class Agent(
         # Handle runResponseGeneration with default value of True
         run_response_generation = kwargs.pop("runResponseGeneration", True)
 
+        # Process variables for instruction/description placeholders (sent to backend for substitution)
+        variables = kwargs.pop("variables", None) or {}
+        query = kwargs.pop("query", None)
+
+        # Build input_data dict with query and variables
+        if query is not None:
+            if isinstance(query, dict):
+                input_data = query.copy()
+            else:
+                input_data = {"input": query}
+
+            # Add all provided variables to input_data for backend processing (same as v1)
+            # User provides: {"persona": "good"} → Backend receives: {"persona": "good"}
+            # Backend will substitute {{persona}} placeholders in instructions/description
+            input_data.update(variables)
+
+            # Use the processed input_data as query
+            query = input_data
+
         # Build the payload according to Swagger specification
         payload = {
             "id": self.id,
             "executionParams": execution_params,
             "runResponseGeneration": run_response_generation,
         }
+
+        # Add query back if present
+        if query is not None:
+            payload["query"] = query
 
         # Add all other parameters from kwargs
         for key, value in kwargs.items():

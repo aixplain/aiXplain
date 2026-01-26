@@ -64,6 +64,7 @@ def test_run_mcp_connect_model():
     action = action[0]
     response = connection.run(action, {"text": "This is a test!", "channel": "C084G435LR5"})
     assert response.status == ResponseStatus.SUCCESS
+    connection.delete()
 
 
 def test_create_script_connection_tool():
