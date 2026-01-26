@@ -7,8 +7,7 @@ from aixplain.enums.asset_status import AssetStatus
 from aixplain.factories import TeamAgentFactory
 from aixplain.factories import AgentFactory
 from aixplain.modules.agent import Agent
-from aixplain.modules.team_agent import TeamAgent, InspectorTarget
-from aixplain.modules.team_agent.inspector import Inspector
+from aixplain.modules.team_agent import TeamAgent
 from aixplain.modules.agent.tool.model_tool import ModelTool
 from aixplain.utils import config
 
@@ -95,7 +94,6 @@ def test_to_dict():
         description="Test Team Agent Description",
         llm_id="6646261c6eb563165658bbb1",
         use_mentalist=False,
-        inspector_targets=[InspectorTarget.STEPS, InspectorTarget.OUTPUT],
     )
 
     team_agent_dict = team_agent.to_dict()
@@ -112,7 +110,6 @@ def test_to_dict():
     assert team_agent_dict["agents"][0]["label"] == "AGENT"
 
     assert team_agent_dict["plannerId"] is None
-    assert team_agent_dict["inspectorTargets"] == ["steps", "output"]
     assert len(team_agent_dict["agents"]) == 1
 
 
@@ -281,7 +278,6 @@ def test_build_team_agent(mocker):
         "name": "Test Team Agent(-)",
         "description": "Test Team Agent Description",
         "plannerId": "6646261c6eb563165658bbb1",
-        "inspectorId": "6646261c6eb563165658bbb1",
         "llmId": "6646261c6eb563165658bbb1",
         "agents": [
             {"assetId": "agent1"},
@@ -368,10 +364,6 @@ def test_team_agent_serialization_completeness():
     mock_agent2.id = "agent-2"
     mock_agent2.name = "Agent 2"
 
-    # Create mock inspectors
-    mock_inspector = Mock()
-    mock_inspector.model_dump.return_value = {"type": "test_inspector", "config": {"threshold": 0.8}}
-
     # Create test team agent with comprehensive data
     team_agent = TeamAgent(
         id="test-team-123",
@@ -386,8 +378,6 @@ def test_team_agent_serialization_completeness():
         use_mentalist=False,
         status=AssetStatus.DRAFT,
         instructions="You are a helpful team agent",
-        inspectors=[mock_inspector],
-        inspector_targets=[InspectorTarget.STEPS],
     )
 
     # Test to_dict includes all expected fields
@@ -402,8 +392,6 @@ def test_team_agent_serialization_completeness():
         "llmId",
         "supervisorId",
         "plannerId",
-        "inspectors",
-        "inspectorTargets",
         "supplier",
         "version",
         "status",
@@ -437,13 +425,6 @@ def test_team_agent_serialization_completeness():
     assert agent_dict["type"] == "AGENT"
     assert agent_dict["label"] == "AGENT"
 
-    # Verify inspectors serialization
-    assert isinstance(team_dict["inspectors"], list)
-    assert len(team_dict["inspectors"]) == 1
-    assert team_dict["inspectors"][0] == {"type": "test_inspector", "config": {"threshold": 0.8}}
-
-    # Verify inspector targets
-    assert team_dict["inspectorTargets"] == ["steps"]
 
 
 def test_team_agent_serialization_with_llms():

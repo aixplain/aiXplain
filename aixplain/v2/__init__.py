@@ -10,7 +10,11 @@ from .inspector import (
     Inspector,
     InspectorTarget,
     InspectorAction,
+    InspectorOnExhaust,
+    InspectorSeverity,
+    InspectorActionConfig,
 )
+from .meta_agents import Debugger, DebugResult
 from .agent_progress import AgentProgressTracker, ProgressFormat
 from .exceptions import (
     AixplainV2Error,
@@ -55,7 +59,13 @@ __all__ = [
     "Inspector",
     "InspectorTarget",
     "InspectorAction",
+    "InspectorOnExhaust",
+    "InspectorSeverity",
+    "InspectorActionConfig",
     "ModelResponse",
+    # Meta-agents
+    "Debugger",
+    "DebugResult",
     # Progress tracking
     "AgentProgressTracker",
     "ProgressFormat",

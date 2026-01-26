@@ -2,6 +2,7 @@
 
 import json
 import logging
+import re
 from datetime import datetime
 from enum import Enum
 from dataclasses import dataclass, field
@@ -115,6 +116,8 @@ class AgentRunParams(BaseRunParams):
     Attributes:
         sessionId: Session ID for conversation continuity
         query: The query to run
+        variables: Variables to replace {{variable}} placeholders in instructions and description.
+            The backend performs the actual substitution.
         allowHistoryAndSessionId: Allow both history and session ID
         tasks: List of tasks for the agent
         prompt: Custom prompt override
@@ -132,6 +135,7 @@ class AgentRunParams(BaseRunParams):
 
     sessionId: NotRequired[Optional[Text]]
     query: NotRequired[Optional[Union[Dict, Text]]]
+    variables: NotRequired[Optional[Dict[str, Any]]]
     allowHistoryAndSessionId: NotRequired[Optional[bool]]
     tasks: NotRequired[Optional[List[Any]]]
     prompt: NotRequired[Optional[Text]]
@@ -153,7 +157,6 @@ class AgentResponseData:
 
     input: Optional[Any] = None
     output: Optional[Any] = None
-    intermediate_steps: Optional[List[Dict[str, Any]]] = field(default_factory=list)
     steps: Optional[List[Dict[str, Any]]] = field(default_factory=list)
     session_id: Optional[str] = None
     execution_stats: Optional[Dict[str, Any]] = field(default=None, metadata=config(field_name="executionStats"))
@@ -170,6 +173,65 @@ class AgentRunResult(Result):
     request_id: Optional[Text] = field(default=None, metadata=config(field_name="requestId"))
     used_credits: float = field(default=0.0, metadata=config(field_name="usedCredits"))
     run_time: float = field(default=0.0, metadata=config(field_name="runTime"))
+
+    # Internal reference to client context for debug() method
+    _context: Optional[Any] = field(
+        default=None,
+        repr=False,
+        compare=False,
+        metadata=config(exclude=lambda x: True),
+        init=False,
+    )
+
+    def debug(
+        self,
+        prompt: Optional[str] = None,
+        execution_id: Optional[str] = None,
+        **kwargs: Any,
+    ) -> "DebugResult":
+        """Debug this agent response using the Debugger meta-agent.
+
+        This is a convenience method for quickly analyzing agent responses
+        to identify issues, errors, or areas for improvement.
+
+        Note: This method requires the AgentRunResult to have been created
+        through an Aixplain client context. If you have a standalone result,
+        use the Debugger directly: aix.Debugger().debug_response(result)
+
+        Args:
+            prompt: Optional custom prompt to guide the debugging analysis.
+                   Examples: "Why did it take so long?", "Focus on error handling"
+            execution_id: Optional execution ID (poll ID) for the run. If not provided,
+                         it will be extracted from the response's request_id or poll URL.
+                         This allows the debugger to fetch additional logs and information.
+            **kwargs: Additional parameters to pass to the debugger.
+
+        Returns:
+            DebugResult: The debugging analysis result.
+
+        Raises:
+            ValueError: If no client context is available for debugging.
+
+        Example:
+            agent = aix.Agent.get("my_agent_id")
+            response = agent.run("Hello!")
+            debug_result = response.debug()  # Uses default prompt
+            debug_result = response.debug("Why did it take so long?")  # Custom prompt
+            debug_result = response.debug(execution_id="abc-123")  # With explicit ID
+            print(debug_result.analysis)
+        """
+        from .meta_agents import Debugger, DebugResult
+
+        if self._context is None:
+            raise ValueError(
+                "Cannot debug this response: no client context available. "
+                "Use the Debugger directly: aix.Debugger().debug_response(result)"
+            )
+
+        # Create a bound Debugger class with the context
+        BoundDebugger = type("Debugger", (Debugger,), {"context": self._context})
+        debugger = BoundDebugger()
+        return debugger.debug_response(self, prompt=prompt, execution_id=execution_id, **kwargs)
 
 
 @dataclass_json
@@ -243,6 +305,8 @@ class Agent(
     max_inspectors: Optional[int] = field(default=None, metadata=config(field_name="maxInspectors"))
     inspectors: Optional[List[Any]] = field(default_factory=list)
     resource_info: Optional[Dict[str, Any]] = field(default_factory=dict, metadata=config(field_name="resourceInfo"))
+    max_iterations: Optional[int] = field(default=5, metadata=config(field_name="maxIterations"))
+    max_tokens: Optional[int] = field(default=2048, metadata=config(field_name="maxTokens"))
 
     # Internal state for progress tracking (excluded from serialization)
     _progress_tracker: Optional[Any] = field(
@@ -257,18 +321,12 @@ class Agent(
         """Initialize agent after dataclass creation."""
         self.tasks = [Task.from_dict(task) for task in self.tasks]
 
-        # Store original subagent objects for saving, convert to IDs for storage
-        self._original_subagents = []
-        converted_subagents = []
-        for agent in self.subagents:
-            if isinstance(agent, str):
-                converted_subagents.append(agent)
-            elif isinstance(agent, dict) and "id" in agent:
-                converted_subagents.append(agent["id"])
-            else:
-                converted_subagents.append(agent.id)
-
-        self.subagents = converted_subagents
+        # Store original subagent objects to resolve IDs at save time
+        self._original_subagents = list(self.subagents)
+        # Convert to IDs for serialization (to_dict), using None as placeholder for unsaved agents
+        self.subagents = [
+            a if isinstance(a, str) else a.get("id") if isinstance(a, dict) else a.id for a in self.subagents
+        ]
 
         if isinstance(self.output_format, OutputFormat):
             self.output_format = self.output_format.value
@@ -355,7 +413,9 @@ class Agent(
             response: The poll response containing progress information
             **kwargs: Run parameters
         """
-        if self._progress_tracker is not None and not response.completed:
+        # Always update progress tracker, including on final completed response
+        # This ensures the last step's completion state is displayed before finish() is called
+        if self._progress_tracker is not None:
             self._progress_tracker.update(response)
 
     def after_run(
@@ -370,6 +430,10 @@ class Agent(
             if not isinstance(result, Exception):
                 self._progress_tracker.finish(result)
             self._progress_tracker = None
+
+        # Set the context on the result for debug() method support
+        if not isinstance(result, Exception):
+            result._context = self.context
 
         return None  # Return original result
 
@@ -397,6 +461,27 @@ class Agent(
             kwargs["sessionId"] = kwargs.pop("session_id")
 
         return super().run(*args, **kwargs)
+
+    def run_async(self, *args: Any, **kwargs: Unpack[AgentRunParams]) -> AgentRunResult:
+        """Run the agent asynchronously.
+
+        Args:
+            *args: Positional arguments (first arg is treated as query)
+            query: The query to run
+            **kwargs: Additional run parameters
+
+        Returns:
+            AgentRunResult: The result of the agent execution
+        """
+        if len(args) > 0:
+            kwargs["query"] = args[0]
+            args = args[1:]
+
+        # Handle session_id parameter name compatibility (snake_case -> camelCase)
+        if "session_id" in kwargs and "sessionId" not in kwargs:
+            kwargs["sessionId"] = kwargs.pop("session_id")
+
+        return super().run_async(**kwargs)
 
     def _validate_expected_output(self) -> None:
         # Skip validation if expected_output is None (it's optional)
@@ -471,18 +556,14 @@ class Agent(
 
         # Save subagents (recursively)
         if hasattr(self, "_original_subagents") and self._original_subagents:
-            for i in range(len(self.subagents)):
-                original_subagent = self._original_subagents[i]
-                if original_subagent is None:  # Already an ID string
+            for i, subagent in enumerate(self._original_subagents):
+                if isinstance(subagent, (str, dict)):  # Already an ID
                     continue
-                if hasattr(original_subagent, "save") and hasattr(original_subagent, "id") and not original_subagent.id:
+                if hasattr(subagent, "save") and hasattr(subagent, "id") and not subagent.id:
                     try:
-                        # Recursively save subagent and its components
-                        original_subagent.save(save_subcomponents=True)
-                        # Update the subagents list with the new ID
-                        self.subagents[i] = original_subagent.id
+                        subagent.save(save_subcomponents=True)
                     except Exception as e:
-                        subagent_name = getattr(original_subagent, "name", f"subagent_{i}")
+                        subagent_name = getattr(subagent, "name", f"subagent_{i}")
                         failed_components.append(("subagent", subagent_name, str(e)))
 
         if failed_components:
@@ -501,24 +582,14 @@ class Agent(
                 if hasattr(tool, "id") and not tool.id:
                     unsaved_components.append(f"tool '{tool.name}'")
 
-        # Check subagents - handle both _original_subagents and direct subagents list
-        if self.subagents:
-            for i, subagent in enumerate(self.subagents):
-                # If it's an Agent object (not a string ID), check if it's saved
-                if hasattr(subagent, "id") and hasattr(subagent, "name"):
-                    if not subagent.id:
-                        subagent_name = getattr(subagent, "name", "unnamed")
-                        unsaved_components.append(f"subagent '{subagent_name}'")
-                # Also check _original_subagents if available (for backward compatibility)
-                elif (
-                    hasattr(self, "_original_subagents")
-                    and i < len(self._original_subagents)
-                    and self._original_subagents[i] is not None
-                ):
-                    original_subagent = self._original_subagents[i]
-                    if hasattr(original_subagent, "id") and not original_subagent.id:
-                        subagent_name = getattr(original_subagent, "name", "unnamed")
-                        unsaved_components.append(f"subagent '{subagent_name}'")
+        # Check subagents
+        if hasattr(self, "_original_subagents") and self._original_subagents:
+            for subagent in self._original_subagents:
+                if isinstance(subagent, (str, dict)):  # Already an ID
+                    continue
+                if hasattr(subagent, "id") and not subagent.id:
+                    subagent_name = getattr(subagent, "name", "unnamed")
+                    unsaved_components.append(f"subagent '{subagent_name}'")
 
         if unsaved_components:
             components_list = ", ".join(unsaved_components)
@@ -541,11 +612,11 @@ class Agent(
 
         # Check subagents
         if hasattr(self, "_original_subagents") and self._original_subagents:
-            for i, original_subagent in enumerate(self._original_subagents):
-                if original_subagent is None:  # Already an ID string
+            for subagent in self._original_subagents:
+                if isinstance(subagent, (str, dict)):  # Already an ID
                     continue
-                if hasattr(original_subagent, "id") and not original_subagent.id:
-                    subagent_name = getattr(original_subagent, "name", "unnamed")
+                if hasattr(subagent, "id") and not subagent.id:
+                    subagent_name = getattr(subagent, "name", "unnamed")
                     unsaved_components.append(f"subagent '{subagent_name}'")
 
         if unsaved_components:
@@ -642,6 +713,13 @@ class Agent(
         self.inspectors = original_inspectors
         self.inspector_targets = original_inspector_targets
 
+        # Convert {{var}} to {var} in instructions and description for backend compatibility (v1 format)
+        # User writes: {{language}} → Backend receives: {language}
+        if payload.get("instructions"):
+            payload["instructions"] = re.sub(r"\{\{(\w+)\}\}", r"{\1}", payload["instructions"])
+        if payload.get("description"):
+            payload["description"] = re.sub(r"\{\{(\w+)\}\}", r"{\1}", payload["description"])
+
         # Convert tools intelligently based on their type
         converted_assets = []
         if self.tools:
@@ -662,12 +740,20 @@ class Agent(
 
         payload["model"] = {"id": self.llm}
 
-        # Convert subagent IDs to objects with id key as expected by the API
-        if payload.get("agents"):
-            payload["agents"] = [
-                {"id": agent_id, "inspectors": []} if isinstance(agent_id, str) else agent_id
-                for agent_id in payload["agents"]
-            ]
+        # Convert subagents to API format, resolving IDs from original objects
+        if hasattr(self, "_original_subagents") and self._original_subagents:
+            converted_agents = []
+            for agent in self._original_subagents:
+                if isinstance(agent, str):
+                    agent_id = agent
+                elif isinstance(agent, dict):
+                    agent_id = agent.get("id")
+                else:
+                    agent_id = agent.id  # Get current ID from Agent object
+                if not agent_id:
+                    raise ValueError("All subagents must be saved before saving the team agent.")
+                converted_agents.append({"id": agent_id, "inspectors": []})
+            payload["agents"] = converted_agents
 
         # Handle BaseModel expected_output for save operation
         # We don't send expected_output in the save payload - it's runtime-only
@@ -688,13 +774,15 @@ class Agent(
         execution_params = kwargs.pop("executionParams", {})
 
         # Set default values for executionParams if not provided
-        if not execution_params:
-            execution_params = {
-                "outputFormat": self.output_format,
-                "maxTokens": 2048,
-                "maxIterations": 30,
-                "maxTime": 300,
-            }
+        defaults = {
+            "outputFormat": self.output_format,
+            "maxTokens": getattr(self, "max_tokens", 2048),
+            "maxIterations": getattr(self, "max_iterations", 5),
+            "maxTime": 300,
+        }
+
+        for k, v in defaults.items():
+            execution_params.setdefault(k, v)
 
         # Handle BaseModel conversion for expectedOutput (following legacy pattern)
         # Use agent's expected_output if none provided in executionParams
@@ -716,12 +804,35 @@ class Agent(
         # Handle runResponseGeneration with default value of True
         run_response_generation = kwargs.pop("runResponseGeneration", True)
 
+        # Process variables for instruction/description placeholders (sent to backend for substitution)
+        variables = kwargs.pop("variables", None) or {}
+        query = kwargs.pop("query", None)
+
+        # Build input_data dict with query and variables
+        if query is not None:
+            if isinstance(query, dict):
+                input_data = query.copy()
+            else:
+                input_data = {"input": query}
+
+            # Add all provided variables to input_data for backend processing (same as v1)
+            # User provides: {"persona": "good"} → Backend receives: {"persona": "good"}
+            # Backend will substitute {{persona}} placeholders in instructions/description
+            input_data.update(variables)
+
+            # Use the processed input_data as query
+            query = input_data
+
         # Build the payload according to Swagger specification
         payload = {
             "id": self.id,
             "executionParams": execution_params,
             "runResponseGeneration": run_response_generation,
         }
+
+        # Add query back if present
+        if query is not None:
+            payload["query"] = query
 
         # Add all other parameters from kwargs
         for key, value in kwargs.items():

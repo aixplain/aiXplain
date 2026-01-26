@@ -48,7 +48,6 @@ from aixplain.modules.agent.agent_response import AgentResponse
 from aixplain.modules.agent.agent_response_data import AgentResponseData
 from aixplain.modules.agent.evolve_param import EvolveParam, validate_evolve_param
 from aixplain.modules.agent.utils import process_variables, validate_history
-from aixplain.modules.team_agent.inspector import Inspector
 from aixplain.modules.team_agent.evolver_response_data import EvolverResponseData
 from aixplain.utils.convert_datatype_utils import normalize_expected_output
 from aixplain.utils import config
@@ -82,7 +81,6 @@ class InspectorTarget(str, Enum):
         """
         return self._value_
 
-
 class TeamAgent(Model, DeployableMixin[Agent]):
     """Advanced AI system capable of using multiple agents to perform a variety of tasks.
 
@@ -97,8 +95,6 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         supplier (Text): Supplier of the Team Agent.
         version (Text): Version of the Team Agent.
         cost (Dict, optional): model price. Defaults to None.
-        inspectors (List[Inspector]): List of inspectors that the team agent uses.
-        inspector_targets (List[InspectorTarget]): List of targets where the inspectors are applied. Defaults to [InspectorTarget.STEPS].
         status (AssetStatus): Status of the Team Agent. Defaults to DRAFT.
         instructions (Optional[Text]): Instructions to guide the team agent.
         output_format (OutputFormat): Response format. Defaults to TEXT.
@@ -124,8 +120,6 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
         version: Optional[Text] = None,
         cost: Optional[Dict] = None,
-        inspectors: List[Inspector] = [],
-        inspector_targets: List[InspectorTarget] = [InspectorTarget.STEPS],
         status: AssetStatus = AssetStatus.DRAFT,
         instructions: Optional[Text] = None,
         output_format: OutputFormat = OutputFormat.TEXT,
@@ -145,8 +139,6 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             supplier (Union[Dict, Text, Supplier, int], optional): Supplier. Defaults to "aiXplain".
             version (Optional[Text], optional): Version. Defaults to None.
             cost (Optional[Dict], optional): Cost information. Defaults to None.
-            inspectors (List[Inspector], optional): List of inspectors. Defaults to [].
-            inspector_targets (List[InspectorTarget], optional): Inspector targets. Defaults to [InspectorTarget.STEPS].
             status (AssetStatus, optional): Status of the team agent. Defaults to AssetStatus.DRAFT.
             instructions (Optional[Text], optional): Instructions for the team agent. Defaults to None.
             output_format (OutputFormat, optional): Output format. Defaults to OutputFormat.TEXT.
@@ -213,8 +205,6 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             supplier (Union[Dict, Text, Supplier, int], optional): Supplier. Defaults to "aiXplain".
             version (Optional[Text], optional): Version. Defaults to None.
             cost (Optional[Dict], optional): Cost information. Defaults to None.
-            inspectors (List[Inspector], optional): List of inspectors. Defaults to [].
-            inspector_targets (List[InspectorTarget], optional): Inspector targets. Defaults to [InspectorTarget.STEPS].
             status (AssetStatus, optional): Status of the team agent. Defaults to AssetStatus.DRAFT.
             instructions (Optional[Text], optional): Instructions for the team agent. Defaults to None.
             output_format (OutputFormat, optional): Output format. Defaults to OutputFormat.TEXT.
@@ -233,9 +223,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         self.llm = llm
         self.api_key = api_key
         self.use_mentalist = use_mentalist
-        self.inspectors = inspectors
-        self.inspector_targets = inspector_targets
-        self.use_inspector = True if inspectors else False
+        self.use_inspector = False
         self.supervisor_llm = supervisor_llm
         self.mentalist_llm = mentalist_llm
         self.instructions = instructions
@@ -1031,8 +1019,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
     def to_dict(self) -> Dict:
         """Convert the TeamAgent instance to a dictionary representation.
 
-        This method serializes the TeamAgent and all its components (agents,
-        inspectors, LLMs, etc.) into a dictionary format suitable for storage
+        This method serializes the TeamAgent and all its components (agents, LLMs, etc.) into a dictionary format suitable for storage
         or transmission.
 
         Returns:
@@ -1045,8 +1032,6 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                 - llmId (str): ID of the main language model
                 - supervisorId (str): ID of the supervisor language model
                 - plannerId (str): ID of the planner model (if use_mentalist)
-                - inspectors (List[Dict]): Serialized list of inspectors
-                - inspectorTargets (List[str]): List of inspector target stages
                 - supplier (str): The supplier code
                 - version (str): The version number
                 - status (str): The current status
@@ -1070,10 +1055,6 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                 self.supervisor_llm.id if self.supervisor_llm else self.llm_id
             ),
             "plannerId": planner_id,
-            "inspectors": [
-                inspector.model_dump(by_alias=True) for inspector in self.inspectors
-            ],
-            "inspectorTargets": [target.value for target in self.inspector_targets],
             "supplier": (
                 self.supplier.value["code"]
                 if isinstance(self.supplier, Supplier)
@@ -1098,7 +1079,6 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         """
         from aixplain.factories.model_factory import ModelFactory
         from aixplain.enums import AssetStatus
-        from aixplain.modules.team_agent import Inspector, InspectorTarget
         from aixplain.modules.agent import Agent
 
         # Extract agents from agents list using proper agent loading
@@ -1119,30 +1099,6 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                         )
                 else:
                     agents.append(Agent.from_dict(agent_data))
-        # Extract inspectors using proper model validation
-        inspectors = []
-        if "inspectors" in data:
-            for inspector_data in data["inspectors"]:
-                try:
-                    if isinstance(inspector_data, Inspector):
-                        inspectors.append(inspector_data)
-                    elif hasattr(Inspector, "model_validate"):
-                        inspectors.append(Inspector.model_validate(inspector_data))
-                    else:
-                        inspectors.append(Inspector(**inspector_data))
-                except Exception as e:
-                    import logging
-
-                    logging.warning(f"Failed to create inspector from data: {e}")
-                    continue
-
-        # Extract inspector targets
-        inspector_targets = [InspectorTarget.STEPS]  # default
-        if "inspectorTargets" in data:
-            inspector_targets = [
-                InspectorTarget(target) for target in data["inspectorTargets"]
-            ]
-
         # Extract status
         status = AssetStatus.DRAFT
         if "status" in data:
@@ -1188,8 +1144,6 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             version=data.get("version"),
             status=status,
             instructions=data.get("instructions"),
-            inspectors=inspectors,
-            inspector_targets=inspector_targets,
             output_format=OutputFormat(data.get("outputFormat", OutputFormat.TEXT)),
             expected_output=data.get("expectedOutput"),
             # Pass deprecated params via kwargs

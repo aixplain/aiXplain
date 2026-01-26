@@ -26,8 +26,7 @@ from urllib.parse import urljoin
 
 from aixplain.enums.supplier import Supplier
 from aixplain.modules.agent import Agent
-from aixplain.modules.team_agent import TeamAgent, InspectorTarget
-from aixplain.modules.team_agent.inspector import Inspector
+from aixplain.modules.team_agent import TeamAgent
 from aixplain.utils import config
 from aixplain.factories.team_agent_factory.utils import build_team_agent
 from aixplain.utils.convert_datatype_utils import normalize_expected_output
@@ -43,7 +42,7 @@ class TeamAgentFactory:
 
     This class provides functionality for creating new team agents, retrieving existing
     team agents, and managing team agent configurations in the aiXplain platform.
-    Team agents can be composed of multiple individual agents, LLMs, and inspectors
+    Team agents can be composed of multiple individual agents, LLMs
     working together to accomplish complex tasks.
     """
 
@@ -58,8 +57,6 @@ class TeamAgentFactory:
         api_key: Text = config.TEAM_API_KEY,
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
         version: Optional[Text] = None,
-        inspectors: List[Inspector] = [],
-        inspector_targets: List[Union[InspectorTarget, Text]] = [InspectorTarget.STEPS],
         instructions: Optional[Text] = None,
         output_format: Optional[OutputFormat] = None,
         expected_output: Optional[Union[BaseModel, Text, dict]] = None,
@@ -76,8 +73,6 @@ class TeamAgentFactory:
             api_key: The API key to be used for the team agent.
             supplier: The supplier of the team agent.
             version: The version of the team agent.
-            inspectors: A list of inspectors to be added to the team.
-            inspector_targets: Which stages to be inspected during an execution of the team agent. (steps, output)
             instructions: The instructions to guide the team agent (i.e. appended in the prompt of the team agent).
             output_format: The output format to be used for the team agent.
             expected_output: The expected output to be used for the team agent.
@@ -147,11 +142,11 @@ class TeamAgentFactory:
             )
         if "use_inspector" in kwargs:
             logging.warning(
-                "TeamAgent Onboarding Warning: use_inspector is no longer supported. Use inspectors instead."
+                "TeamAgent Onboarding Warning: use_inspector is no longer supported. Inspectors are no longer supported on v1."
             )
         if "num_inspectors" in kwargs:
             logging.warning(
-                "TeamAgent Onboarding Warning: num_inspectors is no longer supported. Use inspectors instead."
+                "TeamAgent Onboarding Warning: num_inspectors is no longer supported. Inspectors are no longer supported on v1."
             )
 
         assert len(agents) > 0, "TeamAgent Onboarding Error: At least one agent must be provided."
@@ -177,20 +172,6 @@ class TeamAgentFactory:
 
                 assert isinstance(agent, Agent), "TeamAgent Onboarding Error: Agents must be instances of Agent class"
             agent_list.append(agent_obj)
-
-        if inspectors:
-            try:
-                # convert to enum if string and check its validity
-                inspector_targets = [InspectorTarget(target) for target in inspector_targets]
-            except ValueError:
-                raise ValueError(
-                    f"TeamAgent Onboarding Error: Invalid inspector target. Valid targets are: {list(InspectorTarget)}"
-                )
-
-            if not use_mentalist:
-                raise Exception("TeamAgent Onboarding Error: To use the Inspector agent, you must enable Mentalist.")
-        else:
-            inspector_targets = []
 
         def _get_llm_safely(llm_id: str, llm_type: str) -> LLM:
             """Helper to safely get an LLM instance with consistent error handling."""
@@ -256,8 +237,6 @@ class TeamAgentFactory:
             "llmId": llm.id,
             "supervisorId": supervisor_llm.id,
             "plannerId": mentalist_llm.id if use_mentalist else None,
-            "inspectors": inspectors,
-            "inspectorTargets": inspector_targets,
             "supplier": supplier,
             "version": version,
             "status": "draft",
@@ -282,11 +261,7 @@ class TeamAgentFactory:
         team_agent = build_team_agent(payload=internal_payload, agents=agent_list, api_key=api_key)
         team_agent.validate(raise_exception=True)
         response = "Unspecified error"
-        inspectors = team_agent.inspectors
-        inspector_targets = team_agent.inspector_targets
         try:
-            payload["inspectors"] = [inspector.model_dump(by_alias=True) for inspector in inspectors]
-            payload["inspectorTargets"] = inspector_targets
             logging.debug(f"Start service for POST Create TeamAgent  - {url} - {headers} - {json.dumps(payload)}")
             r = _request_with_retry("post", url, headers=headers, json=payload)
             response = r.json()
