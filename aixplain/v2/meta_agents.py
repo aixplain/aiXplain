@@ -36,6 +36,9 @@ if TYPE_CHECKING:
 # Debugger agent ID - pre-configured aiXplain agent for debugging
 DEBUGGER_AGENT_ID = "696fdccad63e898317c097a0"
 
+# Default max tokens for debugger responses (higher than standard agent default)
+DEBUGGER_DEFAULT_MAX_TOKENS = 16384
+
 
 @dataclass_json
 @dataclass
@@ -144,6 +147,7 @@ class Debugger:
             prompt: Optional custom prompt to guide the debugging analysis.
                    If not provided, uses a default debugging prompt.
             **kwargs: Additional parameters to pass to the underlying agent.
+                     Supports executionParams with maxTokens (default: 16384).
 
         Returns:
             DebugResult: The debugging analysis result.
@@ -155,6 +159,13 @@ class Debugger:
         """
         # Build the query for the debugger agent
         query = self._build_query(content=content, prompt=prompt)
+
+        # Set default executionParams with high maxTokens for complete responses
+        # Allow user to override via kwargs
+        execution_params = kwargs.pop("executionParams", {})
+        if "maxTokens" not in execution_params:
+            execution_params["maxTokens"] = DEBUGGER_DEFAULT_MAX_TOKENS
+        kwargs["executionParams"] = execution_params
 
         # Get the debugger agent and run
         agent = self._get_debugger_agent()

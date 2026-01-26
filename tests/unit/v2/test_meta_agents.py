@@ -8,7 +8,7 @@ import json
 import pytest
 from unittest.mock import Mock, patch
 
-from aixplain.v2.meta_agents import Debugger, DebugResult, DEBUGGER_AGENT_ID
+from aixplain.v2.meta_agents import Debugger, DebugResult, DEBUGGER_AGENT_ID, DEBUGGER_DEFAULT_MAX_TOKENS
 from aixplain.v2.agent import AgentRunResult
 
 
@@ -673,6 +673,46 @@ class TestDebuggerRun:
         call_kwargs = mock_agent.run.call_args.kwargs
         assert call_kwargs.get("timeout") == 60
         assert call_kwargs.get("custom_param") == "value"
+
+    def test_run_sets_default_max_tokens(self):
+        """Should set default maxTokens in executionParams for complete responses."""
+        debugger = self._create_debugger()
+
+        mock_agent = Mock()
+        mock_agent.run.return_value = AgentRunResult(
+            status="SUCCESS",
+            completed=True,
+        )
+
+        with patch.object(debugger, "_get_debugger_agent", return_value=mock_agent):
+            debugger.run(content="Content")
+
+        call_kwargs = mock_agent.run.call_args.kwargs
+        assert "executionParams" in call_kwargs
+        assert call_kwargs["executionParams"]["maxTokens"] == DEBUGGER_DEFAULT_MAX_TOKENS
+
+    def test_run_allows_custom_max_tokens(self):
+        """Should allow user to override maxTokens via executionParams."""
+        debugger = self._create_debugger()
+
+        mock_agent = Mock()
+        mock_agent.run.return_value = AgentRunResult(
+            status="SUCCESS",
+            completed=True,
+        )
+
+        custom_execution_params = {"maxTokens": 8192, "maxIterations": 20}
+
+        with patch.object(debugger, "_get_debugger_agent", return_value=mock_agent):
+            debugger.run(content="Content", executionParams=custom_execution_params)
+
+        call_kwargs = mock_agent.run.call_args.kwargs
+        assert call_kwargs["executionParams"]["maxTokens"] == 8192
+        assert call_kwargs["executionParams"]["maxIterations"] == 20
+
+    def test_debugger_default_max_tokens_constant(self):
+        """DEBUGGER_DEFAULT_MAX_TOKENS should be high enough for complete responses."""
+        assert DEBUGGER_DEFAULT_MAX_TOKENS == 16384
 
 
 # =============================================================================
