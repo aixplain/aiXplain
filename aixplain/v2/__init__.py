@@ -10,6 +10,9 @@ from .inspector import (
     Inspector,
     InspectorTarget,
     InspectorAction,
+    InspectorOnExhaust,
+    InspectorSeverity,
+    InspectorActionConfig,
 )
 from .agent_progress import AgentProgressTracker, ProgressFormat
 from .exceptions import (
@@ -55,6 +58,9 @@ __all__ = [
     "Inspector",
     "InspectorTarget",
     "InspectorAction",
+    "InspectorOnExhaust",
+    "InspectorSeverity",
+    "InspectorActionConfig",
     "ModelResponse",
     # Progress tracking
     "AgentProgressTracker",

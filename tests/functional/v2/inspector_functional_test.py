@@ -14,14 +14,14 @@ import uuid
 import aixplain as aix
 from aixplain.enums.asset_status import AssetStatus
 
-from aixplain.modules.team_agent import InspectorTarget
-from aixplain.modules.team_agent.inspector import (
-    InspectorActionConfig,
-    Inspectoraction_type,
+from aixplain.v2 import (
+    Inspector,
+    InspectorTarget,
+    InspectorAction,
     InspectorOnExhaust,
     InspectorSeverity,
+    InspectorActionConfig,
 )
-from aixplain.v2.inspector import Inspector
 from tests.functional.team_agent.test_utils import (
     RUN_FILE,
     read_data,
@@ -35,6 +35,7 @@ _DEFAULT_OUTPUT_TARGET = "output"
 @pytest.fixture(scope="function")
 def delete_agents_and_team_agents():
     from tests.test_deletion_utils import safe_delete_all_agents_and_team_agents
+
     safe_delete_all_agents_and_team_agents()
     yield True
     safe_delete_all_agents_and_team_agents()
@@ -71,12 +72,12 @@ def _make_team_agent(client, timestamp: str, agents, inspectors):
     team_agent.save()
     return team_agent
 
+
 def verify_inspector_steps(
     steps: List[Dict],
     inspector_names: List[str],
     inspector_targets: List[InspectorTarget],
 ) -> None:
-
     def agent_id(step: Dict) -> str:
         a = step.get("agent") or {}
         return (a.get("id") or "").lower()
@@ -109,6 +110,7 @@ def verify_inspector_steps(
         "Backend does not expose configured inspector names in step.agent.name (it is always 'Inspector')."
     )
 
+
 def _run_and_get_steps(team_agent, query: str):
     response = team_agent.run(query)
 
@@ -132,7 +134,6 @@ def _run_and_get_steps(team_agent, query: str):
     return response, steps
 
 
-
 def test_output_inspector_abort(client, run_input_map, delete_agents_and_team_agents):
     timestamp = f"{int(time.time())}_{uuid.uuid4().hex[:6]}"
     agents = _make_two_subagents(client, timestamp)
@@ -142,7 +143,7 @@ def test_output_inspector_abort(client, run_input_map, delete_agents_and_team_ag
         severity=InspectorSeverity.HIGH,
         targets=[_DEFAULT_OUTPUT_TARGET],
         action=InspectorActionConfig(
-            actionType=Inspectoraction_type.ABORT,
+            actionType=InspectorAction.ABORT,
             evaluator=run_input_map["llm_id"],
             evaluator_prompt="ALWAYS critique the final output.",
         ),
@@ -151,21 +152,18 @@ def test_output_inspector_abort(client, run_input_map, delete_agents_and_team_ag
     team_agent = _make_team_agent(client, timestamp, agents, [inspector])
     team_agent.save()
 
-    _, steps = _run_and_get_steps(
-        team_agent,
-        "Return anything at all."
-    )
+    _, steps = _run_and_get_steps(team_agent, "Return anything at all.")
 
     response_generator_steps = [
-        s for s in steps
-        if (s.get("agent") or {}).get("id", "").lower() == "response_generator"
+        s for s in steps if (s.get("agent") or {}).get("id", "").lower() == "response_generator"
     ]
-    assert len(response_generator_steps) == 1, f"Expected exactly one response_generator step, got {len(response_generator_steps)}"
+    assert len(response_generator_steps) == 1, (
+        f"Expected exactly one response_generator step, got {len(response_generator_steps)}"
+    )
     response_generator_index = steps.index(response_generator_steps[0])
 
     inspector_steps = [
-        s for s in steps[response_generator_index + 1 :]
-        if (s.get("agent") or {}).get("id", "").lower() == "inspector"
+        s for s in steps[response_generator_index + 1 :] if (s.get("agent") or {}).get("id", "").lower() == "inspector"
     ]
     assert len(inspector_steps) > 0, "Expected inspector step(s) after response_generator"
 
@@ -183,11 +181,9 @@ def test_output_inspector_rerun_until_fixed(client, run_input_map, delete_agents
         severity=InspectorSeverity.LOW,
         targets=[_DEFAULT_OUTPUT_TARGET],
         action=InspectorActionConfig(
-            actionType=Inspectoraction_type.RERUN,
+            actionType=InspectorAction.RERUN,
             evaluator=run_input_map["llm_id"],
-            evaluator_prompt=(
-                "If the output does NOT include the name of the customer (John), instruct to add it."
-            ),
+            evaluator_prompt=("If the output does NOT include the name of the customer (John), instruct to add it."),
             maxRetries=2,
             onExhaust=InspectorOnExhaust.ABORT,
         ),
@@ -196,29 +192,21 @@ def test_output_inspector_rerun_until_fixed(client, run_input_map, delete_agents
     team_agent = _make_team_agent(client, timestamp, agents, [inspector])
     team_agent.save()
 
-    response, steps = _run_and_get_steps(
-        team_agent,
-        "Write a short customer service reply."
-    )
+    response, steps = _run_and_get_steps(team_agent, "Write a short customer service reply.")
 
     assert "John" in (getattr(response.data, "output", "") or "")
 
-    rg_steps = [
-        s for s in steps
-        if (s.get("agent") or {}).get("id", "").lower() == "response_generator"
-    ]
+    rg_steps = [s for s in steps if (s.get("agent") or {}).get("id", "").lower() == "response_generator"]
     assert len(rg_steps) == 2
     rg_idx = steps.index(rg_steps[0])
 
-    inspector_steps = [
-        s for s in steps[rg_idx + 1 :]
-        if (s.get("agent") or {}).get("id", "").lower() == "inspector"
-    ]
+    inspector_steps = [s for s in steps[rg_idx + 1 :] if (s.get("agent") or {}).get("id", "").lower() == "inspector"]
     assert inspector_steps, "Expected inspector steps after response_generator"
 
     assert any((s.get("action") or "").lower() == "rerun" for s in inspector_steps), (
         f"Expected at least one rerun action, got actions: {[s.get('action') for s in inspector_steps]}"
     )
+
 
 def test_edit_steps_always_runs(client, run_input_map, delete_agents_and_team_agents):
     timestamp = f"{int(time.time())}_{uuid.uuid4().hex[:6]}"
@@ -229,21 +217,15 @@ def test_edit_steps_always_runs(client, run_input_map, delete_agents_and_team_ag
         severity=InspectorSeverity.MEDIUM,
         targets=[InspectorTarget.STEPS],
         action=InspectorActionConfig(
-            actionType=Inspectoraction_type.EDIT,
-            edit_fn=(
-                "def edit_fn(text: str) -> str:\n"
-                "    return \"hello, what's the weather in paris like today?\""
-            ),
+            actionType=InspectorAction.EDIT,
+            edit_fn=('def edit_fn(text: str) -> str:\n    return "hello, what\'s the weather in paris like today?"'),
         ),
     )
 
     team_agent = _make_team_agent(client, timestamp, agents, [inspector])
     team_agent.save()
 
-    response, _ = _run_and_get_steps(
-        team_agent,
-        "Translate 'Hello' to Portuguese."
-    )
+    response, _ = _run_and_get_steps(team_agent, "Translate 'Hello' to Portuguese.")
 
     edited_text = "hello, what's the weather in paris like today?"
     if hasattr(response, "data") and hasattr(response.data, "output"):
@@ -255,12 +237,14 @@ def test_edit_steps_always_runs(client, run_input_map, delete_agents_and_team_ag
 
     team_agent.delete()
 
+
 def evaluator_fn(text: str) -> bool:
     return "DETAILED" in text
 
 
 def edit_fn(text: str) -> str:
     return "hello, what's the weather in paris like today?"
+
 
 def test_edit_with_gate_true(client, run_input_map, delete_agents_and_team_agents):
     timestamp = f"{int(time.time())}_{uuid.uuid4().hex[:6]}"
@@ -271,7 +255,7 @@ def test_edit_with_gate_true(client, run_input_map, delete_agents_and_team_agent
         severity=InspectorSeverity.MEDIUM,
         targets=[InspectorTarget.INPUT],
         action=InspectorActionConfig(
-            actionType=Inspectoraction_type.EDIT,
+            actionType=InspectorAction.EDIT,
             edit_evaluator_fn=evaluator_fn,
             edit_fn=edit_fn,
         ),
@@ -280,18 +264,17 @@ def test_edit_with_gate_true(client, run_input_map, delete_agents_and_team_agent
     team_agent = _make_team_agent(client, timestamp, agents, [inspector])
     team_agent.save()
 
-    response, _ = _run_and_get_steps(
-        team_agent,
-        "DETAILED: Translate 'Hello' to Portuguese."
-    )
+    response, _ = _run_and_get_steps(team_agent, "DETAILED: Translate 'Hello' to Portuguese.")
 
     out = (getattr(response.data, "output", "") or "").lower()
     assert "paris" in out
 
     team_agent.delete()
 
+
 def edit_fn(text: str) -> str:
     return "hello, what's the weather in paris like today?"
+
 
 def evaluator_fn(text: str) -> bool:
     return "DETAILED" in text
@@ -306,19 +289,16 @@ def test_edit_with_gate_false(client, run_input_map, delete_agents_and_team_agen
         severity=InspectorSeverity.MEDIUM,
         targets=[InspectorTarget.INPUT],
         action=InspectorActionConfig(
-            actionType=Inspectoraction_type.EDIT,
-            edit_evaluator_fn=evaluator_fn, 
-            edit_fn=edit_fn, 
+            actionType=InspectorAction.EDIT,
+            edit_evaluator_fn=evaluator_fn,
+            edit_fn=edit_fn,
         ),
     )
 
     team_agent = _make_team_agent(client, timestamp, agents, [inspector])
     team_agent.save()
 
-    response, _ = _run_and_get_steps(
-        team_agent,
-        "Translate 'Hello' to Portuguese."
-    )
+    response, _ = _run_and_get_steps(team_agent, "Translate 'Hello' to Portuguese.")
 
     out = (getattr(response.data, "output", "") or "").lower()
     assert "paris" not in out
