@@ -246,13 +246,8 @@ class Agent(
     max_inspectors: Optional[int] = field(default=None, metadata=config(field_name="maxInspectors"))
     inspectors: Optional[List[Any]] = field(default_factory=list)
     resource_info: Optional[Dict[str, Any]] = field(default_factory=dict, metadata=config(field_name="resourceInfo"))
-    max_iterations: Optional[int] = field(
-        default=5, metadata=config(field_name="maxIterations")
-    )
-    max_tokens: Optional[int] = field(
-        default=2048, metadata=config(field_name="maxTokens")
-    )
-
+    max_iterations: Optional[int] = field(default=5, metadata=config(field_name="maxIterations"))
+    max_tokens: Optional[int] = field(default=2048, metadata=config(field_name="maxTokens"))
 
     # Internal state for progress tracking (excluded from serialization)
     _progress_tracker: Optional[Any] = field(
@@ -267,18 +262,12 @@ class Agent(
         """Initialize agent after dataclass creation."""
         self.tasks = [Task.from_dict(task) for task in self.tasks]
 
-        # Store original subagent objects for saving, convert to IDs for storage
-        self._original_subagents = []
-        converted_subagents = []
-        for agent in self.subagents:
-            if isinstance(agent, str):
-                converted_subagents.append(agent)
-            elif isinstance(agent, dict) and "id" in agent:
-                converted_subagents.append(agent["id"])
-            else:
-                converted_subagents.append(agent.id)
-
-        self.subagents = converted_subagents
+        # Store original subagent objects to resolve IDs at save time
+        self._original_subagents = list(self.subagents)
+        # Convert to IDs for serialization (to_dict), using None as placeholder for unsaved agents
+        self.subagents = [
+            a if isinstance(a, str) else a.get("id") if isinstance(a, dict) else a.id for a in self.subagents
+        ]
 
         if isinstance(self.output_format, OutputFormat):
             self.output_format = self.output_format.value
@@ -504,18 +493,14 @@ class Agent(
 
         # Save subagents (recursively)
         if hasattr(self, "_original_subagents") and self._original_subagents:
-            for i in range(len(self.subagents)):
-                original_subagent = self._original_subagents[i]
-                if original_subagent is None:  # Already an ID string
+            for i, subagent in enumerate(self._original_subagents):
+                if isinstance(subagent, (str, dict)):  # Already an ID
                     continue
-                if hasattr(original_subagent, "save") and hasattr(original_subagent, "id") and not original_subagent.id:
+                if hasattr(subagent, "save") and hasattr(subagent, "id") and not subagent.id:
                     try:
-                        # Recursively save subagent and its components
-                        original_subagent.save(save_subcomponents=True)
-                        # Update the subagents list with the new ID
-                        self.subagents[i] = original_subagent.id
+                        subagent.save(save_subcomponents=True)
                     except Exception as e:
-                        subagent_name = getattr(original_subagent, "name", f"subagent_{i}")
+                        subagent_name = getattr(subagent, "name", f"subagent_{i}")
                         failed_components.append(("subagent", subagent_name, str(e)))
 
         if failed_components:
@@ -534,24 +519,14 @@ class Agent(
                 if hasattr(tool, "id") and not tool.id:
                     unsaved_components.append(f"tool '{tool.name}'")
 
-        # Check subagents - handle both _original_subagents and direct subagents list
-        if self.subagents:
-            for i, subagent in enumerate(self.subagents):
-                # If it's an Agent object (not a string ID), check if it's saved
-                if hasattr(subagent, "id") and hasattr(subagent, "name"):
-                    if not subagent.id:
-                        subagent_name = getattr(subagent, "name", "unnamed")
-                        unsaved_components.append(f"subagent '{subagent_name}'")
-                # Also check _original_subagents if available (for backward compatibility)
-                elif (
-                    hasattr(self, "_original_subagents")
-                    and i < len(self._original_subagents)
-                    and self._original_subagents[i] is not None
-                ):
-                    original_subagent = self._original_subagents[i]
-                    if hasattr(original_subagent, "id") and not original_subagent.id:
-                        subagent_name = getattr(original_subagent, "name", "unnamed")
-                        unsaved_components.append(f"subagent '{subagent_name}'")
+        # Check subagents
+        if hasattr(self, "_original_subagents") and self._original_subagents:
+            for subagent in self._original_subagents:
+                if isinstance(subagent, (str, dict)):  # Already an ID
+                    continue
+                if hasattr(subagent, "id") and not subagent.id:
+                    subagent_name = getattr(subagent, "name", "unnamed")
+                    unsaved_components.append(f"subagent '{subagent_name}'")
 
         if unsaved_components:
             components_list = ", ".join(unsaved_components)
@@ -574,11 +549,11 @@ class Agent(
 
         # Check subagents
         if hasattr(self, "_original_subagents") and self._original_subagents:
-            for i, original_subagent in enumerate(self._original_subagents):
-                if original_subagent is None:  # Already an ID string
+            for subagent in self._original_subagents:
+                if isinstance(subagent, (str, dict)):  # Already an ID
                     continue
-                if hasattr(original_subagent, "id") and not original_subagent.id:
-                    subagent_name = getattr(original_subagent, "name", "unnamed")
+                if hasattr(subagent, "id") and not subagent.id:
+                    subagent_name = getattr(subagent, "name", "unnamed")
                     unsaved_components.append(f"subagent '{subagent_name}'")
 
         if unsaved_components:
@@ -702,12 +677,20 @@ class Agent(
 
         payload["model"] = {"id": self.llm}
 
-        # Convert subagent IDs to objects with id key as expected by the API
-        if payload.get("agents"):
-            payload["agents"] = [
-                {"id": agent_id, "inspectors": []} if isinstance(agent_id, str) else agent_id
-                for agent_id in payload["agents"]
-            ]
+        # Convert subagents to API format, resolving IDs from original objects
+        if hasattr(self, "_original_subagents") and self._original_subagents:
+            converted_agents = []
+            for agent in self._original_subagents:
+                if isinstance(agent, str):
+                    agent_id = agent
+                elif isinstance(agent, dict):
+                    agent_id = agent.get("id")
+                else:
+                    agent_id = agent.id  # Get current ID from Agent object
+                if not agent_id:
+                    raise ValueError("All subagents must be saved before saving the team agent.")
+                converted_agents.append({"id": agent_id, "inspectors": []})
+            payload["agents"] = converted_agents
 
         # Handle BaseModel expected_output for save operation
         # We don't send expected_output in the save payload - it's runtime-only
@@ -729,15 +712,14 @@ class Agent(
 
         # Set default values for executionParams if not provided
         defaults = {
-        "outputFormat": self.output_format,
-        "maxTokens": getattr(self, "max_tokens", 2048),
-        "maxIterations": getattr(self, "max_iterations", 5),
-        "maxTime": 300,
+            "outputFormat": self.output_format,
+            "maxTokens": getattr(self, "max_tokens", 2048),
+            "maxIterations": getattr(self, "max_iterations", 5),
+            "maxTime": 300,
         }
 
         for k, v in defaults.items():
             execution_params.setdefault(k, v)
-
 
         # Handle BaseModel conversion for expectedOutput (following legacy pattern)
         # Use agent's expected_output if none provided in executionParams
