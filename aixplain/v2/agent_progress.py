@@ -19,6 +19,11 @@ from enum import Enum
 from typing import Any, Dict, List, Optional, Callable
 
 
+# Internal flag to use legacy time format (MM:SS.cc always)
+# Set to True to revert to the old behavior where centiseconds are always shown
+_USE_LEGACY_TIME_FORMAT = False
+
+
 def _is_notebook_environment() -> bool:
     """Detect if running in a Jupyter/IPython notebook environment.
 
@@ -123,7 +128,6 @@ class AgentProgressTracker:
         self._format = ProgressFormat.STATUS
         self._verbosity = 1
         self._truncate = True
-        self._time_ticks = False  # Show simplified time: seconds while running, ms when complete
 
     def _now(self) -> float:
         """Get current timestamp."""
@@ -209,13 +213,13 @@ class AgentProgressTracker:
 
         Args:
             seconds: Elapsed time in seconds
-            is_complete: If True, show centiseconds precision; otherwise seconds only
+            is_complete: If True, show centiseconds precision; otherwise placeholder
 
         Returns:
-            Formatted time string (e.g., "00:05" while running, "00:05.23" when complete)
+            Formatted time string (e.g., "00:05.--" while running, "00:05.23" when complete)
         """
         if seconds is None:
-            return "--:--" if is_complete else "--:--"
+            return "--:--.--"
         m = int(seconds // 60)
         s = int(seconds % 60)
         if is_complete:
@@ -223,8 +227,8 @@ class AgentProgressTracker:
             cs = int((seconds % 1) * 100)
             return f"{m:02d}:{s:02d}.{cs:02d}"
         else:
-            # Seconds precision while running
-            return f"{m:02d}:{s:02d}"
+            # Placeholder for centiseconds while running (prevents flicker)
+            return f"{m:02d}:{s:02d}.--"
 
     def _format_multiline(self, text: str, width: int = 70) -> str:
         """Format text with word wrapping and pipe continuation."""
@@ -424,10 +428,10 @@ class AgentProgressTracker:
         step_line = f"{icon} Step {step_idx + 1:2d}"
 
         if show_timing and step_elapsed is not None:
-            if self._time_ticks:
-                time_str = self._format_elapsed_ticks(step_elapsed, is_complete)
-            else:
+            if _USE_LEGACY_TIME_FORMAT:
                 time_str = self._format_elapsed(step_elapsed)
+            else:
+                time_str = self._format_elapsed_ticks(step_elapsed, is_complete)
             step_line += f" · ⏱ {time_str}"
             api_calls = step.get("api_calls") or 0
             step_line += f" · API {api_calls:2d}"
@@ -619,7 +623,6 @@ class AgentProgressTracker:
         format: ProgressFormat = ProgressFormat.STATUS,
         verbosity: int = 1,
         truncate: bool = True,
-        time_ticks: bool = False,
     ) -> None:
         """Start progress tracking (call from before_run hook).
 
@@ -627,7 +630,6 @@ class AgentProgressTracker:
             format: Display format (status, logs, none)
             verbosity: Detail level (1=minimal, 2=thoughts, 3=full I/O)
             truncate: Whether to truncate long text
-            time_ticks: Show simplified time (seconds while running, ms when complete)
         """
         # Reset tracking state
         self._seen_steps = {}
@@ -645,7 +647,6 @@ class AgentProgressTracker:
         self._format = format if isinstance(format, ProgressFormat) else ProgressFormat(format)
         self._verbosity = verbosity
         self._truncate = truncate
-        self._time_ticks = time_ticks
 
         # Reset threading state
         self._stop_display.clear()
@@ -798,7 +799,6 @@ class AgentProgressTracker:
         format: ProgressFormat = ProgressFormat.STATUS,
         verbosity: int = 1,
         truncate: bool = True,
-        time_ticks: bool = False,
     ) -> Any:
         """Stream agent progress until completion (standalone polling mode).
 
@@ -811,7 +811,6 @@ class AgentProgressTracker:
             format: Display format (status, logs, none)
             verbosity: Detail level (1=minimal, 2=thoughts, 3=full I/O)
             truncate: Whether to truncate long text
-            time_ticks: Show simplified time (seconds while running, ms when complete)
 
         Returns:
             Final response from the agent
@@ -820,7 +819,7 @@ class AgentProgressTracker:
         terminal_failures = {"FAILED", "ABORTED", "CANCELLED", "ERROR"}
 
         # Initialize state using start()
-        self.start(format=format, verbosity=verbosity, truncate=truncate, time_ticks=time_ticks)
+        self.start(format=format, verbosity=verbosity, truncate=truncate)
         # Override _total_start_time to None - will be set on first steps
         self._total_start_time = None
 
