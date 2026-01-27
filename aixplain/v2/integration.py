@@ -1,7 +1,6 @@
 """Integration module for managing external service integrations."""
 
 from typing import Optional, List, Any, Dict, TYPE_CHECKING
-import json
 from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json, config
 from functools import cached_property
@@ -320,9 +319,14 @@ class ActionMixin:
         if "data" not in response:
             return []
 
+        data = response["data"]
+        if not isinstance(data, list):
+            return []
+
         actions = []
-        for input_data in response["data"]:
-            actions.append(Action.from_dict(input_data))
+        for input_data in data:
+            if isinstance(input_data, dict):
+                actions.append(Action.from_dict(input_data))
 
         return actions
 
@@ -503,105 +507,6 @@ class Integration(Model, ActionMixin):
 
     # Make AuthenticationScheme accessible
     AuthenticationScheme = AuthenticationScheme
-
-    # Integration-specific properties
-    @property
-    def auth_schemes(self) -> List[str]:
-        """Get authentication schemes for integrations."""
-        if not self.attributes:
-            return []
-
-        auth_schemes_attr = next(
-            (attr for attr in self.attributes if attr.name == "auth_schemes"),
-            None,
-        )
-
-        if not auth_schemes_attr:
-            return []
-
-        try:
-            return json.loads(auth_schemes_attr.code)
-        except (json.JSONDecodeError, TypeError):
-            return []
-
-    def get_auth_inputs(self, auth_scheme: Optional[str] = None) -> List[Dict[str, Any]]:
-        """Get authentication inputs for a specific auth scheme."""
-        if not self.attributes or not auth_scheme:
-            return []
-
-        inputs_attr = next(
-            (attr for attr in self.attributes if attr.name == f"{auth_scheme}-inputs"),
-            None,
-        )
-
-        if not inputs_attr:
-            return []
-
-        try:
-            return json.loads(inputs_attr.code)
-        except (json.JSONDecodeError, TypeError):
-            return []
-
-    def _validate_params(self, **kwargs) -> List[str]:
-        """Validate parameters against model and integration-specific auth requirements."""
-        # Call parent validation first
-        errors = super()._validate_params(**kwargs)
-
-        auth_scheme = kwargs.pop("authScheme", None)
-        auth_scheme_value = None
-        # If auth scheme is provided, validate it
-        if auth_scheme:
-            auth_scheme_value = auth_scheme.value if hasattr(auth_scheme, "value") else str(auth_scheme)
-
-            if auth_scheme_value == "NO_AUTH":
-                auth_scheme_value = None
-                auth_scheme = None
-
-            if auth_scheme_value and auth_scheme_value not in self.auth_schemes:
-                errors.append(f"Invalid auth_scheme '{auth_scheme}'. Available schemes: {self.auth_schemes}")
-
-        data = kwargs.get("data", {})
-        data_errors = self._validate_data_params(data, auth_scheme_value)
-
-        if data_errors:
-            errors.extend(data_errors)
-
-        return errors
-
-    def _validate_data_params(self, data: Optional[Dict[str, Any]], auth_scheme: Optional[str] = None) -> List[str]:
-        """Validate data parameter against expected auth inputs for the auth scheme."""
-        errors = []
-
-        # Handle None data
-        if data is None:
-            data = {}
-
-        # Get expected auth inputs for the auth scheme
-        expected_inputs = self.get_auth_inputs(auth_scheme)
-        if not expected_inputs:
-            return errors
-
-        # Validate each required input
-        for expected_input in expected_inputs:
-            input_name = expected_input.get("name")
-            required = expected_input.get("required", False)
-
-            if required and input_name not in data:
-                errors.append(f"Required auth input '{input_name}' is missing for auth scheme '{auth_scheme}'")
-
-            # Validate input type if specified
-            if input_name in data and "type" in expected_input:
-                expected_type = expected_input["type"]
-                actual_value = data[input_name]
-
-                if not self._validate_input_type(actual_value, expected_type):
-                    errors.append(
-                        f"Auth input '{input_name}' has invalid type. "
-                        f"Expected {expected_type}, got "
-                        f"{type(actual_value).__name__}"
-                    )
-
-        return errors
 
     def _validate_input_type(self, value: Any, expected_type: str) -> bool:
         """Validate input type based on expected type."""
