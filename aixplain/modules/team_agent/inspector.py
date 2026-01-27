@@ -153,12 +153,6 @@ class Inspector(BaseModel):
             return []
         return [t for t in v if t and str(t).strip()]
 
-    @model_validator(mode="after")
-    def _validate_severity_action(self) -> "Inspector":
-        if self.severity == InspectorSeverity.CRITICAL and self.action.actionType != Inspectoraction_type.ABORT:
-            raise ValueError("severity='critical' requires actionType='abort'")
-        return self
-
 
     def model_dump(self, *args, **kwargs) -> Dict[str, Any]:
         base = super().model_dump(*args, **kwargs)
