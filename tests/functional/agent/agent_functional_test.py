@@ -156,6 +156,7 @@ def test_custom_code_tool(delete_agents_and_team_agents, AgentFactory):
     agent.delete()
     tool.delete()
 
+
 @pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_list_agents(AgentFactory):
     agents = AgentFactory.list()
@@ -762,7 +763,7 @@ def test_run_agent_with_expected_output():
 def test_agent_with_action_tool():
     from aixplain.modules.model.integration import AuthenticationSchema
 
-    connection = ModelFactory.get("6880d42e2b2782f01f765361") 
+    connection = ModelFactory.get("686432941223092cb4294d3f")
     connection.action_scope = [
         action for action in connection.actions if action.code == "SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL"
     ]
@@ -784,7 +785,9 @@ def test_agent_with_action_tool():
     assert response is not None
     assert response["status"].lower() == "success"
     assert "helsinki" in response.data.output.lower()
-    assert "SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL" in [step["tool"] for step in response.data.intermediate_steps[0]["tool_steps"]]
+    assert "SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL" in [
+        step["tool"] for step in response.data.intermediate_steps[0]["tool_steps"]
+    ]
     connection.delete()
 
 
