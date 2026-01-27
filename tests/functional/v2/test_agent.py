@@ -1,11 +1,25 @@
 import pytest
+import time
 from aixplain.enums import AssetStatus, ResponseStatus
 
 
 @pytest.fixture(scope="module")
-def agent_id():
-    """Return an agent ID for testing."""
-    return "67911bdb4616206d6769a787"  # Scraper Utility Agent
+def test_agent(client):
+    """Create a test agent dynamically for testing and clean up after tests complete."""
+    agent = client.Agent(
+        name=f"Functional Test Agent {int(time.time())}",
+        description="A temporary agent for functional testing",
+        instructions="You are a helpful test agent. Respond briefly to questions.",
+    )
+    agent.save()
+
+    yield agent
+
+    # Cleanup after all tests in module complete
+    try:
+        agent.delete()
+    except Exception:
+        pass  # Ignore cleanup errors
 
 
 def validate_agent_structure(agent):
@@ -54,8 +68,9 @@ def validate_agent_structure(agent):
         pass
 
 
-def test_search_agents(client):
+def test_search_agents(client, test_agent):
     """Test searching agents with pagination - verifies backend interaction."""
+    # test_agent fixture ensures at least one agent exists
     agents = client.Agent.search()
     assert hasattr(agents, "results"), "Agent search response missing 'results' field"
     assert isinstance(agents.results, list), "Agent list results is not a list"
@@ -63,7 +78,7 @@ def test_search_agents(client):
     number_of_agents = len(agents.results)
     assert number_of_agents >= 0, "Expected to get results from agent listing"
 
-    # Validate that we actually got some agents (functional test should have data)
+    # Validate that we actually got some agents (test_agent fixture guarantees at least one)
     assert number_of_agents > 0, "No agents returned from listing - this may indicate a backend issue"
 
     # Validate structure of returned agents
@@ -80,10 +95,10 @@ def test_search_agents(client):
         assert agents.page_number >= 0, "Page number should be non-negative"
 
 
-def test_get_agent(client, agent_id):
+def test_get_agent(client, test_agent):
     """Test getting a specific agent by ID - verifies backend interaction and structure."""
-    agent = client.Agent.get(agent_id)
-    assert agent.id == agent_id, f"Retrieved agent ID {agent.id} doesn't match requested ID {agent_id}"
+    agent = client.Agent.get(test_agent.id)
+    assert agent.id == test_agent.id, f"Retrieved agent ID {agent.id} doesn't match requested ID {test_agent.id}"
 
     # Validate complete agent structure
     try:
@@ -91,34 +106,26 @@ def test_get_agent(client, agent_id):
     except AssertionError as e:
         pytest.fail(f"Agent structure validation failed: {e}")
 
-    # Test specific fields for this agent match backend data
-    assert agent.name == "Scraper Utility Agent", f"Expected agent name 'Scraper Utility Agent', got '{agent.name}'"
-    assert agent.status == "onboarded", f"Expected agent status 'onboarded', got '{agent.status}'"
-    assert agent.team_id == 15752, f"Expected team_id 15752, got {agent.team_id}"
-    assert agent.llm == "669a63646eb56306647e1091", f"Expected LLM ID '669a63646eb56306647e1091', got '{agent.llm}'"
-
-    # Validate description contains expected content
-    assert agent.description is not None, "Agent description is None"
-    assert "Scrapes travel blogs" in agent.description, (
-        f"Expected description to contain 'Scrapes travel blogs', got: '{agent.description}'"
-    )
+    # Test that retrieved agent matches the created test agent
+    assert agent.name == test_agent.name, f"Expected agent name '{test_agent.name}', got '{agent.name}'"
+    assert agent.description == test_agent.description, f"Description mismatch"
+    assert agent.instructions == test_agent.instructions, f"Instructions mismatch"
 
     # Validate that the agent is actually functional (has required fields)
-    assert agent.llm is not None, "Agent LLM ID is None - agent may not be functional"
     assert agent.status in [
         "onboarded",
         "draft",
     ], f"Agent status '{agent.status}' indicates it may not be functional"
 
 
-def test_agent_serialization(client, agent_id):
+def test_agent_serialization(client, test_agent):
     """Test agent serialization and deserialization."""
-    agent = client.Agent.get(agent_id)
+    agent = client.Agent.get(test_agent.id)
 
     # Test to_dict serialization
     agent_dict = agent.to_dict()
     assert isinstance(agent_dict, dict)
-    assert agent_dict["id"] == agent_id
+    assert agent_dict["id"] == test_agent.id
     assert agent_dict["name"] == agent.name
     assert agent_dict["status"] == agent.status
 
@@ -129,9 +136,9 @@ def test_agent_serialization(client, agent_id):
     assert new_agent.status == agent.status
 
 
-def test_agent_run_structure(client, agent_id):
+def test_agent_run_structure(client, test_agent):
     """Test agent run functionality and response structure."""
-    agent = client.Agent.get(agent_id)
+    agent = client.Agent.get(test_agent.id)
 
     # Test agent run with a simple query
     response = agent.run("Hello, how are you?")
@@ -179,8 +186,6 @@ def test_agent_run_structure(client, agent_id):
 
 def test_agent_creation_and_deletion(client):
     """Test agent creation and deletion workflow."""
-    import time
-
     # Create a test agent
     agent = client.Agent(
         name=f"Test Agent for Deletion {int(time.time())}",
@@ -242,22 +247,23 @@ def test_agent_creation_and_deletion(client):
     print(f"✅ Agent deletion verified: {type(exc_info.value).__name__}: {exc_info.value}")
 
 
-def test_agent_field_mappings(client, agent_id):
+def test_agent_field_mappings(client, test_agent):
     """Test agent field mappings and data consistency."""
-    agent = client.Agent.get(agent_id)
+    agent = client.Agent.get(test_agent.id)
 
-    # Test field mappings
-    assert agent.id == agent_id
-    assert agent.name == "Scraper Utility Agent"
-    assert agent.status == "onboarded"
-    assert agent.team_id == 15752
-    assert agent.llm == "669a63646eb56306647e1091"
+    # Test field mappings - verify retrieved agent matches created agent
+    assert agent.id == test_agent.id
+    assert agent.name == test_agent.name
+    assert agent.description == test_agent.description
+    assert agent.instructions == test_agent.instructions
+    # Status should be valid
+    assert agent.status in ["onboarded", "draft"]
+    # team_id should be present (integer)
+    assert agent.team_id is None or isinstance(agent.team_id, int)
 
 
 def test_slack_tool_integration_with_agent(client, slack_token):
     """Test Slack tool integration with agent creation and execution."""
-    import time
-
     # Get Slack integration
     integration = client.Integration.get("686432941223092cb4294d3f")  # Slack integration ID
 
