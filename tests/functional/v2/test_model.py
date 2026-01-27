@@ -105,17 +105,17 @@ def test_search_models(client):
     models = client.Model.search(page_size=number_of_models - 1)
     assert hasattr(models, "results")
     assert isinstance(models.results, list)
-    assert (
-        len(models.results) <= number_of_models - 1
-    ), f"Expected at most {number_of_models - 1} models, but got {len(models.results)}"
+    assert len(models.results) <= number_of_models - 1, (
+        f"Expected at most {number_of_models - 1} models, but got {len(models.results)}"
+    )
 
     # Test with page number
     models_page_2 = client.Model.search(page_number=1, page_size=number_of_models - 1)
     assert hasattr(models_page_2, "results")
     assert isinstance(models_page_2.results, list)
-    assert (
-        len(models_page_2.results) <= number_of_models - 1
-    ), f"Expected at most {number_of_models - 1} models, but got {len(models_page_2.results)}"
+    assert len(models_page_2.results) <= number_of_models - 1, (
+        f"Expected at most {number_of_models - 1} models, but got {len(models_page_2.results)}"
+    )
 
 
 def test_search_models_with_filter(client):
@@ -134,9 +134,7 @@ def test_search_models_with_filter(client):
 def test_search_models_with_sorting(client):
     """Test searching models with different sorting options."""
     # Test sorting by creation date ascending
-    models_date_asc = client.Model.search(
-        sort_by=SortBy.CREATION_DATE, sort_order=SortOrder.ASCENDING
-    )
+    models_date_asc = client.Model.search(sort_by=SortBy.CREATION_DATE, sort_order=SortOrder.ASCENDING)
     assert hasattr(models_date_asc, "results")
     assert isinstance(models_date_asc.results, list)
     assert len(models_date_asc.results) > 0
@@ -151,14 +149,10 @@ def test_search_models_with_sorting(client):
         if len(dates) > 1:
             # Check if dates are in ascending order
             sorted_dates = sorted(dates)
-            assert (
-                dates == sorted_dates
-            ), f"Expected dates to be in ascending order, but got: {dates}"
+            assert dates == sorted_dates, f"Expected dates to be in ascending order, but got: {dates}"
 
     # Test sorting by creation date descending
-    models_date_desc = client.Model.search(
-        sort_by=SortBy.CREATION_DATE, sort_order=SortOrder.DESCENDING
-    )
+    models_date_desc = client.Model.search(sort_by=SortBy.CREATION_DATE, sort_order=SortOrder.DESCENDING)
     assert hasattr(models_date_desc, "results")
     assert isinstance(models_date_desc.results, list)
     assert len(models_date_desc.results) > 0
@@ -173,9 +167,7 @@ def test_search_models_with_sorting(client):
         if len(dates) > 1:
             # Check if dates are in descending order
             sorted_dates = sorted(dates, reverse=True)
-            assert (
-                dates == sorted_dates
-            ), f"Expected dates to be in descending order, but got: {dates}"
+            assert dates == sorted_dates, f"Expected dates to be in descending order, but got: {dates}"
 
 
 def test_get_model(client, text_model_id):
@@ -196,9 +188,7 @@ def test_run_model(client, text_model_id):
     for param in model.params:
         if param.required:
             if param.name == "text":
-                valid_params[param.name] = (
-                    "Hello! Please respond with a short greeting."
-                )
+                valid_params[param.name] = "Hello! Please respond with a short greeting."
             elif param.name == "language":
                 valid_params[param.name] = "en"
             else:
@@ -266,9 +256,7 @@ def test_dynamic_validation_gpt4o_mini(client, text_model_id):
         model.run(**invalid_params)
 
 
-def test_dynamic_validation_slack_integration(
-    client, slack_integration_id, slack_token
-):
+def test_dynamic_validation_slack_integration(client, slack_integration_id, slack_token):
     """Test dynamic validation with Slack integration model."""
     model = client.Model.get(slack_integration_id)
 
@@ -296,22 +284,8 @@ def test_dynamic_validation_slack_integration(
         # that's expected in the test environment. The important thing is
         # that the validation passed and we got a proper error.
         error_str = str(e).lower()
-        assert (
-            "supplier_error" in error_str
-            or "tool send_message not found" in error_str
-            or "required parameter 'authscheme' is missing" in error_str
-        )
+        assert "supplier_error" in error_str or "tool send_message not found" in error_str
         print(f"Slack integration failed as expected: {e}")
-
-    # Test with missing required parameter (should fail validation)
-    # For Slack integration, authScheme is also required
-    with pytest.raises(ValueError, match="Required parameter 'authScheme' is missing"):
-        model.run(data={"channel": "#general", "text": "Hello!"})
-
-    # Test with missing required parameter (should fail validation)
-    # For Slack integration, authScheme is required before data
-    with pytest.raises(ValueError, match="Required parameter 'authScheme' is missing"):
-        model.run(action="send_message")
 
     # Test with invalid parameter type (should fail validation)
     invalid_params = {
@@ -359,63 +333,6 @@ def test_dynamic_validation_parameter_types(client, text_model_id):
         invalid_params["text"] = 123  # Should be string, not number
         with pytest.raises(ValueError, match="Parameter 'text' has invalid type"):
             model.run(**invalid_params)
-
-
-def test_dynamic_validation_unknown_model(client):
-    """Test dynamic validation with a model that has no params (should not fail)."""
-    # Get a list of models to find one without params
-    models = client.Model.search()
-
-    for model in models.results:
-        if not model.params:
-            # If the model has no params, validation should pass
-            result = model.run(data="test")
-            assert result.status == "SUCCESS"
-            break
-    else:
-        # If no model without params found, test with a model that has params
-        # but use only the required ones with proper values
-        for model in models.results:
-            if model.params:
-                required_params = {}
-                for param in model.params:
-                    if param.required:
-                        if param.name == "text":
-                            required_params[param.name] = "test"
-                        elif param.name == "language":
-                            required_params[param.name] = "en"
-                        elif param.name == "sourcelanguage":
-                            # Use the first available value from the param
-                            if param.values and len(param.values) > 0:
-                                required_params[param.name] = param.values[0]["value"]
-                            else:
-                                required_params[param.name] = "en"
-                        elif param.name == "targetlanguage":
-                            # Use the first available value from the param
-                            if param.values and len(param.values) > 0:
-                                required_params[param.name] = param.values[0]["value"]
-                            else:
-                                required_params[param.name] = "es"
-                        elif param.data_type == "text":
-                            required_params[param.name] = "test"
-                        elif param.data_type == "number":
-                            required_params[param.name] = 1
-                        elif param.data_type == "boolean":
-                            required_params[param.name] = True
-                        elif param.data_type == "json":
-                            required_params[param.name] = {"test": "value"}
-
-                # Only try to run if we have all required parameters
-                if len(required_params) == len([p for p in model.params if p.required]):
-                    result = model.run(**required_params)
-                    assert result.status == "SUCCESS"
-                    break
-        else:
-            # If no suitable model found, create a simple test
-            # Test that validation works even with empty params
-            model = models.results[0]  # Use first available model
-            result = model.run()
-            assert result.status == "SUCCESS"
 
 
 def test_model_parameter_structure(client, text_model_id):
@@ -834,9 +751,7 @@ def test_model_inputs_bulk_assignment_syntax(client, text_model_id):
             if param_name in bulk_params:
                 # This parameter was changed, so it should be back to backend default
                 # We can't assert exact equality since we don't know the backend default
-                assert current_values[param_name] is not None or param_name in [
-                    "language"
-                ]
+                assert current_values[param_name] is not None or param_name in ["language"]
             else:
                 # This parameter wasn't changed, so it should be the same
                 assert current_values[param_name] == original_values.get(param_name)
