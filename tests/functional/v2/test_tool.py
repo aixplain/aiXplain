@@ -24,9 +24,9 @@ def validate_tool_structure(tool):
         assert isinstance(tool.asset_id, str), "Tool asset_id should be a string"
 
     if tool.integration is not None:
-        assert isinstance(
-            tool.integration, (Integration, str)
-        ), "Tool integration should be Integration object or string"
+        assert isinstance(tool.integration, (Integration, str)), (
+            "Tool integration should be Integration object or string"
+        )
 
     if tool.config is not None:
         assert isinstance(tool.config, dict), "Tool config should be a dictionary"
@@ -35,16 +35,9 @@ def validate_tool_structure(tool):
         assert isinstance(tool.code, str), "Tool code should be a string"
 
     if tool.allowed_actions is not None:
-        assert isinstance(
-            tool.allowed_actions, list
-        ), "Tool allowed_actions should be a list"
+        assert isinstance(tool.allowed_actions, list), "Tool allowed_actions should be a list"
         for action in tool.allowed_actions:
             assert isinstance(action, str), "Each allowed_action should be a string"
-
-    if tool.auth_scheme is not None:
-        assert hasattr(
-            tool.auth_scheme, "value"
-        ), "Tool auth_scheme should be an enum with value attribute"
 
     tool_params = tool.get_parameters() if hasattr(tool, "get_parameters") else None
     if tool_params is not None:
@@ -54,14 +47,10 @@ def validate_tool_structure(tool):
 
     # Test inherited fields from Model
     if tool.service_name is not None:
-        assert isinstance(
-            tool.service_name, str
-        ), "Tool service_name should be a string"
+        assert isinstance(tool.service_name, str), "Tool service_name should be a string"
 
     if tool.status is not None:
-        assert hasattr(
-            tool.status, "value"
-        ), "Tool status should be an enum with value attribute"
+        assert hasattr(tool.status, "value"), "Tool status should be an enum with value attribute"
 
     # Tool doesn't have hosted_by, developed_by, or supplier attributes, skip these checks
     # if hasattr(tool, "host") and tool.host is not None:
@@ -74,14 +63,10 @@ def validate_tool_structure(tool):
     #     assert hasattr(tool.supplier, "code"), "Tool supplier should have code attribute"
 
     if tool.function is not None:
-        assert isinstance(
-            tool.function, (dict, str)
-        ), "Tool function should be dict or string"
+        assert isinstance(tool.function, (dict, str)), "Tool function should be dict or string"
 
     if tool.pricing is not None:
-        assert hasattr(
-            tool.pricing, "price"
-        ), "Tool pricing should have price attribute"
+        assert hasattr(tool.pricing, "price"), "Tool pricing should have price attribute"
 
     if tool.version is not None:
         assert hasattr(tool.version, "name"), "Tool version should have name attribute"
@@ -97,17 +82,11 @@ def validate_tool_structure(tool):
         assert isinstance(tool.params, list), "Tool params should be a list"
         for param in tool.params:
             assert hasattr(param, "name"), "Each param should have name attribute"
-            assert hasattr(
-                param, "required"
-            ), "Each param should have required attribute"
-            assert hasattr(
-                param, "data_type"
-            ), "Each param should have data_type attribute"
+            assert hasattr(param, "required"), "Each param should have required attribute"
+            assert hasattr(param, "data_type"), "Each param should have data_type attribute"
 
     # Test that Tool has delete method from DeleteResourceMixin
-    assert hasattr(
-        tool, "delete"
-    ), "Tool should have delete method from DeleteResourceMixin"
+    assert hasattr(tool, "delete"), "Tool should have delete method from DeleteResourceMixin"
 
 
 def test_search_tools(client):
@@ -129,17 +108,17 @@ def test_search_tools(client):
     tools = client.Tool.search(page_size=number_of_tools - 1)
     assert hasattr(tools, "results")
     assert isinstance(tools.results, list)
-    assert (
-        len(tools.results) <= number_of_tools - 1
-    ), f"Expected at most {number_of_tools - 1} tools, but got {len(tools.results)}"
+    assert len(tools.results) <= number_of_tools - 1, (
+        f"Expected at most {number_of_tools - 1} tools, but got {len(tools.results)}"
+    )
 
     # Test with page number
     tools_page_2 = client.Tool.search(page_number=1, page_size=number_of_tools - 1)
     assert hasattr(tools_page_2, "results")
     assert isinstance(tools_page_2.results, list)
-    assert (
-        len(tools_page_2.results) <= number_of_tools - 1
-    ), f"Expected at most {number_of_tools - 1} tools, but got {len(tools_page_2.results)}"
+    assert len(tools_page_2.results) <= number_of_tools - 1, (
+        f"Expected at most {number_of_tools - 1} tools, but got {len(tools_page_2.results)}"
+    )
 
 
 def test_search_tools_with_query_filter(client):
@@ -175,9 +154,7 @@ def test_get_tool(client):
     """Test getting a specific tool by ID."""
     # First, search tools to get a valid tool ID
     tools = client.Tool.search()
-    assert (
-        len(tools.results) > 0
-    ), "Expected to have at least one tool available for testing"
+    assert len(tools.results) > 0, "Expected to have at least one tool available for testing"
 
     tool_id = tools.results[0].id
     tool = client.Tool.get(tool_id)
@@ -199,7 +176,6 @@ def test_tool_run(client, slack_integration_id, slack_token):
         name=tool_name,
         integration=integration,
         config={"token": slack_token},
-        auth_scheme=client.Integration.AuthenticationScheme.BEARER_TOKEN,
         allowed_actions=["SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL"],
     )
 
@@ -245,13 +221,11 @@ def test_tool_run(client, slack_integration_id, slack_token):
             "forbidden",
             "403",
         ]
-        assert any(
-            phrase in error_message for phrase in expected_errors
-        ), f"Expected deletion/access error, got: {exc_info.value}"
-
-        print(
-            f"✅ Tool deletion verified: {type(exc_info.value).__name__}: {exc_info.value}"
+        assert any(phrase in error_message for phrase in expected_errors), (
+            f"Expected deletion/access error, got: {exc_info.value}"
         )
+
+        print(f"✅ Tool deletion verified: {type(exc_info.value).__name__}: {exc_info.value}")
     else:
         print("⚠️ Tool has no ID, skipping deletion validation")
 
@@ -268,7 +242,6 @@ def test_tool_get_parameters(client, slack_integration_id, slack_token):
         name=tool_name,
         integration=integration,
         config={"token": slack_token},
-        auth_scheme=client.Integration.AuthenticationScheme.BEARER_TOKEN,
         allowed_actions=["SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL"],
     )
 
@@ -283,9 +256,7 @@ def test_tool_get_parameters(client, slack_integration_id, slack_token):
             assert "name" in param, "Parameter should have 'name' field"
             assert "description" in param, "Parameter should have 'description' field"
             assert "inputs" in param, "Parameter should have 'inputs' field"
-            assert isinstance(
-                param["inputs"], dict
-            ), "Parameter inputs should be a dictionary"
+            assert isinstance(param["inputs"], dict), "Parameter inputs should be a dictionary"
 
     # Clean up - ensure tool is deleted
     if tool.id:

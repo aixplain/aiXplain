@@ -297,6 +297,7 @@ class Attribute:
     """Common attribute structure from the API response."""
 
     name: str
+    code: Optional[Any] = None
     value: Optional[Any] = None
 
 
@@ -306,9 +307,9 @@ class Parameter:
     """Common parameter structure from the API response."""
 
     name: str
-    required: bool
-    multiple_values: bool = field(metadata=config(field_name="multipleValues"))
-    is_fixed: bool = field(metadata=config(field_name="isFixed"))
+    required: bool = False
+    multiple_values: bool = field(default=False, metadata=config(field_name="multipleValues"))
+    is_fixed: bool = field(default=False, metadata=config(field_name="isFixed"))
     data_type: Optional[str] = field(default=None, metadata=config(field_name="dataType"))
     data_sub_type: Optional[str] = field(default=None, metadata=config(field_name="dataSubType"))
     values: List[Any] = field(default_factory=list)

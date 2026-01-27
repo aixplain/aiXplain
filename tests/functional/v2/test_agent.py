@@ -266,14 +266,12 @@ def test_slack_tool_integration_with_agent(client, slack_token):
         name=f"test-slack-tool-{int(time.time())}",
         integration=integration,
         config={"token": slack_token},
-        auth_scheme=client.Integration.AuthenticationScheme.BEARER_TOKEN,
         allowed_actions=["SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL"],
     )
 
     # Validate tool creation
     assert slack_tool.name.startswith("test-slack-tool-")
     assert slack_tool.integration.id == "686432941223092cb4294d3f"
-    assert slack_tool.auth_scheme == client.Integration.AuthenticationScheme.BEARER_TOKEN
     assert "SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL" in slack_tool.allowed_actions
 
     # Save tool before running
