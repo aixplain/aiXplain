@@ -58,6 +58,14 @@ def delete_agents_and_team_agents():
 @pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_end2end(run_input_map, delete_agents_and_team_agents, AgentFactory):
     assert delete_agents_and_team_agents
+
+    # Delete agent by name if it already exists
+    try:
+        existing_agent = AgentFactory.get(name=run_input_map["agent_name"])
+        existing_agent.delete()
+    except Exception:
+        pass
+
     tools = []
     if "model_tools" in run_input_map:
         for tool in run_input_map["model_tools"]:
