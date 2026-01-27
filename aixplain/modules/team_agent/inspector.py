@@ -37,16 +37,6 @@ class InspectorSeverity(str, Enum):
     CRITICAL = "critical"
 
 
-# Keep this close to the agentification contract you pasted
-_ALLOWED_ACTIONS_BY_SEVERITY: Dict[str, Set[Inspectoraction_type]] = {
-    "critical": {Inspectoraction_type.ABORT, Inspectoraction_type.EDIT},
-    "high": {Inspectoraction_type.ABORT, Inspectoraction_type.EDIT},
-    "medium": {Inspectoraction_type.RERUN, Inspectoraction_type.EDIT},
-    "low": {Inspectoraction_type.CONTINUE, Inspectoraction_type.RERUN},
-    "info": {Inspectoraction_type.CONTINUE},
-}
-
-
 EditFnType = Union[str, Callable[[str], str]]
 GateFnType = Union[str, Callable[[str], bool]]
 
@@ -81,7 +71,7 @@ class InspectorActionConfig(BaseModel):
     def _validate_evaluator_prompt(cls, v: Optional[Text], info) -> Optional[Text]:
         return v
     
-
+    @staticmethod
     def _callable_to_string(fn: Callable) -> str:
         try:
             src = inspect.getsource(fn)
@@ -163,23 +153,6 @@ class Inspector(BaseModel):
             return []
         return [t for t in v if t and str(t).strip()]
 
-    @model_validator(mode="after")
-    def _validate_severity_action(self) -> "Inspector":
-        if self.severity is None:
-            return self
-
-        sev = self.severity.value if isinstance(self.severity, Enum) else str(self.severity)
-        allowed = _ALLOWED_ACTIONS_BY_SEVERITY.get(sev)
-
-        if not allowed:
-            return self
-
-        if self.action.actionType not in allowed:
-            raise ValueError(
-                f"Action '{self.action.actionType.value}' is not allowed for severity '{sev}'. "
-                f"Allowed: {[a.value for a in sorted(allowed, key=lambda x: x.value)]}"
-            )
-        return self
 
     def model_dump(self, *args, **kwargs) -> Dict[str, Any]:
         base = super().model_dump(*args, **kwargs)
