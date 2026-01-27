@@ -32,6 +32,7 @@ jobs:
           'apikey',
           'agent',
           'team_agent',
+          'v2',
         ]
         include:
           - test-suite: 'unit'
@@ -81,6 +82,9 @@ jobs:
             timeout: 45
           - test-suite: 'team_agent'
             path: 'tests/functional/team_agent'
+            timeout: 45
+          - test-suite: 'v2'
+            path: 'tests/functional/v2'
             timeout: 45
 
     steps:
