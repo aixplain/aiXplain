@@ -28,8 +28,8 @@ class TestInspectorActionConfig:
     def test_rerun_to_dict(self):
         cfg = InspectorActionConfig(
             type=InspectorAction.RERUN,
-            maxRetries=3,
-            onExhaust=InspectorOnExhaust.ABORT,
+            max_retries=3,
+            on_exhaust=InspectorOnExhaust.ABORT,
         )
         assert cfg.to_dict() == {"type": "rerun", "maxRetries": 3, "onExhaust": "abort"}
 
@@ -38,27 +38,27 @@ class TestInspectorActionConfig:
         assert cfg.to_dict() == {"type": "rerun"}
 
     def test_max_retries_invalid_for_non_rerun(self):
-        with pytest.raises(ValueError, match="maxRetries is only valid"):
-            InspectorActionConfig(type=InspectorAction.ABORT, maxRetries=2)
+        with pytest.raises(ValueError, match="max_retries is only valid"):
+            InspectorActionConfig(type=InspectorAction.ABORT, max_retries=2)
 
     def test_on_exhaust_invalid_for_non_rerun(self):
-        with pytest.raises(ValueError, match="onExhaust is only valid"):
-            InspectorActionConfig(type=InspectorAction.EDIT, onExhaust=InspectorOnExhaust.ABORT)
+        with pytest.raises(ValueError, match="on_exhaust is only valid"):
+            InspectorActionConfig(type=InspectorAction.EDIT, on_exhaust=InspectorOnExhaust.ABORT)
 
     def test_negative_max_retries(self):
-        with pytest.raises(ValueError, match="maxRetries must be >= 0"):
-            InspectorActionConfig(type=InspectorAction.RERUN, maxRetries=-1)
+        with pytest.raises(ValueError, match="max_retries must be >= 0"):
+            InspectorActionConfig(type=InspectorAction.RERUN, max_retries=-1)
 
     def test_from_dict_roundtrip(self):
         original = InspectorActionConfig(
             type=InspectorAction.RERUN,
-            maxRetries=2,
-            onExhaust=InspectorOnExhaust.CONTINUE,
+            max_retries=2,
+            on_exhaust=InspectorOnExhaust.CONTINUE,
         )
         restored = InspectorActionConfig.from_dict(original.to_dict())
         assert restored.type == original.type
-        assert restored.maxRetries == original.maxRetries
-        assert restored.onExhaust == original.onExhaust
+        assert restored.max_retries == original.max_retries
+        assert restored.on_exhaust == original.on_exhaust
 
 
 # ---------------------------------------------------------------------------
@@ -70,7 +70,7 @@ class TestEvaluatorConfig:
     def test_asset_to_dict(self):
         cfg = EvaluatorConfig(
             type=EvaluatorType.ASSET,
-            assetId="abc123",
+            asset_id="abc123",
             prompt="Check the output",
         )
         assert cfg.to_dict() == {
@@ -98,7 +98,7 @@ class TestEvaluatorConfig:
         assert "my_evaluator" in cfg.function
 
     def test_asset_requires_asset_id(self):
-        with pytest.raises(ValueError, match="assetId is required"):
+        with pytest.raises(ValueError, match="asset_id is required"):
             EvaluatorConfig(type=EvaluatorType.ASSET)
 
     def test_function_requires_function(self):
@@ -106,10 +106,10 @@ class TestEvaluatorConfig:
             EvaluatorConfig(type=EvaluatorType.FUNCTION)
 
     def test_from_dict_roundtrip(self):
-        original = EvaluatorConfig(type=EvaluatorType.ASSET, assetId="id1", prompt="p")
+        original = EvaluatorConfig(type=EvaluatorType.ASSET, asset_id="id1", prompt="p")
         restored = EvaluatorConfig.from_dict(original.to_dict())
         assert restored.type == original.type
-        assert restored.assetId == original.assetId
+        assert restored.asset_id == original.asset_id
         assert restored.prompt == original.prompt
 
 
@@ -159,7 +159,7 @@ class TestInspector:
             action=InspectorActionConfig(type=InspectorAction.ABORT),
             evaluator=EvaluatorConfig(
                 type=EvaluatorType.ASSET,
-                assetId="llm-123",
+                asset_id="llm-123",
                 prompt="Critique the output.",
             ),
         )
@@ -183,12 +183,12 @@ class TestInspector:
             targets=["output"],
             action=InspectorActionConfig(
                 type=InspectorAction.RERUN,
-                maxRetries=2,
-                onExhaust=InspectorOnExhaust.ABORT,
+                max_retries=2,
+                on_exhaust=InspectorOnExhaust.ABORT,
             ),
             evaluator=EvaluatorConfig(
                 type=EvaluatorType.ASSET,
-                assetId="llm-456",
+                asset_id="llm-456",
                 prompt="Check for name.",
             ),
         )
@@ -249,7 +249,7 @@ class TestInspector:
             Inspector(
                 name="",
                 action=InspectorActionConfig(type=InspectorAction.ABORT),
-                evaluator=EvaluatorConfig(type=EvaluatorType.ASSET, assetId="x"),
+                evaluator=EvaluatorConfig(type=EvaluatorType.ASSET, asset_id="x"),
             )
 
     def test_from_dict_roundtrip(self):
@@ -260,10 +260,10 @@ class TestInspector:
             targets=["steps", "AgentB"],
             action=InspectorActionConfig(
                 type=InspectorAction.RERUN,
-                maxRetries=1,
-                onExhaust=InspectorOnExhaust.CONTINUE,
+                max_retries=1,
+                on_exhaust=InspectorOnExhaust.CONTINUE,
             ),
-            evaluator=EvaluatorConfig(type=EvaluatorType.ASSET, assetId="id1", prompt="p"),
+            evaluator=EvaluatorConfig(type=EvaluatorType.ASSET, asset_id="id1", prompt="p"),
         )
         restored = Inspector.from_dict(original.to_dict())
         assert restored.to_dict() == original.to_dict()
@@ -287,7 +287,7 @@ class TestInspector:
             name="minimal",
             targets=["output"],
             action=InspectorActionConfig(type=InspectorAction.CONTINUE),
-            evaluator=EvaluatorConfig(type=EvaluatorType.ASSET, assetId="x", prompt="p"),
+            evaluator=EvaluatorConfig(type=EvaluatorType.ASSET, asset_id="x", prompt="p"),
         )
         payload = inspector.to_dict()
         assert "description" not in payload

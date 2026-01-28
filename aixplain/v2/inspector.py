@@ -71,26 +71,26 @@ class InspectorActionConfig:
     """Inspector action configuration."""
 
     type: InspectorAction
-    maxRetries: Optional[int] = None
-    onExhaust: Optional[InspectorOnExhaust] = None
+    max_retries: Optional[int] = None
+    on_exhaust: Optional[InspectorOnExhaust] = None
 
     def __post_init__(self) -> None:
-        """Validate that maxRetries and onExhaust are only used with RERUN."""
+        """Validate that max_retries and on_exhaust are only used with RERUN."""
         if self.type != InspectorAction.RERUN:
-            if self.maxRetries is not None:
-                raise ValueError("maxRetries is only valid when action type is 'rerun'")
-            if self.onExhaust is not None:
-                raise ValueError("onExhaust is only valid when action type is 'rerun'")
-        if self.maxRetries is not None and self.maxRetries < 0:
-            raise ValueError("maxRetries must be >= 0")
+            if self.max_retries is not None:
+                raise ValueError("max_retries is only valid when action type is 'rerun'")
+            if self.on_exhaust is not None:
+                raise ValueError("on_exhaust is only valid when action type is 'rerun'")
+        if self.max_retries is not None and self.max_retries < 0:
+            raise ValueError("max_retries must be >= 0")
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert the action config to a dictionary for API serialization."""
         d: Dict[str, Any] = {"type": self.type.value}
-        if self.maxRetries is not None:
-            d["maxRetries"] = self.maxRetries
-        if self.onExhaust is not None:
-            d["onExhaust"] = self.onExhaust.value
+        if self.max_retries is not None:
+            d["maxRetries"] = self.max_retries
+        if self.on_exhaust is not None:
+            d["onExhaust"] = self.on_exhaust.value
         return d
 
     @classmethod
@@ -98,8 +98,8 @@ class InspectorActionConfig:
         """Create an InspectorActionConfig from a dictionary."""
         return cls(
             type=InspectorAction(data["type"]),
-            maxRetries=data.get("maxRetries"),
-            onExhaust=InspectorOnExhaust(data["onExhaust"]) if data.get("onExhaust") else None,
+            max_retries=data.get("maxRetries"),
+            on_exhaust=InspectorOnExhaust(data["onExhaust"]) if data.get("onExhaust") else None,
         )
 
 
@@ -108,7 +108,7 @@ class EvaluatorConfig:
     """Evaluator configuration for an inspector."""
 
     type: EvaluatorType
-    assetId: Optional[str] = None
+    asset_id: Optional[str] = None
     prompt: Optional[str] = None
     function: Optional[str] = None
 
@@ -116,16 +116,16 @@ class EvaluatorConfig:
         """Validate and convert callable functions to source strings."""
         if callable(self.function):
             self.function = _callable_to_string(self.function)
-        if self.type == EvaluatorType.ASSET and not self.assetId:
-            raise ValueError("assetId is required when evaluator type is 'asset'")
+        if self.type == EvaluatorType.ASSET and not self.asset_id:
+            raise ValueError("asset_id is required when evaluator type is 'asset'")
         if self.type == EvaluatorType.FUNCTION and not self.function:
             raise ValueError("function is required when evaluator type is 'function'")
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to a dictionary for API serialization."""
         d: Dict[str, Any] = {"type": self.type.value}
-        if self.assetId is not None:
-            d["assetId"] = self.assetId
+        if self.asset_id is not None:
+            d["assetId"] = self.asset_id
         if self.prompt is not None:
             d["prompt"] = self.prompt
         if self.function is not None:
@@ -137,7 +137,7 @@ class EvaluatorConfig:
         """Create an EvaluatorConfig from a dictionary."""
         return cls(
             type=EvaluatorType(data["type"]),
-            assetId=data.get("assetId"),
+            asset_id=data.get("assetId"),
             prompt=data.get("prompt"),
             function=data.get("function"),
         )
@@ -148,7 +148,7 @@ class EditorConfig:
     """Editor configuration for an inspector."""
 
     type: EvaluatorType
-    assetId: Optional[str] = None
+    asset_id: Optional[str] = None
     prompt: Optional[str] = None
     function: Optional[str] = None
 
@@ -160,8 +160,8 @@ class EditorConfig:
     def to_dict(self) -> Dict[str, Any]:
         """Convert to a dictionary for API serialization."""
         d: Dict[str, Any] = {"type": self.type.value}
-        if self.assetId is not None:
-            d["assetId"] = self.assetId
+        if self.asset_id is not None:
+            d["assetId"] = self.asset_id
         if self.prompt is not None:
             d["prompt"] = self.prompt
         if self.function is not None:
@@ -173,7 +173,7 @@ class EditorConfig:
         """Create an EditorConfig from a dictionary."""
         return cls(
             type=EvaluatorType(data["type"]),
-            assetId=data.get("assetId"),
+            asset_id=data.get("assetId"),
             prompt=data.get("prompt"),
             function=data.get("function"),
         )

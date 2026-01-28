@@ -148,7 +148,7 @@ def test_output_inspector_abort(client, run_input_map, delete_agents_and_team_ag
         action=InspectorActionConfig(type=InspectorAction.ABORT),
         evaluator=EvaluatorConfig(
             type=EvaluatorType.ASSET,
-            assetId=run_input_map["llm_id"],
+            asset_id=run_input_map["llm_id"],
             prompt="ALWAYS critique the final output.",
         ),
     )
@@ -186,12 +186,12 @@ def test_output_inspector_rerun_until_fixed(client, run_input_map, delete_agents
         targets=[_DEFAULT_OUTPUT_TARGET],
         action=InspectorActionConfig(
             type=InspectorAction.RERUN,
-            maxRetries=2,
-            onExhaust=InspectorOnExhaust.ABORT,
+            max_retries=2,
+            on_exhaust=InspectorOnExhaust.ABORT,
         ),
         evaluator=EvaluatorConfig(
             type=EvaluatorType.ASSET,
-            assetId=run_input_map["llm_id"],
+            asset_id=run_input_map["llm_id"],
             prompt="If the output does NOT include the name of the customer (John), instruct to add it.",
         ),
     )
