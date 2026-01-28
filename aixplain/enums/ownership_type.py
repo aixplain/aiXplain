@@ -25,8 +25,22 @@ from enum import Enum
 
 
 class OwnershipType(Enum):
+    """Enumeration of possible ownership types.
+
+    This enum defines the different types of ownership that can be associated with
+    an asset or resource, including subscribed and owned ownership.
+
+    Attributes:
+        SUBSCRIBED (str): Subscribed ownership type.
+        OWNED (str): Owned ownership type.
+    """
     SUBSCRIBED = "SUBSCRIBED"
     OWNED = "OWNED"
 
     def __str__(self):
+        """Return the string representation of the ownership type.
+
+        Returns:
+            str: The ownership type value as a string.
+        """
         return self._value_

@@ -8,7 +8,6 @@ from typing import Dict
 
 from aixplain.factories import AgentFactory
 from aixplain.enums.supplier import Supplier
-from aixplain.modules.team_agent import InspectorTarget
 
 
 RUN_FILE = "tests/functional/team_agent/data/team_agent_test_end2end.json"
@@ -52,10 +51,8 @@ def create_agents_from_input_map(run_input_map, deploy=True):
     return agents
 
 
-def create_team_agent(factory, agents, run_input_map, use_mentalist=True, inspectors=[], inspector_targets=None):
+def create_team_agent(factory, agents, run_input_map, use_mentalist=True):
     """Helper function to create a team agent"""
-    if inspector_targets is None:
-        inspector_targets = [InspectorTarget.STEPS]
 
     team_agent = factory.create(
         name=run_input_map["team_agent_name"],
@@ -63,8 +60,6 @@ def create_team_agent(factory, agents, run_input_map, use_mentalist=True, inspec
         description=run_input_map["team_agent_name"],
         llm_id=run_input_map["llm_id"],
         use_mentalist=use_mentalist,
-        inspectors=inspectors,
-        inspector_targets=inspector_targets,
     )
 
     return team_agent
