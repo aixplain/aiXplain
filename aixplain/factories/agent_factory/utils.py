@@ -59,7 +59,6 @@ def build_tool_payload(tool: Union[Tool, Model]):
             payload["actions"] = actions
         return payload
 
-
 def build_tool(tool: Dict):
     """Build a tool from a dictionary.
 
@@ -69,38 +68,53 @@ def build_tool(tool: Dict):
     Returns:
         Tool: Tool object.
     """
-    if tool["type"] == "model":
+    tool_type = (tool.get("type") or "").lower() 
+
+    if tool_type == "model":
+        supplier_val = tool.get("supplier", "aixplain") 
         supplier = "aixplain"
         for supplier_ in Supplier:
-            if isinstance(tool["supplier"], str):
-                if tool["supplier"] is not None and tool["supplier"].lower() in [
+            if isinstance(supplier_val, str): 
+                if supplier_val is not None and supplier_val.lower() in [ 
                     supplier_.value["code"].lower(),
                     supplier_.value["name"].lower(),
                 ]:
                     supplier = supplier_
                     break
-        assert "function" in tool, "Function is required for model tools"
-        function_name = tool.get("function")
-        try:
-            function = Function(function_name)
-        except ValueError:
-            valid_functions = [func.value for func in Function]
-            raise ValueError(
-                f"Function {function_name} is not a valid function. The valid functions are: {valid_functions}"
-            )
+
+        function = None 
+        function_name = tool.get("function", None) 
+        if function_name is not None: 
+            try:
+                function = Function(function_name)
+            except ValueError:
+                valid_functions = [func.value for func in Function]
+                raise ValueError(
+                    f"Function {function_name} is not a valid function. The valid functions are: {valid_functions}"
+                )
+
+        version = tool.get("version", None) 
+
+        params = tool.get("parameters", [])
+        if params is None: 
+            params = []
+
         tool = ModelTool(
             function=function,
             supplier=supplier,
-            version=tool["version"],
+            version=version,
             model=tool["assetId"],
             description=tool.get("description", ""),
-            parameters=tool.get("parameters", None),
+            parameters=params,
         )
-    elif tool["type"] == "pipeline":
+
+    elif tool_type == "pipeline":
         tool = PipelineTool(description=tool["description"], pipeline=tool["assetId"])
-    elif tool["type"] == "utility":
+
+    elif tool_type == "utility":
         tool = PythonInterpreterTool()
-    elif tool["type"] == "sql":
+
+    elif tool_type == "sql":
         name = tool.get("name", "SQLTool")
         parameters = {parameter["name"]: parameter["value"] for parameter in tool.get("parameters", [])}
         database = parameters.get("database")
@@ -192,7 +206,12 @@ def build_agent(payload: Dict, tools: List[Tool] = None, api_key: Text = config.
         ValueError: If a tool type is not supported.
         AssertionError: If tool configuration is invalid.
     """
+    import logging
+    logging.info('build agent')
+    logging.info(payload)
     tools_dict = payload["assets"]
+    logging.info("tools dicts")
+    logging.info(tools_dict)
     payload_tools = tools
     if payload_tools is None:
         payload_tools = []
@@ -224,6 +243,8 @@ def build_agent(payload: Dict, tools: List[Tool] = None, api_key: Text = config.
                     tool_result = future.result()
                     if tool_result is not None:
                         payload_tools.append(tool_result)
+            logging.info("payload tools")
+            logging.info(payload_tools)
 
     llm = build_llm(payload, api_key)
 

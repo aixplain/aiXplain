@@ -1,5 +1,4 @@
 """Pre-defined agent for inspecting the data flow within a team agent.
-WARNING: This feature is currently in private beta.
 
 WARNING: This feature is currently in private beta.
 """
@@ -18,6 +17,8 @@ AUTO_DEFAULT_MODEL_ID = "67fd9e2bef0365783d06e2f0"  # GPT-4.1 Nano
 
 
 class Inspectoraction_type(str, Enum):
+    """Enum defining the types of actions an inspector can take."""
+
     CONTINUE = "continue"
     RERUN = "rerun"
     ABORT = "abort"
@@ -25,34 +26,27 @@ class Inspectoraction_type(str, Enum):
 
 
 class InspectorOnExhaust(str, Enum):
+    """Enum defining behavior when inspector retries are exhausted."""
+
     CONTINUE = "continue"
     ABORT = "abort"
 
 
 class InspectorSeverity(str, Enum):
+    """Enum defining the severity levels for inspector findings."""
+
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
-    INFO = "info"
     CRITICAL = "critical"
-
-
-# Keep this close to the agentification contract you pasted
-_ALLOWED_ACTIONS_BY_SEVERITY: Dict[str, Set[Inspectoraction_type]] = {
-    "critical": {Inspectoraction_type.ABORT, Inspectoraction_type.EDIT},
-    "high": {Inspectoraction_type.ABORT, Inspectoraction_type.EDIT},
-    "medium": {Inspectoraction_type.RERUN, Inspectoraction_type.EDIT},
-    "low": {Inspectoraction_type.CONTINUE, Inspectoraction_type.RERUN},
-    "info": {Inspectoraction_type.CONTINUE},
-}
 
 
 EditFnType = Union[str, Callable[[str], str]]
 GateFnType = Union[str, Callable[[str], bool]]
 
+
 class InspectorActionConfig(BaseModel):
-    """
-    Configuration for what an inspector should do when it finds issues.
+    """Configuration for what an inspector should do when it finds issues.
 
     LLM-style actions (continue/rerun/abort):
       - evaluator + evaluator_prompt
@@ -75,13 +69,12 @@ class InspectorActionConfig(BaseModel):
     edit_fn: Optional[EditFnType] = None
     edit_evaluator_fn: Optional[GateFnType] = None
 
-
     @field_validator("evaluator_prompt")
     @classmethod
     def _validate_evaluator_prompt(cls, v: Optional[Text], info) -> Optional[Text]:
         return v
-    
 
+    @staticmethod
     def _callable_to_string(fn: Callable) -> str:
         try:
             src = inspect.getsource(fn)
@@ -102,10 +95,7 @@ class InspectorActionConfig(BaseModel):
         if isinstance(v, str):
             return v
 
-        raise TypeError(
-            "edit_fn / edit_evaluator_fn must be a string or a callable"
-        )
-
+        raise TypeError("edit_fn / edit_evaluator_fn must be a string or a callable")
 
     @model_validator(mode="after")
     def _validate_action_contract(self) -> "InspectorActionConfig":
@@ -130,6 +120,11 @@ class InspectorActionConfig(BaseModel):
         return self
 
     def to_dict(self) -> Dict[str, Any]:
+        """Convert the action config to a dictionary for serialization.
+
+        Returns:
+            Dict[str, Any]: Dictionary representation with camelCase keys.
+        """
         d = self.model_dump(exclude_none=True)
 
         if "evaluator_prompt" in d:
@@ -139,9 +134,7 @@ class InspectorActionConfig(BaseModel):
 
 
 class Inspector(BaseModel):
-    """
-    Inspector config object (SDK-side).
-    """
+    """Inspector config object (SDK-side)."""
 
     name: Text
     description: Optional[Text] = None
@@ -152,6 +145,17 @@ class Inspector(BaseModel):
     @field_validator("name")
     @classmethod
     def validate_name(cls, v: Text) -> Text:
+        """Validate that the inspector name is not empty.
+
+        Args:
+            v: The name value to validate.
+
+        Returns:
+            The validated name.
+
+        Raises:
+            ValueError: If the name is empty or whitespace-only.
+        """
         if not v or not str(v).strip():
             raise ValueError("name cannot be empty")
         return v
@@ -159,29 +163,28 @@ class Inspector(BaseModel):
     @field_validator("targets")
     @classmethod
     def validate_targets(cls, v: List[Text]) -> List[Text]:
+        """Validate and filter the targets list.
+
+        Args:
+            v: The list of target names to validate.
+
+        Returns:
+            A filtered list containing only non-empty target names.
+        """
         if v is None:
             return []
         return [t for t in v if t and str(t).strip()]
 
-    @model_validator(mode="after")
-    def _validate_severity_action(self) -> "Inspector":
-        if self.severity is None:
-            return self
-
-        sev = self.severity.value if isinstance(self.severity, Enum) else str(self.severity)
-        allowed = _ALLOWED_ACTIONS_BY_SEVERITY.get(sev)
-
-        if not allowed:
-            return self
-
-        if self.action.actionType not in allowed:
-            raise ValueError(
-                f"Action '{self.action.actionType.value}' is not allowed for severity '{sev}'. "
-                f"Allowed: {[a.value for a in sorted(allowed, key=lambda x: x.value)]}"
-            )
-        return self
-
     def model_dump(self, *args, **kwargs) -> Dict[str, Any]:
+        """Serialize the inspector to a dictionary.
+
+        Args:
+            *args: Positional arguments passed to parent model_dump.
+            **kwargs: Keyword arguments passed to parent model_dump.
+
+        Returns:
+            Dict[str, Any]: Dictionary representation of the inspector.
+        """
         base = super().model_dump(*args, **kwargs)
         base["action"] = self.action.to_dict()
         if isinstance(base.get("severity"), Enum):
@@ -189,13 +192,16 @@ class Inspector(BaseModel):
         return base
 
     def to_dict(self) -> Dict[str, Any]:
+        """Convert the inspector to a dictionary for serialization.
+
+        Returns:
+            Dict[str, Any]: Dictionary representation excluding None values.
+        """
         return self.model_dump(exclude_none=True)
 
 
 class VerificationInspector(Inspector):
-    """
-    Convenience inspector for rerun-based verification.
-    """
+    """Convenience inspector for rerun-based verification."""
 
     def __init__(
         self,
@@ -210,6 +216,19 @@ class VerificationInspector(Inspector):
         description: Text = "Checks output against the plan and requests rerun on mismatch",
         **kwargs: Any,
     ):
+        """Initialize a verification inspector with rerun-based verification.
+
+        Args:
+            evaluator: The evaluator model ID to use for verification.
+            evaluator_prompt: The prompt for the evaluator.
+            targets: List of target agent names to inspect.
+            maxRetries: Maximum number of rerun attempts.
+            onExhaust: Behavior when retries are exhausted.
+            severity: The severity level of this inspector.
+            name: The name of the inspector.
+            description: Description of the inspector's purpose.
+            **kwargs: Additional keyword arguments passed to the parent class.
+        """
         super().__init__(
             name=name,
             description=description,
