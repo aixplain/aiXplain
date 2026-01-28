@@ -46,7 +46,6 @@ class InspectorSeverity(str, Enum):
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
-    INFO = "info"
     CRITICAL = "critical"
 
 
