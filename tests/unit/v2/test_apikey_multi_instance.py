@@ -57,6 +57,7 @@ def test_resource_context_isolation(api_keys):
         aix_a.Integration,
         aix_a.Resource,
         aix_a.Inspector,
+        aix_a.APIKey,
     ]
 
     resources_b = [
@@ -67,6 +68,7 @@ def test_resource_context_isolation(api_keys):
         aix_b.Integration,
         aix_b.Resource,
         aix_b.Inspector,
+        aix_b.APIKey,
     ]
 
     # All resources in instance A should have key_a
