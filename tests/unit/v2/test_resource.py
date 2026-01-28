@@ -65,8 +65,7 @@ def test_base_resource_save():
             "id": None,
             "name": "test",
             "description": None,
-            "assetPath": None,
-            "instanceId": None,
+            "path": None,
         },
     )
     # Check that the ID was set from the response
@@ -224,18 +223,18 @@ class TestFlattenAssetInfo:
     """Tests for flattening nested assetInfo structure."""
 
     def test_flatten_with_asset_info(self):
-        """Should flatten assetInfo to top level."""
+        """Should flatten assetInfo to path (instanceId has priority)."""
         data = {
             "id": "123",
             "assetInfo": {
                 "assetPath": "path/to/asset",
-                "instanceId": "instance-456",
+                "instanceId": "openai/whisper-large/groq",
             },
         }
         result = _flatten_asset_info(data)
 
-        assert result["assetPath"] == "path/to/asset"
-        assert result["instanceId"] == "instance-456"
+        # instanceId takes priority and becomes path
+        assert result["path"] == "openai/whisper-large/groq"
 
     def test_flatten_without_asset_info(self):
         """Should return data unchanged if no assetInfo."""
@@ -245,7 +244,7 @@ class TestFlattenAssetInfo:
         assert result == data
 
     def test_flatten_partial_asset_info(self):
-        """Should flatten only present fields."""
+        """Should use assetPath as fallback when instanceId is not present."""
         data = {
             "id": "123",
             "assetInfo": {
@@ -254,8 +253,8 @@ class TestFlattenAssetInfo:
         }
         result = _flatten_asset_info(data)
 
-        assert result["assetPath"] == "path/to/asset"
-        assert "instanceId" not in result or result.get("instanceId") is None
+        # assetPath is used as fallback
+        assert result["path"] == "path/to/asset"
 
     def test_flatten_non_dict_asset_info(self):
         """Should handle non-dict assetInfo gracefully."""
@@ -946,25 +945,22 @@ class TestBaseResourceRepr:
 
         assert "123" in repr_str
 
-    def test_repr_with_asset_path(self):
-        """__repr__ should prefer asset_path over id."""
+    def test_repr_with_path(self):
+        """__repr__ should prefer path over id."""
         resource = BaseResource(id="123", name="test")
-        resource.asset_path = "assets/my-asset"
+        resource.path = "openai/whisper-large/groq"
 
         repr_str = repr(resource)
 
-        assert "assets/my-asset" in repr_str
+        assert "openai/whisper-large/groq" in repr_str
 
-    def test_repr_without_asset_path_shows_id(self):
-        """__repr__ should show id when asset_path is not set."""
+    def test_repr_without_path_shows_id(self):
+        """__repr__ should show id when path is not set."""
         resource = BaseResource(id="123", name="test")
-        resource.instance_id = "instance-456"  # instance_id doesn't affect repr
 
         repr_str = repr(resource)
 
-        # Implementation uses id when asset_path is not set
-        assert "id=123" in repr_str
-        assert "name=test" in repr_str
+        assert "123" in repr_str
 
     def test_str_equals_repr(self):
         """__str__ should equal __repr__."""

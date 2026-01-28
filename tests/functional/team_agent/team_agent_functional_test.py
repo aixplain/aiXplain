@@ -65,8 +65,6 @@ def test_end2end(run_input_map, delete_agents_and_team_agents, TeamAgentFactory)
         agents,
         run_input_map,
         use_mentalist=True,
-        inspectors=[],
-        inspector_targets=None,
     )
 
     assert team_agent is not None
@@ -101,8 +99,6 @@ def test_draft_team_agent_update(run_input_map, TeamAgentFactory):
         agents,
         run_input_map,
         use_mentalist=True,
-        inspectors=[],
-        inspector_targets=None,
     )
 
     team_agent_name = str(uuid4()).replace("-", "")
@@ -214,8 +210,6 @@ def test_add_remove_agents_from_team_agent(run_input_map, delete_agents_and_team
         agents,
         run_input_map,
         use_mentalist=True,
-        inspectors=[],
-        inspector_targets=None,
     )
 
     assert team_agent is not None
@@ -323,8 +317,6 @@ def test_team_agent_with_parameterized_agents(run_input_map, delete_agents_and_t
         [search_agent, translation_agent],
         run_input_map,
         use_mentalist=True,
-        inspectors=[],
-        inspector_targets=None,
     )
 
     # Deploy team agent
@@ -374,7 +366,6 @@ def test_team_agent_with_instructions(delete_agents_and_team_agents):
         instructions="Use only 'Agent 2' to solve the tasks.",
         llm_id="6646261c6eb563165658bbb1",
         use_mentalist=True,
-        inspectors=[],
     )
 
     response = team_agent.run(data="Translate 'cat' to Portuguese")
@@ -491,7 +482,6 @@ def test_run_team_agent_with_expected_output():
         description="Team agent",
         llm_id="6646261c6eb563165658bbb1",
         use_mentalist=False,
-        inspectors=[],
     )
 
     # Run the team agent
@@ -573,7 +563,6 @@ def test_team_agent_with_slack_connector():
         description="Team agent",
         llm_id="6646261c6eb563165658bbb1",
         use_mentalist=False,
-        inspectors=[],
     )
 
     response = team_agent.run(

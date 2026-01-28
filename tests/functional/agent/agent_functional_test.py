@@ -55,9 +55,26 @@ def delete_agents_and_team_agents():
     safe_delete_all_agents_and_team_agents()
 
 
+@pytest.fixture(scope="module")
+def slack_token():
+    """Get Slack token for integration tests."""
+    token = os.getenv("SLACK_TOKEN")
+    if not token:
+        pytest.skip("SLACK_TOKEN environment variable is required for Slack integration tests")
+    return token
+
+
 @pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_end2end(run_input_map, delete_agents_and_team_agents, AgentFactory):
     assert delete_agents_and_team_agents
+
+    # Delete agent by name if it already exists
+    try:
+        existing_agent = AgentFactory.get(name=run_input_map["agent_name"])
+        existing_agent.delete()
+    except Exception:
+        pass
+
     tools = []
     if "model_tools" in run_input_map:
         for tool in run_input_map["model_tools"]:
@@ -155,6 +172,7 @@ def test_custom_code_tool(delete_agents_and_team_agents, AgentFactory):
     assert "HelloWorld" in response["data"]["output"]
     agent.delete()
     tool.delete()
+
 
 @pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_list_agents(AgentFactory):
@@ -759,10 +777,35 @@ def test_run_agent_with_expected_output():
         assert person["name"] in more_than_30_years_old
 
 
-def test_agent_with_action_tool():
+def test_agent_with_action_tool(slack_token):
     from aixplain.modules.model.integration import AuthenticationSchema
+    from aixplain.modules.model.connection import ConnectionTool
 
-    connection = ModelFactory.get("6880d42e2b2782f01f765361") 
+    SLACK_INTEGRATION_ID = "686432941223092cb4294d3f"
+    SLACK_CONNECTION_ID = "692995404907d69787ddab00"
+
+    connection = None
+
+    # Try to get existing connection first
+    try:
+        model = ModelFactory.get(SLACK_CONNECTION_ID)
+        if isinstance(model, ConnectionTool):
+            connection = model
+    except Exception:
+        pass
+
+    # If no valid connection exists, create one from the integration using bearer token
+    if connection is None:
+        integration = ModelFactory.get(SLACK_INTEGRATION_ID)
+        response = integration.connect(
+            authentication_schema=AuthenticationSchema.BEARER_TOKEN,
+            data={"token": slack_token},
+            name="Slack Test Connection",
+            description="Test connection for agent functional tests",
+        )
+        connection_id = response.data["id"]
+        connection = ModelFactory.get(connection_id)
+
     connection.action_scope = [
         action for action in connection.actions if action.code == "SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL"
     ]
@@ -784,7 +827,9 @@ def test_agent_with_action_tool():
     assert response is not None
     assert response["status"].lower() == "success"
     assert "helsinki" in response.data.output.lower()
-    assert "SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL" in [step["tool"] for step in response.data.intermediate_steps[0]["tool_steps"]]
+    assert "SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL" in [
+        step["tool"] for step in response.data.intermediate_steps[0]["tool_steps"]
+    ]
     connection.delete()
 
 
