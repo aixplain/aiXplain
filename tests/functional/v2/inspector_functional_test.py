@@ -21,6 +21,9 @@ from aixplain.v2 import (
     InspectorOnExhaust,
     InspectorSeverity,
     InspectorActionConfig,
+    EvaluatorType,
+    EvaluatorConfig,
+    EditorConfig,
 )
 from tests.functional.team_agent.test_utils import (
     RUN_FILE,
@@ -142,10 +145,11 @@ def test_output_inspector_abort(client, run_input_map, delete_agents_and_team_ag
         name="always_abort_output_inspector",
         severity=InspectorSeverity.HIGH,
         targets=[_DEFAULT_OUTPUT_TARGET],
-        action=InspectorActionConfig(
-            actionType=InspectorAction.ABORT,
-            evaluator=run_input_map["llm_id"],
-            evaluator_prompt="ALWAYS critique the final output.",
+        action=InspectorActionConfig(type=InspectorAction.ABORT),
+        evaluator=EvaluatorConfig(
+            type=EvaluatorType.ASSET,
+            assetId=run_input_map["llm_id"],
+            prompt="ALWAYS critique the final output.",
         ),
     )
 
@@ -181,11 +185,14 @@ def test_output_inspector_rerun_until_fixed(client, run_input_map, delete_agents
         severity=InspectorSeverity.LOW,
         targets=[_DEFAULT_OUTPUT_TARGET],
         action=InspectorActionConfig(
-            actionType=InspectorAction.RERUN,
-            evaluator=run_input_map["llm_id"],
-            evaluator_prompt=("If the output does NOT include the name of the customer (John), instruct to add it."),
+            type=InspectorAction.RERUN,
             maxRetries=2,
             onExhaust=InspectorOnExhaust.ABORT,
+        ),
+        evaluator=EvaluatorConfig(
+            type=EvaluatorType.ASSET,
+            assetId=run_input_map["llm_id"],
+            prompt="If the output does NOT include the name of the customer (John), instruct to add it.",
         ),
     )
 
@@ -216,9 +223,14 @@ def test_edit_steps_always_runs(client, run_input_map, delete_agents_and_team_ag
         name="edit_steps_inspector",
         severity=InspectorSeverity.MEDIUM,
         targets=[InspectorTarget.STEPS],
-        action=InspectorActionConfig(
-            actionType=InspectorAction.EDIT,
-            edit_fn=('def edit_fn(text: str) -> str:\n    return "hello, what\'s the weather in paris like today?"'),
+        action=InspectorActionConfig(type=InspectorAction.EDIT),
+        evaluator=EvaluatorConfig(
+            type=EvaluatorType.FUNCTION,
+            function="def evaluator_fn(text: str) -> bool:\n    return True",
+        ),
+        editor=EditorConfig(
+            type=EvaluatorType.FUNCTION,
+            function='def edit_fn(text: str) -> str:\n    return "hello, what\'s the weather in paris like today?"',
         ),
     )
 
@@ -254,10 +266,14 @@ def test_edit_with_gate_true(client, run_input_map, delete_agents_and_team_agent
         name="gated_edit_true",
         severity=InspectorSeverity.MEDIUM,
         targets=[InspectorTarget.INPUT],
-        action=InspectorActionConfig(
-            actionType=InspectorAction.EDIT,
-            edit_evaluator_fn=evaluator_fn,
-            edit_fn=edit_fn,
+        action=InspectorActionConfig(type=InspectorAction.EDIT),
+        evaluator=EvaluatorConfig(
+            type=EvaluatorType.FUNCTION,
+            function=evaluator_fn,
+        ),
+        editor=EditorConfig(
+            type=EvaluatorType.FUNCTION,
+            function=edit_fn,
         ),
     )
 
@@ -288,10 +304,14 @@ def test_edit_with_gate_false(client, run_input_map, delete_agents_and_team_agen
         name="gated_edit_false",
         severity=InspectorSeverity.MEDIUM,
         targets=[InspectorTarget.INPUT],
-        action=InspectorActionConfig(
-            actionType=InspectorAction.EDIT,
-            edit_evaluator_fn=evaluator_fn,
-            edit_fn=edit_fn,
+        action=InspectorActionConfig(type=InspectorAction.EDIT),
+        evaluator=EvaluatorConfig(
+            type=EvaluatorType.FUNCTION,
+            function=evaluator_fn,
+        ),
+        editor=EditorConfig(
+            type=EvaluatorType.FUNCTION,
+            function=edit_fn,
         ),
     )
 
