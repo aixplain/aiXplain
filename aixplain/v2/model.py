@@ -415,6 +415,10 @@ class Model(
     supports_streaming: Optional[bool] = field(default=None, metadata=config(field_name="supportsStreaming"))
     supports_byoc: Optional[bool] = field(default=None, metadata=config(field_name="supportsBYOC"))
 
+    # Connection type - indicates whether model supports sync/async execution
+    # Values can be: ["synchronous"], ["asynchronous"], or ["synchronous", "asynchronous"]
+    connection_type: Optional[List[str]] = field(default=None, metadata=config(field_name="connectionType"))
+
     # Attributes and parameters with proper types
     attributes: Optional[List[Attribute]] = None
     params: Optional[List[Parameter]] = None
@@ -426,6 +430,28 @@ class Model(
         """Initialize dynamic attributes based on backend parameters."""
         # Initialize the inputs proxy
         self.inputs = InputsProxy(self)
+
+    @property
+    def is_sync_only(self) -> bool:
+        """Check if the model only supports synchronous execution.
+
+        Returns:
+            bool: True if the model only supports synchronous execution
+        """
+        if self.connection_type is None:
+            return False
+        return "synchronous" in self.connection_type and "asynchronous" not in self.connection_type
+
+    @property
+    def is_async_capable(self) -> bool:
+        """Check if the model supports asynchronous execution.
+
+        Returns:
+            bool: True if the model supports asynchronous execution
+        """
+        if self.connection_type is None:
+            return True  # Default to async capable for backward compatibility
+        return "asynchronous" in self.connection_type
 
     def __setattr__(self, name: str, value):
         """Handle bulk assignment to inputs."""
@@ -480,7 +506,12 @@ class Model(
         return super().search(**kwargs)
 
     def run(self, **kwargs: Unpack[ModelRunParams]) -> ModelResult:
-        """Run the model with dynamic parameter validation and default handling."""
+        """Run the model with dynamic parameter validation and default handling.
+
+        This method routes the execution based on the model's connection type:
+        - Sync models: Uses V2 endpoint directly (returns result immediately)
+        - Async models: Uses V2 endpoint and polls until completion
+        """
         # Merge dynamic attributes with provided kwargs
         effective_params = self._merge_with_dynamic_attrs(**kwargs)
 
@@ -490,7 +521,98 @@ class Model(
             if param_errors:
                 raise ValueError(f"Parameter validation failed: {'; '.join(param_errors)}")
 
-        return super().run(**effective_params)
+        if self.is_sync_only:
+            # Sync-only models: Call V2 endpoint directly (bypass run_async which would route to V1)
+            # V2 returns result directly for sync models, no polling needed
+            return self._run_sync_v2(**effective_params)
+        else:
+            # Async-capable models: Use base run() which calls run_async() and polls
+            return super().run(**effective_params)
+
+    def _run_sync_v2(self, **kwargs: Unpack[ModelRunParams]) -> ModelResult:
+        """Run the model synchronously using V2 endpoint directly.
+
+        This bypasses run_async() to avoid V1 fallback for sync-only models.
+
+        Returns:
+            ModelResult: Direct result from V2 endpoint
+        """
+        self._ensure_valid_state()
+
+        payload = self.build_run_payload(**kwargs)
+        run_url = self.build_run_url(**kwargs)
+
+        response = self.context.client.request("post", run_url, json=payload)
+
+        return self.handle_run_response(response, **kwargs)
+
+    def run_async(self, **kwargs: Unpack[ModelRunParams]) -> ModelResult:
+        """Run the model asynchronously.
+
+        This method routes the execution based on the model's connection type:
+        - Sync models: Falls back to V1 endpoint (V2 doesn't support async for sync models)
+        - Async models: Uses V2 endpoint directly (returns polling URL)
+
+        Returns:
+            ModelResult: Result with polling URL for async models,
+                        or immediate result via V1 for sync-only models
+        """
+        # Merge dynamic attributes with provided kwargs
+        effective_params = self._merge_with_dynamic_attrs(**kwargs)
+
+        # Validate all parameters against model's expected inputs
+        if self.params:
+            param_errors = self._validate_params(**effective_params)
+            if param_errors:
+                raise ValueError(f"Parameter validation failed: {'; '.join(param_errors)}")
+
+        if self.is_sync_only:
+            # Sync-only models: Use V1 endpoint for async execution
+            return self._run_async_v1(**effective_params)
+        else:
+            # Async-capable models: Use V2 endpoint
+            return super().run_async(**effective_params)
+
+    def _run_async_v1(self, **kwargs: Unpack[ModelRunParams]) -> ModelResult:
+        """Run the model asynchronously using V1 endpoint.
+
+        This is used as a fallback for sync-only models that need async execution.
+
+        Returns:
+            ModelResult: Result with polling URL from V1 endpoint
+        """
+        from aixplain.modules.model.utils import build_payload, call_run_endpoint
+        from aixplain.enums.response_status import ResponseStatus
+
+        self._ensure_valid_state()
+
+        # Build V1 payload
+        # V1 expects 'data' parameter, map from 'text' if needed
+        data = kwargs.pop("text", None)
+        parameters = {k: v for k, v in kwargs.items() if k not in ["timeout", "wait_time"]}
+
+        payload = build_payload(data=data, parameters=parameters if parameters else None)
+
+        # Call V1 run endpoint
+        url = f"{self.context.model_url}/{self.id}"
+        response = call_run_endpoint(payload=payload, url=url, api_key=self.context.api_key)
+
+        # Convert V1 response to ModelResult
+        raw_status = response.pop("status", ResponseStatus.FAILED)
+        if isinstance(raw_status, str):
+            try:
+                raw_status = ResponseStatus(raw_status)
+            except ValueError:
+                raw_status = ResponseStatus.FAILED
+
+        # Map V1 response to ModelResult format
+        return ModelResult(
+            status=raw_status.value if hasattr(raw_status, "value") else str(raw_status),
+            completed=response.pop("completed", False),
+            data=response.pop("data", ""),
+            url=response.pop("url", None),
+            error_message=response.pop("error_message", None),
+        )
 
     def _merge_with_dynamic_attrs(self, **kwargs) -> dict:
         """Merge provided parameters with dynamic attributes.
