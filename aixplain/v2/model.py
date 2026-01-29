@@ -146,11 +146,9 @@ class ModelResponseStreamer(Iterator[StreamChunk]):
             if not line:
                 continue
 
-            # Parse SSE data line (format: "data: {...}")
-            if line.startswith("data: "):
-                line = line[6:]  # Remove "data: " prefix
-            elif line.startswith("data:"):
-                line = line[5:]  # Remove "data:" prefix (no space)
+            # Parse SSE data line - remove "data:" prefix and any leading whitespace
+            if line.startswith("data:"):
+                line = line[5:].lstrip()
 
             # Check for stream completion marker
             if line == "[DONE]":

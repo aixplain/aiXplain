@@ -160,3 +160,70 @@ class AixplainClient:
             requests.Response: The response from the request
         """
         return self.request("GET", path, **kwargs)
+
+    def post(self, path: str, **kwargs: Any) -> dict:
+        """Sends an HTTP POST request.
+
+        Args:
+            path (str): URL path
+            kwargs (dict, optional): Additional keyword arguments for the request
+
+        Returns:
+            dict: The JSON response from the request
+        """
+        return self.request("POST", path, **kwargs)
+
+    def request_stream(self, method: str, path: str, **kwargs: Any) -> requests.Response:
+        """Sends a streaming HTTP request.
+
+        This method is similar to request_raw but enables streaming mode,
+        which is necessary for Server-Sent Events (SSE) responses.
+
+        Args:
+            method (str): HTTP method (e.g. 'GET', 'POST')
+            path (str): URL path or full URL
+            kwargs (dict, optional): Additional keyword arguments for the request
+
+        Returns:
+            requests.Response: The streaming response (not consumed)
+
+        Raises:
+            APIError: If the request fails
+        """
+        # If path is a full URL (starts with http), use it directly
+        if path.startswith(("http://", "https://")):
+            url = path
+        else:
+            url = urljoin(self.base_url, path)
+
+        logger.debug(f"Requesting streaming {method} {url}")
+
+        # Enable streaming mode
+        kwargs["stream"] = True
+
+        response = self.session.request(method=method, url=url, **kwargs)
+
+        # For streaming, we check status but don't consume the response body
+        if not response.ok:
+            error_obj = None
+            try:
+                # Try to get error details from response
+                error_obj = response.json()
+            except Exception as e:
+                logger.error(f"Error parsing error response: {e}")
+
+            if error_obj:
+                raise APIError(
+                    error_obj.get("message", error_obj.get("error", "Stream request failed")),
+                    status_code=error_obj.get("statusCode", response.status_code),
+                    response_data=error_obj,
+                    error=error_obj.get("error", ""),
+                )
+            else:
+                raise APIError(
+                    f"Stream request failed with status {response.status_code}",
+                    status_code=response.status_code,
+                    error="",
+                )
+
+        return response
