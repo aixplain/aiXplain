@@ -75,6 +75,9 @@ __all__ = [
     # Progress tracking
     "AgentProgressTracker",
     "ProgressFormat",
+    # Progress tracking
+    "AgentProgressTracker",
+    "ProgressFormat",
     # Exceptions
     "AixplainV2Error",
     "ResourceError",

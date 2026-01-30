@@ -507,6 +507,13 @@ class Agent(
             progress_verbosity: Detail level 1-3 (default: 1)
             progress_truncate: Truncate long text (default: True)
             **kwargs: Additional run parameters
+            *args: Positional arguments (first arg is treated as query)
+            query: The query to run
+            progress_format: Display format - "status" or "logs". If None (default),
+                           progress tracking is disabled.
+            progress_verbosity: Detail level 1-3 (default: 1)
+            progress_truncate: Truncate long text (default: True)
+            **kwargs: Additional run parameters
 
         Returns:
             AgentRunResult: The result of the agent execution
