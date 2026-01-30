@@ -593,8 +593,10 @@ class Model(
 
         payload = build_payload(data=data, parameters=parameters if parameters else None)
 
-        # Call V1 run endpoint
-        url = f"{self.context.model_url}/{self.id}"
+        # Call V1 run endpoint - derive V1 URL from context's model_url
+        # Replace v2 with v1 in the URL path
+        v1_base_url = self.context.model_url.replace("/api/v2/", "/api/v1/")
+        url = f"{v1_base_url}/{self.id}"
         response = call_run_endpoint(payload=payload, url=url, api_key=self.context.api_key)
 
         # Convert V1 response to ModelResult
