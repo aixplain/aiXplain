@@ -25,6 +25,16 @@ from enum import Enum
 
 
 class Privacy(Enum):
+    """Enumeration of possible privacy levels.
+
+    This enum defines the different levels of privacy that can be associated with
+    an asset or resource, including public, private, and restricted privacy levels.
+
+    Attributes:
+        PUBLIC (str): Public privacy level.
+        PRIVATE (str): Private privacy level.
+        RESTRICTED (str): Restricted privacy level.
+    """
     PUBLIC = "Public"
     PRIVATE = "Private"
     RESTRICTED = "Restricted"

@@ -93,7 +93,6 @@ def test_run_sync():
     assert response.usage is None
 
 
-@pytest.mark.skip(reason="Need to fix model response")
 def test_run_sync_polling_error():
     """Test handling of polling errors in the run method"""
     model_id = "test-model-id"

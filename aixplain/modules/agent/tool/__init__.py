@@ -1,6 +1,8 @@
-__author__ = "aiXplain"
+"""Agent tool module for aiXplain SDK.
 
-"""
+This module provides tool classes and functionality for agents to interact with
+various services, models, and data sources.
+
 Copyright 2024 The aiXplain SDK authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,6 +22,8 @@ Date: May 16th 2024
 Description:
     Agentification Class
 """
+
+__author__ = "aiXplain"
 from abc import ABC
 from typing import Optional, Text
 from aixplain.utils import config
@@ -44,13 +48,15 @@ class Tool(ABC):
         status: Optional[AssetStatus] = AssetStatus.DRAFT,
         **additional_info,
     ) -> None:
-        """Specialized software or resource designed to assist the AI in executing specific tasks or functions based on user commands.
+        """Initialize a new Tool instance.
 
         Args:
-            name (Text): name of the tool
-            description (Text): descriptiion of the tool
-            version (Text): version of the tool
-            api_key (Text): api key of the tool. Defaults to config.TEAM_API_KEY.
+            name (Text): The name of the tool.
+            description (Text): A description of the tool's functionality.
+            version (Optional[Text], optional): The version of the tool. Defaults to None.
+            api_key (Optional[Text], optional): The API key for authentication. Defaults to config.TEAM_API_KEY.
+            status (Optional[AssetStatus], optional): The current status of the tool. Defaults to AssetStatus.DRAFT.
+            **additional_info: Additional keyword arguments for tool configuration.
         """
         self.name = name
         self.description = description
@@ -60,11 +66,31 @@ class Tool(ABC):
         self.status = status
 
     def to_dict(self):
-        """Converts the tool to a dictionary."""
+        """Converts the tool instance to a dictionary representation.
+
+        Returns:
+            dict: A dictionary containing the tool's attributes and configuration.
+
+        Raises:
+            NotImplementedError: This is an abstract method that must be implemented by subclasses.
+        """
         raise NotImplementedError
 
     def validate(self):
+        """Validates the tool's configuration and settings.
+
+        This method should check if all required attributes are properly set and
+        if the tool's configuration is valid.
+
+        Raises:
+            NotImplementedError: This is an abstract method that must be implemented by subclasses.
+        """
         raise NotImplementedError
 
+
+class DeployableTool(Tool):
+    """Tool that can be deployed."""
+
     def deploy(self) -> None:
+        """Deploy the tool."""
         raise NotImplementedError

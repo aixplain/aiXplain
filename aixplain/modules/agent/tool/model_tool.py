@@ -1,6 +1,8 @@
-__author__ = "aiXplain"
+"""Model tool for aiXplain SDK agents.
 
-"""
+This module provides a tool that allows agents to interact with AI models
+and execute model-based tasks.
+
 Copyright 2024 The aiXplain SDK authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,6 +22,9 @@ Date: May 16th 2024
 Description:
     Agentification Class
 """
+
+__author__ = "aiXplain"
+
 from typing import Optional, Union, Text, Dict, List
 
 from aixplain.enums import AssetStatus, Function, Supplier
@@ -52,12 +57,19 @@ def set_tool_name(function: Function, supplier: Supplier = None, model: Model = 
 
 
 class ModelTool(Tool):
-    """Specialized software or resource designed to assist the AI in executing specific tasks or functions based on user commands.
+    """A tool that wraps AI models to execute specific tasks or functions based on user commands.
+
+    This class provides a standardized interface for working with various AI models,
+    allowing them to be used as tools in the aiXplain platform. It handles model
+    configuration, validation, and parameter management.
 
     Attributes:
-        function (Optional[Function]): task that the tool performs.
-        supplier (Optional[Supplier]): Preferred supplier to perform the task.
-        model (Optional[Text]): Model function.
+        function (Optional[Function]): The task that the tool performs.
+        supplier (Optional[Supplier]): The preferred supplier to perform the task.
+        model (Optional[Union[Text, Model]]): The model ID or Model instance.
+        model_object (Optional[Model]): The actual Model instance for parameter access.
+        parameters (Optional[Dict]): Configuration parameters for the model.
+        status (AssetStatus): The current status of the tool.
     """
 
     def __init__(
@@ -70,15 +82,24 @@ class ModelTool(Tool):
         parameters: Optional[Dict] = None,
         **additional_info,
     ) -> None:
-        """Specialized software or resource designed to assist the AI in executing specific tasks or functions based on user commands.
+        """Initialize a new ModelTool instance.
 
         Args:
-            function (Optional[Union[Function, Text]]): task that the tool performs. Defaults to None.
-            supplier (Optional[Union[Dict, Supplier]]): Preferred supplier to perform the task. Defaults to None. Defaults to None.
-            model (Optional[Union[Text, Model]]): Model function. Defaults to None.
-            name (Optional[Text]): Name of the tool. Defaults to None.
-            description (Text): Description of the tool. Defaults to "".
-            parameters (Optional[Dict]): Parameters of the tool. Defaults to None.
+            function (Optional[Union[Function, Text]], optional): The task that the tool performs. Can be a Function enum
+                or a string that will be converted to a Function. Defaults to None.
+            supplier (Optional[Union[Dict, Supplier]], optional): The preferred supplier to perform the task.
+                Can be a Supplier enum or a dictionary with supplier information. Defaults to None.
+            model (Optional[Union[Text, Model]], optional): The model to use, either as a Model instance
+                or a model ID string. Defaults to None.
+            name (Optional[Text], optional): The name of the tool. If not provided, will be generated
+                from function, supplier, and model. Defaults to None.
+            description (Text, optional): A description of the tool's functionality. If not provided,
+                will be taken from model or function description. Defaults to "".
+            parameters (Optional[Dict], optional): Configuration parameters for the model. Defaults to None.
+            **additional_info: Additional keyword arguments for tool configuration.
+
+        Raises:
+            Exception: If the specified model doesn't exist or is inaccessible.
         """
         name = name or ""
         super().__init__(name=name, description=description, **additional_info)
@@ -107,7 +128,23 @@ class ModelTool(Tool):
         self.validate()
 
     def to_dict(self) -> Dict:
-        """Converts the tool to a dictionary."""
+        """Convert the tool instance to a dictionary representation.
+
+        This method handles the conversion of complex attributes like supplier and model
+        into their serializable forms.
+
+        Returns:
+            Dict: A dictionary containing the tool's configuration with keys:
+                - function: The function value or None
+                - type: Always "model"
+                - name: The tool's name
+                - description: The tool's description
+                - supplier: The supplier code or None
+                - version: The tool's version or None
+                - assetId: The model's ID
+                - parameters: The tool's parameters
+                - status: The tool's status
+        """
         supplier = self.supplier
         if supplier is not None:
             if isinstance(supplier, dict):
@@ -130,8 +167,8 @@ class ModelTool(Tool):
         }
 
     def validate(self) -> None:
-        """
-        Validates the tool.
+        """Validates the tool.
+
         Notes:
             - Checks if the tool has a function or model.
             - If the function is a string, it converts it to a Function enum.
@@ -142,16 +179,16 @@ class ModelTool(Tool):
         """
         from aixplain.enums import FunctionInputOutput
 
-        assert (
-            self.function is not None or self.model is not None
-        ), "Agent Creation Error: Either function or model must be provided when instantiating a tool."
+        assert self.function is not None or self.model is not None, (
+            "Agent Creation Error: Either function or model must be provided when instantiating a tool."
+        )
 
         if self.function is not None:
             if isinstance(self.function, str):
                 self.function = Function(self.function)
-        assert (
-            self.function is None or self.function is not Function.UTILITIES or self.model is not None
-        ), "Agent Creation Error: Utility function must be used with an associated model."
+        assert self.function is None or self.function is not Function.UTILITIES or self.model is not None, (
+            "Agent Creation Error: Utility function must be used with an associated model."
+        )
 
         try:
             if isinstance(self.supplier, dict):
@@ -164,7 +201,9 @@ class ModelTool(Tool):
                 try:
                     self.model = self._get_model()
                 except Exception:
-                    raise Exception(f"Model Tool Unavailable. Make sure Model '{self.model}' exists or you have access to it.")
+                    raise Exception(
+                        f"Model Tool Unavailable. Make sure Model '{self.model}' exists or you have access to it."
+                    )
             self.function = self.model.function
             if isinstance(self.model.supplier, Supplier):
                 self.supplier = self.model.supplier
@@ -181,23 +220,40 @@ class ModelTool(Tool):
         self.parameters = self.validate_parameters(self.parameters)
         self.name = self.name if self.name else set_tool_name(self.function, self.supplier, self.model)
 
-
     def get_parameters(self) -> Dict:
+        """Get the tool's parameters, either from explicit settings or the model object.
+
+        Returns:
+            Dict: The tool's parameters. If no explicit parameters were set and a model
+            object exists with model_params, returns those parameters as a list.
+        """
         # If parameters were not explicitly provided, get them from the model
         if (
             self.parameters is None
-            and self.model_object is not None  # noqa: W503
-            and hasattr(self.model_object, "model_params")  # noqa: W503
-            and self.model_object.model_params is not None  # noqa: W503
+            and self.model_object is not None
+            and hasattr(self.model_object, "model_params")
+            and self.model_object.model_params is not None
         ):
             return self.model_object.model_params.to_list()
         return self.parameters
 
     def _get_model(self, model_id: Text = None):
+        """Retrieve a Model instance by its ID.
+
+        Args:
+            model_id (Text, optional): The ID of the model to retrieve. If not provided,
+                uses the tool's model ID. Defaults to None.
+
+        Returns:
+            Model: The retrieved Model instance.
+
+        Raises:
+            Exception: If the model cannot be retrieved or accessed.
+        """
         from aixplain.factories.model_factory import ModelFactory
 
         model_id = model_id or self.model
-        return ModelFactory.get(model_id, api_key=self.api_key)
+        return ModelFactory.get(model_id, api_key=self.api_key, use_cache=True)
 
     def validate_parameters(self, received_parameters: Optional[List[Dict]] = None) -> Optional[List[Dict]]:
         """Validates and formats the parameters for the tool.
@@ -215,11 +271,11 @@ class ModelTool(Tool):
             # Get default parameters if none provided
             if (
                 self.model_object is not None
-                and hasattr(self.model_object, "model_params")  # noqa: W503
-                and self.model_object.model_params is not None  # noqa: W503
+                and hasattr(self.model_object, "model_params")
+                and self.model_object.model_params is not None
             ):
                 return self.model_object.model_params.to_list()
-    
+
             elif self.function is not None:
                 function_params = self.function.get_parameters()
                 if function_params is not None:
@@ -230,8 +286,8 @@ class ModelTool(Tool):
         expected_params = None
         if (
             self.model_object is not None
-            and hasattr(self.model_object, "model_params")  # noqa: W503
-            and self.model_object.model_params is not None  # noqa: W503
+            and hasattr(self.model_object, "model_params")
+            and self.model_object.model_params is not None
         ):
             expected_params = self.model_object.model_params
         elif self.function is not None:
@@ -249,15 +305,25 @@ class ModelTool(Tool):
         received_param_names = {param["name"] for param in received_parameters}
 
         invalid_params = received_param_names - expected_param_names
+
+        # If action and data are expected (ConnectionTool), remove the received parameters from the invalid parameters
+        if "action" in expected_param_names and "data" in expected_param_names: 
+            invalid_params = invalid_params - received_param_names
+            
         if invalid_params:
-            raise ValueError(f"Invalid parameters provided: {invalid_params}. Expected parameters are: {expected_param_names}")
+            raise ValueError(
+                f"Invalid parameters provided: {invalid_params}. Expected parameters are: {expected_param_names}"
+            )
 
         return received_parameters
 
     def __repr__(self) -> Text:
+        """Return a string representation of the tool.
+
+        Returns:
+            Text: A string in the format "ModelTool(name=<name>, function=<function>,
+                supplier=<supplier>, model=<model>)".
+        """
         supplier_str = self.supplier.value if self.supplier is not None else None
         model_str = self.model.id if self.model is not None else None
         return f"ModelTool(name={self.name}, function={self.function}, supplier={supplier_str}, model={model_str})"
-
-    def deploy(self):
-        pass

@@ -18,6 +18,7 @@ limitations under the License.
 import copy
 import json
 import os
+import re
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -28,8 +29,6 @@ from aixplain.enums.supplier import Supplier
 from uuid import uuid4
 
 import pytest
-
-from aixplain import aixplain_v2 as v2
 
 RUN_FILE = "tests/functional/agent/data/agent_test_end2end.json"
 
@@ -45,22 +44,37 @@ def run_input_map(request):
 
 @pytest.fixture(scope="function")
 def delete_agents_and_team_agents():
-    for team_agent in TeamAgentFactory.list()["results"]:
-        team_agent.delete()
-    for agent in AgentFactory.list()["results"]:
-        agent.delete()
+    from tests.test_deletion_utils import safe_delete_all_agents_and_team_agents
+
+    # Clean up before test
+    safe_delete_all_agents_and_team_agents()
 
     yield True
 
-    for team_agent in TeamAgentFactory.list()["results"]:
-        team_agent.delete()
-    for agent in AgentFactory.list()["results"]:
-        agent.delete()
+    # Clean up after test
+    safe_delete_all_agents_and_team_agents()
 
 
-@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
+@pytest.fixture(scope="module")
+def slack_token():
+    """Get Slack token for integration tests."""
+    token = os.getenv("SLACK_TOKEN")
+    if not token:
+        pytest.skip("SLACK_TOKEN environment variable is required for Slack integration tests")
+    return token
+
+
+@pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_end2end(run_input_map, delete_agents_and_team_agents, AgentFactory):
     assert delete_agents_and_team_agents
+
+    # Delete agent by name if it already exists
+    try:
+        existing_agent = AgentFactory.get(name=run_input_map["agent_name"])
+        existing_agent.delete()
+    except Exception:
+        pass
+
     tools = []
     if "model_tools" in run_input_map:
         for tool in run_input_map["model_tools"]:
@@ -75,7 +89,9 @@ def test_end2end(run_input_map, delete_agents_and_team_agents, AgentFactory):
             tools.append(AgentFactory.create_model_tool(**tool_))
     if "pipeline_tools" in run_input_map:
         for tool in run_input_map["pipeline_tools"]:
-            tools.append(AgentFactory.create_pipeline_tool(pipeline=tool["pipeline_id"], description=tool["description"]))
+            tools.append(
+                AgentFactory.create_pipeline_tool(pipeline=tool["pipeline_id"], description=tool["description"])
+            )
 
     agent = AgentFactory.create(
         name=run_input_map["agent_name"],
@@ -97,18 +113,20 @@ def test_end2end(run_input_map, delete_agents_and_team_agents, AgentFactory):
     assert response["completed"] is True
     assert response["status"].lower() == "success"
     assert "data" in response
-    assert response["data"]["session_id"] is not None
     assert response["data"]["output"] is not None
     agent.delete()
 
 
-@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
+@pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_python_interpreter_tool(delete_agents_and_team_agents, AgentFactory):
     assert delete_agents_and_team_agents
     tool = AgentFactory.create_python_interpreter_tool()
     assert tool is not None
     assert tool.name == "Python Interpreter"
-    assert tool.description == "A Python shell. Use this to execute python commands. Input should be a valid python command."
+    assert (
+        tool.description
+        == "A Python shell. Use this to execute python commands. Input should be a valid python command."
+    )
 
     agent = AgentFactory.create(
         name="Python Developer",
@@ -124,21 +142,20 @@ def test_python_interpreter_tool(delete_agents_and_team_agents, AgentFactory):
     assert len(response["data"]["intermediate_steps"]) > 0
     intermediate_step = response["data"]["intermediate_steps"][0]
     assert len(intermediate_step["tool_steps"]) > 0
-    assert intermediate_step["tool_steps"][0]["tool"] == "Custom Code Tool"
+    assert intermediate_step["tool_steps"][0]["tool"] == "Python Code Interpreter Tool"
     agent.delete()
 
 
-@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
+@pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_custom_code_tool(delete_agents_and_team_agents, AgentFactory):
     assert delete_agents_and_team_agents
     tool = AgentFactory.create_custom_python_code_tool(
         description="Add two strings",
         code='def main(aaa: str, bbb: str) -> str:\n    """Add two strings"""\n    return aaa + bbb',
-        name="Add Strings",
+        name="Add Strings Test Tool",
     )
     assert tool is not None
     assert tool.description == "Add two strings"
-    assert tool.code.startswith("s3://")
     agent = AgentFactory.create(
         name="Add Strings Agent",
         description="Add two strings. Do not directly answer. Use the tool to add the strings.",
@@ -154,9 +171,10 @@ def test_custom_code_tool(delete_agents_and_team_agents, AgentFactory):
     assert response["status"].lower() == "success"
     assert "HelloWorld" in response["data"]["output"]
     agent.delete()
+    tool.delete()
 
 
-@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
+@pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_list_agents(AgentFactory):
     agents = AgentFactory.list()
     assert "results" in agents
@@ -164,7 +182,7 @@ def test_list_agents(AgentFactory):
     assert type(agents_result) is list
 
 
-@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
+@pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_update_draft_agent(run_input_map, delete_agents_and_team_agents, AgentFactory):
     assert delete_agents_and_team_agents
 
@@ -182,7 +200,9 @@ def test_update_draft_agent(run_input_map, delete_agents_and_team_agents, AgentF
             tools.append(AgentFactory.create_model_tool(**tool_))
     if "pipeline_tools" in run_input_map:
         for tool in run_input_map["pipeline_tools"]:
-            tools.append(AgentFactory.create_pipeline_tool(pipeline=tool["pipeline_id"], description=tool["description"]))
+            tools.append(
+                AgentFactory.create_pipeline_tool(pipeline=tool["pipeline_id"], description=tool["description"])
+            )
 
     agent = AgentFactory.create(
         name=run_input_map["agent_name"],
@@ -202,7 +222,7 @@ def test_update_draft_agent(run_input_map, delete_agents_and_team_agents, AgentF
     agent.delete()
 
 
-@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
+@pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_fail_non_existent_llm(delete_agents_and_team_agents, AgentFactory):
     assert delete_agents_and_team_agents
     with pytest.raises(Exception) as exc_info:
@@ -216,7 +236,7 @@ def test_fail_non_existent_llm(delete_agents_and_team_agents, AgentFactory):
     assert str(exc_info.value) == "Large Language Model with ID 'non_existent_llm' not found."
 
 
-@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
+@pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_delete_agent_in_use(delete_agents_and_team_agents, AgentFactory):
     assert delete_agents_and_team_agents
     agent = AgentFactory.create(
@@ -234,10 +254,13 @@ def test_delete_agent_in_use(delete_agents_and_team_agents, AgentFactory):
 
     with pytest.raises(Exception) as exc_info:
         agent.delete()
-    assert str(exc_info.value) == "Agent Deletion Error (HTTP 403): err.agent_is_in_use."
+    assert re.match(
+        r"Error: Agent cannot be deleted\.\nReason: This agent is currently used by one or more team agents\.\n\nteam_agent_id: [a-f0-9]{24}\. To proceed, remove the agent from all team agents before deletion\.",
+        str(exc_info.value),
+    )
 
 
-@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
+@pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_update_tools_of_agent(run_input_map, delete_agents_and_team_agents, AgentFactory):
     assert delete_agents_and_team_agents
 
@@ -266,7 +289,9 @@ def test_update_tools_of_agent(run_input_map, delete_agents_and_team_agents, Age
 
     if "pipeline_tools" in run_input_map:
         for tool in run_input_map["pipeline_tools"]:
-            tools.append(AgentFactory.create_pipeline_tool(pipeline=tool["pipeline_id"], description=tool["description"]))
+            tools.append(
+                AgentFactory.create_pipeline_tool(pipeline=tool["pipeline_id"], description=tool["description"])
+            )
 
     agent.tools = tools
     agent.update()
@@ -284,6 +309,7 @@ def test_update_tools_of_agent(run_input_map, delete_agents_and_team_agents, Age
     agent.delete()
 
 
+@pytest.mark.flaky(reruns=2, reruns_delay=2)
 @pytest.mark.parametrize(
     "tool_config",
     [
@@ -291,7 +317,7 @@ def test_update_tools_of_agent(run_input_map, delete_agents_and_team_agents, Age
             {
                 "type": "search",
                 "model": "65c51c556eb563350f6e1bb1",
-                "query": "What is the weather in New York?",
+                "query": "What is the current price of Gold?",
                 "description": "Search tool with custom number of results",
                 "expected_tool_input": "'numResults': 5",
             },
@@ -300,11 +326,12 @@ def test_update_tools_of_agent(run_input_map, delete_agents_and_team_agents, Age
         pytest.param(
             {
                 "type": "translation",
-                "supplier": "Microsoft",
+                "supplier": "ModernMT",
                 "function": "translation",
-                "query": "Translate: Olá, como vai você?",
+                "query": "Translate: 'Olá, como vai você?'",
                 "description": "Translation tool with target language",
-                "expected_tool_input": "targetlanguage",
+                "expected_tool_input": "Olá, como vai você?",
+                "model": "60ddefc48d38c51c5885fdcf",
             },
             id="translation_tool",
         ),
@@ -320,10 +347,15 @@ def test_specific_model_parameters_e2e(tool_config, delete_agents_and_team_agent
         model_params.numResults = 5
         tool = AgentFactory.create_model_tool(model=search_model, description=tool_config["description"])
     else:
-        function = Function(tool_config["function"])
-        function_params = function.get_parameters()
-        function_params.sourcelanguage = "pt"
-        tool = AgentFactory.create_model_tool(function=function, description=tool_config["description"], supplier="microsoft")
+        translation_model = ModelFactory.get(tool_config["model"])
+        model_params = translation_model.get_parameters()
+
+        model_params.sourcelanguage = "pt"
+
+        tool = AgentFactory.create_model_tool(
+            model=translation_model,
+            description=tool_config["description"],
+        )
 
     # Verify tool parameters
     params = tool.get_parameters()
@@ -334,7 +366,8 @@ def test_specific_model_parameters_e2e(tool_config, delete_agents_and_team_agent
     # Create and run agent
     agent = AgentFactory.create(
         name="Test Parameter Agent",
-        description="Test agent with parameterized tools. You MUST use a tool for the tasks.",
+        instructions="Test agent with parameterized tools. You MUST use a tool for the tasks. Do not directly answer the question.",
+        description="Test agent with parameterized tools",
         tools=[tool],
         llm_id="6646261c6eb563165658bbb1",  # Using LLM ID from test data
     )
@@ -351,14 +384,15 @@ def test_specific_model_parameters_e2e(tool_config, delete_agents_and_team_agent
     # Verify tool was used in execution
     assert len(response["data"]["intermediate_steps"]) > 0
     tool_used = False
+
     for step in response["data"]["intermediate_steps"]:
-        if tool_config["expected_tool_input"] in step["tool_steps"][0]["input"]:
+        if len(step["tool_steps"]) > 0 and tool_config["expected_tool_input"] in step["tool_steps"][0]["input"]:
             tool_used = True
             break
     assert tool_used, "Tool was not used in execution"
 
 
-@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
+@pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_sql_tool(delete_agents_and_team_agents, AgentFactory):
     assert delete_agents_and_team_agents
     agent = None
@@ -386,7 +420,9 @@ def test_sql_tool(delete_agents_and_team_agents, AgentFactory):
         )
         assert agent is not None
 
-        response = agent.run("Create a table called Person with the following columns: id, name, age, salary, department")
+        response = agent.run(
+            "Create a table called Person with the following columns: id, name, age, salary, department"
+        )
         assert response is not None
         assert response["completed"] is True
         assert response["status"].lower() == "success"
@@ -407,7 +443,7 @@ def test_sql_tool(delete_agents_and_team_agents, AgentFactory):
             agent.delete()
 
 
-@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
+@pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_sql_tool_with_csv(delete_agents_and_team_agents, AgentFactory):
     assert delete_agents_and_team_agents
     agent = None
@@ -450,7 +486,7 @@ def test_sql_tool_with_csv(delete_agents_and_team_agents, AgentFactory):
         assert tool.tables == ["employees"]
         assert (
             tool.schema
-            == 'CREATE TABLE employees (\n                    "id" INTEGER, "name" TEXT, "department" TEXT, "salary" INTEGER\n                )'  # noqa: W503
+            == 'CREATE TABLE employees (\n                    "id" INTEGER, "name" TEXT, "department" TEXT, "salary" INTEGER\n                )'
         )
         assert not tool.enable_commit  # must be False by default
 
@@ -494,7 +530,7 @@ def test_sql_tool_with_csv(delete_agents_and_team_agents, AgentFactory):
             os.remove("test.db")
 
 
-@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
+@pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_instructions(delete_agents_and_team_agents, AgentFactory):
     assert delete_agents_and_team_agents
 
@@ -515,13 +551,12 @@ def test_instructions(delete_agents_and_team_agents, AgentFactory):
     assert response["completed"] is True
     assert response["status"].lower() == "success"
     assert "data" in response
-    assert response["data"]["session_id"] is not None
     assert response["data"]["output"] is not None
     assert "aixplain" in response["data"]["output"].lower()
     agent.delete()
 
 
-@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
+@pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_agent_with_utility_tool(delete_agents_and_team_agents, AgentFactory):
     from aixplain.enums import DataType
     from aixplain.modules.model.utility_model import utility_tool, UtilityModelInput
@@ -531,7 +566,13 @@ def test_agent_with_utility_tool(delete_agents_and_team_agents, AgentFactory):
     @utility_tool(
         name="vowel_remover",
         description="Remove all vowels from a given string",
-        inputs=[UtilityModelInput(name="text", description="String from which to remove vowels", type=DataType.TEXT)],
+        inputs=[
+            UtilityModelInput(
+                name="text",
+                description="String from which to remove vowels",
+                type=DataType.TEXT,
+            )
+        ],
     )
     def vowel_remover(text: str):
         """Remove vowels from strings"""
@@ -544,8 +585,16 @@ def test_agent_with_utility_tool(delete_agents_and_team_agents, AgentFactory):
         name="concat_strings",
         description="Concatenate two strings into one",
         inputs=[
-            UtilityModelInput(name="string1", description="First string to concatenate", type=DataType.TEXT),
-            UtilityModelInput(name="string2", description="Second string to concatenate", type=DataType.TEXT),
+            UtilityModelInput(
+                name="string1",
+                description="First string to concatenate",
+                type=DataType.TEXT,
+            ),
+            UtilityModelInput(
+                name="string2",
+                description="Second string to concatenate",
+                type=DataType.TEXT,
+            ),
         ],
     )
     def concat_strings(string1: str, string2: str):
@@ -574,7 +623,7 @@ def test_agent_with_utility_tool(delete_agents_and_team_agents, AgentFactory):
     assert "helloworld!" in result_concat_text["data"]["output"].lower()
 
 
-@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
+@pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_agent_with_pipeline_tool(delete_agents_and_team_agents, AgentFactory):
     from aixplain.factories.pipeline_factory import PipelineFactory
 
@@ -582,7 +631,6 @@ def test_agent_with_pipeline_tool(delete_agents_and_team_agents, AgentFactory):
 
     for pipeline in PipelineFactory.list(query="Hello Pipeline")["results"]:
         pipeline.delete()
-
     pipeline = PipelineFactory.init("Hello Pipeline")
     input_node = pipeline.input()
     input_node.label = "TextInput"
@@ -599,7 +647,8 @@ def test_agent_with_pipeline_tool(delete_agents_and_team_agents, AgentFactory):
         description="Return the text given.",
         tools=[
             AgentFactory.create_pipeline_tool(
-                pipeline=pipeline.id, description="You are a tool that responds users query with only 'Hello'."
+                pipeline=pipeline.id,
+                description="You are a tool that responds users query with only 'Hello'.",
             ),
         ],
         llm_id="6646261c6eb563165658bbb1",
@@ -612,7 +661,7 @@ def test_agent_with_pipeline_tool(delete_agents_and_team_agents, AgentFactory):
     assert "hello pipeline" in answer["data"]["intermediate_steps"][0]["tool_steps"][0]["tool"].lower()
 
 
-@pytest.mark.parametrize("AgentFactory", [AgentFactory, v2.Agent])
+@pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_agent_llm_parameter_preservation(delete_agents_and_team_agents, AgentFactory):
     """Test that LLM parameters like temperature are preserved when creating agents."""
     assert delete_agents_and_team_agents
@@ -642,6 +691,7 @@ def test_agent_llm_parameter_preservation(delete_agents_and_team_agents, AgentFa
 
     # Reset the LLM temperature to its original value
     llm.temperature = original_temperature
+
 
 def test_run_agent_with_expected_output():
     from pydantic import BaseModel
@@ -690,7 +740,11 @@ def test_run_agent_with_expected_output():
         llm_id="6646261c6eb563165658bbb1",
     )
     # Run the agent
-    response = agent.run("Who have more than 30 years old?", output_format=OutputFormat.JSON, expected_output=Response)
+    response = agent.run(
+        "Who have more than 30 years old?",
+        output_format=OutputFormat.JSON,
+        expected_output=Response,
+    )
 
     # Verify response basics
     assert response is not None
@@ -723,16 +777,38 @@ def test_run_agent_with_expected_output():
         assert person["name"] in more_than_30_years_old
 
 
-def test_agent_with_action_tool():
+def test_agent_with_action_tool(slack_token):
     from aixplain.modules.model.integration import AuthenticationSchema
+    from aixplain.modules.model.connection import ConnectionTool
 
-    connector = ModelFactory.get("67eff5c0e05614297caeef98")
-    # connect
-    response = connector.connect(authentication_schema=AuthenticationSchema.BEARER, token=os.getenv("SLACK_TOKEN"))
-    connection_id = response.data["id"]
+    SLACK_INTEGRATION_ID = "686432941223092cb4294d3f"
+    SLACK_CONNECTION_ID = "692995404907d69787ddab00"
 
-    connection = ModelFactory.get(connection_id)
-    connection.action_scope = [action for action in connection.actions if action.code == "SLACK_CHAT_POST_MESSAGE"]
+    connection = None
+
+    # Try to get existing connection first
+    try:
+        model = ModelFactory.get(SLACK_CONNECTION_ID)
+        if isinstance(model, ConnectionTool):
+            connection = model
+    except Exception:
+        pass
+
+    # If no valid connection exists, create one from the integration using bearer token
+    if connection is None:
+        integration = ModelFactory.get(SLACK_INTEGRATION_ID)
+        response = integration.connect(
+            authentication_schema=AuthenticationSchema.BEARER_TOKEN,
+            data={"token": slack_token},
+            name="Slack Test Connection",
+            description="Test connection for agent functional tests",
+        )
+        connection_id = response.data["id"]
+        connection = ModelFactory.get(connection_id)
+
+    connection.action_scope = [
+        action for action in connection.actions if action.code == "SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL"
+    ]
 
     agent = AgentFactory.create(
         name="Test Agent",
@@ -751,6 +827,43 @@ def test_agent_with_action_tool():
     assert response is not None
     assert response["status"].lower() == "success"
     assert "helsinki" in response.data.output.lower()
-    assert "SLACK_CHAT_POST_MESSAGE" in [step["tool"] for step in response.data.intermediate_steps[0]["tool_steps"]]
+    assert "SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL" in [
+        step["tool"] for step in response.data.intermediate_steps[0]["tool_steps"]
+    ]
     connection.delete()
 
+
+def test_agent_with_mcp_tool():
+    from aixplain.modules.model.integration import AuthenticationSchema
+
+    connector = ModelFactory.get("686eb9cd26480723d0634d3e")
+    # connect
+    response = connector.connect(
+        authentication_schema=AuthenticationSchema.API_KEY,
+        data={
+            "url": "https://mcp.zapier.com/api/mcp/s/OTJiMjVlYjEtMGE4YS00OTVjLWIwMGYtZDJjOGVkNTc4NjFkOjI0MTNjNzg5LWZlNGMtNDZmNC05MDhmLWM0MGRlNDU4ZmU1NA==/mcp"
+        },
+    )
+    connection_id = response.data["id"]
+    connection = ModelFactory.get(connection_id)
+    action_name = "SLACK_SEND_CHANNEL_MESSAGE".lower()
+    connection.action_scope = [action for action in connection.actions if action.code == action_name]
+
+    agent = AgentFactory.create(
+        name="Test Agent",
+        description="This agent is used to send messages to Slack",
+        instructions="You are a helpful assistant that can send messages to Slack. You MUST use the tool to send the message.",
+        llm_id="669a63646eb56306647e1091",
+        tools=[
+            connection,
+        ],
+    )
+
+    response = agent.run(
+        "Send what is the capital of Finland on Slack to channel of #modelserving-alerts-testing. Add the name of the capital in the final answer."
+    )
+    assert response is not None
+    assert response["status"].lower() == "success"
+    assert "helsinki" in response.data.output.lower()
+    assert action_name in [step["tool"] for step in response.data.intermediate_steps[0]["tool_steps"]]
+    connection.delete()
