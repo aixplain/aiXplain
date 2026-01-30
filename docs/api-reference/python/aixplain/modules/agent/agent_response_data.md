@@ -3,13 +3,19 @@ sidebar_label: agent_response_data
 title: aixplain.modules.agent.agent_response_data
 ---
 
+Agent response data.
+
+This module contains the AgentResponseData class, which is used to encapsulate the
+input, output, and execution details of an agent&#x27;s response, including intermediate
+steps and execution statistics.
+
 ### AgentResponseData Objects
 
 ```python
 class AgentResponseData()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/agent_response_data.py#L4)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/agent_response_data.py#L11)
 
 A container for agent execution response data.
 
@@ -22,6 +28,7 @@ response, including intermediate steps and execution statistics.
 - `output` _Optional[Any]_ - The final output from the agent.
 - `session_id` _str_ - Identifier for the conversation session.
 - `intermediate_steps` _List[Any]_ - List of steps taken during execution.
+- `steps` _List[Any]_ - Reformatted list of steps with detailed execution info.
 - `execution_stats` _Optional[Dict[str, Any]]_ - Statistics about the execution.
 - `critiques` _str_ - Any critiques or feedback about the execution.
 
@@ -32,11 +39,12 @@ def __init__(input: Optional[Any] = None,
              output: Optional[Any] = None,
              session_id: str = "",
              intermediate_steps: Optional[List[Any]] = None,
+             steps: Optional[List[Any]] = None,
              execution_stats: Optional[Dict[str, Any]] = None,
              critiques: Optional[str] = None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/agent_response_data.py#L18)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/agent_response_data.py#L27)
 
 Initialize a new AgentResponseData instance.
 
@@ -50,6 +58,8 @@ Initialize a new AgentResponseData instance.
   Defaults to &quot;&quot;.
 - `intermediate_steps` _Optional[List[Any]], optional_ - List of steps taken
   during execution. Defaults to None.
+- `steps` _Optional[List[Any]], optional_ - Reformatted list of steps with
+  detailed execution info. Defaults to None.
 - `execution_stats` _Optional[Dict[str, Any]], optional_ - Statistics about
   the execution. Defaults to None.
 - `critiques` _Optional[str], optional_ - Any critiques or feedback about
@@ -62,7 +72,7 @@ Initialize a new AgentResponseData instance.
 def from_dict(cls, data: Dict[str, Any]) -> "AgentResponseData"
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/agent_response_data.py#L51)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/agent_response_data.py#L64)
 
 Create an AgentResponseData instance from a dictionary.
 
@@ -73,6 +83,7 @@ Create an AgentResponseData instance from a dictionary.
   - output: The final output from the agent
   - session_id: Identifier for the conversation session
   - intermediate_steps: List of steps taken during execution
+  - steps: Reformatted list of steps with detailed execution info
   - executionStats: Statistics about the execution
   - critiques: Any critiques or feedback
   
@@ -87,7 +98,7 @@ Create an AgentResponseData instance from a dictionary.
 def to_dict() -> Dict[str, Any]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/agent_response_data.py#L75)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/agent_response_data.py#L90)
 
 Convert the response data to a dictionary representation.
 
@@ -98,9 +109,31 @@ Convert the response data to a dictionary representation.
   - output: The final output from the agent
   - session_id: Identifier for the conversation session
   - intermediate_steps: List of steps taken during execution
+  - steps: Reformatted list of steps with detailed execution info
   - executionStats: Statistics about the execution
   - execution_stats: Alias for executionStats
   - critiques: Any critiques or feedback
+
+#### get
+
+```python
+def get(key: str, default: Optional[Any] = None) -> Any
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/agent_response_data.py#L115)
+
+Get an attribute value using attribute-style access.
+
+**Arguments**:
+
+- `key` _str_ - The name of the attribute to get.
+- `default` _Optional[Any], optional_ - The value to return if the attribute
+  is not found. Defaults to None.
+  
+
+**Returns**:
+
+- `Any` - The value of the attribute, or the default value if not found.
 
 #### \_\_getitem\_\_
 
@@ -108,7 +141,7 @@ Convert the response data to a dictionary representation.
 def __getitem__(key: str) -> Any
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/agent_response_data.py#L101)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/agent_response_data.py#L128)
 
 Get an attribute value using dictionary-style access.
 
@@ -127,7 +160,7 @@ Get an attribute value using dictionary-style access.
 def __setitem__(key: str, value: Any) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/agent_response_data.py#L112)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/agent_response_data.py#L139)
 
 Set an attribute value using dictionary-style access.
 
@@ -147,7 +180,7 @@ Set an attribute value using dictionary-style access.
 def __repr__() -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/agent_response_data.py#L127)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/agent_response_data.py#L154)
 
 Return a string representation of the response data.
 
@@ -161,7 +194,7 @@ Return a string representation of the response data.
 def __contains__(key: Text) -> bool
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/agent_response_data.py#L143)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/agent_response_data.py#L171)
 
 Check if an attribute exists using &#x27;in&#x27; operator.
 

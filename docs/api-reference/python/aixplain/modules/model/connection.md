@@ -28,7 +28,7 @@ Description:
 class ConnectAction()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/connection.py#L27)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/connection.py#L28)
 
 A class representing an action that can be performed by a connection.
 
@@ -51,7 +51,7 @@ def __init__(name: Text,
              inputs: Optional[Dict] = None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/connection.py#L45)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/connection.py#L46)
 
 Initialize a new ConnectAction instance.
 
@@ -68,7 +68,7 @@ Initialize a new ConnectAction instance.
 def __repr__()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/connection.py#L65)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/connection.py#L66)
 
 Return a string representation of the ConnectAction instance.
 
@@ -82,7 +82,7 @@ Return a string representation of the ConnectAction instance.
 class ConnectionTool(Model)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/connection.py#L74)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/connection.py#L75)
 
 A class representing a connection tool.
 
@@ -109,7 +109,7 @@ def __init__(id: Text,
              **additional_info) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/connection.py#L87)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/connection.py#L88)
 
 Initialize a new ConnectionTool instance.
 
@@ -133,7 +133,7 @@ Initialize a new ConnectionTool instance.
 def get_action_inputs(action: Union[ConnectAction, Text])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/connection.py#L160)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/connection.py#L161)
 
 Retrieve the input parameters required for a specific action.
 
@@ -158,7 +158,7 @@ Retrieve the input parameters required for a specific action.
 def run(action: Union[ConnectAction, Text], inputs: Dict)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/connection.py#L194)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/connection.py#L204)
 
 Execute a specific action with the provided inputs.
 
@@ -179,7 +179,7 @@ Execute a specific action with the provided inputs.
 def get_parameters() -> List[Dict]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/connection.py#L209)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/connection.py#L219)
 
 Get the parameters for all actions in the current action scope.
 
@@ -187,12 +187,8 @@ Get the parameters for all actions in the current action scope.
 
 - `List[Dict]` - A list of dictionaries containing the parameters for each action
   in the action scope. Each dictionary contains the action&#x27;s code, name,
-  description, and input parameters.
-  
-
-**Raises**:
-
-- `AssertionError` - If the action scope is not set or is empty.
+  description, and input parameters. Returns an empty list if action_scope
+  is not set or is empty.
 
 #### \_\_repr\_\_
 
@@ -200,7 +196,7 @@ Get the parameters for all actions in the current action scope.
 def __repr__()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/connection.py#L234)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/connection.py#L244)
 
 Return a string representation of the ConnectionTool instance.
 

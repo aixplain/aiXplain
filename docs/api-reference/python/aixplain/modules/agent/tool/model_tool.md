@@ -201,7 +201,7 @@ Validates and formats the parameters for the tool.
 def __repr__() -> Text
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/tool/model_tool.py#L315)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/tool/model_tool.py#L320)
 
 Return a string representation of the tool.
 

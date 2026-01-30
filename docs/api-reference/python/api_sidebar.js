@@ -32,6 +32,7 @@
             "api-reference/python/aixplain/enums/file_type",
             "api-reference/python/aixplain/enums/function",
             "api-reference/python/aixplain/enums/function_type",
+            "api-reference/python/aixplain/enums/generated_enums",
             "api-reference/python/aixplain/enums/index_stores",
             "api-reference/python/aixplain/enums/language",
             "api-reference/python/aixplain/enums/license",
@@ -118,7 +119,6 @@
             {
               "items": [
                 "api-reference/python/aixplain/factories/team_agent_factory/init",
-                "api-reference/python/aixplain/factories/team_agent_factory/inspector_factory",
                 "api-reference/python/aixplain/factories/team_agent_factory/utils"
               ],
               "label": "aixplain.factories.team_agent_factory",
@@ -148,7 +148,6 @@
                 {
                   "items": [
                     "api-reference/python/aixplain/modules/agent/tool/init",
-                    "api-reference/python/aixplain/modules/agent/tool/custom_python_code_tool",
                     "api-reference/python/aixplain/modules/agent/tool/model_tool",
                     "api-reference/python/aixplain/modules/agent/tool/pipeline_tool",
                     "api-reference/python/aixplain/modules/agent/tool/python_interpreter_tool",
@@ -285,6 +284,7 @@
           "items": [
             "api-reference/python/aixplain/v2/init",
             "api-reference/python/aixplain/v2/agent",
+            "api-reference/python/aixplain/v2/agent_progress",
             "api-reference/python/aixplain/v2/client",
             "api-reference/python/aixplain/v2/core",
             "api-reference/python/aixplain/v2/enums",
@@ -293,6 +293,7 @@
             "api-reference/python/aixplain/v2/file",
             "api-reference/python/aixplain/v2/inspector",
             "api-reference/python/aixplain/v2/integration",
+            "api-reference/python/aixplain/v2/meta_agents",
             "api-reference/python/aixplain/v2/mixins",
             "api-reference/python/aixplain/v2/model",
             "api-reference/python/aixplain/v2/resource",
