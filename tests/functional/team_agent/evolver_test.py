@@ -108,7 +108,6 @@ def build_team_agent_from_json(team_config: dict):
         agents=agent_objs,
         description=team_config["description"],
         llm_id=team_config.get("llm_id", None),
-        inspectors=[],
         use_mentalist=True,
     )
 

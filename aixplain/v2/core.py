@@ -11,6 +11,7 @@ from .tool import Tool
 from .integration import Integration
 from .file import Resource
 from .inspector import Inspector
+from .meta_agents import Debugger
 from . import enums
 
 
@@ -21,6 +22,7 @@ ToolType = TypeVar("ToolType", bound=Tool)
 IntegrationType = TypeVar("IntegrationType", bound=Integration)
 ResourceType = TypeVar("ResourceType", bound=Resource)
 InspectorType = TypeVar("InspectorType", bound=Inspector)
+DebuggerType = TypeVar("DebuggerType", bound=Debugger)
 
 
 class Aixplain:
@@ -43,6 +45,7 @@ class Aixplain:
     Integration: IntegrationType = None
     Resource: ResourceType = None
     Inspector: InspectorType = None
+    Debugger: DebuggerType = None
 
     Function = enums.Function
     Supplier = enums.Supplier
@@ -63,9 +66,7 @@ class Aixplain:
     BACKEND_URL = "https://platform-api.aixplain.com"
     BENCHMARKS_BACKEND_URL = "https://platform-api.aixplain.com"
     MODELS_RUN_URL = "https://models.aixplain.com/api/v2/execute"
-    PIPELINES_RUN_URL = (
-        "https://platform-api.aixplain.com/assets/pipeline/execution/run"
-    )
+    PIPELINES_RUN_URL = "https://platform-api.aixplain.com/assets/pipeline/execution/run"
 
     def __init__(
         self,
@@ -89,9 +90,7 @@ class Aixplain:
         )
 
         self.backend_url = backend_url or os.getenv("BACKEND_URL") or self.BACKEND_URL
-        self.pipeline_url = (
-            pipeline_url or os.getenv("PIPELINES_RUN_URL") or self.PIPELINES_RUN_URL
-        )
+        self.pipeline_url = pipeline_url or os.getenv("PIPELINES_RUN_URL") or self.PIPELINES_RUN_URL
         self.model_url = model_url or os.getenv("MODELS_RUN_URL") or self.MODELS_RUN_URL
 
         self.init_client()
@@ -117,3 +116,4 @@ class Aixplain:
         self.Integration = type("Integration", (Integration,), {"context": self})
         self.Resource = type("Resource", (Resource,), {"context": self})
         self.Inspector = type("Inspector", (Inspector,), {"context": self})
+        self.Debugger = type("Debugger", (Debugger,), {"context": self})

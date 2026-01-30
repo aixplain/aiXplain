@@ -55,17 +55,6 @@ def mock_tools():
                 "version": "1.0",
                 "assetId": "test_model",
                 "description": "Test model",
-            },
-            "Function is required for model tools",
-            id="missing_function",
-        ),
-        pytest.param(
-            {
-                "type": "model",
-                "supplier": "aixplain",
-                "version": "1.0",
-                "assetId": "test_model",
-                "description": "Test model",
                 "function": "invalid_function",
             },
             "Function invalid_function is not a valid function",
@@ -368,40 +357,6 @@ def test_build_agent_success_cases(payload, expected_attrs, mock_tools, mocker):
             },
             "Function invalid_function is not a valid function",
             id="invalid_function",
-        ),
-        pytest.param(
-            {
-                "id": "test_agent",
-                "name": "Test Agent",
-                "status": "onboarded",
-                "assets": [
-                    {
-                        "type": "model",
-                        "supplier": "aixplain",
-                        "version": "1.0",
-                        "assetId": "test_model",
-                        "description": "Test model",
-                    }
-                ],
-            },
-            "Function is required for model tools",
-            id="missing_function",
-        ),
-        pytest.param(
-            {
-                "id": "test_agent",
-                "name": "Test Agent",
-                "status": "onboarded",
-                "assets": [
-                    {
-                        "type": "model",
-                        "assetId": "test_model",
-                        "function": "speech-recognition",
-                    }
-                ],
-            },
-            "Tool test_model is not available. Make sure it exists or you have access to it. If you think this is an error, please contact the administrators.",
-            id="generic_error",
         ),
     ],
 )

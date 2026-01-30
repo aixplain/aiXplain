@@ -297,7 +297,8 @@ class Attribute:
     """Common attribute structure from the API response."""
 
     name: str
-    code: str
+    code: Optional[Any] = None
+    value: Optional[Any] = None
 
 
 @dataclass_json
@@ -306,9 +307,9 @@ class Parameter:
     """Common parameter structure from the API response."""
 
     name: str
-    required: bool
-    multiple_values: bool = field(metadata=config(field_name="multipleValues"))
-    is_fixed: bool = field(metadata=config(field_name="isFixed"))
+    required: bool = False
+    multiple_values: bool = field(default=False, metadata=config(field_name="multipleValues"))
+    is_fixed: bool = field(default=False, metadata=config(field_name="isFixed"))
     data_type: Optional[str] = field(default=None, metadata=config(field_name="dataType"))
     data_sub_type: Optional[str] = field(default=None, metadata=config(field_name="dataSubType"))
     values: List[Any] = field(default_factory=list)
@@ -356,6 +357,9 @@ class ModelSearchParams(BaseSearchParams):
     saved: NotRequired[bool]
     status: NotRequired[List[str]]
     q: NotRequired[str]  # Search query parameter as per Swagger spec
+    host: NotRequired[str]  # Filter by host (e.g., "openai", "aiXplain")
+    developer: NotRequired[str]  # Filter by developer (e.g., "OpenAI")
+    path: NotRequired[str]  # Filter by path prefix (e.g., "openai/gpt-4")
 
 
 class ModelRunParams(BaseRunParams):
@@ -459,24 +463,20 @@ class Model(
         query: Optional[str] = None,
         **kwargs: Unpack[ModelSearchParams],
     ) -> Page["Model"]:
-        """Search models with optional query and filtering.
+        """Search with optional query and filtering.
 
         Args:
             query: Optional search query string
             **kwargs: Additional search parameters (functions, suppliers, etc.)
 
         Returns:
-            Page of models matching the search criteria
+            Page of items matching the search criteria
         """
         # If query is provided, add it to kwargs
         if query is not None:
             kwargs["query"] = query
 
-        # Use v1 endpoint for search as v2 endpoint doesn't fully support
-        # all filters. Also override items key since v1 endpoint uses
-        # "items" instead of "results"
-        kwargs["resource_path"] = "sdk/models"
-        kwargs["paginate_items_key"] = "items"
+        # Use v2 endpoint - it uses "results" as the items key (default)
         return super().search(**kwargs)
 
     def run(self, **kwargs: Unpack[ModelRunParams]) -> ModelResult:
@@ -663,15 +663,27 @@ class Model(
         if params.get("saved") is not None:
             filters["saved"] = params["saved"]
 
+        # Handle host filter (maps to hostedBy in API)
+        if params.get("host") is not None:
+            filters["hosts"] = [params["host"]]
+
+        # Handle developer filter (maps to developedBy in API)
+        if params.get("developer") is not None:
+            filters["developers"] = [params["developer"]]
+
+        # Handle path prefix filter (e.g., "openai/gpt-4")
+        if params.get("path") is not None:
+            filters["path"] = params["path"]
+
         # functions - accept list of strings and convert to backend shape
-        # Use v1 format: array of strings (works with sdk/models/paginate endpoint)
+        # Use v2 format: array of objects with "id" key (required by v2/models/paginate endpoint)
         if params.get("functions") is not None:
             functions_param = params["functions"]
             if isinstance(functions_param, list):
-                filters["functions"] = [(f.value if hasattr(f, "value") else str(f)) for f in functions_param]
+                filters["functions"] = [{"id": (f.value if hasattr(f, "value") else str(f))} for f in functions_param]
             else:
                 value = functions_param.value if hasattr(functions_param, "value") else str(functions_param)
-                filters["functions"] = [value]
+                filters["functions"] = [{"id": value}]
 
         # suppliers - should be array of strings
         if params.get("vendors") is not None:

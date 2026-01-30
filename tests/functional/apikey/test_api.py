@@ -1,5 +1,6 @@
 from aixplain.factories.api_key_factory import APIKeyFactory
 from aixplain.modules import APIKey, APIKeyLimits, APIKeyUsageLimit
+from aixplain.modules.api_key import TokenType
 from datetime import datetime, timedelta, timezone
 import json
 import pytest
@@ -274,3 +275,166 @@ def test_06_create_api_key_wrong_input(APIKeyFactory):
             budget=-1000,
             expires_at="invalid_date",
         )
+
+
+@pytest.mark.parametrize("APIKeyFactory", [APIKeyFactory])
+def test_07_create_api_key_with_token_type_input(APIKeyFactory):
+    """Test creating API key with token_type set to INPUT."""
+    expires_at = (datetime.now(timezone.utc) + timedelta(weeks=4)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    api_key = None
+
+    try:
+        api_key = APIKeyFactory.create(
+            name=TEST_API_KEY_NAME,
+            asset_limits=[
+                APIKeyLimits(
+                    model="640b517694bf816d35a59125",
+                    token_per_minute=100,
+                    token_per_day=1000,
+                    request_per_day=1000,
+                    request_per_minute=100,
+                    token_type=TokenType.INPUT,
+                )
+            ],
+            global_limits=APIKeyLimits(
+                token_per_minute=100,
+                token_per_day=1000,
+                request_per_day=1000,
+                request_per_minute=100,
+                token_type=TokenType.INPUT,
+            ),
+            budget=1000,
+            expires_at=expires_at,
+        )
+
+        assert isinstance(api_key, APIKey)
+        assert api_key.id != ""
+        assert api_key.name == TEST_API_KEY_NAME
+        assert api_key.global_limits.token_type == TokenType.INPUT
+        assert api_key.asset_limits[0].token_type == TokenType.INPUT
+    finally:
+        if api_key:
+            api_key.delete()
+
+
+@pytest.mark.parametrize("APIKeyFactory", [APIKeyFactory])
+def test_08_create_api_key_with_token_type_output(APIKeyFactory):
+    """Test creating API key with token_type set to OUTPUT."""
+    expires_at = (datetime.now(timezone.utc) + timedelta(weeks=4)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    api_key = None
+
+    try:
+        api_key = APIKeyFactory.create(
+            name=TEST_API_KEY_NAME,
+            asset_limits=[
+                APIKeyLimits(
+                    model="640b517694bf816d35a59125",
+                    token_per_minute=100,
+                    token_per_day=1000,
+                    request_per_day=1000,
+                    request_per_minute=100,
+                    token_type=TokenType.OUTPUT,
+                )
+            ],
+            global_limits=APIKeyLimits(
+                token_per_minute=100,
+                token_per_day=1000,
+                request_per_day=1000,
+                request_per_minute=100,
+                token_type=TokenType.OUTPUT,
+            ),
+            budget=1000,
+            expires_at=expires_at,
+        )
+
+        assert isinstance(api_key, APIKey)
+        assert api_key.id != ""
+        assert api_key.global_limits.token_type == TokenType.OUTPUT
+        assert api_key.asset_limits[0].token_type == TokenType.OUTPUT
+    finally:
+        if api_key:
+            api_key.delete()
+
+
+@pytest.mark.parametrize("APIKeyFactory", [APIKeyFactory])
+def test_09_create_api_key_with_token_type_total(APIKeyFactory):
+    """Test creating API key with token_type set to TOTAL."""
+    expires_at = (datetime.now(timezone.utc) + timedelta(weeks=4)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    api_key = None
+
+    try:
+        api_key = APIKeyFactory.create(
+            name=TEST_API_KEY_NAME,
+            asset_limits=[
+                APIKeyLimits(
+                    model="640b517694bf816d35a59125",
+                    token_per_minute=100,
+                    token_per_day=1000,
+                    request_per_day=1000,
+                    request_per_minute=100,
+                    token_type=TokenType.TOTAL,
+                )
+            ],
+            global_limits=APIKeyLimits(
+                token_per_minute=100,
+                token_per_day=1000,
+                request_per_day=1000,
+                request_per_minute=100,
+                token_type=TokenType.TOTAL,
+            ),
+            budget=1000,
+            expires_at=expires_at,
+        )
+
+        assert isinstance(api_key, APIKey)
+        assert api_key.id != ""
+        assert api_key.global_limits.token_type == TokenType.TOTAL
+        assert api_key.asset_limits[0].token_type == TokenType.TOTAL
+    finally:
+        if api_key:
+            api_key.delete()
+
+
+@pytest.mark.parametrize("APIKeyFactory", [APIKeyFactory])
+def test_10_update_api_key_token_type(APIKeyFactory):
+    """Test updating API key token_type."""
+    expires_at = (datetime.now(timezone.utc) + timedelta(weeks=4)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    api_key = None
+
+    try:
+        # Create with INPUT token_type
+        api_key = APIKeyFactory.create(
+            name=TEST_API_KEY_NAME,
+            asset_limits=[
+                APIKeyLimits(
+                    model="640b517694bf816d35a59125",
+                    token_per_minute=100,
+                    token_per_day=1000,
+                    request_per_day=1000,
+                    request_per_minute=100,
+                    token_type=TokenType.INPUT,
+                )
+            ],
+            global_limits=APIKeyLimits(
+                token_per_minute=100,
+                token_per_day=1000,
+                request_per_day=1000,
+                request_per_minute=100,
+                token_type=TokenType.INPUT,
+            ),
+            budget=1000,
+            expires_at=expires_at,
+        )
+
+        assert api_key.global_limits.token_type == TokenType.INPUT
+
+        # Update to OUTPUT token_type
+        api_key.global_limits.token_type = TokenType.OUTPUT
+        api_key.asset_limits[0].token_type = TokenType.OUTPUT
+        updated_api_key = APIKeyFactory.update(api_key)
+
+        assert updated_api_key.global_limits.token_type == TokenType.OUTPUT
+        assert updated_api_key.asset_limits[0].token_type == TokenType.OUTPUT
+    finally:
+        if api_key:
+            api_key.delete()
