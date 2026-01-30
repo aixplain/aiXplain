@@ -48,7 +48,8 @@ def upload(cls,
            tags: Optional[List[Text]] = None,
            license: Optional[License] = None,
            is_temp: bool = True,
-           return_download_link: bool = False) -> Text
+           return_download_link: bool = False,
+           api_key: Optional[Text] = None) -> Text
 ```
 
 [[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/file_factory.py#L49)
@@ -99,7 +100,7 @@ This method uploads a file to S3 storage with size limits based on file type:
 def check_storage_type(cls, input_link: Any) -> StorageType
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/file_factory.py#L137)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/file_factory.py#L138)
 
 Determine the storage type of a given input.
 
@@ -125,7 +126,7 @@ This method checks whether the input is a local file path, a URL
 def to_link(cls, data: Union[Text, Dict], **kwargs) -> Union[Text, Dict]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/file_factory.py#L165)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/file_factory.py#L166)
 
 Convert local file paths to aiXplain platform links.
 
@@ -157,7 +158,7 @@ def create(cls,
            is_temp: bool = False) -> Text
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/file_factory.py#L193)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/file_factory.py#L194)
 
 Create a permanent or temporary file asset in the platform.
 

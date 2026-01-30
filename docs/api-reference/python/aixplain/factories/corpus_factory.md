@@ -46,19 +46,17 @@ evaluating AI models.
 
 ```python
 @classmethod
-def get(cls, corpus_id: Text) -> Corpus
+def get(cls, corpus_id: Text, api_key: str = None) -> Corpus
 ```
 
 [[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/corpus_factory.py#L128)
 
-Retrieve a corpus by its ID.
-
-This method fetches a corpus and all its associated data assets from
-the platform.
+Create a &#x27;Corpus&#x27; object from corpus id
 
 **Arguments**:
 
-- `corpus_id` _Text_ - Unique identifier of the corpus to retrieve.
+- `corpus_id` _Text_ - Corpus ID of required corpus.
+- `api_key` _str, optional_ - Team API key. Defaults to None.
   
 
 **Returns**:
@@ -87,7 +85,7 @@ def list(cls,
          page_size: int = 20) -> Dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/corpus_factory.py#L176)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/corpus_factory.py#L173)
 
 List and filter corpora with pagination support.
 
@@ -138,7 +136,7 @@ def get_assets_from_page(cls,
                          language: Optional[Text] = None) -> List[Corpus]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/corpus_factory.py#L278)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/corpus_factory.py#L275)
 
 Retrieve a paginated list of corpora with optional filters.
 
@@ -182,7 +180,7 @@ def create(cls,
            api_key: Optional[Text] = None) -> Dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/corpus_factory.py#L310)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/corpus_factory.py#L307)
 
 Create a new corpus from data files.
 

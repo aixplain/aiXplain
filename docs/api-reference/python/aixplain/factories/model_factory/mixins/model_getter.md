@@ -23,7 +23,8 @@ with support for caching to improve performance.
 def get(cls,
         model_id: Text,
         api_key: Optional[Text] = None,
-        use_cache: bool = False) -> Model
+        use_cache: bool = False,
+        **kwargs) -> Model
 ```
 
 [[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/model_factory/mixins/model_getter.py#L19)

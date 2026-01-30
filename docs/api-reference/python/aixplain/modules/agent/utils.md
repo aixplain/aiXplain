@@ -42,7 +42,7 @@ formatted.
 def validate_history(history)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/utils.py#L55)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/utils.py#L49)
 
 Validates that `history` is a list of dicts, each with &#x27;role&#x27; and &#x27;content&#x27; keys.
 Raises a ValueError if validation fails.

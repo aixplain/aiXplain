@@ -24,7 +24,7 @@ monitoring API keys, including their usage limits and budgets.
 
 ```python
 @classmethod
-def get(cls, api_key: Text) -> APIKey
+def get(cls, api_key: Text, **kwargs) -> APIKey
 ```
 
 [[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/api_key_factory.py#L22)
@@ -52,10 +52,10 @@ characters of the provided key.
 
 ```python
 @classmethod
-def list(cls) -> List[APIKey]
+def list(cls, **kwargs) -> List[APIKey]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/api_key_factory.py#L43)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/api_key_factory.py#L44)
 
 List all API keys accessible to the current user.
 
@@ -78,11 +78,11 @@ using the configured TEAM_API_KEY.
 @classmethod
 def create(cls, name: Text, budget: int, global_limits: Union[Dict,
                                                               APIKeyLimits],
-           asset_limits: List[Union[Dict, APIKeyLimits]],
-           expires_at: datetime) -> APIKey
+           asset_limits: List[Union[Dict, APIKeyLimits]], expires_at: datetime,
+           **kwargs) -> APIKey
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/api_key_factory.py#L85)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/api_key_factory.py#L101)
 
 Create a new API key with specified limits and budget.
 
@@ -114,10 +114,10 @@ and expiration date.
 
 ```python
 @classmethod
-def update(cls, api_key: APIKey) -> APIKey
+def update(cls, api_key_obj: APIKey, **kwargs) -> APIKey
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/api_key_factory.py#L145)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/api_key_factory.py#L176)
 
 Update an existing API key&#x27;s configuration.
 
@@ -147,13 +147,13 @@ expiration date. The API key must be validated before update.
 
 ```python
 @classmethod
-def get_usage_limits(
-        cls,
-        api_key: Text = config.TEAM_API_KEY,
-        asset_id: Optional[Text] = None) -> List[APIKeyUsageLimit]
+def get_usage_limits(cls,
+                     api_key: Text = None,
+                     asset_id: Optional[Text] = None,
+                     **kwargs) -> List[APIKeyUsageLimit]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/api_key_factory.py#L194)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/api_key_factory.py#L237)
 
 Retrieve current usage limits and counts for an API key.
 
