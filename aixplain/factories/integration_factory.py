@@ -48,11 +48,28 @@ class IntegrationFactory(ModelGetterMixin, ModelListMixin):
         Raises:
             AssertionError: If the provided ID/name does not correspond to an Integration model.
             ValueError: If neither model_id nor name is provided, or if both are provided.
+            Exception: If the integration with the given name is not found.
         """
-        model = super().get(model_id=model_id, name=name, api_key=api_key, use_cache=use_cache)
-        identifier = model_id or name
+        # Validate that exactly one parameter is provided
+        if not (model_id or name) or (model_id and name):
+            raise ValueError("Must provide exactly one of 'model_id' or 'name'")
+
+        # If name is provided, use list endpoint since by-name endpoint doesn't support integrations
+        if name:
+            result = cls.list(query=name, api_key=api_key)
+            integrations = result.get("results", [])
+            for integration in integrations:
+                if integration.name == name:
+                    return integration
+            raise Exception(
+                f"Integration GET by Name Error: Failed to retrieve integration '{name}'. "
+                "No integration found with this exact name."
+            )
+
+        # If model_id is provided, use parent's get method
+        model = super().get(model_id=model_id, api_key=api_key, use_cache=use_cache)
         assert isinstance(model, Integration), (
-            f"The provided identifier ('{identifier}') is not from an integration model"
+            f"The provided identifier ('{model_id}') is not from an integration model"
         )
         return model
 
