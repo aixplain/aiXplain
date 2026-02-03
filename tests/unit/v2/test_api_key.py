@@ -43,6 +43,11 @@ class TestTokenType:
         assert TokenType("output") == TokenType.OUTPUT
         assert TokenType("total") == TokenType.TOTAL
 
+    def test_token_type_invalid_string_raises_error(self):
+        """TokenType should raise ValueError for invalid strings."""
+        with pytest.raises(ValueError):
+            TokenType("invalid")
+
 
 # =============================================================================
 # APIKeyLimits Tests
@@ -145,6 +150,30 @@ class TestAPIKeyLimits:
         assert limits.request_per_day == 100
         assert limits.model_id == "model123"
         assert limits.token_type == TokenType.INPUT
+
+    def test_limits_from_dict_output_token_type(self):
+        """from_dict() should parse OUTPUT token type."""
+        data = {"tpm": 100, "tpd": 1000, "rpm": 10, "rpd": 100, "tokenType": "output"}
+
+        limits = APIKeyLimits.from_dict(data)
+
+        assert limits.token_type == TokenType.OUTPUT
+
+    def test_limits_from_dict_total_token_type(self):
+        """from_dict() should parse TOTAL token type."""
+        data = {"tpm": 100, "tpd": 1000, "rpm": 10, "rpd": 100, "tokenType": "total"}
+
+        limits = APIKeyLimits.from_dict(data)
+
+        assert limits.token_type == TokenType.TOTAL
+
+    def test_limits_from_dict_null_token_type(self):
+        """from_dict() should handle null tokenType."""
+        data = {"tpm": 100, "tpd": 1000, "rpm": 10, "rpd": 100, "tokenType": None}
+
+        limits = APIKeyLimits.from_dict(data)
+
+        assert limits.token_type is None
 
 
 # =============================================================================
@@ -339,6 +368,45 @@ class TestAPIKey:
 
         assert "2024-12-31" in payload["expiresAt"]
 
+    def test_api_key_build_save_payload_with_global_token_type(self):
+        """build_save_payload() should include tokenType in global limits."""
+        api_key = APIKey(
+            name="Test Key",
+            budget=1000.0,
+            global_limits=APIKeyLimits(
+                token_per_minute=100,
+                token_per_day=1000,
+                request_per_minute=10,
+                request_per_day=100,
+                token_type=TokenType.OUTPUT,
+            ),
+        )
+
+        payload = api_key.build_save_payload()
+
+        assert payload["globalLimits"]["tokenType"] == "output"
+
+    def test_api_key_build_save_payload_with_asset_token_type(self):
+        """build_save_payload() should include tokenType in asset limits."""
+        api_key = APIKey(
+            name="Test Key",
+            budget=1000.0,
+            asset_limits=[
+                APIKeyLimits(
+                    token_per_minute=100,
+                    token_per_day=1000,
+                    request_per_minute=10,
+                    request_per_day=100,
+                    model_id="model1",
+                    token_type=TokenType.TOTAL,
+                ),
+            ],
+        )
+
+        payload = api_key.build_save_payload()
+
+        assert payload["assetsLimits"][0]["tokenType"] == "total"
+
     def test_api_key_repr(self):
         """__repr__ should return readable string."""
         api_key = APIKey(id="key123", name="Test Key")
@@ -441,6 +509,48 @@ class TestAPIKey:
 
         assert result["assetId"] == "model1"
 
+    def test_api_key_limits_to_dict_output_token_type(self):
+        """_limits_to_dict() should serialize OUTPUT token type."""
+        limits = APIKeyLimits(
+            token_per_minute=100,
+            token_per_day=1000,
+            request_per_minute=10,
+            request_per_day=100,
+            token_type=TokenType.OUTPUT,
+        )
+
+        result = APIKey._limits_to_dict(limits)
+
+        assert result["tokenType"] == "output"
+
+    def test_api_key_limits_to_dict_total_token_type(self):
+        """_limits_to_dict() should serialize TOTAL token type."""
+        limits = APIKeyLimits(
+            token_per_minute=100,
+            token_per_day=1000,
+            request_per_minute=10,
+            request_per_day=100,
+            token_type=TokenType.TOTAL,
+        )
+
+        result = APIKey._limits_to_dict(limits)
+
+        assert result["tokenType"] == "total"
+
+    def test_api_key_limits_to_dict_none_token_type(self):
+        """_limits_to_dict() should serialize None token_type as None."""
+        limits = APIKeyLimits(
+            token_per_minute=100,
+            token_per_day=1000,
+            request_per_minute=10,
+            request_per_day=100,
+            token_type=None,
+        )
+
+        result = APIKey._limits_to_dict(limits)
+
+        assert result["tokenType"] is None
+
     def test_api_key_parse_limits_static_method(self):
         """_parse_limits() static method should parse dicts and pass through objects."""
         # Parse dict
@@ -517,6 +627,32 @@ class TestAPIKeyList:
         assert len(api_keys[0].asset_limits) == 1
         assert api_keys[0].asset_limits[0].model_id == "model1"
 
+    def test_api_key_list_parses_token_type(self):
+        """list() should parse tokenType from API response."""
+        response_data = [
+            {
+                "id": "key1",
+                "name": "Key 1",
+                "accessKey": "abc...xyz",
+                "isAdmin": False,
+                "globalLimits": {"tpm": 100, "tpd": 1000, "rpm": 10, "rpd": 100, "tokenType": "output"},
+                "assetsLimits": [
+                    {"tpm": 50, "tpd": 500, "rpm": 5, "rpd": 50, "assetId": "model1", "tokenType": "input"}
+                ],
+            }
+        ]
+
+        mock_client = Mock()
+        mock_client.request = Mock(return_value=response_data)
+
+        class MockAPIKey(APIKey):
+            context = Mock(client=mock_client)
+
+        api_keys = MockAPIKey.list()
+
+        assert api_keys[0].global_limits.token_type == TokenType.OUTPUT
+        assert api_keys[0].asset_limits[0].token_type == TokenType.INPUT
+
     def test_api_key_search_returns_page_with_correct_page_total(self):
         """search() should return Page with page_total=1 for non-paginated endpoint."""
         response_data = [
@@ -589,6 +725,26 @@ class TestAPIKeyGet:
         assert api_key.global_limits is not None
         assert api_key.global_limits.token_per_minute == 100
         assert len(api_key.asset_limits) == 1
+
+    def test_api_key_get_parses_token_type(self):
+        """get() should parse tokenType from API response."""
+        response_data = {
+            "id": "key123",
+            "name": "Test Key",
+            "globalLimits": {"tpm": 100, "tpd": 1000, "rpm": 10, "rpd": 100, "tokenType": "total"},
+            "assetsLimits": [{"tpm": 50, "tpd": 500, "rpm": 5, "rpd": 50, "assetId": "model1", "tokenType": "output"}],
+        }
+
+        mock_client = Mock()
+        mock_client.get = Mock(return_value=response_data)
+
+        class MockAPIKey(APIKey):
+            context = Mock(client=mock_client)
+
+        api_key = MockAPIKey.get("key123")
+
+        assert api_key.global_limits.token_type == TokenType.TOTAL
+        assert api_key.asset_limits[0].token_type == TokenType.OUTPUT
 
 
 # =============================================================================
@@ -826,6 +982,39 @@ class TestAPIKeyConvenienceMethods:
         )
 
         assert api_key.id == "new_key"
+
+    def test_create_with_token_type(self):
+        """create() should support token_type in limits."""
+        mock_client = Mock()
+        mock_client.request = Mock(
+            return_value={
+                "id": "new_key",
+                "name": "Test Key",
+                "accessKey": "abc...xyz",
+                "isAdmin": False,
+                "globalLimits": {"tpm": 100, "tpd": 1000, "rpm": 10, "rpd": 100, "tokenType": "output"},
+                "assetsLimits": [
+                    {"tpm": 50, "tpd": 500, "rpm": 5, "rpd": 50, "assetId": "model1", "tokenType": "input"}
+                ],
+            }
+        )
+
+        class MockAPIKey(APIKey):
+            context = Mock(client=mock_client)
+
+        api_key = MockAPIKey.create(
+            name="Test Key",
+            budget=1000,
+            global_limits={"tpm": 100, "tpd": 1000, "rpm": 10, "rpd": 100, "tokenType": "output"},
+            asset_limits=[{"tpm": 50, "tpd": 500, "rpm": 5, "rpd": 50, "assetId": "model1", "tokenType": "input"}],
+        )
+
+        assert api_key.id == "new_key"
+        # Verify the payload sent includes tokenType
+        call_args = mock_client.request.call_args
+        payload = call_args[1]["json"]
+        assert payload["globalLimits"]["tokenType"] == "output"
+        assert payload["assetsLimits"][0]["tokenType"] == "input"
 
 
 # =============================================================================
