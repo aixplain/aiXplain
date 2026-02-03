@@ -109,7 +109,7 @@ def encode_resource_id(resource_id: str) -> str:
     Returns:
         The URL-encoded resource ID
     """
-    return quote(resource_id, safe="")
+    return quote(str(resource_id), safe="")
 
 
 # Protocol classes for better type safety
