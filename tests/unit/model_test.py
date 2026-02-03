@@ -51,20 +51,22 @@ def test_call_run_endpoint_async():
     model_id = "model-id"
     execute_url = f"{base_url}/{model_id}"
     payload = {"data": "input_data"}
-    ref_response = {
-        "completed": True,
+    # Mock API response - note: API returns completed=True but we transform it
+    api_response = {
+        "completed": True,  # API may return True, but we correct it
         "status": "IN_PROGRESS",
         "data": "https://models.aixplain.com/api/v1/data/a90c2078-edfe-403f-acba-d2d94cf71f42",
     }
 
     with requests_mock.Mocker() as mock:
-        mock.post(execute_url, json=ref_response)
+        mock.post(execute_url, json=api_response)
         response = call_run_endpoint(url=execute_url, api_key=config.TEAM_API_KEY, payload=payload)
 
     print(response)
-    assert response["completed"] == ref_response["completed"]
-    assert response["status"] == ref_response["status"]
-    assert response["url"] == ref_response["data"]
+    # When status is IN_PROGRESS, completed should be False (not True as API may return)
+    assert response["completed"] is False
+    assert response["status"] == api_response["status"]
+    assert response["url"] == api_response["data"]
 
 
 def test_call_run_endpoint_sync():

@@ -212,7 +212,7 @@ def call_run_endpoint(url: Text, api_key: Text, payload: Dict) -> Dict:
         data = resp.get("data", None)
         if status == "IN_PROGRESS":
             if data is not None:
-                response = {"status": status, "url": data, "completed": True}
+                response = {"status": status, "url": data, "completed": False}
             else:
                 response = {
                     "status": "FAILED",

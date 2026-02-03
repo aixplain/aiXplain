@@ -8,14 +8,12 @@ def client():
     # Require credentials from environment variables for security
     api_key = os.getenv("TEAM_API_KEY")
     if not api_key:
-        pytest.skip(
-            "TEAM_API_KEY environment variable is required for functional tests"
-        )
+        pytest.skip("TEAM_API_KEY environment variable is required for functional tests")
 
     backend_url = os.getenv("BACKEND_URL") or "https://dev-platform-api.aixplain.com"
-    model_url = (
-        os.getenv("MODELS_RUN_URL") or "https://dev-models.aixplain.com/api/v2/execute"
-    )
+    # V2 tests require V2 model URL - ensure we use /api/v2/ even if env has /api/v1/
+    model_url = os.getenv("MODELS_RUN_URL") or "https://dev-models.aixplain.com/api/v2/execute"
+    model_url = model_url.replace("/api/v1/", "/api/v2/")
 
     from aixplain import Aixplain
 
@@ -32,7 +30,5 @@ def slack_token():
     # Require Slack token from environment variable for security
     token = os.getenv("SLACK_TOKEN")
     if not token:
-        pytest.skip(
-            "SLACK_TOKEN environment variable is required for Slack integration tests"
-        )
+        pytest.skip("SLACK_TOKEN environment variable is required for Slack integration tests")
     return token
