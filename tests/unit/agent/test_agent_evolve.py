@@ -118,9 +118,9 @@ class TestAgentEvolve:
                 "id": "test_llm_id",
                 "name": "Test LLM",
                 "description": "Test LLM Description",
-                "supplier": Supplier.OPENAI,
+                "supplier": "openai",
                 "version": "1.0.0",
-                "function": Function.TEXT_GENERATION,
+                "function": "text-generation",
                 "parameters": [{"name": "temperature", "type": "float"}],
                 "temperature": 0.7,
             }
@@ -179,8 +179,10 @@ class TestAgentEvolve:
             llm_id="6646261c6eb563165658bbb1",
         )
 
-        with patch.object(agent, "evolve_async") as mock_evolve_async, patch.object(agent, "sync_poll") as mock_sync_poll:
-
+        with (
+            patch.object(agent, "evolve_async") as mock_evolve_async,
+            patch.object(agent, "sync_poll") as mock_sync_poll,
+        ):
             # Mock evolve_async response
             mock_evolve_async.return_value = {"status": ResponseStatus.IN_PROGRESS, "url": "http://test-poll-url.com"}
 

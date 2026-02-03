@@ -1,7 +1,4 @@
-__author__ = "lucaspavanelli"
-
-"""
-Copyright 2024 The aiXplain SDK authors
+"""Copyright 2024 The aiXplain SDK authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -23,15 +20,16 @@ Description:
 
 import json
 import logging
+import warnings
 from typing import Dict, List, Optional, Text, Union
 from urllib.parse import urljoin
 
 from aixplain.enums.supplier import Supplier
 from aixplain.modules.agent import Agent
-from aixplain.modules.team_agent import TeamAgent, InspectorTarget
-from aixplain.modules.team_agent.inspector import Inspector
+from aixplain.modules.team_agent import TeamAgent
 from aixplain.utils import config
 from aixplain.factories.team_agent_factory.utils import build_team_agent
+from aixplain.utils.convert_datatype_utils import normalize_expected_output
 from aixplain.utils.request_utils import _request_with_retry
 from aixplain.modules.model.llm_model import LLM
 from aixplain.utils.llm_utils import get_llm_instance
@@ -44,7 +42,7 @@ class TeamAgentFactory:
 
     This class provides functionality for creating new team agents, retrieving existing
     team agents, and managing team agent configurations in the aiXplain platform.
-    Team agents can be composed of multiple individual agents, LLMs, and inspectors
+    Team agents can be composed of multiple individual agents, LLMs
     working together to accomplish complex tasks.
     """
 
@@ -53,17 +51,12 @@ class TeamAgentFactory:
         cls,
         name: Text,
         agents: List[Union[Text, Agent]],
-        llm_id: Text = "669a63646eb56306647e1091",
         llm: Optional[Union[LLM, Text]] = None,
         supervisor_llm: Optional[Union[LLM, Text]] = None,
-        mentalist_llm: Optional[Union[LLM, Text]] = None,
         description: Text = "",
         api_key: Text = config.TEAM_API_KEY,
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
         version: Optional[Text] = None,
-        use_mentalist: bool = True,
-        inspectors: List[Inspector] = [],
-        inspector_targets: List[Union[InspectorTarget, Text]] = [InspectorTarget.STEPS],
         instructions: Optional[Text] = None,
         output_format: Optional[OutputFormat] = None,
         expected_output: Optional[Union[BaseModel, Text, dict]] = None,
@@ -74,33 +67,87 @@ class TeamAgentFactory:
         Args:
             name: The name of the team agent.
             agents: A list of agents to be added to the team.
-            llm_id: The ID of the LLM to be used for the team agent.
             llm (Optional[Union[LLM, Text]], optional): The LLM to be used for the team agent.
             supervisor_llm (Optional[Union[LLM, Text]], optional): Main supervisor LLM. Defaults to None.
-            mentalist_llm (Optional[Union[LLM, Text]], optional): LLM for planning. Defaults to None.
             description: The description of the team agent to be displayed in the aiXplain platform.
             api_key: The API key to be used for the team agent.
             supplier: The supplier of the team agent.
             version: The version of the team agent.
-            use_mentalist: Whether to use the mentalist agent.
-            inspectors: A list of inspectors to be added to the team.
-            inspector_targets: Which stages to be inspected during an execution of the team agent. (steps, output)
-            use_mentalist_and_inspector: Whether to use the mentalist and inspector agents. (legacy)
             instructions: The instructions to guide the team agent (i.e. appended in the prompt of the team agent).
             output_format: The output format to be used for the team agent.
             expected_output: The expected output to be used for the team agent.
+            **kwargs: Additional keyword arguments for backward compatibility (deprecated parameters).
+
         Returns:
             A new team agent instance.
+
+        Deprecated Args:
+            llm_id: DEPRECATED. Use 'llm' parameter instead. The ID of the LLM to be used for the team agent.
+            mentalist_llm: DEPRECATED. LLM for planning.
+            use_mentalist: DEPRECATED. Whether to use the mentalist agent.
         """
+        # Define supported kwargs
+        supported_kwargs = {
+            "llm_id",
+            "mentalist_llm",
+            "use_mentalist",
+            "use_mentalist_and_inspector",
+            "use_inspector",
+            "num_inspectors",
+        }
+
+        # Validate kwargs - raise error if unsupported kwargs are provided
+        unsupported_kwargs = set(kwargs.keys()) - supported_kwargs
+        if unsupported_kwargs:
+            raise ValueError(
+                f"Unsupported keyword argument(s): {', '.join(sorted(unsupported_kwargs))}. "
+                f"Supported kwargs are: {', '.join(sorted(supported_kwargs))}."
+            )
+        # Handle deprecated parameters from kwargs
+        if "llm_id" in kwargs:
+            llm_id = kwargs.pop("llm_id")
+            warnings.warn(
+                "Parameter 'llm_id' is deprecated and will be removed in a future version. "
+                "Please use 'llm' parameter instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        else:
+            llm_id = "669a63646eb56306647e1091"
+
+        if "mentalist_llm" in kwargs:
+            mentalist_llm = kwargs.pop("mentalist_llm")
+            warnings.warn(
+                "Parameter 'mentalist_llm' is deprecated and will be removed in a future version.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        else:
+            mentalist_llm = None
+
+        if "use_mentalist" in kwargs:
+            use_mentalist = kwargs.pop("use_mentalist")
+            warnings.warn(
+                "Parameter 'use_mentalist' is deprecated and will be removed in a future version.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        else:
+            use_mentalist = True
+
         # legacy params
         if "use_mentalist_and_inspector" in kwargs:
             logging.warning(
                 "TeamAgent Onboarding Warning: use_mentalist_and_inspector is no longer supported. Use use_mentalist and inspectors instead."
             )
         if "use_inspector" in kwargs:
-            logging.warning("TeamAgent Onboarding Warning: use_inspector is no longer supported. Use inspectors instead.")
+            logging.warning(
+                "TeamAgent Onboarding Warning: use_inspector is no longer supported. Inspectors are no longer supported on v1."
+            )
         if "num_inspectors" in kwargs:
-            logging.warning("TeamAgent Onboarding Warning: num_inspectors is no longer supported. Use inspectors instead.")
+            logging.warning(
+                "TeamAgent Onboarding Warning: num_inspectors is no longer supported. Inspectors are no longer supported on v1."
+            )
 
         assert len(agents) > 0, "TeamAgent Onboarding Error: At least one agent must be provided."
 
@@ -125,20 +172,6 @@ class TeamAgentFactory:
 
                 assert isinstance(agent, Agent), "TeamAgent Onboarding Error: Agents must be instances of Agent class"
             agent_list.append(agent_obj)
-
-        if inspectors:
-            try:
-                # convert to enum if string and check its validity
-                inspector_targets = [InspectorTarget(target) for target in inspector_targets]
-            except ValueError:
-                raise ValueError(
-                    f"TeamAgent Onboarding Error: Invalid inspector target. Valid targets are: {list(InspectorTarget)}"
-                )
-
-            if not use_mentalist:
-                raise Exception("TeamAgent Onboarding Error: To use the Inspector agent, you must enable Mentalist.")
-        else:
-            inspector_targets = []
 
         def _get_llm_safely(llm_id: str, llm_type: str) -> LLM:
             """Helper to safely get an LLM instance with consistent error handling."""
@@ -166,7 +199,9 @@ class TeamAgentFactory:
                     {
                         "type": "llm",
                         "description": description,
-                        "parameters": llm_instance.get_parameters().to_list() if llm_instance.get_parameters() else None,
+                        "parameters": llm_instance.get_parameters().to_list()
+                        if llm_instance.get_parameters()
+                        else None,
                     }
                 )
             return llm_instance, tools
@@ -176,7 +211,9 @@ class TeamAgentFactory:
         llm, tools = _setup_llm_and_tool(llm, llm_id, "Main LLM", "main", tools)
         supervisor_llm, tools = _setup_llm_and_tool(supervisor_llm, llm_id, "Supervisor LLM", "supervisor", tools)
         mentalist_llm, tools = (
-            _setup_llm_and_tool(mentalist_llm, llm_id, "Mentalist LLM", "mentalist", tools) if use_mentalist else (None, [])
+            _setup_llm_and_tool(mentalist_llm, llm_id, "Mentalist LLM", "mentalist", tools)
+            if use_mentalist
+            else (None, [])
         )
 
         team_agent = None
@@ -200,8 +237,6 @@ class TeamAgentFactory:
             "llmId": llm.id,
             "supervisorId": supervisor_llm.id,
             "plannerId": mentalist_llm.id if use_mentalist else None,
-            "inspectors": inspectors,
-            "inspectorTargets": inspector_targets,
             "supplier": supplier,
             "version": version,
             "status": "draft",
@@ -217,7 +252,7 @@ class TeamAgentFactory:
         if mentalist_llm is not None:
             internal_payload["mentalist_llm"] = mentalist_llm
         if expected_output:
-            payload["expectedOutput"] = expected_output
+            payload["expectedOutput"] = normalize_expected_output(expected_output)
         if output_format:
             if isinstance(output_format, OutputFormat):
                 output_format = output_format.value
@@ -227,9 +262,6 @@ class TeamAgentFactory:
         team_agent.validate(raise_exception=True)
         response = "Unspecified error"
         try:
-            payload["inspectors"] = [
-                inspector.model_dump(by_alias=True) for inspector in inspectors
-            ]  # convert Inspector object to dict
             logging.debug(f"Start service for POST Create TeamAgent  - {url} - {headers} - {json.dumps(payload)}")
             r = _request_with_retry("post", url, headers=headers, json=payload)
             response = r.json()
@@ -339,7 +371,9 @@ class TeamAgentFactory:
             raise Exception(error_msg)
 
     @classmethod
-    def get(cls, agent_id: Optional[Text] = None, name: Optional[Text] = None, api_key: Optional[Text] = None) -> TeamAgent:
+    def get(
+        cls, agent_id: Optional[Text] = None, name: Optional[Text] = None, api_key: Optional[Text] = None
+    ) -> TeamAgent:
         """Retrieve a team agent by its ID or name.
 
         This method fetches a specific team agent from the platform using its

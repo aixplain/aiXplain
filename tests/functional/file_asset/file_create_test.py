@@ -19,16 +19,13 @@ limitations under the License.
 import pytest
 from aixplain.enums import License
 from aixplain.factories import FileFactory
-from aixplain import aixplain_v2 as v2
 
 
 @pytest.mark.parametrize(
     "FileFactory, is_temp, expected_link",
     [
         (FileFactory, True, "http"),
-        (v2.File, True, "http"),
         (FileFactory, False, "s3"),
-        (v2.File, False, "s3"),
     ],
 )
 def test_file_create(FileFactory, is_temp, expected_link):

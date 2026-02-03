@@ -1,6 +1,9 @@
-__author__ = "lucaspavanelli"
+"""Model module for aiXplain SDK.
 
-"""
+This module provides the Model class and related functionality for working with
+AI models in the aiXplain platform, including model execution, parameter management,
+and status tracking.
+
 Copyright 2022 The aiXplain SDK authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,9 +20,9 @@ limitations under the License.
 
 Author: Duraikrishna Selvaraju, Thiago Castro Ferreira, Shreyas Sharma and Lucas Pavanelli
 Date: September 1st 2022
-Description:
-    Model Class
 """
+
+__author__ = "lucaspavanelli"
 import time
 import logging
 import traceback
@@ -288,8 +291,17 @@ class Model(Asset):
 
             logging.debug(f"Single Poll for Model: Status of polling for {name}: {resp}")
 
+            raw_status = resp.pop("status", status)
+            # Convert string status to ResponseStatus enum if needed
+            if isinstance(raw_status, str):
+                try:
+                    raw_status = ResponseStatus(raw_status)
+                except ValueError:
+                    # If string doesn't match enum, use the computed status
+                    raw_status = status
+
             return ModelResponse(
-                status=resp.pop("status", status),
+                status=raw_status,
                 data=resp.pop("data", ""),
                 details=resp.pop("details", {}),
                 completed=resp.pop("completed", False),
@@ -392,8 +404,16 @@ class Model(Asset):
                     "error_message": msg,
                     "runTime": end - start,
                 }
+        raw_status = response.pop("status", ResponseStatus.FAILED)
+        # Convert string status to ResponseStatus enum if needed
+        if isinstance(raw_status, str):
+            try:
+                raw_status = ResponseStatus(raw_status)
+            except ValueError:
+                raw_status = ResponseStatus.FAILED
+
         return ModelResponse(
-            status=response.pop("status", ResponseStatus.FAILED),
+            status=raw_status,
             data=response.pop("data", ""),
             details=response.pop("details", {}),
             completed=response.pop("completed", False),
@@ -434,8 +454,16 @@ class Model(Asset):
         payload = build_payload(data=data, parameters=parameters)
         logging.debug(f"Model Run Async: Start service for {name} - {url} - {payload}")
         response = call_run_endpoint(payload=payload, url=url, api_key=self.api_key)
+        raw_status = response.pop("status", ResponseStatus.FAILED)
+        # Convert string status to ResponseStatus enum if needed
+        if isinstance(raw_status, str):
+            try:
+                raw_status = ResponseStatus(raw_status)
+            except ValueError:
+                raw_status = ResponseStatus.FAILED
+
         return ModelResponse(
-            status=response.pop("status", ResponseStatus.FAILED),
+            status=raw_status,
             data=response.pop("data", ""),
             details=response.pop("details", {}),
             completed=response.pop("completed", False),
@@ -491,8 +519,12 @@ class Model(Asset):
                     status=finetune_status,
                     model_status=model_status,
                     epoch=(float(log["epoch"]) if "epoch" in log and log["epoch"] is not None else None),
-                    training_loss=(float(log["trainLoss"]) if "trainLoss" in log and log["trainLoss"] is not None else None),
-                    validation_loss=(float(log["evalLoss"]) if "evalLoss" in log and log["evalLoss"] is not None else None),
+                    training_loss=(
+                        float(log["trainLoss"]) if "trainLoss" in log and log["trainLoss"] is not None else None
+                    ),
+                    validation_loss=(
+                        float(log["evalLoss"]) if "evalLoss" in log and log["evalLoss"] is not None else None
+                    ),
                 )
             else:
                 status = FinetuneStatus(

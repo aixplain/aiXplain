@@ -1,6 +1,8 @@
-__author__ = "aiXplain"
+"""Agent tool module for aiXplain SDK.
 
-"""
+This module provides tool classes and functionality for agents to interact with
+various services, models, and data sources.
+
 Copyright 2024 The aiXplain SDK authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,6 +22,8 @@ Date: May 16th 2024
 Description:
     Agentification Class
 """
+
+__author__ = "aiXplain"
 from abc import ABC
 from typing import Optional, Text
 from aixplain.utils import config
@@ -83,13 +87,10 @@ class Tool(ABC):
         """
         raise NotImplementedError
 
+
+class DeployableTool(Tool):
+    """Tool that can be deployed."""
+
     def deploy(self) -> None:
-        """Deploys the tool to make it available for use.
-
-        This method should handle any necessary setup or deployment steps
-        required to make the tool operational.
-
-        Raises:
-            NotImplementedError: This is an abstract method that must be implemented by subclasses.
-        """
+        """Deploy the tool."""
         raise NotImplementedError

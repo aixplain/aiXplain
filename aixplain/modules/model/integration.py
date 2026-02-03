@@ -1,3 +1,9 @@
+"""Integration module for aiXplain SDK.
+
+This module provides classes and utilities for working with external service
+integrations, including authentication schemes and connection management.
+"""
+
 import warnings
 from aixplain.enums import Function, Supplier, FunctionType
 from aixplain.modules.model import Model, ModelResponse
@@ -43,6 +49,7 @@ class BaseAuthenticationParams(BaseModel):
     """
 
     name: Optional[Text] = None
+    description: Optional[Text] = None
     connector_id: Optional[Text] = None
 
 
@@ -55,22 +62,30 @@ def build_connector_params(**kwargs) -> BaseAuthenticationParams:
     Args:
         **kwargs: Arbitrary keyword arguments. Supported keys:
             - name (Optional[Text]): Name for the connection
+            - description (Optional[Text]): Description for the connection
             - connector_id (Optional[Text]): ID of the connector
 
     Returns:
         BaseAuthenticationParams: An instance containing the extracted parameters.
 
     Example:
-        >>> params = build_connector_params(name="My Connection", connector_id="123")
+        >>> params = build_connector_params(name="My Connection", description="My Connection Description", connector_id="123")
         >>> print(params.name)
         'My Connection'
     """
     name = kwargs.get("name")
+    description = kwargs.get("description")
     connector_id = kwargs.get("connector_id")
-    return BaseAuthenticationParams(name=name, connector_id=connector_id)
+    return BaseAuthenticationParams(name=name, description=description, connector_id=connector_id)
 
 
 class Integration(Model):
+    """Integration class for managing external service integrations.
+
+    This class extends the Model class to provide functionality for connecting
+    to and interacting with external services through integrations.
+    """
+
     def __init__(
         self,
         id: Text,
@@ -126,9 +141,9 @@ class Integration(Model):
 
     def connect(
         self,
-        authentication_schema: AuthenticationSchema,
+        authentication_schema: Optional[AuthenticationSchema] = None,
         args: Optional[BaseAuthenticationParams] = None,
-        data: Optional[Dict] = None,
+        data: Optional[Union[Dict, Text]] = None,
         **kwargs,
     ) -> ModelResponse:
         """Connect to the integration using the specified authentication scheme.
@@ -138,12 +153,13 @@ class Integration(Model):
         the authentication scheme being used.
 
         Args:
-            authentication_schema (AuthenticationSchema): The authentication scheme to use
-                (e.g., BEARER_TOKEN, OAUTH1, OAUTH2, API_KEY, BASIC, NO_AUTH).
+            authentication_schema (Optional[AuthenticationSchema]): The authentication scheme to use
+                (e.g., BEARER_TOKEN, OAUTH1, OAUTH2, API_KEY, BASIC, NO_AUTH). Optional for MCP connections.
             args (Optional[BaseAuthenticationParams], optional): Common connection parameters.
                 If not provided, will be built from kwargs. Defaults to None.
-            data (Optional[Dict], optional): Authentication-specific parameters required by
-                the chosen authentication scheme. Defaults to None.
+            data (Optional[Union[Dict, Text]], optional): Authentication-specific parameters required by
+                the chosen authentication scheme. For MCP connections, can be a URL string.
+                Defaults to None.
             **kwargs: Additional keyword arguments used to build BaseAuthenticationParams
                 if args is not provided. Supported keys:
                 - name (str): Name for the connection
@@ -165,13 +181,15 @@ class Integration(Model):
                 >>> integration.connect(
                 ...     AuthenticationSchema.BEARER_TOKEN,
                 ...     data={"token": "1234567890"},
-                ...     name="My Connection"
+                ...     name="My Connection",
+                ...     description="My Connection Description"
                 ... )
 
             Using OAuth2 authentication:
                 >>> response = integration.connect(
                 ...     AuthenticationSchema.OAUTH2,
-                ...     name="My Connection"
+                ...     name="My Connection",
+                ...     description="My Connection Description"
                 ... )
                 >>> # For OAuth2, you'll need to visit the redirectURL to complete auth
                 >>> print(response.data.get("redirectURL"))
@@ -180,11 +198,22 @@ class Integration(Model):
                 >>> integration.connect(
                 ...     AuthenticationSchema.API_KEY,
                 ...     data={"api_key": "your-api-key"},
-                ...     name="My Connection"
+                ...     name="My Connection",
+                ...     description="My Connection Description"
                 ... )
+
+            Using MCP connection (no authentication schema required):
+                >>> response = integration.connect(data="https://mcp.example.com/api/...")
         """
         if self.id == "686eb9cd26480723d0634d3e":
-            return self.run({"data": data})
+            # MCP connections: data can be a URL string or dict
+            return self.run({"data": data} if data is not None else {"data": {}})
+
+        # For non-MCP connections, authentication_schema is required
+        if authentication_schema is None:
+            raise ValueError(
+                "authentication_schema is required for this integration. Please provide an AuthenticationSchema value."
+            )
 
         if args is None:
             args = build_connector_params(**kwargs)
@@ -222,6 +251,7 @@ class Integration(Model):
             return self.run(
                 {
                     "name": args.name,
+                    "description": args.description,
                     "authScheme": authentication_schema.value,
                     "data": data,
                 }
@@ -230,6 +260,7 @@ class Integration(Model):
             response = self.run(
                 {
                     "name": args.name,
+                    "description": args.description,
                     "authScheme": authentication_schema.value,
                 }
             )

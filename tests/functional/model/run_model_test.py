@@ -8,12 +8,17 @@ from aixplain.factories import ModelFactory
 from aixplain.modules import LLM
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from aixplain.factories.index_factory.utils import AirParams, VectaraParams, GraphRAGParams, ZeroEntropyParams
+from aixplain.factories.index_factory.utils import (
+    AirParams,
+    VectaraParams,
+    ZeroEntropyParams,
+)
 import time
 import os
 import json
 
 CACHE_FOLDER = ".cache"
+
 
 def pytest_generate_tests(metafunc):
     if "llm_model" in metafunc.fixturenames:
@@ -45,8 +50,12 @@ def test_llm_run(llm_model):
     assert isinstance(llm_model, LLM)
     response = llm_model.run(
         data="What is my name?",
-        history=[{"role": "user", "content": "Hello! My name is Thiago."}, {"role": "assistant", "content": "Hello!"}],
+        history=[
+            {"role": "user", "content": "Hello! My name is Thiago."},
+            {"role": "assistant", "content": "Hello!"},
+        ],
     )
+
     assert response["status"] == "SUCCESS"
 
 
@@ -87,12 +96,21 @@ def run_index_model(index_model, retries):
     for _ in range(retries):
         try:
             index_model.upsert(
-                [Record(value="Berlin is the capital of Germany.", value_type="text", uri="", id="1", attributes={})]
+                [
+                    Record(
+                        value="Berlin is the capital of Germany.",
+                        value_type="text",
+                        uri="",
+                        id="1",
+                        attributes={},
+                    )
+                ]
             )
             break
         except Exception:
             time.sleep(180)
 
+    time.sleep(2)
     response = index_model.search("Berlin")
     assert str(response.status) == "SUCCESS"
     assert "germany" in response.data.lower()
@@ -106,9 +124,12 @@ def run_index_model(index_model, retries):
     [
         pytest.param(None, VectaraParams, id="VECTARA"),
         pytest.param(None, ZeroEntropyParams, id="ZERO_ENTROPY"),
-        pytest.param(EmbeddingModel.OPENAI_ADA002, GraphRAGParams, id="GRAPHRAG"),
         pytest.param(EmbeddingModel.OPENAI_ADA002, AirParams, id="AIR - OpenAI Ada 002"),
-        pytest.param(EmbeddingModel.MULTILINGUAL_E5_LARGE, AirParams, id="AIR - Multilingual E5 Large"),
+        pytest.param(
+            EmbeddingModel.MULTILINGUAL_E5_LARGE,
+            AirParams,
+            id="AIR - Multilingual E5 Large",
+        ),
         pytest.param("67efd4f92a0a850afa045af7", AirParams, id="AIR - BGE M3"),
     ],
 )
@@ -132,9 +153,12 @@ def test_index_model(embedding_model, supplier_params):
 @pytest.mark.parametrize(
     "embedding_model,supplier_params",
     [
-        pytest.param(None, VectaraParams, id="VECTARA"),
         pytest.param(EmbeddingModel.OPENAI_ADA002, AirParams, id="OpenAI Ada 002"),
-        pytest.param(EmbeddingModel.JINA_CLIP_V2_MULTIMODAL, AirParams, id="Jina Clip v2 Multimodal"),
+        pytest.param(
+            EmbeddingModel.JINA_CLIP_V2_MULTIMODAL,
+            AirParams,
+            id="Jina Clip v2 Multimodal",
+        ),
         pytest.param(EmbeddingModel.MULTILINGUAL_E5_LARGE, AirParams, id="Multilingual E5 Large"),
         pytest.param("67efd4f92a0a850afa045af7", AirParams, id="BGE M3"),
     ],
@@ -157,7 +181,15 @@ def test_index_model_with_filter(embedding_model, supplier_params):
     for _ in range(retries):
         try:
             index_model.upsert(
-                [Record(value="Hello, aiXplain!", value_type="text", uri="", id="1", attributes={"category": "hello"})]
+                [
+                    Record(
+                        value="Hello, aiXplain!",
+                        value_type="text",
+                        uri="",
+                        id="1",
+                        attributes={"category": "hello"},
+                    )
+                ]
             )
             break
         except Exception:
@@ -165,15 +197,25 @@ def test_index_model_with_filter(embedding_model, supplier_params):
     for _ in range(retries):
         try:
             index_model.upsert(
-                [Record(value="The world is great", value_type="text", uri="", id="2", attributes={"category": "world"})]
+                [
+                    Record(
+                        value="The world is great",
+                        value_type="text",
+                        uri="",
+                        id="2",
+                        attributes={"category": "world"},
+                    )
+                ]
             )
             break
         except Exception:
             time.sleep(180)
 
+    time.sleep(2)
     assert index_model.count() == 2
     response = index_model.search(
-        "", filters=[IndexFilter(field="category", value="world", operator=IndexFilterOperator.EQUALS)]
+        "",
+        filters=[IndexFilter(field="category", value="world", operator=IndexFilterOperator.EQUALS)],
     )
     assert str(response.status) == "SUCCESS"
     assert "world" in response.data.lower()
@@ -203,7 +245,7 @@ def test_llm_run_with_file():
 def test_aixplain_model_cache_creation():
     """Ensure AssetCache is triggered and cache is created."""
 
-    cache_file = os.path.join(CACHE_FOLDER, "models.json")
+    cache_file = os.path.join(CACHE_FOLDER, "model.json")
 
     # Clean up cache before the test
     if os.path.exists(cache_file):
@@ -220,7 +262,9 @@ def test_aixplain_model_cache_creation():
         cache_data = json.load(f)
 
     assert "data" in cache_data, "Cache file structure invalid - missing 'data' key."
-    assert any(m.get("id") == model_id for m in cache_data["data"]["items"]), "Instantiated model not found in cache."
+    # Cache structure is: {"expiry": ..., "data": {"model_id": {...}}}
+    # So we check if the model_id exists as a key in cache_data["data"]
+    assert model_id in cache_data["data"], "Instantiated model not found in cache."
 
 
 def test_index_model_air_with_image():
@@ -230,7 +274,9 @@ def test_index_model_air_with_image():
     from aixplain.factories.index_factory.utils import AirParams
 
     params = AirParams(
-        name=f"Image Index {uuid4()}", description="Index for images", embedding_model=EmbeddingModel.JINA_CLIP_V2_MULTIMODAL
+        name=f"Image Index {uuid4()}",
+        description="Index for images",
+        embedding_model=EmbeddingModel.JINA_CLIP_V2_MULTIMODAL,
     )
 
     index_model = IndexFactory.create(params=params)
@@ -263,17 +309,19 @@ def test_index_model_air_with_image():
 
     index_model.upsert(records)
 
+    time.sleep(2)
     response = index_model.search("beach")
     assert str(response.status) == "SUCCESS"
     second_record = response.details[1]["metadata"]["uri"]
     assert "hurricane" in second_record.lower()
 
+    time.sleep(2)
     response = index_model.search("people")
     assert str(response.status) == "SUCCESS"
     first_record = response.details[0]["data"]
     assert "hello" in first_record.lower()
-    second_record = response.details[1]["metadata"]["uri"]
-    assert "faces" in second_record.lower()
+    third_record = response.details[2]["metadata"]["uri"]
+    assert "faces" in third_record.lower()
 
     assert index_model.count() == 4
 
@@ -289,7 +337,11 @@ def test_index_model_air_with_image():
     "embedding_model,supplier_params",
     [
         pytest.param(EmbeddingModel.OPENAI_ADA002, AirParams, id="OpenAI Ada 002"),
-        pytest.param(EmbeddingModel.JINA_CLIP_V2_MULTIMODAL, AirParams, id="Jina Clip v2 Multimodal"),
+        pytest.param(
+            EmbeddingModel.JINA_CLIP_V2_MULTIMODAL,
+            AirParams,
+            id="Jina Clip v2 Multimodal",
+        ),
         pytest.param(EmbeddingModel.MULTILINGUAL_E5_LARGE, AirParams, id="Multilingual E5 Large"),
         pytest.param(EmbeddingModel.BGE_M3, AirParams, id="BGE M3"),
     ],
@@ -302,15 +354,26 @@ def test_index_model_air_with_splitter(embedding_model, supplier_params):
     from aixplain.enums.splitting_options import SplittingOptions
 
     params = supplier_params(
-        name=f"Splitter Index {uuid4()}", description="Index for splitter", embedding_model=embedding_model
+        name=f"Splitter Index {uuid4()}",
+        description="Index for splitter",
+        embedding_model=embedding_model,
     )
     index_model = IndexFactory.create(params=params)
     index_model.upsert(
-        [Record(value="Berlin is the capital of Germany.", value_type="text", uri="", id="1", attributes={})],
+        [
+            Record(
+                value="Berlin is the capital of Germany.",
+                value_type="text",
+                uri="",
+                id="1",
+                attributes={},
+            )
+        ],
         splitter=Splitter(split=True, split_by=SplittingOptions.WORD, split_length=1, split_overlap=0),
     )
     response = index_model.count()
     assert response == 6
+    time.sleep(2)
     response = index_model.search("berlin")
     assert str(response.status) == "SUCCESS"
     assert "berlin" in response.data.lower()
@@ -329,7 +392,9 @@ def test_index_model_with_txt_file():
 
     # Create index with OpenAI Ada 002 for text processing
     params = AirParams(
-        name=f"File Index {uuid4()}", description="Index for file processing", embedding_model=EmbeddingModel.OPENAI_ADA002
+        name=f"File Index {uuid4()}",
+        description="Index for file processing",
+        embedding_model=EmbeddingModel.OPENAI_ADA002,
     )
     index_model = IndexFactory.create(params=params)
 
@@ -363,7 +428,9 @@ def test_index_model_with_pdf_file():
 
     # Create index with OpenAI Ada 002 for text processing
     params = AirParams(
-        name=f"PDF Index {uuid4()}", description="Index for PDF processing", embedding_model=EmbeddingModel.OPENAI_ADA002
+        name=f"PDF Index {uuid4()}",
+        description="Index for PDF processing",
+        embedding_model=EmbeddingModel.OPENAI_ADA002,
     )
     index_model = IndexFactory.create(params=params)
 

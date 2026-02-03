@@ -61,13 +61,19 @@ class ModelGetterMixin:
         # Continue with existing ID-based logic
         model_id = model_id.replace("/", "%2F")
         cache = AssetCache(Model)
+        api_key = (
+            kwargs.get("api_key", config.TEAM_API_KEY) 
+            if api_key is None else api_key
+        )
 
         if use_cache:
             if cache.has_valid_cache():
                 cached_model = cache.store.data.get(model_id)
                 if cached_model:
                     return cached_model
-                logging.info("Model not found in valid cache, fetching individually...")
+                logging.info(
+                    "Model not found in valid cache, fetching individually..."
+                )
                 model = cls._fetch_model_by_id(model_id, api_key)
                 cache.add(model)
                 return model
@@ -171,7 +177,9 @@ class ModelGetterMixin:
         except Exception:
             if resp and "statusCode" in resp:
                 status_code = resp["statusCode"]
-                message = f"Model Creation: Status {status_code} - {resp['message']}"
+                message = (
+                    f"Model Creation: Status {status_code} - {resp['message']}"
+                )
             else:
                 message = "Model Creation: Unspecified Error"
             logging.error(message)

@@ -4,7 +4,7 @@ Utility functions for safely deleting agents and team agents in tests.
 This module provides helper functions that delete agents by ID without
 building full objects, avoiding issues with missing model dependencies.
 """
-
+import os
 from typing import List, Dict, Any
 from aixplain.utils import config
 from aixplain.utils.request_utils import _request_with_retry
@@ -107,6 +107,20 @@ def delete_agent_by_id(agent_id: str) -> bool:
         return False
 
 
+BACKEND_URL = os.environ.get("BACKEND_URL", "")
+
+def get_env_from_backend_url(url: str) -> str:
+    url = url.lower()
+    if "dev" in url:
+        return "dev"
+    if "test" in url:
+        return "test"
+    return "prod"
+
+
+ENV = get_env_from_backend_url(BACKEND_URL)
+
+
 def safe_delete_all_agents_and_team_agents():
     """
     Safely delete all agents and team agents.
@@ -115,11 +129,15 @@ def safe_delete_all_agents_and_team_agents():
     then deletes individual agents. It handles errors gracefully and continues
     processing even if some deletions fail.
     """
+    if ENV not in {"dev", "test"}:
+        raise RuntimeError(
+            f"Refusing to delete agents in ENV='{ENV}'. "
+            f"BACKEND_URL='{BACKEND_URL}'"
+        )
     # Delete team agents first
     team_agent_ids = get_team_agent_ids()
     for team_agent_id in team_agent_ids:
         delete_team_agent_by_id(team_agent_id)
-    
     # Delete agents
     agent_ids = get_agent_ids()
     for agent_id in agent_ids:

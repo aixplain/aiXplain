@@ -1,7 +1,28 @@
+"""Copyright 2025 The aiXplain SDK authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+Author: Ahmet Gündüz
+Date: September 10th 2025
+Description:
+    Connection Tool Class.
+"""
+
 from aixplain.enums import Function, Supplier, FunctionType, ResponseStatus
 from aixplain.modules.model import Model
 from aixplain.utils import config
 from typing import Text, Optional, Union, Dict, List
+import warnings
 
 
 class ConnectAction:
@@ -52,6 +73,15 @@ class ConnectAction:
 
 
 class ConnectionTool(Model):
+    """A class representing a connection tool.
+
+    This class defines the structure of a connection tool with its actions and action scope.
+
+    Attributes:
+        actions (List[ConnectAction]): A list of available actions for this connection.
+        action_scope (Optional[List[ConnectAction]]): The scope of actions for this connection.
+    """
+
     actions: List[ConnectAction]
     action_scope: Optional[List[ConnectAction]] = None
 
@@ -84,9 +114,9 @@ class ConnectionTool(Model):
             function_type (FunctionType, optional): Type of the Connection. Defaults to FunctionType.CONNECTION.
             **additional_info: Any additional Connection info to be saved
         """
-        assert (
-            function_type == FunctionType.CONNECTION or function_type == FunctionType.MCP_CONNECTION
-        ), "Connection only supports connection function"
+        assert function_type == FunctionType.CONNECTION or function_type == FunctionType.MCP_CONNECTION, (
+            "Connection only supports connection function"
+        )
         super().__init__(
             id=id,
             name=name,
@@ -150,17 +180,26 @@ class ConnectionTool(Model):
         response = super().run({"action": "LIST_INPUTS", "data": {"actions": [action]}})
         if response.status == ResponseStatus.SUCCESS:
             try:
-                inputs = {inp["code"]: inp for inp in response.data[0]["inputs"]}
-                action_idx = next((i for i, a in enumerate(self.actions) if a.code == action), None)
+                # Find the matching action in the response data
+                action_data = next(
+                    (a for a in response.data if a.get("name") == action), None
+                )
+                if action_data is None or "inputs" not in action_data:
+                    # Fall back to legacy format: use first item directly
+                    action_data = response.data[0] if response.data else None
+                if action_data is None:
+                    raise Exception(f"Action '{action}' not found in response")
+                inputs = {inp["code"]: inp for inp in action_data["inputs"]}
+                action_idx = next(
+                    (i for i, a in enumerate(self.actions) if a.code == action), None
+                )
                 if action_idx is not None:
                     self.actions[action_idx].inputs = inputs
                 return inputs
             except Exception as e:
-                raise Exception(f"It was not possible to get the inputs for the action {action}. Error {e}")
-
-        raise Exception(
-            f"It was not possible to get the inputs for the action {action}. Error {response.error_code}: {response.error_message}"
-        )
+                raise Exception(
+                    f"It was not possible to get the inputs for the action {action}. Error {e}"
+                )
 
     def run(self, action: Union[ConnectAction, Text], inputs: Dict):
         """Execute a specific action with the provided inputs.
@@ -183,14 +222,14 @@ class ConnectionTool(Model):
         Returns:
             List[Dict]: A list of dictionaries containing the parameters for each action
                 in the action scope. Each dictionary contains the action's code, name,
-                description, and input parameters.
-
-        Raises:
-            AssertionError: If the action scope is not set or is empty.
+                description, and input parameters. Returns an empty list if action_scope
+                is not set or is empty.
         """
-        assert (
-            self.action_scope is not None and len(self.action_scope) > 0
-        ), f"Please set the scope of actions for the connection '{self.id}'."
+        if self.action_scope is None or len(self.action_scope) == 0:
+            warnings.warn(
+                f"No action_scope is specified, by default all {len(self.actions)} actions will be included in Agent execution"
+            )
+            return []
         response = [
             {
                 "code": action.code,

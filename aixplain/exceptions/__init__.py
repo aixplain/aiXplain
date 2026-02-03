@@ -1,5 +1,4 @@
-"""
-Error message registry for aiXplain SDK.
+"""Error message registry for aiXplain SDK.
 
 This module maintains a centralized registry of error messages used throughout the aiXplain ecosystem.
 It allows developers to look up existing error messages and reuse them instead of creating new ones.
@@ -9,6 +8,7 @@ from aixplain.exceptions.types import (
     AixplainBaseException,
     AuthenticationError,
     ValidationError,
+    AlreadyDeployedError,
     ResourceError,
     BillingError,
     SupplierError,
@@ -33,12 +33,11 @@ __all__ = [
 
 
 def get_error_from_status_code(status_code: int, error_details: str = None) -> AixplainBaseException:
-    """
-    Map HTTP status codes to appropriate exception types.
+    """Map HTTP status codes to appropriate exception types.
 
     Args:
         status_code (int): The HTTP status code to map.
-        default_message (str, optional): The default message to use if no specific message is available.
+        error_details (str, optional): Additional error details to include in the message.
 
     Returns:
         AixplainBaseException: An exception of the appropriate type.
@@ -126,5 +125,6 @@ def get_error_from_status_code(status_code: int, error_details: str = None) -> A
         # Catch-all for other client/server errors
         category = "Client" if 400 <= status_code < 500 else "Server"
         return InternalError(
-            message=f"Unspecified {category} Error (Status {status_code}) {error_details}".strip(), status_code=status_code
+            message=f"Unspecified {category} Error (Status {status_code}) {error_details}".strip(),
+            status_code=status_code,
         )

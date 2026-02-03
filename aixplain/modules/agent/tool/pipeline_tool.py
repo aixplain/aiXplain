@@ -1,6 +1,8 @@
-__author__ = "aiXplain"
+"""Pipeline tool for aiXplain SDK agents.
 
-"""
+This module provides a tool that allows agents to execute AI pipelines
+and chain multiple AI operations together.
+
 Copyright 2024 The aiXplain SDK authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,6 +22,9 @@ Date: May 16th 2024
 Description:
     Agentification Class
 """
+
+__author__ = "aiXplain"
+
 from typing import Text, Union, Optional
 
 from aixplain.modules.agent.tool import Tool
@@ -123,11 +128,3 @@ class PipelineTool(Tool):
         if self.name.strip() == "":
             self.name = pipeline_obj.name
         self.status = pipeline_obj.status
-
-    def deploy(self):
-        """Deploy the pipeline tool.
-
-        This is a placeholder method as pipeline tools are managed through the aiXplain platform
-        and don't require explicit deployment.
-        """
-        pass

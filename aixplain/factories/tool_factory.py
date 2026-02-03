@@ -174,10 +174,11 @@ class ToolFactory(ModelGetterMixin, ModelListMixin):
                 params = BaseUtilityModelParams(**kwargs)
 
         if isinstance(params, BaseUtilityModelParams):
-            return ModelFactory.create_utility_model(
+            return ModelFactory.create_script_connection_tool(
                 name=params.name,
                 description=params.description,
                 code=params.code,
+                function_name=kwargs.get("function_name", None),
             )
         elif isinstance(params, BaseIndexParams):
             from aixplain.factories import IndexFactory
