@@ -47,7 +47,7 @@ directly with models.
 
 ```python
 @classmethod
-def get(cls, data_id: Text) -> Data
+def get(cls, data_id: Text, api_key: str = None) -> Data
 ```
 
 [[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/data_factory.py#L95)
@@ -60,6 +60,7 @@ identifier.
 **Arguments**:
 
 - `data_id` _Text_ - Unique identifier of the data asset to retrieve.
+- `api_key` _str_ - Optional API key for authentication.
   
 
 **Returns**:

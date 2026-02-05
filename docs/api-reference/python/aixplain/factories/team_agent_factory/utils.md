@@ -11,12 +11,12 @@ def build_team_agent(payload: Dict,
                      api_key: Text = config.TEAM_API_KEY) -> TeamAgent
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/team_agent_factory/utils.py#L23)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/team_agent_factory/utils.py#L22)
 
 Build a TeamAgent instance from configuration payload.
 
 This function creates a TeamAgent instance from a configuration payload,
-handling the setup of agents, LLMs, inspectors, and task dependencies.
+handling the setup of agents, LLMs,and task dependencies.
 
 **Arguments**:
 
@@ -31,8 +31,6 @@ handling the setup of agents, LLMs, inspectors, and task dependencies.
   - cost: Optional cost information
   - llmId: LLM model ID (defaults to GPT-4)
   - plannerId: Optional planner model ID
-  - inspectors: Optional list of inspector configurations
-  - inspectorTargets: Optional list of inspection targets
   - status: Team agent status
   - tools: Optional list of tool configurations
 - `agents` _List[Agent], optional_ - Pre-instantiated agent objects. If not
@@ -58,7 +56,7 @@ handling the setup of agents, LLMs, inspectors, and task dependencies.
 def is_yaml_formatted(text)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/team_agent_factory/utils.py#L231)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/team_agent_factory/utils.py#L210)
 
 Check if a string is valid YAML format with additional validation.
 

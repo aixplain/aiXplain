@@ -81,6 +81,9 @@ __all__ = [
     "APIKeyLimits",
     "APIKeyUsageLimit",
     "TokenType",
+    # Progress tracking
+    "AgentProgressTracker",
+    "ProgressFormat",
     # Exceptions
     "AixplainV2Error",
     "ResourceError",

@@ -473,7 +473,12 @@ class AgentProgressTracker:
         icon = "✓" if is_complete else self._get_spinner()
 
         status_line = self._format_step_line(
-            active, step_num, icon, step_elapsed, show_timing=True, is_complete=is_complete
+            active,
+            step_num,
+            icon,
+            step_elapsed,
+            show_timing=True,
+            is_complete=is_complete,
         )
 
         if self._verbosity >= 2:
@@ -690,7 +695,10 @@ class AgentProgressTracker:
                 icon = self._get_spinner()
                 status_line = self._format_step_line(step, idx, icon, step_elapsed, show_timing=True, is_complete=False)
                 print(f"\r{status_line}", end="", flush=True)
-                self._printed_events[sid] = {"has_output": False, "status_line": status_line}
+                self._printed_events[sid] = {
+                    "has_output": False,
+                    "status_line": status_line,
+                }
 
             # In notebook mode, update spinner synchronously (no background thread)
             # Use sequential spinner to prevent frame skipping from irregular poll intervals
@@ -706,7 +714,12 @@ class AgentProgressTracker:
                 has_error = step.get("error") or step.get("error_message")
                 completion_icon = "✗" if has_error else "✓"
                 completion_line = self._format_step_line(
-                    step, idx, completion_icon, step_elapsed, show_timing=True, is_complete=True
+                    step,
+                    idx,
+                    completion_icon,
+                    step_elapsed,
+                    show_timing=True,
+                    is_complete=True,
                 )
                 print(f"\r{completion_line}")
                 self._print_step_details(step, idx)
@@ -727,7 +740,12 @@ class AgentProgressTracker:
         # Use sequential spinner to prevent frame skipping from irregular poll intervals
         icon = "✓" if is_complete else self._get_spinner_for_step(sid)
         status_line = self._format_step_line(
-            active, step_num, icon, step_elapsed, show_timing=True, is_complete=is_complete
+            active,
+            step_num,
+            icon,
+            step_elapsed,
+            show_timing=True,
+            is_complete=is_complete,
         )
 
         # Pad to overwrite previous longer lines

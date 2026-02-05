@@ -9,7 +9,7 @@ title: aixplain.factories.model_factory.mixins.model_list
 class ModelListMixin()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/model_factory/mixins/model_list.py#L7)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/model_factory/mixins/model_list.py#L11)
 
 Mixin class providing model listing functionality.
 
@@ -33,10 +33,11 @@ def list(cls,
          page_number: int = 0,
          page_size: int = 20,
          model_ids: Optional[List[Text]] = None,
-         api_key: Optional[Text] = None) -> dict
+         api_key: Optional[Text] = None,
+         **kwargs) -> List[Model]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/model_factory/mixins/model_list.py#L14)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/model_factory/mixins/model_list.py#L18)
 
 List and filter available models with pagination support.
 
