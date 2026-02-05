@@ -3,9 +3,7 @@ sidebar_label: metric
 title: aixplain.modules.metric
 ---
 
-#### \_\_author\_\_
-
-Copyright 2022 The aiXplain SDK authors
+Copyright 2022 The aiXplain SDK authors.
 
 Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
 you may not use this file except in compliance with the License.
@@ -30,7 +28,7 @@ Description:
 class Metric(Asset)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/metric.py#L28)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/metric.py#L26)
 
 A class representing a metric for evaluating machine learning model outputs.
 
@@ -67,7 +65,7 @@ def __init__(id: Text,
              **additional_info) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/metric.py#L50)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/metric.py#L48)
 
 Initialize a new Metric instance.
 
@@ -90,7 +88,7 @@ Initialize a new Metric instance.
 def __repr__() -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/metric.py#L83)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/metric.py#L81)
 
 Return a string representation of the Metric instance.
 
@@ -104,7 +102,7 @@ Return a string representation of the Metric instance.
 def add_normalization_options(normalization_options: List[str]) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/metric.py#L91)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/metric.py#L89)
 
 Add normalization options to be used during metric computation.
 
@@ -124,7 +122,7 @@ def run(hypothesis: Optional[Union[str, List[str]]] = None,
         reference: Optional[Union[str, List[str]]] = None) -> dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/metric.py#L103)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/metric.py#L101)
 
 Run the metric to calculate scores for the provided inputs.
 

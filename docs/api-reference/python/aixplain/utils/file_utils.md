@@ -94,7 +94,8 @@ def upload_data(file_name: Union[Text, Path],
                 content_type: Text = "text/csv",
                 content_encoding: Optional[Text] = None,
                 nattempts: int = 2,
-                return_download_link: bool = False) -> str
+                return_download_link: bool = False,
+                api_key: Optional[Text] = None)
 ```
 
 [[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/utils/file_utils.py#L97)
@@ -124,6 +125,8 @@ license information.
   Defaults to 2.
 - `return_download_link` _bool, optional_ - If True, returns a direct download
   URL instead of the S3 path. Defaults to False.
+- `api_key` _Optional[Text], optional_ - API key for authentication.
+  Defaults to None, using the configured TEAM_API_KEY.
   
 
 **Returns**:
@@ -134,7 +137,7 @@ license information.
 
 **Raises**:
 
-- `Exception` - If the upload fails after all retry attempts.
+- `tags`0 - If the upload fails after all retry attempts.
   
 
 **Notes**:
@@ -154,7 +157,7 @@ def s3_to_csv(
 ) -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/utils/file_utils.py#L207)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/utils/file_utils.py#L210)
 
 Convert S3 directory contents to a CSV file with file listings.
 

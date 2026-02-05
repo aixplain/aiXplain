@@ -3,7 +3,11 @@ sidebar_label: model
 title: aixplain.modules.model
 ---
 
-#### \_\_author\_\_
+Model module for aiXplain SDK.
+
+This module provides the Model class and related functionality for working with
+AI models in the aiXplain platform, including model execution, parameter management,
+and status tracking.
 
 Copyright 2022 The aiXplain SDK authors
 
@@ -21,8 +25,6 @@ limitations under the License.
 
 Author: Duraikrishna Selvaraju, Thiago Castro Ferreira, Shreyas Sharma and Lucas Pavanelli
 Date: September 1st 2022
-Description:
-    Model Class
 
 ### Model Objects
 
@@ -30,7 +32,7 @@ Description:
 class Model(Asset)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/__init__.py#L41)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/__init__.py#L44)
 
 A ready-to-use AI model that can be executed synchronously or asynchronously.
 
@@ -83,7 +85,7 @@ def __init__(id: Text,
              **additional_info) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/__init__.py#L71)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/__init__.py#L74)
 
 Initialize a new Model instance.
 
@@ -125,7 +127,7 @@ Initialize a new Model instance.
 def to_dict() -> Dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/__init__.py#L144)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/__init__.py#L147)
 
 Convert the model instance to a dictionary representation.
 
@@ -149,7 +151,7 @@ Convert the model instance to a dictionary representation.
 def get_parameters() -> Optional[ModelParameters]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/__init__.py#L174)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/__init__.py#L177)
 
 Get the model&#x27;s configuration parameters.
 
@@ -164,7 +166,7 @@ Get the model&#x27;s configuration parameters.
 def __repr__() -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/__init__.py#L185)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/__init__.py#L188)
 
 Return a string representation of the model.
 
@@ -181,7 +183,7 @@ def sync_poll(poll_url: Text,
               timeout: float = 300) -> ModelResponse
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/__init__.py#L196)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/__init__.py#L199)
 
 Poll the platform until an asynchronous operation completes or times out.
 
@@ -216,7 +218,7 @@ implementing exponential backoff for the polling interval.
 def poll(poll_url: Text, name: Text = "model_process") -> ModelResponse
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/__init__.py#L262)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/__init__.py#L265)
 
 Make a single poll request to check operation status.
 
@@ -245,7 +247,7 @@ def run_stream(data: Union[Text, Dict],
                parameters: Optional[Dict] = None) -> ModelResponseStreamer
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/__init__.py#L312)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/__init__.py#L324)
 
 Execute the model with streaming response.
 
@@ -276,7 +278,7 @@ def run(data: Union[Text, Dict],
         stream: bool = False) -> Union[ModelResponse, ModelResponseStreamer]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/__init__.py#L338)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/__init__.py#L350)
 
 Execute the model and wait for results.
 
@@ -318,7 +320,7 @@ def run_async(data: Union[Text, Dict],
               parameters: Optional[Dict] = None) -> ModelResponse
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/__init__.py#L408)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/__init__.py#L428)
 
 Start asynchronous model execution.
 
@@ -348,7 +350,7 @@ Use sync_poll to check the operation status later.
 def check_finetune_status(after_epoch: Optional[int] = None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/__init__.py#L447)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/__init__.py#L475)
 
 Check the status of the FineTune model.
 
@@ -372,7 +374,7 @@ Check the status of the FineTune model.
 def delete() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/__init__.py#L514)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/__init__.py#L546)
 
 Delete this model from the aiXplain platform.
 
@@ -390,7 +392,7 @@ def add_additional_info_for_benchmark(display_name: str,
                                       configuration: Dict) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/__init__.py#L538)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/__init__.py#L570)
 
 Add benchmark-specific information to the model.
 
@@ -409,7 +411,7 @@ metadata.
 def from_dict(cls, data: Dict) -> "Model"
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/__init__.py#L552)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/__init__.py#L584)
 
 Create a Model instance from a dictionary representation.
 

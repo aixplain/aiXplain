@@ -23,7 +23,7 @@ limitations under the License.
 def validate_api_keys()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/utils/config.py#L31)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/utils/config.py#L33)
 
 Centralized API key validation function - single source of truth.
 
@@ -42,7 +42,7 @@ This function handles all API key validation logic:
 def check_api_keys_available()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/utils/config.py#L58)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/utils/config.py#L60)
 
 Runtime check to ensure API keys are available.
 
