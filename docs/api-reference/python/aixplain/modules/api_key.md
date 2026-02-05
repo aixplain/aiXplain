@@ -174,7 +174,7 @@ Initialize an APIKey instance.
   Defaults to None.
 - `is_admin` _bool, optional_ - Whether this is an admin key.
   Defaults to False.
-  
+
 
 **Notes**:
 
@@ -204,7 +204,7 @@ referenced models exist and are valid.
   - Global rate limits are negative
   - Asset-specific rate limits are negative
 - `Exception` - If a referenced model ID is not a valid aiXplain model.
-  
+
 
 **Notes**:
 
@@ -240,7 +240,7 @@ format suitable for API requests or storage.
   - assetId: model ID
   - expiresAt (Optional[Text]): ISO format expiration date
   - globalLimits (Optional[Dict]): Global limits with tpm/tpd/rpm/rpd
-  
+
 
 **Notes**:
 
@@ -267,7 +267,7 @@ The operation cannot be undone.
   - The user doesn&#x27;t have permission to delete it
   - The API request fails
   - The server returns a non-200 status code
-  
+
 
 **Notes**:
 
@@ -292,7 +292,7 @@ either globally or for a specific model.
 
 - `asset_id` _Optional[Text], optional_ - The model ID to get usage for.
   If None, returns usage for all models. Defaults to None.
-  
+
 
 **Returns**:
 
@@ -302,7 +302,7 @@ either globally or for a specific model.
   - daily_token_count: Number of tokens used today
   - daily_token_limit: Maximum tokens allowed per day
   - model: The model ID these stats apply to (None for global)
-  
+
 
 **Raises**:
 
@@ -311,7 +311,7 @@ either globally or for a specific model.
   - The user doesn&#x27;t have permission to view usage
   - The API request fails
   - The server returns an error response
-  
+
 
 **Notes**:
 
@@ -335,13 +335,13 @@ Set the daily token limit for this API key.
 - `token_per_day` _int_ - Maximum number of tokens allowed per day.
 - `model` _Optional[Union[Text, Model]], optional_ - The model to set
   limit for. If None, sets global limit. Defaults to None.
-  
+
 
 **Raises**:
 
 - `Exception` - If the model isn&#x27;t configured in this API key&#x27;s
   asset_limits.
-  
+
 
 **Notes**:
 
@@ -365,13 +365,13 @@ Set the per-minute token limit for this API key.
 - `token_per_minute` _int_ - Maximum number of tokens allowed per minute.
 - `model` _Optional[Union[Text, Model]], optional_ - The model to set
   limit for. If None, sets global limit. Defaults to None.
-  
+
 
 **Raises**:
 
 - `Exception` - If the model isn&#x27;t configured in this API key&#x27;s
   asset_limits.
-  
+
 
 **Notes**:
 
@@ -395,13 +395,13 @@ Set the daily request limit for this API key.
 - `request_per_day` _int_ - Maximum number of requests allowed per day.
 - `model` _Optional[Union[Text, Model]], optional_ - The model to set
   limit for. If None, sets global limit. Defaults to None.
-  
+
 
 **Raises**:
 
 - `Exception` - If the model isn&#x27;t configured in this API key&#x27;s
   asset_limits.
-  
+
 
 **Notes**:
 
@@ -425,17 +425,16 @@ Set the per-minute request limit for this API key.
 - `request_per_minute` _int_ - Maximum number of requests allowed per minute.
 - `model` _Optional[Union[Text, Model]], optional_ - The model to set
   limit for. If None, sets global limit. Defaults to None.
-  
+
 
 **Raises**:
 
 - `Exception` - If the model isn&#x27;t configured in this API key&#x27;s
   asset_limits.
-  
+
 
 **Notes**:
 
   - Model can be specified by ID or Model instance
   - For global limits, model should be None
   - The new limit takes effect immediately
-
