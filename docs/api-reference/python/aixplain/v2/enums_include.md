@@ -3,18 +3,7 @@ sidebar_label: enums_include
 title: aixplain.v2.enums_include
 ---
 
-### ErrorHandler Objects
+Compatibility imports for legacy enums in v2.
 
-```python
-class ErrorHandler(str, Enum)
-```
-
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/enums_include.py#L54)
-
-Enumeration class defining different error handler strategies.
-
-**Attributes**:
-
-- `SKIP` _str_ - skip failed rows.
-- `FAIL` _str_ - raise an exception.
+This is an auto generated module. PLEASE DO NOT EDIT.
 

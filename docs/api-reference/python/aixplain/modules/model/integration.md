@@ -3,13 +3,18 @@ sidebar_label: integration
 title: aixplain.modules.model.integration
 ---
 
+Integration module for aiXplain SDK.
+
+This module provides classes and utilities for working with external service
+integrations, including authentication schemes and connection management.
+
 ### AuthenticationSchema Objects
 
 ```python
 class AuthenticationSchema(Enum)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/integration.py#L11)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/integration.py#L17)
 
 Enumeration of supported authentication schemes for integrations.
 
@@ -31,7 +36,7 @@ when connecting to external services through integrations.
 class BaseAuthenticationParams(BaseModel)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/integration.py#L34)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/integration.py#L40)
 
 Base model for authentication parameters used in integrations.
 
@@ -49,7 +54,7 @@ authentication schemes when connecting to external services.
 def build_connector_params(**kwargs) -> BaseAuthenticationParams
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/integration.py#L49)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/integration.py#L56)
 
 Build authentication parameters for a connector from keyword arguments.
 
@@ -60,6 +65,7 @@ keyword arguments, extracting the name and connector_id if present.
 
 - `**kwargs` - Arbitrary keyword arguments. Supported keys:
   - name (Optional[Text]): Name for the connection
+  - description (Optional[Text]): Description for the connection
   - connector_id (Optional[Text]): ID of the connector
   
 
@@ -70,7 +76,7 @@ keyword arguments, extracting the name and connector_id if present.
 
 **Example**:
 
-  &gt;&gt;&gt; params = build_connector_params(name=&quot;My Connection&quot;, connector_id=&quot;123&quot;)
+  &gt;&gt;&gt; params = build_connector_params(name=&quot;My Connection&quot;, description=&quot;My Connection Description&quot;, connector_id=&quot;123&quot;)
   &gt;&gt;&gt; print(params.name)
   &#x27;My Connection&#x27;
 
@@ -80,7 +86,12 @@ keyword arguments, extracting the name and connector_id if present.
 class Integration(Model)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/integration.py#L73)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/integration.py#L82)
+
+Integration class for managing external service integrations.
+
+This class extends the Model class to provide functionality for connecting
+to and interacting with external services through integrations.
 
 #### \_\_init\_\_
 
@@ -98,7 +109,7 @@ def __init__(id: Text,
              **additional_info) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/integration.py#L74)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/integration.py#L89)
 
 Initialize a new Integration instance.
 
@@ -125,13 +136,13 @@ Initialize a new Integration instance.
 #### connect
 
 ```python
-def connect(authentication_schema: AuthenticationSchema,
+def connect(authentication_schema: Optional[AuthenticationSchema] = None,
             args: Optional[BaseAuthenticationParams] = None,
-            data: Optional[Dict] = None,
+            data: Optional[Union[Dict, Text]] = None,
             **kwargs) -> ModelResponse
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/integration.py#L127)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/integration.py#L142)
 
 Connect to the integration using the specified authentication scheme.
 
@@ -141,12 +152,13 @@ the authentication scheme being used.
 
 **Arguments**:
 
-- `authentication_schema` _AuthenticationSchema_ - The authentication scheme to use
-  (e.g., BEARER_TOKEN, OAUTH1, OAUTH2, API_KEY, BASIC, NO_AUTH).
+- `authentication_schema` _Optional[AuthenticationSchema]_ - The authentication scheme to use
+  (e.g., BEARER_TOKEN, OAUTH1, OAUTH2, API_KEY, BASIC, NO_AUTH). Optional for MCP connections.
 - `args` _Optional[BaseAuthenticationParams], optional_ - Common connection parameters.
   If not provided, will be built from kwargs. Defaults to None.
-- `data` _Optional[Dict], optional_ - Authentication-specific parameters required by
-  the chosen authentication scheme. Defaults to None.
+- `data` _Optional[Union[Dict, Text]], optional_ - Authentication-specific parameters required by
+  the chosen authentication scheme. For MCP connections, can be a URL string.
+  Defaults to None.
 - `**kwargs` - Additional keyword arguments used to build BaseAuthenticationParams
   if args is not provided. Supported keys:
   - name (str): Name for the connection
@@ -174,13 +186,15 @@ the authentication scheme being used.
   &gt;&gt;&gt; integration.connect(
   ...     AuthenticationSchema.BEARER_TOKEN,
   ...     data=\{&quot;token&quot;: &quot;1234567890&quot;},
-  ...     name=&quot;My Connection&quot;
+  ...     name=&quot;My Connection&quot;,
+  ...     description=&quot;My Connection Description&quot;
   ... )
   
   Using OAuth2 authentication:
   &gt;&gt;&gt; response = integration.connect(
   ...     AuthenticationSchema.OAUTH2,
-  ...     name=&quot;My Connection&quot;
+  ...     name=&quot;My Connection&quot;,
+  ...     description=&quot;My Connection Description&quot;
   ... )
   &gt;&gt;&gt; # For OAuth2, you&#x27;ll need to visit the redirectURL to complete auth
   &gt;&gt;&gt; print(response.data.get(&quot;redirectURL&quot;))
@@ -189,8 +203,12 @@ the authentication scheme being used.
   &gt;&gt;&gt; integration.connect(
   ...     AuthenticationSchema.API_KEY,
   ...     data=\{&quot;api_key&quot;: &quot;your-api-key&quot;},
-  ...     name=&quot;My Connection&quot;
+  ...     name=&quot;My Connection&quot;,
+  ...     description=&quot;My Connection Description&quot;
   ... )
+  
+  Using MCP connection (no authentication schema required):
+  &gt;&gt;&gt; response = integration.connect(data=&quot;https://mcp.example.com/api/...&quot;)
 
 #### \_\_repr\_\_
 
@@ -198,7 +216,7 @@ the authentication scheme being used.
 def __repr__()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/integration.py#L242)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/integration.py#L273)
 
 Return a string representation of the Integration instance.
 
