@@ -147,7 +147,8 @@ def list(cls,
          output_data_types: Optional[Union[DataType, List[DataType]]] = None,
          page_number: int = 0,
          page_size: int = 20,
-         drafts_only: bool = False) -> Dict
+         drafts_only: bool = False,
+         api_key: Optional[Text] = None) -> Dict
 ```
 
 [[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/pipeline_factory/__init__.py#L190)
@@ -199,7 +200,7 @@ for retrieving pipelines from the aiXplain platform.
 def init(cls, name: Text, api_key: Optional[Text] = None) -> Pipeline
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/pipeline_factory/__init__.py#L311)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/pipeline_factory/__init__.py#L313)
 
 Initialize a new empty pipeline.
 
@@ -227,7 +228,7 @@ def create(cls,
            api_key: Optional[Text] = None) -> Pipeline
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/pipeline_factory/__init__.py#L337)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/pipeline_factory/__init__.py#L339)
 
 Create a new draft pipeline.
 
