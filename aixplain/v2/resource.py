@@ -1127,15 +1127,27 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
                 }
             )
         else:
-            # Direct response case - pass the entire response to let dataclass_json handle field mapping
+            # Direct response case - normalize with safe defaults before deserialization
             # Check for failed status and raise appropriate error
             status = response.get("status", "IN_PROGRESS")
             if status == "FAILED":
                 raise create_operation_failed_error(response)
 
+            normalized = {
+                "status": status,
+                "completed": response.get("completed", True),
+                "errorMessage": response.get("errorMessage"),
+                "url": response.get("url"),
+                "result": response.get("result"),
+                "supplierError": response.get("supplierError"),
+                "data": response.get("data") or {},
+                "usedCredits": response.get("usedCredits", 0.0),
+                "runTime": response.get("runTime", 0.0),
+            }
             response_class = getattr(self, "RESPONSE_CLASS", Result)
-
-            return response_class.from_dict(response)
+            result = response_class.from_dict(normalized)
+            result._raw_data = response
+            return result
 
     # Optional hook methods - only implement what you need
     def before_run(self, *args: Any, **kwargs: Unpack[RunParamsT]) -> Optional[ResultT]:

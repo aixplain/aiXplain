@@ -635,22 +635,19 @@ class Model(
         - Sync models: Uses V2 endpoint directly (returns result immediately)
         - Async models: Uses V2 endpoint and polls until completion
         """
-        # Merge dynamic attributes with provided kwargs
-        effective_params = self._merge_with_dynamic_attrs(**kwargs)
-
-        # Validate all parameters against model's expected inputs
-        if self.params:
-            param_errors = self._validate_params(**effective_params)
-            if param_errors:
-                raise ValueError(f"Parameter validation failed: {'; '.join(param_errors)}")
-
         if self.is_sync_only:
-            # Sync-only models: Call V2 endpoint directly (bypass run_async which would route to V1)
-            # V2 returns result directly for sync models, no polling needed
+            # Sync-only models: merge and validate here, then call V2 endpoint directly
+            effective_params = self._merge_with_dynamic_attrs(**kwargs)
+
+            if self.params:
+                param_errors = self._validate_params(**effective_params)
+                if param_errors:
+                    raise ValueError(f"Parameter validation failed: {'; '.join(param_errors)}")
+
             return self._run_sync_v2(**effective_params)
         else:
-            # Async-capable models: Use base run() which calls run_async() and polls
-            return super().run(**effective_params)
+            # Async-capable models: let run_async() handle merging and validation
+            return super().run(**kwargs)
 
     def _run_sync_v2(self, **kwargs: Unpack[ModelRunParams]) -> ModelResult:
         """Run the model synchronously using V2 endpoint directly.

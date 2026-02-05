@@ -88,10 +88,14 @@ def create_operation_failed_error(response: Dict[str, Any]) -> APIError:
         error_msg = response["supplierError"]
     elif response.get("supplier_error"):
         error_msg = response["supplier_error"]
+    elif response.get("errorMessage"):
+        error_msg = response["errorMessage"]
     elif response.get("error_message"):
         error_msg = response["error_message"]
     elif response.get("error"):
         error_msg = response["error"]
+    elif response.get("detail"):
+        error_msg = response["detail"]
     else:
         error_msg = "Operation failed"
 

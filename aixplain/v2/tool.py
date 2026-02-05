@@ -12,7 +12,7 @@ from .resource import (
     BaseDeleteParams,
     DeleteResult,
 )
-from .model import Model, ModelRunParams
+from .model import Model, ModelRunParams, Usage
 from .integration import Integration, Action, ActionMixin
 
 
@@ -21,7 +21,9 @@ from .integration import Integration, Action, ActionMixin
 class ToolResult(Result):
     """Result for a tool."""
 
-    pass
+    run_time: Optional[float] = field(default=None, metadata=dj_config(field_name="runTime"))
+    used_credits: Optional[float] = field(default=None, metadata=dj_config(field_name="usedCredits"))
+    usage: Optional[Usage] = None
 
 
 @dataclass_json
