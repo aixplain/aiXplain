@@ -199,6 +199,40 @@ class CodeInterpreterModel(str, Enum):
     CLAUDE_3_CODE_INTERPRETER = "CLAUDE_3_CODE_INTERPRETER"
 
 
+class DataType(str, Enum):
+    """Enumeration of supported data types in the aiXplain system.
+
+    Attributes:
+        AUDIO: Audio data type.
+        FLOAT: Floating-point number data type.
+        IMAGE: Image data type.
+        INTEGER: Integer number data type.
+        LABEL: Label/category data type.
+        TENSOR: Tensor/multi-dimensional array data type.
+        TEXT: Text data type.
+        VIDEO: Video data type.
+        EMBEDDING: Vector embedding data type.
+        NUMBER: Generic number data type.
+        BOOLEAN: Boolean data type.
+    """
+
+    AUDIO = "audio"
+    FLOAT = "float"
+    IMAGE = "image"
+    INTEGER = "integer"
+    LABEL = "label"
+    TENSOR = "tensor"
+    TEXT = "text"
+    VIDEO = "video"
+    EMBEDDING = "embedding"
+    NUMBER = "number"
+    BOOLEAN = "boolean"
+
+    def __str__(self) -> str:
+        """Return the string representation of the data type."""
+        return self._value_
+
+
 class SplittingOptions(str, Enum):
     """Enumeration of possible splitting options for text chunking.
 
@@ -232,5 +266,6 @@ __all__ = [
     "FunctionType",
     "EvolveType",
     "CodeInterpreterModel",
+    "DataType",
     "SplittingOptions",
 ]

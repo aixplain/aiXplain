@@ -168,43 +168,47 @@ class TestModelV1Fallback:
 
     def test_run_async_v1_maps_text_to_data(self):
         """_run_async_v1() should map 'text' param to 'data' in V1 payload."""
+        import json
+
         model = self._create_model_with_context()
 
-        with patch("aixplain.modules.model.utils.build_payload") as mock_build_payload:
-            with patch("aixplain.modules.model.utils.call_run_endpoint") as mock_call_endpoint:
-                mock_build_payload.return_value = {"data": "hello"}
-                mock_call_endpoint.return_value = {
-                    "status": "IN_PROGRESS",
-                    "completed": False,
-                    "url": "https://poll.url",
-                }
-                with patch.object(model, "_ensure_valid_state"):
-                    model._run_async_v1(text="hello", sourcelanguage="en")
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "status": "IN_PROGRESS",
+            "data": "https://poll.url",
+        }
+        model.context.client.request_raw = Mock(return_value=mock_response)
 
-        # Verify text was passed as data to build_payload
-        mock_build_payload.assert_called_once()
-        call_args = mock_build_payload.call_args
-        assert call_args[1]["data"] == "hello"
-        assert "sourcelanguage" in call_args[1]["parameters"]
+        with patch.object(model, "_ensure_valid_state"):
+            model._run_async_v1(text="hello", sourcelanguage="en")
+
+        # Verify request_raw was called with JSON payload containing data and sourcelanguage
+        model.context.client.request_raw.assert_called_once()
+        call_args = model.context.client.request_raw.call_args
+        sent_payload = json.loads(call_args[1]["data"])
+        assert sent_payload["data"] == "hello"
+        assert sent_payload["sourcelanguage"] == "en"
 
     def test_run_async_v1_transforms_url_v2_to_v1(self):
         """_run_async_v1() should transform /api/v2/ to /api/v1/ in URL."""
         model = self._create_model_with_context()
         model.context.model_url = "https://models.aixplain.com/api/v2/execute"
 
-        with patch("aixplain.modules.model.utils.build_payload", return_value={"data": "hello"}):
-            with patch("aixplain.modules.model.utils.call_run_endpoint") as mock_call_endpoint:
-                mock_call_endpoint.return_value = {
-                    "status": "IN_PROGRESS",
-                    "completed": False,
-                    "url": "https://poll.url",
-                }
-                with patch.object(model, "_ensure_valid_state"):
-                    model._run_async_v1(text="hello")
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "status": "IN_PROGRESS",
+            "data": "https://poll.url",
+        }
+        model.context.client.request_raw = Mock(return_value=mock_response)
+
+        with patch.object(model, "_ensure_valid_state"):
+            model._run_async_v1(text="hello")
 
         # Verify the URL was transformed to v1
-        call_args = mock_call_endpoint.call_args
-        url_arg = call_args[1]["url"]
+        call_args = model.context.client.request_raw.call_args
+        url_arg = call_args[0][1]  # second positional arg is the url
         assert "/api/v1/" in url_arg
         assert "/api/v2/" not in url_arg
         assert url_arg == "https://models.aixplain.com/api/v1/execute/test-model-id"
@@ -213,16 +217,16 @@ class TestModelV1Fallback:
         """_run_async_v1() should return a ModelResult with correct fields."""
         model = self._create_model_with_context()
 
-        with patch("aixplain.modules.model.utils.build_payload", return_value={"data": "hello"}):
-            with patch("aixplain.modules.model.utils.call_run_endpoint") as mock_call_endpoint:
-                mock_call_endpoint.return_value = {
-                    "status": "IN_PROGRESS",
-                    "completed": False,
-                    "url": "https://poll.url",
-                    "data": "",
-                }
-                with patch.object(model, "_ensure_valid_state"):
-                    result = model._run_async_v1(text="hello")
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "status": "IN_PROGRESS",
+            "data": "https://poll.url",
+        }
+        model.context.client.request_raw = Mock(return_value=mock_response)
+
+        with patch.object(model, "_ensure_valid_state"):
+            result = model._run_async_v1(text="hello")
 
         assert isinstance(result, ModelResult)
         assert result.status == "IN_PROGRESS"
@@ -233,15 +237,17 @@ class TestModelV1Fallback:
         """_run_async_v1() should handle SUCCESS response from V1."""
         model = self._create_model_with_context()
 
-        with patch("aixplain.modules.model.utils.build_payload", return_value={"data": "hello"}):
-            with patch("aixplain.modules.model.utils.call_run_endpoint") as mock_call_endpoint:
-                mock_call_endpoint.return_value = {
-                    "status": "SUCCESS",
-                    "completed": True,
-                    "data": "translated text",
-                }
-                with patch.object(model, "_ensure_valid_state"):
-                    result = model._run_async_v1(text="hello")
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "status": "SUCCESS",
+            "completed": True,
+            "data": "translated text",
+        }
+        model.context.client.request_raw = Mock(return_value=mock_response)
+
+        with patch.object(model, "_ensure_valid_state"):
+            result = model._run_async_v1(text="hello")
 
         assert result.status == "SUCCESS"
         assert result.completed is True
@@ -249,17 +255,23 @@ class TestModelV1Fallback:
 
     def test_run_async_v1_excludes_timeout_and_wait_time_from_parameters(self):
         """_run_async_v1() should not include timeout/wait_time in V1 parameters."""
+        import json
+
         model = self._create_model_with_context()
 
-        with patch("aixplain.modules.model.utils.build_payload") as mock_build_payload:
-            with patch("aixplain.modules.model.utils.call_run_endpoint") as mock_call_endpoint:
-                mock_build_payload.return_value = {"data": "hello"}
-                mock_call_endpoint.return_value = {"status": "IN_PROGRESS", "completed": False}
-                with patch.object(model, "_ensure_valid_state"):
-                    model._run_async_v1(text="hello", timeout=300, wait_time=5, language="en")
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "status": "IN_PROGRESS",
+            "data": "https://poll.url",
+        }
+        model.context.client.request_raw = Mock(return_value=mock_response)
 
-        call_args = mock_build_payload.call_args
-        parameters = call_args[1]["parameters"]
-        assert "timeout" not in parameters
-        assert "wait_time" not in parameters
-        assert "language" in parameters
+        with patch.object(model, "_ensure_valid_state"):
+            model._run_async_v1(text="hello", timeout=300, wait_time=5, language="en")
+
+        call_args = model.context.client.request_raw.call_args
+        sent_payload = json.loads(call_args[1]["data"])
+        assert "timeout" not in sent_payload
+        assert "wait_time" not in sent_payload
+        assert sent_payload["language"] == "en"

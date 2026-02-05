@@ -700,44 +700,70 @@ class Model(
         """Run the model asynchronously using V1 endpoint.
 
         This is used as a fallback for sync-only models that need async execution.
+        Uses the v2 client directly to avoid importing v1 modules (which trigger
+        env var validation).
 
         Returns:
             ModelResult: Result with polling URL from V1 endpoint
         """
-        from aixplain.modules.model.utils import build_payload, call_run_endpoint
-        from aixplain.enums.response_status import ResponseStatus
-
         self._ensure_valid_state()
 
-        # Build V1 payload
-        # V1 expects 'data' parameter, map from 'text' if needed
+        # Build V1 payload: V1 expects 'data' parameter, map from 'text' if needed
         data = kwargs.pop("text", None)
         parameters = {k: v for k, v in kwargs.items() if k not in ["timeout", "wait_time"]}
 
-        payload = build_payload(data=data, parameters=parameters if parameters else None)
+        payload = {"data": data}
+        if parameters:
+            payload.update(parameters)
+        json_payload = json.dumps(payload)
 
-        # Call V1 run endpoint - derive V1 URL from context's model_url
-        # Replace v2 with v1 in the URL path
+        # Derive V1 URL from context's model_url (replace v2 with v1)
         v1_base_url = self.context.model_url.replace("/api/v2/", "/api/v1/")
         url = f"{v1_base_url}/{self.id}"
-        response = call_run_endpoint(payload=payload, url=url, api_key=self.context.api_key)
 
-        # Convert V1 response to ModelResult
-        raw_status = response.pop("status", ResponseStatus.FAILED)
-        if isinstance(raw_status, str):
+        # Use the v2 client's raw request method (raises APIError on non-2xx)
+        try:
+            r = self.context.client.request_raw("post", url, data=json_payload)
+            resp = r.json()
+        except Exception as e:
+            logger.error(f"Error in V1 async request: {e}")
+            return ModelResult(
+                status=ResponseStatus.FAILED.value,
+                completed=True,
+                data="",
+                error_message=f"Model Run: {e}",
+            )
+
+        # request_raw only returns on 2xx; parse the response
+        status = resp.get("status", "IN_PROGRESS")
+        resp_data = resp.get("data", None)
+        if status == "IN_PROGRESS":
+            if resp_data is not None:
+                return ModelResult(
+                    status=ResponseStatus.IN_PROGRESS.value,
+                    completed=False,
+                    data="",
+                    url=resp_data,
+                )
+            else:
+                return ModelResult(
+                    status=ResponseStatus.FAILED.value,
+                    completed=True,
+                    data="",
+                    error_message="Model Run: An error occurred while processing your request.",
+                )
+        else:
             try:
-                raw_status = ResponseStatus(raw_status)
+                raw_status = ResponseStatus(status)
             except ValueError:
                 raw_status = ResponseStatus.FAILED
-
-        # Map V1 response to ModelResult format
-        return ModelResult(
-            status=raw_status.value if hasattr(raw_status, "value") else str(raw_status),
-            completed=response.pop("completed", False),
-            data=response.pop("data", ""),
-            url=response.pop("url", None),
-            error_message=response.pop("error_message", None),
-        )
+            return ModelResult(
+                status=raw_status.value,
+                completed=resp.get("completed", True),
+                data=resp.get("data", ""),
+                url=resp.get("url", None),
+                error_message=resp.get("error_message", None),
+            )
 
     def run_stream(self, **kwargs: Unpack[ModelRunParams]) -> ModelResponseStreamer:
         """Run the model with streaming response.
