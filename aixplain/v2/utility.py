@@ -70,9 +70,11 @@ class Utility(
         """Parse code and validate description for new utility instances."""
         # Only run parsing logic for new instances (no id yet)
         if not self.id:
-            from aixplain.modules.model.utils import parse_code_decorated
+            from .code_utils import parse_code_decorated
 
-            code, inputs, description, name = parse_code_decorated(self.code, self.context.api_key)
+            code, inputs, description, name = parse_code_decorated(
+                self.code, api_key=self.context.api_key, backend_url=self.context.backend_url
+            )
             self.code = code
             self.inputs = inputs
             self.description = description
