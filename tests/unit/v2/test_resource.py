@@ -785,6 +785,50 @@ class TestRunnableResourceMixin:
 
         assert payload == {"key": "value", "other": 123}
 
+    def test_handle_run_response_non_url_in_progress_sets_completed_false(self):
+        """handle_run_response() should set completed=False when status is IN_PROGRESS with non-URL data."""
+        resource = self._create_runnable_resource()
+
+        response = {
+            "status": "IN_PROGRESS",
+            "data": "some-poll-id-not-a-url",
+        }
+        result = resource.handle_run_response(response)
+
+        assert isinstance(result, Result)
+        assert result.status == "IN_PROGRESS"
+        assert result.url == "some-poll-id-not-a-url"
+        assert result.completed is False
+
+    def test_run_polls_when_in_progress_with_non_url_data(self):
+        """run() should poll when handle_run_response returns IN_PROGRESS with non-URL data."""
+        resource = self._create_runnable_resource()
+
+        # Initial run_async returns IN_PROGRESS with non-URL data
+        resource.context.client.request = Mock(
+            return_value={
+                "status": "IN_PROGRESS",
+                "data": "some-poll-id-not-a-url",
+            }
+        )
+
+        # Poll returns completed
+        resource.context.client.get = Mock(
+            return_value={
+                "status": "SUCCESS",
+                "completed": True,
+                "data": "final result",
+            }
+        )
+
+        result = resource.run()
+
+        # Verify polling was triggered
+        resource.context.client.request.assert_called_once()
+        resource.context.client.get.assert_called()
+        assert result.completed is True
+        assert result.status == "SUCCESS"
+
 
 # =============================================================================
 # Result Class Tests

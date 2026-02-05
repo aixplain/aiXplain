@@ -1123,7 +1123,7 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
                 {
                     "status": response["status"],
                     "url": response["data"],
-                    "completed": True,
+                    "completed": False,
                 }
             )
         else:
