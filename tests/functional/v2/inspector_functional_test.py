@@ -35,13 +35,16 @@ _DEFAULT_INPUT_TARGET = "input"
 _DEFAULT_OUTPUT_TARGET = "output"
 
 
-@pytest.fixture(scope="function")
-def delete_agents_and_team_agents():
-    from tests.test_deletion_utils import safe_delete_all_agents_and_team_agents
-
-    safe_delete_all_agents_and_team_agents()
-    yield True
-    safe_delete_all_agents_and_team_agents()
+@pytest.fixture
+def resource_tracker():
+    """Tracks resources created during a test for guaranteed cleanup."""
+    resources = []
+    yield resources
+    for resource in reversed(resources):
+        try:
+            resource.delete()
+        except Exception:
+            pass
 
 
 @pytest.fixture(scope="module", params=read_data(RUN_FILE))
@@ -137,9 +140,11 @@ def _run_and_get_steps(team_agent, query: str):
     return response, steps
 
 
-def test_output_inspector_abort(client, run_input_map, delete_agents_and_team_agents):
+def test_output_inspector_abort(client, run_input_map, resource_tracker):
     timestamp = f"{int(time.time())}_{uuid.uuid4().hex[:6]}"
     agents = _make_two_subagents(client, timestamp)
+    for agent in agents:
+        resource_tracker.append(agent)
 
     inspector = Inspector(
         name="always_abort_output_inspector",
@@ -154,6 +159,7 @@ def test_output_inspector_abort(client, run_input_map, delete_agents_and_team_ag
     )
 
     team_agent = _make_team_agent(client, timestamp, agents, [inspector])
+    resource_tracker.append(team_agent)
     team_agent.save()
 
     _, steps = _run_and_get_steps(team_agent, "Return anything at all.")
@@ -176,9 +182,11 @@ def test_output_inspector_abort(client, run_input_map, delete_agents_and_team_ag
     )
 
 
-def test_output_inspector_rerun_until_fixed(client, run_input_map, delete_agents_and_team_agents):
+def test_output_inspector_rerun_until_fixed(client, run_input_map, resource_tracker):
     timestamp = f"{int(time.time())}_{uuid.uuid4().hex[:6]}"
     agents = _make_two_subagents(client, timestamp)
+    for agent in agents:
+        resource_tracker.append(agent)
 
     inspector = Inspector(
         name="rerun_output_inspector",
@@ -197,6 +205,7 @@ def test_output_inspector_rerun_until_fixed(client, run_input_map, delete_agents
     )
 
     team_agent = _make_team_agent(client, timestamp, agents, [inspector])
+    resource_tracker.append(team_agent)
     team_agent.save()
 
     response, steps = _run_and_get_steps(team_agent, "Write a short customer service reply.")
@@ -215,9 +224,11 @@ def test_output_inspector_rerun_until_fixed(client, run_input_map, delete_agents
     )
 
 
-def test_edit_steps_always_runs(client, run_input_map, delete_agents_and_team_agents):
+def test_edit_steps_always_runs(client, run_input_map, resource_tracker):
     timestamp = f"{int(time.time())}_{uuid.uuid4().hex[:6]}"
     agents = _make_two_subagents(client, timestamp)
+    for agent in agents:
+        resource_tracker.append(agent)
 
     inspector = Inspector(
         name="edit_steps_inspector",
@@ -235,6 +246,7 @@ def test_edit_steps_always_runs(client, run_input_map, delete_agents_and_team_ag
     )
 
     team_agent = _make_team_agent(client, timestamp, agents, [inspector])
+    resource_tracker.append(team_agent)
     team_agent.save()
 
     response, _ = _run_and_get_steps(team_agent, "Translate 'Hello' to Portuguese.")
@@ -247,8 +259,6 @@ def test_edit_steps_always_runs(client, run_input_map, delete_agents_and_team_ag
     assert "paris" in out
     assert "weather" in out
 
-    team_agent.delete()
-
 
 def evaluator_fn(text: str) -> bool:
     return "DETAILED" in text
@@ -258,9 +268,11 @@ def edit_fn(text: str) -> str:
     return "hello, what's the weather in paris like today?"
 
 
-def test_edit_with_gate_true(client, run_input_map, delete_agents_and_team_agents):
+def test_edit_with_gate_true(client, run_input_map, resource_tracker):
     timestamp = f"{int(time.time())}_{uuid.uuid4().hex[:6]}"
     agents = _make_two_subagents(client, timestamp)
+    for agent in agents:
+        resource_tracker.append(agent)
 
     inspector = Inspector(
         name="gated_edit_true",
@@ -278,14 +290,13 @@ def test_edit_with_gate_true(client, run_input_map, delete_agents_and_team_agent
     )
 
     team_agent = _make_team_agent(client, timestamp, agents, [inspector])
+    resource_tracker.append(team_agent)
     team_agent.save()
 
     response, _ = _run_and_get_steps(team_agent, "DETAILED: Translate 'Hello' to Portuguese.")
 
     out = (getattr(response.data, "output", "") or "").lower()
     assert "paris" in out
-
-    team_agent.delete()
 
 
 def edit_fn(text: str) -> str:
@@ -296,9 +307,11 @@ def evaluator_fn(text: str) -> bool:
     return "DETAILED" in text
 
 
-def test_edit_with_gate_false(client, run_input_map, delete_agents_and_team_agents):
+def test_edit_with_gate_false(client, run_input_map, resource_tracker):
     timestamp = f"{int(time.time())}_{uuid.uuid4().hex[:6]}"
     agents = _make_two_subagents(client, timestamp)
+    for agent in agents:
+        resource_tracker.append(agent)
 
     inspector = Inspector(
         name="gated_edit_false",
@@ -316,11 +329,10 @@ def test_edit_with_gate_false(client, run_input_map, delete_agents_and_team_agen
     )
 
     team_agent = _make_team_agent(client, timestamp, agents, [inspector])
+    resource_tracker.append(team_agent)
     team_agent.save()
 
     response, _ = _run_and_get_steps(team_agent, "Translate 'Hello' to Portuguese.")
 
     out = (getattr(response.data, "output", "") or "").lower()
     assert "paris" not in out
-
-    team_agent.delete()
