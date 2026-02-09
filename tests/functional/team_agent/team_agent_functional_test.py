@@ -277,7 +277,7 @@ def test_team_agent_with_parameterized_agents(run_input_map, delete_agents_and_t
     assert delete_agents_and_team_agents
 
     # Create first agent with search tool
-    search_model = ModelFactory.get("65c51c556eb563350f6e1bb1")
+    search_model = ModelFactory.get("692f18557b2cc45d29150cb0")
     model_params = search_model.get_parameters()
     model_params.numResults = 5
     search_tool = AgentFactory.create_model_tool(
