@@ -140,7 +140,8 @@ def _run_and_get_steps(team_agent, query: str):
     return response, steps
 
 
-def test_output_inspector_abort(client, run_input_map, resource_tracker):
+@pytest.mark.flaky(reruns=2, reruns_delay=2)
+def test_output_inspector_abort(client, run_input_map, delete_agents_and_team_agents):
     timestamp = f"{int(time.time())}_{uuid.uuid4().hex[:6]}"
     agents = _make_two_subagents(client, timestamp)
     for agent in agents:

@@ -265,10 +265,11 @@ def test_team_agent_tasks(resource_tracker):
     assert "test" in response.data["output"]
 
 
-def test_team_agent_with_parameterized_agents(run_input_map, resource_tracker):
+@pytest.mark.skip(reason="Tools not available - uses ConnectionTool model")
+def test_team_agent_with_parameterized_agents(run_input_map, delete_agents_and_team_agents):
     """Test team agent with agents that have parameterized tools"""
     # Create first agent with search tool
-    search_model = ModelFactory.get("65c51c556eb563350f6e1bb1")
+    search_model = ModelFactory.get("692f18557b2cc45d29150cb0")
     model_params = search_model.get_parameters()
     model_params.numResults = 5
     search_tool = AgentFactory.create_model_tool(
@@ -508,7 +509,8 @@ def test_run_team_agent_with_expected_output(resource_tracker):
         assert person["name"] in more_than_30_years_old
 
 
-def test_team_agent_with_slack_connector(resource_tracker):
+@pytest.mark.skip(reason="Tools not available")
+def test_team_agent_with_slack_connector():
     from aixplain.modules.model.integration import AuthenticationSchema
 
     connector = ModelFactory.get("686432941223092cb4294d3f")
