@@ -6,6 +6,7 @@ on:
       - main
       # any branch other than main, will use the test key
       - test
+      - development
   workflow_dispatch:
 
 jobs:
