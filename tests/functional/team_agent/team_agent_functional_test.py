@@ -272,6 +272,7 @@ def test_team_agent_tasks(delete_agents_and_team_agents):
     assert "test" in response.data["output"]
 
 
+@pytest.mark.skip(reason="Tools not available - uses ConnectionTool model")
 def test_team_agent_with_parameterized_agents(run_input_map, delete_agents_and_team_agents):
     """Test team agent with agents that have parameterized tools"""
     assert delete_agents_and_team_agents
@@ -522,6 +523,7 @@ def test_run_team_agent_with_expected_output():
         assert person["name"] in more_than_30_years_old
 
 
+@pytest.mark.skip(reason="Tools not available")
 def test_team_agent_with_slack_connector():
     from aixplain.modules.model.integration import AuthenticationSchema
 
