@@ -109,7 +109,7 @@ def encode_resource_id(resource_id: str) -> str:
     Returns:
         The URL-encoded resource ID
     """
-    return quote(resource_id, safe="")
+    return quote(str(resource_id), safe="")
 
 
 # Protocol classes for better type safety
@@ -1123,7 +1123,7 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
                 {
                     "status": response["status"],
                     "url": response["data"],
-                    "completed": True,
+                    "completed": False,
                 }
             )
         else:

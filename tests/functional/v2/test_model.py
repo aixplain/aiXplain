@@ -802,3 +802,83 @@ def test_model_inputs_proxy_integration_with_run(client, text_model_id):
         assert model.inputs.temperature == 0.6
     if "max_tokens" in model.inputs:
         assert model.inputs.max_tokens == 400
+
+
+# =============================================================================
+# Connection Type Routing Tests
+# =============================================================================
+
+
+@pytest.fixture(scope="module")
+def sync_model_id():
+    """Return a sync-only model ID for testing (Cloud Translation)."""
+    return "66aa869f6eb56342c26057e1"
+
+
+@pytest.fixture(scope="module")
+def async_model_id():
+    """Return an async-only model ID for testing (Amazon Translate)."""
+    return "6686e7946eb563a724229b84"
+
+
+def test_sync_model_connection_type(client, sync_model_id):
+    """Test that sync model has correct connection_type."""
+    model = client.Model.get(sync_model_id)
+    assert model.connection_type == ["synchronous"]
+    assert model.is_sync_only is True
+    assert model.is_async_capable is False
+
+
+def test_async_model_connection_type(client, async_model_id):
+    """Test that async model has correct connection_type."""
+    model = client.Model.get(async_model_id)
+    assert model.connection_type == ["asynchronous"]
+    assert model.is_sync_only is False
+    assert model.is_async_capable is True
+
+
+def test_sync_model_run(client, sync_model_id):
+    """Test run() on sync model uses V2 MS directly."""
+    model = client.Model.get(sync_model_id)
+
+    # run() should return completed result
+    result = model.run(text="Hello world", sourcelanguage="en", targetlanguage="es")
+    assert result.status == "SUCCESS"
+    assert result.completed is True
+    assert result.data is not None
+    assert "Hola" in result.data or "hola" in result.data.lower()
+
+
+def test_sync_model_run_async(client, sync_model_id):
+    """Test run_async() on sync model falls back to V1 MS."""
+    model = client.Model.get(sync_model_id)
+
+    # run_async() should return polling URL (V1 fallback)
+    result = model.run_async(text="Hello world", sourcelanguage="en", targetlanguage="es")
+    assert result.status == "IN_PROGRESS"
+    assert result.completed is False
+    assert result.url is not None
+    assert "api/v1/data" in result.url
+
+
+def test_async_model_run(client, async_model_id):
+    """Test run() on async model uses V2 MS with SDK polling."""
+    model = client.Model.get(async_model_id)
+
+    # run() should poll and return completed result
+    result = model.run(text="Hello world", sourcelanguage="en", targetlanguage="es")
+    assert result.status == "SUCCESS"
+    assert result.completed is True
+    assert result.data is not None
+
+
+def test_async_model_run_async(client, async_model_id):
+    """Test run_async() on async model uses V2 MS."""
+    model = client.Model.get(async_model_id)
+
+    # run_async() should return result from V2 MS
+    result = model.run_async(text="Hello world", sourcelanguage="en", targetlanguage="es")
+    # V2 async models may complete quickly or return polling URL
+    assert result.status in ["SUCCESS", "IN_PROGRESS"]
+    if result.status == "IN_PROGRESS":
+        assert result.url is not None

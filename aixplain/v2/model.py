@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Union, List, Optional, Any
+import json
+import logging
+from typing import Union, List, Optional, Any, TYPE_CHECKING, Iterator
 from typing_extensions import NotRequired, Unpack
 from dataclasses_json import dataclass_json, config
 from dataclasses import dataclass, field
@@ -18,8 +20,14 @@ from .resource import (
     BaseRunParams,
     Result,
 )
-from .enums import Function, Supplier, Language, AssetStatus
+from .enums import Function, Supplier, Language, AssetStatus, ResponseStatus
 from .mixins import ToolableMixin, ToolDict
+from .exceptions import ValidationError
+
+if TYPE_CHECKING:
+    import requests
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass_json
@@ -63,6 +71,120 @@ class ModelResult(Result):
     run_time: Optional[float] = field(default=None, metadata=config(field_name="runTime"))
     used_credits: Optional[float] = field(default=None, metadata=config(field_name="usedCredits"))
     usage: Optional[Usage] = None
+
+
+@dataclass
+class StreamChunk:
+    """A chunk of streamed response data.
+
+    Attributes:
+        status: The current status of the streaming operation (IN_PROGRESS or SUCCESS)
+        data: The content/token of this chunk
+    """
+
+    status: ResponseStatus
+    data: str
+
+
+class ModelResponseStreamer(Iterator[StreamChunk]):
+    """A streamer for model responses that yields chunks as they arrive.
+
+    This class provides an iterator interface for streaming model responses.
+    It handles the conversion of Server-Sent Events (SSE) into StreamChunk objects
+    and manages the response status.
+
+    The streamer can be used directly in a for loop or as a context manager
+    for proper resource cleanup.
+
+    Example:
+        >>> model = aix.Model.get("669a63646eb56306647e1091")  # GPT-4o Mini
+        >>> for chunk in model.run(text="Explain LLMs", stream=True):
+        ...     print(chunk.data, end="", flush=True)
+
+        >>> # With context manager for proper cleanup
+        >>> with model.run_stream(text="Hello") as stream:
+        ...     for chunk in stream:
+        ...         print(chunk.data, end="", flush=True)
+    """
+
+    def __init__(self, response: "requests.Response"):
+        """Initialize a new ModelResponseStreamer instance.
+
+        Args:
+            response: A requests.Response object with streaming enabled
+        """
+        self._response = response
+        self._iterator = response.iter_lines(decode_unicode=True)
+        self.status = ResponseStatus.IN_PROGRESS
+        self._done = False
+
+    def __iter__(self) -> Iterator[StreamChunk]:
+        """Return the iterator for the ModelResponseStreamer."""
+        return self
+
+    def __next__(self) -> StreamChunk:
+        """Return the next chunk of the response.
+
+        Returns:
+            StreamChunk: A StreamChunk object containing the next chunk of the response.
+
+        Raises:
+            StopIteration: When the stream is complete
+        """
+        if self._done:
+            raise StopIteration
+
+        while True:
+            try:
+                line = next(self._iterator)
+            except StopIteration:
+                self._done = True
+                self.status = ResponseStatus.SUCCESS
+                raise
+
+            # Skip empty lines (SSE uses blank lines as separators)
+            if not line:
+                continue
+
+            # Parse SSE data line - remove "data:" prefix and any leading whitespace
+            if line.startswith("data:"):
+                line = line[5:].lstrip()
+
+            # Check for stream completion marker
+            if line == "[DONE]":
+                self._done = True
+                self.status = ResponseStatus.SUCCESS
+                raise StopIteration
+
+            # Try to parse as JSON
+            try:
+                data = json.loads(line)
+                content = data.get("data", "")
+
+                # Check if this is the completion signal inside JSON
+                if content == "[DONE]":
+                    self._done = True
+                    self.status = ResponseStatus.SUCCESS
+                    raise StopIteration
+
+                return StreamChunk(status=self.status, data=content)
+            except json.JSONDecodeError:
+                # If not valid JSON, return the raw line as data
+                if line.strip():  # Only return non-empty lines
+                    return StreamChunk(status=self.status, data=line)
+
+    def close(self) -> None:
+        """Close the underlying response connection."""
+        if hasattr(self._response, "close"):
+            self._response.close()
+
+    def __enter__(self) -> "ModelResponseStreamer":
+        """Context manager entry."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        """Context manager exit - ensures response is closed."""
+        self.close()
 
 
 class InputsProxy:
@@ -365,11 +487,12 @@ class ModelSearchParams(BaseSearchParams):
 class ModelRunParams(BaseRunParams):
     """Parameters for running models.
 
-    This class is intentionally empty to allow dynamic validation
-    based on each model's specific parameters from the backend.
+    Attributes:
+        stream: If True, returns a ModelResponseStreamer for streaming responses.
+            The model must support streaming (check supports_streaming attribute).
     """
 
-    pass
+    stream: NotRequired[bool]
 
 
 @dataclass_json
@@ -415,6 +538,10 @@ class Model(
     supports_streaming: Optional[bool] = field(default=None, metadata=config(field_name="supportsStreaming"))
     supports_byoc: Optional[bool] = field(default=None, metadata=config(field_name="supportsBYOC"))
 
+    # Connection type - indicates whether model supports sync/async execution
+    # Values can be: ["synchronous"], ["asynchronous"], or ["synchronous", "asynchronous"]
+    connection_type: Optional[List[str]] = field(default=None, metadata=config(field_name="connectionType"))
+
     # Attributes and parameters with proper types
     attributes: Optional[List[Attribute]] = None
     params: Optional[List[Parameter]] = None
@@ -426,6 +553,28 @@ class Model(
         """Initialize dynamic attributes based on backend parameters."""
         # Initialize the inputs proxy
         self.inputs = InputsProxy(self)
+
+    @property
+    def is_sync_only(self) -> bool:
+        """Check if the model only supports synchronous execution.
+
+        Returns:
+            bool: True if the model only supports synchronous execution
+        """
+        if self.connection_type is None:
+            return False
+        return "synchronous" in self.connection_type and "asynchronous" not in self.connection_type
+
+    @property
+    def is_async_capable(self) -> bool:
+        """Check if the model supports asynchronous execution.
+
+        Returns:
+            bool: True if the model supports asynchronous execution
+        """
+        if self.connection_type is None:
+            return True  # Default to async capable for backward compatibility
+        return "asynchronous" in self.connection_type
 
     def __setattr__(self, name: str, value):
         """Handle bulk assignment to inputs."""
@@ -480,7 +629,12 @@ class Model(
         return super().search(**kwargs)
 
     def run(self, **kwargs: Unpack[ModelRunParams]) -> ModelResult:
-        """Run the model with dynamic parameter validation and default handling."""
+        """Run the model with dynamic parameter validation and default handling.
+
+        This method routes the execution based on the model's connection type:
+        - Sync models: Uses V2 endpoint directly (returns result immediately)
+        - Async models: Uses V2 endpoint and polls until completion
+        """
         # Merge dynamic attributes with provided kwargs
         effective_params = self._merge_with_dynamic_attrs(**kwargs)
 
@@ -490,7 +644,183 @@ class Model(
             if param_errors:
                 raise ValueError(f"Parameter validation failed: {'; '.join(param_errors)}")
 
-        return super().run(**effective_params)
+        if self.is_sync_only:
+            # Sync-only models: Call V2 endpoint directly (bypass run_async which would route to V1)
+            # V2 returns result directly for sync models, no polling needed
+            return self._run_sync_v2(**effective_params)
+        else:
+            # Async-capable models: Use base run() which calls run_async() and polls
+            return super().run(**effective_params)
+
+    def _run_sync_v2(self, **kwargs: Unpack[ModelRunParams]) -> ModelResult:
+        """Run the model synchronously using V2 endpoint directly.
+
+        This bypasses run_async() to avoid V1 fallback for sync-only models.
+
+        Returns:
+            ModelResult: Direct result from V2 endpoint
+        """
+        self._ensure_valid_state()
+
+        payload = self.build_run_payload(**kwargs)
+        run_url = self.build_run_url(**kwargs)
+
+        response = self.context.client.request("post", run_url, json=payload)
+
+        return self.handle_run_response(response, **kwargs)
+
+    def run_async(self, **kwargs: Unpack[ModelRunParams]) -> ModelResult:
+        """Run the model asynchronously.
+
+        This method routes the execution based on the model's connection type:
+        - Sync models: Falls back to V1 endpoint (V2 doesn't support async for sync models)
+        - Async models: Uses V2 endpoint directly (returns polling URL)
+
+        Returns:
+            ModelResult: Result with polling URL for async models,
+                        or immediate result via V1 for sync-only models
+        """
+        # Merge dynamic attributes with provided kwargs
+        effective_params = self._merge_with_dynamic_attrs(**kwargs)
+
+        # Validate all parameters against model's expected inputs
+        if self.params:
+            param_errors = self._validate_params(**effective_params)
+            if param_errors:
+                raise ValueError(f"Parameter validation failed: {'; '.join(param_errors)}")
+
+        if self.is_sync_only:
+            # Sync-only models: Use V1 endpoint for async execution
+            return self._run_async_v1(**effective_params)
+        else:
+            # Async-capable models: Use V2 endpoint
+            return super().run_async(**effective_params)
+
+    def _run_async_v1(self, **kwargs: Unpack[ModelRunParams]) -> ModelResult:
+        """Run the model asynchronously using V1 endpoint.
+
+        This is used as a fallback for sync-only models that need async execution.
+        Uses the v2 client directly to avoid importing v1 modules (which trigger
+        env var validation).
+
+        Returns:
+            ModelResult: Result with polling URL from V1 endpoint
+        """
+        self._ensure_valid_state()
+
+        # Build V1 payload: V1 expects 'data' parameter, map from 'text' if needed
+        data = kwargs.pop("text", None)
+        parameters = {k: v for k, v in kwargs.items() if k not in ["timeout", "wait_time"]}
+
+        payload = {"data": data}
+        if parameters:
+            payload.update(parameters)
+        json_payload = json.dumps(payload)
+
+        # Derive V1 URL from context's model_url (replace v2 with v1)
+        v1_base_url = self.context.model_url.replace("/api/v2/", "/api/v1/")
+        url = f"{v1_base_url}/{self.id}"
+
+        # Use the v2 client's raw request method (raises APIError on non-2xx)
+        try:
+            r = self.context.client.request_raw("post", url, data=json_payload)
+            resp = r.json()
+        except Exception as e:
+            logger.error(f"Error in V1 async request: {e}")
+            return ModelResult(
+                status=ResponseStatus.FAILED.value,
+                completed=True,
+                data="",
+                error_message=f"Model Run: {e}",
+            )
+
+        # request_raw only returns on 2xx; parse the response
+        status = resp.get("status", "IN_PROGRESS")
+        resp_data = resp.get("data", None)
+        if status == "IN_PROGRESS":
+            if resp_data is not None:
+                return ModelResult(
+                    status=ResponseStatus.IN_PROGRESS.value,
+                    completed=False,
+                    data="",
+                    url=resp_data,
+                )
+            else:
+                return ModelResult(
+                    status=ResponseStatus.FAILED.value,
+                    completed=True,
+                    data="",
+                    error_message="Model Run: An error occurred while processing your request.",
+                )
+        else:
+            try:
+                raw_status = ResponseStatus(status)
+            except ValueError:
+                raw_status = ResponseStatus.FAILED
+            return ModelResult(
+                status=raw_status.value,
+                completed=resp.get("completed", True),
+                data=resp.get("data", ""),
+                url=resp.get("url", None),
+                error_message=resp.get("error_message", None),
+            )
+
+    def run_stream(self, **kwargs: Unpack[ModelRunParams]) -> ModelResponseStreamer:
+        """Run the model with streaming response.
+
+        This method executes the model and returns a streamer that yields response
+        chunks as they are generated. This is useful for real-time output display
+        or processing large responses incrementally.
+
+        Args:
+            **kwargs: Model-specific parameters (same as run() without stream parameter)
+
+        Returns:
+            ModelResponseStreamer: A streamer that yields StreamChunk objects. Can be
+                iterated directly or used as a context manager.
+
+        Raises:
+            ValidationError: If the model explicitly does not support streaming
+                (supports_streaming is False)
+
+        Example:
+            >>> model = aix.Model.get("669a63646eb56306647e1091")  # GPT-4o Mini
+            >>> with model.run_stream(text="Explain quantum computing") as stream:
+            ...     for chunk in stream:
+            ...         print(chunk.data, end="", flush=True)
+
+            >>> # Or without context manager
+            >>> for chunk in model.run_stream(text="Hello"):
+            ...     print(chunk.data, end="", flush=True)
+        """
+        # Check if model explicitly does not support streaming
+        # We only block if supports_streaming is explicitly False
+        # If it's None (unknown), we allow the attempt since the backend may support it
+        if self.supports_streaming is False:
+            raise ValidationError(
+                f"Model '{self.name}' (id={self.id}) does not support streaming. "
+                "Check the model's supports_streaming attribute before calling run_stream()."
+            )
+
+        self._ensure_valid_state()
+
+        # Build the payload with stream option enabled
+        payload = self.build_run_payload(**kwargs)
+
+        # Add streaming option to the payload
+        if "options" not in payload:
+            payload["options"] = {}
+        payload["options"]["stream"] = True
+
+        # Build the run URL
+        run_url = self.build_run_url(**kwargs)
+
+        logger.debug(f"Model Run Stream: Start service for {run_url}")
+
+        # Make streaming request
+        response = self.context.client.request_stream("POST", run_url, json=payload)
+
+        return ModelResponseStreamer(response)
 
     def _merge_with_dynamic_attrs(self, **kwargs) -> dict:
         """Merge provided parameters with dynamic attributes.

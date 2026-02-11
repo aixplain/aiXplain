@@ -51,20 +51,22 @@ def test_call_run_endpoint_async():
     model_id = "model-id"
     execute_url = f"{base_url}/{model_id}"
     payload = {"data": "input_data"}
-    ref_response = {
-        "completed": True,
+    # Mock API response - note: API returns completed=True but we transform it
+    api_response = {
+        "completed": True,  # API may return True, but we correct it
         "status": "IN_PROGRESS",
         "data": "https://models.aixplain.com/api/v1/data/a90c2078-edfe-403f-acba-d2d94cf71f42",
     }
 
     with requests_mock.Mocker() as mock:
-        mock.post(execute_url, json=ref_response)
+        mock.post(execute_url, json=api_response)
         response = call_run_endpoint(url=execute_url, api_key=config.TEAM_API_KEY, payload=payload)
 
     print(response)
-    assert response["completed"] == ref_response["completed"]
-    assert response["status"] == ref_response["status"]
-    assert response["url"] == ref_response["data"]
+    # When status is IN_PROGRESS, completed should be False (not True as API may return)
+    assert response["completed"] is False
+    assert response["status"] == api_response["status"]
+    assert response["url"] == api_response["data"]
 
 
 def test_call_run_endpoint_sync():
@@ -828,6 +830,155 @@ def test_connection_init_with_actions(mocker):
     assert "test-code" in inputs
     assert inputs["test-code"]["name"] == "test-name"
     assert inputs["test-code"]["description"] == "test-description"
+
+
+def test_get_model_by_name_success():
+    """Test that ModelFactory.get(name=...) successfully retrieves a model."""
+    with requests_mock.Mocker() as mock:
+        model_name = "Test Model"
+        url = urljoin(config.BACKEND_URL, f"sdk/models/by-name/{model_name}")
+
+        model_response = {
+            "id": "test-model-id",
+            "name": model_name,
+            "status": "onboarded",
+            "description": "Test Description",
+            "function": {"id": "text-generation"},
+            "supplier": {"id": "aiXplain"},
+            "pricing": {"price": 10, "currency": "USD"},
+            "version": {"id": "1.0.0"},
+            "params": [],
+        }
+        mock.get(url, json=model_response, status_code=200)
+
+        model = ModelFactory.get(name=model_name)
+
+        assert model.id == "test-model-id"
+        assert model.name == model_name
+
+
+def test_get_model_by_name_error_not_found():
+    """Test that ModelFactory.get(name=...) raises an exception when model is not found."""
+    with requests_mock.Mocker() as mock:
+        model_name = "Nonexistent Model"
+        url = urljoin(config.BACKEND_URL, f"sdk/models/by-name/{model_name}")
+
+        error_response = {"statusCode": 404, "message": "Model not found"}
+        mock.get(url, json=error_response, status_code=404)
+
+        with pytest.raises(Exception) as excinfo:
+            ModelFactory.get(name=model_name)
+
+        assert "Model GET by Name Error" in str(excinfo.value)
+        assert model_name in str(excinfo.value)
+
+
+def test_get_model_validation_error_neither_provided():
+    """Test that ModelFactory.get() raises ValueError when neither model_id nor name is provided."""
+    with pytest.raises(ValueError) as excinfo:
+        ModelFactory.get()
+
+    assert "Must provide exactly one of 'model_id' or 'name'" in str(excinfo.value)
+
+
+def test_get_model_validation_error_both_provided():
+    """Test that ModelFactory.get() raises ValueError when both model_id and name are provided."""
+    with pytest.raises(ValueError) as excinfo:
+        ModelFactory.get(model_id="test-id", name="test-name")
+
+    assert "Must provide exactly one of 'model_id' or 'name'" in str(excinfo.value)
+
+
+def test_integration_factory_get_by_name():
+    """Test that IntegrationFactory.get(name=...) successfully retrieves an Integration model.
+
+    IntegrationFactory uses the list endpoint to find integrations by name since the
+    by-name endpoint doesn't support integration models.
+    """
+    from aixplain.factories import IntegrationFactory
+
+    with requests_mock.Mocker() as mock:
+        model_name = "Test Integration"
+        # IntegrationFactory uses the paginate endpoint to find by name
+        url = urljoin(config.BACKEND_URL, "sdk/models/paginate")
+
+        list_response = {
+            "items": [
+                {
+                    "id": "integration-id",
+                    "name": model_name,
+                    "status": "onboarded",
+                    "description": "Test Integration Description",
+                    "function": {"id": "utilities"},
+                    "functionType": "connector",
+                    "supplier": {"id": "aiXplain"},
+                    "pricing": {"price": 10, "currency": "USD"},
+                    "version": {"id": "1.0.0"},
+                    "params": [],
+                    "attributes": [
+                        {"name": "auth_schemes", "code": '["BEARER_TOKEN", "API_KEY", "BASIC"]'},
+                    ],
+                }
+            ],
+            "total": 1,
+        }
+        mock.post(url, json=list_response, status_code=201)
+
+        model = IntegrationFactory.get(name=model_name)
+
+        assert isinstance(model, Integration)
+        assert model.id == "integration-id"
+        assert model.name == model_name
+
+
+def test_integration_factory_get_by_name_not_found():
+    """Test that IntegrationFactory.get(name=...) raises an exception when integration is not found."""
+    from aixplain.factories import IntegrationFactory
+
+    with requests_mock.Mocker() as mock:
+        model_name = "Nonexistent Integration"
+        url = urljoin(config.BACKEND_URL, "sdk/models/paginate")
+
+        # Return empty list - no matching integration found
+        list_response = {
+            "items": [],
+            "total": 0,
+        }
+        mock.post(url, json=list_response, status_code=201)
+
+        with pytest.raises(Exception) as excinfo:
+            IntegrationFactory.get(name=model_name)
+
+        assert "Integration GET by Name Error" in str(excinfo.value)
+
+
+def test_integration_factory_get_by_id_wrong_type():
+    """Test that IntegrationFactory.get(model_id=...) raises AssertionError for non-Integration models."""
+    from aixplain.factories import IntegrationFactory
+
+    with requests_mock.Mocker() as mock:
+        model_id = "llm-id"
+        url = urljoin(config.BACKEND_URL, f"sdk/models/{model_id}")
+
+        # Return a regular LLM model instead of an Integration
+        model_response = {
+            "id": model_id,
+            "name": "Not an Integration",
+            "status": "onboarded",
+            "description": "Test LLM Description",
+            "function": {"id": "text-generation"},
+            "functionType": "ai",
+            "supplier": {"id": "aiXplain"},
+            "pricing": {"price": 10, "currency": "USD"},
+            "version": {"id": "1.0.0"},
+            "params": [],
+        }
+        mock.get(url, json=model_response, status_code=200)
+
+        with pytest.raises(AssertionError) as excinfo:
+            IntegrationFactory.get(model_id=model_id)
+
+        assert "is not from an integration model" in str(excinfo.value)
 
 
 def test_tool_factory(mocker):
