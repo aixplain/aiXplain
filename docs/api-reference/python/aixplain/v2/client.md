@@ -128,3 +128,52 @@ Sends an HTTP GET request.
 
 - `requests.Response` - The response from the request
 
+#### post
+
+```python
+def post(path: str, **kwargs: Any) -> dict
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L164)
+
+Sends an HTTP POST request.
+
+**Arguments**:
+
+- `path` _str_ - URL path
+- `kwargs` _dict, optional_ - Additional keyword arguments for the request
+  
+
+**Returns**:
+
+- `dict` - The JSON response from the request
+
+#### request\_stream
+
+```python
+def request_stream(method: str, path: str, **kwargs: Any) -> requests.Response
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L176)
+
+Sends a streaming HTTP request.
+
+This method is similar to request_raw but enables streaming mode,
+which is necessary for Server-Sent Events (SSE) responses.
+
+**Arguments**:
+
+- `method` _str_ - HTTP method (e.g. &#x27;GET&#x27;, &#x27;POST&#x27;)
+- `path` _str_ - URL path or full URL
+- `kwargs` _dict, optional_ - Additional keyword arguments for the request
+  
+
+**Returns**:
+
+- `requests.Response` - The streaming response (not consumed)
+  
+
+**Raises**:
+
+- `APIError` - If the request fails
+

@@ -3,13 +3,18 @@ sidebar_label: integration_factory
 title: aixplain.factories.integration_factory
 ---
 
+Integration factory for creating and managing Integration models.
+
+This module provides the IntegrationFactory class which handles the creation,
+retrieval, and management of Integration models in the aiXplain platform.
+
 ### IntegrationFactory Objects
 
 ```python
 class IntegrationFactory(ModelGetterMixin, ModelListMixin)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/integration_factory.py#L11)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/integration_factory.py#L17)
 
 Factory class for creating and managing Integration models.
 
@@ -25,18 +30,20 @@ It inherits from ModelGetterMixin and ModelListMixin to provide model retrieval 
 ```python
 @classmethod
 def get(cls,
-        model_id: Text,
+        model_id: Optional[Text] = None,
+        name: Optional[Text] = None,
         api_key: Optional[Text] = None,
         use_cache: bool = False) -> Integration
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/integration_factory.py#L23)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/integration_factory.py#L30)
 
-Retrieves a specific Integration model by its ID.
+Retrieves a specific Integration model by its ID or name.
 
 **Arguments**:
 
-- `model_id` _Text_ - The unique identifier of the Integration model.
+- `model_id` _Optional[Text], optional_ - The unique identifier of the Integration model.
+- `name` _Optional[Text], optional_ - The name of the Integration model.
 - `api_key` _Optional[Text], optional_ - API key for authentication. Defaults to None.
 - `use_cache` _bool, optional_ - Whether to use cached data. Defaults to False.
   
@@ -48,7 +55,9 @@ Retrieves a specific Integration model by its ID.
 
 **Raises**:
 
-- `AssertionError` - If the provided ID does not correspond to an Integration model.
+- `AssertionError` - If the provided ID/name does not correspond to an Integration model.
+- `ValueError` - If neither model_id nor name is provided, or if both are provided.
+- `Exception` - If the integration with the given name is not found.
 
 #### list
 
@@ -65,7 +74,7 @@ def list(cls,
          api_key: Optional[Text] = None) -> List[Integration]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/integration_factory.py#L42)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/integration_factory.py#L77)
 
 Lists Integration models based on the provided filters and pagination parameters.
 
