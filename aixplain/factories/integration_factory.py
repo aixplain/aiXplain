@@ -1,3 +1,9 @@
+"""Integration factory for creating and managing Integration models.
+
+This module provides the IntegrationFactory class which handles the creation,
+retrieval, and management of Integration models in the aiXplain platform.
+"""
+
 __author__ = "thiagocastroferreira"
 
 import aixplain.utils.config as config
@@ -17,14 +23,22 @@ class IntegrationFactory(ModelGetterMixin, ModelListMixin):
     Attributes:
         backend_url: The URL of the backend API endpoint.
     """
+
     backend_url = config.BACKEND_URL
 
     @classmethod
-    def get(cls, model_id: Text, api_key: Optional[Text] = None, use_cache: bool = False) -> Integration:
-        """Retrieves a specific Integration model by its ID.
+    def get(
+        cls,
+        model_id: Optional[Text] = None,
+        name: Optional[Text] = None,
+        api_key: Optional[Text] = None,
+        use_cache: bool = False,
+    ) -> Integration:
+        """Retrieves a specific Integration model by its ID or name.
 
         Args:
-            model_id (Text): The unique identifier of the Integration model.
+            model_id (Optional[Text], optional): The unique identifier of the Integration model.
+            name (Optional[Text], optional): The name of the Integration model.
             api_key (Optional[Text], optional): API key for authentication. Defaults to None.
             use_cache (bool, optional): Whether to use cached data. Defaults to False.
 
@@ -32,10 +46,31 @@ class IntegrationFactory(ModelGetterMixin, ModelListMixin):
             Integration: The retrieved Integration model.
 
         Raises:
-            AssertionError: If the provided ID does not correspond to an Integration model.
+            AssertionError: If the provided ID/name does not correspond to an Integration model.
+            ValueError: If neither model_id nor name is provided, or if both are provided.
+            Exception: If the integration with the given name is not found.
         """
-        model = super().get(model_id=model_id, api_key=api_key)
-        assert isinstance(model, Integration), f"The provided ID ('{model_id}') is not from an integration model"
+        # Validate that exactly one parameter is provided
+        if not (model_id or name) or (model_id and name):
+            raise ValueError("Must provide exactly one of 'model_id' or 'name'")
+
+        # If name is provided, use list endpoint since by-name endpoint doesn't support integrations
+        if name:
+            result = cls.list(query=name, api_key=api_key)
+            integrations = result.get("results", [])
+            for integration in integrations:
+                if integration.name == name:
+                    return integration
+            raise Exception(
+                f"Integration GET by Name Error: Failed to retrieve integration '{name}'. "
+                "No integration found with this exact name."
+            )
+
+        # If model_id is provided, use parent's get method
+        model = super().get(model_id=model_id, api_key=api_key, use_cache=use_cache)
+        assert isinstance(model, Integration), (
+            f"The provided identifier ('{model_id}') is not from an integration model"
+        )
         return model
 
     @classmethod

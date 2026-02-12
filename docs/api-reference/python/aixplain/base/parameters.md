@@ -19,6 +19,23 @@ A class representing a single parameter with its properties.
 - `name` _str_ - The name of the parameter.
 - `required` _bool_ - Whether the parameter is required or optional.
 - `value` _Optional[Any]_ - The value of the parameter. Defaults to None.
+- `is_fixed` _bool_ - Whether the parameter value is fixed. Defaults to False.
+- `values` _List[Dict[str, Any]]_ - Pre-set values for the parameter. Defaults to empty list.
+- `default_values` _List[Any]_ - Default values for the parameter. Defaults to empty list.
+- `available_options` _List[Dict[str, Any]]_ - Available options for selection. Defaults to empty list.
+- `data_type` _Optional[str]_ - The data type of the parameter (e.g., &#x27;text&#x27;, &#x27;number&#x27;).
+- `data_sub_type` _Optional[str]_ - The sub-type of the data (e.g., &#x27;json&#x27;, &#x27;text&#x27;).
+- `multiple_values` _bool_ - Whether multiple values are allowed. Defaults to False.
+
+#### \_\_post\_init\_\_
+
+```python
+def __post_init__()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/base/parameters.py#L33)
+
+Initialize mutable default values.
 
 ### BaseParameters Objects
 
@@ -26,7 +43,7 @@ A class representing a single parameter with its properties.
 class BaseParameters()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/base/parameters.py#L19)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/base/parameters.py#L43)
 
 A base class for managing a collection of parameters.
 
@@ -44,7 +61,7 @@ dictionary-style access.
 def __init__() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/base/parameters.py#L29)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/base/parameters.py#L54)
 
 Initialize the BaseParameters class.
 
@@ -56,7 +73,7 @@ The initialization creates an empty dictionary to store parameters.
 def get_parameter(name: str) -> Optional[Parameter]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/base/parameters.py#L36)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/base/parameters.py#L61)
 
 Get a parameter by name.
 
@@ -75,7 +92,7 @@ Get a parameter by name.
 def to_dict() -> Dict[str, Dict[str, Any]]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/base/parameters.py#L47)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/base/parameters.py#L72)
 
 Convert parameters back to dictionary format.
 
@@ -89,7 +106,7 @@ Convert parameters back to dictionary format.
 def to_list() -> List[str]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/base/parameters.py#L55)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/base/parameters.py#L94)
 
 Convert parameters to a list format.
 
@@ -107,7 +124,7 @@ of each parameter that has a value set.
 def __str__() -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/base/parameters.py#L67)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/base/parameters.py#L110)
 
 Create a pretty string representation of the parameters.
 
@@ -121,7 +138,7 @@ Create a pretty string representation of the parameters.
 def __setattr__(name: str, value: Any) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/base/parameters.py#L84)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/base/parameters.py#L136)
 
 Allow setting parameters using attribute syntax.
 
@@ -145,7 +162,7 @@ previously defined.
 def __getattr__(name: str) -> Any
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/base/parameters.py#L107)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/base/parameters.py#L159)
 
 Allow getting parameter values using attribute syntax.
 

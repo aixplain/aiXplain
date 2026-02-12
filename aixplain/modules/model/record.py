@@ -59,7 +59,10 @@ class Record:
         if self.value_type == DataType.IMAGE:
             assert self.uri is not None and self.uri != "", "Index Upsert Error: URI is required for image records"
         else:
-            assert self.value is not None and self.value != "", "Index Upsert Error: Value is required for text records"
+            assert (
+                (self.value is not None and self.value != "") or
+                (self.uri is not None and self.uri != "")
+            ), "Index Upsert Error: Either value or uri is required for text records"
 
         storage_type = FileFactory.check_storage_type(self.uri)
 
@@ -67,6 +70,4 @@ class Record:
         if storage_type in [StorageType.FILE, StorageType.URL]:
             if is_supported_image_type(self.uri):
                 self.value_type = DataType.IMAGE
-                self.uri = FileFactory.to_link(self.uri) if storage_type == StorageType.FILE else self.uri
-            else:
-                raise Exception(f"Index Upsert Error: Unsupported file type ({self.uri})")
+            self.uri = FileFactory.to_link(self.uri) if storage_type == StorageType.FILE else self.uri

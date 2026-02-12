@@ -3,7 +3,10 @@ sidebar_label: agent
 title: aixplain.modules.agent
 ---
 
-#### \_\_author\_\_
+Agent module for aiXplain SDK.
+
+This module provides the Agent class and related functionality for creating and managing
+AI agents that can execute tasks using various tools and models.
 
 Copyright 2024 The aiXplain SDK authors
 
@@ -27,10 +30,10 @@ Description:
 ### Agent Objects
 
 ```python
-class Agent(Model, DeployableMixin[Tool])
+class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/__init__.py#L51)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/__init__.py#L57)
 
 An advanced AI system that performs tasks using specialized tools from the aiXplain marketplace.
 
@@ -83,7 +86,7 @@ def __init__(id: Text,
              **additional_info) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/__init__.py#L83)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/__init__.py#L89)
 
 Initialize a new Agent instance.
 
@@ -110,9 +113,11 @@ Initialize a new Agent instance.
   Defaults to AssetStatus.DRAFT.
 - `name`2 _List[AgentTask], optional_ - List of tasks the Agent can perform.
   Defaults to empty list.
-- `name`3 _OutputFormat, optional_ - default output format for agent responses. Defaults to OutputFormat.TEXT.
-- `name`4 _Union[BaseModel, Text, dict], optional_ - expected output. Defaults to None.
-- `name`5 - Additional configuration parameters.
+- `name`3 _List[WorkflowTask], optional_ - List of workflow tasks
+  the Agent can execute. Defaults to empty list.
+- `name`4 _OutputFormat, optional_ - default output format for agent responses. Defaults to OutputFormat.TEXT.
+- `name`5 _Union[BaseModel, Text, dict], optional_ - expected output. Defaults to None.
+- `name`6 - Additional configuration parameters.
 
 #### validate
 
@@ -120,7 +125,7 @@ Initialize a new Agent instance.
 def validate(raise_exception: bool = False) -> bool
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/__init__.py#L207)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/__init__.py#L224)
 
 Validate the Agent&#x27;s configuration and mark its validity status.
 
@@ -142,27 +147,94 @@ If validation fails, it can either raise an exception or log warnings.
 
 - `Exception` - If validation fails and raise_exception is True.
 
+#### generate\_session\_id
+
+```python
+def generate_session_id(history: list = None) -> str
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/__init__.py#L254)
+
+Generate a unique session ID for agent conversations.
+
+**Arguments**:
+
+- `history` _list, optional_ - Previous conversation history. Defaults to None.
+  
+
+**Returns**:
+
+- `str` - A unique session identifier based on timestamp and random components.
+
+#### poll
+
+```python
+def poll(poll_url: Text, name: Text = "model_process") -> "AgentResponse"
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/__init__.py#L337)
+
+Override poll to normalize progress data from camelCase to snake_case.
+
+**Arguments**:
+
+- `poll_url` _Text_ - URL to poll for operation status.
+- `name` _Text, optional_ - Identifier for the operation. Defaults to &quot;model_process&quot;.
+  
+
+**Returns**:
+
+- `AgentResponse` - Response with normalized progress data.
+
+#### sync\_poll
+
+```python
+def sync_poll(
+        poll_url: Text,
+        name: Text = "model_process",
+        wait_time: float = 0.5,
+        timeout: float = 300,
+        progress_verbosity: Optional[str] = "compact") -> "AgentResponse"
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/__init__.py#L502)
+
+Poll the platform until agent execution completes or times out.
+
+**Arguments**:
+
+- `poll_url` _Text_ - URL to poll for operation status.
+- `name` _Text, optional_ - Identifier for the operation. Defaults to &quot;model_process&quot;.
+- `wait_time` _float, optional_ - Initial wait time in seconds between polls. Defaults to 0.5.
+- `timeout` _float, optional_ - Maximum total time to poll in seconds. Defaults to 300.
+- `progress_verbosity` _Optional[str], optional_ - Progress display mode - &quot;full&quot; (detailed), &quot;compact&quot; (brief), or None (no progress). Defaults to &quot;compact&quot;.
+  
+
+**Returns**:
+
+- `AgentResponse` - The final response from the agent execution.
+
 #### run
 
 ```python
-def run(
-    data: Optional[Union[Dict, Text]] = None,
-    query: Optional[Text] = None,
-    session_id: Optional[Text] = None,
-    history: Optional[List[Dict]] = None,
-    name: Text = "model_process",
-    timeout: float = 300,
-    parameters: Dict = {},
-    wait_time: float = 0.5,
-    content: Optional[Union[Dict[Text, Text], List[Text]]] = None,
-    max_tokens: int = 4096,
-    max_iterations: int = 5,
-    output_format: Optional[OutputFormat] = None,
-    expected_output: Optional[Union[BaseModel, Text, dict]] = None
-) -> AgentResponse
+def run(data: Optional[Union[Dict, Text]] = None,
+        query: Optional[Text] = None,
+        session_id: Optional[Text] = None,
+        history: Optional[List[Dict]] = None,
+        name: Text = "model_process",
+        timeout: float = 300,
+        parameters: Dict = {},
+        wait_time: float = 0.5,
+        content: Optional[Union[Dict[Text, Text], List[Text]]] = None,
+        max_tokens: int = 4096,
+        max_iterations: int = 5,
+        trace_request: bool = False,
+        progress_verbosity: Optional[str] = "compact",
+        run_response_generation: bool = True,
+        **kwargs) -> AgentResponse
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/__init__.py#L278)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/__init__.py#L579)
 
 Runs an agent call.
 
@@ -179,33 +251,36 @@ Runs an agent call.
 - `content` _Union[Dict[Text, Text], List[Text]], optional_ - Content inputs to be processed according to the query. Defaults to None.
 - `max_tokens` _int, optional_ - maximum number of tokens which can be generated by the agent. Defaults to 2048.
 - `query`0 _int, optional_ - maximum number of iterations between the agent and the tools. Defaults to 10.
-- `query`1 _OutputFormat, optional_ - response format. If not provided, uses the format set during initialization.
-- `query`2 _Union[BaseModel, Text, dict], optional_ - expected output. Defaults to None.
+- `query`1 _bool, optional_ - return the request id for tracing the request. Defaults to False.
+- `query`2 _Optional[str], optional_ - Progress display mode - &quot;full&quot; (detailed), &quot;compact&quot; (brief), or None (no progress). Defaults to &quot;compact&quot;.
+- `query`3 _bool, optional_ - Whether to run response generation. Defaults to True.
+- `query`4 - Additional keyword arguments.
+  
 
 **Returns**:
 
-- `query`3 - parsed output from model
+- `query`5 - parsed output from model
 
 #### run\_async
 
 ```python
-def run_async(
-        data: Optional[Union[Dict, Text]] = None,
-        query: Optional[Text] = None,
-        session_id: Optional[Text] = None,
-        history: Optional[List[Dict]] = None,
-        name: Text = "model_process",
-        parameters: Dict = {},
-        content: Optional[Union[Dict[Text, Text], List[Text]]] = None,
-        max_tokens: int = 2048,
-        max_iterations: int = 5,
-        output_format: Optional[OutputFormat] = None,
-        expected_output: Optional[Union[BaseModel, Text, dict]] = None,
-        evolve: Union[Dict[str, Any], EvolveParam,
-                      None] = None) -> AgentResponse
+def run_async(data: Optional[Union[Dict, Text]] = None,
+              query: Optional[Text] = None,
+              session_id: Optional[Text] = None,
+              history: Optional[List[Dict]] = None,
+              name: Text = "model_process",
+              parameters: Dict = {},
+              content: Optional[Union[Dict[Text, Text], List[Text]]] = None,
+              max_tokens: int = 2048,
+              max_iterations: int = 5,
+              output_format: Optional[OutputFormat] = None,
+              expected_output: Optional[Union[BaseModel, Text, dict]] = None,
+              evolve: Union[Dict[str, Any], EvolveParam, None] = None,
+              trace_request: bool = False,
+              run_response_generation: bool = True) -> AgentResponse
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/__init__.py#L378)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/__init__.py#L739)
 
 Runs asynchronously an agent call.
 
@@ -224,10 +299,27 @@ Runs asynchronously an agent call.
 - `query`0 _Union[BaseModel, Text, dict], optional_ - expected output. Defaults to None.
 - `output_format` _ResponseFormat, optional_ - response format. Defaults to TEXT.
 - `query`2 _Union[Dict[str, Any], EvolveParam, None], optional_ - evolve the agent configuration. Can be a dictionary, EvolveParam instance, or None.
+- `query`3 _bool, optional_ - return the request id for tracing the request. Defaults to False.
+- `query`4 _bool, optional_ - Whether to run response generation. Defaults to True.
+  
 
 **Returns**:
 
-- `query`3 - polling URL in response
+- `query`5 - polling URL in response
+
+#### to\_dict
+
+```python
+def to_dict() -> Dict
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/__init__.py#L902)
+
+Convert the Agent instance to a dictionary representation.
+
+**Returns**:
+
+- `Dict` - Dictionary containing the agent&#x27;s configuration and metadata.
 
 #### from\_dict
 
@@ -236,7 +328,7 @@ Runs asynchronously an agent call.
 def from_dict(cls, data: Dict) -> "Agent"
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/__init__.py#L545)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/__init__.py#L947)
 
 Create an Agent instance from a dictionary representation.
 
@@ -255,7 +347,7 @@ Create an Agent instance from a dictionary representation.
 def delete() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/__init__.py#L620)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/__init__.py#L1026)
 
 Delete this Agent from the aiXplain platform.
 
@@ -276,7 +368,7 @@ Agent is being used by any team agents.
 def update() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/__init__.py#L683)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/__init__.py#L1095)
 
 Update the Agent&#x27;s configuration on the aiXplain platform.
 
@@ -300,7 +392,7 @@ in favor of the save() method.
 def save() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/__init__.py#L730)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/__init__.py#L1144)
 
 Save the Agent&#x27;s current configuration to the aiXplain platform.
 
@@ -317,7 +409,7 @@ It is the preferred method for updating an Agent&#x27;s settings.
 def __repr__() -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/__init__.py#L741)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/__init__.py#L1155)
 
 Return a string representation of the Agent.
 
@@ -336,7 +428,7 @@ def evolve_async(evolve_type: Union[EvolveType, str] = EvolveType.TEAM_TUNING,
                  llm: Optional[Union[Text, LLM]] = None) -> AgentResponse
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/__init__.py#L749)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/__init__.py#L1163)
 
 Asynchronously evolve the Agent and return a polling URL in the AgentResponse.
 
@@ -365,7 +457,7 @@ def evolve(evolve_type: Union[EvolveType, str] = EvolveType.TEAM_TUNING,
            llm: Optional[Union[Text, LLM]] = None) -> AgentResponse
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/__init__.py#L788)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/__init__.py#L1202)
 
 Synchronously evolve the Agent and poll for the result.
 

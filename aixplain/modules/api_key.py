@@ -1,9 +1,33 @@
+"""API Key management module for aiXplain services.
+
+This module provides classes for managing API keys and their rate limits.
+"""
+
 import logging
 from aixplain.utils import config
 from aixplain.utils.request_utils import _request_with_retry
 from aixplain.modules import Model
 from datetime import datetime
 from typing import Dict, List, Optional, Text, Union
+
+
+from enum import Enum
+
+
+class TokenType(Enum):
+    """Token type for rate limiting.
+
+    Specifies which type of tokens to count for rate limiting purposes.
+
+    Attributes:
+        INPUT: Count only input tokens.
+        OUTPUT: Count only output tokens.
+        TOTAL: Count total tokens (input + output).
+    """
+
+    INPUT = "input"
+    OUTPUT = "output"
+    TOTAL = "total"
 
 
 class APIKeyLimits:
@@ -18,6 +42,7 @@ class APIKeyLimits:
         request_per_minute (int): Maximum number of requests allowed per minute.
         request_per_day (int): Maximum number of requests allowed per day.
         model (Optional[Model]): The model these limits apply to, if any.
+        token_type (Optional[TokenType]): Type of token limit ('input', 'output', 'total'), or None for default.
     """
 
     def __init__(
@@ -27,6 +52,7 @@ class APIKeyLimits:
         request_per_minute: int,
         request_per_day: int,
         model: Optional[Union[Text, Model]] = None,
+        token_type: Optional[TokenType] = None,
     ):
         """Initialize an APIKeyLimits instance.
 
@@ -37,12 +63,14 @@ class APIKeyLimits:
             request_per_day (int): Maximum number of requests per day.
             model (Optional[Union[Text, Model]], optional): The model to apply
                 limits to. Can be a model ID or Model instance. Defaults to None.
+            token_type (Optional[TokenType], optional): The type of token to apply the limit to. Defaults to None.
         """
         self.token_per_minute = token_per_minute
         self.token_per_day = token_per_day
         self.request_per_minute = request_per_minute
         self.request_per_day = request_per_day
         self.model = model
+        self.token_type = token_type
         if model is not None and isinstance(model, str):
             from aixplain.factories import ModelFactory
 
@@ -50,6 +78,19 @@ class APIKeyLimits:
 
 
 class APIKeyUsageLimit:
+    """Usage limits and current usage for an API key.
+
+    This class tracks the current usage counts against the configured limits
+    for an API key, either globally or for a specific model.
+
+    Attributes:
+        daily_request_count (int): Number of requests made today.
+        daily_request_limit (int): Maximum requests allowed per day.
+        daily_token_count (int): Number of tokens used today.
+        daily_token_limit (int): Maximum tokens allowed per day.
+        model (Optional[Model]): The model these limits apply to, if any.
+    """
+
     def __init__(
         self,
         daily_request_count: int,
@@ -58,7 +99,7 @@ class APIKeyUsageLimit:
         daily_token_limit: int,
         model: Optional[Union[Text, Model]] = None,
     ):
-        """Get the usage limits of an API key globally (model equals to None) or for a specific model.
+        """Initialize an APIKeyUsageLimit instance.
 
         Args:
             daily_request_count (int): number of requests made
@@ -137,21 +178,27 @@ class APIKey:
         self.budget = budget
         self.global_limits = global_limits
         if global_limits is not None and isinstance(global_limits, dict):
+            global_token_type_str = global_limits.get("tokenType")
+            global_token_type = TokenType(global_token_type_str) if global_token_type_str else None
             self.global_limits = APIKeyLimits(
                 token_per_minute=global_limits["tpm"],
                 token_per_day=global_limits["tpd"],
                 request_per_minute=global_limits["rpm"],
                 request_per_day=global_limits["rpd"],
+                token_type=global_token_type,
             )
         self.asset_limits = asset_limits
         for i, asset_limit in enumerate(self.asset_limits):
             if isinstance(asset_limit, dict):
+                asset_token_type_str = asset_limit.get("tokenType")
+                asset_token_type = TokenType(asset_token_type_str) if asset_token_type_str else None
                 self.asset_limits[i] = APIKeyLimits(
                     token_per_minute=asset_limit["tpm"],
                     token_per_day=asset_limit["tpd"],
                     request_per_minute=asset_limit["rpm"],
                     request_per_day=asset_limit["rpd"],
                     model=asset_limit["assetId"],
+                    token_type=asset_token_type,
                 )
         self.expires_at = expires_at
         self.access_key = access_key
@@ -188,7 +235,9 @@ class APIKey:
         for i, asset_limit in enumerate(self.asset_limits):
             assert asset_limit.model is not None, f"Asset limit {i} must have a model."
             assert asset_limit.request_per_day >= 0, f"Asset limit {i} request per day must be greater or equal to 0"
-            assert asset_limit.request_per_minute >= 0, f"Asset limit {i} request per minute must be greater or equal to 0"
+            assert asset_limit.request_per_minute >= 0, (
+                f"Asset limit {i} request per minute must be greater or equal to 0"
+            )
             assert asset_limit.token_per_day >= 0, f"Asset limit {i} token per day must be greater or equal to 0"
             assert asset_limit.token_per_minute >= 0, f"Asset limit {i} token per minute must be greater or equal to 0"
 
@@ -214,6 +263,7 @@ class APIKey:
                     - tpd: tokens per day
                     - rpm: requests per minute
                     - rpd: requests per day
+                    - tokenType (Optional[Text]): Type of token limit ('input', 'output', 'total')
                     - assetId: model ID
                 - expiresAt (Optional[Text]): ISO format expiration date
                 - globalLimits (Optional[Dict]): Global limits with tpm/tpd/rpm/rpd
@@ -239,9 +289,10 @@ class APIKey:
                 "tpd": self.global_limits.token_per_day,
                 "rpm": self.global_limits.request_per_minute,
                 "rpd": self.global_limits.request_per_day,
+                "tokenType": self.global_limits.token_type.value if self.global_limits.token_type else None,
             }
 
-        for i, asset_limit in enumerate(self.asset_limits):
+        for asset_limit in self.asset_limits:
             payload["assetsLimits"].append(
                 {
                     "tpm": asset_limit.token_per_minute,
@@ -249,6 +300,7 @@ class APIKey:
                     "rpm": asset_limit.request_per_minute,
                     "rpd": asset_limit.request_per_day,
                     "assetId": asset_limit.model.id,
+                    "tokenType": asset_limit.token_type.value if asset_limit.token_type else None,
                 }
             )
         return payload

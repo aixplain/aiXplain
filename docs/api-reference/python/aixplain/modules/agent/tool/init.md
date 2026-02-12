@@ -3,7 +3,10 @@ sidebar_label: tool
 title: aixplain.modules.agent.tool
 ---
 
-#### \_\_author\_\_
+Agent tool module for aiXplain SDK.
+
+This module provides tool classes and functionality for agents to interact with
+various services, models, and data sources.
 
 Copyright 2024 The aiXplain SDK authors
 
@@ -30,7 +33,7 @@ Description:
 class Tool(ABC)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/tool/__init__.py#L29)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/tool/__init__.py#L33)
 
 Specialized software or resource designed to assist the AI in executing specific tasks or functions based on user commands.
 
@@ -51,7 +54,7 @@ def __init__(name: Text,
              **additional_info) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/tool/__init__.py#L38)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/tool/__init__.py#L42)
 
 Initialize a new Tool instance.
 
@@ -70,7 +73,7 @@ Initialize a new Tool instance.
 def to_dict()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/tool/__init__.py#L64)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/tool/__init__.py#L68)
 
 Converts the tool instance to a dictionary representation.
 
@@ -89,7 +92,7 @@ Converts the tool instance to a dictionary representation.
 def validate()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/tool/__init__.py#L75)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/tool/__init__.py#L79)
 
 Validates the tool&#x27;s configuration and settings.
 
@@ -100,20 +103,23 @@ if the tool&#x27;s configuration is valid.
 
 - `NotImplementedError` - This is an abstract method that must be implemented by subclasses.
 
+### DeployableTool Objects
+
+```python
+class DeployableTool(Tool)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/tool/__init__.py#L91)
+
+Tool that can be deployed.
+
 #### deploy
 
 ```python
 def deploy() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/tool/__init__.py#L86)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/agent/tool/__init__.py#L94)
 
-Deploys the tool to make it available for use.
-
-This method should handle any necessary setup or deployment steps
-required to make the tool operational.
-
-**Raises**:
-
-- `NotImplementedError` - This is an abstract method that must be implemented by subclasses.
+Deploy the tool.
 

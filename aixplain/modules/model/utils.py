@@ -1,3 +1,9 @@
+"""Utility functions for model operations including payload building and code parsing.
+
+This module provides helper functions for building API payloads, parsing code for utility models,
+and handling model execution endpoints.
+"""
+
 __author__ = "thiagocastroferreira"
 
 import json
@@ -7,11 +13,11 @@ import inspect
 from aixplain.utils.file_utils import _request_with_retry
 from typing import Callable, Dict, List, Text, Tuple, Union, Optional
 from aixplain.exceptions import get_error_from_status_code
+import copy
 
 
 def _extract_function_parameters(func: Callable) -> List[Tuple[str, str]]:
-    """
-    Extract function parameters using AST parsing for robust handling of multiline functions.
+    """Extract function parameters using AST parsing for robust handling of multiline functions.
 
     Args:
         func: The function to extract parameters from
@@ -78,7 +84,11 @@ def _extract_function_parameters(func: Callable) -> List[Tuple[str, str]]:
             raise ValueError(f"Failed to extract parameters: {e}. AST fallback also failed: {ast_error}")
 
 
-def build_payload(data: Union[Text, Dict], parameters: Optional[Dict] = None, stream: Optional[bool] = None):
+def build_payload(
+    data: Union[Text, Dict],
+    parameters: Optional[Dict] = None,
+    stream: Optional[bool] = None,
+):
     """Build a JSON payload for API requests.
 
     This function constructs a JSON payload by combining input data with optional
@@ -126,8 +136,34 @@ def build_payload(data: Union[Text, Dict], parameters: Optional[Dict] = None, st
         except Exception:
             parameters["data"] = data
             payload = {"data": data}
-    payload.update(parameters)
-    payload = json.dumps(payload)
+
+    def _serialize_value(obj):
+        """Recursively serialize objects that aren't JSON serializable."""
+        from enum import Enum
+
+        if isinstance(obj, Enum):
+            # Handle enum types - convert to their value
+            return obj.value if hasattr(obj, "value") else str(obj)
+        elif isinstance(obj, dict):
+            return {k: _serialize_value(v) for k, v in obj.items()}
+        elif isinstance(obj, (list, tuple)):
+            return [_serialize_value(item) for item in obj]
+        return obj
+
+    try:
+        parametersTemp = copy.deepcopy(parameters)
+        if not payload:
+            payload = parameters
+        else:
+            payload.update(parameters)
+        # Serialize enums and other non-serializable objects before json.dumps
+        payload = _serialize_value(payload)
+        payload = json.dumps(payload)
+    except (TypeError, ValueError):
+        # If serialization fails, try to serialize the payload again
+        payload = _serialize_value(parametersTemp)
+        payload = json.dumps(payload)
+
     return payload
 
 
@@ -176,7 +212,7 @@ def call_run_endpoint(url: Text, api_key: Text, payload: Dict) -> Dict:
         data = resp.get("data", None)
         if status == "IN_PROGRESS":
             if data is not None:
-                response = {"status": status, "url": data, "completed": True}
+                response = {"status": status, "url": data, "completed": False}
             else:
                 response = {
                     "status": "FAILED",
@@ -191,11 +227,15 @@ def call_run_endpoint(url: Text, api_key: Text, payload: Dict) -> Dict:
         error = get_error_from_status_code(status_code, error_details)
 
         logging.error(f"Error in request: {r.status_code}: {error}")
-        response = {"status": "FAILED", "error_message": error.message, "completed": True}
+        response = {
+            "status": "FAILED",
+            "error_message": error.message,
+            "completed": True,
+        }
     return response
 
 
-def parse_code(code: Union[Text, Callable]) -> Tuple[Text, List, Text, Text]:
+def parse_code(code: Union[Text, Callable], api_key: Optional[Text] = None) -> Tuple[Text, List, Text, Text]:
     """Parse and process code for utility model creation.
 
     This function takes code input in various forms (callable, file path, URL, or
@@ -208,6 +248,8 @@ def parse_code(code: Union[Text, Callable]) -> Tuple[Text, List, Text, Text]:
             - A file path (string)
             - A URL (string)
             - Raw code (string)
+        api_key (Optional[Text], optional): API key for authentication when uploading code.
+            Defaults to None.
 
     Returns:
         Tuple[Text, List, Text, Text]: A tuple containing:
@@ -261,7 +303,13 @@ def parse_code(code: Union[Text, Callable]) -> Tuple[Text, List, Text, Text]:
         regex = r'def\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\((.*?)\).*?(?:"""(.*?)"""|\'\'\'(.*?)\'\'\'|\#\s*(.*?)(?:\n|$)|$)'
         match = re.search(regex, str_code, re.DOTALL)
         if match:
-            function_name, params, triple_double_quote_doc, triple_single_quote_doc, single_line_comment = match.groups()
+            (
+                function_name,
+                params,
+                triple_double_quote_doc,
+                triple_single_quote_doc,
+                single_line_comment,
+            ) = match.groups()
             # Use the first non-None docstring found
             description = (triple_double_quote_doc or triple_single_quote_doc or single_line_comment or "").strip()
         else:
@@ -273,9 +321,9 @@ def parse_code(code: Union[Text, Callable]) -> Tuple[Text, List, Text, Text]:
     parameters = params_match.group(1).split(",") if params_match else []
 
     for input in parameters:
-        assert (
-            len(input.split(":")) > 1
-        ), "Utility Model Error: Input type is required. For instance def main(a: int, b: int) -> int:"
+        assert len(input.split(":")) > 1, (
+            "Utility Model Error: Input type is required. For instance def main(a: int, b: int) -> int:"
+        )
         input_name, input_type = input.split(":")
         input_name = input_name.strip()
         input_type = input_type.split("=")[0].strip()
@@ -283,17 +331,29 @@ def parse_code(code: Union[Text, Callable]) -> Tuple[Text, List, Text, Text]:
         if input_type in ["int", "float"]:
             input_type = "number"
             inputs.append(
-                UtilityModelInput(name=input_name, type=DataType.NUMBER, description=f"The {input_name} input is a number")
+                UtilityModelInput(
+                    name=input_name,
+                    type=DataType.NUMBER,
+                    description=f"The {input_name} input is a number",
+                )
             )
         elif input_type == "bool":
             input_type = "boolean"
             inputs.append(
-                UtilityModelInput(name=input_name, type=DataType.BOOLEAN, description=f"The {input_name} input is a boolean")
+                UtilityModelInput(
+                    name=input_name,
+                    type=DataType.BOOLEAN,
+                    description=f"The {input_name} input is a boolean",
+                )
             )
         elif input_type == "str":
             input_type = "text"
             inputs.append(
-                UtilityModelInput(name=input_name, type=DataType.TEXT, description=f"The {input_name} input is a text")
+                UtilityModelInput(
+                    name=input_name,
+                    type=DataType.TEXT,
+                    description=f"The {input_name} input is a text",
+                )
             )
         else:
             raise Exception(f"Utility Model Error: Unsupported input type: {input_type}")
@@ -301,12 +361,12 @@ def parse_code(code: Union[Text, Callable]) -> Tuple[Text, List, Text, Text]:
     local_path = str(uuid4())
     with open(local_path, "w") as f:
         f.write(str_code)
-    code = FileFactory.upload(local_path=local_path, is_temp=True)
+    code = FileFactory.upload(local_path=local_path, is_temp=True, api_key=api_key)
     os.remove(local_path)
     return code, inputs, description, name
 
 
-def parse_code_decorated(code: Union[Text, Callable]) -> Tuple[Text, List, Text, Text]:
+def parse_code_decorated(code: Union[Text, Callable], api_key: Optional[Text] = None) -> Tuple[Text, List, Text, Text]:
     """Parse and process code that may be decorated with @utility_tool.
 
     This function handles code that may be decorated with the @utility_tool
@@ -320,6 +380,8 @@ def parse_code_decorated(code: Union[Text, Callable]) -> Tuple[Text, List, Text,
             - A file path (string)
             - A URL (string)
             - Raw code (string)
+        api_key (Optional[Text], optional): API key for authentication when uploading code.
+            Defaults to None.
 
     Returns:
         Tuple[Text, List, Text, Text]: A tuple containing:
@@ -372,7 +434,9 @@ def parse_code_decorated(code: Union[Text, Callable]) -> Tuple[Text, List, Text,
         description = (
             getattr(code, "_tool_description", None)
             if hasattr(code, "_tool_description")
-            else code.__doc__.strip() if code.__doc__ else ""
+            else code.__doc__.strip()
+            if code.__doc__
+            else ""
         )
         name = getattr(code, "_tool_name", None) if hasattr(code, "_tool_name") else ""
         if hasattr(code, "_tool_inputs") and code._tool_inputs != []:
@@ -391,7 +455,9 @@ def parse_code_decorated(code: Union[Text, Callable]) -> Tuple[Text, List, Text,
                         input_type = DataType.TEXT
                     inputs.append(
                         UtilityModelInput(
-                            name=input_name, type=input_type, description=f"The '{input_name}' input is a {input_type}"
+                            name=input_name,
+                            type=input_type,
+                            description=f"The '{input_name}' input is a {input_type}",
                         )
                     )
     elif isinstance(code, Callable):
@@ -408,19 +474,29 @@ def parse_code_decorated(code: Union[Text, Callable]) -> Tuple[Text, List, Text,
             if input_type in ["int", "float"]:
                 input_type = "number"
                 inputs.append(
-                    UtilityModelInput(name=input_name, type=DataType.NUMBER, description=f"The {input_name} input is a number")
+                    UtilityModelInput(
+                        name=input_name,
+                        type=DataType.NUMBER,
+                        description=f"The {input_name} input is a number",
+                    )
                 )
             elif input_type == "bool":
                 input_type = "boolean"
                 inputs.append(
                     UtilityModelInput(
-                        name=input_name, type=DataType.BOOLEAN, description=f"The {input_name} input is a boolean"
+                        name=input_name,
+                        type=DataType.BOOLEAN,
+                        description=f"The {input_name} input is a boolean",
                     )
                 )
             elif input_type == "str":
                 input_type = "text"
                 inputs.append(
-                    UtilityModelInput(name=input_name, type=DataType.TEXT, description=f"The {input_name} input is a text")
+                    UtilityModelInput(
+                        name=input_name,
+                        type=DataType.TEXT,
+                        description=f"The {input_name} input is a text",
+                    )
                 )
             else:
                 raise Exception(f"Utility Model Error: Unsupported input type: {input_type}")
@@ -462,9 +538,9 @@ def parse_code_decorated(code: Union[Text, Callable]) -> Tuple[Text, List, Text,
             for input_str in parameters:
                 if not input_str:
                     continue
-                assert (
-                    len(input_str.split(":")) > 1
-                ), "Utility Model Error: Input type is required. For instance def main(a: int, b: int) -> int:"
+                assert len(input_str.split(":")) > 1, (
+                    "Utility Model Error: Input type is required. For instance def main(a: int, b: int) -> int:"
+                )
                 input_name, input_type = input_str.split(":")
                 input_name = input_name.strip()
                 input_type = input_type.split("=")[0].strip()
@@ -472,18 +548,26 @@ def parse_code_decorated(code: Union[Text, Callable]) -> Tuple[Text, List, Text,
                 if input_type in ["int", "float"]:
                     inputs.append(
                         UtilityModelInput(
-                            name=input_name, type=DataType.NUMBER, description=f"The {input_name} input is a number"
+                            name=input_name,
+                            type=DataType.NUMBER,
+                            description=f"The {input_name} input is a number",
                         )
                     )
                 elif input_type == "bool":
                     inputs.append(
                         UtilityModelInput(
-                            name=input_name, type=DataType.BOOLEAN, description=f"The {input_name} input is a boolean"
+                            name=input_name,
+                            type=DataType.BOOLEAN,
+                            description=f"The {input_name} input is a boolean",
                         )
                     )
                 elif input_type == "str":
                     inputs.append(
-                        UtilityModelInput(name=input_name, type=DataType.TEXT, description=f"The {input_name} input is a text")
+                        UtilityModelInput(
+                            name=input_name,
+                            type=DataType.TEXT,
+                            description=f"The {input_name} input is a text",
+                        )
                     )
                 else:
                     raise Exception(f"Utility Model Error: Unsupported input type: {input_type}")
@@ -499,7 +583,13 @@ def parse_code_decorated(code: Union[Text, Callable]) -> Tuple[Text, List, Text,
                 input_description = match.group(3)
                 input_type = DataType(input_type.lower())
                 try:
-                    inputs.append(UtilityModelInput(name=input_name, type=input_type, description=input_description))
+                    inputs.append(
+                        UtilityModelInput(
+                            name=input_name,
+                            type=input_type,
+                            description=input_description,
+                        )
+                    )
                 except ValueError:
                     raise Exception(f"Utility Model Error: Unsupported input type: {input_type}")
 
@@ -514,7 +604,7 @@ def parse_code_decorated(code: Union[Text, Callable]) -> Tuple[Text, List, Text,
     local_path = str(uuid4())
     with open(local_path, "w") as f:
         f.write(str_code)
-    code = FileFactory.upload(local_path=local_path, is_temp=True)
+    code = FileFactory.upload(local_path=local_path, is_temp=True, api_key=api_key)
     os.remove(local_path)
 
     return code, inputs, description, name

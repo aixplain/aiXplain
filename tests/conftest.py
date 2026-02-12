@@ -37,7 +37,9 @@ def filter_items(items: list, param_name: str, predicate: Callable):
     items[:] = [
         item
         for item in items
-        if hasattr(item, "callspec") and param_name in item.callspec.params and predicate(item.callspec.params[param_name])
+        if hasattr(item, "callspec")
+        and param_name in item.callspec.params
+        and predicate(item.callspec.params[param_name])
     ]
 
 
@@ -73,7 +75,9 @@ def filter_sdk_version(items: list, sdk_version: str, sdk_param: str):
     from aixplain.v2.resource import BaseResource
 
     def predicate(param: Any):
-        return issubclass(param, BaseResource) if sdk_version == SDK_VERSION_V1 else not issubclass(param, BaseResource)
+        # v1 SDK uses factory classes (NOT BaseResource subclasses)
+        # v2 SDK uses BaseResource subclasses
+        return not issubclass(param, BaseResource) if sdk_version == SDK_VERSION_V1 else issubclass(param, BaseResource)
 
     filter_items(items, sdk_param, predicate)
 

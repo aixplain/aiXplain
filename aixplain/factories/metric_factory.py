@@ -64,11 +64,12 @@ class MetricFactory:
         )
 
     @classmethod
-    def get(cls, metric_id: Text) -> Metric:
+    def get(cls, metric_id: Text, api_key: str = None) -> Metric:
         """Create a Metric object from a metric ID.
 
         Args:
             metric_id (Text): The unique identifier of the metric to retrieve.
+            api_key (str, optional): API key for authentication. Defaults to None.
 
         Returns:
             Metric: The retrieved Metric object.
@@ -78,9 +79,10 @@ class MetricFactory:
         """
 
         resp, status_code = None, 200
+        api_key = api_key or config.TEAM_API_KEY
         try:
             url = urljoin(cls.backend_url, f"sdk/metrics/{metric_id}")
-            headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+            headers = {"Authorization": f"Token {api_key}", "Content-Type": "application/json"}
             logging.info(f"Start service for GET Metric  - {url} - {headers}")
             r = _request_with_retry("get", url, headers=headers)
             resp = r.json()
@@ -104,15 +106,17 @@ class MetricFactory:
         is_reference_required: Optional[bool] = None,
         page_number: int = 0,
         page_size: int = 20,
+        api_key: str = None
     ) -> List[Metric]:
         """Get a list of supported metrics based on the given filters.
 
         Args:
-            model_id (Text, optional): ID of model for which metrics are to be used. Defaults to None.
-            is_source_required (bool, optional): Filter metrics that require source input. Defaults to None.
-            is_reference_required (bool, optional): Filter metrics that require reference input. Defaults to None.
-            page_number (int, optional): Page number for pagination. Defaults to 0.
-            page_size (int, optional): Number of items per page. Defaults to 20.
+            model_id (Text, optional): ID of model for which metric is to be used. Defaults to None.
+            is_source_required (bool, optional): Should the metric use source. Defaults to None.
+            is_reference_required (bool, optional): Should the metric use reference. Defaults to None.
+            page_number (int, optional): page number. Defaults to 0.
+            page_size (int, optional): page size. Defaults to 20.
+            api_key (str, optional): API key for authentication. Defaults to None.
 
         Returns:
             Dict: A dictionary containing:
@@ -133,8 +137,8 @@ class MetricFactory:
                 filter_params["sourceRequired"] = 1 if is_source_required else 0
             if is_reference_required is not None:
                 filter_params["referenceRequired"] = 1 if is_reference_required else 0
-
-            headers = {"Authorization": f"Token {config.TEAM_API_KEY}", "Content-Type": "application/json"}
+            api_key = api_key or config.TEAM_API_KEY
+            headers = {"Authorization": f"Token {api_key}", "Content-Type": "application/json"}
             r = _request_with_retry("get", url, headers=headers, params=filter_params)
             resp = r.json()
             logging.info(f"Listing Metrics: Status of getting metrics: {resp}")

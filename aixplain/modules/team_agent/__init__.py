@@ -1,6 +1,8 @@
-__author__ = "aiXplain"
+"""Team Agent module for aiXplain SDK.
 
-"""
+This module provides the TeamAgent class and related functionality for creating and managing
+multi-agent teams that can collaborate on complex tasks.
+
 Copyright 2024 The aiXplain SDK authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,11 +23,14 @@ Description:
     Team Agent Class
 """
 
+__author__ = "aiXplain"
+
 import json
 import logging
 import time
 import traceback
 import re
+import warnings
 from enum import Enum
 from typing import Dict, List, Text, Optional, Union, Any
 from urllib.parse import urljoin
@@ -43,8 +48,8 @@ from aixplain.modules.agent.agent_response import AgentResponse
 from aixplain.modules.agent.agent_response_data import AgentResponseData
 from aixplain.modules.agent.evolve_param import EvolveParam, validate_evolve_param
 from aixplain.modules.agent.utils import process_variables, validate_history
-from aixplain.modules.team_agent.inspector import Inspector
 from aixplain.modules.team_agent.evolver_response_data import EvolverResponseData
+from aixplain.utils.convert_datatype_utils import normalize_expected_output
 from aixplain.utils import config
 from aixplain.utils.request_utils import _request_with_retry
 from aixplain.modules.model.llm_model import LLM
@@ -76,7 +81,6 @@ class InspectorTarget(str, Enum):
         """
         return self._value_
 
-
 class TeamAgent(Model, DeployableMixin[Agent]):
     """Advanced AI system capable of using multiple agents to perform a variety of tasks.
 
@@ -85,14 +89,21 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         name (Text): Name of the Team Agent
         agents (List[Agent]): List of agents that the Team Agent uses.
         description (Text, optional): description of the Team Agent. Defaults to "".
-        llm_id (Text, optional): large language model. Defaults to GPT-4o (6646261c6eb563165658bbb1).
+        llm (Optional[LLM]): Main LLM instance for the team agent.
+        supervisor_llm (Optional[LLM]): Supervisor LLM instance for the team agent.
         api_key (str): The TEAM API key used for authentication.
         supplier (Text): Supplier of the Team Agent.
         version (Text): Version of the Team Agent.
         cost (Dict, optional): model price. Defaults to None.
-        use_mentalist (bool): Use Mentalist agent for pre-planning. Defaults to True.
-        inspectors (List[Inspector]): List of inspectors that the team agent uses.
-        inspector_targets (List[InspectorTarget]): List of targets where the inspectors are applied. Defaults to [InspectorTarget.STEPS].
+        status (AssetStatus): Status of the Team Agent. Defaults to DRAFT.
+        instructions (Optional[Text]): Instructions to guide the team agent.
+        output_format (OutputFormat): Response format. Defaults to TEXT.
+        expected_output (Optional[Union[BaseModel, Text, dict]]): Expected output format.
+
+    Deprecated Attributes:
+        llm_id (Text): DEPRECATED. Use 'llm' parameter instead. Large language model ID.
+        mentalist_llm (Optional[LLM]): DEPRECATED. LLM for planning.
+        use_mentalist (bool): DEPRECATED. Whether to use Mentalist agent for pre-planning.
     """
 
     is_valid: bool
@@ -103,24 +114,108 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         name: Text,
         agents: List[Agent] = [],
         description: Text = "",
-        llm_id: Text = "6646261c6eb563165658bbb1",
         llm: Optional[LLM] = None,
         supervisor_llm: Optional[LLM] = None,
-        mentalist_llm: Optional[LLM] = None,
         api_key: Optional[Text] = config.TEAM_API_KEY,
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
         version: Optional[Text] = None,
         cost: Optional[Dict] = None,
-        use_mentalist: bool = True,
-        inspectors: List[Inspector] = [],
-        inspector_targets: List[InspectorTarget] = [InspectorTarget.STEPS],
         status: AssetStatus = AssetStatus.DRAFT,
         instructions: Optional[Text] = None,
         output_format: OutputFormat = OutputFormat.TEXT,
         expected_output: Optional[Union[BaseModel, Text, dict]] = None,
         **additional_info,
     ) -> None:
+        """Initialize a TeamAgent instance.
 
+        Args:
+            id (Text): Unique identifier for the team agent.
+            name (Text): Name of the team agent.
+            agents (List[Agent], optional): List of agents in the team. Defaults to [].
+            description (Text, optional): Description of the team agent. Defaults to "".
+            llm (Optional[LLM], optional): LLM instance. Defaults to None.
+            supervisor_llm (Optional[LLM], optional): Supervisor LLM instance. Defaults to None.
+            api_key (Optional[Text], optional): API key. Defaults to config.TEAM_API_KEY.
+            supplier (Union[Dict, Text, Supplier, int], optional): Supplier. Defaults to "aiXplain".
+            version (Optional[Text], optional): Version. Defaults to None.
+            cost (Optional[Dict], optional): Cost information. Defaults to None.
+            status (AssetStatus, optional): Status of the team agent. Defaults to AssetStatus.DRAFT.
+            instructions (Optional[Text], optional): Instructions for the team agent. Defaults to None.
+            output_format (OutputFormat, optional): Output format. Defaults to OutputFormat.TEXT.
+            expected_output (Optional[Union[BaseModel, Text, dict]], optional): Expected output format. Defaults to None.
+            **additional_info: Additional keyword arguments.
+
+        Deprecated Args:
+            llm_id (Text, optional): DEPRECATED. Use 'llm' parameter instead. ID of the language model. Defaults to "6646261c6eb563165658bbb1".
+            mentalist_llm (Optional[LLM], optional): DEPRECATED. Mentalist/Planner LLM instance. Defaults to None.
+            use_mentalist (bool, optional): DEPRECATED. Whether to use mentalist/planner. Defaults to True.
+        """
+        # Define supported kwargs
+        supported_kwargs = {"llm_id", "mentalist_llm", "use_mentalist"}
+
+        # Validate kwargs - raise error if unsupported kwargs are provided
+        unsupported_kwargs = set(additional_info.keys()) - supported_kwargs
+        if unsupported_kwargs:
+            raise ValueError(
+                f"Unsupported keyword argument(s): {', '.join(sorted(unsupported_kwargs))}. "
+                f"Supported kwargs are: {', '.join(sorted(supported_kwargs))}."
+            )
+        # Handle deprecated parameters from kwargs
+        if "llm_id" in additional_info:
+            llm_id = additional_info.pop("llm_id")
+            warnings.warn(
+                "Parameter 'llm_id' is deprecated and will be removed in a future version. "
+                "Please use 'llm' parameter instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        else:
+            llm_id = "6646261c6eb563165658bbb1"
+
+        if "mentalist_llm" in additional_info:
+            mentalist_llm = additional_info.pop("mentalist_llm")
+            warnings.warn(
+                "Parameter 'mentalist_llm' is deprecated and will be removed in a future version.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        else:
+            mentalist_llm = None
+
+        if "use_mentalist" in additional_info:
+            use_mentalist = additional_info.pop("use_mentalist")
+            warnings.warn(
+                "Parameter 'use_mentalist' is deprecated and will be removed in a future version.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        else:
+            use_mentalist = True
+
+        """Initialize a TeamAgent instance.
+
+        Args:
+            id (Text): Unique identifier for the team agent.
+            name (Text): Name of the team agent.
+            agents (List[Agent], optional): List of agents in the team. Defaults to [].
+            description (Text, optional): Description of the team agent. Defaults to "".
+            llm (Optional[LLM], optional): LLM instance. Defaults to None.
+            supervisor_llm (Optional[LLM], optional): Supervisor LLM instance. Defaults to None.
+            api_key (Optional[Text], optional): API key. Defaults to config.TEAM_API_KEY.
+            supplier (Union[Dict, Text, Supplier, int], optional): Supplier. Defaults to "aiXplain".
+            version (Optional[Text], optional): Version. Defaults to None.
+            cost (Optional[Dict], optional): Cost information. Defaults to None.
+            status (AssetStatus, optional): Status of the team agent. Defaults to AssetStatus.DRAFT.
+            instructions (Optional[Text], optional): Instructions for the team agent. Defaults to None.
+            output_format (OutputFormat, optional): Output format. Defaults to OutputFormat.TEXT.
+            expected_output (Optional[Union[BaseModel, Text, dict]], optional): Expected output format. Defaults to None.
+            **additional_info: Additional keyword arguments.
+
+        Deprecated Args:
+            llm_id (Text, optional): DEPRECATED. Use 'llm' parameter instead. ID of the language model. Defaults to "6646261c6eb563165658bbb1".
+            mentalist_llm (Optional[LLM], optional): DEPRECATED. Mentalist/Planner LLM instance. Defaults to None.
+            use_mentalist (bool, optional): DEPRECATED. Whether to use mentalist/planner. Defaults to True.
+        """
         super().__init__(id, name, description, api_key, supplier, version, cost=cost)
         self.additional_info = additional_info
         self.agents = agents
@@ -128,9 +223,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         self.llm = llm
         self.api_key = api_key
         self.use_mentalist = use_mentalist
-        self.inspectors = inspectors
-        self.inspector_targets = inspector_targets
-        self.use_inspector = True if inspectors else False
+        self.use_inspector = False
         self.supervisor_llm = supervisor_llm
         self.mentalist_llm = mentalist_llm
         self.instructions = instructions
@@ -145,6 +238,14 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         self.expected_output = expected_output
 
     def generate_session_id(self, history: list = None) -> str:
+        """Generate a new session ID for the team agent.
+
+        Args:
+            history (list, optional): Chat history to initialize the session with. Defaults to None.
+
+        Returns:
+            str: The generated session ID in format "{team_agent_id}_{timestamp}".
+        """
         timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
         session_id = f"{self.id}_{timestamp}"
 
@@ -169,11 +270,15 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                 "allowHistoryAndSessionId": True,
             }
 
-            r = _request_with_retry("post", self.url, headers=headers, data=json.dumps(payload))
+            r = _request_with_retry(
+                "post", self.url, headers=headers, data=json.dumps(payload)
+            )
             resp = r.json()
             poll_url = resp.get("data")
 
-            result = self.sync_poll(poll_url, name="model_process", timeout=300, wait_time=0.5)
+            result = self.sync_poll(
+                poll_url, name="model_process", timeout=300, wait_time=0.5
+            )
 
             if result.get("status") == ResponseStatus.SUCCESS:
                 return session_id
@@ -183,6 +288,293 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         except Exception as e:
             logging.error(f"Failed to initialize team session {session_id}: {e}")
             return session_id
+
+    def _normalize_progress_data(self, progress: Dict) -> Dict:
+        """Normalize progress data from camelCase to snake_case.
+
+        Args:
+            progress (Dict): Progress data from backend (may use camelCase)
+
+        Returns:
+            Dict: Normalized progress data with snake_case keys
+        """
+        if not progress:
+            return progress
+
+        # Map camelCase to snake_case for known fields
+        normalized = {}
+        key_mapping = {
+            "toolInput": "tool_input",
+            "toolOutput": "tool_output",
+            "currentStep": "current_step",
+            "totalSteps": "total_steps",
+        }
+
+        for key, value in progress.items():
+            # Use mapped key if available, otherwise keep original
+            normalized_key = key_mapping.get(key, key)
+            normalized[normalized_key] = value
+
+        return normalized
+
+    def _format_team_progress(
+        self,
+        progress: Dict,
+        verbosity: Optional[str] = "full",
+    ) -> Optional[str]:
+        """Format team agent progress message based on verbosity level.
+
+        Args:
+            progress (Dict): Progress data from polling response
+            verbosity (Optional[str]): "full", "compact", or None (disables output)
+
+        Returns:
+            Optional[str]: Formatted message or None
+        """
+        if verbosity is None:
+            return None
+
+        stage = progress.get("stage", "working")
+        agent_name = progress.get("agent")
+        tool = progress.get("tool")
+        message = progress.get("message", "")
+        runtime = progress.get("runtime")
+        success = progress.get("success")
+        current_step = progress.get("current_step", 0)
+        total_steps = progress.get("total_steps", 0)
+        reason = progress.get("reason", "")
+        tool_input = progress.get("tool_input", "")
+        tool_output = progress.get("tool_output", "")
+
+        # Determine status icon
+        if success is True:
+            status_icon = "✓"
+        elif success is False:
+            status_icon = "✗"
+        else:
+            status_icon = "⏳"
+
+        # Capitalize system agent names for better display
+        if agent_name:
+            system_agents = {
+                "orchestrator": "Orchestrator",
+                "mentalist": "Mentalist",
+                "response_generator": "Response Generator",
+            }
+            display_agent_name = system_agents.get(agent_name.lower(), agent_name)
+        else:
+            display_agent_name = None
+
+        # Determine emoji and context
+        if stage in ["planning", "mentalist"]:
+            emoji = "🤖"
+            context = "Mentalist"
+        elif display_agent_name and tool:
+            emoji = "⚙️"
+            context = f"{display_agent_name} | {tool}"
+        elif display_agent_name:
+            emoji = "🤖"
+            context = display_agent_name
+        else:
+            emoji = "🤖"
+            context = self.name
+
+        if verbosity == "compact":
+            # Compact mode: minimal info
+            msg = f"{emoji}  {context} | {status_icon}"
+
+            if current_step and total_steps:
+                msg += f" [{current_step}/{total_steps}]"
+
+            # Show message if available (common for planning/orchestration stages)
+            if message and not tool_output:
+                msg += f" {message[:100]}"
+            elif success is True and tool_output:
+                output_str = str(tool_output)[:200]
+                msg += f" {output_str}"
+                msg += "..." if len(output_str) > 200 else ""
+        else:
+            # Full verbosity: detailed info
+            msg = f"{emoji}  {context} | {status_icon}"
+
+            if current_step and total_steps:
+                msg += f" | Step {current_step}/{total_steps}"
+
+            if tool_input:
+                msg += f" | Input: {tool_input}"
+
+            if tool_output:
+                msg += f" | Output: {tool_output}"
+
+            if reason:
+                msg += f" | Reason: {reason}"
+            elif message:
+                # Show message if reason is not available (common for planning/orchestration)
+                msg += f" | {message}"
+
+        return msg
+
+    def _format_completion_message(
+        self,
+        elapsed_time: float,
+        response_body: AgentResponse,
+        timed_out: bool = False,
+        timeout: float = 300,
+        verbosity: Optional[str] = "full",
+    ) -> str:
+        """Format completion message with metrics.
+
+        Args:
+            elapsed_time (float): Total elapsed time in seconds
+            response_body (AgentResponse): Final response
+            timed_out (bool): Whether the operation timed out
+            timeout (float): Timeout value if timed out
+            verbosity (Optional[str]): "full" or "compact"
+
+        Returns:
+            str: Formatted completion message
+        """
+        if timed_out:
+            return f"✅ Done | ✗ Timeout - No response after {timeout}s"
+
+        # Collect metrics from execution_stats if available
+        total_api_calls = 0
+        total_credits = 0.0
+        runtime = elapsed_time
+
+        # Extract data dict (handle tuple or direct object)
+        data_dict = None
+        if hasattr(response_body, "data") and response_body.data:
+            if isinstance(response_body.data, tuple) and len(response_body.data) > 0:
+                # Data is a tuple, get first element
+                data_dict = (
+                    response_body.data[0]
+                    if isinstance(response_body.data[0], dict)
+                    else None
+                )
+            elif isinstance(response_body.data, dict):
+                # Data is already a dict
+                data_dict = response_body.data
+            elif hasattr(response_body.data, "executionStats") or hasattr(
+                response_body.data, "execution_stats"
+            ):
+                # Data is an object with attributes
+                exec_stats = getattr(
+                    response_body.data, "executionStats", None
+                ) or getattr(response_body.data, "execution_stats", None)
+                if exec_stats and isinstance(exec_stats, dict):
+                    total_api_calls = exec_stats.get("api_calls", 0)
+                    total_credits = exec_stats.get("credits", 0.0)
+                    runtime = exec_stats.get("runtime", elapsed_time)
+
+        # Try to get metrics from data dict (camelCase fields from backend)
+        if data_dict and isinstance(data_dict, dict):
+            # Check executionStats first
+            exec_stats = data_dict.get("executionStats")
+            if exec_stats and isinstance(exec_stats, dict):
+                total_api_calls = exec_stats.get("api_calls", 0)
+                total_credits = exec_stats.get("credits", 0.0)
+                runtime = exec_stats.get("runtime", elapsed_time)
+
+            # Fallback: check top-level fields (usedCredits, runTime)
+            if total_credits == 0.0:
+                total_credits = data_dict.get("usedCredits", 0.0)
+            if runtime == elapsed_time:
+                runtime = data_dict.get("runTime", elapsed_time)
+
+        # Build single-line completion message with metrics
+        if verbosity == "compact":
+            msg = f"✅ Done | ({runtime:.1f} s total"
+        else:
+            msg = f"✅ Done | Completed successfully ({runtime:.1f} s total"
+
+        # Always show API calls and credits
+        if total_api_calls > 0:
+            msg += f" | {total_api_calls} API calls"
+        msg += f" | ${total_credits}"
+        msg += ")"
+
+        return msg
+
+    def sync_poll(
+        self,
+        poll_url: Text,
+        name: Text = "model_process",
+        wait_time: float = 0.5,
+        timeout: float = 300,
+        progress_verbosity: Optional[str] = "compact",
+    ) -> AgentResponse:
+        """Poll the platform until team agent execution completes or times out.
+
+        Args:
+            poll_url (Text): URL to poll for operation status.
+            name (Text, optional): Identifier for the operation. Defaults to "model_process".
+            wait_time (float, optional): Initial wait time in seconds between polls. Defaults to 0.5.
+            timeout (float, optional): Maximum total time to poll in seconds. Defaults to 300.
+            progress_verbosity (Optional[str], optional): Progress display mode - "full" (detailed), "compact" (brief), or None (no progress). Defaults to "compact".
+
+        Returns:
+            AgentResponse: The final response from the team agent execution.
+        """
+        logging.info(f"Polling for Team Agent: Start polling for {name}")
+        start, end = time.time(), time.time()
+        wait_time = max(wait_time, 0.2)
+        completed = False
+        response_body = AgentResponse(status=ResponseStatus.FAILED, completed=False)
+        last_message = None  # Track last message to avoid duplicates
+
+        while not completed and (end - start) < timeout:
+            try:
+                response_body = self.poll(poll_url, name=name)
+                completed = response_body["completed"]
+
+                # Display progress inline if enabled
+                if progress_verbosity and not completed:
+                    progress = response_body.get("progress")
+                    if progress:
+                        msg = self._format_team_progress(progress, progress_verbosity)
+                        if msg and msg != last_message:
+                            print(msg, flush=True)
+                            last_message = msg
+
+                end = time.time()
+                if completed is False:
+                    time.sleep(wait_time)
+                    if wait_time < 60:
+                        wait_time *= 1.1
+            except Exception as e:
+                response_body = AgentResponse(
+                    status=ResponseStatus.FAILED,
+                    completed=False,
+                    error_message="No response from the service.",
+                )
+                logging.error(f"Polling for Team Agent: polling for {name}: {e}")
+                break
+
+        # Display completion message
+        if progress_verbosity:
+            elapsed_time = end - start
+            timed_out = response_body["completed"] is not True
+            completion_msg = self._format_completion_message(
+                elapsed_time, response_body, timed_out, timeout, progress_verbosity
+            )
+            print(completion_msg, flush=True)
+
+        if response_body["completed"] is True:
+            logging.debug(
+                f"Polling for Team Agent: Final status of polling for {name}: {response_body}"
+            )
+        else:
+            response_body = AgentResponse(
+                status=ResponseStatus.FAILED,
+                completed=False,
+                error_message="No response from the service.",
+            )
+            logging.error(
+                f"Polling for Team Agent: Final status of polling for {name}: No response in {timeout} seconds"
+            )
+
+        return response_body
 
     def run(
         self,
@@ -197,8 +589,9 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         content: Optional[Union[Dict[Text, Text], List[Text]]] = None,
         max_tokens: int = 2048,
         max_iterations: int = 30,
-        output_format: Optional[OutputFormat] = None,
-        expected_output: Optional[Union[BaseModel, Text, dict]] = None,
+        trace_request: bool = False,
+        progress_verbosity: Optional[str] = "compact",
+        **kwargs,
     ) -> AgentResponse:
         """Runs a team agent call.
 
@@ -214,11 +607,32 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             content (Union[Dict[Text, Text], List[Text]], optional): Content inputs to be processed according to the query. Defaults to None.
             max_tokens (int, optional): maximum number of tokens which can be generated by the agents. Defaults to 2048.
             max_iterations (int, optional): maximum number of iterations between the agents. Defaults to 30.
-            output_format (OutputFormat, optional): response format. If not provided, uses the format set during initialization.
-            expected_output (Union[BaseModel, Text, dict], optional): expected output. Defaults to None.
+            trace_request (bool, optional): return the request id for tracing the request. Defaults to False.
+            progress_verbosity (Optional[str], optional): Progress display mode - "full" (detailed), "compact" (brief), or None (no progress). Defaults to "compact".
+            **kwargs: Additional deprecated keyword arguments (output_format, expected_output).
+
         Returns:
             AgentResponse: parsed output from model
         """
+        # Handle deprecated parameters from kwargs
+        output_format = kwargs.pop("output_format", None)
+        if output_format is not None:
+            warnings.warn(
+                "Parameter 'output_format' in run() is deprecated and will be removed in a future version. "
+                "Please set 'output_format' during TeamAgent initialization instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+
+        expected_output = kwargs.pop("expected_output", None)
+        if expected_output is not None:
+            warnings.warn(
+                "Parameter 'expected_output' in run() is deprecated and will be removed in a future version. "
+                "Please set 'expected_output' during TeamAgent initialization instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+
         start = time.time()
         result_data = {}
         if session_id is not None and history is not None:
@@ -226,7 +640,9 @@ class TeamAgent(Model, DeployableMixin[Agent]):
 
         if session_id is not None:
             if not session_id.startswith(f"{self.id}_"):
-                raise ValueError(f"Session ID '{session_id}' does not belong to this Agent.")
+                raise ValueError(
+                    f"Session ID '{session_id}' does not belong to this Agent."
+                )
         if history:
             validate_history(history)
         try:
@@ -242,6 +658,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                 max_iterations=max_iterations,
                 output_format=output_format,
                 expected_output=expected_output,
+                trace_request=trace_request,
             )
             if response["status"] == ResponseStatus.FAILED:
                 end = time.time()
@@ -250,7 +667,24 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             poll_url = response["url"]
             end = time.time()
             result = self.sync_poll(poll_url, name=name, timeout=timeout, wait_time=wait_time)
-            result_data = result.data
+            result_data = result.data or {}
+            if result.status == ResponseStatus.FAILED:
+                return AgentResponse(
+                    status=ResponseStatus.FAILED,
+                    completed=False,
+                    data=AgentResponseData(
+                        input=result_data.get("input"),
+                        output=result_data.get("output"),
+                        session_id=result_data.get("session_id"),
+                        intermediate_steps=result_data.get("intermediate_steps"),
+                        steps=result_data.get("steps"),
+                        execution_stats=result_data.get("executionStats"),
+                        critiques=result_data.get("critiques", ""),
+                    ),
+                    used_credits=result_data.get("usedCredits", 0.0),
+                    run_time=result_data.get("runTime", end - start),
+                )
+
             return AgentResponse(
                 status=ResponseStatus.SUCCESS,
                 completed=True,
@@ -259,6 +693,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                     output=result_data.get("output"),
                     session_id=result_data.get("session_id"),
                     intermediate_steps=result_data.get("intermediate_steps"),
+                    steps=result_data.get("steps"),
                     execution_stats=result_data.get("executionStats"),
                     critiques=result_data.get("critiques", ""),
                 ),
@@ -288,6 +723,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         output_format: Optional[OutputFormat] = None,
         expected_output: Optional[Union[BaseModel, Text, dict]] = None,
         evolve: Union[Dict[str, Any], EvolveParam, None] = None,
+        trace_request: bool = False,
     ) -> AgentResponse:
         """Runs asynchronously a Team Agent call.
 
@@ -304,6 +740,8 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             output_format (OutputFormat, optional): response format. If not provided, uses the format set during initialization.
             expected_output (Union[BaseModel, Text, dict], optional): expected output. Defaults to None.
             evolve (Union[Dict[str, Any], EvolveParam, None], optional): evolve the team agent configuration. Can be a dictionary, EvolveParam instance, or None.
+            trace_request (bool, optional): return the request id for tracing the request. Defaults to False.
+
         Returns:
             AgentResponse: polling URL in response
         """
@@ -312,7 +750,9 @@ class TeamAgent(Model, DeployableMixin[Agent]):
 
         if session_id is not None:
             if not session_id.startswith(f"{self.id}_"):
-                raise ValueError(f"Session ID '{session_id}' does not belong to this Agent.")
+                raise ValueError(
+                    f"Session ID '{session_id}' does not belong to this Agent."
+                )
 
         if history:
             validate_history(history)
@@ -324,12 +764,18 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         evolve_dict = evolve_param.to_dict()
 
         if not self.is_valid:
-            raise Exception("Team Agent is not valid. Please validate the team agent before running.")
+            raise Exception(
+                "Team Agent is not valid. Please validate the team agent before running."
+            )
 
-        assert data is not None or query is not None, "Either 'data' or 'query' must be provided."
+        assert (
+            data is not None or query is not None
+        ), "Either 'data' or 'query' must be provided."
         if data is not None:
             if isinstance(data, dict):
-                assert "query" in data and data["query"] is not None, "When providing a dictionary, 'query' must be provided."
+                assert (
+                    "query" in data and data["query"] is not None
+                ), "When providing a dictionary, 'query' must be provided."
                 if session_id is None:
                     session_id = data.pop("session_id", None)
                 if history is None:
@@ -343,7 +789,8 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         # process content inputs
         if content is not None:
             assert (
-                isinstance(query, str) and FileFactory.check_storage_type(query) == StorageType.TEXT
+                isinstance(query, str)
+                and FileFactory.check_storage_type(query) == StorageType.TEXT
             ), "When providing 'content', query must be text."
 
             if isinstance(content, list):
@@ -353,18 +800,19 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                     query += f"\n{input_link}"
             elif isinstance(content, dict):
                 for key, value in content.items():
-                    assert "{{" + key + "}}" in query, f"Key '{key}' not found in query."
+                    assert (
+                        "{{" + key + "}}" in query
+                    ), f"Key '{key}' not found in query."
                     value = FileFactory.to_link(value)
                     query = query.replace("{{" + key + "}}", f"'{value}'")
 
         headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}
 
         # build query
-        input_data = process_variables(query, data, parameters, self.description)
         if expected_output is None:
             expected_output = self.expected_output
-        if expected_output is not None and issubclass(expected_output, BaseModel):
-            expected_output = expected_output.model_json_schema()
+        input_data = process_variables(query, data, parameters, self.description)
+        expected_output = normalize_expected_output(expected_output)
         if output_format is None:
             output_format = self.output_format
         if isinstance(output_format, OutputFormat):
@@ -376,8 +824,16 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             "sessionId": session_id,
             "history": history,
             "executionParams": {
-                "maxTokens": (parameters["max_tokens"] if "max_tokens" in parameters else max_tokens),
-                "maxIterations": (parameters["max_iterations"] if "max_iterations" in parameters else max_iterations),
+                "maxTokens": (
+                    parameters["max_tokens"]
+                    if "max_tokens" in parameters
+                    else max_tokens
+                ),
+                "maxIterations": (
+                    parameters["max_iterations"]
+                    if "max_iterations" in parameters
+                    else max_iterations
+                ),
                 "outputFormat": output_format,
                 "expectedOutput": expected_output,
             },
@@ -387,13 +843,18 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         payload = json.dumps(payload)
 
         r = _request_with_retry("post", self.url, headers=headers, data=payload)
-        logging.info(f"Team Agent Run Async: Start service for {name} - {self.url} - {payload} - {headers}")
+        logging.info(
+            f"Team Agent Run Async: Start service for {name} - {self.url} - {payload} - {headers}"
+        )
 
         resp = None
         try:
             resp = r.json()
             logging.info(f"Result of request for {name} - {r.status_code} - {resp}")
-
+            if trace_request:
+                logging.info(
+                    f"Team Agent Run Async: Trace request id: {resp.get('requestId')}"
+                )
             poll_url = resp["data"]
             response = AgentResponse(
                 status=ResponseStatus.IN_PROGRESS,
@@ -413,6 +874,15 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         return response
 
     def poll(self, poll_url: Text, name: Text = "model_process") -> AgentResponse:
+        """Poll once for team agent execution status.
+
+        Args:
+            poll_url (Text): URL to poll for status.
+            name (Text, optional): Identifier for the operation. Defaults to "model_process".
+
+        Returns:
+            AgentResponse: Response containing status, data, and progress information.
+        """
         used_credits, run_time = 0.0, 0.0
         resp, error_message, status = None, None, ResponseStatus.SUCCESS
         headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}
@@ -426,7 +896,9 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                     error_message = resp.get("error_message")
             else:
                 status = ResponseStatus.IN_PROGRESS
-            logging.debug(f"Single Poll for Team Agent: Status of polling for {name}: {resp}")
+            logging.debug(
+                f"Single Poll for Team Agent: Status of polling for {name}: {resp}"
+            )
 
             resp_data = resp.get("data") or {}
             used_credits = resp_data.get("usedCredits", 0.0)
@@ -441,22 +913,32 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                     evolved_agent.update()
                     resp_data["evolved_agent"] = evolved_agent
                 else:
-                    resp_data = EvolverResponseData.from_dict(resp_data, llm_id=self.llm_id, api_key=self.api_key)
+                    resp_data = EvolverResponseData.from_dict(
+                        resp_data, llm_id=self.llm_id, api_key=self.api_key
+                    )
             else:
                 resp_data = AgentResponseData(
                     input=resp_data.get("input"),
                     output=resp_data.get("output"),
                     session_id=resp_data.get("session_id"),
                     intermediate_steps=resp_data.get("intermediate_steps"),
+                    steps=resp_data.get("steps"),
                     execution_stats=resp_data.get("executionStats"),
                 )
         except Exception as e:
             import traceback
 
-            logging.error(f"Single Poll for Team Agent: Error of polling for {name}: {e}, traceback: {traceback.format_exc()}")
+            logging.error(
+                f"Single Poll for Team Agent: Error of polling for {name}: {e}, traceback: {traceback.format_exc()}"
+            )
             status = ResponseStatus.FAILED
             error_message = str(e)
         finally:
+            # Normalize progress data from camelCase to snake_case
+            progress_data = resp.get("progress") if resp else None
+            if progress_data:
+                progress_data = self._normalize_progress_data(progress_data)
+
             response = AgentResponse(
                 status=status,
                 data=resp_data,
@@ -466,11 +948,12 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                 run_time=run_time,
                 usage=resp.get("usage", None),
                 error_message=error_message,
+                progress=progress_data,
             )
         return response
 
     def delete(self) -> None:
-        """Delete Corpus service"""
+        """Deletes Team Agent."""
         try:
             url = urljoin(config.BACKEND_URL, f"sdk/agent-communities/{self.id}")
             headers = {
@@ -482,9 +965,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             if r.status_code != 200:
                 raise Exception()
         except Exception:
-            message = (
-                f"Team Agent Deletion Error (HTTP {r.status_code}): Make sure the Team Agent exists and you are the owner."
-            )
+            message = f"Team Agent Deletion Error (HTTP {r.status_code}): Make sure the Team Agent exists and you are the owner."
             logging.error(message)
             raise Exception(f"{message}")
 
@@ -507,7 +988,12 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                 - label: Always "AGENT"
                 - Additional fields from agent.to_dict() if available
         """
-        base_dict = {"assetId": agent.id, "number": idx, "type": "AGENT", "label": "AGENT"}
+        base_dict = {
+            "assetId": agent.id,
+            "number": idx,
+            "type": "AGENT",
+            "label": "AGENT",
+        }
 
         # Try to get additional data from agent's to_dict method
         try:
@@ -517,7 +1003,9 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                 if isinstance(agent_dict, dict) and hasattr(agent_dict, "items"):
                     try:
                         # Add all fields except 'id' to avoid duplication with 'assetId'
-                        additional_data = {k: v for k, v in agent_dict.items() if k not in ["id"]}
+                        additional_data = {
+                            k: v for k, v in agent_dict.items() if k not in ["id"]
+                        }
                         base_dict.update(additional_data)
                     except (TypeError, AttributeError):
                         # If items() doesn't work or iteration fails, skip the additional data
@@ -531,8 +1019,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
     def to_dict(self) -> Dict:
         """Convert the TeamAgent instance to a dictionary representation.
 
-        This method serializes the TeamAgent and all its components (agents,
-        inspectors, LLMs, etc.) into a dictionary format suitable for storage
+        This method serializes the TeamAgent and all its components (agents, LLMs, etc.) into a dictionary format suitable for storage
         or transmission.
 
         Returns:
@@ -545,8 +1032,6 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                 - llmId (str): ID of the main language model
                 - supervisorId (str): ID of the supervisor language model
                 - plannerId (str): ID of the planner model (if use_mentalist)
-                - inspectors (List[Dict]): Serialized list of inspectors
-                - inspectorTargets (List[str]): List of inspector target stages
                 - supplier (str): The supplier code
                 - version (str): The version number
                 - status (str): The current status
@@ -559,15 +1044,22 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         return {
             "id": self.id,
             "name": self.name,
-            "agents": [self._serialize_agent(agent, idx) for idx, agent in enumerate(self.agents)],
+            "agents": [
+                self._serialize_agent(agent, idx)
+                for idx, agent in enumerate(self.agents)
+            ],
             "links": [],
             "description": self.description,
             "llmId": self.llm.id if self.llm else self.llm_id,
-            "supervisorId": (self.supervisor_llm.id if self.supervisor_llm else self.llm_id),
+            "supervisorId": (
+                self.supervisor_llm.id if self.supervisor_llm else self.llm_id
+            ),
             "plannerId": planner_id,
-            "inspectors": [inspector.model_dump(by_alias=True) for inspector in self.inspectors],
-            "inspectorTargets": [target.value for target in self.inspector_targets],
-            "supplier": (self.supplier.value["code"] if isinstance(self.supplier, Supplier) else self.supplier),
+            "supplier": (
+                self.supplier.value["code"]
+                if isinstance(self.supplier, Supplier)
+                else self.supplier
+            ),
             "version": self.version,
             "status": self.status.value,
             "instructions": self.instructions,
@@ -587,7 +1079,6 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         """
         from aixplain.factories.model_factory import ModelFactory
         from aixplain.enums import AssetStatus
-        from aixplain.modules.team_agent import Inspector, InspectorTarget
         from aixplain.modules.agent import Agent
 
         # Extract agents from agents list using proper agent loading
@@ -603,31 +1094,11 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                         # Log warning but continue processing other agents
                         import logging
 
-                        logging.warning(f"Failed to load agent {agent_data['assetId']}: {e}")
+                        logging.warning(
+                            f"Failed to load agent {agent_data['assetId']}: {e}"
+                        )
                 else:
                     agents.append(Agent.from_dict(agent_data))
-        # Extract inspectors using proper model validation
-        inspectors = []
-        if "inspectors" in data:
-            for inspector_data in data["inspectors"]:
-                try:
-                    if isinstance(inspector_data, Inspector):
-                        inspectors.append(inspector_data)
-                    elif hasattr(Inspector, "model_validate"):
-                        inspectors.append(Inspector.model_validate(inspector_data))
-                    else:
-                        inspectors.append(Inspector(**inspector_data))
-                except Exception as e:
-                    import logging
-
-                    logging.warning(f"Failed to create inspector from data: {e}")
-                    continue
-
-        # Extract inspector targets
-        inspector_targets = [InspectorTarget.STEPS]  # default
-        if "inspectorTargets" in data:
-            inspector_targets = [InspectorTarget(target) for target in data["inspectorTargets"]]
-
         # Extract status
         status = AssetStatus.DRAFT
         if "status" in data:
@@ -667,19 +1138,18 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             name=data["name"],
             agents=agents,
             description=data.get("description", ""),
-            llm_id=data.get("llmId", "6646261c6eb563165658bbb1"),
             llm=llm,
             supervisor_llm=supervisor_llm,
-            mentalist_llm=mentalist_llm,
             supplier=data.get("supplier", "aiXplain"),
             version=data.get("version"),
-            use_mentalist=use_mentalist,
             status=status,
             instructions=data.get("instructions"),
-            inspectors=inspectors,
-            inspector_targets=inspector_targets,
             output_format=OutputFormat(data.get("outputFormat", OutputFormat.TEXT)),
             expected_output=data.get("expectedOutput"),
+            # Pass deprecated params via kwargs
+            llm_id=data.get("llmId", "6646261c6eb563165658bbb1"),
+            mentalist_llm=mentalist_llm,
+            use_mentalist=use_mentalist,
         )
 
     def _validate(self) -> None:
@@ -694,7 +1164,9 @@ class TeamAgent(Model, DeployableMixin[Agent]):
 
         try:
             llm = get_llm_instance(self.llm_id, use_cache=True)
-            assert llm.function == Function.TEXT_GENERATION, "Large Language Model must be a text generation model."
+            assert (
+                llm.function == Function.TEXT_GENERATION
+            ), "Large Language Model must be a text generation model."
         except Exception:
             raise Exception(f"Large Language Model with ID '{self.llm_id}' not found.")
 
@@ -733,7 +1205,9 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                 raise e
             else:
                 logging.warning(f"Team Agent Validation Error: {e}")
-                logging.warning("You won't be able to run the Team Agent until the issues are handled manually.")
+                logging.warning(
+                    "You won't be able to run the Team Agent until the issues are handled manually."
+                )
 
         return self.is_valid
 
@@ -763,7 +1237,8 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         stack = inspect.stack()
         if len(stack) > 2 and stack[1].function != "save":
             warnings.warn(
-                "update() is deprecated and will be removed in a future version. " "Please use save() instead.",
+                "update() is deprecated and will be removed in a future version. "
+                "Please use save() instead.",
                 DeprecationWarning,
                 stacklevel=2,
             )
@@ -775,13 +1250,17 @@ class TeamAgent(Model, DeployableMixin[Agent]):
 
         payload = self.to_dict()
 
-        logging.debug(f"Start service for PUT Update Team Agent - {url} - {headers} - {json.dumps(payload)}")
+        logging.debug(
+            f"Start service for PUT Update Team Agent - {url} - {headers} - {json.dumps(payload)}"
+        )
         resp = "No specified error."
         try:
             r = _request_with_retry("put", url, headers=headers, json=payload)
             resp = r.json()
         except Exception:
-            raise Exception("Team Agent Update Error: Please contact the administrators.")
+            raise Exception(
+                "Team Agent Update Error: Please contact the administrators."
+            )
 
         if 200 <= r.status_code < 300:
             return build_team_agent(resp)
@@ -865,7 +1344,9 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         """
         from aixplain.enums import EvolveType
         from aixplain.utils.evolve_utils import create_llm_dict
-        from aixplain.factories.team_agent_factory.utils import build_team_agent_from_yaml
+        from aixplain.factories.team_agent_factory.utils import (
+            build_team_agent_from_yaml,
+        )
 
         # Create EvolveParam from individual parameters
         evolve_parameters = EvolveParam(
@@ -897,7 +1378,11 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             end = time.time()
             result = self.sync_poll(poll_url, name="evolve_process", timeout=600)
             result_data = result.data
-            current_code = result_data.get("current_code") if isinstance(result_data, dict) else result_data.current_code
+            current_code = (
+                result_data.get("current_code")
+                if isinstance(result_data, dict)
+                else result_data.current_code
+            )
             if current_code is not None:
                 if evolve_parameters.evolve_type == EvolveType.TEAM_TUNING:
                     result_data["evolved_agent"] = build_team_agent_from_yaml(

@@ -3,6 +3,11 @@ sidebar_label: utils
 title: aixplain.modules.model.utils
 ---
 
+Utility functions for model operations including payload building and code parsing.
+
+This module provides helper functions for building API payloads, parsing code for utility models,
+and handling model execution endpoints.
+
 #### build\_payload
 
 ```python
@@ -11,7 +16,7 @@ def build_payload(data: Union[Text, Dict],
                   stream: Optional[bool] = None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/utils.py#L81)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/utils.py#L87)
 
 Build a JSON payload for API requests.
 
@@ -48,7 +53,7 @@ ensures proper JSON serialization.
 def call_run_endpoint(url: Text, api_key: Text, payload: Dict) -> Dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/utils.py#L134)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/utils.py#L170)
 
 Call a model execution endpoint and handle the response.
 
@@ -81,10 +86,12 @@ various response scenarios, and provides appropriate error handling.
 #### parse\_code
 
 ```python
-def parse_code(code: Union[Text, Callable]) -> Tuple[Text, List, Text, Text]
+def parse_code(
+        code: Union[Text, Callable],
+        api_key: Optional[Text] = None) -> Tuple[Text, List, Text, Text]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/utils.py#L198)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/utils.py#L238)
 
 Parse and process code for utility model creation.
 
@@ -99,6 +106,8 @@ validates the code structure, and prepares it for execution.
   - A file path (string)
   - A URL (string)
   - Raw code (string)
+- `api_key` _Optional[Text], optional_ - API key for authentication when uploading code.
+  Defaults to None.
   
 
 **Returns**:
@@ -128,10 +137,11 @@ validates the code structure, and prepares it for execution.
 
 ```python
 def parse_code_decorated(
-        code: Union[Text, Callable]) -> Tuple[Text, List, Text, Text]
+        code: Union[Text, Callable],
+        api_key: Optional[Text] = None) -> Tuple[Text, List, Text, Text]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/utils.py#L309)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/utils.py#L369)
 
 Parse and process code that may be decorated with @utility_tool.
 
@@ -147,6 +157,8 @@ It supports various input formats and provides robust parameter extraction.
   - A file path (string)
   - A URL (string)
   - Raw code (string)
+- `api_key` _Optional[Text], optional_ - API key for authentication when uploading code.
+  Defaults to None.
   
 
 **Returns**:
@@ -184,7 +196,7 @@ It supports various input formats and provides robust parameter extraction.
 def is_supported_image_type(value: str) -> bool
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/utils.py#L523)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/model/utils.py#L613)
 
 Check if a file path or URL points to a supported image format.
 

@@ -24,6 +24,7 @@ Description:
 """
 
 __author__ = "aiXplain"
+import inspect
 import json
 import logging
 import re
@@ -46,6 +47,7 @@ from typing import Dict, List, Text, Optional, Union, Any
 from aixplain.modules.agent.evolve_param import EvolveParam, validate_evolve_param
 from urllib.parse import urljoin
 from aixplain.modules.model.llm_model import LLM
+from aixplain.utils.convert_datatype_utils import normalize_expected_output
 
 from aixplain.utils import config
 from aixplain.modules.mixins import DeployableMixin
@@ -178,13 +180,15 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
         from aixplain.utils.llm_utils import get_llm_instance
 
         # validate name
-        assert re.match(r"^[a-zA-Z0-9 \-\(\)]*$", self.name) is not None, (
-            "Agent Creation Error: Agent name contains invalid characters. Only alphanumeric characters, spaces, hyphens, and brackets are allowed."
-        )
+        assert (
+            re.match(r"^[a-zA-Z0-9 \-\(\)]*$", self.name) is not None
+        ), "Agent Creation Error: Agent name contains invalid characters. Only alphanumeric characters, spaces, hyphens, and brackets are allowed."
 
         llm = get_llm_instance(self.llm_id, api_key=self.api_key, use_cache=True)
 
-        assert llm.function == Function.TEXT_GENERATION, "Large Language Model must be a text generation model."
+        assert (
+            llm.function == Function.TEXT_GENERATION
+        ), "Large Language Model must be a text generation model."
 
         tool_names = []
         for tool in self.tools:
@@ -192,12 +196,16 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
             if isinstance(tool, Tool):
                 tool_name = tool.name
             elif isinstance(tool, Model):
-                assert not isinstance(tool, Agent), "Agent cannot contain another Agent."
+                assert not isinstance(
+                    tool, Agent
+                ), "Agent cannot contain another Agent."
                 tool_name = tool.name
             tool_names.append(tool_name)
 
         if len(tool_names) != len(set(tool_names)):
-            duplicates = set([name for name in tool_names if tool_names.count(name) > 1])
+            duplicates = set(
+                [name for name in tool_names if tool_names.count(name) > 1]
+            )
             raise Exception(
                 f"Agent Creation Error - Duplicate tool names found: {', '.join(duplicates)}. Make sure all tool names are unique."
             )
@@ -206,7 +214,9 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
             tool_names.append(tool_name)
 
         if len(tool_names) != len(set(tool_names)):
-            duplicates = set([name for name in tool_names if tool_names.count(name) > 1])
+            duplicates = set(
+                [name for name in tool_names if tool_names.count(name) > 1]
+            )
             raise Exception(
                 f"Agent Creation Error - Duplicate tool names found: {', '.join(duplicates)}. Make sure all tool names are unique."
             )
@@ -236,7 +246,9 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
                 raise e
             else:
                 logging.warning(f"Agent Validation Error: {e}")
-                logging.warning("You won't be able to run the Agent until the issues are handled manually.")
+                logging.warning(
+                    "You won't be able to run the Agent until the issues are handled manually."
+                )
         return self.is_valid
 
     def generate_session_id(self, history: list = None) -> str:
@@ -274,11 +286,15 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
                 "allowHistoryAndSessionId": True,
             }
 
-            r = _request_with_retry("post", self.url, headers=headers, data=json.dumps(payload))
+            r = _request_with_retry(
+                "post", self.url, headers=headers, data=json.dumps(payload)
+            )
             resp = r.json()
             poll_url = resp.get("data")
 
-            result = self.sync_poll(poll_url, name="model_process", timeout=300, wait_time=0.5)
+            result = self.sync_poll(
+                poll_url, name="model_process", timeout=300, wait_time=0.5
+            )
 
             if result.get("status") == ResponseStatus.SUCCESS:
                 return session_id
@@ -289,6 +305,276 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
         except Exception as e:
             logging.error(f"Failed to initialize session {session_id}: {e}")
             return session_id
+
+    def _normalize_progress_data(self, progress: Dict) -> Dict:
+        """Normalize progress data from camelCase to snake_case.
+
+        Args:
+            progress (Dict): Progress data from backend (may use camelCase)
+
+        Returns:
+            Dict: Normalized progress data with snake_case keys
+        """
+        if not progress:
+            return progress
+
+        # Map camelCase to snake_case for known fields
+        normalized = {}
+        key_mapping = {
+            "toolInput": "tool_input",
+            "toolOutput": "tool_output",
+            "currentStep": "current_step",
+            "totalSteps": "total_steps",
+        }
+
+        for key, value in progress.items():
+            # Use mapped key if available, otherwise keep original
+            normalized_key = key_mapping.get(key, key)
+            normalized[normalized_key] = value
+
+        return normalized
+
+    def poll(self, poll_url: Text, name: Text = "model_process") -> "AgentResponse":
+        """Override poll to normalize progress data from camelCase to snake_case.
+
+        Args:
+            poll_url (Text): URL to poll for operation status.
+            name (Text, optional): Identifier for the operation. Defaults to "model_process".
+
+        Returns:
+            AgentResponse: Response with normalized progress data.
+        """
+        # Call parent poll method
+        response = super().poll(poll_url, name)
+
+        # Normalize progress data if present (stored in additional_fields)
+        if hasattr(response, "additional_fields") and isinstance(response.additional_fields, dict):
+            if "progress" in response.additional_fields and response.additional_fields["progress"]:
+                response.additional_fields["progress"] = self._normalize_progress_data(
+                    response.additional_fields["progress"]
+                )
+
+        return response
+
+    def _format_agent_progress(
+        self,
+        progress: Dict,
+        verbosity: Optional[str] = "full",
+    ) -> Optional[str]:
+        """Format agent progress message based on verbosity level.
+
+        Args:
+            progress (Dict): Progress data from polling response
+            verbosity (Optional[str]): "full", "compact", or None (disables output)
+
+        Returns:
+            Optional[str]: Formatted message or None
+        """
+        if verbosity is None:
+            return None
+
+        stage = progress.get("stage", "working")
+        tool = progress.get("tool")
+        runtime = progress.get("runtime")
+        success = progress.get("success")
+        reason = progress.get("reason", "")
+        tool_input = progress.get("tool_input", "")
+        tool_output = progress.get("tool_output", "")
+
+        # Determine status icon
+        if success is True:
+            status_icon = "✓"
+        elif success is False:
+            status_icon = "✗"
+        else:
+            status_icon = "⏳"
+
+        agent_name = self.name
+
+        if verbosity == "compact":
+            # Compact mode: minimal info
+            if tool:
+                msg = f"⚙️  {agent_name} | {tool} | {status_icon}"
+                if success is True and tool_output:
+                    output_str = str(tool_output)[:200]
+                    msg += f" {output_str}"
+                    msg += "..." if len(str(tool_output)) > 200 else ""
+            else:
+                stage_name = stage.replace("_", " ").title()
+                msg = f"🤖  {agent_name} | {status_icon} {stage_name}"
+        else:
+            # Full verbosity: detailed info
+            if tool:
+                msg = f"⚙️  {agent_name} | {tool} | {status_icon}"
+
+                if tool_input:
+                    msg += f" | Input: {tool_input}"
+
+                if tool_output:
+                    msg += f" | Output: {tool_output}"
+
+                if reason:
+                    msg += f" | Reason: {reason}"
+            else:
+                stage_name = stage.replace("_", " ").title()
+                msg = f"🤖  {agent_name} | {status_icon} {stage_name}"
+                if reason:
+                    msg += f" | {reason}"
+
+        return msg
+
+    def _format_completion_message(
+        self,
+        elapsed_time: float,
+        response_body: "AgentResponse",
+        timed_out: bool = False,
+        timeout: float = 300,
+        verbosity: Optional[str] = "full",
+    ) -> str:
+        """Format completion message with metrics.
+
+        Args:
+            elapsed_time (float): Total elapsed time in seconds
+            response_body (AgentResponse): Final response
+            timed_out (bool): Whether the operation timed out
+            timeout (float): Timeout value if timed out
+            verbosity (Optional[str]): "full" or "compact"
+
+        Returns:
+            str: Formatted completion message
+        """
+        if timed_out:
+            return f"✅ Done | ✗ Timeout - No response after {timeout}s"
+
+        # Collect metrics from execution_stats if available
+        total_api_calls = 0
+        total_credits = 0.0
+        runtime = elapsed_time
+
+        # Extract data dict (handle tuple or direct object)
+        data_dict = None
+        if hasattr(response_body, "data") and response_body.data:
+            if isinstance(response_body.data, tuple) and len(response_body.data) > 0:
+                # Data is a tuple, get first element
+                data_dict = response_body.data[0] if isinstance(response_body.data[0], dict) else None
+            elif isinstance(response_body.data, dict):
+                # Data is already a dict
+                data_dict = response_body.data
+            elif hasattr(response_body.data, "executionStats") or hasattr(response_body.data, "execution_stats"):
+                # Data is an object with attributes
+                exec_stats = getattr(response_body.data, "executionStats", None) or getattr(
+                    response_body.data, "execution_stats", None
+                )
+                if exec_stats and isinstance(exec_stats, dict):
+                    total_api_calls = exec_stats.get("api_calls", 0)
+                    total_credits = exec_stats.get("credits", 0.0)
+                    runtime = exec_stats.get("runtime", elapsed_time)
+
+        # Try to get metrics from data dict (camelCase fields from backend)
+        if data_dict and isinstance(data_dict, dict):
+            # Check executionStats first
+            exec_stats = data_dict.get("executionStats")
+            if exec_stats and isinstance(exec_stats, dict):
+                total_api_calls = exec_stats.get("api_calls", 0)
+                total_credits = exec_stats.get("credits", 0.0)
+                runtime = exec_stats.get("runtime", elapsed_time)
+
+            # Fallback: check top-level fields (usedCredits, runTime)
+            if total_credits == 0.0:
+                total_credits = data_dict.get("usedCredits", 0.0)
+            if runtime == elapsed_time:
+                runtime = data_dict.get("runTime", elapsed_time)
+
+        # Build single-line completion message with metrics
+        if verbosity == "compact":
+            msg = f"✅ Done | ({runtime:.1f} s total"
+        else:
+            msg = f"✅ Done | Completed successfully ({runtime:.1f} s total"
+
+        # Always show API calls and credits
+        if total_api_calls > 0:
+            msg += f" | {total_api_calls} API calls"
+        msg += f" | ${total_credits}"
+        msg += ")"
+
+        return msg
+
+    def sync_poll(
+        self,
+        poll_url: Text,
+        name: Text = "model_process",
+        wait_time: float = 0.5,
+        timeout: float = 300,
+        progress_verbosity: Optional[str] = "compact",
+    ) -> "AgentResponse":
+        """Poll the platform until agent execution completes or times out.
+
+        Args:
+            poll_url (Text): URL to poll for operation status.
+            name (Text, optional): Identifier for the operation. Defaults to "model_process".
+            wait_time (float, optional): Initial wait time in seconds between polls. Defaults to 0.5.
+            timeout (float, optional): Maximum total time to poll in seconds. Defaults to 300.
+            progress_verbosity (Optional[str], optional): Progress display mode - "full" (detailed), "compact" (brief), or None (no progress). Defaults to "compact".
+
+        Returns:
+            AgentResponse: The final response from the agent execution.
+        """
+        logging.info(f"Polling for Agent: Start polling for {name}")
+        start, end = time.time(), time.time()
+        wait_time = max(wait_time, 0.2)
+        completed = False
+        response_body = AgentResponse(status=ResponseStatus.FAILED, completed=False)
+        last_message = None  # Track last message to avoid duplicates
+
+        while not completed and (end - start) < timeout:
+            try:
+                response_body = self.poll(poll_url, name=name)
+                completed = response_body["completed"]
+
+                # Display progress inline if enabled
+                if progress_verbosity and not completed:
+                    progress = response_body.get("progress")
+                    if progress:
+                        msg = self._format_agent_progress(progress, progress_verbosity)
+                        if msg and msg != last_message:
+                            print(msg, flush=True)
+                            last_message = msg
+
+                end = time.time()
+                if completed is False:
+                    time.sleep(wait_time)
+                    if wait_time < 60:
+                        wait_time *= 1.1
+            except Exception as e:
+                response_body = AgentResponse(
+                    status=ResponseStatus.FAILED,
+                    completed=False,
+                    error_message="No response from the service.",
+                )
+                logging.error(f"Polling for Agent: polling for {name}: {e}")
+                return response_body
+                break
+
+        # Display completion message
+        if progress_verbosity:
+            elapsed_time = end - start
+            timed_out = response_body["completed"] is not True
+            completion_msg = self._format_completion_message(
+                elapsed_time, response_body, timed_out, timeout, progress_verbosity
+            )
+            print(completion_msg, flush=True)
+
+        if response_body["completed"] is True:
+            logging.debug(f"Polling for Agent: Final status of polling for {name}: {response_body}")
+        else:
+            response_body = AgentResponse(
+                status=ResponseStatus.FAILED,
+                completed=False,
+                error_message="No response from the service.",
+            )
+            logging.error(f"Polling for Agent: Final status of polling for {name}: No response in {timeout} seconds")
+
+        return response_body
 
     def run(
         self,
@@ -303,8 +589,10 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
         content: Optional[Union[Dict[Text, Text], List[Text]]] = None,
         max_tokens: int = 4096,
         max_iterations: int = 5,
-        output_format: Optional[OutputFormat] = None,
-        expected_output: Optional[Union[BaseModel, Text, dict]] = None,
+        trace_request: bool = False,
+        progress_verbosity: Optional[str] = "compact",
+        run_response_generation: bool = True,
+        **kwargs,
     ) -> AgentResponse:
         """Runs an agent call.
 
@@ -320,19 +608,56 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
             content (Union[Dict[Text, Text], List[Text]], optional): Content inputs to be processed according to the query. Defaults to None.
             max_tokens (int, optional): maximum number of tokens which can be generated by the agent. Defaults to 2048.
             max_iterations (int, optional): maximum number of iterations between the agent and the tools. Defaults to 10.
-            output_format (OutputFormat, optional): response format. If not provided, uses the format set during initialization.
-            expected_output (Union[BaseModel, Text, dict], optional): expected output. Defaults to None.
+            trace_request (bool, optional): return the request id for tracing the request. Defaults to False.
+            progress_verbosity (Optional[str], optional): Progress display mode - "full" (detailed), "compact" (brief), or None (no progress). Defaults to "compact".
+            run_response_generation (bool, optional): Whether to run response generation. Defaults to True.
+            **kwargs: Additional keyword arguments.
 
         Returns:
             Dict: parsed output from model
         """
         start = time.time()
+        
+        # Define supported kwargs
+        supported_kwargs = {"output_format", "expected_output"}
+        
+        # Validate kwargs - raise error if unsupported kwargs are provided
+        unsupported_kwargs = set(kwargs.keys()) - supported_kwargs
+        if unsupported_kwargs:
+            raise ValueError(
+                f"Unsupported keyword argument(s): {', '.join(sorted(unsupported_kwargs))}. "
+                f"Supported kwargs are: {', '.join(sorted(supported_kwargs))}."
+            )
+        
+        # Extract deprecated parameters from kwargs
+        output_format = kwargs.get("output_format", None)
+        expected_output = kwargs.get("expected_output", None)
+
+        if output_format is not None:
+            warnings.warn(
+                "The 'output_format' parameter is deprecated and will be removed in a future version. "
+                "Set the output format during agent initialization instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+
+        if expected_output is not None:
+            warnings.warn(
+                "The 'expected_output' parameter is deprecated and will be removed in a future version. "
+                "Set the expected output during agent initialization instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+
+
         if session_id is not None and history is not None:
             raise ValueError("Provide either `session_id` or `history`, not both.")
 
         if session_id is not None:
             if not session_id.startswith(f"{self.id}_"):
-                raise ValueError(f"Session ID '{session_id}' does not belong to this Agent.")
+                raise ValueError(
+                    f"Session ID '{session_id}' does not belong to this Agent."
+                )
         if history:
             validate_history(history)
         result_data = {}
@@ -351,6 +676,8 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
                 max_iterations=max_iterations,
                 output_format=output_format,
                 expected_output=expected_output,
+                trace_request=trace_request,
+                run_response_generation=run_response_generation,
             )
             if response["status"] == ResponseStatus.FAILED:
                 end = time.time()
@@ -358,10 +685,26 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
                 return response
             poll_url = response["url"]
             end = time.time()
-            result = self.sync_poll(poll_url, name=name, timeout=timeout, wait_time=wait_time)
-            # if result.status == ResponseStatus.FAILED:
-            #    raise Exception("Model failed to run with error: " + result.error_message)
+            result = self.sync_poll(
+                poll_url, name=name, timeout=timeout, wait_time=wait_time, progress_verbosity=progress_verbosity
+            )
             result_data = result.get("data") or {}
+            if result.status == ResponseStatus.FAILED:
+                return AgentResponse(
+                    status=ResponseStatus.FAILED,
+                    completed=False,
+                    data=AgentResponseData(
+                        input=result_data.get("input"),
+                        output=result_data.get("output"),
+                        session_id=result_data.get("session_id"),
+                        intermediate_steps=result_data.get("intermediate_steps"),
+                        steps=result_data.get("steps"),
+                        execution_stats=result_data.get("executionStats"),
+                    ),
+                    used_credits=result_data.get("usedCredits", 0.0),
+                    run_time=result_data.get("runTime", end - start),
+                )
+
             return AgentResponse(
                 status=ResponseStatus.SUCCESS,
                 completed=True,
@@ -370,6 +713,7 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
                     output=result_data.get("output"),
                     session_id=result_data.get("session_id"),
                     intermediate_steps=result_data.get("intermediate_steps"),
+                    steps=result_data.get("steps"),
                     execution_stats=result_data.get("executionStats"),
                 ),
                 used_credits=result_data.get("usedCredits", 0.0),
@@ -386,6 +730,7 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
                     output=None,
                     session_id=session_id,
                     intermediate_steps=None,
+                    steps=None,
                     execution_stats=None,
                 ),
                 error=msg,
@@ -405,6 +750,8 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
         output_format: Optional[OutputFormat] = None,
         expected_output: Optional[Union[BaseModel, Text, dict]] = None,
         evolve: Union[Dict[str, Any], EvolveParam, None] = None,
+        trace_request: bool = False,
+        run_response_generation: bool = True,
     ) -> AgentResponse:
         """Runs asynchronously an agent call.
 
@@ -422,6 +769,8 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
             expected_output (Union[BaseModel, Text, dict], optional): expected output. Defaults to None.
             output_format (ResponseFormat, optional): response format. Defaults to TEXT.
             evolve (Union[Dict[str, Any], EvolveParam, None], optional): evolve the agent configuration. Can be a dictionary, EvolveParam instance, or None.
+            trace_request (bool, optional): return the request id for tracing the request. Defaults to False.
+            run_response_generation (bool, optional): Whether to run response generation. Defaults to True.
 
         Returns:
             dict: polling URL in response
@@ -431,7 +780,9 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
 
         if session_id is not None:
             if not session_id.startswith(f"{self.id}_"):
-                raise ValueError(f"Session ID '{session_id}' does not belong to this Agent.")
+                raise ValueError(
+                    f"Session ID '{session_id}' does not belong to this Agent."
+                )
 
         if history:
             validate_history(history)
@@ -444,15 +795,18 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
 
         if output_format == OutputFormat.JSON:
             assert expected_output is not None and (
-                issubclass(expected_output, BaseModel) or isinstance(expected_output, dict)
+                issubclass(expected_output, BaseModel)
+                or isinstance(expected_output, dict)
             ), "Expected output must be a Pydantic BaseModel or a JSON object when output format is JSON."
 
-        assert data is not None or query is not None, "Either 'data' or 'query' must be provided."
+        assert (
+            data is not None or query is not None
+        ), "Either 'data' or 'query' must be provided."
         if data is not None:
             if isinstance(data, dict):
-                assert "query" in data and data["query"] is not None, (
-                    "When providing a dictionary, 'query' must be provided."
-                )
+                assert (
+                    "query" in data and data["query"] is not None
+                ), "When providing a dictionary, 'query' must be provided."
                 query = data.get("query")
                 if session_id is None:
                     session_id = data.get("session_id")
@@ -465,9 +819,9 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
 
         # process content inputs
         if content is not None:
-            assert FileFactory.check_storage_type(query) == StorageType.TEXT, (
-                "When providing 'content', query must be text."
-            )
+            assert (
+                FileFactory.check_storage_type(query) == StorageType.TEXT
+            ), "When providing 'content', query must be text."
 
             if isinstance(content, list):
                 assert len(content) <= 3, "The maximum number of content inputs is 3."
@@ -476,7 +830,9 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
                     query += f"\n{input_link}"
             elif isinstance(content, dict):
                 for key, value in content.items():
-                    assert "{{" + key + "}}" in query, f"Key '{key}' not found in query."
+                    assert (
+                        "{{" + key + "}}" in query
+                    ), f"Key '{key}' not found in query."
                     value = FileFactory.to_link(value)
                     query = query.replace("{{" + key + "}}", f"'{value}'")
 
@@ -486,8 +842,9 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
         input_data = process_variables(query, data, parameters, self.instructions)
         if expected_output is None:
             expected_output = self.expected_output
-        if expected_output is not None and issubclass(expected_output, BaseModel):
+        if expected_output is not None and isinstance(expected_output, type) and issubclass(expected_output, BaseModel):
             expected_output = expected_output.model_json_schema()
+        expected_output = normalize_expected_output(expected_output)
         # Use instance output_format if none provided
         if output_format is None:
             output_format = self.output_format
@@ -495,18 +852,28 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
         if isinstance(output_format, OutputFormat):
             output_format = output_format.value
 
+
         payload = {
             "id": self.id,
             "query": input_data,
             "sessionId": session_id,
             "history": history,
             "executionParams": {
-                "maxTokens": (parameters["max_tokens"] if "max_tokens" in parameters else max_tokens),
-                "maxIterations": (parameters["max_iterations"] if "max_iterations" in parameters else max_iterations),
+                "maxTokens": (
+                    parameters["max_tokens"]
+                    if "max_tokens" in parameters
+                    else max_tokens
+                ),
+                "maxIterations": (
+                    parameters["max_iterations"]
+                    if "max_iterations" in parameters
+                    else max_iterations
+                ),
                 "outputFormat": output_format,
                 "expectedOutput": expected_output,
             },
             "evolve": json.dumps(evolve_dict),
+            "runResponseGeneration": run_response_generation,
         }
         payload.update(parameters)
         payload = json.dumps(payload)
@@ -514,6 +881,8 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
         try:
             r = _request_with_retry("post", self.url, headers=headers, data=payload)
             resp = r.json()
+            if trace_request:
+                logging.info(f"Agent Run Async: Trace request id: {resp.get('requestId')}")
             poll_url = resp.get("data")
             return AgentResponse(
                 status=ResponseStatus.IN_PROGRESS,
@@ -544,7 +913,11 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
             "assets": [build_tool_payload(tool) for tool in self.tools],
             "description": self.description,
             "instructions": self.instructions or self.description,
-            "supplier": (self.supplier.value["code"] if isinstance(self.supplier, Supplier) else self.supplier),
+            "supplier": (
+                self.supplier.value["code"]
+                if isinstance(self.supplier, Supplier)
+                else self.supplier
+            ),
             "version": self.version,
             "llmId": self.llm_id if self.llm is None else self.llm.id,
             "status": self.status.value,
@@ -554,7 +927,11 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
                     {
                         "type": "llm",
                         "description": "main",
-                        "parameters": (self.llm.get_parameters().to_list() if self.llm.get_parameters() else None),
+                        "parameters": (
+                            self.llm.get_parameters().to_list()
+                            if self.llm.get_parameters()
+                            else None
+                        ),
                     }
                 ]
                 if self.llm is not None
@@ -602,13 +979,17 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
         # Extract LLM from tools section (main LLM info)
         llm = None
         if "tools" in data and data["tools"]:
-            llm_tool = next((tool for tool in data["tools"] if tool.get("type") == "llm"), None)
+            llm_tool = next(
+                (tool for tool in data["tools"] if tool.get("type") == "llm"), None
+            )
             if llm_tool and llm_tool.get("parameters"):
                 # Reconstruct LLM from parameters if available
                 from aixplain.factories.model_factory import ModelFactory
 
                 try:
-                    llm = ModelFactory.get(data.get("llmId", "6646261c6eb563165658bbb1"))
+                    llm = ModelFactory.get(
+                        data.get("llmId", "6646261c6eb563165658bbb1")
+                    )
                     if llm_tool.get("parameters"):
                         # Apply stored parameters to LLM
                         llm.set_parameters(llm_tool["parameters"])
@@ -676,7 +1057,11 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
                     from aixplain.factories.team_agent_factory import TeamAgentFactory
 
                     team_agents = TeamAgentFactory.list()["results"]
-                    using_team_agents = [ta for ta in team_agents if any(agent.id == self.id for agent in ta.agents)]
+                    using_team_agents = [
+                        ta
+                        for ta in team_agents
+                        if any(agent.id == self.id for agent in ta.agents)
+                    ]
 
                     if using_team_agents:
                         # Scenario 1: User has access to team agents
@@ -699,7 +1084,9 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
                             "referencing it."
                         )
                 else:
-                    message = f"Agent Deletion Error (HTTP {r.status_code}): {error_message}."
+                    message = (
+                        f"Agent Deletion Error (HTTP {r.status_code}): {error_message}."
+                    )
             except ValueError:
                 message = f"Agent Deletion Error (HTTP {r.status_code}): There was an error in deleting the agent."
             logging.error(message)
@@ -738,7 +1125,9 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
 
         payload = self.to_dict()
 
-        logging.debug(f"Start service for PUT Update Agent  - {url} - {headers} - {json.dumps(payload)}")
+        logging.debug(
+            f"Start service for PUT Update Agent  - {url} - {headers} - {json.dumps(payload)}"
+        )
         resp = "No specified error."
         try:
             r = _request_with_retry("put", url, headers=headers, json=payload)
@@ -833,7 +1222,9 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
             AgentResponse: Final response from the evolution process.
         """
         from aixplain.utils.evolve_utils import create_llm_dict
-        from aixplain.factories.team_agent_factory.utils import build_team_agent_from_yaml
+        from aixplain.factories.team_agent_factory.utils import (
+            build_team_agent_from_yaml,
+        )
 
         # Create EvolveParam from individual parameters
         evolve_parameters = EvolveParam(
@@ -867,7 +1258,10 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
             result = self.sync_poll(poll_url, name="evolve_process", timeout=600)
             result_data = result.data
 
-            if "current_code" in result_data and result_data["current_code"] is not None:
+            if (
+                "current_code" in result_data
+                and result_data["current_code"] is not None
+            ):
                 if evolve_parameters.evolve_type == EvolveType.TEAM_TUNING:
                     result_data["evolved_agent"] = build_team_agent_from_yaml(
                         result_data["current_code"],

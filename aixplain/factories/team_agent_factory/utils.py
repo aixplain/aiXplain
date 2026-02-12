@@ -1,3 +1,5 @@
+"""Utils for building team agents."""
+
 __author__ = "lucaspavanelli"
 
 import logging
@@ -9,8 +11,7 @@ from aixplain.enums.asset_status import AssetStatus
 from aixplain.modules.agent import Agent
 from aixplain.modules.agent.agent_task import AgentTask
 from aixplain.modules.agent.tool.model_tool import ModelTool
-from aixplain.modules.team_agent import TeamAgent, InspectorTarget
-from aixplain.modules.team_agent.inspector import Inspector
+from aixplain.modules.team_agent import TeamAgent
 from aixplain.factories.agent_factory import AgentFactory
 from aixplain.factories.model_factory import ModelFactory
 from aixplain.modules.model.model_parameters import ModelParameters
@@ -24,7 +25,7 @@ def build_team_agent(payload: Dict, agents: List[Agent] = None, api_key: Text = 
     """Build a TeamAgent instance from configuration payload.
 
     This function creates a TeamAgent instance from a configuration payload,
-    handling the setup of agents, LLMs, inspectors, and task dependencies.
+    handling the setup of agents, LLMs,and task dependencies.
 
     Args:
         payload (Dict): Configuration dictionary containing:
@@ -38,8 +39,6 @@ def build_team_agent(payload: Dict, agents: List[Agent] = None, api_key: Text = 
             - cost: Optional cost information
             - llmId: LLM model ID (defaults to GPT-4)
             - plannerId: Optional planner model ID
-            - inspectors: Optional list of inspector configurations
-            - inspectorTargets: Optional list of inspection targets
             - status: Team agent status
             - tools: Optional list of tool configurations
         agents (List[Agent], optional): Pre-instantiated agent objects. If not
@@ -61,9 +60,9 @@ def build_team_agent(payload: Dict, agents: List[Agent] = None, api_key: Text = 
         payload_agents = []
         # Use parallel agent fetching with ThreadPoolExecutor for better performance
         from concurrent.futures import ThreadPoolExecutor, as_completed
-        
+
         def fetch_agent(agent_data):
-            """Fetch a single agent by ID with error handling"""
+            """Fetch a single agent by ID with error handling."""
             try:
                 return AgentFactory.get(agent_data["assetId"])
             except Exception as e:
@@ -72,46 +71,28 @@ def build_team_agent(payload: Dict, agents: List[Agent] = None, api_key: Text = 
                     "If you think this is an error, please contact the administrators. Error: {e}"
                 )
                 return None
-        
+
         # Fetch all agents in parallel (only if there are agents to fetch)
         if len(agents_dict) > 0:
             with ThreadPoolExecutor(max_workers=min(len(agents_dict), 10)) as executor:
                 # Submit all agent fetch tasks
                 future_to_agent = {executor.submit(fetch_agent, agent): agent for agent in agents_dict}
-                
+
                 # Collect results as they complete
                 for future in as_completed(future_to_agent):
                     agent_result = future.result()
                     if agent_result is not None:
                         payload_agents.append(agent_result)
 
-    # Ensure custom classes are instantiated: for compatibility with backend return format
-    inspectors = []
-    for inspector_data in payload.get("inspectors", []):
-        try:
-            if isinstance(inspector_data, Inspector):
-                inspectors.append(inspector_data)
-            else:
-                # Handle both old format and new format with policy_type
-                if hasattr(Inspector, "model_validate"):
-                    inspectors.append(Inspector.model_validate(inspector_data))
-                else:
-                    inspectors.append(Inspector(**inspector_data))
-        except Exception as e:
-            logging.warning(f"Failed to create inspector from data: {e}")
-            continue
-
-    inspector_targets = [InspectorTarget(target.lower()) for target in payload.get("inspectorTargets", [])]
-
     # Get LLMs from tools if present
     supervisor_llm = None
     mentalist_llm = None
-    
+
     # Cache for models to avoid duplicate fetching of the same model ID
     model_cache = {}
-    
+
     def get_cached_model(model_id: str) -> any:
-        """Get model from cache or fetch if not cached"""
+        """Get model from cache or fetch if not cached."""
         if model_id not in model_cache:
             model_cache[model_id] = ModelFactory.get(model_id, api_key=api_key, use_cache=True)
         return model_cache[model_id]
@@ -167,8 +148,6 @@ def build_team_agent(payload: Dict, agents: List[Agent] = None, api_key: Text = 
         supervisor_llm=supervisor_llm,
         mentalist_llm=mentalist_llm,
         use_mentalist=True if payload.get("plannerId", None) is not None else False,
-        inspectors=inspectors,
-        inspector_targets=inspector_targets,
         api_key=api_key,
         status=AssetStatus(payload["status"]),
         output_format=OutputFormat(payload.get("outputFormat", OutputFormat.TEXT)),
@@ -196,6 +175,7 @@ def build_team_agent(payload: Dict, agents: List[Agent] = None, api_key: Text = 
 
 
 def parse_tool_from_yaml(tool: str) -> ModelTool:
+    """Parse a tool from a string."""
     from aixplain.enums import Function
 
     tool_name = tool.strip()
@@ -214,7 +194,7 @@ def parse_tool_from_yaml(tool: str) -> ModelTool:
     elif tool_name == "llm":
         return ModelTool(function=Function.TEXT_GENERATION)
     elif tool_name == "serper_search":
-        return ModelTool(model="65c51c556eb563350f6e1bb1")
+        return ModelTool(model="692f18557b2cc45d29150cb0")
     elif tool.strip() == "website_search":
         return ModelTool(model="6736411cf127849667606689")
     elif tool.strip() == "website_scrape":
@@ -229,8 +209,7 @@ import yaml
 
 
 def is_yaml_formatted(text):
-    """
-    Check if a string is valid YAML format with additional validation.
+    """Check if a string is valid YAML format with additional validation.
 
     Args:
         text (str): The string to check
@@ -263,6 +242,7 @@ def is_yaml_formatted(text):
 
 
 def build_team_agent_from_yaml(yaml_code: str, llm_id: str, api_key: str, team_id: Optional[str] = None) -> TeamAgent:
+    """Build a team agent from a YAML string."""
     import yaml
     from aixplain.factories import AgentFactory, TeamAgentFactory
 
@@ -349,6 +329,5 @@ def build_team_agent_from_yaml(yaml_code: str, llm_id: str, api_key: str, team_i
         agents=agent_objs,
         llm=llm,
         api_key=api_key,
-        use_mentalist=True,
-        inspectors=[],
+        use_mentalist=True,  # Deprecated parameter
     )

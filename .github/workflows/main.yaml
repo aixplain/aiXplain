@@ -6,7 +6,7 @@ on:
       - main
       # any branch other than main, will use the test key
       - test
-  workflow_dispatch:  
+  workflow_dispatch:
 
 jobs:
   setup-and-test:
@@ -22,16 +22,14 @@ jobs:
           'benchmark',
           'model',
           'pipeline_2.0_v1',
-          'pipeline_2.0_v2',
           'pipeline_3.0_v1',
-          'pipeline_3.0_v2',
           'pipeline_designer',
           'pipeline_create',
-          'finetune_v1',
-          'finetune_v2',
           'general_assets',
           'apikey',
-          'agent_and_team_agent',
+          'agent',
+          'team_agent',
+          'v2',
         ]
         include:
           - test-suite: 'unit'
@@ -52,14 +50,8 @@ jobs:
           - test-suite: 'pipeline_2.0_v1'
             path: 'tests/functional/pipelines/run_test.py --pipeline_version 2.0 --sdk_version v1 --sdk_version_param PipelineFactory'
             timeout: 45
-          - test-suite: 'pipeline_2.0_v2'
-            path: 'tests/functional/pipelines/run_test.py --pipeline_version 2.0 --sdk_version v2 --sdk_version_param PipelineFactory'
-            timeout: 45
           - test-suite: 'pipeline_3.0_v1'
             path: 'tests/functional/pipelines/run_test.py --pipeline_version 3.0 --sdk_version v1 --sdk_version_param PipelineFactory'
-            timeout: 45
-          - test-suite: 'pipeline_3.0_v2'
-            path: 'tests/functional/pipelines/run_test.py --pipeline_version 3.0 --sdk_version v2 --sdk_version_param PipelineFactory'
             timeout: 45
           - test-suite: 'pipeline_designer'
             path: 'tests/functional/pipelines/designer_test.py'
@@ -67,21 +59,22 @@ jobs:
           - test-suite: 'pipeline_create'
             path: 'tests/functional/pipelines/create_test.py'
             timeout: 45
-          - test-suite: 'finetune_v1'
-            path: 'tests/functional/finetune --sdk_version v1 --sdk_version_param FinetuneFactory'
-            timeout: 45
-          - test-suite: 'finetune_v2'
-            path: 'tests/functional/finetune --sdk_version v2 --sdk_version_param FinetuneFactory'
-            timeout: 45
           - test-suite: 'general_assets'
             path: 'tests/functional/general_assets'
             timeout: 45
           - test-suite: 'apikey'
             path: 'tests/functional/apikey'
             timeout: 45
-          - test-suite: 'agent_and_team_agent'
-            path: 'tests/functional/agent tests/functional/team_agent'
+          - test-suite: 'agent'
+            path: 'tests/functional/agent'
             timeout: 45
+          - test-suite: 'team_agent'
+            path: 'tests/functional/team_agent'
+            timeout: 45
+          - test-suite: 'v2'
+            path: 'tests/functional/v2'
+            timeout: 45
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -91,7 +84,7 @@ jobs:
         with:
           python-version: "3.9"
           cache: 'pip'
-      
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
@@ -112,7 +105,7 @@ jobs:
           fi
           echo "SLACK_TOKEN=${{ secrets.SLACK_TOKEN }}" >> $GITHUB_ENV
           echo "HF_TOKEN=${{ secrets.HF_TOKEN }}" >> $GITHUB_ENV
-          
+
       - name: Run Tests
         timeout-minutes: ${{ matrix.timeout }}
         run: python -m pytest ${{ matrix.path }}

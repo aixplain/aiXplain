@@ -3,13 +3,35 @@ sidebar_label: api_key
 title: aixplain.modules.api_key
 ---
 
+API Key management module for aiXplain services.
+
+This module provides classes for managing API keys and their rate limits.
+
+### TokenType Objects
+
+```python
+class TokenType(Enum)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/api_key.py#L17)
+
+Token type for rate limiting.
+
+Specifies which type of tokens to count for rate limiting purposes.
+
+**Attributes**:
+
+- `INPUT` - Count only input tokens.
+- `OUTPUT` - Count only output tokens.
+- `TOTAL` - Count total tokens (input + output).
+
 ### APIKeyLimits Objects
 
 ```python
 class APIKeyLimits()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/api_key.py#L9)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/api_key.py#L33)
 
 Rate limits configuration for an API key.
 
@@ -23,6 +45,7 @@ to an API key or specifically to a model.
 - `request_per_minute` _int_ - Maximum number of requests allowed per minute.
 - `request_per_day` _int_ - Maximum number of requests allowed per day.
 - `model` _Optional[Model]_ - The model these limits apply to, if any.
+- `token_type` _Optional[TokenType]_ - Type of token limit (&#x27;input&#x27;, &#x27;output&#x27;, &#x27;total&#x27;), or None for default.
 
 #### \_\_init\_\_
 
@@ -31,10 +54,11 @@ def __init__(token_per_minute: int,
              token_per_day: int,
              request_per_minute: int,
              request_per_day: int,
-             model: Optional[Union[Text, Model]] = None)
+             model: Optional[Union[Text, Model]] = None,
+             token_type: Optional[TokenType] = None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/api_key.py#L23)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/api_key.py#L48)
 
 Initialize an APIKeyLimits instance.
 
@@ -46,6 +70,7 @@ Initialize an APIKeyLimits instance.
 - `request_per_day` _int_ - Maximum number of requests per day.
 - `model` _Optional[Union[Text, Model]], optional_ - The model to apply
   limits to. Can be a model ID or Model instance. Defaults to None.
+- `token_type` _Optional[TokenType], optional_ - The type of token to apply the limit to. Defaults to None.
 
 ### APIKeyUsageLimit Objects
 
@@ -53,7 +78,20 @@ Initialize an APIKeyLimits instance.
 class APIKeyUsageLimit()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/api_key.py#L52)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/api_key.py#L80)
+
+Usage limits and current usage for an API key.
+
+This class tracks the current usage counts against the configured limits
+for an API key, either globally or for a specific model.
+
+**Attributes**:
+
+- `daily_request_count` _int_ - Number of requests made today.
+- `daily_request_limit` _int_ - Maximum requests allowed per day.
+- `daily_token_count` _int_ - Number of tokens used today.
+- `daily_token_limit` _int_ - Maximum tokens allowed per day.
+- `model` _Optional[Model]_ - The model these limits apply to, if any.
 
 #### \_\_init\_\_
 
@@ -65,9 +103,9 @@ def __init__(daily_request_count: int,
              model: Optional[Union[Text, Model]] = None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/api_key.py#L53)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/api_key.py#L94)
 
-Get the usage limits of an API key globally (model equals to None) or for a specific model.
+Initialize an APIKeyUsageLimit instance.
 
 **Arguments**:
 
@@ -83,7 +121,7 @@ Get the usage limits of an API key globally (model equals to None) or for a spec
 class APIKey()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/api_key.py#L80)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/api_key.py#L121)
 
 An API key for accessing aiXplain services.
 
@@ -115,7 +153,7 @@ def __init__(name: Text,
              is_admin: bool = False)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/api_key.py#L98)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/api_key.py#L139)
 
 Initialize an APIKey instance.
 
@@ -136,7 +174,7 @@ Initialize an APIKey instance.
   Defaults to None.
 - `is_admin` _bool, optional_ - Whether this is an admin key.
   Defaults to False.
-  
+
 
 **Notes**:
 
@@ -152,7 +190,7 @@ Initialize an APIKey instance.
 def validate() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/api_key.py#L161)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/api_key.py#L208)
 
 Validate the APIKey configuration.
 
@@ -166,7 +204,7 @@ referenced models exist and are valid.
   - Global rate limits are negative
   - Asset-specific rate limits are negative
 - `Exception` - If a referenced model ID is not a valid aiXplain model.
-  
+
 
 **Notes**:
 
@@ -180,7 +218,7 @@ referenced models exist and are valid.
 def to_dict() -> Dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/api_key.py#L201)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/api_key.py#L250)
 
 Convert the APIKey instance to a dictionary representation.
 
@@ -198,10 +236,11 @@ format suitable for API requests or storage.
   - tpd: tokens per day
   - rpm: requests per minute
   - rpd: requests per day
+  - tokenType (Optional[Text]): Type of token limit (&#x27;input&#x27;, &#x27;output&#x27;, &#x27;total&#x27;)
   - assetId: model ID
   - expiresAt (Optional[Text]): ISO format expiration date
   - globalLimits (Optional[Dict]): Global limits with tpm/tpd/rpm/rpd
-  
+
 
 **Notes**:
 
@@ -214,7 +253,7 @@ format suitable for API requests or storage.
 def delete() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/api_key.py#L256)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/api_key.py#L308)
 
 Delete this API key from the system.
 
@@ -228,7 +267,7 @@ The operation cannot be undone.
   - The user doesn&#x27;t have permission to delete it
   - The API request fails
   - The server returns a non-200 status code
-  
+
 
 **Notes**:
 
@@ -242,7 +281,7 @@ The operation cannot be undone.
 def get_usage(asset_id: Optional[Text] = None) -> APIKeyUsageLimit
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/api_key.py#L286)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/api_key.py#L338)
 
 Get current usage statistics for this API key.
 
@@ -253,7 +292,7 @@ either globally or for a specific model.
 
 - `asset_id` _Optional[Text], optional_ - The model ID to get usage for.
   If None, returns usage for all models. Defaults to None.
-  
+
 
 **Returns**:
 
@@ -263,7 +302,7 @@ either globally or for a specific model.
   - daily_token_count: Number of tokens used today
   - daily_token_limit: Maximum tokens allowed per day
   - model: The model ID these stats apply to (None for global)
-  
+
 
 **Raises**:
 
@@ -272,7 +311,7 @@ either globally or for a specific model.
   - The user doesn&#x27;t have permission to view usage
   - The API request fails
   - The server returns an error response
-  
+
 
 **Notes**:
 
@@ -287,7 +326,7 @@ def set_token_per_day(token_per_day: int,
                       model: Optional[Union[Text, Model]] = None) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/api_key.py#L377)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/api_key.py#L429)
 
 Set the daily token limit for this API key.
 
@@ -296,13 +335,13 @@ Set the daily token limit for this API key.
 - `token_per_day` _int_ - Maximum number of tokens allowed per day.
 - `model` _Optional[Union[Text, Model]], optional_ - The model to set
   limit for. If None, sets global limit. Defaults to None.
-  
+
 
 **Raises**:
 
 - `Exception` - If the model isn&#x27;t configured in this API key&#x27;s
   asset_limits.
-  
+
 
 **Notes**:
 
@@ -317,7 +356,7 @@ def set_token_per_minute(token_per_minute: int,
                          model: Optional[Union[Text, Model]] = None) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/api_key.py#L396)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/api_key.py#L448)
 
 Set the per-minute token limit for this API key.
 
@@ -326,13 +365,13 @@ Set the per-minute token limit for this API key.
 - `token_per_minute` _int_ - Maximum number of tokens allowed per minute.
 - `model` _Optional[Union[Text, Model]], optional_ - The model to set
   limit for. If None, sets global limit. Defaults to None.
-  
+
 
 **Raises**:
 
 - `Exception` - If the model isn&#x27;t configured in this API key&#x27;s
   asset_limits.
-  
+
 
 **Notes**:
 
@@ -347,7 +386,7 @@ def set_request_per_day(request_per_day: int,
                         model: Optional[Union[Text, Model]] = None) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/api_key.py#L415)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/api_key.py#L467)
 
 Set the daily request limit for this API key.
 
@@ -356,13 +395,13 @@ Set the daily request limit for this API key.
 - `request_per_day` _int_ - Maximum number of requests allowed per day.
 - `model` _Optional[Union[Text, Model]], optional_ - The model to set
   limit for. If None, sets global limit. Defaults to None.
-  
+
 
 **Raises**:
 
 - `Exception` - If the model isn&#x27;t configured in this API key&#x27;s
   asset_limits.
-  
+
 
 **Notes**:
 
@@ -377,7 +416,7 @@ def set_request_per_minute(request_per_minute: int,
                            model: Optional[Union[Text, Model]] = None) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/api_key.py#L434)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/modules/api_key.py#L486)
 
 Set the per-minute request limit for this API key.
 
@@ -386,17 +425,16 @@ Set the per-minute request limit for this API key.
 - `request_per_minute` _int_ - Maximum number of requests allowed per minute.
 - `model` _Optional[Union[Text, Model]], optional_ - The model to set
   limit for. If None, sets global limit. Defaults to None.
-  
+
 
 **Raises**:
 
 - `Exception` - If the model isn&#x27;t configured in this API key&#x27;s
   asset_limits.
-  
+
 
 **Notes**:
 
   - Model can be specified by ID or Model instance
   - For global limits, model should be None
   - The new limit takes effect immediately
-
