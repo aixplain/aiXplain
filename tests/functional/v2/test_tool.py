@@ -261,3 +261,71 @@ def test_tool_get_parameters(client, slack_integration_id, slack_token):
     # Clean up - ensure tool is deleted
     if tool.id:
         tool.delete()
+
+
+def test_tool_as_tool_includes_actions(client):
+    """Test that as_tool() includes actions field when allowed_actions is set.
+
+    This test verifies the fix for the bug where allowed_actions was stored locally
+    but NOT sent to the backend when creating an agent with the tool.
+    """
+    # Search for an existing tool that has actions
+    tools = client.Tool.search()
+    assert len(tools.results) > 0, "Expected to have at least one tool available for testing"
+
+    # Find a tool with actions available
+    tool = None
+    for t in tools.results:
+        try:
+            actions = t.list_actions()
+            if actions and len(actions) >= 2:
+                tool = t
+                break
+        except Exception:
+            continue
+
+    if tool is None:
+        pytest.skip("No tool with multiple actions found for testing")
+
+    # Get the first two action names
+    actions = tool.list_actions()
+    allowed_actions = [actions[0].name, actions[1].name]
+
+    # Set allowed_actions on the tool
+    tool.allowed_actions = allowed_actions
+
+    # Get the serialized tool dict
+    tool_dict = tool.as_tool()
+
+    # Verify base fields are present
+    assert "id" in tool_dict, "as_tool() should include 'id' field"
+    assert "name" in tool_dict, "as_tool() should include 'name' field"
+    assert "assetId" in tool_dict, "as_tool() should include 'assetId' field"
+
+    # Verify actions is included (ensures backend uses filtered list)
+    assert "actions" in tool_dict, "as_tool() should include 'actions' field when allowed_actions is set"
+    assert tool_dict["actions"] == allowed_actions, (
+        f"Expected actions to be {allowed_actions}, got {tool_dict['actions']}"
+    )
+
+    print(f"✅ as_tool() correctly includes actions: {tool_dict['actions']}")
+
+
+def test_tool_as_tool_without_actions(client):
+    """Test that as_tool() does NOT include actions when allowed_actions is empty."""
+    # Search for an existing tool to test with
+    tools = client.Tool.search()
+    assert len(tools.results) > 0, "Expected to have at least one tool available for testing"
+
+    tool = tools.results[0]
+
+    # Ensure allowed_actions is empty/not set
+    tool.allowed_actions = []
+
+    # Get the serialized tool dict
+    tool_dict = tool.as_tool()
+
+    # Verify actions is NOT included when empty
+    assert "actions" not in tool_dict, "as_tool() should NOT include 'actions' field when allowed_actions is empty"
+
+    print("✅ as_tool() correctly omits actions when not set")
