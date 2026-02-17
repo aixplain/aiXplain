@@ -4,11 +4,11 @@
   <img src="assets/aixplain-brandmark-line.png" alt="aiXplain logo" title="aiXplain" height="132" width="85"/>
   <br>
   <br>
-  
+
   [![Python 3.5+](https://img.shields.io/badge/python-3.5+-blue.svg)](https://www.python.org/downloads/)
   [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](http://www.apache.org/licenses/LICENSE-2.0)
   [![PyPI version](https://badge.fury.io/py/aiXplain.svg)](https://badge.fury.io/py/aiXplain)
-  
+
   **The professional AI SDK for developers and enterprises**
 </div>
 
@@ -49,7 +49,7 @@ agent = AgentFactory.create(
     instructions="Use Google Search to answer queries.",
     tools=[
         # Google Search (Serp)
-        AgentFactory.create_model_tool("65c51c556eb563350f6e1bb1")])
+        AgentFactory.create_model_tool("692f18557b2cc45d29150cb0")])
 
 response = agent.run("What's the latest AI news?").data.output
 print(response)

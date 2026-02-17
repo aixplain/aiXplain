@@ -452,6 +452,45 @@ def test_index_model_with_pdf_file():
         index_model.delete()
 
 
+def test_index_model_with_pdf_file_link():
+    """Testing Index Model with PDF file link input"""
+    from aixplain.factories import IndexFactory
+    from uuid import uuid4
+    from aixplain.factories.index_factory.utils import AirParams
+    from pathlib import Path
+    from aixplain.modules.model.record import Record
+
+    # Create test file path
+    test_file_path = str(Path(__file__).parent / "data" / "test_file_parser_input.pdf")
+    # Create index with OpenAI Ada 002 for text processing
+    params = AirParams(
+        name=f"PDF Index {uuid4()}",
+        description="Index for PDF processing",
+        embedding_model=EmbeddingModel.OPENAI_ADA002,
+    )
+    index_model = IndexFactory.create(params=params)
+
+    try:
+        # Upsert the PDF file
+        response = index_model.upsert([Record(uri=test_file_path, value_type="text", attributes={}, id="3")])
+        assert str(response.status) == "SUCCESS"
+
+        # Verify the content was indexed
+        response = index_model.search("document")
+        assert str(response.status) == "SUCCESS"
+        assert len(response.data) > 0
+
+        records = [resp['data'].lower() for resp in response.details]
+        assert any("document" in record for record in records)
+
+        # Verify count
+        assert index_model.count() > 0
+
+    finally:
+        # Cleanup
+        index_model.delete()
+
+
 def test_index_model_with_invalid_file():
     """Testing Index Model with invalid file input"""
     from aixplain.factories import IndexFactory
