@@ -88,7 +88,7 @@ def slack_token():
 @pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_end2end(run_input_map, resource_tracker, AgentFactory):
     tools = build_tools_from_input_map(run_input_map)
-    agent_name = f"TA_{str(uuid4())[:8]}"
+    agent_name = f"TA {str(uuid4())[:8]}"
 
     agent = AgentFactory.create(
         name=agent_name,
@@ -124,7 +124,7 @@ def test_python_interpreter_tool(resource_tracker, AgentFactory):
         == "A Python shell. Use this to execute python commands. Input should be a valid python command."
     )
 
-    agent_name = f"PD_{str(uuid4())[:8]}"
+    agent_name = f"PD {str(uuid4())[:8]}"
     agent = AgentFactory.create(
         name=agent_name,
         description="A Python developer agent. If you get an error from a tool, try to fix it.",
@@ -145,7 +145,7 @@ def test_python_interpreter_tool(resource_tracker, AgentFactory):
 
 @pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_custom_code_tool(resource_tracker, AgentFactory):
-    tool_name = f"ASTT_{str(uuid4())[:8]}"
+    tool_name = f"ASTT {str(uuid4())[:8]}"
     tool = AgentFactory.create_custom_python_code_tool(
         description="Add two strings",
         code='def main(aaa: str, bbb: str) -> str:\n    """Add two strings"""\n    return aaa + bbb',
@@ -153,7 +153,7 @@ def test_custom_code_tool(resource_tracker, AgentFactory):
     )
     assert tool is not None
     assert tool.description == "Add two strings"
-    agent_name = f"ASA_{str(uuid4())[:8]}"
+    agent_name = f"ASA {str(uuid4())[:8]}"
     agent = AgentFactory.create(
         name=agent_name,
         description="Add two strings. Do not directly answer. Use the tool to add the strings.",
@@ -183,7 +183,7 @@ def test_list_agents(AgentFactory):
 @pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_update_draft_agent(run_input_map, resource_tracker, AgentFactory):
     tools = build_tools_from_input_map(run_input_map)
-    agent_name = f"TA_{str(uuid4())[:8]}"
+    agent_name = f"TA {str(uuid4())[:8]}"
 
     agent = AgentFactory.create(
         name=agent_name,
@@ -207,7 +207,7 @@ def test_update_draft_agent(run_input_map, resource_tracker, AgentFactory):
 def test_fail_non_existent_llm(AgentFactory):
     with pytest.raises(Exception) as exc_info:
         AgentFactory.create(
-            name=f"TA_{str(uuid4())[:8]}",
+            name=f"TA {str(uuid4())[:8]}",
             description="Test description",
             instructions="Test Agent Role",
             llm_id="non_existent_llm",
@@ -218,7 +218,7 @@ def test_fail_non_existent_llm(AgentFactory):
 
 @pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_delete_agent_in_use(resource_tracker, AgentFactory):
-    agent_name = f"TA_{str(uuid4())[:8]}"
+    agent_name = f"TA {str(uuid4())[:8]}"
     agent = AgentFactory.create(
         name=agent_name,
         description="Test description",
@@ -226,7 +226,7 @@ def test_delete_agent_in_use(resource_tracker, AgentFactory):
         tools=[AgentFactory.create_model_tool(function=Function.TRANSLATION)],
     )
     resource_tracker.append(agent)
-    team_agent_name = f"TTA_{str(uuid4())[:8]}"
+    team_agent_name = f"TTA {str(uuid4())[:8]}"
     team_agent = TeamAgentFactory.create(
         name=team_agent_name,
         agents=[agent],
@@ -245,7 +245,7 @@ def test_delete_agent_in_use(resource_tracker, AgentFactory):
 
 @pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_update_tools_of_agent(run_input_map, resource_tracker, AgentFactory):
-    agent_name = f"TA_{str(uuid4())[:8]}"
+    agent_name = f"TA {str(uuid4())[:8]}"
 
     agent = AgentFactory.create(
         name=agent_name,
@@ -329,7 +329,7 @@ def test_specific_model_parameters_e2e(tool_config, resource_tracker):
     assert params[0]["value"] == (5 if tool_config["type"] == "search" else "pt")
 
     # Create and run agent
-    agent_name = f"TPA_{str(uuid4())[:8]}"
+    agent_name = f"TPA {str(uuid4())[:8]}"
     agent = AgentFactory.create(
         name=agent_name,
         instructions="Test agent with parameterized tools. You MUST use a tool for the tasks. Do not directly answer the question.",
@@ -369,7 +369,7 @@ def test_sql_tool(AgentFactory):
         with open("ftest.db", "w") as f:
             f.write("")
 
-        tool_name = f"TDB_{str(uuid4())[:8]}"
+        tool_name = f"TDB {str(uuid4())[:8]}"
         tool = AgentFactory.create_sql_tool(
             name=tool_name,
             description="Execute an SQL query and return the result",
@@ -380,7 +380,7 @@ def test_sql_tool(AgentFactory):
         assert tool is not None
         assert tool.description == "Execute an SQL query and return the result"
 
-        agent_name = f"TST_{str(uuid4())[:8]}"
+        agent_name = f"TST {str(uuid4())[:8]}"
         agent = AgentFactory.create(
             name=agent_name,
             description="You are a test agent that search for employee information in a database",
@@ -438,7 +438,7 @@ def test_sql_tool_with_csv(AgentFactory):
         df.to_csv("test.csv", index=False)
 
         # Create SQL tool from CSV
-        tool_name = f"CTT_{str(uuid4())[:8]}"
+        tool_name = f"CTT {str(uuid4())[:8]}"
         tool = AgentFactory.create_sql_tool(
             name=tool_name,
             description="Execute SQL queries on employee data",
@@ -459,7 +459,7 @@ def test_sql_tool_with_csv(AgentFactory):
         assert not tool.enable_commit  # must be False by default
 
         # Create an agent with the SQL tool
-        agent_name = f"SQA_{str(uuid4())[:8]}"
+        agent_name = f"SQA {str(uuid4())[:8]}"
         agent = AgentFactory.create(
             name=agent_name,
             description="I am an agent that helps query employee information from a database.",
@@ -501,7 +501,7 @@ def test_sql_tool_with_csv(AgentFactory):
 
 @pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_instructions(resource_tracker, AgentFactory):
-    agent_name = f"TA_{str(uuid4())[:8]}"
+    agent_name = f"TA {str(uuid4())[:8]}"
     agent = AgentFactory.create(
         name=agent_name,
         description="Test description",
@@ -529,7 +529,7 @@ def test_agent_with_utility_tool(resource_tracker, AgentFactory):
     from aixplain.enums import DataType
     from aixplain.modules.model.utility_model import utility_tool, UtilityModelInput
 
-    vowel_remover_name = f"vr_{str(uuid4())[:8]}"
+    vowel_remover_name = f"vr {str(uuid4())[:8]}"
 
     @utility_tool(
         name=vowel_remover_name,
@@ -550,7 +550,7 @@ def test_agent_with_utility_tool(resource_tracker, AgentFactory):
     vowel_remover_ = ModelFactory.create_utility_model(name=vowel_remover_name, code=vowel_remover)
     resource_tracker.append(vowel_remover_)
 
-    concat_strings_name = f"cs_{str(uuid4())[:8]}"
+    concat_strings_name = f"cs {str(uuid4())[:8]}"
 
     @utility_tool(
         name=concat_strings_name,
@@ -577,7 +577,7 @@ def test_agent_with_utility_tool(resource_tracker, AgentFactory):
     instructions = """You are a text processing agent equipped with two specialized tools: a Vowel Remover and a String Concatenator. Your task involves processing input text in two ways. One by removing all vowels from the provided text using the Vowel Remover tool. Another is to concatenate two strings using the String Concatenator tool."""
     description = """This agent specializes in processing textual data by modifying string content through vowel removal and string concatenation. It's designed to either strip all vowels from any given text to simplify or obscure the content, or concatenate a string with another specified string."""
 
-    agent_name = f"TxPA_{str(uuid4())[:8]}"
+    agent_name = f"TxPA {str(uuid4())[:8]}"
     agent = AgentFactory.create(
         name=agent_name,
         instructions=instructions,
@@ -614,7 +614,7 @@ def test_agent_with_pipeline_tool(resource_tracker, AgentFactory):
     pipeline.deploy()
     resource_tracker.append(pipeline)
 
-    agent_name = f"TRA_{str(uuid4())[:8]}"
+    agent_name = f"TRA {str(uuid4())[:8]}"
     pipeline_agent = AgentFactory.create(
         name=agent_name,
         instructions="Always call the pipeline tool feeding the user query as input to 'TextInput'. Return the output of the pipeline as the final response.",
@@ -645,7 +645,7 @@ def test_agent_llm_parameter_preservation(resource_tracker, AgentFactory):
     llm.temperature = custom_temperature
 
     # Create agent with the custom LLM
-    agent_name = f"LPTA_{str(uuid4())[:8]}"
+    agent_name = f"LPTA {str(uuid4())[:8]}"
     agent = AgentFactory.create(
         name=agent_name,
         description="An agent for testing LLM parameter preservation",
@@ -704,7 +704,7 @@ def test_run_agent_with_expected_output(resource_tracker):
 | Sofia Carvalho  |    29 | Brasília       |
 +-----------------+-------+----------------+"""
 
-    agent_name = f"TA_{str(uuid4())[:8]}"
+    agent_name = f"TA {str(uuid4())[:8]}"
     agent = AgentFactory.create(
         name=agent_name,
         description="Test description",
@@ -769,7 +769,7 @@ def test_agent_with_action_tool(slack_token, resource_tracker):
 
     # If no valid connection exists, create one from the integration using bearer token
     if connection is None:
-        connection_name = f"STC_{str(uuid4())[:8]}"
+        connection_name = f"STC {str(uuid4())[:8]}"
         integration = ModelFactory.get(SLACK_INTEGRATION_ID)
         response = integration.connect(
             authentication_schema=AuthenticationSchema.BEARER_TOKEN,
@@ -792,7 +792,7 @@ def test_agent_with_action_tool(slack_token, resource_tracker):
         action for action in connection.actions if action.code == "SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL"
     ]
 
-    agent_name = f"TA_{str(uuid4())[:8]}"
+    agent_name = f"TA {str(uuid4())[:8]}"
     agent = AgentFactory.create(
         name=agent_name,
         description="This agent is used to send messages to Slack",
@@ -842,7 +842,7 @@ def test_agent_with_mcp_tool(resource_tracker):
     action_name = "SLACK_SEND_CHANNEL_MESSAGE".lower()
     connection.action_scope = [action for action in connection.actions if action.code == action_name]
 
-    agent_name = f"TA_{str(uuid4())[:8]}"
+    agent_name = f"TA {str(uuid4())[:8]}"
     agent = AgentFactory.create(
         name=agent_name,
         description="This agent is used to send messages to Slack",

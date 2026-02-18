@@ -40,7 +40,7 @@ def create_agents_from_input_map(run_input_map, deploy=True):
                     AgentFactory.create_pipeline_tool(pipeline=tool["pipeline_id"], description=tool["description"])
                 )
 
-        agent_name = f"TA_{str(uuid4())[:8]}"
+        agent_name = f"TA {str(uuid4())[:8]}"
         agent = AgentFactory.create(
             name=agent_name,
             description=agent_name,
@@ -57,7 +57,7 @@ def create_agents_from_input_map(run_input_map, deploy=True):
 
 def create_team_agent(factory, agents, run_input_map, use_mentalist=True):
     """Helper function to create a team agent"""
-    team_agent_name = f"TTA_{str(uuid4())[:8]}"
+    team_agent_name = f"TTA {str(uuid4())[:8]}"
     team_agent = factory.create(
         name=team_agent_name,
         agents=agents,

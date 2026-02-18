@@ -120,7 +120,7 @@ def test_nested_deployment_chain(resource_tracker, TeamAgentFactory):
         supplier=Supplier.AZURE,
     )
 
-    translation_agent_name = f"TrA_{str(uuid4())[:8]}"
+    translation_agent_name = f"TrA {str(uuid4())[:8]}"
     translation_agent = AgentFactory.create(
         name=translation_agent_name,
         description="Agent for translation",
@@ -137,7 +137,7 @@ def test_nested_deployment_chain(resource_tracker, TeamAgentFactory):
         supplier=Supplier.OPENAI,
     )
 
-    text_gen_agent_name = f"TGA_{str(uuid4())[:8]}"
+    text_gen_agent_name = f"TGA {str(uuid4())[:8]}"
     text_gen_agent = AgentFactory.create(
         name=text_gen_agent_name,
         description="Agent for text generation",
@@ -149,7 +149,7 @@ def test_nested_deployment_chain(resource_tracker, TeamAgentFactory):
     assert text_gen_agent.status == AssetStatus.DRAFT
 
     # Create team agent with both agents (in DRAFT state)
-    team_agent_name = f"MFT_{str(uuid4())[:8]}"
+    team_agent_name = f"MFT {str(uuid4())[:8]}"
     team_agent = TeamAgentFactory.create(
         name=team_agent_name,
         description="Team that can translate and generate text",
@@ -185,7 +185,7 @@ def test_fail_non_existent_llm(run_input_map, resource_tracker, TeamAgentFactory
 
     with pytest.raises(Exception) as exc_info:
         TeamAgentFactory.create(
-            name=f"NEL_{str(uuid4())[:8]}",
+            name=f"NEL {str(uuid4())[:8]}",
             description="",
             llm_id="non_existent_llm",
             agents=agents,
@@ -212,7 +212,7 @@ def test_add_remove_agents_from_team_agent(run_input_map, resource_tracker, Team
     assert team_agent is not None
     assert team_agent.status == AssetStatus.DRAFT
 
-    new_agent_name = f"NA_{str(uuid4())[:8]}"
+    new_agent_name = f"NA {str(uuid4())[:8]}"
     new_agent = AgentFactory.create(
         name=new_agent_name,
         description="Agent added to team",
@@ -236,7 +236,7 @@ def test_add_remove_agents_from_team_agent(run_input_map, resource_tracker, Team
 
 
 def test_team_agent_tasks(resource_tracker):
-    agent_name = f"TSA_{str(uuid4())[:8]}"
+    agent_name = f"TSA {str(uuid4())[:8]}"
     agent = AgentFactory.create(
         name=agent_name,
         description="You are a test agent that always returns the same answer",
@@ -259,7 +259,7 @@ def test_team_agent_tasks(resource_tracker):
     )
     resource_tracker.append(agent)
 
-    team_agent_name = f"TMA_{str(uuid4())[:8]}"
+    team_agent_name = f"TMA {str(uuid4())[:8]}"
     team_agent = TeamAgentFactory.create(
         name=team_agent_name,
         agents=[agent],
@@ -282,7 +282,7 @@ def test_team_agent_with_parameterized_agents(run_input_map, resource_tracker):
         model=search_model, description="Search tool with custom number of results"
     )
 
-    search_agent_name = f"SA_{str(uuid4())[:8]}"
+    search_agent_name = f"SA {str(uuid4())[:8]}"
     search_agent = AgentFactory.create(
         name=search_agent_name,
         description="This agent is used to search for information in the web.",
@@ -304,7 +304,7 @@ def test_team_agent_with_parameterized_agents(run_input_map, resource_tracker):
         supplier=Supplier.AZURE,
     )
 
-    translation_agent_name = f"TrA_{str(uuid4())[:8]}"
+    translation_agent_name = f"TrA {str(uuid4())[:8]}"
     translation_agent = AgentFactory.create(
         name=translation_agent_name,
         description="This agent is used to translate text from one language to another.",
@@ -341,7 +341,7 @@ def test_team_agent_with_parameterized_agents(run_input_map, resource_tracker):
 
 
 def test_team_agent_with_instructions(resource_tracker):
-    agent_1_name = f"A1_{str(uuid4())[:8]}"
+    agent_1_name = f"A1 {str(uuid4())[:8]}"
     agent_1 = AgentFactory.create(
         name=agent_1_name,
         description="Translation agent",
@@ -350,7 +350,7 @@ def test_team_agent_with_instructions(resource_tracker):
     )
     resource_tracker.append(agent_1)
 
-    agent_2_name = f"A2_{str(uuid4())[:8]}"
+    agent_2_name = f"A2 {str(uuid4())[:8]}"
     agent_2 = AgentFactory.create(
         name=agent_2_name,
         description="Translation agent",
@@ -359,7 +359,7 @@ def test_team_agent_with_instructions(resource_tracker):
     )
     resource_tracker.append(agent_2)
 
-    team_agent_name = f"TTA_{str(uuid4())[:8]}"
+    team_agent_name = f"TTA {str(uuid4())[:8]}"
     team_agent = TeamAgentFactory.create(
         name=team_agent_name,
         agents=[agent_1, agent_2],
@@ -398,7 +398,7 @@ def test_team_agent_llm_parameter_preservation(resource_tracker, run_input_map, 
     mentalist_llm.temperature = 0.3
 
     # Create a team agent with custom LLMs
-    team_agent_name = f"LPTTA_{str(uuid4())[:8]}"
+    team_agent_name = f"LPTTA {str(uuid4())[:8]}"
     team_agent = TeamAgentFactory.create(
         name=team_agent_name,
         agents=agents,
@@ -459,7 +459,7 @@ def test_run_team_agent_with_expected_output(resource_tracker):
 | Sofia Carvalho  |    29 | Brasília       |
 +-----------------+-------+----------------+"""
 
-    agent_name = f"TA_{str(uuid4())[:8]}"
+    agent_name = f"TA {str(uuid4())[:8]}"
     agent = AgentFactory.create(
         name=agent_name,
         description="Test description",
@@ -475,7 +475,7 @@ def test_run_team_agent_with_expected_output(resource_tracker):
     )
     resource_tracker.append(agent)
 
-    team_agent_name = f"TTA_{str(uuid4())[:8]}"
+    team_agent_name = f"TTA {str(uuid4())[:8]}"
     team_agent = TeamAgentFactory.create(
         name=team_agent_name,
         agents=[agent],
@@ -541,7 +541,7 @@ def test_team_agent_with_slack_connector(resource_tracker):
         action for action in connection.actions if action.code == "SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL"
     ]
 
-    agent_name = f"TA_{str(uuid4())[:8]}"
+    agent_name = f"TA {str(uuid4())[:8]}"
     agent = AgentFactory.create(
         name=agent_name,
         description="This agent is used to send messages to Slack",
@@ -561,7 +561,7 @@ def test_team_agent_with_slack_connector(resource_tracker):
     )
     resource_tracker.append(agent)
 
-    team_agent_name = f"TTA_{str(uuid4())[:8]}"
+    team_agent_name = f"TTA {str(uuid4())[:8]}"
     team_agent = TeamAgentFactory.create(
         name=team_agent_name,
         agents=[agent],
@@ -589,7 +589,7 @@ def test_multiple_teams_with_shared_deployed_agent(resource_tracker, TeamAgentFa
         supplier=Supplier.AZURE,
     )
 
-    shared_agent_name = f"STA_{str(uuid4())[:8]}"
+    shared_agent_name = f"STA {str(uuid4())[:8]}"
     shared_agent = AgentFactory.create(
         name=shared_agent_name,
         description="Agent for translation shared between teams",
@@ -605,7 +605,7 @@ def test_multiple_teams_with_shared_deployed_agent(resource_tracker, TeamAgentFa
     assert shared_agent.status == AssetStatus.ONBOARDED
 
     # Create first team agent with the shared agent
-    team_agent_1_name = f"TTA1_{str(uuid4())[:8]}"
+    team_agent_1_name = f"TTA1 {str(uuid4())[:8]}"
     team_agent_1 = TeamAgentFactory.create(
         name=team_agent_1_name,
         description="First team using shared agent",
@@ -621,7 +621,7 @@ def test_multiple_teams_with_shared_deployed_agent(resource_tracker, TeamAgentFa
     assert team_agent_1.status == AssetStatus.ONBOARDED
 
     # Create second team agent with the same shared agent
-    team_agent_2_name = f"TTA2_{str(uuid4())[:8]}"
+    team_agent_2_name = f"TTA2 {str(uuid4())[:8]}"
     team_agent_2 = TeamAgentFactory.create(
         name=team_agent_2_name,
         description="Second team using shared agent",
