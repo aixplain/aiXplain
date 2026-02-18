@@ -13,22 +13,30 @@ from aixplain.enums.supplier import Supplier
 RUN_FILE = "tests/functional/team_agent/data/team_agent_test_end2end.json"
 
 
-def delete_agent_by_name(name: str):
-    """Delete an agent with the given name if it exists."""
-    try:
-        agent = AgentFactory.get(name=name)
-        agent.delete()
-    except Exception:
-        pass
+def delete_agent_by_name(name: str, max_retries: int = 3):
+    """Delete an agent with the given name if it exists, with retries."""
+    import time
+
+    for attempt in range(max_retries):
+        try:
+            agent = AgentFactory.get(name=name)
+            agent.delete()
+            time.sleep(2)  # Wait for backend to process delete
+        except Exception:
+            return  # Agent doesn't exist or was deleted successfully
 
 
-def delete_team_agent_by_name(name: str):
-    """Delete a team agent with the given name if it exists."""
-    try:
-        team_agent = TeamAgentFactory.get(name=name)
-        team_agent.delete()
-    except Exception:
-        pass
+def delete_team_agent_by_name(name: str, max_retries: int = 3):
+    """Delete a team agent with the given name if it exists, with retries."""
+    import time
+
+    for attempt in range(max_retries):
+        try:
+            team_agent = TeamAgentFactory.get(name=name)
+            team_agent.delete()
+            time.sleep(2)  # Wait for backend to process delete
+        except Exception:
+            return  # Team agent doesn't exist or was deleted successfully
 
 
 def read_data(data_path):

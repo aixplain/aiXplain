@@ -65,25 +65,24 @@ class ModelGetterMixin:
             api_key = config.TEAM_API_KEY
 
         if use_cache:
-            if cache.has_valid_cache():
-                cached_model = cache.store.data.get(model_id)
-                if cached_model:
-                    return cached_model
-                logging.info("Model not found in valid cache, fetching individually...")
-                model = cls._fetch_model_by_id(model_id, api_key)
-                cache.add(model)
-                return model
-            else:
-                try:
+            try:
+                if cache.has_valid_cache():
+                    cached_model = cache.store.data.get(model_id)
+                    if cached_model:
+                        return cached_model
+                    logging.info("Model not found in valid cache, fetching individually...")
+                    model = cls._fetch_model_by_id(model_id, api_key)
+                    cache.add(model)
+                    return model
+                else:
                     model_list_resp = cls.list(model_ids=None, api_key=api_key)
                     models = model_list_resp["results"]
                     cache.add_list(models)
                     for model in models:
                         if model.id == model_id:
                             return model
-                except Exception as e:
-                    logging.error(f"Error fetching model list: {e}")
-                    raise e
+            except Exception as e:
+                logging.warning(f"Cache lookup failed, falling back to direct fetch: {e}")
 
         logging.info("Fetching model directly without cache...")
         model = cls._fetch_model_by_id(model_id, api_key)
