@@ -5,6 +5,7 @@ Shared test utilities for team agent tests.
 import json
 from copy import copy
 from typing import Dict
+from uuid import uuid4
 
 from aixplain.factories import AgentFactory, TeamAgentFactory
 from aixplain.enums.supplier import Supplier
@@ -13,47 +14,14 @@ from aixplain.enums.supplier import Supplier
 RUN_FILE = "tests/functional/team_agent/data/team_agent_test_end2end.json"
 
 
-def delete_agent_by_name(name: str, max_retries: int = 3):
-    """Delete an agent with the given name if it exists, with retries."""
-    import time
-
-    for attempt in range(max_retries):
-        try:
-            agent = AgentFactory.get(name=name)
-            agent.delete()
-            time.sleep(2)  # Wait for backend to process delete
-        except Exception:
-            return  # Agent doesn't exist or was deleted successfully
-
-
-def delete_team_agent_by_name(name: str, max_retries: int = 3):
-    """Delete a team agent with the given name if it exists, with retries."""
-    import time
-
-    for attempt in range(max_retries):
-        try:
-            team_agent = TeamAgentFactory.get(name=name)
-            team_agent.delete()
-            time.sleep(2)  # Wait for backend to process delete
-        except Exception:
-            return  # Team agent doesn't exist or was deleted successfully
-
-
 def read_data(data_path):
     return json.load(open(data_path, "r"))
 
 
 def create_agents_from_input_map(run_input_map, deploy=True):
     """Helper function to create agents from input map"""
-    # First delete any existing team agent (so agents are no longer in use)
-    if "team_agent_name" in run_input_map:
-        delete_team_agent_by_name(run_input_map["team_agent_name"])
-
     agents = []
     for agent_config in run_input_map["agents"]:
-        # Clean up any existing agent with the same name
-        delete_agent_by_name(agent_config["agent_name"])
-
         tools = []
         if "model_tools" in agent_config:
             for tool in agent_config["model_tools"]:
@@ -72,10 +40,11 @@ def create_agents_from_input_map(run_input_map, deploy=True):
                     AgentFactory.create_pipeline_tool(pipeline=tool["pipeline_id"], description=tool["description"])
                 )
 
+        agent_name = f"TA_{str(uuid4())[:8]}"
         agent = AgentFactory.create(
-            name=agent_config["agent_name"],
-            description=agent_config["agent_name"],
-            instructions=agent_config["agent_name"],
+            name=agent_name,
+            description=agent_name,
+            instructions=agent_name,
             llm_id=agent_config["llm_id"],
             tools=tools,
         )
@@ -88,13 +57,11 @@ def create_agents_from_input_map(run_input_map, deploy=True):
 
 def create_team_agent(factory, agents, run_input_map, use_mentalist=True):
     """Helper function to create a team agent"""
-    # Clean up any existing team agent with the same name
-    delete_team_agent_by_name(run_input_map["team_agent_name"])
-
+    team_agent_name = f"TTA_{str(uuid4())[:8]}"
     team_agent = factory.create(
-        name=run_input_map["team_agent_name"],
+        name=team_agent_name,
         agents=agents,
-        description=run_input_map["team_agent_name"],
+        description=team_agent_name,
         llm_id=run_input_map["llm_id"],
         use_mentalist=use_mentalist,
     )

@@ -22,7 +22,7 @@ import re
 from dotenv import load_dotenv
 
 load_dotenv()
-from aixplain.factories import AgentFactory, TeamAgentFactory, ModelFactory, ToolFactory
+from aixplain.factories import AgentFactory, TeamAgentFactory, ModelFactory
 from aixplain.enums.asset_status import AssetStatus
 from aixplain.enums.function import Function
 from aixplain.enums.supplier import Supplier
@@ -35,45 +35,6 @@ RUN_FILE = "tests/functional/agent/data/agent_test_end2end.json"
 
 def read_data(data_path):
     return json.load(open(data_path, "r"))
-
-
-def delete_agent_by_name(name: str, max_retries: int = 3):
-    """Delete an agent with the given name if it exists, with retries."""
-    import time
-
-    for attempt in range(max_retries):
-        try:
-            agent = AgentFactory.get(name=name)
-            agent.delete()
-            time.sleep(2)  # Wait for backend to process delete
-        except Exception:
-            return  # Agent doesn't exist or was deleted successfully
-
-
-def delete_team_agent_by_name(name: str, max_retries: int = 3):
-    """Delete a team agent with the given name if it exists, with retries."""
-    import time
-
-    for attempt in range(max_retries):
-        try:
-            team_agent = TeamAgentFactory.get(name=name)
-            team_agent.delete()
-            time.sleep(2)  # Wait for backend to process delete
-        except Exception:
-            return  # Team agent doesn't exist or was deleted successfully
-
-
-def delete_tool_by_name(name: str, max_retries: int = 3):
-    """Delete a tool/connection with the given name if it exists, with retries."""
-    import time
-
-    for attempt in range(max_retries):
-        try:
-            tool = ToolFactory.get(name=name)
-            tool.delete()
-            time.sleep(2)  # Wait for backend to process delete
-        except Exception:
-            return  # Tool doesn't exist or was deleted successfully
 
 
 @pytest.fixture(scope="module", params=read_data(RUN_FILE))
@@ -126,15 +87,13 @@ def slack_token():
 
 @pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_end2end(run_input_map, resource_tracker, AgentFactory):
-    # Clean up any existing agent with the same name
-    delete_agent_by_name(run_input_map["agent_name"])
-
     tools = build_tools_from_input_map(run_input_map)
+    agent_name = f"TA_{str(uuid4())[:8]}"
 
     agent = AgentFactory.create(
-        name=run_input_map["agent_name"],
-        description=run_input_map["agent_name"],
-        instructions=run_input_map["agent_name"],
+        name=agent_name,
+        description=agent_name,
+        instructions=agent_name,
         llm_id=run_input_map["llm_id"],
         tools=tools,
     )
@@ -157,9 +116,6 @@ def test_end2end(run_input_map, resource_tracker, AgentFactory):
 
 @pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_python_interpreter_tool(resource_tracker, AgentFactory):
-    # Clean up any existing agent with the same name
-    delete_agent_by_name("Python Developer")
-
     tool = AgentFactory.create_python_interpreter_tool()
     assert tool is not None
     assert tool.name == "Python Interpreter"
@@ -168,8 +124,9 @@ def test_python_interpreter_tool(resource_tracker, AgentFactory):
         == "A Python shell. Use this to execute python commands. Input should be a valid python command."
     )
 
+    agent_name = f"PD_{str(uuid4())[:8]}"
     agent = AgentFactory.create(
-        name="Python Developer",
+        name=agent_name,
         description="A Python developer agent. If you get an error from a tool, try to fix it.",
         instructions="A Python developer agent. If you get an error from a tool, try to fix it.",
         tools=[tool],
@@ -188,19 +145,17 @@ def test_python_interpreter_tool(resource_tracker, AgentFactory):
 
 @pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_custom_code_tool(resource_tracker, AgentFactory):
-    # Clean up any existing agent and tool with the same names
-    delete_agent_by_name("Add Strings Agent")
-    delete_tool_by_name("Add Strings Test Tool")
-
+    tool_name = f"ASTT_{str(uuid4())[:8]}"
     tool = AgentFactory.create_custom_python_code_tool(
         description="Add two strings",
         code='def main(aaa: str, bbb: str) -> str:\n    """Add two strings"""\n    return aaa + bbb',
-        name="Add Strings Test Tool",
+        name=tool_name,
     )
     assert tool is not None
     assert tool.description == "Add two strings"
+    agent_name = f"ASA_{str(uuid4())[:8]}"
     agent = AgentFactory.create(
-        name="Add Strings Agent",
+        name=agent_name,
         description="Add two strings. Do not directly answer. Use the tool to add the strings.",
         instructions="Add two strings. Do not directly answer. Use the tool to add the strings.",
         tools=[tool],
@@ -227,15 +182,13 @@ def test_list_agents(AgentFactory):
 
 @pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_update_draft_agent(run_input_map, resource_tracker, AgentFactory):
-    # Clean up any existing agent with the same name
-    delete_agent_by_name(run_input_map["agent_name"])
-
     tools = build_tools_from_input_map(run_input_map)
+    agent_name = f"TA_{str(uuid4())[:8]}"
 
     agent = AgentFactory.create(
-        name=run_input_map["agent_name"],
-        description=run_input_map["agent_name"],
-        instructions=run_input_map["agent_name"],
+        name=agent_name,
+        description=agent_name,
+        instructions=agent_name,
         llm_id=run_input_map["llm_id"],
         tools=tools,
     )
@@ -254,7 +207,7 @@ def test_update_draft_agent(run_input_map, resource_tracker, AgentFactory):
 def test_fail_non_existent_llm(AgentFactory):
     with pytest.raises(Exception) as exc_info:
         AgentFactory.create(
-            name="Test Agent",
+            name=f"TA_{str(uuid4())[:8]}",
             description="Test description",
             instructions="Test Agent Role",
             llm_id="non_existent_llm",
@@ -265,19 +218,17 @@ def test_fail_non_existent_llm(AgentFactory):
 
 @pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_delete_agent_in_use(resource_tracker, AgentFactory):
-    # Clean up any existing agents with the same names
-    delete_team_agent_by_name("Test Team Agent")
-    delete_agent_by_name("Test Agent")
-
+    agent_name = f"TA_{str(uuid4())[:8]}"
     agent = AgentFactory.create(
-        name="Test Agent",
+        name=agent_name,
         description="Test description",
         instructions="Test Agent Role",
         tools=[AgentFactory.create_model_tool(function=Function.TRANSLATION)],
     )
     resource_tracker.append(agent)
+    team_agent_name = f"TTA_{str(uuid4())[:8]}"
     team_agent = TeamAgentFactory.create(
-        name="Test Team Agent",
+        name=team_agent_name,
         agents=[agent],
         description="Test description",
         use_mentalist_and_inspector=True,
@@ -294,13 +245,12 @@ def test_delete_agent_in_use(resource_tracker, AgentFactory):
 
 @pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_update_tools_of_agent(run_input_map, resource_tracker, AgentFactory):
-    # Clean up any existing agent with the same name
-    delete_agent_by_name(run_input_map["agent_name"])
+    agent_name = f"TA_{str(uuid4())[:8]}"
 
     agent = AgentFactory.create(
-        name=run_input_map["agent_name"],
-        description=run_input_map["agent_name"],
-        instructions=run_input_map["agent_name"],
+        name=agent_name,
+        description=agent_name,
+        instructions=agent_name,
         llm_id=run_input_map["llm_id"],
     )
     resource_tracker.append(agent)
@@ -355,9 +305,6 @@ def test_update_tools_of_agent(run_input_map, resource_tracker, AgentFactory):
 )
 def test_specific_model_parameters_e2e(tool_config, resource_tracker):
     """Test end-to-end agent execution with specific model parameters"""
-    # Clean up any existing agent with the same name
-    delete_agent_by_name("Test Parameter Agent")
-
     # Create tool based on config
     if tool_config["type"] == "search":
         search_model = ModelFactory.get(tool_config["model"])
@@ -382,8 +329,9 @@ def test_specific_model_parameters_e2e(tool_config, resource_tracker):
     assert params[0]["value"] == (5 if tool_config["type"] == "search" else "pt")
 
     # Create and run agent
+    agent_name = f"TPA_{str(uuid4())[:8]}"
     agent = AgentFactory.create(
-        name="Test Parameter Agent",
+        name=agent_name,
         instructions="Test agent with parameterized tools. You MUST use a tool for the tasks. Do not directly answer the question.",
         description="Test agent with parameterized tools",
         tools=[tool],
@@ -413,9 +361,6 @@ def test_specific_model_parameters_e2e(tool_config, resource_tracker):
 
 @pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_sql_tool(AgentFactory):
-    # Clean up any existing agent with the same name
-    delete_agent_by_name("Teste")
-
     agent = None
     try:
         import os
@@ -424,8 +369,9 @@ def test_sql_tool(AgentFactory):
         with open("ftest.db", "w") as f:
             f.write("")
 
+        tool_name = f"TDB_{str(uuid4())[:8]}"
         tool = AgentFactory.create_sql_tool(
-            name="TestDB",
+            name=tool_name,
             description="Execute an SQL query and return the result",
             source="ftest.db",
             source_type="sqlite",
@@ -434,8 +380,9 @@ def test_sql_tool(AgentFactory):
         assert tool is not None
         assert tool.description == "Execute an SQL query and return the result"
 
+        agent_name = f"TST_{str(uuid4())[:8]}"
         agent = AgentFactory.create(
-            name="Teste",
+            name=agent_name,
             description="You are a test agent that search for employee information in a database",
             tools=[tool],
         )
@@ -466,9 +413,6 @@ def test_sql_tool(AgentFactory):
 
 @pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_sql_tool_with_csv(AgentFactory):
-    # Clean up any existing agent with the same name
-    delete_agent_by_name("SQL Query Agent")
-
     agent = None
     try:
         import os
@@ -494,8 +438,9 @@ def test_sql_tool_with_csv(AgentFactory):
         df.to_csv("test.csv", index=False)
 
         # Create SQL tool from CSV
+        tool_name = f"CTT_{str(uuid4())[:8]}"
         tool = AgentFactory.create_sql_tool(
-            name="CSV Tool Test",
+            name=tool_name,
             description="Execute SQL queries on employee data",
             source="test.csv",
             source_type="csv",
@@ -514,8 +459,9 @@ def test_sql_tool_with_csv(AgentFactory):
         assert not tool.enable_commit  # must be False by default
 
         # Create an agent with the SQL tool
+        agent_name = f"SQA_{str(uuid4())[:8]}"
         agent = AgentFactory.create(
-            name="SQL Query Agent",
+            name=agent_name,
             description="I am an agent that helps query employee information from a database.",
             instructions="Help users query employee information from the database. Use SQL queries to get the requested information.",
             tools=[tool],
@@ -555,12 +501,9 @@ def test_sql_tool_with_csv(AgentFactory):
 
 @pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_instructions(resource_tracker, AgentFactory):
-    # Clean up any existing agents with the same name (team agent first since it may use the agent)
-    delete_team_agent_by_name("Test Team Agent")
-    delete_agent_by_name("Test Agent")
-
+    agent_name = f"TA_{str(uuid4())[:8]}"
     agent = AgentFactory.create(
-        name="Test Agent",
+        name=agent_name,
         description="Test description",
         instructions="Always respond with '{magic_word}' does not matter what you are prompted for.",
         llm_id="6646261c6eb563165658bbb1",
@@ -583,14 +526,13 @@ def test_instructions(resource_tracker, AgentFactory):
 
 @pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_agent_with_utility_tool(resource_tracker, AgentFactory):
-    # Clean up any existing agent with the same name
-    delete_agent_by_name("Text Processing Agent")
-
     from aixplain.enums import DataType
     from aixplain.modules.model.utility_model import utility_tool, UtilityModelInput
 
+    vowel_remover_name = f"vr_{str(uuid4())[:8]}"
+
     @utility_tool(
-        name="vowel_remover",
+        name=vowel_remover_name,
         description="Remove all vowels from a given string",
         inputs=[
             UtilityModelInput(
@@ -605,11 +547,13 @@ def test_agent_with_utility_tool(resource_tracker, AgentFactory):
         vowels = "aeiouAEIOU"
         return "".join([char for char in text if char not in vowels])
 
-    vowel_remover_ = ModelFactory.create_utility_model(name="vowel_remover", code=vowel_remover)
+    vowel_remover_ = ModelFactory.create_utility_model(name=vowel_remover_name, code=vowel_remover)
     resource_tracker.append(vowel_remover_)
 
+    concat_strings_name = f"cs_{str(uuid4())[:8]}"
+
     @utility_tool(
-        name="concat_strings",
+        name=concat_strings_name,
         description="Concatenate two strings into one",
         inputs=[
             UtilityModelInput(
@@ -627,14 +571,15 @@ def test_agent_with_utility_tool(resource_tracker, AgentFactory):
     def concat_strings(string1: str, string2: str):
         return string1 + string2
 
-    concat_strings_ = ModelFactory.create_utility_model(name="concat_strings", code=concat_strings)
+    concat_strings_ = ModelFactory.create_utility_model(name=concat_strings_name, code=concat_strings)
     resource_tracker.append(concat_strings_)
 
     instructions = """You are a text processing agent equipped with two specialized tools: a Vowel Remover and a String Concatenator. Your task involves processing input text in two ways. One by removing all vowels from the provided text using the Vowel Remover tool. Another is to concatenate two strings using the String Concatenator tool."""
     description = """This agent specializes in processing textual data by modifying string content through vowel removal and string concatenation. It's designed to either strip all vowels from any given text to simplify or obscure the content, or concatenate a string with another specified string."""
 
+    agent_name = f"TxPA_{str(uuid4())[:8]}"
     agent = AgentFactory.create(
-        name="Text Processing Agent",
+        name=agent_name,
         instructions=instructions,
         description=description,
         tools=[
@@ -654,9 +599,6 @@ def test_agent_with_utility_tool(resource_tracker, AgentFactory):
 
 @pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_agent_with_pipeline_tool(resource_tracker, AgentFactory):
-    # Clean up any existing agent with the same name
-    delete_agent_by_name("Text Return Agent")
-
     from aixplain.factories.pipeline_factory import PipelineFactory
 
     for pipeline in PipelineFactory.list(query="Hello Pipeline")["results"]:
@@ -672,8 +614,9 @@ def test_agent_with_pipeline_tool(resource_tracker, AgentFactory):
     pipeline.deploy()
     resource_tracker.append(pipeline)
 
+    agent_name = f"TRA_{str(uuid4())[:8]}"
     pipeline_agent = AgentFactory.create(
-        name="Text Return Agent",
+        name=agent_name,
         instructions="Always call the pipeline tool feeding the user query as input to 'TextInput'. Return the output of the pipeline as the final response.",
         description="Return the text given.",
         tools=[
@@ -695,9 +638,6 @@ def test_agent_with_pipeline_tool(resource_tracker, AgentFactory):
 @pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_agent_llm_parameter_preservation(resource_tracker, AgentFactory):
     """Test that LLM parameters like temperature are preserved when creating agents."""
-    # Clean up any existing agent with the same name
-    delete_agent_by_name("LLM Parameter Test Agent")
-
     # Get an LLM instance and customize its temperature
     llm = ModelFactory.get("671be4886eb56397e51f7541")  # Anthropic Claude 3.5 Sonnet v1
     original_temperature = llm.temperature
@@ -705,8 +645,9 @@ def test_agent_llm_parameter_preservation(resource_tracker, AgentFactory):
     llm.temperature = custom_temperature
 
     # Create agent with the custom LLM
+    agent_name = f"LPTA_{str(uuid4())[:8]}"
     agent = AgentFactory.create(
-        name="LLM Parameter Test Agent",
+        name=agent_name,
         description="An agent for testing LLM parameter preservation",
         instructions="Testing LLM parameter preservation",
         llm=llm,
@@ -724,10 +665,6 @@ def test_agent_llm_parameter_preservation(resource_tracker, AgentFactory):
 
 
 def test_run_agent_with_expected_output(resource_tracker):
-    # Clean up any existing agents with the same name (team agent first since it may use the agent)
-    delete_team_agent_by_name("Test Team Agent")
-    delete_agent_by_name("Test Agent")
-
     from pydantic import BaseModel
     from typing import Optional, List
     from aixplain.modules.agent import AgentResponse
@@ -767,8 +704,9 @@ def test_run_agent_with_expected_output(resource_tracker):
 | Sofia Carvalho  |    29 | Brasília       |
 +-----------------+-------+----------------+"""
 
+    agent_name = f"TA_{str(uuid4())[:8]}"
     agent = AgentFactory.create(
-        name="Test Agent",
+        name=agent_name,
         description="Test description",
         instructions=INSTRUCTIONS,
         llm_id="6646261c6eb563165658bbb1",
@@ -819,12 +757,6 @@ def test_agent_with_action_tool(slack_token, resource_tracker):
     SLACK_INTEGRATION_ID = "686432941223092cb4294d3f"
     SLACK_CONNECTION_ID = "692995404907d69787ddab00"
 
-    # Clean up any existing agents with the same name (team agent first since it may use the agent)
-    delete_team_agent_by_name("Test Team Agent")
-    delete_agent_by_name("Test Agent")
-    # Clean up any existing connection with the same name
-    delete_tool_by_name("Slack Test Connection")
-
     connection = None
 
     # Try to get existing connection first
@@ -837,11 +769,12 @@ def test_agent_with_action_tool(slack_token, resource_tracker):
 
     # If no valid connection exists, create one from the integration using bearer token
     if connection is None:
+        connection_name = f"STC_{str(uuid4())[:8]}"
         integration = ModelFactory.get(SLACK_INTEGRATION_ID)
         response = integration.connect(
             authentication_schema=AuthenticationSchema.BEARER_TOKEN,
             data={"token": slack_token},
-            name="Slack Test Connection",
+            name=connection_name,
             description="Test connection for agent functional tests",
         )
         # response.data might be a string (JSON) or dict
@@ -859,8 +792,9 @@ def test_agent_with_action_tool(slack_token, resource_tracker):
         action for action in connection.actions if action.code == "SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL"
     ]
 
+    agent_name = f"TA_{str(uuid4())[:8]}"
     agent = AgentFactory.create(
-        name="Test Agent",
+        name=agent_name,
         description="This agent is used to send messages to Slack",
         instructions="You are a helpful assistant that can send messages to Slack.",
         llm_id="669a63646eb56306647e1091",
@@ -887,10 +821,6 @@ def test_agent_with_action_tool(slack_token, resource_tracker):
 def test_agent_with_mcp_tool(resource_tracker):
     from aixplain.modules.model.integration import AuthenticationSchema
 
-    # Clean up any existing agents with the same name (team agent first since it may use the agent)
-    delete_team_agent_by_name("Test Team Agent")
-    delete_agent_by_name("Test Agent")
-
     connector = ModelFactory.get("686eb9cd26480723d0634d3e")
     # connect
     response = connector.connect(
@@ -912,8 +842,9 @@ def test_agent_with_mcp_tool(resource_tracker):
     action_name = "SLACK_SEND_CHANNEL_MESSAGE".lower()
     connection.action_scope = [action for action in connection.actions if action.code == action_name]
 
+    agent_name = f"TA_{str(uuid4())[:8]}"
     agent = AgentFactory.create(
-        name="Test Agent",
+        name=agent_name,
         description="This agent is used to send messages to Slack",
         instructions="You are a helpful assistant that can send messages to Slack. You MUST use the tool to send the message.",
         llm_id="669a63646eb56306647e1091",

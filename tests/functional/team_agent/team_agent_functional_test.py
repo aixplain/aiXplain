@@ -34,8 +34,6 @@ from tests.functional.team_agent.test_utils import (
     read_data,
     create_agents_from_input_map,
     create_team_agent,
-    delete_agent_by_name,
-    delete_team_agent_by_name,
 )
 
 
@@ -111,11 +109,6 @@ def test_draft_team_agent_update(run_input_map, resource_tracker, TeamAgentFacto
 @pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory])
 def test_nested_deployment_chain(resource_tracker, TeamAgentFactory):
     """Test that deploying a team agent properly deploys all nested components (tools -> agents -> team)"""
-    # Clean up any existing agents/team agents with the same names
-    delete_team_agent_by_name("Multi-Function Team")
-    delete_agent_by_name("Translation Agent")
-    delete_agent_by_name("Text Generation Agent")
-
     # Create first agent with translation tool (in DRAFT state)
     translation_function = Function.TRANSLATION
     function_params = translation_function.get_parameters()
@@ -127,8 +120,9 @@ def test_nested_deployment_chain(resource_tracker, TeamAgentFactory):
         supplier=Supplier.AZURE,
     )
 
+    translation_agent_name = f"TrA_{str(uuid4())[:8]}"
     translation_agent = AgentFactory.create(
-        name="Translation Agent",
+        name=translation_agent_name,
         description="Agent for translation",
         instructions="Translate text from English to Spanish",
         llm_id="6646261c6eb563165658bbb1",
@@ -143,8 +137,9 @@ def test_nested_deployment_chain(resource_tracker, TeamAgentFactory):
         supplier=Supplier.OPENAI,
     )
 
+    text_gen_agent_name = f"TGA_{str(uuid4())[:8]}"
     text_gen_agent = AgentFactory.create(
-        name="Text Generation Agent",
+        name=text_gen_agent_name,
         description="Agent for text generation",
         instructions="Generate creative text based on input",
         llm_id="6646261c6eb563165658bbb1",
@@ -154,8 +149,9 @@ def test_nested_deployment_chain(resource_tracker, TeamAgentFactory):
     assert text_gen_agent.status == AssetStatus.DRAFT
 
     # Create team agent with both agents (in DRAFT state)
+    team_agent_name = f"MFT_{str(uuid4())[:8]}"
     team_agent = TeamAgentFactory.create(
-        name="Multi-Function Team",
+        name=team_agent_name,
         description="Team that can translate and generate text",
         agents=[translation_agent, text_gen_agent],
         llm_id="6646261c6eb563165658bbb1",
@@ -189,7 +185,7 @@ def test_fail_non_existent_llm(run_input_map, resource_tracker, TeamAgentFactory
 
     with pytest.raises(Exception) as exc_info:
         TeamAgentFactory.create(
-            name="Non Existent LLM",
+            name=f"NEL_{str(uuid4())[:8]}",
             description="",
             llm_id="non_existent_llm",
             agents=agents,
@@ -202,9 +198,6 @@ def test_fail_non_existent_llm(run_input_map, resource_tracker, TeamAgentFactory
 
 @pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory])
 def test_add_remove_agents_from_team_agent(run_input_map, resource_tracker, TeamAgentFactory):
-    # Clean up any existing agent with the same name
-    delete_agent_by_name("New Agent")
-
     agents = create_agents_from_input_map(run_input_map, deploy=False)
     for agent in agents:
         resource_tracker.append(agent)
@@ -219,8 +212,9 @@ def test_add_remove_agents_from_team_agent(run_input_map, resource_tracker, Team
     assert team_agent is not None
     assert team_agent.status == AssetStatus.DRAFT
 
+    new_agent_name = f"NA_{str(uuid4())[:8]}"
     new_agent = AgentFactory.create(
-        name="New Agent",
+        name=new_agent_name,
         description="Agent added to team",
         instructions="Agent added to team",
         llm_id=run_input_map["llm_id"],
@@ -242,12 +236,9 @@ def test_add_remove_agents_from_team_agent(run_input_map, resource_tracker, Team
 
 
 def test_team_agent_tasks(resource_tracker):
-    # Clean up any existing agents/team agents with the same names
-    delete_team_agent_by_name("Test Multi Agent")
-    delete_agent_by_name("Test Sub Agent")
-
+    agent_name = f"TSA_{str(uuid4())[:8]}"
     agent = AgentFactory.create(
-        name="Test Sub Agent",
+        name=agent_name,
         description="You are a test agent that always returns the same answer",
         tools=[
             AgentFactory.create_model_tool(function=Function.TRANSLATION, supplier=Supplier.AZURE),
@@ -268,8 +259,9 @@ def test_team_agent_tasks(resource_tracker):
     )
     resource_tracker.append(agent)
 
+    team_agent_name = f"TMA_{str(uuid4())[:8]}"
     team_agent = TeamAgentFactory.create(
-        name="Test Multi Agent",
+        name=team_agent_name,
         agents=[agent],
         description="Teste",
     )
@@ -282,10 +274,6 @@ def test_team_agent_tasks(resource_tracker):
 @pytest.mark.skip(reason="Tools not available - uses ConnectionTool model")
 def test_team_agent_with_parameterized_agents(run_input_map, resource_tracker):
     """Test team agent with agents that have parameterized tools"""
-    # Clean up any existing agents with the same names
-    delete_agent_by_name("Search Agent")
-    delete_agent_by_name("Translation Agent")
-
     # Create first agent with search tool
     search_model = ModelFactory.get("692f18557b2cc45d29150cb0")
     model_params = search_model.get_parameters()
@@ -294,8 +282,9 @@ def test_team_agent_with_parameterized_agents(run_input_map, resource_tracker):
         model=search_model, description="Search tool with custom number of results"
     )
 
+    search_agent_name = f"SA_{str(uuid4())[:8]}"
     search_agent = AgentFactory.create(
-        name="Search Agent",
+        name=search_agent_name,
         description="This agent is used to search for information in the web.",
         instructions="Agent that performs searches. Once you have the results, return them in a list as the output.",
         llm_id=run_input_map["llm_id"],
@@ -315,8 +304,9 @@ def test_team_agent_with_parameterized_agents(run_input_map, resource_tracker):
         supplier=Supplier.AZURE,
     )
 
+    translation_agent_name = f"TrA_{str(uuid4())[:8]}"
     translation_agent = AgentFactory.create(
-        name="Translation Agent",
+        name=translation_agent_name,
         description="This agent is used to translate text from one language to another.",
         instructions="Agent that translates text from English to Portuguese",
         llm_id=run_input_map["llm_id"],
@@ -346,37 +336,35 @@ def test_team_agent_with_parameterized_agents(run_input_map, resource_tracker):
     assert len(search_response.data["intermediate_steps"]) > 0
     intermediate_steps = search_response.data["intermediate_steps"]
     called_agents = [step["agent"] for step in intermediate_steps]
-    assert "Search Agent" in called_agents
-    assert "Translation Agent" in called_agents
+    assert search_agent_name in called_agents
+    assert translation_agent_name in called_agents
 
 
 def test_team_agent_with_instructions(resource_tracker):
-    # Clean up any existing agents/team agents with the same names
-    delete_team_agent_by_name("Team Agent")
-    delete_agent_by_name("Agent 1")
-    delete_agent_by_name("Agent 2")
-
+    agent_1_name = f"A1_{str(uuid4())[:8]}"
     agent_1 = AgentFactory.create(
-        name="Agent 1",
+        name=agent_1_name,
         description="Translation agent",
         tools=[AgentFactory.create_model_tool(function=Function.TRANSLATION, supplier=Supplier.AZURE)],
         llm_id="6646261c6eb563165658bbb1",
     )
     resource_tracker.append(agent_1)
 
+    agent_2_name = f"A2_{str(uuid4())[:8]}"
     agent_2 = AgentFactory.create(
-        name="Agent 2",
+        name=agent_2_name,
         description="Translation agent",
         tools=[AgentFactory.create_model_tool(function=Function.TRANSLATION, supplier=Supplier.GOOGLE)],
         llm_id="6646261c6eb563165658bbb1",
     )
     resource_tracker.append(agent_2)
 
+    team_agent_name = f"TTA_{str(uuid4())[:8]}"
     team_agent = TeamAgentFactory.create(
-        name="Team Agent",
+        name=team_agent_name,
         agents=[agent_1, agent_2],
         description="Team agent",
-        instructions="Use only 'Agent 2' to solve the tasks.",
+        instructions=f"Use only '{agent_2_name}' to solve the tasks.",
         llm_id="6646261c6eb563165658bbb1",
         use_mentalist=True,
     )
@@ -390,15 +378,12 @@ def test_team_agent_with_instructions(resource_tracker):
 
     called_agents = set([step["agent"] for step in mentalist_steps])
     assert len(called_agents) == 1
-    assert "Agent 2" in called_agents
+    assert agent_2_name in called_agents
 
 
 @pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory])
 def test_team_agent_llm_parameter_preservation(resource_tracker, run_input_map, TeamAgentFactory):
     """Test that LLM parameters like temperature are preserved for all LLM roles in team agents."""
-    # Clean up any existing team agent with the same name
-    delete_team_agent_by_name("LLM Parameter Test Team Agent")
-
     # Create a regular agent first
     agents = create_agents_from_input_map(run_input_map, deploy=True)
     for agent in agents:
@@ -413,8 +398,9 @@ def test_team_agent_llm_parameter_preservation(resource_tracker, run_input_map, 
     mentalist_llm.temperature = 0.3
 
     # Create a team agent with custom LLMs
+    team_agent_name = f"LPTTA_{str(uuid4())[:8]}"
     team_agent = TeamAgentFactory.create(
-        name="LLM Parameter Test Team Agent",
+        name=team_agent_name,
         agents=agents,
         supervisor_llm=supervisor_llm,
         mentalist_llm=mentalist_llm,
@@ -434,10 +420,6 @@ def test_team_agent_llm_parameter_preservation(resource_tracker, run_input_map, 
 
 
 def test_run_team_agent_with_expected_output(resource_tracker):
-    # Clean up any existing agents/team agents with the same names
-    delete_team_agent_by_name("Team Agent")
-    delete_agent_by_name("Test Agent")
-
     from pydantic import BaseModel
     from typing import Optional, List
     from aixplain.modules.agent import AgentResponse
@@ -477,8 +459,9 @@ def test_run_team_agent_with_expected_output(resource_tracker):
 | Sofia Carvalho  |    29 | Brasília       |
 +-----------------+-------+----------------+"""
 
+    agent_name = f"TA_{str(uuid4())[:8]}"
     agent = AgentFactory.create(
-        name="Test Agent",
+        name=agent_name,
         description="Test description",
         instructions=INSTRUCTIONS,
         tasks=[
@@ -492,8 +475,9 @@ def test_run_team_agent_with_expected_output(resource_tracker):
     )
     resource_tracker.append(agent)
 
+    team_agent_name = f"TTA_{str(uuid4())[:8]}"
     team_agent = TeamAgentFactory.create(
-        name="Team Agent",
+        name=team_agent_name,
         agents=[agent],
         description="Team agent",
         llm_id="6646261c6eb563165658bbb1",
@@ -541,10 +525,6 @@ def test_run_team_agent_with_expected_output(resource_tracker):
 
 @pytest.mark.skip(reason="Tools not available")
 def test_team_agent_with_slack_connector(resource_tracker):
-    # Clean up any existing agents/team agents with the same names
-    delete_team_agent_by_name("Team Agent")
-    delete_agent_by_name("Test Agent")
-
     from aixplain.modules.model.integration import AuthenticationSchema
 
     connector = ModelFactory.get("686432941223092cb4294d3f")
@@ -561,8 +541,9 @@ def test_team_agent_with_slack_connector(resource_tracker):
         action for action in connection.actions if action.code == "SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL"
     ]
 
+    agent_name = f"TA_{str(uuid4())[:8]}"
     agent = AgentFactory.create(
-        name="Test Agent",
+        name=agent_name,
         description="This agent is used to send messages to Slack",
         instructions="You are a helpful assistant that can answer questions based on a large knowledge base and send messages to Slack.",
         llm_id="669a63646eb56306647e1091",
@@ -580,8 +561,9 @@ def test_team_agent_with_slack_connector(resource_tracker):
     )
     resource_tracker.append(agent)
 
+    team_agent_name = f"TTA_{str(uuid4())[:8]}"
     team_agent = TeamAgentFactory.create(
-        name="Team Agent",
+        name=team_agent_name,
         agents=[agent],
         description="Team agent",
         llm_id="6646261c6eb563165658bbb1",
@@ -600,11 +582,6 @@ def test_team_agent_with_slack_connector(resource_tracker):
 @pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory])
 def test_multiple_teams_with_shared_deployed_agent(resource_tracker, TeamAgentFactory):
     """Test that multiple team agents can share the same deployed agent without name conflicts"""
-    # Clean up any existing agents/team agents with the same names
-    delete_team_agent_by_name("Team Agent 1")
-    delete_team_agent_by_name("Team Agent 2")
-    delete_agent_by_name("Shared Translation Agent")
-
     # Create and deploy a shared agent first
     translation_tool = AgentFactory.create_model_tool(
         function=Function.TRANSLATION,
@@ -612,8 +589,9 @@ def test_multiple_teams_with_shared_deployed_agent(resource_tracker, TeamAgentFa
         supplier=Supplier.AZURE,
     )
 
+    shared_agent_name = f"STA_{str(uuid4())[:8]}"
     shared_agent = AgentFactory.create(
-        name="Shared Translation Agent",
+        name=shared_agent_name,
         description="Agent for translation shared between teams",
         instructions="Translate text from English to Spanish",
         llm_id="6646261c6eb563165658bbb1",
@@ -627,8 +605,9 @@ def test_multiple_teams_with_shared_deployed_agent(resource_tracker, TeamAgentFa
     assert shared_agent.status == AssetStatus.ONBOARDED
 
     # Create first team agent with the shared agent
+    team_agent_1_name = f"TTA1_{str(uuid4())[:8]}"
     team_agent_1 = TeamAgentFactory.create(
-        name="Team Agent 1",
+        name=team_agent_1_name,
         description="First team using shared agent",
         agents=[shared_agent],
         llm_id="6646261c6eb563165658bbb1",
@@ -642,8 +621,9 @@ def test_multiple_teams_with_shared_deployed_agent(resource_tracker, TeamAgentFa
     assert team_agent_1.status == AssetStatus.ONBOARDED
 
     # Create second team agent with the same shared agent
+    team_agent_2_name = f"TTA2_{str(uuid4())[:8]}"
     team_agent_2 = TeamAgentFactory.create(
-        name="Team Agent 2",
+        name=team_agent_2_name,
         description="Second team using shared agent",
         agents=[shared_agent],
         llm_id="6646261c6eb563165658bbb1",
