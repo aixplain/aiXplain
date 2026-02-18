@@ -22,7 +22,7 @@ import re
 from dotenv import load_dotenv
 
 load_dotenv()
-from aixplain.factories import AgentFactory, TeamAgentFactory, ModelFactory
+from aixplain.factories import AgentFactory, TeamAgentFactory, ModelFactory, ToolFactory
 from aixplain.enums.asset_status import AssetStatus
 from aixplain.enums.function import Function
 from aixplain.enums.supplier import Supplier
@@ -53,6 +53,15 @@ def delete_team_agent_by_name(name: str):
         team_agent.delete()
     except Exception:
         pass  # Team agent doesn't exist or couldn't be deleted
+
+
+def delete_tool_by_name(name: str):
+    """Delete a tool/connection with the given name if it exists."""
+    try:
+        tool = ToolFactory.get(name=name)
+        tool.delete()
+    except Exception:
+        pass  # Tool doesn't exist or couldn't be deleted
 
 
 @pytest.fixture(scope="module", params=read_data(RUN_FILE))
@@ -167,8 +176,9 @@ def test_python_interpreter_tool(resource_tracker, AgentFactory):
 
 @pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_custom_code_tool(resource_tracker, AgentFactory):
-    # Clean up any existing agent with the same name
+    # Clean up any existing agent and tool with the same names
     delete_agent_by_name("Add Strings Agent")
+    delete_tool_by_name("Add Strings Test Tool")
 
     tool = AgentFactory.create_custom_python_code_tool(
         description="Add two strings",
@@ -800,6 +810,8 @@ def test_agent_with_action_tool(slack_token, resource_tracker):
     # Clean up any existing agents with the same name (team agent first since it may use the agent)
     delete_team_agent_by_name("Test Team Agent")
     delete_agent_by_name("Test Agent")
+    # Clean up any existing connection with the same name
+    delete_tool_by_name("Slack Test Connection")
 
     connection = None
 
