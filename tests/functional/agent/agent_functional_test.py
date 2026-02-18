@@ -533,7 +533,8 @@ def test_sql_tool_with_csv(AgentFactory):
 
 @pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_instructions(resource_tracker, AgentFactory):
-    # Clean up any existing agent with the same name
+    # Clean up any existing agents with the same name (team agent first since it may use the agent)
+    delete_team_agent_by_name("Test Team Agent")
     delete_agent_by_name("Test Agent")
 
     agent = AgentFactory.create(
@@ -701,7 +702,8 @@ def test_agent_llm_parameter_preservation(resource_tracker, AgentFactory):
 
 
 def test_run_agent_with_expected_output(resource_tracker):
-    # Clean up any existing agent with the same name
+    # Clean up any existing agents with the same name (team agent first since it may use the agent)
+    delete_team_agent_by_name("Test Team Agent")
     delete_agent_by_name("Test Agent")
 
     from pydantic import BaseModel
@@ -795,7 +797,8 @@ def test_agent_with_action_tool(slack_token, resource_tracker):
     SLACK_INTEGRATION_ID = "686432941223092cb4294d3f"
     SLACK_CONNECTION_ID = "692995404907d69787ddab00"
 
-    # Clean up any existing agent with the same name
+    # Clean up any existing agents with the same name (team agent first since it may use the agent)
+    delete_team_agent_by_name("Test Team Agent")
     delete_agent_by_name("Test Agent")
 
     connection = None
@@ -819,8 +822,12 @@ def test_agent_with_action_tool(slack_token, resource_tracker):
         )
         # response.data might be a string (JSON) or dict
         data = response.data
-        if isinstance(data, str):
+        if isinstance(data, str) and data:
             data = json.loads(data)
+        elif isinstance(data, dict):
+            pass  # already a dict
+        else:
+            raise Exception(f"Unexpected response data format: {response}")
         connection_id = data["id"]
         connection = ModelFactory.get(connection_id)
 
@@ -856,7 +863,8 @@ def test_agent_with_action_tool(slack_token, resource_tracker):
 def test_agent_with_mcp_tool(resource_tracker):
     from aixplain.modules.model.integration import AuthenticationSchema
 
-    # Clean up any existing agent with the same name
+    # Clean up any existing agents with the same name (team agent first since it may use the agent)
+    delete_team_agent_by_name("Test Team Agent")
     delete_agent_by_name("Test Agent")
 
     connector = ModelFactory.get("686eb9cd26480723d0634d3e")
@@ -869,8 +877,12 @@ def test_agent_with_mcp_tool(resource_tracker):
     )
     # response.data might be a string (JSON) or dict
     data = response.data
-    if isinstance(data, str):
+    if isinstance(data, str) and data:
         data = json.loads(data)
+    elif isinstance(data, dict):
+        pass  # already a dict
+    else:
+        raise Exception(f"Unexpected response data format: {response}")
     connection_id = data["id"]
     connection = ModelFactory.get(connection_id)
     action_name = "SLACK_SEND_CHANNEL_MESSAGE".lower()

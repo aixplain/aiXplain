@@ -37,6 +37,10 @@ def read_data(data_path):
 
 def create_agents_from_input_map(run_input_map, deploy=True):
     """Helper function to create agents from input map"""
+    # First delete any existing team agent (so agents are no longer in use)
+    if "team_agent_name" in run_input_map:
+        delete_team_agent_by_name(run_input_map["team_agent_name"])
+
     agents = []
     for agent_config in run_input_map["agents"]:
         # Clean up any existing agent with the same name
