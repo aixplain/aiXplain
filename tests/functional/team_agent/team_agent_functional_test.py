@@ -34,6 +34,8 @@ from tests.functional.team_agent.test_utils import (
     read_data,
     create_agents_from_input_map,
     create_team_agent,
+    delete_agent_by_name,
+    delete_team_agent_by_name,
 )
 
 
@@ -109,6 +111,11 @@ def test_draft_team_agent_update(run_input_map, resource_tracker, TeamAgentFacto
 @pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory])
 def test_nested_deployment_chain(resource_tracker, TeamAgentFactory):
     """Test that deploying a team agent properly deploys all nested components (tools -> agents -> team)"""
+    # Clean up any existing agents/team agents with the same names
+    delete_team_agent_by_name("Multi-Function Team")
+    delete_agent_by_name("Translation Agent")
+    delete_agent_by_name("Text Generation Agent")
+
     # Create first agent with translation tool (in DRAFT state)
     translation_function = Function.TRANSLATION
     function_params = translation_function.get_parameters()
@@ -195,6 +202,9 @@ def test_fail_non_existent_llm(run_input_map, resource_tracker, TeamAgentFactory
 
 @pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory])
 def test_add_remove_agents_from_team_agent(run_input_map, resource_tracker, TeamAgentFactory):
+    # Clean up any existing agent with the same name
+    delete_agent_by_name("New Agent")
+
     agents = create_agents_from_input_map(run_input_map, deploy=False)
     for agent in agents:
         resource_tracker.append(agent)
@@ -232,6 +242,10 @@ def test_add_remove_agents_from_team_agent(run_input_map, resource_tracker, Team
 
 
 def test_team_agent_tasks(resource_tracker):
+    # Clean up any existing agents/team agents with the same names
+    delete_team_agent_by_name("Test Multi Agent")
+    delete_agent_by_name("Test Sub Agent")
+
     agent = AgentFactory.create(
         name="Test Sub Agent",
         description="You are a test agent that always returns the same answer",
@@ -266,8 +280,12 @@ def test_team_agent_tasks(resource_tracker):
 
 
 @pytest.mark.skip(reason="Tools not available - uses ConnectionTool model")
-def test_team_agent_with_parameterized_agents(run_input_map, delete_agents_and_team_agents):
+def test_team_agent_with_parameterized_agents(run_input_map, resource_tracker):
     """Test team agent with agents that have parameterized tools"""
+    # Clean up any existing agents with the same names
+    delete_agent_by_name("Search Agent")
+    delete_agent_by_name("Translation Agent")
+
     # Create first agent with search tool
     search_model = ModelFactory.get("692f18557b2cc45d29150cb0")
     model_params = search_model.get_parameters()
@@ -333,6 +351,11 @@ def test_team_agent_with_parameterized_agents(run_input_map, delete_agents_and_t
 
 
 def test_team_agent_with_instructions(resource_tracker):
+    # Clean up any existing agents/team agents with the same names
+    delete_team_agent_by_name("Team Agent")
+    delete_agent_by_name("Agent 1")
+    delete_agent_by_name("Agent 2")
+
     agent_1 = AgentFactory.create(
         name="Agent 1",
         description="Translation agent",
@@ -373,6 +396,9 @@ def test_team_agent_with_instructions(resource_tracker):
 @pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory])
 def test_team_agent_llm_parameter_preservation(resource_tracker, run_input_map, TeamAgentFactory):
     """Test that LLM parameters like temperature are preserved for all LLM roles in team agents."""
+    # Clean up any existing team agent with the same name
+    delete_team_agent_by_name("LLM Parameter Test Team Agent")
+
     # Create a regular agent first
     agents = create_agents_from_input_map(run_input_map, deploy=True)
     for agent in agents:
@@ -408,6 +434,10 @@ def test_team_agent_llm_parameter_preservation(resource_tracker, run_input_map, 
 
 
 def test_run_team_agent_with_expected_output(resource_tracker):
+    # Clean up any existing agents/team agents with the same names
+    delete_team_agent_by_name("Team Agent")
+    delete_agent_by_name("Test Agent")
+
     from pydantic import BaseModel
     from typing import Optional, List
     from aixplain.modules.agent import AgentResponse
@@ -510,7 +540,11 @@ def test_run_team_agent_with_expected_output(resource_tracker):
 
 
 @pytest.mark.skip(reason="Tools not available")
-def test_team_agent_with_slack_connector():
+def test_team_agent_with_slack_connector(resource_tracker):
+    # Clean up any existing agents/team agents with the same names
+    delete_team_agent_by_name("Team Agent")
+    delete_agent_by_name("Test Agent")
+
     from aixplain.modules.model.integration import AuthenticationSchema
 
     connector = ModelFactory.get("686432941223092cb4294d3f")
@@ -566,6 +600,11 @@ def test_team_agent_with_slack_connector():
 @pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory])
 def test_multiple_teams_with_shared_deployed_agent(resource_tracker, TeamAgentFactory):
     """Test that multiple team agents can share the same deployed agent without name conflicts"""
+    # Clean up any existing agents/team agents with the same names
+    delete_team_agent_by_name("Team Agent 1")
+    delete_team_agent_by_name("Team Agent 2")
+    delete_agent_by_name("Shared Translation Agent")
+
     # Create and deploy a shared agent first
     translation_tool = AgentFactory.create_model_tool(
         function=Function.TRANSLATION,

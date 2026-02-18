@@ -37,6 +37,24 @@ def read_data(data_path):
     return json.load(open(data_path, "r"))
 
 
+def delete_agent_by_name(name: str):
+    """Delete an agent with the given name if it exists."""
+    try:
+        agent = AgentFactory.get(name=name)
+        agent.delete()
+    except Exception:
+        pass  # Agent doesn't exist or couldn't be deleted
+
+
+def delete_team_agent_by_name(name: str):
+    """Delete a team agent with the given name if it exists."""
+    try:
+        team_agent = TeamAgentFactory.get(name=name)
+        team_agent.delete()
+    except Exception:
+        pass  # Team agent doesn't exist or couldn't be deleted
+
+
 @pytest.fixture(scope="module", params=read_data(RUN_FILE))
 def run_input_map(request):
     return request.param
@@ -87,6 +105,9 @@ def slack_token():
 
 @pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_end2end(run_input_map, resource_tracker, AgentFactory):
+    # Clean up any existing agent with the same name
+    delete_agent_by_name(run_input_map["agent_name"])
+
     tools = build_tools_from_input_map(run_input_map)
 
     agent = AgentFactory.create(
@@ -115,6 +136,9 @@ def test_end2end(run_input_map, resource_tracker, AgentFactory):
 
 @pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_python_interpreter_tool(resource_tracker, AgentFactory):
+    # Clean up any existing agent with the same name
+    delete_agent_by_name("Python Developer")
+
     tool = AgentFactory.create_python_interpreter_tool()
     assert tool is not None
     assert tool.name == "Python Interpreter"
@@ -143,6 +167,9 @@ def test_python_interpreter_tool(resource_tracker, AgentFactory):
 
 @pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_custom_code_tool(resource_tracker, AgentFactory):
+    # Clean up any existing agent with the same name
+    delete_agent_by_name("Add Strings Agent")
+
     tool = AgentFactory.create_custom_python_code_tool(
         description="Add two strings",
         code='def main(aaa: str, bbb: str) -> str:\n    """Add two strings"""\n    return aaa + bbb',
@@ -178,6 +205,9 @@ def test_list_agents(AgentFactory):
 
 @pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_update_draft_agent(run_input_map, resource_tracker, AgentFactory):
+    # Clean up any existing agent with the same name
+    delete_agent_by_name(run_input_map["agent_name"])
+
     tools = build_tools_from_input_map(run_input_map)
 
     agent = AgentFactory.create(
@@ -213,6 +243,10 @@ def test_fail_non_existent_llm(AgentFactory):
 
 @pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_delete_agent_in_use(resource_tracker, AgentFactory):
+    # Clean up any existing agents with the same names
+    delete_team_agent_by_name("Test Team Agent")
+    delete_agent_by_name("Test Agent")
+
     agent = AgentFactory.create(
         name="Test Agent",
         description="Test description",
@@ -238,6 +272,9 @@ def test_delete_agent_in_use(resource_tracker, AgentFactory):
 
 @pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_update_tools_of_agent(run_input_map, resource_tracker, AgentFactory):
+    # Clean up any existing agent with the same name
+    delete_agent_by_name(run_input_map["agent_name"])
+
     agent = AgentFactory.create(
         name=run_input_map["agent_name"],
         description=run_input_map["agent_name"],
@@ -296,6 +333,9 @@ def test_update_tools_of_agent(run_input_map, resource_tracker, AgentFactory):
 )
 def test_specific_model_parameters_e2e(tool_config, resource_tracker):
     """Test end-to-end agent execution with specific model parameters"""
+    # Clean up any existing agent with the same name
+    delete_agent_by_name("Test Parameter Agent")
+
     # Create tool based on config
     if tool_config["type"] == "search":
         search_model = ModelFactory.get(tool_config["model"])
@@ -351,6 +391,9 @@ def test_specific_model_parameters_e2e(tool_config, resource_tracker):
 
 @pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_sql_tool(AgentFactory):
+    # Clean up any existing agent with the same name
+    delete_agent_by_name("Teste")
+
     agent = None
     try:
         import os
@@ -401,6 +444,9 @@ def test_sql_tool(AgentFactory):
 
 @pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_sql_tool_with_csv(AgentFactory):
+    # Clean up any existing agent with the same name
+    delete_agent_by_name("SQL Query Agent")
+
     agent = None
     try:
         import os
@@ -487,6 +533,9 @@ def test_sql_tool_with_csv(AgentFactory):
 
 @pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_instructions(resource_tracker, AgentFactory):
+    # Clean up any existing agent with the same name
+    delete_agent_by_name("Test Agent")
+
     agent = AgentFactory.create(
         name="Test Agent",
         description="Test description",
@@ -511,6 +560,9 @@ def test_instructions(resource_tracker, AgentFactory):
 
 @pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_agent_with_utility_tool(resource_tracker, AgentFactory):
+    # Clean up any existing agent with the same name
+    delete_agent_by_name("Text Processing Agent")
+
     from aixplain.enums import DataType
     from aixplain.modules.model.utility_model import utility_tool, UtilityModelInput
 
@@ -579,6 +631,9 @@ def test_agent_with_utility_tool(resource_tracker, AgentFactory):
 
 @pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_agent_with_pipeline_tool(resource_tracker, AgentFactory):
+    # Clean up any existing agent with the same name
+    delete_agent_by_name("Text Return Agent")
+
     from aixplain.factories.pipeline_factory import PipelineFactory
 
     for pipeline in PipelineFactory.list(query="Hello Pipeline")["results"]:
@@ -617,6 +672,9 @@ def test_agent_with_pipeline_tool(resource_tracker, AgentFactory):
 @pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_agent_llm_parameter_preservation(resource_tracker, AgentFactory):
     """Test that LLM parameters like temperature are preserved when creating agents."""
+    # Clean up any existing agent with the same name
+    delete_agent_by_name("LLM Parameter Test Agent")
+
     # Get an LLM instance and customize its temperature
     llm = ModelFactory.get("671be4886eb56397e51f7541")  # Anthropic Claude 3.5 Sonnet v1
     original_temperature = llm.temperature
@@ -643,6 +701,9 @@ def test_agent_llm_parameter_preservation(resource_tracker, AgentFactory):
 
 
 def test_run_agent_with_expected_output(resource_tracker):
+    # Clean up any existing agent with the same name
+    delete_agent_by_name("Test Agent")
+
     from pydantic import BaseModel
     from typing import Optional, List
     from aixplain.modules.agent import AgentResponse
@@ -734,6 +795,9 @@ def test_agent_with_action_tool(slack_token, resource_tracker):
     SLACK_INTEGRATION_ID = "686432941223092cb4294d3f"
     SLACK_CONNECTION_ID = "692995404907d69787ddab00"
 
+    # Clean up any existing agent with the same name
+    delete_agent_by_name("Test Agent")
+
     connection = None
 
     # Try to get existing connection first
@@ -753,7 +817,11 @@ def test_agent_with_action_tool(slack_token, resource_tracker):
             name="Slack Test Connection",
             description="Test connection for agent functional tests",
         )
-        connection_id = response.data["id"]
+        # response.data might be a string (JSON) or dict
+        data = response.data
+        if isinstance(data, str):
+            data = json.loads(data)
+        connection_id = data["id"]
         connection = ModelFactory.get(connection_id)
 
     connection.action_scope = [
@@ -785,8 +853,11 @@ def test_agent_with_action_tool(slack_token, resource_tracker):
 
 
 @pytest.mark.skip(reason="MCP connector has no available actions")
-def test_agent_with_mcp_tool():
+def test_agent_with_mcp_tool(resource_tracker):
     from aixplain.modules.model.integration import AuthenticationSchema
+
+    # Clean up any existing agent with the same name
+    delete_agent_by_name("Test Agent")
 
     connector = ModelFactory.get("686eb9cd26480723d0634d3e")
     # connect
@@ -796,7 +867,11 @@ def test_agent_with_mcp_tool():
             "url": "https://mcp.zapier.com/api/mcp/s/OTJiMjVlYjEtMGE4YS00OTVjLWIwMGYtZDJjOGVkNTc4NjFkOjI0MTNjNzg5LWZlNGMtNDZmNC05MDhmLWM0MGRlNDU4ZmU1NA==/mcp"
         },
     )
-    connection_id = response.data["id"]
+    # response.data might be a string (JSON) or dict
+    data = response.data
+    if isinstance(data, str):
+        data = json.loads(data)
+    connection_id = data["id"]
     connection = ModelFactory.get(connection_id)
     action_name = "SLACK_SEND_CHANNEL_MESSAGE".lower()
     connection.action_scope = [action for action in connection.actions if action.code == action_name]
