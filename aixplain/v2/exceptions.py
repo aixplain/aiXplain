@@ -115,7 +115,7 @@ def create_operation_failed_error(response: Dict[str, Any]) -> Union[APIError, R
     err = (error_msg or "").lower()
     if status_code == 404 or "not found" in err or "not available" in err:
         msg = error_msg if error_msg != "Operation failed" else (
-            "Resource not found: Please verify the spelling of the resource and its current availability."
+            "Resource not found"
         )
         return ResourceError(f"Resource not found: {msg}" if not msg.startswith("Resource not found") else msg,
                             details={"response_data": response})
