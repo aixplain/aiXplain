@@ -9,6 +9,12 @@ def text_model_id():
 
 
 @pytest.fixture(scope="module")
+def stream_tool_call_model_id():
+    """Return model ID dedicated to streaming tool-calling e2e tests."""
+    return "69727676c60248082d79932f"
+
+
+@pytest.fixture(scope="module")
 def slack_integration_id():
     """Return a Slack integration model ID for testing."""
     return "686432941223092cb4294d3f"  # Use Script integration (Slack integration)
@@ -84,6 +90,75 @@ def validate_model_structure(model):
             assert hasattr(param, "required")
             assert hasattr(param, "data_type")
             assert hasattr(param, "data_sub_type")
+
+
+def _stream_tool_spec() -> list[dict]:
+    """OpenAI-style tool definition for streaming tool-calling tests."""
+    return [
+        {
+            "type": "function",
+            "function": {
+                "name": "get_current_time",
+                "description": "Return the current time for a city.",
+                "parameters": {
+                    "type": "object",
+                    "required": ["city"],
+                    "properties": {
+                        "city": {
+                            "type": "string",
+                            "description": "City name, like New York",
+                        }
+                    },
+                },
+            },
+        }
+    ]
+
+
+def _collect_stream_chunks(stream) -> tuple[str, list[dict], list[dict], list[str]]:
+    """Collect text, tool call deltas, usage payloads, and finish reasons from a stream."""
+    text_chunks: list[str] = []
+    tool_call_deltas: list[dict] = []
+    usage_payloads: list[dict] = []
+    finish_reasons: list[str] = []
+
+    for chunk in stream:
+        if chunk is None:
+            continue
+
+        data_value = getattr(chunk, "data", None)
+        if isinstance(data_value, str):
+            text_chunks.append(data_value)
+
+        tool_calls = getattr(chunk, "tool_calls", None)
+        if tool_calls:
+            if isinstance(tool_calls, list):
+                tool_call_deltas.extend([c for c in tool_calls if isinstance(c, dict)])
+            elif isinstance(tool_calls, dict):
+                tool_call_deltas.append(tool_calls)
+
+        usage = getattr(chunk, "usage", None)
+        if isinstance(usage, dict):
+            usage_payloads.append(usage)
+
+        finish_reason = getattr(chunk, "finish_reason", None)
+        if isinstance(finish_reason, str) and finish_reason:
+            finish_reasons.append(finish_reason)
+
+    return "".join(text_chunks), tool_call_deltas, usage_payloads, finish_reasons
+
+
+def _extract_function_names(tool_call_deltas: list[dict]) -> list[str]:
+    """Extract function names from OpenAI-style tool call deltas."""
+    names: list[str] = []
+    for delta in tool_call_deltas:
+        function_payload = delta.get("function")
+        if not isinstance(function_payload, dict):
+            continue
+        name = function_payload.get("name")
+        if isinstance(name, str) and name:
+            names.append(name)
+    return names
 
 
 def test_search_models(client):
@@ -208,6 +283,45 @@ def test_run_model(client, text_model_id):
     assert hasattr(result, "data")
     assert result.status == "SUCCESS"
     assert result.data is not None
+
+
+def test_run_stream_tool_calling_e2e(client, stream_tool_call_model_id):
+    """E2E: stream tool-calling returns OpenAI-style tool call deltas in chunks."""
+    model = client.Model.get(stream_tool_call_model_id)
+    if model.supports_streaming is False:
+        pytest.skip("Model does not support streaming")
+
+    stream = model.run_stream(
+        context=(
+            "You are a strict tool-using assistant. "
+            "When asked for time and a matching tool exists, call the tool exactly once."
+        ),
+        text=(
+            "Mandatory instruction: call get_current_time once with city='Tokyo'. "
+            "Do not provide a direct natural-language answer before the tool call."
+        ),
+        tools=_stream_tool_spec(),
+        tool_choice={"type": "function", "function": {"name": "get_current_time"}},
+        max_tokens=128,
+        timeout=90,
+    )
+
+    with stream as events:
+        stream_content, tool_call_deltas, _usage_payloads, finish_reasons = _collect_stream_chunks(events)
+
+    # Content may be empty when the model only emits tool-call deltas.
+    assert isinstance(stream_content, str)
+
+    # The stream should expose tool call deltas in OpenAI format.
+    assert len(tool_call_deltas) > 0
+    assert any("function" in delta for delta in tool_call_deltas)
+
+    function_names = _extract_function_names(tool_call_deltas)
+    assert "get_current_time" in function_names
+
+    # Finish reason may vary by provider, but when present it should be meaningful.
+    if finish_reasons:
+        assert any(reason in {"tool_calls", "stop"} for reason in finish_reasons)
 
 
 def test_dynamic_validation_gpt4o_mini(client, text_model_id):
