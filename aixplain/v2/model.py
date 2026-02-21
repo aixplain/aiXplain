@@ -80,10 +80,16 @@ class StreamChunk:
     Attributes:
         status: The current status of the streaming operation (IN_PROGRESS or SUCCESS)
         data: The content/token of this chunk
+        tool_calls: Tool call deltas when stream uses OpenAI-style chunk format
+        usage: Usage payload when provided in a stream chunk
+        finish_reason: Completion reason for the current choice, when provided
     """
 
     status: ResponseStatus
     data: str
+    tool_calls: Optional[List[dict[str, Any]]] = None
+    usage: Optional[dict[str, Any]] = None
+    finish_reason: Optional[str] = None
 
 
 class ModelResponseStreamer(Iterator[StreamChunk]):
@@ -159,6 +165,40 @@ class ModelResponseStreamer(Iterator[StreamChunk]):
             # Try to parse as JSON
             try:
                 data = json.loads(line)
+
+                # OpenAI-style stream chunk format:
+                # {"choices":[{"delta":{"content":"...", "tool_calls":[...]},"finish_reason":...}],"usage":...}
+                if isinstance(data, dict) and "choices" in data:
+                    choices = data.get("choices")
+                    choice = choices[0] if isinstance(choices, list) and choices else {}
+                    if not isinstance(choice, dict):
+                        choice = {}
+
+                    delta = choice.get("delta")
+                    if not isinstance(delta, dict):
+                        delta = {}
+
+                    content = delta.get("content")
+                    content = content if isinstance(content, str) else ""
+
+                    tool_calls = delta.get("tool_calls")
+                    if tool_calls is not None and not isinstance(tool_calls, list):
+                        tool_calls = [tool_calls]
+
+                    finish_reason = choice.get("finish_reason")
+                    finish_reason = finish_reason if isinstance(finish_reason, str) else None
+
+                    usage = data.get("usage")
+                    usage = usage if isinstance(usage, dict) else None
+
+                    return StreamChunk(
+                        status=self.status,
+                        data=content,
+                        tool_calls=tool_calls,
+                        usage=usage,
+                        finish_reason=finish_reason,
+                    )
+
                 content = data.get("data", "")
 
                 # Check if this is the completion signal inside JSON
@@ -811,6 +851,8 @@ class Model(
         if "options" not in payload:
             payload["options"] = {}
         payload["options"]["stream"] = True
+        if payload.get("tools") is not None:
+            payload["options"]["raw"] = True
 
         # Build the run URL
         run_url = self.build_run_url(**kwargs)
